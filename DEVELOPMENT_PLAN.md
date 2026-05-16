@@ -2235,43 +2235,86 @@ graph LR
 
 # Codex 执行批次计划
 
-| Codex 批次 | 目标 | 输入文档 | 预期修改范围 | 必跑测试 | 输出结果 |
-|---|---|---|---|---|---|
-| Batch 00 | 文件命名与文档目录规范 | 本计划“文件与目录规范”, 当前根目录文档 | 文档迁移、`docs/INDEX.md`、旧引用修正 | `rg --files`, 旧引用搜索 | 标准文档树 |
-| Batch 01 | 技术栈决策与工程骨架 | `README.md`, `AGENTS.md`, `docs/devops/env-setup.md` | 技术栈记录、标准目录、空服务/空应用 | 最小启动、Lint、单测 | 基础项目框架 |
-| Batch 02 | CI 与本地环境基线 | `docs/devops/ci-cd-pipeline.md`, `docs/devops/env-setup.md` | `.env.example`, 基础 CI、本地依赖容器 | CI 同款本地命令 | 可复现开发环境 |
-| Batch 03 | 数据库模型和迁移 | `docs/architecture/database-design.md` | 定义 Tenant/User/RBAC 表及迁移 | 数据库迁移验证 | 基础表结构 |
-| Batch 04 | Auth / RBAC | `docs/product/requirements.md`, `docs/contracts/api-contract.md` | 登录接口、权限中间件、审计日志 | Auth 测试, 权限测试 | 登录和多租户权限系统 |
-| Batch 05 | Course API | `docs/product/feature-refinement.md`, `docs/contracts/api-contract.md` | Course 模型、课程接口 | 课程功能测试 | 课程管理服务 |
-| Batch 06 | Team & Decision API | `docs/product/feature-refinement.md`, `docs/contracts/api-contract.md` | Team/Decision 模型与接口 | 团队与决策测试 | 组队与决策功能 |
-| Batch 07 | 仿真引擎骨架 | `docs/architecture/system-architecture.md`, `docs/contracts/model-engineering-contract.md` | 引擎服务框架、结算流程初版 | 引擎单元测试 | 仿真计算模块骨架 |
-| Batch 08 | 教师端基础页面 | `docs/frontend/teacher-student-architecture.md`, `docs/frontend/figma-prototype-spec.md` | 登录、课程列表、创建课程界面 | 前端 UI 测试 | 教师前端 MVP |
-| Batch 09 | 学员端基础页面 | `docs/frontend/teacher-student-architecture.md`, `docs/frontend/figma-prototype-spec.md` | 学员登录、课程加入、团队页面 | 前端 UI 测试 | 学员前端 MVP |
-| Batch 10 | AI Orchestrator 骨架 | `docs/research/executive-model-study.md`, `docs/contracts/model-engineering-contract.md` | AI 服务框架、CoachOutput/Log 模型 | AI 单元测试 | AI 模块骨架 |
-| Batch 11 | Replay 服务骨架 | `docs/quality/replay-shadow-replay-test-plan.md` | ReplayRun/Diff 模型、服务接口 | Replay 测试 | Replay 计算模块骨架 |
-| Batch 12 | E2E MVP 流程 | `docs/quality/test-coverage.md`, `docs/frontend/figma-prototype-spec.md` | 完整教师-学员流程 E2E 脚本 | E2E 测试运行 | 验证流程准确 |
+| Codex 批次 | 目标 | 输入文档 | 推荐工具 | 预期修改范围 | 必跑测试 | 输出结果 |
+|---|---|---|---|---|---|---|
+| Batch 00 | 文件命名与文档目录规范 | 本计划“文件与目录规范”, 当前根目录文档 | Shell, rg, apply_patch, Git | 文档迁移、`docs/INDEX.md`、旧引用修正 | `rg --files`, 旧引用搜索 | 标准文档树 |
+| Batch 01 | 技术栈决策与工程骨架 | `README.md`, `AGENTS.md`, `docs/devops/env-setup.md` | Shell, apply_patch, Git, Build Web Apps, React best practices | 技术栈记录、标准目录、空服务/空应用 | 最小启动、Lint、单测 | 基础项目框架 |
+| Batch 02 | CI 与本地环境基线 | `docs/devops/ci-cd-pipeline.md`, `docs/devops/env-setup.md` | Shell, GitHub, Docker Compose, Automations | `.env.example`, 基础 CI、本地依赖容器 | CI 同款本地命令 | 可复现开发环境 |
+| Batch 03 | 数据库模型和迁移 | `docs/architecture/database-design.md` | Shell, Supabase/Postgres best practices, Codex Security | 定义 Tenant/User/RBAC 表及迁移 | 数据库迁移验证 | 基础表结构 |
+| Batch 04 | Auth / RBAC | `docs/product/requirements.md`, `docs/contracts/api-contract.md` | Shell, apply_patch, Codex Security, Supabase/Postgres best practices | 登录接口、权限中间件、审计日志 | Auth 测试, 权限测试 | 登录和多租户权限系统 |
+| Batch 05 | Course API | `docs/product/feature-refinement.md`, `docs/contracts/api-contract.md` | Shell, apply_patch, API Contract, Playwright | Course 模型、课程接口 | 课程功能测试 | 课程管理服务 |
+| Batch 06 | Team & Decision API | `docs/product/feature-refinement.md`, `docs/contracts/api-contract.md` | Shell, apply_patch, API Contract, Playwright, Codex Security | Team/Decision 模型与接口 | 团队与决策测试 | 组队与决策功能 |
+| Batch 07 | 仿真引擎骨架 | `docs/architecture/system-architecture.md`, `docs/contracts/model-engineering-contract.md` | Shell, Python 工具链, Spreadsheets, 测试工具 | 引擎服务框架、结算流程初版 | 引擎单元测试 | 仿真计算模块骨架 |
+| Batch 08 | 教师端基础页面 | `docs/frontend/teacher-student-architecture.md`, `docs/frontend/figma-prototype-spec.md` | Build Web Apps, Browser, React best practices, Figma, Playwright | 登录、课程列表、创建课程界面 | 前端 UI 测试 | 教师前端 MVP |
+| Batch 09 | 学员端基础页面 | `docs/frontend/teacher-student-architecture.md`, `docs/frontend/figma-prototype-spec.md` | Build Web Apps, Browser, React best practices, Figma, Playwright | 学员登录、课程加入、团队页面 | 前端 UI 测试 | 学员前端 MVP |
+| Batch 10 | AI Orchestrator 骨架 | `docs/research/executive-model-study.md`, `docs/contracts/model-engineering-contract.md` | OpenAI docs, Hugging Face, Codex Security, Shell | AI 服务框架、CoachOutput/Log 模型 | AI 单元测试 | AI 模块骨架 |
+| Batch 11 | Replay 服务骨架 | `docs/quality/replay-shadow-replay-test-plan.md` | Shell, 测试工具, Spreadsheets, Codex Security | ReplayRun/Diff 模型、服务接口 | Replay 测试 | Replay 计算模块骨架 |
+| Batch 12 | E2E MVP 流程 | `docs/quality/test-coverage.md`, `docs/frontend/figma-prototype-spec.md` | Browser, Playwright, Build Web Apps, GitHub | 完整教师-学员流程 E2E 脚本 | E2E 测试运行 | 验证流程准确 |
 
 每个批次聚焦一个小模块或功能块，确保一次提交修改范围可控。Codex 在每批次执行前需要读取相关文档，执行核心测试后提交修改。
 
 # Codex 插件 / 工具使用计划
 
-| 工具 / 插件能力 | 使用场景 | 注意事项 | 替代方案 |
-|---|---|---|---|
-| 代码搜索工具 | 查找已有代码片段或文档内容 | 需时常更新索引，跨模块关键字匹配准确性 | Git grep 命令 |
-| 文件编辑工具 | 编写与修改代码、文档 | 保证编辑正确文件，不意外格式化 | 手工编辑（IDE） |
-| 终端 / Shell 执行工具 | 运行构建、测试、迁移命令 | 环境变量需正确加载，敏感操作前确认 | 手动复制命令 |
-| 测试执行工具 | 执行单元/集成/E2E 测试 | 确保在正确环境（测试数据库）运行，检查测试用例环境隔离 | 手动测试 |
-| Git diff 工具 | 比较修改前后代码差异 | 注意二进制或无关文件变动 | 手动审查文件 |
-| PR 创建工具 | 提交变更并生成 Pull Request | 提交信息需清晰，与任务对应 | 手工提交 PR |
-| 浏览器 UI 自动化工具 | 执行 E2E 测试，自动化交互流程 | 确保 UI 元素定位稳定，不依赖特定布局 | 人工点击验证 |
-| 数据库迁移工具 | 生成并执行迁移脚本 | 操作前备份数据，尤其在生产时 | 手工 SQL 脚本 |
-| Docker Compose 工具 | 启动整套服务环境 | 确认端口配置正确，安全组规则开放 | 手动搭建服务 |
-| 文档检索工具 | 快速搜索项目文档、合同 | 文档版本保持更新，有多份合同需区分 | 人工阅读 |
-| MCP 工具 | (如模型部署/管理平台)  | 不确定具体名称，可按需配置 | 现场配置与管理 |
-| 日志查看工具 | 查询系统或数据库日志 | 日志级别设置适当，避免遗漏错误 | 查看文件 |
-| 安全扫描工具 | 自动扫描代码漏洞 | 问题逐条审查后修复，避免误报 | 人工代码审查 |
+本节是后续所有开发计划的工具提醒基线。Codex 在输出任何阶段计划、任务拆解或 PR 说明时，必须先根据模块引用本节的推荐工具，并在计划中写明“推荐工具 / 实际使用工具 / 未使用原因”。
 
-对于每种能力，Codex 应提前检测工具可用性。如不可用，需提供人工替代流程。例如，无自动 UI 测试工具可人动补充测试。高风险命令（如删除数据库）必须提示确认后执行。
+## 工具总览
+
+| 插件 / 工具 | 最适合的 SimWar 模块 | 主要用途 | 注意事项 |
+|---|---|---|---|
+| Shell / 终端 | 全项目 | 安装依赖、启动服务、跑测试、构建、Git、迁移、脚本执行 | 运行破坏性命令前必须确认目标环境 |
+| apply_patch | 全项目 | 精准修改代码、文档、配置文件 | 优先小步修改，避免无关格式化 |
+| rg / 文件检索 | 全项目 | 搜索代码、文档、旧引用、契约字段 | 搜索结果需结合上下文判断 |
+| Git / GitHub | PR、CI、Issue、协作流 | 提交、查看 diff、创建 PR、看 CI、处理 review comment | 提交信息使用 Conventional Commits |
+| Browser / in-app browser | 教师端、学员端、管理端、E2E 预检 | 打开 localhost、检查页面、验证交互、排查控制台问题 | 本地服务需先启动并确认端口 |
+| Build Web Apps | `apps/teacher`, `apps/student`, `apps/admin` | 构建 React/Vite/Next 前端页面、布局、交互 | 必须遵守项目 UI 与响应式约束 |
+| React best practices | 前端应用 | React 组件结构、性能、状态管理、避免重渲染 | 编写 React 组件时默认启用 |
+| Figma | 前端设计系统、原型、组件映射 | 读取设计稿、生成图表、同步设计系统和 Code Connect | 设计到代码需明确目标页面和组件边界 |
+| Playwright | E2E 测试、前端回归 | 自动点击教师/学员完整流程、截图、控制台错误检查 | 元素定位需稳定，不依赖偶然文本 |
+| Codex Security | Auth、RBAC、多租户、AI 边界、Replay 边界 | 安全审查、权限绕过检查、敏感数据泄露检查 | 发现高风险问题应优先修复 |
+| Supabase / Postgres best practices | 数据库设计、迁移、查询、索引 | Tenant/User/RBAC/Course/Decision/Settlement 表设计与性能优化 | 真值表、审计表、冻结表需特别审查 |
+| OpenAI docs | AI Orchestrator、Agent Gateway、小模型接口 | 查询 OpenAI API、结构化输出、工具调用、模型选择 | 必须使用官方最新文档 |
+| Hugging Face | 小模型评估、训练、数据集、Demo | 模型查找、数据集、评估、训练实验 | 许可证与数据来源必须审查 |
+| Amplitude | 产品埋点、教学行为分析、转化漏斗 | 分析教师建课、学员加入、提交决策、复盘查看等路径 | 只分析脱敏行为数据，不写入业务真值 |
+| Attio / Carta CRM | 企业客户、院校合作、试点项目管理 | 管理客户、试点学校、企业关系和跟进记录 | CRM 数据不得混入仿真训练数据 |
+| Brand24 | 市场反馈、品牌舆情、竞品讨论 | 跟踪 SimWar 相关讨论、课程反馈和竞品声量 | 舆情结论只能作为产品输入，不作为教学评价依据 |
+| Particl Market Research | 行业插件、商业场景、竞品/电商案例 | 辅助康养、零售等行业插件的市场参数和案例研究 | 外部市场数据需记录来源和版本 |
+| Readwise | 研究资料、论文、行业报告沉淀 | 保存和检索长期研究资料、模型论文、竞品阅读摘录 | 引用到需求或算法时需保留出处 |
+| Spreadsheets | 参数集、评分模型、竞赛结果、回放 diff | 分析参数表、导入导出 Excel、评分数据校验 | 公式和导入字段需版本化 |
+| Documents | 需求、方案、交付件、评审材料 | 生成/整理 `.docx` 需求文档、方案、交付说明 | 正式交付需保留版本记录 |
+| Presentations | 路演、教学介绍、阶段汇报 | 生成 PPT、项目汇报、产品说明 | 面向外部时注意品牌与授权边界 |
+| HyperFrames | 产品演示视频、教学视频 | 制作功能演示视频、教学介绍视频 | 演示数据不得包含敏感信息 |
+| Canva | 品牌/宣传物料 | 设计海报、课程宣传图、社媒素材 | 不暗示未授权品牌背书 |
+| Google Drive / Docs / Sheets / Slides | 团队协作文档 | 读写协作文档、表格、幻灯片 | 需要明确目标文件和权限 |
+| Google Calendar | 项目排期 | 安排评审、Sprint、会议提醒 | 时间使用用户本地时区 |
+| Gmail | 项目邮件 | 整理需求邮件、生成回复草稿 | 不发送前需用户确认 |
+| Automations | 长期项目治理 | 定期检查 CI、生成周报、提醒风险复盘 | 适合监控和提醒，不替代测试 |
+
+## 模块推荐工具
+
+| SimWar 模块 / 阶段 | 推荐工具组合 | 必须提醒的质量动作 |
+|---|---|---|
+| Phase 0 工程基线 | Shell, apply_patch, Git, GitHub, Docker Compose, Automations | `lint`, `typecheck`, `unit test`, `build`, CI 同款命令 |
+| Phase 1 Auth/RBAC/多租户 | Shell, apply_patch, Codex Security, Supabase/Postgres best practices | 权限测试、多租户隔离测试、审计日志检查 |
+| Phase 2 Course/Team/Round/Decision | Shell, apply_patch, API Contract, Playwright, Browser | API 契约更新、状态机测试、教师/学员联调 |
+| Phase 3 仿真引擎 | Shell, Python 工具链, Spreadsheets, 测试工具 | Golden test、幂等测试、真值字段写入边界检查 |
+| Phase 4 场景/插件/参数集 | Shell, Supabase/Postgres best practices, Spreadsheets, Codex Security | 参数冻结测试、插件边界测试、Shadow Replay 预检 |
+| Phase 5 教师端/学员端 UI | Build Web Apps, Browser, React best practices, Playwright, Figma | 响应式检查、控制台错误检查、E2E 流程检查 |
+| Phase 6 AI 小模型 | OpenAI docs, Hugging Face, Codex Security, Shell | AI advisory-only 测试、模型调用日志、越权访问测试 |
+| Phase 7 Replay/Shadow Replay | Shell, 测试工具, Spreadsheets, Codex Security | Replay 不覆盖正式结果、diff 阈值测试、审计记录 |
+| Phase 8 测试/CI/CD/监控 | Shell, GitHub, Codex Security, Automations, Browser | 全量测试、CI 通过、冒烟测试、监控/告警检查 |
+| 文档/汇报/培训材料 | Documents, Presentations, Canva, HyperFrames, Google Drive | 版本记录、授权边界、敏感信息检查 |
+
+## 提醒规则
+
+- 每个开发计划必须包含“推荐工具”小节，至少列出 3 类工具：实现工具、验证工具、安全/质量工具。
+- 每个阶段任务开始前，Codex 需要先检查推荐工具是否可用；不可用时写明替代方案。
+- 涉及前端页面时，必须提醒使用 Browser；涉及完整流程时，必须提醒使用 Playwright。
+- 涉及权限、租户、AI、Replay、审计、数据导出时，必须提醒使用 Codex Security。
+- 涉及数据库 schema、索引、迁移、查询性能时，必须提醒使用 Supabase/Postgres best practices。
+- 涉及 OpenAI API、Agent Gateway、小模型调用时，必须提醒使用 OpenAI docs；涉及开源模型评估或训练时，提醒使用 Hugging Face。
+- 涉及参数表、评分表、结果表、回放 diff 时，必须提醒使用 Spreadsheets。
+- 涉及长期重复检查、周报、CI 监控、风险提醒时，必须提醒使用 Automations。
+- 如果推荐工具没有实际使用，最终交付说明必须写明原因。
 
 # 数据库开发计划
 
@@ -2490,6 +2533,12 @@ graph LR
 任务目标：
 [描述任务]
 
+推荐工具：
+- 实现工具：[Shell / apply_patch / Build Web Apps / ...]
+- 验证工具：[npm test / Browser / Playwright / ...]
+- 安全与质量工具：[Codex Security / Postgres best practices / OpenAI docs / ...]
+- 未使用推荐工具的原因：[如不适用或当前环境不可用]
+
 约束：
 - 不要修改无关文件
 - 不要破坏现有测试
@@ -2502,16 +2551,19 @@ graph LR
 请先输出实现计划，然后再修改代码。
 完成后请输出：
 1. 修改文件清单
-2. 运行的测试命令
-3. 测试结果
-4. 风险说明
-5. 后续建议
+2. 推荐工具与实际使用工具
+3. 运行的测试命令
+4. 测试结果
+5. 风险说明
+6. 后续建议
 ```
 
 # Codex PR 检查清单
 
 ```markdown
 - [ ] 已阅读相关文档
+- [ ] 已根据模块列出推荐工具
+- [ ] 已说明实际使用工具和未使用推荐工具的原因
 - [ ] 修改范围符合任务目标
 - [ ] 已更新 API Contract，如适用
 - [ ] 已更新数据库 migration，如适用
