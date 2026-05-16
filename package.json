@@ -1,0 +1,47 @@
+{
+  "name": "simwar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "npm run dev -w @simwar/api",
+    "dev:teacher": "npm run dev -w @simwar/teacher",
+    "dev:student": "npm run dev -w @simwar/student",
+    "build": "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/api && npm run build -w @simwar/teacher && npm run build -w @simwar/student",
+    "lint": "eslint .",
+    "typecheck": "tsc -b tsconfig.build.json",
+    "test": "vitest run",
+    "test:contract": "node scripts/check-contracts.mjs",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16",
+    "typescript": "^5.9.3",
+    "tsx": "^4.21.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "jsdom": "^27.3.0",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.50.0"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=11.0.0"
+  }
+}

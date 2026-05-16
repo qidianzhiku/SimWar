@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared-contracts" },
+    { "path": "./services/api" },
+    { "path": "./apps/teacher" },
+    { "path": "./apps/student" }
+  ]
+}
