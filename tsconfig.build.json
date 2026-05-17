@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/shared-contracts" },
     { "path": "./services/api" },
+    { "path": "./apps/admin" },
     { "path": "./apps/teacher" },
     { "path": "./apps/student" }
   ]

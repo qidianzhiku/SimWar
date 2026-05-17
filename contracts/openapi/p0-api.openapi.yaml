@@ -1,17 +1,99 @@
 openapi: 3.1.0
 info:
-  title: SimWar P0 API
+  title: SimWar P0/P1 API
   version: 0.1.0
-  description: Minimal P0 contract for the teacher-student-settlement loop.
+  description: Minimal P0/P1 contract for the teacher-student-settlement loop plus tenant auth governance.
 servers:
   - url: http://localhost:3000
 paths:
   /api/v1/auth/login:
     post:
-      summary: Login and receive a development token.
+      summary: Login and receive a signed session token.
       responses:
         "200":
           description: Auth session
+  /api/v1/auth/logout:
+    post:
+      summary: Revoke the current signed session.
+      responses:
+        "200":
+          description: Session revoked
+  /api/v1/auth/me:
+    get:
+      summary: Return the current authenticated user and effective permissions.
+      responses:
+        "200":
+          description: Current user
+  /api/v1/admin/state:
+    get:
+      summary: Return tenant, user, RBAC and audit state for an admin cockpit.
+      responses:
+        "200":
+          description: Admin state
+  /api/v1/admin/tenants:
+    get:
+      summary: List tenants visible to the current administrator.
+      responses:
+        "200":
+          description: Tenant list
+    post:
+      summary: Create a tenant. Requires platform_admin and tenant:create.
+      responses:
+        "201":
+          description: Tenant created
+        "403":
+          description: Missing tenant:create permission
+  /api/v1/admin/tenants/{tenantId}:
+    get:
+      summary: Read one tenant.
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant detail
+  /api/v1/admin/users:
+    get:
+      summary: List users in the current tenant, or all users for platform_admin.
+      responses:
+        "200":
+          description: User list
+    post:
+      summary: Create a tenant-scoped user and assign roles.
+      responses:
+        "201":
+          description: User created
+        "403":
+          description: Role escalation or permission denied
+  /api/v1/admin/users/{userId}:
+    patch:
+      summary: Update a user profile, status, password or roles with field-level checks.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User updated
+        "403":
+          description: Tenant boundary, role escalation or protected field violation
+  /api/v1/rbac/roles:
+    get:
+      summary: List RBAC roles and their permission keys.
+      responses:
+        "200":
+          description: Role list
+  /api/v1/rbac/permissions:
+    get:
+      summary: List platform permission keys.
+      responses:
+        "200":
+          description: Permission list
   /api/v1/courses:
     get:
       summary: List courses in the current tenant.

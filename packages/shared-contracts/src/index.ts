@@ -4,6 +4,7 @@ export type ActorRole =
   | "teacher"
   | "learner"
   | "team_captain"
+  | "scenario_designer"
   | "service_kernel"
   | "service_ai"
   | "student"
@@ -39,23 +40,104 @@ export interface ApiErrorEnvelope {
   details?: ApiErrorDetail[];
 }
 
+export type TenantStatus = "active" | "suspended" | "archived";
+export type UserStatus = "active" | "invited" | "disabled";
 export type CourseStatus = "draft" | "published" | "active" | "archived";
 export type RoundStatus = "draft" | "open" | "locked" | "settled" | "published";
 export type DecisionStatus = "draft" | "submitted" | "validated" | "rejected";
 export type ParameterSetStatus = "draft" | "candidate" | "shadow_passed" | "approved" | "deprecated";
+
+export type PermissionKey =
+  | "tenant:create"
+  | "tenant:read"
+  | "user:create"
+  | "user:read"
+  | "user:update"
+  | "rbac:read"
+  | "course:create"
+  | "course:read"
+  | "course:publish"
+  | "team:create"
+  | "run:create"
+  | "round:start"
+  | "round:lock"
+  | "settlement:settle"
+  | "round:publish"
+  | "decision:submit"
+  | "result:read"
+  | "audit:read"
+  | "internal:settle";
+
+export interface Tenant {
+  tenant_id: string;
+  name: string;
+  domain: string;
+  status: TenantStatus;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface CurrentUser {
   user_id: string;
   tenant_id: string;
   display_name: string;
   roles: ActorRole[];
+  permissions?: PermissionKey[];
   team_id?: string;
+}
+
+export interface User extends CurrentUser {
+  username: string;
+  email: string;
+  status: UserStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Permission {
+  permission_id: string;
+  key: PermissionKey;
+  action: string;
+  resource: string;
+  description: string;
+}
+
+export interface Role {
+  role_id: string;
+  tenant_id?: string;
+  name: ActorRole;
+  display_name: string;
+  permission_keys: PermissionKey[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserRole {
+  user_id: string;
+  role_id: string;
+  tenant_id: string;
+}
+
+export interface RolePermission {
+  role_id: string;
+  permission_id: string;
 }
 
 export interface AuthSession {
   access_token: string;
   expires_in: number;
+  token_type: "Bearer";
   user: CurrentUser;
+}
+
+export interface SessionRecord {
+  session_id: string;
+  user_id: string;
+  tenant_id: string;
+  token_hash: string;
+  expires_at: string;
+  created_at: string;
+  revoked_at?: string;
 }
 
 export interface ScenarioPackage {
@@ -210,16 +292,31 @@ export interface AuditLog {
   resource_id: string;
   request_id: string;
   created_at: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
 }
 
 export interface P0DemoState {
   current_user: CurrentUser;
+  tenants?: Tenant[];
+  users?: User[];
+  roles?: Role[];
+  permissions?: Permission[];
   courses: Course[];
   teams: Team[];
   runs: Run[];
   rounds: Round[];
   decisions: Decision[];
   latest_result?: PublicResultView;
+  audit_logs: AuditLog[];
+}
+
+export interface AdminState {
+  current_user: CurrentUser;
+  tenants: Tenant[];
+  users: User[];
+  roles: Role[];
+  permissions: Permission[];
   audit_logs: AuditLog[];
 }
 
@@ -264,6 +361,69 @@ export const TRUTH_PROTECTED_FIELDS = [
 
 export const P0_ROUND_FLOW: RoundStatus[] = ["draft", "open", "locked", "settled", "published"];
 
+export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
+  platform_admin: [
+    "tenant:create",
+    "tenant:read",
+    "user:create",
+    "user:read",
+    "user:update",
+    "rbac:read",
+    "course:create",
+    "course:read",
+    "course:publish",
+    "team:create",
+    "run:create",
+    "round:start",
+    "round:lock",
+    "settlement:settle",
+    "round:publish",
+    "decision:submit",
+    "result:read",
+    "audit:read",
+    "internal:settle"
+  ],
+  tenant_admin: [
+    "tenant:read",
+    "user:create",
+    "user:read",
+    "user:update",
+    "rbac:read",
+    "course:create",
+    "course:read",
+    "course:publish",
+    "team:create",
+    "run:create",
+    "round:start",
+    "round:lock",
+    "settlement:settle",
+    "round:publish",
+    "result:read",
+    "audit:read"
+  ],
+  teacher: [
+    "course:create",
+    "course:read",
+    "course:publish",
+    "team:create",
+    "run:create",
+    "round:start",
+    "round:lock",
+    "settlement:settle",
+    "round:publish",
+    "result:read",
+    "audit:read"
+  ],
+  learner: ["course:read", "decision:submit", "result:read"],
+  team_captain: ["course:read", "decision:submit", "result:read"],
+  scenario_designer: ["tenant:read", "course:read", "rbac:read"],
+  service_kernel: ["internal:settle"],
+  service_ai: ["course:read", "result:read"],
+  student: ["course:read", "decision:submit", "result:read"],
+  admin: ["tenant:read", "user:read", "course:read", "audit:read"],
+  service: ["course:read"]
+};
+
 export function createHealthPayload(service: string, version = "0.1.0"): HealthPayload {
   return {
     service,
@@ -276,4 +436,12 @@ export function createHealthPayload(service: string, version = "0.1.0"): HealthP
 
 export function isTruthProtectedField(field: string): boolean {
   return TRUTH_PROTECTED_FIELDS.some((protectedField) => protectedField === field);
+}
+
+export function getRolePermissions(roles: ActorRole[]): PermissionKey[] {
+  return [...new Set(roles.flatMap((role) => ROLE_PERMISSION_MATRIX[role] ?? []))];
+}
+
+export function actorHasPermission(actor: CurrentUser, permission: PermissionKey): boolean {
+  return (actor.permissions ?? getRolePermissions(actor.roles)).includes(permission);
 }

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/rbac.v1.json",
+  "title": "RBAC",
+  "type": "object",
+  "required": ["roles", "permissions"],
+  "properties": {
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role_id", "name", "display_name", "permission_keys", "created_at", "updated_at"],
+        "properties": {
+          "role_id": { "type": "string" },
+          "tenant_id": { "type": "string" },
+          "name": { "type": "string" },
+          "display_name": { "type": "string" },
+          "permission_keys": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["permission_id", "key", "action", "resource", "description"],
+        "properties": {
+          "permission_id": { "type": "string" },
+          "key": { "type": "string" },
+          "action": { "type": "string" },
+          "resource": { "type": "string" },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

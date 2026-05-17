@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/audit-log.v1.json",
+  "title": "AuditLog",
+  "type": "object",
+  "required": ["audit_id", "tenant_id", "actor_id", "actor_role", "action", "resource_type", "resource_id", "request_id", "created_at"],
+  "properties": {
+    "audit_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "actor_id": { "type": "string", "minLength": 1 },
+    "actor_role": { "type": "string", "minLength": 1 },
+    "action": { "type": "string", "minLength": 1 },
+    "resource_type": { "type": "string", "minLength": 1 },
+    "resource_id": { "type": "string", "minLength": 1 },
+    "request_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "before": { "type": "object" },
+    "after": { "type": "object" }
+  },
+  "additionalProperties": false
+}

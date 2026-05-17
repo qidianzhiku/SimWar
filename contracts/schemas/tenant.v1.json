@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/tenant.v1.json",
+  "title": "Tenant",
+  "type": "object",
+  "required": ["tenant_id", "name", "domain", "status", "created_at", "updated_at"],
+  "properties": {
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "minLength": 3 },
+    "status": { "enum": ["active", "suspended", "archived"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

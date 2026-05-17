@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/user.v1.json",
+  "title": "User",
+  "type": "object",
+  "required": ["user_id", "tenant_id", "username", "email", "display_name", "roles", "status", "created_at", "updated_at"],
+  "properties": {
+    "user_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "username": { "type": "string", "minLength": 1 },
+    "email": { "type": "string", "format": "email" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "roles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "team_id": { "type": "string" },
+    "status": { "enum": ["active", "invited", "disabled"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

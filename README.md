@@ -191,7 +191,7 @@ simwar/
 
 ## 快速开始
 
-当前仓库已经具备 Phase 0 工程基线：npm workspaces、TypeScript API 健康检查、教师端/学员端 Vite React 空壳、共享契约包、基础测试和 CI 门禁。详细技术栈见 `docs/devops/tech-stack.md`。
+当前仓库已经具备 Phase 0 工程基线与 Phase 1 多租户身份权限底座：npm workspaces、TypeScript API、签名会话 token、Tenant/User/RBAC/AuditLog、教师端/学员端/Admin 端 Vite React 应用、共享契约包、基础测试和契约门禁。详细技术栈见 `docs/devops/tech-stack.md`。
 
 ```bash
 npm install
@@ -206,6 +206,7 @@ npm run build
 
 ```bash
 npm run dev:api
+npm run dev:admin
 npm run dev:teacher
 npm run dev:student
 ```
@@ -215,6 +216,17 @@ npm run dev:student
 ```bash
 curl http://localhost:3000/healthz
 ```
+
+本地种子账号：
+
+| 入口 | 租户 | 用户名 | 密码 |
+|---|---|---|---|
+| 管理端 | `tenant_platform` | `platform` | `platform` |
+| 教师端 | `tenant_demo` | `teacher` | `teacher` |
+| 学员端 | `tenant_demo` | `student` | `student` |
+| 租户管理 | `tenant_demo` | `admin` | `admin` |
+
+API 默认把 P1 演示数据保存到 `tmp/simwar-store.json`。如需重置本地演示状态，停止 API 后删除该文件再启动。
 
 ### 环境要求
 

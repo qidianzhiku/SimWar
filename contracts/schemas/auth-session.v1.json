@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/auth-session.v1.json",
+  "title": "AuthSession",
+  "type": "object",
+  "required": ["access_token", "expires_in", "token_type", "user"],
+  "properties": {
+    "access_token": { "type": "string", "minLength": 32 },
+    "expires_in": { "type": "integer", "minimum": 1 },
+    "token_type": { "const": "Bearer" },
+    "user": { "$ref": "user.v1.json" }
+  },
+  "additionalProperties": false
+}

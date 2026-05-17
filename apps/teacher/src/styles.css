@@ -47,6 +47,13 @@ p {
   margin-top: 0;
 }
 
+.identity {
+  color: #61707d;
+  display: block;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
 h1 {
   font-size: 30px;
   letter-spacing: 0;
@@ -73,6 +80,35 @@ h2 {
 .primary:disabled {
   background: #90a19b;
   cursor: not-allowed;
+}
+
+.login-strip {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dce2e4;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  margin-top: 18px;
+  padding: 12px;
+}
+
+.login-strip input {
+  border: 1px solid #c8d1d5;
+  border-radius: 7px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.login-strip button {
+  background: #eef4f3;
+  border: 1px solid #c8d1d5;
+  border-radius: 7px;
+  color: #145c50;
+  cursor: pointer;
+  min-height: 39px;
+  padding: 0 14px;
 }
 
 .metrics {
@@ -200,7 +236,8 @@ h2 {
   }
 
   .topbar,
-  .workspace {
+  .workspace,
+  .login-strip {
     align-items: stretch;
     display: grid;
     grid-template-columns: 1fr;

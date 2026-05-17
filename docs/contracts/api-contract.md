@@ -158,6 +158,27 @@ curl -X POST http://localhost:3000/api/v1/replays/shadow \
 
 ## 接口总览
 
+### 当前 P1 落地接口补充（2026-05-17）
+
+当前 TypeScript API 已落地一组本地可运行的 P1 身份与治理接口，并由 `contracts/openapi/p0-api.openapi.yaml`、`contracts/schemas/*.v1.json` 和 `scripts/check-contracts.mjs` 做最小契约门禁：
+
+| 模块 | 方法 | 路径 | 当前权限 |
+|---|---|---|---|
+| Auth | `POST` | `/api/v1/auth/login` | 匿名，需 `X-Tenant-Id` |
+| Auth | `POST` | `/api/v1/auth/logout` | 已认证用户 |
+| Auth | `GET` | `/api/v1/auth/me` | 已认证用户 |
+| Admin | `GET` | `/api/v1/admin/state` | `user:read` |
+| Tenant | `GET` | `/api/v1/admin/tenants` | `tenant:read` |
+| Tenant | `POST` | `/api/v1/admin/tenants` | `tenant:create`，仅平台管理员 |
+| User | `GET` | `/api/v1/admin/users` | `user:read` |
+| User | `POST` | `/api/v1/admin/users` | `user:create`，禁止租户管理员分配 `platform_admin` |
+| User | `PATCH` | `/api/v1/admin/users/{userId}` | `user:update`，禁止跨租户迁移与真值字段写入 |
+| RBAC | `GET` | `/api/v1/rbac/roles` | `rbac:read` |
+| RBAC | `GET` | `/api/v1/rbac/permissions` | `rbac:read` |
+| Audit | `GET` | `/api/v1/audit/logs` | `audit:read`，支持 `tenant_id/action/actor_id/resource_type` 过滤 |
+
+当前本地实现使用 Node 内置 `crypto` 生成 PBKDF2 密码哈希与 HMAC 签名 session token；数据可通过 `SIMWAR_STORE_FILE` 保存为 JSON 快照，生产数据库迁移仍应在后续阶段替换。
+
 下表是 v1 范围内冻结的接口总览。该清单以现有 API 契约草案为主线，吸收了需求文档、系统架构、内核治理与行业插件文档中的共识，优先覆盖课堂交付、结算可信、AI 辅助、治理门禁与审计闭环。fileciteturn0file6 fileciteturn0file9 fileciteturn0file10 fileciteturn0file19
 
 | 接口编号 | 模块 | 方法 | 路径 | 描述 | 权限 | 优先级 |

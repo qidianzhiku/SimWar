@@ -624,6 +624,8 @@ docs/
 - **测试命令：** 如果使用自动化 API 测试工具，可运行 `npm run api:test`（或等效）确保接口符合文档。  
 - **风险与注意事项：** 确保文档与实际实现同步，避免误导开发。文档更新后需通知相关人员。
 
+**执行结果（2026-05-17）：** Phase 1 长链条已按当前 TypeScript 技术栈落地为本地可运行版本：`services/api` 新增 PBKDF2 密码哈希、HMAC 签名 session token、Tenant/User/RBAC/Permission/Session/AuditLog 领域模型、JSON 快照持久化、权限中间件、跨租户边界检查和真值字段写入保护；`apps/admin` 新增最小管理后台；教师端和学员端改为真实登录 token 流；OpenAPI 与 JSON Schema 已补充 P1 契约；`tests/integration/p1-auth-rbac.test.ts` 覆盖租户创建、用户创建、RBAC 越权拦截、session 吊销、审计过滤和真值字段拒绝。生产数据库迁移、企业 SSO、SCIM、MFA 和正式审计导出仍后置。
+
 ### TASK-P2-001：定义 Course 模型与迁移
 
 - **所属阶段：** Phase 2  

@@ -91,6 +91,7 @@ npm test
 npm run test:contract
 npm run build
 npm run dev:api
+npm run dev:admin
 npm run dev:teacher
 npm run dev:student
 
@@ -103,6 +104,8 @@ poetry run black --check .
 # Docker, only when Dockerfile exists
 docker build -t simwar/service:local .
 ```
+
+本地 API 默认使用 `tmp/simwar-store.json` 作为 P1 演示快照文件；自动化测试应使用内存 store，避免依赖或污染本地开发快照。
 
 如果项目引入 Makefile 或任务编排工具，应优先提供以下稳定入口：
 

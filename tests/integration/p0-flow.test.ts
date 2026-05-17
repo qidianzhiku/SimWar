@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
-import type { ApiEnvelope, Decision, PublicResultView, Round, Run, SettlementResult } from "../../packages/shared-contracts/src";
+import type { ApiEnvelope, AuthSession, Decision, PublicResultView, Round, Run, SettlementResult } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP0Store } from "../../services/api/src/store";
 
@@ -62,14 +62,27 @@ async function request<TData>(
   };
 }
 
+async function login(baseUrl: string, username: string, password: string, tenantId = "tenant_demo"): Promise<string> {
+  const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
+    method: "POST",
+    tenantId,
+    body: { username, password }
+  });
+
+  expect(response.status).toBe(200);
+  return response.body.data.access_token;
+}
+
 describe("P0 teacher-student settlement flow", () => {
   it("runs the P0 flow without exposing state_true to learners", async () => {
     const { baseUrl, server } = await startServer();
 
     try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
       const runResponse = await request<{ run: Run; round: Round }>(baseUrl, "/api/v1/courses/course_demo/runs", {
         method: "POST",
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(runResponse.status).toBe(201);
 
@@ -77,13 +90,13 @@ describe("P0 teacher-student settlement flow", () => {
 
       const startResponse = await request<Round>(baseUrl, `/api/v1/runs/${runId}/rounds/1/start`, {
         method: "POST",
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(startResponse.body.data.status).toBe("open");
 
       const decisionResponse = await request<Decision>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
         method: "POST",
-        token: "student-token",
+        token: studentToken,
         body: {
           team_id: "team_alpha",
           decision_payload: {
@@ -101,13 +114,13 @@ describe("P0 teacher-student settlement flow", () => {
 
       const lockResponse = await request<Round>(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {
         method: "POST",
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(lockResponse.body.data.status).toBe("locked");
 
       const lateDecision = await request<Decision>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
         method: "POST",
-        token: "student-token",
+        token: studentToken,
         body: {
           team_id: "team_alpha",
           decision_payload: {
@@ -140,23 +153,23 @@ describe("P0 teacher-student settlement flow", () => {
 
       const publishResponse = await request<Round>(baseUrl, `/api/v1/runs/${runId}/rounds/1/publish`, {
         method: "POST",
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(publishResponse.body.data.status).toBe("published");
 
       const studentResult = await request<PublicResultView>(baseUrl, `/api/v1/runs/${runId}/rounds/1/results`, {
-        token: "student-token"
+        token: studentToken
       });
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
       expect(studentResult.body.data.results[0]?.state_obs.rank).toBe(1);
 
       const teacherResult = await request<PublicResultView>(baseUrl, `/api/v1/runs/${runId}/rounds/1/results`, {
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(teacherResult.body.data.results[0]?.state_true?.rank).toBe(1);
 
       const auditResponse = await request<unknown[]>(baseUrl, "/api/v1/audit/logs", {
-        token: "teacher-token"
+        token: teacherToken
       });
       expect(auditResponse.body.data.length).toBeGreaterThanOrEqual(5);
     } finally {
@@ -168,8 +181,9 @@ describe("P0 teacher-student settlement flow", () => {
     const { baseUrl, server } = await startServer();
 
     try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
       const response = await request<unknown>(baseUrl, "/api/v1/courses", {
-        token: "teacher-token",
+        token: teacherToken,
         tenantId: "tenant_other"
       });
 

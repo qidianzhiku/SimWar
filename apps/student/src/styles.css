@@ -46,6 +46,13 @@ p {
   margin-top: 0;
 }
 
+.identity {
+  color: #5b6a75;
+  display: block;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
 h1 {
   font-size: 30px;
   letter-spacing: 0;
@@ -65,6 +72,28 @@ h2 {
   border-radius: 7px;
   display: inline-flex;
   padding: 9px 12px;
+}
+
+.login-strip {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d8e1e5;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  margin-top: 18px;
+  padding: 12px;
+}
+
+.login-strip button {
+  background: #eef5f7;
+  border: 1px solid #ccd7dc;
+  border-radius: 7px;
+  color: #1f6472;
+  cursor: pointer;
+  min-height: 38px;
+  padding: 0 14px;
 }
 
 .board {
@@ -193,7 +222,8 @@ textarea {
   }
 
   .topbar,
-  .workspace {
+  .workspace,
+  .login-strip {
     align-items: stretch;
     display: grid;
     grid-template-columns: 1fr;
