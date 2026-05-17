@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: SimWar P0 API
+  version: 0.1.0
+  description: Minimal P0 contract for the teacher-student-settlement loop.
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Login and receive a development token.
+      responses:
+        "200":
+          description: Auth session
+  /api/v1/courses:
+    get:
+      summary: List courses in the current tenant.
+      responses:
+        "200":
+          description: Course list
+    post:
+      summary: Create a draft course.
+      responses:
+        "201":
+          description: Course created
+  /api/v1/courses/{courseId}/publish:
+    post:
+      summary: Publish a course after scenario and parameter checks.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Course published
+  /api/v1/courses/{courseId}/teams:
+    post:
+      summary: Create a team for a course.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Team created
+  /api/v1/courses/{courseId}/runs:
+    post:
+      summary: Create a run and first draft round.
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Run and round created
+  /api/v1/runs/{runId}/rounds/{roundNo}/start:
+    post:
+      summary: Start a draft round.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Round opened
+  /api/v1/runs/{runId}/rounds/{roundNo}/decisions:
+    post:
+      summary: Submit a validated team decision.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Decision accepted
+        "409":
+          description: Round is no longer open
+        "422":
+          description: Decision validation failed
+  /api/v1/runs/{runId}/rounds/{roundNo}/lock:
+    post:
+      summary: Lock a round for settlement.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Round locked
+  /api/v1/runs/{runId}/rounds/{roundNo}/settle:
+    post:
+      summary: Teacher command that requests structured-core settlement.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Settlement result
+  /internal/v1/runs/{runId}/rounds/{roundNo}/settle:
+    post:
+      summary: Internal structured-core-only settlement entrypoint.
+      parameters:
+        - name: X-Service-Principal
+          in: header
+          required: true
+          schema:
+            const: service_kernel
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Settlement result
+  /api/v1/runs/{runId}/rounds/{roundNo}/publish:
+    post:
+      summary: Publish a settled round.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Round published
+  /api/v1/runs/{runId}/rounds/{roundNo}/results:
+    get:
+      summary: Read role-trimmed round results.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Public result view
+  /api/v1/audit/logs:
+    get:
+      summary: Read tenant-scoped audit logs.
+      responses:
+        "200":
+          description: Audit logs

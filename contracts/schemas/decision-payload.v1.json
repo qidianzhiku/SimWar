@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/decision-payload.v1.json",
+  "title": "DecisionPayloadV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pricing",
+    "marketing_budget",
+    "service_quality_budget",
+    "capacity_plan",
+    "cash_buffer_target",
+    "strategy_statement"
+  ],
+  "properties": {
+    "pricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_price"],
+      "properties": {
+        "base_price": {
+          "type": "number",
+          "minimum": 6000,
+          "maximum": 30000
+        }
+      }
+    },
+    "marketing_budget": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "service_quality_budget": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "capacity_plan": {
+      "type": "string",
+      "enum": ["contract", "hold", "expand"]
+    },
+    "cash_buffer_target": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.6
+    },
+    "strategy_statement": {
+      "type": "string",
+      "minLength": 8
+    }
+  }
+}

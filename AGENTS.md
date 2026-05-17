@@ -20,6 +20,31 @@ SimWar 采用“行业无关内核 + 行业插件”的微内核架构。
 
 核心原则：结构化仿真引擎是真值来源。LLM 或 Agent 输出必须经过核心引擎校验、落事件、再结算。
 
+## Tool Autonomy And Confirmation
+
+在本地开发、测试、文档、代码修改、浏览器验证和 Git 本地提交范围内，Codex 可以默认自动调用相关工具并自主推进任务，无需用户逐步确认。
+
+Codex 默认可自动执行以下操作：
+
+- 读取、搜索、比较和修改本仓库文件。
+- 使用 `rg`、Shell、`apply_patch`、Git diff 等工具进行代码和文档开发。
+- 安装或使用项目已声明的本地依赖，运行 `npm install`、`npm run lint`、`npm run typecheck`、`npm test`、`npm run test:contract`、`npm run build` 等开发命令。
+- 启动、检查或停止本地开发服务，例如 API、教师端、学员端和本地依赖容器。
+- 使用 Browser / Playwright 等工具验证本地页面、交互流程、控制台错误和响应式表现。
+- 根据 `DEVELOPMENT_PLAN.md` 中的模块推荐工具自动选择实现、验证、安全和质量工具。
+- 在任务完成后进行本地 Git 检查；如任务明确要求提交，可按 Conventional Commits 创建本地提交。
+
+以下操作必须先说明风险并等待用户明确指令：
+
+- 外部账号授权或连接器授权，例如 GitHub、Google Drive、Gmail、Google Calendar、Supabase、Figma、Canva 等首次登录或 OAuth 授权。
+- 生产环境、预发布环境、真实客户环境或远端数据库操作。
+- 删除数据库、清空目录、批量删除文件、重写 Git 历史、强制推送、覆盖远端分支等不可逆或高破坏性操作。
+- 发布 PR、推送远端、发送邮件、创建日程、共享文档、公开发布内容或触发付费资源。
+- 处理真实密钥、令牌、真实用户数据、企业敏感数据、模型私有权重或未授权内容。
+- 任何可能让 AI 或 Agent 绕过真值保护、权限边界、审计链路或 Replay / Shadow Replay 门禁的操作。
+
+即使用户授权自动执行，Codex 仍必须遵守本文件的真值保护、安全合规、测试和文档规则。若推荐工具不可用，应说明原因并采用安全替代方案。
+
 ## Repository Layout
 
 当前建议目录结构如下。新增代码时优先按此组织；如实际技术栈调整，请同步修改本节。

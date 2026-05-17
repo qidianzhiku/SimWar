@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/settlement-result.v1.json",
+  "title": "SettlementResultV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "settlement_result_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "round_no",
+    "parameter_set_id",
+    "scenario_package_id",
+    "replay_hash",
+    "team_results"
+  ],
+  "properties": {
+    "settlement_result_id": { "type": "string" },
+    "tenant_id": { "type": "string" },
+    "run_id": { "type": "string" },
+    "round_id": { "type": "string" },
+    "round_no": { "type": "integer", "minimum": 1 },
+    "parameter_set_id": { "type": "string" },
+    "scenario_package_id": { "type": "string" },
+    "replay_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "team_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["team_id", "team_name", "state_true", "state_obs", "state_est"],
+        "properties": {
+          "team_id": { "type": "string" },
+          "team_name": { "type": "string" },
+          "state_true": { "type": "object" },
+          "state_obs": { "type": "object" },
+          "state_est": { "type": "object" }
+        }
+      }
+    }
+  }
+}
