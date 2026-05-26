@@ -28,6 +28,7 @@
 | 旧文件名 | 当前路径 | 用途 |
 |---|---|---|
 | `SimWar SystemArchitecture.md` | `docs/architecture/system-architecture.md` | 系统架构 |
+| 新增 | `docs/architecture/simwar-architecture-overview.md` | 基于知识图谱的整体架构总览 |
 | `SimWar DATABASE_DESIGN.md` | `docs/architecture/database-design.md` | 数据库设计 |
 | `SimWar EVENT_DRIVEN_ARCHITECTURE.md` | `docs/architecture/event-driven-architecture.md` | 事件驱动架构 |
 | `SimWar ADR.md` | `docs/architecture/adr.md` | 架构决策记录 |
