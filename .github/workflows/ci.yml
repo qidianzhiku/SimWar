@@ -9,6 +9,20 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: simwar
+          POSTGRES_USER: simwar
+          POSTGRES_PASSWORD: simwar
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U simwar -d simwar"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,8 +30,49 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run format:check
       - run: npm run lint
+      - run: npm run lint:boundaries
+      - run: npm run check:unused
+      - run: npm run security:audit
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run test:contract
+      - run: npm run test:schema-drift
+      - run: npm run test:migration
+      - run: npm run test:migration:apply
+        env:
+          DATABASE_URL: postgres://simwar:simwar@localhost:5432/simwar
+      - run: npm run test:postgres-adapter
+        env:
+          DATABASE_URL: postgres://simwar:simwar@localhost:5432/simwar
       - run: npm run build
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: coverage/vitest
+          if-no-files-found: ignore
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:ui
+      - name: Upload Playwright report and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
