@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "include": ["files", "dependencies", "devDependencies", "unlisted", "binaries", "unresolved"],
+  "entry": [
+    "apps/*/src/main.tsx",
+    "services/api/src/server.ts",
+    "services/api/src/postgres-repository-adapter.ts",
+    "services/simulation-core/src/index.ts",
+    "packages/shared-contracts/src/index.ts",
+    "scripts/*.mjs",
+    "tests/**/*.test.ts",
+    "tests/e2e-ui/**/*.spec.ts",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "eslint.config.js"
+  ],
+  "project": [
+    "apps/**/*.{ts,tsx}",
+    "services/**/*.ts",
+    "packages/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.mjs",
+    "*.config.{js,ts}",
+    "eslint.config.js"
+  ],
+  "ignoreFiles": [
+    "services/api/src/postgres-repository-adapter.ts",
+    "**/dist/**",
+    "**/coverage/**",
+    "playwright-report/**",
+    "test-results/**"
+  ]
+}
