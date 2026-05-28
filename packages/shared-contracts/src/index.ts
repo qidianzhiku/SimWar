@@ -458,6 +458,41 @@ export interface StateSnapshot {
   state: Record<string, unknown>;
 }
 
+export type CoachOutputType = "advisory" | "learning_note" | "explanation";
+export type ModelCallStatus = "succeeded" | "failed" | "rejected";
+
+export interface CoachOutput {
+  coach_output_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id?: string;
+  role_key?: RoleKey;
+  output_type: CoachOutputType;
+  advisory_only: true;
+  advisory_text: string;
+  evidence_refs: string[];
+  created_at: string;
+  model_call_log_id?: string;
+}
+
+export interface ModelCallLog {
+  model_call_log_id: string;
+  tenant_id: string;
+  provider: string;
+  model: string;
+  purpose: "coach_advice" | "debrief" | "learning_support";
+  status: ModelCallStatus;
+  advisory_only: true;
+  input_hash: string;
+  output_hash: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number;
+  latency_ms: number;
+  created_at: string;
+}
+
 export interface AuditLog {
   audit_id: string;
   tenant_id: string;
