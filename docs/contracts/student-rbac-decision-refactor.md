@@ -42,15 +42,15 @@ flowchart LR
 
 建议默认角色模板采用“固定四主角、可扩展七职能”的设计。MVP 必做角色是 `CEO / 队长`、`CFO`、`CMO`、`COO`；P1 增加 `CTO/Product`、`CHRO`、`CRO/Risk`；P2 允许插件注入行业专属角色。这样既契合 Marketplace 强调的跨职能管理训练，也与 SimWar 行业插件文档提出的“Kernel 稳定、行业复杂性进入插件扩展位”的原则一致。Marketplace 的公开资料明确强调学生要理解 marketing、operations、finance、accounting 和 team management 之间的联动；其模拟也是按跨职能、整合型决策来设计的。 citeturn13view0turn13view1 fileciteturn0file7 fileciteturn0file11
 
-| 角色 | 主责域 | 必须可编辑 | 默认只读摘要 | 默认禁止 |
-|---|---|---|---|---|
-| CEO / 队长 | 战略、整合、最终提交 | 战略目标、公司级约束、合并说明、最终确认 | 各角色完成度、冲突摘要、关键指标 | 越过字段校验直接改写他人专责字段 |
-| CFO | 预算、融资、现金流、成本 | 预算、融资、分配、成本控制 | 市场摘要、产能摘要、风险摘要 | 查看其他队未公开财务草稿 |
-| CMO | 定价、渠道、促销、细分定位 | 价格、渠道、投放、品牌与组合策略 | 财务可用额度、产能上限摘要 | 读取未授权 `state_true` |
-| COO | 产能、库存、服务质量、执行 | 产能、库存、服务 SLA、执行计划 | 预算边界、需求预测摘要 | 直接提交正式团队决策 |
-| CTO / Product | 研发、产品组合、技术质量 | 研发投入、产品路线、技术配置 | 财务与市场约束摘要 | 改写插件未声明字段 |
-| CHRO | 招聘、培训、组织能力 | 用工、培训、激励、排班 | 财务与运营约束摘要 | 查看未授权个人私密反思 |
-| CRO / Risk | 合规、风控、压力测试 | 风险缓释、合规动作、预案 | 财务/运营风险摘要 | 把风险建议当正式真值写入 |
+| 角色          | 主责域                     | 必须可编辑                               | 默认只读摘要                     | 默认禁止                         |
+| ------------- | -------------------------- | ---------------------------------------- | -------------------------------- | -------------------------------- |
+| CEO / 队长    | 战略、整合、最终提交       | 战略目标、公司级约束、合并说明、最终确认 | 各角色完成度、冲突摘要、关键指标 | 越过字段校验直接改写他人专责字段 |
+| CFO           | 预算、融资、现金流、成本   | 预算、融资、分配、成本控制               | 市场摘要、产能摘要、风险摘要     | 查看其他队未公开财务草稿         |
+| CMO           | 定价、渠道、促销、细分定位 | 价格、渠道、投放、品牌与组合策略         | 财务可用额度、产能上限摘要       | 读取未授权 `state_true`          |
+| COO           | 产能、库存、服务质量、执行 | 产能、库存、服务 SLA、执行计划           | 预算边界、需求预测摘要           | 直接提交正式团队决策             |
+| CTO / Product | 研发、产品组合、技术质量   | 研发投入、产品路线、技术配置             | 财务与市场约束摘要               | 改写插件未声明字段               |
+| CHRO          | 招聘、培训、组织能力       | 用工、培训、激励、排班                   | 财务与运营约束摘要               | 查看未授权个人私密反思           |
+| CRO / Risk    | 合规、风控、压力测试       | 风险缓释、合规动作、预案                 | 财务/运营风险摘要                | 把风险建议当正式真值写入         |
 
 角色分配模式 **SHOULD** 支持三种：固定角色、轮换角色、混合角色。固定角色适合短学期或企业培训；轮换角色适合 AoL 和全面能力培养；混合角色适合 MBA/EMBA 场景，即核心角色固定、次级角色轮换。Marketplace 的角色化学习不是靠“所有人看同样界面”完成的，而是通过阶段性活动和不同责任形成真实张力；SimWar 应进一步把这种张力产品化为可配置的角色策略。 citeturn3view0turn14view1
 
@@ -117,14 +117,14 @@ Marketplace 的公开 AoL 页面和配套论文给出的成熟路径非常清晰
 
 基于以上做法，SimWar 教师端 **MUST** 新增一个 **AoL Mapping Studio**。该模块把“项目级能力目标—课程学习目标—角色职责—活动证据—评分规则—改进行动”串成一张可执行地图。建议最少支持以下映射对象：
 
-| 层级 | 示例对象 | 说明 |
-|---|---|---|
-| Program Competency | 战略整合、数据分析、团队协作、沟通表达、伦理与风控 | 面向 AACSB/学院层 |
-| Course Learning Goal | 跨职能经营决策、财务约束意识、市场-运营协同、反思与改进 | 面向课程层 |
-| Role Capability | CFO 预算治理、CMO 市场感知、COO 执行可靠性、CEO 跨职能整合 | 面向角色层 |
-| Activity | 角色简报、合并会议、业务计划、客观测评、同伴评价、复盘报告 | 面向教学活动层 |
-| Evidence | 草稿版本、证据卡、汇报 rubric、测评答卷、评论、反思日志 | 面向取证层 |
-| Improvement Action | 增补案例、增加提示、调整轮换、优化教学材料、修改 rubric | 面向课程改进层 |
+| 层级                 | 示例对象                                                   | 说明              |
+| -------------------- | ---------------------------------------------------------- | ----------------- |
+| Program Competency   | 战略整合、数据分析、团队协作、沟通表达、伦理与风控         | 面向 AACSB/学院层 |
+| Course Learning Goal | 跨职能经营决策、财务约束意识、市场-运营协同、反思与改进    | 面向课程层        |
+| Role Capability      | CFO 预算治理、CMO 市场感知、COO 执行可靠性、CEO 跨职能整合 | 面向角色层        |
+| Activity             | 角色简报、合并会议、业务计划、客观测评、同伴评价、复盘报告 | 面向教学活动层    |
+| Evidence             | 草稿版本、证据卡、汇报 rubric、测评答卷、评论、反思日志    | 面向取证层        |
+| Improvement Action   | 增补案例、增加提示、调整轮换、优化教学材料、修改 rubric    | 面向课程改进层    |
 
 教师端 **SHOULD** 从 Marketplace 的 `Customized Objective Learning Assessment` 进一步升级出适配 SimWar 的 **ROLA：Role-Oriented Learning Assessment**。ROLA 不是脱离情境的通用选择题，而是围绕当前仿真轮次、当前角色、当前行业插件和当前竞争格局的客观测评。默认包括四个子量表：`Functional Knowledge`、`Situational Awareness`、`Cross-functional Integration`、`Evidence Interpretation`。Marketplace 已明确表明其定制化客观测评重点考查管理工具使用、市场位置理解、对竞争环境的感知、功能域现状理解以及整合视角，并向学生和教师都输出仪表板与比较报告；其研究论文还指出，相关问题可以通过比较“事实、判断、预测”来测量商业情境感知。SimWar 应直接吸收这一设计。 citeturn14view0turn14view1turn5view3
 
@@ -175,15 +175,15 @@ reflection = 0.50 * debrief_rubric
 
 建议核心算法集最少包含以下模块：
 
-| 算法 | 作用 | 核心输入 | 输出 | 是否影响正式真值 |
-|---|---|---|---|---|
-| Ownership Gap Detector | 检测角色缺岗、字段空洞、责任未闭环 | 角色模板、字段归属、草稿完成度 | 缺口清单 | 否 |
-| Cross-Functional Consistency Checker | 检查预算、产能、市场、风险的一致性 | CFO/CMO/COO/CRO 草稿与约束 | 冲突列表、严重度 | 否 |
-| RoleDecisionMerge Algorithm | 生成团队合并预览 | 角色草稿、归属规则、教师策略 | `merge_preview` | 否 |
-| Conservative Backfill Policy | 缺岗时受控补位 | 插件默认值、课程策略 | `system_intervened` 字段 | 是，但不得优化 |
-| RoleContribution Analytics | 统计质量化贡献 | 保存、评论、证据、引用、确认 | 贡献画像 | 否 |
-| Situational Awareness Scoring | 计算角色情境感知能力 | ROLA 答题、事实-判断-预测一致性 | SA 分数 | 否 |
-| Improvement Loop Recommender | 生成教学改进行动 | AoL 数据、学生反馈、教师点评 | 改进建议 | 否 |
+| 算法                                 | 作用                               | 核心输入                        | 输出                     | 是否影响正式真值 |
+| ------------------------------------ | ---------------------------------- | ------------------------------- | ------------------------ | ---------------- |
+| Ownership Gap Detector               | 检测角色缺岗、字段空洞、责任未闭环 | 角色模板、字段归属、草稿完成度  | 缺口清单                 | 否               |
+| Cross-Functional Consistency Checker | 检查预算、产能、市场、风险的一致性 | CFO/CMO/COO/CRO 草稿与约束      | 冲突列表、严重度         | 否               |
+| RoleDecisionMerge Algorithm          | 生成团队合并预览                   | 角色草稿、归属规则、教师策略    | `merge_preview`          | 否               |
+| Conservative Backfill Policy         | 缺岗时受控补位                     | 插件默认值、课程策略            | `system_intervened` 字段 | 是，但不得优化   |
+| RoleContribution Analytics           | 统计质量化贡献                     | 保存、评论、证据、引用、确认    | 贡献画像                 | 否               |
+| Situational Awareness Scoring        | 计算角色情境感知能力               | ROLA 答题、事实-判断-预测一致性 | SA 分数                  | 否               |
+| Improvement Loop Recommender         | 生成教学改进行动                   | AoL 数据、学生反馈、教师点评    | 改进建议                 | 否               |
 
 AI 小模型体系必须从“团队泛建议”升级为 **Role-Aware Advisory Layer**。建议最少包含五类 agent：`Role Coach`、`Counter-Argument Agent`、`Merge Assistant`、`Debrief Coach`、`Learning Recommender`。其中 `Role Coach` 只读当前角色授权数据，输出结构化建议与证据卡；`Counter-Argument Agent` 专门帮学生发现盲点与风险；`Merge Assistant` 不替代 CEO 提交，只负责总结冲突和缺口；`Debrief Coach` 在结果发布后生成三段式复盘；`Learning Recommender` 根据角色成长曲线和测评结果推荐下一轮学习重点。现有 SimWar AI 文档已经明确要求模型只能读取裁剪后的 `state_obs/state_est` 与授权工具结果，并把所有调用落到 `ModelCallLog` 中，这一原则必须保持不变。 fileciteturn0file6 fileciteturn0file12 fileciteturn0file15
 
@@ -228,13 +228,13 @@ Web 可访问性必须按 WCAG 2.2 的最低实现基线设计，而不是把可
 
 建议实施阶段如下：
 
-| 阶段 | 目标 | 主要产物 | 发布策略 |
-|---|---|---|---|
-| P0 | 数据与鉴权基线 | `RoleTemplate`、`StudentRoleAssignment`、`RolePermissionPolicy`、`RoleDraft`、`TeamDecisionMergeLog`、Role Context Service、BFF 裁剪 | 不对终端放量，仅后台可见 |
-| P1 | 学员端 MVP | 角色选择、四主角工作台、角色草稿、合并预览、CEO 提交、基础 AI 建议 | 课程白名单 + Feature Flag |
-| P1.5 | 教师端 AoL 基础 | 角色分配、Rubric Center、ROLA 发布、Peer Evaluation 三波调度、AoL 看板初版 | 教师 Beta |
-| P2 | 竞赛与社区联动 | 角色可见性策略、案例脱敏、角色方法论专区、竞赛公开规则 | 受控赛事 |
-| P2+ | 能力画像与企业映射 | Role Career Card、岗位能力映射、跨课成长档案 | 可选商业增强 |
+| 阶段 | 目标               | 主要产物                                                                                                                             | 发布策略                  |
+| ---- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| P0   | 数据与鉴权基线     | `RoleTemplate`、`StudentRoleAssignment`、`RolePermissionPolicy`、`RoleDraft`、`TeamDecisionMergeLog`、Role Context Service、BFF 裁剪 | 不对终端放量，仅后台可见  |
+| P1   | 学员端 MVP         | 角色选择、四主角工作台、角色草稿、合并预览、CEO 提交、基础 AI 建议                                                                   | 课程白名单 + Feature Flag |
+| P1.5 | 教师端 AoL 基础    | 角色分配、Rubric Center、ROLA 发布、Peer Evaluation 三波调度、AoL 看板初版                                                           | 教师 Beta                 |
+| P2   | 竞赛与社区联动     | 角色可见性策略、案例脱敏、角色方法论专区、竞赛公开规则                                                                               | 受控赛事                  |
+| P2+  | 能力画像与企业映射 | Role Career Card、岗位能力映射、跨课成长档案                                                                                         | 可选商业增强              |
 
 Codex 的改造工作流建议按“数据库迁移 → 鉴权中间件 → BFF DTO 裁剪 → 学员端路由与状态 → 合并服务 → 教师端 AoL → 测试与监控”顺序推进。仓库层至少应新增如下目录或模块：
 
@@ -259,18 +259,18 @@ Codex 的改造工作流建议按“数据库迁移 → 鉴权中间件 → BFF 
 
 测试方面，角色化升级必须把“功能能用”提升为“边界可靠”。最低测试矩阵如下：
 
-| 测试域 | 关键用例 | 阻断级别 |
-|---|---|---|
-| 角色上下文 | 同一用户多课程、多 run、多队、单队约束、上下文切换 | P0 |
-| 权限控制 | 字段级裁剪、跨队访问、越权评论、未授权导出 | P0 |
-| 真值边界 | 学员端和 AI 读取 `state_true` 被拦截；AI 不写正式结果 | P0 |
-| 合并与幂等 | 重复提交、并发提交、冲突预览、CEO 最终提交 | P0 |
-| 数据完整性 | 角色草稿版本、贡献日志、ModelCallLog、AuditLog 完整 | P0 |
-| AoL | rubric 评分、ROLA 发布与回收、peer evaluation 三波、导出包一致性 | P1 |
-| 插件 | 行业角色字段 schema 校验、Feature Mapper 合法映射 | P0 |
-| Replay | 正式结果不被覆盖；角色证据仅做复盘视图 | P0 |
-| 前端 | 角色工作台 E2E、缓存失效、路由守卫、键盘无障碍 | P0 |
-| 性能 | 课程高并发下上下文解析、草稿保存、AI 延迟、榜单读取 | P1 |
+| 测试域     | 关键用例                                                         | 阻断级别 |
+| ---------- | ---------------------------------------------------------------- | -------- |
+| 角色上下文 | 同一用户多课程、多 run、多队、单队约束、上下文切换               | P0       |
+| 权限控制   | 字段级裁剪、跨队访问、越权评论、未授权导出                       | P0       |
+| 真值边界   | 学员端和 AI 读取 `state_true` 被拦截；AI 不写正式结果            | P0       |
+| 合并与幂等 | 重复提交、并发提交、冲突预览、CEO 最终提交                       | P0       |
+| 数据完整性 | 角色草稿版本、贡献日志、ModelCallLog、AuditLog 完整              | P0       |
+| AoL        | rubric 评分、ROLA 发布与回收、peer evaluation 三波、导出包一致性 | P1       |
+| 插件       | 行业角色字段 schema 校验、Feature Mapper 合法映射                | P0       |
+| Replay     | 正式结果不被覆盖；角色证据仅做复盘视图                           | P0       |
+| 前端       | 角色工作台 E2E、缓存失效、路由守卫、键盘无障碍                   | P0       |
+| 性能       | 课程高并发下上下文解析、草稿保存、AI 延迟、榜单读取              | P1       |
 
 监控层建议至少接入以下指标：`role_context_resolution_failed_total`、`role_permission_denied_total`、`cross_team_access_blocked_total`、`student_state_true_blocked_total`、`decision_version_idempotency_conflict_total`、`system_intervened_team_total`、`role_ai_advice_latency_ms`、`peer_evaluation_publish_failed_total`、`aol_export_failed_total`。角色化系统最怕的不是普通 bug，而是静默越权、静默丢日志和静默泄露，因此告警门槛应按安全系统而非普通表单系统来设置。 fileciteturn0file5 fileciteturn0file15
 

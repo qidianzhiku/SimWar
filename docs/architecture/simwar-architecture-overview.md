@@ -104,30 +104,30 @@ React 三端前端
 
 图谱中前端引用的 endpoint 应理解为“前端命令入口”，后端 route group 才负责权限、schema、状态机、repository 和仿真内核处理。当前主要映射如下：
 
-| 前端 endpoint | services route group | shared contract | db / domain entity |
-| --- | --- | --- | --- |
-| `/api/v1/auth/login` | `AuthRoutes` | `AuthSession`、`CurrentUser`、`ApiEnvelope` | `auth_session`、`simwar_user`、session domain |
-| `/api/v1/demo-state` | `CourseRoutes` / runtime state facade | `P0DemoState` | Course / Team / Run / Round / Decision / Settlement 聚合视图 |
-| `/api/v1/admin/state` | `TenantRoutes`、`UserRoutes`、`AuditRoutes` | `AdminState`、`Tenant`、`User`、`AuditLog` | `simwar_tenant`、`simwar_user`、`audit_log` |
-| `/api/v1/admin/tenants` | `TenantRoutes` | `Tenant` | `simwar_tenant` |
-| `/api/v1/admin/users` | `UserRoutes` | `User`、`ActorRole`、`PermissionKey` | `simwar_user` |
-| `/api/v1/courses` | `CourseRoutes` | `Course` | `course` |
-| `/api/v1/courses/{courseId}/teams` | `CourseRoutes` | `Team`、`TeamMember` | `team` |
-| `/api/v1/courses/{courseId}/runs` | `CourseRoutes` | `Run`、`ScenarioPackage`、`ParameterSet`、`PluginPackage` | `simwar_run`、`scenario_package`、`parameter_set`、plugin binding domain |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/start` | `RoundRoutes` | `Round` | `simwar_round` |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/lock` | `RoundRoutes` | `Round`、`Decision` | `simwar_round`、decision validation domain |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/settle` | `SettlementRoutes` | `SettlementResult`、`ReplayInputManifest`、`StateSnapshot` | `settlement_result`、`state_snapshot`、`replay_input_manifest`、`domain_event` |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/publish` | `RoundRoutes` | `Round`、`PublicResultView` | `simwar_round`、published result domain |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/decisions` | `DecisionRoutes` | `Decision`、`DecisionPayload` | `decision` |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}` | `FoundationRoutes` | `RoleDecisionSection` | `role_decision_section` |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/merge-commits` | `FoundationRoutes` | `DecisionMergeCommit` | `decision_merge_commit` |
-| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/confirmations` | `FoundationRoutes` | `TeamConfirmation` | `team_confirmation` |
-| `/api/v1/replays` / `/api/v1/shadow-replays` | `ReplayRoutes` | `ReplayRun`、`ReplayReport`、`ReplayDiffReport` | `replay_run`、`replay_report`、`replay_diff_report`、Replay domain |
-| `/api/v1/agents/advisory` | `AgentRoutes` | `AgentRequest`、`AgentResponse`、`CoachOutput`、`ModelCallLog` | `coach_output`、`model_call_log` |
-| `/api/v1/billing/mock-payment-orders` | `FoundationRoutes` | `PaymentOrder` | `payment_order`、payment domain |
-| `/api/v1/entitlements/activate` / `/api/v1/entitlements/access-check` | `FoundationRoutes` | `EntitlementLedger`、`EntitlementAccessDecision` | `entitlement_ledger`、access-check domain |
-| `/api/v1/courses/{courseId}/data-policy` | `FoundationRoutes` | `CourseDataPolicy` | `course_data_policy` |
-| `/api/v1/cases/candidates` | `FoundationRoutes` | `CaseCandidate`、`CaseConsent` | `case_candidate`、case governance domain |
+| 前端 endpoint                                                               | services route group                        | shared contract                                                | db / domain entity                                                             |
+| --------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `/api/v1/auth/login`                                                        | `AuthRoutes`                                | `AuthSession`、`CurrentUser`、`ApiEnvelope`                    | `auth_session`、`simwar_user`、session domain                                  |
+| `/api/v1/demo-state`                                                        | `CourseRoutes` / runtime state facade       | `P0DemoState`                                                  | Course / Team / Run / Round / Decision / Settlement 聚合视图                   |
+| `/api/v1/admin/state`                                                       | `TenantRoutes`、`UserRoutes`、`AuditRoutes` | `AdminState`、`Tenant`、`User`、`AuditLog`                     | `simwar_tenant`、`simwar_user`、`audit_log`                                    |
+| `/api/v1/admin/tenants`                                                     | `TenantRoutes`                              | `Tenant`                                                       | `simwar_tenant`                                                                |
+| `/api/v1/admin/users`                                                       | `UserRoutes`                                | `User`、`ActorRole`、`PermissionKey`                           | `simwar_user`                                                                  |
+| `/api/v1/courses`                                                           | `CourseRoutes`                              | `Course`                                                       | `course`                                                                       |
+| `/api/v1/courses/{courseId}/teams`                                          | `CourseRoutes`                              | `Team`、`TeamMember`                                           | `team`                                                                         |
+| `/api/v1/courses/{courseId}/runs`                                           | `CourseRoutes`                              | `Run`、`ScenarioPackage`、`ParameterSet`、`PluginPackage`      | `simwar_run`、`scenario_package`、`parameter_set`、plugin binding domain       |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/start`                               | `RoundRoutes`                               | `Round`                                                        | `simwar_round`                                                                 |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/lock`                                | `RoundRoutes`                               | `Round`、`Decision`                                            | `simwar_round`、decision validation domain                                     |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/settle`                              | `SettlementRoutes`                          | `SettlementResult`、`ReplayInputManifest`、`StateSnapshot`     | `settlement_result`、`state_snapshot`、`replay_input_manifest`、`domain_event` |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/publish`                             | `RoundRoutes`                               | `Round`、`PublicResultView`                                    | `simwar_round`、published result domain                                        |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/decisions`                           | `DecisionRoutes`                            | `Decision`、`DecisionPayload`                                  | `decision`                                                                     |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}` | `FoundationRoutes`                          | `RoleDecisionSection`                                          | `role_decision_section`                                                        |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/merge-commits`        | `FoundationRoutes`                          | `DecisionMergeCommit`                                          | `decision_merge_commit`                                                        |
+| `/api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/confirmations`        | `FoundationRoutes`                          | `TeamConfirmation`                                             | `team_confirmation`                                                            |
+| `/api/v1/replays` / `/api/v1/shadow-replays`                                | `ReplayRoutes`                              | `ReplayRun`、`ReplayReport`、`ReplayDiffReport`                | `replay_run`、`replay_report`、`replay_diff_report`、Replay domain             |
+| `/api/v1/agents/advisory`                                                   | `AgentRoutes`                               | `AgentRequest`、`AgentResponse`、`CoachOutput`、`ModelCallLog` | `coach_output`、`model_call_log`                                               |
+| `/api/v1/billing/mock-payment-orders`                                       | `FoundationRoutes`                          | `PaymentOrder`                                                 | `payment_order`、payment domain                                                |
+| `/api/v1/entitlements/activate` / `/api/v1/entitlements/access-check`       | `FoundationRoutes`                          | `EntitlementLedger`、`EntitlementAccessDecision`               | `entitlement_ledger`、access-check domain                                      |
+| `/api/v1/courses/{courseId}/data-policy`                                    | `FoundationRoutes`                          | `CourseDataPolicy`                                             | `course_data_policy`                                                           |
+| `/api/v1/cases/candidates`                                                  | `FoundationRoutes`                          | `CaseCandidate`、`CaseConsent`                                 | `case_candidate`、case governance domain                                       |
 
 这张映射表是长期维护重点：新增 endpoint 时应同步检查 route group、shared contract、schema fixture、repository port 和数据库/领域实体是否一致。
 

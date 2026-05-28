@@ -18,27 +18,27 @@
 
 建议动作：保留，后续按小 PR 审查提交，不与业务代码混提。
 
-| 文件 | 建议动作 |
-| --- | --- |
-| `.github/workflows/ci.yml` | 保留；单独审查 workflow diff 后再提交 |
-| `.gitignore` | 保留；与格式 / 产物治理一起审查 |
-| `.prettierignore` | 保留；与格式治理一起审查 |
-| `eslint.config.js` | 保留；与 lint 配置一起审查 |
-| `package.json` | 保留；与 `package-lock.json` 一起单独审查 |
-| `package-lock.json` | 保留；必须和 `package.json` 一起审查 |
-| `packages/shared-contracts/package.json` | 保留；与 workspace build / typecheck 配置一起审查 |
-| `services/api/package.json` | 保留；与 API scripts / runtime 依赖一起审查 |
-| `services/api/tsconfig.json` | 保留；与 TypeScript build 配置一起审查 |
-| `tsconfig.build.json` | 保留；与 typecheck / build gate 一起审查 |
-| `vitest.config.ts` | 保留；与 coverage / test gate 一起审查 |
-| `scripts/check-contracts.mjs` | 保留；与 contract / schema drift gate 一起审查 |
-| `scripts/check-architecture-boundaries.mjs` | 保留；与 architecture boundary lint 一起审查 |
-| `scripts/check-migrations.mjs` | 保留；与 migration static check 一起审查 |
-| `scripts/check-postgres-migration-apply.mjs` | 保留；与 real Postgres apply gate 一起审查 |
-| `docs/architecture/simwar-development-quality-toolchain-roadmap.md` | 保留；已作为长期质量工具链路线图 |
-| `docs/architecture/understand-anything-usage-log.md` | 保留；用于 Understand Anything 使用记录和图谱治理 |
-| `docs/devops/security-scanning.md` | 保留；与 security / CodeQL / SCA 规划一起审查 |
-| `docs/quality/phase-2-3-baseline-checklist.md` | 保留；与 Phase 2/3 baseline gate 一起审查 |
+| 文件                                                                | 建议动作                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------- |
+| `.github/workflows/ci.yml`                                          | 保留；单独审查 workflow diff 后再提交             |
+| `.gitignore`                                                        | 保留；与格式 / 产物治理一起审查                   |
+| `.prettierignore`                                                   | 保留；与格式治理一起审查                          |
+| `eslint.config.js`                                                  | 保留；与 lint 配置一起审查                        |
+| `package.json`                                                      | 保留；与 `package-lock.json` 一起单独审查         |
+| `package-lock.json`                                                 | 保留；必须和 `package.json` 一起审查              |
+| `packages/shared-contracts/package.json`                            | 保留；与 workspace build / typecheck 配置一起审查 |
+| `services/api/package.json`                                         | 保留；与 API scripts / runtime 依赖一起审查       |
+| `services/api/tsconfig.json`                                        | 保留；与 TypeScript build 配置一起审查            |
+| `tsconfig.build.json`                                               | 保留；与 typecheck / build gate 一起审查          |
+| `vitest.config.ts`                                                  | 保留；与 coverage / test gate 一起审查            |
+| `scripts/check-contracts.mjs`                                       | 保留；与 contract / schema drift gate 一起审查    |
+| `scripts/check-architecture-boundaries.mjs`                         | 保留；与 architecture boundary lint 一起审查      |
+| `scripts/check-migrations.mjs`                                      | 保留；与 migration static check 一起审查          |
+| `scripts/check-postgres-migration-apply.mjs`                        | 保留；与 real Postgres apply gate 一起审查        |
+| `docs/architecture/simwar-development-quality-toolchain-roadmap.md` | 保留；已作为长期质量工具链路线图                  |
+| `docs/architecture/understand-anything-usage-log.md`                | 保留；用于 Understand Anything 使用记录和图谱治理 |
+| `docs/devops/security-scanning.md`                                  | 保留；与 security / CodeQL / SCA 规划一起审查     |
+| `docs/quality/phase-2-3-baseline-checklist.md`                      | 保留；与 Phase 2/3 baseline gate 一起审查         |
 
 特别说明：
 
@@ -52,14 +52,14 @@
 
 ### 3.1 apps 前端三端改动
 
-| 文件 | 归属 |
-| --- | --- |
-| `apps/admin/src/App.tsx` | admin 前端业务流 |
-| `apps/admin/src/styles.css` | admin 样式 |
-| `apps/student/src/App.tsx` | student 角色化决策流 |
-| `apps/student/src/styles.css` | student 样式 |
-| `apps/teacher/src/App.tsx` | teacher 课程 / 队伍 / 回合 / 发布流 |
-| `apps/teacher/src/styles.css` | teacher 样式 |
+| 文件                          | 归属                                |
+| ----------------------------- | ----------------------------------- |
+| `apps/admin/src/App.tsx`      | admin 前端业务流                    |
+| `apps/admin/src/styles.css`   | admin 样式                          |
+| `apps/student/src/App.tsx`    | student 角色化决策流                |
+| `apps/student/src/styles.css` | student 样式                        |
+| `apps/teacher/src/App.tsx`    | teacher 课程 / 队伍 / 回合 / 发布流 |
+| `apps/teacher/src/styles.css` | teacher 样式                        |
 
 ### 3.2 contracts/openapi、contracts/schemas、contracts/fixtures
 

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ApiEnvelope, AuthSession, Decision, DecisionPayload, P0DemoState } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  AuthSession,
+  Decision,
+  DecisionPayload,
+  P0DemoState
+} from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const DEFAULT_LOGIN = {
@@ -58,7 +64,9 @@ export function App() {
   const [notice, setNotice] = useState("ready");
 
   const latestRun = state?.runs.at(-1);
-  const latestRound = latestRun ? state?.rounds.find((round) => round.run_id === latestRun.run_id) : undefined;
+  const latestRound = latestRun
+    ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
+    : undefined;
   const team = state?.teams.find((candidate) => candidate.team_id === state.current_user.team_id);
   const myResult = state?.latest_result?.results.find((result) => result.team_id === team?.team_id);
   const submittedDecision = useMemo(() => {
@@ -67,7 +75,10 @@ export function App() {
     }
 
     return state.decisions.find(
-      (candidate) => candidate.run_id === latestRun.run_id && candidate.round_no === latestRound.round_no && candidate.team_id === team.team_id
+      (candidate) =>
+        candidate.run_id === latestRun.run_id &&
+        candidate.round_no === latestRound.round_no &&
+        candidate.team_id === team.team_id
     );
   }, [latestRun, latestRound, team, state]);
 
@@ -76,7 +87,12 @@ export function App() {
       return;
     }
 
-    setState(await apiRequest<P0DemoState>("/api/v1/demo-state", { token: session.access_token, tenantId: login.tenantId }));
+    setState(
+      await apiRequest<P0DemoState>("/api/v1/demo-state", {
+        token: session.access_token,
+        tenantId: login.tenantId
+      })
+    );
   }, [login.tenantId, session]);
 
   async function signIn(nextLogin = login): Promise<void> {
@@ -117,15 +133,18 @@ export function App() {
 
     setBusy(true);
     try {
-      await apiRequest<Decision>(`/api/v1/runs/${latestRun.run_id}/rounds/${latestRound.round_no}/decisions`, {
-        method: "POST",
-        token: session.access_token,
-        tenantId: login.tenantId,
-        body: {
-          team_id: team.team_id,
-          decision_payload: decision
+      await apiRequest<Decision>(
+        `/api/v1/runs/${latestRun.run_id}/rounds/${latestRound.round_no}/decisions`,
+        {
+          method: "POST",
+          token: session.access_token,
+          tenantId: login.tenantId,
+          body: {
+            team_id: team.team_id,
+            decision_payload: decision
+          }
         }
-      });
+      );
       setNotice("decision submitted");
       await refresh();
     } catch (error) {
@@ -161,18 +180,24 @@ export function App() {
         <input
           aria-label="tenant"
           value={login.tenantId}
-          onChange={(event) => setLogin((current) => ({ ...current, tenantId: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, tenantId: event.target.value }))
+          }
         />
         <input
           aria-label="username"
           value={login.username}
-          onChange={(event) => setLogin((current) => ({ ...current, username: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, username: event.target.value }))
+          }
         />
         <input
           aria-label="password"
           type="password"
           value={login.password}
-          onChange={(event) => setLogin((current) => ({ ...current, password: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, password: event.target.value }))
+          }
         />
         <button disabled={busy} onClick={() => void signIn()}>
           学员登录
@@ -283,7 +308,11 @@ export function App() {
               }
             />
           </label>
-          <button className="primary" disabled={!canSubmit || busy} onClick={() => void submitDecision()}>
+          <button
+            className="primary"
+            disabled={!canSubmit || busy}
+            onClick={() => void submitDecision()}
+          >
             {busy ? "提交中" : "提交决策"}
           </button>
         </article>
@@ -300,7 +329,10 @@ export function App() {
                 <strong>
                   Rank {myResult.state_obs.rank} / Score {myResult.state_obs.score}
                 </strong>
-                <p>服务需求 {myResult.state_obs.served_demand}，利润状态 {myResult.state_obs.profit_band}。</p>
+                <p>
+                  服务需求 {myResult.state_obs.served_demand}，利润状态{" "}
+                  {myResult.state_obs.profit_band}。
+                </p>
               </div>
               <div className="feedback-block">
                 <span>为什么发生</span>

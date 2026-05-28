@@ -12,11 +12,11 @@
 
 为避免把方案性概念误读为当前代码能力，本文统一使用以下状态标记：
 
-| 标记 | 含义 |
-| --- | --- |
-| 当前已有 | 已在当前 apps / packages / services / db / plugins 图谱或源码契约中出现，可作为现有基线理解 |
-| 拟新增 | 本重构方案建议新增的 endpoint、type、table、UI 模块、插件扩展或测试覆盖 |
-| 需要进一步确认 | 方向合理，但进入实现前必须核对当前代码、schema、fixture、migration 或测试文件后再定稿 |
+| 标记           | 含义                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| 当前已有       | 已在当前 apps / packages / services / db / plugins 图谱或源码契约中出现，可作为现有基线理解 |
+| 拟新增         | 本重构方案建议新增的 endpoint、type、table、UI 模块、插件扩展或测试覆盖                     |
+| 需要进一步确认 | 方向合理，但进入实现前必须核对当前代码、schema、fixture、migration 或测试文件后再定稿       |
 
 当前核心链路为：`RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Decision -> SettlementResult`。其中 `RoleDecisionSection`、`DecisionMergeCommit`、`TeamConfirmation`、canonical `Decision` 与 `SettlementResult` 是当前图谱和共享契约已经表达的主链路；本文涉及的 `RoleContext`、`RoleWorkspaceSnapshot`、`RoleReadinessSummary`、`role_assignment`、`role_field_policy`、`decision_merge_section_link` 等均为拟新增或待实现的方案性概念，不能理解为当前代码中已经存在。
 
@@ -92,13 +92,13 @@ interface RoleContext {
 
 默认角色沿用当前共享契约和数据库约束中的基础角色，这是当前已有基线：
 
-| 角色 | 默认定位 | 主要输入域 | 关键权限 |
-| --- | --- | --- | --- |
-| `CEO` | 队长 / 总经理 / 最终整合者 | 战略目标、跨职能约束、合并说明、最终确认 | 创建 merge commit、发起团队确认、提交 canonical decision |
-| `CFO` | 财务负责人 | 预算、融资、现金流、成本控制 | 保存财务 section、标记 ready、参与确认 |
-| `CMO` | 市场负责人 | 定价、渠道、投放、品牌、需求假设 | 保存市场 section、标记 ready、参与确认 |
-| `COO` | 运营负责人 | 产能、库存、服务质量、执行计划 | 保存运营 section、标记 ready、参与确认 |
-| `risk` | 风险与合规负责人 | 风险缓释、合规动作、压力测试 | 保存风险 section、标记 ready、参与确认 |
+| 角色   | 默认定位                   | 主要输入域                               | 关键权限                                                 |
+| ------ | -------------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| `CEO`  | 队长 / 总经理 / 最终整合者 | 战略目标、跨职能约束、合并说明、最终确认 | 创建 merge commit、发起团队确认、提交 canonical decision |
+| `CFO`  | 财务负责人                 | 预算、融资、现金流、成本控制             | 保存财务 section、标记 ready、参与确认                   |
+| `CMO`  | 市场负责人                 | 定价、渠道、投放、品牌、需求假设         | 保存市场 section、标记 ready、参与确认                   |
+| `COO`  | 运营负责人                 | 产能、库存、服务质量、执行计划           | 保存运营 section、标记 ready、参与确认                   |
+| `risk` | 风险与合规负责人           | 风险缓释、合规动作、压力测试             | 保存风险 section、标记 ready、参与确认                   |
 
 目标角色模型需要支持三类扩展，其中扩展机制属于拟新增能力：
 
@@ -121,17 +121,17 @@ interface RoleContext {
 
 学员端应从当前单一主组件承载的团队决策页，逐步重构为角色工作台。下表模块均为拟新增前端结构或拟拆分结构，不能理解为当前 `apps/student` 已存在这些组件文件：
 
-| 模块 | 目标 | 主要职责 |
-| --- | --- | --- |
-| `RoleContextGate` | 进入角色上下文 | 登录后解析可用课程、队伍、run、round、role；多上下文时提供选择器 |
-| `RoleWorkspace` | 角色主工作台 | 展示当前角色可见数据、角色 KPI、待办、权限状态和轮次状态 |
-| `RoleSectionEditor` | 角色区块编辑 | 按 `editable_fields` 渲染表单，保存 `RoleDecisionSection` |
-| `RoleReadyPanel` | ready 状态 | 显示本角色状态、同队其他角色 ready 摘要和锁轮前缺口 |
-| `MergeCommitPanel` | 合并候选 | CEO/队长查看区块差异、冲突、校验报告，创建 `DecisionMergeCommit` |
-| `TeamConfirmationPanel` | 团队确认 | 成员确认合并结果，生成 `TeamConfirmation` |
-| `CanonicalSubmitPanel` | 正式提交 | 仅允许有权限的角色提交 canonical `Decision` |
-| `RoleAdvisoryPanel` | 角色化 AI 建议 | 以角色上下文裁剪输入，只生成 advisory 输出 |
-| `RoleResultView` | 结果与复盘 | 发布后展示角色相关结果、贡献证据、复盘建议和只读历史 |
+| 模块                    | 目标           | 主要职责                                                         |
+| ----------------------- | -------------- | ---------------------------------------------------------------- |
+| `RoleContextGate`       | 进入角色上下文 | 登录后解析可用课程、队伍、run、round、role；多上下文时提供选择器 |
+| `RoleWorkspace`         | 角色主工作台   | 展示当前角色可见数据、角色 KPI、待办、权限状态和轮次状态         |
+| `RoleSectionEditor`     | 角色区块编辑   | 按 `editable_fields` 渲染表单，保存 `RoleDecisionSection`        |
+| `RoleReadyPanel`        | ready 状态     | 显示本角色状态、同队其他角色 ready 摘要和锁轮前缺口              |
+| `MergeCommitPanel`      | 合并候选       | CEO/队长查看区块差异、冲突、校验报告，创建 `DecisionMergeCommit` |
+| `TeamConfirmationPanel` | 团队确认       | 成员确认合并结果，生成 `TeamConfirmation`                        |
+| `CanonicalSubmitPanel`  | 正式提交       | 仅允许有权限的角色提交 canonical `Decision`                      |
+| `RoleAdvisoryPanel`     | 角色化 AI 建议 | 以角色上下文裁剪输入，只生成 advisory 输出                       |
+| `RoleResultView`        | 结果与复盘     | 发布后展示角色相关结果、贡献证据、复盘建议和只读历史             |
 
 前端实现约束：
 
@@ -197,21 +197,21 @@ interface RoleContext {
 
 建议新增或强化以下类型。状态列为“拟新增”的类型当前不能按已存在处理；状态列为“需要进一步确认”的类型应先核对 `packages/shared-contracts/src/index.ts`、`contracts/schemas/` 和 fixtures 后再实现：
 
-| 类型 | 状态 | 用途 |
-| --- | --- | --- |
-| `RoleContext` | 拟新增 | 用户在具体 course/run/round/team/role 下的运行时上下文 |
-| `RolePermissionScope` | 拟新增 | 动作权限、字段权限、可见域和提交权限 |
-| `RoleSectionStatus` | 需要进一步确认 | 当前 `RoleDecisionSection.status` 为 `draft | ready`；`returned`、`locked` 属于拟扩展状态 |
-| `RoleFieldOwnership` | 拟新增 | 字段到角色的归属和协作规则 |
-| `RoleWorkspaceSnapshot` | 拟新增 | 学员端角色工作台聚合视图 |
-| `RoleReadinessSummary` | 拟新增 | 队伍内各角色 section 和确认状态摘要 |
-| `MergeConflict` | 拟新增 | 跨角色字段冲突、预算冲突、约束冲突和缺失项 |
-| `MergeValidationReport` | 需要进一步确认 | 当前 `DecisionMergeCommit` 已有校验语义；是否独立成类型需核对 schema |
-| `TeamConfirmationPolicy` | 拟新增 | 团队确认策略，如全员确认、CEO 确认、教师覆盖 |
-| `CanonicalDecisionSource` | 拟新增 | `Decision` 来源，区分手工提交、merge commit、系统迁移或测试 fixture |
-| `RoleContributionEvidence` | 拟新增 | 保存、评论、引用 AI 建议、确认、复盘等学习证据 |
-| `RoleAdvisoryContext` | 拟新增 | AI advisory 的角色裁剪输入 |
-| `RoleAdvisoryResult` | 拟新增 | 角色化 advisory 输出，最终仍映射到 `CoachOutput` / `ModelCallLog` |
+| 类型                       | 状态           | 用途                                                                 |
+| -------------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------- |
+| `RoleContext`              | 拟新增         | 用户在具体 course/run/round/team/role 下的运行时上下文               |
+| `RolePermissionScope`      | 拟新增         | 动作权限、字段权限、可见域和提交权限                                 |
+| `RoleSectionStatus`        | 需要进一步确认 | 当前 `RoleDecisionSection.status` 为 `draft                          | ready`；`returned`、`locked` 属于拟扩展状态 |
+| `RoleFieldOwnership`       | 拟新增         | 字段到角色的归属和协作规则                                           |
+| `RoleWorkspaceSnapshot`    | 拟新增         | 学员端角色工作台聚合视图                                             |
+| `RoleReadinessSummary`     | 拟新增         | 队伍内各角色 section 和确认状态摘要                                  |
+| `MergeConflict`            | 拟新增         | 跨角色字段冲突、预算冲突、约束冲突和缺失项                           |
+| `MergeValidationReport`    | 需要进一步确认 | 当前 `DecisionMergeCommit` 已有校验语义；是否独立成类型需核对 schema |
+| `TeamConfirmationPolicy`   | 拟新增         | 团队确认策略，如全员确认、CEO 确认、教师覆盖                         |
+| `CanonicalDecisionSource`  | 拟新增         | `Decision` 来源，区分手工提交、merge commit、系统迁移或测试 fixture  |
+| `RoleContributionEvidence` | 拟新增         | 保存、评论、引用 AI 建议、确认、复盘等学习证据                       |
+| `RoleAdvisoryContext`      | 拟新增         | AI advisory 的角色裁剪输入                                           |
+| `RoleAdvisoryResult`       | 拟新增         | 角色化 advisory 输出，最终仍映射到 `CoachOutput` / `ModelCallLog`    |
 
 对现有类型的调整建议：
 
@@ -237,35 +237,35 @@ interface RoleContext {
 
 ### Role context 与 workspace
 
-| Endpoint | 状态 | Route group | Contract | 说明 |
-| --- | --- | --- | --- | --- |
-| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-context` | 拟新增 | `FoundationRoutes` | `RoleContext` | 解析当前用户在队伍和轮次中的角色上下文 |
-| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-workspace` | 拟新增 | `FoundationRoutes` | `RoleWorkspaceSnapshot` | 返回角色工作台聚合视图，按权限裁剪 |
-| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/readiness` | 拟新增 | `FoundationRoutes` | `RoleReadinessSummary` | 返回队伍角色 ready、merge、confirmation 摘要 |
+| Endpoint                                                                  | 状态   | Route group        | Contract                | 说明                                         |
+| ------------------------------------------------------------------------- | ------ | ------------------ | ----------------------- | -------------------------------------------- |
+| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-context`   | 拟新增 | `FoundationRoutes` | `RoleContext`           | 解析当前用户在队伍和轮次中的角色上下文       |
+| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-workspace` | 拟新增 | `FoundationRoutes` | `RoleWorkspaceSnapshot` | 返回角色工作台聚合视图，按权限裁剪           |
+| `GET /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/readiness`      | 拟新增 | `FoundationRoutes` | `RoleReadinessSummary`  | 返回队伍角色 ready、merge、confirmation 摘要 |
 
 ### Role section command
 
-| Endpoint | 状态 | Route group | Contract | 说明 |
-| --- | --- | --- | --- | --- |
-| `PUT /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}` | 当前已有核心命令 | `FoundationRoutes` | `RoleDecisionSection` | 保存角色区块草稿 |
-| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}/ready` | 需要进一步确认 | `FoundationRoutes` | `RoleDecisionSection` | 当前 ready 可由 section status 表达；是否已有独立 endpoint 需核对 route |
-| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}/return` | 拟新增 | `FoundationRoutes` | `RoleDecisionSection` | CEO 或教师退回 section，可选 P1 能力 |
+| Endpoint                                                                                | 状态             | Route group        | Contract              | 说明                                                                    |
+| --------------------------------------------------------------------------------------- | ---------------- | ------------------ | --------------------- | ----------------------------------------------------------------------- |
+| `PUT /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}`         | 当前已有核心命令 | `FoundationRoutes` | `RoleDecisionSection` | 保存角色区块草稿                                                        |
+| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}/ready`  | 需要进一步确认   | `FoundationRoutes` | `RoleDecisionSection` | 当前 ready 可由 section status 表达；是否已有独立 endpoint 需核对 route |
+| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/role-sections/{role}/return` | 拟新增           | `FoundationRoutes` | `RoleDecisionSection` | CEO 或教师退回 section，可选 P1 能力                                    |
 
 ### Merge、confirmation 与 canonical decision
 
-| Endpoint | 状态 | Route group | Contract | 说明 |
-| --- | --- | --- | --- | --- |
+| Endpoint                                                                  | 状态             | Route group        | Contract              | 说明                                   |
+| ------------------------------------------------------------------------- | ---------------- | ------------------ | --------------------- | -------------------------------------- |
 | `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/merge-commits` | 当前已有核心命令 | `FoundationRoutes` | `DecisionMergeCommit` | 创建候选 canonical decision 和校验报告 |
-| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/confirmations` | 当前已有核心命令 | `FoundationRoutes` | `TeamConfirmation` | 团队确认合并结果 |
-| `POST /api/v1/runs/{runId}/rounds/{roundNo}/decisions` | 当前已有核心命令 | `DecisionRoutes` | `Decision` | 提交正式 canonical decision |
+| `POST /api/v1/runs/{runId}/rounds/{roundNo}/teams/{teamId}/confirmations` | 当前已有核心命令 | `FoundationRoutes` | `TeamConfirmation`    | 团队确认合并结果                       |
+| `POST /api/v1/runs/{runId}/rounds/{roundNo}/decisions`                    | 当前已有核心命令 | `DecisionRoutes`   | `Decision`            | 提交正式 canonical decision            |
 
 ### Settlement、Replay 与 AI
 
-| Endpoint | 状态 | Route group | Contract | 说明 |
-| --- | --- | --- | --- | --- |
-| `POST /api/v1/runs/{runId}/rounds/{roundNo}/settle` | 当前已有核心命令 | `SettlementRoutes` | `SettlementResult`、`ReplayInputManifest` | 只消费 validated canonical decision |
-| `POST /api/v1/replays` / `POST /api/v1/shadow-replays` | 当前已有治理能力 | `ReplayRoutes` | `ReplayRun`、`ReplayReport`、`ReplayDiffReport` | 使用历史 canonical 输入重放，不覆盖正式结果 |
-| `POST /api/v1/agents/advisory` | 当前已有 advisory 入口，角色化裁剪为拟增强 | `AgentRoutes` | `AgentRequest`、`AgentResponse`、`CoachOutput`、`ModelCallLog` | 角色化裁剪 advisory，只读授权上下文 |
+| Endpoint                                               | 状态                                       | Route group        | Contract                                                       | 说明                                        |
+| ------------------------------------------------------ | ------------------------------------------ | ------------------ | -------------------------------------------------------------- | ------------------------------------------- |
+| `POST /api/v1/runs/{runId}/rounds/{roundNo}/settle`    | 当前已有核心命令                           | `SettlementRoutes` | `SettlementResult`、`ReplayInputManifest`                      | 只消费 validated canonical decision         |
+| `POST /api/v1/replays` / `POST /api/v1/shadow-replays` | 当前已有治理能力                           | `ReplayRoutes`     | `ReplayRun`、`ReplayReport`、`ReplayDiffReport`                | 使用历史 canonical 输入重放，不覆盖正式结果 |
+| `POST /api/v1/agents/advisory`                         | 当前已有 advisory 入口，角色化裁剪为拟增强 | `AgentRoutes`      | `AgentRequest`、`AgentResponse`、`CoachOutput`、`ModelCallLog` | 角色化裁剪 advisory，只读授权上下文         |
 
 后端强制校验：
 
@@ -317,15 +317,15 @@ interface RoleContext {
 
 建议新增或规划以下表：
 
-| 表 | 状态 | 用途 | 阶段 |
-| --- | --- | --- | --- |
-| `role_assignment` | 拟新增 | 课程 / run / team / user 到 `role_key` 的分配 | P0 |
-| `role_context_session` | 拟新增 / 可选 | 记录短生命周期角色上下文和切换审计 | P1 |
-| `role_field_policy` | 拟新增 | 角色可编辑字段、只读字段和合并策略 | P0 |
-| `role_contribution_evidence` | 拟新增 | 保存角色保存、ready、评论、采纳 AI、确认等学习证据 | P1 |
-| `decision_merge_section_link` | 拟新增 | 替代 `role_section_ids text[]` 的严格 join table | P1 |
-| `merge_conflict_log` | 拟新增 | 保存合并冲突和处理结果 | P1 |
-| `role_readiness_history` | 拟新增 / 需要进一步确认 | 记录 ready / return / lock 的历史状态；若 ready 只保留在 `RoleDecisionSection.status`，该表可不建 | P1 |
+| 表                            | 状态                    | 用途                                                                                              | 阶段 |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- | ---- |
+| `role_assignment`             | 拟新增                  | 课程 / run / team / user 到 `role_key` 的分配                                                     | P0   |
+| `role_context_session`        | 拟新增 / 可选           | 记录短生命周期角色上下文和切换审计                                                                | P1   |
+| `role_field_policy`           | 拟新增                  | 角色可编辑字段、只读字段和合并策略                                                                | P0   |
+| `role_contribution_evidence`  | 拟新增                  | 保存角色保存、ready、评论、采纳 AI、确认等学习证据                                                | P1   |
+| `decision_merge_section_link` | 拟新增                  | 替代 `role_section_ids text[]` 的严格 join table                                                  | P1   |
+| `merge_conflict_log`          | 拟新增                  | 保存合并冲突和处理结果                                                                            | P1   |
+| `role_readiness_history`      | 拟新增 / 需要进一步确认 | 记录 ready / return / lock 的历史状态；若 ready 只保留在 `RoleDecisionSection.status`，该表可不建 | P1   |
 
 索引和约束建议：
 
@@ -350,13 +350,13 @@ RoleDecisionSection(status=draft/ready)
 
 各节点职责：
 
-| 节点 | 状态 | 输入 | 输出 | 是否进入正式结算 |
-| --- | --- | --- | --- | --- |
-| `RoleDecisionSection` | 当前已有核心链路 | 角色表单、角色 AI 建议采纳、证据 | 角色 section payload 和 ready 状态 | 否 |
-| `DecisionMergeCommit` | 当前已有核心链路 | 多个 ready section、字段归属、冲突处理 | 候选 canonical payload、diff、校验报告 | 否 |
-| `TeamConfirmation` | 当前已有核心链路 | merge commit、确认策略、成员确认 | confirmed audit record | 否 |
-| canonical `Decision` | 当前已有核心链路 | confirmed merge commit | 正式 canonical decision payload | 是 |
-| `SettlementResult` | 当前已有核心链路 | canonical decisions、scenario、parameter set、plugin ids、engine、seed | 正式结果、快照、manifest | 结果输出 |
+| 节点                  | 状态             | 输入                                                                   | 输出                                   | 是否进入正式结算 |
+| --------------------- | ---------------- | ---------------------------------------------------------------------- | -------------------------------------- | ---------------- |
+| `RoleDecisionSection` | 当前已有核心链路 | 角色表单、角色 AI 建议采纳、证据                                       | 角色 section payload 和 ready 状态     | 否               |
+| `DecisionMergeCommit` | 当前已有核心链路 | 多个 ready section、字段归属、冲突处理                                 | 候选 canonical payload、diff、校验报告 | 否               |
+| `TeamConfirmation`    | 当前已有核心链路 | merge commit、确认策略、成员确认                                       | confirmed audit record                 | 否               |
+| canonical `Decision`  | 当前已有核心链路 | confirmed merge commit                                                 | 正式 canonical decision payload        | 是               |
+| `SettlementResult`    | 当前已有核心链路 | canonical decisions、scenario、parameter set、plugin ids、engine、seed | 正式结果、快照、manifest               | 结果输出         |
 
 链路影响：
 
@@ -370,14 +370,14 @@ RoleDecisionSection(status=draft/ready)
 
 建议增加链路状态矩阵：
 
-| Round 状态 | Role section | Merge commit | Team confirmation | Decision | 允许动作 | 状态说明 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `open` | `draft` | 无 | 无 | 无 | 保存 section | 当前已有基础链路 |
-| `open` | `ready` | 无 | 无 | 无 | 创建 merge commit | 当前已有基础链路 |
-| `open` | `ready` | `validated` | 无 | 无 | 团队确认 | 当前已有基础链路 |
-| `open` | `ready/locked` | `validated` | `confirmed` | 无 | 提交 canonical decision | `locked` section 状态为拟扩展 |
-| `locked` | `locked` | `validated` | `confirmed` | `validated` | 结算 | `locked` section 状态为拟扩展 |
-| `published` | 只读 | 只读 | 只读 | 只读 | 查看结果与 Replay | 当前发布后只读原则 |
+| Round 状态  | Role section   | Merge commit | Team confirmation | Decision    | 允许动作                | 状态说明                      |
+| ----------- | -------------- | ------------ | ----------------- | ----------- | ----------------------- | ----------------------------- |
+| `open`      | `draft`        | 无           | 无                | 无          | 保存 section            | 当前已有基础链路              |
+| `open`      | `ready`        | 无           | 无                | 无          | 创建 merge commit       | 当前已有基础链路              |
+| `open`      | `ready`        | `validated`  | 无                | 无          | 团队确认                | 当前已有基础链路              |
+| `open`      | `ready/locked` | `validated`  | `confirmed`       | 无          | 提交 canonical decision | `locked` section 状态为拟扩展 |
+| `locked`    | `locked`       | `validated`  | `confirmed`       | `validated` | 结算                    | `locked` section 状态为拟扩展 |
+| `published` | 只读           | 只读         | 只读              | 只读        | 查看结果与 Replay       | 当前发布后只读原则            |
 
 ## 8. plugins 对角色化决策的扩展方式
 
@@ -392,14 +392,14 @@ RoleDecisionSection(status=draft/ready)
 
 建议为插件增加以下可选扩展点：
 
-| 扩展点 | 状态 | 用途 | 真值边界 |
-| --- | --- | --- | --- |
-| `role_extensions` | 拟新增 | 声明行业专属角色，如康养运营负责人、合规负责人 | 不直接影响 settlement |
-| `field_ownership` | 拟新增 | 声明角色对行业字段的编辑权和协作权 | 只影响权限和 merge |
-| `role_validation_rules` | 拟新增 | 声明角色 section 的行业校验规则 | 阻止非法输入，不产出真值 |
-| `kpi_ownership` | 拟新增 | 将行业 KPI 解释绑定到角色 | 只影响反馈和学习证据 |
-| `role_ui_schema_ref` | 拟新增 | 提供角色表单 schema 引用 | 前端渲染辅助 |
-| `advisory_scope` | 拟新增 | 约束角色化 AI 可读取字段 | 只影响 advisory 输入裁剪 |
+| 扩展点                  | 状态   | 用途                                           | 真值边界                 |
+| ----------------------- | ------ | ---------------------------------------------- | ------------------------ |
+| `role_extensions`       | 拟新增 | 声明行业专属角色，如康养运营负责人、合规负责人 | 不直接影响 settlement    |
+| `field_ownership`       | 拟新增 | 声明角色对行业字段的编辑权和协作权             | 只影响权限和 merge       |
+| `role_validation_rules` | 拟新增 | 声明角色 section 的行业校验规则                | 阻止非法输入，不产出真值 |
+| `kpi_ownership`         | 拟新增 | 将行业 KPI 解释绑定到角色                      | 只影响反馈和学习证据     |
+| `role_ui_schema_ref`    | 拟新增 | 提供角色表单 schema 引用                       | 前端渲染辅助             |
+| `advisory_scope`        | 拟新增 | 约束角色化 AI 可读取字段                       | 只影响 advisory 输入裁剪 |
 
 示例：
 
@@ -430,13 +430,13 @@ RoleDecisionSection(status=draft/ready)
 
 角色化重构必须把权限拆成五层：
 
-| 权限层 | 控制问题 | 典型检查点 |
-| --- | --- | --- |
-| 身份认证 | 用户是谁 | `AuthSession`、JWT/session、`CurrentUser` |
-| 租户隔离 | 用户属于哪个租户 | `tenant_id` 一致性、RLS/repository filter |
-| 课程与队伍成员 | 用户是否属于该课程和队伍 | course/team membership |
-| 角色上下文 | 用户在当前轮次以哪个角色行动 | `role_assignment`、`RoleContext`，均为拟新增 |
-| 字段和动作权限 | 能看什么、改什么、提交什么 | `RolePermissionScope`、`PermissionKey` |
+| 权限层         | 控制问题                     | 典型检查点                                   |
+| -------------- | ---------------------------- | -------------------------------------------- |
+| 身份认证       | 用户是谁                     | `AuthSession`、JWT/session、`CurrentUser`    |
+| 租户隔离       | 用户属于哪个租户             | `tenant_id` 一致性、RLS/repository filter    |
+| 课程与队伍成员 | 用户是否属于该课程和队伍     | course/team membership                       |
+| 角色上下文     | 用户在当前轮次以哪个角色行动 | `role_assignment`、`RoleContext`，均为拟新增 |
+| 字段和动作权限 | 能看什么、改什么、提交什么   | `RolePermissionScope`、`PermissionKey`       |
 
 学生侧默认权限：
 
@@ -554,48 +554,48 @@ npm run quality
 
 ### Endpoint 核验
 
-| 项目 | 需要确认的文件或目录 | 结论要求 |
-| --- | --- | --- |
-| `role-sections/{role}` 保存接口 | `services/api/src/routes/foundation-routes.ts`、OpenAPI | 确认 method、路径参数、请求体、幂等键和权限检查 |
-| `role-sections/{role}/ready` | `services/api/src/routes/foundation-routes.ts`、OpenAPI | 确认是否已有独立 ready endpoint；若没有，明确通过 PUT status 更新还是新增 command |
-| `merge-commits` | `services/api/src/routes/foundation-routes.ts`、OpenAPI | 确认 `DecisionMergeCommit` 创建路径、校验报告和审计事件 |
-| `confirmations` | `services/api/src/routes/foundation-routes.ts`、OpenAPI | 确认 `TeamConfirmation` 创建路径、确认人和幂等策略 |
-| `decisions` | `services/api/src/routes/decision-routes.ts`、OpenAPI | 确认 canonical `Decision` 是否追溯 merge commit 和 confirmation |
-| `settle` | `services/api/src/routes/settlement-routes.ts`、`services/api/src/settlement-service.ts` | 确认 settlement 只读取 canonical decision |
-| `role-context` / `role-workspace` / `readiness` | 尚未确认，拟新增 | 若决定实现，先补 OpenAPI、contract、schema、fixture、route tests |
+| 项目                                            | 需要确认的文件或目录                                                                     | 结论要求                                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `role-sections/{role}` 保存接口                 | `services/api/src/routes/foundation-routes.ts`、OpenAPI                                  | 确认 method、路径参数、请求体、幂等键和权限检查                                   |
+| `role-sections/{role}/ready`                    | `services/api/src/routes/foundation-routes.ts`、OpenAPI                                  | 确认是否已有独立 ready endpoint；若没有，明确通过 PUT status 更新还是新增 command |
+| `merge-commits`                                 | `services/api/src/routes/foundation-routes.ts`、OpenAPI                                  | 确认 `DecisionMergeCommit` 创建路径、校验报告和审计事件                           |
+| `confirmations`                                 | `services/api/src/routes/foundation-routes.ts`、OpenAPI                                  | 确认 `TeamConfirmation` 创建路径、确认人和幂等策略                                |
+| `decisions`                                     | `services/api/src/routes/decision-routes.ts`、OpenAPI                                    | 确认 canonical `Decision` 是否追溯 merge commit 和 confirmation                   |
+| `settle`                                        | `services/api/src/routes/settlement-routes.ts`、`services/api/src/settlement-service.ts` | 确认 settlement 只读取 canonical decision                                         |
+| `role-context` / `role-workspace` / `readiness` | 尚未确认，拟新增                                                                         | 若决定实现，先补 OpenAPI、contract、schema、fixture、route tests                  |
 
 ### Type 与 schema 核验
 
-| 项目 | 需要确认的文件或目录 | 结论要求 |
-| --- | --- | --- |
-| `RoleKey` | `packages/shared-contracts/src/index.ts`、`contracts/schemas/role-decision-section.v1.json` | 确认当前枚举为 `CEO`、`CFO`、`CMO`、`COO`、`risk` |
-| `RoleDecisionSection` | `packages/shared-contracts/src/index.ts`、`contracts/schemas/role-decision-section.v1.json` | 确认现有字段、`status=draft|ready` 和 fixture |
-| `DecisionMergeCommit` | `packages/shared-contracts/src/index.ts`、`contracts/schemas/decision-merge-commit.v1.json` | 确认现有字段、`status=validated`、diff 和 validation report 表达 |
-| `TeamConfirmation` | `packages/shared-contracts/src/index.ts`、`contracts/schemas/team-confirmation.v1.json` | 确认现有字段、`status=confirmed` 和 `merge_commit_id` |
-| `Decision` | `packages/shared-contracts/src/index.ts`、`contracts/schemas/decision.v1.json` | 确认是否已有 `merge_commit_id`、`team_confirmation_id`、`source`、`submitted_by` |
-| `RoleContext` / `RoleWorkspaceSnapshot` / `RoleReadinessSummary` | 拟新增 | 先定义 shared type，再同步 schema、fixture、OpenAPI 和前端 client |
+| 项目                                                             | 需要确认的文件或目录                                                                        | 结论要求                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
+| `RoleKey`                                                        | `packages/shared-contracts/src/index.ts`、`contracts/schemas/role-decision-section.v1.json` | 确认当前枚举为 `CEO`、`CFO`、`CMO`、`COO`、`risk`                                |
+| `RoleDecisionSection`                                            | `packages/shared-contracts/src/index.ts`、`contracts/schemas/role-decision-section.v1.json` | 确认现有字段、`status=draft                                                      | ready` 和 fixture |
+| `DecisionMergeCommit`                                            | `packages/shared-contracts/src/index.ts`、`contracts/schemas/decision-merge-commit.v1.json` | 确认现有字段、`status=validated`、diff 和 validation report 表达                 |
+| `TeamConfirmation`                                               | `packages/shared-contracts/src/index.ts`、`contracts/schemas/team-confirmation.v1.json`     | 确认现有字段、`status=confirmed` 和 `merge_commit_id`                            |
+| `Decision`                                                       | `packages/shared-contracts/src/index.ts`、`contracts/schemas/decision.v1.json`              | 确认是否已有 `merge_commit_id`、`team_confirmation_id`、`source`、`submitted_by` |
+| `RoleContext` / `RoleWorkspaceSnapshot` / `RoleReadinessSummary` | 拟新增                                                                                      | 先定义 shared type，再同步 schema、fixture、OpenAPI 和前端 client                |
 
 ### Table 与 migration 核验
 
-| 项目 | 需要确认的文件或目录 | 结论要求 |
-| --- | --- | --- |
-| `role_decision_section` | `db/migrations/20260519_002_create_repository_decision_tables.sql` | 确认唯一键、status check、tenant/run/round/team 引用 |
-| `decision_merge_commit` | `db/migrations/20260519_002_create_repository_decision_tables.sql` | 确认 `role_section_ids`、`canonical_decision_payload`、status 和索引 |
-| `team_confirmation` | `db/migrations/20260519_002_create_repository_decision_tables.sql` | 确认已严格引用 `decision_merge_commit` |
-| `decision` | `db/migrations/20260519_002_create_repository_decision_tables.sql` | 确认 `merge_commit_id`、`team_confirmation_id` 当前是否为严格外键还是业务引用 |
-| `settlement_result` / `replay_input_manifest` | `db/migrations/20260519_005_create_repository_ledger_replay_tables.sql` | 确认正式结果与 replay manifest 的边界 |
-| `role_assignment` / `role_field_policy` / `decision_merge_section_link` | 拟新增 | 若进入实现，先写 migration 设计、adapter contract 和 migration tests |
+| 项目                                                                    | 需要确认的文件或目录                                                    | 结论要求                                                                      |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `role_decision_section`                                                 | `db/migrations/20260519_002_create_repository_decision_tables.sql`      | 确认唯一键、status check、tenant/run/round/team 引用                          |
+| `decision_merge_commit`                                                 | `db/migrations/20260519_002_create_repository_decision_tables.sql`      | 确认 `role_section_ids`、`canonical_decision_payload`、status 和索引          |
+| `team_confirmation`                                                     | `db/migrations/20260519_002_create_repository_decision_tables.sql`      | 确认已严格引用 `decision_merge_commit`                                        |
+| `decision`                                                              | `db/migrations/20260519_002_create_repository_decision_tables.sql`      | 确认 `merge_commit_id`、`team_confirmation_id` 当前是否为严格外键还是业务引用 |
+| `settlement_result` / `replay_input_manifest`                           | `db/migrations/20260519_005_create_repository_ledger_replay_tables.sql` | 确认正式结果与 replay manifest 的边界                                         |
+| `role_assignment` / `role_field_policy` / `decision_merge_section_link` | 拟新增                                                                  | 若进入实现，先写 migration 设计、adapter contract 和 migration tests          |
 
 ### Status、fixture 与测试文件核验
 
-| 项目 | 需要确认的文件或目录 | 结论要求 |
-| --- | --- | --- |
-| status 枚举 | shared-contracts、schemas、fixtures | 确认当前 status 后，再决定是否扩展 `returned`、`locked`、`rejected`、`revoked`、`superseded` |
-| fixtures | `contracts/fixtures/role-decision-section.valid.json`、`decision-merge-commit.valid.json`、`team-confirmation.valid.json`、`decision.valid.json` | 确认 fixture 能表达当前核心链路；新增状态必须新增 fixture |
-| contract tests | `tests/contract/` | 确认新增 endpoint/type/schema 后有 contract 覆盖 |
-| integration tests | `tests/integration/` | 确认 ready、merge、confirm、canonical submit、settle 的正反向链路 |
-| migration tests | `tests/`、`scripts/` 中 migration gate | 确认新增表、外键、唯一键和幂等行为 |
-| e2e tests | `tests/e2e/` | 确认学员端角色工作台和教师锁轮 preflight 的主流程 |
+| 项目              | 需要确认的文件或目录                                                                                                                             | 结论要求                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| status 枚举       | shared-contracts、schemas、fixtures                                                                                                              | 确认当前 status 后，再决定是否扩展 `returned`、`locked`、`rejected`、`revoked`、`superseded` |
+| fixtures          | `contracts/fixtures/role-decision-section.valid.json`、`decision-merge-commit.valid.json`、`team-confirmation.valid.json`、`decision.valid.json` | 确认 fixture 能表达当前核心链路；新增状态必须新增 fixture                                    |
+| contract tests    | `tests/contract/`                                                                                                                                | 确认新增 endpoint/type/schema 后有 contract 覆盖                                             |
+| integration tests | `tests/integration/`                                                                                                                             | 确认 ready、merge、confirm、canonical submit、settle 的正反向链路                            |
+| migration tests   | `tests/`、`scripts/` 中 migration gate                                                                                                           | 确认新增表、外键、唯一键和幂等行为                                                           |
+| e2e tests         | `tests/e2e/`                                                                                                                                     | 确认学员端角色工作台和教师锁轮 preflight 的主流程                                            |
 
 ## 12. 分阶段开发任务
 

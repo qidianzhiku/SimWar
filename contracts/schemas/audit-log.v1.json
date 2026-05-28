@@ -3,7 +3,17 @@
   "$id": "https://simwar.local/contracts/schemas/audit-log.v1.json",
   "title": "AuditLog",
   "type": "object",
-  "required": ["audit_id", "tenant_id", "actor_id", "actor_role", "action", "resource_type", "resource_id", "request_id", "created_at"],
+  "required": [
+    "audit_id",
+    "tenant_id",
+    "actor_id",
+    "actor_role",
+    "action",
+    "resource_type",
+    "resource_id",
+    "request_id",
+    "created_at"
+  ],
   "properties": {
     "audit_id": { "type": "string", "minLength": 1 },
     "tenant_id": { "type": "string", "minLength": 1 },

@@ -2,13 +2,13 @@
 
 建议保存路径：`docs/architecture/student-role-based-decision-test-strategy.md`
 
-| 项目 | 内容 |
-| --- | --- |
-| 文档定位 | 学员端角色化决策体系的测试分层、门禁和文件映射总览 |
-| 适用范围 | `apps/student`、`apps/teacher`、`apps/admin`、`packages/shared-contracts`、`services/api`、`services/simulation-core`、`db/migrations`、`plugins`、`tests` |
-| 依据 | 当前已生成的 apps / packages / services / db / plugins / docs 知识图谱，以及 `docs/architecture/student-role-based-decision-refactor.md`、`docs/architecture/student-role-based-decision-implementation-plan.md`、`docs/architecture/student-role-based-decision-phase-0-audit.md` |
-| 约束 | 不修改业务代码，只定义测试策略和门禁映射 |
-| 最后更新 | 2026-05-26 |
+| 项目     | 内容                                                                                                                                                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 文档定位 | 学员端角色化决策体系的测试分层、门禁和文件映射总览                                                                                                                                                                                                                                 |
+| 适用范围 | `apps/student`、`apps/teacher`、`apps/admin`、`packages/shared-contracts`、`services/api`、`services/simulation-core`、`db/migrations`、`plugins`、`tests`                                                                                                                         |
+| 依据     | 当前已生成的 apps / packages / services / db / plugins / docs 知识图谱，以及 `docs/architecture/student-role-based-decision-refactor.md`、`docs/architecture/student-role-based-decision-implementation-plan.md`、`docs/architecture/student-role-based-decision-phase-0-audit.md` |
+| 约束     | 不修改业务代码，只定义测试策略和门禁映射                                                                                                                                                                                                                                           |
+| 最后更新 | 2026-05-26                                                                                                                                                                                                                                                                         |
 
 ## 1. 测试策略总则
 
@@ -30,16 +30,16 @@ RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Deci
 
 ## 2. 测试分层总览
 
-| 测试类别 | 主要目标 | 当前仓库落点 |
-| --- | --- | --- |
-| unit tests | 验证最小纯函数、schema 解析、引擎 deterministic 行为、边界拒绝 | `tests/unit/*`、`services/simulation-core/src/*`、`packages/shared-contracts/src/index.ts` |
-| contract tests | 验证 shared-contracts、OpenAPI、JSON Schema、fixture 和 adapter 契约一致 | `tests/contract/repository-adapter-contract.ts`、`scripts/check-contracts.mjs`、`contracts/*` |
-| API integration tests | 验证 route / service / repository 的完整命令链 | `tests/integration/*`、`services/api/src/routes/*`、`services/api/src/*service.ts` |
-| E2E tests | 验证 student / teacher / admin 的真实工作流 | `tests/e2e/*`、`tests/e2e-ui/*`、`apps/*` |
-| migration tests | 验证 SQL migration、RLS、唯一约束、表结构和 adapter 映射 | `db/migrations/*`、`scripts/check-migrations.mjs`、`tests/integration/postgres-repository-adapter.test.ts` |
-| replay golden tests | 验证正式结果和 replay hash 的稳定性 | `tests/unit/simulation-core.test.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/e2e/p1-frontdoor-smoke.test.ts` |
-| settlement idempotency tests | 验证重复 settle 不产生重复副作用 | `services/api/src/settlement-service.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/e2e/p1-frontdoor-smoke.test.ts` |
-| plugin boundary tests | 验证插件只在受控 hook 内改变结果 | `services/simulation-core/src/*`、`plugins/wellness/*`、`tests/unit/simulation-core.test.ts`、`tests/contract/repository-adapter-contract.ts` |
+| 测试类别                     | 主要目标                                                                 | 当前仓库落点                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| unit tests                   | 验证最小纯函数、schema 解析、引擎 deterministic 行为、边界拒绝           | `tests/unit/*`、`services/simulation-core/src/*`、`packages/shared-contracts/src/index.ts`                                                    |
+| contract tests               | 验证 shared-contracts、OpenAPI、JSON Schema、fixture 和 adapter 契约一致 | `tests/contract/repository-adapter-contract.ts`、`scripts/check-contracts.mjs`、`contracts/*`                                                 |
+| API integration tests        | 验证 route / service / repository 的完整命令链                           | `tests/integration/*`、`services/api/src/routes/*`、`services/api/src/*service.ts`                                                            |
+| E2E tests                    | 验证 student / teacher / admin 的真实工作流                              | `tests/e2e/*`、`tests/e2e-ui/*`、`apps/*`                                                                                                     |
+| migration tests              | 验证 SQL migration、RLS、唯一约束、表结构和 adapter 映射                 | `db/migrations/*`、`scripts/check-migrations.mjs`、`tests/integration/postgres-repository-adapter.test.ts`                                    |
+| replay golden tests          | 验证正式结果和 replay hash 的稳定性                                      | `tests/unit/simulation-core.test.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/e2e/p1-frontdoor-smoke.test.ts`           |
+| settlement idempotency tests | 验证重复 settle 不产生重复副作用                                         | `services/api/src/settlement-service.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/e2e/p1-frontdoor-smoke.test.ts`       |
+| plugin boundary tests        | 验证插件只在受控 hook 内改变结果                                         | `services/simulation-core/src/*`、`plugins/wellness/*`、`tests/unit/simulation-core.test.ts`、`tests/contract/repository-adapter-contract.ts` |
 
 ## 3. Unit Tests
 

@@ -118,7 +118,9 @@ function createStoredUser(input: {
 }
 
 function createSeedSnapshot(): SimWarStoreSnapshot {
-  const permissions = permissionKeys.map((key, index) => createPermission(key as PermissionKey, index + 1));
+  const permissions = permissionKeys.map((key, index) =>
+    createPermission(key as PermissionKey, index + 1)
+  );
   const roles = Object.keys(ROLE_PERMISSION_MATRIX).map((role) => createRole(role as ActorRole));
   const rolePermissions = roles.flatMap((role) =>
     role.permission_keys.map((key) => {
@@ -356,7 +358,9 @@ function loadSnapshot(persistenceFile: string): SimWarStoreSnapshot | undefined 
 }
 
 export function createP1Store(options: CreateStoreOptions = {}): SimWarStore {
-  const loadedSnapshot = options.persistenceFile ? loadSnapshot(options.persistenceFile) : undefined;
+  const loadedSnapshot = options.persistenceFile
+    ? loadSnapshot(options.persistenceFile)
+    : undefined;
   const snapshot = loadedSnapshot ?? createSeedSnapshot();
   const absolutePath = options.persistenceFile ? resolve(options.persistenceFile) : undefined;
 
@@ -384,7 +388,11 @@ export function createP0Store(options: CreateStoreOptions = {}): SimWarStore {
   return createP1Store(options);
 }
 
-export function nextId(store: SimWarStore, key: keyof SimWarStore["counters"] | string, prefix: string): string {
+export function nextId(
+  store: SimWarStore,
+  key: keyof SimWarStore["counters"] | string,
+  prefix: string
+): string {
   store.counters[key] = (store.counters[key] ?? 0) + 1;
   return `${prefix}_${store.counters[key].toString().padStart(3, "0")}`;
 }
@@ -418,7 +426,11 @@ export function toCurrentUser(user: StoredUser): CurrentUser {
   };
 }
 
-function getUserRoles(input: { user_id: string; store?: SimWarStore; fallbackRoles?: ActorRole[] }): ActorRole[] {
+function getUserRoles(input: {
+  user_id: string;
+  store?: SimWarStore;
+  fallbackRoles?: ActorRole[];
+}): ActorRole[] {
   if (!input.store) {
     return input.fallbackRoles ?? [];
   }
@@ -445,7 +457,9 @@ export function getActorFromUser(store: SimWarStore, user: StoredUser): CurrentU
 }
 
 export function setUserRoles(store: SimWarStore, user: StoredUser, roles: ActorRole[]): void {
-  const allowedRoles = roles.filter((role) => store.roles.some((candidate) => candidate.name === role));
+  const allowedRoles = roles.filter((role) =>
+    store.roles.some((candidate) => candidate.name === role)
+  );
 
   store.userRoles = store.userRoles.filter((userRole) => userRole.user_id !== user.user_id);
   store.userRoles.push(

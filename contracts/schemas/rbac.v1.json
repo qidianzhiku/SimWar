@@ -9,7 +9,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["role_id", "name", "display_name", "permission_keys", "created_at", "updated_at"],
+        "required": [
+          "role_id",
+          "name",
+          "display_name",
+          "permission_keys",
+          "created_at",
+          "updated_at"
+        ],
         "properties": {
           "role_id": { "type": "string" },
           "tenant_id": { "type": "string" },
