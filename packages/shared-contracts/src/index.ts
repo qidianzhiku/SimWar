@@ -327,6 +327,30 @@ export interface PublicResultView {
   results: Array<Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }>;
 }
 
+export type DomainEventType = string;
+
+export interface DomainEvent {
+  event_id: string;
+  tenant_id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: DomainEventType;
+  occurred_at: string;
+  actor_id?: string;
+  payload: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+export interface StateSnapshot {
+  snapshot_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  snapshot_type: "run" | "round" | "settlement";
+  captured_at: string;
+  state: Record<string, unknown>;
+}
+
 export interface AuditLog {
   audit_id: string;
   tenant_id: string;

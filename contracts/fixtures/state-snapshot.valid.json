@@ -1,0 +1,13 @@
+{
+  "snapshot_id": "snapshot_round_001",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "snapshot_type": "settlement",
+  "captured_at": "2026-05-28T00:00:00.000Z",
+  "state": {
+    "round_no": 1,
+    "status": "settled",
+    "team_count": 2
+  }
+}
