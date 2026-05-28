@@ -1,0 +1,16 @@
+{
+  "coach_output_id": "coach_output_001",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "team_id": "team_alpha",
+  "role_key": "CEO",
+  "output_type": "advisory",
+  "advisory_only": true,
+  "advisory_text": "Consider reviewing service capacity before the next round.",
+  "evidence_refs": [
+    "replay_report_001"
+  ],
+  "created_at": "2026-05-28T00:30:00.000Z",
+  "model_call_log_id": "model_call_log_001"
+}

@@ -1,0 +1,16 @@
+{
+  "model_call_log_id": "model_call_log_001",
+  "tenant_id": "tenant_demo",
+  "provider": "mock",
+  "model": "mock-advisor-v1",
+  "purpose": "coach_advice",
+  "status": "succeeded",
+  "advisory_only": true,
+  "input_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "output_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "prompt_tokens": 120,
+  "completion_tokens": 80,
+  "cost_usd": 0,
+  "latency_ms": 25,
+  "created_at": "2026-05-28T00:30:00.000Z"
+}

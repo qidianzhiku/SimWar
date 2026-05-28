@@ -46,6 +46,11 @@ export type CourseStatus = "draft" | "published" | "active" | "archived";
 export type RoundStatus = "draft" | "open" | "locked" | "settled" | "published";
 export type DecisionStatus = "draft" | "submitted" | "validated" | "rejected";
 export type ParameterSetStatus = "draft" | "candidate" | "shadow_passed" | "approved" | "deprecated";
+export type SettlementHookName =
+  | "adjustDemand"
+  | "adjustOperations"
+  | "adjustFinance"
+  | "adjustScore";
 
 export type PermissionKey =
   | "tenant:create"
@@ -149,6 +154,45 @@ export interface ScenarioPackage {
   plugin_package_ids: string[];
 }
 
+export interface PluginManifest {
+  manifest_version: "1.0.0";
+  plugin_id: string;
+  name: string;
+  version: string;
+  status: ParameterSetStatus;
+  industry: "wellness";
+  supported_hooks: SettlementHookName[];
+  parameter_schema_version: string;
+  parameter_schema_ref: string;
+  settlement_hook_refs: string[];
+  adapter_ref: string;
+}
+
+export interface WellnessParametersV1 {
+  schema_version: "wellness.parameters.v1";
+  demand_curve: {
+    reference_price: number;
+    price_friction_scale: number;
+    quality_budget_per_utility: number;
+    max_quality_lift: number;
+    quality_lift_weight: number;
+    price_sensitivity: number;
+  };
+  cost_structure: {
+    partnership_discount_threshold: number;
+    partnership_discount_rate: number;
+  };
+  operations_constraints: {
+    max_capacity_modifier: number;
+    min_service_quality_budget: number;
+  };
+  scoring_weights: {
+    service_quality_bonus_per_budget: number;
+    max_service_quality_bonus: number;
+    underfunded_service_penalty: number;
+  };
+}
+
 export interface ParameterSet {
   parameter_set_id: string;
   tenant_id: string;
@@ -160,6 +204,7 @@ export interface ParameterSet {
   base_capacity: number;
   unit_cost: number;
   fixed_cost: number;
+  parameters?: WellnessParametersV1;
 }
 
 export interface Course {
@@ -230,6 +275,113 @@ export interface Decision {
   payload: DecisionPayload;
   validation_report: ApiErrorDetail[];
   submitted_by: string;
+  canonical_source?: "legacy_direct" | "role_merge_commit";
+  merge_commit_id?: string;
+  team_confirmation_id?: string;
+}
+
+export type RoleDecisionSectionStatus = "draft" | "ready";
+export type DecisionMergeCommitStatus = "validated";
+export type TeamConfirmationStatus = "confirmed";
+export type RoleKey = TeamMember["role_slot"];
+
+export interface RoleDecisionSection {
+  section_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  role_key: RoleKey;
+  status: RoleDecisionSectionStatus;
+  payload: Partial<DecisionPayload>;
+  version: number;
+  submitted_by: string;
+  submitted_at: string;
+  updated_at: string;
+}
+
+export interface DecisionMergeCommit {
+  merge_commit_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  status: DecisionMergeCommitStatus;
+  source_section_ids: string[];
+  merged_payload: DecisionPayload;
+  created_by: string;
+  created_at: string;
+}
+
+export interface TeamConfirmation {
+  team_confirmation_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  merge_commit_id: string;
+  status: TeamConfirmationStatus;
+  confirmed_by: string;
+  confirmed_at: string;
+}
+
+export type ReplayMode = "official_replay" | "shadow_replay";
+export type ReplayRunStatus = "pending" | "running" | "completed" | "failed";
+export type ReplayReportStatus = "matched" | "mismatched" | "failed";
+export type ReplayDiffSeverity = "none" | "low" | "medium" | "high";
+
+export interface ReplayInputManifest {
+  manifest_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  source_result_id: string;
+  input_hash: string;
+  manifest_hash: string;
+  included_sources: string[];
+  excluded_from_truth_hash: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ReplayRun {
+  replay_run_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  replay_mode: ReplayMode;
+  status: ReplayRunStatus;
+  manifest_id: string;
+  started_at: string;
+  completed_at: string;
+}
+
+export interface ReplayReport {
+  replay_report_id: string;
+  replay_run_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  status: ReplayReportStatus;
+  source_result_id: string;
+  replay_result_hash: string;
+  matched: boolean;
+  created_at: string;
+}
+
+export interface ReplayDiffReport {
+  diff_report_id: string;
+  replay_report_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  severity: ReplayDiffSeverity;
+  differences: Array<{
+    field: string;
+    expected: unknown;
+    actual: unknown;
+    message: string;
+  }>;
+  created_at: string;
 }
 
 export interface TeamSettlement {
@@ -280,6 +432,65 @@ export interface PublicResultView {
   status: RoundStatus;
   replay_hash?: string;
   results: Array<Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }>;
+}
+
+export type DomainEventType = string;
+
+export interface DomainEvent {
+  event_id: string;
+  tenant_id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: DomainEventType;
+  occurred_at: string;
+  actor_id?: string;
+  payload: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+export interface StateSnapshot {
+  snapshot_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  snapshot_type: "run" | "round" | "settlement";
+  captured_at: string;
+  state: Record<string, unknown>;
+}
+
+export type CoachOutputType = "advisory" | "learning_note" | "explanation";
+export type ModelCallStatus = "succeeded" | "failed" | "rejected";
+
+export interface CoachOutput {
+  coach_output_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id?: string;
+  role_key?: RoleKey;
+  output_type: CoachOutputType;
+  advisory_only: true;
+  advisory_text: string;
+  evidence_refs: string[];
+  created_at: string;
+  model_call_log_id?: string;
+}
+
+export interface ModelCallLog {
+  model_call_log_id: string;
+  tenant_id: string;
+  provider: string;
+  model: string;
+  purpose: "coach_advice" | "debrief" | "learning_support";
+  status: ModelCallStatus;
+  advisory_only: true;
+  input_hash: string;
+  output_hash: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number;
+  latency_ms: number;
+  created_at: string;
 }
 
 export interface AuditLog {

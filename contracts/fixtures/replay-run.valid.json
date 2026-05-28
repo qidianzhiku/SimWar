@@ -1,0 +1,11 @@
+{
+  "replay_run_id": "replay_run_001",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "replay_mode": "official_replay",
+  "status": "completed",
+  "manifest_id": "manifest_round_001",
+  "started_at": "2026-05-28T00:21:00.000Z",
+  "completed_at": "2026-05-28T00:22:00.000Z"
+}

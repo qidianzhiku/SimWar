@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/replay-diff-report.v1.json",
+  "title": "ReplayDiffReport",
+  "type": "object",
+  "required": [
+    "diff_report_id",
+    "replay_report_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "severity",
+    "differences",
+    "created_at"
+  ],
+  "properties": {
+    "diff_report_id": { "type": "string", "minLength": 1 },
+    "replay_report_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "severity": {
+      "type": "string",
+      "enum": ["none", "low", "medium", "high"]
+    },
+    "differences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "expected", "actual", "message"],
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "expected": {},
+          "actual": {},
+          "message": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

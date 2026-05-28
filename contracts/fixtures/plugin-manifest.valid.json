@@ -1,0 +1,18 @@
+{
+  "manifest_version": "1.0.0",
+  "plugin_id": "plugin_wellness_v1",
+  "name": "Wellness industry plugin v1",
+  "version": "1.0.0",
+  "status": "approved",
+  "industry": "wellness",
+  "supported_hooks": ["adjustDemand", "adjustOperations", "adjustFinance", "adjustScore"],
+  "parameter_schema_version": "wellness.parameters.v1",
+  "parameter_schema_ref": "contracts/schemas/wellness-parameters.v1.json",
+  "settlement_hook_refs": [
+    "adjustDemand:wellness_eldercare_demand_v1",
+    "adjustOperations:wellness_capacity_guardrail_v1",
+    "adjustFinance:wellness_partnership_discount_v1",
+    "adjustScore:wellness_service_quality_weight_v1"
+  ],
+  "adapter_ref": "@simwar/simulation-core/wellnessPluginV1"
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/replay-report.v1.json",
+  "title": "ReplayReport",
+  "type": "object",
+  "required": [
+    "replay_report_id",
+    "replay_run_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "status",
+    "source_result_id",
+    "replay_result_hash",
+    "matched",
+    "created_at"
+  ],
+  "properties": {
+    "replay_report_id": { "type": "string", "minLength": 1 },
+    "replay_run_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["matched", "mismatched", "failed"]
+    },
+    "source_result_id": { "type": "string", "minLength": 1 },
+    "replay_result_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "matched": { "type": "boolean" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

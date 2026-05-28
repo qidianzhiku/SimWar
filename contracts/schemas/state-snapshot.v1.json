@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/state-snapshot.v1.json",
+  "title": "StateSnapshot",
+  "type": "object",
+  "required": [
+    "snapshot_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "snapshot_type",
+    "captured_at",
+    "state"
+  ],
+  "properties": {
+    "snapshot_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "snapshot_type": {
+      "type": "string",
+      "enum": ["run", "round", "settlement"]
+    },
+    "captured_at": { "type": "string", "format": "date-time" },
+    "state": { "type": "object" }
+  },
+  "additionalProperties": false
+}

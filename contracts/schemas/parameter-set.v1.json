@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/parameter-set.v1.json",
+  "title": "ParameterSet",
+  "type": "object",
+  "required": [
+    "parameter_set_id",
+    "tenant_id",
+    "version",
+    "status",
+    "model_family",
+    "seed",
+    "base_market_size",
+    "base_capacity",
+    "unit_cost",
+    "fixed_cost"
+  ],
+  "properties": {
+    "parameter_set_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "candidate", "shadow_passed", "approved", "deprecated"]
+    },
+    "model_family": { "const": "toy_logit" },
+    "seed": { "type": "integer" },
+    "base_market_size": { "type": "number", "exclusiveMinimum": 0 },
+    "base_capacity": { "type": "number", "exclusiveMinimum": 0 },
+    "unit_cost": { "type": "number", "minimum": 0 },
+    "fixed_cost": { "type": "number", "minimum": 0 },
+    "parameters": { "$ref": "wellness-parameters.v1.json" }
+  },
+  "additionalProperties": false
+}

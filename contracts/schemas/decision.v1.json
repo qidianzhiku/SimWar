@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/decision.v1.json",
+  "title": "Decision",
+  "type": "object",
+  "required": [
+    "decision_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "round_no",
+    "team_id",
+    "status",
+    "version",
+    "payload",
+    "validation_report",
+    "submitted_by"
+  ],
+  "properties": {
+    "decision_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "round_no": { "type": "integer", "minimum": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "submitted", "validated", "rejected"]
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "payload": { "$ref": "decision-payload.v1.json" },
+    "validation_report": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "field": { "type": "string" },
+          "reason": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "submitted_by": { "type": "string", "minLength": 1 },
+    "canonical_source": {
+      "type": "string",
+      "enum": ["legacy_direct", "role_merge_commit"]
+    },
+    "merge_commit_id": { "type": "string", "minLength": 1 },
+    "team_confirmation_id": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-call-log.v1.json",
+  "title": "ModelCallLog",
+  "type": "object",
+  "required": [
+    "model_call_log_id",
+    "tenant_id",
+    "provider",
+    "model",
+    "purpose",
+    "status",
+    "advisory_only",
+    "input_hash",
+    "output_hash",
+    "prompt_tokens",
+    "completion_tokens",
+    "cost_usd",
+    "latency_ms",
+    "created_at"
+  ],
+  "properties": {
+    "model_call_log_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "purpose": {
+      "type": "string",
+      "enum": ["coach_advice", "debrief", "learning_support"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "rejected"]
+    },
+    "advisory_only": { "const": true },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "output_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "prompt_tokens": { "type": "integer", "minimum": 0 },
+    "completion_tokens": { "type": "integer", "minimum": 0 },
+    "cost_usd": { "type": "number", "minimum": 0 },
+    "latency_ms": { "type": "integer", "minimum": 0 },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
