@@ -1,0 +1,24 @@
+{
+  "merge_commit_id": "merge_team_alpha_round_1",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "team_id": "team_alpha",
+  "status": "validated",
+  "source_section_ids": [
+    "section_cfo_team_alpha_round_1",
+    "section_cmo_team_alpha_round_1"
+  ],
+  "merged_payload": {
+    "pricing": {
+      "base_price": 15000
+    },
+    "marketing_budget": 90000,
+    "service_quality_budget": 70000,
+    "capacity_plan": "hold",
+    "cash_buffer_target": 120000,
+    "strategy_statement": "Hold price and improve service consistency."
+  },
+  "created_by": "user_captain_alpha",
+  "created_at": "2026-05-28T00:10:00.000Z"
+}

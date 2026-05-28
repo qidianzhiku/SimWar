@@ -275,6 +275,54 @@ export interface Decision {
   payload: DecisionPayload;
   validation_report: ApiErrorDetail[];
   submitted_by: string;
+  canonical_source?: "legacy_direct" | "role_merge_commit";
+  merge_commit_id?: string;
+  team_confirmation_id?: string;
+}
+
+export type RoleDecisionSectionStatus = "draft" | "ready";
+export type DecisionMergeCommitStatus = "validated";
+export type TeamConfirmationStatus = "confirmed";
+export type RoleKey = TeamMember["role_slot"];
+
+export interface RoleDecisionSection {
+  section_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  role_key: RoleKey;
+  status: RoleDecisionSectionStatus;
+  payload: Partial<DecisionPayload>;
+  version: number;
+  submitted_by: string;
+  submitted_at: string;
+  updated_at: string;
+}
+
+export interface DecisionMergeCommit {
+  merge_commit_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  status: DecisionMergeCommitStatus;
+  source_section_ids: string[];
+  merged_payload: DecisionPayload;
+  created_by: string;
+  created_at: string;
+}
+
+export interface TeamConfirmation {
+  team_confirmation_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  team_id: string;
+  merge_commit_id: string;
+  status: TeamConfirmationStatus;
+  confirmed_by: string;
+  confirmed_at: string;
 }
 
 export interface TeamSettlement {

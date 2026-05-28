@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/role-decision-section.v1.json",
+  "title": "RoleDecisionSection",
+  "type": "object",
+  "required": [
+    "section_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "team_id",
+    "role_key",
+    "status",
+    "payload",
+    "version",
+    "submitted_by",
+    "submitted_at",
+    "updated_at"
+  ],
+  "properties": {
+    "section_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "role_key": {
+      "type": "string",
+      "enum": ["CEO", "CFO", "CMO", "COO", "risk"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "ready"]
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "pricing": {
+          "type": "object",
+          "properties": {
+            "base_price": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "marketing_budget": { "type": "number", "minimum": 0 },
+        "service_quality_budget": { "type": "number", "minimum": 0 },
+        "capacity_plan": {
+          "type": "string",
+          "enum": ["contract", "hold", "expand"]
+        },
+        "cash_buffer_target": { "type": "number", "minimum": 0 },
+        "strategy_statement": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "submitted_by": { "type": "string", "minLength": 1 },
+    "submitted_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
