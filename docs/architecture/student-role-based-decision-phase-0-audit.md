@@ -18,14 +18,14 @@ RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Deci
 
 ## 1. 当前核心定义位置
 
-| 概念 | 当前定义位置 | 说明 |
-| --- | --- | --- |
-| `role_key` / `RoleKey` | `packages/shared-contracts/src/index.ts`：`TeamMember.role_slot`、`RoleKey = TeamMember["role_slot"]`；`contracts/schemas/role-decision-section.v1.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql` | 当前角色枚举为 `CEO`、`CFO`、`CMO`、`COO`、`risk`。数据库在 `role_decision_section.role_key` 上使用 check constraint。 |
-| `RoleDecisionSection` | `packages/shared-contracts/src/index.ts`；`contracts/schemas/role-decision-section.v1.json`；`contracts/fixtures/role-decision-section.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql` | 当前字段包含 `section_id`、tenant/run/round/team、`role_key`、`author_user_id`、`status: "draft" | "ready"`、`section_payload`、`payload_hash` 等。 |
-| `DecisionMergeCommit` | `packages/shared-contracts/src/index.ts`；`contracts/schemas/decision-merge-commit.v1.json`；`contracts/fixtures/decision-merge-commit.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql` | 当前字段包含 `role_section_ids`、`canonical_decision_payload`、`merge_diff`、`validation_report`、`committed_by`、`status: "validated"`、`payload_hash`。 |
-| `TeamConfirmation` | `packages/shared-contracts/src/index.ts`；`contracts/schemas/team-confirmation.v1.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql` | 当前字段包含 `confirmation_id`、tenant/run/round/team、`merge_commit_id`、`confirmed_by`、`status: "confirmed"`。当前未发现 `contracts/fixtures/team-confirmation.valid.json`。 |
-| canonical `Decision` | `packages/shared-contracts/src/index.ts`；`contracts/schemas/decision.v1.json`；`contracts/fixtures/decision.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`；`services/api/src/routes/decision-routes.ts` | 当前 `Decision` 支持 `merge_commit_id`、`team_confirmation_id`、`canonical_source: "legacy_direct" | "role_merge_commit"`。当 `canonical_source = "role_merge_commit"` 时，API 从 merge commit 读取 canonical payload，避免客户端篡改正式决策。 |
-| `SettlementResult` | `packages/shared-contracts/src/index.ts`；`contracts/schemas/settlement-result.v1.json`；`db/migrations/20260519_005_create_repository_ledger_replay_tables.sql`；`services/api/src/settlement-service.ts`；`services/simulation-core/src/` | 当前正式结算结果包含 tenant/run/round、parameter/scenario、engine、plugin trace、replay hash、team results。settlement service 使用 canonical decisions 生成正式结果，并保持重复结算幂等。 |
+| 概念                   | 当前定义位置                                                                                                                                                                                                                                | 说明                                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `role_key` / `RoleKey` | `packages/shared-contracts/src/index.ts`：`TeamMember.role_slot`、`RoleKey = TeamMember["role_slot"]`；`contracts/schemas/role-decision-section.v1.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`                | 当前角色枚举为 `CEO`、`CFO`、`CMO`、`COO`、`risk`。数据库在 `role_decision_section.role_key` 上使用 check constraint。                                                                     |
+| `RoleDecisionSection`  | `packages/shared-contracts/src/index.ts`；`contracts/schemas/role-decision-section.v1.json`；`contracts/fixtures/role-decision-section.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`                      | 当前字段包含 `section_id`、tenant/run/round/team、`role_key`、`author_user_id`、`status: "draft"                                                                                           | "ready"`、`section_payload`、`payload_hash` 等。                                                                                           |
+| `DecisionMergeCommit`  | `packages/shared-contracts/src/index.ts`；`contracts/schemas/decision-merge-commit.v1.json`；`contracts/fixtures/decision-merge-commit.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`                      | 当前字段包含 `role_section_ids`、`canonical_decision_payload`、`merge_diff`、`validation_report`、`committed_by`、`status: "validated"`、`payload_hash`。                                  |
+| `TeamConfirmation`     | `packages/shared-contracts/src/index.ts`；`contracts/schemas/team-confirmation.v1.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`                                                                                 | 当前字段包含 `confirmation_id`、tenant/run/round/team、`merge_commit_id`、`confirmed_by`、`status: "confirmed"`。当前未发现 `contracts/fixtures/team-confirmation.valid.json`。            |
+| canonical `Decision`   | `packages/shared-contracts/src/index.ts`；`contracts/schemas/decision.v1.json`；`contracts/fixtures/decision.valid.json`；`db/migrations/20260519_002_create_repository_decision_tables.sql`；`services/api/src/routes/decision-routes.ts`  | 当前 `Decision` 支持 `merge_commit_id`、`team_confirmation_id`、`canonical_source: "legacy_direct"                                                                                         | "role_merge_commit"`。当 `canonical_source = "role_merge_commit"` 时，API 从 merge commit 读取 canonical payload，避免客户端篡改正式决策。 |
+| `SettlementResult`     | `packages/shared-contracts/src/index.ts`；`contracts/schemas/settlement-result.v1.json`；`db/migrations/20260519_005_create_repository_ledger_replay_tables.sql`；`services/api/src/settlement-service.ts`；`services/simulation-core/src/` | 当前正式结算结果包含 tenant/run/round、parameter/scenario、engine、plugin trace、replay hash、team results。settlement service 使用 canonical decisions 生成正式结果，并保持重复结算幂等。 |
 
 补充说明：
 
@@ -93,29 +93,29 @@ RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Deci
 
 ### 3.1 Route 层
 
-| 文件 | 当前职责 |
-| --- | --- |
-| `services/api/src/routes/foundation-routes.ts` | 提供角色决策链路 route：list role sections、upsert role section、ready、merge commits、confirmations。 |
-| `services/api/src/routes/decision-routes.ts` | 提供 official decision 提交。对 `canonical_source = "role_merge_commit"` 的提交，会校验 merge commit 与 team confirmation，并以 merge commit 的 canonical payload 为准。 |
-| `services/api/src/routes/settlement-routes.ts` | 提供 public settle 与 internal settle route，调用 settlement command/service。 |
+| 文件                                           | 当前职责                                                                                                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `services/api/src/routes/foundation-routes.ts` | 提供角色决策链路 route：list role sections、upsert role section、ready、merge commits、confirmations。                                                                   |
+| `services/api/src/routes/decision-routes.ts`   | 提供 official decision 提交。对 `canonical_source = "role_merge_commit"` 的提交，会校验 merge commit 与 team confirmation，并以 merge commit 的 canonical payload 为准。 |
+| `services/api/src/routes/settlement-routes.ts` | 提供 public settle 与 internal settle route，调用 settlement command/service。                                                                                           |
 
 ### 3.2 Service 层
 
-| 文件 | 当前职责 |
-| --- | --- |
+| 文件                                      | 当前职责                                                                                                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `services/api/src/foundation-services.ts` | 包含 `RoleDecisionRepository` 以及 role section upsert、ready、merge、confirmation 相关 command。merge 要求 team captain 权限，并只合并 ready sections。confirmation 会记录 team confirmation。 |
-| `services/api/src/settlement-service.ts` | 创建和执行 settlement command，处理 locked/settled round、幂等、replay manifest、state snapshot、audit/domain event。 |
-| `services/api/src/replay-service.ts` | 准备 settlement 输入，过滤 canonical decisions，并拒绝缺少 `merge_commit_id` 或 `team_confirmation_id` 的非 canonical / 不完整正式决策。 |
-| `services/api/src/simulation.ts` | 解析 decision submission，支持 `decision_payload` 与 `canonical_decision_payload`，并过滤未知字段。 |
+| `services/api/src/settlement-service.ts`  | 创建和执行 settlement command，处理 locked/settled round、幂等、replay manifest、state snapshot、audit/domain event。                                                                           |
+| `services/api/src/replay-service.ts`      | 准备 settlement 输入，过滤 canonical decisions，并拒绝缺少 `merge_commit_id` 或 `team_confirmation_id` 的非 canonical / 不完整正式决策。                                                        |
+| `services/api/src/simulation.ts`          | 解析 decision submission，支持 `decision_payload` 与 `canonical_decision_payload`，并过滤未知字段。                                                                                             |
 
 ### 3.3 Repository / Adapter 层
 
-| 文件 | 当前职责 |
-| --- | --- |
-| `services/api/src/repository-ports.ts` | 定义 decision、role section、merge commit、team confirmation、settlement 等 repository port。 |
-| `services/api/src/repository-facade.ts` | 提供 route-facing facade，组合 demo state、settlement input context、latest decisions、merge refs、confirmations。 |
-| `services/api/src/json-repository-adapter.ts` | 当前 JSON / memory adapter 的 decision、role section、merge commit、team confirmation 持久化实现。 |
-| `services/api/src/postgres-repository-adapter.ts` | PostgreSQL adapter 草案，包含 decision、role section、merge commit、confirmation、settlement 等映射与 SQL 操作。 |
+| 文件                                              | 当前职责                                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `services/api/src/repository-ports.ts`            | 定义 decision、role section、merge commit、team confirmation、settlement 等 repository port。                      |
+| `services/api/src/repository-facade.ts`           | 提供 route-facing facade，组合 demo state、settlement input context、latest decisions、merge refs、confirmations。 |
+| `services/api/src/json-repository-adapter.ts`     | 当前 JSON / memory adapter 的 decision、role section、merge commit、team confirmation 持久化实现。                 |
+| `services/api/src/postgres-repository-adapter.ts` | PostgreSQL adapter 草案，包含 decision、role section、merge commit、confirmation、settlement 等映射与 SQL 操作。   |
 
 当前未发现独立的 `role-context` service、`role-workspace` service、`readiness` aggregation service 或 role field policy service。
 
@@ -125,23 +125,23 @@ RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Deci
 
 来源：`db/migrations/20260519_002_create_repository_decision_tables.sql`。
 
-| 表 | 关键字段 | 关系表达 |
-| --- | --- | --- |
-| `decision` | `decision_id`、`tenant_id`、`run_id`、`round_id`、`team_id`、`status`、`version`、`payload`、`validation_report`、`submitted_by`、`merge_commit_id`、`team_confirmation_id`、`canonical_source` | tenant/run/round/team 是严格外键；`merge_commit_id`、`team_confirmation_id` 当前不是严格外键，属于业务依赖引用。 |
-| `role_decision_section` | `section_id`、tenant/run/round/team、`role_key`、`author_user_id`、`status`、`revision`、`section_payload`、`payload_hash` | tenant/run/round/team 是严格外键；`role_key` 通过 check constraint 限定。 |
-| `decision_merge_commit` | `merge_commit_id`、tenant/run/round/team、`role_section_ids`、`canonical_decision_payload`、`merge_diff`、`validation_report`、`committed_by`、`status`、`payload_hash` | tenant/run/round/team 是严格外键；`role_section_ids` 是 `text[]`，没有严格 FK 到 `role_decision_section.section_id`。 |
-| `team_confirmation` | `confirmation_id`、tenant/run/round/team、`merge_commit_id`、`confirmed_by`、`status` | tenant/run/round/team 是严格外键；`merge_commit_id` 严格 FK 到 `decision_merge_commit.merge_commit_id`。 |
+| 表                      | 关键字段                                                                                                                                                                                        | 关系表达                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `decision`              | `decision_id`、`tenant_id`、`run_id`、`round_id`、`team_id`、`status`、`version`、`payload`、`validation_report`、`submitted_by`、`merge_commit_id`、`team_confirmation_id`、`canonical_source` | tenant/run/round/team 是严格外键；`merge_commit_id`、`team_confirmation_id` 当前不是严格外键，属于业务依赖引用。      |
+| `role_decision_section` | `section_id`、tenant/run/round/team、`role_key`、`author_user_id`、`status`、`revision`、`section_payload`、`payload_hash`                                                                      | tenant/run/round/team 是严格外键；`role_key` 通过 check constraint 限定。                                             |
+| `decision_merge_commit` | `merge_commit_id`、tenant/run/round/team、`role_section_ids`、`canonical_decision_payload`、`merge_diff`、`validation_report`、`committed_by`、`status`、`payload_hash`                         | tenant/run/round/team 是严格外键；`role_section_ids` 是 `text[]`，没有严格 FK 到 `role_decision_section.section_id`。 |
+| `team_confirmation`     | `confirmation_id`、tenant/run/round/team、`merge_commit_id`、`confirmed_by`、`status`                                                                                                           | tenant/run/round/team 是严格外键；`merge_commit_id` 严格 FK 到 `decision_merge_commit.merge_commit_id`。              |
 
 ### 4.2 结算与 Replay 表
 
 来源：`db/migrations/20260519_005_create_repository_ledger_replay_tables.sql`。
 
-| 表 | 关键字段 | 关系表达 |
-| --- | --- | --- |
-| `settlement_result` | `settlement_result_id`、tenant/run/round、`parameter_set_id`、`scenario_package_id`、`engine_id`、`plugin_trace`、`replay_hash`、`team_results` | tenant/run/round/parameter/scenario 是严格外键；tenant/run/round 有唯一约束，支撑结算幂等。 |
-| `state_snapshot` | `snapshot_id`、tenant/run/round/team、`settlement_result_id`、`replay_hash`、`state_true`、`state_obs`、`state_est` | tenant/run/round/team 是严格外键；`settlement_result_id` 当前不是严格 FK。 |
-| `replay_input_manifest` | `manifest_id`、tenant/run/round、`manifest_hash`、`manifest`、`domain_event_id` | tenant/run/round 是严格外键；`domain_event_id` 严格 FK 到 `domain_event`。 |
-| `replay_diff_report` | `replay_report_id`、tenant/run/round、`settlement_result_id`、`manifest_hash`、`settlement_replay_hash`、`status` | tenant/run/round 是严格外键；`settlement_result_id` 当前不是严格 FK。 |
+| 表                      | 关键字段                                                                                                                                        | 关系表达                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `settlement_result`     | `settlement_result_id`、tenant/run/round、`parameter_set_id`、`scenario_package_id`、`engine_id`、`plugin_trace`、`replay_hash`、`team_results` | tenant/run/round/parameter/scenario 是严格外键；tenant/run/round 有唯一约束，支撑结算幂等。 |
+| `state_snapshot`        | `snapshot_id`、tenant/run/round/team、`settlement_result_id`、`replay_hash`、`state_true`、`state_obs`、`state_est`                             | tenant/run/round/team 是严格外键；`settlement_result_id` 当前不是严格 FK。                  |
+| `replay_input_manifest` | `manifest_id`、tenant/run/round、`manifest_hash`、`manifest`、`domain_event_id`                                                                 | tenant/run/round 是严格外键；`domain_event_id` 严格 FK 到 `domain_event`。                  |
+| `replay_diff_report`    | `replay_report_id`、tenant/run/round、`settlement_result_id`、`manifest_hash`、`settlement_replay_hash`、`status`                               | tenant/run/round 是严格外键；`settlement_result_id` 当前不是严格 FK。                       |
 
 ### 4.3 当前未发现的拟新增表
 
@@ -256,22 +256,22 @@ RoleDecisionSection -> DecisionMergeCommit -> TeamConfirmation -> canonical Deci
 
 ## 6. 拟新增能力与当前已有能力差距清单
 
-| 能力 | 当前状态 | 差距 |
-| --- | --- | --- |
-| 角色草稿与 ready | 已有 `RoleDecisionSection.status = "draft" | "ready"`、ready endpoint、domain event | ready 仍是 role section 字段，不是独立状态实体；缺少 readiness 聚合视图。 |
-| 角色 merge | 已有 `DecisionMergeCommit`、merge endpoint、team captain 权限、canonical payload 生成 | `role_section_ids` 不是严格 FK；缺少 `decision_merge_section_link`、merge conflict 记录和字段级合并策略。 |
-| 团队确认 | 已有 `TeamConfirmation`、confirmation endpoint、schema、db 表 | 缺少 `team-confirmation.valid.json` fixture；缺少更细粒度的团队确认参与者 / quorum 规则。 |
-| canonical Decision | 已有 `canonical_source`、merge/confirmation 引用、payload 篡改防护、Replay 输入过滤 | `decision.merge_commit_id`、`decision.team_confirmation_id` 不是严格 FK；legacy direct 与 role merge commit 的迁移策略仍需 Phase 1 明确。 |
-| SettlementResult | 已有 settlement service、simulation-core、plugin trace、replay hash、幂等约束 | settlement 已消费 canonical decisions，但角色草稿、ready、merge 之外的上下文尚未纳入治理说明。 |
-| `RoleContext` | 未发现 | 需要定义当前用户在 run/team/round 内的 role、权限、可见字段、可操作 action。 |
-| `RoleWorkspaceSnapshot` | 未发现 | 需要定义学员端角色工作台的读取模型和缓存边界。 |
-| `RoleReadinessSummary` | 未发现 | 需要定义教师端/学员端可显示的 team-level readiness 聚合。 |
-| `role_assignment` | 未发现 | 需要决定团队成员到业务角色的持久化来源、唯一性、变更审计和 migration。 |
-| `role_field_policy` | 未发现 | 需要定义角色到 decision payload 字段的可写/可读/建议权限。 |
-| `decision_merge_section_link` | 未发现 | 如需严格追踪 merge commit 与 section 的关系，需要新增 join table 或等价结构。 |
-| 前端角色化 workspace | 部分已有 | 学员端只有单文件流程和硬编码 `CEO`；教师端只看 canonical decision；admin 端暂无业务角色治理。 |
-| 契约与 fixture | 部分已有 | 核心 schema 已有；拟新增能力无 schema/fixture；team confirmation fixture 缺失。 |
-| 测试 | 核心链路已有较强覆盖 | 拟新增上下文、字段权限、readiness、角色分配、workspace 隔离尚无测试。 |
+| 能力                          | 当前状态                                                                              | 差距                                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 角色草稿与 ready              | 已有 `RoleDecisionSection.status = "draft"                                            | "ready"`、ready endpoint、domain event                                                                                                    | ready 仍是 role section 字段，不是独立状态实体；缺少 readiness 聚合视图。 |
+| 角色 merge                    | 已有 `DecisionMergeCommit`、merge endpoint、team captain 权限、canonical payload 生成 | `role_section_ids` 不是严格 FK；缺少 `decision_merge_section_link`、merge conflict 记录和字段级合并策略。                                 |
+| 团队确认                      | 已有 `TeamConfirmation`、confirmation endpoint、schema、db 表                         | 缺少 `team-confirmation.valid.json` fixture；缺少更细粒度的团队确认参与者 / quorum 规则。                                                 |
+| canonical Decision            | 已有 `canonical_source`、merge/confirmation 引用、payload 篡改防护、Replay 输入过滤   | `decision.merge_commit_id`、`decision.team_confirmation_id` 不是严格 FK；legacy direct 与 role merge commit 的迁移策略仍需 Phase 1 明确。 |
+| SettlementResult              | 已有 settlement service、simulation-core、plugin trace、replay hash、幂等约束         | settlement 已消费 canonical decisions，但角色草稿、ready、merge 之外的上下文尚未纳入治理说明。                                            |
+| `RoleContext`                 | 未发现                                                                                | 需要定义当前用户在 run/team/round 内的 role、权限、可见字段、可操作 action。                                                              |
+| `RoleWorkspaceSnapshot`       | 未发现                                                                                | 需要定义学员端角色工作台的读取模型和缓存边界。                                                                                            |
+| `RoleReadinessSummary`        | 未发现                                                                                | 需要定义教师端/学员端可显示的 team-level readiness 聚合。                                                                                 |
+| `role_assignment`             | 未发现                                                                                | 需要决定团队成员到业务角色的持久化来源、唯一性、变更审计和 migration。                                                                    |
+| `role_field_policy`           | 未发现                                                                                | 需要定义角色到 decision payload 字段的可写/可读/建议权限。                                                                                |
+| `decision_merge_section_link` | 未发现                                                                                | 如需严格追踪 merge commit 与 section 的关系，需要新增 join table 或等价结构。                                                             |
+| 前端角色化 workspace          | 部分已有                                                                              | 学员端只有单文件流程和硬编码 `CEO`；教师端只看 canonical decision；admin 端暂无业务角色治理。                                             |
+| 契约与 fixture                | 部分已有                                                                              | 核心 schema 已有；拟新增能力无 schema/fixture；team confirmation fixture 缺失。                                                           |
+| 测试                          | 核心链路已有较强覆盖                                                                  | 拟新增上下文、字段权限、readiness、角色分配、workspace 隔离尚无测试。                                                                     |
 
 ## 7. 是否可以进入 Phase 1
 

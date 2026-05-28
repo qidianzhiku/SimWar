@@ -3,7 +3,17 @@
   "$id": "https://simwar.local/contracts/schemas/user.v1.json",
   "title": "User",
   "type": "object",
-  "required": ["user_id", "tenant_id", "username", "email", "display_name", "roles", "status", "created_at", "updated_at"],
+  "required": [
+    "user_id",
+    "tenant_id",
+    "username",
+    "email",
+    "display_name",
+    "roles",
+    "status",
+    "created_at",
+    "updated_at"
+  ],
   "properties": {
     "user_id": { "type": "string", "minLength": 1 },
     "tenant_id": { "type": "string", "minLength": 1 },

@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import type { Decision, ParameterSet, Round, Run, ScenarioPackage, SettlementResult, Team, TeamSettlement } from "@simwar/shared-contracts";
+import type {
+  Decision,
+  ParameterSet,
+  Round,
+  Run,
+  ScenarioPackage,
+  SettlementResult,
+  Team,
+  TeamSettlement
+} from "@simwar/shared-contracts";
 import { nextId, type SimWarStore } from "./store.js";
 
 function clamp(value: number, min: number, max: number): number {
@@ -71,7 +80,10 @@ function getNextRoundRisk(input: {
   return "balanced";
 }
 
-function buildExplanation(risk: TeamSettlement["state_est"]["next_round_risk"], decision: Decision): string {
+function buildExplanation(
+  risk: TeamSettlement["state_est"]["next_round_risk"],
+  decision: Decision
+): string {
   if (risk === "capacity") {
     return "市场意愿超过可服务产能，下一轮需要优先处理容量和服务兑现。";
   }
@@ -91,7 +103,9 @@ function buildExplanation(risk: TeamSettlement["state_est"]["next_round_risk"], 
   return "策略在需求、服务兑现和财务结果之间保持相对平衡。";
 }
 
-export function validateDecisionPayload(payload: unknown): Array<{ field: string; reason: string }> {
+export function validateDecisionPayload(
+  payload: unknown
+): Array<{ field: string; reason: string }> {
   const errors: Array<{ field: string; reason: string }> = [];
   const candidate = payload as Partial<Decision["payload"]> | undefined;
 
@@ -104,7 +118,11 @@ export function validateDecisionPayload(payload: unknown): Array<{ field: string
     errors.push({ field: "pricing.base_price", reason: "must_be_between_6000_and_30000" });
   }
 
-  if (typeof candidate.marketing_budget !== "number" || candidate.marketing_budget < 0 || candidate.marketing_budget > 1000000) {
+  if (
+    typeof candidate.marketing_budget !== "number" ||
+    candidate.marketing_budget < 0 ||
+    candidate.marketing_budget > 1000000
+  ) {
     errors.push({ field: "marketing_budget", reason: "must_be_between_0_and_1000000" });
   }
 
@@ -116,15 +134,26 @@ export function validateDecisionPayload(payload: unknown): Array<{ field: string
     errors.push({ field: "service_quality_budget", reason: "must_be_between_0_and_1000000" });
   }
 
-  if (candidate.capacity_plan !== "contract" && candidate.capacity_plan !== "hold" && candidate.capacity_plan !== "expand") {
+  if (
+    candidate.capacity_plan !== "contract" &&
+    candidate.capacity_plan !== "hold" &&
+    candidate.capacity_plan !== "expand"
+  ) {
     errors.push({ field: "capacity_plan", reason: "must_be_contract_hold_or_expand" });
   }
 
-  if (typeof candidate.cash_buffer_target !== "number" || candidate.cash_buffer_target < 0 || candidate.cash_buffer_target > 0.6) {
+  if (
+    typeof candidate.cash_buffer_target !== "number" ||
+    candidate.cash_buffer_target < 0 ||
+    candidate.cash_buffer_target > 0.6
+  ) {
     errors.push({ field: "cash_buffer_target", reason: "must_be_between_0_and_0_6" });
   }
 
-  if (typeof candidate.strategy_statement !== "string" || candidate.strategy_statement.trim().length < 8) {
+  if (
+    typeof candidate.strategy_statement !== "string" ||
+    candidate.strategy_statement.trim().length < 8
+  ) {
     errors.push({ field: "strategy_statement", reason: "must_be_at_least_8_chars" });
   }
 
@@ -163,8 +192,13 @@ export function settleRound(
     const qualityLift = decision.payload.service_quality_budget / 11000;
     const pricePenalty = price / 210;
     const seedNoise = (input.parameterSet.seed % 17) / 10;
-    const rawDemand = clamp(totalMarket * 0.48 + marketingLift + qualityLift - pricePenalty + seedNoise, 12, totalMarket);
-    const capacity = input.parameterSet.base_capacity * getCapacityModifier(decision.payload.capacity_plan);
+    const rawDemand = clamp(
+      totalMarket * 0.48 + marketingLift + qualityLift - pricePenalty + seedNoise,
+      12,
+      totalMarket
+    );
+    const capacity =
+      input.parameterSet.base_capacity * getCapacityModifier(decision.payload.capacity_plan);
     const servedDemand = Math.min(rawDemand, capacity);
     const marketShare = servedDemand / totalMarket;
     const revenue = servedDemand * price;

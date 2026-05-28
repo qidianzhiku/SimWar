@@ -1,7 +1,15 @@
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
-import type { ApiEnvelope, AuthSession, Decision, PublicResultView, Round, Run, SettlementResult } from "../../packages/shared-contracts/src";
+import type {
+  ApiEnvelope,
+  AuthSession,
+  Decision,
+  PublicResultView,
+  Round,
+  Run,
+  SettlementResult
+} from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP0Store } from "../../services/api/src/store";
 
@@ -62,7 +70,12 @@ async function request<TData>(
   };
 }
 
-async function login(baseUrl: string, username: string, password: string, tenantId = "tenant_demo"): Promise<string> {
+async function login(
+  baseUrl: string,
+  username: string,
+  password: string,
+  tenantId = "tenant_demo"
+): Promise<string> {
   const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
     method: "POST",
     tenantId,
@@ -80,10 +93,14 @@ describe("P0 teacher-student settlement flow", () => {
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher");
       const studentToken = await login(baseUrl, "student", "student");
-      const runResponse = await request<{ run: Run; round: Round }>(baseUrl, "/api/v1/courses/course_demo/runs", {
-        method: "POST",
-        token: teacherToken
-      });
+      const runResponse = await request<{ run: Run; round: Round }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        {
+          method: "POST",
+          token: teacherToken
+        }
+      );
       expect(runResponse.status).toBe(201);
 
       const runId = runResponse.body.data.run.run_id;
@@ -94,21 +111,25 @@ describe("P0 teacher-student settlement flow", () => {
       });
       expect(startResponse.body.data.status).toBe("open");
 
-      const decisionResponse = await request<Decision>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
-        method: "POST",
-        token: studentToken,
-        body: {
-          team_id: "team_alpha",
-          decision_payload: {
-            pricing: { base_price: 12800 },
-            marketing_budget: 180000,
-            service_quality_budget: 160000,
-            capacity_plan: "expand",
-            cash_buffer_target: 0.16,
-            strategy_statement: "守住中高端康养客群并优先保证交付能力"
+      const decisionResponse = await request<Decision>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: studentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: {
+              pricing: { base_price: 12800 },
+              marketing_budget: 180000,
+              service_quality_budget: 160000,
+              capacity_plan: "expand",
+              cash_buffer_target: 0.16,
+              strategy_statement: "守住中高端康养客群并优先保证交付能力"
+            }
           }
         }
-      });
+      );
       expect(decisionResponse.status).toBe(201);
       expect(decisionResponse.body.data.status).toBe("validated");
 
@@ -118,54 +139,80 @@ describe("P0 teacher-student settlement flow", () => {
       });
       expect(lockResponse.body.data.status).toBe("locked");
 
-      const lateDecision = await request<Decision>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
-        method: "POST",
-        token: studentToken,
-        body: {
-          team_id: "team_alpha",
-          decision_payload: {
-            pricing: { base_price: 12000 },
-            marketing_budget: 120000,
-            service_quality_budget: 110000,
-            capacity_plan: "hold",
-            cash_buffer_target: 0.2,
-            strategy_statement: "锁轮后尝试修改应被拒绝"
+      const lateDecision = await request<Decision>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: studentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: {
+              pricing: { base_price: 12000 },
+              marketing_budget: 120000,
+              service_quality_budget: 110000,
+              capacity_plan: "hold",
+              cash_buffer_target: 0.2,
+              strategy_statement: "锁轮后尝试修改应被拒绝"
+            }
           }
         }
-      });
+      );
       expect(lateDecision.status).toBe(409);
 
-      const settlementResponse = await request<SettlementResult>(baseUrl, `/internal/v1/runs/${runId}/rounds/1/settle`, {
-        method: "POST",
-        token: "service-kernel-token",
-        servicePrincipal: "service_kernel"
-      });
+      const settlementResponse = await request<SettlementResult>(
+        baseUrl,
+        `/internal/v1/runs/${runId}/rounds/1/settle`,
+        {
+          method: "POST",
+          token: "service-kernel-token",
+          servicePrincipal: "service_kernel"
+        }
+      );
       expect(settlementResponse.status).toBe(200);
       expect(settlementResponse.body.data.replay_hash).toHaveLength(64);
-      expect(settlementResponse.body.data.team_results[0]?.state_true.settlement_status).toBe("settled");
+      expect(settlementResponse.body.data.team_results[0]?.state_true.settlement_status).toBe(
+        "settled"
+      );
 
-      const secondSettlement = await request<SettlementResult>(baseUrl, `/internal/v1/runs/${runId}/rounds/1/settle`, {
-        method: "POST",
-        token: "service-kernel-token",
-        servicePrincipal: "service_kernel"
-      });
+      const secondSettlement = await request<SettlementResult>(
+        baseUrl,
+        `/internal/v1/runs/${runId}/rounds/1/settle`,
+        {
+          method: "POST",
+          token: "service-kernel-token",
+          servicePrincipal: "service_kernel"
+        }
+      );
       expect(secondSettlement.body.data.replay_hash).toBe(settlementResponse.body.data.replay_hash);
 
-      const publishResponse = await request<Round>(baseUrl, `/api/v1/runs/${runId}/rounds/1/publish`, {
-        method: "POST",
-        token: teacherToken
-      });
+      const publishResponse = await request<Round>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/publish`,
+        {
+          method: "POST",
+          token: teacherToken
+        }
+      );
       expect(publishResponse.body.data.status).toBe("published");
 
-      const studentResult = await request<PublicResultView>(baseUrl, `/api/v1/runs/${runId}/rounds/1/results`, {
-        token: studentToken
-      });
+      const studentResult = await request<PublicResultView>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/results`,
+        {
+          token: studentToken
+        }
+      );
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
       expect(studentResult.body.data.results[0]?.state_obs.rank).toBe(1);
 
-      const teacherResult = await request<PublicResultView>(baseUrl, `/api/v1/runs/${runId}/rounds/1/results`, {
-        token: teacherToken
-      });
+      const teacherResult = await request<PublicResultView>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/results`,
+        {
+          token: teacherToken
+        }
+      );
       expect(teacherResult.body.data.results[0]?.state_true?.rank).toBe(1);
 
       const auditResponse = await request<unknown[]>(baseUrl, "/api/v1/audit/logs", {

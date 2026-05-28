@@ -26,22 +26,22 @@ Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而
 
 ### 核心功能
 
-| 模块 | 功能名称 | 简短说明 | 用户价值 / 业务价值 |
-|---|---|---|---|
-| 课程与教学 | 课程管理 | 创建课程、班级、轮次与教学运行实例 | 支持教师快速开课与组织多轮课程 |
-| 场景与模拟 | 场景配置 | 选择模板、配置参数、生成运行包 | 让教学场景标准化、可复用、可控 |
-| 回合与结算 | 回合控制 | 开轮、锁轮、结算、发布结果 | 保证教学节奏和公平性 |
-| 学员端 | 团队驾驶舱 | 展示 KPI、历史状态、可见情报 | 让团队在信息约束下做经营决策 |
-| 学员端 | 结构化决策提交 | 按价格、营销、质量、融资、战略等字段提交决策 | 降低决策噪音，提升可比较性 |
-| 结果反馈 | 三段式结果页 | 呈现“发生了什么、为什么、下一步风险” | 提高复盘效率与学习迁移效果 |
-| AI 能力 | 策略建议与角色代理 | 由小模型输出建议、证据卡、风险挑战、角色互动 | 帮助学员形成更高质量的决策假设 |
-| AI 能力 | Debrief Coach | 自动生成复盘草稿、对比分析与改进建议 | 降低教师复盘成本 |
-| 治理能力 | Replay / Shadow Replay | 正式回放与候选参数 / 模型的阴影回放 | 保障可信计算与版本安全 |
-| 治理能力 | 参数与模型治理 | 参数冻结、候选评测、审批、发布与回滚 | 避免边讲边改模型破坏公平性 |
-| 持续学习 | 反思与诊断 | 通过反思日志、学习账本和诊断指标输出能力画像 | 把“结果表现”扩展为“学习表现” |
-| 社区与竞赛 | 社区协作 | 经验分享、项目协作、内容推荐与导师互动 | 形成持续学习网络 |
-| 社区与竞赛 | 公开竞赛与排行榜 | 支持赛制、匹配、排名、奖项与记录 | 拓展课程外的竞赛运营与品牌活动 |
-| 场景工厂 | 主题生成 / 企业脱敏定制 / 跨行业场景生成 | 统一通过 Scenario Compiler 与 Shadow Replay 发布 | 提高平台扩展速度并控制风险 |
+| 模块       | 功能名称                                 | 简短说明                                         | 用户价值 / 业务价值            |
+| ---------- | ---------------------------------------- | ------------------------------------------------ | ------------------------------ |
+| 课程与教学 | 课程管理                                 | 创建课程、班级、轮次与教学运行实例               | 支持教师快速开课与组织多轮课程 |
+| 场景与模拟 | 场景配置                                 | 选择模板、配置参数、生成运行包                   | 让教学场景标准化、可复用、可控 |
+| 回合与结算 | 回合控制                                 | 开轮、锁轮、结算、发布结果                       | 保证教学节奏和公平性           |
+| 学员端     | 团队驾驶舱                               | 展示 KPI、历史状态、可见情报                     | 让团队在信息约束下做经营决策   |
+| 学员端     | 结构化决策提交                           | 按价格、营销、质量、融资、战略等字段提交决策     | 降低决策噪音，提升可比较性     |
+| 结果反馈   | 三段式结果页                             | 呈现“发生了什么、为什么、下一步风险”             | 提高复盘效率与学习迁移效果     |
+| AI 能力    | 策略建议与角色代理                       | 由小模型输出建议、证据卡、风险挑战、角色互动     | 帮助学员形成更高质量的决策假设 |
+| AI 能力    | Debrief Coach                            | 自动生成复盘草稿、对比分析与改进建议             | 降低教师复盘成本               |
+| 治理能力   | Replay / Shadow Replay                   | 正式回放与候选参数 / 模型的阴影回放              | 保障可信计算与版本安全         |
+| 治理能力   | 参数与模型治理                           | 参数冻结、候选评测、审批、发布与回滚             | 避免边讲边改模型破坏公平性     |
+| 持续学习   | 反思与诊断                               | 通过反思日志、学习账本和诊断指标输出能力画像     | 把“结果表现”扩展为“学习表现”   |
+| 社区与竞赛 | 社区协作                                 | 经验分享、项目协作、内容推荐与导师互动           | 形成持续学习网络               |
+| 社区与竞赛 | 公开竞赛与排行榜                         | 支持赛制、匹配、排名、奖项与记录                 | 拓展课程外的竞赛运营与品牌活动 |
+| 场景工厂   | 主题生成 / 企业脱敏定制 / 跨行业场景生成 | 统一通过 Scenario Compiler 与 Shadow Replay 发布 | 提高平台扩展速度并控制风险     |
 
 以上模块综合自核心引擎设计、教师/学员端白皮书、整体功能深化文档以及康养定制与跨行业扩展研究文档。文档明确强调：**真值由结构化引擎输出，小模型只负责建议与解释；平台能力以课程、社区、竞赛、学习诊断和治理闭环共同构成。**fileciteturn0file1fileciteturn0file5fileciteturn0file8fileciteturn0file9
 
@@ -49,19 +49,19 @@ Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而
 
 > 下表为依据参考文档整理的**推荐技术组合**。其中部分条目来自文档中的明确建议，部分为便于项目落地而做出的工程化补全；请根据实际仓库修改。
 
-| 分类 | 技术 | 用途 |
-|---|---|---|
-| 前端 | React / Next.js / TypeScript | 教师端、学员端、社区与竞赛前端 |
-| 业务服务 | TypeScript 服务 | API 网关、BFF、课程管理、回合控制、社区与竞赛服务 |
-| 计量服务 | Python + PyBLP | L1 市场求解、离线校准、反事实与诊断 |
-| 契约层 | OpenAPI 3.1 + JSON Schema + Protobuf | 合同优先开发、接口生成、契约测试 |
-| 交互协议 | REST / GraphQL / EventBus | 前后端交互与服务解耦 |
-| 学习记录 | xAPI + LRS | 学习事件记录、诊断分析与审计 |
-| 教学集成 | LTI 1.3 + SCIM 2.0 | LMS 接入、成绩回传、身份同步 |
-| 数据存储 | PostgreSQL / ClickHouse / 湖仓 / 对象存储 | 事务数据、分析查询、训练数据与事件归档 |
-| AI 能力 | 8B–14B 中文强项主模型 + RAG + 工具调用 + 角色代理 | 策略建议、复盘、推荐、交互与内容生成 |
-| 基础设施 | Docker / Kubernetes / CI/CD | 本地开发、容器部署、扩缩容、灰度发布 |
-| 监控与治理 | 模型注册表、参数注册表、审计日志、可观测系统 | 模型治理、回滚、合规与运营监控 |
+| 分类       | 技术                                              | 用途                                              |
+| ---------- | ------------------------------------------------- | ------------------------------------------------- |
+| 前端       | React / Next.js / TypeScript                      | 教师端、学员端、社区与竞赛前端                    |
+| 业务服务   | TypeScript 服务                                   | API 网关、BFF、课程管理、回合控制、社区与竞赛服务 |
+| 计量服务   | Python + PyBLP                                    | L1 市场求解、离线校准、反事实与诊断               |
+| 契约层     | OpenAPI 3.1 + JSON Schema + Protobuf              | 合同优先开发、接口生成、契约测试                  |
+| 交互协议   | REST / GraphQL / EventBus                         | 前后端交互与服务解耦                              |
+| 学习记录   | xAPI + LRS                                        | 学习事件记录、诊断分析与审计                      |
+| 教学集成   | LTI 1.3 + SCIM 2.0                                | LMS 接入、成绩回传、身份同步                      |
+| 数据存储   | PostgreSQL / ClickHouse / 湖仓 / 对象存储         | 事务数据、分析查询、训练数据与事件归档            |
+| AI 能力    | 8B–14B 中文强项主模型 + RAG + 工具调用 + 角色代理 | 策略建议、复盘、推荐、交互与内容生成              |
+| 基础设施   | Docker / Kubernetes / CI/CD                       | 本地开发、容器部署、扩缩容、灰度发布              |
+| 监控与治理 | 模型注册表、参数注册表、审计日志、可观测系统      | 模型治理、回滚、合规与运营监控                    |
 
 文档明确给出了以下方向：**Python 计量服务 + TypeScript 业务服务 + OpenAPI-first + JSON Schema/Protobuf 契约 + 事件驱动架构**；同时教师/学员端白皮书建议采用 React/Next.js/FastAPI 等组合，DevOps 使用 Docker/Kubernetes 与 CI/CD，数据层支持 PostgreSQL、ClickHouse、湖仓和特征工厂；小模型部分建议以 8B–14B 中文强项模型作为策略与教练核心。fileciteturn0file2fileciteturn0file3fileciteturn0file8fileciteturn0file9
 
@@ -163,29 +163,29 @@ simwar/
 
 > 以下为基于 Canonical Domain Model、事件账本、学习记录与多租户平台能力抽象出的**建议性结构**，请根据实际数据库与 ORM 方案调整。
 
-| 表 / 集合 | 说明 |
-|---|---|
-| `tenants` | 多租户信息与隔离配置 |
-| `users` | 用户主体信息 |
-| `user_roles` | 用户、课程、租户、团队级角色绑定 |
-| `courses` | 课程、班级与教学运行配置 |
-| `runs` | 一次完整模拟运行实例 |
-| `rounds` | 回合 / period 信息，含开轮、锁轮、结算状态 |
-| `teams` | 队伍与角色槽位配置 |
-| `scenario_packages` | 场景包定义与版本信息 |
-| `plugin_manifests` | 行业插件元数据与能力声明 |
-| `parameter_sets` | 参数集、版本、状态、审批记录 |
-| `offers` | Offer / 产品 / 服务包抽象实体 |
-| `segments` | 客群、市场细分与目标组 |
-| `decisions` | 学员或系统提交的结构化决策 |
-| `shock_events` | 教师注入的冲击事件 |
-| `state_snapshots` | `state_true` / `state_obs` / `state_est` 状态快照 |
-| `replay_reports` | Replay / Shadow Replay 差异报告 |
-| `coach_outputs` | 策略建议、风险挑战、复盘草稿等 L4 输出 |
-| `xapi_statements` | 学习行为记录与审计日志 |
-| `community_posts` | 社区帖子与协作内容 |
-| `competition_records` | 竞赛赛制、报名、对阵与排行榜记录 |
-| `license_records` | 授权内容与训练使用边界记录 |
+| 表 / 集合             | 说明                                              |
+| --------------------- | ------------------------------------------------- |
+| `tenants`             | 多租户信息与隔离配置                              |
+| `users`               | 用户主体信息                                      |
+| `user_roles`          | 用户、课程、租户、团队级角色绑定                  |
+| `courses`             | 课程、班级与教学运行配置                          |
+| `runs`                | 一次完整模拟运行实例                              |
+| `rounds`              | 回合 / period 信息，含开轮、锁轮、结算状态        |
+| `teams`               | 队伍与角色槽位配置                                |
+| `scenario_packages`   | 场景包定义与版本信息                              |
+| `plugin_manifests`    | 行业插件元数据与能力声明                          |
+| `parameter_sets`      | 参数集、版本、状态、审批记录                      |
+| `offers`              | Offer / 产品 / 服务包抽象实体                     |
+| `segments`            | 客群、市场细分与目标组                            |
+| `decisions`           | 学员或系统提交的结构化决策                        |
+| `shock_events`        | 教师注入的冲击事件                                |
+| `state_snapshots`     | `state_true` / `state_obs` / `state_est` 状态快照 |
+| `replay_reports`      | Replay / Shadow Replay 差异报告                   |
+| `coach_outputs`       | 策略建议、风险挑战、复盘草稿等 L4 输出            |
+| `xapi_statements`     | 学习行为记录与审计日志                            |
+| `community_posts`     | 社区帖子与协作内容                                |
+| `competition_records` | 竞赛赛制、报名、对阵与排行榜记录                  |
+| `license_records`     | 授权内容与训练使用边界记录                        |
 
 如果你使用 ORM，推荐将业务服务与计量服务在模型层解耦：业务服务负责 `tenant / course / run / team / decision / replay / content governance`，计量求解服务负责 `MarketOfferObservation / AgentPool / ParameterSet / SolverResult` 等求解相关对象。文档明确指出，平台的可扩展性来自稳定的 Canonical Domain Model，而不是把某个行业字段直接写死到求解核中。fileciteturn0file1fileciteturn0file2fileciteturn0file4
 
@@ -219,12 +219,12 @@ curl http://localhost:3000/healthz
 
 本地种子账号：
 
-| 入口 | 租户 | 用户名 | 密码 |
-|---|---|---|---|
-| 管理端 | `tenant_platform` | `platform` | `platform` |
-| 教师端 | `tenant_demo` | `teacher` | `teacher` |
-| 学员端 | `tenant_demo` | `student` | `student` |
-| 租户管理 | `tenant_demo` | `admin` | `admin` |
+| 入口     | 租户              | 用户名     | 密码       |
+| -------- | ----------------- | ---------- | ---------- |
+| 管理端   | `tenant_platform` | `platform` | `platform` |
+| 教师端   | `tenant_demo`     | `teacher`  | `teacher`  |
+| 学员端   | `tenant_demo`     | `student`  | `student`  |
+| 租户管理 | `tenant_demo`     | `admin`    | `admin`    |
 
 API 默认把 P1 演示数据保存到 `tmp/simwar-store.json`。如需重置本地演示状态，停止 API 后删除该文件再启动。
 
@@ -395,35 +395,35 @@ curl -X POST http://localhost:3000/api/v1/runs/run_demo_001/decisions \
 
 #### 运行与结算接口
 
-| 方法 | 路径 | 描述 | 鉴权 |
-|---|---|---|---|
-| `POST` | `/api/v1/runs` | 创建一次运行实例，绑定场景与参数集 | 教师 / 管理员 |
-| `POST` | `/api/v1/runs/{run_id}/decisions` | 提交团队决策 | 学员 / 队长 |
-| `GET` | `/api/v1/runs/{run_id}/rounds/{round_no}/state-snapshot` | 获取本轮状态快照 | 团队 / 教师，按可见性裁剪 |
-| `POST` | `/api/v1/runs/{run_id}/rounds/{round_no}/settle` | 触发本轮结算 | 教师 / 内部服务 |
-| `POST` | `/internal/v1/runs/{run_id}/rounds/{round_id}/settle` | 内部真值结算入口 | 内部服务令牌 |
-| `POST` | `/api/v1/replays/shadow` | 执行 Shadow Replay | 治理团队 |
+| 方法   | 路径                                                     | 描述                               | 鉴权                      |
+| ------ | -------------------------------------------------------- | ---------------------------------- | ------------------------- |
+| `POST` | `/api/v1/runs`                                           | 创建一次运行实例，绑定场景与参数集 | 教师 / 管理员             |
+| `POST` | `/api/v1/runs/{run_id}/decisions`                        | 提交团队决策                       | 学员 / 队长               |
+| `GET`  | `/api/v1/runs/{run_id}/rounds/{round_no}/state-snapshot` | 获取本轮状态快照                   | 团队 / 教师，按可见性裁剪 |
+| `POST` | `/api/v1/runs/{run_id}/rounds/{round_no}/settle`         | 触发本轮结算                       | 教师 / 内部服务           |
+| `POST` | `/internal/v1/runs/{run_id}/rounds/{round_id}/settle`    | 内部真值结算入口                   | 内部服务令牌              |
+| `POST` | `/api/v1/replays/shadow`                                 | 执行 Shadow Replay                 | 治理团队                  |
 
 #### AI 与复盘接口
 
-| 方法 | 路径 | 描述 | 鉴权 |
-|---|---|---|---|
-| `POST` | `/api/v1/agents/strategy-advisor/propose` | 获取策略建议 | 学员 / 教师 |
-| `POST` | `/api/v1/agents/debrief-coach/generate` | 生成复盘草稿 | 教师 / 学员 |
-| `POST` | `/api/v1/licensed-content/retrieve` | 在授权范围内检索内容 | 受控服务 |
+| 方法   | 路径                                      | 描述                 | 鉴权        |
+| ------ | ----------------------------------------- | -------------------- | ----------- |
+| `POST` | `/api/v1/agents/strategy-advisor/propose` | 获取策略建议         | 学员 / 教师 |
+| `POST` | `/api/v1/agents/debrief-coach/generate`   | 生成复盘草稿         | 教师 / 学员 |
+| `POST` | `/api/v1/licensed-content/retrieve`       | 在授权范围内检索内容 | 受控服务    |
 
 #### 插件与场景接口
 
-| 方法 | 路径 | 描述 | 鉴权 |
-|---|---|---|---|
-| `POST` | `/api/plugins/{pluginId}/compile-context` | 编译行业上下文 | 教师 / 场景设计师 |
-| `POST` | `/api/plugins/{pluginId}/adjust-utility` | 计算行业效用修正项 | 内部服务 |
-| `POST` | `/api/plugins/{pluginId}/segment-migration` | 计算客群迁移矩阵 | 内部服务 |
-| `POST` | `/api/plugins/{pluginId}/qualification-check` | 资格与可服务性校验 | 内部服务 |
-| `POST` | `/api/plugins/{pluginId}/apply-shock` | 把冲击映射为插件局部变化 | 教师 / 内部服务 |
-| `POST` | `/api/scenarios/generate-theme` | 生成主题场景包 | 教师 / 场景设计师 |
-| `POST` | `/api/scenarios/personalize-enterprise` | 生成脱敏企业定制场景 | 教师 / 企业管理员 |
-| `POST` | `/api/scenarios/generate-industry` | 生成新行业骨架与插件 stub | 场景设计师 / 治理团队 |
+| 方法   | 路径                                          | 描述                      | 鉴权                  |
+| ------ | --------------------------------------------- | ------------------------- | --------------------- |
+| `POST` | `/api/plugins/{pluginId}/compile-context`     | 编译行业上下文            | 教师 / 场景设计师     |
+| `POST` | `/api/plugins/{pluginId}/adjust-utility`      | 计算行业效用修正项        | 内部服务              |
+| `POST` | `/api/plugins/{pluginId}/segment-migration`   | 计算客群迁移矩阵          | 内部服务              |
+| `POST` | `/api/plugins/{pluginId}/qualification-check` | 资格与可服务性校验        | 内部服务              |
+| `POST` | `/api/plugins/{pluginId}/apply-shock`         | 把冲击映射为插件局部变化  | 教师 / 内部服务       |
+| `POST` | `/api/scenarios/generate-theme`               | 生成主题场景包            | 教师 / 场景设计师     |
+| `POST` | `/api/scenarios/personalize-enterprise`       | 生成脱敏企业定制场景      | 教师 / 企业管理员     |
+| `POST` | `/api/scenarios/generate-industry`            | 生成新行业骨架与插件 stub | 场景设计师 / 治理团队 |
 
 上述接口来自核心引擎与小模型接口契约、工程契约报告以及康养定制接口设计文档。它们共同体现了一个原则：**小模型只能读取状态快照与受控工具，不能直接改写真值字段；唯一真值结算入口必须可回放、可审计。**fileciteturn0file1fileciteturn0file2fileciteturn0file5
 

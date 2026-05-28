@@ -57,7 +57,12 @@ async function request<TData>(
   };
 }
 
-async function login(baseUrl: string, username: string, password: string, tenantId: string): Promise<string> {
+async function login(
+  baseUrl: string,
+  username: string,
+  password: string,
+  tenantId: string
+): Promise<string> {
   const response = await request<AuthSession>(baseUrl, "/api/v1/auth/login", {
     method: "POST",
     tenantId,
@@ -167,12 +172,19 @@ describe("P1 auth, RBAC and tenant governance", () => {
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher", "tenant_demo");
       const studentToken = await login(baseUrl, "student", "student", "tenant_demo");
-      const run = await request<{ run: { run_id: string } }>(baseUrl, "/api/v1/courses/course_demo/runs", {
+      const run = await request<{ run: { run_id: string } }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        {
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      const runId = run.body.data.run.run_id;
+      await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/start`, {
         method: "POST",
         token: teacherToken
       });
-      const runId = run.body.data.run.run_id;
-      await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/start`, { method: "POST", token: teacherToken });
 
       const response = await request<unknown>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
         method: "POST",

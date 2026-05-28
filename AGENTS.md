@@ -239,22 +239,23 @@ pnpm run schema:check
 
 当前 npm 命令与拟新增命令的大致对应关系：
 
-| Standard command name | Current repository status |
-| --- | --- |
-| `pnpm install` | 拟新增命令；当前使用 `npm install` |
-| `pnpm run typecheck` | 拟新增命令；当前使用 `npm run typecheck` |
-| `pnpm run quality` | 拟新增命令；当前使用 `npm run quality` |
-| `pnpm test` | 拟新增命令；当前使用 `npm test` |
-| `pnpm run test:unit` | 拟新增命令；当前可用 `npm test` 或指定 Vitest 文件 |
-| `pnpm run test:contract` | 拟新增命令；当前使用 `npm run test:contract` |
-| `pnpm run test:e2e` | 拟新增命令；当前使用 `npm run test:e2e:ui` |
-| `pnpm run test:migration` | 拟新增命令；当前使用 `npm run test:migration` |
-| `pnpm run test:replay` | 拟新增命令；当前 replay 检查包含在 contract / integration / quality 相关门禁中 |
-| `pnpm run test:settlement-idempotency` | 拟新增命令；当前 settlement 幂等检查应落在 unit / integration / quality 门禁中 |
-| `pnpm run test:plugin-boundary` | 拟新增命令；当前 plugin boundary 检查应落在 simulation-core / integration / quality 门禁中 |
-| `pnpm run openapi:lint` | 拟新增命令；Spectral 配置完成后再加入 |
-| `pnpm run schema:check` | 拟新增命令；当前使用 `npm run test:schema-drift` |
-```
+| Standard command name                  | Current repository status                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `pnpm install`                         | 拟新增命令；当前使用 `npm install`                                                         |
+| `pnpm run typecheck`                   | 拟新增命令；当前使用 `npm run typecheck`                                                   |
+| `pnpm run quality`                     | 拟新增命令；当前使用 `npm run quality`                                                     |
+| `pnpm test`                            | 拟新增命令；当前使用 `npm test`                                                            |
+| `pnpm run test:unit`                   | 拟新增命令；当前可用 `npm test` 或指定 Vitest 文件                                         |
+| `pnpm run test:contract`               | 拟新增命令；当前使用 `npm run test:contract`                                               |
+| `pnpm run test:e2e`                    | 拟新增命令；当前使用 `npm run test:e2e:ui`                                                 |
+| `pnpm run test:migration`              | 拟新增命令；当前使用 `npm run test:migration`                                              |
+| `pnpm run test:replay`                 | 拟新增命令；当前 replay 检查包含在 contract / integration / quality 相关门禁中             |
+| `pnpm run test:settlement-idempotency` | 拟新增命令；当前 settlement 幂等检查应落在 unit / integration / quality 门禁中             |
+| `pnpm run test:plugin-boundary`        | 拟新增命令；当前 plugin boundary 检查应落在 simulation-core / integration / quality 门禁中 |
+| `pnpm run openapi:lint`                | 拟新增命令；Spectral 配置完成后再加入                                                      |
+| `pnpm run schema:check`                | 拟新增命令；当前使用 `npm run test:schema-drift`                                           |
+
+````
 
 Python commands are allowed only when a `pyproject.toml` or equivalent Python project exists:
 
@@ -263,7 +264,7 @@ poetry install
 poetry run pytest
 poetry run ruff check .
 poetry run black --check .
-```
+````
 
 Docker commands are allowed only when the relevant Dockerfile / compose target exists:
 

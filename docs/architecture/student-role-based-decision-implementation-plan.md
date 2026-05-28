@@ -32,17 +32,17 @@
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| 架构文档 | `docs/architecture/student-role-based-decision-refactor.md`、`docs/architecture/simwar-architecture-overview.md` |
-| OpenAPI | `contracts/openapi/p0-api.openapi.yaml` |
-| schemas | `contracts/schemas/role-decision-section.v1.json`、`decision-merge-commit.v1.json`、`team-confirmation.v1.json`、`decision.v1.json` |
-| fixtures | `contracts/fixtures/role-decision-section.valid.json`、`decision-merge-commit.valid.json`、`team-confirmation.valid.json`、`decision.valid.json` |
-| shared contracts | `packages/shared-contracts/src/index.ts` |
-| API routes | `services/api/src/routes/foundation-routes.ts`、`decision-routes.ts`、`round-routes.ts`、`settlement-routes.ts`、`agent-routes.ts` |
-| persistence | `services/api/src/repository-ports.ts`、`repository-facade.ts`、`json-repository-adapter.ts`、`postgres-repository-adapter.ts` |
-| migrations | `db/migrations/20260519_002_create_repository_decision_tables.sql`、`20260519_005_create_repository_ledger_replay_tables.sql` |
-| tests | `tests/contract/`、`tests/integration/`、`tests/unit/`、`tests/e2e/`、`tests/e2e-ui/` |
+| 类别             | 文件或目录                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 架构文档         | `docs/architecture/student-role-based-decision-refactor.md`、`docs/architecture/simwar-architecture-overview.md`                                 |
+| OpenAPI          | `contracts/openapi/p0-api.openapi.yaml`                                                                                                          |
+| schemas          | `contracts/schemas/role-decision-section.v1.json`、`decision-merge-commit.v1.json`、`team-confirmation.v1.json`、`decision.v1.json`              |
+| fixtures         | `contracts/fixtures/role-decision-section.valid.json`、`decision-merge-commit.valid.json`、`team-confirmation.valid.json`、`decision.valid.json` |
+| shared contracts | `packages/shared-contracts/src/index.ts`                                                                                                         |
+| API routes       | `services/api/src/routes/foundation-routes.ts`、`decision-routes.ts`、`round-routes.ts`、`settlement-routes.ts`、`agent-routes.ts`               |
+| persistence      | `services/api/src/repository-ports.ts`、`repository-facade.ts`、`json-repository-adapter.ts`、`postgres-repository-adapter.ts`                   |
+| migrations       | `db/migrations/20260519_002_create_repository_decision_tables.sql`、`20260519_005_create_repository_ledger_replay_tables.sql`                    |
+| tests            | `tests/contract/`、`tests/integration/`、`tests/unit/`、`tests/e2e/`、`tests/e2e-ui/`                                                            |
 
 ### 具体改动
 
@@ -86,14 +86,14 @@ git status --short
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| shared contracts | `packages/shared-contracts/src/index.ts` |
-| OpenAPI | `contracts/openapi/p0-api.openapi.yaml` |
-| schemas | `contracts/schemas/role-decision-section.v1.json`、`decision-merge-commit.v1.json`、`team-confirmation.v1.json`、`decision.v1.json` |
-| 新增 schemas | `contracts/schemas/role-context.v1.json`、`role-workspace-snapshot.v1.json`、`role-readiness-summary.v1.json`、`role-field-policy.v1.json` |
-| fixtures | `contracts/fixtures/*.json` |
-| contract tests | `tests/contract/`、`scripts/check-contracts.mjs` |
+| 类别             | 文件或目录                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| shared contracts | `packages/shared-contracts/src/index.ts`                                                                                                   |
+| OpenAPI          | `contracts/openapi/p0-api.openapi.yaml`                                                                                                    |
+| schemas          | `contracts/schemas/role-decision-section.v1.json`、`decision-merge-commit.v1.json`、`team-confirmation.v1.json`、`decision.v1.json`        |
+| 新增 schemas     | `contracts/schemas/role-context.v1.json`、`role-workspace-snapshot.v1.json`、`role-readiness-summary.v1.json`、`role-field-policy.v1.json` |
+| fixtures         | `contracts/fixtures/*.json`                                                                                                                |
+| contract tests   | `tests/contract/`、`scripts/check-contracts.mjs`                                                                                           |
 
 ### 具体改动
 
@@ -138,15 +138,15 @@ npm run test:schema-drift
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| migrations | `db/migrations/` |
-| repository ports | `services/api/src/repository-ports.ts` |
-| repository facade | `services/api/src/repository-facade.ts` |
-| JSON adapter | `services/api/src/json-repository-adapter.ts`、`services/api/src/store.ts` |
-| Postgres adapter | `services/api/src/postgres-repository-adapter.ts` |
-| adapter tests | `tests/contract/repository-adapter-contract.ts`、`tests/integration/postgres-repository-adapter.test.ts`、`tests/unit/json-repository-adapter.test.ts` |
-| migration tests | `scripts/check-migrations.mjs`、`scripts/check-postgres-migration-apply.mjs` |
+| 类别              | 文件或目录                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| migrations        | `db/migrations/`                                                                                                                                       |
+| repository ports  | `services/api/src/repository-ports.ts`                                                                                                                 |
+| repository facade | `services/api/src/repository-facade.ts`                                                                                                                |
+| JSON adapter      | `services/api/src/json-repository-adapter.ts`、`services/api/src/store.ts`                                                                             |
+| Postgres adapter  | `services/api/src/postgres-repository-adapter.ts`                                                                                                      |
+| adapter tests     | `tests/contract/repository-adapter-contract.ts`、`tests/integration/postgres-repository-adapter.test.ts`、`tests/unit/json-repository-adapter.test.ts` |
+| migration tests   | `scripts/check-migrations.mjs`、`scripts/check-postgres-migration-apply.mjs`                                                                           |
 
 ### 具体改动
 
@@ -193,14 +193,14 @@ npm test -- --run tests/unit/json-repository-adapter.test.ts
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| routes | `services/api/src/routes/foundation-routes.ts`、`decision-routes.ts`、`round-routes.ts`、`settlement-routes.ts`、`agent-routes.ts` |
-| auth | `services/api/src/auth-context.ts`、`auth.ts` |
-| services | `services/api/src/foundation-services.ts`、`settlement-service.ts`、`replay-service.ts` |
-| HTTP helpers | `services/api/src/http.ts` |
-| repository | `services/api/src/repository-facade.ts`、`repository-ports.ts` |
-| tests | `tests/integration/`、`tests/unit/auth-token.test.ts` |
+| 类别         | 文件或目录                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| routes       | `services/api/src/routes/foundation-routes.ts`、`decision-routes.ts`、`round-routes.ts`、`settlement-routes.ts`、`agent-routes.ts` |
+| auth         | `services/api/src/auth-context.ts`、`auth.ts`                                                                                      |
+| services     | `services/api/src/foundation-services.ts`、`settlement-service.ts`、`replay-service.ts`                                            |
+| HTTP helpers | `services/api/src/http.ts`                                                                                                         |
+| repository   | `services/api/src/repository-facade.ts`、`repository-ports.ts`                                                                     |
+| tests        | `tests/integration/`、`tests/unit/auth-token.test.ts`                                                                              |
 
 ### 具体改动
 
@@ -274,13 +274,13 @@ npm run test:contract
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| settlement | `services/api/src/settlement-service.ts`、`services/api/src/simulation.ts` |
-| replay | `services/api/src/replay-service.ts` |
-| simulation core | `services/simulation-core/src/` |
-| contracts | `packages/shared-contracts/src/index.ts`、`contracts/schemas/replay-input-manifest.v1.json`、`settlement-result.v1.json` |
-| tests | `tests/unit/simulation-core.test.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/replay/` |
+| 类别            | 文件或目录                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| settlement      | `services/api/src/settlement-service.ts`、`services/api/src/simulation.ts`                                               |
+| replay          | `services/api/src/replay-service.ts`                                                                                     |
+| simulation core | `services/simulation-core/src/`                                                                                          |
+| contracts       | `packages/shared-contracts/src/index.ts`、`contracts/schemas/replay-input-manifest.v1.json`、`settlement-result.v1.json` |
+| tests           | `tests/unit/simulation-core.test.ts`、`tests/integration/p2-engineering-foundation.test.ts`、`tests/replay/`             |
 
 ### 具体改动
 
@@ -328,13 +328,13 @@ npm run test:schema-drift
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| student app | `apps/student/src/App.tsx`、`apps/student/src/styles.css` |
-| optional components | `apps/student/src/components/` |
-| optional client/hooks | `apps/student/src/api/`、`apps/student/src/hooks/` |
-| shared contracts | `packages/shared-contracts/src/index.ts` |
-| e2e | `tests/e2e-ui/`、`tests/e2e/` |
+| 类别                  | 文件或目录                                                |
+| --------------------- | --------------------------------------------------------- |
+| student app           | `apps/student/src/App.tsx`、`apps/student/src/styles.css` |
+| optional components   | `apps/student/src/components/`                            |
+| optional client/hooks | `apps/student/src/api/`、`apps/student/src/hooks/`        |
+| shared contracts      | `packages/shared-contracts/src/index.ts`                  |
+| e2e                   | `tests/e2e-ui/`、`tests/e2e/`                             |
 
 ### 具体改动
 
@@ -402,13 +402,13 @@ npm run test:e2e:ui
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| teacher app | `apps/teacher/src/App.tsx`、`apps/teacher/src/styles.css` |
-| admin app | `apps/admin/src/App.tsx`、`apps/admin/src/styles.css` |
-| shared contracts | `packages/shared-contracts/src/index.ts` |
-| API routes | `services/api/src/routes/foundation-routes.ts`、`round-routes.ts`、`audit-routes.ts` |
-| tests | `tests/e2e-ui/`、`tests/integration/` |
+| 类别             | 文件或目录                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| teacher app      | `apps/teacher/src/App.tsx`、`apps/teacher/src/styles.css`                            |
+| admin app        | `apps/admin/src/App.tsx`、`apps/admin/src/styles.css`                                |
+| shared contracts | `packages/shared-contracts/src/index.ts`                                             |
+| API routes       | `services/api/src/routes/foundation-routes.ts`、`round-routes.ts`、`audit-routes.ts` |
+| tests            | `tests/e2e-ui/`、`tests/integration/`                                                |
 
 ### 具体改动
 
@@ -455,13 +455,13 @@ npm test
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| plugin manifest | `plugins/wellness/plugin.manifest.json` |
-| plugin schemas | `contracts/schemas/plugin-manifest.v1.json`、`plugin-package.v1.json`、`wellness-parameters.v1.json` |
-| simulation plugin | `services/simulation-core/src/wellness-plugin.ts`、`wellness-parameters.ts` |
-| shared contracts | `packages/shared-contracts/src/index.ts` |
-| tests | `tests/unit/simulation-core.test.ts`、contract/schema tests |
+| 类别              | 文件或目录                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| plugin manifest   | `plugins/wellness/plugin.manifest.json`                                                              |
+| plugin schemas    | `contracts/schemas/plugin-manifest.v1.json`、`plugin-package.v1.json`、`wellness-parameters.v1.json` |
+| simulation plugin | `services/simulation-core/src/wellness-plugin.ts`、`wellness-parameters.ts`                          |
+| shared contracts  | `packages/shared-contracts/src/index.ts`                                                             |
+| tests             | `tests/unit/simulation-core.test.ts`、contract/schema tests                                          |
 
 ### 具体改动
 
@@ -506,13 +506,13 @@ npm test -- --run tests/unit/simulation-core.test.ts
 
 ### 涉及文件
 
-| 类别 | 文件或目录 |
-| --- | --- |
-| docs | `docs/architecture/student-role-based-decision-refactor.md`、本文件、`docs/INDEX.md` |
-| frontend docs | `docs/frontend/teacher-student-architecture.md`、`docs/frontend/frontend-state-flow.md` |
-| quality docs | `docs/quality/phase-2-3-baseline-checklist.md`、`docs/quality/replay-shadow-replay-test-plan.md` |
-| e2e tests | `tests/e2e-ui/`、`tests/e2e/` |
-| all changed code | 前述阶段涉及的全部文件 |
+| 类别             | 文件或目录                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| docs             | `docs/architecture/student-role-based-decision-refactor.md`、本文件、`docs/INDEX.md`             |
+| frontend docs    | `docs/frontend/teacher-student-architecture.md`、`docs/frontend/frontend-state-flow.md`          |
+| quality docs     | `docs/quality/phase-2-3-baseline-checklist.md`、`docs/quality/replay-shadow-replay-test-plan.md` |
+| e2e tests        | `tests/e2e-ui/`、`tests/e2e/`                                                                    |
+| all changed code | 前述阶段涉及的全部文件                                                                           |
 
 ### 具体改动
 
@@ -577,17 +577,17 @@ npm run test:migration:apply
 
 建议按以下 PR 顺序推进：
 
-| PR | 范围 | 退出条件 |
-| --- | --- | --- |
-| PR 1 | Phase 0 核验记录和契约设计确认 | 无业务代码变更，问题清单明确 |
-| PR 2 | Phase 1 shared contracts / schemas / fixtures / OpenAPI | contract、schema drift、typecheck 通过 |
-| PR 3 | Phase 2 migrations / repository ports / adapters | migration、adapter tests 通过 |
-| PR 4 | Phase 3 services API 和权限守卫 | integration、contract、typecheck 通过 |
-| PR 5 | Phase 4 settlement / Replay truth hash 收口 | replay、settlement、idempotency tests 通过 |
-| PR 6 | Phase 5 apps/student 角色工作台 | build、student E2E 通过 |
-| PR 7 | Phase 6 teacher/admin 治理视图 | build、teacher E2E 通过 |
-| PR 8 | Phase 7 plugin 扩展 | plugin schema、simulation-core tests 通过 |
-| PR 9 | Phase 8 全链路收口 | `npm run quality` 通过 |
+| PR   | 范围                                                    | 退出条件                                   |
+| ---- | ------------------------------------------------------- | ------------------------------------------ |
+| PR 1 | Phase 0 核验记录和契约设计确认                          | 无业务代码变更，问题清单明确               |
+| PR 2 | Phase 1 shared contracts / schemas / fixtures / OpenAPI | contract、schema drift、typecheck 通过     |
+| PR 3 | Phase 2 migrations / repository ports / adapters        | migration、adapter tests 通过              |
+| PR 4 | Phase 3 services API 和权限守卫                         | integration、contract、typecheck 通过      |
+| PR 5 | Phase 4 settlement / Replay truth hash 收口             | replay、settlement、idempotency tests 通过 |
+| PR 6 | Phase 5 apps/student 角色工作台                         | build、student E2E 通过                    |
+| PR 7 | Phase 6 teacher/admin 治理视图                          | build、teacher E2E 通过                    |
+| PR 8 | Phase 7 plugin 扩展                                     | plugin schema、simulation-core tests 通过  |
+| PR 9 | Phase 8 全链路收口                                      | `npm run quality` 通过                     |
 
 每个 PR 都必须在描述中说明：
 

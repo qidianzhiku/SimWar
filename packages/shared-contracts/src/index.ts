@@ -45,7 +45,12 @@ export type UserStatus = "active" | "invited" | "disabled";
 export type CourseStatus = "draft" | "published" | "active" | "archived";
 export type RoundStatus = "draft" | "open" | "locked" | "settled" | "published";
 export type DecisionStatus = "draft" | "submitted" | "validated" | "rejected";
-export type ParameterSetStatus = "draft" | "candidate" | "shadow_passed" | "approved" | "deprecated";
+export type ParameterSetStatus =
+  | "draft"
+  | "candidate"
+  | "shadow_passed"
+  | "approved"
+  | "deprecated";
 
 export type PermissionKey =
   | "tenant:create"
@@ -279,7 +284,9 @@ export interface PublicResultView {
   round_no: number;
   status: RoundStatus;
   replay_hash?: string;
-  results: Array<Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }>;
+  results: Array<
+    Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }
+  >;
 }
 
 export interface AuditLog {
