@@ -46,6 +46,11 @@ export type CourseStatus = "draft" | "published" | "active" | "archived";
 export type RoundStatus = "draft" | "open" | "locked" | "settled" | "published";
 export type DecisionStatus = "draft" | "submitted" | "validated" | "rejected";
 export type ParameterSetStatus = "draft" | "candidate" | "shadow_passed" | "approved" | "deprecated";
+export type SettlementHookName =
+  | "adjustDemand"
+  | "adjustOperations"
+  | "adjustFinance"
+  | "adjustScore";
 
 export type PermissionKey =
   | "tenant:create"
@@ -149,6 +154,45 @@ export interface ScenarioPackage {
   plugin_package_ids: string[];
 }
 
+export interface PluginManifest {
+  manifest_version: "1.0.0";
+  plugin_id: string;
+  name: string;
+  version: string;
+  status: ParameterSetStatus;
+  industry: "wellness";
+  supported_hooks: SettlementHookName[];
+  parameter_schema_version: string;
+  parameter_schema_ref: string;
+  settlement_hook_refs: string[];
+  adapter_ref: string;
+}
+
+export interface WellnessParametersV1 {
+  schema_version: "wellness.parameters.v1";
+  demand_curve: {
+    reference_price: number;
+    price_friction_scale: number;
+    quality_budget_per_utility: number;
+    max_quality_lift: number;
+    quality_lift_weight: number;
+    price_sensitivity: number;
+  };
+  cost_structure: {
+    partnership_discount_threshold: number;
+    partnership_discount_rate: number;
+  };
+  operations_constraints: {
+    max_capacity_modifier: number;
+    min_service_quality_budget: number;
+  };
+  scoring_weights: {
+    service_quality_bonus_per_budget: number;
+    max_service_quality_bonus: number;
+    underfunded_service_penalty: number;
+  };
+}
+
 export interface ParameterSet {
   parameter_set_id: string;
   tenant_id: string;
@@ -160,6 +204,7 @@ export interface ParameterSet {
   base_capacity: number;
   unit_cost: number;
   fixed_cost: number;
+  parameters?: WellnessParametersV1;
 }
 
 export interface Course {

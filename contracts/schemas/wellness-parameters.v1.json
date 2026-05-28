@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/wellness-parameters.v1.json",
+  "title": "WellnessParametersV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "demand_curve",
+    "cost_structure",
+    "operations_constraints",
+    "scoring_weights"
+  ],
+  "properties": {
+    "schema_version": { "const": "wellness.parameters.v1" },
+    "demand_curve": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference_price",
+        "price_friction_scale",
+        "quality_budget_per_utility",
+        "max_quality_lift",
+        "quality_lift_weight",
+        "price_sensitivity"
+      ],
+      "properties": {
+        "reference_price": { "type": "number", "minimum": 0 },
+        "price_friction_scale": { "type": "number", "exclusiveMinimum": 0 },
+        "quality_budget_per_utility": { "type": "number", "exclusiveMinimum": 0 },
+        "max_quality_lift": { "type": "number", "minimum": 0 },
+        "quality_lift_weight": { "type": "number", "minimum": 0 },
+        "price_sensitivity": { "type": "number", "minimum": 0 }
+      }
+    },
+    "cost_structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partnership_discount_threshold", "partnership_discount_rate"],
+      "properties": {
+        "partnership_discount_threshold": { "type": "number", "minimum": 0 },
+        "partnership_discount_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "operations_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_capacity_modifier", "min_service_quality_budget"],
+      "properties": {
+        "max_capacity_modifier": { "type": "number", "exclusiveMinimum": 0 },
+        "min_service_quality_budget": { "type": "number", "minimum": 0 }
+      }
+    },
+    "scoring_weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_quality_bonus_per_budget",
+        "max_service_quality_bonus",
+        "underfunded_service_penalty"
+      ],
+      "properties": {
+        "service_quality_bonus_per_budget": { "type": "number", "minimum": 0 },
+        "max_service_quality_bonus": { "type": "number", "minimum": 0 },
+        "underfunded_service_penalty": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "additionalProperties": false
+}
