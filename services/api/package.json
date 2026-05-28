@@ -11,6 +11,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@simwar/simulation-core": "0.1.0",
     "@simwar/shared-contracts": "0.1.0"
   }
 }
