@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/replay-input-manifest.v1.json",
+  "title": "ReplayInputManifest",
+  "type": "object",
+  "required": [
+    "manifest_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "source_result_id",
+    "input_hash",
+    "manifest_hash",
+    "included_sources",
+    "excluded_from_truth_hash",
+    "created_at"
+  ],
+  "properties": {
+    "manifest_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "source_result_id": { "type": "string", "minLength": 1 },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "manifest_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "included_sources": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "excluded_from_truth_hash": {
+      "type": "object",
+      "description": "Governance context recorded for review only; these values are explicitly excluded from official truth hash inputs."
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

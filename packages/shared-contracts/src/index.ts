@@ -325,6 +325,65 @@ export interface TeamConfirmation {
   confirmed_at: string;
 }
 
+export type ReplayMode = "official_replay" | "shadow_replay";
+export type ReplayRunStatus = "pending" | "running" | "completed" | "failed";
+export type ReplayReportStatus = "matched" | "mismatched" | "failed";
+export type ReplayDiffSeverity = "none" | "low" | "medium" | "high";
+
+export interface ReplayInputManifest {
+  manifest_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  source_result_id: string;
+  input_hash: string;
+  manifest_hash: string;
+  included_sources: string[];
+  excluded_from_truth_hash: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ReplayRun {
+  replay_run_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  replay_mode: ReplayMode;
+  status: ReplayRunStatus;
+  manifest_id: string;
+  started_at: string;
+  completed_at: string;
+}
+
+export interface ReplayReport {
+  replay_report_id: string;
+  replay_run_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  status: ReplayReportStatus;
+  source_result_id: string;
+  replay_result_hash: string;
+  matched: boolean;
+  created_at: string;
+}
+
+export interface ReplayDiffReport {
+  diff_report_id: string;
+  replay_report_id: string;
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  severity: ReplayDiffSeverity;
+  differences: Array<{
+    field: string;
+    expected: unknown;
+    actual: unknown;
+    message: string;
+  }>;
+  created_at: string;
+}
+
 export interface TeamSettlement {
   team_id: string;
   team_name: string;
