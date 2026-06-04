@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/coach-output.v1.json",
+  "title": "CoachOutput",
+  "type": "object",
+  "required": [
+    "coach_output_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "output_type",
+    "advisory_only",
+    "advisory_text",
+    "evidence_refs",
+    "created_at"
+  ],
+  "properties": {
+    "coach_output_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "role_key": {
+      "type": "string",
+      "enum": ["CEO", "CFO", "CMO", "COO", "risk"]
+    },
+    "output_type": {
+      "type": "string",
+      "enum": ["advisory", "learning_note", "explanation"]
+    },
+    "advisory_only": { "const": true },
+    "advisory_text": { "type": "string", "minLength": 1 },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "model_call_log_id": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

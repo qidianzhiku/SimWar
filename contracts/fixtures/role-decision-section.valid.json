@@ -1,0 +1,17 @@
+{
+  "section_id": "section_cfo_team_alpha_round_1",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "team_id": "team_alpha",
+  "role_key": "CFO",
+  "status": "ready",
+  "payload": {
+    "cash_buffer_target": 120000,
+    "service_quality_budget": 70000
+  },
+  "version": 1,
+  "submitted_by": "user_cfo_alpha",
+  "submitted_at": "2026-05-28T00:00:00.000Z",
+  "updated_at": "2026-05-28T00:05:00.000Z"
+}

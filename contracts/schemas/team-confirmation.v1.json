@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/team-confirmation.v1.json",
+  "title": "TeamConfirmation",
+  "type": "object",
+  "required": [
+    "team_confirmation_id",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "team_id",
+    "merge_commit_id",
+    "status",
+    "confirmed_by",
+    "confirmed_at"
+  ],
+  "properties": {
+    "team_confirmation_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "merge_commit_id": { "type": "string", "minLength": 1 },
+    "status": { "const": "confirmed" },
+    "confirmed_by": { "type": "string", "minLength": 1 },
+    "confirmed_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

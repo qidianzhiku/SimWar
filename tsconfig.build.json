@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/shared-contracts" },
+    { "path": "./services/simulation-core" },
     { "path": "./services/api" },
     { "path": "./apps/admin" },
     { "path": "./apps/teacher" },

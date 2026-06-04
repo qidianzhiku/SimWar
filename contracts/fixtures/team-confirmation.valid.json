@@ -1,0 +1,11 @@
+{
+  "team_confirmation_id": "confirmation_team_alpha_round_1",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_001",
+  "round_id": "round_001",
+  "team_id": "team_alpha",
+  "merge_commit_id": "merge_team_alpha_round_1",
+  "status": "confirmed",
+  "confirmed_by": "user_captain_alpha",
+  "confirmed_at": "2026-05-28T00:15:00.000Z"
+}
