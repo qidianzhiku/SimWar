@@ -1,0 +1,245 @@
+import type {
+  AuditLog,
+  Decision,
+  DomainEvent,
+  ReplayDiffReport,
+  ReplayInputManifest,
+  ReplayReport,
+  ReplayRun,
+  Round,
+  Run,
+  SettlementResult,
+  StateSnapshot,
+  Team,
+} from "@simwar/shared-contracts";
+
+/**
+ * Repository port boundary for the API service.
+ *
+ * This file only defines persistence interfaces. It must not contain JSON,
+ * Postgres, HTTP, Express, route, settlement, replay, or AI advisory runtime
+ * implementation.
+ *
+ * Truth-chain guardrails:
+ * - Role drafts are not canonical decisions.
+ * - AI advisory output and learning evidence must not enter canonical Decision
+ *   or SettlementResult through repository ports.
+ * - Replay truth hash behavior is owned by replay/runtime code, not repository
+ *   persistence ports.
+ */
+
+export type RepositoryId = string;
+
+export interface RepositoryTenantReadModel {
+  tenant_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositoryUserReadModel {
+  tenant_id: RepositoryId;
+  user_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositorySessionReadModel {
+  tenant_id: RepositoryId;
+  session_id: RepositoryId;
+  user_id: RepositoryId;
+  expires_at?: string;
+}
+
+export interface RepositoryCourseReadModel {
+  tenant_id: RepositoryId;
+  course_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositoryEventQuery {
+  tenant_id: RepositoryId;
+  aggregate_id?: RepositoryId;
+  aggregate_type?: string;
+  from_sequence?: number;
+  limit?: number;
+}
+
+export interface RepositorySnapshotQuery {
+  tenant_id: RepositoryId;
+  aggregate_id: RepositoryId;
+  aggregate_type: string;
+  at_sequence?: number;
+}
+
+export interface IdentityRepositoryPort {
+  getTenant(tenantId: RepositoryId): Promise<RepositoryTenantReadModel | null>;
+
+  getUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositoryUserReadModel | null>;
+}
+
+export interface SessionRepositoryPort {
+  getSession(
+    tenantId: RepositoryId,
+    sessionId: RepositoryId,
+  ): Promise<RepositorySessionReadModel | null>;
+
+  listActiveSessionsByUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositorySessionReadModel[]>;
+}
+
+export interface CourseRepositoryPort {
+  getCourse(
+    tenantId: RepositoryId,
+    courseId: RepositoryId,
+  ): Promise<RepositoryCourseReadModel | null>;
+
+  listCoursesForUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositoryCourseReadModel[]>;
+}
+
+export interface TeamRepositoryPort {
+  getTeam(tenantId: RepositoryId, teamId: RepositoryId): Promise<Team | null>;
+
+  listTeamsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Team[]>;
+
+  getTeamForUser(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<Team | null>;
+}
+
+export interface RunRepositoryPort {
+  getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
+
+  listRunsForCourse(
+    tenantId: RepositoryId,
+    courseId: RepositoryId,
+  ): Promise<Run[]>;
+}
+
+export interface RoundRepositoryPort {
+  getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
+
+  listRoundsForRun(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+  ): Promise<Round[]>;
+
+  markRoundSettled(
+    tenantId: RepositoryId,
+    roundId: RepositoryId,
+    settlementResultId: RepositoryId,
+  ): Promise<void>;
+}
+
+export interface DecisionRepositoryPort {
+  getDecisionById(
+    tenantId: RepositoryId,
+    decisionId: RepositoryId,
+  ): Promise<Decision | null>;
+
+  getCanonicalDecisionForTeamRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+    teamId: RepositoryId,
+  ): Promise<Decision | null>;
+
+  listDecisionsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+  ): Promise<Decision[]>;
+
+  saveCanonicalDecision(decision: Decision): Promise<void>;
+}
+
+export interface SettlementRepositoryPort {
+  getSettlementResult(
+    tenantId: RepositoryId,
+    settlementResultId: RepositoryId,
+  ): Promise<SettlementResult | null>;
+
+  listSettlementResultsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+  ): Promise<SettlementResult[]>;
+
+  saveSettlementResult(result: SettlementResult): Promise<void>;
+}
+
+export interface DomainEventRepositoryPort {
+  appendDomainEvent(event: DomainEvent): Promise<void>;
+
+  listDomainEvents(query: RepositoryEventQuery): Promise<DomainEvent[]>;
+}
+
+export interface StateSnapshotRepositoryPort {
+  getStateSnapshot(query: RepositorySnapshotQuery): Promise<StateSnapshot | null>;
+
+  saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
+}
+
+export interface AuditLogRepositoryPort {
+  appendAuditLog(auditLog: AuditLog): Promise<void>;
+
+  listAuditLogs(query: {
+    tenant_id: RepositoryId;
+    actor_id?: RepositoryId;
+    action?: string;
+    resource_id?: RepositoryId;
+    limit?: number;
+  }): Promise<AuditLog[]>;
+}
+
+export interface ReplayRepositoryPort {
+  saveReplayInputManifest(manifest: ReplayInputManifest): Promise<void>;
+
+  getReplayInputManifest(
+    tenantId: RepositoryId,
+    manifestId: RepositoryId,
+  ): Promise<ReplayInputManifest | null>;
+
+  saveReplayRun(run: ReplayRun): Promise<void>;
+
+  getReplayRun(
+    tenantId: RepositoryId,
+    replayRunId: RepositoryId,
+  ): Promise<ReplayRun | null>;
+
+  saveReplayReport(report: ReplayReport): Promise<void>;
+
+  getReplayReport(
+    tenantId: RepositoryId,
+    replayReportId: RepositoryId,
+  ): Promise<ReplayReport | null>;
+
+  saveReplayDiffReport(report: ReplayDiffReport): Promise<void>;
+
+  getReplayDiffReport(
+    tenantId: RepositoryId,
+    replayDiffReportId: RepositoryId,
+  ): Promise<ReplayDiffReport | null>;
+}
+
+export interface SimWarRepositoryPorts {
+  identity: IdentityRepositoryPort;
+  sessions: SessionRepositoryPort;
+  courses: CourseRepositoryPort;
+  teams: TeamRepositoryPort;
+  runs: RunRepositoryPort;
+  rounds: RoundRepositoryPort;
+  decisions: DecisionRepositoryPort;
+  settlements: SettlementRepositoryPort;
+  domainEvents: DomainEventRepositoryPort;
+  stateSnapshots: StateSnapshotRepositoryPort;
+  auditLogs: AuditLogRepositoryPort;
+  replay: ReplayRepositoryPort;
+}
