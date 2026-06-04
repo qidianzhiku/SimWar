@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ActorRole, AdminState, ApiEnvelope, AuthSession, Tenant, User } from "@simwar/shared-contracts";
+import type {
+  ActorRole,
+  AdminState,
+  ApiEnvelope,
+  AuthSession,
+  Tenant,
+  User
+} from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const DEFAULT_LOGIN = {
@@ -8,7 +15,13 @@ const DEFAULT_LOGIN = {
   password: "platform"
 };
 
-const roleOptions: ActorRole[] = ["tenant_admin", "teacher", "learner", "team_captain", "scenario_designer"];
+const roleOptions: ActorRole[] = [
+  "tenant_admin",
+  "teacher",
+  "learner",
+  "team_captain",
+  "scenario_designer"
+];
 
 async function apiRequest<TData>(
   path: string,
@@ -46,7 +59,10 @@ export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [state, setState] = useState<AdminState | null>(null);
   const [login, setLogin] = useState(DEFAULT_LOGIN);
-  const [tenantDraft, setTenantDraft] = useState({ name: "New Tenant", domain: "new.simwar.local" });
+  const [tenantDraft, setTenantDraft] = useState({
+    name: "New Tenant",
+    domain: "new.simwar.local"
+  });
   const [userDraft, setUserDraft] = useState({
     tenant_id: "tenant_demo",
     username: "new_learner",
@@ -58,7 +74,10 @@ export function App() {
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
 
-  const tenantMap = useMemo(() => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])), [state?.tenants]);
+  const tenantMap = useMemo(
+    () => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])),
+    [state?.tenants]
+  );
   const recentAudits = state?.audit_logs.slice(-8).reverse() ?? [];
 
   const refresh = useCallback(async () => {
@@ -66,7 +85,12 @@ export function App() {
       return;
     }
 
-    setState(await apiRequest<AdminState>("/api/v1/admin/state", { token: session.access_token, tenantId: login.tenantId }));
+    setState(
+      await apiRequest<AdminState>("/api/v1/admin/state", {
+        token: session.access_token,
+        tenantId: login.tenantId
+      })
+    );
   }, [login.tenantId, session]);
 
   async function signIn(nextLogin = login): Promise<void> {
@@ -163,7 +187,9 @@ export function App() {
           <p className="eyebrow">Admin Governance</p>
           <h1>SimWar P1 管理后台</h1>
           <span className="identity">
-            {session ? `${session.user.display_name} · ${session.user.roles.join(" / ")}` : "not signed in"}
+            {session
+              ? `${session.user.display_name} · ${session.user.roles.join(" / ")}`
+              : "not signed in"}
           </span>
         </div>
         <strong className="notice">{notice}</strong>
@@ -173,18 +199,24 @@ export function App() {
         <input
           aria-label="tenant"
           value={login.tenantId}
-          onChange={(event) => setLogin((current) => ({ ...current, tenantId: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, tenantId: event.target.value }))
+          }
         />
         <input
           aria-label="username"
           value={login.username}
-          onChange={(event) => setLogin((current) => ({ ...current, username: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, username: event.target.value }))
+          }
         />
         <input
           aria-label="password"
           type="password"
           value={login.password}
-          onChange={(event) => setLogin((current) => ({ ...current, password: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, password: event.target.value }))
+          }
         />
         <button disabled={busy} onClick={() => void signIn()}>
           管理员登录
@@ -218,16 +250,27 @@ export function App() {
           </div>
           <label>
             名称
-            <input value={tenantDraft.name} onChange={(event) => setTenantDraft((current) => ({ ...current, name: event.target.value }))} />
+            <input
+              value={tenantDraft.name}
+              onChange={(event) =>
+                setTenantDraft((current) => ({ ...current, name: event.target.value }))
+              }
+            />
           </label>
           <label>
             域标识
             <input
               value={tenantDraft.domain}
-              onChange={(event) => setTenantDraft((current) => ({ ...current, domain: event.target.value }))}
+              onChange={(event) =>
+                setTenantDraft((current) => ({ ...current, domain: event.target.value }))
+              }
             />
           </label>
-          <button className="primary" disabled={busy || !session} onClick={() => void createTenant()}>
+          <button
+            className="primary"
+            disabled={busy || !session}
+            onClick={() => void createTenant()}
+          >
             创建租户
           </button>
         </article>
@@ -239,21 +282,38 @@ export function App() {
           </div>
           <label>
             租户
-            <input value={userDraft.tenant_id} onChange={(event) => setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))} />
+            <input
+              value={userDraft.tenant_id}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
+              }
+            />
           </label>
           <label>
             用户名
-            <input value={userDraft.username} onChange={(event) => setUserDraft((current) => ({ ...current, username: event.target.value }))} />
+            <input
+              value={userDraft.username}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, username: event.target.value }))
+              }
+            />
           </label>
           <label>
             邮箱
-            <input value={userDraft.email} onChange={(event) => setUserDraft((current) => ({ ...current, email: event.target.value }))} />
+            <input
+              value={userDraft.email}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, email: event.target.value }))
+              }
+            />
           </label>
           <label>
             显示名
             <input
               value={userDraft.display_name}
-              onChange={(event) => setUserDraft((current) => ({ ...current, display_name: event.target.value }))}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, display_name: event.target.value }))
+              }
             />
           </label>
           <label>
@@ -261,14 +321,18 @@ export function App() {
             <input
               type="password"
               value={userDraft.password}
-              onChange={(event) => setUserDraft((current) => ({ ...current, password: event.target.value }))}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, password: event.target.value }))
+              }
             />
           </label>
           <label>
             角色
             <select
               value={userDraft.role}
-              onChange={(event) => setUserDraft((current) => ({ ...current, role: event.target.value as ActorRole }))}
+              onChange={(event) =>
+                setUserDraft((current) => ({ ...current, role: event.target.value as ActorRole }))
+              }
             >
               {roleOptions.map((role) => (
                 <option key={role} value={role}>

@@ -20,7 +20,11 @@ export function validateDecisionPayload(payload: unknown): Array<{ field: string
     errors.push({ field: "pricing.base_price", reason: "must_be_between_6000_and_30000" });
   }
 
-  if (typeof candidate.marketing_budget !== "number" || candidate.marketing_budget < 0 || candidate.marketing_budget > 1000000) {
+  if (
+    typeof candidate.marketing_budget !== "number" ||
+    candidate.marketing_budget < 0 ||
+    candidate.marketing_budget > 1000000
+  ) {
     errors.push({ field: "marketing_budget", reason: "must_be_between_0_and_1000000" });
   }
 
@@ -32,15 +36,26 @@ export function validateDecisionPayload(payload: unknown): Array<{ field: string
     errors.push({ field: "service_quality_budget", reason: "must_be_between_0_and_1000000" });
   }
 
-  if (candidate.capacity_plan !== "contract" && candidate.capacity_plan !== "hold" && candidate.capacity_plan !== "expand") {
+  if (
+    candidate.capacity_plan !== "contract" &&
+    candidate.capacity_plan !== "hold" &&
+    candidate.capacity_plan !== "expand"
+  ) {
     errors.push({ field: "capacity_plan", reason: "must_be_contract_hold_or_expand" });
   }
 
-  if (typeof candidate.cash_buffer_target !== "number" || candidate.cash_buffer_target < 0 || candidate.cash_buffer_target > 0.6) {
+  if (
+    typeof candidate.cash_buffer_target !== "number" ||
+    candidate.cash_buffer_target < 0 ||
+    candidate.cash_buffer_target > 0.6
+  ) {
     errors.push({ field: "cash_buffer_target", reason: "must_be_between_0_and_0_6" });
   }
 
-  if (typeof candidate.strategy_statement !== "string" || candidate.strategy_statement.trim().length < 8) {
+  if (
+    typeof candidate.strategy_statement !== "string" ||
+    candidate.strategy_statement.trim().length < 8
+  ) {
     errors.push({ field: "strategy_statement", reason: "must_be_at_least_8_chars" });
   }
 

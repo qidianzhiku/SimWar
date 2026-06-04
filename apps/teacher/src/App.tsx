@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ApiEnvelope, AuthSession, P0DemoState, Round, SettlementResult } from "@simwar/shared-contracts";
+import type {
+  ApiEnvelope,
+  AuthSession,
+  P0DemoState,
+  Round,
+  SettlementResult
+} from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const DEFAULT_LOGIN = {
@@ -72,14 +78,19 @@ export function App() {
   const [notice, setNotice] = useState("ready");
 
   const latestRun = state?.runs.at(-1);
-  const latestRound = latestRun ? state?.rounds.find((round) => round.run_id === latestRun.run_id) : undefined;
+  const latestRound = latestRun
+    ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
+    : undefined;
   const resultRows = state?.latest_result?.results ?? [];
   const hasDecision = useMemo(() => {
     if (!latestRun || !latestRound || !state) {
       return false;
     }
 
-    return state.decisions.some((decision) => decision.run_id === latestRun.run_id && decision.round_no === latestRound.round_no);
+    return state.decisions.some(
+      (decision) =>
+        decision.run_id === latestRun.run_id && decision.round_no === latestRound.round_no
+    );
   }, [latestRun, latestRound, state]);
 
   const refresh = useCallback(async () => {
@@ -87,7 +98,12 @@ export function App() {
       return;
     }
 
-    setState(await apiRequest<P0DemoState>("/api/v1/demo-state", { token: session.access_token, tenantId: login.tenantId }));
+    setState(
+      await apiRequest<P0DemoState>("/api/v1/demo-state", {
+        token: session.access_token,
+        tenantId: login.tenantId
+      })
+    );
   }, [login.tenantId, session]);
 
   async function signIn(nextLogin = login): Promise<void> {
@@ -134,20 +150,32 @@ export function App() {
         await apiRequest("/api/v1/courses/course_demo/runs", { ...auth, method: "POST" });
         setNotice("run created");
       } else if (latestRound?.status === "draft") {
-        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/start`, { ...auth, method: "POST" });
+        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/start`, {
+          ...auth,
+          method: "POST"
+        });
         setNotice("round opened");
       } else if (latestRound?.status === "open") {
         if (!hasDecision) {
           setNotice("waiting for learner decision");
         } else {
-          await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/lock`, { ...auth, method: "POST" });
+          await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/lock`, {
+            ...auth,
+            method: "POST"
+          });
           setNotice("round locked");
         }
       } else if (latestRound?.status === "locked") {
-        await apiRequest<SettlementResult>(`/api/v1/runs/${latestRun.run_id}/rounds/1/settle`, { ...auth, method: "POST" });
+        await apiRequest<SettlementResult>(`/api/v1/runs/${latestRun.run_id}/rounds/1/settle`, {
+          ...auth,
+          method: "POST"
+        });
         setNotice("settlement completed");
       } else if (latestRound?.status === "settled") {
-        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/publish`, { ...auth, method: "POST" });
+        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/publish`, {
+          ...auth,
+          method: "POST"
+        });
         setNotice("result published");
       }
 
@@ -178,7 +206,11 @@ export function App() {
             {session ? `${session.user.roles.join(" / ")} · ${login.tenantId}` : "not signed in"}
           </span>
         </div>
-        <button className="primary" disabled={busy || latestRound?.status === "published" || !session} onClick={() => void runNextStep()}>
+        <button
+          className="primary"
+          disabled={busy || latestRound?.status === "published" || !session}
+          onClick={() => void runNextStep()}
+        >
           {busy ? "处理中" : getRoundAction(latestRound)}
         </button>
       </header>
@@ -187,18 +219,24 @@ export function App() {
         <input
           aria-label="tenant"
           value={login.tenantId}
-          onChange={(event) => setLogin((current) => ({ ...current, tenantId: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, tenantId: event.target.value }))
+          }
         />
         <input
           aria-label="username"
           value={login.username}
-          onChange={(event) => setLogin((current) => ({ ...current, username: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, username: event.target.value }))
+          }
         />
         <input
           aria-label="password"
           type="password"
           value={login.password}
-          onChange={(event) => setLogin((current) => ({ ...current, password: event.target.value }))}
+          onChange={(event) =>
+            setLogin((current) => ({ ...current, password: event.target.value }))
+          }
         />
         <button disabled={busy} onClick={() => void signIn()}>
           教师登录
@@ -247,7 +285,9 @@ export function App() {
                 <span>{result.team_name}</span>
                 <strong>{result.state_obs.score}</strong>
                 <p>Rank {result.state_obs.rank}</p>
-                {"state_true" in result && result.state_true ? <small>Profit {Math.round(result.state_true.profit)}</small> : null}
+                {"state_true" in result && result.state_true ? (
+                  <small>Profit {Math.round(result.state_true.profit)}</small>
+                ) : null}
               </div>
             ))}
             {resultRows.length === 0 ? <p className="muted">发布后显示结果。</p> : null}

@@ -20,69 +20,69 @@
 
 ## 2. 当前 CI 已覆盖的门禁
 
-| 门禁 | 当前文件位置 | 当前作用 | 对应质量门禁 | 阻断型 | 环境变量或 service | PR 必跑 | 建议拆到 nightly / release |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `npm ci` | `.github/workflows/ci.yml` | 使用 lockfile 安装依赖 | install、quality | 是 | 无 | 是 | 否 |
-| `npm run format:check` | `.github/workflows/ci.yml` | Prettier 格式检查 | lint、quality | 是 | 无 | 是 | 否 |
-| `npm run lint` | `.github/workflows/ci.yml` | ESLint 全仓静态检查 | lint、quality | 是 | 无 | 是 | 否 |
-| `npm run lint:boundaries` | `.github/workflows/ci.yml` | 架构边界检查，防止 route / agent / plugin 越界 | lint、settlement、plugin boundary、replay | 是 | 无 | 是 | 否 |
-| `npm run check:unused` | `.github/workflows/ci.yml` | Knip unused files / dependencies / binaries 检查 | lint、quality | 是 | 依赖 `knip.json` | 是 | 否 |
-| `npm run security:audit` | `.github/workflows/ci.yml` | npm high 级别漏洞检查 | security、quality | 是 | npm registry 可用性 | 可先 PR 必跑，也可路径触发 | security 深扫可 nightly |
-| `npm run typecheck` | `.github/workflows/ci.yml` | TypeScript project references 检查 | typecheck、quality | 是 | 无 | 是 | 否 |
-| `npm run test:coverage` | `.github/workflows/ci.yml` | Vitest coverage 和阈值检查 | unit、quality | 是 | 依赖 `vitest.config.ts` | 是 | 否 |
-| `npm run test:contract` | `.github/workflows/ci.yml` | contract baseline、OpenAPI 路径、schema、fixtures、shared types 检查 | contract、schema、OpenAPI | 是 | 无 | 是 | 未来可拆更细 |
-| `npm run test:schema-drift` | `.github/workflows/ci.yml` | 当前与 contract check 共用脚本 | schema、contract | 是 | 无 | 是 | 未来可替换为更严格 schema check |
-| `npm run test:migration` | `.github/workflows/ci.yml` | migration 静态结构、RLS、索引和关键 SQL 检查 | migration | 是 | 无 | 是 | 否 |
-| `npm run test:migration:apply` | `.github/workflows/ci.yml` | 对真实 Postgres 测试库 apply migration 两次 | migration、idempotency | 是 | Postgres service、`DATABASE_URL` | 可按路径触发 | 是 |
-| `npm run test:postgres-adapter` | `.github/workflows/ci.yml` | Postgres repository adapter integration test | migration、contract | 是 | Postgres service、`DATABASE_URL` | 可按路径触发 | 是 |
-| `npm run build` | `.github/workflows/ci.yml` | 构建 shared-contracts、simulation-core、API、三端 apps | build、typecheck、quality | 是 | 无 | 是 | 否 |
-| Playwright install | `.github/workflows/ci.yml` | 安装 chromium 浏览器依赖 | E2E | 是 | 依赖 runner 环境 | PR smoke 时需要 | full E2E 可 nightly |
-| `npm run test:e2e:ui` | `.github/workflows/ci.yml` | teacher / student UI E2E | E2E | 是 | Playwright webServer、测试端口、测试 store | 建议 smoke PR 必跑或路径触发 | full suite nightly / release |
-| coverage artifact | `.github/workflows/ci.yml` | 上传 `coverage/vitest` | coverage、quality | 不阻断，辅助诊断 | `actions/upload-artifact` | 是 | 否 |
-| `playwright-report` artifact | `.github/workflows/ci.yml` | 上传 Playwright HTML report | E2E diagnosis | 不阻断，辅助诊断 | `actions/upload-artifact` | E2E 运行时上传 | 否 |
-| `test-results` artifact | `.github/workflows/ci.yml` | 上传 trace、junit、失败上下文 | E2E diagnosis | 不阻断，辅助诊断 | `actions/upload-artifact` | E2E 运行时上传 | 否 |
-| Postgres service | `.github/workflows/ci.yml` | 为 migration apply 和 adapter test 提供 disposable DB | migration、adapter contract | 支撑阻断命令 | postgres container | 可按路径触发 | release 必跑 |
-| `DATABASE_URL` | `.github/workflows/ci.yml` | 指向 CI Postgres service | migration、adapter contract | 支撑阻断命令 | Postgres service | 可按路径触发 | release 必跑 |
-| CodeQL 草案 | `.github/workflows/codeql.yml` | JS/TS security-extended 与 quality scan | security、code quality | GitHub code scanning 结果可阻断或报告 | GitHub code scanning 权限 | 可 PR 跑 | weekly + release 前建议跑 |
-| Dependabot 草案 | `.github/dependabot.yml` | npm 与 GitHub Actions weekly update | dependency governance | 不直接阻断，依赖 PR 受 CI 阻断 | GitHub Dependabot | 不适用 | weekly |
+| 门禁                            | 当前文件位置                   | 当前作用                                                             | 对应质量门禁                              | 阻断型                                | 环境变量或 service                         | PR 必跑                      | 建议拆到 nightly / release      |
+| ------------------------------- | ------------------------------ | -------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------- | ------------------------------------------ | ---------------------------- | ------------------------------- |
+| `npm ci`                        | `.github/workflows/ci.yml`     | 使用 lockfile 安装依赖                                               | install、quality                          | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run format:check`          | `.github/workflows/ci.yml`     | Prettier 格式检查                                                    | lint、quality                             | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run lint`                  | `.github/workflows/ci.yml`     | ESLint 全仓静态检查                                                  | lint、quality                             | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run lint:boundaries`       | `.github/workflows/ci.yml`     | 架构边界检查，防止 route / agent / plugin 越界                       | lint、settlement、plugin boundary、replay | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run check:unused`          | `.github/workflows/ci.yml`     | Knip unused files / dependencies / binaries 检查                     | lint、quality                             | 是                                    | 依赖 `knip.json`                           | 是                           | 否                              |
+| `npm run security:audit`        | `.github/workflows/ci.yml`     | npm high 级别漏洞检查                                                | security、quality                         | 是                                    | npm registry 可用性                        | 可先 PR 必跑，也可路径触发   | security 深扫可 nightly         |
+| `npm run typecheck`             | `.github/workflows/ci.yml`     | TypeScript project references 检查                                   | typecheck、quality                        | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run test:coverage`         | `.github/workflows/ci.yml`     | Vitest coverage 和阈值检查                                           | unit、quality                             | 是                                    | 依赖 `vitest.config.ts`                    | 是                           | 否                              |
+| `npm run test:contract`         | `.github/workflows/ci.yml`     | contract baseline、OpenAPI 路径、schema、fixtures、shared types 检查 | contract、schema、OpenAPI                 | 是                                    | 无                                         | 是                           | 未来可拆更细                    |
+| `npm run test:schema-drift`     | `.github/workflows/ci.yml`     | 当前与 contract check 共用脚本                                       | schema、contract                          | 是                                    | 无                                         | 是                           | 未来可替换为更严格 schema check |
+| `npm run test:migration`        | `.github/workflows/ci.yml`     | migration 静态结构、RLS、索引和关键 SQL 检查                         | migration                                 | 是                                    | 无                                         | 是                           | 否                              |
+| `npm run test:migration:apply`  | `.github/workflows/ci.yml`     | 对真实 Postgres 测试库 apply migration 两次                          | migration、idempotency                    | 是                                    | Postgres service、`DATABASE_URL`           | 可按路径触发                 | 是                              |
+| `npm run test:postgres-adapter` | `.github/workflows/ci.yml`     | Postgres repository adapter integration test                         | migration、contract                       | 是                                    | Postgres service、`DATABASE_URL`           | 可按路径触发                 | 是                              |
+| `npm run build`                 | `.github/workflows/ci.yml`     | 构建 shared-contracts、simulation-core、API、三端 apps               | build、typecheck、quality                 | 是                                    | 无                                         | 是                           | 否                              |
+| Playwright install              | `.github/workflows/ci.yml`     | 安装 chromium 浏览器依赖                                             | E2E                                       | 是                                    | 依赖 runner 环境                           | PR smoke 时需要              | full E2E 可 nightly             |
+| `npm run test:e2e:ui`           | `.github/workflows/ci.yml`     | teacher / student UI E2E                                             | E2E                                       | 是                                    | Playwright webServer、测试端口、测试 store | 建议 smoke PR 必跑或路径触发 | full suite nightly / release    |
+| coverage artifact               | `.github/workflows/ci.yml`     | 上传 `coverage/vitest`                                               | coverage、quality                         | 不阻断，辅助诊断                      | `actions/upload-artifact`                  | 是                           | 否                              |
+| `playwright-report` artifact    | `.github/workflows/ci.yml`     | 上传 Playwright HTML report                                          | E2E diagnosis                             | 不阻断，辅助诊断                      | `actions/upload-artifact`                  | E2E 运行时上传               | 否                              |
+| `test-results` artifact         | `.github/workflows/ci.yml`     | 上传 trace、junit、失败上下文                                        | E2E diagnosis                             | 不阻断，辅助诊断                      | `actions/upload-artifact`                  | E2E 运行时上传               | 否                              |
+| Postgres service                | `.github/workflows/ci.yml`     | 为 migration apply 和 adapter test 提供 disposable DB                | migration、adapter contract               | 支撑阻断命令                          | postgres container                         | 可按路径触发                 | release 必跑                    |
+| `DATABASE_URL`                  | `.github/workflows/ci.yml`     | 指向 CI Postgres service                                             | migration、adapter contract               | 支撑阻断命令                          | Postgres service                           | 可按路径触发                 | release 必跑                    |
+| CodeQL 草案                     | `.github/workflows/codeql.yml` | JS/TS security-extended 与 quality scan                              | security、code quality                    | GitHub code scanning 结果可阻断或报告 | GitHub code scanning 权限                  | 可 PR 跑                     | weekly + release 前建议跑       |
+| Dependabot 草案                 | `.github/dependabot.yml`       | npm 与 GitHub Actions weekly update                                  | dependency governance                     | 不直接阻断，依赖 PR 受 CI 阻断        | GitHub Dependabot                          | 不适用                       | weekly                          |
 
 ## 3. 当前缺失的门禁
 
-| 缺失项 | 当前是否存在 | 为什么缺失 | 保护的 SimWar 风险 | 需要先补 package script | 现在接入 | Phase 2+ 接入 | 阻断型建议 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `openapi:lint` / Spectral | 不存在 | 未见 Spectral 配置和脚本 | API 字段命名、enum、response schema、truth fields 暴露 | 是 | 可报告型 | 是 | 规则稳定后阻断 |
-| `schema:check` 标准别名 | 不存在 | 当前只有 `test:schema-drift` | schema / fixtures / shared-contracts 命令入口不统一 | 是 | 是 | 否 | 是，可先别名 |
-| `test:unit` | 不存在 | Vitest 只有全量入口 | unit 反馈不够快，难以定位 pure function 失败 | 是 | 是 | 否 | 是 |
-| `test:integration` | 不存在 | integration 未独立入口 | route / service / repository 组合链路难以单独验证 | 是 | 是 | 否 | 是 |
-| `test:e2e` 标准别名 | 不存在 | 当前只有 `test:e2e:ui` | E2E 命令入口不统一 | 是 | 是 | 否 | smoke 阻断 |
-| `test:replay` | 不存在 | Replay 专项测试尚未拆分 | Replay truth hash、official result 只读 | 是 | 可先规划 | 是 | 是 |
-| `test:replay:golden` | 不存在 | golden matrix 尚未拆分 | 相同输入稳定输出、参数差异可解释 | 是 | 否 | 是 | 是 |
-| `test:settlement-idempotency` | 不存在 | settlement 幂等仍在综合测试内 | 重复 SettlementResult、重复 StateSnapshot、副作用重复 | 是 | 可先规划 | 是 | 是 |
-| `test:plugin-boundary` | 不存在 | plugin boundary 主要靠 lint / 综合测试 | plugin 直写真值、绕过 hook、热替换风险 | 是 | 可先规划 | 是 | 是 |
-| `test:adapter-contract` | 不存在 | adapter contract 没有统一脚本名 | JSON / Postgres adapter 行为漂移 | 是 | 可先规划 | 是 | 是 |
-| `test:pact` | 不存在 | Pact 工具链未配置 | student / teacher / admin consumer contract 漂移 | 是 | 否 | 是 | 稳定后阻断 |
-| Storybook | 不存在 | UI 组件工作台未配置 | 三端复杂状态组件退化 | 是 | 否 | 前端稳定后 | 先不阻断 |
-| Chromatic | 不存在 | Storybook 未稳定，未配置项目 token | 视觉回归 | 是 | 否 | 前端稳定后 | 关键组件稳定后阻断 |
-| Lighthouse | 不存在 | 性能预算和配置未建立 | student 首屏、teacher 大表格、可访问性 | 是 | 否 | 前端稳定后 | 先报告型 |
-| SonarQube | 不存在 | Sonar 配置和项目未建立 | 复杂度、重复、安全味道 | 是 | 否 | 是 | 先报告型 |
-| Snyk / OWASP Dependency-Check | 不存在 | SCA 工具未配置 | transitive dependency、许可证、高危漏洞 | 是 | 可先规划 | 是 | high / critical 稳定后阻断 |
-| Harness release gates | 不存在 | 当前尚未进入发布治理平台 | staging/prod 审批、回滚、环境治理 | 否，需 pipeline | 否 | 上线前 | 阻断发布 |
+| 缺失项                        | 当前是否存在 | 为什么缺失                             | 保护的 SimWar 风险                                     | 需要先补 package script | 现在接入 | Phase 2+ 接入 | 阻断型建议                 |
+| ----------------------------- | ------------ | -------------------------------------- | ------------------------------------------------------ | ----------------------- | -------- | ------------- | -------------------------- |
+| `openapi:lint` / Spectral     | 不存在       | 未见 Spectral 配置和脚本               | API 字段命名、enum、response schema、truth fields 暴露 | 是                      | 可报告型 | 是            | 规则稳定后阻断             |
+| `schema:check` 标准别名       | 不存在       | 当前只有 `test:schema-drift`           | schema / fixtures / shared-contracts 命令入口不统一    | 是                      | 是       | 否            | 是，可先别名               |
+| `test:unit`                   | 不存在       | Vitest 只有全量入口                    | unit 反馈不够快，难以定位 pure function 失败           | 是                      | 是       | 否            | 是                         |
+| `test:integration`            | 不存在       | integration 未独立入口                 | route / service / repository 组合链路难以单独验证      | 是                      | 是       | 否            | 是                         |
+| `test:e2e` 标准别名           | 不存在       | 当前只有 `test:e2e:ui`                 | E2E 命令入口不统一                                     | 是                      | 是       | 否            | smoke 阻断                 |
+| `test:replay`                 | 不存在       | Replay 专项测试尚未拆分                | Replay truth hash、official result 只读                | 是                      | 可先规划 | 是            | 是                         |
+| `test:replay:golden`          | 不存在       | golden matrix 尚未拆分                 | 相同输入稳定输出、参数差异可解释                       | 是                      | 否       | 是            | 是                         |
+| `test:settlement-idempotency` | 不存在       | settlement 幂等仍在综合测试内          | 重复 SettlementResult、重复 StateSnapshot、副作用重复  | 是                      | 可先规划 | 是            | 是                         |
+| `test:plugin-boundary`        | 不存在       | plugin boundary 主要靠 lint / 综合测试 | plugin 直写真值、绕过 hook、热替换风险                 | 是                      | 可先规划 | 是            | 是                         |
+| `test:adapter-contract`       | 不存在       | adapter contract 没有统一脚本名        | JSON / Postgres adapter 行为漂移                       | 是                      | 可先规划 | 是            | 是                         |
+| `test:pact`                   | 不存在       | Pact 工具链未配置                      | student / teacher / admin consumer contract 漂移       | 是                      | 否       | 是            | 稳定后阻断                 |
+| Storybook                     | 不存在       | UI 组件工作台未配置                    | 三端复杂状态组件退化                                   | 是                      | 否       | 前端稳定后    | 先不阻断                   |
+| Chromatic                     | 不存在       | Storybook 未稳定，未配置项目 token     | 视觉回归                                               | 是                      | 否       | 前端稳定后    | 关键组件稳定后阻断         |
+| Lighthouse                    | 不存在       | 性能预算和配置未建立                   | student 首屏、teacher 大表格、可访问性                 | 是                      | 否       | 前端稳定后    | 先报告型                   |
+| SonarQube                     | 不存在       | Sonar 配置和项目未建立                 | 复杂度、重复、安全味道                                 | 是                      | 否       | 是            | 先报告型                   |
+| Snyk / OWASP Dependency-Check | 不存在       | SCA 工具未配置                         | transitive dependency、许可证、高危漏洞                | 是                      | 可先规划 | 是            | high / critical 稳定后阻断 |
+| Harness release gates         | 不存在       | 当前尚未进入发布治理平台               | staging/prod 审批、回滚、环境治理                      | 否，需 pipeline         | 否       | 上线前        | 阻断发布                   |
 
 ## 4. 必须先有 package script 才能接入的门禁
 
-| 命令 | 推荐脚本语义 | 可先做别名 | 需要新增测试文件 | 需要新增依赖 | 适合层级 |
-| --- | --- | --- | --- | --- | --- |
-| `npm run test:unit` | 只运行 `tests/unit/**/*.test.ts` 或 unit 命名集合 | 否 | 不一定，取决于现有测试命名 | 否 | PR |
-| `npm run test:integration` | 只运行 `tests/integration/**/*.test.ts` | 否 | 不一定 | 否 | PR / nightly |
-| `npm run test:e2e` | 标准 E2E 入口，先映射到 `test:e2e:ui` | 是 | 否 | 否 | PR smoke / nightly full |
-| `npm run schema:check` | 标准 schema drift / fixture validation 入口 | 是，先映射到 `test:schema-drift` | 否 | 否 | PR |
-| `npm run openapi:lint` | 运行 OpenAPI lint，建议后续用 Spectral | 否 | 否 | 可能需要 OpenAPI lint 工具 | PR report / nightly |
-| `npm run test:replay` | 运行 Replay / Shadow Replay 专项测试 | 否 | 是 | 通常否 | nightly / release |
-| `npm run test:replay:golden` | 运行 golden replay matrix | 否 | 是 | 通常否 | nightly / release |
-| `npm run test:settlement-idempotency` | 运行 settlement 幂等专项测试 | 否 | 是 | 通常否 | nightly / release，稳定后 PR |
-| `npm run test:plugin-boundary` | 运行 plugin hook / truth write 防护测试 | 否 | 是 | 通常否 | nightly / release，稳定后 PR |
-| `npm run test:adapter-contract` | 统一运行 JSON / Postgres repository adapter contract | 否 | 可能需要补调用入口 | 否 | PR / nightly |
-| `npm run test:pact` | 运行 consumer/provider contract tests | 否 | 是 | 需要 Pact 工具链 | Phase 2+ / release |
+| 命令                                  | 推荐脚本语义                                         | 可先做别名                       | 需要新增测试文件           | 需要新增依赖               | 适合层级                     |
+| ------------------------------------- | ---------------------------------------------------- | -------------------------------- | -------------------------- | -------------------------- | ---------------------------- |
+| `npm run test:unit`                   | 只运行 `tests/unit/**/*.test.ts` 或 unit 命名集合    | 否                               | 不一定，取决于现有测试命名 | 否                         | PR                           |
+| `npm run test:integration`            | 只运行 `tests/integration/**/*.test.ts`              | 否                               | 不一定                     | 否                         | PR / nightly                 |
+| `npm run test:e2e`                    | 标准 E2E 入口，先映射到 `test:e2e:ui`                | 是                               | 否                         | 否                         | PR smoke / nightly full      |
+| `npm run schema:check`                | 标准 schema drift / fixture validation 入口          | 是，先映射到 `test:schema-drift` | 否                         | 否                         | PR                           |
+| `npm run openapi:lint`                | 运行 OpenAPI lint，建议后续用 Spectral               | 否                               | 否                         | 可能需要 OpenAPI lint 工具 | PR report / nightly          |
+| `npm run test:replay`                 | 运行 Replay / Shadow Replay 专项测试                 | 否                               | 是                         | 通常否                     | nightly / release            |
+| `npm run test:replay:golden`          | 运行 golden replay matrix                            | 否                               | 是                         | 通常否                     | nightly / release            |
+| `npm run test:settlement-idempotency` | 运行 settlement 幂等专项测试                         | 否                               | 是                         | 通常否                     | nightly / release，稳定后 PR |
+| `npm run test:plugin-boundary`        | 运行 plugin hook / truth write 防护测试              | 否                               | 是                         | 通常否                     | nightly / release，稳定后 PR |
+| `npm run test:adapter-contract`       | 统一运行 JSON / Postgres repository adapter contract | 否                               | 可能需要补调用入口         | 否                         | PR / nightly                 |
+| `npm run test:pact`                   | 运行 consumer/provider contract tests                | 否                               | 是                         | 需要 Pact 工具链           | Phase 2+ / release           |
 
 优先级建议：
 
@@ -133,16 +133,16 @@ future openapi lint report mode
 
 触发建议：
 
-| 变化范围 | 建议触发 |
-| --- | --- |
-| `db/migrations/**` 变化 | migration apply、Postgres adapter |
-| `services/api/**` 变化 | Postgres adapter、API integration、E2E smoke |
-| `services/simulation-core/**` 变化 | coverage、future replay、future settlement、future plugin boundary |
-| `apps/**` 变化 | E2E smoke、build |
-| `contracts/**` 变化 | contract、schema、future OpenAPI lint、E2E smoke |
-| `packages/shared-contracts/**` 变化 | typecheck、contract、schema、build |
-| `package-lock.json` 变化 | full quality、security audit、E2E smoke |
-| `.github/**` 变化 | workflow syntax review、full CI |
+| 变化范围                            | 建议触发                                                           |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `db/migrations/**` 变化             | migration apply、Postgres adapter                                  |
+| `services/api/**` 变化              | Postgres adapter、API integration、E2E smoke                       |
+| `services/simulation-core/**` 变化  | coverage、future replay、future settlement、future plugin boundary |
+| `apps/**` 变化                      | E2E smoke、build                                                   |
+| `contracts/**` 变化                 | contract、schema、future OpenAPI lint、E2E smoke                   |
+| `packages/shared-contracts/**` 变化 | typecheck、contract、schema、build                                 |
+| `package-lock.json` 变化            | full quality、security audit、E2E smoke                            |
+| `.github/**` 变化                   | workflow syntax review、full CI                                    |
 
 PR 可选不代表不重要，而是避免每次小文档或小前端改动都触发最慢的 DB / E2E / security 全套。关键路径变化时仍应阻断。
 
@@ -219,16 +219,16 @@ npm test
 
 ## 8. 未跟踪文件治理建议
 
-| 文件 | 当前价值 | 建议提交 | 是否单独 PR | 是否需要先审查 | 和 CI / quality gate 的关系 |
-| --- | --- | --- | --- | --- | --- |
-| `.github/dependabot.yml` | npm 和 GitHub Actions 依赖更新治理 | 建议提交 | 是 | 是，检查分组、频率、PR 数量 | 生成依赖升级 PR，依赖现有 CI 阻断 |
-| `.github/workflows/codeql.yml` | JS/TS CodeQL 安全和质量扫描 | 建议提交 | 是 | 是，检查权限、分支、schedule、queries | 补安全扫描门禁，可先报告型 |
-| `playwright.config.ts` | E2E 项目、webServer、trace、report artifact 配置 | 建议提交 | 可与 E2E job 同 PR，也可单独 | 是，确认端口、store、artifact | 支撑 `test:e2e:ui` 和 Playwright artifact |
-| `knip.json` | unused/dependency check 配置 | 建议提交 | 可与 `check:unused` 同 PR | 是，确认 ignoreFiles 不掩盖关键问题 | 支撑 `npm run check:unused` |
-| `.prettierignore` | 控制 format check 范围 | 建议提交 | 可与 format PR 同 PR | 是，避免忽略源码或契约 | 稳定 `format:check` |
-| `scripts/check-architecture-boundaries.mjs` | route / agent / plugin / store 访问边界检查 | 建议提交 | 是 | 是，确认 budget 和误报 | 支撑 `lint:boundaries`，保护 truth chain |
-| `scripts/check-migrations.mjs` | migration 静态结构检查 | 建议提交 | 是 | 是，确认 migration 列表和 RLS 检查 | 支撑 `test:migration` |
-| `scripts/check-postgres-migration-apply.mjs` | 真实 Postgres migration apply / idempotency | 建议提交 | 是 | 是，确认只允许 disposable DB | 支撑 `test:migration:apply` |
+| 文件                                         | 当前价值                                         | 建议提交 | 是否单独 PR                  | 是否需要先审查                        | 和 CI / quality gate 的关系               |
+| -------------------------------------------- | ------------------------------------------------ | -------- | ---------------------------- | ------------------------------------- | ----------------------------------------- |
+| `.github/dependabot.yml`                     | npm 和 GitHub Actions 依赖更新治理               | 建议提交 | 是                           | 是，检查分组、频率、PR 数量           | 生成依赖升级 PR，依赖现有 CI 阻断         |
+| `.github/workflows/codeql.yml`               | JS/TS CodeQL 安全和质量扫描                      | 建议提交 | 是                           | 是，检查权限、分支、schedule、queries | 补安全扫描门禁，可先报告型                |
+| `playwright.config.ts`                       | E2E 项目、webServer、trace、report artifact 配置 | 建议提交 | 可与 E2E job 同 PR，也可单独 | 是，确认端口、store、artifact         | 支撑 `test:e2e:ui` 和 Playwright artifact |
+| `knip.json`                                  | unused/dependency check 配置                     | 建议提交 | 可与 `check:unused` 同 PR    | 是，确认 ignoreFiles 不掩盖关键问题   | 支撑 `npm run check:unused`               |
+| `.prettierignore`                            | 控制 format check 范围                           | 建议提交 | 可与 format PR 同 PR         | 是，避免忽略源码或契约                | 稳定 `format:check`                       |
+| `scripts/check-architecture-boundaries.mjs`  | route / agent / plugin / store 访问边界检查      | 建议提交 | 是                           | 是，确认 budget 和误报                | 支撑 `lint:boundaries`，保护 truth chain  |
+| `scripts/check-migrations.mjs`               | migration 静态结构检查                           | 建议提交 | 是                           | 是，确认 migration 列表和 RLS 检查    | 支撑 `test:migration`                     |
+| `scripts/check-postgres-migration-apply.mjs` | 真实 Postgres migration apply / idempotency      | 建议提交 | 是                           | 是，确认只允许 disposable DB          | 支撑 `test:migration:apply`               |
 
 治理原则：
 

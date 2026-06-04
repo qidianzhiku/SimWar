@@ -431,7 +431,9 @@ export interface PublicResultView {
   round_no: number;
   status: RoundStatus;
   replay_hash?: string;
-  results: Array<Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }>;
+  results: Array<
+    Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }
+  >;
 }
 
 export type DomainEventType = string;

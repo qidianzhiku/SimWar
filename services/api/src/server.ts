@@ -15,7 +15,13 @@ import type {
   User
 } from "@simwar/shared-contracts";
 import { actorHasPermission, isTruthProtectedField } from "@simwar/shared-contracts";
-import { createSignedToken, hashPassword, hashToken, verifyPassword, verifySignedToken } from "./auth.js";
+import {
+  createSignedToken,
+  hashPassword,
+  hashToken,
+  verifyPassword,
+  verifySignedToken
+} from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
 import { settleRound, validateDecisionPayload } from "./simulation.js";
 import {
@@ -58,7 +64,11 @@ const defaultStore = createP1Store({
   persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
 });
 
-function createEnvelope<TData>(context: RequestContext, data: TData, message = "success"): ApiEnvelope<TData> {
+function createEnvelope<TData>(
+  context: RequestContext,
+  data: TData,
+  message = "success"
+): ApiEnvelope<TData> {
   return {
     request_id: context.requestId,
     code: "OK",
@@ -69,7 +79,8 @@ function createEnvelope<TData>(context: RequestContext, data: TData, message = "
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
-    "access-control-allow-headers": "authorization, content-type, idempotency-key, x-request-id, x-service-principal, x-tenant-id",
+    "access-control-allow-headers":
+      "authorization, content-type, idempotency-key, x-request-id, x-service-principal, x-tenant-id",
     "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
     "access-control-allow-origin": "*",
     "cache-control": "no-store",
@@ -126,14 +137,23 @@ function createContext(store: SimWarStore, request: IncomingMessage): RequestCon
             !isExpired(candidate.expires_at)
         )
       : undefined;
-    const user = session ? store.users.find((candidate) => candidate.user_id === session.user_id && candidate.status === "active") : undefined;
+    const user = session
+      ? store.users.find(
+          (candidate) => candidate.user_id === session.user_id && candidate.status === "active"
+        )
+      : undefined;
 
     actor = user ? getActorFromUser(store, user) : undefined;
   }
 
   const tenantId = requestedTenantId ?? actor?.tenant_id ?? DEFAULT_TENANT_ID;
 
-  if (actor && requestedTenantId && actor.tenant_id !== requestedTenantId && !actorHasAnyRole(actor, ["platform_admin"])) {
+  if (
+    actor &&
+    requestedTenantId &&
+    actor.tenant_id !== requestedTenantId &&
+    !actorHasAnyRole(actor, ["platform_admin"])
+  ) {
     throw new HttpError(403, "TENANT-403-001", "tenant boundary violation");
   }
 
@@ -238,7 +258,9 @@ function assertNoTruthProtectedFields(value: unknown): void {
 }
 
 function getCourse(store: SimWarStore, context: RequestContext, courseId: string) {
-  const course = store.courses.find((candidate) => candidate.course_id === courseId && candidate.tenant_id === context.tenantId);
+  const course = store.courses.find(
+    (candidate) => candidate.course_id === courseId && candidate.tenant_id === context.tenantId
+  );
   if (!course) {
     throw new HttpError(404, "COURSE-404-001", "course not found");
   }
@@ -247,7 +269,9 @@ function getCourse(store: SimWarStore, context: RequestContext, courseId: string
 }
 
 function getRun(store: SimWarStore, context: RequestContext, runId: string) {
-  const run = store.runs.find((candidate) => candidate.run_id === runId && candidate.tenant_id === context.tenantId);
+  const run = store.runs.find(
+    (candidate) => candidate.run_id === runId && candidate.tenant_id === context.tenantId
+  );
   if (!run) {
     throw new HttpError(404, "RUN-404-001", "run not found");
   }
@@ -257,7 +281,10 @@ function getRun(store: SimWarStore, context: RequestContext, runId: string) {
 
 function getRound(store: SimWarStore, context: RequestContext, runId: string, roundNo: number) {
   const round = store.rounds.find(
-    (candidate) => candidate.run_id === runId && candidate.round_no === roundNo && candidate.tenant_id === context.tenantId
+    (candidate) =>
+      candidate.run_id === runId &&
+      candidate.round_no === roundNo &&
+      candidate.tenant_id === context.tenantId
   );
   if (!round) {
     throw new HttpError(404, "ROUND-404-001", "round not found");
@@ -266,11 +293,19 @@ function getRound(store: SimWarStore, context: RequestContext, runId: string, ro
   return round;
 }
 
-function createPublicResultView(store: SimWarStore, context: RequestContext, runId: string, roundNo: number): PublicResultView {
+function createPublicResultView(
+  store: SimWarStore,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): PublicResultView {
   const actor = requirePermission(context, "result:read");
   const round = getRound(store, context, runId, roundNo);
   const settlement = store.settlementResults.find(
-    (result) => result.run_id === runId && result.round_no === roundNo && result.tenant_id === context.tenantId
+    (result) =>
+      result.run_id === runId &&
+      result.round_no === roundNo &&
+      result.tenant_id === context.tenantId
   );
   const canSeeTruth = actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]);
 
@@ -283,7 +318,9 @@ function createPublicResultView(store: SimWarStore, context: RequestContext, run
     };
   }
 
-  const visibleTeamIds = canSeeTruth ? undefined : new Set([actor.team_id].filter((teamId): teamId is string => Boolean(teamId)));
+  const visibleTeamIds = canSeeTruth
+    ? undefined
+    : new Set([actor.team_id].filter((teamId): teamId is string => Boolean(teamId)));
   const visibleResults = settlement.team_results
     .filter((result) => !visibleTeamIds || visibleTeamIds.has(result.team_id))
     .map((result) => {
@@ -308,7 +345,11 @@ function createPublicResultView(store: SimWarStore, context: RequestContext, run
   };
 }
 
-function assertRoundStatus(round: { status: RoundStatus }, expected: RoundStatus, code: string): void {
+function assertRoundStatus(
+  round: { status: RoundStatus },
+  expected: RoundStatus,
+  code: string
+): void {
   if (round.status !== expected) {
     throw new HttpError(409, code, `round must be ${expected}`);
   }
@@ -317,7 +358,9 @@ function assertRoundStatus(round: { status: RoundStatus }, expected: RoundStatus
 function filterAuditLogs(store: SimWarStore, context: RequestContext, url: URL) {
   const actor = requirePermission(context, "audit:read");
   const requestedTenant = url.searchParams.get("tenant_id");
-  const tenantScope = actorHasAnyRole(actor, ["platform_admin"]) ? requestedTenant : context.tenantId;
+  const tenantScope = actorHasAnyRole(actor, ["platform_admin"])
+    ? requestedTenant
+    : context.tenantId;
   const action = url.searchParams.get("action");
   const actorId = url.searchParams.get("actor_id");
   const resourceType = url.searchParams.get("resource_type");
@@ -346,8 +389,12 @@ function filterAuditLogs(store: SimWarStore, context: RequestContext, url: URL) 
 function createAdminState(store: SimWarStore, context: RequestContext): AdminState {
   const actor = requirePermission(context, "user:read");
   const isPlatform = actorHasAnyRole(actor, ["platform_admin"]);
-  const tenants = isPlatform ? store.tenants : store.tenants.filter((tenant) => tenant.tenant_id === context.tenantId);
-  const users = isPlatform ? store.users.map(sanitizeUser) : store.users.filter((user) => user.tenant_id === context.tenantId).map(sanitizeUser);
+  const tenants = isPlatform
+    ? store.tenants
+    : store.tenants.filter((tenant) => tenant.tenant_id === context.tenantId);
+  const users = isPlatform
+    ? store.users.map(sanitizeUser)
+    : store.users.filter((user) => user.tenant_id === context.tenantId).map(sanitizeUser);
 
   return {
     current_user: actor,
@@ -355,13 +402,26 @@ function createAdminState(store: SimWarStore, context: RequestContext): AdminSta
     users,
     roles: store.roles,
     permissions: store.permissions,
-    audit_logs: filterAuditLogs(store, context, new URL("/api/v1/audit/logs", "http://localhost")).slice(-30)
+    audit_logs: filterAuditLogs(
+      store,
+      context,
+      new URL("/api/v1/audit/logs", "http://localhost")
+    ).slice(-30)
   };
 }
 
-function requireManagedTenant(store: SimWarStore, actor: CurrentUser, context: RequestContext, tenantId?: string): Tenant {
-  const targetTenantId = actorHasAnyRole(actor, ["platform_admin"]) ? (tenantId ?? context.tenantId) : context.tenantId;
-  const tenant = store.tenants.find((candidate) => candidate.tenant_id === targetTenantId && candidate.status === "active");
+function requireManagedTenant(
+  store: SimWarStore,
+  actor: CurrentUser,
+  context: RequestContext,
+  tenantId?: string
+): Tenant {
+  const targetTenantId = actorHasAnyRole(actor, ["platform_admin"])
+    ? (tenantId ?? context.tenantId)
+    : context.tenantId;
+  const tenant = store.tenants.find(
+    (candidate) => candidate.tenant_id === targetTenantId && candidate.status === "active"
+  );
 
   if (!tenant) {
     throw new HttpError(404, "TENANT-404-001", "tenant not found");
@@ -384,7 +444,11 @@ function normalizeRoles(actor: CurrentUser, roles?: ActorRole[]): ActorRole[] {
   return [...new Set(requested)] as ActorRole[];
 }
 
-async function routeRequest(store: SimWarStore, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function routeRequest(
+  store: SimWarStore,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
   if (request.method === "OPTIONS") {
     sendJson(response, 204, {});
     return;
@@ -393,7 +457,10 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
   const url = new URL(request.url ?? "/", "http://localhost");
   const context = createContext(store, request);
 
-  if (request.method === "GET" && (url.pathname === "/healthz" || url.pathname === "/api/v1/health")) {
+  if (
+    request.method === "GET" &&
+    (url.pathname === "/healthz" || url.pathname === "/api/v1/health")
+  ) {
     sendJson(response, 200, createEnvelope(context, getApiHealthPayload()));
     return;
   }
@@ -458,7 +525,9 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
   if (request.method === "POST" && url.pathname === "/api/v1/auth/logout") {
     const actor = requireActor(context);
     const tokenHash = context.token ? hashToken(context.token) : undefined;
-    const session = tokenHash ? store.sessions.find((candidate) => candidate.token_hash === tokenHash) : undefined;
+    const session = tokenHash
+      ? store.sessions.find((candidate) => candidate.token_hash === tokenHash)
+      : undefined;
 
     if (session) {
       session.revoked_at = new Date().toISOString();
@@ -537,7 +606,10 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     const [, tenantId] = matchPath(url.pathname, /^\/api\/v1\/admin\/tenants\/([^/]+)$/);
     const tenant = store.tenants.find((candidate) => candidate.tenant_id === tenantId);
 
-    if (!tenant || (!actorHasAnyRole(actor, ["platform_admin"]) && tenant.tenant_id !== context.tenantId)) {
+    if (
+      !tenant ||
+      (!actorHasAnyRole(actor, ["platform_admin"]) && tenant.tenant_id !== context.tenantId)
+    ) {
       throw new HttpError(404, "TENANT-404-001", "tenant not found");
     }
 
@@ -576,7 +648,13 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
       throw new HttpError(422, "USER-422-001", "username, email and display_name are required");
     }
 
-    if (store.users.some((user) => user.tenant_id === tenant.tenant_id && (user.username === username || user.email === email))) {
+    if (
+      store.users.some(
+        (user) =>
+          user.tenant_id === tenant.tenant_id &&
+          (user.username === username || user.email === email)
+      )
+    ) {
       throw new HttpError(409, "USER-409-001", "username or email already exists in tenant");
     }
 
@@ -615,7 +693,10 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     const [, userId] = matchPath(url.pathname, /^\/api\/v1\/admin\/users\/([^/]+)$/);
     const user = store.users.find((candidate) => candidate.user_id === userId);
 
-    if (!user || (!actorHasAnyRole(actor, ["platform_admin"]) && user.tenant_id !== context.tenantId)) {
+    if (
+      !user ||
+      (!actorHasAnyRole(actor, ["platform_admin"]) && user.tenant_id !== context.tenantId)
+    ) {
       throw new HttpError(404, "USER-404-001", "user not found");
     }
 
@@ -686,8 +767,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     const actor = requireActor(context);
     const tenantRuns = store.runs.filter((run) => run.tenant_id === context.tenantId);
     const latestRun = tenantRuns.at(-1);
-    const latestRound = latestRun ? store.rounds.find((round) => round.run_id === latestRun.run_id && round.tenant_id === context.tenantId) : undefined;
-    const latestResult = latestRun && latestRound ? createPublicResultView(store, context, latestRun.run_id, latestRound.round_no) : undefined;
+    const latestRound = latestRun
+      ? store.rounds.find(
+          (round) => round.run_id === latestRun.run_id && round.tenant_id === context.tenantId
+        )
+      : undefined;
+    const latestResult =
+      latestRun && latestRound
+        ? createPublicResultView(store, context, latestRun.run_id, latestRound.round_no)
+        : undefined;
     const canReadAdmin = actorHasPermission(actor, "user:read");
 
     sendJson(
@@ -695,8 +783,16 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
       200,
       createEnvelope(context, {
         current_user: actor,
-        ...(canReadAdmin ? { tenants: store.tenants.filter((tenant) => tenant.tenant_id === context.tenantId) } : {}),
-        ...(canReadAdmin ? { users: store.users.filter((user) => user.tenant_id === context.tenantId).map(sanitizeUser) } : {}),
+        ...(canReadAdmin
+          ? { tenants: store.tenants.filter((tenant) => tenant.tenant_id === context.tenantId) }
+          : {}),
+        ...(canReadAdmin
+          ? {
+              users: store.users
+                .filter((user) => user.tenant_id === context.tenantId)
+                .map(sanitizeUser)
+            }
+          : {}),
         ...(canReadAdmin ? { roles: store.roles, permissions: store.permissions } : {}),
         courses: store.courses.filter((course) => course.tenant_id === context.tenantId),
         teams: store.teams.filter((team) => team.tenant_id === context.tenantId),
@@ -714,7 +810,14 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
 
   if (request.method === "GET" && url.pathname === "/api/v1/courses") {
     requirePermission(context, "course:read");
-    sendJson(response, 200, createEnvelope(context, store.courses.filter((course) => course.tenant_id === context.tenantId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        store.courses.filter((course) => course.tenant_id === context.tenantId)
+      )
+    );
     return;
   }
 
@@ -723,10 +826,16 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     const body = await readJson<{ title?: string }>(request);
     assertNoTruthProtectedFields(body);
     const scenario = store.scenarios.find((candidate) => candidate.tenant_id === context.tenantId);
-    const parameterSet = store.parameterSets.find((candidate) => candidate.tenant_id === context.tenantId && candidate.status === "approved");
+    const parameterSet = store.parameterSets.find(
+      (candidate) => candidate.tenant_id === context.tenantId && candidate.status === "approved"
+    );
 
     if (!scenario || !parameterSet) {
-      throw new HttpError(422, "COURSE-422-001", "approved scenario and parameter set are required");
+      throw new HttpError(
+        422,
+        "COURSE-422-001",
+        "approved scenario and parameter set are required"
+      );
     }
 
     const course = {
@@ -783,7 +892,11 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     const course = getCourse(store, context, courseId ?? "");
     const body = await readJson<{ name?: string; captain_user_id?: string }>(request);
     assertNoTruthProtectedFields(body);
-    const captain = store.users.find((user) => user.user_id === (body.captain_user_id ?? "usr_student") && user.tenant_id === context.tenantId);
+    const captain = store.users.find(
+      (user) =>
+        user.user_id === (body.captain_user_id ?? "usr_student") &&
+        user.tenant_id === context.tenantId
+    );
 
     if (!captain) {
       throw new HttpError(422, "TEAM-422-001", "captain user not found");
@@ -827,7 +940,9 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     }
 
     const parameterSet = store.parameterSets.find(
-      (candidate) => candidate.parameter_set_id === course.parameter_set_id && candidate.tenant_id === context.tenantId
+      (candidate) =>
+        candidate.parameter_set_id === course.parameter_set_id &&
+        candidate.tenant_id === context.tenantId
     );
     if (!parameterSet || parameterSet.status !== "approved") {
       throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
@@ -863,9 +978,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/start$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/start$/.test(url.pathname)
+  ) {
     const actor = requirePermission(context, "round:start");
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/start$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/start$/
+    );
     const run = getRun(store, context, runId ?? "");
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     assertRoundStatus(round, "draft", "ROUND-409-001");
@@ -884,9 +1005,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/decisions$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/decisions$/.test(url.pathname)
+  ) {
     const actor = requirePermission(context, "decision:submit");
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/decisions$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/decisions$/
+    );
     const run = getRun(store, context, runId ?? "");
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     assertRoundStatus(round, "open", "ROUND-409-002");
@@ -899,7 +1026,10 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     }
 
     const team = store.teams.find(
-      (candidate) => candidate.team_id === teamId && candidate.course_id === run.course_id && candidate.tenant_id === context.tenantId
+      (candidate) =>
+        candidate.team_id === teamId &&
+        candidate.course_id === run.course_id &&
+        candidate.tenant_id === context.tenantId
     );
     if (!team) {
       throw new HttpError(404, "TEAM-404-001", "team not found");
@@ -943,9 +1073,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/lock$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/lock$/.test(url.pathname)
+  ) {
     const actor = requirePermission(context, "round:lock");
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/lock$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/lock$/
+    );
     const run = getRun(store, context, runId ?? "");
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     assertRoundStatus(round, "open", "ROUND-409-003");
@@ -965,9 +1101,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/settle$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/settle$/.test(url.pathname)
+  ) {
     const actor = requirePermission(context, "settlement:settle");
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
+    );
     const settlement = runSettlement(store, context, runId ?? "", Number(roundNoRaw));
     appendAudit(store, {
       actor,
@@ -981,9 +1123,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/internal\/v1\/runs\/[^/]+\/rounds\/\d+\/settle$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/internal\/v1\/runs\/[^/]+\/rounds\/\d+\/settle$/.test(url.pathname)
+  ) {
     const serviceActor = requireServiceKernel(request, context);
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/internal\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/internal\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
+    );
     const serviceContext: RequestContext = {
       requestId: context.requestId,
       tenantId: context.tenantId,
@@ -1003,9 +1151,15 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "POST" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/publish$/.test(url.pathname)) {
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/publish$/.test(url.pathname)
+  ) {
     const actor = requirePermission(context, "round:publish");
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/publish$/);
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/publish$/
+    );
     const run = getRun(store, context, runId ?? "");
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     assertRoundStatus(round, "settled", "ROUND-409-005");
@@ -1024,9 +1178,22 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
     return;
   }
 
-  if (request.method === "GET" && /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/results$/.test(url.pathname)) {
-    const [, runId, roundNoRaw] = matchPath(url.pathname, /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/results$/);
-    sendJson(response, 200, createEnvelope(context, createPublicResultView(store, context, runId ?? "", Number(roundNoRaw))));
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/results$/.test(url.pathname)
+  ) {
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/results$/
+    );
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        createPublicResultView(store, context, runId ?? "", Number(roundNoRaw))
+      )
+    );
     return;
   }
 
@@ -1038,7 +1205,12 @@ async function routeRequest(store: SimWarStore, request: IncomingMessage, respon
   throw new HttpError(404, "ROUTE-404-001", "not found");
 }
 
-function runSettlement(store: SimWarStore, context: RequestContext, runId: string, roundNo: number) {
+function runSettlement(
+  store: SimWarStore,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+) {
   const run = getRun(store, context, runId);
   const round = getRound(store, context, run.run_id, roundNo);
 
@@ -1047,12 +1219,18 @@ function runSettlement(store: SimWarStore, context: RequestContext, runId: strin
   }
 
   const scenario = store.scenarios.find(
-    (candidate) => candidate.scenario_package_id === run.scenario_package_id && candidate.tenant_id === context.tenantId
+    (candidate) =>
+      candidate.scenario_package_id === run.scenario_package_id &&
+      candidate.tenant_id === context.tenantId
   );
   const parameterSet = store.parameterSets.find(
-    (candidate) => candidate.parameter_set_id === run.parameter_set_id && candidate.tenant_id === context.tenantId
+    (candidate) =>
+      candidate.parameter_set_id === run.parameter_set_id &&
+      candidate.tenant_id === context.tenantId
   );
-  const teams = store.teams.filter((team) => team.course_id === run.course_id && team.tenant_id === context.tenantId);
+  const teams = store.teams.filter(
+    (team) => team.course_id === run.course_id && team.tenant_id === context.tenantId
+  );
   const latestDecisions = teams.map((team) => {
     const versions = store.decisions.filter(
       (decision) =>
@@ -1065,7 +1243,11 @@ function runSettlement(store: SimWarStore, context: RequestContext, runId: strin
   });
 
   if (!scenario || !parameterSet || latestDecisions.some((decision) => !decision)) {
-    throw new HttpError(422, "SETTLE-422-001", "scenario, parameter set and team decisions are required");
+    throw new HttpError(
+      422,
+      "SETTLE-422-001",
+      "scenario, parameter set and team decisions are required"
+    );
   }
 
   return settleRound(store, {
@@ -1074,7 +1256,9 @@ function runSettlement(store: SimWarStore, context: RequestContext, runId: strin
     scenario,
     parameterSet,
     teams,
-    decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> => Boolean(decision))
+    decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
+      Boolean(decision)
+    )
   });
 }
 
@@ -1096,7 +1280,11 @@ export function createApiServer(store: SimWarStore = defaultStore) {
         return;
       }
 
-      sendError(response, fallbackContext, new HttpError(500, "API-500-001", "internal server error"));
+      sendError(
+        response,
+        fallbackContext,
+        new HttpError(500, "API-500-001", "internal server error")
+      );
     });
   });
 }

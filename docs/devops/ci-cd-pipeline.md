@@ -2,15 +2,15 @@
 
 ## 1. 文档信息
 
-| 项目 | 内容 |
-|---|---|
-| 文档名称 | docs/devops/ci-cd-pipeline.md |
-| 项目名称 | SimWar 商战仿真平台 |
-| 文档版本 | v1.0 |
-| 文档状态 | Draft |
-| 最后更新 | 2026-05-14 |
-| 适用范围 | CI/CD / 构建 / 测试 / 部署 / 发布 / 回滚 |
-| 维护人 | 请根据实际项目修改 |
+| 项目     | 内容                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 文档名称 | docs/devops/ci-cd-pipeline.md                                                                                                                                                                                                                                                                                                                                                                                  |
+| 项目名称 | SimWar 商战仿真平台                                                                                                                                                                                                                                                                                                                                                                                            |
+| 文档版本 | v1.0                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 文档状态 | Draft                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 最后更新 | 2026-05-14                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 适用范围 | CI/CD / 构建 / 测试 / 部署 / 发布 / 回滚                                                                                                                                                                                                                                                                                                                                                                       |
+| 维护人   | 请根据实际项目修改                                                                                                                                                                                                                                                                                                                                                                                             |
 | 相关文档 | README.md / docs/devops/env-setup.md / docs/quality/test-coverage.md / docs/architecture/system-architecture.md / docs/product/requirements.md / docs/contracts/api-contract.md / docs/architecture/database-design.md / docs/architecture/event-driven-architecture.md / docs/architecture/bpmn-workflows.md / docs/architecture/parameter-set-management.md / docs/quality/replay-shadow-replay-test-plan.md |
 
 ---
@@ -25,8 +25,8 @@ CI/CD 流程的目标是确保 SimWar 平台的代码质量、部署稳定性和
 
 ### 3.1 仓库模式
 
-- **Monorepo**：所有前端、后端、AI 服务、基础设施代码集中在一个仓库。**优点**：契约一致、统一 CI/CD、跨模块改动易追踪；方便对接 API 契约、数据库迁移、共享库；利于整体治理和版本管理。**缺点**：仓库规模增长后需要优化 CI 速度和缓存策略。适用于平台初期和中期阶段，尤其需要多服务联动时。  
-- **Polyrepo**：每个服务独立仓库。**优点**：服务自治、独立权限；适合服务拆分或不相关模块；**缺点**：跨服务变更需协调多个仓库，CI 复杂度增高。可作为后期在经过一定稳定后拆分部分子系统使用。  
+- **Monorepo**：所有前端、后端、AI 服务、基础设施代码集中在一个仓库。**优点**：契约一致、统一 CI/CD、跨模块改动易追踪；方便对接 API 契约、数据库迁移、共享库；利于整体治理和版本管理。**缺点**：仓库规模增长后需要优化 CI 速度和缓存策略。适用于平台初期和中期阶段，尤其需要多服务联动时。
+- **Polyrepo**：每个服务独立仓库。**优点**：服务自治、独立权限；适合服务拆分或不相关模块；**缺点**：跨服务变更需协调多个仓库，CI 复杂度增高。可作为后期在经过一定稳定后拆分部分子系统使用。
 - **推荐方案**：**Monorepo**。SimWar 项目早期或中期阶段，各模块高度耦合，需要统一测试和联调；参数集、插件、模型等治理门禁需要统一管理；Codex 助手生成文件时维护一致性更容易。可在后期根据项目需求适度拆分部分模块为独立仓库（形成 Hybrid 模式）。
 
 示例仓库结构（Monorepo）：
@@ -79,15 +79,15 @@ docs/
 
 SimWar 建议使用 Git Flow 风格分支策略：
 
-| 分支 | 用途 | 触发流水线 | 合并要求 |
-|---|---|---|---|
-| `main` | 生产就绪分支，只允许 `release/*` 或 `hotfix/*` 合并 | 完整CI、Build、Security Scan、镜像构建、Deploy Staging、人工审批、Deploy Production | 完成所有质量门禁和安全检查，并经过审批 |
-| `develop` | 集成开发分支，合并 feature 后自动部署至测试环境 | PR/Lint/Type Check/Unit Test/Build/Contract Test，合并后 Deploy Test | PR 通过自动化测试和代码审查 |
-| `feature/*` | 功能开发分支 | PR/Lint/Type Check/Unit Test/Build/Contract Test | PR 需关联需求，测试通过，审查通过 |
-| `fix/*` | 修复 bug 分支 | PR/相关测试回归 | PR 关联缺陷或Issue，通过测试和审查 |
-| `release/*` | 发布候选分支 | 完整回归测试、Replay、Shadow Replay、Security Scan、Deploy Staging | 发布审批、版本号归档，保证稳定后合并至 `main` 与 `develop` |
-| `hotfix/*` | 紧急修复生产问题 | Hotfix CI、Security Scan、Smoke Test、Production Approval | 紧急小改动，双人审批，合并后需同步回 `develop` |
-| `experiment/*` | 实验性功能/技术预研分支 | 可选 CI 流程，无部署或仅内部测试 | 不得直接合并到 `main`，变更需要额外评估 |
+| 分支           | 用途                                                | 触发流水线                                                                          | 合并要求                                                   |
+| -------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `main`         | 生产就绪分支，只允许 `release/*` 或 `hotfix/*` 合并 | 完整CI、Build、Security Scan、镜像构建、Deploy Staging、人工审批、Deploy Production | 完成所有质量门禁和安全检查，并经过审批                     |
+| `develop`      | 集成开发分支，合并 feature 后自动部署至测试环境     | PR/Lint/Type Check/Unit Test/Build/Contract Test，合并后 Deploy Test                | PR 通过自动化测试和代码审查                                |
+| `feature/*`    | 功能开发分支                                        | PR/Lint/Type Check/Unit Test/Build/Contract Test                                    | PR 需关联需求，测试通过，审查通过                          |
+| `fix/*`        | 修复 bug 分支                                       | PR/相关测试回归                                                                     | PR 关联缺陷或Issue，通过测试和审查                         |
+| `release/*`    | 发布候选分支                                        | 完整回归测试、Replay、Shadow Replay、Security Scan、Deploy Staging                  | 发布审批、版本号归档，保证稳定后合并至 `main` 与 `develop` |
+| `hotfix/*`     | 紧急修复生产问题                                    | Hotfix CI、Security Scan、Smoke Test、Production Approval                           | 紧急小改动，双人审批，合并后需同步回 `develop`             |
+| `experiment/*` | 实验性功能/技术预研分支                             | 可选 CI 流程，无部署或仅内部测试                                                    | 不得直接合并到 `main`，变更需要额外评估                    |
 
 ### 3.3 Pull Request 规则
 
@@ -103,13 +103,13 @@ SimWar 建议使用 Git Flow 风格分支策略：
 
 ## 4. 环境规划
 
-| 环境 | 用途 | 部署方式 | 数据来源 | 是否自动部署 | 是否需要审批 |
-|---|---|---|---|---|---|
-| **local** | 本地开发、调试与单元测试 | Docker Compose / 本地运行 | 开发 Seed Data / Mock 数据 | 否 | 否 |
-| **CI** | Pull Request 验证 | CI Runner（容器） | 临时测试数据 | 是 | 否 |
-| **test** | 集成测试、测试团队联调 | Kubernetes / Docker Compose / 云测试环境 | 独立测试库，自动 Seed Data | 是 | 否 |
-| **staging** | 预发布验证、预演、灰度测试 | Kubernetes / Helm / GitOps | 脱敏数据 / 生产等价配置 | 半自动（部署后需审批） | 是 |
-| **production** | 正式生产环境 | Kubernetes / Helm / GitOps | 真实生产数据 | 否（需人工触发） | 是 |
+| 环境           | 用途                       | 部署方式                                 | 数据来源                   | 是否自动部署           | 是否需要审批 |
+| -------------- | -------------------------- | ---------------------------------------- | -------------------------- | ---------------------- | ------------ |
+| **local**      | 本地开发、调试与单元测试   | Docker Compose / 本地运行                | 开发 Seed Data / Mock 数据 | 否                     | 否           |
+| **CI**         | Pull Request 验证          | CI Runner（容器）                        | 临时测试数据               | 是                     | 否           |
+| **test**       | 集成测试、测试团队联调     | Kubernetes / Docker Compose / 云测试环境 | 独立测试库，自动 Seed Data | 是                     | 否           |
+| **staging**    | 预发布验证、预演、灰度测试 | Kubernetes / Helm / GitOps               | 脱敏数据 / 生产等价配置    | 半自动（部署后需审批） | 是           |
+| **production** | 正式生产环境               | Kubernetes / Helm / GitOps               | 真实生产数据               | 否（需人工触发）       | 是           |
 
 环境隔离要求：
 
@@ -156,7 +156,7 @@ flowchart TD
 ```
 
 1. **开发提交和 PR**：开发者在 `feature/*` 或 `fix/*` 分支提交代码，创建 Pull Request。触发自动流水线执行 Lint、类型检查、单元测试、Contract Test 等。
-2. **合并与构建**：PR 合并到 `develop` 分支后触发完整 CI，成功后自动部署到 **测试环境**。发布候选分支（release/*）合并到 `main` 则生成镜像并部署到 **预发布环境**。
+2. **合并与构建**：PR 合并到 `develop` 分支后触发完整 CI，成功后自动部署到 **测试环境**。发布候选分支（release/\*）合并到 `main` 则生成镜像并部署到 **预发布环境**。
 3. **测试与验证**：在 `staging` 环境执行完整回归测试，包括 Replay/Shadow Replay 安全门禁等。所有重要测试通过后，等待人工审批发布到生产。
 4. **生产部署**：在审批通过后，将镜像和配置部署到生产环境，执行 Smoke Test 验证，确保核心功能可用。
 5. **监控与回滚**：部署完成后，通过监控和告警观察服务运行状态。若出现异常（如高错误率、性能突降或指标异常），则启动回滚流程，恢复到前一稳定版本。
@@ -167,29 +167,29 @@ flowchart TD
 
 ## 6. Pipeline 阶段总览
 
-| 阶段 | 触发条件 | 主要任务 | 阻断发布 | 输出产物 |
-|---|---|---|---|---|
-| Checkout | PR 提交 / Push / 手动触发 | 拉取仓库最新代码 | 是 | 源代码工作区 |
-| Install Dependencies | 代码拉取后 | 安装 Node.js、Python 及其他依赖 | 是 | 依赖缓存 (node_modules, .venv) |
-| Lint | PR / Push | 代码风格检查 (ESLint/Ruff) | 是 | Lint 报告 |
-| Type Check | PR / Push | TS/JS 的类型检查 (TypeScript)；Python 类型检查 (mypy) | 是 | 类型检查报告 |
-| Unit Test | PR / Push | 执行单元测试 | 是 | 单元测试报告 (coverage) |
-| Build | PR / Push | 前端打包，后端编译/打包 | 是 | 构建产物 (dist/, JAR, Wheel) |
-| API Contract Test | PR / Push / Release | 验证 OpenAPI/GraphQL/SOAP 等契约一致性 | 是 | 合约测试报告 |
-| Integration Test | develop / release | 验证服务间集成逻辑 | 是 | 集成测试报告 |
-| E2E Test | develop / release | 端到端业务流程测试 | 是 | E2E 测试报告 |
-| Replay Test | release / staging | 验证历史业务结果一致性 | 是 | Replay 测试报告 |
-| Shadow Replay Test | release / staging | 验证候选变更对历史业务的影响 | 是 | ShadowReplay 报告（人工复核） |
-| Security Scan | PR / release | 依赖漏洞扫描、SAST、Secret 扫描等 | 是 | 安全扫描报告 |
-| Container Build | main / release | 构建 Docker 镜像 | 是 | Docker 镜像 |
-| Container Scan | main / release | 镜像漏洞/配置扫描 | 是 | 镜像扫描报告 |
-| Push Image | main / release | 推送镜像到私有 Registry | 是 | 镜像 Tag |
-| Deploy Test | develop | 部署到测试环境（CI 自动） | 是 | 测试环境部署 |
-| Deploy Staging | release / main | 部署到预发布环境 | 是 | 预发布环境部署 |
-| Manual Approval | staging | 发布生产前审批 | 是 | 审批记录 |
-| Deploy Production | main / 手动 | 部署到生产环境 | 是 | 生产环境部署 |
-| Smoke Test | staging / production | 关键功能冒烟测试 | 是 | Smoke Test 报告 |
-| Rollback | 部署失败或异常 | 应用回滚、DB 回滚、Feature Flag 回滚等 | 否 | 回滚报告 |
+| 阶段                 | 触发条件                  | 主要任务                                              | 阻断发布 | 输出产物                       |
+| -------------------- | ------------------------- | ----------------------------------------------------- | -------- | ------------------------------ |
+| Checkout             | PR 提交 / Push / 手动触发 | 拉取仓库最新代码                                      | 是       | 源代码工作区                   |
+| Install Dependencies | 代码拉取后                | 安装 Node.js、Python 及其他依赖                       | 是       | 依赖缓存 (node_modules, .venv) |
+| Lint                 | PR / Push                 | 代码风格检查 (ESLint/Ruff)                            | 是       | Lint 报告                      |
+| Type Check           | PR / Push                 | TS/JS 的类型检查 (TypeScript)；Python 类型检查 (mypy) | 是       | 类型检查报告                   |
+| Unit Test            | PR / Push                 | 执行单元测试                                          | 是       | 单元测试报告 (coverage)        |
+| Build                | PR / Push                 | 前端打包，后端编译/打包                               | 是       | 构建产物 (dist/, JAR, Wheel)   |
+| API Contract Test    | PR / Push / Release       | 验证 OpenAPI/GraphQL/SOAP 等契约一致性                | 是       | 合约测试报告                   |
+| Integration Test     | develop / release         | 验证服务间集成逻辑                                    | 是       | 集成测试报告                   |
+| E2E Test             | develop / release         | 端到端业务流程测试                                    | 是       | E2E 测试报告                   |
+| Replay Test          | release / staging         | 验证历史业务结果一致性                                | 是       | Replay 测试报告                |
+| Shadow Replay Test   | release / staging         | 验证候选变更对历史业务的影响                          | 是       | ShadowReplay 报告（人工复核）  |
+| Security Scan        | PR / release              | 依赖漏洞扫描、SAST、Secret 扫描等                     | 是       | 安全扫描报告                   |
+| Container Build      | main / release            | 构建 Docker 镜像                                      | 是       | Docker 镜像                    |
+| Container Scan       | main / release            | 镜像漏洞/配置扫描                                     | 是       | 镜像扫描报告                   |
+| Push Image           | main / release            | 推送镜像到私有 Registry                               | 是       | 镜像 Tag                       |
+| Deploy Test          | develop                   | 部署到测试环境（CI 自动）                             | 是       | 测试环境部署                   |
+| Deploy Staging       | release / main            | 部署到预发布环境                                      | 是       | 预发布环境部署                 |
+| Manual Approval      | staging                   | 发布生产前审批                                        | 是       | 审批记录                       |
+| Deploy Production    | main / 手动               | 部署到生产环境                                        | 是       | 生产环境部署                   |
+| Smoke Test           | staging / production      | 关键功能冒烟测试                                      | 是       | Smoke Test 报告                |
+| Rollback             | 部署失败或异常            | 应用回滚、DB 回滚、Feature Flag 回滚等                | 否       | 回滚报告                       |
 
 每个阶段通过持续集成工具自动触发执行，关键步骤失败将阻断后续发布。完成各阶段后会输出构建产物、测试报告、镜像 Tag 等，可用于追溯和审计。
 
@@ -199,24 +199,24 @@ flowchart TD
 
 项目模块及其构建方式如下（技术栈和命令为示例，请根据实际项目修改）：
 
-| 模块 | 技术栈 | 构建命令 | 输出产物 | 是否生成镜像 |
-|---|---|---|---|---|
-| `teacher-web` | Vue.js / React (TypeScript)，前端 | `pnpm --filter teacher-web build` | `apps/teacher-web/dist` | 是 |
-| `student-web` | Vue.js / React (TypeScript)，前端 | `pnpm --filter student-web build` | `apps/student-web/dist` | 是 |
-| `admin-web` | Vue.js / React (TypeScript)，前端 | `pnpm --filter admin-web build` | `apps/admin-web/dist` | 是 |
-| `api-gateway` | Node.js / NestJS，API 网关 | `pnpm --filter api-gateway build` | `services/api-gateway/dist` | 是 |
-| `auth-service` | Node.js / Python，认证服务 | `pnpm --filter auth-service build` | `services/auth-service/dist` | 是 |
-| `course-service` | Node.js / Python，课程服务 | `pnpm --filter course-service build` | `services/course-service/dist` | 是 |
-| `decision-service` | Node.js / Python，决策服务 | `pnpm --filter decision-service build` | `services/decision-service/dist` | 是 |
-| `simulation-engine` | Python / Go / Rust，仿真引擎 | `python -m build` | `dist/` | 是 |
-| `ai-orchestrator` | Python / FastAPI，AI 协调器 | `python -m build` | `dist/` | 是 |
-| `replay-service` | Python / Node.js，复盘服务 | `python -m build` | `dist/` | 是 |
-| `plugin-service` | Node.js / Python，插件服务 | `pnpm --filter plugin-service build` | `services/plugin-service/dist` | 是 |
-| `audit-service` | Node.js / Python，审计服务 | `pnpm --filter audit-service build` | `services/audit-service/dist` | 是 |
-| `notification-service` | Node.js / Python，通知服务 | `pnpm --filter notification-service build` | `services/notification-service/dist` | 是 |
-| `packages/api-contracts` | OpenAPI / JSON Schema | `pnpm --filter api-contracts build` | API 契约定义文件 | 否 |
-| `packages/shared-types` | TypeScript typings | `pnpm --filter shared-types build` | 类型声明包 | 否 |
-| `packages/ui` | TypeScript / docs/frontend/component-library.md | `pnpm --filter ui build` | 组件库 Bundle | 否 |
+| 模块                     | 技术栈                                          | 构建命令                                   | 输出产物                             | 是否生成镜像 |
+| ------------------------ | ----------------------------------------------- | ------------------------------------------ | ------------------------------------ | ------------ |
+| `teacher-web`            | Vue.js / React (TypeScript)，前端               | `pnpm --filter teacher-web build`          | `apps/teacher-web/dist`              | 是           |
+| `student-web`            | Vue.js / React (TypeScript)，前端               | `pnpm --filter student-web build`          | `apps/student-web/dist`              | 是           |
+| `admin-web`              | Vue.js / React (TypeScript)，前端               | `pnpm --filter admin-web build`            | `apps/admin-web/dist`                | 是           |
+| `api-gateway`            | Node.js / NestJS，API 网关                      | `pnpm --filter api-gateway build`          | `services/api-gateway/dist`          | 是           |
+| `auth-service`           | Node.js / Python，认证服务                      | `pnpm --filter auth-service build`         | `services/auth-service/dist`         | 是           |
+| `course-service`         | Node.js / Python，课程服务                      | `pnpm --filter course-service build`       | `services/course-service/dist`       | 是           |
+| `decision-service`       | Node.js / Python，决策服务                      | `pnpm --filter decision-service build`     | `services/decision-service/dist`     | 是           |
+| `simulation-engine`      | Python / Go / Rust，仿真引擎                    | `python -m build`                          | `dist/`                              | 是           |
+| `ai-orchestrator`        | Python / FastAPI，AI 协调器                     | `python -m build`                          | `dist/`                              | 是           |
+| `replay-service`         | Python / Node.js，复盘服务                      | `python -m build`                          | `dist/`                              | 是           |
+| `plugin-service`         | Node.js / Python，插件服务                      | `pnpm --filter plugin-service build`       | `services/plugin-service/dist`       | 是           |
+| `audit-service`          | Node.js / Python，审计服务                      | `pnpm --filter audit-service build`        | `services/audit-service/dist`        | 是           |
+| `notification-service`   | Node.js / Python，通知服务                      | `pnpm --filter notification-service build` | `services/notification-service/dist` | 是           |
+| `packages/api-contracts` | OpenAPI / JSON Schema                           | `pnpm --filter api-contracts build`        | API 契约定义文件                     | 否           |
+| `packages/shared-types`  | TypeScript typings                              | `pnpm --filter shared-types build`         | 类型声明包                           | 否           |
+| `packages/ui`            | TypeScript / docs/frontend/component-library.md | `pnpm --filter ui build`                   | 组件库 Bundle                        | 否           |
 
 **构建命令示例：**
 
@@ -244,7 +244,7 @@ npm ci  # 如果使用 npm 的场景
 
 ### Node.js 依赖缓存
 
-- 使用 `pnpm`（或 `npm`）进行依赖安装，锁定版本。  
+- 使用 `pnpm`（或 `npm`）进行依赖安装，锁定版本。
   ```bash
   pnpm install --frozen-lockfile
   ```
@@ -295,14 +295,14 @@ npm ci  # 如果使用 npm 的场景
 
 ### 缓存失效策略
 
-| 缓存类型 | 失效触发条件 | 处理方式 |
-|---|---|---|
-| Node 依赖 | `pnpm-lock.yaml` / `package-lock.json` 变化 | 重建缓存 |
-| Python 依赖 | `requirements.txt` 或 `pyproject.toml` 变化 | 重建缓存 |
-| Docker Layer | Dockerfile 或依赖层变化 | 自动失效 |
-| 构建产物 | 代码更新或环境变化 | 重新生成 |
-| 测试缓存 | 测试代码或配置变化 | 清理缓存，重新测试 |
-| CI 配置 | CI 文件变化 | 重建缓存 |
+| 缓存类型     | 失效触发条件                                | 处理方式           |
+| ------------ | ------------------------------------------- | ------------------ |
+| Node 依赖    | `pnpm-lock.yaml` / `package-lock.json` 变化 | 重建缓存           |
+| Python 依赖  | `requirements.txt` 或 `pyproject.toml` 变化 | 重建缓存           |
+| Docker Layer | Dockerfile 或依赖层变化                     | 自动失效           |
+| 构建产物     | 代码更新或环境变化                          | 重新生成           |
+| 测试缓存     | 测试代码或配置变化                          | 清理缓存，重新测试 |
+| CI 配置      | CI 文件变化                                 | 重建缓存           |
 
 ---
 
@@ -310,11 +310,11 @@ npm ci  # 如果使用 npm 的场景
 
 ### 9.1 Lint
 
-- **前端/Node.js**：使用 ESLint 对 JavaScript/TypeScript 代码进行静态检查。  
+- **前端/Node.js**：使用 ESLint 对 JavaScript/TypeScript 代码进行静态检查。
   ```bash
   npm run lint  # 或 pnpm run lint
   ```
-- **Python**：使用 `ruff` 或 `flake8` 进行代码规范检查。  
+- **Python**：使用 `ruff` 或 `flake8` 进行代码规范检查。
   ```bash
   ruff check .
   ```
@@ -322,39 +322,39 @@ npm ci  # 如果使用 npm 的场景
 
 ### 9.2 格式化检查
 
-- **前端/Node.js**：使用 Prettier 检查代码格式。  
+- **前端/Node.js**：使用 Prettier 检查代码格式。
   ```bash
   npm run format:check
   ```
-- **Python**：使用 Black 检查格式。  
+- **Python**：使用 Black 检查格式。
   ```bash
   black --check .
   ```
 
 ### 9.3 类型检查
 
-- **TypeScript**：严格类型检查。  
+- **TypeScript**：严格类型检查。
   ```bash
   npm run typecheck
   ```
-- **Python**：使用 Mypy 进行静态类型检查。  
+- **Python**：使用 Mypy 进行静态类型检查。
   ```bash
   mypy .
   ```
 
 ### 9.4 质量门禁
 
-| 检查项 | 命令 | 失败是否阻断 | 备注 |
-|---|---|---|---|
-| ESLint (前端/Node) | `npm run lint` | 是 | 静态代码风格检查 |
-| Ruff/Flake8 (Python) | `ruff check .` | 是 | Python 代码风格检查 |
-| Prettier 检查 | `npm run format:check` | 是 | 保证一致的代码格式 |
-| Black 检查 | `black --check .` | 是 | Python 代码格式 |
-| TypeScript 检查 | `npm run typecheck` | 是 | 类型定义和使用一致 |
-| Mypy (Python) | `mypy .` | 是 | Python 静态类型检查 |
-| Import 顺序 | `ruff check --select I .` | 是 | Python 导入排序 |
-| OpenAPI 验证 | `npm run lint:openapi` | 是 | OpenAPI/GraphQL 文档一致性 |
-| Markdown Lint | `npm run lint:docs` | 否 | 文档格式检查 |
+| 检查项               | 命令                      | 失败是否阻断 | 备注                       |
+| -------------------- | ------------------------- | ------------ | -------------------------- |
+| ESLint (前端/Node)   | `npm run lint`            | 是           | 静态代码风格检查           |
+| Ruff/Flake8 (Python) | `ruff check .`            | 是           | Python 代码风格检查        |
+| Prettier 检查        | `npm run format:check`    | 是           | 保证一致的代码格式         |
+| Black 检查           | `black --check .`         | 是           | Python 代码格式            |
+| TypeScript 检查      | `npm run typecheck`       | 是           | 类型定义和使用一致         |
+| Mypy (Python)        | `mypy .`                  | 是           | Python 静态类型检查        |
+| Import 顺序          | `ruff check --select I .` | 是           | Python 导入排序            |
+| OpenAPI 验证         | `npm run lint:openapi`    | 是           | OpenAPI/GraphQL 文档一致性 |
+| Markdown Lint        | `npm run lint:docs`       | 否           | 文档格式检查               |
 
 所有检查项如果标记为“是”，失败时都会阻断当前流水线阶段并反馈错误，防止不符合规范的代码进入下一步。项目可根据实际情况添加更多自定义规则（如安全检查、代码复杂度等）。
 
@@ -362,19 +362,19 @@ npm ci  # 如果使用 npm 的场景
 
 ## 10. 自动化测试流水线
 
-| 测试类型 | 触发阶段 | 命令 | 阻断发布 | 说明 |
-|---|---|---|---|---|
-| Unit Test (单元测试) | PR / Push | `npm test` / `pytest --maxfail=1 --disable-warnings -q` | 是 | 验证函数、组件、服务单元逻辑；快速反馈 |
-| Integration Test (集成测试) | `develop` / `release` | `npm run test:integration` | 是 | 验证服务间调用（数据库、API、消息队列等） |
-| API Contract Test | PR / release | `npm run test:contract` | 是 | 验证 OpenAPI/GraphQL 契约；接口规范符合文档 |
-| E2E Test (端到端) | `develop` / `release` | `npm run test:e2e` | 是 | 模拟真实业务场景（教师开课、学员决策、回合结算） |
-| Permission Test (权限测试) | PR / release | `npm run test:permission` | 是 | 验证 RBAC、租户隔离、字段权限等 |
-| Multi-tenant Test (多租户隔离) | `release` | `npm run test:tenant-isolation` | 是 | 验证不同租户数据互不干扰 |
-| Replay Test (复盘测试) | `release` / `staging` | `python scripts/replay/replay_test.py --run-id=<RUN_ID>` | 是 | 验证历史运行结果可复算 |
-| Shadow Replay Test | `release` / `staging` | `python scripts/replay/shadow_replay.py --candidate-id=<CANDIDATE_ID>` | 是 / **人工复核** | 验证候选参数/模型变化的影响 |
-| AI Boundary Test (AI 边界) | PR / release | `npm run test:ai-boundary` | 是 | 验证 AI 模型输出仅为建议（无写真值输出） |
-| Migration Test (迁移测试) | PR / release | `npm run test:migration` | 是 | 验证数据库迁移脚本可执行并可回滚 |
-| Performance Smoke Test | `staging` / `production` | `npm run test:perf-smoke` | 是 | 验证关键接口性能未明显退化（响应时间、吞吐量） |
+| 测试类型                       | 触发阶段                 | 命令                                                                   | 阻断发布          | 说明                                             |
+| ------------------------------ | ------------------------ | ---------------------------------------------------------------------- | ----------------- | ------------------------------------------------ |
+| Unit Test (单元测试)           | PR / Push                | `npm test` / `pytest --maxfail=1 --disable-warnings -q`                | 是                | 验证函数、组件、服务单元逻辑；快速反馈           |
+| Integration Test (集成测试)    | `develop` / `release`    | `npm run test:integration`                                             | 是                | 验证服务间调用（数据库、API、消息队列等）        |
+| API Contract Test              | PR / release             | `npm run test:contract`                                                | 是                | 验证 OpenAPI/GraphQL 契约；接口规范符合文档      |
+| E2E Test (端到端)              | `develop` / `release`    | `npm run test:e2e`                                                     | 是                | 模拟真实业务场景（教师开课、学员决策、回合结算） |
+| Permission Test (权限测试)     | PR / release             | `npm run test:permission`                                              | 是                | 验证 RBAC、租户隔离、字段权限等                  |
+| Multi-tenant Test (多租户隔离) | `release`                | `npm run test:tenant-isolation`                                        | 是                | 验证不同租户数据互不干扰                         |
+| Replay Test (复盘测试)         | `release` / `staging`    | `python scripts/replay/replay_test.py --run-id=<RUN_ID>`               | 是                | 验证历史运行结果可复算                           |
+| Shadow Replay Test             | `release` / `staging`    | `python scripts/replay/shadow_replay.py --candidate-id=<CANDIDATE_ID>` | 是 / **人工复核** | 验证候选参数/模型变化的影响                      |
+| AI Boundary Test (AI 边界)     | PR / release             | `npm run test:ai-boundary`                                             | 是                | 验证 AI 模型输出仅为建议（无写真值输出）         |
+| Migration Test (迁移测试)      | PR / release             | `npm run test:migration`                                               | 是                | 验证数据库迁移脚本可执行并可回滚                 |
+| Performance Smoke Test         | `staging` / `production` | `npm run test:perf-smoke`                                              | 是                | 验证关键接口性能未明显退化（响应时间、吞吐量）   |
 
 **示例命令：**
 
@@ -396,16 +396,16 @@ npm run test:perf-smoke
 
 覆盖率要求（示例，可按实际项目调整）：
 
-| 模块/服务 | 最低覆盖率 | 备注 |
-|---|---:|---|
-| API/后端服务 | 80% | 关键逻辑和边界场景覆盖 |
-| simulation-engine (仿真引擎) | 90% | 真值计算核心，需要高覆盖 |
-| replay-service | 85% | 发布门禁服务 |
-| ai-orchestrator | 80% | AI 协调器及边界逻辑 |
-| 前端 (教师/学员/管理员) | 70% | 配合 E2E 测试确保整体流程 |
-| plugin-service | 85% | 插件管理和加载逻辑 |
-| audit-service | 80% | 审计日志写入与访问 |
-| 其他模块 | 70% | 根据模块重要性设定 |
+| 模块/服务                    | 最低覆盖率 | 备注                      |
+| ---------------------------- | ---------: | ------------------------- |
+| API/后端服务                 |        80% | 关键逻辑和边界场景覆盖    |
+| simulation-engine (仿真引擎) |        90% | 真值计算核心，需要高覆盖  |
+| replay-service               |        85% | 发布门禁服务              |
+| ai-orchestrator              |        80% | AI 协调器及边界逻辑       |
+| 前端 (教师/学员/管理员)      |        70% | 配合 E2E 测试确保整体流程 |
+| plugin-service               |        85% | 插件管理和加载逻辑        |
+| audit-service                |        80% | 审计日志写入与访问        |
+| 其他模块                     |        70% | 根据模块重要性设定        |
 
 如覆盖率低于要求，可阻断流程或发出警告要求补充测试。
 
@@ -464,30 +464,30 @@ python scripts/replay/shadow_replay.py \
 
 ### 11.3 通过标准
 
-| 检查项 | 通过标准 | 失败处理 |
-|---|---|---|
-| **Replay 一致性** | 与历史结果差异在阈值内 | 阻断发布，需调查 |
-| **Shadow Replay 差异** | 未超过阈值或已获得批准 | 如果超阈值，阻断或需人工审核 |
-| **AI 输出边界** | 无写真值行为；只输出建议和分析 | 检测到写真值时阻断发布 |
-| **审计完整性** | 所有操作生成审计日志 | 缺失审计日志视为失败 |
-| **ParameterSet 合法** | 只能发布已审批的版本；历史不可覆盖 | 阻断发布 |
-| **PluginPackage 合法** | 只能发布兼容性通过的版本 | 阻断发布 |
-| **ModelVersion 合法** | 模型输出符合说明，不泄露未授权信息 | 阻断发布 |
-| **PromptVersion 合法** | 不泄露隐藏字段、不绕过权限控制 | 阻断发布 |
-| **SettlementResult 保护** | 正式结果完全未被修改 | 如被修改立即中断并审计 |
-| **ReplayReport 写入** | 以追加方式记录 | 如覆盖已有报告视为异常阻断 |
+| 检查项                    | 通过标准                           | 失败处理                     |
+| ------------------------- | ---------------------------------- | ---------------------------- |
+| **Replay 一致性**         | 与历史结果差异在阈值内             | 阻断发布，需调查             |
+| **Shadow Replay 差异**    | 未超过阈值或已获得批准             | 如果超阈值，阻断或需人工审核 |
+| **AI 输出边界**           | 无写真值行为；只输出建议和分析     | 检测到写真值时阻断发布       |
+| **审计完整性**            | 所有操作生成审计日志               | 缺失审计日志视为失败         |
+| **ParameterSet 合法**     | 只能发布已审批的版本；历史不可覆盖 | 阻断发布                     |
+| **PluginPackage 合法**    | 只能发布兼容性通过的版本           | 阻断发布                     |
+| **ModelVersion 合法**     | 模型输出符合说明，不泄露未授权信息 | 阻断发布                     |
+| **PromptVersion 合法**    | 不泄露隐藏字段、不绕过权限控制     | 阻断发布                     |
+| **SettlementResult 保护** | 正式结果完全未被修改               | 如被修改立即中断并审计       |
+| **ReplayReport 写入**     | 以追加方式记录                     | 如覆盖已有报告视为异常阻断   |
 
 **示例阈值（根据项目调整）：**
 
-| 指标 | 默认阈值 | 说明 |
-|---|---|---|
-| 总收入差异率 | ≤ 0.5% | 业务核心指标误差尽量接近 |
-| 利润差异率 | ≤ 0.5% | |
-| 得分差异率 | ≤ 0.1% | 决策得分更敏感 |
-| 排名变化数 | 0 | 正式排名变动需严格审查 |
-| ReplayHash 匹配率 | 100% | 确保可重现性 |
-| AI 边界违规次数 | 0 | 严禁写真值 |
-| 审计记录缺失率 | 0% | 完整日志记录 |
+| 指标              | 默认阈值 | 说明                     |
+| ----------------- | -------- | ------------------------ |
+| 总收入差异率      | ≤ 0.5%   | 业务核心指标误差尽量接近 |
+| 利润差异率        | ≤ 0.5%   |                          |
+| 得分差异率        | ≤ 0.1%   | 决策得分更敏感           |
+| 排名变化数        | 0        | 正式排名变动需严格审查   |
+| ReplayHash 匹配率 | 100%     | 确保可重现性             |
+| AI 边界违规次数   | 0        | 严禁写真值               |
+| 审计记录缺失率    | 0%       | 完整日志记录             |
 
 以上阈值和标准需要项目治理团队定期评审和更新。
 
@@ -497,18 +497,18 @@ python scripts/replay/shadow_replay.py \
 
 项目安全扫描覆盖以下方面：
 
-| 扫描类型 | 建议工具 | 触发阶段 | 阻断规则 |
-|---|---|---|---|
-| **依赖漏洞扫描** | npm audit / pnpm audit / pip-audit / OWASP Dependency-Check / Snyk | PR / release | 发现 High/Critical 漏洞阻断 |
-| **Secret 扫描** | Gitleaks / TruffleHog / GitHub Secret Scanning | PR / Push | 检测到真实秘钥阻断 |
-| **SAST (静态代码分析)** | CodeQL / Semgrep / SonarQube | PR / release | 触发高危安全规则阻断 |
-| **DAST (动态扫描)** | OWASP ZAP（预留） | staging | 发现高危漏洞需修复，阻断上线 |
-| **Container 扫描** | Trivy / Grype | 镜像构建完成 | 高危漏洞阻断，其他需审查 |
-| **IaC 扫描** | Checkov / tfsec / kube-linter | PR / release | 发现错误配置阻断 |
-| **License 检查** | FOSSA / License Finder | release | 非兼容许可证阻断 |
-| **AI 权限检查** | 自定义脚本或策略检查 | PR / release | 权限越界或泄露敏感信息阻断 |
-| **Kubernetes Policy** | OPA/Gatekeeper / Kyverno | 部署时 | 高危权限或配置阻断 |
-| **SBOM 生成** | Syft / CycloneDX | 镜像构建 | 未生成 SBOM 阻断上线 |
+| 扫描类型                | 建议工具                                                           | 触发阶段     | 阻断规则                     |
+| ----------------------- | ------------------------------------------------------------------ | ------------ | ---------------------------- |
+| **依赖漏洞扫描**        | npm audit / pnpm audit / pip-audit / OWASP Dependency-Check / Snyk | PR / release | 发现 High/Critical 漏洞阻断  |
+| **Secret 扫描**         | Gitleaks / TruffleHog / GitHub Secret Scanning                     | PR / Push    | 检测到真实秘钥阻断           |
+| **SAST (静态代码分析)** | CodeQL / Semgrep / SonarQube                                       | PR / release | 触发高危安全规则阻断         |
+| **DAST (动态扫描)**     | OWASP ZAP（预留）                                                  | staging      | 发现高危漏洞需修复，阻断上线 |
+| **Container 扫描**      | Trivy / Grype                                                      | 镜像构建完成 | 高危漏洞阻断，其他需审查     |
+| **IaC 扫描**            | Checkov / tfsec / kube-linter                                      | PR / release | 发现错误配置阻断             |
+| **License 检查**        | FOSSA / License Finder                                             | release      | 非兼容许可证阻断             |
+| **AI 权限检查**         | 自定义脚本或策略检查                                               | PR / release | 权限越界或泄露敏感信息阻断   |
+| **Kubernetes Policy**   | OPA/Gatekeeper / Kyverno                                           | 部署时       | 高危权限或配置阻断           |
+| **SBOM 生成**           | Syft / CycloneDX                                                   | 镜像构建     | 未生成 SBOM 阻断上线         |
 
 **重要规定：**
 
@@ -587,14 +587,14 @@ docker push <registry>/simwar/<service>:<tag>
 
 ### 13.6 镜像保留策略
 
-| 镜像类型 | 保留策略 |
-|---|---|
-| PR 构建镜像 | 保留 7 天（CI 清理） |
-| develop 测试镜像 | 保留 14 天 |
-| release 测试镜像 | 保留 30 天 |
-| 生产镜像 | 保留最近 N 个版本 (如 20 个) |
-| 热修镜像 | 保留 180 天 |
-| 构建缓存镜像 | 定期清理，避免占满存储 |
+| 镜像类型         | 保留策略                     |
+| ---------------- | ---------------------------- |
+| PR 构建镜像      | 保留 7 天（CI 清理）         |
+| develop 测试镜像 | 保留 14 天                   |
+| release 测试镜像 | 保留 30 天                   |
+| 生产镜像         | 保留最近 N 个版本 (如 20 个) |
+| 热修镜像         | 保留 180 天                  |
+| 构建缓存镜像     | 定期清理，避免占满存储       |
 
 ### 13.7 发布规则
 
@@ -618,10 +618,13 @@ docker push <registry>/simwar/<service>:<tag>
 - 所有迁移脚本加入到代码审查流程，PR 除常规评审外，涉及核心业务表的迁移需额外审批。
 
 示例检查命令：
+
 ```bash
 npm run db:migration:lint
 ```
+
 或
+
 ```bash
 python scripts/db/check_migrations.py
 ```
@@ -629,18 +632,22 @@ python scripts/db/check_migrations.py
 ### 14.2 测试环境自动迁移
 
 在 Test 环境中自动执行迁移并验证：
+
 ```bash
 python scripts/db/migrate.py --env=test
 ```
+
 确保迁移脚本能顺利应用到测试数据库。
 
 ### 14.3 预发布迁移验证
 
 在 Staging 环境使用模拟数据验证迁移：
+
 ```bash
 python scripts/db/migrate.py --env=staging --dry-run
 python scripts/db/verify_migration.py --env=staging
 ```
+
 检查 Schema/数据变更是否符合预期，且可回滚。
 
 ### 14.4 生产迁移审批
@@ -664,6 +671,7 @@ python scripts/db/backup.py \
   --env=production \
   --backup-id=$(date +'%Y%m%d%H%M%S')
 ```
+
 或使用云数据库快照服务，确保可回退。
 
 ### 14.6 回滚策略
@@ -686,13 +694,13 @@ python scripts/db/backup.py \
 
 环境迁移策略：
 
-| 环境 | 自动迁移 | 是否审批 | 回滚要求 |
-|---|---|---|---|
-| local | 是（手动或容器） | 否 | 可重建 |
-| CI | 是（自动容器临时库） | 否 | 废弃临时库 |
-| test | 是（CI 部署触发） | 否 | 可回滚或重建 |
-| staging | 自动触发部署，但需人工确认 | 是 | 验证回滚脚本执行 |
-| production | 否（审批后执行） | 是 | 必须备份并有明确回滚脚本 |
+| 环境       | 自动迁移                   | 是否审批 | 回滚要求                 |
+| ---------- | -------------------------- | -------- | ------------------------ |
+| local      | 是（手动或容器）           | 否       | 可重建                   |
+| CI         | 是（自动容器临时库）       | 否       | 废弃临时库               |
+| test       | 是（CI 部署触发）          | 否       | 可回滚或重建             |
+| staging    | 自动触发部署，但需人工确认 | 是       | 验证回滚脚本执行         |
+| production | 否（审批后执行）           | 是       | 必须备份并有明确回滚脚本 |
 
 **核心表额外保护**：
 
@@ -747,24 +755,24 @@ AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY_PLACEHOLDER>
 
 ### 15.5 Secret 轮换策略
 
-| Secret 类型 | 轮换周期 | 触发条件 |
-|---|---|---|
-| JWT_SECRET / 认证秘钥 | 90 天 / 安全事件 | 密钥泄露 |
-| 数据库连接密码 | 按数据库安全策略 | 定期或泄露 |
-| 第三方 API Key | 30-90 天 | 安全策略 |
-| Registry Token (镜像仓库) | 90 天 | 权限变更 |
-| Deploy Token (发布凭证) | 90 天 | 权限变更 |
-| Webhook Secret | 90 天 | 整合变更 |
+| Secret 类型               | 轮换周期         | 触发条件   |
+| ------------------------- | ---------------- | ---------- |
+| JWT_SECRET / 认证秘钥     | 90 天 / 安全事件 | 密钥泄露   |
+| 数据库连接密码            | 按数据库安全策略 | 定期或泄露 |
+| 第三方 API Key            | 30-90 天         | 安全策略   |
+| Registry Token (镜像仓库) | 90 天            | 权限变更   |
+| Deploy Token (发布凭证)   | 90 天            | 权限变更   |
+| Webhook Secret            | 90 天            | 整合变更   |
 
 ### 15.6 Secret 权限
 
-| 环境 | 使用主体 | 授权范围 |
-|---|---|---|
-| CI | CI Runner | 访问开发/测试 Secret，只读 |
-| test | Deploy Workflow | 访问测试环境 Secret |
-| staging | Release Workflow | 访问预发布 Secret |
-| production | Production Workflow | 访问生产 Secret（审批后） |
-| local | 开发者个人 | 访问本地测试 Secret |
+| 环境       | 使用主体            | 授权范围                   |
+| ---------- | ------------------- | -------------------------- |
+| CI         | CI Runner           | 访问开发/测试 Secret，只读 |
+| test       | Deploy Workflow     | 访问测试环境 Secret        |
+| staging    | Release Workflow    | 访问预发布 Secret          |
+| production | Production Workflow | 访问生产 Secret（审批后）  |
+| local      | 开发者个人          | 访问本地测试 Secret        |
 
 ### 15.7 Secret 审计
 
@@ -785,13 +793,13 @@ AWS_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY_PLACEHOLDER>
 
 ## 16. 部署策略
 
-| 策略 | 说明 | 适用场景 | 风险 |
-|---|---|---|---|
-| **Rolling Update** (滚动更新) | 逐个替换旧版本 Pod，无需停止服务 | 大部分常规服务 | 中低（可能短暂流量切换） |
-| **Blue-Green** (蓝绿发布) | 并行部署新版本到新环境，切换流量后停用旧环境 | 无缝升级、全量切换 | 中（需要双份资源） |
-| **Canary** (金丝雀发布) | 部分流量先导入新版本，验证指标正常后再全量放开 | 高风险变更（核心服务、仿真引擎等） | 低（逐步扩展风险） |
-| **Manual Deploy** | 手动触发更新流程，人工监控 | 特殊场景、紧急修复 | 取决于操作（人为出错风险） |
-| **Feature Flag** (功能开关) | 借助配置控制功能开关，上线未激活或渐进激活 | 流量灰度、功能实验 | 低（可快速切关闭） |
+| 策略                          | 说明                                           | 适用场景                           | 风险                       |
+| ----------------------------- | ---------------------------------------------- | ---------------------------------- | -------------------------- |
+| **Rolling Update** (滚动更新) | 逐个替换旧版本 Pod，无需停止服务               | 大部分常规服务                     | 中低（可能短暂流量切换）   |
+| **Blue-Green** (蓝绿发布)     | 并行部署新版本到新环境，切换流量后停用旧环境   | 无缝升级、全量切换                 | 中（需要双份资源）         |
+| **Canary** (金丝雀发布)       | 部分流量先导入新版本，验证指标正常后再全量放开 | 高风险变更（核心服务、仿真引擎等） | 低（逐步扩展风险）         |
+| **Manual Deploy**             | 手动触发更新流程，人工监控                     | 特殊场景、紧急修复                 | 取决于操作（人为出错风险） |
+| **Feature Flag** (功能开关)   | 借助配置控制功能开关，上线未激活或渐进激活     | 流量灰度、功能实验                 | 低（可快速切关闭）         |
 
 **推荐策略：**
 
@@ -874,42 +882,42 @@ flowchart TD
 
 ### 19.1 应用回滚
 
-- **镜像回滚**：生产发现问题时，可重启时指定回滚镜像标签（如回滚到上一个稳定 Tag）。  
-- **Kubernetes 回滚**：利用 `kubectl rollout undo deployment/<name>` 回滚到上一个 Deployment 版本。确保 Deployment 记录了历史版本。  
+- **镜像回滚**：生产发现问题时，可重启时指定回滚镜像标签（如回滚到上一个稳定 Tag）。
+- **Kubernetes 回滚**：利用 `kubectl rollout undo deployment/<name>` 回滚到上一个 Deployment 版本。确保 Deployment 记录了历史版本。
 - **Feature Flag**：如问题功能由 Feature Flag 控制，可快速通过关闭 Flag 来回滚功能，不需重启服务。
 
 ### 19.2 数据库回滚
 
-- **可逆迁移**：针对每个可逆的迁移脚本，编写对应的下行脚本，失败时执行下行回滚。  
-- **备份恢复**：对于不可逆或重大数据变更，必须依赖生产数据备份恢复。确保在备份后执行任何破坏性迁移。  
+- **可逆迁移**：针对每个可逆的迁移脚本，编写对应的下行脚本，失败时执行下行回滚。
+- **备份恢复**：对于不可逆或重大数据变更，必须依赖生产数据备份恢复。确保在备份后执行任何破坏性迁移。
 - **禁止直接删除**：核心数据表（SettlementResult、AuditLog 等）禁止直接删除行；只允许批量新增或状态变更。回滚只能恢复至备份状态，不做部分删除。
 
 ### 19.3 AI 模型回滚
 
-- **ModelVersion 回滚**：AI 模型服务支持多版本并存，回滚时将客户端指向老版本或重新部署旧版镜像。  
-- **PromptVersion 回滚**：使用版本化 Prompt，回滚时恢复到旧版本 Prompt。  
-- **RAG 配置回滚**：如有检索增强（RAG）策略更改，同步回滚相关 Embedding/Index。  
+- **ModelVersion 回滚**：AI 模型服务支持多版本并存，回滚时将客户端指向老版本或重新部署旧版镜像。
+- **PromptVersion 回滚**：使用版本化 Prompt，回滚时恢复到旧版本 Prompt。
+- **RAG 配置回滚**：如有检索增强（RAG）策略更改，同步回滚相关 Embedding/Index。
 - **Tool 权限回滚**：如果变更了 AI 工具链或接口，应立即撤销变更并恢复旧配置。
 
 ### 19.4 参数 / 插件回滚
 
-- **ParameterSet**：参数集版本不可覆盖，回滚时应废弃当前问题版本，新建并激活旧版本。  
-- **PluginPackage**：对于插件包发布，可将后续版本标记为 `deprecated` 或 `rolled_back`，并指向旧版继续使用。  
-- **新 Run 避免使用问题版本**：发布门禁内禁止生成新的决策 Run 绑定问题版本，一旦问题发现应切换使用旧版。  
+- **ParameterSet**：参数集版本不可覆盖，回滚时应废弃当前问题版本，新建并激活旧版本。
+- **PluginPackage**：对于插件包发布，可将后续版本标记为 `deprecated` 或 `rolled_back`，并指向旧版继续使用。
+- **新 Run 避免使用问题版本**：发布门禁内禁止生成新的决策 Run 绑定问题版本，一旦问题发现应切换使用旧版。
 - **历史 Run 绑定**：所有历史决策 Run 均绑定创建时的参数、插件、模型版本，不随线上版本切换而改变，保证可追溯性。
 
-| 回滚对象 | 回滚方式 | 是否影响历史数据 | 注意事项 |
-|---|---|---|---|
-| 应用镜像 | 重置到旧镜像 Tag | 否 | 保留新镜像以备分析 |
-| Kubernetes Deployment | `kubectl rollout undo` | 否 | 确保 Deployment 历史版本存在 |
-| Feature Flag | 关闭问题功能 | 否 | 支持快速关闭，无需代码变更 |
-| 可逆 Migration | 执行 Down 脚本 | 否 | 需先备份，确认影响 |
-| 数据库恢复 | 恢复备份 | 否 | 执行前通知业务并备份当前数据 |
-| ModelVersion | 恢复旧模型版本 | 否 | 需同步回滚依赖的 Prompt/配置 |
-| PromptVersion | 恢复旧 Prompt | 否 | 验证旧 Prompt 与旧模型兼容 |
-| ParameterSet | 废弃新版本，激活旧版本 | 否 | 旧版本参数立即生效 |
-| PluginPackage | 废弃新版本或回归旧版本 | 否 | 旧版插件应可兼容使用 |
-| RAG / Tools | 恢复旧策略/权限 | 否 | 确认索引和权限设置回归正常 |
+| 回滚对象              | 回滚方式               | 是否影响历史数据 | 注意事项                     |
+| --------------------- | ---------------------- | ---------------- | ---------------------------- |
+| 应用镜像              | 重置到旧镜像 Tag       | 否               | 保留新镜像以备分析           |
+| Kubernetes Deployment | `kubectl rollout undo` | 否               | 确保 Deployment 历史版本存在 |
+| Feature Flag          | 关闭问题功能           | 否               | 支持快速关闭，无需代码变更   |
+| 可逆 Migration        | 执行 Down 脚本         | 否               | 需先备份，确认影响           |
+| 数据库恢复            | 恢复备份               | 否               | 执行前通知业务并备份当前数据 |
+| ModelVersion          | 恢复旧模型版本         | 否               | 需同步回滚依赖的 Prompt/配置 |
+| PromptVersion         | 恢复旧 Prompt          | 否               | 验证旧 Prompt 与旧模型兼容   |
+| ParameterSet          | 废弃新版本，激活旧版本 | 否               | 旧版本参数立即生效           |
+| PluginPackage         | 废弃新版本或回归旧版本 | 否               | 旧版插件应可兼容使用         |
+| RAG / Tools           | 恢复旧策略/权限        | 否               | 确认索引和权限设置回归正常   |
 
 ---
 
@@ -917,17 +925,17 @@ flowchart TD
 
 生产发布需通过多角色审批，确保变更合理且安全。
 
-| 发布类型 | 审批人 | 必需检查 | 是否可自动发布 |
-|---|---|---|---|
-| 普通前端变更 | 开发负责人、测试负责人 | UI 样式、功能回归 | 否（审批上线） |
-| 普通后端变更 | 开发负责人、测试负责人 | 接口兼容性、压力测试 | 否 |
-| 数据库迁移 | 后端负责人、DBA、DevOps 负责人 | 迁移脚本审核、备份方案 | 否 |
-| 仿真引擎变更 | 架构负责人、测试负责人 | Replay 测试通过 | 否 |
-| ParameterSet 发布 | 模型治理人员、架构负责人 | Shadow Replay 审查 | 否 |
-| PluginPackage 发布 | 插件负责人、模型治理人员 | 插件兼容测试 | 否 |
-| ModelVersion 发布 | AI 负责人、模型治理人员 | Shadow Replay 审查 | 否 |
-| PromptVersion 发布 | AI 负责人、模型治理人员 | Shadow Replay 审查 | 否 |
-| 安全修复 (高危漏洞) | 安全负责人、DevOps 负责人 | 漏洞验证 | 根据情形（紧急可跳审） |
+| 发布类型            | 审批人                         | 必需检查               | 是否可自动发布         |
+| ------------------- | ------------------------------ | ---------------------- | ---------------------- |
+| 普通前端变更        | 开发负责人、测试负责人         | UI 样式、功能回归      | 否（审批上线）         |
+| 普通后端变更        | 开发负责人、测试负责人         | 接口兼容性、压力测试   | 否                     |
+| 数据库迁移          | 后端负责人、DBA、DevOps 负责人 | 迁移脚本审核、备份方案 | 否                     |
+| 仿真引擎变更        | 架构负责人、测试负责人         | Replay 测试通过        | 否                     |
+| ParameterSet 发布   | 模型治理人员、架构负责人       | Shadow Replay 审查     | 否                     |
+| PluginPackage 发布  | 插件负责人、模型治理人员       | 插件兼容测试           | 否                     |
+| ModelVersion 发布   | AI 负责人、模型治理人员        | Shadow Replay 审查     | 否                     |
+| PromptVersion 发布  | AI 负责人、模型治理人员        | Shadow Replay 审查     | 否                     |
+| 安全修复 (高危漏洞) | 安全负责人、DevOps 负责人      | 漏洞验证               | 根据情形（紧急可跳审） |
 
 - **审核人职责**：确认功能需求、测试结果和变更影响；对于模型、Prompt、参数等治理级别变更，需要有对应专家审核签字。
 - **自动发布**：大部分生产发布都要求审批；只有极特殊快速修复情形允许跳过流程，但需事后补全审批记录。
@@ -938,20 +946,20 @@ flowchart TD
 
 部署完成后，应执行关键功能验证，确保系统基本可用：
 
-| 验证项 | 验证方式 | 通过标准 |
-|---|---|---|
-| 服务健康检查 | 调用健康端点或Kubectl状态 | HTTP 200 或 Pod 就绪状态 |
-| 登录认证 | 模拟用户登录 | 登录成功并返回 Token 或页面 |
-| 课程列表查询 | 调用课程列表 API | 返回非空课程列表 |
-| 决策提交 | 执行一次学员决策（模拟） | 返回成功结果 |
-| 回合状态查询 | 查询决策回合状态 | 返回正确状态和结果 |
-| 仿真引擎健康 | 检查引擎服务健康端点 | HTTP 200 |
-| AI Orchestrator 健康 | 检查 AI 服务健康端点 | HTTP 200 |
-| Replay Service 健康 | 调用 Replay API | 返回响应 |
-| 数据库连接 | 应用日志确认连接成功 | 无错误连接日志 |
-| Redis 连接 | 应用日志确认 | 无连接异常 |
-| 消息队列连接 | 测试生产/消费消息 | 成功发布和消费 |
-| 审计日志写入 | 执行操作并检查审计表 | 日志正确写入 |
+| 验证项               | 验证方式                  | 通过标准                    |
+| -------------------- | ------------------------- | --------------------------- |
+| 服务健康检查         | 调用健康端点或Kubectl状态 | HTTP 200 或 Pod 就绪状态    |
+| 登录认证             | 模拟用户登录              | 登录成功并返回 Token 或页面 |
+| 课程列表查询         | 调用课程列表 API          | 返回非空课程列表            |
+| 决策提交             | 执行一次学员决策（模拟）  | 返回成功结果                |
+| 回合状态查询         | 查询决策回合状态          | 返回正确状态和结果          |
+| 仿真引擎健康         | 检查引擎服务健康端点      | HTTP 200                    |
+| AI Orchestrator 健康 | 检查 AI 服务健康端点      | HTTP 200                    |
+| Replay Service 健康  | 调用 Replay API           | 返回响应                    |
+| 数据库连接           | 应用日志确认连接成功      | 无错误连接日志              |
+| Redis 连接           | 应用日志确认              | 无连接异常                  |
+| 消息队列连接         | 测试生产/消费消息         | 成功发布和消费              |
+| 审计日志写入         | 执行操作并检查审计表      | 日志正确写入                |
 
 Smoke Test 建议使用自动化脚本执行，并生成报告。必须人工确认所有检查项通过后才能认为发布成功。
 
@@ -961,21 +969,21 @@ Smoke Test 建议使用自动化脚本执行，并生成报告。必须人工确
 
 关键 CI/CD 和业务监控指标，设定合理阈值触发告警：
 
-| 指标 | 说明 | 告警条件 |
-|---|---|---|
-| `deployment_failure_rate` | 部署失败率 | 高于 **阈值** 时告警 |
-| `build_duration` | 构建耗时 | 超过预估时间时告警 |
-| `test_failure_rate` | 测试失败率 | 任何阶段测试失败率>0% 时告警 |
-| `api_error_rate` | 接口错误率 | 请求错误率超过阈值（如5%） |
-| `api_latency_p95` | API P95 响应延迟 | 超过 SLA 时告警 |
-| `settlement_duration` | 结算耗时 | 超过正常波动范围 |
-| `replay_diff_rate` | Replay 差异率 | 超出安全阈值时告警 |
-| `ai_call_error_rate` | AI 调用错误率 | 错误率过高时告警 |
-| `dead_letter_count` | 死信队列数量 | 有异常消息堆积时告警 |
-| `resource_cpu_utilization` | CPU 利用率 | 长时间高于预设 % |
-| `resource_memory_utilization` | 内存利用率 | 长时间高于预设 % |
-| `db_connection_errors` | 数据库连接错误数 | 有错误日志则告警 |
-| `auth_failure_rate` | 认证失败率 | 不正常高的失败率 |
+| 指标                          | 说明             | 告警条件                     |
+| ----------------------------- | ---------------- | ---------------------------- |
+| `deployment_failure_rate`     | 部署失败率       | 高于 **阈值** 时告警         |
+| `build_duration`              | 构建耗时         | 超过预估时间时告警           |
+| `test_failure_rate`           | 测试失败率       | 任何阶段测试失败率>0% 时告警 |
+| `api_error_rate`              | 接口错误率       | 请求错误率超过阈值（如5%）   |
+| `api_latency_p95`             | API P95 响应延迟 | 超过 SLA 时告警              |
+| `settlement_duration`         | 结算耗时         | 超过正常波动范围             |
+| `replay_diff_rate`            | Replay 差异率    | 超出安全阈值时告警           |
+| `ai_call_error_rate`          | AI 调用错误率    | 错误率过高时告警             |
+| `dead_letter_count`           | 死信队列数量     | 有异常消息堆积时告警         |
+| `resource_cpu_utilization`    | CPU 利用率       | 长时间高于预设 %             |
+| `resource_memory_utilization` | 内存利用率       | 长时间高于预设 %             |
+| `db_connection_errors`        | 数据库连接错误数 | 有错误日志则告警             |
+| `auth_failure_rate`           | 认证失败率       | 不正常高的失败率             |
 
 所有告警通知应发送到团队协作平台（如 Slack、钉钉、企业微信等），并触发相应的响应流程。
 
@@ -1047,11 +1055,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '<NODE_VERSION>'
+          node-version: "<NODE_VERSION>"
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: '<PYTHON_VERSION>'
+          python-version: "<PYTHON_VERSION>"
 
       - name: Install Dependencies
         run: |
@@ -1160,25 +1168,25 @@ deploy_production:
 
 ## 26. 失败处理与排错
 
-| 失败场景 | 可能原因 | 处理方式 |
-|---|---|---|
-| **依赖安装失败** | 网络问题、镜像源失效、`package.json`/`requirements.txt` 错误 | 检查依赖文件格式；尝试更换镜像源；确认版本兼容；重试 CI |
-| **Lint 失败** | 代码风格不符，语法错误 | 阅读 Lint 报告，修复错误或添加忽略规则 |
-| **单元测试失败** | 业务逻辑错误、测试用例过时 | 查看测试日志定位错误；修正代码或测试；确保环境一致 |
-| **集成/E2E 测试失败** | 服务未启动或地址错误、数据环境不一致 | 检查服务部署状态、环境变量；排查网络或依赖服务问题 |
-| **Docker 构建失败** | Dockerfile 错误、依赖包未找到 | 检查 Dockerfile 指令及路径；测试本地构建；确认基础镜像可访问 |
-| **镜像推送失败** | Registry 认证失败、网络问题 | 检查仓库地址和凭证；确认网络连接；检查权限 |
-| **数据库迁移失败** | SQL 语法错误、表结构冲突 | 查看数据库日志；手动回滚事务；修正迁移脚本后重新执行 |
-| **Kubernetes 部署失败** | YAML 配置错误、资源不足 | 查看 `kubectl describe` 输出；检查容器日志；修正配置（端口、卷等） |
-| **健康检查失败** | 服务未就绪、环境变量错误 | 检查应用日志和探针配置；确保依赖服务可用 |
-| **Replay 测试失败** | 复算结果与历史不一致 | 检查参数/插件是否正确；核对版本；分析差异原因 |
-| **Shadow Replay 差异过大** | 候选变更影响过大 | 停止发布；对比数据，必要时调整参数/模型或审批通过 |
-| **AI 边界测试失败** | 模型输出出现写真值 | 调整 Prompt/模型策略；增加限制或审查 |
-| **Secret 缺失** | CI/CD 未配置必要 Secret | 确认所需 Secret 名称和作用域，正确配置到 CI/CD |
-| **权限不足** | CI Runner 无相关权限、K8s 角色不足 | 提高相应权限，或拆分任务到具备权限的流程 |
-| **构建超时** | 服务或测试耗时过长 | 优化构建步骤，调整 CI 超时设置，增加资源 |
-| **资源配额不足** | 云主机/集群资源限制 | 调整资源配额，增加节点/CPU/内存 |
-| **版本冲突** | 多分支合并导致依赖冲突 | 回退或合并最新 `develop`，重建依赖 |
+| 失败场景                   | 可能原因                                                     | 处理方式                                                           |
+| -------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **依赖安装失败**           | 网络问题、镜像源失效、`package.json`/`requirements.txt` 错误 | 检查依赖文件格式；尝试更换镜像源；确认版本兼容；重试 CI            |
+| **Lint 失败**              | 代码风格不符，语法错误                                       | 阅读 Lint 报告，修复错误或添加忽略规则                             |
+| **单元测试失败**           | 业务逻辑错误、测试用例过时                                   | 查看测试日志定位错误；修正代码或测试；确保环境一致                 |
+| **集成/E2E 测试失败**      | 服务未启动或地址错误、数据环境不一致                         | 检查服务部署状态、环境变量；排查网络或依赖服务问题                 |
+| **Docker 构建失败**        | Dockerfile 错误、依赖包未找到                                | 检查 Dockerfile 指令及路径；测试本地构建；确认基础镜像可访问       |
+| **镜像推送失败**           | Registry 认证失败、网络问题                                  | 检查仓库地址和凭证；确认网络连接；检查权限                         |
+| **数据库迁移失败**         | SQL 语法错误、表结构冲突                                     | 查看数据库日志；手动回滚事务；修正迁移脚本后重新执行               |
+| **Kubernetes 部署失败**    | YAML 配置错误、资源不足                                      | 查看 `kubectl describe` 输出；检查容器日志；修正配置（端口、卷等） |
+| **健康检查失败**           | 服务未就绪、环境变量错误                                     | 检查应用日志和探针配置；确保依赖服务可用                           |
+| **Replay 测试失败**        | 复算结果与历史不一致                                         | 检查参数/插件是否正确；核对版本；分析差异原因                      |
+| **Shadow Replay 差异过大** | 候选变更影响过大                                             | 停止发布；对比数据，必要时调整参数/模型或审批通过                  |
+| **AI 边界测试失败**        | 模型输出出现写真值                                           | 调整 Prompt/模型策略；增加限制或审查                               |
+| **Secret 缺失**            | CI/CD 未配置必要 Secret                                      | 确认所需 Secret 名称和作用域，正确配置到 CI/CD                     |
+| **权限不足**               | CI Runner 无相关权限、K8s 角色不足                           | 提高相应权限，或拆分任务到具备权限的流程                           |
+| **构建超时**               | 服务或测试耗时过长                                           | 优化构建步骤，调整 CI 超时设置，增加资源                           |
+| **资源配额不足**           | 云主机/集群资源限制                                          | 调整资源配额，增加节点/CPU/内存                                    |
+| **版本冲突**               | 多分支合并导致依赖冲突                                       | 回退或合并最新 `develop`，重建依赖                                 |
 
 遇到失败时，首先查看相应流水线日志及错误信息，根据提示定位并修复问题。可以通过本地复现失败过程或逐步拆分步骤排查。
 
@@ -1204,26 +1212,26 @@ deploy_production:
 
 ## 28. 开发任务拆解
 
-| 任务编号 | 任务名称 | 所属模块 | 优先级 | 依赖 | 验收标准 |
-|---|---|---|---|---|---|
-| 01 | PR Check Workflow | CI/CD Pipelines | 高 | 代码仓库结构 | PR 提交后触发 Lint、Type、Unit 流程，报告可用 |
-| 02 | Test Workflow | CI/CD Pipelines | 高 | PR Check Workflow | 完整集成测试与 E2E 流程自动执行 |
-| 03 | Build Workflow | CI/CD Pipelines | 高 | Test Workflow | 前端/后端构建产物正常生成 |
-| 04 | Docker Build Workflow | CI/CD Pipelines | 高 | Build Workflow | 自动构建并推送 Docker 镜像 |
-| 05 | Security Scan Workflow | CI/CD Pipelines | 中 | Build Workflow | 引入依赖漏洞/镜像扫描工具，运行并阻断高危 |
-| 06 | Deploy Test Workflow | CI/CD Pipelines | 高 | Docker Build Workflow | 合并 develop 后自动部署到测试环境 |
-| 07 | Deploy Staging Workflow | CI/CD Pipelines | 中 | Deploy Test Workflow | release 分支部署到预发布环境 |
-| 08 | Deploy Production Workflow | CI/CD Pipelines | 高 | Deploy Staging Workflow | main 分支或人工触发部署到生产，需要审批 |
-| 09 | Rollback Script | DevOps | 中 | Deploy Production Workflow | 支持回滚应用、镜像和数据库 |
-| 10 | Database Migration Script | Backend | 高 | Test Environment | 数据库迁移脚本编写与测试 |
-| 11 | Smoke Test Script | QA/DevOps | 高 | Deploy Production Workflow | 部署后自动或手动运行核心冒烟测试 |
-| 12 | Replay Test Pipeline | DevOps/测试 | 高 | Build Workflow | 自动运行 Replay 测试，报告差异 |
-| 13 | Shadow Replay Gate | AI 工程/测试 | 高 | Replay Test Pipeline | 自动运行 Shadow Replay，并辅助审批流程 |
-| 14 | AI Boundary Test Pipeline | AI 工程 | 中 | Build Workflow | 自动检测 AI 输出边界和政策合规 |
-| 15 | Kubernetes Manifests | DevOps | 高 | Deploy Staging Workflow | 完整 K8s 资源清单文件 (Namespace/Deploy/Service 等) |
-| 16 | Secret Management | DevOps/安全 | 高 | - | 秘密管理集成（Vault/Secrets Manager）与配置文档 |
-| 17 | Monitoring Alerts | DevOps | 中 | Deploy Production Workflow | 配置 CI/CD 和业务监控指标告警 |
-| 18 | Feature Flag Framework | DevOps/Backend | 低 | - | 集成 Feature Flag 服务并测试 |
+| 任务编号 | 任务名称                   | 所属模块        | 优先级 | 依赖                       | 验收标准                                            |
+| -------- | -------------------------- | --------------- | ------ | -------------------------- | --------------------------------------------------- |
+| 01       | PR Check Workflow          | CI/CD Pipelines | 高     | 代码仓库结构               | PR 提交后触发 Lint、Type、Unit 流程，报告可用       |
+| 02       | Test Workflow              | CI/CD Pipelines | 高     | PR Check Workflow          | 完整集成测试与 E2E 流程自动执行                     |
+| 03       | Build Workflow             | CI/CD Pipelines | 高     | Test Workflow              | 前端/后端构建产物正常生成                           |
+| 04       | Docker Build Workflow      | CI/CD Pipelines | 高     | Build Workflow             | 自动构建并推送 Docker 镜像                          |
+| 05       | Security Scan Workflow     | CI/CD Pipelines | 中     | Build Workflow             | 引入依赖漏洞/镜像扫描工具，运行并阻断高危           |
+| 06       | Deploy Test Workflow       | CI/CD Pipelines | 高     | Docker Build Workflow      | 合并 develop 后自动部署到测试环境                   |
+| 07       | Deploy Staging Workflow    | CI/CD Pipelines | 中     | Deploy Test Workflow       | release 分支部署到预发布环境                        |
+| 08       | Deploy Production Workflow | CI/CD Pipelines | 高     | Deploy Staging Workflow    | main 分支或人工触发部署到生产，需要审批             |
+| 09       | Rollback Script            | DevOps          | 中     | Deploy Production Workflow | 支持回滚应用、镜像和数据库                          |
+| 10       | Database Migration Script  | Backend         | 高     | Test Environment           | 数据库迁移脚本编写与测试                            |
+| 11       | Smoke Test Script          | QA/DevOps       | 高     | Deploy Production Workflow | 部署后自动或手动运行核心冒烟测试                    |
+| 12       | Replay Test Pipeline       | DevOps/测试     | 高     | Build Workflow             | 自动运行 Replay 测试，报告差异                      |
+| 13       | Shadow Replay Gate         | AI 工程/测试    | 高     | Replay Test Pipeline       | 自动运行 Shadow Replay，并辅助审批流程              |
+| 14       | AI Boundary Test Pipeline  | AI 工程         | 中     | Build Workflow             | 自动检测 AI 输出边界和政策合规                      |
+| 15       | Kubernetes Manifests       | DevOps          | 高     | Deploy Staging Workflow    | 完整 K8s 资源清单文件 (Namespace/Deploy/Service 等) |
+| 16       | Secret Management          | DevOps/安全     | 高     | -                          | 秘密管理集成（Vault/Secrets Manager）与配置文档     |
+| 17       | Monitoring Alerts          | DevOps          | 中     | Deploy Production Workflow | 配置 CI/CD 和业务监控指标告警                       |
+| 18       | Feature Flag Framework     | DevOps/Backend  | 低     | -                          | 集成 Feature Flag 服务并测试                        |
 
 每项任务需明确负责人和截止日期。验证标准包括任务自动化成功运行、日志完整和文档补充。任务优先级可根据项目阶段和资源调整。
 
@@ -1265,5 +1273,3 @@ deploy_production:
 - Prompt 版本自动审核与治理
 
 后续迭代可以根据团队反馈和业务需要不断细化和完善 CI/CD 能力，确保平台稳定安全交付。
-
-

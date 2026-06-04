@@ -23,7 +23,13 @@ function sign(input: string, secret: string): string {
 }
 
 export function hashPassword(password: string, salt = randomBytes(16).toString("hex")): string {
-  const hash = pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, PASSWORD_DIGEST).toString("hex");
+  const hash = pbkdf2Sync(
+    password,
+    salt,
+    PASSWORD_ITERATIONS,
+    PASSWORD_KEY_LENGTH,
+    PASSWORD_DIGEST
+  ).toString("hex");
   return `pbkdf2$${PASSWORD_ITERATIONS}$${salt}$${hash}`;
 }
 
@@ -53,7 +59,11 @@ export function createSignedToken(payload: TokenPayload, secret: string): string
   return `${header}.${body}.${signature}`;
 }
 
-export function verifySignedToken(token: string, secret: string, now = Date.now()): TokenPayload | undefined {
+export function verifySignedToken(
+  token: string,
+  secret: string,
+  now = Date.now()
+): TokenPayload | undefined {
   const [header, body, signature] = token.split(".");
 
   if (!header || !body || !signature) {
@@ -64,7 +74,10 @@ export function verifySignedToken(token: string, secret: string, now = Date.now(
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
 
-  if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  ) {
     return undefined;
   }
 

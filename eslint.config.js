@@ -4,13 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "**/dist/**",
-      "**/coverage/**",
-      "**/node_modules/**",
-      "docs/**",
-      "package-lock.json"
-    ]
+    ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**", "docs/**", "package-lock.json"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -28,7 +22,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
-          "argsIgnorePattern": "^_"
+          argsIgnorePattern: "^_"
         }
       ]
     }
