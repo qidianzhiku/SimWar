@@ -1,131 +1,232 @@
 import type {
   AuditLog,
-  Course,
   Decision,
   DomainEvent,
+  ReplayDiffReport,
+  ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
   Run,
-  SessionRecord,
   SettlementResult,
   StateSnapshot,
   Team,
-  Tenant,
-  User
 } from "@simwar/shared-contracts";
 
 /**
- * Repository ports define the persistence boundary for API services.
- * They are intentionally implementation-free: no store, database, HTTP, route,
- * or server runtime details belong in this file.
+ * Repository port boundary for the API service.
+ *
+ * This file only defines persistence interfaces. It must not contain JSON,
+ * Postgres, HTTP, Express, route, settlement, replay, or AI advisory runtime
+ * implementation.
+ *
+ * Truth-chain guardrails:
+ * - Role drafts are not canonical decisions.
+ * - AI advisory output and learning evidence must not enter canonical Decision
+ *   or SettlementResult through repository ports.
+ * - Replay truth hash behavior is owned by replay/runtime code, not repository
+ *   persistence ports.
  */
-export interface IdentityUserRecord extends User {
-  password_hash: string;
+
+export type RepositoryId = string;
+
+export interface RepositoryTenantReadModel {
+  tenant_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositoryUserReadModel {
+  tenant_id: RepositoryId;
+  user_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositorySessionReadModel {
+  tenant_id: RepositoryId;
+  session_id: RepositoryId;
+  user_id: RepositoryId;
+  expires_at?: string;
+}
+
+export interface RepositoryCourseReadModel {
+  tenant_id: RepositoryId;
+  course_id: RepositoryId;
+  status?: string;
+}
+
+export interface RepositoryEventQuery {
+  tenant_id: RepositoryId;
+  aggregate_id?: RepositoryId;
+  aggregate_type?: string;
+  from_sequence?: number;
+  limit?: number;
+}
+
+export interface RepositorySnapshotQuery {
+  tenant_id: RepositoryId;
+  aggregate_id: RepositoryId;
+  aggregate_type: string;
+  at_sequence?: number;
 }
 
 export interface IdentityRepositoryPort {
-  findTenantById(tenantId: string): Promise<Tenant | undefined>;
-  listUsers(tenantId: string): Promise<User[]>;
-  findUserById(tenantId: string, userId: string): Promise<IdentityUserRecord | undefined>;
-  findUserByUsername(
-    tenantId: string,
-    username: string
-  ): Promise<IdentityUserRecord | undefined>;
+  getTenant(tenantId: RepositoryId): Promise<RepositoryTenantReadModel | null>;
+
+  getUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositoryUserReadModel | null>;
 }
 
 export interface SessionRepositoryPort {
-  findSessionByTokenHash(tokenHash: string): Promise<SessionRecord | undefined>;
-  createSession(session: SessionRecord): Promise<SessionRecord>;
-  revokeSessionByTokenHash(tokenHash: string, revokedAt: string): Promise<SessionRecord | undefined>;
+  getSession(
+    tenantId: RepositoryId,
+    sessionId: RepositoryId,
+  ): Promise<RepositorySessionReadModel | null>;
+
+  listActiveSessionsByUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositorySessionReadModel[]>;
 }
 
 export interface CourseRepositoryPort {
-  listCourses(tenantId: string): Promise<Course[]>;
-  findCourseById(tenantId: string, courseId: string): Promise<Course | undefined>;
-  createCourse(course: Course): Promise<Course>;
-  updateCourse(course: Course): Promise<Course>;
+  getCourse(
+    tenantId: RepositoryId,
+    courseId: RepositoryId,
+  ): Promise<RepositoryCourseReadModel | null>;
+
+  listCoursesForUser(
+    tenantId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<RepositoryCourseReadModel[]>;
 }
 
 export interface TeamRepositoryPort {
-  listTeamsByCourse(tenantId: string, courseId: string): Promise<Team[]>;
-  findTeamById(tenantId: string, teamId: string): Promise<Team | undefined>;
-  createTeam(team: Team): Promise<Team>;
-  updateTeam(team: Team): Promise<Team>;
+  getTeam(tenantId: RepositoryId, teamId: RepositoryId): Promise<Team | null>;
+
+  listTeamsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Team[]>;
+
+  getTeamForUser(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    userId: RepositoryId,
+  ): Promise<Team | null>;
 }
 
 export interface RunRepositoryPort {
-  listRunsByCourse(tenantId: string, courseId: string): Promise<Run[]>;
-  findRunById(tenantId: string, runId: string): Promise<Run | undefined>;
-  createRun(run: Run): Promise<Run>;
-  updateRun(run: Run): Promise<Run>;
+  getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
+
+  listRunsForCourse(
+    tenantId: RepositoryId,
+    courseId: RepositoryId,
+  ): Promise<Run[]>;
 }
 
 export interface RoundRepositoryPort {
-  listRoundsByRun(tenantId: string, runId: string): Promise<Round[]>;
-  findRoundByNo(
-    tenantId: string,
-    runId: string,
-    roundNo: number
-  ): Promise<Round | undefined>;
-  createRound(round: Round): Promise<Round>;
-  updateRound(round: Round): Promise<Round>;
+  getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
+
+  listRoundsForRun(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+  ): Promise<Round[]>;
+
+  markRoundSettled(
+    tenantId: RepositoryId,
+    roundId: RepositoryId,
+    settlementResultId: RepositoryId,
+  ): Promise<void>;
 }
 
 export interface DecisionRepositoryPort {
-  listDecisionsByRound(tenantId: string, runId: string, roundId: string): Promise<Decision[]>;
-  findDecisionByTeam(
-    tenantId: string,
-    runId: string,
-    roundId: string,
-    teamId: string
-  ): Promise<Decision | undefined>;
-  createDecision(decision: Decision): Promise<Decision>;
-  updateDecision(decision: Decision): Promise<Decision>;
+  getDecisionById(
+    tenantId: RepositoryId,
+    decisionId: RepositoryId,
+  ): Promise<Decision | null>;
+
+  getCanonicalDecisionForTeamRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+    teamId: RepositoryId,
+  ): Promise<Decision | null>;
+
+  listDecisionsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+  ): Promise<Decision[]>;
+
+  saveCanonicalDecision(decision: Decision): Promise<void>;
 }
 
 export interface SettlementRepositoryPort {
-  findSettlementByRound(
-    tenantId: string,
-    runId: string,
-    roundNo: number
-  ): Promise<SettlementResult | undefined>;
-  appendSettlement(settlement: SettlementResult): Promise<SettlementResult>;
+  getSettlementResult(
+    tenantId: RepositoryId,
+    settlementResultId: RepositoryId,
+  ): Promise<SettlementResult | null>;
+
+  listSettlementResultsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+  ): Promise<SettlementResult[]>;
+
+  saveSettlementResult(result: SettlementResult): Promise<void>;
 }
 
 export interface DomainEventRepositoryPort {
-  appendDomainEvent(event: DomainEvent): Promise<DomainEvent>;
-  listDomainEvents(filter: {
-    tenantId: string;
-    aggregateType?: string;
-    aggregateId?: string;
-  }): Promise<DomainEvent[]>;
+  appendDomainEvent(event: DomainEvent): Promise<void>;
+
+  listDomainEvents(query: RepositoryEventQuery): Promise<DomainEvent[]>;
 }
 
 export interface StateSnapshotRepositoryPort {
-  appendStateSnapshot(snapshot: StateSnapshot): Promise<StateSnapshot>;
-  listStateSnapshots(filter: {
-    tenantId: string;
-    runId?: string;
-    roundId?: string;
-  }): Promise<StateSnapshot[]>;
+  getStateSnapshot(query: RepositorySnapshotQuery): Promise<StateSnapshot | null>;
+
+  saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
 }
 
 export interface AuditLogRepositoryPort {
-  appendAuditLog(auditLog: AuditLog): Promise<AuditLog>;
-  listAuditLogs(filter: {
-    tenantId: string;
-    resourceType?: string;
-    resourceId?: string;
+  appendAuditLog(auditLog: AuditLog): Promise<void>;
+
+  listAuditLogs(query: {
+    tenant_id: RepositoryId;
+    actor_id?: RepositoryId;
+    action?: string;
+    resource_id?: RepositoryId;
+    limit?: number;
   }): Promise<AuditLog[]>;
 }
 
 export interface ReplayRepositoryPort {
-  appendReplayRun(replayRun: ReplayRun): Promise<ReplayRun>;
-  findReplayRun(tenantId: string, replayRunId: string): Promise<ReplayRun | undefined>;
-  listReplayRuns(tenantId: string, runId?: string): Promise<ReplayRun[]>;
-  appendReplayReport(replayReport: ReplayReport): Promise<ReplayReport>;
-  listReplayReports(tenantId: string, replayRunId?: string): Promise<ReplayReport[]>;
+  saveReplayInputManifest(manifest: ReplayInputManifest): Promise<void>;
+
+  getReplayInputManifest(
+    tenantId: RepositoryId,
+    manifestId: RepositoryId,
+  ): Promise<ReplayInputManifest | null>;
+
+  saveReplayRun(run: ReplayRun): Promise<void>;
+
+  getReplayRun(
+    tenantId: RepositoryId,
+    replayRunId: RepositoryId,
+  ): Promise<ReplayRun | null>;
+
+  saveReplayReport(report: ReplayReport): Promise<void>;
+
+  getReplayReport(
+    tenantId: RepositoryId,
+    replayReportId: RepositoryId,
+  ): Promise<ReplayReport | null>;
+
+  saveReplayDiffReport(report: ReplayDiffReport): Promise<void>;
+
+  getReplayDiffReport(
+    tenantId: RepositoryId,
+    replayDiffReportId: RepositoryId,
+  ): Promise<ReplayDiffReport | null>;
 }
 
 export interface SimWarRepositoryPorts {
@@ -140,5 +241,5 @@ export interface SimWarRepositoryPorts {
   domainEvents: DomainEventRepositoryPort;
   stateSnapshots: StateSnapshotRepositoryPort;
   auditLogs: AuditLogRepositoryPort;
-  replays: ReplayRepositoryPort;
+  replay: ReplayRepositoryPort;
 }
