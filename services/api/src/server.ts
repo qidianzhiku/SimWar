@@ -23,6 +23,10 @@ import {
   verifySignedToken
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
+import {
+  createJsonRepositoryProvider,
+  type RepositoryProvider
+} from "./repository-provider.js";
 import { settleRound, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_INTERNAL_SERVICE_TOKEN,
@@ -49,6 +53,11 @@ interface RequestContext {
   token?: string;
 }
 
+interface ApiRuntime {
+  store: SimWarStore;
+  repositoryProvider: RepositoryProvider;
+}
+
 class HttpError extends Error {
   constructor(
     readonly statusCode: number,
@@ -63,6 +72,13 @@ class HttpError extends Error {
 const defaultStore = createP1Store({
   persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
 });
+
+function createApiRuntime(store: SimWarStore): ApiRuntime {
+  return {
+    store,
+    repositoryProvider: createJsonRepositoryProvider({ store })
+  };
+}
 
 function createEnvelope<TData>(
   context: RequestContext,
@@ -445,10 +461,12 @@ function normalizeRoles(actor: CurrentUser, roles?: ActorRole[]): ActorRole[] {
 }
 
 async function routeRequest(
-  store: SimWarStore,
+  runtime: ApiRuntime,
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> {
+  const store = runtime.store;
+
   if (request.method === "OPTIONS") {
     sendJson(response, 204, {});
     return;
@@ -1263,8 +1281,10 @@ function runSettlement(
 }
 
 export function createApiServer(store: SimWarStore = defaultStore) {
+  const runtime = createApiRuntime(store);
+
   return createServer((request, response) => {
-    routeRequest(store, request, response).catch((error: unknown) => {
+    routeRequest(runtime, request, response).catch((error: unknown) => {
       const fallbackContext: RequestContext = {
         requestId: request.headers["x-request-id"]?.toString() ?? `req_${Date.now()}`,
         tenantId: request.headers["x-tenant-id"]?.toString() ?? DEFAULT_TENANT_ID
