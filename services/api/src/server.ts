@@ -359,9 +359,13 @@ async function createPublicResultView(
   roundNo: number
 ): Promise<PublicResultView> {
   const actor = requirePermission(context, "result:read");
-  const store = runtime.store;
   const round = await getRoundForRead(runtime, context, runId, roundNo);
-  const settlement = store.settlementResults.find(
+  const settlements = await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+    context.tenantId,
+    runId,
+    round.round_id
+  );
+  const settlement = settlements.find(
     (result) =>
       result.run_id === runId &&
       result.round_no === roundNo &&
