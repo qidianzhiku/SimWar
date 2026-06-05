@@ -332,14 +332,35 @@ function getRound(store: SimWarStore, context: RequestContext, runId: string, ro
   return round;
 }
 
-function createPublicResultView(
-  store: SimWarStore,
+async function getRoundForRead(
+  runtime: ApiRuntime,
   context: RequestContext,
   runId: string,
   roundNo: number
-): PublicResultView {
+) {
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+    context.tenantId,
+    run?.run_id ?? runId
+  );
+  const round = rounds.find((candidate) => candidate.round_no === roundNo);
+
+  if (!round) {
+    throw new HttpError(404, "ROUND-404-001", "round not found");
+  }
+
+  return round;
+}
+
+async function createPublicResultView(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<PublicResultView> {
   const actor = requirePermission(context, "result:read");
-  const round = getRound(store, context, runId, roundNo);
+  const store = runtime.store;
+  const round = await getRoundForRead(runtime, context, runId, roundNo);
   const settlement = store.settlementResults.find(
     (result) =>
       result.run_id === runId &&
@@ -815,7 +836,7 @@ async function routeRequest(
       : undefined;
     const latestResult =
       latestRun && latestRound
-        ? createPublicResultView(store, context, latestRun.run_id, latestRound.round_no)
+        ? await createPublicResultView(runtime, context, latestRun.run_id, latestRound.round_no)
         : undefined;
     const canReadAdmin = actorHasPermission(actor, "user:read");
 
@@ -1233,7 +1254,7 @@ async function routeRequest(
       200,
       createEnvelope(
         context,
-        createPublicResultView(store, context, runId ?? "", Number(roundNoRaw))
+        await createPublicResultView(runtime, context, runId ?? "", Number(roundNoRaw))
       )
     );
     return;
