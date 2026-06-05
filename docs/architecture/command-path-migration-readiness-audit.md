@@ -2,23 +2,23 @@
 
 This audit records whether SimWar is ready to migrate command / write paths from direct `SimWarStore` mutation toward command-oriented repository facade methods.
 
-The inspected baseline is the latest fetched `origin/master` at commit `432943d` (`Merge pull request #29 from qidianzhiku/codex/settlement-write-replay-hash-characterization-tests`). That baseline includes decision submit, round lock / publish, and settlement result / replay hash characterization tests. The audit append characterization branch exists at `origin/codex/audit-append-characterization-tests`, but it is not present in this inspected `origin/master` yet. Until that branch is merged, audit append write migration remains blocked.
+The inspected baseline is the latest fetched `origin/master` at commit `e11c2bf` (`Merge pull request #31 from qidianzhiku/codex/audit-append-characterization-tests-v2`). That baseline includes decision submit, round lock / publish, settlement result / replay hash, audit append, and audit append filter characterization tests.
 
 This document is intentionally docs-only. It does not change runtime behavior, route contracts, tests, migrations, package dependencies, repository adapters, or CI.
 
 ## 1. Current Command / Write Paths
 
-| Path                                  | Current implementation                                                                                                    | Direct store access                                                                                                                                      | Existing characterization coverage in inspected master                                                                  | Readiness note                                                                                                           |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Decision submit                       | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/decisions`                                                 | Reads run, round, team, prior decisions; writes `store.decisions`; calls `appendAudit(store, ...)`                                                       | `tests/integration/decision-submit-characterization.test.ts`                                                            | Covered enough for helper extraction, but persistence migration still needs command port contracts and forwarding tests. |
-| Round lock                            | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/lock`                                                      | Reads run and round; mutates `round.status`; writes `round.decision_batch_id`; calls `appendAudit(store, ...)`                                           | `tests/integration/round-lock-publish-characterization.test.ts`                                                         | Covered enough for transition helper extraction. Do not migrate lock persistence before command facade tests exist.      |
-| Round publish                         | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/publish`                                                   | Reads run and round; requires `settled`; mutates `round.status`; calls `appendAudit(store, ...)`                                                         | `tests/integration/round-lock-publish-characterization.test.ts`                                                         | Covered enough for transition helper extraction. Keep result visibility unchanged.                                       |
-| Settlement request / settle           | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/settle` and `POST /internal/v1/runs/:id/rounds/:no/settle` | Reads run, round, scenario, parameter set, teams, latest decisions; calls `settleRound(store, input)`; appends audit                                     | `tests/integration/settlement-write-replay-hash-characterization.test.ts`                                               | Covered for current behavior, but still high risk. Migrate last.                                                         |
-| Settlement result write               | `services/api/src/simulation.ts` `settleRound(store, input)`                                                              | Checks `store.settlementResults`; creates `SettlementResult`; pushes to `store.settlementResults`                                                        | `tests/integration/settlement-write-replay-hash-characterization.test.ts`                                               | High risk truth write. Do not migrate until command facade and replay parity tests exist.                                |
-| `replay_hash` write                   | `services/api/src/simulation.ts` `settleRound(store, input)`                                                              | Builds hash from parameter set, scenario, run, round, seed, decisions, team truth results; writes `round.replay_hash` and `SettlementResult.replay_hash` | `tests/integration/settlement-write-replay-hash-characterization.test.ts`                                               | Must remain frozen until replay parity tests prove exact behavior after migration.                                       |
-| `appendAudit` write                   | `services/api/src/store.ts` `appendAudit(store, input)`                                                                   | Generates audit id via `nextId`; pushes to `store.auditLogs`; calls `store.persist()`                                                                    | Not present in inspected `origin/master`; available on remote branch `origin/codex/audit-append-characterization-tests` | Good first migration candidate only after that characterization PR is merged.                                            |
-| Audit read after write                | `services/api/src/server.ts` `GET /api/v1/audit/logs` via `filterAuditLogs`                                               | Reads order from `runtime.store.auditLogs`; reads data through `runtime.repositoryProvider.facade.auditLogs.listAuditLogs`                               | Partial via existing P1 tests; complete branch coverage exists on `origin/codex/audit-append-characterization-tests`    | Read path already uses facade. Write path must wait for append characterization coverage in master.                      |
-| Canonical / latest decision selection | `services/api/src/server.ts` `runSettlement`                                                                              | Builds `latestDecisions` by filtering `store.decisions` and using `versions.at(-1)` per team                                                             | `tests/integration/settlement-write-replay-hash-characterization.test.ts`                                               | Must not be mixed with persistence migration. Any canonical selection change needs its own PR.                           |
+| Path                                  | Current implementation                                                                                                    | Direct store access                                                                                                                                      | Existing characterization coverage in inspected master                    | Readiness note                                                                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Decision submit                       | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/decisions`                                                 | Reads run, round, team, prior decisions; writes `store.decisions`; calls `appendAudit(store, ...)`                                                       | `tests/integration/decision-submit-characterization.test.ts`              | Covered enough for helper extraction, but persistence migration still needs command port contracts and forwarding tests.               |
+| Round lock                            | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/lock`                                                      | Reads run and round; mutates `round.status`; writes `round.decision_batch_id`; calls `appendAudit(store, ...)`                                           | `tests/integration/round-lock-publish-characterization.test.ts`           | Covered enough for transition helper extraction. Do not migrate lock persistence before command facade tests exist.                    |
+| Round publish                         | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/publish`                                                   | Reads run and round; requires `settled`; mutates `round.status`; calls `appendAudit(store, ...)`                                                         | `tests/integration/round-lock-publish-characterization.test.ts`           | Covered enough for transition helper extraction. Keep result visibility unchanged.                                                     |
+| Settlement request / settle           | `services/api/src/server.ts` `POST /api/v1/runs/:id/rounds/:no/settle` and `POST /internal/v1/runs/:id/rounds/:no/settle` | Reads run, round, scenario, parameter set, teams, latest decisions; calls `settleRound(store, input)`; appends audit                                     | `tests/integration/settlement-write-replay-hash-characterization.test.ts` | Covered for current behavior, but still high risk. Migrate last.                                                                       |
+| Settlement result write               | `services/api/src/simulation.ts` `settleRound(store, input)`                                                              | Checks `store.settlementResults`; creates `SettlementResult`; pushes to `store.settlementResults`                                                        | `tests/integration/settlement-write-replay-hash-characterization.test.ts` | High risk truth write. Do not migrate until command facade and replay parity tests exist.                                              |
+| `replay_hash` write                   | `services/api/src/simulation.ts` `settleRound(store, input)`                                                              | Builds hash from parameter set, scenario, run, round, seed, decisions, team truth results; writes `round.replay_hash` and `SettlementResult.replay_hash` | `tests/integration/settlement-write-replay-hash-characterization.test.ts` | Must remain frozen until replay parity tests prove exact behavior after migration.                                                     |
+| `appendAudit` write                   | `services/api/src/store.ts` `appendAudit(store, input)`                                                                   | Generates audit id via `nextId`; pushes to `store.auditLogs`; calls `store.persist()`                                                                    | `tests/integration/audit-append-characterization.test.ts`                 | Best first command/write migration candidate, after command port contracts, facade forwarding tests, and facade command methods exist. |
+| Audit read after write                | `services/api/src/server.ts` `GET /api/v1/audit/logs` via `filterAuditLogs`                                               | Reads order from `runtime.store.auditLogs`; reads data through `runtime.repositoryProvider.facade.auditLogs.listAuditLogs`                               | `tests/integration/audit-append-characterization.test.ts`                 | Read path already uses facade; append/read parity and filters are now characterized.                                                   |
+| Canonical / latest decision selection | `services/api/src/server.ts` `runSettlement`                                                                              | Builds `latestDecisions` by filtering `store.decisions` and using `versions.at(-1)` per team                                                             | `tests/integration/settlement-write-replay-hash-characterization.test.ts` | Must not be mixed with persistence migration. Any canonical selection change needs its own PR.                                         |
 
 ## 2. Current Characterization Coverage
 
@@ -76,23 +76,21 @@ This is critical truth-chain coverage. It does not make settlement migration low
 
 ### Audit Append Characterization
 
-Expected file after merge: `tests/integration/audit-append-characterization.test.ts`
+File: `tests/integration/audit-append-characterization.test.ts`
 
-Current status in inspected master: not present.
+Current status in inspected master: present.
 
-Remote branch observed: `origin/codex/audit-append-characterization-tests` at commit `8b2e827` (`test: characterize audit append behavior`).
-
-The audit append branch is expected to lock:
+The audit append characterization tests lock:
 
 - audit persistence in `store.auditLogs`;
 - audit id and append order;
 - `tenant_id`, `actor_id`, `actor_role`, `action`, `resource_type`, `resource_id`, `request_id`, `created_at`;
 - audit read-after-write response shape;
-- audit filters for `action`, `actor_id`, `resource_type`, and tenant scope;
+- audit filters for `action`, `actor_id`, `resource_type`, combined `actor_id` + `resource_type`, and tenant scope;
 - unauthenticated and unauthorized audit read responses;
 - platform admin versus tenant admin tenant scoping.
 
-Until this coverage is merged into master and passing in CI, `appendAudit` should not be migrated.
+This coverage makes `appendAudit` the best first command/write migration candidate. It does not make direct runtime migration safe by itself; command repository port contracts, facade forwarding tests, and facade command methods should land first.
 
 ## 3. High-Risk Areas That Still Cannot Be Migrated Directly
 
@@ -116,17 +114,20 @@ These constraints are stricter than the goal of reducing direct store access. A 
 
 ### Audit Append
 
-Readiness: first candidate after audit append characterization lands in master.
+Readiness: first command/write migration candidate after command facade foundations land.
 
 Why:
 
 - Audit append is important but lower risk than settlement truth writes.
 - The read path already uses the repository facade.
-- A command facade can preserve append ordering and field semantics if tests are merged first.
+- Current master now characterizes append ordering, field semantics, read-after-write behavior, filters, permissions, and tenant scoping.
+- A command facade can preserve append ordering and field semantics if forwarding tests prove the command payload is passed unchanged.
 
 Current blocker:
 
-- The audit append characterization file is not in inspected `origin/master`. Merge that PR first, then add command port contracts and forwarding tests before migrating the write path.
+- Command repository port contracts do not yet expose an audit append command boundary.
+- Facade forwarding tests do not yet prove command payload preservation.
+- Facade command methods are not yet exposed for live runtime use.
 
 ### Decision Submit
 
@@ -206,7 +207,7 @@ Use the following conservative sequence. Each PR must be single-topic, small, in
    - Do not connect command facade methods to runtime handlers.
 
 4. `api: route audit append through repository facade`
-   - First actual write migration candidate, but only after audit append characterization is merged.
+   - First actual write migration candidate after command contracts, forwarding tests, and facade command methods land.
    - Preserve audit id, order, tenant scope, actor fields, request id, before / after, and read filters.
 
 5. `api: extract decision submit helper without behavior change`
@@ -313,17 +314,20 @@ Docs-only PRs should still run the same validation when requested by task scope,
 
 ## 8. Current Readiness Conclusion
 
-Current inspected `origin/master` is not ready for command-path migration yet.
+Current inspected `origin/master` is not ready for direct command-path migration yet, but it now has the characterization coverage required to nominate audit append as the first command/write migration candidate.
 
 Ready now:
 
 - Documentation and audit-only PRs.
 - Command port contract design documents.
-- Helper extraction planning.
+- Command repository port contracts.
+- Command repository facade forwarding tests.
+- Facade command method exposure.
+- Helper extraction planning for decision submit and round transitions.
 
-Ready after audit append characterization merges:
+Ready after command facade foundations land:
 
-- Audit append as the first write migration candidate, with command port contracts and facade forwarding tests added first.
+- Audit append as the first write migration candidate.
 
 Not ready:
 
@@ -334,4 +338,4 @@ Not ready:
 - Canonical decision selection changes.
 - Postgres runtime wiring.
 
-The safest next move is to merge audit append characterization tests into master, then add command repository port contracts and command facade forwarding tests. Only after those are green should SimWar route `appendAudit` through the repository facade as the first command-path migration.
+The safest next move is to add command repository port contracts, command facade forwarding tests, and facade command methods. Only after those are green should SimWar route `appendAudit` through the repository facade as the first command-path migration.
