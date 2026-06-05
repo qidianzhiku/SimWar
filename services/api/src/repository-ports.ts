@@ -10,7 +10,7 @@ import type {
   Run,
   SettlementResult,
   StateSnapshot,
-  Team,
+  Team
 } from "@simwar/shared-contracts";
 
 /**
@@ -72,33 +72,30 @@ export interface RepositorySnapshotQuery {
 export interface IdentityRepositoryPort {
   getTenant(tenantId: RepositoryId): Promise<RepositoryTenantReadModel | null>;
 
-  getUser(
-    tenantId: RepositoryId,
-    userId: RepositoryId,
-  ): Promise<RepositoryUserReadModel | null>;
+  getUser(tenantId: RepositoryId, userId: RepositoryId): Promise<RepositoryUserReadModel | null>;
 }
 
 export interface SessionRepositoryPort {
   getSession(
     tenantId: RepositoryId,
-    sessionId: RepositoryId,
+    sessionId: RepositoryId
   ): Promise<RepositorySessionReadModel | null>;
 
   listActiveSessionsByUser(
     tenantId: RepositoryId,
-    userId: RepositoryId,
+    userId: RepositoryId
   ): Promise<RepositorySessionReadModel[]>;
 }
 
 export interface CourseRepositoryPort {
   getCourse(
     tenantId: RepositoryId,
-    courseId: RepositoryId,
+    courseId: RepositoryId
   ): Promise<RepositoryCourseReadModel | null>;
 
   listCoursesForUser(
     tenantId: RepositoryId,
-    userId: RepositoryId,
+    userId: RepositoryId
   ): Promise<RepositoryCourseReadModel[]>;
 }
 
@@ -110,51 +107,42 @@ export interface TeamRepositoryPort {
   getTeamForUser(
     tenantId: RepositoryId,
     runId: RepositoryId,
-    userId: RepositoryId,
+    userId: RepositoryId
   ): Promise<Team | null>;
 }
 
 export interface RunRepositoryPort {
   getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
 
-  listRunsForCourse(
-    tenantId: RepositoryId,
-    courseId: RepositoryId,
-  ): Promise<Run[]>;
+  listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
 }
 
 export interface RoundRepositoryPort {
   getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
 
-  listRoundsForRun(
-    tenantId: RepositoryId,
-    runId: RepositoryId,
-  ): Promise<Round[]>;
+  listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
 
   markRoundSettled(
     tenantId: RepositoryId,
     roundId: RepositoryId,
-    settlementResultId: RepositoryId,
+    settlementResultId: RepositoryId
   ): Promise<void>;
 }
 
 export interface DecisionRepositoryPort {
-  getDecisionById(
-    tenantId: RepositoryId,
-    decisionId: RepositoryId,
-  ): Promise<Decision | null>;
+  getDecisionById(tenantId: RepositoryId, decisionId: RepositoryId): Promise<Decision | null>;
 
   getCanonicalDecisionForTeamRound(
     tenantId: RepositoryId,
     runId: RepositoryId,
     roundId: RepositoryId,
-    teamId: RepositoryId,
+    teamId: RepositoryId
   ): Promise<Decision | null>;
 
   listDecisionsForRound(
     tenantId: RepositoryId,
     runId: RepositoryId,
-    roundId: RepositoryId,
+    roundId: RepositoryId
   ): Promise<Decision[]>;
 
   saveCanonicalDecision(decision: Decision): Promise<void>;
@@ -163,13 +151,13 @@ export interface DecisionRepositoryPort {
 export interface SettlementRepositoryPort {
   getSettlementResult(
     tenantId: RepositoryId,
-    settlementResultId: RepositoryId,
+    settlementResultId: RepositoryId
   ): Promise<SettlementResult | null>;
 
   listSettlementResultsForRound(
     tenantId: RepositoryId,
     runId: RepositoryId,
-    roundId: RepositoryId,
+    roundId: RepositoryId
   ): Promise<SettlementResult[]>;
 
   saveSettlementResult(result: SettlementResult): Promise<void>;
@@ -204,29 +192,68 @@ export interface ReplayRepositoryPort {
 
   getReplayInputManifest(
     tenantId: RepositoryId,
-    manifestId: RepositoryId,
+    manifestId: RepositoryId
   ): Promise<ReplayInputManifest | null>;
 
   saveReplayRun(run: ReplayRun): Promise<void>;
 
-  getReplayRun(
-    tenantId: RepositoryId,
-    replayRunId: RepositoryId,
-  ): Promise<ReplayRun | null>;
+  getReplayRun(tenantId: RepositoryId, replayRunId: RepositoryId): Promise<ReplayRun | null>;
 
   saveReplayReport(report: ReplayReport): Promise<void>;
 
   getReplayReport(
     tenantId: RepositoryId,
-    replayReportId: RepositoryId,
+    replayReportId: RepositoryId
   ): Promise<ReplayReport | null>;
 
   saveReplayDiffReport(report: ReplayDiffReport): Promise<void>;
 
   getReplayDiffReport(
     tenantId: RepositoryId,
-    replayDiffReportId: RepositoryId,
+    replayDiffReportId: RepositoryId
   ): Promise<ReplayDiffReport | null>;
+}
+
+/**
+ * Command/write path repository contracts for staged migration work.
+ *
+ * These interfaces are intentionally disconnected from SimWarRepositoryPorts,
+ * the repository facade, provider wiring, and concrete adapters. They define
+ * the future command boundary only; adding them must not change API runtime
+ * behavior, route contracts, settlement hashing, replay hash inputs, or
+ * canonical decision selection.
+ */
+
+export interface DecisionCommandRepositoryPort {
+  /**
+   * Persist a submitted Decision exactly as produced by the current command
+   * path. This does not make role drafts canonical and must not change the
+   * canonical / latest decision selection logic.
+   */
+  saveDecision(decision: Decision): Promise<void>;
+}
+
+export interface RoundCommandRepositoryPort {
+  /**
+   * Persist the complete Round after an existing command path mutates status,
+   * decision_batch_id, or replay_hash. Transition rules remain owned by API
+   * command services, not by the repository port.
+   */
+  saveRound(round: Round): Promise<void>;
+}
+
+export type SettlementCommandRepositoryPort = Pick<
+  SettlementRepositoryPort,
+  "saveSettlementResult"
+>;
+
+export type AuditCommandRepositoryPort = Pick<AuditLogRepositoryPort, "appendAuditLog">;
+
+export interface SimWarCommandRepositoryPorts {
+  decisions: DecisionCommandRepositoryPort;
+  rounds: RoundCommandRepositoryPort;
+  settlements: SettlementCommandRepositoryPort;
+  auditLogs: AuditCommandRepositoryPort;
 }
 
 export interface SimWarRepositoryPorts {
