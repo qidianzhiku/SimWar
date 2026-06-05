@@ -161,6 +161,29 @@ describe("audit append characterization", () => {
       expect(actionFilter.body.data).toHaveLength(1);
       expect(actionFilter.body.data[0]).toEqual(userCreateAudit);
 
+      const actorFilter = await request<AuditLog[]>(
+        baseUrl,
+        "/api/v1/audit/logs?actor_id=usr_admin",
+        {
+          token: adminToken
+        }
+      );
+      expect(actorFilter.status).toBe(200);
+      expect(actorFilter.body.data.map((log) => log.action)).toEqual(["auth.login", "user.create"]);
+
+      const resourceTypeFilter = await request<AuditLog[]>(
+        baseUrl,
+        "/api/v1/audit/logs?resource_type=user",
+        {
+          token: adminToken
+        }
+      );
+      expect(resourceTypeFilter.status).toBe(200);
+      expect(resourceTypeFilter.body.data.map((log) => log.action)).toEqual([
+        "auth.login",
+        "user.create"
+      ]);
+
       const actorAndResourceFilter = await request<AuditLog[]>(
         baseUrl,
         "/api/v1/audit/logs?actor_id=usr_admin&resource_type=user",
