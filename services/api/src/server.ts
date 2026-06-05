@@ -284,6 +284,29 @@ function getCourse(store: SimWarStore, context: RequestContext, courseId: string
   return course;
 }
 
+async function getCourseForRead(runtime: ApiRuntime, context: RequestContext, courseId: string) {
+  const courseReadModel = await runtime.repositoryProvider.facade.courses.getCourse(
+    context.tenantId,
+    courseId
+  );
+
+  if (!courseReadModel) {
+    throw new HttpError(404, "COURSE-404-001", "course not found");
+  }
+
+  const course = runtime.store.courses.find(
+    (candidate) =>
+      candidate.course_id === courseReadModel.course_id &&
+      candidate.tenant_id === courseReadModel.tenant_id
+  );
+
+  if (!course) {
+    throw new HttpError(404, "COURSE-404-001", "course not found");
+  }
+
+  return course;
+}
+
 function getRun(store: SimWarStore, context: RequestContext, runId: string) {
   const run = store.runs.find(
     (candidate) => candidate.run_id === runId && candidate.tenant_id === context.tenantId
@@ -881,7 +904,8 @@ async function routeRequest(
   if (request.method === "GET" && /^\/api\/v1\/courses\/[^/]+$/.test(url.pathname)) {
     requirePermission(context, "course:read");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)$/);
-    sendJson(response, 200, createEnvelope(context, getCourse(store, context, courseId ?? "")));
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
+    sendJson(response, 200, createEnvelope(context, course));
     return;
   }
 
