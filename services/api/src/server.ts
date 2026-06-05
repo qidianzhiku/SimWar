@@ -419,7 +419,7 @@ function assertRoundStatus(
   }
 }
 
-function filterAuditLogs(store: SimWarStore, context: RequestContext, url: URL) {
+async function filterAuditLogs(runtime: ApiRuntime, context: RequestContext, url: URL) {
   const actor = requirePermission(context, "audit:read");
   const requestedTenant = url.searchParams.get("tenant_id");
   const tenantScope = actorHasAnyRole(actor, ["platform_admin"])
@@ -428,8 +428,30 @@ function filterAuditLogs(store: SimWarStore, context: RequestContext, url: URL) 
   const action = url.searchParams.get("action");
   const actorId = url.searchParams.get("actor_id");
   const resourceType = url.searchParams.get("resource_type");
+  const tenantIds = tenantScope
+    ? [tenantScope]
+    : runtime.store.tenants.map((tenant) => tenant.tenant_id);
+  const auditLogOrder = new Map(
+    runtime.store.auditLogs.map((log, index) => [log.audit_id, index])
+  );
+  const auditLogs = (
+    await Promise.all(
+      tenantIds.map((tenantId) =>
+        runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+          tenant_id: tenantId,
+          ...(actorId ? { actor_id: actorId } : {}),
+          ...(action ? { action } : {})
+        })
+      )
+    )
+  )
+    .flat()
+    .sort(
+      (left, right) =>
+        (auditLogOrder.get(left.audit_id) ?? 0) - (auditLogOrder.get(right.audit_id) ?? 0)
+    );
 
-  return store.auditLogs.filter((log) => {
+  return auditLogs.filter((log) => {
     if (tenantScope && log.tenant_id !== tenantScope) {
       return false;
     }
@@ -450,7 +472,8 @@ function filterAuditLogs(store: SimWarStore, context: RequestContext, url: URL) 
   });
 }
 
-function createAdminState(store: SimWarStore, context: RequestContext): AdminState {
+async function createAdminState(runtime: ApiRuntime, context: RequestContext): Promise<AdminState> {
+  const store = runtime.store;
   const actor = requirePermission(context, "user:read");
   const isPlatform = actorHasAnyRole(actor, ["platform_admin"]);
   const tenants = isPlatform
@@ -466,10 +489,12 @@ function createAdminState(store: SimWarStore, context: RequestContext): AdminSta
     users,
     roles: store.roles,
     permissions: store.permissions,
-    audit_logs: filterAuditLogs(
-      store,
-      context,
-      new URL("/api/v1/audit/logs", "http://localhost")
+    audit_logs: (
+      await filterAuditLogs(
+        runtime,
+        context,
+        new URL("/api/v1/audit/logs", "http://localhost")
+      )
     ).slice(-30)
   };
 }
@@ -616,7 +641,7 @@ async function routeRequest(
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/admin/state") {
-    sendJson(response, 200, createEnvelope(context, createAdminState(store, context)));
+    sendJson(response, 200, createEnvelope(context, await createAdminState(runtime, context)));
     return;
   }
 
@@ -867,7 +892,13 @@ async function routeRequest(
         decisions: store.decisions.filter((decision) => decision.tenant_id === context.tenantId),
         ...(latestResult ? { latest_result: latestResult } : {}),
         audit_logs: actorHasPermission(actor, "audit:read")
-          ? store.auditLogs.filter((log) => log.tenant_id === context.tenantId).slice(-20)
+          ? (
+              await filterAuditLogs(
+                runtime,
+                context,
+                new URL("/api/v1/audit/logs", "http://localhost")
+              )
+            ).slice(-20)
           : []
       })
     );
@@ -1265,7 +1296,7 @@ async function routeRequest(
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/audit/logs") {
-    sendJson(response, 200, createEnvelope(context, filterAuditLogs(store, context, url)));
+    sendJson(response, 200, createEnvelope(context, await filterAuditLogs(runtime, context, url)));
     return;
   }
 
