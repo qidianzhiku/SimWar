@@ -197,20 +197,25 @@ async function lockRound(
   assertRoundStatus(round, "open", "ROUND-409-003");
   const before = clonePublic(round);
 
-  round.status = "locked";
-  round.decision_batch_id = `batch_${run.run_id}_${round.round_no}`;
+  const lockedRound: Round = {
+    ...round,
+    status: "locked",
+    decision_batch_id: `batch_${run.run_id}_${round.round_no}`
+  };
+
+  await runtime.repositoryProvider.facade.rounds.saveRound(lockedRound);
 
   await appendAudit(runtime, {
     actor,
     action: "round.lock",
     resourceType: "round",
-    resourceId: round.round_id,
+    resourceId: lockedRound.round_id,
     requestId: context.requestId,
     before,
-    after: clonePublic(round)
+    after: clonePublic(lockedRound)
   });
 
-  return round;
+  return lockedRound;
 }
 
 async function publishRound(
