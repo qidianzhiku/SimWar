@@ -14,6 +14,7 @@ import type {
   PublicResultView,
   Round,
   RoundStatus,
+  SettlementResult,
   Tenant,
   User
 } from "@simwar/shared-contracts";
@@ -27,7 +28,7 @@ import {
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
-import { settleRound, validateDecisionPayload } from "./simulation.js";
+import { settleRoundWithSettlementWriter, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_INTERNAL_SERVICE_TOKEN,
   DEFAULT_TENANT_ID,
@@ -1310,7 +1311,7 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
     );
-    const settlement = runSettlement(store, context, runId ?? "", Number(roundNoRaw));
+    const settlement = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
     await appendAudit(runtime, {
       actor,
       action: "round.settle_requested",
@@ -1337,7 +1338,12 @@ async function routeRequest(
       tenantId: context.tenantId,
       actor: serviceActor
     };
-    const settlement = runSettlement(store, serviceContext, runId ?? "", Number(roundNoRaw));
+    const settlement = await runSettlement(
+      runtime,
+      serviceContext,
+      runId ?? "",
+      Number(roundNoRaw)
+    );
     await appendAudit(runtime, {
       actor: serviceActor,
       action: "round.settle",
@@ -1391,12 +1397,13 @@ async function routeRequest(
   throw new HttpError(404, "ROUTE-404-001", "not found");
 }
 
-function runSettlement(
-  store: SimWarStore,
+async function runSettlement(
+  runtime: ApiRuntime,
   context: RequestContext,
   runId: string,
   roundNo: number
-) {
+): Promise<SettlementResult> {
+  const store = runtime.store;
   const run = getRun(store, context, runId);
   const round = getRound(store, context, run.run_id, roundNo);
 
@@ -1436,16 +1443,20 @@ function runSettlement(
     );
   }
 
-  return settleRound(store, {
-    run,
-    round,
-    scenario,
-    parameterSet,
-    teams,
-    decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
-      Boolean(decision)
-    )
-  });
+  return settleRoundWithSettlementWriter(
+    store,
+    {
+      run,
+      round,
+      scenario,
+      parameterSet,
+      teams,
+      decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
+        Boolean(decision)
+      )
+    },
+    runtime.repositoryProvider.facade.settlements
+  );
 }
 
 export function createApiServer(store: SimWarStore = defaultStore) {
