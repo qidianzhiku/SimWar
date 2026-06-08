@@ -8,6 +8,7 @@ import type {
   AuditLog,
   AuthSession,
   CurrentUser,
+  Decision,
   DecisionPayload,
   PermissionKey,
   PublicResultView,
@@ -53,6 +54,11 @@ interface RequestContext {
 interface ApiRuntime {
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
+}
+
+interface DecisionSubmitBody {
+  team_id?: string;
+  decision_payload?: DecisionPayload;
 }
 
 class HttpError extends Error {
@@ -106,6 +112,75 @@ async function appendAudit(
 
   await runtime.repositoryProvider.facade.auditLogs.appendAuditLog(log);
   return log;
+}
+
+async function submitDecision(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  request: IncomingMessage,
+  runId: string,
+  roundNo: number
+): Promise<Decision> {
+  const store = runtime.store;
+  const actor = requirePermission(context, "decision:submit");
+  const run = getRun(store, context, runId);
+  const round = getRound(store, context, run.run_id, roundNo);
+  assertRoundStatus(round, "open", "ROUND-409-002");
+  const body = await readJson<DecisionSubmitBody>(request);
+  assertNoTruthProtectedFields(body);
+  const teamId = body.team_id ?? actor.team_id;
+
+  if (!teamId || teamId !== actor.team_id) {
+    throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
+  }
+
+  const team = store.teams.find(
+    (candidate) =>
+      candidate.team_id === teamId &&
+      candidate.course_id === run.course_id &&
+      candidate.tenant_id === context.tenantId
+  );
+  if (!team) {
+    throw new HttpError(404, "TEAM-404-001", "team not found");
+  }
+
+  const validationErrors = validateDecisionPayload(body.decision_payload);
+  if (validationErrors.length > 0) {
+    throw new HttpError(422, "DEC-422-001", "decision validation failed", validationErrors);
+  }
+
+  const priorVersions = store.decisions.filter(
+    (decision) =>
+      decision.run_id === run.run_id &&
+      decision.round_no === round.round_no &&
+      decision.team_id === team.team_id &&
+      decision.tenant_id === context.tenantId
+  );
+  const decision: Decision = {
+    decision_id: nextId(store, "decision", "decision"),
+    tenant_id: context.tenantId,
+    run_id: run.run_id,
+    round_id: round.round_id,
+    round_no: round.round_no,
+    team_id: team.team_id,
+    status: "validated",
+    version: priorVersions.length + 1,
+    payload: body.decision_payload as DecisionPayload,
+    validation_report: [],
+    submitted_by: actor.user_id
+  };
+
+  store.decisions.push(decision);
+  await appendAudit(runtime, {
+    actor,
+    action: "decision.submit",
+    resourceType: "decision",
+    resourceId: decision.decision_id,
+    requestId: context.requestId,
+    after: clonePublic(decision)
+  });
+
+  return decision;
 }
 
 function createEnvelope<TData>(
@@ -1130,66 +1205,17 @@ async function routeRequest(
     request.method === "POST" &&
     /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/decisions$/.test(url.pathname)
   ) {
-    const actor = requirePermission(context, "decision:submit");
     const [, runId, roundNoRaw] = matchPath(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/decisions$/
     );
-    const run = getRun(store, context, runId ?? "");
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
-    assertRoundStatus(round, "open", "ROUND-409-002");
-    const body = await readJson<{ team_id?: string; decision_payload?: DecisionPayload }>(request);
-    assertNoTruthProtectedFields(body);
-    const teamId = body.team_id ?? actor.team_id;
-
-    if (!teamId || teamId !== actor.team_id) {
-      throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
-    }
-
-    const team = store.teams.find(
-      (candidate) =>
-        candidate.team_id === teamId &&
-        candidate.course_id === run.course_id &&
-        candidate.tenant_id === context.tenantId
+    const decision = await submitDecision(
+      runtime,
+      context,
+      request,
+      runId ?? "",
+      Number(roundNoRaw)
     );
-    if (!team) {
-      throw new HttpError(404, "TEAM-404-001", "team not found");
-    }
-
-    const validationErrors = validateDecisionPayload(body.decision_payload);
-    if (validationErrors.length > 0) {
-      throw new HttpError(422, "DEC-422-001", "decision validation failed", validationErrors);
-    }
-
-    const priorVersions = store.decisions.filter(
-      (decision) =>
-        decision.run_id === run.run_id &&
-        decision.round_no === round.round_no &&
-        decision.team_id === team.team_id &&
-        decision.tenant_id === context.tenantId
-    );
-    const decision = {
-      decision_id: nextId(store, "decision", "decision"),
-      tenant_id: context.tenantId,
-      run_id: run.run_id,
-      round_id: round.round_id,
-      round_no: round.round_no,
-      team_id: team.team_id,
-      status: "validated" as const,
-      version: priorVersions.length + 1,
-      payload: body.decision_payload as DecisionPayload,
-      validation_report: [],
-      submitted_by: actor.user_id
-    };
-    store.decisions.push(decision);
-    await appendAudit(runtime, {
-      actor,
-      action: "decision.submit",
-      resourceType: "decision",
-      resourceId: decision.decision_id,
-      requestId: context.requestId,
-      after: clonePublic(decision)
-    });
     sendJson(response, 201, createEnvelope(context, decision));
     return;
   }
