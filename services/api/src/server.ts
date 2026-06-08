@@ -231,19 +231,24 @@ async function publishRound(
   assertRoundStatus(round, "settled", "ROUND-409-005");
   const before = clonePublic(round);
 
-  round.status = "published";
+  const publishedRound: Round = {
+    ...round,
+    status: "published"
+  };
+
+  await runtime.repositoryProvider.facade.rounds.saveRound(publishedRound);
 
   await appendAudit(runtime, {
     actor,
     action: "round.publish",
     resourceType: "round",
-    resourceId: round.round_id,
+    resourceId: publishedRound.round_id,
     requestId: context.requestId,
     before,
-    after: clonePublic(round)
+    after: clonePublic(publishedRound)
   });
 
-  return round;
+  return publishedRound;
 }
 
 function createEnvelope<TData>(
