@@ -8,9 +8,7 @@
   "output_type": "advisory",
   "advisory_only": true,
   "advisory_text": "Consider reviewing service capacity before the next round.",
-  "evidence_refs": [
-    "replay_report_001"
-  ],
+  "evidence_refs": ["replay_report_001"],
   "created_at": "2026-05-28T00:30:00.000Z",
   "model_call_log_id": "model_call_log_001"
 }

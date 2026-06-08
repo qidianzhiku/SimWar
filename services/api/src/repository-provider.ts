@@ -1,9 +1,6 @@
 import type { SimWarRepositoryPorts } from "./repository-ports.js";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
-import {
-  createRepositoryFacade,
-  type RepositoryFacade,
-} from "./repository-facade.js";
+import { createRepositoryFacade, type RepositoryFacade } from "./repository-facade.js";
 import type { SimWarStore } from "./store.js";
 
 /**
@@ -39,15 +36,13 @@ export interface JsonRepositoryProviderOptions {
  * Use this for future adapters such as Postgres-backed ports without changing
  * API use cases that depend on the facade.
  */
-export function createRepositoryProvider(
-  options: RepositoryProviderOptions,
-): RepositoryProvider {
+export function createRepositoryProvider(options: RepositoryProviderOptions): RepositoryProvider {
   const { mode = "custom", ports } = options;
 
   return {
     mode,
     ports,
-    facade: createRepositoryFacade({ ports }),
+    facade: createRepositoryFacade({ ports })
   };
 }
 
@@ -57,12 +52,12 @@ export function createRepositoryProvider(
  * This is not wired into server runtime in this PR.
  */
 export function createJsonRepositoryProvider(
-  options: JsonRepositoryProviderOptions,
+  options: JsonRepositoryProviderOptions
 ): RepositoryProvider {
   const ports = createJsonRepositoryPorts(options.store);
 
   return createRepositoryProvider({
     mode: "json",
-    ports,
+    ports
   });
 }

@@ -6,12 +6,7 @@
   "source_result_id": "result_round_001",
   "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "included_sources": [
-    "canonical_decisions",
-    "scenario_package",
-    "parameter_set",
-    "teams"
-  ],
+  "included_sources": ["canonical_decisions", "scenario_package", "parameter_set", "teams"],
   "excluded_from_truth_hash": {
     "role_drafts": "excluded",
     "draft_comments": "excluded"
