@@ -12,6 +12,7 @@ import type {
   DecisionPayload,
   PermissionKey,
   PublicResultView,
+  Round,
   RoundStatus,
   Tenant,
   User
@@ -181,6 +182,63 @@ async function submitDecision(
   });
 
   return decision;
+}
+
+async function lockRound(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<Round> {
+  const store = runtime.store;
+  const actor = requirePermission(context, "round:lock");
+  const run = getRun(store, context, runId);
+  const round = getRound(store, context, run.run_id, roundNo);
+  assertRoundStatus(round, "open", "ROUND-409-003");
+  const before = clonePublic(round);
+
+  round.status = "locked";
+  round.decision_batch_id = `batch_${run.run_id}_${round.round_no}`;
+
+  await appendAudit(runtime, {
+    actor,
+    action: "round.lock",
+    resourceType: "round",
+    resourceId: round.round_id,
+    requestId: context.requestId,
+    before,
+    after: clonePublic(round)
+  });
+
+  return round;
+}
+
+async function publishRound(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<Round> {
+  const store = runtime.store;
+  const actor = requirePermission(context, "round:publish");
+  const run = getRun(store, context, runId);
+  const round = getRound(store, context, run.run_id, roundNo);
+  assertRoundStatus(round, "settled", "ROUND-409-005");
+  const before = clonePublic(round);
+
+  round.status = "published";
+
+  await appendAudit(runtime, {
+    actor,
+    action: "round.publish",
+    resourceType: "round",
+    resourceId: round.round_id,
+    requestId: context.requestId,
+    before,
+    after: clonePublic(round)
+  });
+
+  return round;
 }
 
 function createEnvelope<TData>(
@@ -1224,26 +1282,11 @@ async function routeRequest(
     request.method === "POST" &&
     /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/lock$/.test(url.pathname)
   ) {
-    const actor = requirePermission(context, "round:lock");
     const [, runId, roundNoRaw] = matchPath(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/lock$/
     );
-    const run = getRun(store, context, runId ?? "");
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
-    assertRoundStatus(round, "open", "ROUND-409-003");
-    const before = clonePublic(round);
-    round.status = "locked";
-    round.decision_batch_id = `batch_${run.run_id}_${round.round_no}`;
-    await appendAudit(runtime, {
-      actor,
-      action: "round.lock",
-      resourceType: "round",
-      resourceId: round.round_id,
-      requestId: context.requestId,
-      before,
-      after: clonePublic(round)
-    });
+    const round = await lockRound(runtime, context, runId ?? "", Number(roundNoRaw));
     sendJson(response, 200, createEnvelope(context, round));
     return;
   }
@@ -1302,25 +1345,11 @@ async function routeRequest(
     request.method === "POST" &&
     /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/publish$/.test(url.pathname)
   ) {
-    const actor = requirePermission(context, "round:publish");
     const [, runId, roundNoRaw] = matchPath(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/publish$/
     );
-    const run = getRun(store, context, runId ?? "");
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
-    assertRoundStatus(round, "settled", "ROUND-409-005");
-    const before = clonePublic(round);
-    round.status = "published";
-    await appendAudit(runtime, {
-      actor,
-      action: "round.publish",
-      resourceType: "round",
-      resourceId: round.round_id,
-      requestId: context.requestId,
-      before,
-      after: clonePublic(round)
-    });
+    const round = await publishRound(runtime, context, runId ?? "", Number(roundNoRaw));
     sendJson(response, 200, createEnvelope(context, round));
     return;
   }
