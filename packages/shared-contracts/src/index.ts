@@ -45,7 +45,12 @@ export type UserStatus = "active" | "invited" | "disabled";
 export type CourseStatus = "draft" | "published" | "active" | "archived";
 export type RoundStatus = "draft" | "open" | "locked" | "settled" | "published";
 export type DecisionStatus = "draft" | "submitted" | "validated" | "rejected";
-export type ParameterSetStatus = "draft" | "candidate" | "shadow_passed" | "approved" | "deprecated";
+export type ParameterSetStatus =
+  | "draft"
+  | "candidate"
+  | "shadow_passed"
+  | "approved"
+  | "deprecated";
 export type SettlementHookName =
   | "adjustDemand"
   | "adjustOperations"

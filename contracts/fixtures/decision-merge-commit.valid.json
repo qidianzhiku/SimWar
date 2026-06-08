@@ -5,10 +5,7 @@
   "round_id": "round_001",
   "team_id": "team_alpha",
   "status": "validated",
-  "source_section_ids": [
-    "section_cfo_team_alpha_round_1",
-    "section_cmo_team_alpha_round_1"
-  ],
+  "source_section_ids": ["section_cfo_team_alpha_round_1", "section_cmo_team_alpha_round_1"],
   "merged_payload": {
     "pricing": {
       "base_price": 15000

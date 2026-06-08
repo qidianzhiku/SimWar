@@ -19,12 +19,12 @@
 
 当前已经迁移到 facade 的路径均为只读路径，且保持 response shape、status code、route contract 不变。
 
-| Read path | 当前迁移方式 | 行为边界 |
-| --- | --- | --- |
-| `GET /api/v1/courses/:id` | 通过 `facade.courses.getCourse` 做只读 lookup，再从现有 store hydrate 原 response shape。 | 不修改 course create / publish / team / run 写入逻辑。 |
-| result view 中的 run / round lookup | 通过 `facade.runs.getRun` 和 `facade.rounds.listRoundsForRun` 查找 result view 所需 round。 | 不修改 round start / lock / publish / settle 写入逻辑。 |
-| settlement result read model | 通过 `facade.settlements.listSettlementResultsForRound` 读取 public result view 所需 settlement result。 | 不修改 `settleRound`、`SettlementResult` 写入或 replay hash。 |
-| audit log reads | 通过 `facade.auditLogs.listAuditLogs` 读取 audit logs，并保留既有 `tenant_id` / `action` / `actor_id` / `resource_type` 过滤语义。 | 不修改 `appendAudit` 或 audit write path。 |
+| Read path                           | 当前迁移方式                                                                                                                       | 行为边界                                                      |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /api/v1/courses/:id`           | 通过 `facade.courses.getCourse` 做只读 lookup，再从现有 store hydrate 原 response shape。                                          | 不修改 course create / publish / team / run 写入逻辑。        |
+| result view 中的 run / round lookup | 通过 `facade.runs.getRun` 和 `facade.rounds.listRoundsForRun` 查找 result view 所需 round。                                        | 不修改 round start / lock / publish / settle 写入逻辑。       |
+| settlement result read model        | 通过 `facade.settlements.listSettlementResultsForRound` 读取 public result view 所需 settlement result。                           | 不修改 `settleRound`、`SettlementResult` 写入或 replay hash。 |
+| audit log reads                     | 通过 `facade.auditLogs.listAuditLogs` 读取 audit logs，并保留既有 `tenant_id` / `action` / `actor_id` / `resource_type` 过滤语义。 | 不修改 `appendAudit` 或 audit write path。                    |
 
 这些迁移共同遵守一个原则：facade 只用于只读访问，不改变 API 对外行为，不改变 mutation side effect，不改变 truth-chain。
 

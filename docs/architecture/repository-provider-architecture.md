@@ -16,12 +16,12 @@ SimWar 的 repository provider 不是新的业务服务，也不是新的 runtim
 
 ## 2. 组件职责边界
 
-| 组件 | 当前职责 | 不承担的职责 |
-| --- | --- | --- |
-| `repository-ports.ts` | 定义 `SimWarRepositoryPorts` 和各领域 repository port interface。 | 不实现 JSON、Postgres、HTTP、route、settlement 或 replay 逻辑。 |
-| `json-repository-adapter.ts` | 将当前 JSON / memory store 映射为 repository ports。 | 不改变 store 数据模型，不引入 DB，不改变 truth-chain 行为。 |
-| `repository-facade.ts` | 将 ports 组合成 route-facing / use-case-facing 的异步访问入口。 | 不做业务状态机，不绕过 canonical decision，不写 settlement truth。 |
-| `repository-provider.ts` | 将 ports 和 facade 打包为 provider，并提供 JSON-backed provider factory。 | 不接入 server runtime，不修改 routes，不决定运行时使用哪个 adapter。 |
+| 组件                         | 当前职责                                                                  | 不承担的职责                                                         |
+| ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `repository-ports.ts`        | 定义 `SimWarRepositoryPorts` 和各领域 repository port interface。         | 不实现 JSON、Postgres、HTTP、route、settlement 或 replay 逻辑。      |
+| `json-repository-adapter.ts` | 将当前 JSON / memory store 映射为 repository ports。                      | 不改变 store 数据模型，不引入 DB，不改变 truth-chain 行为。          |
+| `repository-facade.ts`       | 将 ports 组合成 route-facing / use-case-facing 的异步访问入口。           | 不做业务状态机，不绕过 canonical decision，不写 settlement truth。   |
+| `repository-provider.ts`     | 将 ports 和 facade 打包为 provider，并提供 JSON-backed provider factory。 | 不接入 server runtime，不修改 routes，不决定运行时使用哪个 adapter。 |
 
 这个分层让后续 API use case 能先依赖 facade / provider，而不是直接依赖 JSON store。等 Postgres adapter 准备好后，可以替换 provider 的 ports 实现，而不要求所有 route 同时重写。
 

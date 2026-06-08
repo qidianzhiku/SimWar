@@ -15,7 +15,7 @@ function createMinimalStore(overrides: Partial<SimWarStore> = {}): SimWarStore {
     settlementResults: [],
     auditLogs: [],
     persist: vi.fn(),
-    ...overrides,
+    ...overrides
   } as unknown as SimWarStore;
 }
 
@@ -29,36 +29,36 @@ describe("JSON repository adapter", () => {
           tenant_id: "tenant-1",
           session_id: "session-1",
           user_id: "user-1",
-          expires_at: "2099-01-01T00:00:00.000Z",
-        },
+          expires_at: "2099-01-01T00:00:00.000Z"
+        }
       ],
-      courses: [{ tenant_id: "tenant-1", course_id: "course-1", status: "active" }],
+      courses: [{ tenant_id: "tenant-1", course_id: "course-1", status: "active" }]
     } as Partial<SimWarStore>);
 
     const ports = createJsonRepositoryPorts(store);
 
     await expect(ports.identity.getTenant("tenant-1")).resolves.toEqual({
       tenant_id: "tenant-1",
-      status: "active",
+      status: "active"
     });
 
     await expect(ports.identity.getUser("tenant-1", "user-1")).resolves.toEqual({
       tenant_id: "tenant-1",
       user_id: "user-1",
-      status: "active",
+      status: "active"
     });
 
     await expect(ports.sessions.getSession("tenant-1", "session-1")).resolves.toEqual({
       tenant_id: "tenant-1",
       session_id: "session-1",
       user_id: "user-1",
-      expires_at: "2099-01-01T00:00:00.000Z",
+      expires_at: "2099-01-01T00:00:00.000Z"
     });
 
     await expect(ports.courses.getCourse("tenant-1", "course-1")).resolves.toEqual({
       tenant_id: "tenant-1",
       course_id: "course-1",
-      status: "active",
+      status: "active"
     });
   });
 
@@ -77,8 +77,8 @@ describe("JSON repository adapter", () => {
         pricing: { base_price: 12000 },
         marketing_budget: 250000,
         service_quality_budget: 150000,
-        strategy_statement: "premium growth plan",
-      },
+        strategy_statement: "premium growth plan"
+      }
     } as Parameters<typeof ports.decisions.saveCanonicalDecision>[0];
 
     await ports.decisions.saveCanonicalDecision(decision);
@@ -88,12 +88,7 @@ describe("JSON repository adapter", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
 
     await expect(
-      ports.decisions.getCanonicalDecisionForTeamRound(
-        "tenant-1",
-        "run-1",
-        "round-1",
-        "team-1",
-      ),
+      ports.decisions.getCanonicalDecisionForTeamRound("tenant-1", "run-1", "round-1", "team-1")
     ).resolves.toBe(decision);
   });
 
@@ -105,8 +100,8 @@ describe("JSON repository adapter", () => {
           round_id: "round-1",
           run_id: "run-1",
           round_no: 1,
-          status: "locked",
-        },
+          status: "locked"
+        }
       ],
       settlementResults: [
         {
@@ -116,9 +111,9 @@ describe("JSON repository adapter", () => {
           round_id: "round-1",
           round_no: 1,
           replay_hash: "replay-hash-1",
-          team_results: [],
-        },
-      ],
+          team_results: []
+        }
+      ]
     } as Partial<SimWarStore>);
 
     const ports = createJsonRepositoryPorts(store);
@@ -139,14 +134,14 @@ describe("JSON repository adapter", () => {
       aggregate_type: "run",
       sequence: 1,
       event_type: "round.settled",
-      payload: {},
+      payload: {}
     } as Parameters<typeof ports.domainEvents.appendDomainEvent>[0];
     const snapshot = {
       tenant_id: "tenant-1",
       aggregate_id: "aggregate-1",
       aggregate_type: "run",
       sequence: 1,
-      state: { status: "settled" },
+      state: { status: "settled" }
     } as Parameters<typeof ports.stateSnapshots.saveStateSnapshot>[0];
 
     await ports.domainEvents.appendDomainEvent(event);
@@ -156,16 +151,16 @@ describe("JSON repository adapter", () => {
       ports.domainEvents.listDomainEvents({
         tenant_id: "tenant-1",
         aggregate_id: "aggregate-1",
-        aggregate_type: "run",
-      }),
+        aggregate_type: "run"
+      })
     ).resolves.toEqual([event]);
 
     await expect(
       ports.stateSnapshots.getStateSnapshot({
         tenant_id: "tenant-1",
         aggregate_id: "aggregate-1",
-        aggregate_type: "run",
-      }),
+        aggregate_type: "run"
+      })
     ).resolves.toBe(snapshot);
 
     expect(store.persist).not.toHaveBeenCalled();
