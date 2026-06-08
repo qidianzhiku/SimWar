@@ -170,7 +170,7 @@ async function submitDecision(
     submitted_by: actor.user_id
   };
 
-  store.decisions.push(decision);
+  await runtime.repositoryProvider.facade.decisions.saveDecision(decision);
   await appendAudit(runtime, {
     actor,
     action: "decision.submit",
