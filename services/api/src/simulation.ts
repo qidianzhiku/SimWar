@@ -1,13 +1,53 @@
 import { createHash } from "node:crypto";
 import { createToyLogitEngine, resolveSettlementPlugins } from "@simwar/simulation-core";
-import type { Decision, ParameterSet, Round, Run, ScenarioPackage, SettlementResult, Team } from "@simwar/shared-contracts";
+import type {
+  Decision,
+  ParameterSet,
+  Round,
+  Run,
+  ScenarioPackage,
+  SettlementResult,
+  Team
+} from "@simwar/shared-contracts";
 import { nextId, type SimWarStore } from "./store.js";
 
 function buildReplayHash(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
-export function validateDecisionPayload(payload: unknown): Array<{ field: string; reason: string }> {
+function writeSettlementResult(
+  store: SimWarStore,
+  input: {
+    run: Run;
+    round: Round;
+    scenario: ScenarioPackage;
+    parameterSet: ParameterSet;
+  },
+  replayHash: string,
+  teamResults: SettlementResult["team_results"]
+): SettlementResult {
+  const settlement: SettlementResult = {
+    settlement_result_id: nextId(store, "result", "result"),
+    tenant_id: input.run.tenant_id,
+    run_id: input.run.run_id,
+    round_id: input.round.round_id,
+    round_no: input.round.round_no,
+    parameter_set_id: input.parameterSet.parameter_set_id,
+    scenario_package_id: input.scenario.scenario_package_id,
+    replay_hash: replayHash,
+    team_results: teamResults
+  };
+
+  input.round.status = "settled";
+  input.round.replay_hash = replayHash;
+  store.settlementResults.push(settlement);
+
+  return settlement;
+}
+
+export function validateDecisionPayload(
+  payload: unknown
+): Array<{ field: string; reason: string }> {
   const errors: Array<{ field: string; reason: string }> = [];
   const candidate = payload as Partial<Decision["payload"]> | undefined;
 
@@ -91,7 +131,9 @@ export function settleRound(
     return decision;
   });
 
-  const engine = createToyLogitEngine(resolveSettlementPlugins(input.scenario.plugin_package_ids ?? []));
+  const engine = createToyLogitEngine(
+    resolveSettlementPlugins(input.scenario.plugin_package_ids ?? [])
+  );
   const teamResults = engine.settle({
     run: input.run,
     round: input.round,
@@ -115,21 +157,5 @@ export function settleRound(
     team_results: teamResults.map((result) => result.state_true)
   });
 
-  const settlement: SettlementResult = {
-    settlement_result_id: nextId(store, "result", "result"),
-    tenant_id: input.run.tenant_id,
-    run_id: input.run.run_id,
-    round_id: input.round.round_id,
-    round_no: input.round.round_no,
-    parameter_set_id: input.parameterSet.parameter_set_id,
-    scenario_package_id: input.scenario.scenario_package_id,
-    replay_hash: replayHash,
-    team_results: teamResults
-  };
-
-  input.round.status = "settled";
-  input.round.replay_hash = replayHash;
-  store.settlementResults.push(settlement);
-
-  return settlement;
+  return writeSettlementResult(store, input, replayHash, teamResults);
 }
