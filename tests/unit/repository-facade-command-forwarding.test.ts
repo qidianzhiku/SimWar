@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   AuditLog,
+  Decision,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
+  Round,
   SettlementResult,
   StateSnapshot
 } from "../../packages/shared-contracts/src";
@@ -42,6 +44,7 @@ function createSpyPorts(): SimWarRepositoryPorts {
     rounds: {
       getRound: vi.fn(async () => null),
       listRoundsForRun: vi.fn(async () => []),
+      saveRound: vi.fn(async () => undefined),
       markRoundSettled: vi.fn(async () => undefined)
     },
 
@@ -49,6 +52,7 @@ function createSpyPorts(): SimWarRepositoryPorts {
       getDecisionById: vi.fn(async () => null),
       getCanonicalDecisionForTeamRound: vi.fn(async () => null),
       listDecisionsForRound: vi.fn(async () => []),
+      saveDecision: vi.fn(async () => undefined),
       saveCanonicalDecision: vi.fn(async () => undefined)
     },
 
@@ -87,6 +91,48 @@ function createSpyPorts(): SimWarRepositoryPorts {
 }
 
 describe("repository facade command forwarding", () => {
+  it("forwards decision and round command writes without changing payloads", async () => {
+    const ports = createSpyPorts();
+    const facade = createRepositoryFacade({ ports });
+    const decision: Decision = {
+      decision_id: "decision_001",
+      tenant_id: "tenant_demo",
+      run_id: "run_demo",
+      round_id: "round_001",
+      round_no: 1,
+      team_id: "team_red",
+      status: "submitted",
+      version: 1,
+      payload: {
+        pricing: { base_price: 120 },
+        marketing_budget: 4000,
+        service_quality_budget: 3000,
+        capacity_plan: "hold",
+        cash_buffer_target: 10000,
+        strategy_statement: "Preserve cash while holding service quality."
+      },
+      validation_report: [],
+      submitted_by: "usr_ceo",
+      canonical_source: "legacy_direct"
+    };
+    const round: Round = {
+      round_id: "round_001",
+      tenant_id: "tenant_demo",
+      run_id: "run_demo",
+      round_no: 1,
+      status: "locked",
+      decision_batch_id: "decision_batch_001"
+    };
+    const originalPayloads = structuredClone({ decision, round });
+
+    await expect(facade.decisions.saveDecision(decision)).resolves.toBeUndefined();
+    await expect(facade.rounds.saveRound(round)).resolves.toBeUndefined();
+
+    expect(ports.decisions.saveDecision).toHaveBeenCalledWith(decision);
+    expect(ports.rounds.saveRound).toHaveBeenCalledWith(round);
+    expect({ decision, round }).toEqual(originalPayloads);
+  });
+
   it("forwards audit, settlement, and state snapshot writes without changing payloads", async () => {
     const ports = createSpyPorts();
     const facade = createRepositoryFacade({ ports });

@@ -122,6 +122,8 @@ export interface RoundRepositoryPort {
 
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
 
+  saveRound(round: Round): Promise<void>;
+
   markRoundSettled(
     tenantId: RepositoryId,
     roundId: RepositoryId,
@@ -146,6 +148,8 @@ export interface DecisionRepositoryPort {
   ): Promise<Decision[]>;
 
   saveCanonicalDecision(decision: Decision): Promise<void>;
+
+  saveDecision(decision: Decision): Promise<void>;
 }
 
 export interface SettlementRepositoryPort {
@@ -224,23 +228,19 @@ export interface ReplayRepositoryPort {
  * canonical decision selection.
  */
 
-export interface DecisionCommandRepositoryPort {
-  /**
-   * Persist a submitted Decision exactly as produced by the current command
-   * path. This does not make role drafts canonical and must not change the
-   * canonical / latest decision selection logic.
-   */
-  saveDecision(decision: Decision): Promise<void>;
-}
+/**
+ * Persist a submitted Decision exactly as produced by the current command
+ * path. This does not make role drafts canonical and must not change the
+ * canonical / latest decision selection logic.
+ */
+export type DecisionCommandRepositoryPort = Pick<DecisionRepositoryPort, "saveDecision">;
 
-export interface RoundCommandRepositoryPort {
-  /**
-   * Persist the complete Round after an existing command path mutates status,
-   * decision_batch_id, or replay_hash. Transition rules remain owned by API
-   * command services, not by the repository port.
-   */
-  saveRound(round: Round): Promise<void>;
-}
+/**
+ * Persist the complete Round after an existing command path mutates status,
+ * decision_batch_id, or replay_hash. Transition rules remain owned by API
+ * command services, not by the repository port.
+ */
+export type RoundCommandRepositoryPort = Pick<RoundRepositoryPort, "saveRound">;
 
 export type SettlementCommandRepositoryPort = Pick<
   SettlementRepositoryPort,

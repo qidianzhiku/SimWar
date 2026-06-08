@@ -10,7 +10,7 @@ import type {
   Run,
   SettlementResult,
   StateSnapshot,
-  Team,
+  Team
 } from "@simwar/shared-contracts";
 import type {
   RepositoryCourseReadModel,
@@ -19,7 +19,7 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
-  SimWarRepositoryPorts,
+  SimWarRepositoryPorts
 } from "./repository-ports.js";
 import type { SimWarStore } from "./store.js";
 
@@ -80,17 +80,18 @@ function eventMatchesQuery(event: DomainEvent, query: RepositoryEventQuery): boo
 
   const sequence = getNumber(event, "sequence");
 
-  if (query.from_sequence !== undefined && sequence !== undefined && sequence < query.from_sequence) {
+  if (
+    query.from_sequence !== undefined &&
+    sequence !== undefined &&
+    sequence < query.from_sequence
+  ) {
     return false;
   }
 
   return true;
 }
 
-function snapshotMatchesQuery(
-  snapshot: StateSnapshot,
-  query: RepositorySnapshotQuery,
-): boolean {
+function snapshotMatchesQuery(snapshot: StateSnapshot, query: RepositorySnapshotQuery): boolean {
   if (!tenantMatches(snapshot, query.tenant_id)) {
     return false;
   }
@@ -122,7 +123,7 @@ function applyLimit<T>(items: T[], limit?: number): T[] {
 
 export function createJsonRepositoryPorts(
   store: SimWarStore,
-  collections: Partial<JsonRepositoryAdapterCollections> = {},
+  collections: Partial<JsonRepositoryAdapterCollections> = {}
 ): SimWarRepositoryPorts {
   const domainEvents = collections.domainEvents ?? [];
   const stateSnapshots = collections.stateSnapshots ?? [];
@@ -142,13 +143,13 @@ export function createJsonRepositoryPorts(
 
         return {
           tenant_id: tenant.tenant_id,
-          status: tenant.status,
+          status: tenant.status
         };
       },
 
       async getUser(tenantId, userId): Promise<RepositoryUserReadModel | null> {
         const user = store.users.find(
-          (candidate) => candidate.tenant_id === tenantId && candidate.user_id === userId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.user_id === userId
         );
 
         if (!user) {
@@ -158,16 +159,15 @@ export function createJsonRepositoryPorts(
         return {
           tenant_id: user.tenant_id,
           user_id: user.user_id,
-          status: user.status,
+          status: user.status
         };
-      },
+      }
     },
 
     sessions: {
       async getSession(tenantId, sessionId): Promise<RepositorySessionReadModel | null> {
         const session = store.sessions.find(
-          (candidate) =>
-            candidate.tenant_id === tenantId && candidate.session_id === sessionId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.session_id === sessionId
         );
 
         if (!session) {
@@ -178,14 +178,11 @@ export function createJsonRepositoryPorts(
           tenant_id: session.tenant_id,
           session_id: session.session_id,
           user_id: session.user_id,
-          expires_at: session.expires_at,
+          expires_at: session.expires_at
         };
       },
 
-      async listActiveSessionsByUser(
-        tenantId,
-        userId,
-      ): Promise<RepositorySessionReadModel[]> {
+      async listActiveSessionsByUser(tenantId, userId): Promise<RepositorySessionReadModel[]> {
         const now = Date.now();
 
         return store.sessions
@@ -193,22 +190,21 @@ export function createJsonRepositoryPorts(
             (session) =>
               session.tenant_id === tenantId &&
               session.user_id === userId &&
-              (!session.expires_at || Date.parse(session.expires_at) > now),
+              (!session.expires_at || Date.parse(session.expires_at) > now)
           )
           .map((session) => ({
             tenant_id: session.tenant_id,
             session_id: session.session_id,
             user_id: session.user_id,
-            expires_at: session.expires_at,
+            expires_at: session.expires_at
           }));
-      },
+      }
     },
 
     courses: {
       async getCourse(tenantId, courseId): Promise<RepositoryCourseReadModel | null> {
         const course = store.courses.find(
-          (candidate) =>
-            candidate.tenant_id === tenantId && candidate.course_id === courseId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.course_id === courseId
         );
 
         if (!course) {
@@ -218,13 +214,13 @@ export function createJsonRepositoryPorts(
         return {
           tenant_id: course.tenant_id,
           course_id: course.course_id,
-          status: course.status,
+          status: course.status
         };
       },
 
       async listCoursesForUser(tenantId, userId): Promise<RepositoryCourseReadModel[]> {
         const user = store.users.find(
-          (candidate) => candidate.tenant_id === tenantId && candidate.user_id === userId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.user_id === userId
         );
 
         if (!user) {
@@ -236,24 +232,23 @@ export function createJsonRepositoryPorts(
           .map((course) => ({
             tenant_id: course.tenant_id,
             course_id: course.course_id,
-            status: course.status,
+            status: course.status
           }));
-      },
+      }
     },
 
     teams: {
       async getTeam(tenantId, teamId): Promise<Team | null> {
         return (
           store.teams.find(
-            (candidate) =>
-              candidate.tenant_id === tenantId && candidate.team_id === teamId,
+            (candidate) => candidate.tenant_id === tenantId && candidate.team_id === teamId
           ) ?? null
         );
       },
 
       async listTeamsForRun(tenantId, runId): Promise<Team[]> {
         const run = store.runs.find(
-          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
         );
 
         if (!run) {
@@ -261,13 +256,13 @@ export function createJsonRepositoryPorts(
         }
 
         return store.teams.filter(
-          (team) => team.tenant_id === tenantId && team.course_id === run.course_id,
+          (team) => team.tenant_id === tenantId && team.course_id === run.course_id
         );
       },
 
       async getTeamForUser(tenantId, runId, userId): Promise<Team | null> {
         const run = store.runs.find(
-          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
         );
 
         if (!run) {
@@ -280,48 +275,59 @@ export function createJsonRepositoryPorts(
               team.tenant_id === tenantId &&
               team.course_id === run.course_id &&
               (team.captain_user_id === userId ||
-                team.members.some((member) => member.user_id === userId)),
+                team.members.some((member) => member.user_id === userId))
           ) ?? null
         );
-      },
+      }
     },
 
     runs: {
       async getRun(tenantId, runId): Promise<Run | null> {
         return (
           store.runs.find(
-            (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId,
+            (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
           ) ?? null
         );
       },
 
       async listRunsForCourse(tenantId, courseId): Promise<Run[]> {
-        return store.runs.filter(
-          (run) => run.tenant_id === tenantId && run.course_id === courseId,
-        );
-      },
+        return store.runs.filter((run) => run.tenant_id === tenantId && run.course_id === courseId);
+      }
     },
 
     rounds: {
       async getRound(tenantId, roundId): Promise<Round | null> {
         return (
           store.rounds.find(
-            (candidate) =>
-              candidate.tenant_id === tenantId && candidate.round_id === roundId,
+            (candidate) => candidate.tenant_id === tenantId && candidate.round_id === roundId
           ) ?? null
         );
       },
 
       async listRoundsForRun(tenantId, runId): Promise<Round[]> {
         return store.rounds.filter(
-          (round) => round.tenant_id === tenantId && round.run_id === runId,
+          (round) => round.tenant_id === tenantId && round.run_id === runId
         );
+      },
+
+      async saveRound(round): Promise<void> {
+        const index = store.rounds.findIndex(
+          (candidate) =>
+            candidate.tenant_id === round.tenant_id && candidate.round_id === round.round_id
+        );
+
+        if (index >= 0) {
+          store.rounds[index] = round;
+        } else {
+          store.rounds.push(round);
+        }
+
+        store.persist();
       },
 
       async markRoundSettled(tenantId, roundId, settlementResultId): Promise<void> {
         const round = store.rounds.find(
-          (candidate) =>
-            candidate.tenant_id === tenantId && candidate.round_id === roundId,
+          (candidate) => candidate.tenant_id === tenantId && candidate.round_id === roundId
         );
 
         if (!round) {
@@ -333,7 +339,7 @@ export function createJsonRepositoryPorts(
         const settlement = store.settlementResults.find(
           (candidate) =>
             candidate.tenant_id === tenantId &&
-            candidate.settlement_result_id === settlementResultId,
+            candidate.settlement_result_id === settlementResultId
         );
 
         if (settlement) {
@@ -341,15 +347,14 @@ export function createJsonRepositoryPorts(
         }
 
         store.persist();
-      },
+      }
     },
 
     decisions: {
       async getDecisionById(tenantId, decisionId): Promise<Decision | null> {
         return (
           store.decisions.find(
-            (candidate) =>
-              candidate.tenant_id === tenantId && candidate.decision_id === decisionId,
+            (candidate) => candidate.tenant_id === tenantId && candidate.decision_id === decisionId
           ) ?? null
         );
       },
@@ -358,7 +363,7 @@ export function createJsonRepositoryPorts(
         tenantId,
         runId,
         roundId,
-        teamId,
+        teamId
       ): Promise<Decision | null> {
         return (
           store.decisions.find(
@@ -367,7 +372,7 @@ export function createJsonRepositoryPorts(
               decision.run_id === runId &&
               decision.round_id === roundId &&
               decision.team_id === teamId &&
-              decision.status === "submitted",
+              decision.status === "submitted"
           ) ?? null
         );
       },
@@ -377,7 +382,7 @@ export function createJsonRepositoryPorts(
           (decision) =>
             decision.tenant_id === tenantId &&
             decision.run_id === runId &&
-            decision.round_id === roundId,
+            decision.round_id === roundId
         );
       },
 
@@ -385,7 +390,7 @@ export function createJsonRepositoryPorts(
         const index = store.decisions.findIndex(
           (candidate) =>
             candidate.tenant_id === decision.tenant_id &&
-            candidate.decision_id === decision.decision_id,
+            candidate.decision_id === decision.decision_id
         );
 
         if (index >= 0) {
@@ -396,6 +401,22 @@ export function createJsonRepositoryPorts(
 
         store.persist();
       },
+
+      async saveDecision(decision): Promise<void> {
+        const index = store.decisions.findIndex(
+          (candidate) =>
+            candidate.tenant_id === decision.tenant_id &&
+            candidate.decision_id === decision.decision_id
+        );
+
+        if (index >= 0) {
+          store.decisions[index] = decision;
+        } else {
+          store.decisions.push(decision);
+        }
+
+        store.persist();
+      }
     },
 
     settlements: {
@@ -404,21 +425,15 @@ export function createJsonRepositoryPorts(
           store.settlementResults.find(
             (candidate) =>
               candidate.tenant_id === tenantId &&
-              candidate.settlement_result_id === settlementResultId,
+              candidate.settlement_result_id === settlementResultId
           ) ?? null
         );
       },
 
-      async listSettlementResultsForRound(
-        tenantId,
-        runId,
-        roundId,
-      ): Promise<SettlementResult[]> {
+      async listSettlementResultsForRound(tenantId, runId, roundId): Promise<SettlementResult[]> {
         return store.settlementResults.filter(
           (result) =>
-            result.tenant_id === tenantId &&
-            result.run_id === runId &&
-            result.round_id === roundId,
+            result.tenant_id === tenantId && result.run_id === runId && result.round_id === roundId
         );
       },
 
@@ -426,7 +441,7 @@ export function createJsonRepositoryPorts(
         const index = store.settlementResults.findIndex(
           (candidate) =>
             candidate.tenant_id === result.tenant_id &&
-            candidate.settlement_result_id === result.settlement_result_id,
+            candidate.settlement_result_id === result.settlement_result_id
         );
 
         if (index >= 0) {
@@ -436,7 +451,7 @@ export function createJsonRepositoryPorts(
         }
 
         store.persist();
-      },
+      }
     },
 
     domainEvents: {
@@ -445,14 +460,17 @@ export function createJsonRepositoryPorts(
       },
 
       async listDomainEvents(query): Promise<DomainEvent[]> {
-        return applyLimit(domainEvents.filter((event) => eventMatchesQuery(event, query)), query.limit);
-      },
+        return applyLimit(
+          domainEvents.filter((event) => eventMatchesQuery(event, query)),
+          query.limit
+        );
+      }
     },
 
     stateSnapshots: {
       async getStateSnapshot(query): Promise<StateSnapshot | null> {
         const snapshots = stateSnapshots.filter((snapshot) =>
-          snapshotMatchesQuery(snapshot, query),
+          snapshotMatchesQuery(snapshot, query)
         );
 
         if (snapshots.length === 0) {
@@ -464,7 +482,7 @@ export function createJsonRepositoryPorts(
 
       async saveStateSnapshot(snapshot): Promise<void> {
         stateSnapshots.push(snapshot);
-      },
+      }
     },
 
     auditLogs: {
@@ -494,9 +512,9 @@ export function createJsonRepositoryPorts(
 
             return true;
           }),
-          query.limit,
+          query.limit
         );
-      },
+      }
     },
 
     replay: {
@@ -509,7 +527,7 @@ export function createJsonRepositoryPorts(
           replayInputManifests.find(
             (manifest) =>
               tenantMatches(manifest, tenantId) &&
-              idMatches(manifest, ["replay_input_manifest_id", "manifest_id"], manifestId),
+              idMatches(manifest, ["replay_input_manifest_id", "manifest_id"], manifestId)
           ) ?? null
         );
       },
@@ -523,7 +541,7 @@ export function createJsonRepositoryPorts(
           replayRuns.find(
             (run) =>
               tenantMatches(run, tenantId) &&
-              idMatches(run, ["replay_run_id", "run_id"], replayRunId),
+              idMatches(run, ["replay_run_id", "run_id"], replayRunId)
           ) ?? null
         );
       },
@@ -537,7 +555,7 @@ export function createJsonRepositoryPorts(
           replayReports.find(
             (report) =>
               tenantMatches(report, tenantId) &&
-              idMatches(report, ["replay_report_id", "report_id"], replayReportId),
+              idMatches(report, ["replay_report_id", "report_id"], replayReportId)
           ) ?? null
         );
       },
@@ -546,10 +564,7 @@ export function createJsonRepositoryPorts(
         replayDiffReports.push(report);
       },
 
-      async getReplayDiffReport(
-        tenantId,
-        replayDiffReportId,
-      ): Promise<ReplayDiffReport | null> {
+      async getReplayDiffReport(tenantId, replayDiffReportId): Promise<ReplayDiffReport | null> {
         return (
           replayDiffReports.find(
             (report) =>
@@ -557,11 +572,11 @@ export function createJsonRepositoryPorts(
               idMatches(
                 report,
                 ["replay_diff_report_id", "diff_report_id", "report_id"],
-                replayDiffReportId,
-              ),
+                replayDiffReportId
+              )
           ) ?? null
         );
-      },
-    },
+      }
+    }
   };
 }
