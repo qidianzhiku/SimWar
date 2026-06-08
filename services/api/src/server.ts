@@ -5,6 +5,7 @@ import type {
   AdminState,
   ApiErrorEnvelope,
   ApiEnvelope,
+  AuditLog,
   AuthSession,
   CurrentUser,
   DecisionPayload,
@@ -23,17 +24,13 @@ import {
   verifySignedToken
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
-import {
-  createJsonRepositoryProvider,
-  type RepositoryProvider
-} from "./repository-provider.js";
+import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import { settleRound, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_INTERNAL_SERVICE_TOKEN,
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
   actorHasAnyRole,
-  appendAudit,
   createP1Store,
   getActorFromUser,
   nextId,
@@ -78,6 +75,37 @@ function createApiRuntime(store: SimWarStore): ApiRuntime {
     store,
     repositoryProvider: createJsonRepositoryProvider({ store })
   };
+}
+
+async function appendAudit(
+  runtime: ApiRuntime,
+  input: {
+    actor: CurrentUser;
+    action: string;
+    resourceType: string;
+    resourceId: string;
+    requestId: string;
+    tenantId?: string;
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  }
+): Promise<AuditLog> {
+  const log: AuditLog = {
+    audit_id: nextId(runtime.store, "audit", "audit"),
+    tenant_id: input.tenantId ?? input.actor.tenant_id,
+    actor_id: input.actor.user_id,
+    actor_role: input.actor.roles[0] ?? "learner",
+    action: input.action,
+    resource_type: input.resourceType,
+    resource_id: input.resourceId,
+    request_id: input.requestId,
+    created_at: new Date().toISOString(),
+    ...(input.before ? { before: input.before } : {}),
+    ...(input.after ? { after: input.after } : {})
+  };
+
+  await runtime.repositoryProvider.facade.auditLogs.appendAuditLog(log);
+  return log;
 }
 
 function createEnvelope<TData>(
@@ -360,11 +388,12 @@ async function createPublicResultView(
 ): Promise<PublicResultView> {
   const actor = requirePermission(context, "result:read");
   const round = await getRoundForRead(runtime, context, runId, roundNo);
-  const settlements = await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
-    context.tenantId,
-    runId,
-    round.round_id
-  );
+  const settlements =
+    await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+      context.tenantId,
+      runId,
+      round.round_id
+    );
   const settlement = settlements.find(
     (result) =>
       result.run_id === runId &&
@@ -431,9 +460,7 @@ async function filterAuditLogs(runtime: ApiRuntime, context: RequestContext, url
   const tenantIds = tenantScope
     ? [tenantScope]
     : runtime.store.tenants.map((tenant) => tenant.tenant_id);
-  const auditLogOrder = new Map(
-    runtime.store.auditLogs.map((log, index) => [log.audit_id, index])
-  );
+  const auditLogOrder = new Map(runtime.store.auditLogs.map((log, index) => [log.audit_id, index]));
   const auditLogs = (
     await Promise.all(
       tenantIds.map((tenantId) =>
@@ -490,11 +517,7 @@ async function createAdminState(runtime: ApiRuntime, context: RequestContext): P
     roles: store.roles,
     permissions: store.permissions,
     audit_logs: (
-      await filterAuditLogs(
-        runtime,
-        context,
-        new URL("/api/v1/audit/logs", "http://localhost")
-      )
+      await filterAuditLogs(runtime, context, new URL("/api/v1/audit/logs", "http://localhost"))
     ).slice(-30)
   };
 }
@@ -594,7 +617,7 @@ async function routeRequest(
       created_at: new Date(nowSeconds * 1000).toISOString(),
       expires_at: new Date(expiresAtSeconds * 1000).toISOString()
     });
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "auth.login",
       resourceType: "user",
@@ -624,7 +647,7 @@ async function routeRequest(
       session.revoked_at = new Date().toISOString();
     }
 
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "auth.logout",
       resourceType: "session",
@@ -679,7 +702,7 @@ async function routeRequest(
       updated_at: now
     };
     store.tenants.push(tenant);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "tenant.create",
       resourceType: "tenant",
@@ -766,7 +789,7 @@ async function routeRequest(
     store.users.push(user);
     setUserRoles(store, user, roles);
     const publicUser = sanitizeUser(user);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "user.create",
       resourceType: "user",
@@ -828,7 +851,7 @@ async function routeRequest(
 
     user.updated_at = new Date().toISOString();
     const after = sanitizeUser(user);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "user.update",
       resourceType: "user",
@@ -945,7 +968,7 @@ async function routeRequest(
       created_by: actor.user_id
     };
     store.courses.push(course);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "course.create",
       resourceType: "course",
@@ -971,7 +994,7 @@ async function routeRequest(
     const course = getCourse(store, context, courseId ?? "");
     const before = clonePublic(course);
     course.status = "published";
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "course.publish",
       resourceType: "course",
@@ -1016,7 +1039,7 @@ async function routeRequest(
     };
     store.teams.push(team);
     captain.team_id = team.team_id;
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "team.create",
       resourceType: "team",
@@ -1064,7 +1087,7 @@ async function routeRequest(
     };
     store.runs.push(run);
     store.rounds.push(round);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "run.create",
       resourceType: "run",
@@ -1090,7 +1113,7 @@ async function routeRequest(
     assertRoundStatus(round, "draft", "ROUND-409-001");
     const before = clonePublic(round);
     round.status = "open";
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "round.start",
       resourceType: "round",
@@ -1159,7 +1182,7 @@ async function routeRequest(
       submitted_by: actor.user_id
     };
     store.decisions.push(decision);
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "decision.submit",
       resourceType: "decision",
@@ -1186,7 +1209,7 @@ async function routeRequest(
     const before = clonePublic(round);
     round.status = "locked";
     round.decision_batch_id = `batch_${run.run_id}_${round.round_no}`;
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "round.lock",
       resourceType: "round",
@@ -1209,7 +1232,7 @@ async function routeRequest(
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
     );
     const settlement = runSettlement(store, context, runId ?? "", Number(roundNoRaw));
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "round.settle_requested",
       resourceType: "settlement_result",
@@ -1236,7 +1259,7 @@ async function routeRequest(
       actor: serviceActor
     };
     const settlement = runSettlement(store, serviceContext, runId ?? "", Number(roundNoRaw));
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor: serviceActor,
       action: "round.settle",
       resourceType: "settlement_result",
@@ -1263,7 +1286,7 @@ async function routeRequest(
     assertRoundStatus(round, "settled", "ROUND-409-005");
     const before = clonePublic(round);
     round.status = "published";
-    appendAudit(store, {
+    await appendAudit(runtime, {
       actor,
       action: "round.publish",
       resourceType: "round",
