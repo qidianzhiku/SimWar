@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
   createPostgresRepositoryAdapter,
   PostgresRepositoryAdapter,
@@ -9,7 +10,12 @@ import {
 describe("Postgres repository adapter skeleton", () => {
   interface CourseRow extends Record<string, unknown> {
     course_id: string;
+    status?: string;
     tenant_id: string;
+  }
+
+  interface UserRow extends Record<string, unknown> {
+    user_id: string;
   }
 
   it("keeps the query executor boundary callable with SQL and params only", async () => {
@@ -159,6 +165,112 @@ describe("Postgres repository adapter skeleton", () => {
     ]);
   });
 
+  it("courses.getCourse delegates through the injected executor and returns a read model", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const row: RepositoryCourseReadModel = {
+      course_id: "course-1",
+      status: "published",
+      tenant_id: "tenant-1"
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [row]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.courses.getCourse("tenant-1", "course-1")).resolves.toEqual(row);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "course-1"],
+        sql: "SELECT tenant_id, course_id, status FROM courses WHERE tenant_id = $1 AND course_id = $2"
+      }
+    ]);
+  });
+
+  it("courses.getCourse returns null when no row exists", async () => {
+    const queryExecutor: PostgresQueryExecutor = async () => ({
+      rowCount: 0,
+      rows: []
+    });
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.courses.getCourse("tenant-1", "missing-course")).resolves.toBeNull();
+  });
+
+  it("courses.listCoursesForUser checks user existence before listing courses", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const rows: RepositoryCourseReadModel[] = [
+      {
+        course_id: "course-1",
+        status: "published",
+        tenant_id: "tenant-1"
+      },
+      {
+        course_id: "course-2",
+        status: "draft",
+        tenant_id: "tenant-1"
+      }
+    ];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      if (sql.startsWith("SELECT user_id FROM users")) {
+        return {
+          rowCount: 1,
+          rows: [
+            {
+              user_id: "user-1"
+            } satisfies UserRow
+          ]
+        };
+      }
+
+      return {
+        rowCount: rows.length,
+        rows
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.courses.listCoursesForUser("tenant-1", "user-1")).resolves.toEqual(rows);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "user-1"],
+        sql: "SELECT user_id FROM users WHERE tenant_id = $1 AND user_id = $2"
+      },
+      {
+        params: ["tenant-1"],
+        sql: "SELECT tenant_id, course_id, status FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC"
+      }
+    ]);
+  });
+
+  it("courses.listCoursesForUser returns an empty list and skips course lookup when user is missing", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return {
+        rowCount: 0,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.courses.listCoursesForUser("tenant-1", "missing-user")).resolves.toEqual(
+      []
+    );
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "missing-user"],
+        sql: "SELECT user_id FROM users WHERE tenant_id = $1 AND user_id = $2"
+      }
+    ]);
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -212,9 +324,10 @@ describe("Postgres repository adapter skeleton", () => {
 
     const adapter = createPostgresRepositoryAdapter({ queryExecutor });
 
-    expect(Object.keys(adapter).sort()).toEqual(["options", "queryExecutor"]);
+    expect(Object.keys(adapter).sort()).toEqual(["courses", "options", "queryExecutor"]);
     expect("identity" in adapter).toBe(false);
-    expect("courses" in adapter).toBe(false);
+    expect(adapter.courses.getCourse).toEqual(expect.any(Function));
+    expect(adapter.courses.listCoursesForUser).toEqual(expect.any(Function));
     expect("decisions" in adapter).toBe(false);
     expect("settlements" in adapter).toBe(false);
     expect("replay" in adapter).toBe(false);
