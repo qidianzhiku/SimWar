@@ -17,7 +17,8 @@ Current gaps:
 
 - `npm run test:migration:apply` is not available in current master.
 - `npm run test:postgres-adapter` is not available in current master.
-- `db/migrations/` is not available in current master.
+- Only an initial `db/migrations/` schema skeleton is available; no migration
+  runner or disposable database verification exists yet.
 - `services/api/src/postgres-repository-adapter.ts` is not available in current
   master.
 - `tests/integration/postgres-repository-adapter.test.ts` is not available in
