@@ -22,6 +22,21 @@ CREATE TABLE IF NOT EXISTS courses (
 CREATE INDEX IF NOT EXISTS courses_tenant_id_idx ON courses (tenant_id);
 CREATE INDEX IF NOT EXISTS courses_created_at_idx ON courses (created_at);
 
+CREATE TABLE IF NOT EXISTS users (
+  id text PRIMARY KEY,
+  user_id text NOT NULL UNIQUE,
+  tenant_id text NOT NULL,
+  status text,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT users_id_matches_user_id CHECK (id = user_id)
+);
+
+CREATE INDEX IF NOT EXISTS users_tenant_id_idx ON users (tenant_id);
+CREATE INDEX IF NOT EXISTS users_created_at_idx ON users (created_at);
+
 CREATE TABLE IF NOT EXISTS simulation_runs (
   id text PRIMARY KEY,
   run_id text NOT NULL UNIQUE,
