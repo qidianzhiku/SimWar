@@ -19,8 +19,8 @@ Current gaps:
 - `npm run test:postgres-adapter` is not available in current master.
 - Only an initial `db/migrations/` schema skeleton is available; no migration
   runner or disposable database verification exists yet.
-- `services/api/src/postgres-repository-adapter.ts` is not available in current
-  master.
+- Only a dependency-free `services/api/src/postgres-repository-adapter.ts`
+  skeleton is available; repository port implementation is still pending.
 - `tests/integration/postgres-repository-adapter.test.ts` is not available in
   current master.
 - Disposable database verification cannot run when Docker CLI is installed but
