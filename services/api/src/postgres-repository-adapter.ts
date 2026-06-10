@@ -7,6 +7,7 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
+import type { Run } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -40,6 +41,11 @@ export interface PostgresCourseReadMapping {
   ): Promise<RepositoryCourseReadModel[]>;
 }
 
+export interface PostgresRunReadMapping {
+  getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
+  listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -47,6 +53,16 @@ interface PostgresUserPresenceRow extends Record<string, unknown> {
 interface PostgresCourseReadRow extends Record<string, unknown> {
   course_id: RepositoryId;
   status?: string | null;
+  tenant_id: RepositoryId;
+}
+
+interface PostgresRunReadRow extends Record<string, unknown> {
+  course_id: RepositoryId;
+  parameter_set_id: RepositoryId;
+  run_id: RepositoryId;
+  scenario_package_id: RepositoryId;
+  seed: number;
+  status: Run["status"];
   tenant_id: RepositoryId;
 }
 
@@ -63,6 +79,18 @@ function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadMode
   return course;
 }
 
+function toRun(row: PostgresRunReadRow): Run {
+  return {
+    course_id: row.course_id,
+    parameter_set_id: row.parameter_set_id,
+    run_id: row.run_id,
+    scenario_package_id: row.scenario_package_id,
+    seed: row.seed,
+    status: row.status,
+    tenant_id: row.tenant_id
+  };
+}
+
 /**
  * Skeleton holder for a future Postgres implementation.
  *
@@ -73,6 +101,7 @@ export class PostgresRepositoryAdapter {
   readonly courses: PostgresCourseReadMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
+  readonly runs: PostgresRunReadMapping;
 
   constructor(options: PostgresRepositoryAdapterOptions) {
     this.options = { ...options };
@@ -102,6 +131,24 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toCourseReadModel);
+      }
+    };
+    this.runs = {
+      getRun: async (tenantId, runId) => {
+        const row = await this.queryOne<PostgresRunReadRow>(
+          "SELECT tenant_id, run_id, course_id, scenario_package_id, parameter_set_id, seed, status FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2",
+          [tenantId, runId]
+        );
+
+        return row === null ? null : toRun(row);
+      },
+      listRunsForCourse: async (tenantId, courseId) => {
+        const rows = await this.queryRows<PostgresRunReadRow>(
+          "SELECT tenant_id, run_id, course_id, scenario_package_id, parameter_set_id, seed, status FROM simulation_runs WHERE tenant_id = $1 AND course_id = $2 ORDER BY created_at ASC, run_id ASC",
+          [tenantId, courseId]
+        );
+
+        return rows.map(toRun);
       }
     };
   }
