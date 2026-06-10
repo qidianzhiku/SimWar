@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Run } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
   createPostgresRepositoryAdapter,
@@ -16,6 +17,16 @@ describe("Postgres repository adapter skeleton", () => {
 
   interface UserRow extends Record<string, unknown> {
     user_id: string;
+  }
+
+  interface RunRow extends Record<string, unknown> {
+    course_id: string;
+    parameter_set_id: string;
+    run_id: string;
+    scenario_package_id: string;
+    seed: number;
+    status: Run["status"];
+    tenant_id: string;
   }
 
   it("keeps the query executor boundary callable with SQL and params only", async () => {
@@ -271,6 +282,89 @@ describe("Postgres repository adapter skeleton", () => {
     ]);
   });
 
+  it("runs.getRun delegates through the injected executor and returns a full Run", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const row: RunRow = {
+      course_id: "course-1",
+      parameter_set_id: "param-1",
+      run_id: "run-1",
+      scenario_package_id: "scenario-1",
+      seed: 20260517,
+      status: "active",
+      tenant_id: "tenant-1"
+    };
+    const expected: Run = { ...row };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [row]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.runs.getRun("tenant-1", "run-1")).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "run-1"],
+        sql: "SELECT tenant_id, run_id, course_id, scenario_package_id, parameter_set_id, seed, status FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2"
+      }
+    ]);
+  });
+
+  it("runs.getRun returns null when no row exists", async () => {
+    const queryExecutor: PostgresQueryExecutor = async () => ({
+      rowCount: 0,
+      rows: []
+    });
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.runs.getRun("tenant-1", "missing-run")).resolves.toBeNull();
+  });
+
+  it("runs.listRunsForCourse delegates through the injected executor and returns runs", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const rows: RunRow[] = [
+      {
+        course_id: "course-1",
+        parameter_set_id: "param-1",
+        run_id: "run-1",
+        scenario_package_id: "scenario-1",
+        seed: 20260517,
+        status: "active",
+        tenant_id: "tenant-1"
+      },
+      {
+        course_id: "course-1",
+        parameter_set_id: "param-2",
+        run_id: "run-2",
+        scenario_package_id: "scenario-2",
+        seed: 20260518,
+        status: "draft",
+        tenant_id: "tenant-1"
+      }
+    ];
+    const expected: Run[] = rows.map((row) => ({ ...row }));
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: rows.length,
+        rows
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.runs.listRunsForCourse("tenant-1", "course-1")).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "course-1"],
+        sql: "SELECT tenant_id, run_id, course_id, scenario_package_id, parameter_set_id, seed, status FROM simulation_runs WHERE tenant_id = $1 AND course_id = $2 ORDER BY created_at ASC, run_id ASC"
+      }
+    ]);
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("metadata");
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -324,10 +418,12 @@ describe("Postgres repository adapter skeleton", () => {
 
     const adapter = createPostgresRepositoryAdapter({ queryExecutor });
 
-    expect(Object.keys(adapter).sort()).toEqual(["courses", "options", "queryExecutor"]);
+    expect(Object.keys(adapter).sort()).toEqual(["courses", "options", "queryExecutor", "runs"]);
     expect("identity" in adapter).toBe(false);
     expect(adapter.courses.getCourse).toEqual(expect.any(Function));
     expect(adapter.courses.listCoursesForUser).toEqual(expect.any(Function));
+    expect(adapter.runs.getRun).toEqual(expect.any(Function));
+    expect(adapter.runs.listRunsForCourse).toEqual(expect.any(Function));
     expect("decisions" in adapter).toBe(false);
     expect("settlements" in adapter).toBe(false);
     expect("replay" in adapter).toBe(false);
