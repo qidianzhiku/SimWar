@@ -51,7 +51,7 @@ export interface PostgresRoundReadMapping {
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
 }
 
-export interface PostgresDecisionReadMapping {
+export interface PostgresDecisionMapping {
   getDecisionById(tenantId: RepositoryId, decisionId: RepositoryId): Promise<Decision | null>;
   getCanonicalDecisionForTeamRound(
     tenantId: RepositoryId,
@@ -202,7 +202,7 @@ function toDecisionRowId(tenantId: RepositoryId, decisionId: RepositoryId): stri
  */
 export class PostgresRepositoryAdapter {
   readonly courses: PostgresCourseReadMapping;
-  readonly decisions: PostgresDecisionReadMapping;
+  readonly decisions: PostgresDecisionMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
   readonly rounds: PostgresRoundReadMapping;
