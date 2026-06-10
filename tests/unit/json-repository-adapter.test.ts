@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Decision, DecisionPayload } from "@simwar/shared-contracts";
+import type { Decision, DecisionPayload, SettlementResult } from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter.js";
 import type { SimWarStore } from "../../services/api/src/store.js";
 
@@ -42,6 +42,55 @@ function createDecision(overrides: Partial<Decision> = {}): Decision {
     payload: BASE_DECISION_PAYLOAD,
     validation_report: [],
     submitted_by: "user-1",
+    ...overrides
+  };
+}
+
+type JsonSettlementResult = SettlementResult & {
+  metadata?: Record<string, unknown>;
+};
+
+function createSettlementResult(
+  overrides: Partial<JsonSettlementResult> = {}
+): JsonSettlementResult {
+  return {
+    tenant_id: "tenant-1",
+    settlement_result_id: "settlement-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    round_no: 1,
+    parameter_set_id: "parameter-set-1",
+    scenario_package_id: "scenario-package-1",
+    replay_hash: "replay-hash-1",
+    team_results: [
+      {
+        team_id: "team-1",
+        state_true: {
+          demand: 100,
+          served_demand: 95,
+          revenue: 1200000,
+          cost: 850000,
+          profit: 350000,
+          cash_flow: 280000,
+          score: 88,
+          rank: 1,
+          settlement_status: "settled"
+        },
+        state_obs: {
+          demand_band: "high",
+          served_demand: 95,
+          revenue: 1200000,
+          profit_band: "healthy",
+          score: 88,
+          rank: 1
+        },
+        state_est: {
+          next_round_risk: "balanced",
+          explanation: "stable execution",
+          recommended_focus: "maintain service quality"
+        }
+      }
+    ],
     ...overrides
   };
 }
@@ -365,6 +414,131 @@ describe("JSON repository adapter", () => {
     await expect(ports.decisions.getDecisionById("tenant-2", "decision-shared")).resolves.toBe(
       tenantTwoReplacement
     );
+  });
+
+  it("gets settlement results by tenant and settlement result id without crossing tenants", async () => {
+    const target = createSettlementResult();
+    const otherTenant = createSettlementResult({
+      tenant_id: "tenant-2",
+      settlement_result_id: "settlement-1",
+      replay_hash: "other-tenant-replay-hash"
+    });
+    const store = createMinimalStore({
+      settlementResults: [otherTenant, target]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(ports.settlements.getSettlementResult("tenant-1", "settlement-1")).resolves.toBe(
+      target
+    );
+    await expect(
+      ports.settlements.getSettlementResult("tenant-3", "settlement-1")
+    ).resolves.toBeNull();
+    await expect(
+      ports.settlements.getSettlementResult("tenant-1", "settlement-missing")
+    ).resolves.toBeNull();
+  });
+
+  it("lists settlement results for a tenant run round while preserving store order", async () => {
+    const first = createSettlementResult({
+      settlement_result_id: "settlement-first",
+      replay_hash: "replay-hash-first"
+    });
+    const otherRound = createSettlementResult({
+      settlement_result_id: "settlement-other-round",
+      round_id: "round-2"
+    });
+    const second = createSettlementResult({
+      settlement_result_id: "settlement-second",
+      replay_hash: "replay-hash-second"
+    });
+    const otherRun = createSettlementResult({
+      settlement_result_id: "settlement-other-run",
+      run_id: "run-2"
+    });
+    const otherTenant = createSettlementResult({
+      tenant_id: "tenant-2",
+      settlement_result_id: "settlement-other-tenant"
+    });
+    const store = createMinimalStore({
+      settlementResults: [first, otherRound, second, otherRun, otherTenant]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(
+      ports.settlements.listSettlementResultsForRound("tenant-1", "run-1", "round-1")
+    ).resolves.toEqual([first, second]);
+    await expect(
+      ports.settlements.listSettlementResultsForRound("tenant-1", "run-missing", "round-1")
+    ).resolves.toEqual([]);
+  });
+
+  it("inserts a full SettlementResult object unchanged and persists the store", async () => {
+    const settlement = createSettlementResult({
+      settlement_result_id: "settlement-insert",
+      replay_hash: "replay-hash-insert",
+      metadata: {
+        source: "json-adapter-characterization"
+      }
+    });
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.settlements.saveSettlementResult(settlement);
+
+    expect(store.settlementResults).toEqual([settlement]);
+    expect(store.settlementResults[0]).toBe(settlement);
+    expect(store.settlementResults[0]?.replay_hash).toBe("replay-hash-insert");
+    expect(store.settlementResults[0]?.team_results).toBe(settlement.team_results);
+    expect((store.settlementResults[0] as JsonSettlementResult | undefined)?.metadata).toEqual({
+      source: "json-adapter-characterization"
+    });
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("upserts settlement results by tenant and settlement result id without reordering unrelated results", async () => {
+    const unrelatedBefore = createSettlementResult({
+      settlement_result_id: "settlement-before",
+      replay_hash: "replay-before"
+    });
+    const original = createSettlementResult({
+      settlement_result_id: "settlement-shared",
+      replay_hash: "replay-original"
+    });
+    const unrelatedAfter = createSettlementResult({
+      settlement_result_id: "settlement-after",
+      replay_hash: "replay-after"
+    });
+    const otherTenant = createSettlementResult({
+      tenant_id: "tenant-2",
+      settlement_result_id: "settlement-shared",
+      replay_hash: "replay-other-tenant"
+    });
+    const replacement = createSettlementResult({
+      settlement_result_id: "settlement-shared",
+      replay_hash: "replay-replacement",
+      parameter_set_id: "parameter-set-replacement",
+      scenario_package_id: "scenario-package-replacement",
+      team_results: []
+    });
+    const store = createMinimalStore({
+      settlementResults: [unrelatedBefore, original, unrelatedAfter, otherTenant]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.settlements.saveSettlementResult(replacement);
+
+    expect(store.settlementResults).toEqual([
+      unrelatedBefore,
+      replacement,
+      unrelatedAfter,
+      otherTenant
+    ]);
+    expect(store.settlementResults[0]).toBe(unrelatedBefore);
+    expect(store.settlementResults[1]).toBe(replacement);
+    expect(store.settlementResults[2]).toBe(unrelatedAfter);
+    expect(store.settlementResults[3]).toBe(otherTenant);
+    expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
   it("marks a round as settled from a persisted settlement result", async () => {
