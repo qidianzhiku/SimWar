@@ -64,6 +64,7 @@ export interface PostgresDecisionReadMapping {
     runId: RepositoryId,
     roundId: RepositoryId
   ): Promise<Decision[]>;
+  saveDecision(decision: Decision): Promise<void>;
 }
 
 interface PostgresUserPresenceRow extends Record<string, unknown> {
@@ -188,6 +189,10 @@ function toDecision(row: PostgresDecisionReadRow): Decision {
   return decision;
 }
 
+function toDecisionRowId(tenantId: RepositoryId, decisionId: RepositoryId): string {
+  return JSON.stringify(["decision", tenantId, decisionId]);
+}
+
 /**
  * Skeleton holder for a future Postgres implementation.
  *
@@ -292,6 +297,28 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toDecision);
+      },
+      saveDecision: async (decision) => {
+        await this.execute(
+          "INSERT INTO decisions (id, decision_id, tenant_id, run_id, round_id, round_no, team_id, version, status, canonical_source, merge_commit_id, team_confirmation_id, submitted_by, payload, validation_report, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now()) ON CONFLICT (tenant_id, decision_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, team_id = EXCLUDED.team_id, version = EXCLUDED.version, status = EXCLUDED.status, canonical_source = EXCLUDED.canonical_source, merge_commit_id = EXCLUDED.merge_commit_id, team_confirmation_id = EXCLUDED.team_confirmation_id, submitted_by = EXCLUDED.submitted_by, payload = EXCLUDED.payload, validation_report = EXCLUDED.validation_report, updated_at = now()",
+          [
+            toDecisionRowId(decision.tenant_id, decision.decision_id),
+            decision.decision_id,
+            decision.tenant_id,
+            decision.run_id,
+            decision.round_id,
+            decision.round_no,
+            decision.team_id,
+            decision.version,
+            decision.status,
+            decision.canonical_source ?? null,
+            decision.merge_commit_id ?? null,
+            decision.team_confirmation_id ?? null,
+            decision.submitted_by,
+            decision.payload,
+            decision.validation_report
+          ]
+        );
       }
     };
   }

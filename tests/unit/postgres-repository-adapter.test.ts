@@ -731,6 +731,116 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("metadata");
   });
 
+  it("decisions.saveDecision delegates through execute and forwards full Decision fields", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const decision: Decision = {
+      canonical_source: "role_merge_commit",
+      decision_id: "decision-1",
+      merge_commit_id: "merge-1",
+      payload: {
+        capacity_plan: "hold",
+        cash_buffer_target: 0.4,
+        marketing_budget: 90000,
+        pricing: {
+          base_price: 15000
+        },
+        service_quality_budget: 70000,
+        strategy_statement: "Persist the submitted decision."
+      },
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "submitted",
+      submitted_by: "user-captain",
+      team_confirmation_id: "confirmation-1",
+      team_id: "team-1",
+      tenant_id: "tenant-1",
+      validation_report: [
+        {
+          field: "payload",
+          reason: "accepted"
+        }
+      ],
+      version: 3
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.decisions.saveDecision(decision)).resolves.toBeUndefined();
+
+    expect(calls).toEqual([
+      {
+        params: [
+          JSON.stringify(["decision", "tenant-1", "decision-1"]),
+          "decision-1",
+          "tenant-1",
+          "run-1",
+          "round-1",
+          1,
+          "team-1",
+          3,
+          "submitted",
+          "role_merge_commit",
+          "merge-1",
+          "confirmation-1",
+          "user-captain",
+          decision.payload,
+          decision.validation_report
+        ],
+        sql: "INSERT INTO decisions (id, decision_id, tenant_id, run_id, round_id, round_no, team_id, version, status, canonical_source, merge_commit_id, team_confirmation_id, submitted_by, payload, validation_report, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, now()) ON CONFLICT (tenant_id, decision_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, team_id = EXCLUDED.team_id, version = EXCLUDED.version, status = EXCLUDED.status, canonical_source = EXCLUDED.canonical_source, merge_commit_id = EXCLUDED.merge_commit_id, team_confirmation_id = EXCLUDED.team_confirmation_id, submitted_by = EXCLUDED.submitted_by, payload = EXCLUDED.payload, validation_report = EXCLUDED.validation_report, updated_at = now()"
+      }
+    ]);
+    expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, decision_id)");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
+  });
+
+  it("decisions.saveDecision writes null for missing optional canonical fields", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const decision: Decision = {
+      decision_id: "decision-2",
+      payload: {
+        capacity_plan: "expand",
+        cash_buffer_target: 0.3,
+        marketing_budget: 100000,
+        pricing: {
+          base_price: 14000
+        },
+        service_quality_budget: 75000,
+        strategy_statement: "Persist without optional canonical fields."
+      },
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "validated",
+      submitted_by: "user-cfo",
+      team_id: "team-2",
+      tenant_id: "tenant-1",
+      validation_report: [],
+      version: 1
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await adapter.decisions.saveDecision(decision);
+
+    expect(calls[0]?.params?.slice(9, 12)).toEqual([null, null, null]);
+    expect(calls[0]?.params?.[13]).toBe(decision.payload);
+    expect(calls[0]?.params?.[14]).toBe(decision.validation_report);
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -802,7 +912,7 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.decisions.getDecisionById).toEqual(expect.any(Function));
     expect(adapter.decisions.getCanonicalDecisionForTeamRound).toEqual(expect.any(Function));
     expect(adapter.decisions.listDecisionsForRound).toEqual(expect.any(Function));
-    expect("saveDecision" in adapter.decisions).toBe(false);
+    expect(adapter.decisions.saveDecision).toEqual(expect.any(Function));
     expect("saveCanonicalDecision" in adapter.decisions).toBe(false);
     expect("settlements" in adapter).toBe(false);
     expect("replay" in adapter).toBe(false);
