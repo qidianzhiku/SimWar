@@ -841,6 +841,53 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.params?.[14]).toBe(decision.validation_report);
   });
 
+  it("decisions.saveDecision scopes row identity by tenant and decision id", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+    const baseDecision: Decision = {
+      decision_id: "decision-shared",
+      payload: {
+        capacity_plan: "hold",
+        cash_buffer_target: 0.4,
+        marketing_budget: 90000,
+        pricing: {
+          base_price: 15000
+        },
+        service_quality_budget: 70000,
+        strategy_statement: "Persist tenant scoped decision."
+      },
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "submitted",
+      submitted_by: "user-captain",
+      team_id: "team-1",
+      tenant_id: "tenant-1",
+      validation_report: [],
+      version: 1
+    };
+
+    await adapter.decisions.saveDecision(baseDecision);
+    await adapter.decisions.saveDecision({
+      ...baseDecision,
+      tenant_id: "tenant-2"
+    });
+
+    expect(calls[0]?.params?.[0]).toBe(JSON.stringify(["decision", "tenant-1", "decision-shared"]));
+    expect(calls[1]?.params?.[0]).toBe(JSON.stringify(["decision", "tenant-2", "decision-shared"]));
+    expect(calls[0]?.params?.[1]).toBe("decision-shared");
+    expect(calls[1]?.params?.[1]).toBe("decision-shared");
+    expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, decision_id)");
+    expect(calls[0]?.sql).not.toContain("decision_id text NOT NULL UNIQUE");
+  });
+
   it("decisions.saveCanonicalDecision reuses the saveDecision upsert path and forwards full Decision fields", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const decision: Decision = {
@@ -949,6 +996,54 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.params?.[14]).toBe(decision.validation_report);
   });
 
+  it("decision write mappings stay inside persistence columns without truth-chain fields", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const decision: Decision = {
+      decision_id: "decision-truth-guard",
+      payload: {
+        capacity_plan: "hold",
+        cash_buffer_target: 0.4,
+        marketing_budget: 90000,
+        pricing: {
+          base_price: 15000
+        },
+        service_quality_budget: 70000,
+        strategy_statement: "Persist without truth-chain side effects."
+      },
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "submitted",
+      submitted_by: "user-captain",
+      team_id: "team-1",
+      tenant_id: "tenant-1",
+      validation_report: [],
+      version: 1
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await adapter.decisions.saveDecision(decision);
+    await adapter.decisions.saveCanonicalDecision(decision);
+
+    for (const call of calls) {
+      expect(call.sql).not.toMatch(/^SELECT/i);
+      expect(call.sql).not.toContain("metadata");
+      expect(call.sql).not.toContain("replay_hash");
+      expect(call.sql).not.toContain("buildReplayHash");
+      expect(call.sql).not.toContain("settlement");
+      expect(call.sql).not.toContain("role_draft");
+      expect(call.sql).not.toContain("ai_advice");
+      expect(call.sql).not.toContain("learning_evidence");
+    }
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -1022,6 +1117,13 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.decisions.listDecisionsForRound).toEqual(expect.any(Function));
     expect(adapter.decisions.saveDecision).toEqual(expect.any(Function));
     expect(adapter.decisions.saveCanonicalDecision).toEqual(expect.any(Function));
+    expect(Object.keys(adapter.decisions).sort()).toEqual([
+      "getCanonicalDecisionForTeamRound",
+      "getDecisionById",
+      "listDecisionsForRound",
+      "saveCanonicalDecision",
+      "saveDecision"
+    ]);
     expect("settlements" in adapter).toBe(false);
     expect("replay" in adapter).toBe(false);
   });
