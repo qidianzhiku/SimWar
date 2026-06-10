@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Run } from "@simwar/shared-contracts";
+import type { Round, Run } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
   createPostgresRepositoryAdapter,
@@ -26,6 +26,16 @@ describe("Postgres repository adapter skeleton", () => {
     scenario_package_id: string;
     seed: number;
     status: Run["status"];
+    tenant_id: string;
+  }
+
+  interface RoundRow extends Record<string, unknown> {
+    decision_batch_id?: string | null;
+    replay_hash?: string | null;
+    round_id: string;
+    round_no: number;
+    run_id: string;
+    status: Round["status"];
     tenant_id: string;
   }
 
@@ -365,6 +375,98 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("metadata");
   });
 
+  it("rounds.getRound delegates through the injected executor and returns a full Round", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const row: RoundRow = {
+      decision_batch_id: "decision-batch-1",
+      replay_hash: "replay-hash-1",
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "settled",
+      tenant_id: "tenant-1"
+    };
+    const expected: Round = { ...row };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [row]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.rounds.getRound("tenant-1", "round-1")).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "round-1"],
+        sql: "SELECT tenant_id, round_id, run_id, round_no, status, decision_batch_id, replay_hash FROM simulation_rounds WHERE tenant_id = $1 AND round_id = $2"
+      }
+    ]);
+  });
+
+  it("rounds.getRound returns null when no row exists", async () => {
+    const queryExecutor: PostgresQueryExecutor = async () => ({
+      rowCount: 0,
+      rows: []
+    });
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.rounds.getRound("tenant-1", "missing-round")).resolves.toBeNull();
+  });
+
+  it("rounds.listRoundsForRun delegates through the injected executor and returns rounds", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const rows: RoundRow[] = [
+      {
+        decision_batch_id: "decision-batch-1",
+        replay_hash: "replay-hash-1",
+        round_id: "round-1",
+        round_no: 1,
+        run_id: "run-1",
+        status: "settled",
+        tenant_id: "tenant-1"
+      },
+      {
+        decision_batch_id: null,
+        replay_hash: null,
+        round_id: "round-2",
+        round_no: 2,
+        run_id: "run-1",
+        status: "open",
+        tenant_id: "tenant-1"
+      }
+    ];
+    const expected: Round[] = [
+      rows[0],
+      {
+        round_id: "round-2",
+        round_no: 2,
+        run_id: "run-1",
+        status: "open",
+        tenant_id: "tenant-1"
+      }
+    ];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: rows.length,
+        rows
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.rounds.listRoundsForRun("tenant-1", "run-1")).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "run-1"],
+        sql: "SELECT tenant_id, round_id, run_id, round_no, status, decision_batch_id, replay_hash FROM simulation_rounds WHERE tenant_id = $1 AND run_id = $2 ORDER BY created_at ASC, round_id ASC"
+      }
+    ]);
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("metadata");
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -418,12 +520,20 @@ describe("Postgres repository adapter skeleton", () => {
 
     const adapter = createPostgresRepositoryAdapter({ queryExecutor });
 
-    expect(Object.keys(adapter).sort()).toEqual(["courses", "options", "queryExecutor", "runs"]);
+    expect(Object.keys(adapter).sort()).toEqual([
+      "courses",
+      "options",
+      "queryExecutor",
+      "rounds",
+      "runs"
+    ]);
     expect("identity" in adapter).toBe(false);
     expect(adapter.courses.getCourse).toEqual(expect.any(Function));
     expect(adapter.courses.listCoursesForUser).toEqual(expect.any(Function));
     expect(adapter.runs.getRun).toEqual(expect.any(Function));
     expect(adapter.runs.listRunsForCourse).toEqual(expect.any(Function));
+    expect(adapter.rounds.getRound).toEqual(expect.any(Function));
+    expect(adapter.rounds.listRoundsForRun).toEqual(expect.any(Function));
     expect("decisions" in adapter).toBe(false);
     expect("settlements" in adapter).toBe(false);
     expect("replay" in adapter).toBe(false);
