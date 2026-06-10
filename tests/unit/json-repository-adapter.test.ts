@@ -168,6 +168,34 @@ describe("JSON repository adapter", () => {
     ).resolves.toBe(versionTwoFirst);
   });
 
+  it("inserts a full Decision object unchanged through saveDecision", async () => {
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store);
+    const decision = createDecision({
+      decision_id: "decision-insert",
+      version: 3,
+      payload: {
+        pricing: { base_price: 13200 },
+        marketing_budget: 210000,
+        service_quality_budget: 125000,
+        capacity_plan: "hold",
+        cash_buffer_target: 0.22,
+        strategy_statement: "inserted decision should stay unchanged"
+      },
+      validation_report: [{ field: "payload", reason: "accepted" }],
+      submitted_by: "user-operator",
+      canonical_source: "legacy_direct",
+      merge_commit_id: "merge-insert",
+      team_confirmation_id: "confirmation-insert"
+    });
+
+    await ports.decisions.saveDecision(decision);
+
+    expect(store.decisions).toEqual([decision]);
+    expect(store.decisions[0]).toBe(decision);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves the full Decision object when saveDecision persists and upserts by tenant and decision id", async () => {
     const store = createMinimalStore({
       decisions: [
@@ -213,6 +241,43 @@ describe("JSON repository adapter", () => {
     expect(store.decisions).toHaveLength(2);
     expect(store.decisions[0]).toBe(replacement);
     expect(store.decisions[1]?.tenant_id).toBe("tenant-2");
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reorder unrelated decisions when saveDecision replaces an existing decision", async () => {
+    const unrelatedBefore = createDecision({
+      decision_id: "decision-before",
+      team_id: "team-before"
+    });
+    const original = createDecision({
+      decision_id: "decision-replace",
+      team_id: "team-replace",
+      version: 1
+    });
+    const unrelatedAfter = createDecision({
+      decision_id: "decision-after",
+      team_id: "team-after"
+    });
+    const replacement = createDecision({
+      decision_id: "decision-replace",
+      team_id: "team-replace",
+      version: 2,
+      payload: {
+        ...BASE_DECISION_PAYLOAD,
+        strategy_statement: "replacement stays in original slot"
+      }
+    });
+    const store = createMinimalStore({
+      decisions: [unrelatedBefore, original, unrelatedAfter]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.decisions.saveDecision(replacement);
+
+    expect(store.decisions).toEqual([unrelatedBefore, replacement, unrelatedAfter]);
+    expect(store.decisions[0]).toBe(unrelatedBefore);
+    expect(store.decisions[1]).toBe(replacement);
+    expect(store.decisions[2]).toBe(unrelatedAfter);
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
