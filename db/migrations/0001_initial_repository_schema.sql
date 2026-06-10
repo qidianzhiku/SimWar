@@ -80,7 +80,7 @@ CREATE INDEX IF NOT EXISTS simulation_rounds_created_at_idx ON simulation_rounds
 
 CREATE TABLE IF NOT EXISTS decisions (
   id text PRIMARY KEY,
-  decision_id text NOT NULL UNIQUE,
+  decision_id text NOT NULL,
   tenant_id text NOT NULL,
   run_id text NOT NULL,
   round_id text NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS decisions (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT decisions_id_matches_decision_id CHECK (id = decision_id)
+  CONSTRAINT decisions_tenant_decision_id_unique UNIQUE (tenant_id, decision_id)
 );
 
 CREATE INDEX IF NOT EXISTS decisions_tenant_id_idx ON decisions (tenant_id);
