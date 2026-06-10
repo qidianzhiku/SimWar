@@ -7,7 +7,7 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
-import type { Run } from "@simwar/shared-contracts";
+import type { Round, Run } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -46,6 +46,11 @@ export interface PostgresRunReadMapping {
   listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
 }
 
+export interface PostgresRoundReadMapping {
+  getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
+  listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -63,6 +68,16 @@ interface PostgresRunReadRow extends Record<string, unknown> {
   scenario_package_id: RepositoryId;
   seed: number;
   status: Run["status"];
+  tenant_id: RepositoryId;
+}
+
+interface PostgresRoundReadRow extends Record<string, unknown> {
+  decision_batch_id?: string | null;
+  replay_hash?: string | null;
+  round_id: RepositoryId;
+  round_no: Round["round_no"];
+  run_id: RepositoryId;
+  status: Round["status"];
   tenant_id: RepositoryId;
 }
 
@@ -91,6 +106,26 @@ function toRun(row: PostgresRunReadRow): Run {
   };
 }
 
+function toRound(row: PostgresRoundReadRow): Round {
+  const round: Round = {
+    round_id: row.round_id,
+    round_no: row.round_no,
+    run_id: row.run_id,
+    status: row.status,
+    tenant_id: row.tenant_id
+  };
+
+  if (typeof row.decision_batch_id === "string") {
+    round.decision_batch_id = row.decision_batch_id;
+  }
+
+  if (typeof row.replay_hash === "string") {
+    round.replay_hash = row.replay_hash;
+  }
+
+  return round;
+}
+
 /**
  * Skeleton holder for a future Postgres implementation.
  *
@@ -101,6 +136,7 @@ export class PostgresRepositoryAdapter {
   readonly courses: PostgresCourseReadMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
+  readonly rounds: PostgresRoundReadMapping;
   readonly runs: PostgresRunReadMapping;
 
   constructor(options: PostgresRepositoryAdapterOptions) {
@@ -149,6 +185,24 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toRun);
+      }
+    };
+    this.rounds = {
+      getRound: async (tenantId, roundId) => {
+        const row = await this.queryOne<PostgresRoundReadRow>(
+          "SELECT tenant_id, round_id, run_id, round_no, status, decision_batch_id, replay_hash FROM simulation_rounds WHERE tenant_id = $1 AND round_id = $2",
+          [tenantId, roundId]
+        );
+
+        return row === null ? null : toRound(row);
+      },
+      listRoundsForRun: async (tenantId, runId) => {
+        const rows = await this.queryRows<PostgresRoundReadRow>(
+          "SELECT tenant_id, round_id, run_id, round_no, status, decision_batch_id, replay_hash FROM simulation_rounds WHERE tenant_id = $1 AND run_id = $2 ORDER BY created_at ASC, round_id ASC",
+          [tenantId, runId]
+        );
+
+        return rows.map(toRound);
       }
     };
   }
