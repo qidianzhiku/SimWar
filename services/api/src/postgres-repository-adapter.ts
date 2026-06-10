@@ -7,7 +7,7 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
-import type { Round, Run } from "@simwar/shared-contracts";
+import type { Decision, Round, Run } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -51,6 +51,15 @@ export interface PostgresRoundReadMapping {
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
 }
 
+export interface PostgresDecisionReadMapping {
+  getDecisionById(tenantId: RepositoryId, decisionId: RepositoryId): Promise<Decision | null>;
+  listDecisionsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId
+  ): Promise<Decision[]>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -79,6 +88,23 @@ interface PostgresRoundReadRow extends Record<string, unknown> {
   run_id: RepositoryId;
   status: Round["status"];
   tenant_id: RepositoryId;
+}
+
+interface PostgresDecisionReadRow extends Record<string, unknown> {
+  canonical_source?: Decision["canonical_source"] | null;
+  decision_id: RepositoryId;
+  merge_commit_id?: string | null;
+  payload: Decision["payload"];
+  round_id: RepositoryId;
+  round_no: Decision["round_no"];
+  run_id: RepositoryId;
+  status: Decision["status"];
+  submitted_by: string;
+  team_confirmation_id?: string | null;
+  team_id: RepositoryId;
+  tenant_id: RepositoryId;
+  validation_report: Decision["validation_report"];
+  version: Decision["version"];
 }
 
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
@@ -126,6 +152,36 @@ function toRound(row: PostgresRoundReadRow): Round {
   return round;
 }
 
+function toDecision(row: PostgresDecisionReadRow): Decision {
+  const decision: Decision = {
+    decision_id: row.decision_id,
+    payload: row.payload,
+    round_id: row.round_id,
+    round_no: row.round_no,
+    run_id: row.run_id,
+    status: row.status,
+    submitted_by: row.submitted_by,
+    team_id: row.team_id,
+    tenant_id: row.tenant_id,
+    validation_report: row.validation_report,
+    version: row.version
+  };
+
+  if (typeof row.canonical_source === "string") {
+    decision.canonical_source = row.canonical_source;
+  }
+
+  if (typeof row.merge_commit_id === "string") {
+    decision.merge_commit_id = row.merge_commit_id;
+  }
+
+  if (typeof row.team_confirmation_id === "string") {
+    decision.team_confirmation_id = row.team_confirmation_id;
+  }
+
+  return decision;
+}
+
 /**
  * Skeleton holder for a future Postgres implementation.
  *
@@ -134,6 +190,7 @@ function toRound(row: PostgresRoundReadRow): Round {
  */
 export class PostgresRepositoryAdapter {
   readonly courses: PostgresCourseReadMapping;
+  readonly decisions: PostgresDecisionReadMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
   readonly rounds: PostgresRoundReadMapping;
@@ -203,6 +260,24 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toRound);
+      }
+    };
+    this.decisions = {
+      getDecisionById: async (tenantId, decisionId) => {
+        const row = await this.queryOne<PostgresDecisionReadRow>(
+          "SELECT tenant_id, decision_id, run_id, round_id, round_no, team_id, status, version, payload, validation_report, submitted_by, canonical_source, merge_commit_id, team_confirmation_id FROM decisions WHERE tenant_id = $1 AND decision_id = $2",
+          [tenantId, decisionId]
+        );
+
+        return row === null ? null : toDecision(row);
+      },
+      listDecisionsForRound: async (tenantId, runId, roundId) => {
+        const rows = await this.queryRows<PostgresDecisionReadRow>(
+          "SELECT tenant_id, decision_id, run_id, round_id, round_no, team_id, status, version, payload, validation_report, submitted_by, canonical_source, merge_commit_id, team_confirmation_id FROM decisions WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 ORDER BY created_at ASC, decision_id ASC",
+          [tenantId, runId, roundId]
+        );
+
+        return rows.map(toDecision);
       }
     };
   }
