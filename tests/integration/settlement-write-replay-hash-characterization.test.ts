@@ -289,7 +289,7 @@ describe("settlement result write and replay hash characterization", () => {
   });
 
   it("characterizes settlement as using the latest submitted decision version for the team", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, server, store } = await startServer();
 
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher");
@@ -311,6 +311,19 @@ describe("settlement result write and replay hash characterization", () => {
       );
       expect(firstDecision.version).toBe(1);
       expect(latestDecision.version).toBe(2);
+      expect(firstDecision.status).toBe("validated");
+      expect(latestDecision.status).toBe("validated");
+
+      const storedVersions = store.decisions.filter(
+        (decision) =>
+          decision.run_id === twoVersionRun.run_id &&
+          decision.round_no === 1 &&
+          decision.team_id === "team_alpha" &&
+          decision.tenant_id === "tenant_demo"
+      );
+      expect(storedVersions.map((decision) => decision.version)).toEqual([1, 2]);
+      expect(storedVersions.at(-1)).toEqual(latestDecision);
+
       await lockRound(baseUrl, teacherToken, twoVersionRun.run_id);
       const twoVersionSettlement = await settleRoundViaApi(
         baseUrl,
@@ -351,6 +364,12 @@ describe("settlement result write and replay hash characterization", () => {
       expect(twoVersionSettlement.body.data.team_results).not.toEqual(
         firstOnlySettlement.body.data.team_results
       );
+
+      const storedSettlement = store.settlementResults.find(
+        (settlement) => settlement.run_id === twoVersionRun.run_id
+      );
+      expect(storedSettlement?.replay_hash).toBe(twoVersionSettlement.body.data.replay_hash);
+      expect(storedSettlement?.team_results).toEqual(twoVersionSettlement.body.data.team_results);
     } finally {
       await stopServer(server);
     }
