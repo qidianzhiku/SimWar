@@ -53,6 +53,12 @@ export interface PostgresRoundReadMapping {
 
 export interface PostgresDecisionReadMapping {
   getDecisionById(tenantId: RepositoryId, decisionId: RepositoryId): Promise<Decision | null>;
+  getCanonicalDecisionForTeamRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId,
+    teamId: RepositoryId
+  ): Promise<Decision | null>;
   listDecisionsForRound(
     tenantId: RepositoryId,
     runId: RepositoryId,
@@ -267,6 +273,14 @@ export class PostgresRepositoryAdapter {
         const row = await this.queryOne<PostgresDecisionReadRow>(
           "SELECT tenant_id, decision_id, run_id, round_id, round_no, team_id, status, version, payload, validation_report, submitted_by, canonical_source, merge_commit_id, team_confirmation_id FROM decisions WHERE tenant_id = $1 AND decision_id = $2",
           [tenantId, decisionId]
+        );
+
+        return row === null ? null : toDecision(row);
+      },
+      getCanonicalDecisionForTeamRound: async (tenantId, runId, roundId, teamId) => {
+        const row = await this.queryOne<PostgresDecisionReadRow>(
+          "SELECT tenant_id, decision_id, run_id, round_id, round_no, team_id, status, version, payload, validation_report, submitted_by, canonical_source, merge_commit_id, team_confirmation_id FROM decisions WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 AND team_id = $4 AND status = 'submitted' ORDER BY created_at ASC, decision_id ASC LIMIT 1",
+          [tenantId, runId, roundId, teamId]
         );
 
         return row === null ? null : toDecision(row);

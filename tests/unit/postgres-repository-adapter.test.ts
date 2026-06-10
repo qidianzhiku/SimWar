@@ -545,6 +545,80 @@ describe("Postgres repository adapter skeleton", () => {
     ).resolves.toBeNull();
   });
 
+  it("decisions.getCanonicalDecisionForTeamRound returns the first submitted matching decision", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const row: DecisionRow = {
+      canonical_source: "role_merge_commit",
+      decision_id: "decision-canonical",
+      merge_commit_id: "merge-1",
+      payload: {
+        capacity_plan: "hold",
+        cash_buffer_target: 0.4,
+        marketing_budget: 90000,
+        pricing: {
+          base_price: 15000
+        },
+        service_quality_budget: 70000,
+        strategy_statement: "Submitted canonical decision."
+      },
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      status: "submitted",
+      submitted_by: "user-captain",
+      team_confirmation_id: "confirmation-1",
+      team_id: "team-1",
+      tenant_id: "tenant-1",
+      validation_report: [
+        {
+          field: "payload",
+          reason: "accepted"
+        }
+      ],
+      version: 1
+    };
+    const expected: Decision = { ...row };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [row]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.decisions.getCanonicalDecisionForTeamRound("tenant-1", "run-1", "round-1", "team-1")
+    ).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "run-1", "round-1", "team-1"],
+        sql: "SELECT tenant_id, decision_id, run_id, round_id, round_no, team_id, status, version, payload, validation_report, submitted_by, canonical_source, merge_commit_id, team_confirmation_id FROM decisions WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 AND team_id = $4 AND status = 'submitted' ORDER BY created_at ASC, decision_id ASC LIMIT 1"
+      }
+    ]);
+    expect(calls[0]?.sql).toContain("status = 'submitted'");
+    expect(calls[0]?.sql).toContain("ORDER BY created_at ASC, decision_id ASC");
+    expect(calls[0]?.sql).not.toContain("version DESC");
+    expect(calls[0]?.sql).not.toContain("metadata");
+  });
+
+  it("decisions.getCanonicalDecisionForTeamRound returns null when no submitted row exists", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 0,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.decisions.getCanonicalDecisionForTeamRound("tenant-1", "run-1", "round-1", "team-1")
+    ).resolves.toBeNull();
+    expect(calls).toHaveLength(1);
+  });
+
   it("decisions.listDecisionsForRound delegates through the injected executor and returns decisions", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const rows: DecisionRow[] = [
@@ -726,8 +800,8 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.rounds.getRound).toEqual(expect.any(Function));
     expect(adapter.rounds.listRoundsForRun).toEqual(expect.any(Function));
     expect(adapter.decisions.getDecisionById).toEqual(expect.any(Function));
+    expect(adapter.decisions.getCanonicalDecisionForTeamRound).toEqual(expect.any(Function));
     expect(adapter.decisions.listDecisionsForRound).toEqual(expect.any(Function));
-    expect("getCanonicalDecisionForTeamRound" in adapter.decisions).toBe(false);
     expect("saveDecision" in adapter.decisions).toBe(false);
     expect("saveCanonicalDecision" in adapter.decisions).toBe(false);
     expect("settlements" in adapter).toBe(false);
