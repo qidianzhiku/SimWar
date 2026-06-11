@@ -220,11 +220,6 @@ Stop and report instead of guessing when:
 - origin/master does not contain the required previous PR
 - validation fails for reasons unrelated to the current PR
 
-## Existing SimWar Agent Development Guide
-
-本文件是 SimWar 仓库的 agent 开发规则，作用范围为整个仓库。
-Codex、Claude Code 或其他 coding agent 在本仓库内开发、测试、评审和生成代码时，必须优先遵守本文件。
-
 ## Quick Rules
 
 - 先读本文件，再读 `DEVELOPMENT_PLAN.md` 和本次任务相关文档。
