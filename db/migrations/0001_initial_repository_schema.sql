@@ -110,16 +110,23 @@ CREATE INDEX IF NOT EXISTS decisions_run_round_team_version_idx
 
 CREATE TABLE IF NOT EXISTS settlement_results (
   id text PRIMARY KEY,
-  settlement_result_id text NOT NULL UNIQUE,
+  settlement_result_id text NOT NULL,
   tenant_id text NOT NULL,
   run_id text NOT NULL,
   round_id text NOT NULL,
+  round_no integer NOT NULL,
+  parameter_set_id text NOT NULL,
+  scenario_package_id text NOT NULL,
   replay_hash text NOT NULL,
+  team_results jsonb NOT NULL DEFAULT '[]'::jsonb,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT settlement_results_id_matches_result_id CHECK (id = settlement_result_id)
+  CONSTRAINT settlement_results_tenant_result_id_unique UNIQUE (
+    tenant_id,
+    settlement_result_id
+  )
 );
 
 CREATE INDEX IF NOT EXISTS settlement_results_tenant_id_idx ON settlement_results (tenant_id);
