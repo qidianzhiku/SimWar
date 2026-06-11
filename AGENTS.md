@@ -25,8 +25,8 @@
 git fetch origin --prune
 git log --oneline -10 origin/master
 git worktree list
-git worktree add <worktree-path> origin/master -b <branch-name>
-cd <worktree-path>
+git worktree add [WORKTREE_PATH] origin/master -b [BRANCH_NAME]
+cd [WORKTREE_PATH]
 git status
 git branch --show-current
 git log --oneline -5 HEAD
@@ -58,13 +58,13 @@ npm run test:migration:apply
 For targeted tests:
 
 ```powershell
-npx vitest run <test-file>
+npx vitest run [TEST_FILE]
 ```
 
 For changed files:
 
 ```powershell
-npx prettier --check <changed-files>
+npx prettier --check [CHANGED_FILES]
 ```
 
 If a script does not exist or SQL Prettier is unsupported, do not add dependencies or scripts. Report it as unavailable or unsupported.
