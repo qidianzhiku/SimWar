@@ -215,12 +215,43 @@ describe("Postgres repository adapter skeleton", () => {
     expect(call?.sql).not.toContain("decisions");
     expect(call?.sql).not.toContain("simulation_rounds");
     expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("role_draft");
+    expect(call?.sql).not.toContain("ai_advice");
+    expect(call?.sql).not.toContain("learning_evidence");
+    expect(call?.sql).not.toContain("prompt_output");
+    expect(call?.sql).not.toContain("analytics");
+  };
+
+  const expectReplayReadBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined,
+    recordType: "diff" | "manifest" | "report" | "run",
+    identityColumn: string
+  ): void => {
+    expect(call?.sql).toMatch(/^SELECT payload FROM replay_records/);
+    expect(call?.sql).toContain("tenant_id = $1");
+    expect(call?.sql).toContain(`record_type = '${recordType}'`);
+    expect(call?.sql).toContain(`${identityColumn} = $2`);
+    expect(call?.sql).toContain("ORDER BY append_sequence ASC");
+    expect(call?.sql).toContain("LIMIT 1");
+    expect(call?.sql).not.toContain("metadata");
+    expect(call?.sql).not.toContain("buildReplayHash");
+    expect(call?.sql).not.toContain("created_at ASC");
+    expect(call?.sql).not.toContain("append_sequence DESC");
+    expect(call?.sql).not.toContain("version DESC");
+    expect(call?.sql).not.toContain("latest");
+    expect(call?.sql).not.toContain("MAX(");
+    expect(call?.sql).not.toContain("DISTINCT ON");
   };
 
   const expectJsonPayloadParam = (param: unknown, expected: unknown): void => {
     expect(typeof param).toBe("string");
     expect(param).toBe(JSON.stringify(expected));
     expect(JSON.parse(param as string)).toEqual(expected);
+  };
+
+  const parseJsonPayloadParam = <TExpected>(param: unknown, expected: TExpected): TExpected => {
+    expectJsonPayloadParam(param, expected);
+    return JSON.parse(param as string) as TExpected;
   };
 
   it("keeps the query executor boundary callable with SQL and params only", async () => {
@@ -1659,6 +1690,74 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("buildReplayHash");
   });
 
+  it("Postgres replay reads preserve JSON first-match append order", async () => {
+    type ReplayPayload = ReplayInputManifest | ReplayRun | ReplayReport | ReplayDiffReport;
+    const readCases: Array<{
+      identity: string;
+      identityColumn: string;
+      payload: ReplayPayload;
+      read: (adapter: PostgresRepositoryAdapter, identity: string) => Promise<ReplayPayload | null>;
+      recordType: "diff" | "manifest" | "report" | "run";
+    }> = [
+      {
+        identity: replayInputManifest.manifest_id,
+        identityColumn: "manifest_id",
+        payload: replayInputManifest,
+        read: (adapter, identity) => adapter.replay.getReplayInputManifest("tenant-1", identity),
+        recordType: "manifest"
+      },
+      {
+        identity: replayRun.replay_run_id,
+        identityColumn: "replay_run_id",
+        payload: replayRun,
+        read: (adapter, identity) => adapter.replay.getReplayRun("tenant-1", identity),
+        recordType: "run"
+      },
+      {
+        identity: replayReport.replay_report_id,
+        identityColumn: "replay_report_id",
+        payload: replayReport,
+        read: (adapter, identity) => adapter.replay.getReplayReport("tenant-1", identity),
+        recordType: "report"
+      },
+      {
+        identity: replayDiffReport.diff_report_id,
+        identityColumn: "diff_report_id",
+        payload: replayDiffReport,
+        read: (adapter, identity) => adapter.replay.getReplayDiffReport("tenant-1", identity),
+        recordType: "diff"
+      }
+    ];
+
+    for (const readCase of readCases) {
+      const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+      const adapter = createPostgresRepositoryAdapter({
+        queryExecutor: async (sql, params) => {
+          calls.push({ sql, params });
+
+          return params?.[1] === readCase.identity
+            ? {
+                rowCount: 1,
+                rows: [{ payload: readCase.payload }]
+              }
+            : {
+                rowCount: 0,
+                rows: []
+              };
+        }
+      });
+
+      await expect(readCase.read(adapter, readCase.identity)).resolves.toEqual(readCase.payload);
+      await expect(readCase.read(adapter, `missing-${readCase.recordType}`)).resolves.toBeNull();
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0]?.params).toEqual(["tenant-1", readCase.identity]);
+      expect(calls[1]?.params).toEqual(["tenant-1", `missing-${readCase.recordType}`]);
+      expectReplayReadBoundary(calls[0], readCase.recordType, readCase.identityColumn);
+      expectReplayReadBoundary(calls[1], readCase.recordType, readCase.identityColumn);
+    }
+  });
+
   it("replay.saveReplayInputManifest appends a full manifest payload through execute", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const adapter = createPostgresRepositoryAdapter({
@@ -1838,6 +1937,73 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
   });
 
+  it("replay write mappings preserve explicit columns, JSONB payloads, and truth-chain boundaries", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const originalInputs = JSON.stringify({
+      replayDiffReport,
+      replayInputManifest,
+      replayReport,
+      replayRun
+    });
+
+    await adapter.replay.saveReplayInputManifest(replayInputManifest);
+    await adapter.replay.saveReplayRun(replayRun);
+    await adapter.replay.saveReplayReport(replayReport);
+    await adapter.replay.saveReplayDiffReport(replayDiffReport);
+
+    expect(calls).toHaveLength(4);
+    expect(
+      JSON.stringify({
+        replayDiffReport,
+        replayInputManifest,
+        replayReport,
+        replayRun
+      })
+    ).toBe(originalInputs);
+
+    const manifestPayload = parseJsonPayloadParam<ReplayInputManifest>(
+      calls[0]?.params?.[8],
+      replayInputManifest
+    );
+    const runPayload = parseJsonPayloadParam<ReplayRun>(calls[1]?.params?.[7], replayRun);
+    const reportPayload = parseJsonPayloadParam<ReplayReport>(calls[2]?.params?.[9], replayReport);
+    const diffPayload = parseJsonPayloadParam<ReplayDiffReport>(
+      calls[3]?.params?.[6],
+      replayDiffReport
+    );
+
+    expectReplayInsertBoundary(calls[0], "manifest", "manifest_id");
+    expectReplayInsertBoundary(calls[1], "run", "replay_run_id");
+    expectReplayInsertBoundary(calls[2], "report", "replay_report_id");
+    expectReplayInsertBoundary(calls[3], "diff", "diff_report_id");
+    expect(calls[0]?.sql).toContain("$9::jsonb");
+    expect(calls[1]?.sql).toContain("$8::jsonb");
+    expect(calls[2]?.sql).toContain("$10::jsonb");
+    expect(calls[3]?.sql).toContain("$7::jsonb");
+
+    expect(calls[0]?.params?.[4]).toBe(manifestPayload.manifest_id);
+    expect(calls[0]?.params?.[5]).toBe(manifestPayload.source_result_id);
+    expect(calls[0]?.params?.[6]).toBe(manifestPayload.input_hash);
+    expect(calls[0]?.params?.[7]).toBe(manifestPayload.manifest_hash);
+
+    expect(calls[1]?.params?.[4]).toBe(runPayload.replay_run_id);
+    expect(calls[1]?.params?.[5]).toBe(runPayload.manifest_id);
+    expect(calls[1]?.params?.[6]).toBe(runPayload.status);
+
+    expect(calls[2]?.params?.[4]).toBe(reportPayload.replay_report_id);
+    expect(calls[2]?.params?.[5]).toBe(reportPayload.replay_run_id);
+    expect(calls[2]?.params?.[6]).toBe(reportPayload.source_result_id);
+    expect(calls[2]?.params?.[7]).toBe(reportPayload.replay_result_hash);
+    expect(calls[2]?.params?.[8]).toBe(reportPayload.status);
+
+    expect(calls[3]?.params?.[4]).toBe(diffPayload.diff_report_id);
+    expect(calls[3]?.params?.[5]).toBe(diffPayload.replay_report_id);
+    expect(calls[3]?.sql).not.toContain("replay_diff_report_id");
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -1949,6 +2115,13 @@ describe("Postgres repository adapter skeleton", () => {
     expect("listReplayRecords" in adapter.replay).toBe(false);
     expect("updateReplayRecord" in adapter.replay).toBe(false);
     expect("deleteReplayRecord" in adapter.replay).toBe(false);
+    expect("list" in adapter.replay).toBe(false);
+    expect("update" in adapter.replay).toBe(false);
+    expect("delete" in adapter.replay).toBe(false);
+    expect("provider" in adapter.replay).toBe(false);
+    expect("repositoryProvider" in adapter.replay).toBe(false);
+    expect("runtime" in adapter.replay).toBe(false);
+    expect("connect" in adapter.replay).toBe(false);
     expect("provider" in adapter).toBe(false);
     expect("repositoryProvider" in adapter).toBe(false);
   });
