@@ -7,7 +7,7 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
-import type { Decision, Round, Run } from "@simwar/shared-contracts";
+import type { Decision, Round, Run, SettlementResult } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -68,6 +68,18 @@ export interface PostgresDecisionMapping {
   saveCanonicalDecision(decision: Decision): Promise<void>;
 }
 
+export interface PostgresSettlementReadMapping {
+  getSettlementResult(
+    tenantId: RepositoryId,
+    settlementResultId: RepositoryId
+  ): Promise<SettlementResult | null>;
+  listSettlementResultsForRound(
+    tenantId: RepositoryId,
+    runId: RepositoryId,
+    roundId: RepositoryId
+  ): Promise<SettlementResult[]>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -113,6 +125,18 @@ interface PostgresDecisionReadRow extends Record<string, unknown> {
   tenant_id: RepositoryId;
   validation_report: Decision["validation_report"];
   version: Decision["version"];
+}
+
+interface PostgresSettlementResultReadRow extends Record<string, unknown> {
+  parameter_set_id: RepositoryId;
+  replay_hash: SettlementResult["replay_hash"];
+  round_id: RepositoryId;
+  round_no: SettlementResult["round_no"];
+  run_id: RepositoryId;
+  scenario_package_id: RepositoryId;
+  settlement_result_id: RepositoryId;
+  team_results: SettlementResult["team_results"];
+  tenant_id: RepositoryId;
 }
 
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
@@ -194,6 +218,20 @@ function toDecisionRowId(tenantId: RepositoryId, decisionId: RepositoryId): stri
   return JSON.stringify(["decision", tenantId, decisionId]);
 }
 
+function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementResult {
+  return {
+    parameter_set_id: row.parameter_set_id,
+    replay_hash: row.replay_hash,
+    round_id: row.round_id,
+    round_no: row.round_no,
+    run_id: row.run_id,
+    scenario_package_id: row.scenario_package_id,
+    settlement_result_id: row.settlement_result_id,
+    team_results: row.team_results,
+    tenant_id: row.tenant_id
+  };
+}
+
 /**
  * Skeleton holder for a future Postgres implementation.
  *
@@ -207,6 +245,7 @@ export class PostgresRepositoryAdapter {
   readonly queryExecutor: PostgresQueryExecutor;
   readonly rounds: PostgresRoundReadMapping;
   readonly runs: PostgresRunReadMapping;
+  readonly settlements: PostgresSettlementReadMapping;
 
   constructor(options: PostgresRepositoryAdapterOptions) {
     this.options = { ...options };
@@ -304,6 +343,24 @@ export class PostgresRepositoryAdapter {
       },
       saveCanonicalDecision: async (decision) => {
         await this.saveDecisionRow(decision);
+      }
+    };
+    this.settlements = {
+      getSettlementResult: async (tenantId, settlementResultId) => {
+        const row = await this.queryOne<PostgresSettlementResultReadRow>(
+          "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND settlement_result_id = $2",
+          [tenantId, settlementResultId]
+        );
+
+        return row === null ? null : toSettlementResult(row);
+      },
+      listSettlementResultsForRound: async (tenantId, runId, roundId) => {
+        const rows = await this.queryRows<PostgresSettlementResultReadRow>(
+          "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 ORDER BY created_at ASC, settlement_result_id ASC",
+          [tenantId, runId, roundId]
+        );
+
+        return rows.map(toSettlementResult);
       }
     };
   }

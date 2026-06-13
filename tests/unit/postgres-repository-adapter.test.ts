@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Decision, Round, Run } from "@simwar/shared-contracts";
+import type { Decision, Round, Run, SettlementResult } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
   createPostgresRepositoryAdapter,
@@ -55,6 +55,50 @@ describe("Postgres repository adapter skeleton", () => {
     validation_report: Decision["validation_report"];
     version: number;
   }
+
+  interface SettlementRow extends Record<string, unknown> {
+    parameter_set_id: string;
+    replay_hash: string;
+    round_id: string;
+    round_no: number;
+    run_id: string;
+    scenario_package_id: string;
+    settlement_result_id: string;
+    team_results: SettlementResult["team_results"];
+    tenant_id: string;
+  }
+
+  const teamResults: SettlementResult["team_results"] = [
+    {
+      state_est: {
+        explanation: "Balanced demand and cash position.",
+        next_round_risk: "balanced",
+        recommended_focus: "Keep service quality steady."
+      },
+      state_obs: {
+        demand_band: "medium",
+        profit_band: "healthy",
+        rank: 1,
+        revenue: 120000,
+        score: 88,
+        served_demand: 8
+      },
+      state_true: {
+        cash_flow: 42000,
+        cost: 78000,
+        demand: 10,
+        market_share: 0.42,
+        profit: 42000,
+        rank: 1,
+        revenue: 120000,
+        score: 88,
+        served_demand: 8,
+        settlement_status: "settled"
+      },
+      team_id: "team-1",
+      team_name: "Team One"
+    }
+  ];
 
   it("keeps the query executor boundary callable with SQL and params only", async () => {
     interface ProbeRow extends Record<string, unknown> {
@@ -1044,6 +1088,144 @@ describe("Postgres repository adapter skeleton", () => {
     }
   });
 
+  it("settlements.getSettlementResult delegates through the injected executor and returns a full SettlementResult", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const row: SettlementRow = {
+      parameter_set_id: "parameter-set-1",
+      replay_hash: "replay-hash-1",
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      scenario_package_id: "scenario-package-1",
+      settlement_result_id: "settlement-1",
+      team_results: teamResults,
+      tenant_id: "tenant-1"
+    };
+    const expected: SettlementResult = { ...row };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: [row]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.settlements.getSettlementResult("tenant-1", "settlement-1")
+    ).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "settlement-1"],
+        sql: "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND settlement_result_id = $2"
+      }
+    ]);
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("settlements.getSettlementResult returns null when no row exists", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 0,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.settlements.getSettlementResult("tenant-1", "missing-settlement")
+    ).resolves.toBeNull();
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "missing-settlement"],
+        sql: "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND settlement_result_id = $2"
+      }
+    ]);
+  });
+
+  it("settlements.listSettlementResultsForRound filters by tenant, run, and round with deterministic ordering", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const rows: SettlementRow[] = [
+      {
+        parameter_set_id: "parameter-set-1",
+        replay_hash: "replay-hash-1",
+        round_id: "round-1",
+        round_no: 1,
+        run_id: "run-1",
+        scenario_package_id: "scenario-package-1",
+        settlement_result_id: "settlement-1",
+        team_results: teamResults,
+        tenant_id: "tenant-1"
+      },
+      {
+        parameter_set_id: "parameter-set-1",
+        replay_hash: "replay-hash-2",
+        round_id: "round-1",
+        round_no: 1,
+        run_id: "run-1",
+        scenario_package_id: "scenario-package-1",
+        settlement_result_id: "settlement-2",
+        team_results: [
+          {
+            ...teamResults[0],
+            team_id: "team-2",
+            team_name: "Team Two"
+          }
+        ],
+        tenant_id: "tenant-1"
+      }
+    ];
+    const expected: SettlementResult[] = rows.map((row) => ({ ...row }));
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: rows.length,
+        rows
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.settlements.listSettlementResultsForRound("tenant-1", "run-1", "round-1")
+    ).resolves.toEqual(expected);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "run-1", "round-1"],
+        sql: "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 ORDER BY created_at ASC, settlement_result_id ASC"
+      }
+    ]);
+    expect(calls[0]?.sql).toContain("ORDER BY created_at ASC, settlement_result_id ASC");
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("settlements.listSettlementResultsForRound returns an empty list when no rows exist", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 0,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(
+      adapter.settlements.listSettlementResultsForRound("tenant-1", "run-1", "round-1")
+    ).resolves.toEqual([]);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1", "run-1", "round-1"],
+        sql: "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results FROM settlement_results WHERE tenant_id = $1 AND run_id = $2 AND round_id = $3 ORDER BY created_at ASC, settlement_result_id ASC"
+      }
+    ]);
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -1103,7 +1285,8 @@ describe("Postgres repository adapter skeleton", () => {
       "options",
       "queryExecutor",
       "rounds",
-      "runs"
+      "runs",
+      "settlements"
     ]);
     expect("identity" in adapter).toBe(false);
     expect(adapter.courses.getCourse).toEqual(expect.any(Function));
@@ -1117,6 +1300,8 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.decisions.listDecisionsForRound).toEqual(expect.any(Function));
     expect(adapter.decisions.saveDecision).toEqual(expect.any(Function));
     expect(adapter.decisions.saveCanonicalDecision).toEqual(expect.any(Function));
+    expect(adapter.settlements.getSettlementResult).toEqual(expect.any(Function));
+    expect(adapter.settlements.listSettlementResultsForRound).toEqual(expect.any(Function));
     expect(Object.keys(adapter.decisions).sort()).toEqual([
       "getCanonicalDecisionForTeamRound",
       "getDecisionById",
@@ -1124,7 +1309,11 @@ describe("Postgres repository adapter skeleton", () => {
       "saveCanonicalDecision",
       "saveDecision"
     ]);
-    expect("settlements" in adapter).toBe(false);
+    expect(Object.keys(adapter.settlements).sort()).toEqual([
+      "getSettlementResult",
+      "listSettlementResultsForRound"
+    ]);
+    expect("saveSettlementResult" in adapter.settlements).toBe(false);
     expect("replay" in adapter).toBe(false);
   });
 });
