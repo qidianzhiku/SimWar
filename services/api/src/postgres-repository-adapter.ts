@@ -7,6 +7,7 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
+import { randomUUID } from "node:crypto";
 import type {
   Decision,
   ReplayDiffReport,
@@ -95,15 +96,19 @@ export interface PostgresReplayMapping {
     tenantId: RepositoryId,
     manifestId: RepositoryId
   ): Promise<ReplayInputManifest | null>;
+  saveReplayInputManifest(manifest: ReplayInputManifest): Promise<void>;
   getReplayRun(tenantId: RepositoryId, replayRunId: RepositoryId): Promise<ReplayRun | null>;
+  saveReplayRun(run: ReplayRun): Promise<void>;
   getReplayReport(
     tenantId: RepositoryId,
     replayReportId: RepositoryId
   ): Promise<ReplayReport | null>;
+  saveReplayReport(report: ReplayReport): Promise<void>;
   getReplayDiffReport(
     tenantId: RepositoryId,
     replayDiffReportId: RepositoryId
   ): Promise<ReplayDiffReport | null>;
+  saveReplayDiffReport(report: ReplayDiffReport): Promise<void>;
 }
 
 interface PostgresUserPresenceRow extends Record<string, unknown> {
@@ -264,6 +269,33 @@ function toSettlementResultRowId(tenantId: RepositoryId, settlementResultId: Rep
   return JSON.stringify(["settlement_result", tenantId, settlementResultId]);
 }
 
+function toReplayRecordRowId(): string {
+  return JSON.stringify(["replay_record", randomUUID()]);
+}
+
+function getStringField(value: object, field: string): string | undefined {
+  const record = value as Record<string, unknown>;
+  const fieldValue = record[field];
+
+  return typeof fieldValue === "string" ? fieldValue : undefined;
+}
+
+function requireReplayIdentity(
+  value: object,
+  fields: readonly string[],
+  recordLabel: string
+): string {
+  for (const field of fields) {
+    const fieldValue = getStringField(value, field);
+
+    if (fieldValue !== undefined) {
+      return fieldValue;
+    }
+  }
+
+  throw new Error(`${recordLabel} requires one of: ${fields.join(", ")}`);
+}
+
 function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementResult {
   return {
     parameter_set_id: row.parameter_set_id,
@@ -422,6 +454,9 @@ export class PostgresRepositoryAdapter {
 
         return row === null ? null : row.payload;
       },
+      saveReplayInputManifest: async (manifest) => {
+        await this.saveReplayInputManifestRow(manifest);
+      },
       getReplayRun: async (tenantId, replayRunId) => {
         const row = await this.queryOne<PostgresReplayRunReadRow>(
           "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'run' AND replay_run_id = $2 ORDER BY append_sequence ASC LIMIT 1",
@@ -429,6 +464,9 @@ export class PostgresRepositoryAdapter {
         );
 
         return row === null ? null : row.payload;
+      },
+      saveReplayRun: async (run) => {
+        await this.saveReplayRunRow(run);
       },
       getReplayReport: async (tenantId, replayReportId) => {
         const row = await this.queryOne<PostgresReplayReportReadRow>(
@@ -438,6 +476,9 @@ export class PostgresRepositoryAdapter {
 
         return row === null ? null : row.payload;
       },
+      saveReplayReport: async (report) => {
+        await this.saveReplayReportRow(report);
+      },
       getReplayDiffReport: async (tenantId, replayDiffReportId) => {
         const row = await this.queryOne<PostgresReplayDiffReportReadRow>(
           "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'diff' AND diff_report_id = $2 ORDER BY append_sequence ASC LIMIT 1",
@@ -445,6 +486,9 @@ export class PostgresRepositoryAdapter {
         );
 
         return row === null ? null : row.payload;
+      },
+      saveReplayDiffReport: async (report) => {
+        await this.saveReplayDiffReportRow(report);
       }
     };
   }
@@ -486,6 +530,90 @@ export class PostgresRepositoryAdapter {
         result.scenario_package_id,
         result.replay_hash,
         JSON.stringify(result.team_results)
+      ]
+    );
+  }
+
+  private async saveReplayInputManifestRow(manifest: ReplayInputManifest): Promise<void> {
+    const manifestId = requireReplayIdentity(
+      manifest,
+      ["manifest_id", "replay_input_manifest_id"],
+      "ReplayInputManifest"
+    );
+
+    await this.execute(
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, manifest_id, input_hash, manifest_hash, payload) VALUES ($1, $2, $3, $4, 'manifest', $5, $6, $7, $8::jsonb)",
+      [
+        toReplayRecordRowId(),
+        manifest.tenant_id,
+        manifest.run_id,
+        manifest.round_id,
+        manifestId,
+        manifest.input_hash,
+        manifest.manifest_hash,
+        JSON.stringify(manifest)
+      ]
+    );
+  }
+
+  private async saveReplayRunRow(run: ReplayRun): Promise<void> {
+    const replayRunId = requireReplayIdentity(run, ["replay_run_id", "run_id"], "ReplayRun");
+
+    await this.execute(
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, replay_run_id, manifest_id, status, payload) VALUES ($1, $2, $3, $4, 'run', $5, $6, $7, $8::jsonb)",
+      [
+        toReplayRecordRowId(),
+        run.tenant_id,
+        run.run_id,
+        run.round_id,
+        replayRunId,
+        run.manifest_id,
+        run.status,
+        JSON.stringify(run)
+      ]
+    );
+  }
+
+  private async saveReplayReportRow(report: ReplayReport): Promise<void> {
+    const replayReportId = requireReplayIdentity(
+      report,
+      ["replay_report_id", "report_id"],
+      "ReplayReport"
+    );
+
+    await this.execute(
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, replay_report_id, source_result_id, replay_result_hash, status, payload) VALUES ($1, $2, $3, $4, 'report', $5, $6, $7, $8, $9::jsonb)",
+      [
+        toReplayRecordRowId(),
+        report.tenant_id,
+        report.run_id,
+        report.round_id,
+        replayReportId,
+        report.source_result_id,
+        report.replay_result_hash,
+        report.status,
+        JSON.stringify(report)
+      ]
+    );
+  }
+
+  private async saveReplayDiffReportRow(report: ReplayDiffReport): Promise<void> {
+    const diffReportId = requireReplayIdentity(
+      report,
+      ["diff_report_id", "replay_diff_report_id", "report_id"],
+      "ReplayDiffReport"
+    );
+
+    await this.execute(
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, diff_report_id, replay_report_id, payload) VALUES ($1, $2, $3, $4, 'diff', $5, $6, $7::jsonb)",
+      [
+        toReplayRecordRowId(),
+        report.tenant_id,
+        report.run_id,
+        report.round_id,
+        diffReportId,
+        report.replay_report_id,
+        JSON.stringify(report)
       ]
     );
   }
