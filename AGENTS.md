@@ -3,6 +3,22 @@
 本文件是 SimWar 仓库的 agent 开发规则，作用范围为整个仓库。
 Codex、Claude Code 或其他 coding agent 在本仓库内开发、测试、评审和生成代码时，必须优先遵守本文件。
 
+## Small PR and Worktree Guardrails
+
+- One task equals one small PR.
+- Start from the latest origin/master.
+- Use an independent branch and worktree for every PR.
+- Do not develop in a dirty main workspace.
+- Do not reuse merged feature branches or worktrees.
+- Do not use git add -A.
+- Stage only explicitly allowed files.
+- Every PR body must include Summary, Validation, and Scope Notes.
+- JSON adapter remains the default runtime.
+- Postgres runtime requires an explicit opt-in PR.
+- Do not change settlement logic, settlement result shape, replay_hash generation, buildReplayHash inputs, or canonical/latest decision selection.
+- Role drafts, AI advice, learning evidence, and analytics-only data must not enter settlement truth.
+- Prefer short Codex task cards with Task, Allowed files, Forbidden files, Validation, and Output.
+
 ## Quick Rules
 
 - 先读本文件，再读 `DEVELOPMENT_PLAN.md` 和本次任务相关文档。
