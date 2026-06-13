@@ -3,13 +3,19 @@ import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
+  AuditLog,
   AuthSession,
   Decision,
   DecisionPayload,
+  ReplayDiffReport,
+  ReplayInputManifest,
+  ReplayReport,
+  ReplayRun,
   Round,
   Run,
   SettlementResult
 } from "../../packages/shared-contracts/src";
+import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
 import { createApiServer } from "../../services/api/src/server";
 import { createP0Store, type SimWarStore } from "../../services/api/src/store";
 
@@ -188,6 +194,111 @@ async function createLockedRunWithDecision(
   return run;
 }
 
+function cloneJson<TValue>(value: TValue): TValue {
+  return JSON.parse(JSON.stringify(value)) as TValue;
+}
+
+function requireStoredRound(store: SimWarStore, runId: string): Round {
+  const round = store.rounds.find(
+    (candidate) => candidate.run_id === runId && candidate.round_no === 1
+  );
+
+  if (!round) {
+    throw new Error(`missing round for run ${runId}`);
+  }
+
+  return round;
+}
+
+function appendNonTruthAuditLog(store: SimWarStore, runId: string): AuditLog {
+  const log: AuditLog = {
+    action: "analytics.only",
+    actor_id: "usr_teacher",
+    actor_role: "teacher",
+    audit_id: `audit_non_truth_${runId}`,
+    created_at: "2026-06-10T00:00:00.000Z",
+    request_id: "req_non_truth",
+    resource_id: runId,
+    resource_type: "analytics",
+    tenant_id: "tenant_demo",
+    after: {
+      ai_advice: "excluded advisory context",
+      analytics: { viewed: true },
+      learning_evidence: "excluded learning context",
+      role_draft: "excluded draft context"
+    }
+  };
+
+  store.auditLogs.push(log);
+  return log;
+}
+
+function createReplayInputManifestForRun(
+  run: Run,
+  round: Round,
+  sourceResultId: string
+): ReplayInputManifest {
+  return {
+    created_at: "2026-06-10T00:00:01.000Z",
+    excluded_from_truth_hash: {
+      ai_advice: "excluded",
+      analytics: "excluded",
+      learning_evidence: "excluded",
+      role_drafts: "excluded"
+    },
+    included_sources: ["canonical_decisions", "scenario", "parameter_set"],
+    input_hash: "input-hash-replay-repository-isolation",
+    manifest_hash: "manifest-hash-replay-repository-isolation",
+    manifest_id: `manifest_${run.run_id}`,
+    round_id: round.round_id,
+    run_id: run.run_id,
+    source_result_id: sourceResultId,
+    tenant_id: run.tenant_id
+  };
+}
+
+function createReplayRunForManifest(manifest: ReplayInputManifest): ReplayRun {
+  return {
+    completed_at: "2026-06-10T00:00:03.000Z",
+    manifest_id: manifest.manifest_id,
+    replay_mode: "official_replay",
+    replay_run_id: `replay_run_${manifest.run_id}`,
+    round_id: manifest.round_id,
+    run_id: manifest.run_id,
+    started_at: "2026-06-10T00:00:02.000Z",
+    status: "completed",
+    tenant_id: manifest.tenant_id
+  };
+}
+
+function createReplayReportForRun(run: ReplayRun, settlement: SettlementResult): ReplayReport {
+  return {
+    created_at: "2026-06-10T00:00:04.000Z",
+    matched: true,
+    replay_report_id: `replay_report_${settlement.run_id}`,
+    replay_result_hash: settlement.replay_hash,
+    replay_run_id: run.replay_run_id,
+    round_id: settlement.round_id,
+    run_id: settlement.run_id,
+    source_result_id: settlement.settlement_result_id,
+    status: "matched",
+    tenant_id: settlement.tenant_id
+  };
+}
+
+function createReplayDiffReportForReport(report: ReplayReport): ReplayDiffReport {
+  return {
+    created_at: "2026-06-10T00:00:05.000Z",
+    diff_report_id: `diff_report_${report.run_id}`,
+    differences: [],
+    replay_report_id: report.replay_report_id,
+    round_id: report.round_id,
+    run_id: report.run_id,
+    severity: "none",
+    tenant_id: report.tenant_id
+  };
+}
+
 describe("settlement result write and replay hash characterization", () => {
   it("characterizes successful settlement write, round mutation, replay hash relationship, and audit side effect", async () => {
     const { baseUrl, server, store } = await startServer();
@@ -265,13 +376,32 @@ describe("settlement result write and replay hash characterization", () => {
       );
 
       const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const firstStoredRound = requireStoredRound(store, run.run_id);
+      const firstSnapshot = cloneJson({
+        result: first.body.data,
+        resultCount: store.settlementResults.length,
+        roundReplayHash: firstStoredRound.replay_hash,
+        roundStatus: firstStoredRound.status,
+        storedResult: store.settlementResults[0],
+        teamResults: first.body.data.team_results
+      });
       const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const secondStoredRound = requireStoredRound(store, run.run_id);
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
       expect(second.body.data).toEqual(first.body.data);
-      expect(store.settlementResults).toHaveLength(1);
-      expect(store.settlementResults[0]).toEqual(first.body.data);
+      expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
+      expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
+      expect(second.body.data.team_results).toEqual(first.body.data.team_results);
+      expect(store.settlementResults).toHaveLength(firstSnapshot.resultCount);
+      expect(store.settlementResults[0]).toEqual(firstSnapshot.storedResult);
+      expect(secondStoredRound.status).toBe(firstSnapshot.roundStatus);
+      expect(secondStoredRound.replay_hash).toBe(firstSnapshot.roundReplayHash);
+      expect(secondStoredRound.replay_hash).toBe(first.body.data.replay_hash);
+      expect(secondStoredRound.replay_hash).toBe(store.settlementResults[0]?.replay_hash);
+      expect(firstSnapshot.result.replay_hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(firstSnapshot.teamResults).toEqual(second.body.data.team_results);
 
       const settleAudits = store.auditLogs.filter(
         (log) =>
@@ -283,6 +413,130 @@ describe("settlement result write and replay hash characterization", () => {
         { replay_hash: first.body.data.replay_hash },
         { replay_hash: first.body.data.replay_hash }
       ]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("keeps non-truth audit data out of repeated settlement replay hashes", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+
+      const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const firstRound = requireStoredRound(store, run.run_id);
+      const firstResultSnapshot = cloneJson(first.body.data);
+      const firstStoredResultSnapshot = cloneJson(store.settlementResults[0]);
+      const firstRoundSnapshot = cloneJson({
+        replay_hash: firstRound.replay_hash,
+        status: firstRound.status
+      });
+      const nonTruthAudit = appendNonTruthAuditLog(store, run.run_id);
+
+      const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const secondRound = requireStoredRound(store, run.run_id);
+
+      expect(nonTruthAudit.after).toMatchObject({
+        ai_advice: "excluded advisory context",
+        learning_evidence: "excluded learning context",
+        role_draft: "excluded draft context"
+      });
+      expect(second.status).toBe(200);
+      expect(second.body.data).toEqual(firstResultSnapshot);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]).toEqual(firstStoredResultSnapshot);
+      expect(secondRound.status).toBe(firstRoundSnapshot.status);
+      expect(secondRound.replay_hash).toBe(firstRoundSnapshot.replay_hash);
+      expect(secondRound.replay_hash).toBe(second.body.data.replay_hash);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("keeps replay repository saves isolated from settlement truth and idempotency", async () => {
+    const { baseUrl, server, store } = await startServer();
+    const replayInputManifests: ReplayInputManifest[] = [];
+    const replayRuns: ReplayRun[] = [];
+    const replayReports: ReplayReport[] = [];
+    const replayDiffReports: ReplayDiffReport[] = [];
+    const replayPorts = createJsonRepositoryPorts(store, {
+      replayDiffReports,
+      replayInputManifests,
+      replayReports,
+      replayRuns
+    });
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const lockedRound = requireStoredRound(store, run.run_id);
+      const preSettlementManifest = createReplayInputManifestForRun(
+        run,
+        lockedRound,
+        "pre-settlement-source"
+      );
+
+      await replayPorts.replay.saveReplayInputManifest(preSettlementManifest);
+      expect(replayInputManifests).toEqual([preSettlementManifest]);
+      expect(store.settlementResults).toHaveLength(0);
+      expect(lockedRound.replay_hash).toBeUndefined();
+
+      const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const settledRound = requireStoredRound(store, run.run_id);
+      const firstResultSnapshot = cloneJson(first.body.data);
+      const firstStoredResultSnapshot = cloneJson(store.settlementResults[0]);
+      const firstRoundSnapshot = cloneJson({
+        replay_hash: settledRound.replay_hash,
+        status: settledRound.status
+      });
+      const firstDecisionSnapshot = cloneJson(
+        store.decisions.filter((decision) => decision.run_id === run.run_id)
+      );
+      const replayRun = createReplayRunForManifest(preSettlementManifest);
+      const replayReport = createReplayReportForRun(replayRun, first.body.data);
+      const replayDiffReport = createReplayDiffReportForReport(replayReport);
+
+      await replayPorts.replay.saveReplayRun(replayRun);
+      await replayPorts.replay.saveReplayReport(replayReport);
+      await replayPorts.replay.saveReplayDiffReport(replayDiffReport);
+      await expect(
+        replayPorts.replay.getReplayInputManifest(run.tenant_id, preSettlementManifest.manifest_id)
+      ).resolves.toBe(preSettlementManifest);
+      await expect(
+        replayPorts.replay.getReplayReport(run.tenant_id, replayReport.replay_report_id)
+      ).resolves.toBe(replayReport);
+
+      const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const secondRound = requireStoredRound(store, run.run_id);
+
+      expect(second.status).toBe(200);
+      expect(second.body.data).toEqual(firstResultSnapshot);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]).toEqual(firstStoredResultSnapshot);
+      expect(secondRound.status).toBe(firstRoundSnapshot.status);
+      expect(secondRound.replay_hash).toBe(firstRoundSnapshot.replay_hash);
+      expect(secondRound.replay_hash).toBe(first.body.data.replay_hash);
+      expect(store.decisions.filter((decision) => decision.run_id === run.run_id)).toEqual(
+        firstDecisionSnapshot
+      );
+      expect(replayInputManifests).toHaveLength(1);
+      expect(replayRuns).toEqual([replayRun]);
+      expect(replayReports).toEqual([replayReport]);
+      expect(replayDiffReports).toEqual([replayDiffReport]);
     } finally {
       await stopServer(server);
     }
@@ -364,12 +618,15 @@ describe("settlement result write and replay hash characterization", () => {
       expect(twoVersionSettlement.body.data.team_results).not.toEqual(
         firstOnlySettlement.body.data.team_results
       );
+      expect(twoVersionSettlement.body.data.replay_hash).toMatch(/^[a-f0-9]{64}$/);
 
       const storedSettlement = store.settlementResults.find(
         (settlement) => settlement.run_id === twoVersionRun.run_id
       );
+      const storedRound = requireStoredRound(store, twoVersionRun.run_id);
       expect(storedSettlement?.replay_hash).toBe(twoVersionSettlement.body.data.replay_hash);
       expect(storedSettlement?.team_results).toEqual(twoVersionSettlement.body.data.team_results);
+      expect(storedRound.replay_hash).toBe(twoVersionSettlement.body.data.replay_hash);
     } finally {
       await stopServer(server);
     }
@@ -398,6 +655,11 @@ describe("settlement result write and replay hash characterization", () => {
         status: "locked"
       });
       expect(storedRound?.replay_hash).toBeUndefined();
+      expect(
+        store.auditLogs.some(
+          (log) => log.action === "round.settle_requested" && log.resource_id.startsWith("result_")
+        )
+      ).toBe(false);
     } finally {
       await stopServer(server);
     }
