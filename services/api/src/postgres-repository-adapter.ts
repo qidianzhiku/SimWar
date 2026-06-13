@@ -542,13 +542,14 @@ export class PostgresRepositoryAdapter {
     );
 
     await this.execute(
-      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, manifest_id, input_hash, manifest_hash, payload) VALUES ($1, $2, $3, $4, 'manifest', $5, $6, $7, $8::jsonb)",
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, manifest_id, source_result_id, input_hash, manifest_hash, payload) VALUES ($1, $2, $3, $4, 'manifest', $5, $6, $7, $8, $9::jsonb)",
       [
         toReplayRecordRowId(),
         manifest.tenant_id,
         manifest.run_id,
         manifest.round_id,
         manifestId,
+        manifest.source_result_id,
         manifest.input_hash,
         manifest.manifest_hash,
         JSON.stringify(manifest)
@@ -582,13 +583,14 @@ export class PostgresRepositoryAdapter {
     );
 
     await this.execute(
-      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, replay_report_id, source_result_id, replay_result_hash, status, payload) VALUES ($1, $2, $3, $4, 'report', $5, $6, $7, $8, $9::jsonb)",
+      "INSERT INTO replay_records (id, tenant_id, run_id, round_id, record_type, replay_report_id, replay_run_id, source_result_id, replay_result_hash, status, payload) VALUES ($1, $2, $3, $4, 'report', $5, $6, $7, $8, $9, $10::jsonb)",
       [
         toReplayRecordRowId(),
         report.tenant_id,
         report.run_id,
         report.round_id,
         replayReportId,
+        report.replay_run_id,
         report.source_result_id,
         report.replay_result_hash,
         report.status,

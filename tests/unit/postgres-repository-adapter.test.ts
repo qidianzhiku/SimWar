@@ -1671,16 +1671,21 @@ describe("Postgres repository adapter skeleton", () => {
 
     expect(calls).toHaveLength(1);
     expectReplayInsertBoundary(calls[0], "manifest", "manifest_id");
-    expect(calls[0]?.sql).toContain("$8::jsonb");
-    expect(calls[0]?.params).toHaveLength(8);
+    expect(calls[0]?.sql).toContain("source_result_id");
+    expect(calls[0]?.sql).toContain("$9::jsonb");
+    expect(calls[0]?.params).toHaveLength(9);
     expect(typeof calls[0]?.params?.[0]).toBe("string");
     expect(calls[0]?.params?.[1]).toBe(replayInputManifest.tenant_id);
     expect(calls[0]?.params?.[2]).toBe(replayInputManifest.run_id);
     expect(calls[0]?.params?.[3]).toBe(replayInputManifest.round_id);
     expect(calls[0]?.params?.[4]).toBe(replayInputManifest.manifest_id);
-    expect(calls[0]?.params?.[5]).toBe(replayInputManifest.input_hash);
-    expect(calls[0]?.params?.[6]).toBe(replayInputManifest.manifest_hash);
-    expectJsonPayloadParam(calls[0]?.params?.[7], replayInputManifest);
+    expect(calls[0]?.params?.[5]).toBe(replayInputManifest.source_result_id);
+    expect(calls[0]?.params?.[6]).toBe(replayInputManifest.input_hash);
+    expect(calls[0]?.params?.[7]).toBe(replayInputManifest.manifest_hash);
+    expectJsonPayloadParam(calls[0]?.params?.[8], replayInputManifest);
+    expect(JSON.parse(calls[0]?.params?.[8] as string).source_result_id).toBe(
+      replayInputManifest.source_result_id
+    );
   });
 
   it("replay.saveReplayRun appends a full replay run payload through execute", async () => {
@@ -1715,17 +1720,22 @@ describe("Postgres repository adapter skeleton", () => {
 
     expect(calls).toHaveLength(1);
     expectReplayInsertBoundary(calls[0], "report", "replay_report_id");
-    expect(calls[0]?.sql).toContain("$9::jsonb");
-    expect(calls[0]?.params).toHaveLength(9);
+    expect(calls[0]?.sql).toContain("replay_run_id");
+    expect(calls[0]?.sql).toContain("$10::jsonb");
+    expect(calls[0]?.params).toHaveLength(10);
     expect(typeof calls[0]?.params?.[0]).toBe("string");
     expect(calls[0]?.params?.[1]).toBe(replayReport.tenant_id);
     expect(calls[0]?.params?.[2]).toBe(replayReport.run_id);
     expect(calls[0]?.params?.[3]).toBe(replayReport.round_id);
     expect(calls[0]?.params?.[4]).toBe(replayReport.replay_report_id);
-    expect(calls[0]?.params?.[5]).toBe(replayReport.source_result_id);
-    expect(calls[0]?.params?.[6]).toBe(replayReport.replay_result_hash);
-    expect(calls[0]?.params?.[7]).toBe(replayReport.status);
-    expectJsonPayloadParam(calls[0]?.params?.[8], replayReport);
+    expect(calls[0]?.params?.[5]).toBe(replayReport.replay_run_id);
+    expect(calls[0]?.params?.[6]).toBe(replayReport.source_result_id);
+    expect(calls[0]?.params?.[7]).toBe(replayReport.replay_result_hash);
+    expect(calls[0]?.params?.[8]).toBe(replayReport.status);
+    expectJsonPayloadParam(calls[0]?.params?.[9], replayReport);
+    expect(JSON.parse(calls[0]?.params?.[9] as string).replay_run_id).toBe(
+      replayReport.replay_run_id
+    );
   });
 
   it("replay.saveReplayDiffReport appends a full diff report payload through execute", async () => {
@@ -1782,9 +1792,9 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[1]?.params?.[4]).toBe(fallbackRun.run_id);
     expect(calls[2]?.params?.[4]).toBe("legacy-report");
     expect(calls[3]?.params?.[4]).toBe("legacy-diff");
-    expectJsonPayloadParam(calls[0]?.params?.[7], fallbackManifest);
+    expectJsonPayloadParam(calls[0]?.params?.[8], fallbackManifest);
     expectJsonPayloadParam(calls[1]?.params?.[7], fallbackRun);
-    expectJsonPayloadParam(calls[2]?.params?.[8], fallbackReport);
+    expectJsonPayloadParam(calls[2]?.params?.[9], fallbackReport);
     expectJsonPayloadParam(calls[3]?.params?.[6], fallbackDiff);
   });
 
@@ -1805,8 +1815,8 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
     expect(calls[0]?.params?.[4]).toBe(replayInputManifest.manifest_id);
     expect(calls[1]?.params?.[4]).toBe(replayInputManifest.manifest_id);
-    expectJsonPayloadParam(calls[0]?.params?.[7], replayInputManifest);
-    expectJsonPayloadParam(calls[1]?.params?.[7], replayInputManifest);
+    expectJsonPayloadParam(calls[0]?.params?.[8], replayInputManifest);
+    expectJsonPayloadParam(calls[1]?.params?.[8], replayInputManifest);
   });
 
   it("replay save methods keep tenant identity isolated for shared business IDs", async () => {
