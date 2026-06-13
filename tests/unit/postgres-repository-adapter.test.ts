@@ -1123,6 +1123,9 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("payload");
     expect(calls[0]?.sql).not.toContain("metadata");
     expect(calls[0]?.sql).not.toContain("buildReplayHash");
+    expect(calls[0]?.sql).not.toContain("role_draft");
+    expect(calls[0]?.sql).not.toContain("ai_advice");
+    expect(calls[0]?.sql).not.toContain("learning_evidence");
   });
 
   it("settlements.getSettlementResult returns null when no row exists", async () => {
@@ -1202,6 +1205,9 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("payload");
     expect(calls[0]?.sql).not.toContain("metadata");
     expect(calls[0]?.sql).not.toContain("buildReplayHash");
+    expect(calls[0]?.sql).not.toContain("role_draft");
+    expect(calls[0]?.sql).not.toContain("ai_advice");
+    expect(calls[0]?.sql).not.toContain("learning_evidence");
   });
 
   it("settlements.listSettlementResultsForRound returns an empty list when no rows exist", async () => {
@@ -1268,13 +1274,27 @@ describe("Postgres repository adapter skeleton", () => {
       }
     ]);
     expect(calls[0]?.sql).toContain("$10::jsonb");
+    expect(calls[0]?.params).toHaveLength(10);
+    expect(typeof calls[0]?.params?.[9]).toBe("string");
     expect(calls[0]?.params?.[8]).toBe(settlement.replay_hash);
     expect(calls[0]?.params?.[9]).toBe(JSON.stringify(settlement.team_results));
     expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(settlement.team_results);
     expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, settlement_result_id)");
+    expect(calls[0]?.sql).toContain("run_id = EXCLUDED.run_id");
+    expect(calls[0]?.sql).toContain("round_id = EXCLUDED.round_id");
+    expect(calls[0]?.sql).toContain("round_no = EXCLUDED.round_no");
+    expect(calls[0]?.sql).toContain("parameter_set_id = EXCLUDED.parameter_set_id");
+    expect(calls[0]?.sql).toContain("scenario_package_id = EXCLUDED.scenario_package_id");
+    expect(calls[0]?.sql).toContain("replay_hash = EXCLUDED.replay_hash");
+    expect(calls[0]?.sql).toContain("team_results = EXCLUDED.team_results");
     expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
     expect(calls[0]?.sql).not.toContain("payload");
     expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("role_draft");
+    expect(calls[0]?.sql).not.toContain("ai_advice");
+    expect(calls[0]?.sql).not.toContain("learning_evidence");
+    expect(calls[0]?.sql).not.toContain("prompt_output");
+    expect(calls[0]?.sql).not.toContain("analytics");
     expect(calls[0]?.sql).not.toContain("buildReplayHash");
     expect(calls[0]?.sql).not.toContain("simulation_rounds");
   });
@@ -1321,8 +1341,54 @@ describe("Postgres repository adapter skeleton", () => {
     expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(baseSettlement.team_results);
     expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, settlement_result_id)");
     expect(calls[0]?.sql).toContain("$10::jsonb");
+    expect(calls[0]?.params).toHaveLength(10);
+    expect(calls[1]?.params).toHaveLength(10);
     expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+    expect(calls[0]?.sql).not.toContain("simulation_rounds");
     expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
+  });
+
+  it("settlements.saveSettlementResult stays inside settlement persistence boundaries", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const settlement: SettlementResult = {
+      parameter_set_id: "parameter-set-1",
+      replay_hash: "replay-hash-truth",
+      round_id: "round-1",
+      round_no: 1,
+      run_id: "run-1",
+      scenario_package_id: "scenario-package-1",
+      settlement_result_id: "settlement-truth",
+      team_results: teamResults,
+      tenant_id: "tenant-1"
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+      return {
+        rowCount: 1,
+        rows: []
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await adapter.settlements.saveSettlementResult(settlement);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.sql).toContain("INSERT INTO settlement_results");
+    expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
+    expect(calls[0]?.sql).not.toContain("payload");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("role_draft");
+    expect(calls[0]?.sql).not.toContain("ai_advice");
+    expect(calls[0]?.sql).not.toContain("learning_evidence");
+    expect(calls[0]?.sql).not.toContain("prompt_output");
+    expect(calls[0]?.sql).not.toContain("analytics");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+    expect(calls[0]?.sql).not.toContain("simulation_rounds");
+    expect(calls[0]?.params?.[8]).toBe("replay-hash-truth");
+    expect(calls[0]?.params?.[9]).toBe(JSON.stringify(teamResults));
+    expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(teamResults);
   });
 
   it("query helpers do not require DATABASE_URL", async () => {
@@ -1415,5 +1481,7 @@ describe("Postgres repository adapter skeleton", () => {
       "saveSettlementResult"
     ]);
     expect("replay" in adapter).toBe(false);
+    expect("provider" in adapter).toBe(false);
+    expect("repositoryProvider" in adapter).toBe(false);
   });
 });
