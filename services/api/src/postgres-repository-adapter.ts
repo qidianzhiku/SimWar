@@ -68,7 +68,7 @@ export interface PostgresDecisionMapping {
   saveCanonicalDecision(decision: Decision): Promise<void>;
 }
 
-export interface PostgresSettlementReadMapping {
+export interface PostgresSettlementMapping {
   getSettlementResult(
     tenantId: RepositoryId,
     settlementResultId: RepositoryId
@@ -250,7 +250,7 @@ export class PostgresRepositoryAdapter {
   readonly queryExecutor: PostgresQueryExecutor;
   readonly rounds: PostgresRoundReadMapping;
   readonly runs: PostgresRunReadMapping;
-  readonly settlements: PostgresSettlementReadMapping;
+  readonly settlements: PostgresSettlementMapping;
 
   constructor(options: PostgresRepositoryAdapterOptions) {
     this.options = { ...options };
