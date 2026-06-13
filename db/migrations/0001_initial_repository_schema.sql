@@ -189,6 +189,7 @@ CREATE INDEX IF NOT EXISTS state_snapshots_created_at_idx ON state_snapshots (cr
 
 CREATE TABLE IF NOT EXISTS replay_records (
   id text PRIMARY KEY,
+  append_sequence bigint GENERATED ALWAYS AS IDENTITY,
   tenant_id text NOT NULL,
   run_id text,
   round_id text,
@@ -196,7 +197,7 @@ CREATE TABLE IF NOT EXISTS replay_records (
   manifest_id text,
   replay_run_id text,
   replay_report_id text,
-  replay_diff_report_id text,
+  diff_report_id text,
   source_result_id text,
   input_hash text,
   manifest_hash text,
@@ -205,7 +206,11 @@ CREATE TABLE IF NOT EXISTS replay_records (
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT replay_records_append_sequence_unique UNIQUE (append_sequence),
+  CONSTRAINT replay_records_record_type_check CHECK (
+    record_type IN ('manifest', 'run', 'report', 'diff')
+  )
 );
 
 CREATE INDEX IF NOT EXISTS replay_records_tenant_id_idx ON replay_records (tenant_id);
@@ -216,4 +221,6 @@ CREATE INDEX IF NOT EXISTS replay_records_manifest_id_idx ON replay_records (man
 CREATE INDEX IF NOT EXISTS replay_records_replay_run_id_idx ON replay_records (replay_run_id);
 CREATE INDEX IF NOT EXISTS replay_records_replay_report_id_idx
   ON replay_records (replay_report_id);
+CREATE INDEX IF NOT EXISTS replay_records_diff_report_id_idx
+  ON replay_records (diff_report_id);
 CREATE INDEX IF NOT EXISTS replay_records_created_at_idx ON replay_records (created_at);
