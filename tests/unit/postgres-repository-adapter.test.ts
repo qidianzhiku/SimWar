@@ -1262,11 +1262,15 @@ describe("Postgres repository adapter skeleton", () => {
           "parameter-set-1",
           "scenario-package-1",
           "replay-hash-1",
-          settlement.team_results
+          JSON.stringify(settlement.team_results)
         ],
-        sql: "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now()) ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, parameter_set_id = EXCLUDED.parameter_set_id, scenario_package_id = EXCLUDED.scenario_package_id, replay_hash = EXCLUDED.replay_hash, team_results = EXCLUDED.team_results, updated_at = now()"
+        sql: "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now()) ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, parameter_set_id = EXCLUDED.parameter_set_id, scenario_package_id = EXCLUDED.scenario_package_id, replay_hash = EXCLUDED.replay_hash, team_results = EXCLUDED.team_results, updated_at = now()"
       }
     ]);
+    expect(calls[0]?.sql).toContain("$10::jsonb");
+    expect(calls[0]?.params?.[8]).toBe(settlement.replay_hash);
+    expect(calls[0]?.params?.[9]).toBe(JSON.stringify(settlement.team_results));
+    expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(settlement.team_results);
     expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, settlement_result_id)");
     expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
     expect(calls[0]?.sql).not.toContain("payload");
@@ -1313,8 +1317,10 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[1]?.params?.[1]).toBe("settlement-shared");
     expect(calls[0]?.params?.[8]).toBe("replay-hash-shared");
     expect(baseSettlement.replay_hash).toBe("replay-hash-shared");
-    expect(calls[0]?.params?.[9]).toBe(baseSettlement.team_results);
+    expect(calls[0]?.params?.[9]).toBe(JSON.stringify(baseSettlement.team_results));
+    expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(baseSettlement.team_results);
     expect(calls[0]?.sql).toContain("ON CONFLICT (tenant_id, settlement_result_id)");
+    expect(calls[0]?.sql).toContain("$10::jsonb");
     expect(calls[0]?.sql).not.toContain("metadata");
     expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
   });
