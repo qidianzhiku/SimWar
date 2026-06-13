@@ -66,6 +66,25 @@ interface ReplayRecordRow<TPayload> {
   payload: TPayload;
 }
 
+interface ManifestVerificationRow extends Record<string, unknown> {
+  append_sequence: string | number;
+  id: string;
+  source_result_id: string;
+  input_hash: string;
+  manifest_hash: string;
+  payload: ReplayInputManifest;
+}
+
+interface ReplayReportVerificationRow extends Record<string, unknown> {
+  append_sequence: string | number;
+  id: string;
+  replay_run_id: string;
+  source_result_id: string;
+  replay_result_hash: string;
+  status: ReplayReport["status"];
+  payload: ReplayReport;
+}
+
 interface TableCounts {
   decisions: number;
   simulation_rounds: number;
@@ -441,21 +460,34 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       await adapter.replay.saveReplayInputManifest(manifest);
       await adapter.replay.saveReplayReport(report);
 
-      const manifestRows = await requiredClient().query<ReplayRecordRow<ReplayInputManifest>>(
-        "SELECT append_sequence, id, input_hash, manifest_hash, payload FROM replay_records WHERE manifest_id = $1",
-        [manifest.manifest_id]
+      const manifestRows = await requiredClient().query<ManifestVerificationRow>(
+        "SELECT append_sequence, id, source_result_id, input_hash, manifest_hash, payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'manifest' AND manifest_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+        [manifest.tenant_id, manifest.manifest_id]
       );
-      expect(manifestRows.rows[0]?.input_hash).toBe(manifest.input_hash);
-      expect(manifestRows.rows[0]?.manifest_hash).toBe(manifest.manifest_hash);
-      expect(manifestRows.rows[0]?.payload.input_hash).toBe(manifest.input_hash);
-      expect(manifestRows.rows[0]?.payload.manifest_hash).toBe(manifest.manifest_hash);
+      const manifestRow = manifestRows.rows[0];
+      expect(manifestRow).toBeDefined();
+      expect(manifestRow?.source_result_id).toBe(manifest.source_result_id);
+      expect(manifestRow?.input_hash).toBe(manifest.input_hash);
+      expect(manifestRow?.manifest_hash).toBe(manifest.manifest_hash);
+      expect(manifestRow?.payload.source_result_id).toBe(manifest.source_result_id);
+      expect(manifestRow?.payload.input_hash).toBe(manifest.input_hash);
+      expect(manifestRow?.payload.manifest_hash).toBe(manifest.manifest_hash);
+      expect(manifestRow?.payload).toEqual(manifest);
 
-      const reportRows = await requiredClient().query<ReplayRecordRow<ReplayReport>>(
-        "SELECT append_sequence, id, replay_result_hash, payload FROM replay_records WHERE replay_report_id = $1",
-        [report.replay_report_id]
+      const reportRows = await requiredClient().query<ReplayReportVerificationRow>(
+        "SELECT append_sequence, id, replay_run_id, source_result_id, replay_result_hash, status, payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'report' AND replay_report_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+        [report.tenant_id, report.replay_report_id]
       );
-      expect(reportRows.rows[0]?.replay_result_hash).toBe(report.replay_result_hash);
-      expect(reportRows.rows[0]?.payload.replay_result_hash).toBe(report.replay_result_hash);
+      const reportRow = reportRows.rows[0];
+      expect(reportRow).toBeDefined();
+      expect(reportRow?.replay_run_id).toBe(report.replay_run_id);
+      expect(reportRow?.source_result_id).toBe(report.source_result_id);
+      expect(reportRow?.replay_result_hash).toBe(report.replay_result_hash);
+      expect(reportRow?.status).toBe(report.status);
+      expect(reportRow?.payload.replay_run_id).toBe(report.replay_run_id);
+      expect(reportRow?.payload.source_result_id).toBe(report.source_result_id);
+      expect(reportRow?.payload.replay_result_hash).toBe(report.replay_result_hash);
+      expect(reportRow?.payload).toEqual(report);
       expect(
         await adapter.replay.getReplayReport(report.tenant_id, report.replay_report_id)
       ).toEqual(report);
