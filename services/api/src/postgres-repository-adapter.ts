@@ -78,6 +78,7 @@ export interface PostgresSettlementReadMapping {
     runId: RepositoryId,
     roundId: RepositoryId
   ): Promise<SettlementResult[]>;
+  saveSettlementResult(result: SettlementResult): Promise<void>;
 }
 
 interface PostgresUserPresenceRow extends Record<string, unknown> {
@@ -216,6 +217,10 @@ function toDecision(row: PostgresDecisionReadRow): Decision {
 
 function toDecisionRowId(tenantId: RepositoryId, decisionId: RepositoryId): string {
   return JSON.stringify(["decision", tenantId, decisionId]);
+}
+
+function toSettlementResultRowId(tenantId: RepositoryId, settlementResultId: RepositoryId): string {
+  return JSON.stringify(["settlement_result", tenantId, settlementResultId]);
 }
 
 function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementResult {
@@ -361,6 +366,9 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toSettlementResult);
+      },
+      saveSettlementResult: async (result) => {
+        await this.saveSettlementResultRow(result);
       }
     };
   }
@@ -384,6 +392,24 @@ export class PostgresRepositoryAdapter {
         decision.submitted_by,
         decision.payload,
         decision.validation_report
+      ]
+    );
+  }
+
+  private async saveSettlementResultRow(result: SettlementResult): Promise<void> {
+    await this.execute(
+      "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now()) ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, parameter_set_id = EXCLUDED.parameter_set_id, scenario_package_id = EXCLUDED.scenario_package_id, replay_hash = EXCLUDED.replay_hash, team_results = EXCLUDED.team_results, updated_at = now()",
+      [
+        toSettlementResultRowId(result.tenant_id, result.settlement_result_id),
+        result.settlement_result_id,
+        result.tenant_id,
+        result.run_id,
+        result.round_id,
+        result.round_no,
+        result.parameter_set_id,
+        result.scenario_package_id,
+        result.replay_hash,
+        JSON.stringify(result.team_results)
       ]
     );
   }
