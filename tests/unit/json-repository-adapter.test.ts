@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Decision, DecisionPayload, SettlementResult } from "@simwar/shared-contracts";
+import type {
+  Decision,
+  DecisionPayload,
+  ReplayDiffReport,
+  ReplayInputManifest,
+  ReplayReport,
+  ReplayRun,
+  SettlementResult
+} from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter.js";
 import type { SimWarStore } from "../../services/api/src/store.js";
 
@@ -91,6 +99,73 @@ function createSettlementResult(
         }
       }
     ],
+    ...overrides
+  };
+}
+
+function createReplayInputManifest(
+  overrides: Partial<ReplayInputManifest> = {}
+): ReplayInputManifest {
+  return {
+    manifest_id: "manifest-1",
+    tenant_id: "tenant-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    source_result_id: "settlement-1",
+    input_hash: "input-hash-1",
+    manifest_hash: "manifest-hash-1",
+    included_sources: ["canonical_decisions", "scenario", "parameter_set"],
+    excluded_from_truth_hash: {
+      ai_advice: "excluded",
+      learning_evidence: "excluded",
+      role_drafts: "excluded"
+    },
+    created_at: "2026-06-08T00:00:00.000Z",
+    ...overrides
+  };
+}
+
+function createReplayRun(overrides: Partial<ReplayRun> = {}): ReplayRun {
+  return {
+    replay_run_id: "replay-run-1",
+    tenant_id: "tenant-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    replay_mode: "official_replay",
+    status: "completed",
+    manifest_id: "manifest-1",
+    started_at: "2026-06-08T00:00:01.000Z",
+    completed_at: "2026-06-08T00:00:02.000Z",
+    ...overrides
+  };
+}
+
+function createReplayReport(overrides: Partial<ReplayReport> = {}): ReplayReport {
+  return {
+    replay_report_id: "replay-report-1",
+    replay_run_id: "replay-run-1",
+    tenant_id: "tenant-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    status: "matched",
+    source_result_id: "settlement-1",
+    replay_result_hash: "replay-result-hash-1",
+    matched: true,
+    created_at: "2026-06-08T00:00:03.000Z",
+    ...overrides
+  };
+}
+
+function createReplayDiffReport(overrides: Partial<ReplayDiffReport> = {}): ReplayDiffReport {
+  return {
+    diff_report_id: "diff-report-1",
+    replay_report_id: "replay-report-1",
+    tenant_id: "tenant-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    severity: "none",
+    differences: [],
+    created_at: "2026-06-08T00:00:04.000Z",
     ...overrides
   };
 }
@@ -572,6 +647,321 @@ describe("JSON repository adapter", () => {
     expect(store.rounds[0]?.status).toBe("settled");
     expect(store.rounds[0]?.replay_hash).toBe("replay-hash-1");
     expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("appends replay input manifests and returns the first tenant-scoped matching manifest", async () => {
+    const replayInputManifests: ReplayInputManifest[] = [];
+    const first = createReplayInputManifest({
+      input_hash: "input-hash-first",
+      manifest_hash: "manifest-hash-first"
+    });
+    const duplicate = createReplayInputManifest({
+      input_hash: "input-hash-second",
+      manifest_hash: "manifest-hash-second"
+    });
+    const otherTenant = createReplayInputManifest({
+      tenant_id: "tenant-2",
+      input_hash: "input-hash-other-tenant",
+      manifest_hash: "manifest-hash-other-tenant"
+    });
+    const fallbackManifest = {
+      ...createReplayInputManifest({
+        manifest_id: "manifest-canonical",
+        input_hash: "input-hash-fallback",
+        manifest_hash: "manifest-hash-fallback"
+      }),
+      replay_input_manifest_id: "manifest-legacy"
+    } as ReplayInputManifest & { replay_input_manifest_id: string };
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { replayInputManifests });
+
+    await ports.replay.saveReplayInputManifest(first);
+    await ports.replay.saveReplayInputManifest(duplicate);
+    await ports.replay.saveReplayInputManifest(otherTenant);
+    await ports.replay.saveReplayInputManifest(fallbackManifest);
+
+    expect(replayInputManifests).toEqual([first, duplicate, otherTenant, fallbackManifest]);
+    expect(replayInputManifests[0]).toBe(first);
+    expect(replayInputManifests[1]).toBe(duplicate);
+    expect(replayInputManifests[2]).toBe(otherTenant);
+    expect(replayInputManifests[3]).toBe(fallbackManifest);
+    await expect(ports.replay.getReplayInputManifest("tenant-1", "manifest-1")).resolves.toBe(
+      first
+    );
+    await expect(ports.replay.getReplayInputManifest("tenant-2", "manifest-1")).resolves.toBe(
+      otherTenant
+    );
+    await expect(ports.replay.getReplayInputManifest("tenant-1", "manifest-legacy")).resolves.toBe(
+      fallbackManifest
+    );
+    await expect(ports.replay.getReplayInputManifest("tenant-3", "manifest-1")).resolves.toBeNull();
+    await expect(
+      ports.replay.getReplayInputManifest("tenant-1", "manifest-missing")
+    ).resolves.toBeNull();
+    expect(first.input_hash).toBe("input-hash-first");
+    expect(first.manifest_hash).toBe("manifest-hash-first");
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("appends replay runs and returns the first tenant-scoped matching run", async () => {
+    const replayRuns: ReplayRun[] = [];
+    const first = createReplayRun({
+      replay_run_id: "replay-run-shared",
+      run_id: "run-source-1",
+      status: "running"
+    });
+    const duplicate = createReplayRun({
+      replay_run_id: "replay-run-shared",
+      run_id: "run-source-2",
+      status: "completed"
+    });
+    const otherTenant = createReplayRun({
+      replay_run_id: "replay-run-shared",
+      tenant_id: "tenant-2",
+      run_id: "run-source-tenant-2",
+      status: "failed"
+    });
+    const fallbackRun = createReplayRun({
+      replay_run_id: "replay-run-canonical",
+      run_id: "run-legacy-fallback",
+      status: "pending"
+    });
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { replayRuns });
+
+    await ports.replay.saveReplayRun(first);
+    await ports.replay.saveReplayRun(duplicate);
+    await ports.replay.saveReplayRun(otherTenant);
+    await ports.replay.saveReplayRun(fallbackRun);
+
+    expect(replayRuns).toEqual([first, duplicate, otherTenant, fallbackRun]);
+    expect(replayRuns[0]).toBe(first);
+    expect(replayRuns[1]).toBe(duplicate);
+    expect(replayRuns[2]).toBe(otherTenant);
+    expect(replayRuns[3]).toBe(fallbackRun);
+    await expect(ports.replay.getReplayRun("tenant-1", "replay-run-shared")).resolves.toBe(first);
+    await expect(ports.replay.getReplayRun("tenant-2", "replay-run-shared")).resolves.toBe(
+      otherTenant
+    );
+    await expect(ports.replay.getReplayRun("tenant-1", "run-legacy-fallback")).resolves.toBe(
+      fallbackRun
+    );
+    await expect(ports.replay.getReplayRun("tenant-3", "replay-run-shared")).resolves.toBeNull();
+    await expect(ports.replay.getReplayRun("tenant-1", "replay-run-missing")).resolves.toBeNull();
+    expect(first.status).toBe("running");
+    expect(duplicate.status).toBe("completed");
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("appends replay reports and returns the first tenant-scoped matching report", async () => {
+    const replayReports: ReplayReport[] = [];
+    const first = createReplayReport({
+      replay_report_id: "replay-report-shared",
+      replay_result_hash: "replay-result-hash-first",
+      matched: true
+    });
+    const duplicate = createReplayReport({
+      replay_report_id: "replay-report-shared",
+      replay_result_hash: "replay-result-hash-second",
+      matched: false,
+      status: "mismatched"
+    });
+    const otherTenant = createReplayReport({
+      replay_report_id: "replay-report-shared",
+      tenant_id: "tenant-2",
+      replay_result_hash: "replay-result-hash-other-tenant"
+    });
+    const fallbackReport = {
+      ...createReplayReport({
+        replay_report_id: "replay-report-canonical",
+        replay_result_hash: "replay-result-hash-fallback"
+      }),
+      report_id: "report-legacy"
+    } as ReplayReport & { report_id: string };
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { replayReports });
+
+    await ports.replay.saveReplayReport(first);
+    await ports.replay.saveReplayReport(duplicate);
+    await ports.replay.saveReplayReport(otherTenant);
+    await ports.replay.saveReplayReport(fallbackReport);
+
+    expect(replayReports).toEqual([first, duplicate, otherTenant, fallbackReport]);
+    expect(replayReports[0]).toBe(first);
+    expect(replayReports[1]).toBe(duplicate);
+    expect(replayReports[2]).toBe(otherTenant);
+    expect(replayReports[3]).toBe(fallbackReport);
+    await expect(ports.replay.getReplayReport("tenant-1", "replay-report-shared")).resolves.toBe(
+      first
+    );
+    await expect(ports.replay.getReplayReport("tenant-2", "replay-report-shared")).resolves.toBe(
+      otherTenant
+    );
+    await expect(ports.replay.getReplayReport("tenant-1", "report-legacy")).resolves.toBe(
+      fallbackReport
+    );
+    await expect(
+      ports.replay.getReplayReport("tenant-3", "replay-report-shared")
+    ).resolves.toBeNull();
+    await expect(
+      ports.replay.getReplayReport("tenant-1", "replay-report-missing")
+    ).resolves.toBeNull();
+    expect(first.replay_result_hash).toBe("replay-result-hash-first");
+    expect(duplicate.replay_result_hash).toBe("replay-result-hash-second");
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("appends replay diff reports and returns the first tenant-scoped matching diff report", async () => {
+    const replayDiffReports: ReplayDiffReport[] = [];
+    const first = createReplayDiffReport({
+      diff_report_id: "diff-report-shared",
+      severity: "low",
+      differences: [
+        {
+          field: "team_results.0.score",
+          expected: 88,
+          actual: 87,
+          message: "score drift"
+        }
+      ]
+    });
+    const duplicate = createReplayDiffReport({
+      diff_report_id: "diff-report-shared",
+      severity: "high",
+      differences: [
+        {
+          field: "team_results.0.rank",
+          expected: 1,
+          actual: 2,
+          message: "rank drift"
+        }
+      ]
+    });
+    const otherTenant = createReplayDiffReport({
+      diff_report_id: "diff-report-shared",
+      tenant_id: "tenant-2",
+      severity: "medium"
+    });
+    const replayDiffIdFallback = {
+      ...createReplayDiffReport({
+        diff_report_id: "diff-report-canonical",
+        severity: "none"
+      }),
+      replay_diff_report_id: "diff-report-legacy"
+    } as ReplayDiffReport & { replay_diff_report_id: string };
+    const reportIdFallback = {
+      ...createReplayDiffReport({
+        diff_report_id: "diff-report-canonical-2",
+        severity: "none"
+      }),
+      report_id: "diff-report-alias"
+    } as ReplayDiffReport & { report_id: string };
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { replayDiffReports });
+
+    await ports.replay.saveReplayDiffReport(first);
+    await ports.replay.saveReplayDiffReport(duplicate);
+    await ports.replay.saveReplayDiffReport(otherTenant);
+    await ports.replay.saveReplayDiffReport(replayDiffIdFallback);
+    await ports.replay.saveReplayDiffReport(reportIdFallback);
+
+    expect(replayDiffReports).toEqual([
+      first,
+      duplicate,
+      otherTenant,
+      replayDiffIdFallback,
+      reportIdFallback
+    ]);
+    expect(replayDiffReports[0]).toBe(first);
+    expect(replayDiffReports[1]).toBe(duplicate);
+    expect(replayDiffReports[2]).toBe(otherTenant);
+    expect(replayDiffReports[3]).toBe(replayDiffIdFallback);
+    expect(replayDiffReports[4]).toBe(reportIdFallback);
+    await expect(ports.replay.getReplayDiffReport("tenant-1", "diff-report-shared")).resolves.toBe(
+      first
+    );
+    await expect(ports.replay.getReplayDiffReport("tenant-2", "diff-report-shared")).resolves.toBe(
+      otherTenant
+    );
+    await expect(ports.replay.getReplayDiffReport("tenant-1", "diff-report-legacy")).resolves.toBe(
+      replayDiffIdFallback
+    );
+    await expect(ports.replay.getReplayDiffReport("tenant-1", "diff-report-alias")).resolves.toBe(
+      reportIdFallback
+    );
+    await expect(
+      ports.replay.getReplayDiffReport("tenant-3", "diff-report-shared")
+    ).resolves.toBeNull();
+    await expect(
+      ports.replay.getReplayDiffReport("tenant-1", "diff-report-missing")
+    ).resolves.toBeNull();
+    expect(first.severity).toBe("low");
+    expect(first.differences[0]?.message).toBe("score drift");
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("keeps replay saves out of settlement truth-chain state", async () => {
+    const replayInputManifests: ReplayInputManifest[] = [];
+    const replayRuns: ReplayRun[] = [];
+    const replayReports: ReplayReport[] = [];
+    const replayDiffReports: ReplayDiffReport[] = [];
+    const decision = createDecision();
+    const settlement = createSettlementResult();
+    const round = {
+      tenant_id: "tenant-1",
+      round_id: "round-1",
+      run_id: "run-1",
+      round_no: 1,
+      status: "settled",
+      replay_hash: "round-replay-hash"
+    };
+    const store = createMinimalStore({
+      decisions: [decision],
+      rounds: [round],
+      settlementResults: [settlement]
+    } as Partial<SimWarStore>);
+    const before = structuredClone({
+      decisions: store.decisions,
+      rounds: store.rounds,
+      settlementResults: store.settlementResults
+    });
+    const ports = createJsonRepositoryPorts(store, {
+      replayInputManifests,
+      replayRuns,
+      replayReports,
+      replayDiffReports
+    });
+
+    await ports.replay.saveReplayInputManifest(createReplayInputManifest());
+    await ports.replay.saveReplayRun(createReplayRun());
+    await ports.replay.saveReplayReport(createReplayReport());
+    await ports.replay.saveReplayDiffReport(createReplayDiffReport());
+
+    expect({
+      decisions: store.decisions,
+      rounds: store.rounds,
+      settlementResults: store.settlementResults
+    }).toEqual(before);
+    expect(store.rounds[0]?.replay_hash).toBe("round-replay-hash");
+    expect(store.settlementResults[0]?.replay_hash).toBe(settlement.replay_hash);
+    expect(store.persist).not.toHaveBeenCalled();
+    expect(replayInputManifests[0]?.included_sources).not.toEqual(
+      expect.arrayContaining([
+        "role_drafts",
+        "ai_advice",
+        "learning_evidence",
+        "prompt_output",
+        "analytics"
+      ])
+    );
+    expect(replayInputManifests[0]?.excluded_from_truth_hash).toMatchObject({
+      ai_advice: "excluded",
+      learning_evidence: "excluded",
+      role_drafts: "excluded"
+    });
+    expect(JSON.stringify({ replayRuns, replayReports, replayDiffReports })).not.toMatch(
+      /role_draft|ai_advice|learning_evidence|prompt_output|analytics/i
+    );
   });
 
   it("keeps domain event and state snapshot collections isolated from the store", async () => {
