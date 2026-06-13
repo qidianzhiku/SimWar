@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Decision, Round, Run, SettlementResult } from "@simwar/shared-contracts";
+import type {
+  Decision,
+  ReplayDiffReport,
+  ReplayInputManifest,
+  ReplayReport,
+  ReplayRun,
+  Round,
+  Run,
+  SettlementResult
+} from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
   createPostgresRepositoryAdapter,
@@ -68,6 +77,22 @@ describe("Postgres repository adapter skeleton", () => {
     tenant_id: string;
   }
 
+  interface ReplayInputManifestRow extends Record<string, unknown> {
+    payload: ReplayInputManifest;
+  }
+
+  interface ReplayRunRow extends Record<string, unknown> {
+    payload: ReplayRun;
+  }
+
+  interface ReplayReportRow extends Record<string, unknown> {
+    payload: ReplayReport;
+  }
+
+  interface ReplayDiffReportRow extends Record<string, unknown> {
+    payload: ReplayDiffReport;
+  }
+
   const teamResults: SettlementResult["team_results"] = [
     {
       state_est: {
@@ -99,6 +124,66 @@ describe("Postgres repository adapter skeleton", () => {
       team_name: "Team One"
     }
   ];
+
+  const replayInputManifest: ReplayInputManifest = {
+    created_at: "2026-06-08T00:00:00.000Z",
+    excluded_from_truth_hash: {
+      ai_advice: "excluded",
+      learning_evidence: "excluded",
+      role_drafts: "excluded"
+    },
+    included_sources: ["canonical_decisions", "scenario", "parameter_set"],
+    input_hash: "input-hash-1",
+    manifest_hash: "manifest-hash-1",
+    manifest_id: "manifest-1",
+    round_id: "round-1",
+    run_id: "run-1",
+    source_result_id: "settlement-1",
+    tenant_id: "tenant-1"
+  };
+
+  const replayRun: ReplayRun = {
+    completed_at: "2026-06-08T00:00:02.000Z",
+    manifest_id: "manifest-1",
+    replay_mode: "official_replay",
+    replay_run_id: "replay-run-1",
+    round_id: "round-1",
+    run_id: "run-1",
+    started_at: "2026-06-08T00:00:01.000Z",
+    status: "completed",
+    tenant_id: "tenant-1"
+  };
+
+  const replayReport: ReplayReport = {
+    created_at: "2026-06-08T00:00:03.000Z",
+    matched: true,
+    replay_report_id: "replay-report-1",
+    replay_result_hash: "replay-result-hash-1",
+    replay_run_id: "replay-run-1",
+    round_id: "round-1",
+    run_id: "run-1",
+    source_result_id: "settlement-1",
+    status: "matched",
+    tenant_id: "tenant-1"
+  };
+
+  const replayDiffReport: ReplayDiffReport = {
+    created_at: "2026-06-08T00:00:04.000Z",
+    diff_report_id: "diff-report-1",
+    differences: [
+      {
+        actual: 90,
+        expected: 88,
+        field: "team_results[0].state_true.score",
+        message: "score drift"
+      }
+    ],
+    replay_report_id: "replay-report-1",
+    round_id: "round-1",
+    run_id: "run-1",
+    severity: "low",
+    tenant_id: "tenant-1"
+  };
 
   it("keeps the query executor boundary callable with SQL and params only", async () => {
     interface ProbeRow extends Record<string, unknown> {
@@ -1391,6 +1476,151 @@ describe("Postgres repository adapter skeleton", () => {
     expect(JSON.parse(calls[0]?.params?.[9] as string)).toEqual(teamResults);
   });
 
+  it("replay.getReplayInputManifest reads the first manifest payload by tenant and canonical identity", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return params?.[1] === replayInputManifest.manifest_id
+        ? {
+            rowCount: 1,
+            rows: [{ payload: replayInputManifest } satisfies ReplayInputManifestRow]
+          }
+        : {
+            rowCount: 0,
+            rows: []
+          };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.replay.getReplayInputManifest("tenant-1", "manifest-1")).resolves.toEqual(
+      replayInputManifest
+    );
+    await expect(
+      adapter.replay.getReplayInputManifest("tenant-1", "missing-manifest")
+    ).resolves.toBeNull();
+
+    expect(calls[0]).toEqual({
+      params: ["tenant-1", "manifest-1"],
+      sql: "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'manifest' AND manifest_id = $2 ORDER BY append_sequence ASC LIMIT 1"
+    });
+    expect(calls[0]?.sql).toMatch(/^SELECT payload FROM replay_records/);
+    expect(calls[0]?.sql).toContain("record_type = 'manifest'");
+    expect(calls[0]?.sql).toContain("manifest_id = $2");
+    expect(calls[0]?.sql).toContain("ORDER BY append_sequence ASC");
+    expect(calls[0]?.sql).toContain("LIMIT 1");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("replay.getReplayRun reads the first replay run payload by tenant and canonical identity", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return params?.[1] === replayRun.replay_run_id
+        ? {
+            rowCount: 1,
+            rows: [{ payload: replayRun } satisfies ReplayRunRow]
+          }
+        : {
+            rowCount: 0,
+            rows: []
+          };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.replay.getReplayRun("tenant-1", "replay-run-1")).resolves.toEqual(
+      replayRun
+    );
+    await expect(adapter.replay.getReplayRun("tenant-1", "missing-run")).resolves.toBeNull();
+
+    expect(calls[0]).toEqual({
+      params: ["tenant-1", "replay-run-1"],
+      sql: "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'run' AND replay_run_id = $2 ORDER BY append_sequence ASC LIMIT 1"
+    });
+    expect(calls[0]?.sql).toMatch(/^SELECT payload FROM replay_records/);
+    expect(calls[0]?.sql).toContain("record_type = 'run'");
+    expect(calls[0]?.sql).toContain("replay_run_id = $2");
+    expect(calls[0]?.sql).toContain("ORDER BY append_sequence ASC");
+    expect(calls[0]?.sql).toContain("LIMIT 1");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("replay.getReplayReport reads the first replay report payload by tenant and canonical identity", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return params?.[1] === replayReport.replay_report_id
+        ? {
+            rowCount: 1,
+            rows: [{ payload: replayReport } satisfies ReplayReportRow]
+          }
+        : {
+            rowCount: 0,
+            rows: []
+          };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.replay.getReplayReport("tenant-1", "replay-report-1")).resolves.toEqual(
+      replayReport
+    );
+    await expect(adapter.replay.getReplayReport("tenant-1", "missing-report")).resolves.toBeNull();
+
+    expect(calls[0]).toEqual({
+      params: ["tenant-1", "replay-report-1"],
+      sql: "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'report' AND replay_report_id = $2 ORDER BY append_sequence ASC LIMIT 1"
+    });
+    expect(calls[0]?.sql).toMatch(/^SELECT payload FROM replay_records/);
+    expect(calls[0]?.sql).toContain("record_type = 'report'");
+    expect(calls[0]?.sql).toContain("replay_report_id = $2");
+    expect(calls[0]?.sql).toContain("ORDER BY append_sequence ASC");
+    expect(calls[0]?.sql).toContain("LIMIT 1");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("replay.getReplayDiffReport reads the first diff report payload by tenant and canonical identity", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return params?.[1] === replayDiffReport.diff_report_id
+        ? {
+            rowCount: 1,
+            rows: [{ payload: replayDiffReport } satisfies ReplayDiffReportRow]
+          }
+        : {
+            rowCount: 0,
+            rows: []
+          };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.replay.getReplayDiffReport("tenant-1", "diff-report-1")).resolves.toEqual(
+      replayDiffReport
+    );
+    await expect(
+      adapter.replay.getReplayDiffReport("tenant-1", "missing-diff")
+    ).resolves.toBeNull();
+
+    expect(calls[0]).toEqual({
+      params: ["tenant-1", "diff-report-1"],
+      sql: "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'diff' AND diff_report_id = $2 ORDER BY append_sequence ASC LIMIT 1"
+    });
+    expect(calls[0]?.sql).toMatch(/^SELECT payload FROM replay_records/);
+    expect(calls[0]?.sql).toContain("record_type = 'diff'");
+    expect(calls[0]?.sql).toContain("diff_report_id = $2");
+    expect(calls[0]?.sql).toContain("ORDER BY append_sequence ASC");
+    expect(calls[0]?.sql).toContain("LIMIT 1");
+    expect(calls[0]?.sql).not.toContain("replay_diff_report_id");
+    expect(calls[0]?.sql).not.toContain("metadata");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -1449,6 +1679,7 @@ describe("Postgres repository adapter skeleton", () => {
       "decisions",
       "options",
       "queryExecutor",
+      "replay",
       "rounds",
       "runs",
       "settlements"
@@ -1480,7 +1711,20 @@ describe("Postgres repository adapter skeleton", () => {
       "listSettlementResultsForRound",
       "saveSettlementResult"
     ]);
-    expect("replay" in adapter).toBe(false);
+    expect(Object.keys(adapter.replay).sort()).toEqual([
+      "getReplayDiffReport",
+      "getReplayInputManifest",
+      "getReplayReport",
+      "getReplayRun"
+    ]);
+    expect(adapter.replay.getReplayInputManifest).toEqual(expect.any(Function));
+    expect(adapter.replay.getReplayRun).toEqual(expect.any(Function));
+    expect(adapter.replay.getReplayReport).toEqual(expect.any(Function));
+    expect(adapter.replay.getReplayDiffReport).toEqual(expect.any(Function));
+    expect("saveReplayInputManifest" in adapter.replay).toBe(false);
+    expect("saveReplayRun" in adapter.replay).toBe(false);
+    expect("saveReplayReport" in adapter.replay).toBe(false);
+    expect("saveReplayDiffReport" in adapter.replay).toBe(false);
     expect("provider" in adapter).toBe(false);
     expect("repositoryProvider" in adapter).toBe(false);
   });

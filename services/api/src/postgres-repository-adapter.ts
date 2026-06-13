@@ -7,7 +7,16 @@
  * Query helpers delegate only to the injected PostgresQueryExecutor.
  */
 
-import type { Decision, Round, Run, SettlementResult } from "@simwar/shared-contracts";
+import type {
+  Decision,
+  ReplayDiffReport,
+  ReplayInputManifest,
+  ReplayReport,
+  ReplayRun,
+  Round,
+  Run,
+  SettlementResult
+} from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -81,6 +90,22 @@ export interface PostgresSettlementMapping {
   saveSettlementResult(result: SettlementResult): Promise<void>;
 }
 
+export interface PostgresReplayMapping {
+  getReplayInputManifest(
+    tenantId: RepositoryId,
+    manifestId: RepositoryId
+  ): Promise<ReplayInputManifest | null>;
+  getReplayRun(tenantId: RepositoryId, replayRunId: RepositoryId): Promise<ReplayRun | null>;
+  getReplayReport(
+    tenantId: RepositoryId,
+    replayReportId: RepositoryId
+  ): Promise<ReplayReport | null>;
+  getReplayDiffReport(
+    tenantId: RepositoryId,
+    replayDiffReportId: RepositoryId
+  ): Promise<ReplayDiffReport | null>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -138,6 +163,22 @@ interface PostgresSettlementResultReadRow extends Record<string, unknown> {
   settlement_result_id: RepositoryId;
   team_results: SettlementResult["team_results"];
   tenant_id: RepositoryId;
+}
+
+interface PostgresReplayInputManifestReadRow extends Record<string, unknown> {
+  payload: ReplayInputManifest;
+}
+
+interface PostgresReplayRunReadRow extends Record<string, unknown> {
+  payload: ReplayRun;
+}
+
+interface PostgresReplayReportReadRow extends Record<string, unknown> {
+  payload: ReplayReport;
+}
+
+interface PostgresReplayDiffReportReadRow extends Record<string, unknown> {
+  payload: ReplayDiffReport;
 }
 
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
@@ -248,6 +289,7 @@ export class PostgresRepositoryAdapter {
   readonly decisions: PostgresDecisionMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
+  readonly replay: PostgresReplayMapping;
   readonly rounds: PostgresRoundReadMapping;
   readonly runs: PostgresRunReadMapping;
   readonly settlements: PostgresSettlementMapping;
@@ -369,6 +411,40 @@ export class PostgresRepositoryAdapter {
       },
       saveSettlementResult: async (result) => {
         await this.saveSettlementResultRow(result);
+      }
+    };
+    this.replay = {
+      getReplayInputManifest: async (tenantId, manifestId) => {
+        const row = await this.queryOne<PostgresReplayInputManifestReadRow>(
+          "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'manifest' AND manifest_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+          [tenantId, manifestId]
+        );
+
+        return row === null ? null : row.payload;
+      },
+      getReplayRun: async (tenantId, replayRunId) => {
+        const row = await this.queryOne<PostgresReplayRunReadRow>(
+          "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'run' AND replay_run_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+          [tenantId, replayRunId]
+        );
+
+        return row === null ? null : row.payload;
+      },
+      getReplayReport: async (tenantId, replayReportId) => {
+        const row = await this.queryOne<PostgresReplayReportReadRow>(
+          "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'report' AND replay_report_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+          [tenantId, replayReportId]
+        );
+
+        return row === null ? null : row.payload;
+      },
+      getReplayDiffReport: async (tenantId, replayDiffReportId) => {
+        const row = await this.queryOne<PostgresReplayDiffReportReadRow>(
+          "SELECT payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'diff' AND diff_report_id = $2 ORDER BY append_sequence ASC LIMIT 1",
+          [tenantId, replayDiffReportId]
+        );
+
+        return row === null ? null : row.payload;
       }
     };
   }
