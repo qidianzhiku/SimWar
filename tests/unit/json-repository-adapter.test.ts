@@ -6,7 +6,8 @@ import type {
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
-  SettlementResult
+  SettlementResult,
+  StateSnapshot
 } from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter.js";
 import type { SimWarStore } from "../../services/api/src/store.js";
@@ -58,6 +59,12 @@ type JsonSettlementResult = SettlementResult & {
   metadata?: Record<string, unknown>;
 };
 
+type JsonStateSnapshot = StateSnapshot & {
+  aggregate_id: string;
+  aggregate_type: string;
+  sequence?: number;
+};
+
 function createSettlementResult(
   overrides: Partial<JsonSettlementResult> = {}
 ): JsonSettlementResult {
@@ -99,6 +106,29 @@ function createSettlementResult(
         }
       }
     ],
+    ...overrides
+  };
+}
+
+function createStateSnapshot(overrides: Partial<JsonStateSnapshot> = {}): JsonStateSnapshot {
+  return {
+    snapshot_id: "snapshot-1",
+    tenant_id: "tenant-1",
+    run_id: "run-1",
+    round_id: "round-1",
+    snapshot_type: "round",
+    captured_at: "2026-06-08T00:00:00.000Z",
+    aggregate_id: "aggregate-1",
+    aggregate_type: "run",
+    sequence: 1,
+    state: {
+      history: [{ cash: 1000, round_no: 1 }],
+      metrics: {
+        cash: 1000,
+        inventory: [12, 13]
+      },
+      status: "settled"
+    },
     ...overrides
   };
 }
@@ -962,6 +992,307 @@ describe("JSON repository adapter", () => {
     expect(JSON.stringify({ replayRuns, replayReports, replayDiffReports })).not.toMatch(
       /role_draft|ai_advice|learning_evidence|prompt_output|analytics/i
     );
+  });
+
+  it("JSON state snapshots retain duplicate snapshot_id appends", async () => {
+    const stateSnapshots: JsonStateSnapshot[] = [];
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { stateSnapshots });
+    const first = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "first" }
+    });
+    const second = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "second" }
+    });
+
+    await expect(ports.stateSnapshots.saveStateSnapshot(first)).resolves.toBeUndefined();
+    await expect(ports.stateSnapshots.saveStateSnapshot(second)).resolves.toBeUndefined();
+
+    expect(stateSnapshots).toEqual([first, second]);
+    expect(stateSnapshots[0]).toBe(first);
+    expect(stateSnapshots[1]).toBe(second);
+  });
+
+  it("JSON state snapshots retain duplicate aggregate sequence appends", async () => {
+    const stateSnapshots: JsonStateSnapshot[] = [];
+    const ports = createJsonRepositoryPorts(createMinimalStore(), { stateSnapshots });
+    const first = createStateSnapshot({
+      sequence: 7,
+      snapshot_id: "snapshot-sequence-1",
+      state: { marker: "first" }
+    });
+    const second = createStateSnapshot({
+      sequence: 7,
+      snapshot_id: "snapshot-sequence-2",
+      state: { marker: "second" }
+    });
+
+    await ports.stateSnapshots.saveStateSnapshot(first);
+    await ports.stateSnapshots.saveStateSnapshot(second);
+
+    expect(stateSnapshots).toEqual([first, second]);
+    expect(stateSnapshots[0]).toBe(first);
+    expect(stateSnapshots[1]).toBe(second);
+  });
+
+  it("JSON state snapshot reads return the last matching append", async () => {
+    const first = createStateSnapshot({
+      sequence: 1,
+      snapshot_id: "snapshot-b",
+      state: { marker: "first" }
+    });
+    const second = createStateSnapshot({
+      sequence: 2,
+      snapshot_id: "snapshot-a",
+      state: { marker: "second" }
+    });
+    const third = createStateSnapshot({
+      sequence: 1,
+      snapshot_id: "snapshot-c",
+      state: { marker: "third" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [first, second, third]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(third);
+  });
+
+  it("JSON state snapshot reads honor at_sequence before selecting the last match", async () => {
+    const sequenceOne = createStateSnapshot({
+      sequence: 1,
+      snapshot_id: "snapshot-1",
+      state: { marker: "sequence-1" }
+    });
+    const sequenceTwo = createStateSnapshot({
+      sequence: 2,
+      snapshot_id: "snapshot-2",
+      state: { marker: "sequence-2" }
+    });
+    const sequenceThree = createStateSnapshot({
+      sequence: 3,
+      snapshot_id: "snapshot-3",
+      state: { marker: "sequence-3" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [sequenceOne, sequenceTwo, sequenceThree]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        at_sequence: 2,
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(sequenceTwo);
+  });
+
+  it("JSON state snapshot reads use last append for duplicate eligible sequence", async () => {
+    const first = createStateSnapshot({
+      sequence: 2,
+      snapshot_id: "snapshot-duplicate-1",
+      state: { marker: "first" }
+    });
+    const second = createStateSnapshot({
+      sequence: 2,
+      snapshot_id: "snapshot-duplicate-2",
+      state: { marker: "second" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [first, second]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        at_sequence: 2,
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(second);
+  });
+
+  it("JSON state snapshot reads are tenant isolated", async () => {
+    const tenantOne = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "tenant-1" },
+      tenant_id: "tenant-1"
+    });
+    const tenantTwo = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "tenant-2" },
+      tenant_id: "tenant-2"
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [tenantOne, tenantTwo]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(tenantOne);
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-2"
+      })
+    ).resolves.toBe(tenantTwo);
+  });
+
+  it("JSON state snapshot reads filter by aggregate type", async () => {
+    const runSnapshot = createStateSnapshot({
+      aggregate_type: "run",
+      state: { marker: "run" }
+    });
+    const roundSnapshot = createStateSnapshot({
+      aggregate_type: "round",
+      snapshot_id: "snapshot-round",
+      state: { marker: "round" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [runSnapshot, roundSnapshot]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(runSnapshot);
+  });
+
+  it("JSON state snapshot reads filter by aggregate identity", async () => {
+    const aggregateOne = createStateSnapshot({
+      aggregate_id: "aggregate-1",
+      state: { marker: "aggregate-1" }
+    });
+    const aggregateTwo = createStateSnapshot({
+      aggregate_id: "aggregate-2",
+      snapshot_id: "snapshot-aggregate-2",
+      state: { marker: "aggregate-2" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [aggregateOne, aggregateTwo]
+    });
+
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(aggregateOne);
+  });
+
+  it.each([
+    {
+      label: "empty collection",
+      query: {
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      },
+      snapshots: []
+    },
+    {
+      label: "tenant mismatch",
+      query: {
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-2"
+      },
+      snapshots: [createStateSnapshot()]
+    },
+    {
+      label: "aggregate mismatch",
+      query: {
+        aggregate_id: "aggregate-missing",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      },
+      snapshots: [createStateSnapshot()]
+    },
+    {
+      label: "at_sequence below candidates",
+      query: {
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        at_sequence: 0,
+        tenant_id: "tenant-1"
+      },
+      snapshots: [createStateSnapshot({ sequence: 1 })]
+    }
+  ])(
+    "JSON state snapshot reads return null when no snapshot matches: $label",
+    async ({ query, snapshots }) => {
+      const ports = createJsonRepositoryPorts(createMinimalStore(), { stateSnapshots: snapshots });
+
+      await expect(ports.stateSnapshots.getStateSnapshot(query)).resolves.toBeNull();
+    }
+  );
+
+  it("JSON state snapshot saves do not persist the store", async () => {
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store, { stateSnapshots: [] });
+
+    await ports.stateSnapshots.saveStateSnapshot(createStateSnapshot());
+
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("JSON state snapshot saves do not mutate the input object", async () => {
+    const snapshot = createStateSnapshot();
+    const before = structuredClone(snapshot);
+    const ports = createJsonRepositoryPorts(createMinimalStore(), { stateSnapshots: [] });
+
+    await ports.stateSnapshots.saveStateSnapshot(snapshot);
+
+    expect(snapshot).toEqual(before);
+  });
+
+  it("JSON state snapshots preserve the complete saved object", async () => {
+    const stateSnapshots: JsonStateSnapshot[] = [];
+    const snapshot = createStateSnapshot({
+      state: {
+        nested: {
+          bands: ["low", "medium", "high"],
+          cash: 1200
+        },
+        teams: [
+          {
+            score: 88,
+            team_id: "team-1"
+          }
+        ]
+      }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), { stateSnapshots });
+
+    await ports.stateSnapshots.saveStateSnapshot(snapshot);
+
+    expect(stateSnapshots[0]).toBe(snapshot);
+    expect(stateSnapshots[0]).toEqual(snapshot);
+    await expect(
+      ports.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBe(snapshot);
   });
 
   it("keeps domain event and state snapshot collections isolated from the store", async () => {
