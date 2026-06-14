@@ -36,5 +36,100 @@ jobs:
       - run: npm run test:postgres-replay
         env:
           SIMWAR_TEST_DATABASE_URL: postgresql://simwar_test:simwar_test@localhost:5432/simwar_test
+          SIMWAR_VERIFICATION_REPORT_PATH: artifacts/postgres-replay-verification.json
+      - name: Validate Postgres replay verification report
+        if: always() && hashFiles('artifacts/postgres-replay-verification.json') != ''
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const path = "artifacts/postgres-replay-verification.json";
+          const raw = fs.readFileSync(path, "utf8");
+          const report = JSON.parse(raw);
+
+          const fail = (message) => {
+            throw new Error(message);
+          };
+
+          if (report.schema_version !== 1) {
+            fail("Unexpected verification report schema version");
+          }
+
+          if ("base_commit" in report) {
+            fail("Obsolete base_commit field is present");
+          }
+
+          if ("ready_for_review" in report) {
+            fail("Domain report must not emit ready_for_review");
+          }
+
+          if ("scope_valid" in report) {
+            fail("Unverified scope_valid field is present");
+          }
+
+          if (report.scope?.status !== "unavailable") {
+            fail("Scope status must be unavailable");
+          }
+
+          if (
+            report.scope?.reason !==
+            "Scope is not evaluated by the Postgres replay harness"
+          ) {
+            fail("Unexpected scope reason");
+          }
+
+          if (report.domain_harnesses?.postgres_replay?.status !== "passed") {
+            fail("Postgres replay domain harness did not pass");
+          }
+
+          if (report.cleanup?.temporary_schema !== "passed") {
+            fail("Temporary schema cleanup did not pass");
+          }
+
+          if (report.cleanup?.database_client !== "passed") {
+            fail("Database client cleanup did not pass");
+          }
+
+          if (
+            !Array.isArray(report.blocking_failures) ||
+            report.blocking_failures.length !== 0
+          ) {
+            fail("Unexpected blocking failures");
+          }
+
+          if (report.postgres_replay_ready !== true) {
+            fail("Postgres replay readiness is not true");
+          }
+
+          const command = report.commands?.find(
+            (entry) => entry.name === "npm run test:postgres-replay",
+          );
+
+          if (!command || command.status !== "passed") {
+            fail("Postgres replay command result is missing or failed");
+          }
+
+          if (
+            !Number.isInteger(command.duration_ms) ||
+            command.duration_ms < 0
+          ) {
+            fail("Invalid Postgres replay command duration");
+          }
+
+          if (
+            raw.includes("postgresql://") ||
+            raw.includes("simwar_test:simwar_test@")
+          ) {
+            fail("Database connection details leaked into report");
+          }
+          NODE
+      - name: Upload Postgres replay verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-replay-verification
+          path: artifacts/postgres-replay-verification.json
+          if-no-files-found: error
+          retention-days: 14
       - run: npm run test:contract
       - run: npm run build

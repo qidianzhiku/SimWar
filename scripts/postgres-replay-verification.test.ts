@@ -144,7 +144,9 @@ function markChecksPassed(checks: readonly VerificationCheck[]): void {
 }
 
 function verificationCommandStatus(): VerificationStatus {
-  return [...verificationChecks.values()].every((status) => status === "passed")
+  return [...verificationChecks.values()].every((status) => status === "passed") &&
+    temporarySchemaCleanup === "passed" &&
+    databaseClientCleanup === "passed"
     ? "passed"
     : "failed";
 }
@@ -160,10 +162,26 @@ async function writeVerificationReport(): Promise<void> {
     VerificationCheck,
     VerificationStatus
   >;
-  const blockingFailures = Object.entries(checks)
-    .filter(([, status]) => status === "failed")
-    .map(([name]) => name);
+  const blockingFailures = new Set(
+    Object.entries(checks)
+      .filter(([, status]) => status === "failed")
+      .map(([name]) => name)
+  );
+
+  if (temporarySchemaCleanup === "failed") {
+    blockingFailures.add("temporary_schema_cleanup");
+  }
+
+  if (databaseClientCleanup === "failed") {
+    blockingFailures.add("database_client_cleanup");
+  }
+
+  const blockingFailureList = [...blockingFailures];
   const commandStatus = verificationCommandStatus();
+  const postgresReplayReady =
+    commandStatus === "passed" &&
+    temporarySchemaCleanup === "passed" &&
+    databaseClientCleanup === "passed";
   const resolvedReportPath = resolve(reportPath);
 
   await mkdir(dirname(resolvedReportPath), { recursive: true });
@@ -174,13 +192,14 @@ async function writeVerificationReport(): Promise<void> {
         schema_version: 1,
         branch: process.env.GITHUB_HEAD_REF ?? process.env.GITHUB_REF_NAME ?? "",
         commit: process.env.GITHUB_SHA ?? "",
-        base_commit: process.env.GITHUB_BASE_REF ?? "",
-        changed_files: [],
-        allowed_files: [],
-        scope_valid: true,
+        base_ref: process.env.GITHUB_BASE_REF ?? "",
+        scope: {
+          reason: "Scope is not evaluated by the Postgres replay harness",
+          status: "unavailable"
+        },
         commands: [
           {
-            duration_ms: Date.now() - verificationStartedAt,
+            duration_ms: Math.max(0, Date.now() - verificationStartedAt),
             name: "npm run test:postgres-replay",
             status: commandStatus
           }
@@ -195,15 +214,13 @@ async function writeVerificationReport(): Promise<void> {
           database_client: databaseClientCleanup,
           temporary_schema: temporarySchemaCleanup
         },
-        blocking_failures: blockingFailures,
-        ready_for_review:
-          commandStatus === "passed" &&
-          temporarySchemaCleanup === "passed" &&
-          databaseClientCleanup === "passed"
+        blocking_failures: blockingFailureList,
+        postgres_replay_ready: postgresReplayReady
       },
       null,
       2
-    )}\n`
+    )}\n`,
+    "utf8"
   );
 }
 
