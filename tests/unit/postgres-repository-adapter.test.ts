@@ -8,7 +8,8 @@ import type {
   ReplayRun,
   Round,
   Run,
-  SettlementResult
+  SettlementResult,
+  StateSnapshot
 } from "@simwar/shared-contracts";
 import type { RepositoryCourseReadModel } from "../../services/api/src/repository-ports.js";
 import {
@@ -97,6 +98,17 @@ describe("Postgres repository adapter skeleton", () => {
   interface AuditLogRow extends Record<string, unknown> {
     payload: AuditLog;
   }
+
+  interface StateSnapshotRow extends Record<string, unknown> {
+    payload: StateSnapshot;
+  }
+
+  type PostgresStateSnapshot = StateSnapshot & {
+    aggregate_id: string;
+    aggregate_type: string;
+    sequence?: number;
+    team_id?: string;
+  };
 
   const teamResults: SettlementResult["team_results"] = [
     {
@@ -209,6 +221,30 @@ describe("Postgres repository adapter skeleton", () => {
     tenant_id: "tenant-1"
   };
 
+  const createStateSnapshot = (
+    overrides: Partial<PostgresStateSnapshot> = {}
+  ): PostgresStateSnapshot => ({
+    aggregate_id: "aggregate-1",
+    aggregate_type: "run",
+    captured_at: "2026-06-08T00:00:06.000Z",
+    round_id: "round-1",
+    run_id: "run-1",
+    sequence: 1,
+    snapshot_id: "snapshot-1",
+    snapshot_type: "round",
+    state: {
+      history: [{ cash: 1000, round_no: 1 }],
+      metrics: {
+        cash: 1000,
+        inventory: [12, 13]
+      },
+      status: "settled"
+    },
+    team_id: "team-1",
+    tenant_id: "tenant-1",
+    ...overrides
+  });
+
   const createRecordingExecutor = (
     calls: Array<{ params?: readonly unknown[]; sql: string }>,
     rows: readonly Record<string, unknown>[] = []
@@ -296,6 +332,47 @@ describe("Postgres repository adapter skeleton", () => {
     expect(call?.sql).not.toContain("id,");
     expect(call?.sql).not.toContain("audit_sequence DESC");
     expect(call?.sql).not.toContain("created_at DESC");
+    expect(call?.sql).not.toContain("DISTINCT ON");
+    expect(call?.sql).not.toContain("MAX(");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("simulation_rounds");
+    expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("buildReplayHash");
+  };
+
+  const expectStateSnapshotInsertBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toContain("INSERT INTO state_snapshots");
+    expect(call?.sql).not.toContain("snapshot_sequence");
+    expect(call?.sql).toContain("::jsonb");
+    expect(call?.sql).not.toContain("ON CONFLICT");
+    expect(call?.sql).not.toContain("UPDATE state_snapshots");
+    expect(call?.sql).not.toContain("DELETE");
+    expect(call?.sql).not.toMatch(/^SELECT/i);
+    expect(call?.sql).not.toContain("metadata");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("simulation_rounds");
+    expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("buildReplayHash");
+  };
+
+  const expectStateSnapshotReadBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toMatch(/^SELECT payload FROM state_snapshots/);
+    expect(call?.sql).toContain("tenant_id = $1");
+    expect(call?.sql).toContain("aggregate_type = $2");
+    expect(call?.sql).toContain("aggregate_id = $3");
+    expect(call?.sql).toContain("ORDER BY snapshot_sequence DESC");
+    expect(call?.sql).toContain("LIMIT 1");
+    expect(call?.sql).not.toContain("metadata");
+    expect(call?.sql).not.toContain("created_at DESC");
+    expect(call?.sql).not.toContain("captured_at DESC");
+    expect(call?.sql).not.toContain("ORDER BY sequence DESC");
+    expect(call?.sql).not.toContain("snapshot_sequence ASC");
     expect(call?.sql).not.toContain("DISTINCT ON");
     expect(call?.sql).not.toContain("MAX(");
     expect(call?.sql).not.toContain("decisions");
@@ -2066,6 +2143,287 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[3]?.sql).not.toContain("replay_diff_report_id");
   });
 
+  it("state snapshot namespace exposes only save and get methods", () => {
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: async () => ({
+        rowCount: 0,
+        rows: []
+      })
+    });
+
+    expect(Object.keys(adapter.stateSnapshots).sort()).toEqual([
+      "getStateSnapshot",
+      "saveStateSnapshot"
+    ]);
+    expect(adapter.stateSnapshots.getStateSnapshot).toEqual(expect.any(Function));
+    expect(adapter.stateSnapshots.saveStateSnapshot).toEqual(expect.any(Function));
+    expect("listStateSnapshots" in adapter.stateSnapshots).toBe(false);
+    expect("latestSnapshot" in adapter.stateSnapshots).toBe(false);
+    expect("deleteStateSnapshot" in adapter.stateSnapshots).toBe(false);
+    expect("updateStateSnapshot" in adapter.stateSnapshots).toBe(false);
+    expect("provider" in adapter.stateSnapshots).toBe(false);
+    expect("runtime" in adapter.stateSnapshots).toBe(false);
+    expect("connect" in adapter.stateSnapshots).toBe(false);
+  });
+
+  it("saves state snapshots with internal row identity and JSONB payloads", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const snapshot = createStateSnapshot();
+    const original = structuredClone(snapshot);
+
+    await expect(adapter.stateSnapshots.saveStateSnapshot(snapshot)).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    const call = calls[0];
+    expectStateSnapshotInsertBoundary(call);
+    expect(call?.params).toHaveLength(12);
+    expect(call?.params?.[0]).not.toBe(snapshot.snapshot_id);
+    expect(call?.params?.[1]).toBe(snapshot.snapshot_id);
+    expect(call?.params?.[2]).toBe(snapshot.tenant_id);
+    expect(call?.params?.[3]).toBe(snapshot.run_id);
+    expect(call?.params?.[4]).toBe(snapshot.round_id);
+    expect(call?.params?.[5]).toBe(snapshot.team_id);
+    expect(call?.params?.[6]).toBe(snapshot.aggregate_type);
+    expect(call?.params?.[7]).toBe(snapshot.aggregate_id);
+    expect(call?.params?.[8]).toBe(snapshot.sequence);
+    expect(call?.params?.[9]).toBe(snapshot.snapshot_type);
+    expect(call?.params?.[10]).toBe(snapshot.captured_at);
+    expectJsonPayloadParam(call?.params?.[11], snapshot);
+    expect(snapshot).toEqual(original);
+  });
+
+  it("Postgres state snapshots retain duplicate snapshot_id appends", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const first = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "first" }
+    });
+    const second = createStateSnapshot({
+      snapshot_id: "snapshot-shared",
+      state: { marker: "second" }
+    });
+
+    await adapter.stateSnapshots.saveStateSnapshot(first);
+    await adapter.stateSnapshots.saveStateSnapshot(second);
+
+    expect(calls).toHaveLength(2);
+    expectStateSnapshotInsertBoundary(calls[0]);
+    expectStateSnapshotInsertBoundary(calls[1]);
+    expect(calls[0]?.params?.[1]).toBe("snapshot-shared");
+    expect(calls[1]?.params?.[1]).toBe("snapshot-shared");
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+    expect(calls[0]?.params?.[11]).not.toBe(calls[1]?.params?.[11]);
+    expect(calls[0]?.sql).not.toContain("ON CONFLICT");
+    expect(calls[1]?.sql).not.toContain("ON CONFLICT");
+  });
+
+  it("Postgres state snapshots retain duplicate aggregate sequence appends", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.stateSnapshots.saveStateSnapshot(
+      createStateSnapshot({
+        sequence: 7,
+        snapshot_id: "snapshot-sequence-1"
+      })
+    );
+    await adapter.stateSnapshots.saveStateSnapshot(
+      createStateSnapshot({
+        sequence: 7,
+        snapshot_id: "snapshot-sequence-2"
+      })
+    );
+
+    expect(calls).toHaveLength(2);
+    expectStateSnapshotInsertBoundary(calls[0]);
+    expectStateSnapshotInsertBoundary(calls[1]);
+    expect(calls[0]?.params?.[6]).toBe("run");
+    expect(calls[1]?.params?.[6]).toBe("run");
+    expect(calls[0]?.params?.[7]).toBe("aggregate-1");
+    expect(calls[1]?.params?.[7]).toBe("aggregate-1");
+    expect(calls[0]?.params?.[8]).toBe(7);
+    expect(calls[1]?.params?.[8]).toBe(7);
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+  });
+
+  it("Postgres state snapshot saves preserve missing sequence", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const { sequence: _removedSequence, ...withoutSequence } = createStateSnapshot({
+      snapshot_id: "snapshot-without-sequence"
+    });
+    const original = structuredClone(withoutSequence);
+
+    await adapter.stateSnapshots.saveStateSnapshot(withoutSequence);
+
+    expect(_removedSequence).toBe(1);
+    expect("sequence" in withoutSequence).toBe(false);
+    expectStateSnapshotInsertBoundary(calls[0]);
+    expect(calls[0]?.params?.[8]).toBeNull();
+    expect(calls[0]?.sql).not.toContain("snapshot_sequence");
+    const payload = parseJsonPayloadParam<StateSnapshot>(calls[0]?.params?.[11], withoutSequence);
+    expect("sequence" in payload).toBe(false);
+    expect(withoutSequence).toEqual(original);
+  });
+
+  it("reads state snapshots by tenant and aggregate without at_sequence", async () => {
+    const snapshot = createStateSnapshot();
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, [
+        { payload: snapshot } satisfies StateSnapshotRow
+      ])
+    });
+
+    await expect(
+      adapter.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toEqual(snapshot);
+
+    expect(calls).toHaveLength(1);
+    expectStateSnapshotReadBoundary(calls[0]);
+    expect(calls[0]?.sql).not.toContain("sequence IS NULL");
+    expect(calls[0]?.sql).not.toContain("sequence <=");
+    expect(calls[0]?.params).toEqual(["tenant-1", "run", "aggregate-1"]);
+  });
+
+  it("reads state snapshots with at_sequence while keeping missing sequence eligible", async () => {
+    const snapshot = createStateSnapshot({ sequence: 0 });
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, [
+        { payload: snapshot } satisfies StateSnapshotRow
+      ])
+    });
+
+    await expect(
+      adapter.stateSnapshots.getStateSnapshot({
+        aggregate_id: "aggregate-1",
+        aggregate_type: "run",
+        at_sequence: 0,
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toEqual(snapshot);
+
+    expectStateSnapshotReadBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain("AND (sequence IS NULL OR sequence <= $4)");
+    expect(calls[0]?.params).toEqual(["tenant-1", "run", "aggregate-1", 0]);
+    expect(calls[0]?.sql).not.toContain("COALESCE");
+    expect(calls[0]?.sql).not.toContain("sequence <= $4 ORDER BY");
+    expect(calls[0]?.sql).not.toContain("tenant-1");
+    expect(calls[0]?.sql).not.toContain("aggregate-1");
+  });
+
+  it("returns null when no state snapshot row matches", async () => {
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor([])
+    });
+
+    await expect(
+      adapter.stateSnapshots.getStateSnapshot({
+        aggregate_id: "missing-aggregate",
+        aggregate_type: "run",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toBeNull();
+  });
+
+  it("returns complete state snapshot payloads without database-only fields", async () => {
+    const { sequence: _removedSequence, ...snapshot } = createStateSnapshot({
+      snapshot_id: "snapshot-payload",
+      state: {
+        nested: {
+          bands: ["low", "medium", "high"],
+          cash: 1200
+        },
+        teams: [{ score: 88, team_id: "team-1" }]
+      }
+    });
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor([], [{ payload: snapshot } satisfies StateSnapshotRow])
+    });
+
+    const result = await adapter.stateSnapshots.getStateSnapshot({
+      aggregate_id: "aggregate-1",
+      aggregate_type: "run",
+      tenant_id: "tenant-1"
+    });
+
+    expect(_removedSequence).toBe(1);
+    expect(result).toEqual(snapshot);
+    expect(result).not.toHaveProperty("id");
+    expect(result).not.toHaveProperty("snapshot_sequence");
+    expect(result).not.toHaveProperty("sequence");
+  });
+
+  it("keeps state snapshot tenant isolation without global snapshot identity uniqueness", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.stateSnapshots.saveStateSnapshot(
+      createStateSnapshot({
+        snapshot_id: "snapshot-shared",
+        tenant_id: "tenant-1"
+      })
+    );
+    await adapter.stateSnapshots.saveStateSnapshot(
+      createStateSnapshot({
+        snapshot_id: "snapshot-shared",
+        tenant_id: "tenant-2"
+      })
+    );
+
+    expect(calls[0]?.params?.[1]).toBe(calls[1]?.params?.[1]);
+    expect(calls[0]?.params?.[2]).toBe("tenant-1");
+    expect(calls[1]?.params?.[2]).toBe("tenant-2");
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+
+    calls.length = 0;
+
+    await adapter.stateSnapshots.getStateSnapshot({
+      aggregate_id: "aggregate-1",
+      aggregate_type: "run",
+      tenant_id: "tenant-2"
+    });
+
+    expectStateSnapshotReadBoundary(calls[0]);
+    expect(calls[0]?.params).toEqual(["tenant-2", "run", "aggregate-1"]);
+  });
+
+  it("Postgres state snapshot reads select the last eligible append", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.stateSnapshots.getStateSnapshot({
+      aggregate_id: "aggregate-1",
+      aggregate_type: "run",
+      at_sequence: 2,
+      tenant_id: "tenant-1"
+    });
+
+    expectStateSnapshotReadBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain("ORDER BY snapshot_sequence DESC");
+    expect(calls[0]?.sql).not.toContain("ORDER BY sequence DESC");
+    expect(calls[0]?.sql).not.toContain("ORDER BY created_at DESC");
+  });
+
   it("audit log namespace exposes only append and list methods", () => {
     const adapter = createPostgresRepositoryAdapter({
       queryExecutor: async () => ({
@@ -2354,7 +2712,8 @@ describe("Postgres repository adapter skeleton", () => {
       "replay",
       "rounds",
       "runs",
-      "settlements"
+      "settlements",
+      "stateSnapshots"
     ]);
     expect("identity" in adapter).toBe(false);
     expect(adapter.auditLogs.appendAuditLog).toEqual(expect.any(Function));
@@ -2373,6 +2732,8 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.settlements.getSettlementResult).toEqual(expect.any(Function));
     expect(adapter.settlements.listSettlementResultsForRound).toEqual(expect.any(Function));
     expect(adapter.settlements.saveSettlementResult).toEqual(expect.any(Function));
+    expect(adapter.stateSnapshots.getStateSnapshot).toEqual(expect.any(Function));
+    expect(adapter.stateSnapshots.saveStateSnapshot).toEqual(expect.any(Function));
     expect(Object.keys(adapter.decisions).sort()).toEqual([
       "getCanonicalDecisionForTeamRound",
       "getDecisionById",
@@ -2394,6 +2755,10 @@ describe("Postgres repository adapter skeleton", () => {
       "saveReplayInputManifest",
       "saveReplayReport",
       "saveReplayRun"
+    ]);
+    expect(Object.keys(adapter.stateSnapshots).sort()).toEqual([
+      "getStateSnapshot",
+      "saveStateSnapshot"
     ]);
     expect(adapter.replay.getReplayInputManifest).toEqual(expect.any(Function));
     expect(adapter.replay.getReplayRun).toEqual(expect.any(Function));
@@ -2420,6 +2785,13 @@ describe("Postgres repository adapter skeleton", () => {
     expect("repositoryProvider" in adapter.auditLogs).toBe(false);
     expect("runtime" in adapter.auditLogs).toBe(false);
     expect("connect" in adapter.auditLogs).toBe(false);
+    expect("listStateSnapshots" in adapter.stateSnapshots).toBe(false);
+    expect("deleteStateSnapshot" in adapter.stateSnapshots).toBe(false);
+    expect("updateStateSnapshot" in adapter.stateSnapshots).toBe(false);
+    expect("provider" in adapter.stateSnapshots).toBe(false);
+    expect("repositoryProvider" in adapter.stateSnapshots).toBe(false);
+    expect("runtime" in adapter.stateSnapshots).toBe(false);
+    expect("connect" in adapter.stateSnapshots).toBe(false);
     expect("provider" in adapter).toBe(false);
     expect("repositoryProvider" in adapter).toBe(false);
   });

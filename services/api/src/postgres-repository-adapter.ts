@@ -17,9 +17,14 @@ import type {
   ReplayRun,
   Round,
   Run,
-  SettlementResult
+  SettlementResult,
+  StateSnapshot
 } from "@simwar/shared-contracts";
-import type { RepositoryCourseReadModel, RepositoryId } from "./repository-ports.js";
+import type {
+  RepositoryCourseReadModel,
+  RepositoryId,
+  RepositorySnapshotQuery
+} from "./repository-ports.js";
 
 export interface PostgresQueryResult<
   TRow extends Record<string, unknown> = Record<string, unknown>
@@ -123,6 +128,11 @@ export interface PostgresReplayMapping {
   saveReplayDiffReport(report: ReplayDiffReport): Promise<void>;
 }
 
+export interface PostgresStateSnapshotMapping {
+  getStateSnapshot(query: RepositorySnapshotQuery): Promise<StateSnapshot | null>;
+  saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -200,6 +210,10 @@ interface PostgresReplayDiffReportReadRow extends Record<string, unknown> {
 
 interface PostgresAuditLogReadRow extends Record<string, unknown> {
   payload: AuditLog;
+}
+
+interface PostgresStateSnapshotReadRow extends Record<string, unknown> {
+  payload: StateSnapshot;
 }
 
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
@@ -293,11 +307,22 @@ function toAuditLogRowId(): string {
   return JSON.stringify(["audit_log", randomUUID()]);
 }
 
+function toStateSnapshotRowId(): string {
+  return JSON.stringify(["state_snapshot", randomUUID()]);
+}
+
 function getStringField(value: object, field: string): string | undefined {
   const record = value as Record<string, unknown>;
   const fieldValue = record[field];
 
   return typeof fieldValue === "string" ? fieldValue : undefined;
+}
+
+function getNumberField(value: object, field: string): number | undefined {
+  const record = value as Record<string, unknown>;
+  const fieldValue = record[field];
+
+  return typeof fieldValue === "number" ? fieldValue : undefined;
 }
 
 function requireReplayIdentity(
@@ -346,6 +371,7 @@ export class PostgresRepositoryAdapter {
   readonly rounds: PostgresRoundReadMapping;
   readonly runs: PostgresRunReadMapping;
   readonly settlements: PostgresSettlementMapping;
+  readonly stateSnapshots: PostgresStateSnapshotMapping;
 
   constructor(options: PostgresRepositoryAdapterOptions) {
     this.options = { ...options };
@@ -503,6 +529,27 @@ export class PostgresRepositoryAdapter {
         await this.saveSettlementResultRow(result);
       }
     };
+    this.stateSnapshots = {
+      getStateSnapshot: async (query) => {
+        const params: unknown[] = [query.tenant_id, query.aggregate_type, query.aggregate_id];
+        let sql =
+          "SELECT payload FROM state_snapshots WHERE tenant_id = $1 AND aggregate_type = $2 AND aggregate_id = $3";
+
+        if (query.at_sequence !== undefined) {
+          params.push(query.at_sequence);
+          sql += ` AND (sequence IS NULL OR sequence <= $${params.length})`;
+        }
+
+        sql += " ORDER BY snapshot_sequence DESC LIMIT 1";
+
+        const row = await this.queryOne<PostgresStateSnapshotReadRow>(sql, params);
+
+        return row === null ? null : row.payload;
+      },
+      saveStateSnapshot: async (snapshot) => {
+        await this.saveStateSnapshotRow(snapshot);
+      }
+    };
     this.replay = {
       getReplayInputManifest: async (tenantId, manifestId) => {
         const row = await this.queryOne<PostgresReplayInputManifestReadRow>(
@@ -607,6 +654,26 @@ export class PostgresRepositoryAdapter {
         result.scenario_package_id,
         result.replay_hash,
         JSON.stringify(result.team_results)
+      ]
+    );
+  }
+
+  private async saveStateSnapshotRow(snapshot: StateSnapshot): Promise<void> {
+    await this.execute(
+      "INSERT INTO state_snapshots (id, snapshot_id, tenant_id, run_id, round_id, team_id, aggregate_type, aggregate_id, sequence, snapshot_type, captured_at, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)",
+      [
+        toStateSnapshotRowId(),
+        snapshot.snapshot_id,
+        snapshot.tenant_id,
+        snapshot.run_id,
+        snapshot.round_id,
+        getStringField(snapshot, "team_id") ?? null,
+        getStringField(snapshot, "aggregate_type") ?? null,
+        getStringField(snapshot, "aggregate_id") ?? null,
+        getNumberField(snapshot, "sequence") ?? null,
+        snapshot.snapshot_type,
+        snapshot.captured_at,
+        JSON.stringify(snapshot)
       ]
     );
   }
