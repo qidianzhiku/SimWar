@@ -9,6 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import type {
+  AuditLog,
   Decision,
   ReplayDiffReport,
   ReplayInputManifest,
@@ -38,6 +39,17 @@ export interface PostgresRepositoryAdapterOptions {
   applicationName?: string;
   queryExecutor: PostgresQueryExecutor;
   schema?: string;
+}
+
+export interface PostgresAuditLogMapping {
+  appendAuditLog(auditLog: AuditLog): Promise<void>;
+  listAuditLogs(query: {
+    tenant_id: RepositoryId;
+    actor_id?: RepositoryId;
+    action?: string;
+    resource_id?: RepositoryId;
+    limit?: number;
+  }): Promise<AuditLog[]>;
 }
 
 export interface PostgresCourseReadMapping {
@@ -186,6 +198,10 @@ interface PostgresReplayDiffReportReadRow extends Record<string, unknown> {
   payload: ReplayDiffReport;
 }
 
+interface PostgresAuditLogReadRow extends Record<string, unknown> {
+  payload: AuditLog;
+}
+
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
   const course: RepositoryCourseReadModel = {
     course_id: row.course_id,
@@ -273,6 +289,10 @@ function toReplayRecordRowId(): string {
   return JSON.stringify(["replay_record", randomUUID()]);
 }
 
+function toAuditLogRowId(): string {
+  return JSON.stringify(["audit_log", randomUUID()]);
+}
+
 function getStringField(value: object, field: string): string | undefined {
   const record = value as Record<string, unknown>;
   const fieldValue = record[field];
@@ -317,6 +337,7 @@ function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementRes
  * helper methods here only provide a narrow query boundary for future mappings.
  */
 export class PostgresRepositoryAdapter {
+  readonly auditLogs: PostgresAuditLogMapping;
   readonly courses: PostgresCourseReadMapping;
   readonly decisions: PostgresDecisionMapping;
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
@@ -329,6 +350,43 @@ export class PostgresRepositoryAdapter {
   constructor(options: PostgresRepositoryAdapterOptions) {
     this.options = { ...options };
     this.queryExecutor = options.queryExecutor;
+    this.auditLogs = {
+      appendAuditLog: async (auditLog) => {
+        await this.saveAuditLogRow(auditLog);
+      },
+      listAuditLogs: async (query) => {
+        const conditions = ["tenant_id = $1"];
+        const params: unknown[] = [query.tenant_id];
+
+        if (query.actor_id) {
+          params.push(query.actor_id);
+          conditions.push(`actor_id = $${params.length}`);
+        }
+
+        if (query.action) {
+          params.push(query.action);
+          conditions.push(`action = $${params.length}`);
+        }
+
+        if (query.resource_id) {
+          params.push(query.resource_id);
+          conditions.push(`resource_id = $${params.length}`);
+        }
+
+        let sql = `SELECT payload FROM audit_logs WHERE ${conditions.join(
+          " AND "
+        )} ORDER BY audit_sequence ASC`;
+
+        if (query.limit && query.limit > 0) {
+          params.push(query.limit);
+          sql += ` LIMIT $${params.length}`;
+        }
+
+        const rows = await this.queryRows<PostgresAuditLogReadRow>(sql, params);
+
+        return rows.map((row) => row.payload);
+      }
+    };
     this.courses = {
       getCourse: async (tenantId, courseId) => {
         const row = await this.queryOne<PostgresCourseReadRow>(
@@ -491,6 +549,25 @@ export class PostgresRepositoryAdapter {
         await this.saveReplayDiffReportRow(report);
       }
     };
+  }
+
+  private async saveAuditLogRow(auditLog: AuditLog): Promise<void> {
+    await this.execute(
+      "INSERT INTO audit_logs (id, audit_id, tenant_id, actor_id, actor_role, action, resource_type, resource_id, request_id, created_at, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)",
+      [
+        toAuditLogRowId(),
+        auditLog.audit_id,
+        auditLog.tenant_id,
+        auditLog.actor_id,
+        auditLog.actor_role,
+        auditLog.action,
+        auditLog.resource_type,
+        auditLog.resource_id,
+        auditLog.request_id,
+        auditLog.created_at,
+        JSON.stringify(auditLog)
+      ]
+    );
   }
 
   private async saveDecisionRow(decision: Decision): Promise<void> {
