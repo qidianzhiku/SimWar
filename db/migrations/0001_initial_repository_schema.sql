@@ -163,7 +163,8 @@ CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at);
 
 CREATE TABLE IF NOT EXISTS state_snapshots (
   id text PRIMARY KEY,
-  snapshot_id text NOT NULL UNIQUE,
+  snapshot_id text NOT NULL,
+  snapshot_sequence bigint GENERATED ALWAYS AS IDENTITY,
   tenant_id text NOT NULL,
   run_id text,
   round_id text,
@@ -176,9 +177,10 @@ CREATE TABLE IF NOT EXISTS state_snapshots (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   captured_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT state_snapshots_id_matches_snapshot_id CHECK (id = snapshot_id)
+  CONSTRAINT state_snapshots_snapshot_sequence_unique UNIQUE (snapshot_sequence)
 );
 
+CREATE INDEX IF NOT EXISTS state_snapshots_snapshot_id_idx ON state_snapshots (snapshot_id);
 CREATE INDEX IF NOT EXISTS state_snapshots_tenant_id_idx ON state_snapshots (tenant_id);
 CREATE INDEX IF NOT EXISTS state_snapshots_run_id_idx ON state_snapshots (run_id);
 CREATE INDEX IF NOT EXISTS state_snapshots_round_id_idx ON state_snapshots (round_id);
