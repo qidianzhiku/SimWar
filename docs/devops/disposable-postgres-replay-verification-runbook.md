@@ -122,81 +122,82 @@ Missing-env safety check: passed
 Use a disposable local PostgreSQL 16 container. Do not reuse a running database
 that may contain real or shared data.
 
-Start a unique container:
+Run the full local verification flow in one PowerShell block. The
+`try`/`finally` block guarantees cleanup attempts when readiness, port
+discovery, or verification fails.
 
 ```powershell
-$containerName = "simwar-replay-verify-" + [guid]::NewGuid().ToString("N")
+$containerName =
+  "simwar-replay-verify-" + [guid]::NewGuid().ToString("N")
 $testPassword = "[LOCAL_TEST_PASSWORD]"
+$containerStarted = $false
 
-docker run --rm -d `
-  --name $containerName `
-  -e POSTGRES_USER=simwar_test `
-  -e POSTGRES_PASSWORD=$testPassword `
-  -e POSTGRES_DB=simwar_test `
-  -p 127.0.0.1::5432 `
-  postgres:16
-```
+try {
+  docker run --rm -d `
+    --name $containerName `
+    -e POSTGRES_USER=simwar_test `
+    -e POSTGRES_PASSWORD=$testPassword `
+    -e POSTGRES_DB=simwar_test `
+    -p 127.0.0.1::5432 `
+    postgres:16
 
-Wait for readiness with a bounded loop:
-
-```powershell
-$ready = $false
-
-for ($attempt = 1; $attempt -le 30; $attempt++) {
-  docker exec $containerName `
-    pg_isready -U simwar_test -d simwar_test *> $null
-
-  if ($LASTEXITCODE -eq 0) {
-    $ready = $true
-    break
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to start disposable PostgreSQL container"
   }
 
-  Start-Sleep -Seconds 1
+  $containerStarted = $true
+
+  $ready = $false
+
+  for ($attempt = 1; $attempt -le 30; $attempt++) {
+    docker exec $containerName `
+      pg_isready -U simwar_test -d simwar_test *> $null
+
+    if ($LASTEXITCODE -eq 0) {
+      $ready = $true
+      break
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  if (-not $ready) {
+    throw "Disposable PostgreSQL container did not become ready"
+  }
+
+  $portLine = (
+    docker port $containerName 5432/tcp |
+      Select-Object -First 1
+  ).Trim()
+
+  if (-not $portLine) {
+    throw "Could not determine disposable PostgreSQL host port"
+  }
+
+  $port = ($portLine -split ":")[-1]
+
+  if (-not $port) {
+    throw "Disposable PostgreSQL host port was empty"
+  }
+
+  $env:SIMWAR_TEST_DATABASE_URL =
+    "postgresql://simwar_test:$testPassword@127.0.0.1:$port/simwar_test"
+
+  npm run test:postgres-replay
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "Disposable PostgreSQL replay verification failed"
+  }
+}
+finally {
+  Remove-Item Env:SIMWAR_TEST_DATABASE_URL `
+    -ErrorAction SilentlyContinue
+
+  if ($containerStarted) {
+    docker rm -f $containerName *> $null
+  }
 }
 
-if (-not $ready) {
-  throw "Disposable PostgreSQL container did not become ready"
-}
-```
-
-Read the mapped host port:
-
-```powershell
-$portLine = (
-  docker port $containerName 5432/tcp |
-    Select-Object -First 1
-).Trim()
-
-if (-not $portLine) {
-  throw "Could not determine disposable PostgreSQL host port"
-}
-
-$port = ($portLine -split ":")[-1]
-```
-
-Set the test URL only in the current PowerShell process. Do not echo it:
-
-```powershell
-$env:SIMWAR_TEST_DATABASE_URL =
-  "postgresql://simwar_test:$testPassword@127.0.0.1:$port/simwar_test"
-```
-
-Run the verification:
-
-```powershell
-npm run test:postgres-replay
-```
-
-Clean up even when verification fails:
-
-```powershell
-Remove-Item Env:SIMWAR_TEST_DATABASE_URL -ErrorAction SilentlyContinue
-docker rm -f $containerName
-```
-
-Confirm the container is gone:
-
-```powershell
 $remaining = docker ps -a `
   --filter "name=$containerName" `
   --format "{{.Names}}"
@@ -204,7 +205,20 @@ $remaining = docker ps -a `
 if ($remaining) {
   throw "Disposable PostgreSQL container cleanup failed"
 }
+
+Write-Host "Disposable PostgreSQL replay verification completed and cleaned up."
 ```
+
+Cleanup ownership is split deliberately:
+
+- Harness-owned cleanup:
+  - temporary schema
+  - database connection
+- Operator-owned local cleanup:
+  - Docker container
+  - PowerShell environment variable
+- CI-owned cleanup:
+  - PostgreSQL service-container lifecycle
 
 ## Harness Lifecycle
 
