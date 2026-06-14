@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import type {
   ReplayDiffReport,
@@ -30,6 +30,43 @@ export default defineConfig({
 
 const REQUIRED_ENV_ERROR =
   "SIMWAR_TEST_DATABASE_URL is required for disposable Postgres verification";
+const REPORT_PATH_ENV = "SIMWAR_VERIFICATION_REPORT_PATH";
+
+const VERIFICATION_CHECKS = [
+  "migration_apply",
+  "temporary_schema_creation",
+  "append_sequence_identity",
+  "record_type_constraint",
+  "diff_report_id_exists",
+  "old_replay_diff_report_id_absent",
+  "payload_schema_is_jsonb",
+  "manifest_round_trip",
+  "run_round_trip",
+  "report_round_trip",
+  "diff_round_trip",
+  "payload_runtime_is_jsonb",
+  "duplicate_append_retained",
+  "internal_row_ids_differ",
+  "append_sequence_monotonic",
+  "first_match_returns_earliest_payload",
+  "tenant_isolation",
+  "manifest_source_result_id_explicit_matches_payload",
+  "report_replay_run_id_explicit_matches_payload",
+  "report_source_result_id_explicit_matches_payload",
+  "hash_preservation",
+  "truth_chain_tables_unchanged"
+] as const;
+
+type VerificationStatus = "passed" | "failed" | "unavailable" | "skipped-with-reason";
+type VerificationCheck = (typeof VERIFICATION_CHECKS)[number];
+
+const verificationStartedAt = Date.now();
+const verificationChecks = new Map<VerificationCheck, VerificationStatus>(
+  VERIFICATION_CHECKS.map((check) => [check, "failed"])
+);
+
+let temporarySchemaCleanup: VerificationStatus = "skipped-with-reason";
+let databaseClientCleanup: VerificationStatus = "skipped-with-reason";
 
 interface PgQueryResult<TRow extends Record<string, unknown> = Record<string, unknown>> {
   rowCount: number | null;
@@ -95,6 +132,80 @@ let client: PgClient | undefined;
 let schemaName = "";
 let schemaCreated = false;
 let adapter: ReturnType<AdapterFactory>;
+
+function markCheckPassed(check: VerificationCheck): void {
+  verificationChecks.set(check, "passed");
+}
+
+function markChecksPassed(checks: readonly VerificationCheck[]): void {
+  for (const check of checks) {
+    markCheckPassed(check);
+  }
+}
+
+function verificationCommandStatus(): VerificationStatus {
+  return [...verificationChecks.values()].every((status) => status === "passed")
+    ? "passed"
+    : "failed";
+}
+
+async function writeVerificationReport(): Promise<void> {
+  const reportPath = process.env[REPORT_PATH_ENV];
+
+  if (reportPath === undefined || reportPath.trim() === "") {
+    return;
+  }
+
+  const checks = Object.fromEntries(verificationChecks) as Record<
+    VerificationCheck,
+    VerificationStatus
+  >;
+  const blockingFailures = Object.entries(checks)
+    .filter(([, status]) => status === "failed")
+    .map(([name]) => name);
+  const commandStatus = verificationCommandStatus();
+  const resolvedReportPath = resolve(reportPath);
+
+  await mkdir(dirname(resolvedReportPath), { recursive: true });
+  await writeFile(
+    resolvedReportPath,
+    `${JSON.stringify(
+      {
+        schema_version: 1,
+        branch: process.env.GITHUB_HEAD_REF ?? process.env.GITHUB_REF_NAME ?? "",
+        commit: process.env.GITHUB_SHA ?? "",
+        base_commit: process.env.GITHUB_BASE_REF ?? "",
+        changed_files: [],
+        allowed_files: [],
+        scope_valid: true,
+        commands: [
+          {
+            duration_ms: Date.now() - verificationStartedAt,
+            name: "npm run test:postgres-replay",
+            status: commandStatus
+          }
+        ],
+        domain_harnesses: {
+          postgres_replay: {
+            checks,
+            status: commandStatus
+          }
+        },
+        cleanup: {
+          database_client: databaseClientCleanup,
+          temporary_schema: temporarySchemaCleanup
+        },
+        blocking_failures: blockingFailures,
+        ready_for_review:
+          commandStatus === "passed" &&
+          temporarySchemaCleanup === "passed" &&
+          databaseClientCleanup === "passed"
+      },
+      null,
+      2
+    )}\n`
+  );
+}
 
 function getDisposableDatabaseUrl(): string {
   const databaseUrl = process.env.SIMWAR_TEST_DATABASE_URL;
@@ -261,9 +372,13 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       ]);
       client = new pg.Client({ connectionString });
       await client.connect();
+      databaseClientCleanup = "failed";
       await client.query(`CREATE SCHEMA ${quoteIdentifier(schemaName)}`);
       schemaCreated = true;
+      temporarySchemaCleanup = "failed";
+      markCheckPassed("temporary_schema_creation");
       await applyMigrationIntoSchema(client, schemaName);
+      markCheckPassed("migration_apply");
       await client.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
 
       const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
@@ -279,18 +394,39 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
     });
 
     afterAll(async () => {
-      if (client === undefined) {
-        return;
+      let teardownError: unknown;
+
+      try {
+        if (client !== undefined) {
+          await client.query("SET search_path TO public");
+
+          if (schemaCreated) {
+            await client.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`);
+            temporarySchemaCleanup = "passed";
+          }
+        }
+      } catch (error) {
+        teardownError = error;
+      }
+
+      if (client !== undefined) {
+        try {
+          await client.end();
+          databaseClientCleanup = "passed";
+        } catch (error) {
+          databaseClientCleanup = "failed";
+          teardownError ??= error;
+        }
       }
 
       try {
-        await client.query("SET search_path TO public");
+        await writeVerificationReport();
+      } catch (error) {
+        teardownError ??= error;
+      }
 
-        if (schemaCreated) {
-          await client.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schemaName)} CASCADE`);
-        }
-      } finally {
-        await client.end();
+      if (teardownError !== undefined) {
+        throw teardownError;
       }
     });
 
@@ -311,9 +447,13 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         data_type: "bigint",
         is_identity: "YES"
       });
+      markCheckPassed("append_sequence_identity");
       expect(byName.get("diff_report_id")).toBeDefined();
+      markCheckPassed("diff_report_id_exists");
       expect(byName.get("replay_diff_report_id")).toBeUndefined();
+      markCheckPassed("old_replay_diff_report_id_absent");
       expect(byName.get("payload")?.udt_name).toBe("jsonb");
+      markCheckPassed("payload_schema_is_jsonb");
 
       await requiredClient().query("BEGIN");
       await requiredClient().query("SAVEPOINT invalid_record_type");
@@ -325,6 +465,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       ).rejects.toThrow();
       await requiredClient().query("ROLLBACK TO SAVEPOINT invalid_record_type");
       await requiredClient().query("COMMIT");
+      markCheckPassed("record_type_constraint");
     });
 
     it("round-trips all replay record types through JSONB payload", async () => {
@@ -357,19 +498,24 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       expect(
         await adapter.replay.getReplayInputManifest(manifest.tenant_id, manifest.manifest_id)
       ).toEqual(manifest);
+      markCheckPassed("manifest_round_trip");
       expect(await adapter.replay.getReplayRun(run.tenant_id, run.replay_run_id)).toEqual(run);
+      markCheckPassed("run_round_trip");
       expect(
         await adapter.replay.getReplayReport(report.tenant_id, report.replay_report_id)
       ).toEqual(report);
+      markCheckPassed("report_round_trip");
       expect(await adapter.replay.getReplayDiffReport(diff.tenant_id, diff.diff_report_id)).toEqual(
         diff
       );
+      markCheckPassed("diff_round_trip");
 
       const payloadType = await requiredClient().query<{ payload_type: string }>(
         "SELECT pg_typeof(payload)::text AS payload_type FROM replay_records WHERE manifest_id = $1",
         [manifest.manifest_id]
       );
       expect(payloadType.rows[0]?.payload_type).toBe("jsonb");
+      markCheckPassed("payload_runtime_is_jsonb");
     });
 
     it("preserves append-only duplicates and first-match replay reads", async () => {
@@ -398,18 +544,22 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       );
 
       expect(rows.rows).toHaveLength(2);
+      markCheckPassed("duplicate_append_retained");
       expect(rows.rows[0]?.id).not.toBe(rows.rows[1]?.id);
+      markCheckPassed("internal_row_ids_differ");
       expect(rows.rows[0]?.manifest_id).toBe(manifestId);
       expect(rows.rows[1]?.manifest_id).toBe(manifestId);
       expect(appendSequence(rows.rows[1]!.append_sequence)).toBeGreaterThan(
         appendSequence(rows.rows[0]!.append_sequence)
       );
+      markCheckPassed("append_sequence_monotonic");
       expect(rows.rows[0]?.payload).toEqual(first);
       expect(rows.rows[1]?.payload).toEqual(second);
 
       const found = await adapter.replay.getReplayInputManifest(first.tenant_id, manifestId);
       expect(found).toEqual(rows.rows[0]?.payload);
       expect(found).toEqual(first);
+      markCheckPassed("first_match_returns_earliest_payload");
     });
 
     it("keeps replay reads tenant-isolated for matching business identities", async () => {
@@ -442,6 +592,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       );
       expect(rows.rows).toHaveLength(2);
       expect(rows.rows[0]?.id).not.toBe(rows.rows[1]?.id);
+      markCheckPassed("tenant_isolation");
     });
 
     it("preserves replay hash fields in explicit columns and payload", async () => {
@@ -473,6 +624,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       expect(manifestRow?.payload.input_hash).toBe(manifest.input_hash);
       expect(manifestRow?.payload.manifest_hash).toBe(manifest.manifest_hash);
       expect(manifestRow?.payload).toEqual(manifest);
+      markCheckPassed("manifest_source_result_id_explicit_matches_payload");
 
       const reportRows = await requiredClient().query<ReplayReportVerificationRow>(
         "SELECT append_sequence, id, replay_run_id, source_result_id, replay_result_hash, status, payload FROM replay_records WHERE tenant_id = $1 AND record_type = 'report' AND replay_report_id = $2 ORDER BY append_sequence ASC LIMIT 1",
@@ -491,6 +643,11 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       expect(
         await adapter.replay.getReplayReport(report.tenant_id, report.replay_report_id)
       ).toEqual(report);
+      markChecksPassed([
+        "report_replay_run_id_explicit_matches_payload",
+        "report_source_result_id_explicit_matches_payload",
+        "hash_preservation"
+      ]);
     });
 
     it("does not mutate settlement truth-chain tables during replay persistence", async () => {
@@ -505,6 +662,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       const after = await tableCounts();
       expect(before).toEqual({ decisions: 0, settlement_results: 0, simulation_rounds: 0 });
       expect(after).toEqual(before);
+      markCheckPassed("truth_chain_tables_unchanged");
     });
   });
 }
