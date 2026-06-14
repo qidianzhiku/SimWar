@@ -1096,6 +1096,40 @@ describe("JSON repository adapter", () => {
     ).resolves.toBe(sequenceTwo);
   });
 
+  it("JSON state snapshot reads keep snapshots without sequence eligible for at_sequence", async () => {
+    const eligibleSequenced = createStateSnapshot({
+      sequence: 1,
+      snapshot_id: "snapshot-eligible-sequenced",
+      state: { marker: "eligible-sequenced" }
+    });
+    const aboveBound = createStateSnapshot({
+      sequence: 3,
+      snapshot_id: "snapshot-above-bound",
+      state: { marker: "above-bound" }
+    });
+    const { sequence: _removedSequence, ...withoutSequence } = createStateSnapshot({
+      snapshot_id: "snapshot-without-sequence",
+      state: { marker: "without-sequence" }
+    });
+    const ports = createJsonRepositoryPorts(createMinimalStore(), {
+      stateSnapshots: [eligibleSequenced, aboveBound, withoutSequence]
+    });
+
+    expect(_removedSequence).toBe(1);
+    expect("sequence" in withoutSequence).toBe(false);
+
+    const result = await ports.stateSnapshots.getStateSnapshot({
+      aggregate_id: "aggregate-1",
+      aggregate_type: "run",
+      at_sequence: 1,
+      tenant_id: "tenant-1"
+    });
+
+    expect(result).toBe(withoutSequence);
+    expect(result).not.toBe(aboveBound);
+    expect(result).toEqual(withoutSequence);
+  });
+
   it("JSON state snapshot reads use last append for duplicate eligible sequence", async () => {
     const first = createStateSnapshot({
       sequence: 2,
