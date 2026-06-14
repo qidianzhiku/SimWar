@@ -129,14 +129,13 @@ discovery, or verification fails.
 ```powershell
 $containerName =
   "simwar-replay-verify-" + [guid]::NewGuid().ToString("N")
-$testPassword = "[LOCAL_TEST_PASSWORD]"
 $containerStarted = $false
 
 try {
   docker run --rm -d `
     --name $containerName `
     -e POSTGRES_USER=simwar_test `
-    -e POSTGRES_PASSWORD=$testPassword `
+    -e POSTGRES_PASSWORD=simwar_test `
     -e POSTGRES_DB=simwar_test `
     -p 127.0.0.1::5432 `
     postgres:16
@@ -181,7 +180,7 @@ try {
   }
 
   $env:SIMWAR_TEST_DATABASE_URL =
-    "postgresql://simwar_test:$testPassword@127.0.0.1:$port/simwar_test"
+    "postgresql://simwar_test:simwar_test@127.0.0.1:$port/simwar_test"
 
   npm run test:postgres-replay
 
@@ -216,7 +215,7 @@ Cleanup ownership is split deliberately:
   - database connection
 - Operator-owned local cleanup:
   - Docker container
-  - PowerShell environment variable
+  - PowerShell process environment variable
 - CI-owned cleanup:
   - PostgreSQL service-container lifecycle
 
