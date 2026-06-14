@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type {
+  AuditLog,
   Decision,
   ReplayDiffReport,
   ReplayInputManifest,
@@ -91,6 +92,10 @@ describe("Postgres repository adapter skeleton", () => {
 
   interface ReplayDiffReportRow extends Record<string, unknown> {
     payload: ReplayDiffReport;
+  }
+
+  interface AuditLogRow extends Record<string, unknown> {
+    payload: AuditLog;
   }
 
   const teamResults: SettlementResult["team_results"] = [
@@ -185,14 +190,34 @@ describe("Postgres repository adapter skeleton", () => {
     tenant_id: "tenant-1"
   };
 
+  const auditLog: AuditLog = {
+    action: "user.create",
+    actor_id: "user-admin",
+    actor_role: "tenant_admin",
+    after: {
+      roles: ["learner"],
+      user_id: "user-new"
+    },
+    audit_id: "audit-shared",
+    before: {
+      users_count: 1
+    },
+    created_at: "2026-06-08T00:00:05.000Z",
+    request_id: "request-1",
+    resource_id: "user-new",
+    resource_type: "user",
+    tenant_id: "tenant-1"
+  };
+
   const createRecordingExecutor = (
-    calls: Array<{ params?: readonly unknown[]; sql: string }>
+    calls: Array<{ params?: readonly unknown[]; sql: string }>,
+    rows: readonly Record<string, unknown>[] = []
   ): PostgresQueryExecutor => {
     return async (sql, params) => {
       calls.push({ sql, params });
       return {
-        rowCount: 1,
-        rows: []
+        rowCount: rows.length,
+        rows
       };
     };
   };
@@ -241,6 +266,43 @@ describe("Postgres repository adapter skeleton", () => {
     expect(call?.sql).not.toContain("latest");
     expect(call?.sql).not.toContain("MAX(");
     expect(call?.sql).not.toContain("DISTINCT ON");
+  };
+
+  const expectAuditLogInsertBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toContain("INSERT INTO audit_logs");
+    expect(call?.sql).not.toContain("audit_sequence");
+    expect(call?.sql).toContain("::jsonb");
+    expect(call?.sql).not.toContain("ON CONFLICT");
+    expect(call?.sql).not.toContain("UPDATE audit_logs");
+    expect(call?.sql).not.toContain("DELETE");
+    expect(call?.sql).not.toMatch(/^SELECT/i);
+    expect(call?.sql).not.toContain("metadata");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("simulation_rounds");
+    expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("buildReplayHash");
+  };
+
+  const expectAuditLogReadBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toMatch(/^SELECT payload FROM audit_logs/);
+    expect(call?.sql).toContain("tenant_id = $1");
+    expect(call?.sql).toContain("ORDER BY audit_sequence ASC");
+    expect(call?.sql).not.toContain("metadata");
+    expect(call?.sql).not.toContain("id,");
+    expect(call?.sql).not.toContain("audit_sequence DESC");
+    expect(call?.sql).not.toContain("created_at DESC");
+    expect(call?.sql).not.toContain("DISTINCT ON");
+    expect(call?.sql).not.toContain("MAX(");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("simulation_rounds");
+    expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("buildReplayHash");
   };
 
   const expectJsonPayloadParam = (param: unknown, expected: unknown): void => {
@@ -2004,6 +2066,232 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[3]?.sql).not.toContain("replay_diff_report_id");
   });
 
+  it("audit log namespace exposes only append and list methods", () => {
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: async () => ({
+        rowCount: 0,
+        rows: []
+      })
+    });
+
+    expect(Object.keys(adapter.auditLogs).sort()).toEqual(["appendAuditLog", "listAuditLogs"]);
+    expect(adapter.auditLogs.appendAuditLog).toEqual(expect.any(Function));
+    expect(adapter.auditLogs.listAuditLogs).toEqual(expect.any(Function));
+    expect("getAuditLog" in adapter.auditLogs).toBe(false);
+    expect("updateAuditLog" in adapter.auditLogs).toBe(false);
+    expect("deleteAuditLog" in adapter.auditLogs).toBe(false);
+    expect("provider" in adapter.auditLogs).toBe(false);
+    expect("runtime" in adapter.auditLogs).toBe(false);
+    expect("connect" in adapter.auditLogs).toBe(false);
+  });
+
+  it("appends audit logs with internal row identity and JSONB payloads", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const original = structuredClone(auditLog);
+
+    await adapter.auditLogs.appendAuditLog(auditLog);
+
+    expect(calls).toHaveLength(1);
+    const call = calls[0];
+    expectAuditLogInsertBoundary(call);
+    expect(call?.params).toHaveLength(11);
+    expect(call?.params?.[0]).not.toBe(auditLog.audit_id);
+    expect(call?.params?.[1]).toBe(auditLog.audit_id);
+    expect(call?.params?.[2]).toBe(auditLog.tenant_id);
+    expect(call?.params?.[3]).toBe(auditLog.actor_id);
+    expect(call?.params?.[4]).toBe(auditLog.actor_role);
+    expect(call?.params?.[5]).toBe(auditLog.action);
+    expect(call?.params?.[6]).toBe(auditLog.resource_type);
+    expect(call?.params?.[7]).toBe(auditLog.resource_id);
+    expect(call?.params?.[8]).toBe(auditLog.request_id);
+    expect(call?.params?.[9]).toBe(auditLog.created_at);
+    expect(typeof call?.params?.[10]).toBe("string");
+    expect(JSON.parse(call?.params?.[10] as string)).toEqual(auditLog);
+    expect(auditLog).toEqual(original);
+  });
+
+  it("Postgres audit logs retain duplicate same-identity appends", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.auditLogs.appendAuditLog(auditLog);
+    await adapter.auditLogs.appendAuditLog(auditLog);
+
+    expect(calls).toHaveLength(2);
+    expectAuditLogInsertBoundary(calls[0]);
+    expectAuditLogInsertBoundary(calls[1]);
+    expect(calls[0]?.params?.[1]).toBe(auditLog.audit_id);
+    expect(calls[1]?.params?.[1]).toBe(auditLog.audit_id);
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+    expect(calls[0]?.params?.[10]).toBe(calls[1]?.params?.[10]);
+  });
+
+  it("lists audit logs by tenant in complete payload insertion order", async () => {
+    const rows: AuditLogRow[] = [
+      { payload: auditLog },
+      {
+        payload: {
+          ...auditLog,
+          action: "user.update",
+          audit_id: "audit-next",
+          request_id: "request-2"
+        }
+      }
+    ];
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, rows)
+    });
+
+    await expect(
+      adapter.auditLogs.listAuditLogs({
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toEqual(rows.map((row) => row.payload));
+
+    expect(calls).toHaveLength(1);
+    expectAuditLogReadBoundary(calls[0]);
+    expect(calls[0]?.params).toEqual(["tenant-1"]);
+
+    calls.length = 0;
+    const emptyAdapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await expect(
+      emptyAdapter.auditLogs.listAuditLogs({
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it.each([
+    {
+      filter: { actor_id: "user-admin" },
+      parameter: "user-admin",
+      sql: "actor_id = $2"
+    },
+    {
+      filter: { action: "user.create" },
+      parameter: "user.create",
+      sql: "action = $2"
+    },
+    {
+      filter: { resource_id: "user-new" },
+      parameter: "user-new",
+      sql: "resource_id = $2"
+    }
+  ])("applies truthy audit log filter $sql", async ({ filter, parameter, sql }) => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, [{ payload: auditLog }])
+    });
+
+    await adapter.auditLogs.listAuditLogs({
+      tenant_id: "tenant-1",
+      ...filter
+    });
+
+    expectAuditLogReadBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain(sql);
+    expect(calls[0]?.params).toEqual(["tenant-1", parameter]);
+  });
+
+  it("matches JSON truthy semantics for audit log filters and limit", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, [{ payload: auditLog }])
+    });
+
+    await adapter.auditLogs.listAuditLogs({
+      action: "",
+      actor_id: "",
+      limit: 0,
+      resource_id: "",
+      tenant_id: "tenant-1"
+    });
+
+    expectAuditLogReadBoundary(calls[0]);
+    expect(calls[0]?.sql).not.toContain("actor_id =");
+    expect(calls[0]?.sql).not.toContain("action =");
+    expect(calls[0]?.sql).not.toContain("resource_id =");
+    expect(calls[0]?.sql).not.toContain("LIMIT");
+    expect(calls[0]?.params).toEqual(["tenant-1"]);
+  });
+
+  it("combines audit log filters and parameterized limit safely", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls, [{ payload: auditLog }])
+    });
+
+    await adapter.auditLogs.listAuditLogs({
+      action: "user.create",
+      actor_id: "user-admin",
+      limit: 2,
+      resource_id: "user-new",
+      tenant_id: "tenant-1"
+    });
+
+    expectAuditLogReadBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain("tenant_id = $1");
+    expect(calls[0]?.sql).toContain("actor_id = $2");
+    expect(calls[0]?.sql).toContain("action = $3");
+    expect(calls[0]?.sql).toContain("resource_id = $4");
+    expect(calls[0]?.sql).toContain("LIMIT $5");
+    expect(calls[0]?.params).toEqual(["tenant-1", "user-admin", "user.create", "user-new", 2]);
+    expect(calls[0]?.sql).not.toContain("user-admin");
+    expect(calls[0]?.sql).not.toContain("user.create");
+    expect(calls[0]?.sql).not.toContain("user-new");
+  });
+
+  it("Postgres audit log reads preserve JSON insertion order", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.auditLogs.listAuditLogs({
+      tenant_id: "tenant-1"
+    });
+
+    expectAuditLogReadBoundary(calls[0]);
+  });
+
+  it("keeps audit log tenant isolation without global audit identity uniqueness", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const tenantTwoAuditLog: AuditLog = {
+      ...auditLog,
+      tenant_id: "tenant-2"
+    };
+
+    await adapter.auditLogs.appendAuditLog(auditLog);
+    await adapter.auditLogs.appendAuditLog(tenantTwoAuditLog);
+
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.params?.[1]).toBe(calls[1]?.params?.[1]);
+    expect(calls[0]?.params?.[2]).toBe("tenant-1");
+    expect(calls[1]?.params?.[2]).toBe("tenant-2");
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+
+    calls.length = 0;
+
+    await adapter.auditLogs.listAuditLogs({
+      tenant_id: "tenant-2"
+    });
+
+    expect(calls[0]?.sql).toContain("tenant_id = $1");
+    expect(calls[0]?.params).toEqual(["tenant-2"]);
+  });
+
   it("query helpers do not require DATABASE_URL", async () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
@@ -2058,6 +2346,7 @@ describe("Postgres repository adapter skeleton", () => {
     const adapter = createPostgresRepositoryAdapter({ queryExecutor });
 
     expect(Object.keys(adapter).sort()).toEqual([
+      "auditLogs",
       "courses",
       "decisions",
       "options",
@@ -2068,6 +2357,8 @@ describe("Postgres repository adapter skeleton", () => {
       "settlements"
     ]);
     expect("identity" in adapter).toBe(false);
+    expect(adapter.auditLogs.appendAuditLog).toEqual(expect.any(Function));
+    expect(adapter.auditLogs.listAuditLogs).toEqual(expect.any(Function));
     expect(adapter.courses.getCourse).toEqual(expect.any(Function));
     expect(adapter.courses.listCoursesForUser).toEqual(expect.any(Function));
     expect(adapter.runs.getRun).toEqual(expect.any(Function));
@@ -2122,6 +2413,13 @@ describe("Postgres repository adapter skeleton", () => {
     expect("repositoryProvider" in adapter.replay).toBe(false);
     expect("runtime" in adapter.replay).toBe(false);
     expect("connect" in adapter.replay).toBe(false);
+    expect("getAuditLog" in adapter.auditLogs).toBe(false);
+    expect("updateAuditLog" in adapter.auditLogs).toBe(false);
+    expect("deleteAuditLog" in adapter.auditLogs).toBe(false);
+    expect("provider" in adapter.auditLogs).toBe(false);
+    expect("repositoryProvider" in adapter.auditLogs).toBe(false);
+    expect("runtime" in adapter.auditLogs).toBe(false);
+    expect("connect" in adapter.auditLogs).toBe(false);
     expect("provider" in adapter).toBe(false);
     expect("repositoryProvider" in adapter).toBe(false);
   });
