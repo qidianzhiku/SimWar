@@ -9,6 +9,20 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: simwar_test
+          POSTGRES_PASSWORD: simwar_test
+          POSTGRES_DB: simwar_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U simwar_test -d simwar_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,5 +33,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:postgres-replay
+        env:
+          SIMWAR_TEST_DATABASE_URL: postgresql://simwar_test:simwar_test@localhost:5432/simwar_test
       - run: npm run test:contract
       - run: npm run build
