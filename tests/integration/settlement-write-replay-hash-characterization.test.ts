@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import type { Server } from "node:http";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   ApiEnvelope,
   AuditLog,
@@ -17,6 +17,11 @@ import type {
 } from "../../packages/shared-contracts/src";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
 import { createApiServer } from "../../services/api/src/server";
+import {
+  settleRoundWithSettlementWriter,
+  type SettlementResultWriter,
+  type SettlementRoundInput
+} from "../../services/api/src/simulation";
 import { createP0Store, type SimWarStore } from "../../services/api/src/store";
 
 const BALANCED_DECISION_PAYLOAD = {
@@ -210,6 +215,51 @@ function requireStoredRound(store: SimWarStore, runId: string): Round {
   return round;
 }
 
+function createSettlementInput(store: SimWarStore, run: Run): SettlementRoundInput {
+  const round = requireStoredRound(store, run.run_id);
+  const scenario = store.scenarios.find(
+    (candidate) =>
+      candidate.tenant_id === run.tenant_id &&
+      candidate.scenario_package_id === run.scenario_package_id
+  );
+  const parameterSet = store.parameterSets.find(
+    (candidate) =>
+      candidate.tenant_id === run.tenant_id && candidate.parameter_set_id === run.parameter_set_id
+  );
+  const teams = store.teams.filter(
+    (team) => team.tenant_id === run.tenant_id && team.course_id === run.course_id
+  );
+  const decisions = teams.map((team) => {
+    const versions = store.decisions.filter(
+      (decision) =>
+        decision.tenant_id === run.tenant_id &&
+        decision.run_id === run.run_id &&
+        decision.round_no === round.round_no &&
+        decision.team_id === team.team_id
+    );
+    const latest = versions.at(-1);
+
+    if (!latest) {
+      throw new Error(`missing decision for team ${team.team_id}`);
+    }
+
+    return latest;
+  });
+
+  if (!scenario || !parameterSet) {
+    throw new Error(`missing settlement fixtures for run ${run.run_id}`);
+  }
+
+  return {
+    decisions,
+    parameterSet,
+    round,
+    run,
+    scenario,
+    teams
+  };
+}
+
 function appendNonTruthAuditLog(store: SimWarStore, runId: string): AuditLog {
   const log: AuditLog = {
     action: "analytics.only",
@@ -300,6 +350,118 @@ function createReplayDiffReportForReport(report: ReplayReport): ReplayDiffReport
 }
 
 describe("settlement result write and replay hash characterization", () => {
+  it("settlement writer failure leaves the calculated Round mutation observable", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const input = createSettlementInput(store, run);
+      const round = input.round;
+      const roundIdentityBefore = cloneJson({
+        decision_batch_id: round.decision_batch_id,
+        round_id: round.round_id,
+        round_no: round.round_no,
+        run_id: round.run_id,
+        tenant_id: round.tenant_id
+      });
+      const persistenceError = new Error("forced settlement persistence failure");
+      const attemptedResults: SettlementResult[] = [];
+      const writer: SettlementResultWriter = {
+        saveSettlementResult: vi.fn(async (result) => {
+          attemptedResults.push(result);
+          throw persistenceError;
+        })
+      };
+
+      await expect(settleRoundWithSettlementWriter(store, input, writer)).rejects.toThrow(
+        "forced settlement persistence failure"
+      );
+
+      expect(writer.saveSettlementResult).toHaveBeenCalledTimes(1);
+      expect(attemptedResults).toHaveLength(1);
+      const attemptedSettlement = attemptedResults[0]!;
+      expect(round.status).toBe("settled");
+      expect(round.replay_hash).toBe(attemptedSettlement.replay_hash);
+      expect(round).toMatchObject(roundIdentityBefore);
+      expect(store.settlementResults).toHaveLength(0);
+      expect(store.settlementResults).not.toContainEqual(attemptedSettlement);
+      expect(
+        store.auditLogs.some(
+          (log) =>
+            log.action === "round.settle_requested" &&
+            log.resource_id === attemptedSettlement.settlement_result_id
+        )
+      ).toBe(false);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("settlement retries invoke the writer again after persistence failure", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const input = createSettlementInput(store, run);
+      const round = input.round;
+      const persistenceError = new Error("forced settlement persistence failure");
+      const attemptedResults: SettlementResult[] = [];
+      const writer: SettlementResultWriter = {
+        saveSettlementResult: vi.fn(async (result) => {
+          attemptedResults.push(result);
+
+          if (attemptedResults.length === 1) {
+            throw persistenceError;
+          }
+
+          store.settlementResults.push(result);
+        })
+      };
+
+      await expect(settleRoundWithSettlementWriter(store, input, writer)).rejects.toThrow(
+        "forced settlement persistence failure"
+      );
+
+      expect(writer.saveSettlementResult).toHaveBeenCalledTimes(1);
+      expect(store.settlementResults).toHaveLength(0);
+      expect(round.status).toBe("settled");
+      expect(round.replay_hash).toBe(attemptedResults[0]?.replay_hash);
+
+      const retryResult = await settleRoundWithSettlementWriter(store, input, writer);
+
+      expect(writer.saveSettlementResult).toHaveBeenCalledTimes(2);
+      expect(attemptedResults).toHaveLength(2);
+      expect(attemptedResults[0]?.replay_hash).toBe(attemptedResults[1]?.replay_hash);
+      expect(retryResult).toBe(attemptedResults[1]);
+      expect(store.settlementResults).toEqual([attemptedResults[1]]);
+      expect(round.status).toBe("settled");
+      expect(round.replay_hash).toBe(retryResult.replay_hash);
+
+      const postSuccessRetry = await settleRoundWithSettlementWriter(store, input, writer);
+
+      expect(postSuccessRetry).toBe(store.settlementResults[0]);
+      expect(writer.saveSettlementResult).toHaveBeenCalledTimes(2);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(round.replay_hash).toBe(retryResult.replay_hash);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("characterizes successful settlement write, round mutation, replay hash relationship, and audit side effect", async () => {
     const { baseUrl, server, store } = await startServer();
 
