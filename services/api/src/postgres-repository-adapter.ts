@@ -76,6 +76,11 @@ export interface PostgresRunReadMapping {
 export interface PostgresRoundMapping {
   getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
+  markRoundSettled(
+    tenantId: RepositoryId,
+    roundId: RepositoryId,
+    settlementResultId: RepositoryId
+  ): Promise<void>;
   saveRound(round: Round): Promise<void>;
 }
 
@@ -480,6 +485,9 @@ export class PostgresRepositoryAdapter {
 
         return rows.map(toRound);
       },
+      markRoundSettled: async (tenantId, roundId, settlementResultId) => {
+        await this.markRoundSettledRow(tenantId, roundId, settlementResultId);
+      },
       saveRound: async (round) => {
         await this.saveRoundRow(round);
       }
@@ -662,6 +670,17 @@ export class PostgresRepositoryAdapter {
         round.replay_hash ?? null,
         JSON.stringify(round)
       ]
+    );
+  }
+
+  private async markRoundSettledRow(
+    tenantId: RepositoryId,
+    roundId: RepositoryId,
+    settlementResultId: RepositoryId
+  ): Promise<void> {
+    await this.execute(
+      "WITH settlement AS (SELECT replay_hash FROM settlement_results WHERE tenant_id = $1 AND settlement_result_id = $3 LIMIT 1) UPDATE simulation_rounds AS target SET status = 'settled', replay_hash = CASE WHEN EXISTS (SELECT 1 FROM settlement) THEN (SELECT replay_hash FROM settlement) ELSE target.replay_hash END, payload = CASE WHEN EXISTS (SELECT 1 FROM settlement) THEN jsonb_set(jsonb_set(target.payload, '{status}', to_jsonb('settled'::text), true), '{replay_hash}', to_jsonb((SELECT replay_hash FROM settlement)), true) ELSE jsonb_set(target.payload, '{status}', to_jsonb('settled'::text), true) END, updated_at = now() WHERE target.tenant_id = $1 AND target.round_id = $2",
+      [tenantId, roundId, settlementResultId]
     );
   }
 

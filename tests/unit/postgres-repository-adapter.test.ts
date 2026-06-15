@@ -421,6 +421,43 @@ describe("Postgres repository adapter skeleton", () => {
     expect(call?.sql).not.toContain("buildReplayHash");
   };
 
+  const expectRoundSettledBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toMatch(/^WITH settlement AS/i);
+    expect(call?.sql).toContain("FROM settlement_results");
+    expect(call?.sql).toContain("UPDATE simulation_rounds AS target");
+    expect(call?.sql).toContain("status = 'settled'");
+    expect(call?.sql).toContain("replay_hash = CASE");
+    expect(call?.sql).toContain("THEN (SELECT replay_hash FROM settlement)");
+    expect(call?.sql).toContain("ELSE target.replay_hash");
+    expect(call?.sql).toContain("payload = CASE");
+    expect(call?.sql).toContain("jsonb_set(target.payload, '{status}'");
+    expect(call?.sql).toContain("jsonb_set(");
+    expect(call?.sql).toContain("'{replay_hash}'");
+    expect(call?.sql).toContain("to_jsonb((SELECT replay_hash FROM settlement))");
+    expect(call?.sql).toContain("updated_at = now()");
+    expect(call?.sql).toContain("WHERE target.tenant_id = $1");
+    expect(call?.sql).toContain("AND target.round_id = $2");
+    expect(call?.sql).toContain("settlement_result_id = $3");
+    expect(call?.sql).not.toContain("INSERT INTO simulation_rounds");
+    expect(call?.sql).not.toContain("ON CONFLICT");
+    expect(call?.sql).not.toContain("DELETE");
+    expect(call?.sql).not.toContain("decision_batch_id =");
+    expect(call?.sql).not.toContain("run_id =");
+    expect(call?.sql).not.toContain("round_no =");
+    expect(call?.sql).not.toContain("created_at =");
+    expect(call?.sql).not.toContain("metadata =");
+    expect(call?.sql).not.toContain("{decision_batch_id}");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("state_snapshots");
+    expect(call?.sql).not.toContain("audit_logs");
+    expect(call?.sql).not.toContain("domain_events");
+    expect(call?.sql).not.toContain("buildReplayHash");
+    expect(call?.sql).not.toContain(";");
+  };
+
   const expectJsonPayloadParam = (param: unknown, expected: unknown): void => {
     expect(typeof param).toBe("string");
     expect(param).toBe(JSON.stringify(expected));
@@ -860,7 +897,7 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls[0]?.sql).not.toContain("metadata");
   });
 
-  it("round namespace exposes read methods and saveRound without settlement mutation", () => {
+  it("round namespace exposes read methods and focused write methods", () => {
     const adapter = createPostgresRepositoryAdapter({
       queryExecutor: async () => ({
         rowCount: 0,
@@ -871,12 +908,13 @@ describe("Postgres repository adapter skeleton", () => {
     expect(Object.keys(adapter.rounds).sort()).toEqual([
       "getRound",
       "listRoundsForRun",
+      "markRoundSettled",
       "saveRound"
     ]);
     expect(adapter.rounds.getRound).toEqual(expect.any(Function));
     expect(adapter.rounds.listRoundsForRun).toEqual(expect.any(Function));
+    expect(adapter.rounds.markRoundSettled).toEqual(expect.any(Function));
     expect(adapter.rounds.saveRound).toEqual(expect.any(Function));
-    expect("markRoundSettled" in adapter.rounds).toBe(false);
     expect("deleteRound" in adapter.rounds).toBe(false);
     expect("provider" in adapter.rounds).toBe(false);
     expect("runtime" in adapter.rounds).toBe(false);
@@ -986,6 +1024,112 @@ describe("Postgres repository adapter skeleton", () => {
     expect(payload.replay_hash).toBe("replay-hash-existing");
     expect(calls[0]?.sql).not.toContain("settlement_results");
     expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("Postgres markRoundSettled resolves SettlementResults within the requested tenant", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await expect(
+      adapter.rounds.markRoundSettled("tenant-1", "round-shared", "settlement-shared")
+    ).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    expectRoundSettledBoundary(calls[0]);
+    expect(calls[0]?.params).toEqual(["tenant-1", "round-shared", "settlement-shared"]);
+    expect(calls[0]?.sql).toContain("WHERE tenant_id = $1");
+    expect(calls[0]?.sql).toContain("AND settlement_result_id = $3");
+    expect(calls[0]?.sql).toContain("WHERE target.tenant_id = $1");
+    expect(calls[0]?.sql).toContain("AND target.round_id = $2");
+    expect(calls[0]?.sql).not.toContain("settlement_result_id = $2");
+  });
+
+  it("Postgres markRoundSettled is a single-statement no-op when the round is missing", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await expect(
+      adapter.rounds.markRoundSettled("tenant-1", "round-missing", "settlement-1")
+    ).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    expectRoundSettledBoundary(calls[0]);
+    expect(calls[0]?.sql).not.toContain("INSERT");
+    expect(calls[0]?.sql).not.toMatch(/^SELECT/i);
+    expect(calls[0]?.params).toEqual(["tenant-1", "round-missing", "settlement-1"]);
+  });
+
+  it("Postgres markRoundSettled syncs explicit and payload status and replay hash", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+
+    expectRoundSettledBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain("status = 'settled'");
+    expect(calls[0]?.sql).toContain("to_jsonb('settled'::text)");
+    expect(calls[0]?.sql).toContain("THEN (SELECT replay_hash FROM settlement)");
+    expect(calls[0]?.sql).toContain("'{replay_hash}'");
+    expect(calls[0]?.sql).toContain("to_jsonb((SELECT replay_hash FROM settlement))");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
+  });
+
+  it("Postgres markRoundSettled preserves replay hash when the SettlementResult is missing", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-missing");
+
+    expectRoundSettledBoundary(calls[0]);
+    expect(calls[0]?.sql).toContain("ELSE target.replay_hash");
+    expect(calls[0]?.sql).toContain("ELSE jsonb_set(target.payload, '{status}'");
+    expect(calls[0]?.sql).not.toContain("'null'::jsonb");
+    expect(calls[0]?.sql).not.toContain("to_jsonb(NULL");
+    expect(calls[0]?.sql).not.toContain("replay_hash = NULL");
+  });
+
+  it("Postgres markRoundSettled stays stable for repeated same settlement results", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+
+    expect(calls).toHaveLength(2);
+    expectRoundSettledBoundary(calls[0]);
+    expectRoundSettledBoundary(calls[1]);
+    expect(calls[0]?.params).toEqual(["tenant-1", "round-1", "settlement-1"]);
+    expect(calls[1]?.params).toEqual(["tenant-1", "round-1", "settlement-1"]);
+    expect(calls[0]?.sql).not.toContain("INSERT");
+    expect(calls[1]?.sql).not.toContain("INSERT");
+  });
+
+  it("Postgres markRoundSettled allows later matching settlement results to replace replay hash", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-A");
+    await adapter.rounds.markRoundSettled("tenant-1", "round-1", "settlement-B");
+
+    expect(calls).toHaveLength(2);
+    expectRoundSettledBoundary(calls[0]);
+    expectRoundSettledBoundary(calls[1]);
+    expect(calls[0]?.params).toEqual(["tenant-1", "round-1", "settlement-A"]);
+    expect(calls[1]?.params).toEqual(["tenant-1", "round-1", "settlement-B"]);
+    expect(calls[0]?.sql).not.toContain("WHERE target.status <> 'settled'");
+    expect(calls[0]?.sql).not.toContain("first");
   });
 
   it("decisions.getDecisionById delegates through the injected executor and returns a full Decision", async () => {
