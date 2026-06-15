@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS simulation_runs_created_at_idx ON simulation_runs (cr
 
 CREATE TABLE IF NOT EXISTS simulation_rounds (
   id text PRIMARY KEY,
-  round_id text NOT NULL UNIQUE,
+  round_id text NOT NULL,
   tenant_id text NOT NULL,
   run_id text NOT NULL,
   round_no integer,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS simulation_rounds (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT simulation_rounds_id_matches_round_id CHECK (id = round_id)
+  CONSTRAINT simulation_rounds_tenant_round_id_unique UNIQUE (tenant_id, round_id)
 );
 
 CREATE INDEX IF NOT EXISTS simulation_rounds_tenant_id_idx ON simulation_rounds (tenant_id);
