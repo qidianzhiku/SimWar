@@ -268,8 +268,13 @@ export interface CommitSettlementOutcomeCommand {
  * Implementations must commit the SettlementResult, explicit Round.status,
  * explicit Round.replay_hash, and the Round payload status/replay_hash as one
  * all-or-nothing truth-state update. The command requires an existing Round
- * and tenant-consistent command/result identities; failure must commit none of
- * that truth state.
+ * and tenant- and round-consistent command/result identities; failure must
+ * commit none of that truth state.
+ *
+ * The command tenant_id must equal settlement_result.tenant_id, and the command
+ * round_id must equal settlement_result.round_id. Any tenant or Round identity
+ * mismatch must fail without persisting the SettlementResult, mutating the
+ * Round, or committing a partial settlement truth state.
  *
  * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
  * Replay artifacts are not part of this minimum atomic set. Logical settlement

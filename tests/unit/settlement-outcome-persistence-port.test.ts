@@ -48,6 +48,18 @@ describe("settlement outcome persistence port contract", () => {
     >().toEqualTypeOf<SettlementResult>();
   });
 
+  it("atomic settlement outcome contract requires tenant and round identity consistency", () => {
+    // TypeScript can guarantee that both identity fields use the formal
+    // contract types, but runtime implementations must enforce value equality
+    // and reject mismatches without side effects.
+    expectTypeOf<CommitSettlementOutcomeCommand["tenant_id"]>().toEqualTypeOf<
+      SettlementResult["tenant_id"]
+    >();
+    expectTypeOf<CommitSettlementOutcomeCommand["round_id"]>().toEqualTypeOf<
+      SettlementResult["round_id"]
+    >();
+  });
+
   it("defines a standalone domain-specific async persistence port", async () => {
     expectTypeOf<SettlementOutcomePersistencePort>().toEqualTypeOf<{
       commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
