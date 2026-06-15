@@ -73,9 +73,10 @@ export interface PostgresRunReadMapping {
   listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
 }
 
-export interface PostgresRoundReadMapping {
+export interface PostgresRoundMapping {
   getRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<Round | null>;
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
+  saveRound(round: Round): Promise<void>;
 }
 
 export interface PostgresDecisionMapping {
@@ -299,6 +300,10 @@ function toSettlementResultRowId(tenantId: RepositoryId, settlementResultId: Rep
   return JSON.stringify(["settlement_result", tenantId, settlementResultId]);
 }
 
+function toRoundRowId(tenantId: RepositoryId, roundId: RepositoryId): string {
+  return JSON.stringify(["round", tenantId, roundId]);
+}
+
 function toReplayRecordRowId(): string {
   return JSON.stringify(["replay_record", randomUUID()]);
 }
@@ -368,7 +373,7 @@ export class PostgresRepositoryAdapter {
   readonly options: Readonly<PostgresRepositoryAdapterOptions>;
   readonly queryExecutor: PostgresQueryExecutor;
   readonly replay: PostgresReplayMapping;
-  readonly rounds: PostgresRoundReadMapping;
+  readonly rounds: PostgresRoundMapping;
   readonly runs: PostgresRunReadMapping;
   readonly settlements: PostgresSettlementMapping;
   readonly stateSnapshots: PostgresStateSnapshotMapping;
@@ -474,6 +479,9 @@ export class PostgresRepositoryAdapter {
         );
 
         return rows.map(toRound);
+      },
+      saveRound: async (round) => {
+        await this.saveRoundRow(round);
       }
     };
     this.decisions = {
@@ -636,6 +644,23 @@ export class PostgresRepositoryAdapter {
         decision.submitted_by,
         decision.payload,
         decision.validation_report
+      ]
+    );
+  }
+
+  private async saveRoundRow(round: Round): Promise<void> {
+    await this.execute(
+      "INSERT INTO simulation_rounds (id, round_id, tenant_id, run_id, round_no, status, decision_batch_id, replay_hash, payload, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now()) ON CONFLICT (tenant_id, round_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_no = EXCLUDED.round_no, status = EXCLUDED.status, decision_batch_id = EXCLUDED.decision_batch_id, replay_hash = EXCLUDED.replay_hash, payload = EXCLUDED.payload, updated_at = now()",
+      [
+        toRoundRowId(round.tenant_id, round.round_id),
+        round.round_id,
+        round.tenant_id,
+        round.run_id,
+        round.round_no,
+        round.status,
+        round.decision_batch_id ?? null,
+        round.replay_hash ?? null,
+        JSON.stringify(round)
       ]
     );
   }
