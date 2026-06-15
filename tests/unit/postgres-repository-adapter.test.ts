@@ -221,6 +221,17 @@ describe("Postgres repository adapter skeleton", () => {
     tenant_id: "tenant-1"
   };
 
+  const createRound = (overrides: Partial<Round> = {}): Round => ({
+    decision_batch_id: "decision-batch-1",
+    replay_hash: "replay-hash-existing",
+    round_id: "round-1",
+    round_no: 1,
+    run_id: "run-1",
+    status: "open",
+    tenant_id: "tenant-1",
+    ...overrides
+  });
+
   const createStateSnapshot = (
     overrides: Partial<PostgresStateSnapshot> = {}
   ): PostgresStateSnapshot => ({
@@ -379,6 +390,34 @@ describe("Postgres repository adapter skeleton", () => {
     expect(call?.sql).not.toContain("simulation_rounds");
     expect(call?.sql).not.toContain("settlement_results");
     expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("buildReplayHash");
+  };
+
+  const expectRoundSaveBoundary = (
+    call: { params?: readonly unknown[]; sql: string } | undefined
+  ): void => {
+    expect(call?.sql).toContain("INSERT INTO simulation_rounds");
+    expect(call?.sql).toContain("ON CONFLICT (tenant_id, round_id)");
+    expect(call?.sql).toContain("DO UPDATE SET");
+    expect(call?.sql).toContain("run_id = EXCLUDED.run_id");
+    expect(call?.sql).toContain("round_no = EXCLUDED.round_no");
+    expect(call?.sql).toContain("status = EXCLUDED.status");
+    expect(call?.sql).toContain("decision_batch_id = EXCLUDED.decision_batch_id");
+    expect(call?.sql).toContain("replay_hash = EXCLUDED.replay_hash");
+    expect(call?.sql).toContain("payload = EXCLUDED.payload");
+    expect(call?.sql).toContain("updated_at = now()");
+    expect(call?.sql).toContain("::jsonb");
+    expect(call?.sql).not.toContain("ON CONFLICT (round_id)");
+    expect(call?.sql).not.toContain("id = EXCLUDED.id");
+    expect(call?.sql).not.toContain("created_at =");
+    expect(call?.sql).not.toContain("COALESCE");
+    expect(call?.sql).not.toContain("DELETE");
+    expect(call?.sql).not.toMatch(/^SELECT/i);
+    expect(call?.sql).not.toContain("settlement_results");
+    expect(call?.sql).not.toContain("decisions");
+    expect(call?.sql).not.toContain("replay_records");
+    expect(call?.sql).not.toContain("state_snapshots");
+    expect(call?.sql).not.toContain("audit_logs");
     expect(call?.sql).not.toContain("buildReplayHash");
   };
 
@@ -819,6 +858,134 @@ describe("Postgres repository adapter skeleton", () => {
     ]);
     expect(calls[0]?.sql).not.toContain("payload");
     expect(calls[0]?.sql).not.toContain("metadata");
+  });
+
+  it("round namespace exposes read methods and saveRound without settlement mutation", () => {
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: async () => ({
+        rowCount: 0,
+        rows: []
+      })
+    });
+
+    expect(Object.keys(adapter.rounds).sort()).toEqual([
+      "getRound",
+      "listRoundsForRun",
+      "saveRound"
+    ]);
+    expect(adapter.rounds.getRound).toEqual(expect.any(Function));
+    expect(adapter.rounds.listRoundsForRun).toEqual(expect.any(Function));
+    expect(adapter.rounds.saveRound).toEqual(expect.any(Function));
+    expect("markRoundSettled" in adapter.rounds).toBe(false);
+    expect("deleteRound" in adapter.rounds).toBe(false);
+    expect("provider" in adapter.rounds).toBe(false);
+    expect("runtime" in adapter.rounds).toBe(false);
+    expect("connect" in adapter.rounds).toBe(false);
+    expect("transaction" in adapter.rounds).toBe(false);
+  });
+
+  it("Postgres saveRound writes a tenant-scoped complete Round upsert", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const round = createRound({
+      replay_hash: "replay-hash-existing"
+    });
+    const original = structuredClone(round);
+
+    await expect(adapter.rounds.saveRound(round)).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    const call = calls[0];
+    expectRoundSaveBoundary(call);
+    expect(call?.params).toHaveLength(9);
+    expect(call?.params?.[0]).not.toBe(round.round_id);
+    expect(call?.params?.[1]).toBe(round.round_id);
+    expect(call?.params?.[2]).toBe(round.tenant_id);
+    expect(call?.params?.[3]).toBe(round.run_id);
+    expect(call?.params?.[4]).toBe(round.round_no);
+    expect(call?.params?.[5]).toBe(round.status);
+    expect(call?.params?.[6]).toBe(round.decision_batch_id);
+    expect(call?.params?.[7]).toBe(round.replay_hash);
+    expectJsonPayloadParam(call?.params?.[8], round);
+    expect(JSON.parse(call?.params?.[8] as string)).not.toHaveProperty("id");
+    expect(round).toEqual(original);
+  });
+
+  it("Postgres saveRound clears omitted optional fields during replacement", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const {
+      decision_batch_id: _removedDecisionBatchId,
+      replay_hash: _removedReplayHash,
+      ...replacement
+    } = createRound({
+      round_id: "round-clear",
+      status: "locked"
+    });
+
+    await adapter.rounds.saveRound(replacement);
+
+    expect(_removedDecisionBatchId).toBe("decision-batch-1");
+    expect(_removedReplayHash).toBe("replay-hash-existing");
+    expectRoundSaveBoundary(calls[0]);
+    expect(calls[0]?.params?.[6]).toBeNull();
+    expect(calls[0]?.params?.[7]).toBeNull();
+    const payload = parseJsonPayloadParam<Round>(calls[0]?.params?.[8], replacement);
+    expect("decision_batch_id" in payload).toBe(false);
+    expect("replay_hash" in payload).toBe(false);
+  });
+
+  it("Postgres saveRound isolates identical round IDs by tenant", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+
+    await adapter.rounds.saveRound(
+      createRound({
+        round_id: "round-shared",
+        tenant_id: "tenant-1"
+      })
+    );
+    await adapter.rounds.saveRound(
+      createRound({
+        round_id: "round-shared",
+        tenant_id: "tenant-2"
+      })
+    );
+
+    expect(calls).toHaveLength(2);
+    expectRoundSaveBoundary(calls[0]);
+    expectRoundSaveBoundary(calls[1]);
+    expect(calls[0]?.params?.[1]).toBe("round-shared");
+    expect(calls[1]?.params?.[1]).toBe("round-shared");
+    expect(calls[0]?.params?.[2]).toBe("tenant-1");
+    expect(calls[1]?.params?.[2]).toBe("tenant-2");
+    expect(calls[0]?.params?.[0]).not.toBe(calls[1]?.params?.[0]);
+    expect(calls[0]?.sql).not.toContain("ON CONFLICT (round_id)");
+  });
+
+  it("Postgres saveRound persists only the supplied replay hash", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const adapter = createPostgresRepositoryAdapter({
+      queryExecutor: createRecordingExecutor(calls)
+    });
+    const round = createRound({
+      replay_hash: "replay-hash-existing"
+    });
+
+    await adapter.rounds.saveRound(round);
+
+    expectRoundSaveBoundary(calls[0]);
+    expect(calls[0]?.params?.[7]).toBe("replay-hash-existing");
+    const payload = parseJsonPayloadParam<Round>(calls[0]?.params?.[8], round);
+    expect(payload.replay_hash).toBe("replay-hash-existing");
+    expect(calls[0]?.sql).not.toContain("settlement_results");
+    expect(calls[0]?.sql).not.toContain("buildReplayHash");
   });
 
   it("decisions.getDecisionById delegates through the injected executor and returns a full Decision", async () => {
