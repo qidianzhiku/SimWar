@@ -823,6 +823,43 @@ describe("JSON repository adapter", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
+  it("JSON markRoundSettled resolves settlement results within the requested tenant", async () => {
+    const round = createRound({
+      tenant_id: "tenant-1",
+      round_id: "round-shared",
+      status: "open",
+      decision_batch_id: "decision-batch-1",
+      replay_hash: "replay-hash-before"
+    });
+    const wrongTenantSettlement = createSettlementResult({
+      tenant_id: "tenant-2",
+      settlement_result_id: "settlement-shared",
+      replay_hash: "wrong-tenant-replay-hash"
+    });
+    const correctTenantSettlement = createSettlementResult({
+      tenant_id: "tenant-1",
+      settlement_result_id: "settlement-shared",
+      replay_hash: "correct-tenant-replay-hash"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [wrongTenantSettlement, correctTenantSettlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-shared", "settlement-shared");
+
+    expect(store.rounds).toEqual([round]);
+    expect(store.rounds[0]).toBe(round);
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("correct-tenant-replay-hash");
+    expect(round.replay_hash).not.toBe("wrong-tenant-replay-hash");
+    expect(round.decision_batch_id).toBe("decision-batch-1");
+    expect(wrongTenantSettlement.replay_hash).toBe("wrong-tenant-replay-hash");
+    expect(correctTenantSettlement.replay_hash).toBe("correct-tenant-replay-hash");
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
   it("JSON markRoundSettled copies the matching settlement replay hash", async () => {
     const round = createRound({
       status: "locked",
