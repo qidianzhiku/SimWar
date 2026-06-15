@@ -6,6 +6,7 @@ import type {
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
+  Round,
   SettlementResult,
   StateSnapshot
 } from "@simwar/shared-contracts";
@@ -51,6 +52,17 @@ function createDecision(overrides: Partial<Decision> = {}): Decision {
     payload: BASE_DECISION_PAYLOAD,
     validation_report: [],
     submitted_by: "user-1",
+    ...overrides
+  };
+}
+
+function createRound(overrides: Partial<Round> = {}): Round {
+  return {
+    tenant_id: "tenant-1",
+    round_id: "round-1",
+    run_id: "run-1",
+    round_no: 1,
+    status: "open",
     ...overrides
   };
 }
@@ -644,6 +656,294 @@ describe("JSON repository adapter", () => {
     expect(store.settlementResults[2]).toBe(unrelatedAfter);
     expect(store.settlementResults[3]).toBe(otherTenant);
     expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON round saves append a previously missing round", async () => {
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store);
+    const round = createRound({
+      round_id: "round-new",
+      status: "locked",
+      decision_batch_id: "decision-batch-new",
+      replay_hash: "replay-hash-new"
+    });
+    const before = structuredClone(round);
+
+    await ports.rounds.saveRound(round);
+
+    expect(store.rounds).toEqual([round]);
+    expect(store.rounds[0]).toBe(round);
+    expect(round).toEqual(before);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON round saves replace the same tenant round in place", async () => {
+    const unrelatedBefore = createRound({
+      round_id: "round-before",
+      round_no: 0
+    });
+    const original = createRound({
+      round_id: "round-shared",
+      status: "open",
+      decision_batch_id: "decision-batch-original",
+      replay_hash: "replay-hash-original"
+    });
+    const unrelatedAfter = createRound({
+      round_id: "round-after",
+      round_no: 2
+    });
+    const replacement = createRound({
+      round_id: "round-shared",
+      status: "locked"
+    });
+    const store = createMinimalStore({
+      rounds: [unrelatedBefore, original, unrelatedAfter]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.saveRound(replacement);
+
+    expect(store.rounds).toEqual([unrelatedBefore, replacement, unrelatedAfter]);
+    expect(store.rounds).toHaveLength(3);
+    expect(store.rounds[0]).toBe(unrelatedBefore);
+    expect(store.rounds[1]).toBe(replacement);
+    expect(store.rounds[2]).toBe(unrelatedAfter);
+    expect(store.rounds).not.toContain(original);
+    expect("decision_batch_id" in store.rounds[1]!).toBe(false);
+    expect("replay_hash" in store.rounds[1]!).toBe(false);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON round saves isolate identical round IDs by tenant", async () => {
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store);
+    const tenantOneRound = createRound({
+      tenant_id: "tenant-1",
+      round_id: "round-shared",
+      status: "open"
+    });
+    const tenantTwoRound = createRound({
+      tenant_id: "tenant-2",
+      round_id: "round-shared",
+      status: "locked"
+    });
+    const tenantOneReplacement = createRound({
+      tenant_id: "tenant-1",
+      round_id: "round-shared",
+      status: "settled",
+      replay_hash: "replay-hash-tenant-one"
+    });
+
+    await ports.rounds.saveRound(tenantOneRound);
+    await ports.rounds.saveRound(tenantTwoRound);
+    await ports.rounds.saveRound(tenantOneReplacement);
+
+    expect(store.rounds).toHaveLength(2);
+    expect(store.rounds[0]).toBe(tenantOneReplacement);
+    expect(store.rounds[1]).toBe(tenantTwoRound);
+    await expect(ports.rounds.getRound("tenant-1", "round-shared")).resolves.toBe(
+      tenantOneReplacement
+    );
+    await expect(ports.rounds.getRound("tenant-2", "round-shared")).resolves.toBe(tenantTwoRound);
+    expect(store.persist).toHaveBeenCalledTimes(3);
+  });
+
+  it("JSON round saves persist after insert and replacement", async () => {
+    const store = createMinimalStore();
+    const ports = createJsonRepositoryPorts(store);
+    const original = createRound({
+      round_id: "round-persist",
+      status: "open"
+    });
+    const replacement = createRound({
+      round_id: "round-persist",
+      status: "locked"
+    });
+
+    await ports.rounds.saveRound(original);
+    await ports.rounds.saveRound(replacement);
+
+    expect(store.rounds).toEqual([replacement]);
+    expect(store.persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("JSON markRoundSettled is a no-op when the round is missing", async () => {
+    const existingRound = createRound({
+      round_id: "round-existing",
+      status: "open"
+    });
+    const settlement = createSettlementResult({
+      settlement_result_id: "settlement-existing",
+      replay_hash: "replay-hash-existing"
+    });
+    const store = createMinimalStore({
+      rounds: [existingRound],
+      settlementResults: [settlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(
+      ports.rounds.markRoundSettled("tenant-1", "round-missing", "settlement-existing")
+    ).resolves.toBeUndefined();
+
+    expect(store.rounds).toEqual([existingRound]);
+    expect(store.rounds[0]).toBe(existingRound);
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("JSON markRoundSettled is tenant isolated", async () => {
+    const tenantOneRound = createRound({
+      tenant_id: "tenant-1",
+      round_id: "round-shared",
+      status: "locked"
+    });
+    const tenantTwoRound = createRound({
+      tenant_id: "tenant-2",
+      round_id: "round-shared",
+      status: "open",
+      replay_hash: "replay-hash-tenant-two"
+    });
+    const settlement = createSettlementResult({
+      tenant_id: "tenant-1",
+      settlement_result_id: "settlement-1",
+      replay_hash: "replay-hash-tenant-one"
+    });
+    const store = createMinimalStore({
+      rounds: [tenantOneRound, tenantTwoRound],
+      settlementResults: [settlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-shared", "settlement-1");
+
+    expect(tenantOneRound.status).toBe("settled");
+    expect(tenantOneRound.replay_hash).toBe("replay-hash-tenant-one");
+    expect(tenantTwoRound.status).toBe("open");
+    expect(tenantTwoRound.replay_hash).toBe("replay-hash-tenant-two");
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON markRoundSettled copies the matching settlement replay hash", async () => {
+    const round = createRound({
+      status: "locked",
+      decision_batch_id: "decision-batch-1",
+      replay_hash: "replay-hash-before"
+    });
+    const settlement = createSettlementResult({
+      settlement_result_id: "settlement-1",
+      replay_hash: "replay-hash-from-settlement"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [settlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("replay-hash-from-settlement");
+    expect(round.decision_batch_id).toBe("decision-batch-1");
+    expect(round.tenant_id).toBe("tenant-1");
+    expect(round.run_id).toBe("run-1");
+    expect(round.round_no).toBe(1);
+    expect(store.auditLogs).toEqual([]);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON markRoundSettled settles the round without changing its replay hash when the settlement result is missing", async () => {
+    const round = createRound({
+      status: "locked",
+      decision_batch_id: "decision-batch-1",
+      replay_hash: "replay-hash-before"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: []
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-missing");
+
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("replay-hash-before");
+    expect(round.decision_batch_id).toBe("decision-batch-1");
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("JSON markRoundSettled remains stable for repeated calls with the same settlement result", async () => {
+    const round = createRound({
+      status: "locked",
+      decision_batch_id: "decision-batch-1"
+    });
+    const settlement = createSettlementResult({
+      settlement_result_id: "settlement-1",
+      replay_hash: "replay-hash-repeat"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [settlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+
+    expect(store.rounds).toEqual([round]);
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("replay-hash-repeat");
+    expect(round.decision_batch_id).toBe("decision-batch-1");
+    expect(store.persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("JSON markRoundSettled replaces the replay hash when a different matching settlement result is applied", async () => {
+    const round = createRound({
+      status: "locked",
+      decision_batch_id: "decision-batch-1"
+    });
+    const firstSettlement = createSettlementResult({
+      settlement_result_id: "settlement-1",
+      replay_hash: "replay-hash-first"
+    });
+    const secondSettlement = createSettlementResult({
+      settlement_result_id: "settlement-2",
+      replay_hash: "replay-hash-second"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [firstSettlement, secondSettlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-2");
+
+    expect(store.rounds).toEqual([round]);
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("replay-hash-second");
+    expect(round.decision_batch_id).toBe("decision-batch-1");
+    expect(store.persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("JSON markRoundSettled preserves current round reference semantics", async () => {
+    const round = createRound({
+      status: "locked"
+    });
+    const settlement = createSettlementResult({
+      settlement_result_id: "settlement-1",
+      replay_hash: "replay-hash-reference"
+    });
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [settlement]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await ports.rounds.markRoundSettled("tenant-1", "round-1", "settlement-1");
+
+    expect(store.rounds[0]).toBe(round);
+    expect(round.status).toBe("settled");
+    expect(round.replay_hash).toBe("replay-hash-reference");
   });
 
   it("marks a round as settled from a persisted settlement result", async () => {
