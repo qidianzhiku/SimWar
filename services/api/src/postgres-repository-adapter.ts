@@ -223,6 +223,12 @@ interface PostgresStateSnapshotReadRow extends Record<string, unknown> {
   payload: StateSnapshot;
 }
 
+interface PostgresSettlementOutcomeCommitRow extends Record<string, unknown> {
+  error_code?: string | null;
+  round_row_count?: bigint | number | string | null;
+  settlement_row_count?: bigint | number | string | null;
+}
+
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
   const course: RepositoryCourseReadModel = {
     course_id: row.course_id,
@@ -306,6 +312,22 @@ function toSettlementResultRowId(tenantId: RepositoryId, settlementResultId: Rep
   return JSON.stringify(["settlement_result", tenantId, settlementResultId]);
 }
 
+function toPostgresCount(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    return Number(value);
+  }
+
+  return undefined;
+}
+
 function toRoundRowId(tenantId: RepositoryId, roundId: RepositoryId): string {
   return JSON.stringify(["round", tenantId, roundId]);
 }
@@ -381,12 +403,17 @@ export function createPostgresSettlementOutcomePersistencePort(
         throw new Error("settlement_outcome_round_mismatch");
       }
 
-      const queryResult = await options.queryExecutor(
+      const queryResult = await options.queryExecutor<PostgresSettlementOutcomeCommitRow>(
         `WITH target_round AS (
-          SELECT id
+          SELECT id, tenant_id, round_id, run_id, round_no
           FROM simulation_rounds
           WHERE tenant_id = $1 AND round_id = $2
           FOR UPDATE
+        ),
+        validated_round AS (
+          SELECT id
+          FROM target_round
+          WHERE run_id = $5 AND round_no = $6
         ),
         upserted_settlement AS (
           INSERT INTO settlement_results (
@@ -404,7 +431,7 @@ export function createPostgresSettlementOutcomePersistencePort(
             updated_at
           )
           SELECT $4, $3, $1, $5, $2, $6, $7, $8, $9, $10::jsonb, $11::jsonb, now()
-          FROM target_round
+          FROM validated_round
           ON CONFLICT (tenant_id, settlement_result_id)
           DO UPDATE SET
             run_id = EXCLUDED.run_id,
@@ -417,11 +444,12 @@ export function createPostgresSettlementOutcomePersistencePort(
             payload = EXCLUDED.payload,
             updated_at = now()
           RETURNING replay_hash
-        )
+        ),
+        updated_round AS (
         UPDATE simulation_rounds AS target
         SET
           status = 'settled',
-          replay_hash = (SELECT replay_hash FROM upserted_settlement),
+          replay_hash = upserted_settlement.replay_hash,
           payload = jsonb_set(
             jsonb_set(
               target.payload,
@@ -430,12 +458,23 @@ export function createPostgresSettlementOutcomePersistencePort(
               true
             ),
             '{replay_hash}',
-            to_jsonb((SELECT replay_hash FROM upserted_settlement)),
+            to_jsonb(upserted_settlement.replay_hash),
             true
           ),
           updated_at = now()
-        FROM target_round
-        WHERE target.id = target_round.id`,
+        FROM validated_round, upserted_settlement
+        WHERE target.id = validated_round.id
+        RETURNING target.id
+        )
+        SELECT
+          CASE
+            WHEN NOT EXISTS (SELECT 1 FROM target_round) THEN 'round_missing'
+            WHEN NOT EXISTS (SELECT 1 FROM target_round WHERE run_id = $5) THEN 'run_mismatch'
+            WHEN NOT EXISTS (SELECT 1 FROM target_round WHERE round_no = $6) THEN 'round_no_mismatch'
+            ELSE NULL
+          END AS error_code,
+          (SELECT count(*)::int FROM upserted_settlement) AS settlement_row_count,
+          (SELECT count(*)::int FROM updated_round) AS round_row_count`,
         [
           command.tenant_id,
           command.round_id,
@@ -450,13 +489,33 @@ export function createPostgresSettlementOutcomePersistencePort(
           JSON.stringify(result)
         ]
       );
+      const outcome = queryResult.rows[0];
 
-      if (queryResult.rowCount === 0) {
+      if (queryResult.rowCount !== 1 || outcome === undefined) {
+        throw new Error("settlement_outcome_persistence_invariant_failed");
+      }
+
+      if (outcome.error_code === "round_missing") {
         throw new Error("settlement_outcome_round_missing");
       }
 
-      if (queryResult.rowCount !== 1) {
-        throw new Error("settlement_outcome_row_count_invariant");
+      if (outcome.error_code === "run_mismatch") {
+        throw new Error("settlement_outcome_run_mismatch");
+      }
+
+      if (outcome.error_code === "round_no_mismatch") {
+        throw new Error("settlement_outcome_round_no_mismatch");
+      }
+
+      if (outcome.error_code !== null && outcome.error_code !== undefined) {
+        throw new Error("settlement_outcome_persistence_invariant_failed");
+      }
+
+      if (
+        toPostgresCount(outcome.settlement_row_count) !== 1 ||
+        toPostgresCount(outcome.round_row_count) !== 1
+      ) {
+        throw new Error("settlement_outcome_persistence_invariant_failed");
       }
     }
   };

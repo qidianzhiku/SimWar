@@ -54,14 +54,21 @@ function createSettlementResult(overrides: Partial<SettlementResult> = {}): Sett
 
 function createRecordingExecutor(
   calls: Array<{ params?: readonly unknown[]; sql: string }>,
-  rowCount = 1
+  rowCount = 1,
+  rows: Record<string, unknown>[] = [
+    {
+      error_code: null,
+      round_row_count: 1,
+      settlement_row_count: 1
+    }
+  ]
 ): PostgresQueryExecutor {
   return async (sql, params) => {
     calls.push({ params, sql });
 
     return {
       rowCount,
-      rows: []
+      rows
     };
   };
 }
@@ -72,13 +79,28 @@ function normalizeSql(sql: string): string {
 
 function extractRoundSetClause(sql: string): string {
   const normalized = normalizeSql(sql);
-  const match = /UPDATE simulation_rounds AS target SET (?<set>[\s\S]*?) FROM target_round/i.exec(
-    normalized
-  );
+  const match =
+    /UPDATE simulation_rounds AS target SET (?<set>[\s\S]*?) FROM validated_round/i.exec(
+      normalized
+    );
 
   expect(match?.groups?.set).toBeDefined();
 
   return match?.groups?.set ?? "";
+}
+
+function createOutcomeExecutor(
+  calls: Array<{ params?: readonly unknown[]; sql: string }>,
+  row: Record<string, unknown>
+): PostgresQueryExecutor {
+  return async (sql, params) => {
+    calls.push({ params, sql });
+
+    return {
+      rowCount: 1,
+      rows: [row]
+    };
+  };
 }
 
 describe("Postgres settlement outcome persistence port", () => {
@@ -155,13 +177,16 @@ describe("Postgres settlement outcome persistence port", () => {
     const roundSet = extractRoundSetClause(sql);
 
     expect(normalized).toMatch(/^WITH target_round AS/i);
-    expect(normalized).toContain("SELECT id FROM simulation_rounds");
+    expect(normalized).toContain("SELECT id, tenant_id, round_id, run_id, round_no");
+    expect(normalized).toContain("FROM simulation_rounds");
     expect(normalized).toContain("WHERE tenant_id = $1 AND round_id = $2");
     expect(normalized).toContain("FOR UPDATE");
+    expect(normalized).toContain("validated_round AS");
+    expect(normalized).toContain("WHERE run_id = $5 AND round_no = $6");
     expect(normalized).toContain("upserted_settlement AS");
     expect(normalized).toContain("INSERT INTO settlement_results");
     expect(normalized).toContain(
-      "SELECT $4, $3, $1, $5, $2, $6, $7, $8, $9, $10::jsonb, $11::jsonb, now() FROM target_round"
+      "SELECT $4, $3, $1, $5, $2, $6, $7, $8, $9, $10::jsonb, $11::jsonb, now() FROM validated_round"
     );
     expect(normalized).toContain("ON CONFLICT (tenant_id, settlement_result_id)");
     expect(normalized).toContain("DO UPDATE SET");
@@ -176,13 +201,19 @@ describe("Postgres settlement outcome persistence port", () => {
     expect(normalized).toContain("RETURNING replay_hash");
     expect(normalized).toContain("UPDATE simulation_rounds AS target");
     expect(roundSet).toContain("status = 'settled'");
-    expect(roundSet).toContain("replay_hash = (SELECT replay_hash FROM upserted_settlement)");
+    expect(roundSet).toContain("replay_hash = upserted_settlement.replay_hash");
     expect(roundSet).toContain("jsonb_set(");
     expect(roundSet).toContain("target.payload, '{status}'");
     expect(roundSet).toContain("'{replay_hash}'");
-    expect(roundSet).toContain("to_jsonb((SELECT replay_hash FROM upserted_settlement))");
+    expect(roundSet).toContain("to_jsonb(upserted_settlement.replay_hash)");
     expect(roundSet).toContain("updated_at = now()");
-    expect(normalized).toContain("WHERE target.id = target_round.id");
+    expect(normalized).toContain("WHERE target.id = validated_round.id");
+    expect(normalized).toContain("SELECT CASE");
+    expect(normalized).toContain("THEN 'round_missing'");
+    expect(normalized).toContain("THEN 'run_mismatch'");
+    expect(normalized).toContain("THEN 'round_no_mismatch'");
+    expect(normalized).toContain("settlement_row_count");
+    expect(normalized).toContain("round_row_count");
     expect(normalized).not.toContain("BEGIN");
     expect(normalized).not.toContain("COMMIT");
     expect(normalized).not.toContain("ROLLBACK");
@@ -225,10 +256,56 @@ describe("Postgres settlement outcome persistence port", () => {
     expect(result).toEqual(original);
   });
 
-  it("rejects missing target Rounds after one zero-row statement", async () => {
+  it("rejects target Round run mismatches reported by the atomic statement", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const port = createPostgresSettlementOutcomePersistencePort({
-      queryExecutor: createRecordingExecutor(calls, 0)
+      queryExecutor: createOutcomeExecutor(calls, {
+        error_code: "run_mismatch",
+        round_row_count: 0,
+        settlement_row_count: 0
+      })
+    });
+
+    await expect(
+      port.commitSettlementOutcome({
+        round_id: "round-1",
+        settlement_result: createSettlementResult({ run_id: "run-result" }),
+        tenant_id: "tenant-1"
+      })
+    ).rejects.toThrow("settlement_outcome_run_mismatch");
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("rejects target Round number mismatches reported by the atomic statement", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const port = createPostgresSettlementOutcomePersistencePort({
+      queryExecutor: createOutcomeExecutor(calls, {
+        error_code: "round_no_mismatch",
+        round_row_count: 0,
+        settlement_row_count: 0
+      })
+    });
+
+    await expect(
+      port.commitSettlementOutcome({
+        round_id: "round-1",
+        settlement_result: createSettlementResult({ round_no: 9 }),
+        tenant_id: "tenant-1"
+      })
+    ).rejects.toThrow("settlement_outcome_round_no_mismatch");
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("rejects missing target Rounds reported by the atomic statement", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const port = createPostgresSettlementOutcomePersistencePort({
+      queryExecutor: createOutcomeExecutor(calls, {
+        error_code: "round_missing",
+        round_row_count: 0,
+        settlement_row_count: 0
+      })
     });
 
     await expect(
@@ -246,7 +323,11 @@ describe("Postgres settlement outcome persistence port", () => {
   it("rejects impossible multi-row updates as invariant violations", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const port = createPostgresSettlementOutcomePersistencePort({
-      queryExecutor: createRecordingExecutor(calls, 2)
+      queryExecutor: createOutcomeExecutor(calls, {
+        error_code: null,
+        round_row_count: 2,
+        settlement_row_count: 1
+      })
     });
 
     await expect(
@@ -255,7 +336,7 @@ describe("Postgres settlement outcome persistence port", () => {
         settlement_result: createSettlementResult(),
         tenant_id: "tenant-1"
       })
-    ).rejects.toThrow("settlement_outcome_row_count_invariant");
+    ).rejects.toThrow("settlement_outcome_persistence_invariant_failed");
 
     expect(calls).toHaveLength(1);
   });
