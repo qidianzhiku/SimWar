@@ -23,7 +23,8 @@ import type {
 import type {
   RepositoryCourseReadModel,
   RepositoryId,
-  RepositorySnapshotQuery
+  RepositorySnapshotQuery,
+  SettlementOutcomePersistencePort
 } from "./repository-ports.js";
 
 export interface PostgresQueryResult<
@@ -362,6 +363,102 @@ function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementRes
     settlement_result_id: row.settlement_result_id,
     team_results: row.team_results,
     tenant_id: row.tenant_id
+  };
+}
+
+export function createPostgresSettlementOutcomePersistencePort(
+  options: PostgresRepositoryAdapterOptions
+): SettlementOutcomePersistencePort {
+  return {
+    async commitSettlementOutcome(command): Promise<void> {
+      const result = command.settlement_result;
+
+      if (command.tenant_id !== result.tenant_id) {
+        throw new Error("settlement_outcome_tenant_mismatch");
+      }
+
+      if (command.round_id !== result.round_id) {
+        throw new Error("settlement_outcome_round_mismatch");
+      }
+
+      const queryResult = await options.queryExecutor(
+        `WITH target_round AS (
+          SELECT id
+          FROM simulation_rounds
+          WHERE tenant_id = $1 AND round_id = $2
+          FOR UPDATE
+        ),
+        upserted_settlement AS (
+          INSERT INTO settlement_results (
+            id,
+            settlement_result_id,
+            tenant_id,
+            run_id,
+            round_id,
+            round_no,
+            parameter_set_id,
+            scenario_package_id,
+            replay_hash,
+            team_results,
+            payload,
+            updated_at
+          )
+          SELECT $4, $3, $1, $5, $2, $6, $7, $8, $9, $10::jsonb, $11::jsonb, now()
+          FROM target_round
+          ON CONFLICT (tenant_id, settlement_result_id)
+          DO UPDATE SET
+            run_id = EXCLUDED.run_id,
+            round_id = EXCLUDED.round_id,
+            round_no = EXCLUDED.round_no,
+            parameter_set_id = EXCLUDED.parameter_set_id,
+            scenario_package_id = EXCLUDED.scenario_package_id,
+            replay_hash = EXCLUDED.replay_hash,
+            team_results = EXCLUDED.team_results,
+            payload = EXCLUDED.payload,
+            updated_at = now()
+          RETURNING replay_hash
+        )
+        UPDATE simulation_rounds AS target
+        SET
+          status = 'settled',
+          replay_hash = (SELECT replay_hash FROM upserted_settlement),
+          payload = jsonb_set(
+            jsonb_set(
+              target.payload,
+              '{status}',
+              to_jsonb('settled'::text),
+              true
+            ),
+            '{replay_hash}',
+            to_jsonb((SELECT replay_hash FROM upserted_settlement)),
+            true
+          ),
+          updated_at = now()
+        FROM target_round
+        WHERE target.id = target_round.id`,
+        [
+          command.tenant_id,
+          command.round_id,
+          result.settlement_result_id,
+          toSettlementResultRowId(result.tenant_id, result.settlement_result_id),
+          result.run_id,
+          result.round_no,
+          result.parameter_set_id,
+          result.scenario_package_id,
+          result.replay_hash,
+          JSON.stringify(result.team_results),
+          JSON.stringify(result)
+        ]
+      );
+
+      if (queryResult.rowCount === 0) {
+        throw new Error("settlement_outcome_round_missing");
+      }
+
+      if (queryResult.rowCount !== 1) {
+        throw new Error("settlement_outcome_row_count_invariant");
+      }
+    }
   };
 }
 
