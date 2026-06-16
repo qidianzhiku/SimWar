@@ -19,6 +19,7 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
+  SettlementOutcomePersistencePort,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
 import type { SimWarStore } from "./store.js";
@@ -119,6 +120,93 @@ function applyLimit<T>(items: T[], limit?: number): T[] {
   }
 
   return items.slice(0, limit);
+}
+
+function hasOwnReplayHash(round: Round): boolean {
+  return Object.prototype.hasOwnProperty.call(round, "replay_hash");
+}
+
+export function createJsonSettlementOutcomePersistencePort(
+  store: SimWarStore
+): SettlementOutcomePersistencePort {
+  return {
+    async commitSettlementOutcome(command): Promise<void> {
+      const result = command.settlement_result;
+
+      if (command.tenant_id !== result.tenant_id) {
+        throw new Error("settlement_outcome_tenant_mismatch");
+      }
+
+      if (command.round_id !== result.round_id) {
+        throw new Error("settlement_outcome_round_mismatch");
+      }
+
+      const round = store.rounds.find(
+        (candidate) =>
+          candidate.tenant_id === command.tenant_id && candidate.round_id === command.round_id
+      );
+
+      if (!round) {
+        throw new Error("settlement_outcome_round_missing");
+      }
+
+      const settlementIndex = store.settlementResults.findIndex(
+        (candidate) =>
+          candidate.tenant_id === result.tenant_id &&
+          candidate.settlement_result_id === result.settlement_result_id
+      );
+      const settlementSnapshot =
+        settlementIndex >= 0
+          ? {
+              kind: "replace" as const,
+              index: settlementIndex,
+              previous: store.settlementResults[settlementIndex] as SettlementResult
+            }
+          : {
+              kind: "append" as const,
+              length: store.settlementResults.length
+            };
+      const roundSnapshot = {
+        status: round.status,
+        hadReplayHash: hasOwnReplayHash(round),
+        replayHash: round.replay_hash
+      };
+
+      try {
+        if (settlementIndex >= 0) {
+          store.settlementResults[settlementIndex] = result;
+        } else {
+          store.settlementResults.push(result);
+        }
+
+        round.status = "settled";
+        round.replay_hash = result.replay_hash;
+
+        store.persist();
+      } catch (error) {
+        if (settlementSnapshot.kind === "replace") {
+          store.settlementResults[settlementSnapshot.index] = settlementSnapshot.previous;
+        } else {
+          store.settlementResults.length = settlementSnapshot.length;
+        }
+
+        round.status = roundSnapshot.status;
+
+        if (roundSnapshot.hadReplayHash) {
+          Object.defineProperty(round, "replay_hash", {
+            configurable: true,
+            enumerable: true,
+            value: roundSnapshot.replayHash,
+            writable: true
+          });
+        } else {
+          delete round.replay_hash;
+        }
+
+        throw error;
+      }
+    }
+  };
 }
 
 export function createJsonRepositoryPorts(
