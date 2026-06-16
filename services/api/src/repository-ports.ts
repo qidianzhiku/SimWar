@@ -249,6 +249,43 @@ export type SettlementCommandRepositoryPort = Pick<
 
 export type AuditCommandRepositoryPort = Pick<AuditLogRepositoryPort, "appendAuditLog">;
 
+/**
+ * Domain command for atomically committing an official settlement outcome.
+ *
+ * The explicit tenant and round identity targets the existing Round to mark as
+ * settled. The SettlementResult remains the source of the replay_hash; this
+ * command must not recompute, normalize, or generate replay hashes.
+ */
+export interface CommitSettlementOutcomeCommand {
+  tenant_id: RepositoryId;
+  round_id: RepositoryId;
+  settlement_result: SettlementResult;
+}
+
+/**
+ * Standalone contract for the future atomic settlement outcome write.
+ *
+ * Implementations must commit the SettlementResult, explicit Round.status,
+ * explicit Round.replay_hash, and the Round payload status/replay_hash as one
+ * all-or-nothing truth-state update. The command requires an existing Round
+ * and tenant- and round-consistent command/result identities; failure must
+ * commit none of that truth state.
+ *
+ * The command tenant_id must equal settlement_result.tenant_id, and the command
+ * round_id must equal settlement_result.round_id. Any tenant or Round identity
+ * mismatch must fail without persisting the SettlementResult, mutating the
+ * Round, or committing a partial settlement truth state.
+ *
+ * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
+ * Replay artifacts are not part of this minimum atomic set. Logical settlement
+ * idempotency key alignment remains deferred: the current runtime lookup uses
+ * run_id + round_no while repository SettlementResult identity uses tenant_id +
+ * settlement_result_id.
+ */
+export interface SettlementOutcomePersistencePort {
+  commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
+}
+
 export interface SimWarCommandRepositoryPorts {
   decisions: DecisionCommandRepositoryPort;
   rounds: RoundCommandRepositoryPort;
