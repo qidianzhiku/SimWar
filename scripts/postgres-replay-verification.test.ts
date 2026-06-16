@@ -3,14 +3,18 @@ import { randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import type {
+  Round,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
-  ReplayRun
+  ReplayRun,
+  SettlementResult
 } from "@simwar/shared-contracts";
 
 type AdapterFactory =
   typeof import("../services/api/src/postgres-repository-adapter.js").createPostgresRepositoryAdapter;
+type SettlementOutcomeFactory =
+  typeof import("../services/api/src/postgres-repository-adapter.js").createPostgresSettlementOutcomePersistencePort;
 type PostgresQueryExecutor =
   import("../services/api/src/postgres-repository-adapter.js").PostgresQueryExecutor;
 
@@ -54,6 +58,12 @@ const VERIFICATION_CHECKS = [
   "report_replay_run_id_explicit_matches_payload",
   "report_source_result_id_explicit_matches_payload",
   "hash_preservation",
+  "atomic_outcome_success",
+  "atomic_outcome_round_missing",
+  "atomic_outcome_run_mismatch",
+  "atomic_outcome_round_no_mismatch",
+  "atomic_outcome_statement_rollback",
+  "atomic_outcome_retry_upsert",
   "truth_chain_tables_unchanged"
 ] as const;
 
@@ -128,10 +138,35 @@ interface TableCounts {
   settlement_results: number;
 }
 
+interface SettlementOutcomeRoundRow extends Record<string, unknown> {
+  decision_batch_id?: string | null;
+  payload: Record<string, unknown>;
+  replay_hash?: string | null;
+  round_id: string;
+  round_no: number | null;
+  run_id: string;
+  status: string | null;
+  tenant_id: string;
+}
+
+interface SettlementOutcomeResultRow extends Record<string, unknown> {
+  parameter_set_id: string;
+  payload: SettlementResult;
+  replay_hash: string;
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  scenario_package_id: string;
+  settlement_result_id: string;
+  team_results: SettlementResult["team_results"];
+  tenant_id: string;
+}
+
 let client: PgClient | undefined;
 let schemaName = "";
 let schemaCreated = false;
 let adapter: ReturnType<AdapterFactory>;
+let settlementOutcomePort: ReturnType<SettlementOutcomeFactory>;
 
 function markCheckPassed(check: VerificationCheck): void {
   verificationChecks.set(check, "passed");
@@ -376,8 +411,149 @@ function replayDiffReport(overrides: Partial<ReplayDiffReport> = {}): ReplayDiff
   };
 }
 
+function settlementTeamResults(): SettlementResult["team_results"] {
+  return [
+    {
+      state_est: {
+        explanation: "Postgres atomic outcome fixture",
+        next_round_risk: "balanced",
+        recommended_focus: "keep capacity aligned"
+      },
+      state_obs: {
+        demand_band: "high",
+        profit_band: "healthy",
+        rank: 1,
+        revenue: 1_200_000,
+        score: 88,
+        served_demand: 95
+      },
+      state_true: {
+        cash_flow: 280_000,
+        cost: 850_000,
+        demand: 100,
+        market_share: 0.42,
+        profit: 350_000,
+        rank: 1,
+        revenue: 1_200_000,
+        score: 88,
+        served_demand: 95,
+        settlement_status: "settled"
+      },
+      team_id: "team-atomic",
+      team_name: "Atomic Team"
+    }
+  ];
+}
+
+function settlementResult(overrides: Partial<SettlementResult> = {}): SettlementResult {
+  const id = suffix();
+
+  return {
+    parameter_set_id: `parameter-set-${id}`,
+    replay_hash: `replay-hash-${id}`,
+    round_id: `round-${id}`,
+    round_no: 1,
+    run_id: `run-${id}`,
+    scenario_package_id: `scenario-package-${id}`,
+    settlement_result_id: `settlement-${id}`,
+    team_results: settlementTeamResults(),
+    tenant_id: `tenant-${id}`,
+    ...overrides
+  };
+}
+
+function roundForSettlementResult(result: SettlementResult, overrides: Partial<Round> = {}): Round {
+  return {
+    round_id: result.round_id,
+    round_no: result.round_no,
+    run_id: result.run_id,
+    status: "locked",
+    tenant_id: result.tenant_id,
+    ...overrides
+  };
+}
+
+async function resetSettlementOutcomeTables(): Promise<void> {
+  await requiredClient().query("TRUNCATE settlement_results, simulation_rounds, simulation_runs");
+}
+
+async function insertSimulationRun(result: SettlementResult): Promise<void> {
+  await requiredClient().query(
+    "INSERT INTO simulation_runs (id, run_id, tenant_id, course_id, scenario_package_id, parameter_set_id, seed, status, payload) VALUES ($1, $1, $2, $3, $4, $5, $6, 'active', $7::jsonb) ON CONFLICT (run_id) DO NOTHING",
+    [
+      result.run_id,
+      result.tenant_id,
+      `course-${suffix()}`,
+      result.scenario_package_id,
+      result.parameter_set_id,
+      12345,
+      JSON.stringify({
+        run_id: result.run_id,
+        tenant_id: result.tenant_id
+      })
+    ]
+  );
+}
+
+async function insertSimulationRound(
+  round: Round,
+  payload: Record<string, unknown> = { ...round, custom_marker: "preserve-me" }
+): Promise<void> {
+  await requiredClient().query(
+    "INSERT INTO simulation_rounds (id, round_id, tenant_id, run_id, round_no, status, decision_batch_id, replay_hash, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)",
+    [
+      JSON.stringify(["round", round.tenant_id, round.round_id]),
+      round.round_id,
+      round.tenant_id,
+      round.run_id,
+      round.round_no,
+      round.status,
+      round.decision_batch_id ?? null,
+      round.replay_hash ?? null,
+      JSON.stringify(payload)
+    ]
+  );
+}
+
+async function insertRoundForSettlementResult(
+  result: SettlementResult,
+  roundOverrides: Partial<Round> = {},
+  payload?: Record<string, unknown>
+): Promise<Round> {
+  await insertSimulationRun(result);
+  const round = roundForSettlementResult(result, roundOverrides);
+  await insertSimulationRound(round, payload);
+
+  return round;
+}
+
+async function fetchAtomicRound(
+  tenantId: string,
+  roundId: string
+): Promise<SettlementOutcomeRoundRow | undefined> {
+  const rows = await requiredClient().query<SettlementOutcomeRoundRow>(
+    "SELECT tenant_id, round_id, run_id, round_no, status, decision_batch_id, replay_hash, payload FROM simulation_rounds WHERE tenant_id = $1 AND round_id = $2",
+    [tenantId, roundId]
+  );
+
+  return rows.rows[0];
+}
+
+async function fetchAtomicSettlements(
+  tenantId: string,
+  settlementResultId: string
+): Promise<SettlementOutcomeResultRow[]> {
+  const rows = await requiredClient().query<SettlementOutcomeResultRow>(
+    "SELECT tenant_id, settlement_result_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, payload FROM settlement_results WHERE tenant_id = $1 AND settlement_result_id = $2 ORDER BY created_at ASC",
+    [tenantId, settlementResultId]
+  );
+
+  return rows.rows;
+}
+
 if (process.env.VITEST_WORKER_ID !== undefined) {
-  const { afterAll, beforeAll, describe, expect, it } = await import("vitest");
+  const { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } =
+    await import("vitest");
 
   describe("disposable Postgres replay verification", () => {
     beforeAll(async () => {
@@ -408,6 +584,9 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       };
 
       adapter = adapterModule.createPostgresRepositoryAdapter({ queryExecutor });
+      settlementOutcomePort = adapterModule.createPostgresSettlementOutcomePersistencePort({
+        queryExecutor
+      });
     });
 
     afterAll(async () => {
@@ -665,6 +844,233 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         "report_source_result_id_explicit_matches_payload",
         "hash_preservation"
       ]);
+    });
+
+    describe("atomic settlement outcome persistence", () => {
+      beforeEach(async () => {
+        await resetSettlementOutcomeTables();
+      });
+
+      afterEach(async () => {
+        await resetSettlementOutcomeTables();
+      });
+
+      it("commits a SettlementResult and Round marker atomically", async () => {
+        const result = settlementResult({ replay_hash: "replay-hash-success" });
+        const originalResult = structuredClone(result);
+        const round = await insertRoundForSettlementResult(result, {
+          decision_batch_id: "decision-batch-success",
+          replay_hash: "old-round-hash",
+          status: "locked"
+        });
+
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: result.round_id,
+            settlement_result: result,
+            tenant_id: result.tenant_id
+          })
+        ).resolves.toBeUndefined();
+
+        const settlements = await fetchAtomicSettlements(
+          result.tenant_id,
+          result.settlement_result_id
+        );
+        expect(settlements).toHaveLength(1);
+        expect(settlements[0]).toMatchObject({
+          parameter_set_id: result.parameter_set_id,
+          replay_hash: result.replay_hash,
+          round_id: result.round_id,
+          round_no: result.round_no,
+          run_id: result.run_id,
+          scenario_package_id: result.scenario_package_id,
+          settlement_result_id: result.settlement_result_id,
+          tenant_id: result.tenant_id
+        });
+        expect(settlements[0]?.team_results).toEqual(result.team_results);
+        expect(settlements[0]?.payload).toEqual(result);
+
+        const committedRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+        expect(committedRound).toMatchObject({
+          decision_batch_id: round.decision_batch_id,
+          replay_hash: result.replay_hash,
+          round_id: result.round_id,
+          round_no: result.round_no,
+          run_id: result.run_id,
+          status: "settled",
+          tenant_id: result.tenant_id
+        });
+        expect(committedRound?.payload.status).toBe("settled");
+        expect(committedRound?.payload.replay_hash).toBe(result.replay_hash);
+        expect(committedRound?.payload.custom_marker).toBe("preserve-me");
+        expect(committedRound?.payload.run_id).toBe(result.run_id);
+        expect(committedRound?.payload.round_no).toBe(result.round_no);
+        expect(result).toEqual(originalResult);
+        markCheckPassed("atomic_outcome_success");
+      });
+
+      it("rejects missing target Rounds without inserting SettlementResults", async () => {
+        const result = settlementResult();
+
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: result.round_id,
+            settlement_result: result,
+            tenant_id: result.tenant_id
+          })
+        ).rejects.toThrow("settlement_outcome_round_missing");
+
+        expect(
+          await fetchAtomicSettlements(result.tenant_id, result.settlement_result_id)
+        ).toHaveLength(0);
+        expect(await fetchAtomicRound(result.tenant_id, result.round_id)).toBeUndefined();
+        markCheckPassed("atomic_outcome_round_missing");
+      });
+
+      it("rejects target Round run mismatches without partial writes", async () => {
+        const result = settlementResult({ run_id: `result-run-${suffix()}` });
+        const persistedRound = await insertRoundForSettlementResult(result, {
+          replay_hash: "old-run-mismatch-hash",
+          run_id: `database-run-${suffix()}`,
+          status: "locked"
+        });
+        const beforeRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: result.round_id,
+            settlement_result: result,
+            tenant_id: result.tenant_id
+          })
+        ).rejects.toThrow("settlement_outcome_run_mismatch");
+
+        expect(
+          await fetchAtomicSettlements(result.tenant_id, result.settlement_result_id)
+        ).toHaveLength(0);
+        const afterRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+        expect(afterRound).toEqual(beforeRound);
+        expect(afterRound?.run_id).toBe(persistedRound.run_id);
+        expect(afterRound?.status).toBe("locked");
+        expect(afterRound?.replay_hash).toBe("old-run-mismatch-hash");
+        markCheckPassed("atomic_outcome_run_mismatch");
+      });
+
+      it("rejects target Round number mismatches without partial writes", async () => {
+        const result = settlementResult({ round_no: 9 });
+        await insertRoundForSettlementResult(result, {
+          replay_hash: "old-round-number-hash",
+          round_no: 1,
+          status: "locked"
+        });
+        const beforeRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: result.round_id,
+            settlement_result: result,
+            tenant_id: result.tenant_id
+          })
+        ).rejects.toThrow("settlement_outcome_round_no_mismatch");
+
+        expect(
+          await fetchAtomicSettlements(result.tenant_id, result.settlement_result_id)
+        ).toHaveLength(0);
+        expect(await fetchAtomicRound(result.tenant_id, result.round_id)).toEqual(beforeRound);
+        markCheckPassed("atomic_outcome_round_no_mismatch");
+      });
+
+      it("rolls back the SettlementResult insert when the Round update fails", async () => {
+        const result = settlementResult({ replay_hash: "replay-hash-rollback" });
+        await insertRoundForSettlementResult(result, {
+          replay_hash: "old-rollback-hash",
+          status: "locked"
+        });
+        const beforeRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+
+        await requiredClient().query(`
+          CREATE OR REPLACE FUNCTION fail_atomic_outcome_round_update()
+          RETURNS trigger
+          LANGUAGE plpgsql
+          AS $$
+          BEGIN
+            RAISE EXCEPTION 'forced atomic outcome round update failure';
+          END;
+          $$
+        `);
+        await requiredClient().query(`
+          CREATE TRIGGER fail_atomic_outcome_round_update
+          BEFORE UPDATE ON simulation_rounds
+          FOR EACH ROW
+          EXECUTE FUNCTION fail_atomic_outcome_round_update()
+        `);
+
+        try {
+          await expect(
+            settlementOutcomePort.commitSettlementOutcome({
+              round_id: result.round_id,
+              settlement_result: result,
+              tenant_id: result.tenant_id
+            })
+          ).rejects.toThrow("forced atomic outcome round update failure");
+        } finally {
+          await requiredClient().query(
+            "DROP TRIGGER IF EXISTS fail_atomic_outcome_round_update ON simulation_rounds"
+          );
+          await requiredClient().query(
+            "DROP FUNCTION IF EXISTS fail_atomic_outcome_round_update()"
+          );
+        }
+
+        expect(
+          await fetchAtomicSettlements(result.tenant_id, result.settlement_result_id)
+        ).toHaveLength(0);
+        expect(await fetchAtomicRound(result.tenant_id, result.round_id)).toEqual(beforeRound);
+        markCheckPassed("atomic_outcome_statement_rollback");
+      });
+
+      it("upserts repeated settlement_result_id commits without duplicate rows", async () => {
+        const result = settlementResult({ replay_hash: "replay-hash-first" });
+        await insertRoundForSettlementResult(result);
+        const replacement = {
+          ...result,
+          parameter_set_id: "parameter-set-replacement",
+          replay_hash: "replay-hash-replacement",
+          team_results: [
+            {
+              ...result.team_results[0]!,
+              state_true: {
+                ...result.team_results[0]!.state_true,
+                score: 91
+              }
+            }
+          ]
+        } satisfies SettlementResult;
+
+        await settlementOutcomePort.commitSettlementOutcome({
+          round_id: result.round_id,
+          settlement_result: result,
+          tenant_id: result.tenant_id
+        });
+        await settlementOutcomePort.commitSettlementOutcome({
+          round_id: replacement.round_id,
+          settlement_result: replacement,
+          tenant_id: replacement.tenant_id
+        });
+
+        const settlements = await fetchAtomicSettlements(
+          result.tenant_id,
+          result.settlement_result_id
+        );
+        expect(settlements).toHaveLength(1);
+        expect(settlements[0]?.parameter_set_id).toBe(replacement.parameter_set_id);
+        expect(settlements[0]?.replay_hash).toBe(replacement.replay_hash);
+        expect(settlements[0]?.payload).toEqual(replacement);
+        const committedRound = await fetchAtomicRound(result.tenant_id, result.round_id);
+        expect(committedRound?.status).toBe("settled");
+        expect(committedRound?.replay_hash).toBe(replacement.replay_hash);
+        expect(committedRound?.payload.replay_hash).toBe(replacement.replay_hash);
+        markCheckPassed("atomic_outcome_retry_upsert");
+      });
     });
 
     it("does not mutate settlement truth-chain tables during replay persistence", async () => {
