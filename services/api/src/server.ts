@@ -315,29 +315,24 @@ function createContext(runtime: ApiRuntime, request: IncomingMessage): RequestCo
   const { store } = runtime;
   const requestId = request.headers["x-request-id"]?.toString() ?? `req_${Date.now()}`;
   const requestedTenantId = request.headers["x-tenant-id"]?.toString();
-  const token = getBearerToken(request);
-  let actor: CurrentUser | undefined;
-
-  if (token) {
-    const payload = verifySignedToken(token, runtime.securityConfig.jwtSecret);
-    const session = payload
-      ? store.sessions.find(
-          (candidate) =>
-            candidate.session_id === payload.session_id &&
-            candidate.user_id === payload.sub &&
-            candidate.token_hash === hashToken(token) &&
-            !candidate.revoked_at &&
-            !isExpired(candidate.expires_at)
-        )
-      : undefined;
-    const user = session
-      ? store.users.find(
-          (candidate) => candidate.user_id === session.user_id && candidate.status === "active"
-        )
-      : undefined;
-
-    actor = user ? getActorFromUser(store, user) : undefined;
-  }
+  const bearerToken = getBearerToken(request);
+  const token = bearerToken ?? "";
+  const payload = verifySignedToken(token, runtime.securityConfig.jwtSecret);
+  const tokenHash = hashToken(token);
+  const session = store.sessions.find(
+    (candidate) =>
+      candidate.session_id === (payload?.session_id ?? "") &&
+      candidate.user_id === (payload?.sub ?? "") &&
+      candidate.token_hash === tokenHash &&
+      !candidate.revoked_at &&
+      !isExpired(candidate.expires_at)
+  );
+  const user = session
+    ? store.users.find(
+        (candidate) => candidate.user_id === session.user_id && candidate.status === "active"
+      )
+    : undefined;
+  const actor = user ? getActorFromUser(store, user) : undefined;
 
   const tenantId = requestedTenantId ?? actor?.tenant_id ?? DEFAULT_TENANT_ID;
 
@@ -354,7 +349,7 @@ function createContext(runtime: ApiRuntime, request: IncomingMessage): RequestCo
     requestId,
     tenantId,
     ...(actor ? { actor } : {}),
-    ...(token ? { token } : {})
+    ...(bearerToken ? { token: bearerToken } : {})
   };
 }
 
