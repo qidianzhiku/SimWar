@@ -131,6 +131,80 @@ describe("runtime credential fail-closed behavior", () => {
     ).toThrow("runtime_jwt_secret_required");
   });
 
+  it("validates directly injected production legacy credentials before API runtime creation", () => {
+    expect(() =>
+      createApiServer(createP1Store(), {
+        securityConfig: {
+          environment: "production",
+          internalServiceToken: "service-kernel-token",
+          jwtSecret: TEST_JWT_SECRET
+        }
+      })
+    ).toThrow("runtime_internal_service_token_unsafe_default");
+
+    expect(() =>
+      createApiServer(createP1Store(), {
+        securityConfig: {
+          environment: "production",
+          internalServiceToken: TEST_INTERNAL_SERVICE_TOKEN,
+          jwtSecret: "simwar-local-development-secret"
+        }
+      })
+    ).toThrow("runtime_jwt_secret_unsafe_default");
+  });
+
+  it("validates directly injected staging legacy credentials before API runtime creation", () => {
+    expect(() =>
+      createApiServer(createP1Store(), {
+        securityConfig: {
+          environment: "staging",
+          internalServiceToken: "service-kernel-token",
+          jwtSecret: TEST_JWT_SECRET
+        }
+      })
+    ).toThrow("runtime_internal_service_token_unsafe_default");
+
+    expect(() =>
+      createApiServer(createP1Store(), {
+        securityConfig: {
+          environment: "staging",
+          internalServiceToken: TEST_INTERNAL_SERVICE_TOKEN,
+          jwtSecret: "simwar-local-development-secret"
+        }
+      })
+    ).toThrow("runtime_jwt_secret_unsafe_default");
+  });
+
+  it.each(["", " ", "\t"])(
+    "validates directly injected blank internal service tokens before API runtime creation: %j",
+    (blank) => {
+      expect(() =>
+        createApiServer(createP1Store(), {
+          securityConfig: {
+            environment: "production",
+            internalServiceToken: blank,
+            jwtSecret: TEST_JWT_SECRET
+          }
+        })
+      ).toThrow("runtime_internal_service_token_required");
+    }
+  );
+
+  it.each(["", " ", "\r\n"])(
+    "validates directly injected blank JWT secrets before API runtime creation: %j",
+    (blank) => {
+      expect(() =>
+        createApiServer(createP1Store(), {
+          securityConfig: {
+            environment: "production",
+            internalServiceToken: TEST_INTERNAL_SERVICE_TOKEN,
+            jwtSecret: blank
+          }
+        })
+      ).toThrow("runtime_jwt_secret_required");
+    }
+  );
+
   it("rejects incorrect service-kernel bearer token or principal", async () => {
     const { baseUrl, server } = await startServer();
 
@@ -181,6 +255,55 @@ describe("runtime credential fail-closed behavior", () => {
       );
       expect(correctCredential.status).toBe(404);
       expect(correctCredential.body.code).toBe("RUN-404-001");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("uses trimmed directly injected fixture credentials without mutating the input object", async () => {
+    const securityConfig: RuntimeSecurityConfig = {
+      environment: "test",
+      internalServiceToken: ` ${TEST_INTERNAL_SERVICE_TOKEN} `,
+      jwtSecret: `\t${TEST_JWT_SECRET}\n`
+    };
+    const { baseUrl, server } = await startServer(securityConfig);
+
+    try {
+      expect(securityConfig).toEqual({
+        environment: "test",
+        internalServiceToken: ` ${TEST_INTERNAL_SERVICE_TOKEN} `,
+        jwtSecret: `\t${TEST_JWT_SECRET}\n`
+      });
+
+      const accessToken = await login(baseUrl);
+      const me = await request(baseUrl, "/api/v1/auth/me", {
+        token: accessToken
+      });
+      expect(me.status).toBe(200);
+
+      const correctCredential = await request<unknown>(
+        baseUrl,
+        "/internal/v1/runs/run_missing/rounds/1/settle",
+        {
+          method: "POST",
+          token: TEST_INTERNAL_SERVICE_TOKEN,
+          servicePrincipal: "service_kernel"
+        }
+      );
+      expect(correctCredential.status).toBe(404);
+      expect(correctCredential.body.code).toBe("RUN-404-001");
+
+      const spacedToken = await request<unknown>(
+        baseUrl,
+        "/internal/v1/runs/run_missing/rounds/1/settle",
+        {
+          method: "POST",
+          token: ` ${TEST_INTERNAL_SERVICE_TOKEN} `,
+          servicePrincipal: "service_kernel"
+        }
+      );
+      expect(spacedToken.status).toBe(403);
+      expect(spacedToken.body.code).toBe("AUTHZ-403-002");
     } finally {
       await stopServer(server);
     }

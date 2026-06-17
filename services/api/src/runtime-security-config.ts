@@ -33,9 +33,11 @@ function trimmed(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-function resolveRuntimeEnvironment(env: RuntimeSecurityConfigEnv): RuntimeEnvironment {
-  const raw = trimmed(env.SIMWAR_ENV) ?? trimmed(env.APP_ENV) ?? trimmed(env.NODE_ENV);
-  const normalized = raw?.toLowerCase();
+function normalizeRuntimeEnvironment(
+  raw: string | undefined,
+  options: { unknownAsProduction: boolean }
+): RuntimeEnvironment {
+  const normalized = trimmed(raw)?.toLowerCase();
 
   if (!normalized) {
     return "development";
@@ -53,37 +55,47 @@ function resolveRuntimeEnvironment(env: RuntimeSecurityConfigEnv): RuntimeEnviro
     return "staging";
   }
 
-  return "production";
+  if (normalized === "production" || normalized === "prod") {
+    return "production";
+  }
+
+  if (options.unknownAsProduction) {
+    return "production";
+  }
+
+  throw new RuntimeConfigurationError("runtime_environment_invalid", "runtime_environment_invalid");
+}
+
+function resolveRuntimeEnvironment(env: RuntimeSecurityConfigEnv): RuntimeEnvironment {
+  const raw = trimmed(env.SIMWAR_ENV) ?? trimmed(env.APP_ENV) ?? trimmed(env.NODE_ENV);
+  return normalizeRuntimeEnvironment(raw, { unknownAsProduction: true });
 }
 
 function isSharedEnvironment(environment: RuntimeEnvironment): boolean {
   return environment === "production" || environment === "staging";
 }
 
-function requireSecret(
-  env: RuntimeSecurityConfigEnv,
-  name: "INTERNAL_SERVICE_TOKEN" | "JWT_SECRET",
-  code: string
-): string {
-  const value = trimmed(env[name]);
+function requireSecret(value: string | undefined, code: string): string {
+  const normalized = trimmed(value);
 
-  if (!value) {
+  if (!normalized) {
     throw new RuntimeConfigurationError(code, code);
   }
 
-  return value;
+  return normalized;
 }
 
-export function resolveRuntimeSecurityConfig(
-  env: RuntimeSecurityConfigEnv = process.env
+export function validateRuntimeSecurityConfig(
+  config: RuntimeSecurityConfig
 ): RuntimeSecurityConfig {
-  const environment = resolveRuntimeEnvironment(env);
+  const environment = normalizeRuntimeEnvironment(config.environment, {
+    unknownAsProduction: false
+  });
   const internalServiceToken = requireSecret(
-    env,
-    "INTERNAL_SERVICE_TOKEN",
+    config.internalServiceToken,
     "runtime_internal_service_token_required"
   );
-  const jwtSecret = requireSecret(env, "JWT_SECRET", "runtime_jwt_secret_required");
+  const jwtSecret = requireSecret(config.jwtSecret, "runtime_jwt_secret_required");
 
   if (isSharedEnvironment(environment) && internalServiceToken === legacyInternalServiceToken) {
     throw new RuntimeConfigurationError(
@@ -104,4 +116,14 @@ export function resolveRuntimeSecurityConfig(
     internalServiceToken,
     jwtSecret
   };
+}
+
+export function resolveRuntimeSecurityConfig(
+  env: RuntimeSecurityConfigEnv = process.env
+): RuntimeSecurityConfig {
+  return validateRuntimeSecurityConfig({
+    environment: resolveRuntimeEnvironment(env),
+    internalServiceToken: env.INTERNAL_SERVICE_TOKEN ?? "",
+    jwtSecret: env.JWT_SECRET ?? ""
+  });
 }

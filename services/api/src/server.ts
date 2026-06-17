@@ -30,6 +30,7 @@ import { getApiHealthPayload } from "./health.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import {
   resolveRuntimeSecurityConfig,
+  validateRuntimeSecurityConfig,
   type RuntimeSecurityConfig,
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
@@ -92,8 +93,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   return {
     store,
     repositoryProvider: createJsonRepositoryProvider({ store }),
-    securityConfig:
-      options.securityConfig ?? resolveRuntimeSecurityConfig(options.env ?? process.env)
+    securityConfig: options.securityConfig
+      ? validateRuntimeSecurityConfig(options.securityConfig)
+      : resolveRuntimeSecurityConfig(options.env ?? process.env)
   };
 }
 
