@@ -9,6 +9,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: {
+      APP_ENV: "test",
+      INTERNAL_SERVICE_TOKEN: "test-internal-service-token",
+      JWT_SECRET: "test-jwt-secret-with-sufficient-length"
+    },
     include: ["tests/**/*.test.ts"]
   }
 });

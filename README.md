@@ -272,6 +272,7 @@ APP_PORT=3000
 
 TENANT_MODE=single
 JWT_SECRET=<your-jwt-secret>
+INTERNAL_SERVICE_TOKEN=<your-internal-service-token>
 SESSION_SECRET=<your-session-secret>
 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/simwar
