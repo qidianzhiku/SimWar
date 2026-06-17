@@ -60,7 +60,6 @@ export interface CreateStoreOptions {
 export const DEFAULT_TENANT_ID = "tenant_demo";
 export const PLATFORM_TENANT_ID = "tenant_platform";
 export const OTHER_TENANT_ID = "tenant_other";
-export const DEFAULT_INTERNAL_SERVICE_TOKEN = "service-kernel-token";
 
 const permissionKeys = [...new Set(Object.values(ROLE_PERMISSION_MATRIX).flat())].sort();
 const seedTime = "2026-05-17T00:00:00.000Z";

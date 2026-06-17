@@ -139,7 +139,7 @@ async function settleRound(
 ): Promise<{ status: number; body: ApiEnvelope<SettlementResult> }> {
   return request<SettlementResult>(baseUrl, `/internal/v1/runs/${runId}/rounds/1/settle`, {
     method: "POST",
-    token: "service-kernel-token",
+    token: "test-internal-service-token",
     servicePrincipal: "service_kernel"
   });
 }

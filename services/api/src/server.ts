@@ -28,9 +28,13 @@ import {
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
+import {
+  resolveRuntimeSecurityConfig,
+  type RuntimeSecurityConfig,
+  type RuntimeSecurityConfigEnv
+} from "./runtime-security-config.js";
 import { settleRoundWithSettlementWriter, validateDecisionPayload } from "./simulation.js";
 import {
-  DEFAULT_INTERNAL_SERVICE_TOKEN,
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
   actorHasAnyRole,
@@ -56,6 +60,12 @@ interface RequestContext {
 interface ApiRuntime {
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
+  securityConfig: RuntimeSecurityConfig;
+}
+
+export interface CreateApiServerOptions {
+  env?: RuntimeSecurityConfigEnv;
+  securityConfig?: RuntimeSecurityConfig;
 }
 
 interface DecisionSubmitBody {
@@ -78,10 +88,12 @@ const defaultStore = createP1Store({
   persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
 });
 
-function createApiRuntime(store: SimWarStore): ApiRuntime {
+function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
   return {
     store,
-    repositoryProvider: createJsonRepositoryProvider({ store })
+    repositoryProvider: createJsonRepositoryProvider({ store }),
+    securityConfig:
+      options.securityConfig ?? resolveRuntimeSecurityConfig(options.env ?? process.env)
   };
 }
 
@@ -295,26 +307,19 @@ function getBearerToken(request: IncomingMessage): string | undefined {
   return header.slice("Bearer ".length);
 }
 
-function getJwtSecret(): string {
-  return process.env.JWT_SECRET ?? "simwar-local-development-secret";
-}
-
-function getInternalServiceToken(): string {
-  return process.env.INTERNAL_SERVICE_TOKEN ?? DEFAULT_INTERNAL_SERVICE_TOKEN;
-}
-
 function isExpired(isoDate: string): boolean {
   return new Date(isoDate).getTime() <= Date.now();
 }
 
-function createContext(store: SimWarStore, request: IncomingMessage): RequestContext {
+function createContext(runtime: ApiRuntime, request: IncomingMessage): RequestContext {
+  const { store } = runtime;
   const requestId = request.headers["x-request-id"]?.toString() ?? `req_${Date.now()}`;
   const requestedTenantId = request.headers["x-tenant-id"]?.toString();
   const token = getBearerToken(request);
   let actor: CurrentUser | undefined;
 
   if (token) {
-    const payload = verifySignedToken(token, getJwtSecret());
+    const payload = verifySignedToken(token, runtime.securityConfig.jwtSecret);
     const session = payload
       ? store.sessions.find(
           (candidate) =>
@@ -371,11 +376,18 @@ function requirePermission(context: RequestContext, permission: PermissionKey): 
   return actor;
 }
 
-function requireServiceKernel(request: IncomingMessage, context: RequestContext): CurrentUser {
+function requireServiceKernel(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  context: RequestContext
+): CurrentUser {
   const token = getBearerToken(request);
   const servicePrincipal = request.headers["x-service-principal"]?.toString();
 
-  if (token !== getInternalServiceToken() || servicePrincipal !== "service_kernel") {
+  if (
+    token !== runtime.securityConfig.internalServiceToken ||
+    servicePrincipal !== "service_kernel"
+  ) {
     throw new HttpError(403, "AUTHZ-403-002", "service kernel credential required");
   }
 
@@ -713,7 +725,7 @@ async function routeRequest(
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
-  const context = createContext(store, request);
+  const context = createContext(runtime, request);
 
   if (
     request.method === "GET" &&
@@ -750,7 +762,7 @@ async function routeRequest(
         iat: nowSeconds,
         exp: expiresAtSeconds
       },
-      getJwtSecret()
+      runtime.securityConfig.jwtSecret
     );
 
     store.sessions.push({
@@ -1328,7 +1340,7 @@ async function routeRequest(
     request.method === "POST" &&
     /^\/internal\/v1\/runs\/[^/]+\/rounds\/\d+\/settle$/.test(url.pathname)
   ) {
-    const serviceActor = requireServiceKernel(request, context);
+    const serviceActor = requireServiceKernel(runtime, request, context);
     const [, runId, roundNoRaw] = matchPath(
       url.pathname,
       /^\/internal\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
@@ -1459,8 +1471,11 @@ async function runSettlement(
   );
 }
 
-export function createApiServer(store: SimWarStore = defaultStore) {
-  const runtime = createApiRuntime(store);
+export function createApiServer(
+  store: SimWarStore = defaultStore,
+  options: CreateApiServerOptions = {}
+) {
+  const runtime = createApiRuntime(store, options);
 
   return createServer((request, response) => {
     routeRequest(runtime, request, response).catch((error: unknown) => {

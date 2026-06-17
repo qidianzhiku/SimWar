@@ -165,7 +165,7 @@ describe("P0 teacher-student settlement flow", () => {
         `/internal/v1/runs/${runId}/rounds/1/settle`,
         {
           method: "POST",
-          token: "service-kernel-token",
+          token: "test-internal-service-token",
           servicePrincipal: "service_kernel"
         }
       );
@@ -180,7 +180,7 @@ describe("P0 teacher-student settlement flow", () => {
         `/internal/v1/runs/${runId}/rounds/1/settle`,
         {
           method: "POST",
-          token: "service-kernel-token",
+          token: "test-internal-service-token",
           servicePrincipal: "service_kernel"
         }
       );
