@@ -18,7 +18,7 @@ The repository currently provides:
 - `scripts/postgres-replay-verification.test.ts`
 - root `pg` dev dependency for this verification script only
 - temporary schema isolation inside a user-supplied test database
-- migration application from `db/migrations/0001_initial_repository_schema.sql`
+- ordered migration application from `db/migrations/*.sql`
 - Postgres adapter replay save and read verification
 - cleanup of the generated schema in `afterAll`
 
@@ -28,7 +28,7 @@ The harness does not:
 - fall back to production or shared runtime configuration
 - connect Postgres through the repository provider
 - make Postgres the default runtime
-- execute settlement
+- make Postgres the default settlement runtime
 - generate replay hashes
 - call `buildReplayHash`
 
@@ -68,8 +68,15 @@ That failure is expected safety behavior.
 
 The current harness verifies:
 
-- initial migration applies in a temporary schema
+- all migrations apply in filename order inside a temporary schema
 - `replay_records` table exists
+- `settlement_results_business_identity_key` exists
+- `settlement_results` business identity columns are non-nullable
+- legacy duplicate settlement business identities fail upgrade
+- new duplicate settlement business identities are rejected
+- distinct round, run, and tenant business identities are accepted
+- atomic settlement persistence cannot move a technical result id to a
+  different business identity
 - `append_sequence` exists as an identity column
 - `record_type` rejects invalid values
 - canonical `diff_report_id` exists
@@ -227,7 +234,8 @@ The script performs this lifecycle:
 2. Connect with `pg`.
 3. Generate a safe schema name with `randomUUID()`.
 4. Create the temporary schema.
-5. Apply the initial migration with `search_path` scoped to the schema.
+5. Apply all migrations in filename order with `search_path` scoped to the
+   schema.
 6. Create a verification-only `PostgresQueryExecutor`.
 7. Create the real Postgres repository adapter.
 8. Run schema and replay persistence assertions.
@@ -273,6 +281,13 @@ When verification passes, record these items as passed:
 
 - migration apply
 - temporary schema creation
+- settlement business identity constraint
+- settlement business identity non-null columns
+- existing database upgrade with non-duplicate settlement rows
+- duplicate legacy settlement data rejection
+- duplicate new settlement data rejection
+- distinct settlement round, run, and tenant identities
+- technical result id business-identity move rejection
 - append sequence identity
 - record type constraint
 - diff report identity

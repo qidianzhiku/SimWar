@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import type {
   Round,
@@ -58,6 +58,16 @@ const VERIFICATION_CHECKS = [
   "report_replay_run_id_explicit_matches_payload",
   "report_source_result_id_explicit_matches_payload",
   "hash_preservation",
+  "settlement_business_constraint_exists",
+  "settlement_business_identity_columns_not_null",
+  "settlement_business_existing_upgrade",
+  "settlement_business_duplicate_upgrade_rejected",
+  "settlement_business_duplicate_insert_rejected",
+  "settlement_business_different_round_allowed",
+  "settlement_business_different_run_allowed",
+  "settlement_business_tenant_isolation",
+  "settlement_business_null_identity_rejected",
+  "settlement_business_technical_id_move_rejected",
   "atomic_outcome_success",
   "atomic_outcome_round_missing",
   "atomic_outcome_run_mismatch",
@@ -159,6 +169,32 @@ interface SettlementOutcomeResultRow extends Record<string, unknown> {
   scenario_package_id: string;
   settlement_result_id: string;
   team_results: SettlementResult["team_results"];
+  tenant_id: string;
+}
+
+interface MigrationFile {
+  name: string;
+  sql: string;
+}
+
+interface SettlementBusinessIdentityColumnRow extends Record<string, unknown> {
+  column_name: string;
+  is_nullable: "YES" | "NO";
+}
+
+interface SettlementBusinessConstraintRow extends Record<string, unknown> {
+  constraint_name: string;
+}
+
+interface DirectSettlementResultRow extends Record<string, unknown> {
+  parameter_set_id: string;
+  payload: SettlementResult;
+  replay_hash: string;
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  scenario_package_id: string;
+  settlement_result_id: string;
   tenant_id: string;
 }
 
@@ -292,17 +328,102 @@ function quoteIdentifier(identifier: string): string {
 }
 
 async function applyMigrationIntoSchema(pgClient: PgClient, schema: string): Promise<void> {
-  const migrationSql = await readFile("db/migrations/0001_initial_repository_schema.sql", "utf8");
+  await applyMigrationFilesIntoSchema(pgClient, schema, await readMigrationFiles());
+}
+
+async function readMigrationFiles(): Promise<MigrationFile[]> {
+  const migrationNames = (await readdir("db/migrations"))
+    .filter((name) => /^\d+_[\w-]+\.sql$/.test(name))
+    .sort((a, b) => a.localeCompare(b));
+
+  return Promise.all(
+    migrationNames.map(async (name) => ({
+      name,
+      sql: await readFile(join("db/migrations", name), "utf8")
+    }))
+  );
+}
+
+function settlementBusinessIdentityMigration(files: readonly MigrationFile[]): MigrationFile {
+  const migration = files.find((file) =>
+    file.sql.includes("settlement_results_business_identity_key")
+  );
+
+  if (migration === undefined) {
+    throw new Error("settlement business identity migration missing");
+  }
+
+  return migration;
+}
+
+function migrationsBeforeSettlementBusinessIdentity(
+  files: readonly MigrationFile[]
+): MigrationFile[] {
+  const businessMigration = settlementBusinessIdentityMigration(files);
+
+  return files.filter((file) => file.name.localeCompare(businessMigration.name) < 0);
+}
+
+async function applyMigrationFilesIntoSchema(
+  pgClient: PgClient,
+  schema: string,
+  files: readonly MigrationFile[]
+): Promise<void> {
+  if (files.length === 0) {
+    throw new Error("No migration files were found");
+  }
 
   await pgClient.query("BEGIN");
 
   try {
     await pgClient.query(`SET LOCAL search_path TO ${quoteIdentifier(schema)}`);
-    await pgClient.query(migrationSql);
+    for (const file of files) {
+      await pgClient.query(file.sql);
+    }
     await pgClient.query("COMMIT");
   } catch (error) {
     await pgClient.query("ROLLBACK").catch(() => undefined);
     throw error;
+  }
+}
+
+async function withTemporarySchema<T>(action: (schema: string) => Promise<T>): Promise<T> {
+  const schema = createSchemaName();
+
+  await requiredClient().query(`CREATE SCHEMA ${quoteIdentifier(schema)}`);
+
+  try {
+    return await action(schema);
+  } finally {
+    await requiredClient().query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE`);
+  }
+}
+
+async function expectSettlementBusinessIdentityConstraint(schema: string): Promise<void> {
+  const constraintRows = await requiredClient().query<SettlementBusinessConstraintRow>(
+    "SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = $1 AND table_name = 'settlement_results' AND constraint_type = 'UNIQUE' AND constraint_name = 'settlement_results_business_identity_key'",
+    [schema]
+  );
+
+  if (constraintRows.rows.length !== 1) {
+    throw new Error("settlement_results_business_identity_key missing");
+  }
+}
+
+async function expectSettlementBusinessIdentityColumnsNotNull(schema: string): Promise<void> {
+  const columns = await requiredClient().query<SettlementBusinessIdentityColumnRow>(
+    "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'settlement_results' AND column_name IN ('tenant_id', 'run_id', 'round_no') ORDER BY column_name ASC",
+    [schema]
+  );
+
+  const expectedColumns = [
+    { column_name: "round_no", is_nullable: "NO" },
+    { column_name: "run_id", is_nullable: "NO" },
+    { column_name: "tenant_id", is_nullable: "NO" }
+  ];
+
+  if (JSON.stringify(columns.rows) !== JSON.stringify(expectedColumns)) {
+    throw new Error("settlement_results business identity columns must be NOT NULL");
   }
 }
 
@@ -551,6 +672,82 @@ async function fetchAtomicSettlements(
   return rows.rows;
 }
 
+function directSettlementResultRow(
+  overrides: Partial<DirectSettlementResultRow> = {}
+): DirectSettlementResultRow {
+  const result = settlementResult(overrides);
+
+  return {
+    parameter_set_id: result.parameter_set_id,
+    payload: result,
+    replay_hash: result.replay_hash,
+    round_id: result.round_id,
+    round_no: result.round_no,
+    run_id: result.run_id,
+    scenario_package_id: result.scenario_package_id,
+    settlement_result_id: result.settlement_result_id,
+    tenant_id: result.tenant_id,
+    ...overrides
+  };
+}
+
+async function insertDirectSettlementResult(
+  pgClient: PgClient,
+  schema: string,
+  row: DirectSettlementResultRow
+): Promise<void> {
+  await pgClient.query(
+    `INSERT INTO ${quoteIdentifier(schema)}.settlement_results (
+      id,
+      settlement_result_id,
+      tenant_id,
+      run_id,
+      round_id,
+      round_no,
+      parameter_set_id,
+      scenario_package_id,
+      replay_hash,
+      team_results,
+      payload
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb)`,
+    [
+      JSON.stringify(["settlement_result", row.tenant_id, row.settlement_result_id]),
+      row.settlement_result_id,
+      row.tenant_id,
+      row.run_id,
+      row.round_id,
+      row.round_no,
+      row.parameter_set_id,
+      row.scenario_package_id,
+      row.replay_hash,
+      JSON.stringify(row.payload.team_results),
+      JSON.stringify(row.payload)
+    ]
+  );
+}
+
+async function fetchDirectSettlementRows(
+  pgClient: PgClient,
+  schema: string
+): Promise<DirectSettlementResultRow[]> {
+  const result = await pgClient.query<DirectSettlementResultRow>(
+    `SELECT
+      settlement_result_id,
+      tenant_id,
+      run_id,
+      round_id,
+      round_no,
+      parameter_set_id,
+      scenario_package_id,
+      replay_hash,
+      payload
+    FROM ${quoteIdentifier(schema)}.settlement_results
+    ORDER BY tenant_id ASC, run_id ASC, round_no ASC, settlement_result_id ASC`
+  );
+
+  return result.rows;
+}
+
 if (process.env.VITEST_WORKER_ID !== undefined) {
   const { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } =
     await import("vitest");
@@ -632,6 +829,10 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         [`${schemaName}.replay_records`]
       );
       expect(tableResult.rows[0]?.exists).toBe(true);
+      await expectSettlementBusinessIdentityConstraint(schemaName);
+      markCheckPassed("settlement_business_constraint_exists");
+      await expectSettlementBusinessIdentityColumnsNotNull(schemaName);
+      markCheckPassed("settlement_business_identity_columns_not_null");
 
       const columns = await requiredClient().query<ReplayRecordSchemaColumn>(
         "SELECT column_name, data_type, is_identity, udt_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'replay_records'",
@@ -662,6 +863,210 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       await requiredClient().query("ROLLBACK TO SAVEPOINT invalid_record_type");
       await requiredClient().query("COMMIT");
       markCheckPassed("record_type_constraint");
+    });
+
+    it("upgrades existing non-duplicate settlement data without rewriting rows", async () => {
+      const migrations = await readMigrationFiles();
+      const oldMigrations = migrationsBeforeSettlementBusinessIdentity(migrations);
+      const businessMigration = settlementBusinessIdentityMigration(migrations);
+
+      await withTemporarySchema(async (upgradeSchema) => {
+        await applyMigrationFilesIntoSchema(requiredClient(), upgradeSchema, oldMigrations);
+        const first = directSettlementResultRow({
+          replay_hash: "replay-hash-upgrade-first",
+          round_no: 1,
+          run_id: "run-upgrade"
+        });
+        const second = directSettlementResultRow({
+          replay_hash: "replay-hash-upgrade-second",
+          round_no: 2,
+          run_id: "run-upgrade",
+          settlement_result_id: "settlement-upgrade-second",
+          tenant_id: first.tenant_id
+        });
+
+        await insertDirectSettlementResult(requiredClient(), upgradeSchema, first);
+        await insertDirectSettlementResult(requiredClient(), upgradeSchema, second);
+        const beforeRows = await fetchDirectSettlementRows(requiredClient(), upgradeSchema);
+
+        await applyMigrationFilesIntoSchema(requiredClient(), upgradeSchema, [businessMigration]);
+
+        await expectSettlementBusinessIdentityConstraint(upgradeSchema);
+        expect(await fetchDirectSettlementRows(requiredClient(), upgradeSchema)).toEqual(
+          beforeRows
+        );
+      });
+
+      markCheckPassed("settlement_business_existing_upgrade");
+    });
+
+    it("rejects legacy duplicate business identities during upgrade", async () => {
+      const migrations = await readMigrationFiles();
+      const oldMigrations = migrationsBeforeSettlementBusinessIdentity(migrations);
+      const businessMigration = settlementBusinessIdentityMigration(migrations);
+
+      await withTemporarySchema(async (upgradeSchema) => {
+        await applyMigrationFilesIntoSchema(requiredClient(), upgradeSchema, oldMigrations);
+        const first = directSettlementResultRow({
+          replay_hash: "replay-hash-duplicate-first",
+          round_no: 1,
+          run_id: "run-duplicate",
+          settlement_result_id: "settlement-duplicate-first",
+          tenant_id: "tenant-duplicate"
+        });
+        const duplicate = directSettlementResultRow({
+          replay_hash: "replay-hash-duplicate-second",
+          round_id: "round-duplicate-second",
+          round_no: first.round_no,
+          run_id: first.run_id,
+          settlement_result_id: "settlement-duplicate-second",
+          tenant_id: first.tenant_id
+        });
+
+        await insertDirectSettlementResult(requiredClient(), upgradeSchema, first);
+        await insertDirectSettlementResult(requiredClient(), upgradeSchema, duplicate);
+        const beforeRows = await fetchDirectSettlementRows(requiredClient(), upgradeSchema);
+
+        await expect(
+          applyMigrationFilesIntoSchema(requiredClient(), upgradeSchema, [businessMigration])
+        ).rejects.toThrow("settlement_results_business_identity_duplicate");
+
+        expect(await fetchDirectSettlementRows(requiredClient(), upgradeSchema)).toEqual(
+          beforeRows
+        );
+        const constraints = await requiredClient().query<SettlementBusinessConstraintRow>(
+          "SELECT constraint_name FROM information_schema.table_constraints WHERE table_schema = $1 AND table_name = 'settlement_results' AND constraint_name = 'settlement_results_business_identity_key'",
+          [upgradeSchema]
+        );
+        expect(constraints.rows).toHaveLength(0);
+      });
+
+      markCheckPassed("settlement_business_duplicate_upgrade_rejected");
+    });
+
+    describe("settlement business identity constraint", () => {
+      beforeEach(async () => {
+        await resetSettlementOutcomeTables();
+      });
+
+      afterEach(async () => {
+        await resetSettlementOutcomeTables();
+      });
+
+      it("rejects a second SettlementResult for the same tenant, run, and round number", async () => {
+        const first = directSettlementResultRow({
+          replay_hash: "replay-hash-business-first",
+          round_no: 1,
+          run_id: "run-business",
+          settlement_result_id: "settlement-business-first",
+          tenant_id: "tenant-business"
+        });
+        const duplicate = directSettlementResultRow({
+          replay_hash: "replay-hash-business-second",
+          round_id: "round-business-second",
+          round_no: first.round_no,
+          run_id: first.run_id,
+          settlement_result_id: "settlement-business-second",
+          tenant_id: first.tenant_id
+        });
+
+        await insertDirectSettlementResult(requiredClient(), schemaName, first);
+        await expect(
+          insertDirectSettlementResult(requiredClient(), schemaName, duplicate)
+        ).rejects.toThrow();
+
+        expect(await fetchDirectSettlementRows(requiredClient(), schemaName)).toEqual([first]);
+        markCheckPassed("settlement_business_duplicate_insert_rejected");
+      });
+
+      it("allows distinct business settlement identities", async () => {
+        const base = directSettlementResultRow({
+          round_no: 1,
+          run_id: "run-identity",
+          settlement_result_id: "settlement-identity-base",
+          tenant_id: "tenant-identity"
+        });
+        const differentRound = directSettlementResultRow({
+          round_id: "round-identity-2",
+          round_no: 2,
+          run_id: base.run_id,
+          settlement_result_id: "settlement-identity-round-2",
+          tenant_id: base.tenant_id
+        });
+        const differentRun = directSettlementResultRow({
+          round_id: "round-identity-run-2",
+          round_no: base.round_no,
+          run_id: "run-identity-2",
+          settlement_result_id: "settlement-identity-run-2",
+          tenant_id: base.tenant_id
+        });
+        const differentTenant = directSettlementResultRow({
+          round_id: "round-identity-tenant-2",
+          round_no: base.round_no,
+          run_id: base.run_id,
+          settlement_result_id: "settlement-identity-tenant-2",
+          tenant_id: "tenant-identity-2"
+        });
+
+        await insertDirectSettlementResult(requiredClient(), schemaName, base);
+        await insertDirectSettlementResult(requiredClient(), schemaName, differentRound);
+        await insertDirectSettlementResult(requiredClient(), schemaName, differentRun);
+        await insertDirectSettlementResult(requiredClient(), schemaName, differentTenant);
+
+        expect(await fetchDirectSettlementRows(requiredClient(), schemaName)).toEqual([
+          base,
+          differentRound,
+          differentRun,
+          differentTenant
+        ]);
+        markChecksPassed([
+          "settlement_business_different_round_allowed",
+          "settlement_business_different_run_allowed",
+          "settlement_business_tenant_isolation"
+        ]);
+      });
+
+      it("does not allow NULL business identity values to bypass uniqueness", async () => {
+        const row = directSettlementResultRow({
+          round_no: 1,
+          run_id: "run-null",
+          settlement_result_id: "settlement-null",
+          tenant_id: "tenant-null"
+        });
+
+        await expect(
+          requiredClient().query(
+            `INSERT INTO ${quoteIdentifier(schemaName)}.settlement_results (
+              id,
+              settlement_result_id,
+              tenant_id,
+              run_id,
+              round_id,
+              round_no,
+              parameter_set_id,
+              scenario_package_id,
+              replay_hash,
+              team_results,
+              payload
+            ) VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)`,
+            [
+              JSON.stringify(["settlement_result", row.tenant_id, row.settlement_result_id]),
+              row.settlement_result_id,
+              row.tenant_id,
+              row.round_id,
+              row.round_no,
+              row.parameter_set_id,
+              row.scenario_package_id,
+              row.replay_hash,
+              JSON.stringify(row.payload.team_results),
+              JSON.stringify(row.payload)
+            ]
+          )
+        ).rejects.toThrow();
+
+        expect(await fetchDirectSettlementRows(requiredClient(), schemaName)).toEqual([]);
+        markCheckPassed("settlement_business_null_identity_rejected");
+      });
     });
 
     it("round-trips all replay record types through JSONB payload", async () => {
@@ -1070,6 +1475,72 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         expect(committedRound?.replay_hash).toBe(replacement.replay_hash);
         expect(committedRound?.payload.replay_hash).toBe(replacement.replay_hash);
         markCheckPassed("atomic_outcome_retry_upsert");
+      });
+
+      it("rejects reusing the same technical result id for a different business identity", async () => {
+        const result = settlementResult({
+          replay_hash: "replay-hash-original",
+          round_no: 1,
+          run_id: "run-technical-identity",
+          settlement_result_id: "settlement-technical-identity",
+          tenant_id: "tenant-technical-identity"
+        });
+        const movedResult = {
+          ...result,
+          replay_hash: "replay-hash-moved",
+          round_id: "round-technical-identity-moved",
+          round_no: 2,
+          run_id: "run-technical-identity-moved"
+        } satisfies SettlementResult;
+        await insertRoundForSettlementResult(result, {
+          replay_hash: "old-original-round-hash",
+          status: "locked"
+        });
+        await insertRoundForSettlementResult(movedResult, {
+          replay_hash: "old-moved-round-hash",
+          status: "locked"
+        });
+
+        await settlementOutcomePort.commitSettlementOutcome({
+          round_id: result.round_id,
+          settlement_result: result,
+          tenant_id: result.tenant_id
+        });
+        const firstRoundAfterCommit = await fetchAtomicRound(result.tenant_id, result.round_id);
+        const movedRoundBeforeConflict = await fetchAtomicRound(
+          movedResult.tenant_id,
+          movedResult.round_id
+        );
+
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: movedResult.round_id,
+            settlement_result: movedResult,
+            tenant_id: movedResult.tenant_id
+          })
+        ).rejects.toThrow("settlement_outcome_persistence_invariant_failed");
+
+        const settlements = await fetchAtomicSettlements(
+          result.tenant_id,
+          result.settlement_result_id
+        );
+        expect(settlements).toHaveLength(1);
+        expect(settlements[0]).toMatchObject({
+          replay_hash: result.replay_hash,
+          round_id: result.round_id,
+          round_no: result.round_no,
+          run_id: result.run_id,
+          settlement_result_id: result.settlement_result_id,
+          tenant_id: result.tenant_id
+        });
+        expect(settlements[0]?.payload).toEqual(result);
+        expect(await fetchAtomicRound(result.tenant_id, result.round_id)).toEqual(
+          firstRoundAfterCommit
+        );
+        expect(await fetchAtomicRound(movedResult.tenant_id, movedResult.round_id)).toEqual(
+          movedRoundBeforeConflict
+        );
+        markCheckPassed("settlement_business_technical_id_move_rejected");
       });
     });
 

@@ -198,6 +198,10 @@ describe("Postgres settlement outcome persistence port", () => {
     expect(normalized).toContain("replay_hash = EXCLUDED.replay_hash");
     expect(normalized).toContain("team_results = EXCLUDED.team_results");
     expect(normalized).toContain("payload = EXCLUDED.payload");
+    expect(normalized).toContain("WHERE settlement_results.tenant_id = EXCLUDED.tenant_id");
+    expect(normalized).toContain("settlement_results.run_id = EXCLUDED.run_id");
+    expect(normalized).toContain("settlement_results.round_id = EXCLUDED.round_id");
+    expect(normalized).toContain("settlement_results.round_no = EXCLUDED.round_no");
     expect(normalized).toContain("RETURNING replay_hash");
     expect(normalized).toContain("UPDATE simulation_rounds AS target");
     expect(roundSet).toContain("status = 'settled'");
