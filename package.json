@@ -21,7 +21,8 @@
     "test:postgres-replay": "vitest run --config scripts/postgres-replay-verification.test.ts scripts/postgres-replay-verification.test.ts",
     "test:contract": "node scripts/check-contracts.mjs",
     "format:check": "prettier --check .",
-    "security:audit": "npm audit --audit-level=critical"
+    "security:audit": "npm audit --audit-level=critical",
+    "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
