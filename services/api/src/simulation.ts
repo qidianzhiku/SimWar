@@ -28,6 +28,11 @@ export interface SettlementResultWriter {
   saveSettlementResult(result: SettlementResult): Promise<void> | void;
 }
 
+export interface PreparedSettlementOutcome {
+  settlement: SettlementResult;
+  shouldCommit: boolean;
+}
+
 function findExistingSettlementResult(
   store: SimWarStore,
   input: SettlementRoundInput
@@ -200,6 +205,27 @@ export function settleRound(store: SimWarStore, input: SettlementRoundInput): Se
   const { replayHash, teamResults } = calculateSettlement(input);
 
   return writeSettlementResult(store, input, replayHash, teamResults);
+}
+
+export function prepareSettlementOutcome(
+  store: SimWarStore,
+  input: SettlementRoundInput
+): PreparedSettlementOutcome {
+  const existing = findExistingSettlementResult(store, input);
+
+  if (existing) {
+    return {
+      settlement: existing,
+      shouldCommit: false
+    };
+  }
+
+  const { replayHash, teamResults } = calculateSettlement(input);
+
+  return {
+    settlement: createSettlementResult(store, input, replayHash, teamResults),
+    shouldCommit: true
+  };
 }
 
 export async function settleRoundWithSettlementWriter(

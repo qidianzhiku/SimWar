@@ -243,14 +243,14 @@ describe("repository provider", () => {
     expect(store.persist).not.toHaveBeenCalled();
   });
 
-  it("leaves the active settlement route on the legacy writer for the follow-up PR", () => {
+  it("routes active settlement commits through the atomic facade", () => {
     const serverSource = readFileSync(
       new URL("../../services/api/src/server.ts", import.meta.url),
       "utf8"
     );
 
-    expect(serverSource).toContain("settleRoundWithSettlementWriter(");
-    expect(serverSource).toContain("runtime.repositoryProvider.facade.settlements");
-    expect(serverSource).not.toContain("facade.commitSettlementOutcome(");
+    expect(serverSource).toContain("prepareSettlementOutcome(");
+    expect(serverSource).toContain("runtime.repositoryProvider.facade.commitSettlementOutcome(");
+    expect(serverSource).not.toContain("settleRoundWithSettlementWriter(");
   });
 });

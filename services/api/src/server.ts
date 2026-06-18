@@ -34,7 +34,7 @@ import {
   type RuntimeSecurityConfig,
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
-import { settleRoundWithSettlementWriter, validateDecisionPayload } from "./simulation.js";
+import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
@@ -66,6 +66,7 @@ interface ApiRuntime {
 
 export interface CreateApiServerOptions {
   env?: RuntimeSecurityConfigEnv;
+  repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
 }
 
@@ -92,7 +93,7 @@ const defaultStore = createP1Store({
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
   return {
     store,
-    repositoryProvider: createJsonRepositoryProvider({ store }),
+    repositoryProvider: options.repositoryProvider ?? createJsonRepositoryProvider({ store }),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env)
@@ -1452,20 +1453,26 @@ async function runSettlement(
     );
   }
 
-  return settleRoundWithSettlementWriter(
-    store,
-    {
-      run,
-      round,
-      scenario,
-      parameterSet,
-      teams,
-      decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
-        Boolean(decision)
-      )
-    },
-    runtime.repositoryProvider.facade.settlements
-  );
+  const outcome = prepareSettlementOutcome(store, {
+    run,
+    round,
+    scenario,
+    parameterSet,
+    teams,
+    decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
+      Boolean(decision)
+    )
+  });
+
+  if (outcome.shouldCommit) {
+    await runtime.repositoryProvider.facade.commitSettlementOutcome({
+      tenant_id: context.tenantId,
+      round_id: round.round_id,
+      settlement_result: outcome.settlement
+    });
+  }
+
+  return outcome.settlement;
 }
 
 export function createApiServer(

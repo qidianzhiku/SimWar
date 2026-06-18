@@ -16,6 +16,11 @@ import type {
   SettlementResult
 } from "../../packages/shared-contracts/src";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
+import {
+  createJsonRepositoryProvider,
+  type RepositoryProvider
+} from "../../services/api/src/repository-provider";
+import type { CommitSettlementOutcomeCommand } from "../../services/api/src/repository-ports";
 import { createApiServer } from "../../services/api/src/server";
 import {
   settleRoundWithSettlementWriter,
@@ -51,9 +56,15 @@ const HIGH_DEMAND_DECISION_PAYLOAD = {
   strategy_statement: "Low price and high demand strategy for characterization."
 } as const satisfies DecisionPayload;
 
-async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+async function startServer(): Promise<{
+  baseUrl: string;
+  provider: RepositoryProvider;
+  server: Server;
+  store: SimWarStore;
+}> {
   const store = createP0Store();
-  const server = createApiServer(store);
+  const provider = createJsonRepositoryProvider({ store });
+  const server = createApiServer(store, { repositoryProvider: provider });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -64,6 +75,7 @@ async function startServer(): Promise<{ baseUrl: string; server: Server; store: 
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
+    provider,
     server,
     store
   };
@@ -519,6 +531,109 @@ describe("settlement result write and replay hash characterization", () => {
         resource_id: response.body.data.settlement_result_id
       });
       expect(settleAudit?.after).toEqual({ replay_hash: response.body.data.replay_hash });
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("settlement route commits through the atomic facade and no longer calls the ordinary writer", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const events: string[] = [];
+      const originalCommit = provider.facade.commitSettlementOutcome.bind(provider.facade);
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockImplementation(async (command) => {
+        const originalCommand = cloneJson(command);
+
+        events.push("commit:start");
+        await originalCommit(command);
+        events.push("commit:done");
+
+        expect(command).toEqual(originalCommand);
+      });
+      const legacySaveSpy = vi.spyOn(provider.facade.settlements, "saveSettlementResult");
+      const originalAppendAudit = provider.facade.auditLogs.appendAuditLog.bind(
+        provider.facade.auditLogs
+      );
+      vi.spyOn(provider.facade.auditLogs, "appendAuditLog").mockImplementation(async (auditLog) => {
+        if (auditLog.action === "round.settle_requested") {
+          events.push("audit:success");
+        }
+
+        await originalAppendAudit(auditLog);
+      });
+
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+
+      const response = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(response.status).toBe(200);
+      expect(response.body.code).toBe("OK");
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(legacySaveSpy).not.toHaveBeenCalled();
+
+      const command = commitSpy.mock.calls[0]?.[0] as CommitSettlementOutcomeCommand | undefined;
+      expect(command).toBeDefined();
+      expect(command).toMatchObject({
+        tenant_id: "tenant_demo",
+        round_id: response.body.data.round_id,
+        settlement_result: response.body.data
+      });
+      expect(command?.settlement_result.replay_hash).toBe(response.body.data.replay_hash);
+      expect(store.settlementResults).toEqual([response.body.data]);
+      expect(events).toEqual(["commit:start", "commit:done", "audit:success"]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("settlement route leaves authoritative state unchanged when atomic commit fails", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const roundBefore = cloneJson(requireStoredRound(store, run.run_id));
+      const settlementResultsBefore = cloneJson(store.settlementResults);
+      const attemptedCommands: CommitSettlementOutcomeCommand[] = [];
+      const persistenceError = new Error("forced atomic persistence failure");
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockImplementation(async (command) => {
+        attemptedCommands.push(cloneJson(command));
+        throw persistenceError;
+      });
+      const legacySaveSpy = vi.spyOn(provider.facade.settlements, "saveSettlementResult");
+
+      const response = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(response.status).toBe(500);
+      expect(response.body.code).toBe("API-500-001");
+      expect(JSON.stringify(response.body)).not.toContain("forced atomic persistence failure");
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(legacySaveSpy).not.toHaveBeenCalled();
+      expect(requireStoredRound(store, run.run_id)).toEqual(roundBefore);
+      expect(store.settlementResults).toEqual(settlementResultsBefore);
+      expect(
+        store.auditLogs.some(
+          (log) =>
+            log.action === "round.settle_requested" &&
+            log.resource_id === attemptedCommands[0]?.settlement_result.settlement_result_id
+        )
+      ).toBe(false);
     } finally {
       await stopServer(server);
     }
