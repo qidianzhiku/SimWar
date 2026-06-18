@@ -269,6 +269,7 @@ cd ../..
 ```env
 APP_ENV=development
 APP_PORT=3000
+SIMWAR_STORE_FILE=tmp/simwar-store.json
 
 TENANT_MODE=single
 JWT_SECRET=<your-jwt-secret>
@@ -301,6 +302,27 @@ DEFAULT_SCENARIO_PACKAGE_ID=<scenario-package-id>
 DEFAULT_PARAMETER_SET_ID=<parameter-set-id>
 LICENSED_CONTENT_ZONE_PATH=<licensed-content-zone-path>
 ```
+
+### JSON snapshot persistence policy
+
+The default local JSON runtime stores data in `SIMWAR_STORE_FILE` (default:
+`tmp/simwar-store.json`). A missing snapshot file is treated as first-run
+initialization and seeds the demo store. An existing snapshot that is empty,
+malformed, unreadable, or missing the required top-level collections fails
+startup with a stable snapshot error instead of silently resetting to seed data.
+
+Snapshot writes use a same-directory temporary file with an exclusive name,
+write the full serialized snapshot, fsync the temporary file, close it, and then
+promote it with `rename`. The existing snapshot is not deleted or truncated
+before the rename. Directory fsync is attempted on platforms that support it;
+on Windows it is best-effort because directory handles are commonly rejected.
+
+The JSON runtime does not create automatic `.bak` files and does not attempt to
+repair corrupted snapshots. Keep external backups for any non-disposable JSON
+runtime data, preserve corrupted files for diagnosis, and restore only from a
+trusted backup. JSON runtime is single-writer only: do not run multiple API
+processes against the same `SIMWAR_STORE_FILE`. Multi-instance or production
+truth storage should use PostgreSQL.
 
 ### 启动开发环境
 
