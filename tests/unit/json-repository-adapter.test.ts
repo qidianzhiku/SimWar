@@ -213,6 +213,14 @@ function createReplayDiffReport(overrides: Partial<ReplayDiffReport> = {}): Repl
 }
 
 describe("JSON repository adapter", () => {
+  it("exposes the standalone atomic settlement outcome port on the repository aggregate", () => {
+    const ports = createJsonRepositoryPorts(createMinimalStore());
+
+    expect(ports.settlementOutcome).toBeDefined();
+    expect(ports.settlementOutcome.commitSettlementOutcome).toEqual(expect.any(Function));
+    expect(ports.settlements).not.toHaveProperty("commitSettlementOutcome");
+  });
+
   it("reads tenant, user, session, and course records from the JSON store", async () => {
     const store = createMinimalStore({
       tenants: [{ tenant_id: "tenant-1", status: "active" }],

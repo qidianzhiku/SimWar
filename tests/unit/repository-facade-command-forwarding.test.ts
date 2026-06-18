@@ -11,7 +11,10 @@ import type {
   StateSnapshot
 } from "../../packages/shared-contracts/src";
 import { createRepositoryFacade } from "../../services/api/src/repository-facade.js";
-import type { SimWarRepositoryPorts } from "../../services/api/src/repository-ports.js";
+import type {
+  CommitSettlementOutcomeCommand,
+  SimWarRepositoryPorts
+} from "../../services/api/src/repository-ports.js";
 
 function createSpyPorts(): SimWarRepositoryPorts {
   return {
@@ -60,6 +63,10 @@ function createSpyPorts(): SimWarRepositoryPorts {
       getSettlementResult: vi.fn(async () => null),
       listSettlementResultsForRound: vi.fn(async () => []),
       saveSettlementResult: vi.fn(async () => undefined)
+    },
+
+    settlementOutcome: {
+      commitSettlementOutcome: vi.fn(async () => undefined)
     },
 
     domainEvents: {
@@ -183,6 +190,37 @@ describe("repository facade command forwarding", () => {
     expect(ports.settlements.saveSettlementResult).toHaveBeenCalledWith(settlement);
     expect(ports.stateSnapshots.saveStateSnapshot).toHaveBeenCalledWith(snapshot);
     expect({ auditLog, settlement, snapshot }).toEqual(originalPayloads);
+  });
+
+  it("forwards atomic settlement outcomes without computing truth-chain data", async () => {
+    const ports = createSpyPorts();
+    const facade = createRepositoryFacade({ ports });
+    const command: CommitSettlementOutcomeCommand = {
+      tenant_id: "tenant_demo",
+      round_id: "round_001",
+      settlement_result: {
+        settlement_result_id: "result_001",
+        tenant_id: "tenant_demo",
+        run_id: "run_demo",
+        round_id: "round_001",
+        round_no: 1,
+        parameter_set_id: "params_v1",
+        scenario_package_id: "scenario_wellness",
+        replay_hash: "hash_settlement",
+        team_results: []
+      }
+    };
+    const originalCommand = structuredClone(command);
+
+    await expect(facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledWith(command);
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);
+    expect(ports.settlements.saveSettlementResult).not.toHaveBeenCalled();
+    expect(ports.rounds.saveRound).not.toHaveBeenCalled();
+    expect(ports.rounds.markRoundSettled).not.toHaveBeenCalled();
+    expect(ports.auditLogs.appendAuditLog).not.toHaveBeenCalled();
+    expect(command).toEqual(originalCommand);
   });
 
   it("forwards replay writes without changing payloads", async () => {

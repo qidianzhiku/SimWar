@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { SimWarRepositoryPorts } from "../../services/api/src/repository-ports.js";
+import type {
+  CommitSettlementOutcomeCommand,
+  SimWarRepositoryPorts
+} from "../../services/api/src/repository-ports.js";
 import {
   createJsonRepositoryFacade,
   createRepositoryFacade
@@ -69,6 +72,10 @@ function createMockPorts(): SimWarRepositoryPorts {
       getSettlementResult: vi.fn(async () => null),
       listSettlementResultsForRound: vi.fn(async () => []),
       saveSettlementResult: vi.fn(async () => undefined)
+    },
+
+    settlementOutcome: {
+      commitSettlementOutcome: vi.fn(async () => undefined)
     },
 
     domainEvents: {
@@ -150,6 +157,67 @@ describe("repository facade", () => {
 
     expect(ports.decisions.saveCanonicalDecision).toHaveBeenCalledWith(decision);
     expect(ports.settlements.saveSettlementResult).toHaveBeenCalledWith(settlement);
+  });
+
+  it("forwards atomic settlement outcome commits through one explicit facade method", async () => {
+    const ports = createMockPorts();
+    const facade = createRepositoryFacade({ ports });
+    const command: CommitSettlementOutcomeCommand = {
+      tenant_id: "tenant-1",
+      round_id: "round-1",
+      settlement_result: {
+        tenant_id: "tenant-1",
+        settlement_result_id: "settlement-1",
+        run_id: "run-1",
+        round_id: "round-1",
+        round_no: 1,
+        parameter_set_id: "parameter-set-1",
+        scenario_package_id: "scenario-package-1",
+        replay_hash: "replay-hash-1",
+        team_results: []
+      }
+    };
+    const originalCommand = structuredClone(command);
+
+    await expect(facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledWith(command);
+    expect(command).toEqual(originalCommand);
+    expect(ports.settlements.saveSettlementResult).not.toHaveBeenCalled();
+    expect(ports.rounds.saveRound).not.toHaveBeenCalled();
+    expect(ports.rounds.markRoundSettled).not.toHaveBeenCalled();
+    expect(ports.auditLogs.appendAuditLog).not.toHaveBeenCalled();
+  });
+
+  it("propagates atomic settlement outcome failures without fallback writes", async () => {
+    const ports = createMockPorts();
+    const failure = new Error("settlement_outcome_round_missing");
+    vi.mocked(ports.settlementOutcome.commitSettlementOutcome).mockRejectedValueOnce(failure);
+    const facade = createRepositoryFacade({ ports });
+    const command: CommitSettlementOutcomeCommand = {
+      tenant_id: "tenant-1",
+      round_id: "round-1",
+      settlement_result: {
+        tenant_id: "tenant-1",
+        settlement_result_id: "settlement-1",
+        run_id: "run-1",
+        round_id: "round-1",
+        round_no: 1,
+        parameter_set_id: "parameter-set-1",
+        scenario_package_id: "scenario-package-1",
+        replay_hash: "replay-hash-1",
+        team_results: []
+      }
+    };
+
+    await expect(facade.commitSettlementOutcome(command)).rejects.toBe(failure);
+
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);
+    expect(ports.settlements.saveSettlementResult).not.toHaveBeenCalled();
+    expect(ports.rounds.saveRound).not.toHaveBeenCalled();
+    expect(ports.rounds.markRoundSettled).not.toHaveBeenCalled();
+    expect(ports.auditLogs.appendAuditLog).not.toHaveBeenCalled();
   });
 
   it("creates a JSON-backed facade without wiring it into server runtime", async () => {

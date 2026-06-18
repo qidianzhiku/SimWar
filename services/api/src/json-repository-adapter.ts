@@ -542,6 +542,8 @@ export function createJsonRepositoryPorts(
       }
     },
 
+    settlementOutcome: createJsonSettlementOutcomePersistencePort(store),
+
     domainEvents: {
       async appendDomainEvent(event): Promise<void> {
         domainEvents.push(event);

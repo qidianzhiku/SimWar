@@ -302,6 +302,7 @@ export interface SimWarRepositoryPorts {
   rounds: RoundRepositoryPort;
   decisions: DecisionRepositoryPort;
   settlements: SettlementRepositoryPort;
+  settlementOutcome: SettlementOutcomePersistencePort;
   domainEvents: DomainEventRepositoryPort;
   stateSnapshots: StateSnapshotRepositoryPort;
   auditLogs: AuditLogRepositoryPort;
