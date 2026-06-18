@@ -13,6 +13,7 @@ import type {
   Team
 } from "@simwar/shared-contracts";
 import type {
+  CommitSettlementOutcomeCommand,
   RepositoryCourseReadModel,
   RepositoryEventQuery,
   RepositorySessionReadModel,
@@ -96,6 +97,8 @@ export interface RepositoryFacade {
     ): Promise<SettlementResult[]>;
     saveSettlementResult(result: SettlementResult): Promise<void>;
   };
+
+  commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
 
   domainEvents: {
     appendDomainEvent(event: DomainEvent): Promise<void>;
@@ -208,6 +211,8 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
         ports.settlements.listSettlementResultsForRound(tenantId, runId, roundId),
       saveSettlementResult: (result) => ports.settlements.saveSettlementResult(result)
     },
+
+    commitSettlementOutcome: (command) => ports.settlementOutcome.commitSettlementOutcome(command),
 
     domainEvents: {
       appendDomainEvent: (event) => ports.domainEvents.appendDomainEvent(event),
