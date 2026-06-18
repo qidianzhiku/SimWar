@@ -1,5 +1,15 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  closeSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync
+} from "node:fs";
+import { randomUUID } from "node:crypto";
+import { basename, dirname, join, resolve } from "node:path";
 import type {
   ActorRole,
   AuditLog,
@@ -55,7 +65,41 @@ export interface SimWarStore extends SimWarStoreSnapshot {
 
 export interface CreateStoreOptions {
   persistenceFile?: string;
+  fileSystem?: SnapshotFileSystem;
 }
+
+export interface SnapshotFileSystem {
+  readFile(path: string): string;
+  mkdir(path: string): void;
+  open(path: string, flags: string, mode?: number): number;
+  writeFile(file: number, data: string): void;
+  fsync(file: number): void;
+  close(file: number): void;
+  rename(source: string, target: string): void;
+  unlink(path: string): void;
+}
+
+export class StoreSnapshotError extends Error {
+  constructor(
+    readonly code: string,
+    readonly snapshotPath: string,
+    readonly cause?: unknown
+  ) {
+    super(code);
+    this.name = "StoreSnapshotError";
+  }
+}
+
+const nodeSnapshotFileSystem: SnapshotFileSystem = {
+  readFile: (path) => readFileSync(path, "utf8"),
+  mkdir: (path) => mkdirSync(path, { recursive: true }),
+  open: (path, flags, mode) => openSync(path, flags, mode),
+  writeFile: (file, data) => writeFileSync(file, data, "utf8"),
+  fsync: (file) => fsyncSync(file),
+  close: (file) => closeSync(file),
+  rename: (source, target) => renameSync(source, target),
+  unlink: (path) => unlinkSync(path)
+};
 
 export const DEFAULT_TENANT_ID = "tenant_demo";
 export const PLATFORM_TENANT_ID = "tenant_platform";
@@ -342,26 +386,194 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   };
 }
 
-function loadSnapshot(persistenceFile: string): SimWarStoreSnapshot | undefined {
-  const absolutePath = resolve(persistenceFile);
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
 
-  if (!existsSync(absolutePath)) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertSnapshotShape(
+  value: unknown,
+  snapshotPath: string
+): asserts value is SimWarStoreSnapshot {
+  const requiredArrayFields: Array<keyof Omit<SimWarStoreSnapshot, "counters">> = [
+    "tenants",
+    "users",
+    "roles",
+    "permissions",
+    "userRoles",
+    "rolePermissions",
+    "sessions",
+    "scenarios",
+    "parameterSets",
+    "courses",
+    "teams",
+    "runs",
+    "rounds",
+    "decisions",
+    "settlementResults",
+    "auditLogs"
+  ];
+
+  if (!isRecord(value)) {
+    throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+  }
+
+  for (const field of requiredArrayFields) {
+    if (!Array.isArray(value[field])) {
+      throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+    }
+  }
+
+  if (!isRecord(value.counters)) {
+    throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+  }
+}
+
+function loadSnapshot(
+  absolutePath: string,
+  fileSystem: SnapshotFileSystem
+): SimWarStoreSnapshot | undefined {
+  let rawSnapshot: string;
+
+  try {
+    rawSnapshot = fileSystem.readFile(absolutePath);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return undefined;
+    }
+
+    throw new StoreSnapshotError("store_snapshot_read_failed", absolutePath, error);
+  }
+
+  try {
+    const parsed = JSON.parse(rawSnapshot) as unknown;
+    assertSnapshotShape(parsed, absolutePath);
+    return normalizeSnapshot(parsed);
+  } catch (error) {
+    if (error instanceof StoreSnapshotError) {
+      throw error;
+    }
+
+    throw new StoreSnapshotError("store_snapshot_corrupted", absolutePath, error);
+  }
+}
+
+function cleanupTempFile(path: string, fileSystem: SnapshotFileSystem): void {
+  try {
+    fileSystem.unlink(path);
+  } catch {
+    // Best effort: preserve the authoritative snapshot even when temp cleanup fails.
+  }
+}
+
+function syncDirectoryBestEffort(path: string, fileSystem: SnapshotFileSystem): void {
+  let directoryDescriptor: number | undefined;
+
+  try {
+    directoryDescriptor = fileSystem.open(path, "r");
+    fileSystem.fsync(directoryDescriptor);
+  } catch {
+    // Directory fsync is best-effort because Windows commonly rejects directory handles.
+  } finally {
+    if (directoryDescriptor !== undefined) {
+      try {
+        fileSystem.close(directoryDescriptor);
+      } catch {
+        // Closing a best-effort directory handle must not turn a completed rename into failure.
+      }
+    }
+  }
+}
+
+function closeTempFile(
+  tempFileDescriptor: number | undefined,
+  tempPath: string,
+  fileSystem: SnapshotFileSystem
+): number | undefined {
+  if (tempFileDescriptor === undefined) {
     return undefined;
   }
 
   try {
-    return normalizeSnapshot(JSON.parse(readFileSync(absolutePath, "utf8")) as SimWarStoreSnapshot);
-  } catch {
+    fileSystem.close(tempFileDescriptor);
     return undefined;
+  } catch (error) {
+    throw new StoreSnapshotError("store_snapshot_sync_failed", tempPath, error);
+  }
+}
+
+function persistSnapshotAtomically(
+  absolutePath: string,
+  contents: string,
+  fileSystem: SnapshotFileSystem
+): void {
+  const targetDirectory = dirname(absolutePath);
+  const tempPath = join(
+    targetDirectory,
+    `${basename(absolutePath)}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`
+  );
+  let tempFileDescriptor: number | undefined;
+  let tempFileCreated = false;
+
+  try {
+    fileSystem.mkdir(targetDirectory);
+  } catch (error) {
+    throw new StoreSnapshotError("store_snapshot_write_failed", absolutePath, error);
+  }
+
+  try {
+    try {
+      tempFileDescriptor = fileSystem.open(tempPath, "wx", 0o600);
+      tempFileCreated = true;
+      fileSystem.writeFile(tempFileDescriptor, contents);
+    } catch (error) {
+      throw new StoreSnapshotError("store_snapshot_write_failed", absolutePath, error);
+    }
+
+    try {
+      fileSystem.fsync(tempFileDescriptor);
+      tempFileDescriptor = closeTempFile(tempFileDescriptor, tempPath, fileSystem);
+    } catch (error) {
+      if (error instanceof StoreSnapshotError) {
+        throw error;
+      }
+
+      throw new StoreSnapshotError("store_snapshot_sync_failed", absolutePath, error);
+    }
+
+    try {
+      fileSystem.rename(tempPath, absolutePath);
+      tempFileCreated = false;
+    } catch (error) {
+      throw new StoreSnapshotError("store_snapshot_rename_failed", absolutePath, error);
+    }
+
+    syncDirectoryBestEffort(targetDirectory, fileSystem);
+  } catch (error) {
+    if (tempFileDescriptor !== undefined) {
+      try {
+        fileSystem.close(tempFileDescriptor);
+      } catch {
+        // Keep the original failure as the observable cause.
+      }
+    }
+
+    if (tempFileCreated) {
+      cleanupTempFile(tempPath, fileSystem);
+    }
+
+    throw error;
   }
 }
 
 export function createP1Store(options: CreateStoreOptions = {}): SimWarStore {
-  const loadedSnapshot = options.persistenceFile
-    ? loadSnapshot(options.persistenceFile)
-    : undefined;
-  const snapshot = loadedSnapshot ?? createSeedSnapshot();
+  const fileSystem = options.fileSystem ?? nodeSnapshotFileSystem;
   const absolutePath = options.persistenceFile ? resolve(options.persistenceFile) : undefined;
+  const loadedSnapshot = absolutePath ? loadSnapshot(absolutePath, fileSystem) : undefined;
+  const snapshot = loadedSnapshot ?? createSeedSnapshot();
 
   const store: SimWarStore = {
     ...snapshot,
@@ -371,8 +583,8 @@ export function createP1Store(options: CreateStoreOptions = {}): SimWarStore {
         return;
       }
 
-      mkdirSync(dirname(absolutePath), { recursive: true });
-      writeFileSync(absolutePath, `${JSON.stringify(toSnapshot(store), null, 2)}\n`);
+      const snapshotJson = `${JSON.stringify(toSnapshot(store), null, 2)}\n`;
+      persistSnapshotAtomically(absolutePath, snapshotJson, fileSystem);
     }
   };
 
