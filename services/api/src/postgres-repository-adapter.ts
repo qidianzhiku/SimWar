@@ -443,6 +443,10 @@ export function createPostgresSettlementOutcomePersistencePort(
             team_results = EXCLUDED.team_results,
             payload = EXCLUDED.payload,
             updated_at = now()
+          WHERE settlement_results.tenant_id = EXCLUDED.tenant_id
+            AND settlement_results.run_id = EXCLUDED.run_id
+            AND settlement_results.round_id = EXCLUDED.round_id
+            AND settlement_results.round_no = EXCLUDED.round_no
           RETURNING replay_hash
         ),
         updated_round AS (
