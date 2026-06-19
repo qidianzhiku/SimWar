@@ -791,7 +791,7 @@ describe("settlement result write and replay hash characterization", () => {
     }
   });
 
-  it("characterizes overlapping identical settlement route requests as allowing duplicate JSON results", async () => {
+  it("serializes overlapping identical settlement route requests without duplicate JSON results", async () => {
     const { baseUrl, provider, server, store } = await startServer();
 
     try {
@@ -819,10 +819,8 @@ describe("settlement result write and replay hash characterization", () => {
         "first settlement request did not reach atomic commit"
       );
       const secondPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
-      await waitForCondition(
-        () => commitSpy.mock.calls.length === 2,
-        "second overlapping settlement request did not reach atomic commit"
-      );
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const commitCallsBeforeRelease = commitSpy.mock.calls.length;
 
       releaseCommits.resolve();
       const [first, second] = await Promise.all([firstPromise, secondPromise]);
@@ -839,23 +837,65 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
-      expect(commitSpy).toHaveBeenCalledTimes(2);
-      expect(attemptedCommands).toHaveLength(2);
+      expect(commitCallsBeforeRelease).toBe(1);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(attemptedCommands).toHaveLength(1);
       expect(attemptedCommands[0]?.settlement_result.run_id).toBe(run.run_id);
-      expect(attemptedCommands[1]?.settlement_result.run_id).toBe(run.run_id);
       expect(attemptedCommands[0]?.settlement_result.round_no).toBe(1);
-      expect(attemptedCommands[1]?.settlement_result.round_no).toBe(1);
-      expect(attemptedCommands[0]?.settlement_result.settlement_result_id).not.toBe(
-        attemptedCommands[1]?.settlement_result.settlement_result_id
-      );
-      expect(store.settlementResults).toHaveLength(2);
+      expect(second.body.data).toEqual(first.body.data);
+      expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
+      expect(store.settlementResults).toHaveLength(1);
       expect(new Set(storedBusinessIdentities)).toEqual(new Set([`tenant_demo:${run.run_id}:1`]));
-      expect(new Set(storedResultIds).size).toBe(2);
+      expect(new Set(storedResultIds)).toEqual(new Set([first.body.data.settlement_result_id]));
       expect(new Set(storedReplayHashes).size).toBe(1);
       expect(settledRound.status).toBe("settled");
       expect(settledRound.replay_hash).toBe(first.body.data.replay_hash);
       expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
-      expect(successAudits.map((log) => log.resource_id).sort()).toEqual(storedResultIds.sort());
+      expect(successAudits).toHaveLength(2);
+      expect(successAudits.map((log) => log.resource_id)).toEqual([
+        first.body.data.settlement_result_id,
+        first.body.data.settlement_result_id
+      ]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("releases settlement serialization after atomic commit failure", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const originalCommit = provider.facade.commitSettlementOutcome.bind(provider.facade);
+      const persistenceError = new Error("forced first settlement commit failure");
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockRejectedValueOnce(persistenceError);
+      commitSpy.mockImplementationOnce(originalCommit);
+
+      const failed = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      expect(failed.status).toBe(500);
+      expect(failed.body.code).toBe("API-500-001");
+      expect(store.settlementResults).toHaveLength(0);
+      const failedRound = requireStoredRound(store, run.run_id);
+      expect(failedRound.status).toBe("locked");
+      expect(failedRound.replay_hash).toBeUndefined();
+
+      const recovered = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const recoveredRound = requireStoredRound(store, run.run_id);
+
+      expect(recovered.status).toBe(200);
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]).toEqual(recovered.body.data);
+      expect(recoveredRound.status).toBe("settled");
+      expect(recoveredRound.replay_hash).toBe(recovered.body.data.replay_hash);
     } finally {
       await stopServer(server);
     }
