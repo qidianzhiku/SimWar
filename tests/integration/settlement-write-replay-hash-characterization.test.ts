@@ -215,6 +215,27 @@ function cloneJson<TValue>(value: TValue): TValue {
   return JSON.parse(JSON.stringify(value)) as TValue;
 }
 
+function createDeferred(): { promise: Promise<void>; resolve: () => void } {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
+
+async function waitForCondition(predicate: () => boolean, message: string): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (predicate()) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  throw new Error(message);
+}
+
 function requireStoredRound(store: SimWarStore, runId: string): Round {
   const round = store.rounds.find(
     (candidate) => candidate.run_id === runId && candidate.round_no === 1
@@ -225,6 +246,34 @@ function requireStoredRound(store: SimWarStore, runId: string): Round {
   }
 
   return round;
+}
+
+function appendConflictingDecisionVersion(
+  store: SimWarStore,
+  run: Run,
+  payload: DecisionPayload
+): Decision {
+  const previous = store.decisions.find(
+    (decision) =>
+      decision.tenant_id === run.tenant_id &&
+      decision.run_id === run.run_id &&
+      decision.round_no === 1 &&
+      decision.team_id === "team_alpha"
+  );
+
+  if (!previous) {
+    throw new Error(`missing decision for run ${run.run_id}`);
+  }
+
+  const conflicting: Decision = {
+    ...previous,
+    decision_id: `${previous.decision_id}_conflict_${previous.version + 1}`,
+    payload,
+    version: previous.version + 1
+  };
+
+  store.decisions.push(conflicting);
+  return conflicting;
 }
 
 function createSettlementInput(store: SimWarStore, run: Run): SettlementRoundInput {
@@ -690,6 +739,123 @@ describe("settlement result write and replay hash characterization", () => {
         { replay_hash: first.body.data.replay_hash },
         { replay_hash: first.body.data.replay_hash }
       ]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("characterizes conflicting repeated settlement candidates as returning the existing result without a conflict response", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+
+      const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const firstRound = requireStoredRound(store, run.run_id);
+      const firstResultSnapshot = cloneJson(first.body.data);
+      const firstRoundSnapshot = cloneJson({
+        replay_hash: firstRound.replay_hash,
+        status: firstRound.status
+      });
+      const conflictingDecision = appendConflictingDecisionVersion(
+        store,
+        run,
+        HIGH_DEMAND_DECISION_PAYLOAD
+      );
+      const retryCommitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+
+      const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      const secondRound = requireStoredRound(store, run.run_id);
+
+      expect(conflictingDecision.payload).toEqual(HIGH_DEMAND_DECISION_PAYLOAD);
+      expect(conflictingDecision.version).toBe(2);
+      expect(second.status).toBe(200);
+      expect(second.body.code).toBe("OK");
+      expect(second.body.data).toEqual(firstResultSnapshot);
+      expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
+      expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
+      expect(retryCommitSpy).not.toHaveBeenCalled();
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]).toEqual(firstResultSnapshot);
+      expect(secondRound.status).toBe(firstRoundSnapshot.status);
+      expect(secondRound.replay_hash).toBe(firstRoundSnapshot.replay_hash);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("characterizes overlapping identical settlement route requests as allowing duplicate JSON results", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const releaseCommits = createDeferred();
+      const originalCommit = provider.facade.commitSettlementOutcome.bind(provider.facade);
+      const attemptedCommands: CommitSettlementOutcomeCommand[] = [];
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockImplementation(async (command) => {
+        attemptedCommands.push(cloneJson(command));
+        await releaseCommits.promise;
+        await originalCommit(command);
+      });
+
+      const firstPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      await waitForCondition(
+        () => commitSpy.mock.calls.length === 1,
+        "first settlement request did not reach atomic commit"
+      );
+      const secondPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      await waitForCondition(
+        () => commitSpy.mock.calls.length === 2,
+        "second overlapping settlement request did not reach atomic commit"
+      );
+
+      releaseCommits.resolve();
+      const [first, second] = await Promise.all([firstPromise, secondPromise]);
+      const settledRound = requireStoredRound(store, run.run_id);
+      const storedBusinessIdentities = store.settlementResults.map(
+        (result) => `${result.tenant_id}:${result.run_id}:${result.round_no}`
+      );
+      const storedResultIds = store.settlementResults.map((result) => result.settlement_result_id);
+      const storedReplayHashes = store.settlementResults.map((result) => result.replay_hash);
+      const successAudits = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      );
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+      expect(attemptedCommands).toHaveLength(2);
+      expect(attemptedCommands[0]?.settlement_result.run_id).toBe(run.run_id);
+      expect(attemptedCommands[1]?.settlement_result.run_id).toBe(run.run_id);
+      expect(attemptedCommands[0]?.settlement_result.round_no).toBe(1);
+      expect(attemptedCommands[1]?.settlement_result.round_no).toBe(1);
+      expect(attemptedCommands[0]?.settlement_result.settlement_result_id).not.toBe(
+        attemptedCommands[1]?.settlement_result.settlement_result_id
+      );
+      expect(store.settlementResults).toHaveLength(2);
+      expect(new Set(storedBusinessIdentities)).toEqual(new Set([`tenant_demo:${run.run_id}:1`]));
+      expect(new Set(storedResultIds).size).toBe(2);
+      expect(new Set(storedReplayHashes).size).toBe(1);
+      expect(settledRound.status).toBe("settled");
+      expect(settledRound.replay_hash).toBe(first.body.data.replay_hash);
+      expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
+      expect(successAudits.map((log) => log.resource_id).sort()).toEqual(storedResultIds.sort());
     } finally {
       await stopServer(server);
     }
