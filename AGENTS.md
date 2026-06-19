@@ -482,6 +482,11 @@ Phase 6 前不得接真实模型。AI 相关开发必须先完成：
 - 不要提交密钥、令牌、真实用户数据、模型私有权重或本地环境文件。
 - 不要使用 destructive git 命令回滚用户或其他 agent 的改动，除非用户明确要求。
 
+## Audit-driven Pull Request Governance
+
+All pull requests must use the repository PR template. Audit remediation work
+must follow `docs/governance/audit-remediation-process.md`.
+
 ## Documentation Rules
 
 - 架构方案、里程碑和长篇背景资料放入 `docs/`，不要塞进本文件。
