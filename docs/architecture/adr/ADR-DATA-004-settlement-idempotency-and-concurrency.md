@@ -59,6 +59,32 @@ The policy below is based on the current `origin/master` implementation.
 | Current overwrite behavior            | A technical-id conflict can update an existing settlement row in PostgreSQL and replace an existing result in JSON                                                     |
 | Current stable route failure envelope | Persistence failures are mapped to the existing safe internal-error response, without returning internal state                                                         |
 
+### 2.1 Runtime Characterization Evidence
+
+The settlement idempotency characterization tests currently lock these observed
+runtime behaviors without changing production semantics:
+
+- a repeated active settlement route request for an already settled
+  `tenant_id + run_id + round_no` returns the existing `SettlementResult`, keeps
+  the stored result count unchanged, and keeps the round `replay_hash` aligned
+  with that result;
+- if a later conflicting decision candidate is present after the first
+  settlement has committed, the active route still returns the existing result
+  with the existing success response and does not emit a conflict response;
+- the JSON runtime has no keyed settlement mutex, so two overlapping active
+  settlement route requests can both reach `RepositoryFacade.commitSettlementOutcome(...)`
+  before either commit is visible to the other request;
+- for overlapping identical JSON route attempts, the current characterization
+  shows duplicate `SettlementResult` objects can be written for the same
+  `tenant_id + run_id + round_no`, even though the replay hash remains the same
+  for identical inputs;
+- atomic commit failure through the active route leaves the authoritative round,
+  replay hash, settlement result collection, and success audit unchanged.
+
+These tests are evidence for the remaining #111 implementation work. They do
+not complete the policy in this ADR and they must not be used as a closing
+signal for #111.
+
 ## 3. Decision Drivers
 
 - One round can have only one authoritative settlement.
