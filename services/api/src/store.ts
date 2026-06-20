@@ -490,7 +490,7 @@ function syncDirectoryBestEffort(path: string, fileSystem: SnapshotFileSystem): 
 
 function closeTempFile(
   tempFileDescriptor: number | undefined,
-  tempPath: string,
+  snapshotPath: string,
   fileSystem: SnapshotFileSystem
 ): number | undefined {
   if (tempFileDescriptor === undefined) {
@@ -501,7 +501,7 @@ function closeTempFile(
     fileSystem.close(tempFileDescriptor);
     return undefined;
   } catch (error) {
-    throw new StoreSnapshotError("store_snapshot_sync_failed", tempPath, error);
+    throw new StoreSnapshotError("store_snapshot_sync_failed", snapshotPath, error);
   }
 }
 
@@ -535,7 +535,7 @@ function persistSnapshotAtomically(
 
     try {
       fileSystem.fsync(tempFileDescriptor);
-      tempFileDescriptor = closeTempFile(tempFileDescriptor, tempPath, fileSystem);
+      tempFileDescriptor = closeTempFile(tempFileDescriptor, absolutePath, fileSystem);
     } catch (error) {
       if (error instanceof StoreSnapshotError) {
         throw error;
