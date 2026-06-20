@@ -38,9 +38,40 @@ function readRaw(path: string): string {
   return readFileSync(path, "utf8");
 }
 
+function readSnapshot(path: string): Record<string, unknown> {
+  return JSON.parse(readRaw(path)) as Record<string, unknown>;
+}
+
+function writeSnapshot(path: string, snapshot: Record<string, unknown>): string {
+  const raw = `${JSON.stringify(snapshot, null, 2)}\n`;
+  writeFileSync(path, raw, "utf8");
+  return raw;
+}
+
 function writeValidSnapshot(path: string): string {
   createP1Store({ persistenceFile: path });
   return readRaw(path);
+}
+
+function createLegacySnapshot(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const snapshotPath = createSnapshotPath("legacy-source.json");
+  const store = createP1Store({ persistenceFile: snapshotPath });
+
+  store.courses.push({
+    course_id: "course_legacy_snapshot",
+    created_by: "usr_teacher",
+    parameter_set_id: "param_toy_approved_1",
+    scenario_package_id: "scenario_eldercare_demo",
+    status: "draft",
+    tenant_id: "tenant_demo",
+    title: "Legacy Snapshot"
+  });
+  store.persist();
+
+  const snapshot = readSnapshot(snapshotPath);
+  delete snapshot.snapshot_version;
+
+  return { ...snapshot, ...overrides };
 }
 
 function tempFilesFor(path: string): string[] {
@@ -143,10 +174,130 @@ describe("JSON store snapshot persistence", () => {
     expect(store.tenants.some((tenant) => tenant.tenant_id === "tenant_demo")).toBe(true);
     expect(existsSync(snapshotPath)).toBe(true);
     expect(JSON.parse(readRaw(snapshotPath))).toMatchObject({
+      snapshot_version: 1,
       tenants: expect.any(Array),
       users: expect.any(Array),
       counters: expect.any(Object)
     });
+  });
+
+  it("writes the current integer snapshot version on new and replacement snapshots", () => {
+    const snapshotPath = createSnapshotPath();
+    const store = createP1Store({ persistenceFile: snapshotPath });
+
+    expect(readSnapshot(snapshotPath).snapshot_version).toBe(1);
+    expect(Number.isInteger(readSnapshot(snapshotPath).snapshot_version)).toBe(true);
+
+    store.counters.version_replacement = 1;
+    store.persist();
+    expect(readSnapshot(snapshotPath).snapshot_version).toBe(1);
+
+    store.counters.version_replacement = 2;
+    store.persist();
+    expect(readSnapshot(snapshotPath).snapshot_version).toBe(1);
+  });
+
+  it("does not expose the persisted snapshot version on the runtime store", () => {
+    const snapshotPath = createSnapshotPath();
+    const store = createP1Store({ persistenceFile: snapshotPath });
+    const restored = createP1Store({ persistenceFile: snapshotPath });
+
+    expect("snapshot_version" in store).toBe(false);
+    expect("snapshot_version" in restored).toBe(false);
+  });
+
+  it("loads an explicit current-version snapshot as normal runtime state", () => {
+    const snapshotPath = createSnapshotPath();
+    const rawSnapshot = writeSnapshot(snapshotPath, {
+      snapshot_version: 1,
+      ...createLegacySnapshot({ counters: { current_version: 7 } })
+    });
+
+    const store = createP1Store({ persistenceFile: snapshotPath });
+
+    expect(store.counters.current_version).toBe(7);
+    expect(store.courses.some((course) => course.course_id === "course_legacy_snapshot")).toBe(
+      true
+    );
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+  });
+
+  it("fails closed for an explicit future snapshot version without rewriting the file", () => {
+    const snapshotPath = createSnapshotPath();
+    const rawSnapshot = writeSnapshot(snapshotPath, {
+      snapshot_version: 2,
+      ...createLegacySnapshot({ counters: { unsupported_version: 1 } })
+    });
+
+    expectSnapshotError(
+      () => createP1Store({ persistenceFile: snapshotPath }),
+      "store_snapshot_unsupported_version"
+    );
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+  });
+
+  it("fails closed for a large explicit future snapshot version", () => {
+    const snapshotPath = createSnapshotPath();
+    writeSnapshot(snapshotPath, {
+      snapshot_version: Number.MAX_SAFE_INTEGER,
+      ...createLegacySnapshot()
+    });
+
+    expectSnapshotError(
+      () => createP1Store({ persistenceFile: snapshotPath }),
+      "store_snapshot_unsupported_version"
+    );
+  });
+
+  it.each([
+    ["string", "1"],
+    ["null", null],
+    ["boolean", true],
+    ["array", [1]],
+    ["object", { version: 1 }],
+    ["decimal", 1.5],
+    ["zero", 0],
+    ["negative", -1],
+    ["unsafe integer", Number.MAX_SAFE_INTEGER + 1]
+  ])("fails closed for an invalid %s snapshot version", (_label, snapshotVersion) => {
+    const snapshotPath = createSnapshotPath();
+    writeSnapshot(snapshotPath, {
+      snapshot_version: snapshotVersion,
+      ...createLegacySnapshot()
+    });
+
+    expectSnapshotError(
+      () => createP1Store({ persistenceFile: snapshotPath }),
+      "store_snapshot_invalid_version"
+    );
+  });
+
+  it("loads a complete legacy v0 snapshot without adding a version field", () => {
+    const snapshotPath = createSnapshotPath();
+    const rawSnapshot = writeSnapshot(snapshotPath, createLegacySnapshot());
+
+    const store = createP1Store({ persistenceFile: snapshotPath });
+
+    expect(store.courses.some((course) => course.course_id === "course_legacy_snapshot")).toBe(
+      true
+    );
+    expect("snapshot_version" in store).toBe(false);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(readSnapshot(snapshotPath).snapshot_version).toBeUndefined();
+  });
+
+  it.each([
+    ["ordinary object", { hello: "world" }],
+    ["incomplete legacy object", { tenants: [], counters: {} }]
+  ])("does not treat an unversioned %s as a legacy v0 snapshot", (_label, snapshot) => {
+    const snapshotPath = createSnapshotPath();
+    const rawSnapshot = writeSnapshot(snapshotPath, snapshot);
+
+    expectSnapshotError(
+      () => createP1Store({ persistenceFile: snapshotPath }),
+      "store_snapshot_corrupted"
+    );
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
   });
 
   it("fails loudly for malformed JSON without overwriting the corrupted snapshot", () => {

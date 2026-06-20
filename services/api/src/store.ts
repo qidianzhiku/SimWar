@@ -107,6 +107,12 @@ export const OTHER_TENANT_ID = "tenant_other";
 
 const permissionKeys = [...new Set(Object.values(ROLE_PERMISSION_MATRIX).flat())].sort();
 const seedTime = "2026-05-17T00:00:00.000Z";
+const SNAPSHOT_VERSION_FIELD = "snapshot_version";
+const CURRENT_SNAPSHOT_VERSION = 1;
+
+interface PersistedSimWarStoreSnapshot extends SimWarStoreSnapshot {
+  snapshot_version: typeof CURRENT_SNAPSHOT_VERSION;
+}
 
 function createPermission(key: PermissionKey, index: number): Permission {
   const [resource, action] = key.split(":");
@@ -369,6 +375,13 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
   };
 }
 
+function toPersistedSnapshot(snapshot: SimWarStoreSnapshot): PersistedSimWarStoreSnapshot {
+  return {
+    [SNAPSHOT_VERSION_FIELD]: CURRENT_SNAPSHOT_VERSION,
+    ...snapshot
+  };
+}
+
 function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   const seed = createSeedSnapshot();
 
@@ -392,6 +405,46 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createSnapshotVersionErrorCause(
+  reason: "invalid" | "unsupported",
+  snapshotVersion: unknown
+): Record<string, unknown> {
+  return {
+    field: SNAPSHOT_VERSION_FIELD,
+    reason,
+    received_type: Array.isArray(snapshotVersion) ? "array" : typeof snapshotVersion,
+    supported_versions: [CURRENT_SNAPSHOT_VERSION],
+    ...(typeof snapshotVersion === "number" && Number.isSafeInteger(snapshotVersion)
+      ? { received_version: snapshotVersion }
+      : {})
+  };
+}
+
+function assertSupportedSnapshotVersion(
+  snapshotVersion: unknown,
+  snapshotPath: string
+): asserts snapshotVersion is typeof CURRENT_SNAPSHOT_VERSION {
+  if (
+    typeof snapshotVersion !== "number" ||
+    !Number.isSafeInteger(snapshotVersion) ||
+    snapshotVersion <= 0
+  ) {
+    throw new StoreSnapshotError(
+      "store_snapshot_invalid_version",
+      snapshotPath,
+      createSnapshotVersionErrorCause("invalid", snapshotVersion)
+    );
+  }
+
+  if (snapshotVersion !== CURRENT_SNAPSHOT_VERSION) {
+    throw new StoreSnapshotError(
+      "store_snapshot_unsupported_version",
+      snapshotPath,
+      createSnapshotVersionErrorCause("unsupported", snapshotVersion)
+    );
+  }
 }
 
 function assertSnapshotShape(
@@ -432,6 +485,25 @@ function assertSnapshotShape(
   }
 }
 
+function toRuntimeSnapshot(value: unknown, snapshotPath: string): SimWarStoreSnapshot {
+  if (!isRecord(value)) {
+    throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(value, SNAPSHOT_VERSION_FIELD)) {
+    assertSnapshotShape(value, snapshotPath);
+    return value;
+  }
+
+  assertSupportedSnapshotVersion(value[SNAPSHOT_VERSION_FIELD], snapshotPath);
+
+  const snapshot = { ...value };
+  delete snapshot[SNAPSHOT_VERSION_FIELD];
+
+  assertSnapshotShape(snapshot, snapshotPath);
+  return snapshot;
+}
+
 function loadSnapshot(
   absolutePath: string,
   fileSystem: SnapshotFileSystem
@@ -450,8 +522,7 @@ function loadSnapshot(
 
   try {
     const parsed = JSON.parse(rawSnapshot) as unknown;
-    assertSnapshotShape(parsed, absolutePath);
-    return normalizeSnapshot(parsed);
+    return normalizeSnapshot(toRuntimeSnapshot(parsed, absolutePath));
   } catch (error) {
     if (error instanceof StoreSnapshotError) {
       throw error;
@@ -583,7 +654,7 @@ export function createP1Store(options: CreateStoreOptions = {}): SimWarStore {
         return;
       }
 
-      const snapshotJson = `${JSON.stringify(toSnapshot(store), null, 2)}\n`;
+      const snapshotJson = `${JSON.stringify(toPersistedSnapshot(toSnapshot(store)), null, 2)}\n`;
       persistSnapshotAtomically(absolutePath, snapshotJson, fileSystem);
     }
   };
