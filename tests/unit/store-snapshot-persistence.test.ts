@@ -74,6 +74,10 @@ function createLegacySnapshot(overrides: Record<string, unknown> = {}): Record<s
   return { ...snapshot, ...overrides };
 }
 
+function cloneLegacySnapshot(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return structuredClone(createLegacySnapshot(overrides)) as Record<string, unknown>;
+}
+
 function tempFilesFor(path: string): string[] {
   const prefix = `${basename(path)}.`;
   return readdirSync(join(path, "..")).filter(
@@ -92,6 +96,162 @@ function expectSnapshotError(action: () => unknown, code: string): StoreSnapshot
     expect((error as Error).message).not.toContain("P0 Teacher");
     return error as StoreSnapshotError;
   }
+}
+
+function expectSnapshotFieldError(action: () => unknown, field: string): StoreSnapshotError {
+  const error = expectSnapshotError(action, "store_snapshot_corrupted");
+  expect(error.cause).toEqual({ field });
+  return error;
+}
+
+function addCompleteRuntimeCollections(snapshot: Record<string, unknown>): void {
+  const parameterSets = snapshot.parameterSets as Record<string, unknown>[];
+  parameterSets[0] = {
+    ...parameterSets[0],
+    parameters: {
+      cost_structure: {
+        partnership_discount_rate: 0.08,
+        partnership_discount_threshold: 4
+      },
+      demand_curve: {
+        max_quality_lift: 0.18,
+        price_friction_scale: 5000,
+        price_sensitivity: 0.85,
+        quality_budget_per_utility: 15000,
+        quality_lift_weight: 0.4,
+        reference_price: 12000
+      },
+      operations_constraints: {
+        max_capacity_modifier: 1.25,
+        min_service_quality_budget: 25000
+      },
+      schema_version: "wellness.parameters.v1",
+      scoring_weights: {
+        max_service_quality_bonus: 8,
+        service_quality_bonus_per_budget: 0.0001,
+        underfunded_service_penalty: 5
+      }
+    }
+  };
+  snapshot.sessions = [
+    {
+      created_at: "2026-06-20T00:00:00.000Z",
+      expires_at: "2026-06-21T00:00:00.000Z",
+      session_id: "session_structural_snapshot",
+      tenant_id: "tenant_demo",
+      token_hash: "token_hash_structural_snapshot",
+      user_id: "usr_teacher"
+    }
+  ];
+  snapshot.runs = [
+    {
+      course_id: "course_demo",
+      parameter_set_id: "param_toy_approved_1",
+      run_id: "run_structural_snapshot",
+      scenario_package_id: "scenario_eldercare_demo",
+      seed: 20260620,
+      status: "active",
+      tenant_id: "tenant_demo"
+    }
+  ];
+  snapshot.rounds = [
+    {
+      decision_batch_id: "batch_structural_snapshot",
+      replay_hash: "replay-hash-structural-round",
+      round_id: "round_structural_snapshot",
+      round_no: 1,
+      run_id: "run_structural_snapshot",
+      status: "published",
+      tenant_id: "tenant_demo"
+    }
+  ];
+  snapshot.decisions = [
+    {
+      canonical_source: "legacy_direct",
+      decision_id: "decision_structural_snapshot",
+      merge_commit_id: "merge_structural_snapshot",
+      payload: {
+        capacity_plan: "hold",
+        cash_buffer_target: 0.2,
+        marketing_budget: 180000,
+        pricing: { base_price: 12000 },
+        service_quality_budget: 30000,
+        strategy_statement: "Persist a structurally valid strategy."
+      },
+      round_id: "round_structural_snapshot",
+      round_no: 1,
+      run_id: "run_structural_snapshot",
+      status: "validated",
+      submitted_by: "usr_student",
+      team_confirmation_id: "confirmation_structural_snapshot",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo",
+      validation_report: [{ field: "payload", reason: "valid" }],
+      version: 1
+    }
+  ];
+  snapshot.settlementResults = [
+    {
+      parameter_set_id: "param_toy_approved_1",
+      replay_hash: "replay-hash-structural-settlement",
+      round_id: "round_structural_snapshot",
+      round_no: 1,
+      run_id: "run_structural_snapshot",
+      scenario_package_id: "scenario_eldercare_demo",
+      settlement_result_id: "settlement_structural_snapshot",
+      team_results: [
+        {
+          state_est: {
+            explanation: "structurally valid settlement",
+            next_round_risk: "balanced",
+            recommended_focus: "maintain service quality"
+          },
+          state_obs: {
+            demand_band: "medium",
+            profit_band: "healthy",
+            rank: 1,
+            revenue: 1200000,
+            score: 88,
+            served_demand: 100
+          },
+          state_true: {
+            cash_flow: 250000,
+            cost: 950000,
+            demand: 110,
+            market_share: 1,
+            profit: 250000,
+            rank: 1,
+            revenue: 1200000,
+            score: 88,
+            served_demand: 100,
+            settlement_status: "settled"
+          },
+          team_id: "team_alpha",
+          team_name: "Alpha snapshot"
+        }
+      ],
+      tenant_id: "tenant_demo"
+    }
+  ];
+  snapshot.auditLogs = [
+    {
+      action: "snapshot.load",
+      actor_id: "usr_teacher",
+      actor_role: "teacher",
+      after: { status: "loaded" },
+      audit_id: "audit_structural_snapshot",
+      before: { status: "stored" },
+      created_at: "2026-06-20T00:00:00.000Z",
+      request_id: "request_structural_snapshot",
+      resource_id: "snapshot_structural",
+      resource_type: "store_snapshot",
+      tenant_id: "tenant_demo"
+    }
+  ];
+  snapshot.counters = {
+    ...((snapshot.counters as Record<string, unknown> | undefined) ?? {}),
+    structural_snapshot: 1
+  };
 }
 
 function createFailingFileSystem(
@@ -286,6 +446,37 @@ describe("JSON store snapshot persistence", () => {
     expect(readSnapshot(snapshotPath).snapshot_version).toBeUndefined();
   });
 
+  it("loads a structurally valid snapshot containing every persisted collection", () => {
+    const snapshotPath = createSnapshotPath();
+    const snapshot = cloneLegacySnapshot();
+    addCompleteRuntimeCollections(snapshot);
+    const tenants = snapshot.tenants as Record<string, unknown>[];
+    tenants[0] = { ...tenants[0], unknown_extra: { retained: true } };
+    const rawSnapshot = writeSnapshot(snapshotPath, snapshot);
+
+    const store = createP1Store({ persistenceFile: snapshotPath });
+
+    expect(store.sessions).toHaveLength(1);
+    expect(store.runs.some((run) => run.run_id === "run_structural_snapshot")).toBe(true);
+    expect(store.rounds.some((round) => round.round_id === "round_structural_snapshot")).toBe(true);
+    expect(
+      store.decisions.some((decision) => decision.decision_id === "decision_structural_snapshot")
+    ).toBe(true);
+    expect(
+      store.settlementResults.some(
+        (settlement) => settlement.settlement_result_id === "settlement_structural_snapshot"
+      )
+    ).toBe(true);
+    expect(
+      store.auditLogs.some((auditLog) => auditLog.audit_id === "audit_structural_snapshot")
+    ).toBe(true);
+    expect(store.counters.structural_snapshot).toBe(1);
+    expect((store.tenants[0] as Record<string, unknown>).unknown_extra).toEqual({
+      retained: true
+    });
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+  });
+
   it.each([
     ["ordinary object", { hello: "world" }],
     ["incomplete legacy object", { tenants: [], counters: {} }]
@@ -337,6 +528,213 @@ describe("JSON store snapshot persistence", () => {
     );
 
     expect(readRaw(snapshotPath)).toBe(incompleteSnapshot);
+  });
+
+  it.each([
+    [
+      "tenants collection member id",
+      (snapshot: Record<string, unknown>) => {
+        const tenants = snapshot.tenants as Record<string, unknown>[];
+        tenants[0] = { ...tenants[0], tenant_id: 42 };
+      },
+      "tenants[0].tenant_id"
+    ],
+    [
+      "users collection required password hash",
+      (snapshot: Record<string, unknown>) => {
+        const users = snapshot.users as Record<string, unknown>[];
+        users[0] = { ...users[0] };
+        delete users[0].password_hash;
+      },
+      "users[0].password_hash"
+    ],
+    [
+      "roles collection permission key array",
+      (snapshot: Record<string, unknown>) => {
+        const roles = snapshot.roles as Record<string, unknown>[];
+        roles[0] = { ...roles[0], permission_keys: [42] };
+      },
+      "roles[0].permission_keys[0]"
+    ],
+    [
+      "permissions collection key enum",
+      (snapshot: Record<string, unknown>) => {
+        const permissions = snapshot.permissions as Record<string, unknown>[];
+        permissions[0] = { ...permissions[0], key: "not:a-permission" };
+      },
+      "permissions[0].key"
+    ],
+    [
+      "userRoles collection role id",
+      (snapshot: Record<string, unknown>) => {
+        const userRoles = snapshot.userRoles as Record<string, unknown>[];
+        userRoles[0] = { ...userRoles[0], role_id: 42 };
+      },
+      "userRoles[0].role_id"
+    ],
+    [
+      "rolePermissions collection permission id",
+      (snapshot: Record<string, unknown>) => {
+        const rolePermissions = snapshot.rolePermissions as Record<string, unknown>[];
+        rolePermissions[0] = { ...rolePermissions[0], permission_id: 42 };
+      },
+      "rolePermissions[0].permission_id"
+    ],
+    [
+      "sessions collection token hash",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const sessions = snapshot.sessions as Record<string, unknown>[];
+        sessions[0] = { ...sessions[0], token_hash: 42 };
+      },
+      "sessions[0].token_hash"
+    ],
+    [
+      "scenarios collection plugin package id array",
+      (snapshot: Record<string, unknown>) => {
+        const scenarios = snapshot.scenarios as Record<string, unknown>[];
+        scenarios[0] = { ...scenarios[0], plugin_package_ids: [42] };
+      },
+      "scenarios[0].plugin_package_ids[0]"
+    ],
+    [
+      "parameterSets collection numeric seed",
+      (snapshot: Record<string, unknown>) => {
+        const parameterSets = snapshot.parameterSets as Record<string, unknown>[];
+        parameterSets[0] = { ...parameterSets[0], seed: "44" };
+      },
+      "parameterSets[0].seed"
+    ],
+    [
+      "parameterSets collection optional wellness parameter structure",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const parameterSets = snapshot.parameterSets as Record<string, unknown>[];
+        const parameterSet = parameterSets[0] as Record<string, unknown>;
+        const parameters = parameterSet.parameters as Record<string, unknown>;
+        const demandCurve = parameters.demand_curve as Record<string, unknown>;
+        parameterSet.parameters = {
+          ...parameters,
+          demand_curve: { ...demandCurve, reference_price: "12000" }
+        };
+      },
+      "parameterSets[0].parameters.demand_curve.reference_price"
+    ],
+    [
+      "courses collection scenario package id",
+      (snapshot: Record<string, unknown>) => {
+        const courses = snapshot.courses as Record<string, unknown>[];
+        courses[0] = { ...courses[0], scenario_package_id: 42 };
+      },
+      "courses[0].scenario_package_id"
+    ],
+    [
+      "teams collection member role slot",
+      (snapshot: Record<string, unknown>) => {
+        const teams = snapshot.teams as Record<string, unknown>[];
+        teams[0] = {
+          ...teams[0],
+          members: [{ display_name: "P0 Student", role_slot: "CIO", user_id: "usr_student" }]
+        };
+      },
+      "teams[0].members[0].role_slot"
+    ],
+    [
+      "runs collection parameter set id",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const runs = snapshot.runs as Record<string, unknown>[];
+        runs[0] = { ...runs[0], parameter_set_id: 42 };
+      },
+      "runs[0].parameter_set_id"
+    ],
+    [
+      "rounds collection run id",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const rounds = snapshot.rounds as Record<string, unknown>[];
+        rounds[0] = { ...rounds[0], run_id: 42 };
+      },
+      "rounds[0].run_id"
+    ],
+    [
+      "decisions collection payload",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const decisions = snapshot.decisions as Record<string, unknown>[];
+        const decision = decisions[0] as Record<string, unknown>;
+        decision.payload = {
+          ...(decision.payload as Record<string, unknown>),
+          pricing: { base_price: "12000" }
+        };
+      },
+      "decisions[0].payload.pricing.base_price"
+    ],
+    [
+      "settlementResults collection nested truth field",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const settlementResults = snapshot.settlementResults as Record<string, unknown>[];
+        const settlement = settlementResults[0] as Record<string, unknown>;
+        const teamResults = settlement.team_results as Record<string, unknown>[];
+        const teamResult = teamResults[0] as Record<string, unknown>;
+        const stateTrue = teamResult.state_true as Record<string, unknown>;
+        teamResult.state_true = { ...stateTrue, profit: "250000" };
+      },
+      "settlementResults[0].team_results[0].state_true.profit"
+    ],
+    [
+      "auditLogs collection actor role",
+      (snapshot: Record<string, unknown>) => {
+        addCompleteRuntimeCollections(snapshot);
+        const auditLogs = snapshot.auditLogs as Record<string, unknown>[];
+        auditLogs[0] = { ...auditLogs[0], actor_role: "owner" };
+      },
+      "auditLogs[0].actor_role"
+    ],
+    [
+      "counters object numeric value",
+      (snapshot: Record<string, unknown>) => {
+        const counters = snapshot.counters as Record<string, unknown>;
+        counters.bad_counter = "1";
+      },
+      "counters.bad_counter"
+    ]
+  ])(
+    "treats a snapshot containing a malformed %s as corrupted with a safe path",
+    (_label, mutate, field) => {
+      const snapshotPath = createSnapshotPath();
+      const snapshot = cloneLegacySnapshot();
+      mutate(snapshot);
+      const rawSnapshot = writeSnapshot(snapshotPath, snapshot);
+
+      expectSnapshotFieldError(() => createP1Store({ persistenceFile: snapshotPath }), field);
+      expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    }
+  );
+
+  it("reports deep validation errors without leaking sensitive payload values", () => {
+    const snapshotPath = createSnapshotPath();
+    const sensitiveSentinel = "SENSITIVE_SENTINEL_PASSWORD_TOKEN";
+    const snapshot = cloneLegacySnapshot();
+    addCompleteRuntimeCollections(snapshot);
+    const decisions = snapshot.decisions as Record<string, unknown>[];
+    const decision = decisions[0] as Record<string, unknown>;
+    decision.payload = {
+      ...(decision.payload as Record<string, unknown>),
+      pricing: { base_price: "12000" },
+      strategy_statement: sensitiveSentinel
+    };
+    const rawSnapshot = writeSnapshot(snapshotPath, snapshot);
+
+    const error = expectSnapshotFieldError(
+      () => createP1Store({ persistenceFile: snapshotPath }),
+      "decisions[0].payload.pricing.base_price"
+    );
+
+    expect(error.message).not.toContain(sensitiveSentinel);
+    expect(JSON.stringify(error.cause)).not.toContain(sensitiveSentinel);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
   });
 
   it("fails read errors without falling back to seed data", () => {
@@ -523,10 +921,12 @@ describe("JSON store snapshot persistence", () => {
     store.decisions.push({
       decision_id: "decision_snapshot_context_1",
       payload: {
-        capacity: { planned_units: 120 },
-        marketing: { channel_mix: { offline: 0.4, online: 0.6 } },
-        operations: { service_quality_budget: 30000 },
-        pricing: { base_price: 12000 }
+        capacity_plan: "hold",
+        cash_buffer_target: 0.2,
+        marketing_budget: 180000,
+        pricing: { base_price: 12000 },
+        service_quality_budget: 30000,
+        strategy_statement: "Persist a balanced multi-round strategy."
       },
       round_id: "round_snapshot_context_1",
       round_no: 1,
@@ -535,7 +935,7 @@ describe("JSON store snapshot persistence", () => {
       submitted_by: "usr_student",
       team_id: "team_alpha",
       tenant_id: "tenant_demo",
-      validation_report: { errors: [], warnings: [] },
+      validation_report: [],
       version: 1
     });
     store.settlementResults.push({
@@ -603,11 +1003,31 @@ describe("JSON store snapshot persistence", () => {
     const snapshotPath = createSnapshotPath();
     const store = createP1Store({ persistenceFile: snapshotPath });
 
+    store.scenarios.push({
+      name: "Other Tenant Snapshot Scenario",
+      plugin_package_ids: [],
+      scenario_package_id: "scenario_other_snapshot",
+      status: "approved",
+      tenant_id: "tenant_other",
+      version: "1.0.0"
+    });
+    store.parameterSets.push({
+      base_capacity: 90,
+      base_market_size: 180,
+      fixed_cost: 90000,
+      model_family: "toy_logit",
+      parameter_set_id: "param_other_snapshot",
+      seed: 44,
+      status: "approved",
+      tenant_id: "tenant_other",
+      unit_cost: 4000,
+      version: "1.0.0"
+    });
     store.courses.push({
       course_id: "course_other_snapshot",
       created_by: "usr_other_teacher",
-      parameter_set_id: "param_toy_approved_1",
-      scenario_package_id: "scenario_eldercare_demo",
+      parameter_set_id: "param_other_snapshot",
+      scenario_package_id: "scenario_other_snapshot",
       status: "published",
       tenant_id: "tenant_other",
       title: "Other Tenant Snapshot Course"
@@ -622,9 +1042,9 @@ describe("JSON store snapshot persistence", () => {
     });
     store.runs.push({
       course_id: "course_other_snapshot",
-      parameter_set_id: "param_toy_approved_1",
+      parameter_set_id: "param_other_snapshot",
       run_id: "run_other_snapshot",
-      scenario_package_id: "scenario_eldercare_demo",
+      scenario_package_id: "scenario_other_snapshot",
       seed: 44,
       status: "active",
       tenant_id: "tenant_other"

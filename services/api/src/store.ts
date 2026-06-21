@@ -407,6 +407,732 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function failCorruptedSnapshot(snapshotPath: string, fieldPath?: string): never {
+  throw new StoreSnapshotError(
+    "store_snapshot_corrupted",
+    snapshotPath,
+    fieldPath ? { field: fieldPath } : undefined
+  );
+}
+
+function assertRecordValue(
+  value: unknown,
+  snapshotPath: string,
+  fieldPath?: string
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    failCorruptedSnapshot(snapshotPath, fieldPath);
+  }
+
+  return value;
+}
+
+function assertStringField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): string {
+  const candidate = value[field];
+
+  if (typeof candidate !== "string" || candidate.length === 0) {
+    failCorruptedSnapshot(snapshotPath, fieldPath ?? field);
+  }
+
+  return candidate;
+}
+
+function assertOptionalStringField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): string | undefined {
+  const candidate = value[field];
+
+  if (candidate === undefined) {
+    return undefined;
+  }
+
+  if (typeof candidate !== "string" || candidate.length === 0) {
+    failCorruptedSnapshot(snapshotPath, fieldPath ?? field);
+  }
+
+  return candidate;
+}
+
+function assertNumberField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): number {
+  const candidate = value[field];
+
+  if (typeof candidate !== "number" || !Number.isFinite(candidate)) {
+    failCorruptedSnapshot(snapshotPath, fieldPath ?? field);
+  }
+
+  return candidate;
+}
+
+function assertRecordField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): Record<string, unknown> {
+  return assertRecordValue(value[field], snapshotPath, fieldPath ?? field);
+}
+
+function assertRecordArray(
+  value: unknown[],
+  snapshotPath: string,
+  fieldPath?: string
+): Record<string, unknown>[] {
+  return value.map((item, index) =>
+    assertRecordValue(item, snapshotPath, fieldPath ? `${fieldPath}[${index}]` : undefined)
+  );
+}
+
+function assertStringArrayField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): string[] {
+  const candidate = value[field];
+  const path = fieldPath ?? field;
+
+  if (!Array.isArray(candidate)) {
+    failCorruptedSnapshot(snapshotPath, path);
+  }
+
+  for (const [index, item] of candidate.entries()) {
+    if (typeof item !== "string" || item.length === 0) {
+      failCorruptedSnapshot(snapshotPath, `${path}[${index}]`);
+    }
+  }
+
+  return candidate;
+}
+
+function assertRecordArrayField(
+  value: Record<string, unknown>,
+  field: string,
+  snapshotPath: string,
+  fieldPath?: string
+): Record<string, unknown>[] {
+  const candidate = value[field];
+  const path = fieldPath ?? field;
+
+  if (!Array.isArray(candidate)) {
+    failCorruptedSnapshot(snapshotPath, path);
+  }
+
+  return assertRecordArray(candidate, snapshotPath, path);
+}
+
+function assertEnumField<T extends string>(
+  value: Record<string, unknown>,
+  field: string,
+  allowed: ReadonlySet<T>,
+  snapshotPath: string,
+  fieldPath?: string
+): T {
+  const candidate = assertStringField(value, field, snapshotPath, fieldPath);
+
+  if (!allowed.has(candidate as T)) {
+    failCorruptedSnapshot(snapshotPath, fieldPath ?? field);
+  }
+
+  return candidate as T;
+}
+
+function assertOptionalEnumField<T extends string>(
+  value: Record<string, unknown>,
+  field: string,
+  allowed: ReadonlySet<T>,
+  snapshotPath: string,
+  fieldPath?: string
+): T | undefined {
+  const candidate = assertOptionalStringField(value, field, snapshotPath, fieldPath);
+
+  if (candidate === undefined) {
+    return undefined;
+  }
+
+  if (!allowed.has(candidate as T)) {
+    failCorruptedSnapshot(snapshotPath, fieldPath ?? field);
+  }
+
+  return candidate as T;
+}
+
+function assertValidationReport(value: unknown, snapshotPath: string, fieldPath: string): void {
+  if (!Array.isArray(value)) {
+    failCorruptedSnapshot(snapshotPath, fieldPath);
+  }
+
+  for (const [index, detail] of value.entries()) {
+    const detailPath = `${fieldPath}[${index}]`;
+    const record = assertRecordValue(detail, snapshotPath, detailPath);
+    assertStringField(record, "reason", snapshotPath, `${detailPath}.reason`);
+    assertOptionalStringField(record, "field", snapshotPath, `${detailPath}.field`);
+  }
+}
+
+function assertDecisionPayload(value: unknown, snapshotPath: string, fieldPath: string): void {
+  const payload = assertRecordValue(value, snapshotPath, fieldPath);
+  const pricing = assertRecordField(payload, "pricing", snapshotPath, `${fieldPath}.pricing`);
+  assertNumberField(pricing, "base_price", snapshotPath, `${fieldPath}.pricing.base_price`);
+  assertNumberField(payload, "marketing_budget", snapshotPath, `${fieldPath}.marketing_budget`);
+  assertNumberField(
+    payload,
+    "service_quality_budget",
+    snapshotPath,
+    `${fieldPath}.service_quality_budget`
+  );
+
+  assertEnumField(
+    payload,
+    "capacity_plan",
+    new Set(["contract", "hold", "expand"] as const),
+    snapshotPath,
+    `${fieldPath}.capacity_plan`
+  );
+
+  assertNumberField(payload, "cash_buffer_target", snapshotPath, `${fieldPath}.cash_buffer_target`);
+  assertStringField(payload, "strategy_statement", snapshotPath, `${fieldPath}.strategy_statement`);
+}
+
+function assertTeamSettlement(value: unknown, snapshotPath: string, fieldPath: string): void {
+  const settlement = assertRecordValue(value, snapshotPath, fieldPath);
+  assertStringField(settlement, "team_id", snapshotPath, `${fieldPath}.team_id`);
+  assertStringField(settlement, "team_name", snapshotPath, `${fieldPath}.team_name`);
+
+  const stateTrue = assertRecordField(
+    settlement,
+    "state_true",
+    snapshotPath,
+    `${fieldPath}.state_true`
+  );
+  for (const field of [
+    "market_share",
+    "demand",
+    "served_demand",
+    "revenue",
+    "cost",
+    "profit",
+    "cash_flow",
+    "score",
+    "rank"
+  ]) {
+    assertNumberField(stateTrue, field, snapshotPath, `${fieldPath}.state_true.${field}`);
+  }
+  assertEnumField(
+    stateTrue,
+    "settlement_status",
+    new Set(["settled"] as const),
+    snapshotPath,
+    `${fieldPath}.state_true.settlement_status`
+  );
+
+  const stateObs = assertRecordField(
+    settlement,
+    "state_obs",
+    snapshotPath,
+    `${fieldPath}.state_obs`
+  );
+  assertEnumField(
+    stateObs,
+    "demand_band",
+    new Set(["low", "medium", "high"] as const),
+    snapshotPath,
+    `${fieldPath}.state_obs.demand_band`
+  );
+  assertNumberField(
+    stateObs,
+    "served_demand",
+    snapshotPath,
+    `${fieldPath}.state_obs.served_demand`
+  );
+  assertNumberField(stateObs, "revenue", snapshotPath, `${fieldPath}.state_obs.revenue`);
+  assertEnumField(
+    stateObs,
+    "profit_band",
+    new Set(["loss", "thin", "healthy"] as const),
+    snapshotPath,
+    `${fieldPath}.state_obs.profit_band`
+  );
+  assertNumberField(stateObs, "score", snapshotPath, `${fieldPath}.state_obs.score`);
+  assertNumberField(stateObs, "rank", snapshotPath, `${fieldPath}.state_obs.rank`);
+
+  const stateEst = assertRecordField(
+    settlement,
+    "state_est",
+    snapshotPath,
+    `${fieldPath}.state_est`
+  );
+  assertEnumField(
+    stateEst,
+    "next_round_risk",
+    new Set(["capacity", "cash", "demand", "balanced"] as const),
+    snapshotPath,
+    `${fieldPath}.state_est.next_round_risk`
+  );
+  assertStringField(stateEst, "explanation", snapshotPath, `${fieldPath}.state_est.explanation`);
+  assertStringField(
+    stateEst,
+    "recommended_focus",
+    snapshotPath,
+    `${fieldPath}.state_est.recommended_focus`
+  );
+}
+
+function assertWellnessParameters(value: unknown, snapshotPath: string, fieldPath: string): void {
+  const parameters = assertRecordValue(value, snapshotPath, fieldPath);
+  assertEnumField(
+    parameters,
+    "schema_version",
+    new Set(["wellness.parameters.v1"] as const),
+    snapshotPath,
+    `${fieldPath}.schema_version`
+  );
+
+  const demandCurve = assertRecordField(
+    parameters,
+    "demand_curve",
+    snapshotPath,
+    `${fieldPath}.demand_curve`
+  );
+  for (const field of [
+    "reference_price",
+    "price_friction_scale",
+    "quality_budget_per_utility",
+    "max_quality_lift",
+    "quality_lift_weight",
+    "price_sensitivity"
+  ]) {
+    assertNumberField(demandCurve, field, snapshotPath, `${fieldPath}.demand_curve.${field}`);
+  }
+
+  const costStructure = assertRecordField(
+    parameters,
+    "cost_structure",
+    snapshotPath,
+    `${fieldPath}.cost_structure`
+  );
+  assertNumberField(
+    costStructure,
+    "partnership_discount_threshold",
+    snapshotPath,
+    `${fieldPath}.cost_structure.partnership_discount_threshold`
+  );
+  assertNumberField(
+    costStructure,
+    "partnership_discount_rate",
+    snapshotPath,
+    `${fieldPath}.cost_structure.partnership_discount_rate`
+  );
+
+  const operationsConstraints = assertRecordField(
+    parameters,
+    "operations_constraints",
+    snapshotPath,
+    `${fieldPath}.operations_constraints`
+  );
+  assertNumberField(
+    operationsConstraints,
+    "max_capacity_modifier",
+    snapshotPath,
+    `${fieldPath}.operations_constraints.max_capacity_modifier`
+  );
+  assertNumberField(
+    operationsConstraints,
+    "min_service_quality_budget",
+    snapshotPath,
+    `${fieldPath}.operations_constraints.min_service_quality_budget`
+  );
+
+  const scoringWeights = assertRecordField(
+    parameters,
+    "scoring_weights",
+    snapshotPath,
+    `${fieldPath}.scoring_weights`
+  );
+  assertNumberField(
+    scoringWeights,
+    "service_quality_bonus_per_budget",
+    snapshotPath,
+    `${fieldPath}.scoring_weights.service_quality_bonus_per_budget`
+  );
+  assertNumberField(
+    scoringWeights,
+    "max_service_quality_bonus",
+    snapshotPath,
+    `${fieldPath}.scoring_weights.max_service_quality_bonus`
+  );
+  assertNumberField(
+    scoringWeights,
+    "underfunded_service_penalty",
+    snapshotPath,
+    `${fieldPath}.scoring_weights.underfunded_service_penalty`
+  );
+}
+
+function assertSnapshotEntities(snapshot: SimWarStoreSnapshot, snapshotPath: string): void {
+  const tenantStatuses = new Set(["active", "suspended", "archived"] as const);
+  const userStatuses = new Set(["active", "invited", "disabled"] as const);
+  const courseStatuses = new Set(["draft", "published", "active", "archived"] as const);
+  const runStatuses = new Set(["draft", "active", "completed"] as const);
+  const roundStatuses = new Set(["draft", "open", "locked", "settled", "published"] as const);
+  const decisionStatuses = new Set(["draft", "submitted", "validated", "rejected"] as const);
+  const parameterSetStatuses = new Set([
+    "draft",
+    "candidate",
+    "shadow_passed",
+    "approved",
+    "deprecated"
+  ] as const);
+  const actorRoles = new Set(
+    Object.keys(ROLE_PERMISSION_MATRIX).concat(["student", "admin", "service"])
+  );
+  const roleSlots = new Set(["CEO", "CFO", "CMO", "COO", "risk"] as const);
+  const permissionKeySet = new Set<string>(permissionKeys);
+
+  for (const [index, tenant] of assertRecordArray(
+    snapshot.tenants,
+    snapshotPath,
+    "tenants"
+  ).entries()) {
+    const path = `tenants[${index}]`;
+    assertStringField(tenant, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(tenant, "name", snapshotPath, `${path}.name`);
+    assertStringField(tenant, "domain", snapshotPath, `${path}.domain`);
+    assertEnumField(tenant, "status", tenantStatuses, snapshotPath, `${path}.status`);
+    assertStringField(tenant, "created_at", snapshotPath, `${path}.created_at`);
+    assertStringField(tenant, "updated_at", snapshotPath, `${path}.updated_at`);
+  }
+
+  for (const [index, user] of assertRecordArray(snapshot.users, snapshotPath, "users").entries()) {
+    const path = `users[${index}]`;
+    assertStringField(user, "user_id", snapshotPath, `${path}.user_id`);
+    assertStringField(user, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(user, "username", snapshotPath, `${path}.username`);
+    assertStringField(user, "email", snapshotPath, `${path}.email`);
+    assertStringField(user, "display_name", snapshotPath, `${path}.display_name`);
+    assertStringField(user, "password_hash", snapshotPath, `${path}.password_hash`);
+    assertEnumField(user, "status", userStatuses, snapshotPath, `${path}.status`);
+    assertStringField(user, "created_at", snapshotPath, `${path}.created_at`);
+    assertStringField(user, "updated_at", snapshotPath, `${path}.updated_at`);
+    assertOptionalStringField(user, "team_id", snapshotPath, `${path}.team_id`);
+    for (const [roleIndex, role] of assertStringArrayField(
+      user,
+      "roles",
+      snapshotPath,
+      `${path}.roles`
+    ).entries()) {
+      if (!actorRoles.has(role)) {
+        failCorruptedSnapshot(snapshotPath, `${path}.roles[${roleIndex}]`);
+      }
+    }
+    const permissions = user.permissions;
+    if (permissions !== undefined) {
+      if (!Array.isArray(permissions)) {
+        failCorruptedSnapshot(snapshotPath, `${path}.permissions`);
+      }
+      for (const [permissionIndex, permission] of permissions.entries()) {
+        if (typeof permission !== "string" || !permissionKeySet.has(permission)) {
+          failCorruptedSnapshot(snapshotPath, `${path}.permissions[${permissionIndex}]`);
+        }
+      }
+    }
+  }
+
+  for (const [index, role] of assertRecordArray(snapshot.roles, snapshotPath, "roles").entries()) {
+    const path = `roles[${index}]`;
+    assertStringField(role, "role_id", snapshotPath, `${path}.role_id`);
+    assertOptionalStringField(role, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    const roleName = assertStringField(role, "name", snapshotPath, `${path}.name`);
+    if (!actorRoles.has(roleName)) {
+      failCorruptedSnapshot(snapshotPath, `${path}.name`);
+    }
+    assertStringField(role, "display_name", snapshotPath, `${path}.display_name`);
+    assertStringField(role, "created_at", snapshotPath, `${path}.created_at`);
+    assertStringField(role, "updated_at", snapshotPath, `${path}.updated_at`);
+    for (const [keyIndex, key] of assertStringArrayField(
+      role,
+      "permission_keys",
+      snapshotPath,
+      `${path}.permission_keys`
+    ).entries()) {
+      if (!permissionKeySet.has(key)) {
+        failCorruptedSnapshot(snapshotPath, `${path}.permission_keys[${keyIndex}]`);
+      }
+    }
+  }
+
+  for (const [index, permission] of assertRecordArray(
+    snapshot.permissions,
+    snapshotPath,
+    "permissions"
+  ).entries()) {
+    const path = `permissions[${index}]`;
+    assertStringField(permission, "permission_id", snapshotPath, `${path}.permission_id`);
+    const key = assertStringField(permission, "key", snapshotPath, `${path}.key`);
+    if (!permissionKeySet.has(key)) {
+      failCorruptedSnapshot(snapshotPath, `${path}.key`);
+    }
+    assertStringField(permission, "action", snapshotPath, `${path}.action`);
+    assertStringField(permission, "resource", snapshotPath, `${path}.resource`);
+    assertStringField(permission, "description", snapshotPath, `${path}.description`);
+  }
+
+  for (const [index, userRole] of assertRecordArray(
+    snapshot.userRoles,
+    snapshotPath,
+    "userRoles"
+  ).entries()) {
+    const path = `userRoles[${index}]`;
+    assertStringField(userRole, "user_id", snapshotPath, `${path}.user_id`);
+    assertStringField(userRole, "role_id", snapshotPath, `${path}.role_id`);
+    assertStringField(userRole, "tenant_id", snapshotPath, `${path}.tenant_id`);
+  }
+
+  for (const [index, rolePermission] of assertRecordArray(
+    snapshot.rolePermissions,
+    snapshotPath,
+    "rolePermissions"
+  ).entries()) {
+    const path = `rolePermissions[${index}]`;
+    assertStringField(rolePermission, "role_id", snapshotPath, `${path}.role_id`);
+    assertStringField(rolePermission, "permission_id", snapshotPath, `${path}.permission_id`);
+  }
+
+  for (const [index, session] of assertRecordArray(
+    snapshot.sessions,
+    snapshotPath,
+    "sessions"
+  ).entries()) {
+    const path = `sessions[${index}]`;
+    assertStringField(session, "session_id", snapshotPath, `${path}.session_id`);
+    assertStringField(session, "user_id", snapshotPath, `${path}.user_id`);
+    assertStringField(session, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(session, "token_hash", snapshotPath, `${path}.token_hash`);
+    assertStringField(session, "expires_at", snapshotPath, `${path}.expires_at`);
+    assertStringField(session, "created_at", snapshotPath, `${path}.created_at`);
+    assertOptionalStringField(session, "revoked_at", snapshotPath, `${path}.revoked_at`);
+  }
+
+  for (const [index, scenario] of assertRecordArray(
+    snapshot.scenarios,
+    snapshotPath,
+    "scenarios"
+  ).entries()) {
+    const path = `scenarios[${index}]`;
+    assertStringField(scenario, "scenario_package_id", snapshotPath, `${path}.scenario_package_id`);
+    assertStringField(scenario, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(scenario, "name", snapshotPath, `${path}.name`);
+    assertStringField(scenario, "version", snapshotPath, `${path}.version`);
+    assertEnumField(
+      scenario,
+      "status",
+      new Set(["approved"] as const),
+      snapshotPath,
+      `${path}.status`
+    );
+    assertStringArrayField(
+      scenario,
+      "plugin_package_ids",
+      snapshotPath,
+      `${path}.plugin_package_ids`
+    );
+  }
+
+  for (const [index, parameterSet] of assertRecordArray(
+    snapshot.parameterSets,
+    snapshotPath,
+    "parameterSets"
+  ).entries()) {
+    const path = `parameterSets[${index}]`;
+    assertStringField(parameterSet, "parameter_set_id", snapshotPath, `${path}.parameter_set_id`);
+    assertStringField(parameterSet, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(parameterSet, "version", snapshotPath, `${path}.version`);
+    assertEnumField(parameterSet, "status", parameterSetStatuses, snapshotPath, `${path}.status`);
+    assertEnumField(
+      parameterSet,
+      "model_family",
+      new Set(["toy_logit"] as const),
+      snapshotPath,
+      `${path}.model_family`
+    );
+    assertNumberField(parameterSet, "seed", snapshotPath, `${path}.seed`);
+    assertNumberField(parameterSet, "base_market_size", snapshotPath, `${path}.base_market_size`);
+    assertNumberField(parameterSet, "base_capacity", snapshotPath, `${path}.base_capacity`);
+    assertNumberField(parameterSet, "unit_cost", snapshotPath, `${path}.unit_cost`);
+    assertNumberField(parameterSet, "fixed_cost", snapshotPath, `${path}.fixed_cost`);
+    if (parameterSet.parameters !== undefined) {
+      assertWellnessParameters(parameterSet.parameters, snapshotPath, `${path}.parameters`);
+    }
+  }
+
+  for (const [index, course] of assertRecordArray(
+    snapshot.courses,
+    snapshotPath,
+    "courses"
+  ).entries()) {
+    const path = `courses[${index}]`;
+    assertStringField(course, "course_id", snapshotPath, `${path}.course_id`);
+    assertStringField(course, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(course, "title", snapshotPath, `${path}.title`);
+    assertEnumField(course, "status", courseStatuses, snapshotPath, `${path}.status`);
+    assertStringField(course, "scenario_package_id", snapshotPath, `${path}.scenario_package_id`);
+    assertStringField(course, "parameter_set_id", snapshotPath, `${path}.parameter_set_id`);
+    assertStringField(course, "created_by", snapshotPath, `${path}.created_by`);
+  }
+
+  for (const [index, team] of assertRecordArray(snapshot.teams, snapshotPath, "teams").entries()) {
+    const path = `teams[${index}]`;
+    assertStringField(team, "team_id", snapshotPath, `${path}.team_id`);
+    assertStringField(team, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(team, "course_id", snapshotPath, `${path}.course_id`);
+    assertStringField(team, "name", snapshotPath, `${path}.name`);
+    assertStringField(team, "captain_user_id", snapshotPath, `${path}.captain_user_id`);
+    for (const [memberIndex, member] of assertRecordArrayField(
+      team,
+      "members",
+      snapshotPath,
+      `${path}.members`
+    ).entries()) {
+      const memberPath = `${path}.members[${memberIndex}]`;
+      assertStringField(member, "user_id", snapshotPath, `${memberPath}.user_id`);
+      assertStringField(member, "display_name", snapshotPath, `${memberPath}.display_name`);
+      assertEnumField(member, "role_slot", roleSlots, snapshotPath, `${memberPath}.role_slot`);
+    }
+  }
+
+  for (const [index, run] of assertRecordArray(snapshot.runs, snapshotPath, "runs").entries()) {
+    const path = `runs[${index}]`;
+    assertStringField(run, "run_id", snapshotPath, `${path}.run_id`);
+    assertStringField(run, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(run, "course_id", snapshotPath, `${path}.course_id`);
+    assertStringField(run, "scenario_package_id", snapshotPath, `${path}.scenario_package_id`);
+    assertStringField(run, "parameter_set_id", snapshotPath, `${path}.parameter_set_id`);
+    assertNumberField(run, "seed", snapshotPath, `${path}.seed`);
+    assertEnumField(run, "status", runStatuses, snapshotPath, `${path}.status`);
+  }
+
+  for (const [index, round] of assertRecordArray(
+    snapshot.rounds,
+    snapshotPath,
+    "rounds"
+  ).entries()) {
+    const path = `rounds[${index}]`;
+    assertStringField(round, "round_id", snapshotPath, `${path}.round_id`);
+    assertStringField(round, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(round, "run_id", snapshotPath, `${path}.run_id`);
+    assertNumberField(round, "round_no", snapshotPath, `${path}.round_no`);
+    assertEnumField(round, "status", roundStatuses, snapshotPath, `${path}.status`);
+    assertOptionalStringField(
+      round,
+      "decision_batch_id",
+      snapshotPath,
+      `${path}.decision_batch_id`
+    );
+    assertOptionalStringField(round, "replay_hash", snapshotPath, `${path}.replay_hash`);
+  }
+
+  for (const [index, decision] of assertRecordArray(
+    snapshot.decisions,
+    snapshotPath,
+    "decisions"
+  ).entries()) {
+    const path = `decisions[${index}]`;
+    assertStringField(decision, "decision_id", snapshotPath, `${path}.decision_id`);
+    assertStringField(decision, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(decision, "run_id", snapshotPath, `${path}.run_id`);
+    assertStringField(decision, "round_id", snapshotPath, `${path}.round_id`);
+    assertNumberField(decision, "round_no", snapshotPath, `${path}.round_no`);
+    assertStringField(decision, "team_id", snapshotPath, `${path}.team_id`);
+    assertEnumField(decision, "status", decisionStatuses, snapshotPath, `${path}.status`);
+    assertNumberField(decision, "version", snapshotPath, `${path}.version`);
+    assertDecisionPayload(decision.payload, snapshotPath, `${path}.payload`);
+    assertValidationReport(decision.validation_report, snapshotPath, `${path}.validation_report`);
+    assertStringField(decision, "submitted_by", snapshotPath, `${path}.submitted_by`);
+    assertOptionalEnumField(
+      decision,
+      "canonical_source",
+      new Set(["legacy_direct", "role_merge_commit"] as const),
+      snapshotPath,
+      `${path}.canonical_source`
+    );
+    assertOptionalStringField(decision, "merge_commit_id", snapshotPath, `${path}.merge_commit_id`);
+    assertOptionalStringField(
+      decision,
+      "team_confirmation_id",
+      snapshotPath,
+      `${path}.team_confirmation_id`
+    );
+  }
+
+  for (const [index, result] of assertRecordArray(
+    snapshot.settlementResults,
+    snapshotPath,
+    "settlementResults"
+  ).entries()) {
+    const path = `settlementResults[${index}]`;
+    assertStringField(result, "settlement_result_id", snapshotPath, `${path}.settlement_result_id`);
+    assertStringField(result, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(result, "run_id", snapshotPath, `${path}.run_id`);
+    assertStringField(result, "round_id", snapshotPath, `${path}.round_id`);
+    assertNumberField(result, "round_no", snapshotPath, `${path}.round_no`);
+    assertStringField(result, "parameter_set_id", snapshotPath, `${path}.parameter_set_id`);
+    assertStringField(result, "scenario_package_id", snapshotPath, `${path}.scenario_package_id`);
+    assertStringField(result, "replay_hash", snapshotPath, `${path}.replay_hash`);
+    for (const [teamResultIndex, teamResult] of assertRecordArrayField(
+      result,
+      "team_results",
+      snapshotPath,
+      `${path}.team_results`
+    ).entries()) {
+      assertTeamSettlement(teamResult, snapshotPath, `${path}.team_results[${teamResultIndex}]`);
+    }
+  }
+
+  for (const [index, auditLog] of assertRecordArray(
+    snapshot.auditLogs,
+    snapshotPath,
+    "auditLogs"
+  ).entries()) {
+    const path = `auditLogs[${index}]`;
+    assertStringField(auditLog, "audit_id", snapshotPath, `${path}.audit_id`);
+    assertStringField(auditLog, "tenant_id", snapshotPath, `${path}.tenant_id`);
+    assertStringField(auditLog, "actor_id", snapshotPath, `${path}.actor_id`);
+    const actorRole = assertStringField(auditLog, "actor_role", snapshotPath, `${path}.actor_role`);
+    if (!actorRoles.has(actorRole)) {
+      failCorruptedSnapshot(snapshotPath, `${path}.actor_role`);
+    }
+    assertStringField(auditLog, "action", snapshotPath, `${path}.action`);
+    assertStringField(auditLog, "resource_type", snapshotPath, `${path}.resource_type`);
+    assertStringField(auditLog, "resource_id", snapshotPath, `${path}.resource_id`);
+    assertStringField(auditLog, "request_id", snapshotPath, `${path}.request_id`);
+    assertStringField(auditLog, "created_at", snapshotPath, `${path}.created_at`);
+    if (auditLog.before !== undefined) {
+      assertRecordValue(auditLog.before, snapshotPath, `${path}.before`);
+    }
+    if (auditLog.after !== undefined) {
+      assertRecordValue(auditLog.after, snapshotPath, `${path}.after`);
+    }
+  }
+
+  for (const [key, value] of Object.entries(snapshot.counters)) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      failCorruptedSnapshot(snapshotPath, `counters.${key}`);
+    }
+  }
+}
+
 function createSnapshotVersionErrorCause(
   reason: "invalid" | "unsupported",
   snapshotVersion: unknown
@@ -483,6 +1209,8 @@ function assertSnapshotShape(
   if (!isRecord(value.counters)) {
     throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
   }
+
+  assertSnapshotEntities(value as unknown as SimWarStoreSnapshot, snapshotPath);
 }
 
 function toRuntimeSnapshot(value: unknown, snapshotPath: string): SimWarStoreSnapshot {
