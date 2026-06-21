@@ -135,6 +135,18 @@ export type SnapshotInspectionResult =
       error: SnapshotInspectionError;
     });
 
+export interface SnapshotBackupOptions {
+  backupDirectory?: string;
+  label?: string;
+}
+
+export interface SnapshotBackupResult {
+  sourcePath: string;
+  backupPath: string;
+  createdAt: string;
+  bytes: number;
+}
+
 const nodeSnapshotFileSystem: SnapshotFileSystem = {
   readFile: (path) => readFileSync(path, "utf8"),
   mkdir: (path) => mkdirSync(path, { recursive: true }),
@@ -1422,6 +1434,78 @@ export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInsp
       ...(isNodeError(error) && error.code ? { code: error.code } : {})
     });
   }
+}
+
+function formatSnapshotBackupTimestamp(createdAt: string): string {
+  return createdAt.replace(/[^0-9A-Za-z-]/g, "-");
+}
+
+function sanitizeSnapshotBackupLabel(label?: string): string | undefined {
+  if (!label) {
+    return undefined;
+  }
+
+  const sanitized = label
+    .trim()
+    .replace(/[^0-9A-Za-z._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
+export function createSnapshotBackupBeforeWrite(
+  snapshotPath: string,
+  options: SnapshotBackupOptions = {}
+): SnapshotBackupResult {
+  const absoluteSourcePath = resolve(snapshotPath);
+  const backupDirectory = resolve(
+    options.backupDirectory ?? join(dirname(absoluteSourcePath), ".snapshot-backups")
+  );
+  const createdAt = new Date().toISOString();
+  const label = sanitizeSnapshotBackupLabel(options.label);
+  const backupFileName = [
+    basename(absoluteSourcePath),
+    formatSnapshotBackupTimestamp(createdAt),
+    ...(label ? [label] : []),
+    randomUUID(),
+    "bak"
+  ].join(".");
+  const backupPath = join(backupDirectory, backupFileName);
+  let backupDescriptor: number | undefined;
+  let rawSnapshot: Buffer;
+
+  try {
+    rawSnapshot = readFileSync(absoluteSourcePath);
+  } catch (error) {
+    throw new StoreSnapshotError("store_snapshot_backup_failed", absoluteSourcePath, error);
+  }
+
+  try {
+    mkdirSync(backupDirectory, { recursive: true });
+    backupDescriptor = openSync(backupPath, "wx", 0o600);
+    writeFileSync(backupDescriptor, rawSnapshot);
+    fsyncSync(backupDescriptor);
+    closeSync(backupDescriptor);
+    backupDescriptor = undefined;
+  } catch (error) {
+    if (backupDescriptor !== undefined) {
+      try {
+        closeSync(backupDescriptor);
+      } catch {
+        // Preserve the original failure; closing a failed backup handle is best-effort.
+      }
+    }
+
+    throw new StoreSnapshotError("store_snapshot_backup_failed", absoluteSourcePath, error);
+  }
+
+  return {
+    backupPath,
+    bytes: rawSnapshot.byteLength,
+    createdAt,
+    sourcePath: absoluteSourcePath
+  };
 }
 
 function loadSnapshot(

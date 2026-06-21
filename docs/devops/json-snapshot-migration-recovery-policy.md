@@ -98,12 +98,43 @@ Those behaviors belong in future offline tooling, not in the runtime load path.
 
 ## Current Backup And Quarantine Status
 
-No runtime backup, restore, quarantine, retention, or recovery side-file policy
-is implemented today. Runtime load failures leave the target directory without
-new backup, quarantine, or recovery files.
+No automatic runtime backup, restore, quarantine, retention, or recovery
+side-file policy is implemented today. Runtime load failures leave the target
+directory without new backup, quarantine, or recovery files.
 
 The crash-safe writer uses temporary files for single-writer persistence, but
 those temp files are not backups and are not recovery artifacts.
+
+## Explicit Backup-Before-Write Helper
+
+The repository provides an explicit backup-before-write helper for future
+offline migration and recovery tooling. The helper is not wired into runtime
+load, normal `persist()`, or read-only inspection.
+
+The helper:
+
+- is called only by an explicit tool/helper path;
+- copies the source snapshot's raw bytes to a backup file;
+- does not parse, validate, migrate, repair, downgrade, or rewrite the source;
+- can back up corrupted JSON and legacy v0 snapshots as raw bytes;
+- creates the backup directory when requested;
+- uses a unique backup filename and exclusive creation so existing backups are
+  not overwritten;
+- returns the source path, backup path, creation time, and byte count;
+- fails closed when the source cannot be read or the backup cannot be created.
+
+The helper does not:
+
+- create quarantine files;
+- create recovery outputs;
+- delete or move files;
+- call the runtime writer;
+- call the inspection command;
+- implement rollback or restore.
+
+Future modifying migration or recovery tools must call the helper before any
+write-back, record the backup path in audit output, and stop before modifying
+the source snapshot if backup creation fails.
 
 ## Read-Only Inspection Dry Run
 
@@ -149,8 +180,9 @@ Inspection is not migration tooling and is not recovery tooling. It does not:
   token hashes, database URLs, secrets, private keys, or temporary credentials.
 
 The command is a dry-run foundation for future operator tooling. Future
-modifying tools must still implement backup-before-write, atomic write-back,
-source preservation, audit output, rollback, and operator documentation.
+modifying tools must still combine explicit backup-before-write with atomic
+write-back, source preservation, audit output, rollback, and operator
+documentation.
 
 ## Future Migration Tooling Requirements
 
@@ -217,9 +249,18 @@ This policy builds on the current persistence baseline:
 P1-014 does not change those semantics. It records that migration, backup, and
 recovery remain explicit future tooling concerns.
 
+P1-015 adds read-only inspection only. P1-016 adds the explicit
+backup-before-write helper only. Neither PR implements migration apply,
+recovery apply, rollback, restore, CAS, stale-writer detection, or operator
+workflow.
+
 ## Issue Relationship
 
 This policy and its characterization tests relate to #139 by defining the JSON
 snapshot migration and recovery design baseline. They do not deliver migration
-tooling, recovery tooling, dry-run commands, backup retention, rollback
+tooling, recovery tooling, backup retention, rollback commands, restore
 commands, or an operator CLI.
+
+Issue #138 is not changed by this policy or helper. CAS, locking,
+stale-writer detection, and multi-process write conflict prevention remain
+separate future work.
