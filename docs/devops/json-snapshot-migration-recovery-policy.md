@@ -314,6 +314,87 @@ does not attempt rollback or restore. If post-write validation fails, the
 command reports failure and includes the backup path for future explicit
 recovery tooling.
 
+## Restore From Backup
+
+The repository provides an explicit local restore-from-backup command:
+
+```powershell
+npm run snapshot:restore -- <backup-file> <snapshot-file>
+npm run snapshot:restore -- --json <backup-file> <snapshot-file>
+npm run snapshot:restore -- --pre-restore-backup-dir <directory> <backup-file> <snapshot-file>
+```
+
+The restore command supports backup files that inspect as:
+
+- valid explicit v1 snapshots;
+- valid legacy v0 snapshots.
+
+Invalid, future-version, corrupted, empty, or deep-validation-failing backup
+files are blocked before any target backup or write-back.
+
+Restore behavior:
+
+| Input backup / target state             | Restore result                                  |
+| --------------------------------------- | ----------------------------------------------- |
+| Valid v1 backup, target exists          | Pre-restore backup, atomic write-back, valid v1 |
+| Valid legacy v0 backup, target exists   | Pre-restore backup, atomic write-back, valid v1 |
+| Valid backup, target missing            | Creates target, no fake pre-restore backup      |
+| Missing backup file                     | Blocked as backup not found                     |
+| Future or invalid backup version        | Blocked before target backup or write-back      |
+| Malformed or empty backup JSON          | Blocked before target backup or write-back      |
+| Shape or deep entity validation failure | Blocked before target backup or write-back      |
+| Pre-restore backup failure              | Fails closed before write-back                  |
+| Atomic write-back failure               | Fails closed; no automatic rollback             |
+| Post-restore validation failure         | Fails closed; no automatic rollback             |
+
+For a successful restore, the command:
+
+- inspects the backup source before modifying the target;
+- creates a pre-restore backup when the target exists;
+- reports `preRestoreBackupPath: null` when the target did not exist;
+- reads the backup through the existing runtime snapshot conversion and deep
+  validation path;
+- writes the target with the crash-safe atomic write path;
+- writes current v1 persisted format, including when the backup source was
+  legacy v0;
+- reinspects the target after write-back and requires a valid v1 result;
+- returns only safe metadata such as backup path, target path, pre-restore
+  backup path, versions, status, action, byte counts, and entity counts.
+
+Restore exit codes:
+
+| Exit code | Meaning                                          |
+| --------- | ------------------------------------------------ |
+| 0         | Restore succeeded                                |
+| 1         | Restore blocked by invalid or unsupported backup |
+| 2         | Usage error                                      |
+| 3         | Backup file was not found                        |
+| 4         | Pre-restore backup failed                        |
+| 5         | Atomic write-back failed                         |
+| 6         | Post-restore validation failed                   |
+| 7         | Unexpected internal error                        |
+
+The restore command is a local operator workflow only. It does not:
+
+- run automatically during runtime load;
+- run automatically during normal `persist()`;
+- run from inspection, dry-run planning, or migration apply;
+- discover or prune backups;
+- implement backup retention policy;
+- implement cloud restore;
+- implement teacher or admin UI restore;
+- implement multi-team restore;
+- repair corrupted snapshots;
+- quarantine snapshots;
+- rollback failed writes;
+- implement CAS, locking, distributed coordination, or stale-writer prevention.
+
+If write-back fails after pre-restore backup creation, the command fails closed
+and does not attempt rollback. If post-restore validation fails, the command
+reports failure and includes the pre-restore backup path for manual operator
+review. Backup retention policy, cloud restore, UI restore, and multi-team
+restore remain future work.
+
 ## Future Migration Tooling Requirements
 
 Future migration tooling must be explicit, offline, and testable. A reviewed
@@ -382,16 +463,19 @@ recovery remain explicit future tooling concerns.
 P1-015 adds read-only inspection only. P1-016 adds the explicit
 backup-before-write helper only. P1-017 adds read-only migration dry-run
 planning only. P1-018 adds explicit legacy v0 to current v1 migration apply
-only. These PRs do not implement recovery apply, rollback, restore, CAS,
-stale-writer detection, backup retention, or operator workflow.
+only. P1-019 adds local restore-from-backup CLI and a local operator workflow
+only. These PRs do not implement cloud restore, UI restore, multi-team restore,
+CAS, stale-writer detection, backup retention, or distributed coordination.
 
 ## Issue Relationship
 
 This policy and its characterization tests relate to #139 by defining the JSON
-snapshot migration and recovery design baseline. They do not deliver recovery
-tooling, backup retention, rollback commands, restore commands, or an operator
-workflow. The migration dry-run planner and legacy v0 to v1 apply command are
-building blocks, but #139 remains open.
+snapshot migration and recovery design baseline. They do not deliver cloud
+restore, UI restore, multi-team restore, backup retention, rollback commands,
+CAS, stale-writer prevention, or distributed coordination. The migration
+dry-run planner, legacy v0 to v1 apply command, and local restore-from-backup
+CLI are building blocks. #139 remains open by default until issue closeout is
+judged separately.
 
 Issue #138 is not changed by this policy or helper. CAS, locking,
 stale-writer detection, and multi-process write conflict prevention remain

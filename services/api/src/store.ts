@@ -1,5 +1,6 @@
 import {
   closeSync,
+  existsSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -205,6 +206,44 @@ export interface SnapshotMigrationApplyResult {
   safeSummary: {
     beforeSnapshotVersionLabel: string;
     afterSnapshotVersionLabel?: string;
+    entityCounts?: Record<string, number>;
+  };
+  error?: {
+    code: string;
+  };
+}
+
+export interface SnapshotRestoreFromBackupOptions {
+  preRestoreBackupDirectory?: string;
+  fileSystem?: SnapshotFileSystem;
+}
+
+export type SnapshotRestoreFromBackupStatus =
+  | "restored"
+  | "blocked"
+  | "backup_not_found"
+  | "pre_restore_backup_failed"
+  | "write_failed"
+  | "post_restore_validation_failed";
+
+export type SnapshotRestoreFromBackupAction = "restored_backup_to_target" | "blocked";
+
+export interface SnapshotRestoreFromBackupResult {
+  backupPath: string;
+  targetPath: string;
+  preRestoreBackupPath: string | null;
+  backupSnapshotVersion: typeof CURRENT_SNAPSHOT_VERSION | "legacy" | "unknown" | number;
+  restoredVersion: typeof CURRENT_SNAPSHOT_VERSION | "unknown" | null;
+  status: SnapshotRestoreFromBackupStatus;
+  action: SnapshotRestoreFromBackupAction;
+  targetExistedBeforeRestore: boolean;
+  backupBytes?: number;
+  preRestoreBackupBytes?: number | undefined;
+  targetBytesAfter?: number | undefined;
+  reasons: string[];
+  safeSummary: {
+    backupSnapshotVersionLabel: string;
+    restoredSnapshotVersionLabel?: string;
     entityCounts?: Record<string, number>;
   };
   error?: {
@@ -1852,6 +1891,215 @@ export function applySnapshotMigrationToCurrentVersion(
     sourcePath: plan.sourcePath,
     status: "applied",
     targetVersion: plan.targetVersion
+  };
+}
+
+function snapshotInspectionVersion(
+  inspection: Extract<SnapshotInspectionResult, { ok: true }>
+): typeof CURRENT_SNAPSHOT_VERSION | "legacy" {
+  return inspection.status === "valid_legacy_v0" ? "legacy" : inspection.snapshot_version;
+}
+
+function snapshotInspectionVersionLabel(inspection: SnapshotInspectionResult): string {
+  if (!inspection.ok) {
+    if (
+      inspection.status === "unsupported_version" &&
+      inspection.error.received_version !== undefined
+    ) {
+      return `v${inspection.error.received_version}`;
+    }
+
+    return "unknown";
+  }
+
+  return inspection.status === "valid_legacy_v0" ? "legacy v0" : `v${inspection.snapshot_version}`;
+}
+
+export function restoreSnapshotFromBackup(
+  backupPath: string,
+  targetPath: string,
+  options: SnapshotRestoreFromBackupOptions = {}
+): SnapshotRestoreFromBackupResult {
+  const absoluteBackupPath = resolve(backupPath);
+  const absoluteTargetPath = resolve(targetPath);
+  const fileSystem = options.fileSystem ?? nodeSnapshotFileSystem;
+  const targetExistedBeforeRestore = existsSync(absoluteTargetPath);
+  const backupInspection = inspectPersistedSnapshotFile(absoluteBackupPath);
+
+  if (!backupInspection.ok) {
+    return {
+      action: "blocked",
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion:
+        backupInspection.status === "unsupported_version" &&
+        backupInspection.error.received_version !== undefined
+          ? backupInspection.error.received_version
+          : "unknown",
+      preRestoreBackupPath: null,
+      reasons: [
+        backupInspection.status === "file_not_found"
+          ? "Backup snapshot file was not found; target was not modified."
+          : `Backup snapshot is ${backupInspection.status}; target was not modified.`
+      ],
+      restoredVersion: null,
+      safeSummary: {
+        backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection)
+      },
+      status: backupInspection.status === "file_not_found" ? "backup_not_found" : "blocked",
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
+  let rawBackup: string;
+  try {
+    rawBackup = fileSystem.readFile(absoluteBackupPath);
+  } catch (error) {
+    return {
+      action: "blocked",
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_read_failed") },
+      preRestoreBackupPath: null,
+      reasons: ["Backup snapshot could not be reread; target was not modified."],
+      restoredVersion: null,
+      safeSummary: {
+        backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection)
+      },
+      status: "blocked",
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
+  let runtimeSnapshot: SimWarStoreSnapshot;
+  try {
+    runtimeSnapshot = normalizeSnapshot(
+      toRuntimeSnapshot(JSON.parse(rawBackup) as unknown, absoluteBackupPath)
+    );
+  } catch (error) {
+    return {
+      action: "blocked",
+      backupBytes: Buffer.byteLength(rawBackup),
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion: "unknown",
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_corrupted") },
+      preRestoreBackupPath: null,
+      reasons: ["Backup snapshot validation failed; target was not modified."],
+      restoredVersion: null,
+      safeSummary: {
+        backupSnapshotVersionLabel: "unknown"
+      },
+      status: "blocked",
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
+  let preRestoreBackup: SnapshotBackupResult | undefined;
+  if (targetExistedBeforeRestore) {
+    const backupOptions: SnapshotBackupOptions = { label: "restore" };
+    if (options.preRestoreBackupDirectory !== undefined) {
+      backupOptions.backupDirectory = options.preRestoreBackupDirectory;
+    }
+
+    try {
+      preRestoreBackup = createSnapshotBackupBeforeWrite(absoluteTargetPath, backupOptions);
+    } catch (error) {
+      return {
+        action: "blocked",
+        backupBytes: Buffer.byteLength(rawBackup),
+        backupPath: absoluteBackupPath,
+        backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+        error: { code: safeSnapshotErrorCode(error, "store_snapshot_backup_failed") },
+        preRestoreBackupPath: null,
+        reasons: ["Pre-restore backup failed; target was not modified."],
+        restoredVersion: null,
+        safeSummary: {
+          backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
+          entityCounts: countSnapshotEntities(runtimeSnapshot)
+        },
+        status: "pre_restore_backup_failed",
+        targetExistedBeforeRestore,
+        targetPath: absoluteTargetPath
+      };
+    }
+  }
+
+  const restoredSnapshot = `${JSON.stringify(toPersistedSnapshot(runtimeSnapshot), null, 2)}\n`;
+
+  try {
+    persistSnapshotAtomically(absoluteTargetPath, restoredSnapshot, fileSystem);
+  } catch (error) {
+    return {
+      action: "blocked",
+      backupBytes: Buffer.byteLength(rawBackup),
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_write_failed") },
+      preRestoreBackupBytes: preRestoreBackup?.bytes,
+      preRestoreBackupPath: preRestoreBackup?.backupPath ?? null,
+      reasons: ["Atomic restore write-back failed; no rollback was attempted."],
+      restoredVersion: null,
+      safeSummary: {
+        backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
+        entityCounts: countSnapshotEntities(runtimeSnapshot)
+      },
+      status: "write_failed",
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
+  const postInspection = inspectPersistedSnapshotFile(absoluteTargetPath);
+  let targetBytesAfter: number | undefined;
+  try {
+    targetBytesAfter = Buffer.byteLength(fileSystem.readFile(absoluteTargetPath));
+  } catch {
+    targetBytesAfter = undefined;
+  }
+
+  if (!postInspection.ok || postInspection.status !== "valid_v1") {
+    return {
+      action: "blocked",
+      backupBytes: Buffer.byteLength(rawBackup),
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+      preRestoreBackupBytes: preRestoreBackup?.bytes,
+      preRestoreBackupPath: preRestoreBackup?.backupPath ?? null,
+      reasons: [
+        "Post-restore validation failed; pre-restore backup path is available for manual operator review."
+      ],
+      restoredVersion: "unknown",
+      safeSummary: {
+        backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
+        entityCounts: countSnapshotEntities(runtimeSnapshot)
+      },
+      status: "post_restore_validation_failed",
+      targetBytesAfter,
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
+  return {
+    action: "restored_backup_to_target",
+    backupBytes: Buffer.byteLength(rawBackup),
+    backupPath: absoluteBackupPath,
+    backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+    preRestoreBackupBytes: preRestoreBackup?.bytes,
+    preRestoreBackupPath: preRestoreBackup?.backupPath ?? null,
+    reasons: ["Backup snapshot was restored to the target snapshot file."],
+    restoredVersion: CURRENT_SNAPSHOT_VERSION,
+    safeSummary: {
+      backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
+      entityCounts: countSnapshotEntities(runtimeSnapshot),
+      restoredSnapshotVersionLabel: `v${CURRENT_SNAPSHOT_VERSION}`
+    },
+    status: "restored",
+    targetBytesAfter,
+    targetExistedBeforeRestore,
+    targetPath: absoluteTargetPath
   };
 }
 

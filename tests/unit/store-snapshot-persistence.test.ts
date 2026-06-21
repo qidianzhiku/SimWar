@@ -24,9 +24,11 @@ import {
   createP1Store,
   inspectPersistedSnapshotFile,
   planSnapshotMigrationDryRun,
+  restoreSnapshotFromBackup,
   type SnapshotMigrationApplyResult,
   type SnapshotMigrationDryRunPlan,
   type SnapshotInspectionResult,
+  type SnapshotRestoreFromBackupResult,
   type SnapshotFileSystem,
   type SimWarStore
 } from "../../services/api/src/store";
@@ -211,6 +213,38 @@ function runNpmMigrationApplyCommand(args: string[]) {
   });
 }
 
+function runSnapshotRestoreCommand(args: string[]) {
+  return spawnSync(
+    process.execPath,
+    [
+      tsxCliPath,
+      "--tsconfig",
+      "scripts/tsconfig.snapshot-restore.json",
+      "scripts/restore-json-snapshot.ts",
+      ...args
+    ],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    }
+  );
+}
+
+function runNpmSnapshotRestoreCommand(args: string[]) {
+  if (process.platform === "win32") {
+    const command = ["npm run --silent snapshot:restore --", ...args].join(" ");
+    return spawnSync("cmd.exe", ["/d", "/c", command], {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    });
+  }
+
+  return spawnSync(npmCommand, ["run", "--silent", "snapshot:restore", "--", ...args], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+}
+
 function parseInspectionJsonOutput(output: string): SnapshotInspectionResult {
   return JSON.parse(output) as SnapshotInspectionResult;
 }
@@ -221,6 +255,10 @@ function parseMigrationPlanJsonOutput(output: string): SnapshotMigrationDryRunPl
 
 function parseMigrationApplyJsonOutput(output: string): SnapshotMigrationApplyResult {
   return JSON.parse(output) as SnapshotMigrationApplyResult;
+}
+
+function parseSnapshotRestoreJsonOutput(output: string): SnapshotRestoreFromBackupResult {
+  return JSON.parse(output) as SnapshotRestoreFromBackupResult;
 }
 
 function expectSnapshotError(action: () => unknown, code: string): StoreSnapshotError {
@@ -2175,6 +2213,371 @@ describe("JSON snapshot migration apply", () => {
     writeValidSnapshot(persistPath);
     const store = createP1Store({ persistenceFile: persistPath });
     store.counters.migration_apply_boundary = 1;
+    store.persist();
+    expect(backupFilesFor(persistPath)).toEqual([]);
+    expect(tempFilesFor(persistPath)).toEqual([]);
+  });
+});
+
+describe("JSON snapshot restore from backup", () => {
+  function nodeFileSystem(overrides: Partial<SnapshotFileSystem> = {}): SnapshotFileSystem {
+    return {
+      close: closeSync,
+      fsync: fsyncSync,
+      mkdir: (path) => mkdirSync(path, { recursive: true }),
+      open: openSync,
+      readFile: readRaw,
+      rename: renameSync,
+      unlink: unlinkSync,
+      writeFile: (file, data) => writeFileSync(file, data),
+      ...overrides
+    };
+  }
+
+  function expectSafeRestoreOutput(output: string): void {
+    expect(output).not.toContain("SENSITIVE_PASSWORD_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_TOKEN_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DECISION_PAYLOAD_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DATABASE_URL_SENTINEL");
+    expect(output).not.toContain("password_hash");
+    expect(output).not.toContain("token_hash");
+    expect(output).not.toContain("strategy_statement");
+    expect(output).not.toContain('"payload"');
+  }
+
+  function createSensitiveLegacySnapshot(): Record<string, unknown> {
+    const snapshot = createLegacySnapshot();
+    const courses = snapshot.courses as Record<string, unknown>[];
+    courses[0] = {
+      ...courses[0],
+      title: "SENSITIVE_DECISION_PAYLOAD_SENTINEL"
+    };
+    return snapshot;
+  }
+
+  it("restores an existing target from a valid v1 backup after pre-restore backup", () => {
+    const backupPath = createSnapshotPath("restore-v1-backup.bak");
+    const targetPath = createSnapshotPath("restore-v1-target.json");
+    const backupSnapshot = {
+      snapshot_version: 1,
+      ...createSensitiveLegacySnapshot()
+    };
+    const rawBackup = writeSnapshot(backupPath, backupSnapshot);
+    const rawTarget = writeValidSnapshot(targetPath);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath);
+    const restored = readSnapshot(targetPath);
+    const inspection = inspectPersistedSnapshotFile(targetPath);
+
+    expect(result).toMatchObject({
+      action: "restored_backup_to_target",
+      backupPath,
+      backupSnapshotVersion: 1,
+      restoredVersion: 1,
+      status: "restored",
+      targetExistedBeforeRestore: true,
+      targetPath
+    });
+    expect(result.preRestoreBackupPath).toBeTruthy();
+    expect(readRaw(result.preRestoreBackupPath!)).toBe(rawTarget);
+    expect(result.safeSummary.entityCounts?.courses).toBe(
+      (backupSnapshot.courses as unknown[]).length
+    );
+    expect(restored.snapshot_version).toBe(1);
+    expect(restored.courses).toEqual(backupSnapshot.courses);
+    expect(inspection).toMatchObject({ ok: true, status: "valid_v1" });
+    expect(readRaw(backupPath)).toBe(rawBackup);
+    expect(tempFilesFor(targetPath)).toEqual([]);
+    expectSafeRestoreOutput(JSON.stringify(result));
+  });
+
+  it("restores a missing target from a valid legacy v0 backup without fake pre-restore backup", () => {
+    const backupPath = createSnapshotPath("restore-legacy-backup.bak");
+    const targetPath = join(createTempDir(), "missing-target.json");
+    const legacySnapshot = createLegacySnapshot();
+    const rawBackup = writeSnapshot(backupPath, legacySnapshot);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath);
+    const restored = readSnapshot(targetPath);
+
+    expect(result).toMatchObject({
+      action: "restored_backup_to_target",
+      backupPath,
+      backupSnapshotVersion: "legacy",
+      preRestoreBackupPath: null,
+      restoredVersion: 1,
+      status: "restored",
+      targetExistedBeforeRestore: false,
+      targetPath
+    });
+    expect(restored.snapshot_version).toBe(1);
+    expect(restored.courses).toEqual(legacySnapshot.courses);
+    expect(inspectPersistedSnapshotFile(targetPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(readRaw(backupPath)).toBe(rawBackup);
+    expect(backupFilesFor(targetPath)).toEqual([]);
+  });
+
+  it.each([
+    {
+      expectedStatus: "backup_not_found",
+      name: "missing backup",
+      writeBackup(_path: string) {
+        return undefined;
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "future version backup",
+      writeBackup(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: 2,
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "invalid version backup",
+      writeBackup(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: "1",
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "malformed JSON backup",
+      writeBackup(path: string) {
+        return writeRaw(path, '{"snapshot_version": 1,');
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "empty backup",
+      writeBackup(path: string) {
+        return writeRaw(path, "");
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "deep validation failure backup",
+      writeBackup(path: string) {
+        const snapshot = createLegacySnapshot();
+        const users = snapshot.users as Record<string, unknown>[];
+        users[0] = {
+          ...users[0],
+          password_hash: 42
+        };
+        return writeSnapshot(path, {
+          snapshot_version: 1,
+          ...snapshot
+        });
+      }
+    }
+  ])(
+    "fails closed for $name without modifying the target",
+    ({ expectedStatus, name, writeBackup }) => {
+      const backupPath = join(createTempDir(), `${name.replace(/\W+/g, "-")}.bak`);
+      const targetPath = createSnapshotPath(`${name.replace(/\W+/g, "-")}-target.json`);
+      const rawTarget = writeValidSnapshot(targetPath);
+      writeBackup(backupPath);
+
+      const result = restoreSnapshotFromBackup(backupPath, targetPath);
+
+      expect(result.status).toBe(expectedStatus);
+      expect(result.preRestoreBackupPath).toBeNull();
+      expect(readRaw(targetPath)).toBe(rawTarget);
+      expect(backupFilesFor(targetPath)).toEqual([]);
+      expect(tempFilesFor(targetPath)).toEqual([]);
+      expectSafeRestoreOutput(JSON.stringify(result));
+    }
+  );
+
+  it("fails closed when pre-restore backup cannot be created", () => {
+    const backupPath = createSnapshotPath("restore-pre-backup-source.bak");
+    const targetPath = createSnapshotPath("restore-pre-backup-target.json");
+    const blockedBackupDirectory = join(targetPath, "..", "blocked-restore-backup-target");
+    writeSnapshot(backupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    const rawTarget = writeValidSnapshot(targetPath);
+    writeRaw(blockedBackupDirectory, "not a directory");
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath, {
+      preRestoreBackupDirectory: blockedBackupDirectory
+    });
+
+    expect(result.status).toBe("pre_restore_backup_failed");
+    expect(result.preRestoreBackupPath).toBeNull();
+    expect(readRaw(targetPath)).toBe(rawTarget);
+    expect(readRaw(blockedBackupDirectory)).toBe("not a directory");
+    expect(tempFilesFor(targetPath)).toEqual([]);
+  });
+
+  it("fails closed when atomic write-back fails after pre-restore backup", () => {
+    const backupPath = createSnapshotPath("restore-write-failure-source.bak");
+    const targetPath = createSnapshotPath("restore-write-failure-target.json");
+    writeSnapshot(backupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    const rawTarget = writeValidSnapshot(targetPath);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath, {
+      fileSystem: nodeFileSystem({
+        rename() {
+          throw new Error("forced restore rename failure");
+        }
+      })
+    });
+
+    expect(result.status).toBe("write_failed");
+    expect(result.preRestoreBackupPath).toBeTruthy();
+    expect(readRaw(result.preRestoreBackupPath!)).toBe(rawTarget);
+    expect(readRaw(targetPath)).toBe(rawTarget);
+    expect(tempFilesFor(targetPath)).toEqual([]);
+  });
+
+  it("fails closed when post-restore validation fails and allows a later retry", () => {
+    const backupPath = createSnapshotPath("restore-post-validation-source.bak");
+    const targetPath = createSnapshotPath("restore-post-validation-target.json");
+    writeSnapshot(backupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    const rawTarget = writeValidSnapshot(targetPath);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath, {
+      fileSystem: nodeFileSystem({
+        rename(source, target) {
+          renameSync(source, target);
+          writeRaw(target, "{}");
+        }
+      })
+    });
+
+    expect(result.status).toBe("post_restore_validation_failed");
+    expect(result.preRestoreBackupPath).toBeTruthy();
+    expect(readRaw(result.preRestoreBackupPath!)).toBe(rawTarget);
+    expect(inspectPersistedSnapshotFile(targetPath)).toMatchObject({
+      ok: false,
+      status: "invalid_snapshot"
+    });
+
+    const retry = restoreSnapshotFromBackup(backupPath, targetPath);
+    expect(retry.status).toBe("restored");
+    expect(inspectPersistedSnapshotFile(targetPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(tempFilesFor(targetPath)).toEqual([]);
+  });
+
+  it("prints human and JSON restore output and exposes the npm entrypoint", () => {
+    const humanBackupPath = createSnapshotPath("restore-human-source.bak");
+    const humanTargetPath = createSnapshotPath("restore-human-target.json");
+    const jsonBackupPath = createSnapshotPath("restore-json-source.bak");
+    const jsonTargetPath = createSnapshotPath("restore-json-target.json");
+    const npmBackupPath = createSnapshotPath("restore-npm-source.bak");
+    const npmTargetPath = createSnapshotPath("restore-npm-target.json");
+    writeSnapshot(humanBackupPath, { snapshot_version: 1, ...createSensitiveLegacySnapshot() });
+    writeValidSnapshot(humanTargetPath);
+    writeSnapshot(jsonBackupPath, createLegacySnapshot());
+    writeValidSnapshot(jsonTargetPath);
+    writeSnapshot(npmBackupPath, createLegacySnapshot());
+    writeValidSnapshot(npmTargetPath);
+
+    const human = runSnapshotRestoreCommand([humanBackupPath, humanTargetPath]);
+    const machine = runSnapshotRestoreCommand(["--json", jsonBackupPath, jsonTargetPath]);
+    const npm = runNpmSnapshotRestoreCommand(["--json", npmBackupPath, npmTargetPath]);
+    const parsed = parseSnapshotRestoreJsonOutput(machine.stdout);
+
+    expect(human.status, `stdout:\n${human.stdout}\nstderr:\n${human.stderr}`).toBe(0);
+    expect(human.stdout).toContain("Snapshot restore: restored");
+    expect(human.stdout).toContain("Action: restored_backup_to_target");
+    expect(human.stdout).toContain("Pre-restore backup:");
+    expect(machine.status, `stdout:\n${machine.stdout}\nstderr:\n${machine.stderr}`).toBe(0);
+    expect(parsed).toMatchObject({
+      action: "restored_backup_to_target",
+      restoredVersion: 1,
+      status: "restored"
+    });
+    expect(npm.status, `stdout:\n${npm.stdout}\nstderr:\n${npm.stderr}`).toBe(0);
+    expect(parseSnapshotRestoreJsonOutput(npm.stdout).status).toBe("restored");
+    expectSafeRestoreOutput(human.stdout);
+    expectSafeRestoreOutput(machine.stdout);
+    expectSafeRestoreOutput(npm.stdout);
+  });
+
+  it("uses explicit CLI exit codes for success, blocked, usage, missing backup, and pre-restore backup failure", () => {
+    const successBackupPath = createSnapshotPath("restore-exit-success-source.bak");
+    const successTargetPath = createSnapshotPath("restore-exit-success-target.json");
+    const blockedBackupPath = createSnapshotPath("restore-exit-blocked-source.bak");
+    const blockedTargetPath = createSnapshotPath("restore-exit-blocked-target.json");
+    const missingBackupPath = join(createTempDir(), "missing-restore-source.bak");
+    const preBackupFailureSource = createSnapshotPath("restore-exit-pre-backup-source.bak");
+    const preBackupFailureTarget = createSnapshotPath("restore-exit-pre-backup-target.json");
+    const blockedBackupDirectory = join(preBackupFailureTarget, "..", "blocked-restore-dir");
+    writeSnapshot(successBackupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    writeValidSnapshot(successTargetPath);
+    writeRaw(blockedBackupPath, "");
+    writeValidSnapshot(blockedTargetPath);
+    writeSnapshot(preBackupFailureSource, { snapshot_version: 1, ...createLegacySnapshot() });
+    writeValidSnapshot(preBackupFailureTarget);
+    writeRaw(blockedBackupDirectory, "not a directory");
+
+    expect(runSnapshotRestoreCommand(["--json", successBackupPath, successTargetPath]).status).toBe(
+      0
+    );
+    expect(runSnapshotRestoreCommand(["--json", blockedBackupPath, blockedTargetPath]).status).toBe(
+      1
+    );
+    expect(
+      runSnapshotRestoreCommand(["--unknown", successBackupPath, successTargetPath]).status
+    ).toBe(2);
+    expect(runSnapshotRestoreCommand(["--json", missingBackupPath, successTargetPath]).status).toBe(
+      3
+    );
+    expect(
+      runSnapshotRestoreCommand([
+        "--json",
+        "--pre-restore-backup-dir",
+        blockedBackupDirectory,
+        preBackupFailureSource,
+        preBackupFailureTarget
+      ]).status
+    ).toBe(4);
+  });
+
+  it("leaves runtime load, inspection, dry-run, apply, and normal persist boundaries unchanged", () => {
+    const inspectPath = createSnapshotPath("restore-inspection-boundary.json");
+    const loadPath = createSnapshotPath("restore-load-boundary.json");
+    const planPath = createSnapshotPath("restore-plan-boundary.json");
+    const applyPath = createSnapshotPath("restore-apply-boundary.json");
+    const persistPath = createSnapshotPath("restore-persist-boundary.json");
+    const rawInspect = writeSnapshot(inspectPath, createLegacySnapshot());
+    const rawLoad = writeSnapshot(loadPath, createLegacySnapshot());
+    const rawPlan = writeSnapshot(planPath, createLegacySnapshot());
+    const rawApply = writeValidSnapshot(applyPath);
+
+    expect(inspectPersistedSnapshotFile(inspectPath)).toMatchObject({
+      ok: true,
+      status: "valid_legacy_v0"
+    });
+    expect(readRaw(inspectPath)).toBe(rawInspect);
+    expect(backupFilesFor(inspectPath)).toEqual([]);
+
+    createP1Store({ persistenceFile: loadPath });
+    expect(readRaw(loadPath)).toBe(rawLoad);
+    expect(backupFilesFor(loadPath)).toEqual([]);
+
+    expect(planSnapshotMigrationDryRun(planPath).status).toBe("ready");
+    expect(readRaw(planPath)).toBe(rawPlan);
+    expect(backupFilesFor(planPath)).toEqual([]);
+
+    expect(applySnapshotMigrationToCurrentVersion(applyPath).status).toBe("already_current");
+    expect(readRaw(applyPath)).toBe(rawApply);
+    expect(backupFilesFor(applyPath)).toEqual([]);
+
+    writeValidSnapshot(persistPath);
+    const store = createP1Store({ persistenceFile: persistPath });
+    store.counters.restore_boundary = 1;
     store.persist();
     expect(backupFilesFor(persistPath)).toEqual([]);
     expect(tempFilesFor(persistPath)).toEqual([]);
