@@ -90,6 +90,51 @@ export class StoreSnapshotError extends Error {
   }
 }
 
+export type SnapshotInspectionStatus =
+  | "valid_v1"
+  | "valid_legacy_v0"
+  | "file_not_found"
+  | "empty_file"
+  | "corrupt_json"
+  | "invalid_version"
+  | "unsupported_version"
+  | "invalid_snapshot"
+  | "internal_error";
+
+export interface SnapshotInspectionError {
+  kind: "read" | "empty" | "parse" | "version" | "validation" | "internal";
+  message: string;
+  code?: string;
+  field?: string;
+  received_type?: string;
+  received_version?: number;
+  supported_versions?: number[];
+}
+
+interface SnapshotInspectionBase {
+  details: string[];
+  path: string;
+}
+
+export type SnapshotInspectionResult =
+  | (SnapshotInspectionBase & {
+      ok: true;
+      status: "valid_v1";
+      snapshot_version: typeof CURRENT_SNAPSHOT_VERSION;
+      legacy: false;
+    })
+  | (SnapshotInspectionBase & {
+      ok: true;
+      status: "valid_legacy_v0";
+      snapshot_version: null;
+      legacy: true;
+    })
+  | (SnapshotInspectionBase & {
+      ok: false;
+      status: Exclude<SnapshotInspectionStatus, "valid_v1" | "valid_legacy_v0">;
+      error: SnapshotInspectionError;
+    });
+
 const nodeSnapshotFileSystem: SnapshotFileSystem = {
   readFile: (path) => readFileSync(path, "utf8"),
   mkdir: (path) => mkdirSync(path, { recursive: true }),
@@ -1230,6 +1275,153 @@ function toRuntimeSnapshot(value: unknown, snapshotPath: string): SimWarStoreSna
 
   assertSnapshotShape(snapshot, snapshotPath);
   return snapshot;
+}
+
+function createInspectionFailure(
+  path: string,
+  status: Exclude<SnapshotInspectionStatus, "valid_v1" | "valid_legacy_v0">,
+  error: SnapshotInspectionError
+): SnapshotInspectionResult {
+  return {
+    details: [],
+    error,
+    ok: false,
+    path,
+    status
+  };
+}
+
+function createStoreSnapshotInspectionFailure(
+  path: string,
+  error: StoreSnapshotError
+): SnapshotInspectionResult {
+  const cause = isRecord(error.cause) ? error.cause : {};
+  const safeError: SnapshotInspectionError = {
+    kind:
+      error.code === "store_snapshot_invalid_version" ||
+      error.code === "store_snapshot_unsupported_version"
+        ? "version"
+        : error.code === "store_snapshot_corrupted"
+          ? "validation"
+          : "internal",
+    message:
+      error.code === "store_snapshot_invalid_version"
+        ? "Snapshot inspection found an invalid explicit snapshot version"
+        : error.code === "store_snapshot_unsupported_version"
+          ? "Snapshot inspection found an unsupported snapshot version"
+          : error.code === "store_snapshot_corrupted"
+            ? "Snapshot inspection failed during validation"
+            : "Snapshot inspection failed internally",
+    ...(error.code !== "store_snapshot_corrupted" ? { code: error.code } : {})
+  };
+
+  if (typeof cause.field === "string") {
+    safeError.field = cause.field;
+  }
+  if (typeof cause.received_type === "string") {
+    safeError.received_type = cause.received_type;
+  }
+  if (typeof cause.received_version === "number" && Number.isSafeInteger(cause.received_version)) {
+    safeError.received_version = cause.received_version;
+  }
+  if (
+    Array.isArray(cause.supported_versions) &&
+    cause.supported_versions.every((version) => typeof version === "number")
+  ) {
+    safeError.supported_versions = cause.supported_versions;
+  }
+
+  if (error.code === "store_snapshot_invalid_version") {
+    return createInspectionFailure(path, "invalid_version", safeError);
+  }
+
+  if (error.code === "store_snapshot_unsupported_version") {
+    return createInspectionFailure(path, "unsupported_version", safeError);
+  }
+
+  if (error.code === "store_snapshot_corrupted") {
+    return createInspectionFailure(path, "invalid_snapshot", safeError);
+  }
+
+  return createInspectionFailure(path, "internal_error", safeError);
+}
+
+export function inspectPersistedSnapshotText(
+  rawSnapshot: string,
+  snapshotPath = "<inline>"
+): SnapshotInspectionResult {
+  if (rawSnapshot.trim().length === 0) {
+    return createInspectionFailure(snapshotPath, "empty_file", {
+      kind: "empty",
+      message: "Snapshot inspection found an empty file"
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawSnapshot) as unknown;
+  } catch {
+    return createInspectionFailure(snapshotPath, "corrupt_json", {
+      kind: "parse",
+      message: "Snapshot inspection failed during parse"
+    });
+  }
+
+  try {
+    const legacy =
+      isRecord(parsed) && !Object.prototype.hasOwnProperty.call(parsed, SNAPSHOT_VERSION_FIELD);
+    toRuntimeSnapshot(parsed, snapshotPath);
+
+    if (legacy) {
+      return {
+        details: [],
+        legacy: true,
+        ok: true,
+        path: snapshotPath,
+        snapshot_version: null,
+        status: "valid_legacy_v0"
+      };
+    }
+
+    return {
+      details: [],
+      legacy: false,
+      ok: true,
+      path: snapshotPath,
+      snapshot_version: CURRENT_SNAPSHOT_VERSION,
+      status: "valid_v1"
+    };
+  } catch (error) {
+    if (error instanceof StoreSnapshotError) {
+      return createStoreSnapshotInspectionFailure(snapshotPath, error);
+    }
+
+    return createInspectionFailure(snapshotPath, "internal_error", {
+      kind: "internal",
+      message: "Snapshot inspection failed internally"
+    });
+  }
+}
+
+export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInspectionResult {
+  const absolutePath = resolve(snapshotPath);
+
+  try {
+    return inspectPersistedSnapshotText(readFileSync(absolutePath, "utf8"), absolutePath);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return createInspectionFailure(absolutePath, "file_not_found", {
+        kind: "read",
+        message: "Snapshot inspection could not find the file"
+      });
+    }
+
+    return createInspectionFailure(absolutePath, "internal_error", {
+      kind: "read",
+      message: "Snapshot inspection failed while reading the file",
+      ...(isNodeError(error) && error.code ? { code: error.code } : {})
+    });
+  }
 }
 
 function loadSnapshot(

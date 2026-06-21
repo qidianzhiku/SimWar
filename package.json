@@ -22,7 +22,8 @@
     "test:contract": "node scripts/check-contracts.mjs",
     "format:check": "prettier --check .",
     "security:audit": "npm audit --audit-level=critical",
-    "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs"
+    "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs",
+    "snapshot:inspect": "tsx --tsconfig scripts/tsconfig.snapshot-inspect.json scripts/inspect-json-snapshot.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",

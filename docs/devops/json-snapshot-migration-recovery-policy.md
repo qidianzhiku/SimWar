@@ -105,6 +105,53 @@ new backup, quarantine, or recovery files.
 The crash-safe writer uses temporary files for single-writer persistence, but
 those temp files are not backups and are not recovery artifacts.
 
+## Read-Only Inspection Dry Run
+
+The repository provides a read-only snapshot inspection command:
+
+```powershell
+npm run snapshot:inspect -- <snapshot-file>
+npm run snapshot:inspect -- --json <snapshot-file>
+```
+
+The command reuses the runtime snapshot version, shape, and deep entity
+validation logic, but it does not create a store and does not call the writer.
+It only reads the target file and reports a classification.
+
+Supported statuses are:
+
+| Status                | Exit code | Meaning                                      |
+| --------------------- | --------- | -------------------------------------------- |
+| `valid_v1`            | 0         | Explicit version 1 snapshot is valid         |
+| `valid_legacy_v0`     | 0         | Legacy snapshot without `snapshot_version`   |
+| `file_not_found`      | 3         | Target file does not exist                   |
+| `empty_file`          | 1         | Target file is empty or whitespace-only      |
+| `corrupt_json`        | 1         | Target file cannot be parsed as JSON         |
+| `invalid_version`     | 1         | Explicit `snapshot_version` has invalid type |
+| `unsupported_version` | 1         | Explicit version is valid but unsupported    |
+| `invalid_snapshot`    | 1         | Shape or deep entity validation failed       |
+| `internal_error`      | 4         | Inspection tool failed unexpectedly          |
+
+Usage errors, such as a missing path or unknown option, return exit code 2.
+
+The `--json` mode emits a machine-readable result with only safe metadata:
+status, path, version classification, details, and a sanitized error object.
+The default mode emits a compact human-readable summary.
+
+Inspection is not migration tooling and is not recovery tooling. It does not:
+
+- write back to the snapshot;
+- add `snapshot_version` to legacy v0 files;
+- repair corrupted JSON;
+- delete, move, or replace files;
+- create backup, quarantine, recovery, or `.tmp` files;
+- expose full snapshots, full entities, Decision payloads, password hashes,
+  token hashes, database URLs, secrets, private keys, or temporary credentials.
+
+The command is a dry-run foundation for future operator tooling. Future
+modifying tools must still implement backup-before-write, atomic write-back,
+source preservation, audit output, rollback, and operator documentation.
+
 ## Future Migration Tooling Requirements
 
 Future migration tooling must be explicit, offline, and testable. A reviewed

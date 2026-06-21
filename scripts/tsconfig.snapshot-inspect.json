@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@simwar/shared-contracts": ["packages/shared-contracts/src/index.ts"]
+    },
+    "types": ["node"]
+  }
+}
