@@ -14,6 +14,7 @@ export default defineConfig({
       INTERNAL_SERVICE_TOKEN: "test-internal-service-token",
       JWT_SECRET: "test-jwt-secret-with-sufficient-length"
     },
-    include: ["tests/**/*.test.ts"]
+    include: ["tests/**/*.test.ts"],
+    setupFiles: ["tests/setup/vitest-store-file.ts"]
   }
 });
