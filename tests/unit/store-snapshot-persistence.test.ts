@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   closeSync,
   existsSync,
@@ -9,6 +10,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
@@ -18,11 +20,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   StoreSnapshotError,
   createP1Store,
+  inspectPersistedSnapshotFile,
+  type SnapshotInspectionResult,
   type SnapshotFileSystem,
   type SimWarStore
 } from "../../services/api/src/store";
 
 const tempDirs: string[] = [];
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const tsxCliPath = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
 
 function createTempDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "simwar-snapshot-"));
@@ -36,6 +42,11 @@ function createSnapshotPath(name = "simwar-store.json"): string {
 
 function readRaw(path: string): string {
   return readFileSync(path, "utf8");
+}
+
+function writeRaw(path: string, contents: string): string {
+  writeFileSync(path, contents, "utf8");
+  return contents;
 }
 
 function readSnapshot(path: string): Record<string, unknown> {
@@ -83,6 +94,46 @@ function tempFilesFor(path: string): string[] {
   return readdirSync(join(path, "..")).filter(
     (entry) => entry.startsWith(prefix) && entry.endsWith(".tmp")
   );
+}
+
+function expectNoInspectionSideFiles(path: string): void {
+  expect(readdirSync(join(path, "..")).sort()).toEqual([basename(path)]);
+}
+
+function runInspectionCommand(args: string[]) {
+  return spawnSync(
+    process.execPath,
+    [
+      tsxCliPath,
+      "--tsconfig",
+      "scripts/tsconfig.snapshot-inspect.json",
+      "scripts/inspect-json-snapshot.ts",
+      ...args
+    ],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    }
+  );
+}
+
+function runNpmInspectionCommand(args: string[]) {
+  if (process.platform === "win32") {
+    const command = ["npm run --silent snapshot:inspect --", ...args].join(" ");
+    return spawnSync("cmd.exe", ["/d", "/c", command], {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    });
+  }
+
+  return spawnSync(npmCommand, ["run", "--silent", "snapshot:inspect", "--", ...args], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+}
+
+function parseInspectionJsonOutput(output: string): SnapshotInspectionResult {
+  return JSON.parse(output) as SnapshotInspectionResult;
 }
 
 function expectSnapshotError(action: () => unknown, code: string): StoreSnapshotError {
@@ -1219,5 +1270,215 @@ describe("JSON store snapshot persistence", () => {
     expect(() => store.persist()).toThrow(TypeError);
     expect(readRaw(snapshotPath)).toBe(original);
     expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+});
+
+describe("JSON snapshot inspection dry-run", () => {
+  it("prints usage without a stack trace when no path is provided", () => {
+    const result = runInspectionCommand([]);
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("Usage:");
+    expect(result.stderr).not.toContain("Stack");
+    expect(result.stderr).not.toContain("at ");
+  });
+
+  it("rejects unknown options without a stack trace", () => {
+    const result = runInspectionCommand(["--apply"]);
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("Unknown option");
+    expect(result.stderr).not.toContain("Stack");
+    expect(result.stderr).not.toContain("at ");
+  });
+
+  it("reports file-not-found without creating the target file", () => {
+    const snapshotPath = join(createTempDir(), "missing.json");
+    const result = runInspectionCommand(["--json", snapshotPath]);
+    const parsed = parseInspectionJsonOutput(result.stdout);
+
+    expect(result.status).toBe(3);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.status).toBe("file_not_found");
+    expect(parsed.path).toBe(snapshotPath);
+    expect(existsSync(snapshotPath)).toBe(false);
+    expect(readdirSync(join(snapshotPath, ".."))).toEqual([]);
+  });
+
+  it("reports valid v1 snapshots as machine-readable JSON", () => {
+    const snapshotPath = createSnapshotPath();
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+    const result = runInspectionCommand(["--json", snapshotPath]);
+    const parsed = parseInspectionJsonOutput(result.stdout);
+
+    expect(result.status).toBe(0);
+    expect(parsed).toMatchObject({
+      ok: true,
+      status: "valid_v1",
+      snapshot_version: 1,
+      legacy: false,
+      path: snapshotPath,
+      details: []
+    });
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expectNoInspectionSideFiles(snapshotPath);
+  });
+
+  it("exposes the npm snapshot inspection script", () => {
+    const snapshotPath = createSnapshotPath("npm-script.json");
+    writeValidSnapshot(snapshotPath);
+    const result = runNpmInspectionCommand(["--json", snapshotPath]);
+
+    expect(result.status, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).toBe(0);
+    expect(parseInspectionJsonOutput(result.stdout).status).toBe("valid_v1");
+  });
+
+  it("reports valid legacy v0 snapshots without rewriting them", () => {
+    const snapshotPath = createSnapshotPath("legacy.json");
+    const rawSnapshot = writeSnapshot(snapshotPath, createLegacySnapshot());
+    const result = inspectPersistedSnapshotFile(snapshotPath);
+
+    expect(result).toMatchObject({
+      ok: true,
+      status: "valid_legacy_v0",
+      snapshot_version: null,
+      legacy: true,
+      path: snapshotPath,
+      details: []
+    });
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(readSnapshot(snapshotPath)).not.toHaveProperty("snapshot_version");
+    expectNoInspectionSideFiles(snapshotPath);
+  });
+
+  it("keeps unknown compatible fields unchanged during inspection", () => {
+    const snapshotPath = createSnapshotPath("unknown-fields.json");
+    const snapshot = createLegacySnapshot({
+      inspector_unknown_field: "SENSITIVE_UNKNOWN_FIELD_SENTINEL"
+    });
+    const rawSnapshot = writeSnapshot(snapshotPath, {
+      snapshot_version: 1,
+      ...snapshot
+    });
+    const result = runInspectionCommand(["--json", snapshotPath]);
+
+    expect(result.status).toBe(0);
+    expect(parseInspectionJsonOutput(result.stdout).status).toBe("valid_v1");
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(result.stdout).not.toContain("SENSITIVE_UNKNOWN_FIELD_SENTINEL");
+  });
+
+  it.each([
+    {
+      expectedStatus: "empty_file",
+      name: "empty file",
+      write(path: string) {
+        return writeRaw(path, "");
+      }
+    },
+    {
+      expectedStatus: "corrupt_json",
+      name: "malformed JSON",
+      write(path: string) {
+        return writeRaw(path, '{"tenants": [');
+      }
+    },
+    {
+      expectedStatus: "unsupported_version",
+      name: "future version",
+      write(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: 2,
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "invalid_version",
+      name: "invalid explicit version",
+      write(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: "1",
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "invalid_snapshot",
+      name: "deep validation failure",
+      write(path: string) {
+        const snapshot = createLegacySnapshot();
+        const users = snapshot.users as Record<string, unknown>[];
+        users[0] = {
+          ...users[0],
+          password_hash: "SENSITIVE_PASSWORD_HASH_SENTINEL"
+        };
+        snapshot.sessions = [
+          {
+            created_at: "2026-06-21T00:00:00.000Z",
+            expires_at: "2026-06-22T00:00:00.000Z",
+            session_id: "session_sensitive_sentinel",
+            tenant_id: "tenant_demo",
+            token_hash: "SENSITIVE_TOKEN_HASH_SENTINEL",
+            user_id: "usr_teacher"
+          }
+        ];
+        snapshot.decisions = [
+          {
+            decision_id: "decision_sensitive_sentinel",
+            payload: {
+              capacity_plan: "hold",
+              cash_buffer_target: 0.2,
+              marketing_budget: 120000,
+              pricing: { base_price: 12000 },
+              service_quality_budget: 90000,
+              strategy_statement: "SENSITIVE_DECISION_PAYLOAD_SENTINEL"
+            },
+            round_id: "round_sensitive_sentinel",
+            round_no: 1,
+            run_id: "run_sensitive_sentinel",
+            status: "validated",
+            submitted_by: 42,
+            team_id: "team_sensitive_sentinel",
+            tenant_id: "tenant_demo",
+            validation_report: [],
+            version: 1
+          }
+        ];
+        return writeSnapshot(path, {
+          snapshot_version: 1,
+          ...snapshot
+        });
+      }
+    }
+  ])("reports $name without modifying source or side files", ({ expectedStatus, name, write }) => {
+    const snapshotPath = createSnapshotPath(`${name.replace(/\W+/g, "-")}.json`);
+    const rawSnapshot = write(snapshotPath);
+    const mtimeMs = statSync(snapshotPath).mtimeMs;
+    const result = runInspectionCommand(["--json", snapshotPath]);
+    const parsed = parseInspectionJsonOutput(result.stdout);
+
+    expect(result.status).toBe(1);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.status).toBe(expectedStatus);
+    expect(parsed.path).toBe(snapshotPath);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(statSync(snapshotPath).mtimeMs).toBe(mtimeMs);
+    expectNoInspectionSideFiles(snapshotPath);
+    expect(result.stdout).not.toContain("SENSITIVE_PASSWORD_HASH_SENTINEL");
+    expect(result.stdout).not.toContain("SENSITIVE_TOKEN_HASH_SENTINEL");
+    expect(result.stdout).not.toContain("SENSITIVE_DECISION_PAYLOAD_SENTINEL");
+  });
+
+  it("prints a compact human-readable summary by default", () => {
+    const snapshotPath = createSnapshotPath("human.json");
+    writeValidSnapshot(snapshotPath);
+    const result = runInspectionCommand([snapshotPath]);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("valid_v1");
+    expect(result.stdout).toContain("read-only");
+    expect(result.stdout).not.toContain('"tenants"');
+    expect(result.stdout).not.toContain('"users"');
   });
 });
