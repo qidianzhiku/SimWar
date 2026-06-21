@@ -19,6 +19,7 @@ import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   StoreSnapshotError,
+  createSnapshotBackupBeforeWrite,
   createP1Store,
   inspectPersistedSnapshotFile,
   type SnapshotInspectionResult,
@@ -98,6 +99,16 @@ function tempFilesFor(path: string): string[] {
 
 function expectNoInspectionSideFiles(path: string): void {
   expect(readdirSync(join(path, "..")).sort()).toEqual([basename(path)]);
+}
+
+function defaultBackupDirectoryFor(path: string): string {
+  return join(path, "..", ".snapshot-backups");
+}
+
+function backupFilesFor(path: string): string[] {
+  const backupDirectory = defaultBackupDirectoryFor(path);
+
+  return existsSync(backupDirectory) ? readdirSync(backupDirectory).sort() : [];
 }
 
 function runInspectionCommand(args: string[]) {
@@ -1480,5 +1491,118 @@ describe("JSON snapshot inspection dry-run", () => {
     expect(result.stdout).toContain("read-only");
     expect(result.stdout).not.toContain('"tenants"');
     expect(result.stdout).not.toContain('"users"');
+  });
+});
+
+describe("JSON snapshot backup-before-write helper", () => {
+  it("copies an existing v1 snapshot to a unique backup without changing source", () => {
+    const snapshotPath = createSnapshotPath("source-v1.json");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+    const sourceMtimeMs = statSync(snapshotPath).mtimeMs;
+
+    const result = createSnapshotBackupBeforeWrite(snapshotPath);
+
+    expect(result.sourcePath).toBe(snapshotPath);
+    expect(result.backupPath).toContain(".snapshot-backups");
+    expect(result.bytes).toBe(Buffer.byteLength(rawSnapshot));
+    expect(new Date(result.createdAt).toISOString()).toBe(result.createdAt);
+    expect(readRaw(result.backupPath)).toBe(rawSnapshot);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(statSync(snapshotPath).mtimeMs).toBe(sourceMtimeMs);
+    expect(backupFilesFor(snapshotPath)).toEqual([basename(result.backupPath)]);
+  });
+
+  it("creates the requested backup directory when it is missing", () => {
+    const snapshotPath = createSnapshotPath("source-custom-dir.json");
+    const backupDirectory = join(snapshotPath, "..", "operator-backups");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+
+    const result = createSnapshotBackupBeforeWrite(snapshotPath, { backupDirectory });
+
+    expect(result.backupPath).toContain("operator-backups");
+    expect(readRaw(result.backupPath)).toBe(rawSnapshot);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+  });
+
+  it("backs up legacy v0 and corrupt snapshots as raw bytes without parsing", () => {
+    const legacyPath = createSnapshotPath("legacy-backup.json");
+    const corruptPath = createSnapshotPath("corrupt-backup.json");
+    const rawLegacy = writeSnapshot(legacyPath, createLegacySnapshot());
+    const rawCorrupt = writeRaw(corruptPath, '{"snapshot_version": 1,');
+
+    const legacyBackup = createSnapshotBackupBeforeWrite(legacyPath, { label: "legacy-v0" });
+    const corruptBackup = createSnapshotBackupBeforeWrite(corruptPath, { label: "corrupt-json" });
+
+    expect(readRaw(legacyBackup.backupPath)).toBe(rawLegacy);
+    expect(readRaw(corruptBackup.backupPath)).toBe(rawCorrupt);
+    expect(readRaw(legacyPath)).toBe(rawLegacy);
+    expect(readRaw(corruptPath)).toBe(rawCorrupt);
+  });
+
+  it("creates distinct backups without overwriting earlier backups", () => {
+    const snapshotPath = createSnapshotPath("collision-safe.json");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+
+    const firstBackup = createSnapshotBackupBeforeWrite(snapshotPath, { label: "operator-copy" });
+    const secondBackup = createSnapshotBackupBeforeWrite(snapshotPath, { label: "operator-copy" });
+
+    expect(secondBackup.backupPath).not.toBe(firstBackup.backupPath);
+    expect(readRaw(firstBackup.backupPath)).toBe(rawSnapshot);
+    expect(readRaw(secondBackup.backupPath)).toBe(rawSnapshot);
+    expect(backupFilesFor(snapshotPath).sort()).toEqual(
+      [basename(firstBackup.backupPath), basename(secondBackup.backupPath)].sort()
+    );
+  });
+
+  it("fails clearly for a missing source without creating a default backup directory", () => {
+    const snapshotPath = join(createTempDir(), "missing-source.json");
+
+    const error = expectSnapshotError(
+      () => createSnapshotBackupBeforeWrite(snapshotPath),
+      "store_snapshot_backup_failed"
+    );
+
+    expect((error.cause as NodeJS.ErrnoException).code).toBe("ENOENT");
+    expect(existsSync(defaultBackupDirectoryFor(snapshotPath))).toBe(false);
+  });
+
+  it("fails closed when the backup destination cannot be created", () => {
+    const snapshotPath = createSnapshotPath("blocked-backup-dir.json");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+    const backupDirectory = join(snapshotPath, "..", "blocked-backups");
+    writeRaw(backupDirectory, "not a directory");
+
+    const error = expectSnapshotError(
+      () => createSnapshotBackupBeforeWrite(snapshotPath, { backupDirectory }),
+      "store_snapshot_backup_failed"
+    );
+
+    expect(["EEXIST", "ENOTDIR"]).toContain((error.cause as NodeJS.ErrnoException).code);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(readRaw(backupDirectory)).toBe("not a directory");
+  });
+
+  it("does not add backups during inspection, runtime load failure, or normal persist", () => {
+    const inspectPath = createSnapshotPath("inspection-no-backup.json");
+    const invalidLoadPath = createSnapshotPath("load-no-backup.json");
+    const persistPath = createSnapshotPath("persist-no-backup.json");
+    const invalidSnapshot = createLegacySnapshot({ snapshot_version: 2 });
+    writeValidSnapshot(inspectPath);
+    writeSnapshot(invalidLoadPath, invalidSnapshot);
+
+    const inspection = inspectPersistedSnapshotFile(inspectPath);
+    expect(inspection.ok).toBe(true);
+    expect(backupFilesFor(inspectPath)).toEqual([]);
+
+    expectSnapshotError(
+      () => createP1Store({ persistenceFile: invalidLoadPath }),
+      "store_snapshot_unsupported_version"
+    );
+    expect(backupFilesFor(invalidLoadPath)).toEqual([]);
+
+    const store = createP1Store({ persistenceFile: persistPath });
+    store.counters.backup_regression = 1;
+    store.persist();
+    expect(backupFilesFor(persistPath)).toEqual([]);
   });
 });
