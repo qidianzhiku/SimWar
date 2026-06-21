@@ -184,6 +184,64 @@ modifying tools must still combine explicit backup-before-write with atomic
 write-back, source preservation, audit output, rollback, and operator
 documentation.
 
+## Migration Dry-Run Planner
+
+The repository provides a read-only migration dry-run planner:
+
+```powershell
+npm run snapshot:migration:plan -- <snapshot-file>
+npm run snapshot:migration:plan -- --json <snapshot-file>
+```
+
+The planner reuses the snapshot inspection, version, shape, and deep entity
+validation boundary. It produces a safe migration plan for operator review, but
+it does not perform migration apply.
+
+The planner reports:
+
+- source path;
+- current version classification;
+- target version;
+- whether migration is needed;
+- whether future apply can be planned;
+- blocking reasons;
+- whether future apply must create a backup before write-back;
+- a safe summary that does not include full snapshot contents.
+
+The planner is read-only. It does not:
+
+- call the backup-before-write helper;
+- call the runtime writer;
+- write back to the snapshot;
+- add `snapshot_version` to legacy v0 files;
+- repair corrupted JSON;
+- restore from backup;
+- create quarantine files;
+- create recovery outputs;
+- create migration output files;
+- delete, move, or replace files;
+- automatically migrate on read.
+
+Planner classification:
+
+| Input snapshot                          | Plan result                             |
+| --------------------------------------- | --------------------------------------- |
+| Valid explicit v1                       | No-op / already current                 |
+| Valid legacy v0                         | Future migration candidate              |
+| Future version                          | Blocked as unsupported                  |
+| Invalid explicit version                | Blocked as invalid                      |
+| Malformed or empty JSON                 | Blocked pending inspection before retry |
+| Shape or deep entity validation failure | Blocked pending inspection before retry |
+| Missing file                            | Reported distinctly as not found        |
+
+The planner's JSON and human-readable output must not expose full snapshots,
+full entities, Decision payloads, password hashes, token hashes, database URLs,
+secrets, private keys, or temporary credentials.
+
+Future modifying migration apply tooling must call the explicit
+backup-before-write helper before any write-back. Rollback, restore, recovery
+apply, backup retention, and operator workflow remain future work.
+
 ## Future Migration Tooling Requirements
 
 Future migration tooling must be explicit, offline, and testable. A reviewed
@@ -250,16 +308,18 @@ P1-014 does not change those semantics. It records that migration, backup, and
 recovery remain explicit future tooling concerns.
 
 P1-015 adds read-only inspection only. P1-016 adds the explicit
-backup-before-write helper only. Neither PR implements migration apply,
-recovery apply, rollback, restore, CAS, stale-writer detection, or operator
+backup-before-write helper only. P1-017 adds read-only migration dry-run
+planning only. These PRs do not implement migration apply, recovery apply,
+rollback, restore, CAS, stale-writer detection, backup retention, or operator
 workflow.
 
 ## Issue Relationship
 
 This policy and its characterization tests relate to #139 by defining the JSON
 snapshot migration and recovery design baseline. They do not deliver migration
-tooling, recovery tooling, backup retention, rollback commands, restore
-commands, or an operator CLI.
+apply, recovery tooling, backup retention, rollback commands, restore commands,
+or an operator workflow. The migration dry-run planner is one building block,
+but #139 remains open.
 
 Issue #138 is not changed by this policy or helper. CAS, locking,
 stale-writer detection, and multi-process write conflict prevention remain

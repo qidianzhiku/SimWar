@@ -147,6 +147,32 @@ export interface SnapshotBackupResult {
   bytes: number;
 }
 
+export interface SnapshotMigrationDryRunOptions {
+  targetVersion?: typeof CURRENT_SNAPSHOT_VERSION;
+}
+
+export type SnapshotMigrationDryRunStatus = "ready" | "already_current" | "blocked" | "not_found";
+
+export type SnapshotMigrationDryRunAction =
+  | "none"
+  | "would_migrate_legacy_to_current"
+  | "inspect_before_retry"
+  | "unsupported";
+
+export interface SnapshotMigrationDryRunPlan {
+  sourcePath: string;
+  targetVersion: typeof CURRENT_SNAPSHOT_VERSION;
+  currentVersion: typeof CURRENT_SNAPSHOT_VERSION | "legacy" | "unknown" | number;
+  status: SnapshotMigrationDryRunStatus;
+  action: SnapshotMigrationDryRunAction;
+  requiresBackupBeforeApply: boolean;
+  canApplyInFuture: boolean;
+  reasons: string[];
+  safeSummary: {
+    snapshotVersionLabel: string;
+  };
+}
+
 const nodeSnapshotFileSystem: SnapshotFileSystem = {
   readFile: (path) => readFileSync(path, "utf8"),
   mkdir: (path) => mkdirSync(path, { recursive: true }),
@@ -1434,6 +1460,117 @@ export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInsp
       ...(isNodeError(error) && error.code ? { code: error.code } : {})
     });
   }
+}
+
+function createBlockedMigrationPlan(
+  inspection: Extract<SnapshotInspectionResult, { ok: false }>,
+  targetVersion: typeof CURRENT_SNAPSHOT_VERSION
+): SnapshotMigrationDryRunPlan {
+  if (inspection.status === "file_not_found") {
+    return {
+      action: "inspect_before_retry",
+      canApplyInFuture: false,
+      currentVersion: "unknown",
+      reasons: ["Snapshot file was not found."],
+      requiresBackupBeforeApply: false,
+      safeSummary: { snapshotVersionLabel: "unknown" },
+      sourcePath: inspection.path,
+      status: "not_found",
+      targetVersion
+    };
+  }
+
+  if (inspection.status === "unsupported_version") {
+    return {
+      action: "unsupported",
+      canApplyInFuture: false,
+      currentVersion: inspection.error.received_version ?? "unknown",
+      reasons: ["Unsupported future snapshot version."],
+      requiresBackupBeforeApply: false,
+      safeSummary: {
+        snapshotVersionLabel:
+          inspection.error.received_version !== undefined
+            ? `v${inspection.error.received_version}`
+            : "unknown"
+      },
+      sourcePath: inspection.path,
+      status: "blocked",
+      targetVersion
+    };
+  }
+
+  if (inspection.status === "invalid_version") {
+    return {
+      action: "unsupported",
+      canApplyInFuture: false,
+      currentVersion: "unknown",
+      reasons: ["Invalid explicit snapshot version."],
+      requiresBackupBeforeApply: false,
+      safeSummary: { snapshotVersionLabel: "unknown" },
+      sourcePath: inspection.path,
+      status: "blocked",
+      targetVersion
+    };
+  }
+
+  const reason =
+    inspection.status === "corrupt_json"
+      ? "Snapshot JSON is malformed."
+      : inspection.status === "empty_file"
+        ? "Snapshot file is empty."
+        : inspection.status === "invalid_snapshot"
+          ? "Snapshot failed shape or deep entity validation."
+          : "Snapshot could not be planned for migration.";
+
+  return {
+    action: "inspect_before_retry",
+    canApplyInFuture: false,
+    currentVersion: "unknown",
+    reasons: [reason],
+    requiresBackupBeforeApply: false,
+    safeSummary: { snapshotVersionLabel: "unknown" },
+    sourcePath: inspection.path,
+    status: "blocked",
+    targetVersion
+  };
+}
+
+export function planSnapshotMigrationDryRun(
+  snapshotPath: string,
+  options: SnapshotMigrationDryRunOptions = {}
+): SnapshotMigrationDryRunPlan {
+  const targetVersion = options.targetVersion ?? CURRENT_SNAPSHOT_VERSION;
+  const inspection = inspectPersistedSnapshotFile(snapshotPath);
+
+  if (!inspection.ok) {
+    return createBlockedMigrationPlan(inspection, targetVersion);
+  }
+
+  if (inspection.status === "valid_legacy_v0") {
+    return {
+      action: "would_migrate_legacy_to_current",
+      canApplyInFuture: true,
+      currentVersion: "legacy",
+      reasons: ["Legacy v0 snapshot can be migrated by future explicit apply tooling."],
+      requiresBackupBeforeApply: true,
+      safeSummary: { snapshotVersionLabel: "legacy v0" },
+      sourcePath: inspection.path,
+      status: "ready",
+      targetVersion
+    };
+  }
+
+  return {
+    action: "none",
+    canApplyInFuture: false,
+    currentVersion: inspection.snapshot_version,
+    reasons: ["Snapshot is already at the current version."],
+    requiresBackupBeforeApply: false,
+    safeSummary: { snapshotVersionLabel: `v${inspection.snapshot_version}` },
+    sourcePath: inspection.path,
+    status: "already_current",
+    targetVersion
+  };
 }
 
 function formatSnapshotBackupTimestamp(createdAt: string): string {
