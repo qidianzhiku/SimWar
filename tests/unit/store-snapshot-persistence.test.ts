@@ -767,6 +767,66 @@ describe("JSON store snapshot persistence", () => {
     expect(readRaw(snapshotPath)).toBe(rawSnapshot);
   });
 
+  it("does not create backup, quarantine, or recovery side files during load failures", () => {
+    const cases: Array<{
+      code: string;
+      name: string;
+      write: (path: string) => string;
+    }> = [
+      {
+        code: "store_snapshot_unsupported_version",
+        name: "future version",
+        write(path) {
+          return writeSnapshot(path, {
+            snapshot_version: 2,
+            ...createLegacySnapshot()
+          });
+        }
+      },
+      {
+        code: "store_snapshot_invalid_version",
+        name: "invalid version",
+        write(path) {
+          return writeSnapshot(path, {
+            snapshot_version: "1",
+            ...createLegacySnapshot()
+          });
+        }
+      },
+      {
+        code: "store_snapshot_corrupted",
+        name: "corrupted JSON",
+        write(path) {
+          const raw = '{"tenants": [';
+          writeFileSync(path, raw, "utf8");
+          return raw;
+        }
+      },
+      {
+        code: "store_snapshot_corrupted",
+        name: "deep validation failure",
+        write(path) {
+          const snapshot = cloneLegacySnapshot();
+          const users = snapshot.users as Record<string, unknown>[];
+          users[0] = { ...users[0] };
+          delete users[0].password_hash;
+          return writeSnapshot(path, snapshot);
+        }
+      }
+    ];
+
+    for (const { code, name, write } of cases) {
+      const snapshotPath = createSnapshotPath(`${name.replace(/\W+/g, "-")}.json`);
+      const rawSnapshot = write(snapshotPath);
+      const expectedEntries = [basename(snapshotPath)];
+
+      expect(readdirSync(join(snapshotPath, "..")).sort()).toEqual(expectedEntries);
+      expectSnapshotError(() => createP1Store({ persistenceFile: snapshotPath }), code);
+      expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+      expect(readdirSync(join(snapshotPath, "..")).sort()).toEqual(expectedEntries);
+    }
+  });
+
   it("fails read errors without falling back to seed data", () => {
     const snapshotPath = createSnapshotPath();
 
