@@ -318,6 +318,36 @@ function createFailingFileSystem(
   };
 }
 
+function createRecordingFileSystem(openedPaths: string[]): SnapshotFileSystem {
+  return {
+    readFile(path) {
+      return readFileSync(path, "utf8");
+    },
+    mkdir(path) {
+      mkdirSync(path, { recursive: true });
+    },
+    open(path, flags, mode) {
+      openedPaths.push(path);
+      return openSync(path, flags, mode);
+    },
+    writeFile(file, data) {
+      writeFileSync(file, data, "utf8");
+    },
+    fsync(file) {
+      fsyncSync(file);
+    },
+    close(file) {
+      closeSync(file);
+    },
+    rename(source, target) {
+      renameSync(source, target);
+    },
+    unlink(path) {
+      unlinkSync(path);
+    }
+  };
+}
+
 afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { force: true, recursive: true });
@@ -808,6 +838,53 @@ describe("JSON store snapshot persistence", () => {
     const restored = createP1Store({ persistenceFile: snapshotPath });
     expect(replacement).not.toBe(original);
     expect(restored.counters.safe_replace).toBe(1);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("uses distinct temp files for independent writers targeting the same snapshot path", () => {
+    const snapshotPath = createSnapshotPath();
+    writeValidSnapshot(snapshotPath);
+    const openedPaths: string[] = [];
+    const fileSystem = createRecordingFileSystem(openedPaths);
+    const firstStore = createP1Store({ fileSystem, persistenceFile: snapshotPath });
+    const secondStore = createP1Store({ fileSystem, persistenceFile: snapshotPath });
+
+    firstStore.counters.concurrent_writer_first = 1;
+    secondStore.counters.concurrent_writer_second = 1;
+    firstStore.persist();
+    secondStore.persist();
+
+    const tempPaths = openedPaths.filter((path) => path.endsWith(".tmp"));
+    expect(tempPaths).toHaveLength(2);
+    expect(new Set(tempPaths).size).toBe(2);
+    for (const path of tempPaths) {
+      expect(path).toContain(`${basename(snapshotPath)}.`);
+    }
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("characterizes unsupported stale writer overwrite as a complete replacement", () => {
+    const snapshotPath = createSnapshotPath();
+    writeValidSnapshot(snapshotPath);
+    const staleStore = createP1Store({ persistenceFile: snapshotPath });
+    const newerStore = createP1Store({ persistenceFile: snapshotPath });
+
+    staleStore.counters.stale_writer = 1;
+    newerStore.counters.newer_writer = 1;
+    newerStore.persist();
+    const newerRaw = readRaw(snapshotPath);
+    expect(readSnapshot(snapshotPath).counters).toMatchObject({ newer_writer: 1 });
+
+    staleStore.persist();
+
+    const finalRaw = readRaw(snapshotPath);
+    const finalSnapshot = readSnapshot(snapshotPath);
+    const restored = createP1Store({ persistenceFile: snapshotPath });
+    expect(finalRaw).not.toBe(newerRaw);
+    expect(finalSnapshot.counters).toMatchObject({ stale_writer: 1 });
+    expect(finalSnapshot.counters).not.toHaveProperty("newer_writer");
+    expect(restored.counters.stale_writer).toBe(1);
+    expect(restored.counters.newer_writer).toBeUndefined();
     expect(tempFilesFor(snapshotPath)).toEqual([]);
   });
 
