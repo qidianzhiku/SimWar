@@ -242,6 +242,78 @@ Future modifying migration apply tooling must call the explicit
 backup-before-write helper before any write-back. Rollback, restore, recovery
 apply, backup retention, and operator workflow remain future work.
 
+## Migration Apply
+
+The repository provides an explicit migration apply command for the only
+currently supported migration path:
+
+```powershell
+npm run snapshot:migration:apply -- <snapshot-file>
+npm run snapshot:migration:apply -- --json <snapshot-file>
+```
+
+The apply command supports valid legacy v0 snapshots only. It migrates a valid
+legacy v0 snapshot to the current v1 persisted format by adding
+`snapshot_version: 1` through the same persisted snapshot writer shape used by
+normal store persistence.
+
+Apply behavior:
+
+| Input snapshot                          | Apply result                        |
+| --------------------------------------- | ----------------------------------- |
+| Valid explicit v1                       | No-op / already current             |
+| Valid legacy v0                         | Backup, atomic write-back, valid v1 |
+| Future version                          | Blocked as unsupported              |
+| Invalid explicit version                | Blocked as invalid                  |
+| Malformed or empty JSON                 | Blocked before backup or write-back |
+| Shape or deep entity validation failure | Blocked before backup or write-back |
+| Missing file                            | Reported distinctly as not found    |
+
+For a valid legacy v0 apply, the command:
+
+- creates a backup before write-back;
+- preserves the source snapshot's original bytes in that backup;
+- rereads and revalidates the source as legacy v0 after backup creation;
+- writes the migrated v1 snapshot with the crash-safe atomic write path;
+- reinspects the source after write-back and requires a valid v1 result;
+- returns only safe metadata such as source path, backup path, versions, byte
+  counts, status, action, and entity counts.
+
+Apply exit codes:
+
+| Exit code | Meaning                                               |
+| --------- | ----------------------------------------------------- |
+| 0         | Apply succeeded or the snapshot was already current   |
+| 1         | Snapshot is blocked, invalid, corrupt, or unsupported |
+| 2         | Usage error                                           |
+| 3         | Source file was not found                             |
+| 4         | Backup-before-write failed                            |
+| 5         | Atomic write-back failed                              |
+| 6         | Post-write validation failed                          |
+| 7         | Unexpected internal error                             |
+
+The apply command does not:
+
+- run automatically during runtime load;
+- run automatically during normal `persist()`;
+- run from inspection or dry-run planning;
+- migrate future versions;
+- migrate invalid snapshots;
+- repair corrupted snapshots;
+- quarantine snapshots;
+- restore from backup;
+- rollback failed writes;
+- implement backup retention;
+- implement recovery CLI behavior;
+- implement CAS, locking, or stale-writer prevention.
+
+If write-back fails after backup creation, the command fails closed and relies
+on the existing crash-safe atomic writer semantics to preserve the last valid
+source snapshot where the platform replacement operation did not complete. It
+does not attempt rollback or restore. If post-write validation fails, the
+command reports failure and includes the backup path for future explicit
+recovery tooling.
+
 ## Future Migration Tooling Requirements
 
 Future migration tooling must be explicit, offline, and testable. A reviewed
@@ -309,17 +381,17 @@ recovery remain explicit future tooling concerns.
 
 P1-015 adds read-only inspection only. P1-016 adds the explicit
 backup-before-write helper only. P1-017 adds read-only migration dry-run
-planning only. These PRs do not implement migration apply, recovery apply,
-rollback, restore, CAS, stale-writer detection, backup retention, or operator
-workflow.
+planning only. P1-018 adds explicit legacy v0 to current v1 migration apply
+only. These PRs do not implement recovery apply, rollback, restore, CAS,
+stale-writer detection, backup retention, or operator workflow.
 
 ## Issue Relationship
 
 This policy and its characterization tests relate to #139 by defining the JSON
-snapshot migration and recovery design baseline. They do not deliver migration
-apply, recovery tooling, backup retention, rollback commands, restore commands,
-or an operator workflow. The migration dry-run planner is one building block,
-but #139 remains open.
+snapshot migration and recovery design baseline. They do not deliver recovery
+tooling, backup retention, rollback commands, restore commands, or an operator
+workflow. The migration dry-run planner and legacy v0 to v1 apply command are
+building blocks, but #139 remains open.
 
 Issue #138 is not changed by this policy or helper. CAS, locking,
 stale-writer detection, and multi-process write conflict prevention remain

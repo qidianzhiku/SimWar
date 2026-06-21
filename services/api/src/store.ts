@@ -173,6 +173,45 @@ export interface SnapshotMigrationDryRunPlan {
   };
 }
 
+export interface SnapshotMigrationApplyOptions {
+  backupDirectory?: string;
+  fileSystem?: SnapshotFileSystem;
+}
+
+export type SnapshotMigrationApplyStatus =
+  | "applied"
+  | "already_current"
+  | "blocked"
+  | "not_found"
+  | "backup_failed"
+  | "write_failed"
+  | "post_write_validation_failed";
+
+export type SnapshotMigrationApplyAction = "none" | "migrated_legacy_to_current" | "blocked";
+
+export interface SnapshotMigrationApplyResult {
+  sourcePath: string;
+  targetVersion: typeof CURRENT_SNAPSHOT_VERSION;
+  beforeVersion: typeof CURRENT_SNAPSHOT_VERSION | "legacy" | "unknown" | number;
+  afterVersion: typeof CURRENT_SNAPSHOT_VERSION | "unknown" | null;
+  status: SnapshotMigrationApplyStatus;
+  action: SnapshotMigrationApplyAction;
+  canApplyInFuture: boolean;
+  backupPath?: string;
+  backupBytes?: number;
+  sourceBytesBefore?: number;
+  sourceBytesAfter?: number | undefined;
+  reasons: string[];
+  safeSummary: {
+    beforeSnapshotVersionLabel: string;
+    afterSnapshotVersionLabel?: string;
+    entityCounts?: Record<string, number>;
+  };
+  error?: {
+    code: string;
+  };
+}
+
 const nodeSnapshotFileSystem: SnapshotFileSystem = {
   readFile: (path) => readFileSync(path, "utf8"),
   mkdir: (path) => mkdirSync(path, { recursive: true }),
@@ -1570,6 +1609,249 @@ export function planSnapshotMigrationDryRun(
     sourcePath: inspection.path,
     status: "already_current",
     targetVersion
+  };
+}
+
+function countSnapshotEntities(snapshot: SimWarStoreSnapshot): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(snapshot)
+      .filter(([, value]) => Array.isArray(value))
+      .map(([key, value]) => [key, value.length])
+  );
+}
+
+function createApplyResultFromPlan(
+  plan: SnapshotMigrationDryRunPlan
+): SnapshotMigrationApplyResult {
+  if (plan.status === "already_current") {
+    return {
+      action: "none",
+      afterVersion: CURRENT_SNAPSHOT_VERSION,
+      beforeVersion: CURRENT_SNAPSHOT_VERSION,
+      canApplyInFuture: false,
+      reasons: ["Snapshot is already at the current version."],
+      safeSummary: {
+        afterSnapshotVersionLabel: `v${CURRENT_SNAPSHOT_VERSION}`,
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel
+      },
+      sourcePath: plan.sourcePath,
+      status: "already_current",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  if (plan.status === "not_found") {
+    return {
+      action: "none",
+      afterVersion: null,
+      beforeVersion: "unknown",
+      canApplyInFuture: false,
+      reasons: plan.reasons,
+      safeSummary: {
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel
+      },
+      sourcePath: plan.sourcePath,
+      status: "not_found",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  return {
+    action: "blocked",
+    afterVersion: null,
+    beforeVersion: plan.currentVersion,
+    canApplyInFuture: false,
+    reasons: plan.reasons,
+    safeSummary: {
+      beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel
+    },
+    sourcePath: plan.sourcePath,
+    status: "blocked",
+    targetVersion: plan.targetVersion
+  };
+}
+
+function safeSnapshotErrorCode(error: unknown, fallback: string): string {
+  return error instanceof StoreSnapshotError ? error.code : fallback;
+}
+
+export function applySnapshotMigrationToCurrentVersion(
+  snapshotPath: string,
+  options: SnapshotMigrationApplyOptions = {}
+): SnapshotMigrationApplyResult {
+  const plan = planSnapshotMigrationDryRun(snapshotPath);
+
+  if (plan.status !== "ready" || plan.action !== "would_migrate_legacy_to_current") {
+    return createApplyResultFromPlan(plan);
+  }
+
+  const fileSystem = options.fileSystem ?? nodeSnapshotFileSystem;
+  let backup: SnapshotBackupResult;
+  const backupOptions: SnapshotBackupOptions = { label: "migration-apply" };
+  if (options.backupDirectory !== undefined) {
+    backupOptions.backupDirectory = options.backupDirectory;
+  }
+
+  try {
+    backup = createSnapshotBackupBeforeWrite(plan.sourcePath, backupOptions);
+  } catch (error) {
+    return {
+      action: "blocked",
+      afterVersion: null,
+      beforeVersion: "legacy",
+      canApplyInFuture: false,
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_backup_failed") },
+      reasons: ["Backup-before-write failed; source snapshot was not modified."],
+      safeSummary: {
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel
+      },
+      sourcePath: plan.sourcePath,
+      status: "backup_failed",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  let rawSource: string;
+  try {
+    rawSource = fileSystem.readFile(plan.sourcePath);
+  } catch (error) {
+    return {
+      action: "blocked",
+      afterVersion: null,
+      backupBytes: backup.bytes,
+      backupPath: backup.backupPath,
+      beforeVersion: "legacy",
+      canApplyInFuture: false,
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_read_failed") },
+      reasons: ["Snapshot could not be reread after backup; write-back was not attempted."],
+      safeSummary: {
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel
+      },
+      sourcePath: plan.sourcePath,
+      status: "blocked",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  const secondInspection = inspectPersistedSnapshotText(rawSource, plan.sourcePath);
+  if (!secondInspection.ok || secondInspection.status !== "valid_legacy_v0") {
+    return {
+      action: "blocked",
+      afterVersion: null,
+      backupBytes: backup.bytes,
+      backupPath: backup.backupPath,
+      beforeVersion: "unknown",
+      canApplyInFuture: false,
+      reasons: ["Snapshot changed after backup and is no longer a valid legacy v0 candidate."],
+      safeSummary: {
+        beforeSnapshotVersionLabel: "unknown"
+      },
+      sourceBytesBefore: Buffer.byteLength(rawSource),
+      sourcePath: plan.sourcePath,
+      status: "blocked",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  let runtimeSnapshot: SimWarStoreSnapshot;
+  try {
+    runtimeSnapshot = normalizeSnapshot(
+      toRuntimeSnapshot(JSON.parse(rawSource) as unknown, plan.sourcePath)
+    );
+  } catch (error) {
+    return {
+      action: "blocked",
+      afterVersion: null,
+      backupBytes: backup.bytes,
+      backupPath: backup.backupPath,
+      beforeVersion: "unknown",
+      canApplyInFuture: false,
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_corrupted") },
+      reasons: ["Snapshot validation failed after backup; write-back was not attempted."],
+      safeSummary: {
+        beforeSnapshotVersionLabel: "unknown"
+      },
+      sourceBytesBefore: Buffer.byteLength(rawSource),
+      sourcePath: plan.sourcePath,
+      status: "blocked",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  const migratedSnapshot = `${JSON.stringify(toPersistedSnapshot(runtimeSnapshot), null, 2)}\n`;
+
+  try {
+    persistSnapshotAtomically(plan.sourcePath, migratedSnapshot, fileSystem);
+  } catch (error) {
+    return {
+      action: "blocked",
+      afterVersion: null,
+      backupBytes: backup.bytes,
+      backupPath: backup.backupPath,
+      beforeVersion: "legacy",
+      canApplyInFuture: false,
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_write_failed") },
+      reasons: ["Atomic write-back failed after backup; no rollback was attempted."],
+      safeSummary: {
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel,
+        entityCounts: countSnapshotEntities(runtimeSnapshot)
+      },
+      sourceBytesBefore: Buffer.byteLength(rawSource),
+      sourcePath: plan.sourcePath,
+      status: "write_failed",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  const postInspection = inspectPersistedSnapshotFile(plan.sourcePath);
+  let sourceBytesAfter: number | undefined;
+  try {
+    sourceBytesAfter = Buffer.byteLength(fileSystem.readFile(plan.sourcePath));
+  } catch {
+    sourceBytesAfter = undefined;
+  }
+
+  if (!postInspection.ok || postInspection.status !== "valid_v1") {
+    return {
+      action: "blocked",
+      afterVersion: "unknown",
+      backupBytes: backup.bytes,
+      backupPath: backup.backupPath,
+      beforeVersion: "legacy",
+      canApplyInFuture: false,
+      reasons: [
+        "Post-write validation failed; backup path is available for future recovery tooling."
+      ],
+      safeSummary: {
+        beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel,
+        entityCounts: countSnapshotEntities(runtimeSnapshot)
+      },
+      sourceBytesAfter,
+      sourceBytesBefore: Buffer.byteLength(rawSource),
+      sourcePath: plan.sourcePath,
+      status: "post_write_validation_failed",
+      targetVersion: plan.targetVersion
+    };
+  }
+
+  return {
+    action: "migrated_legacy_to_current",
+    afterVersion: CURRENT_SNAPSHOT_VERSION,
+    backupBytes: backup.bytes,
+    backupPath: backup.backupPath,
+    beforeVersion: "legacy",
+    canApplyInFuture: false,
+    reasons: ["Legacy v0 snapshot was migrated to the current snapshot version."],
+    safeSummary: {
+      afterSnapshotVersionLabel: `v${CURRENT_SNAPSHOT_VERSION}`,
+      beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel,
+      entityCounts: countSnapshotEntities(runtimeSnapshot)
+    },
+    sourceBytesAfter,
+    sourceBytesBefore: Buffer.byteLength(rawSource),
+    sourcePath: plan.sourcePath,
+    status: "applied",
+    targetVersion: plan.targetVersion
   };
 }
 
