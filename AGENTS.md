@@ -119,6 +119,13 @@ SimWar 的质量工具链按以下职责分工理解和使用：
 
 不要把尚未配置到仓库的工具当作当前可运行能力。引入新工具前，先更新路线图或设计文档，再小步补 scripts、CI 和测试。
 
+## CodeGraph MCP usage policy
+
+- 高风险调用链任务优先使用 CodeGraph MCP，包括 persistence、settlement、Replay、Postgres adapter、API 边界、权限、租户隔离、核心算法和跨模块重构。
+- 文档、小范围测试隔离、PR 操作、runbook 或本地环境说明不得因 CodeGraph MCP 不可用而阻塞；必须如实记录 `CodeGraph unavailable` 并继续用 `rg`、源码阅读、Git diff 和相关门禁验证。
+- 核心生产路径修改必须使用 CodeGraph MCP 或等价的显式源码调用链审查。
+- 不得伪造 CodeGraph MCP 调用结果，也不得把 MCP 不可用写成测试通过。
+
 ## Current Development Focus
 
 近期开发按以下优先级推进：
