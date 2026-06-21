@@ -19,10 +19,12 @@ import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   StoreSnapshotError,
+  applySnapshotMigrationToCurrentVersion,
   createSnapshotBackupBeforeWrite,
   createP1Store,
   inspectPersistedSnapshotFile,
   planSnapshotMigrationDryRun,
+  type SnapshotMigrationApplyResult,
   type SnapshotMigrationDryRunPlan,
   type SnapshotInspectionResult,
   type SnapshotFileSystem,
@@ -177,12 +179,48 @@ function runNpmMigrationPlanCommand(args: string[]) {
   });
 }
 
+function runMigrationApplyCommand(args: string[]) {
+  return spawnSync(
+    process.execPath,
+    [
+      tsxCliPath,
+      "--tsconfig",
+      "scripts/tsconfig.snapshot-migration-apply.json",
+      "scripts/apply-json-snapshot-migration.ts",
+      ...args
+    ],
+    {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    }
+  );
+}
+
+function runNpmMigrationApplyCommand(args: string[]) {
+  if (process.platform === "win32") {
+    const command = ["npm run --silent snapshot:migration:apply --", ...args].join(" ");
+    return spawnSync("cmd.exe", ["/d", "/c", command], {
+      cwd: process.cwd(),
+      encoding: "utf8"
+    });
+  }
+
+  return spawnSync(npmCommand, ["run", "--silent", "snapshot:migration:apply", "--", ...args], {
+    cwd: process.cwd(),
+    encoding: "utf8"
+  });
+}
+
 function parseInspectionJsonOutput(output: string): SnapshotInspectionResult {
   return JSON.parse(output) as SnapshotInspectionResult;
 }
 
 function parseMigrationPlanJsonOutput(output: string): SnapshotMigrationDryRunPlan {
   return JSON.parse(output) as SnapshotMigrationDryRunPlan;
+}
+
+function parseMigrationApplyJsonOutput(output: string): SnapshotMigrationApplyResult {
+  return JSON.parse(output) as SnapshotMigrationApplyResult;
 }
 
 function expectSnapshotError(action: () => unknown, code: string): StoreSnapshotError {
@@ -1830,6 +1868,316 @@ describe("JSON snapshot migration dry-run planner", () => {
     const backup = createSnapshotBackupBeforeWrite(backupPath);
     expect(readRaw(backup.backupPath)).toBe(readRaw(backupPath));
     expect(tempFilesFor(backupPath)).toEqual([]);
+  });
+});
+
+describe("JSON snapshot migration apply", () => {
+  function nodeFileSystem(overrides: Partial<SnapshotFileSystem> = {}): SnapshotFileSystem {
+    return {
+      close: closeSync,
+      fsync: fsyncSync,
+      mkdir: (path) => mkdirSync(path, { recursive: true }),
+      open: openSync,
+      readFile: readRaw,
+      rename: renameSync,
+      unlink: unlinkSync,
+      writeFile: (file, data) => writeFileSync(file, data),
+      ...overrides
+    };
+  }
+
+  function expectSafeApplyOutput(output: string): void {
+    expect(output).not.toContain("SENSITIVE_PASSWORD_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_TOKEN_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DECISION_PAYLOAD_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DATABASE_URL_SENTINEL");
+    expect(output).not.toContain("password_hash");
+    expect(output).not.toContain("token_hash");
+    expect(output).not.toContain("strategy_statement");
+    expect(output).not.toContain('"payload"');
+  }
+
+  it("returns a no-op for valid v1 without backup or write-back", () => {
+    const snapshotPath = createSnapshotPath("apply-current-v1.json");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+    const mtimeMs = statSync(snapshotPath).mtimeMs;
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath);
+
+    expect(result).toMatchObject({
+      action: "none",
+      afterVersion: 1,
+      beforeVersion: 1,
+      sourcePath: snapshotPath,
+      status: "already_current",
+      targetVersion: 1
+    });
+    expect(result.backupPath).toBeUndefined();
+    expect(result.reasons).toContain("Snapshot is already at the current version.");
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(statSync(snapshotPath).mtimeMs).toBe(mtimeMs);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("applies valid legacy v0 to v1 after creating a raw-byte backup", () => {
+    const snapshotPath = createSnapshotPath("apply-legacy-v0.json");
+    const legacySnapshot = createLegacySnapshot();
+    const rawLegacy = writeSnapshot(snapshotPath, legacySnapshot);
+    const beforeCourseCount = (legacySnapshot.courses as unknown[]).length;
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath);
+    const migrated = readSnapshot(snapshotPath);
+    const postInspection = inspectPersistedSnapshotFile(snapshotPath);
+
+    expect(result).toMatchObject({
+      action: "migrated_legacy_to_current",
+      afterVersion: 1,
+      beforeVersion: "legacy",
+      sourceBytesBefore: Buffer.byteLength(rawLegacy),
+      sourcePath: snapshotPath,
+      status: "applied",
+      targetVersion: 1
+    });
+    expect(result.backupPath).toBeTruthy();
+    expect(result.backupBytes).toBe(Buffer.byteLength(rawLegacy));
+    expect(result.safeSummary.entityCounts?.courses).toBe(beforeCourseCount);
+    expect(readRaw(result.backupPath!)).toBe(rawLegacy);
+    expect(migrated.snapshot_version).toBe(1);
+    expect(migrated).toHaveProperty("courses");
+    expect(postInspection).toMatchObject({ ok: true, status: "valid_v1" });
+    expect(readRaw(snapshotPath)).not.toBe(rawLegacy);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expectSafeApplyOutput(JSON.stringify(result));
+  });
+
+  it.each([
+    {
+      expectedStatus: "blocked",
+      name: "future version",
+      write(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: 2,
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "invalid explicit version",
+      write(path: string) {
+        return writeSnapshot(path, {
+          snapshot_version: "1",
+          ...createLegacySnapshot()
+        });
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "malformed JSON",
+      write(path: string) {
+        return writeRaw(path, '{"snapshot_version": 1,');
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "empty file",
+      write(path: string) {
+        return writeRaw(path, "");
+      }
+    },
+    {
+      expectedStatus: "blocked",
+      name: "deep validation failure",
+      write(path: string) {
+        const snapshot = createLegacySnapshot();
+        const users = snapshot.users as Record<string, unknown>[];
+        users[0] = {
+          ...users[0],
+          password_hash: 42
+        };
+        return writeSnapshot(path, {
+          snapshot_version: 1,
+          ...snapshot
+        });
+      }
+    }
+  ])("fails closed for $name without backup or write-back", ({ expectedStatus, name, write }) => {
+    const snapshotPath = createSnapshotPath(`${name.replace(/\W+/g, "-")}-apply.json`);
+    const rawSnapshot = write(snapshotPath);
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath);
+
+    expect(result.status).toBe(expectedStatus);
+    expect(result.canApplyInFuture).toBe(false);
+    expect(result.backupPath).toBeUndefined();
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expectSafeApplyOutput(JSON.stringify(result));
+  });
+
+  it("returns not_found for a missing file without creating side files", () => {
+    const snapshotPath = join(createTempDir(), "missing-apply.json");
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath);
+
+    expect(result).toMatchObject({
+      action: "none",
+      afterVersion: null,
+      beforeVersion: "unknown",
+      sourcePath: snapshotPath,
+      status: "not_found"
+    });
+    expect(result.backupPath).toBeUndefined();
+    expect(existsSync(snapshotPath)).toBe(false);
+    expect(readdirSync(join(snapshotPath, ".."))).toEqual([]);
+  });
+
+  it("fails closed when backup creation fails before write-back", () => {
+    const snapshotPath = createSnapshotPath("backup-failure-apply.json");
+    const rawSnapshot = writeSnapshot(snapshotPath, createLegacySnapshot());
+    const blockedBackupDirectory = join(snapshotPath, "..", "blocked-backup-target");
+    writeRaw(blockedBackupDirectory, "not a directory");
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath, {
+      backupDirectory: blockedBackupDirectory
+    });
+
+    expect(result.status).toBe("backup_failed");
+    expect(result.backupPath).toBeUndefined();
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(readRaw(blockedBackupDirectory)).toBe("not a directory");
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("fails closed when atomic write-back fails after backup", () => {
+    const snapshotPath = createSnapshotPath("write-failure-apply.json");
+    const rawSnapshot = writeSnapshot(snapshotPath, createLegacySnapshot());
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath, {
+      fileSystem: nodeFileSystem({
+        rename() {
+          throw new Error("forced atomic rename failure");
+        }
+      })
+    });
+
+    expect(result.status).toBe("write_failed");
+    expect(result.backupPath).toBeTruthy();
+    expect(readRaw(result.backupPath!)).toBe(rawSnapshot);
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("fails closed when post-write validation fails and keeps the backup path", () => {
+    const snapshotPath = createSnapshotPath("post-validation-failure-apply.json");
+    const rawSnapshot = writeSnapshot(snapshotPath, createLegacySnapshot());
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath, {
+      fileSystem: nodeFileSystem({
+        rename(source, target) {
+          renameSync(source, target);
+          writeRaw(target, "{}");
+        }
+      })
+    });
+
+    expect(result.status).toBe("post_write_validation_failed");
+    expect(result.backupPath).toBeTruthy();
+    expect(readRaw(result.backupPath!)).toBe(rawSnapshot);
+    expect(inspectPersistedSnapshotFile(snapshotPath)).toMatchObject({
+      ok: false,
+      status: "invalid_snapshot"
+    });
+
+    writeRaw(snapshotPath, readRaw(result.backupPath!));
+    const retry = applySnapshotMigrationToCurrentVersion(snapshotPath);
+    expect(retry.status).toBe("applied");
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("prints human and JSON apply output and exposes the npm entrypoint", () => {
+    const humanPath = createSnapshotPath("apply-human.json");
+    const jsonPath = createSnapshotPath("apply-json.json");
+    const npmPath = createSnapshotPath("apply-npm.json");
+    writeSnapshot(humanPath, createLegacySnapshot());
+    writeSnapshot(jsonPath, createLegacySnapshot());
+    writeSnapshot(npmPath, createLegacySnapshot());
+
+    const human = runMigrationApplyCommand([humanPath]);
+    const machine = runMigrationApplyCommand(["--json", jsonPath]);
+    const npm = runNpmMigrationApplyCommand(["--json", npmPath]);
+    const parsed = parseMigrationApplyJsonOutput(machine.stdout);
+
+    expect(human.status, `stdout:\n${human.stdout}\nstderr:\n${human.stderr}`).toBe(0);
+    expect(human.stdout).toContain("Snapshot migration apply: applied");
+    expect(human.stdout).toContain("Action: migrated_legacy_to_current");
+    expect(human.stdout).toContain("Backup:");
+    expect(machine.status, `stdout:\n${machine.stdout}\nstderr:\n${machine.stderr}`).toBe(0);
+    expect(parsed).toMatchObject({
+      action: "migrated_legacy_to_current",
+      afterVersion: 1,
+      beforeVersion: "legacy",
+      status: "applied"
+    });
+    expect(npm.status, `stdout:\n${npm.stdout}\nstderr:\n${npm.stderr}`).toBe(0);
+    expect(parseMigrationApplyJsonOutput(npm.stdout).status).toBe("applied");
+    expectSafeApplyOutput(human.stdout);
+    expectSafeApplyOutput(machine.stdout);
+    expectSafeApplyOutput(npm.stdout);
+  });
+
+  it("uses explicit CLI exit codes for no-op, blocked, usage, missing, and backup failures", () => {
+    const currentPath = createSnapshotPath("apply-exit-current.json");
+    const blockedPath = createSnapshotPath("apply-exit-blocked.json");
+    const backupFailurePath = createSnapshotPath("apply-exit-backup-failure.json");
+    const backupFailureTarget = join(backupFailurePath, "..", "blocked-backup-target");
+    const missingPath = join(createTempDir(), "missing-apply-cli.json");
+    writeValidSnapshot(currentPath);
+    writeRaw(blockedPath, "");
+    writeSnapshot(backupFailurePath, createLegacySnapshot());
+    writeRaw(backupFailureTarget, "not a directory");
+
+    expect(runMigrationApplyCommand(["--json", currentPath]).status).toBe(0);
+    expect(runMigrationApplyCommand(["--json", blockedPath]).status).toBe(1);
+    expect(runMigrationApplyCommand(["--unknown", currentPath]).status).toBe(2);
+    expect(runMigrationApplyCommand(["--json", missingPath]).status).toBe(3);
+    expect(
+      runMigrationApplyCommand(["--json", "--backup-dir", backupFailureTarget, backupFailurePath])
+        .status
+    ).toBe(4);
+  });
+
+  it("leaves runtime load, inspection, dry-run planning, and normal persist boundaries unchanged", () => {
+    const inspectPath = createSnapshotPath("apply-inspection-boundary.json");
+    const loadPath = createSnapshotPath("apply-load-boundary.json");
+    const planPath = createSnapshotPath("apply-plan-boundary.json");
+    const persistPath = createSnapshotPath("apply-persist-boundary.json");
+    const rawInspect = writeSnapshot(inspectPath, createLegacySnapshot());
+    const rawLoad = writeSnapshot(loadPath, createLegacySnapshot());
+    const rawPlan = writeSnapshot(planPath, createLegacySnapshot());
+
+    const inspection = inspectPersistedSnapshotFile(inspectPath);
+    expect(inspection).toMatchObject({ ok: true, status: "valid_legacy_v0" });
+    expect(readRaw(inspectPath)).toBe(rawInspect);
+    expect(backupFilesFor(inspectPath)).toEqual([]);
+
+    createP1Store({ persistenceFile: loadPath });
+    expect(readRaw(loadPath)).toBe(rawLoad);
+    expect(backupFilesFor(loadPath)).toEqual([]);
+
+    const plan = planSnapshotMigrationDryRun(planPath);
+    expect(plan.status).toBe("ready");
+    expect(readRaw(planPath)).toBe(rawPlan);
+    expect(backupFilesFor(planPath)).toEqual([]);
+
+    writeValidSnapshot(persistPath);
+    const store = createP1Store({ persistenceFile: persistPath });
+    store.counters.migration_apply_boundary = 1;
+    store.persist();
+    expect(backupFilesFor(persistPath)).toEqual([]);
+    expect(tempFilesFor(persistPath)).toEqual([]);
   });
 });
 

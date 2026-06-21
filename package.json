@@ -24,7 +24,8 @@
     "security:audit": "npm audit --audit-level=critical",
     "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs",
     "snapshot:inspect": "tsx --tsconfig scripts/tsconfig.snapshot-inspect.json scripts/inspect-json-snapshot.ts",
-    "snapshot:migration:plan": "tsx --tsconfig scripts/tsconfig.snapshot-migration-plan.json scripts/plan-json-snapshot-migration.ts"
+    "snapshot:migration:plan": "tsx --tsconfig scripts/tsconfig.snapshot-migration-plan.json scripts/plan-json-snapshot-migration.ts",
+    "snapshot:migration:apply": "tsx --tsconfig scripts/tsconfig.snapshot-migration-apply.json scripts/apply-json-snapshot-migration.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
