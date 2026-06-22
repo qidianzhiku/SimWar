@@ -97,6 +97,13 @@ git status --short
 
 ### 具体改动
 
+- P2-002 首批合同切片只冻结 `StudentRoleAssignment`、`RoleContext`、`RolePermissionPolicy`、`RoleTemplate` 四个共享对象，以及 CEO / CFO / CMO / COO 四个默认角色的最小模板和动作权限策略。
+- P2-002 defines the initial assignable student-role contract as CEO/CFO/CMO/COO only.
+- Existing legacy role concepts such as risk may remain in historical compatibility models, but they are not part of the P2-002 default RoleId, RoleTemplate, RolePermissionPolicy, RoleContext, or StudentRoleAssignment contract.
+- P2-002 不实现 `role-context` resolver、role workspace、readiness 聚合、API route、repository port、migration、教师端角色分配 UI 或学员端角色工作台。
+- `RoleContext.permissions.editable_fields` 只允许引用当前 `DecisionPayload` 字段路径，不得包含 `state_true`、score、rank、profit、settlement status 等真值字段。
+- `StudentRoleAssignment` 是后续解析角色上下文的输入契约，不代表本阶段已经存在 runtime assignment store。
+- `RolePermissionPolicy` 是动作与字段权限的共享语义，不替代后端 runtime authorization；后续 P2-003 必须在只读 resolver 中重新校验 actor、tenant、course、run、team 和 role。
 - 新增 `RoleContext`、`RolePermissionScope`、`RoleWorkspaceSnapshot`、`RoleReadinessSummary`。
 - 新增或明确 `RoleFieldOwnership` / `RoleFieldPolicy`，用于描述角色可编辑字段、只读字段和 merge 规则。
 - 保持 `RoleDecisionSection.status` 以 `draft | ready` 为当前最小实现。`returned`、`locked` 仅在本阶段完成核验后再决定是否引入。

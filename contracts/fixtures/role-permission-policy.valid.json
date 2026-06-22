@@ -1,0 +1,14 @@
+{
+  "policy_id": "role_policy_cfo_v1",
+  "role_key": "CFO",
+  "schema_version": "role-permission-policy.v1",
+  "can_read_role_workspace": true,
+  "can_save_section": true,
+  "can_mark_ready": true,
+  "can_create_merge_commit": false,
+  "can_confirm_team_decision": true,
+  "can_submit_canonical_decision": false,
+  "editable_fields": ["cash_buffer_target", "service_quality_budget"],
+  "visible_scopes": ["team.finance_summary", "round.state_obs"],
+  "advisory_scopes": ["finance", "cash_risk"]
+}

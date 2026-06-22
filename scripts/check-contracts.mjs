@@ -9,9 +9,17 @@ const requiredFiles = [
   "contracts/schemas/auth-session.v1.json",
   "contracts/schemas/decision-payload.v1.json",
   "contracts/schemas/rbac.v1.json",
+  "contracts/schemas/role-context.v1.json",
+  "contracts/schemas/role-permission-policy.v1.json",
+  "contracts/schemas/role-template.v1.json",
   "contracts/schemas/settlement-result.v1.json",
+  "contracts/schemas/student-role-assignment.v1.json",
   "contracts/schemas/tenant.v1.json",
   "contracts/schemas/user.v1.json",
+  "contracts/fixtures/role-context.valid.json",
+  "contracts/fixtures/role-permission-policy.valid.json",
+  "contracts/fixtures/role-template.valid.json",
+  "contracts/fixtures/student-role-assignment.valid.json",
   "packages/shared-contracts/src/index.ts",
   "services/api/src/health.ts"
 ];
@@ -50,8 +58,8 @@ if (missingPaths.length > 0) {
   process.exit(1);
 }
 
-for (const schemaPath of requiredFiles.filter((file) => file.startsWith("contracts/schemas/"))) {
-  JSON.parse(readFileSync(resolve(schemaPath), "utf8"));
+for (const jsonPath of requiredFiles.filter((file) => file.endsWith(".json"))) {
+  JSON.parse(readFileSync(resolve(jsonPath), "utf8"));
 }
 
 console.log("Contract baseline files and P0/P1 paths are present.");

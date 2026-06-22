@@ -289,6 +289,312 @@ export type RoleDecisionSectionStatus = "draft" | "ready";
 export type DecisionMergeCommitStatus = "validated";
 export type TeamConfirmationStatus = "confirmed";
 export type RoleKey = TeamMember["role_slot"];
+export type RoleId = Exclude<RoleKey, "risk">;
+export type RoleAssignmentStatus = "active" | "inactive";
+export type RoleAssignmentSource = "teacher_assigned" | "seeded_default";
+export type DecisionPayloadFieldPath =
+  | "pricing.base_price"
+  | "marketing_budget"
+  | "service_quality_budget"
+  | "capacity_plan"
+  | "cash_buffer_target"
+  | "strategy_statement";
+
+export interface RoleTemplate {
+  role_template_id: string;
+  role_key: RoleId;
+  display_name: string;
+  description: string;
+  responsibility_summary: string;
+  default_editable_fields: DecisionPayloadFieldPath[];
+  default_visible_scopes: string[];
+  advisory_scopes: string[];
+  version: string;
+}
+
+export interface RolePermissionPolicy {
+  policy_id: string;
+  role_key: RoleId;
+  schema_version: "role-permission-policy.v1";
+  can_read_role_workspace: boolean;
+  can_save_section: boolean;
+  can_mark_ready: boolean;
+  can_create_merge_commit: boolean;
+  can_confirm_team_decision: boolean;
+  can_submit_canonical_decision: boolean;
+  editable_fields: DecisionPayloadFieldPath[];
+  visible_scopes: string[];
+  advisory_scopes: string[];
+}
+
+export interface StudentRoleAssignment {
+  assignment_id: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  user_id: string;
+  role_key: RoleId;
+  role_template_id: string;
+  status: RoleAssignmentStatus;
+  source: RoleAssignmentSource;
+  assigned_by: string;
+  assigned_at: string;
+}
+
+export interface RoleContext {
+  role_context_id: string;
+  tenant_id: string;
+  user_id: string;
+  course_id: string;
+  run_id: string;
+  round_id: string;
+  round_no: number;
+  team_id: string;
+  assignment_id: string;
+  role_key: RoleId;
+  role_template_id: string;
+  permissions: RolePermissionPolicy;
+  source: "resolved_from_assignment";
+  expires_at: string;
+}
+
+const ROLE_IDS: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const ROLE_CONTRACT_DISALLOWED_EDIT_FIELDS = new Set<string>([
+  "state_true",
+  "market_share",
+  "demand",
+  "served_demand",
+  "revenue",
+  "cost",
+  "profit",
+  "cash_flow",
+  "score",
+  "rank",
+  "settlement_status"
+]);
+
+export const DEFAULT_STUDENT_ROLE_TEMPLATES: RoleTemplate[] = [
+  {
+    role_template_id: "role_template_ceo_v1",
+    role_key: "CEO",
+    display_name: "CEO",
+    description: "Team captain and final integrator for canonical decisions.",
+    responsibility_summary: "Integrates role sections and owns final team confirmation.",
+    default_editable_fields: ["strategy_statement"],
+    default_visible_scopes: ["team.readiness", "team.merge_summary", "round.state_obs"],
+    advisory_scopes: ["strategy", "cross_functional_alignment"],
+    version: "1.0.0"
+  },
+  {
+    role_template_id: "role_template_cfo_v1",
+    role_key: "CFO",
+    display_name: "CFO",
+    description: "Finance owner for budget discipline and cash buffer planning.",
+    responsibility_summary: "Owns financial assumptions before CEO merge.",
+    default_editable_fields: ["cash_buffer_target", "service_quality_budget"],
+    default_visible_scopes: ["team.finance_summary", "round.state_obs"],
+    advisory_scopes: ["finance", "cash_risk"],
+    version: "1.0.0"
+  },
+  {
+    role_template_id: "role_template_cmo_v1",
+    role_key: "CMO",
+    display_name: "CMO",
+    description: "Market owner for pricing, demand assumptions, and positioning.",
+    responsibility_summary: "Owns market-facing inputs before CEO merge.",
+    default_editable_fields: ["pricing.base_price", "marketing_budget"],
+    default_visible_scopes: ["team.market_summary", "round.state_obs"],
+    advisory_scopes: ["market", "pricing"],
+    version: "1.0.0"
+  },
+  {
+    role_template_id: "role_template_coo_v1",
+    role_key: "COO",
+    display_name: "COO",
+    description: "Operations owner for capacity and service execution planning.",
+    responsibility_summary: "Owns operating constraints before CEO merge.",
+    default_editable_fields: ["capacity_plan", "service_quality_budget"],
+    default_visible_scopes: ["team.operations_summary", "round.state_obs"],
+    advisory_scopes: ["operations", "service_delivery"],
+    version: "1.0.0"
+  }
+];
+
+export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermissionPolicy> = {
+  CEO: {
+    policy_id: "role_policy_ceo_v1",
+    role_key: "CEO",
+    schema_version: "role-permission-policy.v1",
+    can_read_role_workspace: true,
+    can_save_section: true,
+    can_mark_ready: true,
+    can_create_merge_commit: true,
+    can_confirm_team_decision: true,
+    can_submit_canonical_decision: true,
+    editable_fields: ["strategy_statement"],
+    visible_scopes: ["team.readiness", "team.merge_summary", "round.state_obs"],
+    advisory_scopes: ["strategy", "cross_functional_alignment"]
+  },
+  CFO: {
+    policy_id: "role_policy_cfo_v1",
+    role_key: "CFO",
+    schema_version: "role-permission-policy.v1",
+    can_read_role_workspace: true,
+    can_save_section: true,
+    can_mark_ready: true,
+    can_create_merge_commit: false,
+    can_confirm_team_decision: true,
+    can_submit_canonical_decision: false,
+    editable_fields: ["cash_buffer_target", "service_quality_budget"],
+    visible_scopes: ["team.finance_summary", "round.state_obs"],
+    advisory_scopes: ["finance", "cash_risk"]
+  },
+  CMO: {
+    policy_id: "role_policy_cmo_v1",
+    role_key: "CMO",
+    schema_version: "role-permission-policy.v1",
+    can_read_role_workspace: true,
+    can_save_section: true,
+    can_mark_ready: true,
+    can_create_merge_commit: false,
+    can_confirm_team_decision: true,
+    can_submit_canonical_decision: false,
+    editable_fields: ["pricing.base_price", "marketing_budget"],
+    visible_scopes: ["team.market_summary", "round.state_obs"],
+    advisory_scopes: ["market", "pricing"]
+  },
+  COO: {
+    policy_id: "role_policy_coo_v1",
+    role_key: "COO",
+    schema_version: "role-permission-policy.v1",
+    can_read_role_workspace: true,
+    can_save_section: true,
+    can_mark_ready: true,
+    can_create_merge_commit: false,
+    can_confirm_team_decision: true,
+    can_submit_canonical_decision: false,
+    editable_fields: ["capacity_plan", "service_quality_budget"],
+    visible_scopes: ["team.operations_summary", "round.state_obs"],
+    advisory_scopes: ["operations", "service_delivery"]
+  }
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+export function isRoleId(value: unknown): value is RoleId {
+  return typeof value === "string" && ROLE_IDS.includes(value as RoleId);
+}
+
+function hasOnlyAllowedEditableFields(value: unknown): value is DecisionPayloadFieldPath[] {
+  return (
+    isStringArray(value) &&
+    value.every(
+      (field) =>
+        !ROLE_CONTRACT_DISALLOWED_EDIT_FIELDS.has(field) && isDecisionPayloadFieldPath(field)
+    )
+  );
+}
+
+function isDecisionPayloadFieldPath(value: string): value is DecisionPayloadFieldPath {
+  return [
+    "pricing.base_price",
+    "marketing_budget",
+    "service_quality_budget",
+    "capacity_plan",
+    "cash_buffer_target",
+    "strategy_statement"
+  ].includes(value);
+}
+
+function hasRequiredStrings(value: Record<string, unknown>, fields: string[]): boolean {
+  return fields.every((field) => typeof value[field] === "string" && value[field].length > 0);
+}
+
+export function isRoleTemplate(value: unknown): value is RoleTemplate {
+  return (
+    isRecord(value) &&
+    hasRequiredStrings(value, [
+      "role_template_id",
+      "display_name",
+      "description",
+      "responsibility_summary",
+      "version"
+    ]) &&
+    isRoleId(value.role_key) &&
+    hasOnlyAllowedEditableFields(value.default_editable_fields) &&
+    isStringArray(value.default_visible_scopes) &&
+    isStringArray(value.advisory_scopes)
+  );
+}
+
+export function isRolePermissionPolicy(value: unknown): value is RolePermissionPolicy {
+  return (
+    isRecord(value) &&
+    hasRequiredStrings(value, ["policy_id"]) &&
+    value.schema_version === "role-permission-policy.v1" &&
+    isRoleId(value.role_key) &&
+    typeof value.can_read_role_workspace === "boolean" &&
+    typeof value.can_save_section === "boolean" &&
+    typeof value.can_mark_ready === "boolean" &&
+    typeof value.can_create_merge_commit === "boolean" &&
+    typeof value.can_confirm_team_decision === "boolean" &&
+    typeof value.can_submit_canonical_decision === "boolean" &&
+    hasOnlyAllowedEditableFields(value.editable_fields) &&
+    isStringArray(value.visible_scopes) &&
+    isStringArray(value.advisory_scopes)
+  );
+}
+
+export function isStudentRoleAssignment(value: unknown): value is StudentRoleAssignment {
+  return (
+    isRecord(value) &&
+    hasRequiredStrings(value, [
+      "assignment_id",
+      "tenant_id",
+      "course_id",
+      "run_id",
+      "team_id",
+      "user_id",
+      "role_template_id",
+      "assigned_by",
+      "assigned_at"
+    ]) &&
+    isRoleId(value.role_key) &&
+    (value.status === "active" || value.status === "inactive") &&
+    (value.source === "teacher_assigned" || value.source === "seeded_default")
+  );
+}
+
+export function isRoleContext(value: unknown): value is RoleContext {
+  return (
+    isRecord(value) &&
+    hasRequiredStrings(value, [
+      "role_context_id",
+      "tenant_id",
+      "user_id",
+      "course_id",
+      "run_id",
+      "round_id",
+      "team_id",
+      "assignment_id",
+      "role_template_id",
+      "expires_at"
+    ]) &&
+    typeof value.round_no === "number" &&
+    Number.isInteger(value.round_no) &&
+    value.round_no > 0 &&
+    isRoleId(value.role_key) &&
+    value.source === "resolved_from_assignment" &&
+    isRolePermissionPolicy(value.permissions)
+  );
+}
 
 export interface RoleDecisionSection {
   section_id: string;

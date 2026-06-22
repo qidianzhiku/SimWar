@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/role-permission-policy.v1.json",
+  "title": "RolePermissionPolicy",
+  "type": "object",
+  "required": [
+    "policy_id",
+    "role_key",
+    "schema_version",
+    "can_read_role_workspace",
+    "can_save_section",
+    "can_mark_ready",
+    "can_create_merge_commit",
+    "can_confirm_team_decision",
+    "can_submit_canonical_decision",
+    "editable_fields",
+    "visible_scopes",
+    "advisory_scopes"
+  ],
+  "properties": {
+    "policy_id": { "type": "string", "minLength": 1 },
+    "role_key": {
+      "type": "string",
+      "enum": ["CEO", "CFO", "CMO", "COO"]
+    },
+    "schema_version": { "const": "role-permission-policy.v1" },
+    "can_read_role_workspace": { "type": "boolean" },
+    "can_save_section": { "type": "boolean" },
+    "can_mark_ready": { "type": "boolean" },
+    "can_create_merge_commit": { "type": "boolean" },
+    "can_confirm_team_decision": { "type": "boolean" },
+    "can_submit_canonical_decision": { "type": "boolean" },
+    "editable_fields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "pricing.base_price",
+          "marketing_budget",
+          "service_quality_budget",
+          "capacity_plan",
+          "cash_buffer_target",
+          "strategy_statement"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "visible_scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "advisory_scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}
