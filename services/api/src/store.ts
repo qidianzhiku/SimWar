@@ -6,10 +6,11 @@ import {
   openSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import type {
   ActorRole,
@@ -147,6 +148,20 @@ export interface SnapshotBackupResult {
   createdAt: string;
   bytes: number;
 }
+
+export type SnapshotWriteMetadata =
+  | {
+      status: "found";
+      filePath: string;
+      sizeBytes: number;
+      mtimeMs: number;
+      mtimeIso: string;
+      contentSha256: string;
+    }
+  | {
+      status: "not_found";
+      filePath: string;
+    };
 
 export interface SnapshotMigrationDryRunOptions {
   targetVersion?: typeof CURRENT_SNAPSHOT_VERSION;
@@ -1538,6 +1553,53 @@ export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInsp
       ...(isNodeError(error) && error.code ? { code: error.code } : {})
     });
   }
+}
+
+export function readSnapshotWriteMetadata(snapshotPath: string): SnapshotWriteMetadata {
+  const absolutePath = resolve(snapshotPath);
+
+  let stats: ReturnType<typeof statSync>;
+  try {
+    stats = statSync(absolutePath);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return {
+        filePath: absolutePath,
+        status: "not_found"
+      };
+    }
+
+    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+  }
+
+  if (!stats.isFile()) {
+    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, {
+      reason: "not_file"
+    });
+  }
+
+  let rawBytes: Buffer;
+  try {
+    rawBytes = readFileSync(absolutePath);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return {
+        filePath: absolutePath,
+        status: "not_found"
+      };
+    }
+
+    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+  }
+
+  return {
+    contentSha256: createHash("sha256").update(rawBytes).digest("hex"),
+    filePath: absolutePath,
+    mtimeIso: new Date(stats.mtimeMs).toISOString(),
+    mtimeMs: stats.mtimeMs,
+    sizeBytes: rawBytes.byteLength,
+    status: "found"
+  };
 }
 
 function createBlockedMigrationPlan(
