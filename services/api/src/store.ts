@@ -163,6 +163,28 @@ export type SnapshotWriteMetadata =
       filePath: string;
     };
 
+export type SnapshotWritePrecondition = SnapshotWriteMetadata;
+
+type SnapshotWriteConflictMetadata =
+  | {
+      status: "found";
+      filePath: string;
+      sizeBytes: number;
+      contentSha256: string;
+      mtimeMs: number;
+      mtimeIso: string;
+    }
+  | {
+      status: "not_found";
+      filePath: string;
+    };
+
+interface SnapshotWriteConflictCause {
+  actual: SnapshotWriteConflictMetadata;
+  expected: SnapshotWriteConflictMetadata;
+  operation: "cas_precondition";
+}
+
 export interface SnapshotMigrationDryRunOptions {
   targetVersion?: typeof CURRENT_SNAPSHOT_VERSION;
 }
@@ -1601,6 +1623,75 @@ export function readSnapshotWriteMetadata(snapshotPath: string): SnapshotWriteMe
   } finally {
     closeSync(fileDescriptor);
   }
+}
+
+function snapshotWriteMetadataIdentityMatches(
+  expected: SnapshotWritePrecondition,
+  actual: SnapshotWriteMetadata
+): boolean {
+  if (expected.status !== actual.status) {
+    return false;
+  }
+
+  if (expected.status === "not_found") {
+    return true;
+  }
+
+  return (
+    actual.status === "found" &&
+    expected.contentSha256 === actual.contentSha256 &&
+    expected.sizeBytes === actual.sizeBytes
+  );
+}
+
+function toSnapshotWriteConflictMetadata(
+  metadata: SnapshotWriteMetadata
+): SnapshotWriteConflictMetadata {
+  if (metadata.status === "not_found") {
+    return {
+      filePath: metadata.filePath,
+      status: "not_found"
+    };
+  }
+
+  return {
+    contentSha256: metadata.contentSha256,
+    filePath: metadata.filePath,
+    mtimeIso: metadata.mtimeIso,
+    mtimeMs: metadata.mtimeMs,
+    sizeBytes: metadata.sizeBytes,
+    status: "found"
+  };
+}
+
+function createSnapshotWriteConflictError(
+  snapshotPath: string,
+  expected: SnapshotWritePrecondition,
+  actual: SnapshotWriteMetadata
+): StoreSnapshotError {
+  const cause: SnapshotWriteConflictCause = {
+    actual: toSnapshotWriteConflictMetadata(actual),
+    expected: toSnapshotWriteConflictMetadata(expected),
+    operation: "cas_precondition"
+  };
+
+  return new StoreSnapshotError("store_snapshot_write_conflict", snapshotPath, cause);
+}
+
+export function persistSnapshotAtomicallyWithExpectedMetadata(
+  snapshotPath: string,
+  contents: string,
+  expectedMetadata: SnapshotWritePrecondition,
+  fileSystem: SnapshotFileSystem = nodeSnapshotFileSystem
+): void {
+  const absolutePath = resolve(snapshotPath);
+  const actualMetadata = readSnapshotWriteMetadata(absolutePath);
+
+  if (!snapshotWriteMetadataIdentityMatches(expectedMetadata, actualMetadata)) {
+    throw createSnapshotWriteConflictError(absolutePath, expectedMetadata, actualMetadata);
+  }
+
+  persistSnapshotAtomically(absolutePath, contents, fileSystem);
 }
 
 function createBlockedMigrationPlan(

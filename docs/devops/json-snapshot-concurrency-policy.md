@@ -71,7 +71,54 @@ identical retry behavior, and which write paths should enforce the precondition.
 
 Corrupt existing file metadata is not the same as valid snapshot inspection.
 
-## 4. What This Policy Does Not Guarantee
+## 4. Explicit Expected-Current Writer API
+
+`persistSnapshotAtomicallyWithExpectedMetadata` is an explicit expected-current
+writer API for future #138 CAS work.
+
+The API compares current raw file metadata from `readSnapshotWriteMetadata`
+with caller-supplied expected metadata before delegating to the existing
+crash-safe atomic writer.
+
+The current identity basis is:
+
+- metadata status;
+- `sizeBytes`;
+- `contentSha256`.
+
+`mtimeMs` and `mtimeIso` are diagnostics only. They are not the sole conflict
+basis and are not required to match when the raw bytes are identical.
+
+If expected and current metadata do not match, the API fails closed with a
+deterministic `store_snapshot_write_conflict` error. The conflict error carries
+safe metadata only: target path, expected status, actual status, byte size, and
+SHA-256 where available. It must not include full snapshot payloads, entities,
+Decision payloads, credentials, database URLs, or secrets.
+
+If expected and current metadata match, the API delegates to
+`persistSnapshotAtomically` and preserves the existing crash-safe write
+semantics.
+
+This API is not wired into runtime store persist.
+
+It is not wired into migration apply.
+
+It is not wired into restore from backup.
+
+It does not create backups.
+
+It does not create locks.
+
+It does not provide distributed coordination.
+
+It does not mutate the persisted snapshot format.
+
+It does not fully prevent all concurrent writer races; it only gives explicit
+callers a deterministic expected-current precondition boundary. Future #138 work
+must decide where to enforce it and whether stronger locking or coordination is
+needed.
+
+## 5. What This Policy Does Not Guarantee
 
 This policy does not prevent stale writer overwrite.
 
@@ -87,7 +134,7 @@ It does not replace Postgres transaction semantics.
 
 It does not make local JSON persistence a distributed coordination mechanism.
 
-## 5. Future CAS direction for #138
+## 6. Future CAS direction for #138
 
 Future #138 work should be split into small PRs. Candidate design direction:
 
@@ -109,10 +156,14 @@ records the current no-CAS behavior and the boundary for #138 design.
 Recommended next PR:
 
 ```text
-P1-024 - Add explicit CAS-capable JSON snapshot atomic writer API with conflict error
+P1-025 - Wire explicit CAS writer into migration apply and restore paths
 ```
 
-## 6. Relationship To #139
+Runtime persist CAS should be evaluated separately because it may require a
+broader product decision about local JSON store writer ownership and conflict
+surfacing.
+
+## 7. Relationship To #139
 
 #139 local migration/recovery tooling is complete and closed.
 
