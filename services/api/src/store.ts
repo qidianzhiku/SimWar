@@ -2,6 +2,7 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  fstatSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -9,7 +10,7 @@ import {
   unlinkSync,
   writeFileSync
 } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { basename, dirname, join, resolve } from "node:path";
 import type {
   ActorRole,
@@ -147,6 +148,20 @@ export interface SnapshotBackupResult {
   createdAt: string;
   bytes: number;
 }
+
+export type SnapshotWriteMetadata =
+  | {
+      status: "found";
+      filePath: string;
+      sizeBytes: number;
+      mtimeMs: number;
+      mtimeIso: string;
+      contentSha256: string;
+    }
+  | {
+      status: "not_found";
+      filePath: string;
+    };
 
 export interface SnapshotMigrationDryRunOptions {
   targetVersion?: typeof CURRENT_SNAPSHOT_VERSION;
@@ -1537,6 +1552,54 @@ export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInsp
       message: "Snapshot inspection failed while reading the file",
       ...(isNodeError(error) && error.code ? { code: error.code } : {})
     });
+  }
+}
+
+export function readSnapshotWriteMetadata(snapshotPath: string): SnapshotWriteMetadata {
+  const absolutePath = resolve(snapshotPath);
+
+  const fileDescriptor = (() => {
+    try {
+      return openSync(absolutePath, "r");
+    } catch (error) {
+      if (isNodeError(error) && error.code === "ENOENT") {
+        return undefined;
+      }
+
+      throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+    }
+  })();
+
+  if (fileDescriptor === undefined) {
+    return {
+      filePath: absolutePath,
+      status: "not_found"
+    };
+  }
+
+  try {
+    const stats = fstatSync(fileDescriptor);
+
+    if (!stats.isFile()) {
+      throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, {
+        reason: "not_file"
+      });
+    }
+
+    const rawBytes = readFileSync(fileDescriptor);
+
+    return {
+      contentSha256: createHash("sha256").update(rawBytes).digest("hex"),
+      filePath: absolutePath,
+      mtimeIso: new Date(stats.mtimeMs).toISOString(),
+      mtimeMs: stats.mtimeMs,
+      sizeBytes: rawBytes.byteLength,
+      status: "found"
+    };
+  } catch (error) {
+    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+  } finally {
+    closeSync(fileDescriptor);
   }
 }
 

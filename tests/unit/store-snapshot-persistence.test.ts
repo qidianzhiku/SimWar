@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -24,6 +25,7 @@ import {
   createP1Store,
   inspectPersistedSnapshotFile,
   planSnapshotMigrationDryRun,
+  readSnapshotWriteMetadata,
   restoreSnapshotFromBackup,
   type SnapshotMigrationApplyResult,
   type SnapshotMigrationDryRunPlan,
@@ -1490,6 +1492,119 @@ describe("JSON snapshot concurrency policy characterization", () => {
     expect(policy).toContain("replay_hash is not a snapshot CAS token");
     expect(policy).toContain("Future CAS direction for #138");
     expect(policy).toContain("#139 local migration/recovery tooling is complete and closed");
+  });
+});
+
+describe("JSON snapshot write metadata", () => {
+  function sha256Hex(raw: string): string {
+    return createHash("sha256").update(raw, "utf8").digest("hex");
+  }
+
+  it("returns safe raw file metadata for a valid v1 snapshot", () => {
+    const snapshotPath = createSnapshotPath("write-metadata-valid-v1.json");
+    const rawSnapshot = writeValidSnapshot(snapshotPath);
+
+    const metadata = readSnapshotWriteMetadata(snapshotPath);
+
+    expect(metadata).toMatchObject({
+      contentSha256: sha256Hex(rawSnapshot),
+      filePath: snapshotPath,
+      sizeBytes: Buffer.byteLength(rawSnapshot, "utf8"),
+      status: "found"
+    });
+    if (metadata.status !== "found") {
+      throw new Error("expected found metadata");
+    }
+    expect(metadata.contentSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(metadata.mtimeMs).toBeGreaterThan(0);
+    expect(metadata.mtimeIso).toBe(new Date(metadata.mtimeMs).toISOString());
+    expect(JSON.stringify(metadata)).not.toContain("tenants");
+    expect(JSON.stringify(metadata)).not.toContain("password_hash");
+    expect(JSON.stringify(metadata)).not.toContain("payload");
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("returns not_found for a missing snapshot without creating files or directories", () => {
+    const missingDirectory = join(createTempDir(), "missing-metadata-directory");
+    const missingPath = join(missingDirectory, "missing-snapshot.json");
+
+    const metadata = readSnapshotWriteMetadata(missingPath);
+
+    expect(metadata).toEqual({
+      filePath: missingPath,
+      status: "not_found"
+    });
+    expect(existsSync(missingPath)).toBe(false);
+    expect(existsSync(missingDirectory)).toBe(false);
+  });
+
+  it("returns raw metadata for corrupt JSON without treating it as valid snapshot data", () => {
+    const snapshotPath = createSnapshotPath("write-metadata-corrupt.json");
+    const rawSnapshot = '{"snapshot_version":1,"payload":"SENSITIVE_DECISION_PAYLOAD_SENTINEL",';
+    writeRaw(snapshotPath, rawSnapshot);
+
+    const metadata = readSnapshotWriteMetadata(snapshotPath);
+
+    expect(metadata).toMatchObject({
+      contentSha256: sha256Hex(rawSnapshot),
+      filePath: snapshotPath,
+      sizeBytes: Buffer.byteLength(rawSnapshot, "utf8"),
+      status: "found"
+    });
+    expect(JSON.stringify(metadata)).not.toContain("SENSITIVE_DECISION_PAYLOAD_SENTINEL");
+    expect(JSON.stringify(metadata)).not.toContain("payload");
+    expect(inspectPersistedSnapshotFile(snapshotPath)).toMatchObject({
+      ok: false,
+      status: "corrupt_json"
+    });
+    expect(readRaw(snapshotPath)).toBe(rawSnapshot);
+  });
+
+  it("provides stable raw-byte checksums for identical bytes and different checksums for changes", () => {
+    const firstPath = createSnapshotPath("write-metadata-first.json");
+    const secondPath = createSnapshotPath("write-metadata-second.json");
+    const firstRaw = writeRaw(firstPath, '{"snapshot_version":1}\n');
+    writeRaw(secondPath, firstRaw);
+
+    const firstMetadata = readSnapshotWriteMetadata(firstPath);
+    const secondMetadata = readSnapshotWriteMetadata(secondPath);
+    writeRaw(secondPath, '{"snapshot_version":1,"changed":true}\n');
+    const changedMetadata = readSnapshotWriteMetadata(secondPath);
+
+    expect(firstMetadata.status).toBe("found");
+    expect(secondMetadata.status).toBe("found");
+    expect(changedMetadata.status).toBe("found");
+    if (
+      firstMetadata.status !== "found" ||
+      secondMetadata.status !== "found" ||
+      changedMetadata.status !== "found"
+    ) {
+      throw new Error("expected found metadata");
+    }
+    expect(firstMetadata.contentSha256).toBe(secondMetadata.contentSha256);
+    expect(changedMetadata.contentSha256).not.toBe(firstMetadata.contentSha256);
+    expect(changedMetadata.contentSha256).toBe(sha256Hex(readRaw(secondPath)));
+  });
+
+  it("does not prevent the current unsupported stale-writer overwrite behavior", () => {
+    const snapshotPath = createSnapshotPath("write-metadata-not-cas.json");
+    writeValidSnapshot(snapshotPath);
+    const writerA = createP1Store({ persistenceFile: snapshotPath });
+    const writerB = createP1Store({ persistenceFile: snapshotPath });
+    const beforeMetadata = readSnapshotWriteMetadata(snapshotPath);
+
+    writerA.counters.metadata_writer_a = 1;
+    writerB.counters.metadata_writer_b = 1;
+    writerA.persist();
+    writerB.persist();
+
+    const afterMetadata = readSnapshotWriteMetadata(snapshotPath);
+    const finalSnapshot = readSnapshot(snapshotPath);
+    expect(beforeMetadata.status).toBe("found");
+    expect(afterMetadata.status).toBe("found");
+    expect(finalSnapshot.counters).toMatchObject({ metadata_writer_b: 1 });
+    expect(finalSnapshot.counters).not.toHaveProperty("metadata_writer_a");
   });
 });
 

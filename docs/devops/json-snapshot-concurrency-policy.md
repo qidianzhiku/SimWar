@@ -43,7 +43,35 @@ before it writes a complete older snapshot.
 Inspection and migration planning remain read-only paths. They do not call the
 writer and do not participate in concurrency control.
 
-## 3. What This Policy Does Not Guarantee
+## 3. Read-Only Write Metadata Helper
+
+`readSnapshotWriteMetadata` reads current local file metadata only.
+
+For an existing snapshot file, it returns raw file metadata such as:
+
+- file path;
+- byte size;
+- filesystem mtime in milliseconds;
+- filesystem mtime as ISO text;
+- SHA-256 of the current raw file bytes.
+
+For a missing file, it returns `not_found`.
+
+The helper does not validate snapshot correctness. A corrupt existing file can
+still have size, mtime, and SHA-256 metadata. Snapshot validity remains the job
+of `snapshot:inspect` and the inspection helpers.
+
+The helper does not enforce CAS. It does not prevent stale writers, create
+locks, create temporary files, create backups, write files, or mutate the
+persisted snapshot format.
+
+This helper is intended as a future CAS building block only. Future #138 work
+must still define expected-current semantics, the conflict error shape,
+identical retry behavior, and which write paths should enforce the precondition.
+
+Corrupt existing file metadata is not the same as valid snapshot inspection.
+
+## 4. What This Policy Does Not Guarantee
 
 This policy does not prevent stale writer overwrite.
 
@@ -59,7 +87,7 @@ It does not replace Postgres transaction semantics.
 
 It does not make local JSON persistence a distributed coordination mechanism.
 
-## 4. Future CAS direction for #138
+## 5. Future CAS direction for #138
 
 Future #138 work should be split into small PRs. Candidate design direction:
 
@@ -78,7 +106,13 @@ Future #138 work should be split into small PRs. Candidate design direction:
 This document does not choose the final CAS token or locking strategy. It only
 records the current no-CAS behavior and the boundary for #138 design.
 
-## 5. Relationship To #139
+Recommended next PR:
+
+```text
+P1-024 - Add explicit CAS-capable JSON snapshot atomic writer API with conflict error
+```
+
+## 6. Relationship To #139
 
 #139 local migration/recovery tooling is complete and closed.
 
