@@ -1484,13 +1484,21 @@ describe("JSON snapshot concurrency policy characterization", () => {
       "utf8"
     );
 
-    expect(policy).toContain("JSON snapshot writer is crash-safe but not stale-writer-safe");
-    expect(policy).toContain("last successful atomic replace wins");
-    expect(policy).toContain("There is no CAS");
+    expect(policy).toContain("Runtime store persist remains not");
+    expect(policy).toContain("stale-writer-safe");
+    expect(policy).toContain(
+      "The runtime store persist policy is last successful atomic replace wins"
+    );
+    expect(policy).toContain(
+      "Explicit migration apply and restore use expected-current conflict detection"
+    );
+    expect(policy).toContain("Runtime store persist does not");
     expect(policy).toContain("There is no lock");
+    expect(policy).toContain("store_snapshot_write_conflict");
     expect(policy).toContain("snapshot_version is a persisted format version only");
     expect(policy).toContain("entity updated_at is not a snapshot write precondition");
     expect(policy).toContain("replay_hash is not a snapshot CAS token");
+    expect(policy).toContain("CAS Wiring For Explicit Migration Apply And Restore");
     expect(policy).toContain("Future CAS direction for #138");
     expect(policy).toContain("#139 local migration/recovery tooling is complete and closed");
   });
@@ -2963,6 +2971,190 @@ describe("JSON snapshot restore from backup", () => {
     store.persist();
     expect(backupFilesFor(persistPath)).toEqual([]);
     expect(tempFilesFor(persistPath)).toEqual([]);
+  });
+});
+
+describe("JSON snapshot CAS apply and restore wiring", () => {
+  const migrationApplyScriptPath = join(process.cwd(), "scripts/apply-json-snapshot-migration.ts");
+  const restoreScriptPath = join(process.cwd(), "scripts/restore-json-snapshot.ts");
+
+  function expectSafeConflictOutput(output: string): void {
+    expect(output).toContain("store_snapshot_write_conflict");
+    expect(output).not.toContain("SENSITIVE_PASSWORD_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_TOKEN_HASH_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DECISION_PAYLOAD_SENTINEL");
+    expect(output).not.toContain("SENSITIVE_DATABASE_URL_SENTINEL");
+    expect(output).not.toContain("password_hash");
+    expect(output).not.toContain("token_hash");
+    expect(output).not.toContain("strategy_statement");
+    expect(output).not.toContain('"payload"');
+  }
+
+  function snapshotContentsWithCounter(name: string, value: number): string {
+    const sourcePath = createSnapshotPath(`${name}.json`);
+    const store = createP1Store({ persistenceFile: sourcePath });
+    store.counters[name] = value;
+    store.persist();
+    return readRaw(sourcePath);
+  }
+
+  it("keeps migration apply success behavior while using the CAS write path", () => {
+    const snapshotPath = createSnapshotPath("cas-apply-success.json");
+    const rawLegacy = writeSnapshot(snapshotPath, createLegacySnapshot());
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath);
+
+    expect(result).toMatchObject({
+      action: "migrated_legacy_to_current",
+      afterVersion: 1,
+      beforeVersion: "legacy",
+      sourcePath: snapshotPath,
+      status: "applied",
+      targetVersion: 1
+    });
+    expect(result.backupPath).toBeTruthy();
+    expect(readRaw(result.backupPath!)).toBe(rawLegacy);
+    expect(inspectPersistedSnapshotFile(snapshotPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(JSON.stringify(result)).not.toContain("store_snapshot_write_conflict");
+    expect(JSON.stringify(result)).not.toContain('"payload"');
+  });
+
+  it("fails migration apply with a safe CAS conflict when the target changes before write-back", () => {
+    const snapshotPath = createSnapshotPath("cas-apply-conflict.json");
+    const rawLegacy = writeSnapshot(snapshotPath, createLegacySnapshot());
+    const newerBytes = snapshotContentsWithCounter("cas_apply_newer_state", 11);
+
+    const result = applySnapshotMigrationToCurrentVersion(snapshotPath, {
+      beforeCasWriteForTesting() {
+        writeRaw(snapshotPath, newerBytes);
+      }
+    });
+
+    expect(result).toMatchObject({
+      action: "blocked",
+      afterVersion: null,
+      beforeVersion: "legacy",
+      sourcePath: snapshotPath,
+      status: "cas_conflict",
+      targetVersion: 1
+    });
+    expect(result.backupPath).toBeTruthy();
+    expect(readRaw(result.backupPath!)).toBe(rawLegacy);
+    expect(readRaw(snapshotPath)).toBe(newerBytes);
+    expect(result.error?.code).toBe("store_snapshot_write_conflict");
+    expect(result.reasons).toContain(
+      "Snapshot changed before CAS write-back; newer target bytes were preserved."
+    );
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expectSafeConflictOutput(JSON.stringify(result));
+  });
+
+  it("keeps restore success behavior for existing and missing targets while using CAS writes", () => {
+    const existingBackupPath = createSnapshotPath("cas-restore-existing-backup.bak");
+    const existingTargetPath = createSnapshotPath("cas-restore-existing-target.json");
+    const missingBackupPath = createSnapshotPath("cas-restore-missing-backup.bak");
+    const missingTargetPath = join(createTempDir(), "cas-restore-missing-target.json");
+    writeSnapshot(existingBackupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    writeValidSnapshot(existingTargetPath);
+    writeSnapshot(missingBackupPath, createLegacySnapshot());
+
+    const existing = restoreSnapshotFromBackup(existingBackupPath, existingTargetPath);
+    const missing = restoreSnapshotFromBackup(missingBackupPath, missingTargetPath);
+
+    expect(existing.status).toBe("restored");
+    expect(existing.preRestoreBackupPath).toBeTruthy();
+    expect(inspectPersistedSnapshotFile(existingTargetPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(missing).toMatchObject({
+      preRestoreBackupPath: null,
+      status: "restored",
+      targetExistedBeforeRestore: false
+    });
+    expect(inspectPersistedSnapshotFile(missingTargetPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+  });
+
+  it("fails restore with a safe CAS conflict when an existing target changes before write-back", () => {
+    const backupPath = createSnapshotPath("cas-restore-conflict-backup.bak");
+    const targetPath = createSnapshotPath("cas-restore-conflict-target.json");
+    writeSnapshot(backupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    const rawTarget = writeValidSnapshot(targetPath);
+    const newerBytes = snapshotContentsWithCounter("cas_restore_newer_state", 12);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath, {
+      beforeCasWriteForTesting() {
+        writeRaw(targetPath, newerBytes);
+      }
+    });
+
+    expect(result).toMatchObject({
+      action: "blocked",
+      backupPath,
+      preRestoreBackupPath: expect.any(String),
+      restoredVersion: null,
+      status: "cas_conflict",
+      targetExistedBeforeRestore: true,
+      targetPath
+    });
+    expect(readRaw(result.preRestoreBackupPath!)).toBe(rawTarget);
+    expect(readRaw(targetPath)).toBe(newerBytes);
+    expect(result.error?.code).toBe("store_snapshot_write_conflict");
+    expect(result.reasons).toContain(
+      "Target changed before CAS restore write-back; newer target bytes were preserved."
+    );
+    expect(tempFilesFor(targetPath)).toEqual([]);
+    expectSafeConflictOutput(JSON.stringify(result));
+  });
+
+  it("fails restore with a safe CAS conflict when a missing target is created before write-back", () => {
+    const backupPath = createSnapshotPath("cas-restore-missing-conflict-backup.bak");
+    const targetPath = join(createTempDir(), "cas-restore-missing-conflict-target.json");
+    writeSnapshot(backupPath, { snapshot_version: 1, ...createLegacySnapshot() });
+    const createdBytes = snapshotContentsWithCounter("cas_restore_created_target", 13);
+
+    const result = restoreSnapshotFromBackup(backupPath, targetPath, {
+      beforeCasWriteForTesting() {
+        writeRaw(targetPath, createdBytes);
+      }
+    });
+
+    expect(result).toMatchObject({
+      action: "blocked",
+      backupPath,
+      preRestoreBackupPath: null,
+      restoredVersion: null,
+      status: "cas_conflict",
+      targetExistedBeforeRestore: false,
+      targetPath
+    });
+    expect(readRaw(targetPath)).toBe(createdBytes);
+    expect(result.error?.code).toBe("store_snapshot_write_conflict");
+    expectSafeConflictOutput(JSON.stringify(result));
+  });
+
+  it("maps apply and restore CAS conflicts to safe CLI output and exit code", () => {
+    const applyScript = readFileSync(migrationApplyScriptPath, "utf8");
+    const restoreScript = readFileSync(restoreScriptPath, "utf8");
+
+    for (const script of [applyScript, restoreScript]) {
+      expect(script).toContain('case "cas_conflict":');
+      expect(script).toContain("return 8;");
+      expect(script).toContain("JSON.stringify(result, null, 2)");
+      expect(script).toContain("result.status");
+      expect(script).toContain("result.reasons");
+      expect(script).toContain("expected-current");
+      expect(script).toContain("distributed coordination");
+      expect(script).not.toContain("password_hash");
+      expect(script).not.toContain("token_hash");
+      expect(script).not.toContain("strategy_statement");
+    }
   });
 });
 
