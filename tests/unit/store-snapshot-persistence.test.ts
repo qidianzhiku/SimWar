@@ -24,6 +24,7 @@ import {
   createSnapshotBackupBeforeWrite,
   createP1Store,
   inspectPersistedSnapshotFile,
+  persistSnapshotAtomicallyWithExpectedMetadata,
   planSnapshotMigrationDryRun,
   readSnapshotWriteMetadata,
   restoreSnapshotFromBackup,
@@ -1605,6 +1606,177 @@ describe("JSON snapshot write metadata", () => {
     expect(afterMetadata.status).toBe("found");
     expect(finalSnapshot.counters).toMatchObject({ metadata_writer_b: 1 });
     expect(finalSnapshot.counters).not.toHaveProperty("metadata_writer_a");
+  });
+});
+
+describe("JSON snapshot CAS-capable writer API", () => {
+  function snapshotContentsWithCounter(name: string, value: number): string {
+    const sourcePath = createSnapshotPath(`${name}.json`);
+    const store = createP1Store({ persistenceFile: sourcePath });
+    store.counters[name] = value;
+    store.persist();
+    return readRaw(sourcePath);
+  }
+
+  function expectConflict(error: unknown): StoreSnapshotError {
+    expect(error).toBeInstanceOf(StoreSnapshotError);
+    const snapshotError = error as StoreSnapshotError;
+    expect(snapshotError.code).toBe("store_snapshot_write_conflict");
+    return snapshotError;
+  }
+
+  it("writes when expected found metadata matches the current snapshot", () => {
+    const snapshotPath = createSnapshotPath("cas-writer-found-success.json");
+    writeValidSnapshot(snapshotPath);
+    const expectedMetadata = readSnapshotWriteMetadata(snapshotPath);
+    const replacement = snapshotContentsWithCounter("cas_writer_replacement", 1);
+
+    persistSnapshotAtomicallyWithExpectedMetadata(snapshotPath, replacement, expectedMetadata);
+
+    expect(readSnapshot(snapshotPath).counters).toMatchObject({ cas_writer_replacement: 1 });
+    expect(inspectPersistedSnapshotFile(snapshotPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("throws a deterministic conflict and preserves current bytes when expected found metadata is stale", () => {
+    const snapshotPath = createSnapshotPath("cas-writer-found-conflict.json");
+    const original = writeValidSnapshot(snapshotPath);
+    const staleMetadata = readSnapshotWriteMetadata(snapshotPath);
+    const current = snapshotContentsWithCounter("cas_writer_current", 2);
+    const staleWrite = snapshotContentsWithCounter("cas_writer_stale", 3);
+    writeRaw(snapshotPath, current);
+
+    let thrown: unknown;
+    try {
+      persistSnapshotAtomicallyWithExpectedMetadata(snapshotPath, staleWrite, staleMetadata);
+    } catch (error) {
+      thrown = error;
+    }
+
+    const snapshotError = expectConflict(thrown);
+    expect(snapshotError.snapshotPath).toBe(snapshotPath);
+    expect(JSON.stringify(snapshotError)).toContain("store_snapshot_write_conflict");
+    expect(JSON.stringify(snapshotError)).toContain("found");
+    expect(JSON.stringify(snapshotError)).toContain("contentSha256");
+    expect(JSON.stringify(snapshotError)).not.toContain("cas_writer_stale");
+    expect(JSON.stringify(snapshotError)).not.toContain("tenants");
+    expect(JSON.stringify(snapshotError)).not.toContain(original);
+    expect(readRaw(snapshotPath)).toBe(current);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("creates a missing target when expected metadata is not_found", () => {
+    const missingDirectory = createTempDir();
+    const snapshotPath = join(missingDirectory, "cas-writer-missing-success.json");
+    const expectedMetadata = readSnapshotWriteMetadata(snapshotPath);
+    const replacement = snapshotContentsWithCounter("cas_writer_missing_create", 4);
+
+    persistSnapshotAtomicallyWithExpectedMetadata(snapshotPath, replacement, expectedMetadata);
+
+    expect(readSnapshot(snapshotPath).counters).toMatchObject({
+      cas_writer_missing_create: 4
+    });
+    expect(inspectPersistedSnapshotFile(snapshotPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("throws conflict and preserves existing target when expected metadata is not_found but target exists", () => {
+    const snapshotPath = createSnapshotPath("cas-writer-missing-conflict.json");
+    const missingMetadata = readSnapshotWriteMetadata(snapshotPath);
+    const current = snapshotContentsWithCounter("cas_writer_existing_after_missing", 5);
+    const staleWrite = snapshotContentsWithCounter("cas_writer_missing_stale", 6);
+    writeRaw(snapshotPath, current);
+
+    let thrown: unknown;
+    try {
+      persistSnapshotAtomicallyWithExpectedMetadata(snapshotPath, staleWrite, missingMetadata);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectConflict(thrown);
+    expect(readRaw(snapshotPath)).toBe(current);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+    expect(backupFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("uses content identity instead of mtime for identical retry and rejects conflicting bytes", () => {
+    const snapshotPath = createSnapshotPath("cas-writer-identical-retry.json");
+    const original = writeValidSnapshot(snapshotPath);
+    const originalMetadata = readSnapshotWriteMetadata(snapshotPath);
+    if (originalMetadata.status !== "found") {
+      throw new Error("expected found metadata");
+    }
+    const diagnosticMtimeOnlyMetadata = {
+      ...originalMetadata,
+      mtimeIso: "1970-01-01T00:00:00.000Z",
+      mtimeMs: 0
+    };
+    const identicalRetry = snapshotContentsWithCounter("cas_writer_identical_retry", 7);
+    const conflictingRetry = snapshotContentsWithCounter("cas_writer_conflicting_retry", 8);
+    writeRaw(snapshotPath, original);
+
+    persistSnapshotAtomicallyWithExpectedMetadata(
+      snapshotPath,
+      identicalRetry,
+      diagnosticMtimeOnlyMetadata
+    );
+    const retryMetadata = readSnapshotWriteMetadata(snapshotPath);
+    writeRaw(snapshotPath, conflictingRetry);
+
+    let thrown: unknown;
+    try {
+      persistSnapshotAtomicallyWithExpectedMetadata(snapshotPath, original, retryMetadata);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectConflict(thrown);
+    expect(readRaw(snapshotPath)).toBe(conflictingRetry);
+    expect(readSnapshot(snapshotPath)).not.toHaveProperty("contentSha256");
+    expect(readSnapshot(snapshotPath)).not.toHaveProperty("etag");
+    expect(readSnapshot(snapshotPath)).not.toHaveProperty("generation");
+    expect(readSnapshot(snapshotPath)).not.toHaveProperty("revision");
+  });
+
+  it("leaves runtime persist, migration apply, restore, inspection, and planner paths unchanged", () => {
+    const persistPath = createSnapshotPath("cas-boundary-persist.json");
+    const applyPath = createSnapshotPath("cas-boundary-apply.json");
+    const restoreBackupPath = createSnapshotPath("cas-boundary-restore-backup.bak");
+    const restoreTargetPath = createSnapshotPath("cas-boundary-restore-target.json");
+    const inspectPath = createSnapshotPath("cas-boundary-inspect.json");
+    const planPath = createSnapshotPath("cas-boundary-plan.json");
+    const store = createP1Store({ persistenceFile: persistPath });
+    store.counters.cas_boundary_persist = 1;
+    store.persist();
+    writeValidSnapshot(applyPath);
+    writeValidSnapshot(restoreBackupPath);
+    writeValidSnapshot(restoreTargetPath);
+    writeValidSnapshot(inspectPath);
+    writeValidSnapshot(planPath);
+
+    expect(applySnapshotMigrationToCurrentVersion(applyPath).status).toBe("already_current");
+    expect(restoreSnapshotFromBackup(restoreBackupPath, restoreTargetPath).status).toBe("restored");
+    expect(inspectPersistedSnapshotFile(inspectPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(planSnapshotMigrationDryRun(planPath)).toMatchObject({
+      action: "none",
+      status: "already_current"
+    });
+    expect(readSnapshot(persistPath).counters).toMatchObject({ cas_boundary_persist: 1 });
+    expect(tempFilesFor(persistPath)).toEqual([]);
+    expect(backupFilesFor(persistPath)).toEqual([]);
   });
 });
 
