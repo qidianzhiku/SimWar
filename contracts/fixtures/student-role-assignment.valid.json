@@ -1,0 +1,14 @@
+{
+  "assignment_id": "role_assignment_team_alpha_cfo",
+  "tenant_id": "tenant_demo",
+  "course_id": "course_demo",
+  "run_id": "run_001",
+  "team_id": "team_alpha",
+  "user_id": "user_cfo_alpha",
+  "role_key": "CFO",
+  "role_template_id": "role_template_cfo_v1",
+  "status": "active",
+  "source": "teacher_assigned",
+  "assigned_by": "user_teacher_demo",
+  "assigned_at": "2026-05-28T00:00:00.000Z"
+}

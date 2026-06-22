@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/role-template.v1.json",
+  "title": "RoleTemplate",
+  "type": "object",
+  "required": [
+    "role_template_id",
+    "role_key",
+    "display_name",
+    "description",
+    "responsibility_summary",
+    "default_editable_fields",
+    "default_visible_scopes",
+    "advisory_scopes",
+    "version"
+  ],
+  "properties": {
+    "role_template_id": { "type": "string", "minLength": 1 },
+    "role_key": {
+      "type": "string",
+      "enum": ["CEO", "CFO", "CMO", "COO"]
+    },
+    "display_name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "responsibility_summary": { "type": "string", "minLength": 1 },
+    "default_editable_fields": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "pricing.base_price",
+          "marketing_budget",
+          "service_quality_budget",
+          "capacity_plan",
+          "cash_buffer_target",
+          "strategy_statement"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "default_visible_scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "advisory_scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "version": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
