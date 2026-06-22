@@ -2,11 +2,11 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  fstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
@@ -1558,48 +1558,49 @@ export function inspectPersistedSnapshotFile(snapshotPath: string): SnapshotInsp
 export function readSnapshotWriteMetadata(snapshotPath: string): SnapshotWriteMetadata {
   const absolutePath = resolve(snapshotPath);
 
-  let stats: ReturnType<typeof statSync>;
+  const fileDescriptor = (() => {
+    try {
+      return openSync(absolutePath, "r");
+    } catch (error) {
+      if (isNodeError(error) && error.code === "ENOENT") {
+        return undefined;
+      }
+
+      throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+    }
+  })();
+
+  if (fileDescriptor === undefined) {
+    return {
+      filePath: absolutePath,
+      status: "not_found"
+    };
+  }
+
   try {
-    stats = statSync(absolutePath);
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return {
-        filePath: absolutePath,
-        status: "not_found"
-      };
+    const stats = fstatSync(fileDescriptor);
+
+    if (!stats.isFile()) {
+      throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, {
+        reason: "not_file"
+      });
     }
 
-    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
-  }
+    const rawBytes = readFileSync(fileDescriptor);
 
-  if (!stats.isFile()) {
-    throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, {
-      reason: "not_file"
-    });
-  }
-
-  let rawBytes: Buffer;
-  try {
-    rawBytes = readFileSync(absolutePath);
+    return {
+      contentSha256: createHash("sha256").update(rawBytes).digest("hex"),
+      filePath: absolutePath,
+      mtimeIso: new Date(stats.mtimeMs).toISOString(),
+      mtimeMs: stats.mtimeMs,
+      sizeBytes: rawBytes.byteLength,
+      status: "found"
+    };
   } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return {
-        filePath: absolutePath,
-        status: "not_found"
-      };
-    }
-
     throw new StoreSnapshotError("store_snapshot_metadata_failed", absolutePath, error);
+  } finally {
+    closeSync(fileDescriptor);
   }
-
-  return {
-    contentSha256: createHash("sha256").update(rawBytes).digest("hex"),
-    filePath: absolutePath,
-    mtimeIso: new Date(stats.mtimeMs).toISOString(),
-    mtimeMs: stats.mtimeMs,
-    sizeBytes: rawBytes.byteLength,
-    status: "found"
-  };
 }
 
 function createBlockedMigrationPlan(
