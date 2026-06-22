@@ -1444,14 +1444,14 @@ describe("JSON snapshot concurrency policy characterization", () => {
     expect(tempFilesFor(snapshotPath)).toEqual([]);
   });
 
-  it("characterizes explicit migration apply and restore write paths as no-CAS operations", () => {
-    const applyPath = createSnapshotPath("no-cas-apply.json");
-    const restoreBackupPath = createSnapshotPath("no-cas-restore-backup.bak");
-    const restoreTargetPath = createSnapshotPath("no-cas-restore-target.json");
-    writeSnapshot(applyPath, createLegacySnapshot({ counters: { apply_no_cas: 1 } }));
+  it("characterizes explicit migration apply and restore as CAS-protected maintenance paths", () => {
+    const applyPath = createSnapshotPath("cas-protected-apply.json");
+    const restoreBackupPath = createSnapshotPath("cas-protected-restore-backup.bak");
+    const restoreTargetPath = createSnapshotPath("cas-protected-restore-target.json");
+    writeSnapshot(applyPath, createLegacySnapshot({ counters: { apply_cas_protected: 1 } }));
     writeSnapshot(restoreBackupPath, {
       snapshot_version: 1,
-      ...createLegacySnapshot({ counters: { restore_no_cas: 1 } })
+      ...createLegacySnapshot({ counters: { restore_cas_protected: 1 } })
     });
     writeValidSnapshot(restoreTargetPath);
 
@@ -1478,7 +1478,7 @@ describe("JSON snapshot concurrency policy characterization", () => {
     expect(tempFilesFor(restoreTargetPath)).toEqual([]);
   });
 
-  it("documents the current no-CAS policy and future #138 direction", () => {
+  it("documents the runtime persist CAS policy audit and future #138 direction", () => {
     const policy = readFileSync(
       join(process.cwd(), "docs/devops/json-snapshot-concurrency-policy.md"),
       "utf8"
@@ -1499,7 +1499,12 @@ describe("JSON snapshot concurrency policy characterization", () => {
     expect(policy).toContain("entity updated_at is not a snapshot write precondition");
     expect(policy).toContain("replay_hash is not a snapshot CAS token");
     expect(policy).toContain("CAS Wiring For Explicit Migration Apply And Restore");
-    expect(policy).toContain("Future CAS direction for #138");
+    expect(policy).toContain("Runtime Persist CAS Policy Audit");
+    expect(policy).toContain("Runtime `createP1Store().persist` remains no-CAS by policy");
+    expect(policy).toContain("Runtime persist CAS is not required for #138 closeout");
+    expect(policy).toContain("READY TO CLOSE #138");
+    expect(policy).toContain("P1-026B - Close #138 with final evidence comment");
+    expect(policy).toContain("Future CAS Direction After #138");
     expect(policy).toContain("#139 local migration/recovery tooling is complete and closed");
   });
 });

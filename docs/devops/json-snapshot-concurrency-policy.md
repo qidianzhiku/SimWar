@@ -178,13 +178,58 @@ It does not replace Postgres transaction semantics.
 
 It does not make local JSON persistence a distributed coordination mechanism.
 
-## 7. Future CAS direction for #138
+## 7. Runtime Persist CAS Policy Audit
 
-Future #138 work should be split into small PRs. Candidate design direction:
+P1-026 audits the remaining runtime persist boundary after P1-025 wired
+expected-current conflict detection into explicit migration apply and restore.
+
+Runtime `createP1Store().persist` remains no-CAS by policy. It serializes the
+in-memory local JSON store and delegates to `persistSnapshotAtomically` without
+caller-supplied expected-current metadata.
+
+That runtime behavior is documented and covered by characterization tests:
+
+- stale loaded runtime writers can still overwrite each other;
+- the current runtime policy is last successful atomic replace wins;
+- crash-safe atomic replacement is not stale-writer-safe replacement;
+- runtime persist does not return `store_snapshot_write_conflict`;
+- runtime persist does not create locks or coordination side files.
+
+The explicit maintenance tools now have a stronger boundary:
+
+- `snapshot:migration:apply` uses expected-current conflict detection;
+- `snapshot:restore` uses expected-current conflict detection;
+- conflict results fail closed and preserve newer target bytes;
+- inspection and migration planning remain read-only.
+
+Runtime persist CAS is not required for #138 closeout because the local JSON
+runtime store still exposes a synchronous in-memory persist model with no
+caller-facing expected-current parameter or conflict handling surface. Wiring
+runtime persist to CAS would be a behavior-changing product decision about how
+local API writes should surface conflicts, retries, and operator recovery. That
+decision should be handled as a follow-up if the product wants runtime JSON CAS,
+not mixed into the baseline #138 closeout.
+
+Closeout decision:
+
+```text
+READY TO CLOSE #138
+```
+
+Recommended next action:
+
+```text
+P1-026B - Close #138 with final evidence comment
+```
+
+## 8. Future CAS Direction After #138
+
+Post-#138 runtime CAS work, if needed, should be split into small PRs. Candidate
+design direction:
 
 - define snapshot revision, checksum, or generation metadata;
-- decide whether runtime persist should enforce an expected-current
-  precondition;
+- decide whether runtime persist should enforce an expected-current precondition
+  through a new caller-facing API surface;
 - return a deterministic conflict error when the current on-disk snapshot does
   not match the expected-current precondition;
 - preserve the current crash-safe atomic writer for the final replacement step;
@@ -193,20 +238,21 @@ Future #138 work should be split into small PRs. Candidate design direction:
 - keep Postgres CAS and cloud CAS separate from the local JSON snapshot CAS
   design.
 
-This document does not choose the final CAS token or locking strategy. It only
-records the current no-CAS behavior and the boundary for #138 design.
+This document does not choose a runtime CAS product policy, lock strategy, or
+distributed coordination strategy. It records the completed local JSON baseline:
+runtime persist no-CAS behavior is explicit, and maintenance apply/restore paths
+now use expected-current conflict detection.
 
 Recommended next PR:
 
 ```text
-P1-026 - Audit runtime persist CAS policy and closeout readiness for #138
+P1-026B - Close #138 with final evidence comment
 ```
 
-Runtime persist CAS should be evaluated separately because it may require a
-broader product decision about local JSON store writer ownership and conflict
-surfacing.
+Runtime persist CAS should be evaluated separately only if future product needs
+require local API write conflict surfacing.
 
-## 8. Relationship To #139
+## 9. Relationship To #139
 
 #139 local migration/recovery tooling is complete and closed.
 
