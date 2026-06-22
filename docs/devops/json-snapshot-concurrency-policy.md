@@ -1,135 +1,94 @@
-# JSON Snapshot Writer Concurrency Policy
+# JSON Snapshot Concurrency Policy
 
-## Purpose
+## 1. Current Policy
 
-This document defines the current concurrency policy for the local JSON
-snapshot writer. It covers the default JSON adapter only. It does not change
-simulation, settlement, Replay, Postgres, repository facade, API, UI,
-permissions, or package-manager behavior.
+JSON snapshot writer is crash-safe but not stale-writer-safe.
 
-## Current Policy
+Writes use a same-directory temporary file followed by atomic replace
+semantics. The temporary file path contains the target basename, process id,
+timestamp, and random UUID. The writer creates the temp file exclusively, writes
+the complete JSON payload, fsyncs and closes the temp file, renames it over the
+target, and then best-effort syncs the containing directory.
 
-The JSON snapshot writer supports crash-safe single-writer persistence.
+The current policy is last successful atomic replace wins.
 
-Multiple processes or independently loaded store instances writing the same
-snapshot path at the same time are not a supported runtime mode. Operators and
-test harnesses must treat a snapshot file path as owned by one active writer at
-a time.
+There is no CAS.
 
-This policy is intentionally narrower than a compare-and-swap or file-locking
-contract. The current implementation does not claim to be concurrency-safe.
+There is no lock.
 
-## Guaranteed
+There is no stale-writer conflict error.
 
-For a single active writer, the current writer is expected to:
+snapshot_version is a persisted format version only. It is not a writer
+revision, generation, etag, checksum, or expected-current precondition.
 
-- write to a temporary file in the same directory as the target snapshot;
-- use a temp path containing the target basename, process id, timestamp, and a
-  random UUID;
-- create the temporary file with exclusive creation flags;
-- write the full JSON snapshot before replacement;
-- fsync the temporary file before replacement;
-- close the temporary file before replacement;
-- replace the target via one rename operation;
-- best-effort sync the containing directory after replacement;
-- clean up its own temporary file on write, fsync, close, or rename failure;
-- leave the previous committed snapshot readable when a pre-rename failure
-  occurs.
+entity updated_at is not a snapshot write precondition. Entity timestamps
+belong to domain data and cannot prove that the whole snapshot file is current.
 
-These guarantees are crash-safety and single-writer durability guarantees, not
-multi-writer coordination guarantees.
+replay_hash is not a snapshot CAS token. Replay data protects replay
+semantics; it is not a local JSON writer coordination mechanism.
 
-## Not Guaranteed
+Crash-safety means a failed write, fsync, close, or rename should not expose a
+partial target snapshot. It does not mean a stale store instance is detected
+before it writes a complete older snapshot.
 
-The current writer does not guarantee:
+## 2. Current Write Paths
 
-- file locking;
-- distributed locking;
-- lock-file ownership;
-- compare-and-swap;
-- snapshot revision checks;
-- snapshot generation checks;
-- mtime checks;
-- stale-writer detection;
-- retry scheduling;
-- preservation of newer authoritative state when an older independently loaded
-  writer writes later;
-- deterministic winner selection when multiple writers race to replace the same
-  target.
+| Write Path            | Caller                                                      | Atomic Writer               | CAS | Lock | Current Behavior                                                                                                                                                               |
+| --------------------- | ----------------------------------------------------------- | --------------------------- | --- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime store persist | `createP1Store().persist`                                   | `persistSnapshotAtomically` | no  | no   | Serializes the in-memory runtime store and atomically replaces the snapshot. If two loaded stores write the same file, the last successful replace wins.                       |
+| Initial file creation | `createP1Store` calls `store.persist()` when no file exists | `persistSnapshotAtomically` | no  | no   | Seeds the initial local snapshot atomically when the configured snapshot file is missing.                                                                                      |
+| Migration apply       | `applySnapshotMigrationToCurrentVersion`                    | `persistSnapshotAtomically` | no  | no   | Explicit command path backs up valid legacy v0 raw bytes, revalidates, and atomically writes current v1. It does not enforce an expected-current precondition.                 |
+| Restore from backup   | `restoreSnapshotFromBackup`                                 | `persistSnapshotAtomically` | no  | no   | Explicit command path optionally backs up the target, validates backup input, and atomically writes restored current v1. It does not enforce an expected-current precondition. |
 
-If two writers both succeed, the final snapshot is whichever complete
-replacement the file system leaves at the target path. That can be a stale
-writer's snapshot.
+Inspection and migration planning remain read-only paths. They do not call the
+writer and do not participate in concurrency control.
 
-## Crash Safety Versus Concurrency Safety
+## 3. What This Policy Does Not Guarantee
 
-Crash safety means a writer should not expose a partially written JSON file as
-the target snapshot when a write, sync, close, or rename operation fails.
+This policy does not prevent stale writer overwrite.
 
-Concurrency safety would require detecting or preventing conflicting writers,
-for example by using an expected revision, compare-and-swap, or a reliable lock
-protocol. The current JSON writer does not implement those mechanisms.
+It does not coordinate multi-process writers.
 
-## Multi-Process Writes
+It does not provide distributed locking.
 
-Multi-process writes to the same snapshot path are unsupported.
+It does not merge divergent snapshots.
 
-The current temp-file scheme reduces temp path collisions across processes, but
-it does not coordinate ownership of the target snapshot. A complete but older
-snapshot can overwrite a newer snapshot when a stale store instance persists
-after another store has already committed.
+It does not protect against business-level concurrent decision conflicts.
 
-This is acceptable only for local development and test scenarios that enforce a
-single active writer per snapshot file. Production or shared deployments should
-use the repository path designed for coordinated persistence instead of sharing
-one JSON file across multiple writers.
+It does not replace Postgres transaction semantics.
 
-## Windows And POSIX Notes
+It does not make local JSON persistence a distributed coordination mechanism.
 
-The implementation assumes the platform `rename` operation can replace the
-target snapshot with a completed temporary file. Windows and POSIX differ in
-details around replacing open files, antivirus or indexer interference,
-cross-device renames, and directory fsync support.
+## 4. Future CAS direction for #138
 
-The current writer keeps temporary files in the target directory to avoid
-cross-device replacement. Directory fsync is best-effort because not every
-platform and file system supports opening and syncing a directory.
+Future #138 work should be split into small PRs. Candidate design direction:
 
-No platform-specific file lock is used.
+- define snapshot revision, checksum, or generation metadata;
+- add an explicit expected-current precondition to write APIs that need stale
+  writer prevention;
+- return a deterministic conflict error when the current on-disk snapshot does
+  not match the expected-current precondition;
+- preserve the current crash-safe atomic writer for the final replacement step;
+- distinguish identical retry from conflicting retry;
+- decide separately whether runtime persist, migration apply, and restore all
+  enforce CAS;
+- keep Postgres CAS and cloud CAS separate from the local JSON snapshot CAS
+  design.
 
-## Current Tests
+This document does not choose the final CAS token or locking strategy. It only
+records the current no-CAS behavior and the boundary for #138 design.
 
-`tests/unit/store-snapshot-persistence.test.ts` covers:
+## 5. Relationship To #139
 
-- successful same-directory temp-file replacement;
-- distinct temp files for independent writers targeting one snapshot path;
-- a stale independently loaded writer overwriting a newer complete snapshot;
-- no leftover temp files after successful replacement;
-- write, fsync, close, and rename failure behavior;
-- corrupted snapshot fail-closed behavior;
-- versioned and legacy snapshot loading;
-- deep entity validation before runtime restoration.
+#139 local migration/recovery tooling is complete and closed.
 
-The stale-writer test is characterization. It documents unsupported behavior;
-it does not make stale overwrites acceptable for shared runtime use.
+#138 is separate.
 
-## Future CAS Or Lock Direction
+Migration apply and restore remain explicit-only. They are not runtime
+automatic behavior and they are not inspection behavior.
 
-Closing the multi-writer gap requires a separate design. Viable options include:
+This PR does not change #139 tooling behavior. It only documents the current
+JSON snapshot no-CAS policy and adds characterization tests for future #138
+work.
 
-- adding a persisted snapshot revision or generation field;
-- loading an expected revision into each store instance;
-- checking the expected revision before replacement;
-- failing closed when the current on-disk revision differs;
-- designing legacy v0 and snapshot version 1 compatibility;
-- defining retry behavior for identical writes versus conflicting writes;
-- evaluating cross-platform file-lock behavior separately from revision CAS.
-
-Those changes would affect persisted-format semantics and must be reviewed as a
-separate PR before they are implemented.
-
-## Issue Relationship
-
-This document and the corresponding characterization tests relate to #138 by
-making the current writer concurrency policy explicit. They do not implement
-CAS, stale-writer prevention, or a multi-process lock protocol.
+Relates to #138.
