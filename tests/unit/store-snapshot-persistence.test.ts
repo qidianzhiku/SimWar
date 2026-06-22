@@ -1398,6 +1398,101 @@ describe("JSON store snapshot persistence", () => {
   });
 });
 
+describe("JSON snapshot concurrency policy characterization", () => {
+  it("characterizes current unsupported stale-writer behavior as last successful replace wins", () => {
+    const snapshotPath = createSnapshotPath("no-cas-stale-writer.json");
+    writeValidSnapshot(snapshotPath);
+    const writerA = createP1Store({ persistenceFile: snapshotPath });
+    const writerB = createP1Store({ persistenceFile: snapshotPath });
+
+    writerA.counters.no_cas_writer_a = 1;
+    writerB.counters.no_cas_writer_b = 1;
+    writerA.persist();
+    expect(readSnapshot(snapshotPath).counters).toMatchObject({ no_cas_writer_a: 1 });
+
+    writerB.persist();
+
+    const finalSnapshot = readSnapshot(snapshotPath);
+    expect(finalSnapshot.counters).toMatchObject({ no_cas_writer_b: 1 });
+    expect(finalSnapshot.counters).not.toHaveProperty("no_cas_writer_a");
+    expect(createP1Store({ persistenceFile: snapshotPath }).counters.no_cas_writer_b).toBe(1);
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("shows crash-safe temp replacement is separate from stale-writer detection", () => {
+    const snapshotPath = createSnapshotPath("crash-safe-not-cas.json");
+    writeValidSnapshot(snapshotPath);
+    const openedPaths: string[] = [];
+    const fileSystem = createRecordingFileSystem(openedPaths);
+    const firstWriter = createP1Store({ fileSystem, persistenceFile: snapshotPath });
+    const secondWriter = createP1Store({ fileSystem, persistenceFile: snapshotPath });
+
+    firstWriter.counters.crash_safe_first = 1;
+    secondWriter.counters.crash_safe_second = 1;
+    firstWriter.persist();
+    secondWriter.persist();
+
+    const tempPaths = openedPaths.filter((path) => path.endsWith(".tmp"));
+    const finalSnapshot = readSnapshot(snapshotPath);
+    expect(tempPaths).toHaveLength(2);
+    expect(new Set(tempPaths).size).toBe(2);
+    expect(finalSnapshot.counters).toMatchObject({ crash_safe_second: 1 });
+    expect(finalSnapshot.counters).not.toHaveProperty("crash_safe_first");
+    expect(tempFilesFor(snapshotPath)).toEqual([]);
+  });
+
+  it("characterizes explicit migration apply and restore write paths as no-CAS operations", () => {
+    const applyPath = createSnapshotPath("no-cas-apply.json");
+    const restoreBackupPath = createSnapshotPath("no-cas-restore-backup.bak");
+    const restoreTargetPath = createSnapshotPath("no-cas-restore-target.json");
+    writeSnapshot(applyPath, createLegacySnapshot({ counters: { apply_no_cas: 1 } }));
+    writeSnapshot(restoreBackupPath, {
+      snapshot_version: 1,
+      ...createLegacySnapshot({ counters: { restore_no_cas: 1 } })
+    });
+    writeValidSnapshot(restoreTargetPath);
+
+    const applyResult = applySnapshotMigrationToCurrentVersion(applyPath);
+    const restoreResult = restoreSnapshotFromBackup(restoreBackupPath, restoreTargetPath);
+
+    expect(applyResult).toMatchObject({
+      action: "migrated_legacy_to_current",
+      status: "applied"
+    });
+    expect(applyResult.backupPath).toBeTruthy();
+    expect(inspectPersistedSnapshotFile(applyPath)).toMatchObject({ ok: true, status: "valid_v1" });
+    expect(restoreResult).toMatchObject({
+      action: "restored_backup_to_target",
+      status: "restored",
+      targetExistedBeforeRestore: true
+    });
+    expect(restoreResult.preRestoreBackupPath).toBeTruthy();
+    expect(inspectPersistedSnapshotFile(restoreTargetPath)).toMatchObject({
+      ok: true,
+      status: "valid_v1"
+    });
+    expect(tempFilesFor(applyPath)).toEqual([]);
+    expect(tempFilesFor(restoreTargetPath)).toEqual([]);
+  });
+
+  it("documents the current no-CAS policy and future #138 direction", () => {
+    const policy = readFileSync(
+      join(process.cwd(), "docs/devops/json-snapshot-concurrency-policy.md"),
+      "utf8"
+    );
+
+    expect(policy).toContain("JSON snapshot writer is crash-safe but not stale-writer-safe");
+    expect(policy).toContain("last successful atomic replace wins");
+    expect(policy).toContain("There is no CAS");
+    expect(policy).toContain("There is no lock");
+    expect(policy).toContain("snapshot_version is a persisted format version only");
+    expect(policy).toContain("entity updated_at is not a snapshot write precondition");
+    expect(policy).toContain("replay_hash is not a snapshot CAS token");
+    expect(policy).toContain("Future CAS direction for #138");
+    expect(policy).toContain("#139 local migration/recovery tooling is complete and closed");
+  });
+});
+
 describe("JSON snapshot inspection dry-run", () => {
   it("prints usage without a stack trace when no path is provided", () => {
     const result = runInspectionCommand([]);
