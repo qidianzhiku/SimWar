@@ -8,7 +8,8 @@ const usage = [
   "",
   "JSON snapshot migration apply for valid legacy v0 snapshots only. The command",
   "creates a backup before write-back and uses crash-safe atomic replacement.",
-  "It does not recover, restore, rollback, repair, quarantine, or implement CAS."
+  "It uses expected-current conflict detection but does not recover, restore,",
+  "rollback, repair, quarantine, lock, or provide distributed coordination."
 ].join("\n");
 
 function exitCodeFor(result: SnapshotMigrationApplyResult): number {
@@ -26,6 +27,8 @@ function exitCodeFor(result: SnapshotMigrationApplyResult): number {
       return 5;
     case "post_write_validation_failed":
       return 6;
+    case "cas_conflict":
+      return 8;
   }
 }
 

@@ -8,8 +8,8 @@ const usage = [
   "",
   "Restore a local JSON snapshot from a valid v1 or legacy v0 backup file.",
   "The command creates a pre-restore backup when the target exists and writes",
-  "with crash-safe atomic replacement. It does not implement cloud restore, UI",
-  "restore, rollback, CAS, locking, or stale-writer prevention."
+  "with expected-current crash-safe atomic replacement. It does not implement",
+  "cloud restore, UI restore, rollback, locking, or distributed coordination."
 ].join("\n");
 
 function exitCodeFor(result: SnapshotRestoreFromBackupResult): number {
@@ -26,6 +26,8 @@ function exitCodeFor(result: SnapshotRestoreFromBackupResult): number {
       return 5;
     case "post_restore_validation_failed":
       return 6;
+    case "cas_conflict":
+      return 8;
   }
 }
 

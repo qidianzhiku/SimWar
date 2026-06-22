@@ -213,6 +213,7 @@ export interface SnapshotMigrationDryRunPlan {
 
 export interface SnapshotMigrationApplyOptions {
   backupDirectory?: string;
+  beforeCasWriteForTesting?: () => void;
   fileSystem?: SnapshotFileSystem;
 }
 
@@ -222,6 +223,7 @@ export type SnapshotMigrationApplyStatus =
   | "blocked"
   | "not_found"
   | "backup_failed"
+  | "cas_conflict"
   | "write_failed"
   | "post_write_validation_failed";
 
@@ -251,6 +253,7 @@ export interface SnapshotMigrationApplyResult {
 }
 
 export interface SnapshotRestoreFromBackupOptions {
+  beforeCasWriteForTesting?: () => void;
   preRestoreBackupDirectory?: string;
   fileSystem?: SnapshotFileSystem;
 }
@@ -260,6 +263,7 @@ export type SnapshotRestoreFromBackupStatus =
   | "blocked"
   | "backup_not_found"
   | "pre_restore_backup_failed"
+  | "cas_conflict"
   | "write_failed"
   | "post_restore_validation_failed";
 
@@ -1868,6 +1872,10 @@ function safeSnapshotErrorCode(error: unknown, fallback: string): string {
   return error instanceof StoreSnapshotError ? error.code : fallback;
 }
 
+function isSnapshotWriteConflict(error: unknown): boolean {
+  return error instanceof StoreSnapshotError && error.code === "store_snapshot_write_conflict";
+}
+
 export function applySnapshotMigrationToCurrentVersion(
   snapshotPath: string,
   options: SnapshotMigrationApplyOptions = {}
@@ -1879,6 +1887,7 @@ export function applySnapshotMigrationToCurrentVersion(
   }
 
   const fileSystem = options.fileSystem ?? nodeSnapshotFileSystem;
+  const expectedSourceMetadata = readSnapshotWriteMetadata(plan.sourcePath);
   let backup: SnapshotBackupResult;
   const backupOptions: SnapshotBackupOptions = { label: "migration-apply" };
   if (options.backupDirectory !== undefined) {
@@ -1974,8 +1983,15 @@ export function applySnapshotMigrationToCurrentVersion(
   const migratedSnapshot = `${JSON.stringify(toPersistedSnapshot(runtimeSnapshot), null, 2)}\n`;
 
   try {
-    persistSnapshotAtomically(plan.sourcePath, migratedSnapshot, fileSystem);
+    options.beforeCasWriteForTesting?.();
+    persistSnapshotAtomicallyWithExpectedMetadata(
+      plan.sourcePath,
+      migratedSnapshot,
+      expectedSourceMetadata,
+      fileSystem
+    );
   } catch (error) {
+    const conflict = isSnapshotWriteConflict(error);
     return {
       action: "blocked",
       afterVersion: null,
@@ -1984,14 +2000,18 @@ export function applySnapshotMigrationToCurrentVersion(
       beforeVersion: "legacy",
       canApplyInFuture: false,
       error: { code: safeSnapshotErrorCode(error, "store_snapshot_write_failed") },
-      reasons: ["Atomic write-back failed after backup; no rollback was attempted."],
+      reasons: [
+        conflict
+          ? "Snapshot changed before CAS write-back; newer target bytes were preserved."
+          : "Atomic write-back failed after backup; no rollback was attempted."
+      ],
       safeSummary: {
         beforeSnapshotVersionLabel: plan.safeSummary.snapshotVersionLabel,
         entityCounts: countSnapshotEntities(runtimeSnapshot)
       },
       sourceBytesBefore: Buffer.byteLength(rawSource),
       sourcePath: plan.sourcePath,
-      status: "write_failed",
+      status: conflict ? "cas_conflict" : "write_failed",
       targetVersion: plan.targetVersion
     };
   }
@@ -2077,7 +2097,7 @@ export function restoreSnapshotFromBackup(
   const absoluteBackupPath = resolve(backupPath);
   const absoluteTargetPath = resolve(targetPath);
   const fileSystem = options.fileSystem ?? nodeSnapshotFileSystem;
-  const targetExistedBeforeRestore = existsSync(absoluteTargetPath);
+  let targetExistedBeforeRestore = existsSync(absoluteTargetPath);
   const backupInspection = inspectPersistedSnapshotFile(absoluteBackupPath);
 
   if (!backupInspection.ok) {
@@ -2150,6 +2170,30 @@ export function restoreSnapshotFromBackup(
     };
   }
 
+  let expectedTargetMetadata: SnapshotWritePrecondition;
+  try {
+    expectedTargetMetadata = readSnapshotWriteMetadata(absoluteTargetPath);
+    targetExistedBeforeRestore = expectedTargetMetadata.status === "found";
+  } catch (error) {
+    return {
+      action: "blocked",
+      backupBytes: Buffer.byteLength(rawBackup),
+      backupPath: absoluteBackupPath,
+      backupSnapshotVersion: snapshotInspectionVersion(backupInspection),
+      error: { code: safeSnapshotErrorCode(error, "store_snapshot_metadata_failed") },
+      preRestoreBackupPath: null,
+      reasons: ["Target write metadata could not be read; restore write-back was not attempted."],
+      restoredVersion: null,
+      safeSummary: {
+        backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
+        entityCounts: countSnapshotEntities(runtimeSnapshot)
+      },
+      status: "write_failed",
+      targetExistedBeforeRestore,
+      targetPath: absoluteTargetPath
+    };
+  }
+
   let preRestoreBackup: SnapshotBackupResult | undefined;
   if (targetExistedBeforeRestore) {
     const backupOptions: SnapshotBackupOptions = { label: "restore" };
@@ -2183,8 +2227,15 @@ export function restoreSnapshotFromBackup(
   const restoredSnapshot = `${JSON.stringify(toPersistedSnapshot(runtimeSnapshot), null, 2)}\n`;
 
   try {
-    persistSnapshotAtomically(absoluteTargetPath, restoredSnapshot, fileSystem);
+    options.beforeCasWriteForTesting?.();
+    persistSnapshotAtomicallyWithExpectedMetadata(
+      absoluteTargetPath,
+      restoredSnapshot,
+      expectedTargetMetadata,
+      fileSystem
+    );
   } catch (error) {
+    const conflict = isSnapshotWriteConflict(error);
     return {
       action: "blocked",
       backupBytes: Buffer.byteLength(rawBackup),
@@ -2193,13 +2244,17 @@ export function restoreSnapshotFromBackup(
       error: { code: safeSnapshotErrorCode(error, "store_snapshot_write_failed") },
       preRestoreBackupBytes: preRestoreBackup?.bytes,
       preRestoreBackupPath: preRestoreBackup?.backupPath ?? null,
-      reasons: ["Atomic restore write-back failed; no rollback was attempted."],
+      reasons: [
+        conflict
+          ? "Target changed before CAS restore write-back; newer target bytes were preserved."
+          : "Atomic restore write-back failed; no rollback was attempted."
+      ],
       restoredVersion: null,
       safeSummary: {
         backupSnapshotVersionLabel: snapshotInspectionVersionLabel(backupInspection),
         entityCounts: countSnapshotEntities(runtimeSnapshot)
       },
-      status: "write_failed",
+      status: conflict ? "cas_conflict" : "write_failed",
       targetExistedBeforeRestore,
       targetPath: absoluteTargetPath
     };
