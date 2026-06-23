@@ -31,6 +31,7 @@ export interface SettlementResultWriter {
 export interface PreparedSettlementOutcome {
   settlement: SettlementResult;
   shouldCommit: boolean;
+  replayHashConflict: boolean;
 }
 
 function findExistingSettlementResult(
@@ -214,9 +215,12 @@ export function prepareSettlementOutcome(
   const existing = findExistingSettlementResult(store, input);
 
   if (existing) {
+    const { replayHash } = calculateSettlement(input);
+
     return {
       settlement: existing,
-      shouldCommit: false
+      shouldCommit: false,
+      replayHashConflict: replayHash !== existing.replay_hash
     };
   }
 
@@ -224,7 +228,8 @@ export function prepareSettlementOutcome(
 
   return {
     settlement: createSettlementResult(store, input, replayHash, teamResults),
-    shouldCommit: true
+    shouldCommit: true,
+    replayHashConflict: false
   };
 }
 

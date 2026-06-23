@@ -96,7 +96,7 @@ async function request<TData>(
     servicePrincipal?: string;
     body?: unknown;
   } = {}
-): Promise<{ status: number; body: ApiEnvelope<TData> }> {
+): Promise<{ status: number; body: ApiEnvelope<TData>; headers: Headers }> {
   const headers = new Headers({
     "content-type": "application/json",
     "x-tenant-id": options.tenantId ?? "tenant_demo"
@@ -118,7 +118,8 @@ async function request<TData>(
 
   return {
     status: response.status,
-    body: (await response.json()) as ApiEnvelope<TData>
+    body: (await response.json()) as ApiEnvelope<TData>,
+    headers: response.headers
   };
 }
 
@@ -717,6 +718,8 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
+      expect(first.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(second.headers.get("x-simwar-settlement-outcome")).toBe("reused");
       expect(second.body.data).toEqual(first.body.data);
       expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
       expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
@@ -745,7 +748,7 @@ describe("settlement result write and replay hash characterization", () => {
     }
   });
 
-  it("characterizes conflicting repeated settlement candidates as returning the existing result without a conflict response", async () => {
+  it("returns a stable conflict response for same-key replay-relevant settlement changes", async () => {
     const { baseUrl, provider, server, store } = await startServer();
 
     try {
@@ -777,11 +780,11 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(conflictingDecision.payload).toEqual(HIGH_DEMAND_DECISION_PAYLOAD);
       expect(conflictingDecision.version).toBe(2);
-      expect(second.status).toBe(200);
-      expect(second.body.code).toBe("OK");
-      expect(second.body.data).toEqual(firstResultSnapshot);
-      expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
-      expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
+      expect(second.status).toBe(409);
+      expect(second.body.code).toBe("SETTLE-409-002");
+      expect(second.body.message).toBe(
+        "settlement result already exists for this business key with different replay-relevant input"
+      );
       expect(retryCommitSpy).not.toHaveBeenCalled();
       expect(store.settlementResults).toHaveLength(1);
       expect(store.settlementResults[0]).toEqual(firstResultSnapshot);
@@ -843,6 +846,8 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
+      expect(first.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(second.headers.get("x-simwar-settlement-outcome")).toBe("reused");
       expect(commitSpy).toHaveBeenCalledTimes(1);
       expect(attemptedCommands).toHaveLength(1);
       expect(attemptedCommands[0]?.settlement_result.run_id).toBe(run.run_id);
@@ -927,6 +932,8 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
+      expect(first.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(second.headers.get("x-simwar-settlement-outcome")).toBe("committed");
       expect(commitSpy).toHaveBeenCalledTimes(2);
       expect(attemptedCommands).toHaveLength(2);
       expect(first.body.data.run_id).toBe(firstRun.run_id);
