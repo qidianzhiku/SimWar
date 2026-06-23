@@ -31,6 +31,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:hidden-unicode
+      - name: Check direct-store boundaries
+        run: npm run check:direct-store-boundaries
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
