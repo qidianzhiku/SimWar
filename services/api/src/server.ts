@@ -62,6 +62,7 @@ interface ApiRuntime {
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
   securityConfig: RuntimeSecurityConfig;
+  settlementLocks: Map<string, Promise<void>>;
 }
 
 export interface CreateApiServerOptions {
@@ -96,7 +97,41 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     repositoryProvider: options.repositoryProvider ?? createJsonRepositoryProvider({ store }),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
-      : resolveRuntimeSecurityConfig(options.env ?? process.env)
+      : resolveRuntimeSecurityConfig(options.env ?? process.env),
+    settlementLocks: new Map()
+  };
+}
+
+interface RunSettlementOutcome {
+  settlement: SettlementResult;
+  committed: boolean;
+}
+
+function settlementBusinessKey(tenantId: string, runId: string, roundNo: number): string {
+  return `${tenantId}:${runId}:${roundNo}`;
+}
+
+async function acquireSettlementLock(
+  runtime: ApiRuntime,
+  key: string
+): Promise<() => void> {
+  const previous = runtime.settlementLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+
+  runtime.settlementLocks.set(key, queued);
+
+  await previous.catch(() => undefined);
+
+  return () => {
+    release();
+
+    if (runtime.settlementLocks.get(key) === queued) {
+      runtime.settlementLocks.delete(key);
+    }
   };
 }
 
@@ -1321,16 +1356,20 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
     );
-    const settlement = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
-    await appendAudit(runtime, {
-      actor,
-      action: "round.settle_requested",
-      resourceType: "settlement_result",
-      resourceId: settlement.settlement_result_id,
-      requestId: context.requestId,
-      after: clonePublic({ replay_hash: settlement.replay_hash })
-    });
-    sendJson(response, 200, createEnvelope(context, settlement));
+    const outcome = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
+
+    if (outcome.committed) {
+      await appendAudit(runtime, {
+        actor,
+        action: "round.settle_requested",
+        resourceType: "settlement_result",
+        resourceId: outcome.settlement.settlement_result_id,
+        requestId: context.requestId,
+        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
+      });
+    }
+
+    sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
 
@@ -1348,22 +1387,26 @@ async function routeRequest(
       tenantId: context.tenantId,
       actor: serviceActor
     };
-    const settlement = await runSettlement(
+    const outcome = await runSettlement(
       runtime,
       serviceContext,
       runId ?? "",
       Number(roundNoRaw)
     );
-    await appendAudit(runtime, {
-      actor: serviceActor,
-      action: "round.settle",
-      resourceType: "settlement_result",
-      resourceId: settlement.settlement_result_id,
-      requestId: context.requestId,
-      tenantId: context.tenantId,
-      after: clonePublic({ replay_hash: settlement.replay_hash })
-    });
-    sendJson(response, 200, createEnvelope(context, settlement));
+
+    if (outcome.committed) {
+      await appendAudit(runtime, {
+        actor: serviceActor,
+        action: "round.settle",
+        resourceType: "settlement_result",
+        resourceId: outcome.settlement.settlement_result_id,
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
+      });
+    }
+
+    sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
 
@@ -1412,67 +1455,77 @@ async function runSettlement(
   context: RequestContext,
   runId: string,
   roundNo: number
-): Promise<SettlementResult> {
+): Promise<RunSettlementOutcome> {
   const store = runtime.store;
   const run = getRun(store, context, runId);
-  const round = getRound(store, context, run.run_id, roundNo);
+  const lockKey = settlementBusinessKey(context.tenantId, run.run_id, roundNo);
+  const releaseSettlementLock = await acquireSettlementLock(runtime, lockKey);
 
-  if (round.status !== "locked" && round.status !== "settled" && round.status !== "published") {
-    throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
-  }
+  try {
+    const round = getRound(store, context, run.run_id, roundNo);
 
-  const scenario = store.scenarios.find(
-    (candidate) =>
-      candidate.scenario_package_id === run.scenario_package_id &&
-      candidate.tenant_id === context.tenantId
-  );
-  const parameterSet = store.parameterSets.find(
-    (candidate) =>
-      candidate.parameter_set_id === run.parameter_set_id &&
-      candidate.tenant_id === context.tenantId
-  );
-  const teams = store.teams.filter(
-    (team) => team.course_id === run.course_id && team.tenant_id === context.tenantId
-  );
-  const latestDecisions = teams.map((team) => {
-    const versions = store.decisions.filter(
-      (decision) =>
-        decision.run_id === run.run_id &&
-        decision.round_no === round.round_no &&
-        decision.team_id === team.team_id &&
-        decision.tenant_id === context.tenantId
+    if (round.status !== "locked" && round.status !== "settled" && round.status !== "published") {
+      throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
+    }
+
+    const scenario = store.scenarios.find(
+      (candidate) =>
+        candidate.scenario_package_id === run.scenario_package_id &&
+        candidate.tenant_id === context.tenantId
     );
-    return versions.at(-1);
-  });
-
-  if (!scenario || !parameterSet || latestDecisions.some((decision) => !decision)) {
-    throw new HttpError(
-      422,
-      "SETTLE-422-001",
-      "scenario, parameter set and team decisions are required"
+    const parameterSet = store.parameterSets.find(
+      (candidate) =>
+        candidate.parameter_set_id === run.parameter_set_id &&
+        candidate.tenant_id === context.tenantId
     );
-  }
-
-  const outcome = prepareSettlementOutcome(store, {
-    run,
-    round,
-    scenario,
-    parameterSet,
-    teams,
-    decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
-      Boolean(decision)
-    )
-  });
-
-  if (outcome.shouldCommit) {
-    await runtime.repositoryProvider.facade.commitSettlementOutcome({
-      tenant_id: context.tenantId,
-      round_id: round.round_id,
-      settlement_result: outcome.settlement
+    const teams = store.teams.filter(
+      (team) => team.course_id === run.course_id && team.tenant_id === context.tenantId
+    );
+    const latestDecisions = teams.map((team) => {
+      const versions = store.decisions.filter(
+        (decision) =>
+          decision.run_id === run.run_id &&
+          decision.round_no === round.round_no &&
+          decision.team_id === team.team_id &&
+          decision.tenant_id === context.tenantId
+      );
+      return versions.at(-1);
     });
-  }
 
-  return outcome.settlement;
+    if (!scenario || !parameterSet || latestDecisions.some((decision) => !decision)) {
+      throw new HttpError(
+        422,
+        "SETTLE-422-001",
+        "scenario, parameter set and team decisions are required"
+      );
+    }
+
+    const outcome = prepareSettlementOutcome(store, {
+      run,
+      round,
+      scenario,
+      parameterSet,
+      teams,
+      decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
+        Boolean(decision)
+      )
+    });
+
+    if (outcome.shouldCommit) {
+      await runtime.repositoryProvider.facade.commitSettlementOutcome({
+        tenant_id: context.tenantId,
+        round_id: round.round_id,
+        settlement_result: outcome.settlement
+      });
+    }
+
+    return {
+      settlement: outcome.settlement,
+      committed: outcome.shouldCommit
+    };
+  } finally {
+    releaseSettlementLock();
+  }
 }
 
 export function createApiServer(

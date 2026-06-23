@@ -1,13 +1,13 @@
 # ADR-DATA-004: Settlement Idempotency and Concurrency Policy
 
-| Field                | Value                                                                                  |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                               |
-| Date                 | 2026-06-18                                                                             |
-| Scope                | Settlement business idempotency, retry semantics, concurrency policy, and rollout plan |
-| Implementation state | Policy only. Runtime enforcement remains pending.                                      |
-| Related issue        | #111                                                                                   |
-| Depends on           | #117 active settlement route atomic outcome persistence                                |
+| Field                | Value                                                                                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Accepted                                                                                                                                                                                             |
+| Date                 | 2026-06-18                                                                                                                                                                                           |
+| Scope                | Settlement business idempotency, retry semantics, concurrency policy, and rollout plan                                                                                                               |
+| Implementation state | Database business constraint, JSON in-process active-route serialization, and duplicate success-audit suppression for reused JSON route results implemented; route conflict response and PostgreSQL runtime transaction/row-lock enforcement remain pending. |
+| Related issue        | #111                                                                                                                                                                                                 |
+| Depends on           | #117 active settlement route atomic outcome persistence                                                                                                                                              |
 
 ## 1. Context
 
@@ -32,32 +32,34 @@ authoritative replay hashes, multiple ordinary authoritative results, or a
 This policy is also a blocker for a safe PostgreSQL runtime and for future
 role-based final submission flows.
 
-This ADR defines the policy and implementation boundaries. It deliberately does
-not add JSON locks, PostgreSQL constraints, migrations, route behavior changes,
-or API fields.
+This ADR defines the policy and implementation boundaries. Follow-up PRs now
+add the database business constraint and JSON active-route in-process
+serialization in small stages. Route-level conflict response semantics,
+PostgreSQL runtime transaction/row-lock enforcement, distributed locks, and new
+API fields remain deferred.
 
 ## 2. Current Implementation Evidence
 
 The policy below is based on the current `origin/master` implementation.
 
-| Area                                  | Current behavior                                                                                                                                                       |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SettlementResult` fields             | `settlement_result_id`, `tenant_id`, `run_id`, `round_id`, `round_no`, `parameter_set_id`, `scenario_package_id`, `replay_hash`, `team_results`                        |
-| `settlement_result_id` generation     | `createSettlementResult()` calls `nextId(store, "result", "result")` in `services/api/src/simulation.ts`                                                               |
-| Active HTTP route                     | The route prepares settlement output, calls `RepositoryFacade.commitSettlementOutcome(...)`, then appends the success audit after commit success                       |
-| Existing route retry behavior         | If an existing result is found for the route's run and round number, the route returns that result without a second atomic commit                                      |
-| Existing route audit retry behavior   | A repeated route call can append another success audit for the same already committed result                                                                           |
-| JSON atomic port technical lookup     | `tenant_id + settlement_result_id`                                                                                                                                     |
-| JSON atomic port business lookup      | Undefined. It does not enforce one authoritative result per `tenant_id + run_id + round_no`                                                                            |
-| JSON direct duplicate behavior        | Reusing the same technical id can replace the stored settlement result; using a different technical id for the same round can append another result if called directly |
-| JSON concurrency control              | Undefined. There is no keyed settlement mutex and no cross-process lock                                                                                                |
-| PostgreSQL atomic conflict target     | `ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE`                                                                                                              |
-| PostgreSQL round lock                 | The atomic port selects the target round with `FOR UPDATE` inside the commit query                                                                                     |
-| PostgreSQL business uniqueness        | Undefined. The migration has no unique constraint for one settlement result per round business identity                                                                |
-| Current database unique constraint    | `UNIQUE (tenant_id, settlement_result_id)`                                                                                                                             |
-| Current authoritative-result policy   | Partially characterized by route behavior, not enforced by repository/database identity                                                                                |
-| Current overwrite behavior            | A technical-id conflict can update an existing settlement row in PostgreSQL and replace an existing result in JSON                                                     |
-| Current stable route failure envelope | Persistence failures are mapped to the existing safe internal-error response, without returning internal state                                                         |
+| Area                                  | Current behavior                                                                                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SettlementResult` fields             | `settlement_result_id`, `tenant_id`, `run_id`, `round_id`, `round_no`, `parameter_set_id`, `scenario_package_id`, `replay_hash`, `team_results`                               |
+| `settlement_result_id` generation     | `createSettlementResult()` calls `nextId(store, "result", "result")` in `services/api/src/simulation.ts`                                                                      |
+| Active HTTP route                     | The route prepares settlement output, calls `RepositoryFacade.commitSettlementOutcome(...)`, then appends the success audit after commit success                              |
+| Existing route retry behavior         | If an existing result is found for the route's run and round number, the route returns that result without a second atomic commit                                             |
+| Existing route audit retry behavior   | A repeated route call that reuses an already committed JSON route result does not append another first-success audit                                                          |
+| JSON atomic port technical lookup     | `tenant_id + settlement_result_id`                                                                                                                                            |
+| JSON atomic port business lookup      | Undefined. It does not enforce one authoritative result per `tenant_id + run_id + round_no`                                                                                   |
+| JSON direct duplicate behavior        | Reusing the same technical id can replace the stored settlement result; using a different technical id for the same round can append another result if called directly        |
+| JSON concurrency control              | Active settlement route attempts are serialized in-process by `tenant_id + run_id + round_no`; direct port calls and multi-process JSON deployments remain outside this guard |
+| PostgreSQL atomic conflict target     | `ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE`                                                                                                                     |
+| PostgreSQL adapter round lock         | The adapter atomic port selects the target round with `FOR UPDATE` inside the commit query; runtime provider activation remains a separate decision                            |
+| PostgreSQL business uniqueness        | `settlement_results_business_identity_key` enforces `UNIQUE (tenant_id, run_id, round_no)`                                                                                    |
+| Current database unique constraint    | `UNIQUE (tenant_id, settlement_result_id)` and `UNIQUE (tenant_id, run_id, round_no)`                                                                                         |
+| Current authoritative-result policy   | The migration defines a database business key, and the JSON active route prevents duplicate ordinary results for identical overlapping JSON route attempts; conflict response remains deferred |
+| Current overwrite behavior            | A technical-id conflict can update an existing settlement row in PostgreSQL and replace an existing result in JSON                                                            |
+| Current stable route failure envelope | Persistence failures are mapped to the existing safe internal-error response, without returning internal state                                                                |
 
 ### 2.1 Runtime Characterization Evidence
 
@@ -71,19 +73,22 @@ runtime behaviors without changing production semantics:
 - if a later conflicting decision candidate is present after the first
   settlement has committed, the active route still returns the existing result
   with the existing success response and does not emit a conflict response;
-- the JSON runtime has no keyed settlement mutex, so two overlapping active
-  settlement route requests can both reach `RepositoryFacade.commitSettlementOutcome(...)`
-  before either commit is visible to the other request;
-- for overlapping identical JSON route attempts, the current characterization
-  shows duplicate `SettlementResult` objects can be written for the same
-  `tenant_id + run_id + round_no`, even though the replay hash remains the same
-  for identical inputs;
+- overlapping identical active JSON route attempts are now serialized by
+  `tenant_id + run_id + round_no`, so only one request reaches
+  `RepositoryFacade.commitSettlementOutcome(...)` and the loser reuses the
+  existing authoritative `SettlementResult`;
+- for overlapping identical JSON route attempts, the active route now keeps one
+  stored `SettlementResult` for the business identity and keeps the round
+  `replay_hash` aligned with that result;
+- identical active JSON route retries and overlapping losers do not append a
+  duplicate first-success audit for the reused authoritative result;
 - atomic commit failure through the active route leaves the authoritative round,
   replay hash, settlement result collection, and success audit unchanged.
 
 These tests are evidence for the remaining #111 implementation work. They do
 not complete the policy in this ADR and they must not be used as a closing
-signal for #111.
+signal for #111 because conflict response semantics and PostgreSQL runtime
+concurrency enforcement remain pending.
 
 ## 3. Decision Drivers
 
@@ -262,21 +267,19 @@ must eventually resolve to the existing authoritative result or a conflict.
 The JSON runtime remains a single-writer runtime. It does not support multiple
 API processes sharing the same JSON snapshot path.
 
-Future JSON enforcement should use a process-local keyed mutex:
+The active JSON settlement route now uses a process-local keyed mutex:
 
 ```text
 settlement-lock:<tenant_id>:<run_id>:<round_no>
 ```
 
-Policy requirements:
+Implemented active-route behavior:
 
-- acquire the key before checking settled state and existing settlement result;
-- re-read the round and authoritative result inside the lock;
-- perform calculation and atomic outcome commit while the key is held, or
-  re-check immediately before commit if calculation is intentionally outside the
-  lock;
-- always release the key in `finally`;
-- release on thrown errors;
+- acquire the key before preparing the settlement outcome;
+- re-read the round and authoritative result inside the lock through the
+  existing `prepareSettlementOutcome(...)` path;
+- perform calculation and atomic outcome commit while the key is held;
+- always release the key in `finally`, including thrown errors;
 - never rely on the mutex as the only source of truth;
 - preserve the authoritative-state checks for crash recovery and future imports;
 - document that the lock is process-local and does not protect multi-process or
@@ -285,6 +288,9 @@ Policy requirements:
 The keyed mutex is preferred over a global JSON settlement lock because it
 preserves concurrency between different rounds while serializing the only key
 that must be exclusive.
+
+This only protects the active JSON in-process runtime. PostgreSQL
+transaction/row-lock enforcement remains deferred.
 
 ## 11. PostgreSQL Runtime Policy
 
@@ -308,11 +314,12 @@ The expected isolation level is the database default `READ COMMITTED` plus row
 locks and a unique constraint. `SERIALIZABLE` can be considered later if tests
 show anomalies that row locks and constraints do not cover.
 
-This ADR requires a future forward migration. It does not add the migration.
+The business unique constraint migration exists, but PostgreSQL runtime
+transaction and row-lock behavior remains deferred.
 
 ## 12. Database Constraint Plan
 
-Preferred future constraint on `settlement_results`:
+Implemented business constraint on `settlement_results`:
 
 ```text
 UNIQUE (tenant_id, run_id, round_no)
@@ -324,8 +331,8 @@ The existing technical uniqueness must remain:
 UNIQUE (tenant_id, settlement_result_id)
 ```
 
-Before adding the business constraint, the implementation PR must run or provide
-a data audit for duplicates:
+The business-constraint PR audited and tested duplicate handling before adding
+the constraint. Future database changes must continue to check:
 
 - duplicate `tenant_id + run_id + round_no`;
 - mismatched `round_id` for the same business identity;
@@ -333,12 +340,11 @@ a data audit for duplicates:
 - different replay hashes for the same business identity;
 - result rows without matching round rows.
 
-If duplicates exist, the migration must fail safely and require an explicit
-cleanup plan. It must not silently pick a winner.
+If duplicates exist in a future migration or import path, the operation must
+fail safely and require an explicit cleanup plan. It must not silently pick a
+winner.
 
-The future migration should keep `round_id` as a relational check and may add a
-supporting unique or foreign-key-friendly index if the current schema requires
-it. The business uniqueness rule still lives at the round business identity.
+The business uniqueness rule lives at the round business identity.
 
 ## 13. Immutable Fields
 
@@ -494,9 +500,9 @@ This ADR does not solve or implement:
 - distributed locks;
 - multi-region settlement;
 - administrator override implementation;
-- JSON keyed mutex implementation;
-- PostgreSQL unique constraint migration;
-- route behavior changes.
+- route-level conflicting retry conflict response;
+- PostgreSQL row-lock and transaction enforcement;
+- direct adapter/port protection outside the active route.
 
 ## 22. Follow-up Implementation Plan
 
@@ -510,15 +516,23 @@ Scope:
 - migration upgrade tests;
 - clear failure behavior for legacy duplicates.
 
-### Follow-up PR 2: `api: enforce JSON settlement idempotency`
+### Follow-up PR 2A: `api: serialize JSON settlement commits by business key`
 
 Scope:
 
 - keyed mutex by `tenant_id + run_id + round_no`;
 - recheck authoritative result inside the lock;
-- identical retry behavior;
-- conflicting retry behavior;
-- route-level tests for retry and JSON concurrency.
+- identical overlapping active route behavior;
+- lock release after failure;
+- route-level tests for JSON active route concurrency.
+
+### Follow-up PR 2B: `api: define settlement conflict response semantics`
+
+Scope:
+
+- route-level conflicting retry behavior;
+- conflict response taxonomy;
+- concurrent conflicting replay hash no-fork tests.
 
 ### Follow-up PR 3: `api: enforce Postgres settlement concurrency`
 
@@ -532,8 +546,9 @@ Scope:
 These PRs may be split further if review size grows. They must not be merged
 into an unreviewable single change.
 
-## 23. PR Scope for This ADR
+## 23. Scope Boundary for This ADR
 
-This ADR PR changes documentation only. It does not change production behavior,
-database schema, OpenAPI contracts, JSON locking, PostgreSQL locking, route
-semantics, or settlement result persistence code.
+This ADR documents the policy boundary. The associated P1-006A implementation
+keeps the JSON active route process-local, does not change OpenAPI contracts,
+does not activate PostgreSQL as the runtime provider, and does not prove
+cross-process or production database safety.
