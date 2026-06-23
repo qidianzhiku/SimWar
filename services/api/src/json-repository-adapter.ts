@@ -19,6 +19,7 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
+  SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
@@ -130,7 +131,7 @@ export function createJsonSettlementOutcomePersistencePort(
   store: SimWarStore
 ): SettlementOutcomePersistencePort {
   return {
-    async commitSettlementOutcome(command): Promise<void> {
+    async commitSettlementOutcome(command): Promise<SettlementOutcomeCommitResult> {
       const result = command.settlement_result;
 
       if (command.tenant_id !== result.tenant_id) {
@@ -205,6 +206,11 @@ export function createJsonSettlementOutcomePersistencePort(
 
         throw error;
       }
+
+      return {
+        settlement_result: result,
+        status: "committed"
+      };
     }
   };
 }

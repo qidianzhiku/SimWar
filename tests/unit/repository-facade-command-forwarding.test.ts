@@ -13,6 +13,7 @@ import type {
 import { createRepositoryFacade } from "../../services/api/src/repository-facade.js";
 import type {
   CommitSettlementOutcomeCommand,
+  SettlementOutcomeCommitResult,
   SimWarRepositoryPorts
 } from "../../services/api/src/repository-ports.js";
 
@@ -66,7 +67,14 @@ function createSpyPorts(): SimWarRepositoryPorts {
     },
 
     settlementOutcome: {
-      commitSettlementOutcome: vi.fn(async () => undefined)
+      commitSettlementOutcome: vi.fn(
+        async (
+          command: CommitSettlementOutcomeCommand
+        ): Promise<SettlementOutcomeCommitResult> => ({
+          settlement_result: command.settlement_result,
+          status: "committed"
+        })
+      )
     },
 
     domainEvents: {
@@ -212,7 +220,10 @@ describe("repository facade command forwarding", () => {
     };
     const originalCommand = structuredClone(command);
 
-    await expect(facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+    await expect(facade.commitSettlementOutcome(command)).resolves.toEqual({
+      settlement_result: command.settlement_result,
+      status: "committed"
+    });
 
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledWith(command);
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);

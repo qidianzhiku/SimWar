@@ -2,6 +2,7 @@ import type { SettlementResult } from "@simwar/shared-contracts";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
   CommitSettlementOutcomeCommand,
+  SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort
 } from "../../services/api/src/repository-ports.js";
 
@@ -61,14 +62,31 @@ describe("settlement outcome persistence port contract", () => {
   });
 
   it("defines a standalone domain-specific async persistence port", async () => {
+    expectTypeOf<SettlementOutcomeCommitResult>().toEqualTypeOf<
+      | { settlement_result: SettlementResult; status: "committed" }
+      | { settlement_result: SettlementResult; status: "reused" }
+      | {
+          reason: "replay_hash_mismatch";
+          settlement_result: SettlementResult;
+          status: "conflict";
+        }
+    >();
+
     expectTypeOf<SettlementOutcomePersistencePort>().toEqualTypeOf<{
-      commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
+      commitSettlementOutcome(
+        command: CommitSettlementOutcomeCommand
+      ): Promise<SettlementOutcomeCommitResult>;
     }>();
 
     const received: CommitSettlementOutcomeCommand[] = [];
     const port: SettlementOutcomePersistencePort = {
       async commitSettlementOutcome(command) {
         received.push(command);
+
+        return {
+          settlement_result: command.settlement_result,
+          status: "committed"
+        };
       }
     };
     const command: CommitSettlementOutcomeCommand = {
@@ -77,7 +95,10 @@ describe("settlement outcome persistence port contract", () => {
       tenant_id: "tenant-1"
     };
 
-    await expect(port.commitSettlementOutcome(command)).resolves.toBeUndefined();
+    await expect(port.commitSettlementOutcome(command)).resolves.toEqual({
+      settlement_result: command.settlement_result,
+      status: "committed"
+    });
 
     expect(received).toEqual([command]);
     expect(Object.keys(port)).toEqual(["commitSettlementOutcome"]);

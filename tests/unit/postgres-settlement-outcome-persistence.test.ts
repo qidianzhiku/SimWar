@@ -167,7 +167,10 @@ describe("Postgres settlement outcome persistence port", () => {
         settlement_result: result,
         tenant_id: "tenant-1"
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      settlement_result: result,
+      status: "committed"
+    });
 
     expect(calls).toHaveLength(1);
 

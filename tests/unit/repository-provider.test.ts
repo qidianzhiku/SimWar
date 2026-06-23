@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Round, SettlementResult } from "@simwar/shared-contracts";
 import type {
   CommitSettlementOutcomeCommand,
+  SettlementOutcomeCommitResult,
   SimWarRepositoryPorts
 } from "../../services/api/src/repository-ports.js";
 import {
@@ -68,7 +69,14 @@ function createMockPorts(): SimWarRepositoryPorts {
     },
 
     settlementOutcome: {
-      commitSettlementOutcome: vi.fn(async () => undefined)
+      commitSettlementOutcome: vi.fn(
+        async (
+          command: CommitSettlementOutcomeCommand
+        ): Promise<SettlementOutcomeCommitResult> => ({
+          settlement_result: command.settlement_result,
+          status: "committed"
+        })
+      )
     },
 
     domainEvents: {
@@ -169,7 +177,10 @@ describe("repository provider", () => {
 
     expect(provider.ports.settlementOutcome).toBe(ports.settlementOutcome);
 
-    await expect(provider.facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+    await expect(provider.facade.commitSettlementOutcome(command)).resolves.toEqual({
+      settlement_result: command.settlement_result,
+      status: "committed"
+    });
 
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledWith(command);
@@ -214,7 +225,10 @@ describe("repository provider", () => {
     };
     const originalCommand = structuredClone(command);
 
-    await expect(provider.facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+    await expect(provider.facade.commitSettlementOutcome(command)).resolves.toEqual({
+      settlement_result: result,
+      status: "committed"
+    });
 
     expect(store.settlementResults).toEqual([result]);
     expect(store.settlementResults[0]).toBe(result);

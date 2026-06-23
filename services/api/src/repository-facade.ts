@@ -20,6 +20,7 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
+  SettlementOutcomeCommitResult,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
@@ -98,7 +99,9 @@ export interface RepositoryFacade {
     saveSettlementResult(result: SettlementResult): Promise<void>;
   };
 
-  commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
+  commitSettlementOutcome(
+    command: CommitSettlementOutcomeCommand
+  ): Promise<SettlementOutcomeCommitResult>;
 
   domainEvents: {
     appendDomainEvent(event: DomainEvent): Promise<void>;

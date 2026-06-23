@@ -263,6 +263,35 @@ export interface CommitSettlementOutcomeCommand {
 }
 
 /**
+ * Domain result for the settlement outcome commit boundary.
+ *
+ * This discriminant is the contract foundation for future provider-level
+ * idempotency. Providers must return only states they can prove at their own
+ * persistence boundary. The current JSON implementation can report
+ * "committed" after its existing write succeeds; it does not provide durable
+ * cross-process business-key CAS, file locks, leases, or create-if-absent.
+ *
+ * "reused" and "conflict" are reserved for a future atomic provider protocol.
+ * P1-006B route-level reuse/conflict handling remains unchanged in this PR.
+ * "in_progress" is intentionally absent until there is a durable producer,
+ * consumer, recovery rule, and API mapping.
+ */
+export type SettlementOutcomeCommitResult =
+  | {
+      settlement_result: SettlementResult;
+      status: "committed";
+    }
+  | {
+      settlement_result: SettlementResult;
+      status: "reused";
+    }
+  | {
+      reason: "replay_hash_mismatch";
+      settlement_result: SettlementResult;
+      status: "conflict";
+    };
+
+/**
  * Standalone contract for the future atomic settlement outcome write.
  *
  * Implementations must commit the SettlementResult, explicit Round.status,
@@ -280,10 +309,13 @@ export interface CommitSettlementOutcomeCommand {
  * Replay artifacts are not part of this minimum atomic set. Logical settlement
  * idempotency key alignment remains deferred: the current runtime lookup uses
  * run_id + round_no while repository SettlementResult identity uses tenant_id +
- * settlement_result_id.
+ * settlement_result_id. The returned discriminant is not evidence that the
+ * current provider has implemented durable cross-process idempotency.
  */
 export interface SettlementOutcomePersistencePort {
-  commitSettlementOutcome(command: CommitSettlementOutcomeCommand): Promise<void>;
+  commitSettlementOutcome(
+    command: CommitSettlementOutcomeCommand
+  ): Promise<SettlementOutcomeCommitResult>;
 }
 
 export interface SimWarCommandRepositoryPorts {
