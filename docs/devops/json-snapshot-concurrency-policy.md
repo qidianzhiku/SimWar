@@ -1,0 +1,269 @@
+# JSON Snapshot Concurrency Policy
+
+## 1. Current Policy
+
+JSON snapshot writer is crash-safe. Runtime store persist remains not
+stale-writer-safe.
+
+Writes use a same-directory temporary file followed by atomic replace
+semantics. The temporary file path contains the target basename, process id,
+timestamp, and random UUID. The writer creates the temp file exclusively, writes
+the complete JSON payload, fsyncs and closes the temp file, renames it over the
+target, and then best-effort syncs the containing directory.
+
+The runtime store persist policy is last successful atomic replace wins.
+
+Explicit migration apply and restore use expected-current conflict detection.
+Runtime store persist does not.
+
+There is no lock.
+
+`store_snapshot_write_conflict` is used only by explicit expected-current write
+paths. Runtime store persist does not return a stale-writer conflict error.
+
+snapshot_version is a persisted format version only. It is not a writer
+revision, generation, etag, checksum, or expected-current precondition.
+
+entity updated_at is not a snapshot write precondition. Entity timestamps
+belong to domain data and cannot prove that the whole snapshot file is current.
+
+replay_hash is not a snapshot CAS token. Replay data protects replay
+semantics; it is not a local JSON writer coordination mechanism.
+
+Crash-safety means a failed write, fsync, close, or rename should not expose a
+partial target snapshot. It does not mean a stale store instance is detected
+before it writes a complete older snapshot.
+
+## 2. Current Write Paths
+
+| Write Path            | Caller                                                      | Atomic Writer                                   | CAS | Lock | Current Behavior                                                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------- | ----------------------------------------------- | --- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime store persist | `createP1Store().persist`                                   | `persistSnapshotAtomically`                     | no  | no   | Serializes the in-memory runtime store and atomically replaces the snapshot. If two loaded stores write the same file, the last successful replace wins.                                         |
+| Initial file creation | `createP1Store` calls `store.persist()` when no file exists | `persistSnapshotAtomically`                     | no  | no   | Seeds the initial local snapshot atomically when the configured snapshot file is missing.                                                                                                        |
+| Migration apply       | `applySnapshotMigrationToCurrentVersion`                    | `persistSnapshotAtomicallyWithExpectedMetadata` | yes | no   | Explicit command path reads expected source metadata, backs up valid legacy v0 raw bytes, revalidates, and writes current v1 only if the source still matches expected metadata.                 |
+| Restore from backup   | `restoreSnapshotFromBackup`                                 | `persistSnapshotAtomicallyWithExpectedMetadata` | yes | no   | Explicit command path validates backup input, reads expected target metadata, optionally backs up the target, and writes restored current v1 only if the target still matches expected metadata. |
+
+Inspection and migration planning remain read-only paths. They do not call the
+writer and do not participate in concurrency control.
+
+## 3. Read-Only Write Metadata Helper
+
+`readSnapshotWriteMetadata` reads current local file metadata only.
+
+For an existing snapshot file, it returns raw file metadata such as:
+
+- file path;
+- byte size;
+- filesystem mtime in milliseconds;
+- filesystem mtime as ISO text;
+- SHA-256 of the current raw file bytes.
+
+For a missing file, it returns `not_found`.
+
+The helper does not validate snapshot correctness. A corrupt existing file can
+still have size, mtime, and SHA-256 metadata. Snapshot validity remains the job
+of `snapshot:inspect` and the inspection helpers.
+
+The helper does not enforce CAS. It does not prevent stale writers, create
+locks, create temporary files, create backups, write files, or mutate the
+persisted snapshot format.
+
+This helper is intended as a future CAS building block only. Future #138 work
+must still define expected-current semantics, the conflict error shape,
+identical retry behavior, and which write paths should enforce the precondition.
+
+Corrupt existing file metadata is not the same as valid snapshot inspection.
+
+## 4. Explicit Expected-Current Writer API
+
+`persistSnapshotAtomicallyWithExpectedMetadata` is an explicit expected-current
+writer API for future #138 CAS work.
+
+The API compares current raw file metadata from `readSnapshotWriteMetadata`
+with caller-supplied expected metadata before delegating to the existing
+crash-safe atomic writer.
+
+The current identity basis is:
+
+- metadata status;
+- `sizeBytes`;
+- `contentSha256`.
+
+`mtimeMs` and `mtimeIso` are diagnostics only. They are not the sole conflict
+basis and are not required to match when the raw bytes are identical.
+
+If expected and current metadata do not match, the API fails closed with a
+deterministic `store_snapshot_write_conflict` error. The conflict error carries
+safe metadata only: target path, expected status, actual status, byte size, and
+SHA-256 where available. It must not include full snapshot payloads, entities,
+Decision payloads, credentials, database URLs, or secrets.
+
+If expected and current metadata match, the API delegates to
+`persistSnapshotAtomically` and preserves the existing crash-safe write
+semantics.
+
+This API is not wired into runtime store persist.
+
+It is wired into explicit migration apply.
+
+It is wired into explicit restore from backup.
+
+It does not create backups.
+
+It does not create locks.
+
+It does not provide distributed coordination.
+
+It does not mutate the persisted snapshot format.
+
+It does not fully prevent all concurrent writer races; it only gives explicit
+callers a deterministic expected-current precondition boundary. Future #138 work
+must decide where to enforce it and whether stronger locking or coordination is
+needed.
+
+## 5. CAS Wiring For Explicit Migration Apply And Restore
+
+P1-025 wires `persistSnapshotAtomicallyWithExpectedMetadata` into the two
+explicit high-risk local JSON snapshot write tools:
+
+- `snapshot:migration:apply`;
+- `snapshot:restore`.
+
+Migration apply now reads expected source metadata after the dry-run plan
+confirms a valid legacy v0 migration candidate, then creates the migration
+backup, rereads and revalidates the source, and performs write-back through the
+expected-current writer. If the source changed before CAS write-back, apply
+fails closed with `cas_conflict`, preserves the newer target bytes, keeps the
+created backup path in the result, and does not rollback.
+
+Restore now validates the backup source, reads expected target metadata, creates
+a pre-restore backup when the target exists, and performs write-back through the
+expected-current writer. If the target changes before CAS write-back, restore
+fails closed with `cas_conflict`, preserves the newer target bytes, returns the
+pre-restore backup path when one was created, and does not rollback.
+
+If the target was missing when restore read expected metadata, restore may
+create it only while the target is still missing. If another writer creates the
+target before CAS write-back, restore fails with `cas_conflict` and preserves
+the newly created target bytes.
+
+Conflict results use safe metadata only and must not include full snapshot
+payloads, entities, Decision payloads, credentials, database URLs, or secrets.
+
+Runtime store persist remains no-CAS in this PR.
+
+Inspection and migration planning remain read-only.
+
+The backup helper remains explicit-only.
+
+This is expected-current conflict detection, not a lock, distributed lock, or
+complete multi-process coordination protocol. It does not fully prevent all
+concurrent writer races.
+
+## 6. What This Policy Does Not Guarantee
+
+This policy does not prevent stale writer overwrite.
+
+Runtime store persist still does not prevent stale writer overwrite.
+
+It does not coordinate multi-process writers with locks.
+
+It does not provide distributed locking.
+
+It does not merge divergent snapshots.
+
+It does not protect against business-level concurrent decision conflicts.
+
+It does not replace Postgres transaction semantics.
+
+It does not make local JSON persistence a distributed coordination mechanism.
+
+## 7. Runtime Persist CAS Policy Audit
+
+P1-026 audits the remaining runtime persist boundary after P1-025 wired
+expected-current conflict detection into explicit migration apply and restore.
+
+Runtime `createP1Store().persist` remains no-CAS by policy. It serializes the
+in-memory local JSON store and delegates to `persistSnapshotAtomically` without
+caller-supplied expected-current metadata.
+
+That runtime behavior is documented and covered by characterization tests:
+
+- stale loaded runtime writers can still overwrite each other;
+- the current runtime policy is last successful atomic replace wins;
+- crash-safe atomic replacement is not stale-writer-safe replacement;
+- runtime persist does not return `store_snapshot_write_conflict`;
+- runtime persist does not create locks or coordination side files.
+
+The explicit maintenance tools now have a stronger boundary:
+
+- `snapshot:migration:apply` uses expected-current conflict detection;
+- `snapshot:restore` uses expected-current conflict detection;
+- conflict results fail closed and preserve newer target bytes;
+- inspection and migration planning remain read-only.
+
+Runtime persist CAS is not required for #138 closeout because the local JSON
+runtime store still exposes a synchronous in-memory persist model with no
+caller-facing expected-current parameter or conflict handling surface. Wiring
+runtime persist to CAS would be a behavior-changing product decision about how
+local API writes should surface conflicts, retries, and operator recovery. That
+decision should be handled as a follow-up if the product wants runtime JSON CAS,
+not mixed into the baseline #138 closeout.
+
+Closeout decision:
+
+```text
+READY TO CLOSE #138
+```
+
+Recommended next action:
+
+```text
+P1-026B - Close #138 with final evidence comment
+```
+
+## 8. Future CAS Direction After #138
+
+Post-#138 runtime CAS work, if needed, should be split into small PRs. Candidate
+design direction:
+
+- define snapshot revision, checksum, or generation metadata;
+- decide whether runtime persist should enforce an expected-current precondition
+  through a new caller-facing API surface;
+- return a deterministic conflict error when the current on-disk snapshot does
+  not match the expected-current precondition;
+- preserve the current crash-safe atomic writer for the final replacement step;
+- distinguish identical retry from conflicting retry;
+- keep migration apply and restore explicit-only;
+- keep Postgres CAS and cloud CAS separate from the local JSON snapshot CAS
+  design.
+
+This document does not choose a runtime CAS product policy, lock strategy, or
+distributed coordination strategy. It records the completed local JSON baseline:
+runtime persist no-CAS behavior is explicit, and maintenance apply/restore paths
+now use expected-current conflict detection.
+
+Recommended next PR:
+
+```text
+P1-026B - Close #138 with final evidence comment
+```
+
+Runtime persist CAS should be evaluated separately only if future product needs
+require local API write conflict surfacing.
+
+## 9. Relationship To #139
+
+#139 local migration/recovery tooling is complete and closed.
+
+#138 is separate.
+
+Migration apply and restore remain explicit-only. They now use expected-current
+conflict detection, but they are not runtime automatic behavior and they are not
+inspection behavior.
+
+This PR preserves the #139 local migration/recovery scope while adding #138
+expected-current conflict detection to explicit migration apply and restore
+write-back.
+
+Relates to #138.

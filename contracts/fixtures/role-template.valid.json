@@ -1,0 +1,11 @@
+{
+  "role_template_id": "role_template_cfo_v1",
+  "role_key": "CFO",
+  "display_name": "CFO",
+  "description": "Finance owner for budget discipline and cash buffer planning.",
+  "responsibility_summary": "Owns financial assumptions before CEO merge.",
+  "default_editable_fields": ["cash_buffer_target", "service_quality_budget"],
+  "default_visible_scopes": ["team.finance_summary", "round.state_obs"],
+  "advisory_scopes": ["finance", "cash_risk"],
+  "version": "1.0.0"
+}
