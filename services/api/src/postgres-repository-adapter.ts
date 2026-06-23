@@ -24,6 +24,7 @@ import type {
   RepositoryCourseReadModel,
   RepositoryId,
   RepositorySnapshotQuery,
+  SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort
 } from "./repository-ports.js";
 
@@ -392,7 +393,7 @@ export function createPostgresSettlementOutcomePersistencePort(
   options: PostgresRepositoryAdapterOptions
 ): SettlementOutcomePersistencePort {
   return {
-    async commitSettlementOutcome(command): Promise<void> {
+    async commitSettlementOutcome(command): Promise<SettlementOutcomeCommitResult> {
       const result = command.settlement_result;
 
       if (command.tenant_id !== result.tenant_id) {
@@ -521,6 +522,11 @@ export function createPostgresSettlementOutcomePersistencePort(
       ) {
         throw new Error("settlement_outcome_persistence_invariant_failed");
       }
+
+      return {
+        settlement_result: result,
+        status: "committed"
+      };
     }
   };
 }

@@ -119,7 +119,10 @@ describe("JSON settlement outcome persistence port", () => {
         round_id: "round-1",
         settlement_result: result
       })
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({
+      settlement_result: result,
+      status: "committed"
+    });
 
     expect(store.settlementResults).toEqual([result]);
     expect(store.settlementResults[0]).toBe(result);

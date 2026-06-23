@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   CommitSettlementOutcomeCommand,
+  SettlementOutcomeCommitResult,
   SimWarRepositoryPorts
 } from "../../services/api/src/repository-ports.js";
 import {
@@ -75,7 +76,14 @@ function createMockPorts(): SimWarRepositoryPorts {
     },
 
     settlementOutcome: {
-      commitSettlementOutcome: vi.fn(async () => undefined)
+      commitSettlementOutcome: vi.fn(
+        async (
+          command: CommitSettlementOutcomeCommand
+        ): Promise<SettlementOutcomeCommitResult> => ({
+          settlement_result: command.settlement_result,
+          status: "committed"
+        })
+      )
     },
 
     domainEvents: {
@@ -179,7 +187,10 @@ describe("repository facade", () => {
     };
     const originalCommand = structuredClone(command);
 
-    await expect(facade.commitSettlementOutcome(command)).resolves.toBeUndefined();
+    await expect(facade.commitSettlementOutcome(command)).resolves.toEqual({
+      settlement_result: command.settlement_result,
+      status: "committed"
+    });
 
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(1);
     expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledWith(command);
