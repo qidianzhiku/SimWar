@@ -1275,7 +1275,10 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
             settlement_result: result,
             tenant_id: result.tenant_id
           })
-        ).resolves.toBeUndefined();
+        ).resolves.toEqual({
+          settlement_result: result,
+          status: "committed"
+        });
 
         const settlements = await fetchAtomicSettlements(
           result.tenant_id,
