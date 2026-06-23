@@ -23,6 +23,7 @@
     "format:check": "prettier --check .",
     "security:audit": "npm audit --audit-level=critical",
     "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs",
+    "check:direct-store-boundaries": "node scripts/check-direct-store-boundaries.mjs",
     "snapshot:inspect": "tsx --tsconfig scripts/tsconfig.snapshot-inspect.json scripts/inspect-json-snapshot.ts",
     "snapshot:migration:plan": "tsx --tsconfig scripts/tsconfig.snapshot-migration-plan.json scripts/plan-json-snapshot-migration.ts",
     "snapshot:migration:apply": "tsx --tsconfig scripts/tsconfig.snapshot-migration-apply.json scripts/apply-json-snapshot-migration.ts",
