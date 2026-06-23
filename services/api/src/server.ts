@@ -102,15 +102,19 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   };
 }
 
+interface RunSettlementOutcome {
+  settlement: SettlementResult;
+  committed: boolean;
+}
+
 function settlementBusinessKey(tenantId: string, runId: string, roundNo: number): string {
   return `${tenantId}:${runId}:${roundNo}`;
 }
 
-async function withSettlementLock<TResult>(
+async function acquireSettlementLock(
   runtime: ApiRuntime,
-  key: string,
-  operation: () => Promise<TResult>
-): Promise<TResult> {
+  key: string
+): Promise<() => void> {
   const previous = runtime.settlementLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
@@ -122,15 +126,13 @@ async function withSettlementLock<TResult>(
 
   await previous.catch(() => undefined);
 
-  try {
-    return await operation();
-  } finally {
+  return () => {
     release();
 
     if (runtime.settlementLocks.get(key) === queued) {
       runtime.settlementLocks.delete(key);
     }
-  }
+  };
 }
 
 async function appendAudit(
@@ -1354,16 +1356,20 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
     );
-    const settlement = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
-    await appendAudit(runtime, {
-      actor,
-      action: "round.settle_requested",
-      resourceType: "settlement_result",
-      resourceId: settlement.settlement_result_id,
-      requestId: context.requestId,
-      after: clonePublic({ replay_hash: settlement.replay_hash })
-    });
-    sendJson(response, 200, createEnvelope(context, settlement));
+    const outcome = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
+
+    if (outcome.committed) {
+      await appendAudit(runtime, {
+        actor,
+        action: "round.settle_requested",
+        resourceType: "settlement_result",
+        resourceId: outcome.settlement.settlement_result_id,
+        requestId: context.requestId,
+        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
+      });
+    }
+
+    sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
 
@@ -1381,22 +1387,26 @@ async function routeRequest(
       tenantId: context.tenantId,
       actor: serviceActor
     };
-    const settlement = await runSettlement(
+    const outcome = await runSettlement(
       runtime,
       serviceContext,
       runId ?? "",
       Number(roundNoRaw)
     );
-    await appendAudit(runtime, {
-      actor: serviceActor,
-      action: "round.settle",
-      resourceType: "settlement_result",
-      resourceId: settlement.settlement_result_id,
-      requestId: context.requestId,
-      tenantId: context.tenantId,
-      after: clonePublic({ replay_hash: settlement.replay_hash })
-    });
-    sendJson(response, 200, createEnvelope(context, settlement));
+
+    if (outcome.committed) {
+      await appendAudit(runtime, {
+        actor: serviceActor,
+        action: "round.settle",
+        resourceType: "settlement_result",
+        resourceId: outcome.settlement.settlement_result_id,
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
+      });
+    }
+
+    sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
 
@@ -1445,12 +1455,13 @@ async function runSettlement(
   context: RequestContext,
   runId: string,
   roundNo: number
-): Promise<SettlementResult> {
+): Promise<RunSettlementOutcome> {
   const store = runtime.store;
   const run = getRun(store, context, runId);
   const lockKey = settlementBusinessKey(context.tenantId, run.run_id, roundNo);
+  const releaseSettlementLock = await acquireSettlementLock(runtime, lockKey);
 
-  return withSettlementLock(runtime, lockKey, async () => {
+  try {
     const round = getRound(store, context, run.run_id, roundNo);
 
     if (round.status !== "locked" && round.status !== "settled" && round.status !== "published") {
@@ -1508,8 +1519,13 @@ async function runSettlement(
       });
     }
 
-    return outcome.settlement;
-  });
+    return {
+      settlement: outcome.settlement,
+      committed: outcome.shouldCommit
+    };
+  } finally {
+    releaseSettlementLock();
+  }
 }
 
 export function createApiServer(

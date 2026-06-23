@@ -689,7 +689,7 @@ describe("settlement result write and replay hash characterization", () => {
   });
 
   it("characterizes repeated settlement as reusing the existing settlement result and replay hash", async () => {
-    const { baseUrl, server, store } = await startServer();
+    const { baseUrl, provider, server, store } = await startServer();
 
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher");
@@ -711,6 +711,7 @@ describe("settlement result write and replay hash characterization", () => {
         storedResult: store.settlementResults[0],
         teamResults: first.body.data.team_results
       });
+      const retryCommitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
       const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
       const secondStoredRound = requireStoredRound(store, run.run_id);
 
@@ -720,6 +721,7 @@ describe("settlement result write and replay hash characterization", () => {
       expect(second.body.data.settlement_result_id).toBe(first.body.data.settlement_result_id);
       expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
       expect(second.body.data.team_results).toEqual(first.body.data.team_results);
+      expect(retryCommitSpy).not.toHaveBeenCalled();
       expect(store.settlementResults).toHaveLength(firstSnapshot.resultCount);
       expect(store.settlementResults[0]).toEqual(firstSnapshot.storedResult);
       expect(secondStoredRound.status).toBe(firstSnapshot.roundStatus);
@@ -734,9 +736,8 @@ describe("settlement result write and replay hash characterization", () => {
           log.action === "round.settle_requested" &&
           log.resource_id === first.body.data.settlement_result_id
       );
-      expect(settleAudits).toHaveLength(2);
+      expect(settleAudits).toHaveLength(1);
       expect(settleAudits.map((log) => log.after)).toEqual([
-        { replay_hash: first.body.data.replay_hash },
         { replay_hash: first.body.data.replay_hash }
       ]);
     } finally {
@@ -786,6 +787,13 @@ describe("settlement result write and replay hash characterization", () => {
       expect(store.settlementResults[0]).toEqual(firstResultSnapshot);
       expect(secondRound.status).toBe(firstRoundSnapshot.status);
       expect(secondRound.replay_hash).toBe(firstRoundSnapshot.replay_hash);
+      expect(
+        store.auditLogs.filter(
+          (log) =>
+            log.action === "round.settle_requested" &&
+            log.resource_id === first.body.data.settlement_result_id
+        )
+      ).toHaveLength(1);
     } finally {
       await stopServer(server);
     }
@@ -819,8 +827,6 @@ describe("settlement result write and replay hash characterization", () => {
         "first settlement request did not reach atomic commit"
       );
       const secondPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
-      await new Promise((resolve) => setTimeout(resolve, 30));
-      const commitCallsBeforeRelease = commitSpy.mock.calls.length;
 
       releaseCommits.resolve();
       const [first, second] = await Promise.all([firstPromise, secondPromise]);
@@ -837,7 +843,6 @@ describe("settlement result write and replay hash characterization", () => {
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
-      expect(commitCallsBeforeRelease).toBe(1);
       expect(commitSpy).toHaveBeenCalledTimes(1);
       expect(attemptedCommands).toHaveLength(1);
       expect(attemptedCommands[0]?.settlement_result.run_id).toBe(run.run_id);
@@ -851,11 +856,90 @@ describe("settlement result write and replay hash characterization", () => {
       expect(settledRound.status).toBe("settled");
       expect(settledRound.replay_hash).toBe(first.body.data.replay_hash);
       expect(second.body.data.replay_hash).toBe(first.body.data.replay_hash);
-      expect(successAudits).toHaveLength(2);
+      expect(successAudits).toHaveLength(1);
       expect(successAudits.map((log) => log.resource_id)).toEqual([
-        first.body.data.settlement_result_id,
         first.body.data.settlement_result_id
       ]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("does not reuse the same settlement lock or result for different business keys", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const firstRun = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const secondRun = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        HIGH_DEMAND_DECISION_PAYLOAD
+      );
+      const releaseFirstCommit = createDeferred();
+      const originalCommit = provider.facade.commitSettlementOutcome.bind(provider.facade);
+      const attemptedCommands: CommitSettlementOutcomeCommand[] = [];
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockImplementation(async (command) => {
+        attemptedCommands.push(cloneJson(command));
+
+        if (command.settlement_result.run_id === firstRun.run_id) {
+          await releaseFirstCommit.promise;
+        }
+
+        await originalCommit(command);
+      });
+
+      const firstPromise = settleRoundViaApi(baseUrl, teacherToken, firstRun.run_id);
+      await waitForCondition(
+        () =>
+          attemptedCommands.some(
+            (command) => command.settlement_result.run_id === firstRun.run_id
+          ),
+        "first settlement request did not reach atomic commit"
+      );
+
+      const secondPromise = settleRoundViaApi(baseUrl, teacherToken, secondRun.run_id);
+      await waitForCondition(
+        () =>
+          attemptedCommands.some(
+            (command) => command.settlement_result.run_id === secondRun.run_id
+          ),
+        "different business key did not reach atomic commit while first key was blocked"
+      );
+
+      releaseFirstCommit.resolve();
+      const [first, second] = await Promise.all([firstPromise, secondPromise]);
+      const storedBusinessIdentities = store.settlementResults.map(
+        (result) => `${result.tenant_id}:${result.run_id}:${result.round_no}`
+      );
+      const successAudits = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      );
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(commitSpy).toHaveBeenCalledTimes(2);
+      expect(attemptedCommands).toHaveLength(2);
+      expect(first.body.data.run_id).toBe(firstRun.run_id);
+      expect(second.body.data.run_id).toBe(secondRun.run_id);
+      expect(first.body.data.settlement_result_id).not.toBe(second.body.data.settlement_result_id);
+      expect(store.settlementResults).toHaveLength(2);
+      expect(new Set(storedBusinessIdentities)).toEqual(
+        new Set([`tenant_demo:${firstRun.run_id}:1`, `tenant_demo:${secondRun.run_id}:1`])
+      );
+      expect(successAudits).toHaveLength(2);
+      expect(new Set(successAudits.map((log) => log.resource_id))).toEqual(
+        new Set([first.body.data.settlement_result_id, second.body.data.settlement_result_id])
+      );
     } finally {
       await stopServer(server);
     }
