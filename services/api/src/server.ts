@@ -105,6 +105,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
 interface RunSettlementOutcome {
   settlement: SettlementResult;
   committed: boolean;
+  responseSemantics: "committed" | "reused";
 }
 
 function settlementBusinessKey(tenantId: string, runId: string, roundNo: number): string {
@@ -1369,6 +1370,7 @@ async function routeRequest(
       });
     }
 
+    response.setHeader("x-simwar-settlement-outcome", outcome.responseSemantics);
     sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
@@ -1406,6 +1408,7 @@ async function routeRequest(
       });
     }
 
+    response.setHeader("x-simwar-settlement-outcome", outcome.responseSemantics);
     sendJson(response, 200, createEnvelope(context, outcome.settlement));
     return;
   }
@@ -1511,6 +1514,15 @@ async function runSettlement(
       )
     });
 
+    if (outcome.replayHashConflict) {
+      throw new HttpError(
+        409,
+        "SETTLE-409-002",
+        "settlement result already exists for this business key with different replay-relevant input",
+        [{ field: "replay_hash", reason: "conflicting_existing_settlement" }]
+      );
+    }
+
     if (outcome.shouldCommit) {
       await runtime.repositoryProvider.facade.commitSettlementOutcome({
         tenant_id: context.tenantId,
@@ -1521,7 +1533,8 @@ async function runSettlement(
 
     return {
       settlement: outcome.settlement,
-      committed: outcome.shouldCommit
+      committed: outcome.shouldCommit,
+      responseSemantics: outcome.shouldCommit ? "committed" : "reused"
     };
   } finally {
     releaseSettlementLock();
