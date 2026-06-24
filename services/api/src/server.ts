@@ -1460,12 +1460,25 @@ async function runSettlement(
   roundNo: number
 ): Promise<RunSettlementOutcome> {
   const store = runtime.store;
-  const run = getRun(store, context, runId);
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
+
   const lockKey = settlementBusinessKey(context.tenantId, run.run_id, roundNo);
   const releaseSettlementLock = await acquireSettlementLock(runtime, lockKey);
 
   try {
-    const round = getRound(store, context, run.run_id, roundNo);
+    const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+      context.tenantId,
+      run.run_id
+    );
+    const round = rounds.find((candidate) => candidate.round_no === roundNo);
+
+    if (!round) {
+      throw new HttpError(404, "ROUND-404-001", "round not found");
+    }
 
     if (round.status !== "locked" && round.status !== "settled" && round.status !== "published") {
       throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
@@ -1481,16 +1494,19 @@ async function runSettlement(
         candidate.parameter_set_id === run.parameter_set_id &&
         candidate.tenant_id === context.tenantId
     );
-    const teams = store.teams.filter(
-      (team) => team.course_id === run.course_id && team.tenant_id === context.tenantId
+    const teams = await runtime.repositoryProvider.facade.teams.listTeamsForRun(
+      context.tenantId,
+      run.run_id
     );
+    const roundDecisions =
+      await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+        context.tenantId,
+        run.run_id,
+        round.round_id
+      );
     const latestDecisions = teams.map((team) => {
-      const versions = store.decisions.filter(
-        (decision) =>
-          decision.run_id === run.run_id &&
-          decision.round_no === round.round_no &&
-          decision.team_id === team.team_id &&
-          decision.tenant_id === context.tenantId
+      const versions = roundDecisions.filter(
+        (decision) => decision.round_no === round.round_no && decision.team_id === team.team_id
       );
       return versions.at(-1);
     });

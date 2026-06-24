@@ -858,34 +858,6 @@
       "evidence": "services/api/src/server.ts:1429 runSettlement store.parameterSets.find"
     },
     {
-      "id": "direct-store-services-api-src-server-runsettlement-062",
-      "file": "services/api/src/server.ts",
-      "symbol": "runSettlement",
-      "accessKind": "read",
-      "expression": "store.teams.filter",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "settlement",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy runSettlement read access to store.teams.filter; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #111; Relates to #114",
-      "evidence": "services/api/src/server.ts:1434 runSettlement store.teams.filter"
-    },
-    {
-      "id": "direct-store-services-api-src-server-arrow-063",
-      "file": "services/api/src/server.ts",
-      "symbol": "<arrow>",
-      "accessKind": "read",
-      "expression": "store.decisions.filter",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy <arrow> read access to store.decisions.filter; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:1438 <arrow> store.decisions.filter"
-    },
-    {
       "id": "direct-store-services-api-src-simulation-findexistingsettlementresult-064",
       "file": "services/api/src/simulation.ts",
       "symbol": "findExistingSettlementResult",
