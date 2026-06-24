@@ -136,3 +136,22 @@ jobs:
           retention-days: 14
       - run: npm run test:contract
       - run: npm run build
+  browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:ui
+      - name: Upload Playwright smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-student-smoke
+          path: tmp/playwright
+          if-no-files-found: ignore
+          retention-days: 14
