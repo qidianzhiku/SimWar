@@ -140,6 +140,35 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
+  it("reports only committed for the current JSON provider success path", async () => {
+    const round = createRound();
+    const result = createSettlementResult();
+    const auditLog = { audit_id: "audit-before" } as AuditLog;
+    const store = createMinimalStore({
+      auditLogs: [auditLog],
+      rounds: [round]
+    });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+
+    const commit = await port.commitSettlementOutcome({
+      tenant_id: "tenant-1",
+      round_id: "round-1",
+      settlement_result: result
+    });
+
+    expect(commit).toEqual({
+      settlement_result: result,
+      status: "committed"
+    });
+    expect(commit.status).not.toBe("reused");
+    expect(commit.status).not.toBe("conflict");
+    expect(commit.status).not.toBe("in_progress");
+    expect(commit).not.toHaveProperty("reason");
+    expect(store.settlementResults).toEqual([result]);
+    expect(store.auditLogs).toEqual([auditLog]);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects tenant identity mismatches without side effects", async () => {
     const round = createRound();
     const result = createSettlementResult({ tenant_id: "tenant-2" });

@@ -263,6 +263,30 @@ describe("Postgres settlement outcome persistence port", () => {
     expect(result).toEqual(original);
   });
 
+  it("characterizes the adapter contract success path as committed only", async () => {
+    const result = createSettlementResult();
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const port = createPostgresSettlementOutcomePersistencePort({
+      queryExecutor: createRecordingExecutor(calls, 1)
+    });
+
+    const commit = await port.commitSettlementOutcome({
+      round_id: "round-1",
+      settlement_result: result,
+      tenant_id: "tenant-1"
+    });
+
+    expect(commit).toEqual({
+      settlement_result: result,
+      status: "committed"
+    });
+    expect(commit.status).not.toBe("reused");
+    expect(commit.status).not.toBe("conflict");
+    expect(commit.status).not.toBe("in_progress");
+    expect(commit).not.toHaveProperty("reason");
+    expect(calls).toHaveLength(1);
+  });
+
   it("rejects target Round run mismatches reported by the atomic statement", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const port = createPostgresSettlementOutcomePersistencePort({
