@@ -36,7 +36,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "node --import tsx tests/e2e-ui/store-isolation.ts && npm run dev:api",
+      command:
+        "npm run build -w @simwar/shared-contracts && npm run build -w @simwar/simulation-core && node --import tsx tests/e2e-ui/store-isolation.ts && npm run dev:api",
       env: {
         API_PORT: `${apiPort}`,
         INTERNAL_SERVICE_TOKEN: "playwright-internal-service-token",
