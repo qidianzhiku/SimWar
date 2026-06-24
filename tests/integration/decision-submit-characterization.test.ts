@@ -6,10 +6,12 @@ import type {
   AuthSession,
   Decision,
   Round,
-  Run
+  Run,
+  Team
 } from "../../packages/shared-contracts/src";
+import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
-import { createP0Store, type SimWarStore } from "../../services/api/src/store";
+import { createP0Store, type SimWarStore, type StoredUser } from "../../services/api/src/store";
 
 const VALID_DECISION_PAYLOAD = {
   pricing: { base_price: 12800 },
@@ -109,6 +111,46 @@ async function createRunAndOpenRound(baseUrl: string, teacherToken: string): Pro
   expect(startResponse.body.data.status).toBe("open");
 
   return run;
+}
+
+function addSameTenantBetaLearner(store: SimWarStore): void {
+  const createdAt = "2026-01-01T00:00:00.000Z";
+  const betaUser: StoredUser = {
+    user_id: "usr_student_beta",
+    tenant_id: "tenant_demo",
+    username: "student_beta",
+    email: "student-beta@demo.simwar.local",
+    password_hash: hashPassword("student_beta", "seed-usr_student_beta"),
+    display_name: "P0 Beta Student",
+    roles: ["learner"],
+    permissions: ["course:read", "decision:submit", "result:read"],
+    status: "active",
+    created_at: createdAt,
+    updated_at: createdAt,
+    team_id: "team_beta"
+  };
+  const betaTeam: Team = {
+    team_id: "team_beta",
+    tenant_id: "tenant_demo",
+    course_id: "course_demo",
+    name: "Beta Team",
+    captain_user_id: "usr_student_beta",
+    members: [
+      {
+        user_id: "usr_student_beta",
+        display_name: "P0 Beta Student",
+        role_slot: "CEO"
+      }
+    ]
+  };
+
+  store.users.push(betaUser);
+  store.userRoles.push({
+    user_id: betaUser.user_id,
+    role_id: "role_learner",
+    tenant_id: betaUser.tenant_id
+  });
+  store.teams.push(betaTeam);
 }
 
 describe("decision submit characterization", () => {
@@ -230,6 +272,74 @@ describe("decision submit characterization", () => {
       );
       expect(storedVersions.map((decision) => decision.version)).toEqual([1, 2]);
       expect(storedVersions.at(-1)).toEqual(second.body.data);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects a same-tenant learner attempting to submit for another team before side effects", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      addSameTenantBetaLearner(store);
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const alphaStudentToken = await login(baseUrl, "student", "student");
+      const betaStudentToken = await login(baseUrl, "student_beta", "student_beta");
+      const run = await createRunAndOpenRound(baseUrl, teacherToken);
+
+      const alphaDecision = await request<Decision>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: alphaStudentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: {
+              ...VALID_DECISION_PAYLOAD,
+              strategy_statement: "Alpha team keeps its validated decision before wrong-team attempt."
+            }
+          }
+        }
+      );
+      expect(alphaDecision.status).toBe(201);
+
+      const decisionsBefore = structuredClone(store.decisions);
+      const auditCountBefore = store.auditLogs.length;
+
+      const wrongTeamAttempt = await request<unknown>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: betaStudentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: {
+              ...VALID_DECISION_PAYLOAD,
+              pricing: { base_price: 9900 },
+              strategy_statement: "Beta learner must not overwrite Alpha team decision state."
+            }
+          }
+        }
+      );
+
+      expect(wrongTeamAttempt.status).toBe(403);
+      expect(wrongTeamAttempt.body.code).toBe("TEAM-403-001");
+      expect(store.decisions).toEqual(decisionsBefore);
+      expect(store.auditLogs).toHaveLength(auditCountBefore);
+      expect(
+        store.decisions.filter(
+          (decision) =>
+            decision.tenant_id === "tenant_demo" &&
+            decision.run_id === run.run_id &&
+            decision.round_no === 1 &&
+            decision.team_id === "team_alpha"
+        )
+      ).toEqual([alphaDecision.body.data]);
+      expect(
+        store.decisions.some((decision) => decision.submitted_by === "usr_student_beta")
+      ).toBe(false);
     } finally {
       await stopServer(server);
     }
