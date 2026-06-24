@@ -39,7 +39,10 @@ function findExistingSettlementResult(
   input: SettlementRoundInput
 ): SettlementResult | undefined {
   return store.settlementResults.find(
-    (result) => result.run_id === input.run.run_id && result.round_no === input.round.round_no
+    (result) =>
+      result.tenant_id === input.run.tenant_id &&
+      result.run_id === input.run.run_id &&
+      result.round_no === input.round.round_no
   );
 }
 
