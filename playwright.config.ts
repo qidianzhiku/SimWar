@@ -45,7 +45,7 @@ export default defineConfig({
         SIMWAR_STORE_FILE: playwrightStoreFile
       },
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 180_000,
       url: `${apiBaseUrl}/healthz`
     },
     {
@@ -54,7 +54,7 @@ export default defineConfig({
         VITE_API_BASE_URL: apiBaseUrl
       },
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 180_000,
       url: studentBaseUrl
     }
   ]
