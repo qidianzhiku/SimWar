@@ -201,6 +201,49 @@ describe("repository facade", () => {
     expect(ports.auditLogs.appendAuditLog).not.toHaveBeenCalled();
   });
 
+  it("preserves provider commit result discriminants without fallback writes", async () => {
+    const ports = createMockPorts();
+    const facade = createRepositoryFacade({ ports });
+    const settlementResult: CommitSettlementOutcomeCommand["settlement_result"] = {
+      tenant_id: "tenant-1",
+      settlement_result_id: "settlement-1",
+      run_id: "run-1",
+      round_id: "round-1",
+      round_no: 1,
+      parameter_set_id: "parameter-set-1",
+      scenario_package_id: "scenario-package-1",
+      replay_hash: "replay-hash-1",
+      team_results: []
+    };
+    const command: CommitSettlementOutcomeCommand = {
+      tenant_id: "tenant-1",
+      round_id: "round-1",
+      settlement_result: settlementResult
+    };
+    const reused: SettlementOutcomeCommitResult = {
+      settlement_result: settlementResult,
+      status: "reused"
+    };
+    const conflict: SettlementOutcomeCommitResult = {
+      reason: "replay_hash_mismatch",
+      settlement_result: settlementResult,
+      status: "conflict"
+    };
+
+    vi.mocked(ports.settlementOutcome.commitSettlementOutcome)
+      .mockResolvedValueOnce(reused)
+      .mockResolvedValueOnce(conflict);
+
+    await expect(facade.commitSettlementOutcome(command)).resolves.toBe(reused);
+    await expect(facade.commitSettlementOutcome(command)).resolves.toBe(conflict);
+
+    expect(ports.settlementOutcome.commitSettlementOutcome).toHaveBeenCalledTimes(2);
+    expect(ports.settlements.saveSettlementResult).not.toHaveBeenCalled();
+    expect(ports.rounds.saveRound).not.toHaveBeenCalled();
+    expect(ports.rounds.markRoundSettled).not.toHaveBeenCalled();
+    expect(ports.auditLogs.appendAuditLog).not.toHaveBeenCalled();
+  });
+
   it("propagates atomic settlement outcome failures without fallback writes", async () => {
     const ports = createMockPorts();
     const failure = new Error("settlement_outcome_round_missing");

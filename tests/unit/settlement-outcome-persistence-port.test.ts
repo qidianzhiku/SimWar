@@ -111,4 +111,33 @@ describe("settlement outcome persistence port contract", () => {
     expect(port).not.toHaveProperty("client");
     expect(port).not.toHaveProperty("pool");
   });
+
+  it("characterizes the current commit result discriminants without in-progress semantics", () => {
+    const settlement = createSettlementResult();
+    const committed: SettlementOutcomeCommitResult = {
+      settlement_result: settlement,
+      status: "committed"
+    };
+    const reused: SettlementOutcomeCommitResult = {
+      settlement_result: settlement,
+      status: "reused"
+    };
+    const conflict: SettlementOutcomeCommitResult = {
+      reason: "replay_hash_mismatch",
+      settlement_result: settlement,
+      status: "conflict"
+    };
+
+    const variants = [committed, reused, conflict];
+
+    expect(variants.map((variant) => variant.status)).toEqual([
+      "committed",
+      "reused",
+      "conflict"
+    ]);
+    expect(conflict.reason).toBe("replay_hash_mismatch");
+    expect(variants).not.toContainEqual(
+      expect.objectContaining({ status: "in_progress" })
+    );
+  });
 });
