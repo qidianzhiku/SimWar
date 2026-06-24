@@ -212,6 +212,32 @@ function appendDecisionDecoys(store: SimWarStore, decision: Decision, round: Rou
   store.decisions.push(...decoys);
 }
 
+function prependOtherTenantSettlementCollision(
+  store: SimWarStore,
+  run: Run,
+  round: Round,
+  settlement: SettlementResult
+): SettlementResult {
+  const otherTenantRound: Round = {
+    ...round,
+    round_id: `${round.round_id}_tenant_other`,
+    tenant_id: "tenant_other"
+  };
+  const otherTenantSettlement: SettlementResult = {
+    ...settlement,
+    replay_hash: `${settlement.replay_hash}_tenant_other`,
+    round_id: otherTenantRound.round_id,
+    settlement_result_id: `${settlement.settlement_result_id}_tenant_other`,
+    tenant_id: "tenant_other"
+  };
+
+  store.runs.push({ ...run, tenant_id: "tenant_other" });
+  store.rounds.push(otherTenantRound);
+  store.settlementResults.unshift(otherTenantSettlement);
+
+  return otherTenantSettlement;
+}
+
 describe("tenant settlement identity matrix", () => {
   it("threads tenant, run, and round identity through active Facade settlement reads", async () => {
     const { baseUrl, provider, server, store } = await startServer();
@@ -293,6 +319,56 @@ describe("tenant settlement identity matrix", () => {
       ).toEqual([`tenant_demo:${run.run_id}:1`]);
       expect(successAudits).toHaveLength(1);
       expect(successAudits[0]?.resource_id).toBe(first.body.data.settlement_result_id);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("reuses the current tenant canonical outcome when another tenant collides on run and round", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const { round, run } = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        LOW_DEMAND_DECISION_PAYLOAD
+      );
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(first.status).toBe(200);
+
+      const otherTenantSettlement = prependOtherTenantSettlementCollision(
+        store,
+        run,
+        round,
+        first.body.data
+      );
+      const auditCountBeforeRetry = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      ).length;
+      const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(second.status).toBe(200);
+      expect(second.headers.get("x-simwar-settlement-outcome")).toBe("reused");
+      expect(second.body.data).toEqual(first.body.data);
+      expect(second.body.data.tenant_id).toBe("tenant_demo");
+      expect(second.body.data.settlement_result_id).not.toBe(
+        otherTenantSettlement.settlement_result_id
+      );
+      expect(second.body.data.round_id).not.toBe(otherTenantSettlement.round_id);
+      expect(second.body.data.replay_hash).not.toBe(otherTenantSettlement.replay_hash);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(store.settlementResults).toHaveLength(2);
+      expect(
+        store.auditLogs.filter(
+          (log) => log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+        )
+      ).toHaveLength(auditCountBeforeRetry);
     } finally {
       await stopServer(server);
     }
