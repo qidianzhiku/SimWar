@@ -645,6 +645,42 @@ describe("settlement result write and replay hash characterization", () => {
     }
   });
 
+  it("settlement route reads active settlement inputs through the repository facade", async () => {
+    const { baseUrl, provider, server } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+
+      const getRunSpy = vi.spyOn(provider.facade.runs, "getRun");
+      const listRoundsSpy = vi.spyOn(provider.facade.rounds, "listRoundsForRun");
+      const listTeamsSpy = vi.spyOn(provider.facade.teams, "listTeamsForRun");
+      const listDecisionsSpy = vi.spyOn(provider.facade.decisions, "listDecisionsForRound");
+
+      const response = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(response.status).toBe(200);
+      expect(response.body.code).toBe("OK");
+      expect(getRunSpy).toHaveBeenCalledWith("tenant_demo", run.run_id);
+      expect(listRoundsSpy).toHaveBeenCalledWith("tenant_demo", run.run_id);
+      expect(listTeamsSpy).toHaveBeenCalledWith("tenant_demo", run.run_id);
+      expect(listDecisionsSpy).toHaveBeenCalledWith(
+        "tenant_demo",
+        run.run_id,
+        response.body.data.round_id
+      );
+      expect(response.body.data.replay_hash).toHaveLength(64);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("settlement route leaves authoritative state unchanged when atomic commit fails", async () => {
     const { baseUrl, provider, server, store } = await startServer();
 
