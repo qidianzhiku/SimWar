@@ -352,6 +352,11 @@ export interface SettlementOutcomePersistencePort {
   ): Promise<SettlementOutcomeCommitResult>;
 }
 
+export interface SettlementWriteRepositoryPorts {
+  auditLogs: AuditCommandRepositoryPort;
+  settlementOutcome: SettlementOutcomePersistencePort;
+}
+
 export interface SimWarCommandRepositoryPorts {
   decisions: DecisionCommandRepositoryPort;
   rounds: RoundCommandRepositoryPort;

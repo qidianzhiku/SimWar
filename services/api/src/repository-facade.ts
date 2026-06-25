@@ -24,6 +24,7 @@ import type {
   RepositoryUserReadModel,
   SettlementReadRepositoryPorts,
   SettlementOutcomeCommitResult,
+  SettlementWriteRepositoryPorts,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
@@ -190,12 +191,26 @@ export interface SettlementReadRepositoryFacade {
   };
 }
 
+export interface SettlementWriteRepositoryFacade {
+  auditLogs: {
+    appendAuditLog(auditLog: AuditLog): Promise<void>;
+  };
+
+  commitSettlementOutcome(
+    command: CommitSettlementOutcomeCommand
+  ): Promise<SettlementOutcomeCommitResult>;
+}
+
 export interface RepositoryFacadeOptions {
   ports: SimWarRepositoryPorts;
 }
 
 export interface SettlementReadRepositoryFacadeOptions {
   ports: SettlementReadRepositoryPorts;
+}
+
+export interface SettlementWriteRepositoryFacadeOptions {
+  ports: SettlementWriteRepositoryPorts;
 }
 
 export interface JsonRepositoryFacadeOptions {
@@ -233,6 +248,19 @@ export function createSettlementReadRepositoryFacade(
     teams: {
       listTeamsForRun: (tenantId, runId) => ports.teams.listTeamsForRun(tenantId, runId)
     }
+  };
+}
+
+export function createSettlementWriteRepositoryFacade(
+  options: SettlementWriteRepositoryFacadeOptions
+): SettlementWriteRepositoryFacade {
+  const { ports } = options;
+
+  return {
+    auditLogs: {
+      appendAuditLog: (auditLog) => ports.auditLogs.appendAuditLog(auditLog)
+    },
+    commitSettlementOutcome: (command) => ports.settlementOutcome.commitSettlementOutcome(command)
   };
 }
 
