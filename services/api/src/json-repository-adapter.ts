@@ -2,12 +2,14 @@ import type {
   AuditLog,
   Decision,
   DomainEvent,
+  ParameterSet,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
   Run,
+  ScenarioPackage,
   SettlementResult,
   StateSnapshot,
   Team
@@ -386,6 +388,32 @@ export function createJsonRepositoryPorts(
 
       async listRunsForCourse(tenantId, courseId): Promise<Run[]> {
         return store.runs.filter((run) => run.tenant_id === tenantId && run.course_id === courseId);
+      }
+    },
+
+    scenarios: {
+      async getScenarioPackage(
+        tenantId,
+        scenarioPackageId
+      ): Promise<ScenarioPackage | null> {
+        return (
+          store.scenarios.find(
+            (candidate) =>
+              candidate.tenant_id === tenantId &&
+              candidate.scenario_package_id === scenarioPackageId
+          ) ?? null
+        );
+      }
+    },
+
+    parameterSets: {
+      async getParameterSet(tenantId, parameterSetId): Promise<ParameterSet | null> {
+        return (
+          store.parameterSets.find(
+            (candidate) =>
+              candidate.tenant_id === tenantId && candidate.parameter_set_id === parameterSetId
+          ) ?? null
+        );
       }
     },
 

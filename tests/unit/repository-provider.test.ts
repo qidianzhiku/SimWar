@@ -47,6 +47,14 @@ function createMockPorts(): SimWarRepositoryPorts {
       listRunsForCourse: vi.fn(async () => [])
     },
 
+    scenarios: {
+      getScenarioPackage: vi.fn(async () => null)
+    },
+
+    parameterSets: {
+      getParameterSet: vi.fn(async () => null)
+    },
+
     rounds: {
       getRound: vi.fn(async () => null),
       listRoundsForRun: vi.fn(async () => []),
@@ -266,5 +274,31 @@ describe("repository provider", () => {
     expect(serverSource).toContain("prepareSettlementOutcome(");
     expect(serverSource).toContain("runtime.repositoryProvider.facade.commitSettlementOutcome(");
     expect(serverSource).not.toContain("settleRoundWithSettlementWriter(");
+  });
+
+  it("keeps active settlement reference and canonical reads behind the provider boundary", () => {
+    const serverSource = readFileSync(
+      new URL("../../services/api/src/server.ts", import.meta.url),
+      "utf8"
+    );
+    const runSettlementSource = serverSource.slice(
+      serverSource.indexOf("async function runSettlement"),
+      serverSource.indexOf("export function createApiServer")
+    );
+
+    expect(serverSource).toContain("function createRuntimeRepositoryProvider(");
+    expect(runSettlementSource).toContain(
+      "runtime.repositoryProvider.facade.scenarios.getScenarioPackage("
+    );
+    expect(runSettlementSource).toContain(
+      "runtime.repositoryProvider.facade.parameterSets.getParameterSet("
+    );
+    expect(runSettlementSource).toContain(
+      "runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound("
+    );
+    expect(runSettlementSource).not.toContain("store.scenarios.find(");
+    expect(runSettlementSource).not.toContain("store.parameterSets.find(");
+    expect(runSettlementSource).not.toContain("prepareSettlementOutcome(store,");
+    expect(serverSource).not.toContain("DATABASE_URL");
   });
 });

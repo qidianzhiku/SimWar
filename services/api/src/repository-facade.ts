@@ -2,12 +2,14 @@ import type {
   AuditLog,
   Decision,
   DomainEvent,
+  ParameterSet,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
   Run,
+  ScenarioPackage,
   SettlementResult,
   StateSnapshot,
   Team
@@ -64,6 +66,14 @@ export interface RepositoryFacade {
   runs: {
     getRun(tenantId: string, runId: string): Promise<Run | null>;
     listRunsForCourse(tenantId: string, courseId: string): Promise<Run[]>;
+  };
+
+  scenarios: {
+    getScenarioPackage(tenantId: string, scenarioPackageId: string): Promise<ScenarioPackage | null>;
+  };
+
+  parameterSets: {
+    getParameterSet(tenantId: string, parameterSetId: string): Promise<ParameterSet | null>;
   };
 
   rounds: {
@@ -186,6 +196,16 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
     runs: {
       getRun: (tenantId, runId) => ports.runs.getRun(tenantId, runId),
       listRunsForCourse: (tenantId, courseId) => ports.runs.listRunsForCourse(tenantId, courseId)
+    },
+
+    scenarios: {
+      getScenarioPackage: (tenantId, scenarioPackageId) =>
+        ports.scenarios.getScenarioPackage(tenantId, scenarioPackageId)
+    },
+
+    parameterSets: {
+      getParameterSet: (tenantId, parameterSetId) =>
+        ports.parameterSets.getParameterSet(tenantId, parameterSetId)
     },
 
     rounds: {
