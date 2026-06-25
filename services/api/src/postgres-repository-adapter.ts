@@ -25,8 +25,13 @@ import type {
   RepositoryId,
   RepositorySnapshotQuery,
   SettlementOutcomeCommitResult,
-  SettlementOutcomePersistencePort
+  SettlementOutcomePersistencePort,
+  SettlementWriteRepositoryPorts
 } from "./repository-ports.js";
+import {
+  createSettlementWriteRepositoryFacade,
+  type SettlementWriteRepositoryFacade
+} from "./repository-facade.js";
 
 export interface PostgresQueryResult<
   TRow extends Record<string, unknown> = Record<string, unknown>
@@ -189,6 +194,18 @@ export interface PostgresSettlementReadModelProvider {
 
 export interface PostgresSettlementReadModelProviderOptions {
   adapter: Pick<PostgresRepositoryAdapter, "decisions" | "rounds" | "runs" | "settlements">;
+}
+
+export type PostgresSettlementWriteModelPorts = SettlementWriteRepositoryPorts;
+
+export interface PostgresSettlementWriteModelProvider {
+  facade: SettlementWriteRepositoryFacade;
+  mode: "postgres-settlement-write";
+  ports: PostgresSettlementWriteModelPorts;
+}
+
+export interface PostgresSettlementWriteModelProviderOptions {
+  adapter: Pick<PostgresRepositoryAdapter, "auditLogs" | "options">;
 }
 
 interface PostgresUserPresenceRow extends Record<string, unknown> {
@@ -1100,6 +1117,26 @@ export function createPostgresSettlementReadModelProvider(
     capabilityGaps: POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS,
     facade: createPostgresSettlementReadModelFacade(ports),
     mode: "postgres-read-model",
+    ports
+  };
+}
+
+export function createPostgresSettlementWriteModelProvider(
+  options: PostgresSettlementWriteModelProviderOptions
+): PostgresSettlementWriteModelProvider {
+  const { adapter } = options;
+  const ports: PostgresSettlementWriteModelPorts = {
+    auditLogs: {
+      appendAuditLog: (auditLog) => adapter.auditLogs.appendAuditLog(auditLog)
+    },
+    settlementOutcome: createPostgresSettlementOutcomePersistencePort({
+      ...adapter.options
+    })
+  };
+
+  return {
+    facade: createSettlementWriteRepositoryFacade({ ports }),
+    mode: "postgres-settlement-write",
     ports
   };
 }
