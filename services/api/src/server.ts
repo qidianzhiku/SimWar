@@ -91,10 +91,17 @@ const defaultStore = createP1Store({
   persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
 });
 
+function createRuntimeRepositoryProvider(
+  store: SimWarStore,
+  options: Pick<CreateApiServerOptions, "repositoryProvider"> = {}
+): RepositoryProvider {
+  return options.repositoryProvider ?? createJsonRepositoryProvider({ store });
+}
+
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
   return {
     store,
-    repositoryProvider: options.repositoryProvider ?? createJsonRepositoryProvider({ store }),
+    repositoryProvider: createRuntimeRepositoryProvider(store, options),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -1484,15 +1491,13 @@ async function runSettlement(
       throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
     }
 
-    const scenario = store.scenarios.find(
-      (candidate) =>
-        candidate.scenario_package_id === run.scenario_package_id &&
-        candidate.tenant_id === context.tenantId
+    const scenario = await runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
+      context.tenantId,
+      run.scenario_package_id
     );
-    const parameterSet = store.parameterSets.find(
-      (candidate) =>
-        candidate.parameter_set_id === run.parameter_set_id &&
-        candidate.tenant_id === context.tenantId
+    const parameterSet = await runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+      context.tenantId,
+      run.parameter_set_id
     );
     const teams = await runtime.repositoryProvider.facade.teams.listTeamsForRun(
       context.tenantId,
@@ -1519,16 +1524,35 @@ async function runSettlement(
       );
     }
 
-    const outcome = prepareSettlementOutcome(store, {
-      run,
-      round,
-      scenario,
-      parameterSet,
-      teams,
-      decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
-        Boolean(decision)
-      )
-    });
+    const existingSettlements =
+      await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+        context.tenantId,
+        run.run_id,
+        round.round_id
+      );
+    const existingSettlement =
+      existingSettlements.find(
+        (settlement) =>
+          settlement.tenant_id === context.tenantId &&
+          settlement.run_id === run.run_id &&
+          settlement.round_no === round.round_no
+      ) ?? null;
+    const outcome = prepareSettlementOutcome(
+      {
+        run,
+        round,
+        scenario,
+        parameterSet,
+        teams,
+        decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
+          Boolean(decision)
+        )
+      },
+      {
+        createSettlementResultId: () => nextId(store, "result", "result"),
+        existingSettlement
+      }
+    );
 
     if (outcome.replayHashConflict) {
       throw new HttpError(

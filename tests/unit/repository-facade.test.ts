@@ -54,6 +54,14 @@ function createMockPorts(): SimWarRepositoryPorts {
       listRunsForCourse: vi.fn(async () => [])
     },
 
+    scenarios: {
+      getScenarioPackage: vi.fn(async () => null)
+    },
+
+    parameterSets: {
+      getParameterSet: vi.fn(async () => null)
+    },
+
     rounds: {
       getRound: vi.fn(async () => null),
       listRoundsForRun: vi.fn(async () => []),

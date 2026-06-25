@@ -7,12 +7,14 @@ import type {
   AuthSession,
   Decision,
   DecisionPayload,
+  ParameterSet,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
   Run,
+  ScenarioPackage,
   SettlementResult
 } from "../../packages/shared-contracts/src";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
@@ -640,6 +642,78 @@ describe("settlement result write and replay hash characterization", () => {
       expect(command?.settlement_result.replay_hash).toBe(response.body.data.replay_hash);
       expect(store.settlementResults).toEqual([response.body.data]);
       expect(events).toEqual(["commit:start", "commit:done", "audit:success"]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("routes settlement scenario, parameter, and canonical result reads through the provider boundary", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const scenarioSpy = vi.fn(
+        async (tenantId: string, scenarioPackageId: string): Promise<ScenarioPackage | null> =>
+          store.scenarios.find(
+            (candidate) =>
+              candidate.tenant_id === tenantId &&
+              candidate.scenario_package_id === scenarioPackageId
+          ) ?? null
+      );
+      const parameterSetSpy = vi.fn(
+        async (tenantId: string, parameterSetId: string): Promise<ParameterSet | null> =>
+          store.parameterSets.find(
+            (candidate) =>
+              candidate.tenant_id === tenantId &&
+              candidate.parameter_set_id === parameterSetId
+          ) ?? null
+      );
+      const facadeWithReferenceReads = provider.facade as typeof provider.facade & {
+        parameterSets: { getParameterSet: typeof parameterSetSpy };
+        scenarios: { getScenarioPackage: typeof scenarioSpy };
+      };
+      facadeWithReferenceReads.scenarios = { getScenarioPackage: scenarioSpy };
+      facadeWithReferenceReads.parameterSets = { getParameterSet: parameterSetSpy };
+      const canonicalLookupSpy = vi.spyOn(
+        provider.facade.settlements,
+        "listSettlementResultsForRound"
+      );
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const round = requireStoredRound(store, run.run_id);
+
+      const first = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(first.status).toBe(200);
+      expect(first.body.data).toMatchObject({
+        tenant_id: "tenant_demo",
+        run_id: run.run_id,
+        round_id: round.round_id,
+        round_no: 1,
+        parameter_set_id: run.parameter_set_id,
+        scenario_package_id: run.scenario_package_id
+      });
+      expect(scenarioSpy).toHaveBeenCalledWith("tenant_demo", run.scenario_package_id);
+      expect(parameterSetSpy).toHaveBeenCalledWith("tenant_demo", run.parameter_set_id);
+      expect(canonicalLookupSpy).toHaveBeenCalledWith("tenant_demo", run.run_id, round.round_id);
+
+      scenarioSpy.mockClear();
+      parameterSetSpy.mockClear();
+      canonicalLookupSpy.mockClear();
+
+      const second = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(second.status).toBe(200);
+      expect(second.body.data).toEqual(first.body.data);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(scenarioSpy).toHaveBeenCalledWith("tenant_demo", run.scenario_package_id);
+      expect(parameterSetSpy).toHaveBeenCalledWith("tenant_demo", run.parameter_set_id);
+      expect(canonicalLookupSpy).toHaveBeenCalledWith("tenant_demo", run.run_id, round.round_id);
     } finally {
       await stopServer(server);
     }

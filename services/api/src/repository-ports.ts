@@ -2,12 +2,14 @@ import type {
   AuditLog,
   Decision,
   DomainEvent,
+  ParameterSet,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
   Run,
+  ScenarioPackage,
   SettlementResult,
   StateSnapshot,
   Team
@@ -115,6 +117,20 @@ export interface RunRepositoryPort {
   getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
 
   listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
+}
+
+export interface ScenarioRepositoryPort {
+  getScenarioPackage(
+    tenantId: RepositoryId,
+    scenarioPackageId: RepositoryId
+  ): Promise<ScenarioPackage | null>;
+}
+
+export interface ParameterSetRepositoryPort {
+  getParameterSet(
+    tenantId: RepositoryId,
+    parameterSetId: RepositoryId
+  ): Promise<ParameterSet | null>;
 }
 
 export interface RoundRepositoryPort {
@@ -331,6 +347,8 @@ export interface SimWarRepositoryPorts {
   courses: CourseRepositoryPort;
   teams: TeamRepositoryPort;
   runs: RunRepositoryPort;
+  scenarios: ScenarioRepositoryPort;
+  parameterSets: ParameterSetRepositoryPort;
   rounds: RoundRepositoryPort;
   decisions: DecisionRepositoryPort;
   settlements: SettlementRepositoryPort;

@@ -34,6 +34,11 @@ export interface PreparedSettlementOutcome {
   replayHashConflict: boolean;
 }
 
+export interface PrepareSettlementOutcomeOptions {
+  createSettlementResultId: () => string;
+  existingSettlement?: SettlementResult | null;
+}
+
 function findExistingSettlementResult(
   store: SimWarStore,
   input: SettlementRoundInput
@@ -47,13 +52,13 @@ function findExistingSettlementResult(
 }
 
 function createSettlementResult(
-  store: SimWarStore,
   input: SettlementRoundInput,
+  settlementResultId: string,
   replayHash: string,
   teamResults: SettlementResult["team_results"]
 ): SettlementResult {
   return {
-    settlement_result_id: nextId(store, "result", "result"),
+    settlement_result_id: settlementResultId,
     tenant_id: input.run.tenant_id,
     run_id: input.run.run_id,
     round_id: input.round.round_id,
@@ -76,7 +81,12 @@ function writeSettlementResult(
   replayHash: string,
   teamResults: SettlementResult["team_results"]
 ): SettlementResult {
-  const settlement = createSettlementResult(store, input, replayHash, teamResults);
+  const settlement = createSettlementResult(
+    input,
+    nextId(store, "result", "result"),
+    replayHash,
+    teamResults
+  );
 
   markRoundSettled(input, replayHash);
   store.settlementResults.push(settlement);
@@ -91,7 +101,12 @@ async function saveSettlementResult(
   replayHash: string,
   teamResults: SettlementResult["team_results"]
 ): Promise<SettlementResult> {
-  const settlement = createSettlementResult(store, input, replayHash, teamResults);
+  const settlement = createSettlementResult(
+    input,
+    nextId(store, "result", "result"),
+    replayHash,
+    teamResults
+  );
 
   markRoundSettled(input, replayHash);
   await writer.saveSettlementResult(settlement);
@@ -212,10 +227,10 @@ export function settleRound(store: SimWarStore, input: SettlementRoundInput): Se
 }
 
 export function prepareSettlementOutcome(
-  store: SimWarStore,
-  input: SettlementRoundInput
+  input: SettlementRoundInput,
+  options: PrepareSettlementOutcomeOptions
 ): PreparedSettlementOutcome {
-  const existing = findExistingSettlementResult(store, input);
+  const existing = options.existingSettlement ?? null;
 
   if (existing) {
     const { replayHash } = calculateSettlement(input);
@@ -230,7 +245,12 @@ export function prepareSettlementOutcome(
   const { replayHash, teamResults } = calculateSettlement(input);
 
   return {
-    settlement: createSettlementResult(store, input, replayHash, teamResults),
+    settlement: createSettlementResult(
+      input,
+      options.createSettlementResultId(),
+      replayHash,
+      teamResults
+    ),
     shouldCommit: true,
     replayHashConflict: false
   };
