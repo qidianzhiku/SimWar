@@ -141,6 +141,56 @@ export interface PostgresStateSnapshotMapping {
   saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
 }
 
+export const POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS = [
+  "teams.listTeamsForRun",
+  "scenarios.getScenarioPackage",
+  "parameterSets.getParameterSet"
+] as const;
+
+export type PostgresSettlementReadModelCapabilityGap =
+  (typeof POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS)[number];
+
+export interface PostgresSettlementReadModelPorts {
+  decisions: Pick<PostgresDecisionMapping, "listDecisionsForRound">;
+  rounds: Pick<PostgresRoundMapping, "listRoundsForRun">;
+  runs: Pick<PostgresRunReadMapping, "getRun">;
+  settlements: Pick<PostgresSettlementMapping, "listSettlementResultsForRound">;
+}
+
+export interface PostgresSettlementReadModelFacade {
+  decisions: {
+    listDecisionsForRound(
+      tenantId: RepositoryId,
+      runId: RepositoryId,
+      roundId: RepositoryId
+    ): Promise<Decision[]>;
+  };
+  rounds: {
+    listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
+  };
+  runs: {
+    getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
+  };
+  settlements: {
+    listSettlementResultsForRound(
+      tenantId: RepositoryId,
+      runId: RepositoryId,
+      roundId: RepositoryId
+    ): Promise<SettlementResult[]>;
+  };
+}
+
+export interface PostgresSettlementReadModelProvider {
+  capabilityGaps: readonly PostgresSettlementReadModelCapabilityGap[];
+  facade: PostgresSettlementReadModelFacade;
+  mode: "postgres-read-model";
+  ports: PostgresSettlementReadModelPorts;
+}
+
+export interface PostgresSettlementReadModelProviderOptions {
+  adapter: Pick<PostgresRepositoryAdapter, "decisions" | "rounds" | "runs" | "settlements">;
+}
+
 interface PostgresUserPresenceRow extends Record<string, unknown> {
   user_id: RepositoryId;
 }
@@ -1002,6 +1052,56 @@ export class PostgresRepositoryAdapter {
       rowCount: result.rowCount
     };
   }
+}
+
+function createPostgresSettlementReadModelFacade(
+  ports: PostgresSettlementReadModelPorts
+): PostgresSettlementReadModelFacade {
+  return {
+    decisions: {
+      listDecisionsForRound: (tenantId, runId, roundId) =>
+        ports.decisions.listDecisionsForRound(tenantId, runId, roundId)
+    },
+    rounds: {
+      listRoundsForRun: (tenantId, runId) => ports.rounds.listRoundsForRun(tenantId, runId)
+    },
+    runs: {
+      getRun: (tenantId, runId) => ports.runs.getRun(tenantId, runId)
+    },
+    settlements: {
+      listSettlementResultsForRound: (tenantId, runId, roundId) =>
+        ports.settlements.listSettlementResultsForRound(tenantId, runId, roundId)
+    }
+  };
+}
+
+export function createPostgresSettlementReadModelProvider(
+  options: PostgresSettlementReadModelProviderOptions
+): PostgresSettlementReadModelProvider {
+  const { adapter } = options;
+  const ports: PostgresSettlementReadModelPorts = {
+    decisions: {
+      listDecisionsForRound: (tenantId, runId, roundId) =>
+        adapter.decisions.listDecisionsForRound(tenantId, runId, roundId)
+    },
+    rounds: {
+      listRoundsForRun: (tenantId, runId) => adapter.rounds.listRoundsForRun(tenantId, runId)
+    },
+    runs: {
+      getRun: (tenantId, runId) => adapter.runs.getRun(tenantId, runId)
+    },
+    settlements: {
+      listSettlementResultsForRound: (tenantId, runId, roundId) =>
+        adapter.settlements.listSettlementResultsForRound(tenantId, runId, roundId)
+    }
+  };
+
+  return {
+    capabilityGaps: POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS,
+    facade: createPostgresSettlementReadModelFacade(ports),
+    mode: "postgres-read-model",
+    ports
+  };
 }
 
 export function createPostgresRepositoryAdapter(

@@ -22,6 +22,7 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
+  SettlementReadRepositoryPorts,
   SettlementOutcomeCommitResult,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
@@ -155,12 +156,84 @@ export interface RepositoryFacade {
   };
 }
 
+export interface SettlementReadRepositoryFacade {
+  decisions: {
+    listDecisionsForRound(tenantId: string, runId: string, roundId: string): Promise<Decision[]>;
+  };
+
+  parameterSets: {
+    getParameterSet(tenantId: string, parameterSetId: string): Promise<ParameterSet | null>;
+  };
+
+  rounds: {
+    listRoundsForRun(tenantId: string, runId: string): Promise<Round[]>;
+  };
+
+  runs: {
+    getRun(tenantId: string, runId: string): Promise<Run | null>;
+  };
+
+  scenarios: {
+    getScenarioPackage(tenantId: string, scenarioPackageId: string): Promise<ScenarioPackage | null>;
+  };
+
+  settlements: {
+    listSettlementResultsForRound(
+      tenantId: string,
+      runId: string,
+      roundId: string
+    ): Promise<SettlementResult[]>;
+  };
+
+  teams: {
+    listTeamsForRun(tenantId: string, runId: string): Promise<Team[]>;
+  };
+}
+
 export interface RepositoryFacadeOptions {
   ports: SimWarRepositoryPorts;
 }
 
+export interface SettlementReadRepositoryFacadeOptions {
+  ports: SettlementReadRepositoryPorts;
+}
+
 export interface JsonRepositoryFacadeOptions {
   store: SimWarStore;
+}
+
+export function createSettlementReadRepositoryFacade(
+  options: SettlementReadRepositoryFacadeOptions
+): SettlementReadRepositoryFacade {
+  const { ports } = options;
+
+  return {
+    decisions: {
+      listDecisionsForRound: (tenantId, runId, roundId) =>
+        ports.decisions.listDecisionsForRound(tenantId, runId, roundId)
+    },
+    parameterSets: {
+      getParameterSet: (tenantId, parameterSetId) =>
+        ports.parameterSets.getParameterSet(tenantId, parameterSetId)
+    },
+    rounds: {
+      listRoundsForRun: (tenantId, runId) => ports.rounds.listRoundsForRun(tenantId, runId)
+    },
+    runs: {
+      getRun: (tenantId, runId) => ports.runs.getRun(tenantId, runId)
+    },
+    scenarios: {
+      getScenarioPackage: (tenantId, scenarioPackageId) =>
+        ports.scenarios.getScenarioPackage(tenantId, scenarioPackageId)
+    },
+    settlements: {
+      listSettlementResultsForRound: (tenantId, runId, roundId) =>
+        ports.settlements.listSettlementResultsForRound(tenantId, runId, roundId)
+    },
+    teams: {
+      listTeamsForRun: (tenantId, runId) => ports.teams.listTeamsForRun(tenantId, runId)
+    }
+  };
 }
 
 /**
