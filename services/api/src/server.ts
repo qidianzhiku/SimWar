@@ -157,7 +157,7 @@ async function appendAudit(
   }
 ): Promise<AuditLog> {
   const log: AuditLog = {
-    audit_id: nextId(runtime.store, "audit", "audit"),
+    audit_id: runtime.repositoryProvider.idGenerator.createAuditLogId(),
     tenant_id: input.tenantId ?? input.actor.tenant_id,
     actor_id: input.actor.user_id,
     actor_role: input.actor.roles[0] ?? "learner",
@@ -1466,7 +1466,6 @@ async function runSettlement(
   runId: string,
   roundNo: number
 ): Promise<RunSettlementOutcome> {
-  const store = runtime.store;
   const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
 
   if (!run) {
@@ -1549,7 +1548,8 @@ async function runSettlement(
         )
       },
       {
-        createSettlementResultId: () => nextId(store, "result", "result"),
+        createSettlementResultId: () =>
+          runtime.repositoryProvider.idGenerator.createSettlementResultId(),
         existingSettlement
       }
     );

@@ -20,6 +20,7 @@ import type {
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
 import {
   createJsonRepositoryProvider,
+  createRepositoryProvider,
   type RepositoryProvider
 } from "../../services/api/src/repository-provider";
 import type { CommitSettlementOutcomeCommand } from "../../services/api/src/repository-ports";
@@ -58,14 +59,16 @@ const HIGH_DEMAND_DECISION_PAYLOAD = {
   strategy_statement: "Low price and high demand strategy for characterization."
 } as const satisfies DecisionPayload;
 
-async function startServer(): Promise<{
+async function startServer(options: {
+  providerFactory?: (store: SimWarStore) => RepositoryProvider;
+} = {}): Promise<{
   baseUrl: string;
   provider: RepositoryProvider;
   server: Server;
   store: SimWarStore;
 }> {
   const store = createP0Store();
-  const provider = createJsonRepositoryProvider({ store });
+  const provider = options.providerFactory?.(store) ?? createJsonRepositoryProvider({ store });
   const server = createApiServer(store, { repositoryProvider: provider });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -642,6 +645,53 @@ describe("settlement result write and replay hash characterization", () => {
       expect(command?.settlement_result.replay_hash).toBe(response.body.data.replay_hash);
       expect(store.settlementResults).toEqual([response.body.data]);
       expect(events).toEqual(["commit:start", "commit:done", "audit:success"]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("uses provider-owned identifiers for settlement result and audit creation", async () => {
+    let auditCounter = 0;
+    const idGenerator = {
+      createSettlementResultId: vi.fn(() => "provider_result_001"),
+      createAuditLogId: vi.fn(() => `provider_audit_${++auditCounter}`)
+    };
+    const { baseUrl, server, store } = await startServer({
+      providerFactory: (providerStore) =>
+        createRepositoryProvider({
+          mode: "json",
+          ports: createJsonRepositoryPorts(providerStore),
+          idGenerator
+        })
+    });
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+
+      const response = await settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(response.body.data.settlement_result_id).toBe("provider_result_001");
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]?.settlement_result_id).toBe("provider_result_001");
+
+      const settleAudit = store.auditLogs.find(
+        (log) =>
+          log.action === "round.settle_requested" &&
+          log.resource_id === response.body.data.settlement_result_id
+      );
+
+      expect(settleAudit?.audit_id).toMatch(/^provider_audit_\d+$/);
+      expect(idGenerator.createSettlementResultId).toHaveBeenCalledTimes(1);
+      expect(idGenerator.createAuditLogId).toHaveBeenCalled();
     } finally {
       await stopServer(server);
     }

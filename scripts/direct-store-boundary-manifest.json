@@ -4,20 +4,6 @@
   "evidenceLimitation": "alias/indirect store access not fully statically detected",
   "approvedExceptions": [
     {
-      "id": "direct-store-services-api-src-server-appendaudit-001",
-      "file": "services/api/src/server.ts",
-      "symbol": "appendAudit",
-      "accessKind": "read",
-      "expression": "runtime.store",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy appendAudit read access to runtime.store; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:117 appendAudit runtime.store"
-    },
-    {
       "id": "direct-store-services-api-src-server-submitdecision-002",
       "file": "services/api/src/server.ts",
       "symbol": "submitDecision",
@@ -814,20 +800,6 @@
       "justification": "Approved legacy routeRequest write access to store.rounds.push; frozen by P1-003A so future facade migration can remove it without silent expansion.",
       "followUp": "Relates to #114",
       "evidence": "services/api/src/server.ts:1243 routeRequest store.rounds.push"
-    },
-    {
-      "id": "direct-store-services-api-src-server-runsettlement-059",
-      "file": "services/api/src/server.ts",
-      "symbol": "runSettlement",
-      "accessKind": "read",
-      "expression": "runtime.store",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "settlement",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy runSettlement read access to runtime.store; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #111; Relates to #114",
-      "evidence": "services/api/src/server.ts:1416 runSettlement runtime.store"
     },
     {
       "id": "direct-store-services-api-src-simulation-findexistingsettlementresult-064",

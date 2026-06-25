@@ -127,6 +127,7 @@ function createMinimalStore(): SimWarStore {
     decisions: [],
     settlementResults: [],
     auditLogs: [],
+    counters: {},
     persist: vi.fn()
   } as unknown as SimWarStore;
 }
@@ -204,6 +205,20 @@ describe("repository provider", () => {
     expect(provider.facade).toBeDefined();
   });
 
+  it("exposes provider-owned identifiers for custom persistence boundaries", () => {
+    const ports = createMockPorts();
+    const idGenerator = {
+      createSettlementResultId: vi.fn(() => "custom_result_001"),
+      createAuditLogId: vi.fn(() => "custom_audit_001")
+    };
+    const provider = createRepositoryProvider({ ports, idGenerator });
+
+    expect(provider.idGenerator.createSettlementResultId()).toBe("custom_result_001");
+    expect(provider.idGenerator.createAuditLogId()).toBe("custom_audit_001");
+    expect(idGenerator.createSettlementResultId).toHaveBeenCalledTimes(1);
+    expect(idGenerator.createAuditLogId).toHaveBeenCalledTimes(1);
+  });
+
   it("creates a JSON-backed provider from the current store adapter", async () => {
     const store = createMinimalStore();
     const provider = createJsonRepositoryProvider({ store });
@@ -218,6 +233,16 @@ describe("repository provider", () => {
       tenant_id: "tenant-1",
       status: "active"
     });
+  });
+
+  it("creates JSON-backed provider-owned identifiers with the current store counters", () => {
+    const store = createMinimalStore();
+    const provider = createJsonRepositoryProvider({ store });
+
+    expect(provider.idGenerator.createSettlementResultId()).toBe("result_001");
+    expect(provider.idGenerator.createAuditLogId()).toBe("audit_001");
+    expect(store.counters.result).toBe(1);
+    expect(store.counters.audit).toBe(1);
   });
 
   it("commits a JSON settlement outcome through provider aggregate and facade wiring", async () => {
@@ -274,6 +299,30 @@ describe("repository provider", () => {
     expect(serverSource).toContain("prepareSettlementOutcome(");
     expect(serverSource).toContain("runtime.repositoryProvider.facade.commitSettlementOutcome(");
     expect(serverSource).not.toContain("settleRoundWithSettlementWriter(");
+  });
+
+  it("keeps active settlement and audit identifiers behind the provider boundary", () => {
+    const serverSource = readFileSync(
+      new URL("../../services/api/src/server.ts", import.meta.url),
+      "utf8"
+    );
+    const appendAuditSource = serverSource.slice(
+      serverSource.indexOf("async function appendAudit"),
+      serverSource.indexOf("async function submitDecision")
+    );
+    const runSettlementSource = serverSource.slice(
+      serverSource.indexOf("async function runSettlement"),
+      serverSource.indexOf("export function createApiServer")
+    );
+
+    expect(appendAuditSource).toContain(
+      "runtime.repositoryProvider.idGenerator.createAuditLogId()"
+    );
+    expect(appendAuditSource).not.toContain('nextId(runtime.store, "audit", "audit")');
+    expect(runSettlementSource).toContain(
+      "runtime.repositoryProvider.idGenerator.createSettlementResultId()"
+    );
+    expect(runSettlementSource).not.toContain('nextId(store, "result", "result")');
   });
 
   it("keeps active settlement reference and canonical reads behind the provider boundary", () => {

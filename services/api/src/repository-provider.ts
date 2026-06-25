@@ -1,7 +1,7 @@
 import type { SimWarRepositoryPorts } from "./repository-ports.js";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
 import { createRepositoryFacade, type RepositoryFacade } from "./repository-facade.js";
-import type { SimWarStore } from "./store.js";
+import { nextId, type SimWarStore } from "./store.js";
 
 /**
  * Repository provider for API service composition.
@@ -19,15 +19,33 @@ export interface RepositoryProvider {
   mode: RepositoryProviderMode;
   ports: SimWarRepositoryPorts;
   facade: RepositoryFacade;
+  idGenerator: RepositoryIdGenerator;
+}
+
+export interface RepositoryIdGenerator {
+  createSettlementResultId(): string;
+  createAuditLogId(): string;
 }
 
 export interface RepositoryProviderOptions {
   ports: SimWarRepositoryPorts;
   mode?: RepositoryProviderMode;
+  idGenerator?: RepositoryIdGenerator;
 }
 
 export interface JsonRepositoryProviderOptions {
   store: SimWarStore;
+}
+
+function createMissingRepositoryIdGenerator(mode: RepositoryProviderMode): RepositoryIdGenerator {
+  return {
+    createSettlementResultId() {
+      throw new Error(`repository_id_generator_missing:${mode}:settlement_result`);
+    },
+    createAuditLogId() {
+      throw new Error(`repository_id_generator_missing:${mode}:audit_log`);
+    }
+  };
 }
 
 /**
@@ -42,7 +60,8 @@ export function createRepositoryProvider(options: RepositoryProviderOptions): Re
   return {
     mode,
     ports,
-    facade: createRepositoryFacade({ ports })
+    facade: createRepositoryFacade({ ports }),
+    idGenerator: options.idGenerator ?? createMissingRepositoryIdGenerator(mode)
   };
 }
 
@@ -54,10 +73,15 @@ export function createRepositoryProvider(options: RepositoryProviderOptions): Re
 export function createJsonRepositoryProvider(
   options: JsonRepositoryProviderOptions
 ): RepositoryProvider {
-  const ports = createJsonRepositoryPorts(options.store);
+  const { store } = options;
+  const ports = createJsonRepositoryPorts(store);
 
   return createRepositoryProvider({
     mode: "json",
-    ports
+    ports,
+    idGenerator: {
+      createSettlementResultId: () => nextId(store, "result", "result"),
+      createAuditLogId: () => nextId(store, "audit", "audit")
+    }
   });
 }
