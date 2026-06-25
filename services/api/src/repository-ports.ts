@@ -183,6 +183,24 @@ export interface SettlementRepositoryPort {
   saveSettlementResult(result: SettlementResult): Promise<void>;
 }
 
+/**
+ * Provider-neutral read model required by the active settlement input path.
+ *
+ * This type intentionally contains only read-side methods used to assemble
+ * settlement inputs and locate canonical outcomes. It does not authorize
+ * PostgreSQL runtime activation, writes, migrations, transaction semantics, or
+ * durable cross-process idempotency.
+ */
+export interface SettlementReadRepositoryPorts {
+  decisions: Pick<DecisionRepositoryPort, "listDecisionsForRound">;
+  parameterSets: Pick<ParameterSetRepositoryPort, "getParameterSet">;
+  rounds: Pick<RoundRepositoryPort, "listRoundsForRun">;
+  runs: Pick<RunRepositoryPort, "getRun">;
+  scenarios: Pick<ScenarioRepositoryPort, "getScenarioPackage">;
+  settlements: Pick<SettlementRepositoryPort, "listSettlementResultsForRound">;
+  teams: Pick<TeamRepositoryPort, "listTeamsForRun">;
+}
+
 export interface DomainEventRepositoryPort {
   appendDomainEvent(event: DomainEvent): Promise<void>;
 
