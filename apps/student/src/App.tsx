@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { M1_TEACHING_OFFICIAL_RESULT_LABEL } from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -69,6 +70,13 @@ export function App() {
     : undefined;
   const team = state?.teams.find((candidate) => candidate.team_id === state.current_user.team_id);
   const myResult = state?.latest_result?.results.find((result) => result.team_id === team?.team_id);
+  const resultLabel = state?.latest_result?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
+  const runtimeLimitations = state?.latest_result?.runtime_limitations ?? [
+    "not_production_durable_settlement",
+    "not_cross_process_idempotency",
+    "not_database_transaction_recovery",
+    "not_postgresql_active_runtime"
+  ];
   const submittedDecision = useMemo(() => {
     if (!latestRun || !latestRound || !team || !state) {
       return undefined;
@@ -168,12 +176,13 @@ export function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Student Cockpit</p>
-          <h1>SimWar P1 学员驾驶舱</h1>
+          <h1>SimWar M1 学员驾驶舱</h1>
+          <span className="official-label">{resultLabel}</span>
           <span className="identity">
             {session ? `${session.user.roles.join(" / ")} · ${login.tenantId}` : "not signed in"}
           </span>
         </div>
-        <span className="badge">advisory only</span>
+        <span className="badge">JSON active runtime</span>
       </header>
 
       <section className="login-strip" aria-label="student login">
@@ -319,11 +328,16 @@ export function App() {
 
         <article className="panel feedback">
           <div className="panel-title">
-            <h2>三段式反馈</h2>
+            <h2>M1 安全结果反馈</h2>
             <span>{myResult ? "published" : "pending"}</span>
           </div>
           {myResult ? (
             <>
+              <div className="feedback-block runtime-note">
+                <span>结果边界</span>
+                <strong>{resultLabel}</strong>
+                <p>学员视图只展示可见结果与反馈，不暴露正式 state_true。</p>
+              </div>
               <div className="feedback-block">
                 <span>发生了什么</span>
                 <strong>
@@ -343,6 +357,7 @@ export function App() {
                 <strong>{myResult.state_est.next_round_risk}</strong>
                 <p>建议关注 {myResult.state_est.recommended_focus}。</p>
               </div>
+              <p className="runtime-limits">当前限制：{runtimeLimitations.join(" / ")}</p>
             </>
           ) : (
             <p className="muted">结果发布后显示可见反馈。</p>

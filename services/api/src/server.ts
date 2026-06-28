@@ -18,7 +18,14 @@ import type {
   Tenant,
   User
 } from "@simwar/shared-contracts";
-import { actorHasPermission, isTruthProtectedField } from "@simwar/shared-contracts";
+import {
+  M1_CLASSROOM_DEBRIEF_PROMPTS,
+  M1_JSON_RUNTIME_BOUNDARY,
+  M1_JSON_RUNTIME_LIMITATIONS,
+  M1_TEACHING_OFFICIAL_RESULT_LABEL,
+  actorHasPermission,
+  isTruthProtectedField
+} from "@simwar/shared-contracts";
 import {
   createSignedToken,
   hashPassword,
@@ -119,10 +126,7 @@ function settlementBusinessKey(tenantId: string, runId: string, roundNo: number)
   return `${tenantId}:${runId}:${roundNo}`;
 }
 
-async function acquireSettlementLock(
-  runtime: ApiRuntime,
-  key: string
-): Promise<() => void> {
+async function acquireSettlementLock(runtime: ApiRuntime, key: string): Promise<() => void> {
   const previous = runtime.settlementLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
@@ -598,9 +602,19 @@ async function createPublicResultView(
       result.tenant_id === context.tenantId
   );
   const canSeeTruth = actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]);
+  const m1ResultMetadata: Pick<
+    PublicResultView,
+    "classroom_debrief_prompts" | "result_label" | "runtime_boundary" | "runtime_limitations"
+  > = {
+    classroom_debrief_prompts: [...M1_CLASSROOM_DEBRIEF_PROMPTS],
+    result_label: M1_TEACHING_OFFICIAL_RESULT_LABEL,
+    runtime_boundary: M1_JSON_RUNTIME_BOUNDARY,
+    runtime_limitations: [...M1_JSON_RUNTIME_LIMITATIONS]
+  };
 
   if (!settlement) {
     return {
+      ...m1ResultMetadata,
       run_id: runId,
       round_no: roundNo,
       status: round.status,
@@ -627,6 +641,7 @@ async function createPublicResultView(
     });
 
   return {
+    ...m1ResultMetadata,
     run_id: runId,
     round_no: roundNo,
     status: round.status,
@@ -1396,12 +1411,7 @@ async function routeRequest(
       tenantId: context.tenantId,
       actor: serviceActor
     };
-    const outcome = await runSettlement(
-      runtime,
-      serviceContext,
-      runId ?? "",
-      Number(roundNoRaw)
-    );
+    const outcome = await runSettlement(runtime, serviceContext, runId ?? "", Number(roundNoRaw));
 
     if (outcome.committed) {
       await appendAudit(runtime, {
@@ -1502,12 +1512,11 @@ async function runSettlement(
       context.tenantId,
       run.run_id
     );
-    const roundDecisions =
-      await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
-        context.tenantId,
-        run.run_id,
-        round.round_id
-      );
+    const roundDecisions = await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+      context.tenantId,
+      run.run_id,
+      round.round_id
+    );
     const latestDecisions = teams.map((team) => {
       const versions = roundDecisions.filter(
         (decision) => decision.round_no === round.round_no && decision.team_id === team.team_id

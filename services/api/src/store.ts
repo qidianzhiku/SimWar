@@ -472,7 +472,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     {
       scenario_package_id: "scenario_eldercare_demo",
       tenant_id: DEFAULT_TENANT_ID,
-      name: "康养商战 P0 默认场景",
+      name: "康养商战 M1 教学场景",
       version: "1.0.0",
       status: "approved",
       plugin_package_ids: ["plugin_wellness_stub"]
@@ -498,7 +498,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     {
       course_id: "course_demo",
       tenant_id: DEFAULT_TENANT_ID,
-      title: "P0 闭环演示课程",
+      title: "M1 康养教学闭环课程",
       status: "published",
       scenario_package_id: scenarios[0]?.scenario_package_id ?? "scenario_eldercare_demo",
       parameter_set_id: parameterSets[0]?.parameter_set_id ?? "param_toy_approved_1",

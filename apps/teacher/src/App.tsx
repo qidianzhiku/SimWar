@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { M1_TEACHING_OFFICIAL_RESULT_LABEL } from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -82,6 +83,15 @@ export function App() {
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
   const resultRows = state?.latest_result?.results ?? [];
+  const resultLabel = state?.latest_result?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
+  const runtimeBoundary = state?.latest_result?.runtime_boundary ?? "current_json_active_runtime";
+  const runtimeLimitations = state?.latest_result?.runtime_limitations ?? [
+    "not_production_durable_settlement",
+    "not_cross_process_idempotency",
+    "not_database_transaction_recovery",
+    "not_postgresql_active_runtime"
+  ];
+  const debriefPrompts = state?.latest_result?.classroom_debrief_prompts ?? [];
   const hasDecision = useMemo(() => {
     if (!latestRun || !latestRound || !state) {
       return false;
@@ -189,10 +199,11 @@ export function App() {
 
   const metrics = [
     ["身份", session?.user.display_name ?? "anonymous"],
-    ["课程", state?.courses[0]?.status ?? "loading"],
+    ["课程", state?.courses[0]?.title ?? "loading"],
     ["队伍", `${state?.teams.length ?? 0}`],
     ["回合", latestRound?.status ?? "not created"],
     ["决策", hasDecision ? "validated" : "waiting"],
+    ["运行时", runtimeBoundary],
     ["Replay", state?.latest_result?.replay_hash?.slice(0, 8) ?? "pending"]
   ];
 
@@ -201,7 +212,8 @@ export function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Teacher Console</p>
-          <h1>SimWar P1 教师控制台</h1>
+          <h1>SimWar M1 教师控制台</h1>
+          <span className="official-label">{resultLabel}</span>
           <span className="identity">
             {session ? `${session.user.roles.join(" / ")} · ${login.tenantId}` : "not signed in"}
           </span>
@@ -243,7 +255,7 @@ export function App() {
         </button>
       </section>
 
-      <section className="metrics" aria-label="P1 run status">
+      <section className="metrics" aria-label="M1 run status">
         {metrics.map(([label, value]) => (
           <article className="metric" key={label}>
             <span>{label}</span>
@@ -276,7 +288,7 @@ export function App() {
 
         <article className="panel">
           <div className="panel-title">
-            <h2>正式结果</h2>
+            <h2>M1 教学正式结果</h2>
             <span>{latestRound?.status ?? "not created"}</span>
           </div>
           <div className="result-grid">
@@ -288,10 +300,23 @@ export function App() {
                 {"state_true" in result && result.state_true ? (
                   <small>Profit {Math.round(result.state_true.profit)}</small>
                 ) : null}
+                <p className="result-explain">{result.state_est.recommended_focus}</p>
               </div>
             ))}
             {resultRows.length === 0 ? <p className="muted">发布后显示结果。</p> : null}
           </div>
+          {resultRows.length > 0 ? (
+            <div className="debrief-box" aria-label="classroom debrief materials">
+              <h3>课堂复盘材料</h3>
+              <p>{resultLabel}</p>
+              <ul>
+                {debriefPrompts.map((prompt) => (
+                  <li key={prompt}>{prompt}</li>
+                ))}
+              </ul>
+              <small>当前限制：{runtimeLimitations.join(" / ")}</small>
+            </div>
+          ) : null}
         </article>
       </section>
 

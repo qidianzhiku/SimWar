@@ -72,6 +72,14 @@ h2 {
   margin-bottom: 0;
 }
 
+.official-label {
+  color: #1f6472;
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 8px;
+}
+
 .badge {
   background: #fff;
   border: 1px solid #d8e1e5;
@@ -219,6 +227,18 @@ textarea {
 
 .feedback-block p {
   line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.runtime-note strong {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.runtime-limits {
+  color: #5b6a75;
+  font-size: 13px;
+  line-height: 1.5;
   margin-bottom: 0;
 }
 
