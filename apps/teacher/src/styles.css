@@ -49,6 +49,7 @@ textarea {
 
 h1,
 h2,
+h3,
 p {
   margin-top: 0;
 }
@@ -71,6 +72,20 @@ h2 {
   font-size: 18px;
   letter-spacing: 0;
   margin-bottom: 0;
+}
+
+h3 {
+  font-size: 15px;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+}
+
+.official-label {
+  color: #145c50;
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 8px;
 }
 
 .primary {
@@ -219,6 +234,33 @@ h2 {
 
 .result-card p {
   margin-bottom: 6px;
+}
+
+.result-explain {
+  color: #42515a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.debrief-box {
+  background: #f8fafb;
+  border: 1px solid #e5eaec;
+  border-radius: 7px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.debrief-box p,
+.debrief-box li,
+.debrief-box small {
+  color: #42515a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.debrief-box ul {
+  margin: 8px 0;
+  padding-left: 18px;
 }
 
 .audit {

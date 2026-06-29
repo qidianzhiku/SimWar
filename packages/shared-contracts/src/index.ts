@@ -737,10 +737,35 @@ export interface SettlementResult {
   team_results: TeamSettlement[];
 }
 
+export const M1_TEACHING_OFFICIAL_RESULT_LABEL =
+  "M1 Teaching-Official Result under Current JSON Active Runtime";
+
+export const M1_JSON_RUNTIME_BOUNDARY = "current_json_active_runtime";
+
+export const M1_JSON_RUNTIME_LIMITATIONS = [
+  "not_production_durable_settlement",
+  "not_cross_process_idempotency",
+  "not_database_transaction_recovery",
+  "not_postgresql_active_runtime"
+] as const;
+
+export const M1_CLASSROOM_DEBRIEF_PROMPTS = [
+  "Compare observed rank, score, demand, and profit band against the submitted decision.",
+  "Discuss pricing, service spend, marketing spend, and capacity as classroom tradeoffs.",
+  "Use the replay hash as the classroom reference, not as production crash-recovery proof."
+] as const;
+
+export type M1JsonRuntimeBoundary = typeof M1_JSON_RUNTIME_BOUNDARY;
+export type M1JsonRuntimeLimitation = (typeof M1_JSON_RUNTIME_LIMITATIONS)[number];
+
 export interface PublicResultView {
   run_id: string;
   round_no: number;
   status: RoundStatus;
+  result_label: typeof M1_TEACHING_OFFICIAL_RESULT_LABEL;
+  runtime_boundary: M1JsonRuntimeBoundary;
+  runtime_limitations: M1JsonRuntimeLimitation[];
+  classroom_debrief_prompts: string[];
   replay_hash?: string;
   results: Array<
     Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }
