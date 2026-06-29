@@ -74,6 +74,18 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await expect(page.getByText("反馈怎么读")).toBeVisible();
 });
 
+test("clears student classroom state when the login context changes", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
+  await page.getByLabel("tenant").fill("tenant_other");
+
+  await expect(page.getByText("not signed in")).toBeVisible();
+  await expect(page.getByText("context changed")).toBeVisible();
+  await expect(page.getByText("M1 康养教学闭环课程")).toHaveCount(0);
+  await expect(page.getByText("Alpha 康养队")).toHaveCount(0);
+});
+
 test("rejects seeded student login with an invalid password", async ({ request }) => {
   const response = await request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: {

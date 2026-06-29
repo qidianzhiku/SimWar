@@ -15,6 +15,7 @@ import type {
   Round,
   RoundStatus,
   SettlementResult,
+  Team,
   Tenant,
   User
 } from "@simwar/shared-contracts";
@@ -206,6 +207,10 @@ async function submitDecision(
   );
   if (!team) {
     throw new HttpError(404, "TEAM-404-001", "team not found");
+  }
+
+  if (!isActorMemberOfTeam(actor, team)) {
+    throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
   }
 
   const validationErrors = validateDecisionPayload(body.decision_payload);
@@ -561,6 +566,29 @@ function getRound(store: SimWarStore, context: RequestContext, runId: string, ro
   return round;
 }
 
+function canReadClassroomScope(actor: CurrentUser): boolean {
+  return actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]);
+}
+
+function isActorMemberOfTeam(actor: CurrentUser, team: Team): boolean {
+  return (
+    team.captain_user_id === actor.user_id ||
+    team.members.some((member) => member.user_id === actor.user_id)
+  );
+}
+
+function getVisibleResultTeamIdsForActor(actor: CurrentUser): Set<string> | undefined {
+  if (canReadClassroomScope(actor)) {
+    return undefined;
+  }
+
+  if (!actor.team_id) {
+    return new Set();
+  }
+
+  return new Set([actor.team_id]);
+}
+
 async function getRoundForRead(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -601,7 +629,7 @@ async function createPublicResultView(
       result.round_no === roundNo &&
       result.tenant_id === context.tenantId
   );
-  const canSeeTruth = actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]);
+  const canSeeTruth = canReadClassroomScope(actor);
   const m1ResultMetadata: Pick<
     PublicResultView,
     "classroom_debrief_prompts" | "result_label" | "runtime_boundary" | "runtime_limitations"
@@ -622,9 +650,7 @@ async function createPublicResultView(
     };
   }
 
-  const visibleTeamIds = canSeeTruth
-    ? undefined
-    : new Set([actor.team_id].filter((teamId): teamId is string => Boolean(teamId)));
+  const visibleTeamIds = getVisibleResultTeamIdsForActor(actor);
   const visibleResults = settlement.team_results
     .filter((result) => !visibleTeamIds || visibleTeamIds.has(result.team_id))
     .map((result) => {
@@ -1092,7 +1118,25 @@ async function routeRequest(
   if (request.method === "GET" && url.pathname === "/api/v1/demo-state") {
     const actor = requireActor(context);
     const tenantRuns = store.runs.filter((run) => run.tenant_id === context.tenantId);
-    const latestRun = tenantRuns.at(-1);
+    const tenantTeams = store.teams.filter((team) => team.tenant_id === context.tenantId);
+    const visibleTeams = canReadClassroomScope(actor)
+      ? tenantTeams
+      : tenantTeams.filter((team) => isActorMemberOfTeam(actor, team));
+    const visibleTeamIds = canReadClassroomScope(actor)
+      ? undefined
+      : new Set(visibleTeams.map((team) => team.team_id));
+    const visibleCourseIds = visibleTeamIds
+      ? new Set(visibleTeams.map((team) => team.course_id))
+      : undefined;
+    const tenantCourses = store.courses.filter((course) => course.tenant_id === context.tenantId);
+    const visibleCourses = tenantCourses.filter(
+      (course) => !visibleCourseIds || visibleCourseIds.has(course.course_id)
+    );
+    const visibleRuns = tenantRuns.filter(
+      (run) => !visibleCourseIds || visibleCourseIds.has(run.course_id)
+    );
+    const visibleRunIds = new Set(visibleRuns.map((run) => run.run_id));
+    const latestRun = visibleRuns.at(-1);
     const latestRound = latestRun
       ? store.rounds.find(
           (round) => round.run_id === latestRun.run_id && round.tenant_id === context.tenantId
@@ -1120,11 +1164,17 @@ async function routeRequest(
             }
           : {}),
         ...(canReadAdmin ? { roles: store.roles, permissions: store.permissions } : {}),
-        courses: store.courses.filter((course) => course.tenant_id === context.tenantId),
-        teams: store.teams.filter((team) => team.tenant_id === context.tenantId),
-        runs: tenantRuns,
-        rounds: store.rounds.filter((round) => round.tenant_id === context.tenantId),
-        decisions: store.decisions.filter((decision) => decision.tenant_id === context.tenantId),
+        courses: visibleCourses,
+        teams: visibleTeams,
+        runs: visibleRuns,
+        rounds: store.rounds.filter(
+          (round) => round.tenant_id === context.tenantId && visibleRunIds.has(round.run_id)
+        ),
+        decisions: store.decisions.filter(
+          (decision) =>
+            decision.tenant_id === context.tenantId &&
+            (!visibleTeamIds || visibleTeamIds.has(decision.team_id))
+        ),
         ...(latestResult ? { latest_result: latestResult } : {}),
         audit_logs: actorHasPermission(actor, "audit:read")
           ? (
