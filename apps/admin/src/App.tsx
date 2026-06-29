@@ -93,8 +93,17 @@ export function App() {
     );
   }, [login.tenantId, session]);
 
+  function updateLogin(field: keyof typeof DEFAULT_LOGIN, value: string): void {
+    setLogin((current) => ({ ...current, [field]: value }));
+    setSession(null);
+    setState(null);
+    setNotice("context changed");
+  }
+
   async function signIn(nextLogin = login): Promise<void> {
     setBusy(true);
+    setSession(null);
+    setState(null);
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -199,24 +208,18 @@ export function App() {
         <input
           aria-label="tenant"
           value={login.tenantId}
-          onChange={(event) =>
-            setLogin((current) => ({ ...current, tenantId: event.target.value }))
-          }
+          onChange={(event) => updateLogin("tenantId", event.target.value)}
         />
         <input
           aria-label="username"
           value={login.username}
-          onChange={(event) =>
-            setLogin((current) => ({ ...current, username: event.target.value }))
-          }
+          onChange={(event) => updateLogin("username", event.target.value)}
         />
         <input
           aria-label="password"
           type="password"
           value={login.password}
-          onChange={(event) =>
-            setLogin((current) => ({ ...current, password: event.target.value }))
-          }
+          onChange={(event) => updateLogin("password", event.target.value)}
         />
         <button disabled={busy} onClick={() => void signIn()}>
           管理员登录

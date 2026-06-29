@@ -5,6 +5,7 @@ import type {
   ApiEnvelope,
   AuthSession,
   Decision,
+  P0DemoState,
   Round,
   Run,
   Team
@@ -153,6 +154,31 @@ function addSameTenantBetaLearner(store: SimWarStore): void {
   store.teams.push(betaTeam);
 }
 
+function addSameTenantGhostLearnerAssignedToAlpha(store: SimWarStore): void {
+  const createdAt = "2026-01-01T00:00:00.000Z";
+  const ghostUser: StoredUser = {
+    user_id: "usr_student_ghost",
+    tenant_id: "tenant_demo",
+    username: "student_ghost",
+    email: "student-ghost@demo.simwar.local",
+    password_hash: hashPassword("student_ghost", "seed-usr_student_ghost"),
+    display_name: "P0 Ghost Student",
+    roles: ["learner"],
+    permissions: ["course:read", "decision:submit", "result:read"],
+    status: "active",
+    created_at: createdAt,
+    updated_at: createdAt,
+    team_id: "team_alpha"
+  };
+
+  store.users.push(ghostUser);
+  store.userRoles.push({
+    user_id: ghostUser.user_id,
+    role_id: "role_learner",
+    tenant_id: ghostUser.tenant_id
+  });
+}
+
 describe("decision submit characterization", () => {
   it("characterizes successful submission response, store write, and audit side effect", async () => {
     const { baseUrl, server, store } = await startServer();
@@ -297,7 +323,8 @@ describe("decision submit characterization", () => {
             team_id: "team_alpha",
             decision_payload: {
               ...VALID_DECISION_PAYLOAD,
-              strategy_statement: "Alpha team keeps its validated decision before wrong-team attempt."
+              strategy_statement:
+                "Alpha team keeps its validated decision before wrong-team attempt."
             }
           }
         }
@@ -337,9 +364,102 @@ describe("decision submit characterization", () => {
             decision.team_id === "team_alpha"
         )
       ).toEqual([alphaDecision.body.data]);
-      expect(
-        store.decisions.some((decision) => decision.submitted_by === "usr_student_beta")
-      ).toBe(false);
+      expect(store.decisions.some((decision) => decision.submitted_by === "usr_student_beta")).toBe(
+        false
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects a learner whose actor team id is not backed by team membership", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      addSameTenantGhostLearnerAssignedToAlpha(store);
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const ghostToken = await login(baseUrl, "student_ghost", "student_ghost");
+      const run = await createRunAndOpenRound(baseUrl, teacherToken);
+      const decisionsBefore = structuredClone(store.decisions);
+      const auditCountBefore = store.auditLogs.length;
+
+      const ghostAttempt = await request<unknown>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: ghostToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: {
+              ...VALID_DECISION_PAYLOAD,
+              strategy_statement: "Actor team_id alone must not grant team membership."
+            }
+          }
+        }
+      );
+
+      expect(ghostAttempt.status).toBe(403);
+      expect(ghostAttempt.body.code).toBe("TEAM-403-001");
+      expect(store.decisions).toEqual(decisionsBefore);
+      expect(store.auditLogs).toHaveLength(auditCountBefore);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("trims learner demo-state teams and decisions to the actor team context", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      addSameTenantBetaLearner(store);
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const alphaStudentToken = await login(baseUrl, "student", "student");
+      const run = await createRunAndOpenRound(baseUrl, teacherToken);
+      const alphaDecision = await request<Decision>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: alphaStudentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: VALID_DECISION_PAYLOAD
+          }
+        }
+      );
+      expect(alphaDecision.status).toBe(201);
+
+      store.decisions.push({
+        ...alphaDecision.body.data,
+        decision_id: "decision_beta_visibility_probe",
+        team_id: "team_beta",
+        submitted_by: "usr_student_beta"
+      });
+
+      const learnerState = await request<P0DemoState>(baseUrl, "/api/v1/demo-state", {
+        token: alphaStudentToken
+      });
+      const teacherState = await request<P0DemoState>(baseUrl, "/api/v1/demo-state", {
+        token: teacherToken
+      });
+
+      expect(learnerState.status).toBe(200);
+      expect(learnerState.body.data.teams.map((team) => team.team_id)).toEqual(["team_alpha"]);
+      expect(learnerState.body.data.decisions.map((decision) => decision.team_id)).toEqual([
+        "team_alpha"
+      ]);
+      expect(JSON.stringify(learnerState.body.data)).not.toContain("team_beta");
+      expect(JSON.stringify(learnerState.body.data)).not.toContain("usr_student_beta");
+
+      expect(teacherState.status).toBe(200);
+      expect(teacherState.body.data.teams.map((team) => team.team_id)).toEqual([
+        "team_alpha",
+        "team_beta"
+      ]);
+      expect(teacherState.body.data.decisions.map((decision) => decision.team_id)).toContain(
+        "team_beta"
+      );
     } finally {
       await stopServer(server);
     }
