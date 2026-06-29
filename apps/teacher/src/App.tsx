@@ -95,6 +95,7 @@ export function App() {
     "not_postgresql_active_runtime"
   ];
   const debriefPrompts = state?.latest_result?.classroom_debrief_prompts ?? [];
+  const replayEvidence = state?.latest_result?.replay_evidence;
   const teachingPackage = M1_TEACHING_PRODUCT_PACKAGE;
   const hasDecision = useMemo(() => {
     if (!latestRun || !latestRound || !state) {
@@ -217,7 +218,8 @@ export function App() {
     ["回合", latestRound?.status ?? "not created"],
     ["决策", hasDecision ? "validated" : "waiting"],
     ["运行时", runtimeBoundary],
-    ["Replay", state?.latest_result?.replay_hash?.slice(0, 8) ?? "pending"]
+    ["Replay", state?.latest_result?.replay_hash?.slice(0, 8) ?? "pending"],
+    ["Manifest", replayEvidence?.manifest_hash.slice(0, 8) ?? "pending"]
   ];
 
   return (
@@ -376,6 +378,35 @@ export function App() {
                 )}
               </ul>
               <small>当前限制：{runtimeLimitations.join(" / ")}</small>
+            </div>
+          ) : null}
+          {replayEvidence ? (
+            <div className="replay-evidence" aria-label="replay evidence">
+              <h3>Replay Evidence</h3>
+              <div className="evidence-grid">
+                <div>
+                  <span>Manifest</span>
+                  <code>{replayEvidence.manifest_hash.slice(0, 12)}</code>
+                </div>
+                <div>
+                  <span>Replay</span>
+                  <code>{replayEvidence.replay_result_hash.slice(0, 12)}</code>
+                </div>
+                <div>
+                  <span>Determinism</span>
+                  <strong>{replayEvidence.replay_status}</strong>
+                </div>
+                <div>
+                  <span>Non-overwrite</span>
+                  <strong>
+                    {replayEvidence.replay_writes_formal_results ? "writes" : "read-only"}
+                  </strong>
+                </div>
+              </div>
+              <small>
+                Seed {replayEvidence.frozen_inputs.seed} · {replayEvidence.frozen_inputs.engine_id}{" "}
+                · {replayEvidence.frozen_inputs.decision_batch_hash.slice(0, 12)}
+              </small>
             </div>
           ) : null}
         </article>

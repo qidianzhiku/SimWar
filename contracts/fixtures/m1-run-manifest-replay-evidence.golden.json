@@ -1,0 +1,35 @@
+{
+  "manifest": {
+    "schema_version": "run-manifest.v1",
+    "course_id": "course_demo",
+    "round_no": 1,
+    "scenario_package_id": "scenario_eldercare_demo",
+    "scenario_version": "1.0.0",
+    "parameter_set_id": "param_toy_approved_1",
+    "parameter_version": "1.0.0",
+    "parameter_model_family": "toy_logit",
+    "plugin_package_ids": ["plugin_wellness_stub"],
+    "engine_id": "toy_logit_wellness_v1",
+    "engine_version": "0.1.0",
+    "mapper_version": "settlement-to-public-result.v1",
+    "decision_schema_version": "DecisionPayload.v1",
+    "seed": 20260517,
+    "decision_batch_hash": "3dbbebfe1adb636862943e4771f8895b6195de3f49c05e860e3aa9312a809f37",
+    "json_runtime_source_revision": "@simwar/api:0.1.0|@simwar/simulation-core:0.1.0|m1-json-runtime:r4-manifest-evidence.v1",
+    "json_runtime_source_digest": "5291c75f3fb8694636151c466ef5331d0ca68a4146c4e56cc9d1aceb63ddc4db",
+    "replay_hash": "596cbcf9021635afafc88c072f410a9dd39f48eaa9e50aa549b61510a9c52327",
+    "excluded_from_truth_hash": [
+      "ai_advisory",
+      "learning_evidence",
+      "role_drafts",
+      "billing_entitlement",
+      "teacher_private_notes"
+    ]
+  },
+  "replay": {
+    "replay_status": "matched",
+    "replay_result_hash": "596cbcf9021635afafc88c072f410a9dd39f48eaa9e50aa549b61510a9c52327",
+    "replay_result_digest": "460dbc1b6981484a58e3218debb9e291ec9e5c409bd301a7f99af7c090b264d2",
+    "replay_writes_formal_results": false
+  }
+}

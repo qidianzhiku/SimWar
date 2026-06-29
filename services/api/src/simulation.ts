@@ -34,6 +34,12 @@ export interface PreparedSettlementOutcome {
   replayHashConflict: boolean;
 }
 
+export interface SettlementReplayPreview {
+  replay_hash: string;
+  result_digest: string;
+  team_results: SettlementResult["team_results"];
+}
+
 export interface PrepareSettlementOutcomeOptions {
   createSettlementResultId: () => string;
   existingSettlement?: SettlementResult | null;
@@ -155,6 +161,19 @@ function calculateSettlement(input: SettlementRoundInput): {
   });
 
   return { replayHash, teamResults };
+}
+
+export function previewSettlementReplay(input: SettlementRoundInput): SettlementReplayPreview {
+  const { replayHash, teamResults } = calculateSettlement(input);
+
+  return {
+    replay_hash: replayHash,
+    result_digest: buildReplayHash({
+      replay_hash: replayHash,
+      team_results: teamResults
+    }),
+    team_results: teamResults
+  };
 }
 
 export function validateDecisionPayload(

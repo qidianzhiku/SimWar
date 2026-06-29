@@ -695,6 +695,66 @@ export interface ReplayDiffReport {
   created_at: string;
 }
 
+export interface ComputationalRunManifestV1 {
+  schema_version: "run-manifest.v1";
+  manifest_id: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  round_id: string;
+  round_no: number;
+  source_result_id: string;
+  scenario_package_id: string;
+  scenario_version: string;
+  parameter_set_id: string;
+  parameter_version: string;
+  parameter_model_family: string;
+  plugin_package_ids: string[];
+  engine_id: string;
+  engine_version: string;
+  mapper_version: string;
+  decision_schema_version: string;
+  seed: number;
+  decision_batch_id?: string;
+  decision_batch_hash: string;
+  json_runtime_source_revision: string;
+  json_runtime_source_digest: string;
+  replay_hash: string;
+  excluded_from_truth_hash: string[];
+}
+
+export interface PublicRunReplayEvidence {
+  manifest_id: string;
+  manifest_hash: string;
+  manifest_version: "run-manifest.v1";
+  source_result_id: string;
+  replay_status: ReplayReportStatus;
+  replay_result_hash: string;
+  replay_writes_formal_results: false;
+  frozen_inputs: {
+    course_id: string;
+    run_id: string;
+    round_id: string;
+    round_no: number;
+    scenario_package_id: string;
+    parameter_set_id: string;
+    seed: number;
+    engine_id: string;
+    decision_batch_hash: string;
+  };
+}
+
+export interface RunReplayEvidence {
+  manifest: ComputationalRunManifestV1;
+  manifest_hash: string;
+  source_result_id: string;
+  replay_status: ReplayReportStatus;
+  replay_result_hash: string;
+  replay_result_digest: string;
+  replay_writes_formal_results: false;
+  public_view: PublicRunReplayEvidence;
+}
+
 export interface TeamSettlement {
   team_id: string;
   team_name: string;
@@ -901,6 +961,7 @@ export interface PublicResultView {
   runtime_limitations: M1JsonRuntimeLimitation[];
   classroom_debrief_prompts: string[];
   replay_hash?: string;
+  replay_evidence?: PublicRunReplayEvidence;
   results: Array<
     Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }
   >;

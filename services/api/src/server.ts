@@ -11,6 +11,7 @@ import type {
   Decision,
   DecisionPayload,
   PermissionKey,
+  PublicRunReplayEvidence,
   PublicResultView,
   Round,
   RoundStatus,
@@ -42,6 +43,7 @@ import {
   type RuntimeSecurityConfig,
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
+import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_TENANT_ID,
@@ -589,6 +591,53 @@ function getVisibleResultTeamIdsForActor(actor: CurrentUser): Set<string> | unde
   return new Set([actor.team_id]);
 }
 
+async function createPublicReplayEvidenceView(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  round: Round,
+  settlement: SettlementResult
+): Promise<PublicRunReplayEvidence | undefined> {
+  const run = await runtime.repositoryProvider.facade.runs.getRun(
+    context.tenantId,
+    settlement.run_id
+  );
+
+  if (!run) {
+    return undefined;
+  }
+
+  const [scenario, parameterSet, teams, decisions] = await Promise.all([
+    runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
+      context.tenantId,
+      run.scenario_package_id
+    ),
+    runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+      context.tenantId,
+      run.parameter_set_id
+    ),
+    runtime.repositoryProvider.facade.teams.listTeamsForRun(context.tenantId, run.run_id),
+    runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+      context.tenantId,
+      run.run_id,
+      round.round_id
+    )
+  ]);
+
+  if (!scenario || !parameterSet) {
+    return undefined;
+  }
+
+  return createM1RunReplayEvidence({
+    decisions,
+    parameterSet,
+    round,
+    run,
+    scenario,
+    settlement,
+    teams
+  }).public_view;
+}
+
 async function getRoundForRead(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -665,6 +714,9 @@ async function createPublicResultView(
         state_est: result.state_est
       };
     });
+  const replayEvidence = canSeeTruth
+    ? await createPublicReplayEvidenceView(runtime, context, round, settlement)
+    : undefined;
 
   return {
     ...m1ResultMetadata,
@@ -672,6 +724,7 @@ async function createPublicResultView(
     round_no: roundNo,
     status: round.status,
     replay_hash: settlement.replay_hash,
+    ...(replayEvidence ? { replay_evidence: replayEvidence } : {}),
     results: visibleResults
   };
 }
