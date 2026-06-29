@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
-const apiPort = 3100;
-const teacherPort = 3101;
-const studentPort = 3102;
+const apiPort = Number(process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100);
+const teacherPort = Number(process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101);
+const studentPort = Number(process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const teacherBaseUrl = `http://127.0.0.1:${teacherPort}`;
 const studentBaseUrl = `http://127.0.0.1:${studentPort}`;

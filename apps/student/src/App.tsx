@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { M1_TEACHING_OFFICIAL_RESULT_LABEL } from "@simwar/shared-contracts";
+import {
+  M1_TEACHING_OFFICIAL_RESULT_LABEL,
+  M1_TEACHING_PRODUCT_PACKAGE
+} from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -77,6 +80,7 @@ export function App() {
     "not_database_transaction_recovery",
     "not_postgresql_active_runtime"
   ];
+  const learnerKit = M1_TEACHING_PRODUCT_PACKAGE.learnerOnboarding;
   const submittedDecision = useMemo(() => {
     if (!latestRun || !latestRound || !team || !state) {
       return undefined;
@@ -220,6 +224,46 @@ export function App() {
             <strong>{value}</strong>
           </article>
         ))}
+      </section>
+
+      <section className="learner-guide" aria-label="M1 learner onboarding">
+        <article className="panel guide-panel">
+          <div className="panel-title">
+            <h2>学员试讲导入</h2>
+            <span>{learnerKit.title}</span>
+          </div>
+          <p>{learnerKit.roleBriefing}</p>
+          <ul>
+            {learnerKit.decisionRules.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="panel guide-panel">
+          <div className="panel-title">
+            <h2>提交前检查</h2>
+            <span>Team decision</span>
+          </div>
+          <ul>
+            {learnerKit.submissionChecklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="panel guide-panel">
+          <div className="panel-title">
+            <h2>反馈怎么读</h2>
+            <span>safe result view</span>
+          </div>
+          <ul>
+            {learnerKit.resultReadingGuide.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="visibility-note">{learnerKit.visibilityBoundary}</p>
+        </article>
       </section>
 
       <section className="workspace">

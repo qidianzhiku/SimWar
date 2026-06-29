@@ -117,6 +117,13 @@ h2 {
   margin: 28px 0;
 }
 
+.learner-guide {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  margin-bottom: 18px;
+}
+
 .row,
 .panel {
   background: #fff;
@@ -156,6 +163,31 @@ h2 {
   border-bottom: 1px solid #e9eef1;
   margin-bottom: 16px;
   padding-bottom: 12px;
+}
+
+.guide-panel p,
+.guide-panel li,
+.visibility-note {
+  color: #344451;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.guide-panel ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.guide-panel li + li {
+  margin-top: 7px;
+}
+
+.visibility-note {
+  background: #f8fbfc;
+  border: 1px solid #e3eaed;
+  border-radius: 7px;
+  margin: 12px 0 0;
+  padding: 10px;
 }
 
 .form-panel {
@@ -248,6 +280,7 @@ textarea {
   }
 
   .topbar,
+  .learner-guide,
   .workspace,
   .login-strip {
     align-items: stretch;
