@@ -755,6 +755,140 @@ export const M1_CLASSROOM_DEBRIEF_PROMPTS = [
   "Use the replay hash as the classroom reference, not as production crash-recovery proof."
 ] as const;
 
+export const M1_TEACHING_PRODUCT_PACKAGE = {
+  scenario: {
+    name: "康养商战 M1 教学场景",
+    courseTitle: "M1 康养教学闭环课程",
+    resultLabel: M1_TEACHING_OFFICIAL_RESULT_LABEL
+  },
+  courseBlueprint: {
+    title: "Course Blueprint v0",
+    timing: "30-60 分钟试讲流程",
+    objectives: [
+      "教师能带领一个康养经营回合完成决策、锁轮、结算和结果发布。",
+      "学员能以 Team 成员身份提交结构化经营决策并解释结果反馈。",
+      "课堂能使用结果差异、决策质量和下一轮风险完成复盘讨论。"
+    ],
+    phases: [
+      {
+        label: "0-5 分钟",
+        title: "课程导入",
+        guidance: "说明康养商战目标、Team 协作方式和当前 JSON runtime 边界。"
+      },
+      {
+        label: "5-15 分钟",
+        title: "分组与回合准备",
+        guidance: "确认教师已创建 Run 并开启回合，学员理解本队提交责任。"
+      },
+      {
+        label: "15-30 分钟",
+        title: "结构化决策",
+        guidance: "学员提交定价、预算、产能、现金缓冲和策略说明。"
+      },
+      {
+        label: "30-40 分钟",
+        title: "锁轮、结算、发布",
+        guidance: "教师锁定回合，使用现有 JSON settlement path 结算并发布结果。"
+      },
+      {
+        label: "40-60 分钟",
+        title: "复盘讨论",
+        guidance: "使用三段式反馈、教师讨论点和 Rubric 组织课堂复盘。"
+      }
+    ]
+  },
+  instructorKit: {
+    title: "Instructor Kit",
+    briefing:
+      "本包用于内部教师准备一次康养商战 M1 试讲，不宣称 Internal Pilot Release 或 Production Launch。",
+    operationChecklist: [
+      "确认课程为 M1 康养教学闭环课程并完成教师登录。",
+      "创建 Run、开启回合、等待学员提交、锁定回合、请求结算、发布结果。",
+      "发布后使用课堂复盘材料组织三段式讨论。"
+    ],
+    roundScript: [
+      "请每个 Team 先讨论价格、服务质量、营销、产能和现金缓冲之间的取舍。",
+      "提交前请确认策略说明能够解释你们的预算与产能选择。",
+      "结果发布后先解释发生了什么，再讨论为什么发生，最后提出下一轮改进。"
+    ],
+    troubleshooting: [
+      "若教师看到 waiting for learner decision，先确认学员已在 open 回合提交决策。",
+      "若结果未出现，确认回合状态已按 open -> locked -> settled -> published 推进。",
+      "本包不证明生产级耐久结算、跨进程幂等或数据库事务恢复。"
+    ]
+  },
+  learnerOnboarding: {
+    title: "Learner Onboarding",
+    roleBriefing:
+      "你以 Team 成员身份参与一个康养经营回合，目标是在约束下提交可解释的结构化经营决策。",
+    decisionRules: [
+      "定价影响需求与利润空间。",
+      "营销预算和服务质量预算共同影响需求、体验和成本。",
+      "产能计划与现金缓冲决定交付能力和风险承受能力。"
+    ],
+    submissionChecklist: [
+      "确认当前回合为 open。",
+      "填写定价、营销预算、服务质量预算、产能计划、现金缓冲和策略说明。",
+      "提交后等待教师锁轮、结算和发布结果。"
+    ],
+    resultReadingGuide: [
+      "先看排名、分数、需求和利润区间，理解发生了什么。",
+      "再读解释文本，关联提交的价格、预算和产能选择。",
+      "最后查看下一轮风险和推荐关注点，形成改进假设。"
+    ],
+    visibilityBoundary:
+      "学员只看到本队裁剪后的结果和反馈，不暴露正式 state_true、教师私有字段或其他 Team 敏感信息。"
+  },
+  debriefKit: {
+    title: "Debrief Kit",
+    feedbackModel: "三段式结果反馈：发生了什么 -> 为什么发生 -> 下一步风险与建议。",
+    teacherDiscussionPoints: [
+      "价格、服务质量和产能扩张之间的取舍是否一致？",
+      "分数、排名、需求和利润区间与团队提交的策略是否匹配？",
+      "现金缓冲与营销投入是否支持下一轮风险承受？",
+      "如果只能调整一个杠杆，Team 下一轮会优先改什么？"
+    ],
+    visibilityBoundary: "教师可见课堂复盘所需的授权结果摘要；学员端只呈现裁剪反馈和本队可见结果。"
+  },
+  minimumAssessmentEvidence: {
+    title: "Minimum Assessment Evidence",
+    rubric: [
+      {
+        dimension: "决策完整性",
+        evidence: "Team 是否提交了全部结构化字段和策略说明。"
+      },
+      {
+        dimension: "经营逻辑",
+        evidence: "价格、营销、服务质量、产能和现金缓冲是否形成一致假设。"
+      },
+      {
+        dimension: "结果解释",
+        evidence: "学员是否能用三段式反馈解释排名、分数、需求和利润区间。"
+      },
+      {
+        dimension: "改进计划",
+        evidence: "Team 是否能提出下一轮一个可验证的调整方向。"
+      }
+    ],
+    learningEvidenceSummary: [
+      "提交记录证明学员完成结构化决策。",
+      "发布结果证明教师完成 JSON runtime 课堂结算链。",
+      "复盘讨论点和 Rubric 支持教师形成最小学习证据摘要。"
+    ]
+  },
+  boundaries: {
+    runtime: M1_JSON_RUNTIME_BOUNDARY,
+    nonGoals: [
+      "does_not_claim_internal_pilot_release",
+      "does_not_claim_controlled_teaching_pilot",
+      "does_not_claim_production_launch",
+      "does_not_activate_postgresql_runtime",
+      "does_not_enable_ai_truth_write",
+      "does_not_close_111_114_115"
+    ]
+  }
+} as const;
+
 export type M1JsonRuntimeBoundary = typeof M1_JSON_RUNTIME_BOUNDARY;
 export type M1JsonRuntimeLimitation = (typeof M1_JSON_RUNTIME_LIMITATIONS)[number];
 

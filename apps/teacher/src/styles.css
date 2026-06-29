@@ -139,6 +139,13 @@ h3 {
   margin: 28px 0;
 }
 
+.teaching-pack {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.9fr) minmax(260px, 0.9fr);
+  margin-bottom: 18px;
+}
+
 .metric,
 .panel {
   background: #fff;
@@ -187,6 +194,50 @@ h3 {
   border-bottom: 1px solid #edf0f1;
   margin: -2px 0 14px;
   padding-bottom: 12px;
+}
+
+.package-brief,
+.phase-row p,
+.compact-list,
+.rubric-row p {
+  color: #42515a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.phase-list,
+.rubric-list {
+  display: grid;
+  gap: 10px;
+}
+
+.phase-row,
+.rubric-row {
+  border-bottom: 1px solid #edf0f1;
+  padding-bottom: 10px;
+}
+
+.phase-row span {
+  color: #61707d;
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.phase-row strong,
+.rubric-row strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.compact-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+}
+
+.compact-list li + li {
+  margin-top: 7px;
 }
 
 .table {
@@ -284,6 +335,7 @@ h3 {
   }
 
   .topbar,
+  .teaching-pack,
   .workspace,
   .login-strip {
     align-items: stretch;

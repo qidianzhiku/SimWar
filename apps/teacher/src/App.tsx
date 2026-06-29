@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { M1_TEACHING_OFFICIAL_RESULT_LABEL } from "@simwar/shared-contracts";
+import {
+  M1_TEACHING_OFFICIAL_RESULT_LABEL,
+  M1_TEACHING_PRODUCT_PACKAGE
+} from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -92,6 +95,7 @@ export function App() {
     "not_postgresql_active_runtime"
   ];
   const debriefPrompts = state?.latest_result?.classroom_debrief_prompts ?? [];
+  const teachingPackage = M1_TEACHING_PRODUCT_PACKAGE;
   const hasDecision = useMemo(() => {
     if (!latestRun || !latestRound || !state) {
       return false;
@@ -264,6 +268,58 @@ export function App() {
         ))}
       </section>
 
+      <section className="teaching-pack" aria-label="M1 teaching product package">
+        <article className="panel teaching-panel">
+          <div className="panel-title">
+            <h2>{teachingPackage.courseBlueprint.timing}</h2>
+            <span>{teachingPackage.courseBlueprint.title}</span>
+          </div>
+          <p className="package-brief">{teachingPackage.instructorKit.briefing}</p>
+          <div className="phase-list">
+            {teachingPackage.courseBlueprint.phases.map((phase) => (
+              <div className="phase-row" key={phase.label}>
+                <span>{phase.label}</span>
+                <strong>{phase.title}</strong>
+                <p>{phase.guidance}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel teaching-panel">
+          <div className="panel-title">
+            <h2>教师操作清单</h2>
+            <span>{teachingPackage.instructorKit.title}</span>
+          </div>
+          <ul className="compact-list">
+            {teachingPackage.instructorKit.operationChecklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <h3>回合指导语</h3>
+          <ul className="compact-list">
+            {teachingPackage.instructorKit.roundScript.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="panel teaching-panel">
+          <div className="panel-title">
+            <h2>最小学习证据 Rubric</h2>
+            <span>{teachingPackage.minimumAssessmentEvidence.title}</span>
+          </div>
+          <div className="rubric-list">
+            {teachingPackage.minimumAssessmentEvidence.rubric.map((item) => (
+              <div className="rubric-row" key={item.dimension}>
+                <strong>{item.dimension}</strong>
+                <p>{item.evidence}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+
       <section className="workspace">
         <article className="panel">
           <div className="panel-title">
@@ -310,9 +366,11 @@ export function App() {
               <h3>课堂复盘材料</h3>
               <p>{resultLabel}</p>
               <ul>
-                {debriefPrompts.map((prompt) => (
-                  <li key={prompt}>{prompt}</li>
-                ))}
+                {[...debriefPrompts, ...teachingPackage.debriefKit.teacherDiscussionPoints].map(
+                  (prompt) => (
+                    <li key={prompt}>{prompt}</li>
+                  )
+                )}
               </ul>
               <small>当前限制：{runtimeLimitations.join(" / ")}</small>
             </div>
