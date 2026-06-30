@@ -301,6 +301,18 @@ describe("repository provider", () => {
     expect(serverSource).not.toContain("settleRoundWithSettlementWriter(");
   });
 
+  it("keeps settlement calculation free of concrete settlement-result store writes", () => {
+    const simulationSource = readFileSync(
+      new URL("../../services/api/src/simulation.ts", import.meta.url),
+      "utf8"
+    );
+
+    expect(simulationSource).not.toContain("store.settlementResults.find");
+    expect(simulationSource).not.toContain("store.settlementResults.push");
+    expect(simulationSource).not.toContain('nextId(store, "result", "result")');
+    expect(simulationSource).not.toContain("settleRoundWithSettlementWriter");
+  });
+
   it("keeps active settlement and audit identifiers behind the provider boundary", () => {
     const serverSource = readFileSync(
       new URL("../../services/api/src/server.ts", import.meta.url),
