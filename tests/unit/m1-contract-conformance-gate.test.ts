@@ -79,7 +79,8 @@ describe("M1 contract conformance gate", () => {
       "M1DecisionSubmitRequest",
       "M1DecisionSubmitSuccessEnvelope",
       "M1StudentResultEnvelope",
-      "M1TeacherAdminResultEnvelope"
+      "M1TeacherAdminResultEnvelope",
+      "M1PublicReplayEvidence"
     ]) {
       expect(existsSync(resolve(externalSchemaPath(document, componentName)))).toBe(true);
     }
@@ -102,6 +103,12 @@ describe("M1 contract conformance gate", () => {
         schemaPath: "contracts/schemas/m1-teacher-admin-result-envelope.v1.json",
         validFixture: "contracts/fixtures/m1-teacher-admin-result-envelope.valid.json",
         invalidFixture: "contracts/fixtures/m1-teacher-admin-result-missing-state-true.invalid.json"
+      },
+      {
+        schemaPath: "contracts/schemas/m1-public-replay-evidence.v1.json",
+        validFixture: "contracts/fixtures/m1-public-replay-evidence.valid.json",
+        invalidFixture:
+          "contracts/fixtures/m1-public-replay-evidence-missing-decision-batch-hash.invalid.json"
       },
       {
         schemaPath: "contracts/schemas/api-error-envelope.v1.json",
@@ -130,6 +137,7 @@ describe("M1 contract conformance gate", () => {
     expect(serialized).not.toContain("state_true");
     expect(serialized).not.toContain("decision_batch_hash");
     expect(serialized).not.toContain("json_runtime_source_digest");
+    expect(serialized).not.toContain("canonical_evidence_digest");
     expect(serialized).not.toContain("Teacher");
   });
 });

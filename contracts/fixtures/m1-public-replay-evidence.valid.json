@@ -1,12 +1,23 @@
 {
-  "manifest_hash": "manifest-hash-demo-001",
-  "engine_version": "json-runtime-demo",
-  "plugin_ids": ["wellness-v1"],
-  "seed": 42,
+  "evidence_semantics_version": "m1-json-replay-evidence.v1",
+  "evidence_kind": "m1_json_runtime_replay_evidence",
+  "manifest_id": "manifest_demo_001",
+  "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "manifest_version": "run-manifest.v1",
+  "source_result_id": "settlement_result_demo_001",
+  "canonical_evidence_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "replay_status": "matched",
+  "replay_result_hash": "replay-hash-demo-001",
+  "replay_writes_formal_results": false,
   "frozen_inputs": {
-    "scenario_id": "scenario-wellness-m1",
-    "parameter_set_id": "parameter-wellness-m1",
-    "decision_batch_hash": "decision-batch-hash-demo-001"
-  },
-  "generated_at": "2026-06-30T03:30:00.000Z"
+    "course_id": "course_demo",
+    "run_id": "run-m1-demo",
+    "round_id": "round-m1-demo-1",
+    "round_no": 1,
+    "scenario_package_id": "scenario_eldercare_demo",
+    "parameter_set_id": "param_toy_approved_1",
+    "seed": 20260517,
+    "engine_id": "toy_logit_wellness_v1",
+    "decision_batch_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
 }

@@ -19,6 +19,8 @@ const ENGINE_ID = "toy_logit_wellness_v1";
 const ENGINE_VERSION = "0.1.0";
 const MAPPER_VERSION = "settlement-to-public-result.v1";
 const DECISION_SCHEMA_VERSION = "DecisionPayload.v1";
+const EVIDENCE_SEMANTICS_VERSION = "m1-json-replay-evidence.v1";
+const EVIDENCE_KIND = "m1_json_runtime_replay_evidence";
 
 export interface CreateM1RunReplayEvidenceInput {
   decisions: Decision[];
@@ -53,6 +55,44 @@ function stableJson(value: unknown): string {
 
 function stableHash(value: unknown): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
+}
+
+export interface M1CanonicalEvidenceDigestInput {
+  evidence_kind: typeof EVIDENCE_KIND;
+  evidence_semantics_version: typeof EVIDENCE_SEMANTICS_VERSION;
+  frozen_input_semantics: {
+    decision_batch_hash: string;
+    decision_schema_version: string;
+    engine_id: string;
+    engine_version: string;
+    json_runtime_source_digest: string;
+    json_runtime_source_revision: string;
+    mapper_version: string;
+    parameter_model_family: string;
+    parameter_set_id: string;
+    parameter_version: string;
+    plugin_package_ids: string[];
+    round_no: number;
+    scenario_package_id: string;
+    scenario_version: string;
+    seed: number;
+  };
+  replay_comparison: {
+    legacy_replay_hash: string;
+    replay_result_digest: string;
+    replay_result_hash: string;
+    replay_status: RunReplayEvidence["replay_status"];
+    replay_writes_formal_results: false;
+  };
+}
+
+export function createM1CanonicalEvidenceDigest(input: M1CanonicalEvidenceDigestInput): string {
+  return stableHash({
+    evidence_kind: input.evidence_kind,
+    evidence_semantics_version: input.evidence_semantics_version,
+    frozen_input_semantics: input.frozen_input_semantics,
+    replay_comparison: input.replay_comparison
+  });
 }
 
 function latestDecisionForTeam(decisions: Decision[], teamId: string): Decision {
@@ -117,6 +157,8 @@ function createManifest(input: CreateM1RunReplayEvidenceInput): ComputationalRun
 
   return {
     schema_version: "run-manifest.v1",
+    evidence_semantics_version: EVIDENCE_SEMANTICS_VERSION,
+    evidence_kind: EVIDENCE_KIND,
     manifest_id: `manifest_${stableHash(manifestIdentity).slice(0, 16)}`,
     tenant_id: input.run.tenant_id,
     course_id: input.run.course_id,
@@ -155,10 +197,13 @@ function toPublicEvidence(
   evidence: Omit<RunReplayEvidence, "public_view">
 ): PublicRunReplayEvidence {
   return {
+    evidence_semantics_version: manifest.evidence_semantics_version,
+    evidence_kind: manifest.evidence_kind,
     manifest_id: manifest.manifest_id,
     manifest_hash: evidence.manifest_hash,
     manifest_version: manifest.schema_version,
     source_result_id: manifest.source_result_id,
+    canonical_evidence_digest: evidence.canonical_evidence_digest,
     replay_status: evidence.replay_status,
     replay_result_hash: evidence.replay_result_hash,
     replay_writes_formal_results: false,
@@ -172,6 +217,40 @@ function toPublicEvidence(
       seed: manifest.seed,
       engine_id: manifest.engine_id,
       decision_batch_hash: manifest.decision_batch_hash
+    }
+  };
+}
+
+function createCanonicalEvidenceDigestInput(
+  manifest: ComputationalRunManifestV1,
+  evidence: Omit<RunReplayEvidence, "public_view" | "canonical_evidence_digest">
+): M1CanonicalEvidenceDigestInput {
+  return {
+    evidence_kind: manifest.evidence_kind,
+    evidence_semantics_version: manifest.evidence_semantics_version,
+    frozen_input_semantics: {
+      decision_batch_hash: manifest.decision_batch_hash,
+      decision_schema_version: manifest.decision_schema_version,
+      engine_id: manifest.engine_id,
+      engine_version: manifest.engine_version,
+      json_runtime_source_digest: manifest.json_runtime_source_digest,
+      json_runtime_source_revision: manifest.json_runtime_source_revision,
+      mapper_version: manifest.mapper_version,
+      parameter_model_family: manifest.parameter_model_family,
+      parameter_set_id: manifest.parameter_set_id,
+      parameter_version: manifest.parameter_version,
+      plugin_package_ids: manifest.plugin_package_ids,
+      round_no: manifest.round_no,
+      scenario_package_id: manifest.scenario_package_id,
+      scenario_version: manifest.scenario_version,
+      seed: manifest.seed
+    },
+    replay_comparison: {
+      legacy_replay_hash: manifest.replay_hash,
+      replay_result_digest: evidence.replay_result_digest,
+      replay_result_hash: evidence.replay_result_hash,
+      replay_status: evidence.replay_status,
+      replay_writes_formal_results: evidence.replay_writes_formal_results
     }
   };
 }
@@ -201,7 +280,10 @@ export function createM1RunReplayEvidence(
   const replayMatched =
     preview.replay_hash === input.settlement.replay_hash &&
     replayResultDigest === sourceResultDigest;
-  const evidenceWithoutPublicView: Omit<RunReplayEvidence, "public_view"> = {
+  const evidenceWithoutDigest: Omit<
+    RunReplayEvidence,
+    "canonical_evidence_digest" | "public_view"
+  > = {
     manifest,
     manifest_hash: manifestHash,
     source_result_id: input.settlement.settlement_result_id,
@@ -209,6 +291,13 @@ export function createM1RunReplayEvidence(
     replay_result_hash: preview.replay_hash,
     replay_result_digest: replayResultDigest,
     replay_writes_formal_results: false
+  };
+  const canonicalEvidenceDigest = createM1CanonicalEvidenceDigest(
+    createCanonicalEvidenceDigestInput(manifest, evidenceWithoutDigest)
+  );
+  const evidenceWithoutPublicView: Omit<RunReplayEvidence, "public_view"> = {
+    ...evidenceWithoutDigest,
+    canonical_evidence_digest: canonicalEvidenceDigest
   };
 
   return {
@@ -221,6 +310,8 @@ export function selectM1RunReplayEvidenceGolden(evidence: RunReplayEvidence) {
   return {
     manifest: {
       schema_version: evidence.manifest.schema_version,
+      evidence_semantics_version: evidence.manifest.evidence_semantics_version,
+      evidence_kind: evidence.manifest.evidence_kind,
       course_id: evidence.manifest.course_id,
       round_no: evidence.manifest.round_no,
       scenario_package_id: evidence.manifest.scenario_package_id,
@@ -244,6 +335,7 @@ export function selectM1RunReplayEvidenceGolden(evidence: RunReplayEvidence) {
       replay_status: evidence.replay_status,
       replay_result_hash: evidence.replay_result_hash,
       replay_result_digest: evidence.replay_result_digest,
+      canonical_evidence_digest: evidence.canonical_evidence_digest,
       replay_writes_formal_results: evidence.replay_writes_formal_results
     }
   };

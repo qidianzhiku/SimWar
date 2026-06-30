@@ -702,6 +702,8 @@ export interface ReplayDiffReport {
 
 export interface ComputationalRunManifestV1 {
   schema_version: "run-manifest.v1";
+  evidence_semantics_version: "m1-json-replay-evidence.v1";
+  evidence_kind: "m1_json_runtime_replay_evidence";
   manifest_id: string;
   tenant_id: string;
   course_id: string;
@@ -729,10 +731,13 @@ export interface ComputationalRunManifestV1 {
 }
 
 export interface PublicRunReplayEvidence {
+  evidence_semantics_version: "m1-json-replay-evidence.v1";
+  evidence_kind: "m1_json_runtime_replay_evidence";
   manifest_id: string;
   manifest_hash: string;
   manifest_version: "run-manifest.v1";
   source_result_id: string;
+  canonical_evidence_digest: string;
   replay_status: ReplayReportStatus;
   replay_result_hash: string;
   replay_writes_formal_results: false;
@@ -753,6 +758,7 @@ export interface RunReplayEvidence {
   manifest: ComputationalRunManifestV1;
   manifest_hash: string;
   source_result_id: string;
+  canonical_evidence_digest: string;
   replay_status: ReplayReportStatus;
   replay_result_hash: string;
   replay_result_digest: string;

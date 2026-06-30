@@ -1,6 +1,8 @@
 {
   "manifest": {
     "schema_version": "run-manifest.v1",
+    "evidence_semantics_version": "m1-json-replay-evidence.v1",
+    "evidence_kind": "m1_json_runtime_replay_evidence",
     "course_id": "course_demo",
     "round_no": 1,
     "scenario_package_id": "scenario_eldercare_demo",
@@ -30,6 +32,7 @@
     "replay_status": "matched",
     "replay_result_hash": "596cbcf9021635afafc88c072f410a9dd39f48eaa9e50aa549b61510a9c52327",
     "replay_result_digest": "460dbc1b6981484a58e3218debb9e291ec9e5c409bd301a7f99af7c090b264d2",
+    "canonical_evidence_digest": "2c6188a6499916835bca1a85d948097b9a8119e0e1e3af17024f79b88a81700d",
     "replay_writes_formal_results": false
   }
 }

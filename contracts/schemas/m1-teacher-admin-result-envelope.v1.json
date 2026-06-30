@@ -71,38 +71,87 @@
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "evidence_semantics_version",
+            "evidence_kind",
+            "manifest_id",
             "manifest_hash",
-            "engine_version",
-            "plugin_ids",
-            "seed",
-            "frozen_inputs",
-            "generated_at"
+            "manifest_version",
+            "source_result_id",
+            "canonical_evidence_digest",
+            "replay_status",
+            "replay_result_hash",
+            "replay_writes_formal_results",
+            "frozen_inputs"
           ],
           "properties": {
+            "evidence_semantics_version": {
+              "const": "m1-json-replay-evidence.v1"
+            },
+            "evidence_kind": {
+              "const": "m1_json_runtime_replay_evidence"
+            },
+            "manifest_id": {
+              "type": "string",
+              "minLength": 1
+            },
             "manifest_hash": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^[a-f0-9]{64}$"
             },
-            "engine_version": {
+            "manifest_version": {
+              "const": "run-manifest.v1"
+            },
+            "source_result_id": {
               "type": "string",
               "minLength": 1
             },
-            "plugin_ids": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
+            "canonical_evidence_digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
             },
-            "seed": {
-              "type": "integer"
+            "replay_status": {
+              "type": "string",
+              "enum": ["matched", "mismatched", "failed"]
+            },
+            "replay_result_hash": {
+              "type": "string",
+              "minLength": 1
+            },
+            "replay_writes_formal_results": {
+              "const": false
             },
             "frozen_inputs": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["scenario_id", "parameter_set_id", "decision_batch_hash"],
+              "required": [
+                "course_id",
+                "run_id",
+                "round_id",
+                "round_no",
+                "scenario_package_id",
+                "parameter_set_id",
+                "seed",
+                "engine_id",
+                "decision_batch_hash"
+              ],
               "properties": {
-                "scenario_id": {
+                "course_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "run_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "round_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "round_no": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "scenario_package_id": {
                   "type": "string",
                   "minLength": 1
                 },
@@ -110,15 +159,18 @@
                   "type": "string",
                   "minLength": 1
                 },
-                "decision_batch_hash": {
+                "seed": {
+                  "type": "integer"
+                },
+                "engine_id": {
                   "type": "string",
                   "minLength": 1
+                },
+                "decision_batch_hash": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
                 }
               }
-            },
-            "generated_at": {
-              "type": "string",
-              "minLength": 1
             }
           }
         },
