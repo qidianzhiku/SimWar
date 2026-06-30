@@ -236,6 +236,7 @@ function assertStudentFixtureDoesNotExposePrivateFields() {
     "state_true",
     "decision_batch_hash",
     "json_runtime_source_digest",
+    "canonical_evidence_digest",
     "replay_evidence"
   ]) {
     assert(

@@ -15,6 +15,7 @@ import type {
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import {
+  createM1CanonicalEvidenceDigest,
   createM1RunReplayEvidence,
   selectM1RunReplayEvidenceGolden
 } from "../../services/api/src/run-manifest-replay-evidence";
@@ -31,10 +32,13 @@ const VALID_DECISION_PAYLOAD = {
 
 type M1ReplayEvidencePublicResult = PublicResultView & {
   replay_evidence?: {
+    evidence_semantics_version: "m1-json-replay-evidence.v1";
+    evidence_kind: "m1_json_runtime_replay_evidence";
     manifest_id: string;
     manifest_hash: string;
     manifest_version: "run-manifest.v1";
     source_result_id: string;
+    canonical_evidence_digest: string;
     replay_status: "matched" | "mismatched";
     replay_result_hash: string;
     replay_writes_formal_results: false;
@@ -233,6 +237,8 @@ describe("M1 run manifest and replay evidence", () => {
 
       expect(firstEvidence).toEqual(secondEvidence);
       expect(firstEvidence.manifest.schema_version).toBe("run-manifest.v1");
+      expect(firstEvidence.manifest.evidence_semantics_version).toBe("m1-json-replay-evidence.v1");
+      expect(firstEvidence.manifest.evidence_kind).toBe("m1_json_runtime_replay_evidence");
       expect(firstEvidence.manifest.course_id).toBe("course_demo");
       expect(firstEvidence.manifest.run_id).toBe(run.run_id);
       expect(firstEvidence.manifest.round_no).toBe(1);
@@ -241,8 +247,15 @@ describe("M1 run manifest and replay evidence", () => {
       expect(firstEvidence.manifest.seed).toBe(20260517);
       expect(firstEvidence.manifest.decision_batch_hash).toMatch(/^[a-f0-9]{64}$/);
       expect(firstEvidence.manifest.json_runtime_source_digest).toMatch(/^[a-f0-9]{64}$/);
+      expect(firstEvidence.manifest.replay_hash).toBe(
+        "596cbcf9021635afafc88c072f410a9dd39f48eaa9e50aa549b61510a9c52327"
+      );
       expect(firstEvidence.replay_status).toBe("matched");
       expect(firstEvidence.replay_result_hash).toBe(settlement.replay_hash);
+      expect(firstEvidence.canonical_evidence_digest).toMatch(/^[a-f0-9]{64}$/);
+      expect(firstEvidence.public_view.canonical_evidence_digest).toBe(
+        firstEvidence.canonical_evidence_digest
+      );
       expect(firstEvidence.replay_writes_formal_results).toBe(false);
       expect(store.settlementResults).toEqual(resultSnapshot);
       expect(
@@ -251,6 +264,73 @@ describe("M1 run manifest and replay evidence", () => {
     } finally {
       await stopServer(server);
     }
+  });
+
+  it("keeps canonical evidence digest stable for key ordering and generated metadata drift", () => {
+    const digestInput = {
+      evidence_kind: "m1_json_runtime_replay_evidence" as const,
+      evidence_semantics_version: "m1-json-replay-evidence.v1" as const,
+      frozen_input_semantics: {
+        decision_batch_hash: "decision-batch-hash",
+        decision_schema_version: "DecisionPayload.v1",
+        engine_id: "toy_logit_wellness_v1",
+        engine_version: "0.1.0",
+        json_runtime_source_digest: "json-runtime-source-digest",
+        json_runtime_source_revision: "runtime-revision",
+        mapper_version: "settlement-to-public-result.v1",
+        parameter_model_family: "toy_logit",
+        parameter_set_id: "param_toy_approved_1",
+        parameter_version: "1.0.0",
+        plugin_package_ids: ["plugin_wellness_stub"],
+        round_no: 1,
+        scenario_package_id: "scenario_eldercare_demo",
+        scenario_version: "1.0.0",
+        seed: 20260517
+      },
+      replay_comparison: {
+        legacy_replay_hash: "legacy-replay-hash",
+        replay_result_digest: "replay-result-digest",
+        replay_result_hash: "legacy-replay-hash",
+        replay_status: "matched" as const,
+        replay_writes_formal_results: false as const
+      }
+    };
+    const reorderedWithIgnoredMetadata = {
+      source_result_id: "settlement_result_generated_2",
+      excluded_from_truth_hash: ["role_drafts", "billing_entitlement"],
+      generated_at: "2026-06-30T12:30:00.000Z",
+      manifest_id: "manifest_generated_2",
+      replay_comparison: {
+        replay_writes_formal_results: false as const,
+        replay_status: "matched" as const,
+        replay_result_hash: "legacy-replay-hash",
+        replay_result_digest: "replay-result-digest",
+        legacy_replay_hash: "legacy-replay-hash"
+      },
+      frozen_input_semantics: {
+        seed: 20260517,
+        scenario_version: "1.0.0",
+        scenario_package_id: "scenario_eldercare_demo",
+        round_no: 1,
+        plugin_package_ids: ["plugin_wellness_stub"],
+        parameter_version: "1.0.0",
+        parameter_set_id: "param_toy_approved_1",
+        parameter_model_family: "toy_logit",
+        mapper_version: "settlement-to-public-result.v1",
+        json_runtime_source_revision: "runtime-revision",
+        json_runtime_source_digest: "json-runtime-source-digest",
+        engine_version: "0.1.0",
+        engine_id: "toy_logit_wellness_v1",
+        decision_schema_version: "DecisionPayload.v1",
+        decision_batch_hash: "decision-batch-hash"
+      },
+      evidence_semantics_version: "m1-json-replay-evidence.v1" as const,
+      evidence_kind: "m1_json_runtime_replay_evidence" as const
+    };
+
+    expect(createM1CanonicalEvidenceDigest(reorderedWithIgnoredMetadata)).toBe(
+      createM1CanonicalEvidenceDigest(digestInput)
+    );
   });
 
   it("matches the M1 golden JSON replay evidence fixture", async () => {
@@ -288,6 +368,8 @@ describe("M1 run manifest and replay evidence", () => {
       );
       expect(teacherResult.status).toBe(200);
       expect(teacherResult.body.data.replay_evidence).toMatchObject({
+        evidence_semantics_version: "m1-json-replay-evidence.v1",
+        evidence_kind: "m1_json_runtime_replay_evidence",
         manifest_version: "run-manifest.v1",
         source_result_id: settlement.settlement_result_id,
         replay_result_hash: settlement.replay_hash,
@@ -303,6 +385,9 @@ describe("M1 run manifest and replay evidence", () => {
         scenario_package_id: "scenario_eldercare_demo",
         seed: 20260517
       });
+      expect(teacherResult.body.data.replay_evidence?.canonical_evidence_digest).toMatch(
+        /^[a-f0-9]{64}$/
+      );
       expect(teacherResult.body.data.results[0]?.state_true?.settlement_status).toBe("settled");
 
       const studentResult = await request<M1ReplayEvidencePublicResult>(
@@ -318,6 +403,7 @@ describe("M1 run manifest and replay evidence", () => {
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
       expect(JSON.stringify(studentResult.body.data)).not.toContain("decision_batch_hash");
       expect(JSON.stringify(studentResult.body.data)).not.toContain("json_runtime_source_digest");
+      expect(JSON.stringify(studentResult.body.data)).not.toContain("canonical_evidence_digest");
       expect(JSON.stringify(studentResult.body.data)).not.toContain("state_true");
     } finally {
       await stopServer(server);
