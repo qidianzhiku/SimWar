@@ -800,34 +800,6 @@
       "justification": "Approved legacy routeRequest write access to store.rounds.push; frozen by P1-003A so future facade migration can remove it without silent expansion.",
       "followUp": "Relates to #114",
       "evidence": "services/api/src/server.ts:1243 routeRequest store.rounds.push"
-    },
-    {
-      "id": "direct-store-services-api-src-simulation-findexistingsettlementresult-064",
-      "file": "services/api/src/simulation.ts",
-      "symbol": "findExistingSettlementResult",
-      "accessKind": "read",
-      "expression": "store.settlementResults.find",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "settlement",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy findExistingSettlementResult read access to store.settlementResults.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #111; Relates to #114",
-      "evidence": "services/api/src/simulation.ts:40 findExistingSettlementResult store.settlementResults.find"
-    },
-    {
-      "id": "direct-store-services-api-src-simulation-writesettlementresult-065",
-      "file": "services/api/src/simulation.ts",
-      "symbol": "writeSettlementResult",
-      "accessKind": "write",
-      "expression": "store.settlementResults.push",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "settlement",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy writeSettlementResult write access to store.settlementResults.push; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #111; Relates to #114",
-      "evidence": "services/api/src/simulation.ts:78 writeSettlementResult store.settlementResults.push"
     }
   ]
 }

@@ -9,7 +9,6 @@ import type {
   SettlementResult,
   Team
 } from "@simwar/shared-contracts";
-import { nextId, type SimWarStore } from "./store.js";
 
 function buildReplayHash(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -23,10 +22,6 @@ export type SettlementRoundInput = {
   teams: Team[];
   decisions: Decision[];
 };
-
-export interface SettlementResultWriter {
-  saveSettlementResult(result: SettlementResult): Promise<void> | void;
-}
 
 export interface PreparedSettlementOutcome {
   settlement: SettlementResult;
@@ -43,18 +38,6 @@ export interface SettlementReplayPreview {
 export interface PrepareSettlementOutcomeOptions {
   createSettlementResultId: () => string;
   existingSettlement?: SettlementResult | null;
-}
-
-function findExistingSettlementResult(
-  store: SimWarStore,
-  input: SettlementRoundInput
-): SettlementResult | undefined {
-  return store.settlementResults.find(
-    (result) =>
-      result.tenant_id === input.run.tenant_id &&
-      result.run_id === input.run.run_id &&
-      result.round_no === input.round.round_no
-  );
 }
 
 function createSettlementResult(
@@ -74,50 +57,6 @@ function createSettlementResult(
     replay_hash: replayHash,
     team_results: teamResults
   };
-}
-
-function markRoundSettled(input: SettlementRoundInput, replayHash: string): void {
-  input.round.status = "settled";
-  input.round.replay_hash = replayHash;
-}
-
-function writeSettlementResult(
-  store: SimWarStore,
-  input: SettlementRoundInput,
-  replayHash: string,
-  teamResults: SettlementResult["team_results"]
-): SettlementResult {
-  const settlement = createSettlementResult(
-    input,
-    nextId(store, "result", "result"),
-    replayHash,
-    teamResults
-  );
-
-  markRoundSettled(input, replayHash);
-  store.settlementResults.push(settlement);
-
-  return settlement;
-}
-
-async function saveSettlementResult(
-  writer: SettlementResultWriter,
-  store: SimWarStore,
-  input: SettlementRoundInput,
-  replayHash: string,
-  teamResults: SettlementResult["team_results"]
-): Promise<SettlementResult> {
-  const settlement = createSettlementResult(
-    input,
-    nextId(store, "result", "result"),
-    replayHash,
-    teamResults
-  );
-
-  markRoundSettled(input, replayHash);
-  await writer.saveSettlementResult(settlement);
-
-  return settlement;
 }
 
 function calculateSettlement(input: SettlementRoundInput): {
@@ -233,18 +172,6 @@ export function validateDecisionPayload(
   return errors;
 }
 
-export function settleRound(store: SimWarStore, input: SettlementRoundInput): SettlementResult {
-  const existing = findExistingSettlementResult(store, input);
-
-  if (existing) {
-    return existing;
-  }
-
-  const { replayHash, teamResults } = calculateSettlement(input);
-
-  return writeSettlementResult(store, input, replayHash, teamResults);
-}
-
 export function prepareSettlementOutcome(
   input: SettlementRoundInput,
   options: PrepareSettlementOutcomeOptions
@@ -273,20 +200,4 @@ export function prepareSettlementOutcome(
     shouldCommit: true,
     replayHashConflict: false
   };
-}
-
-export async function settleRoundWithSettlementWriter(
-  store: SimWarStore,
-  input: SettlementRoundInput,
-  writer: SettlementResultWriter
-): Promise<SettlementResult> {
-  const existing = findExistingSettlementResult(store, input);
-
-  if (existing) {
-    return existing;
-  }
-
-  const { replayHash, teamResults } = calculateSettlement(input);
-
-  return saveSettlementResult(writer, store, input, replayHash, teamResults);
 }
