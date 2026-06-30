@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-student-result-envelope.v1.json",
+  "title": "M1StudentResultEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "const": "OK"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "round_no",
+        "status",
+        "result_label",
+        "runtime_boundary",
+        "runtime_limitations",
+        "classroom_debrief_prompts",
+        "results"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "round_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_label": {
+          "const": "M1 Teaching-Official Result under Current JSON Active Runtime"
+        },
+        "runtime_boundary": {
+          "const": "current_json_active_runtime"
+        },
+        "runtime_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "classroom_debrief_prompts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "replay_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["team_id", "team_name", "state_obs", "state_est"],
+            "properties": {
+              "team_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "team_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "state_obs": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "demand_band",
+                  "served_demand",
+                  "revenue",
+                  "profit_band",
+                  "score",
+                  "rank"
+                ],
+                "properties": {
+                  "demand_band": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"]
+                  },
+                  "served_demand": {
+                    "type": "number"
+                  },
+                  "revenue": {
+                    "type": "number"
+                  },
+                  "profit_band": {
+                    "type": "string",
+                    "enum": ["loss", "thin", "healthy"]
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "state_est": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["next_round_risk", "explanation", "recommended_focus"],
+                "properties": {
+                  "next_round_risk": {
+                    "type": "string",
+                    "enum": ["capacity", "cash", "demand", "balanced"]
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "recommended_focus": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

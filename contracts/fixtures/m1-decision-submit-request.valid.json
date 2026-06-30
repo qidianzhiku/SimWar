@@ -1,0 +1,13 @@
+{
+  "team_id": "team-alpha",
+  "decision_payload": {
+    "pricing": {
+      "base_price": 12800
+    },
+    "marketing_budget": 5200,
+    "service_quality_budget": 2800,
+    "capacity_plan": "hold",
+    "cash_buffer_target": 0.3,
+    "strategy_statement": "Hold price stability while improving care quality."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "request_id": "req-m1-wrong-team-001",
+  "code": "TEAM-403-001",
+  "message": "learners can only submit for their own team",
+  "details": [
+    {
+      "field": "team_id",
+      "reason": "Team membership is required for M1 decision submission."
+    }
+  ]
+}

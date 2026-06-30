@@ -268,6 +268,11 @@ export interface DecisionPayload {
   strategy_statement: string;
 }
 
+export interface M1DecisionSubmitRequest {
+  team_id?: string;
+  decision_payload: DecisionPayload;
+}
+
 export interface Decision {
   decision_id: string;
   tenant_id: string;
@@ -785,6 +790,8 @@ export interface TeamSettlement {
   };
 }
 
+export type StudentSafeTeamSettlement = Omit<TeamSettlement, "state_true">;
+
 export interface SettlementResult {
   settlement_result_id: string;
   tenant_id: string;
@@ -966,6 +973,22 @@ export interface PublicResultView {
     Omit<TeamSettlement, "state_true"> & { state_true?: TeamSettlement["state_true"] }
   >;
 }
+
+export type M1DecisionSubmitSuccessEnvelope = ApiEnvelope<Decision>;
+
+export type M1StudentResultEnvelope = ApiEnvelope<
+  Omit<PublicResultView, "replay_evidence" | "results"> & {
+    replay_evidence?: never;
+    results: StudentSafeTeamSettlement[];
+  }
+>;
+
+export type M1TeacherAdminResultEnvelope = ApiEnvelope<
+  Omit<PublicResultView, "results"> & {
+    replay_evidence?: PublicRunReplayEvidence;
+    results: TeamSettlement[];
+  }
+>;
 
 export type DomainEventType = string;
 

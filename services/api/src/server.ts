@@ -10,6 +10,7 @@ import type {
   CurrentUser,
   Decision,
   DecisionPayload,
+  M1DecisionSubmitRequest,
   PermissionKey,
   PublicRunReplayEvidence,
   PublicResultView,
@@ -81,10 +82,7 @@ export interface CreateApiServerOptions {
   securityConfig?: RuntimeSecurityConfig;
 }
 
-interface DecisionSubmitBody {
-  team_id?: string;
-  decision_payload?: DecisionPayload;
-}
+type DecisionSubmitBody = Partial<M1DecisionSubmitRequest>;
 
 class HttpError extends Error {
   constructor(

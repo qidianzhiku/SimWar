@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-public-replay-evidence.v1.json",
+  "title": "M1PublicReplayEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_hash",
+    "engine_version",
+    "plugin_ids",
+    "seed",
+    "frozen_inputs",
+    "generated_at"
+  ],
+  "properties": {
+    "manifest_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "engine_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plugin_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "frozen_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "parameter_set_id", "decision_batch_hash"],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameter_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision_batch_hash": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-decision-submit-success-envelope.v1.json",
+  "title": "M1DecisionSubmitSuccessEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "const": "OK"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "tenant_id",
+        "run_id",
+        "round_id",
+        "round_no",
+        "team_id",
+        "status",
+        "version",
+        "payload",
+        "validation_report",
+        "submitted_by"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "round_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "round_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "team_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "submitted", "validated", "rejected"]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "payload": {
+          "type": "object"
+        },
+        "validation_report": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason"],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "submitted_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "merge_commit_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "team_confirmation_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
