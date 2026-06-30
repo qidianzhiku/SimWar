@@ -1,0 +1,11 @@
+{
+  "request_id": "req-r3-invalid-role-001",
+  "code": "ROLE-422-001",
+  "message": "invalid role requested",
+  "details": [
+    {
+      "field": "roles",
+      "reason": "invalid_role"
+    }
+  ]
+}

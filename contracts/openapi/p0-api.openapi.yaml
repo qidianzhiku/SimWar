@@ -12,6 +12,12 @@ paths:
       responses:
         "200":
           description: Auth session
+        "401":
+          description: Missing, malformed, or invalid authentication credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/auth/logout:
     post:
       summary: Revoke the current signed session.
@@ -68,6 +74,16 @@ paths:
           description: User created
         "403":
           description: Role escalation or permission denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "422":
+          description: Missing required user credential or invalid role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/admin/users/{userId}:
     patch:
       summary: Update a user profile, status, password or roles with field-level checks.
@@ -246,6 +262,13 @@ paths:
   /internal/v1/runs/{runId}/rounds/{roundNo}/settle:
     post:
       summary: Internal structured-core-only settlement entrypoint.
+      description: Internal service-principal-only operation. It is not a public browser/client API and must not be generated into Teacher, Student, or Admin frontend clients.
+      x-simwar-internal: true
+      x-simwar-public-client: false
+      x-simwar-service-principal-only: true
+      security:
+        - InternalServiceBearer: []
+          ServicePrincipalHeader: []
       parameters:
         - name: X-Service-Principal
           in: header
@@ -265,6 +288,12 @@ paths:
       responses:
         "200":
           description: Settlement result
+        "403":
+          description: Service-principal credential is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/publish:
     post:
       summary: Publish a settled round.
@@ -324,6 +353,16 @@ paths:
         "200":
           description: Audit logs
 components:
+  securitySchemes:
+    InternalServiceBearer:
+      type: http
+      scheme: bearer
+      description: Internal service token only. Public browser clients must not receive or use this credential.
+    ServicePrincipalHeader:
+      type: apiKey
+      in: header
+      name: X-Service-Principal
+      description: Must identify the service kernel principal for internal settlement.
   schemas:
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"

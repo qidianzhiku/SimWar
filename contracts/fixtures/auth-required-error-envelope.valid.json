@@ -1,0 +1,5 @@
+{
+  "request_id": "req-r3-auth-required-001",
+  "code": "AUTH-401-001",
+  "message": "authentication required"
+}

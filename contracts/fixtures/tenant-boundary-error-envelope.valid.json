@@ -1,0 +1,5 @@
+{
+  "request_id": "req-r3-tenant-boundary-001",
+  "code": "TENANT-403-001",
+  "message": "tenant boundary violation"
+}

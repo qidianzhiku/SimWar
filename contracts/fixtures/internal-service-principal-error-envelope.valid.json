@@ -1,0 +1,5 @@
+{
+  "request_id": "req-r3-internal-service-principal-001",
+  "code": "AUTHZ-403-002",
+  "message": "service kernel credential required"
+}

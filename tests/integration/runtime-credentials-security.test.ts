@@ -244,6 +244,21 @@ describe("runtime credential fail-closed behavior", () => {
       expect(missingPrincipal.status).toBe(403);
       expect(missingPrincipal.body.code).toBe("AUTHZ-403-002");
 
+      const studentToken = await login(baseUrl, "student", "student");
+      const studentAttempt = await request<unknown>(
+        baseUrl,
+        "/internal/v1/runs/run_missing/rounds/1/settle",
+        {
+          method: "POST",
+          token: studentToken,
+          servicePrincipal: "service_kernel"
+        }
+      );
+      expect(studentAttempt.status).toBe(403);
+      expect(studentAttempt.body.code).toBe("AUTHZ-403-002");
+      expect(JSON.stringify(studentAttempt.body)).not.toContain("token");
+      expect(JSON.stringify(studentAttempt.body)).not.toContain("stack");
+
       const correctCredential = await request<unknown>(
         baseUrl,
         "/internal/v1/runs/run_missing/rounds/1/settle",

@@ -140,6 +140,34 @@ describe("P1 auth, RBAC and tenant governance", () => {
       expect(createdUser.body.data.roles).toEqual(["learner"]);
       expect(JSON.stringify(createdUser.body.data)).not.toContain("password_hash");
 
+      const missingPassword = await request<User>(baseUrl, "/api/v1/admin/users", {
+        method: "POST",
+        token: adminToken,
+        body: {
+          username: "learner_without_password",
+          email: "learner-without-password@demo.simwar.local",
+          display_name: "Learner Without Password",
+          roles: ["learner"]
+        }
+      });
+      expect(missingPassword.status).toBe(422);
+      expect(missingPassword.body.code).toBe("USER-422-001");
+      expect(JSON.stringify(missingPassword.body)).not.toContain("password_hash");
+
+      const invalidRole = await request<User>(baseUrl, "/api/v1/admin/users", {
+        method: "POST",
+        token: adminToken,
+        body: {
+          username: "learner_invalid_role",
+          email: "learner-invalid-role@demo.simwar.local",
+          display_name: "Learner Invalid Role",
+          password: "learner-invalid-role",
+          roles: ["not_a_role"]
+        }
+      });
+      expect(invalidRole.status).toBe(422);
+      expect(invalidRole.body.code).toBe("ROLE-422-001");
+
       const learnerToken = await login(baseUrl, "learner_two", "learner-two", "tenant_demo");
       const forbiddenUsers = await request<User[]>(baseUrl, "/api/v1/admin/users", {
         token: learnerToken

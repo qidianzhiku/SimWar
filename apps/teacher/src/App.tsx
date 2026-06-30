@@ -12,20 +12,40 @@ import type {
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-const DEFAULT_LOGIN = {
-  tenantId: "tenant_demo",
-  username: "teacher",
-  password: "teacher"
+type LoginForm = {
+  tenantId: string;
+  username: string;
+  password: string;
 };
+
+const EMPTY_LOGIN: LoginForm = {
+  tenantId: "",
+  username: "",
+  password: ""
+};
+
+const DEMO_LOGIN: LoginForm = {
+  tenantId: import.meta.env.VITE_SIMWAR_DEMO_TENANT_ID ?? "",
+  username: import.meta.env.VITE_SIMWAR_DEMO_USERNAME ?? "",
+  password: import.meta.env.VITE_SIMWAR_DEMO_PASSWORD ?? ""
+};
+
+const DEMO_LOGIN_ENABLED =
+  import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
+  Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
 
 async function apiRequest<TData>(
   path: string,
   options: { method?: string; token?: string; tenantId?: string; body?: unknown } = {}
 ): Promise<TData> {
   const headers: Record<string, string> = {
-    "content-type": "application/json",
-    "x-tenant-id": options.tenantId ?? DEFAULT_LOGIN.tenantId
+    "content-type": "application/json"
   };
+  const tenantId = options.tenantId?.trim();
+
+  if (tenantId) {
+    headers["x-tenant-id"] = tenantId;
+  }
 
   if (options.token) {
     headers.authorization = `Bearer ${options.token}`;
@@ -77,7 +97,7 @@ function getRoundAction(round?: Round): string {
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [login, setLogin] = useState(DEFAULT_LOGIN);
+  const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("ready");
 
@@ -121,7 +141,7 @@ export function App() {
     );
   }, [login.tenantId, session]);
 
-  function updateLogin(field: keyof typeof DEFAULT_LOGIN, value: string): void {
+  function updateLogin(field: keyof LoginForm, value: string): void {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -149,10 +169,6 @@ export function App() {
       setBusy(false);
     }
   }
-
-  useEffect(() => {
-    void signIn(DEFAULT_LOGIN);
-  }, []);
 
   useEffect(() => {
     refresh().catch((error: unknown) => {
@@ -262,6 +278,11 @@ export function App() {
         <button disabled={busy} onClick={() => void signIn()}>
           教师登录
         </button>
+        {DEMO_LOGIN_ENABLED ? (
+          <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
+            演示登录
+          </button>
+        ) : null}
       </section>
 
       <section className="metrics" aria-label="M1 run status">
