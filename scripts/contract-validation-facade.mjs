@@ -45,7 +45,13 @@ const m1ContractFiles = [
   "contracts/fixtures/m1-teacher-admin-result-envelope.valid.json",
   "contracts/fixtures/m1-teacher-admin-result-missing-state-true.invalid.json",
   "contracts/fixtures/m1-public-replay-evidence.valid.json",
-  "contracts/fixtures/m1-public-replay-evidence-missing-decision-batch-hash.invalid.json"
+  "contracts/fixtures/m1-public-replay-evidence-missing-decision-batch-hash.invalid.json",
+  "contracts/fixtures/auth-required-error-envelope.valid.json",
+  "contracts/fixtures/authz-missing-permission-error-envelope.valid.json",
+  "contracts/fixtures/invalid-role-error-envelope.valid.json",
+  "contracts/fixtures/internal-service-principal-error-envelope.valid.json",
+  "contracts/fixtures/tenant-boundary-error-envelope.valid.json",
+  "contracts/fixtures/user-password-required-error-envelope.valid.json"
 ];
 
 const requiredOpenApiPaths = [
@@ -89,7 +95,15 @@ const schemaCases = [
   },
   {
     schema: "contracts/schemas/api-error-envelope.v1.json",
-    valid: ["contracts/fixtures/m1-wrong-team-error-envelope.valid.json"],
+    valid: [
+      "contracts/fixtures/m1-wrong-team-error-envelope.valid.json",
+      "contracts/fixtures/auth-required-error-envelope.valid.json",
+      "contracts/fixtures/authz-missing-permission-error-envelope.valid.json",
+      "contracts/fixtures/invalid-role-error-envelope.valid.json",
+      "contracts/fixtures/internal-service-principal-error-envelope.valid.json",
+      "contracts/fixtures/tenant-boundary-error-envelope.valid.json",
+      "contracts/fixtures/user-password-required-error-envelope.valid.json"
+    ],
     invalid: ["contracts/fixtures/api-error-envelope-missing-code.invalid.json"]
   },
   {
@@ -139,6 +153,50 @@ function assertM1OpenApiBindings(openApi) {
   for (const path of requiredOpenApiPaths) {
     assert(openApi?.paths?.[path], `Missing P0/P1 OpenAPI path: ${path}`);
   }
+
+  const loginPost = openApi.paths["/api/v1/auth/login"]?.post;
+  assert(
+    jsonContentSchema(loginPost?.responses?.["401"])?.$ref === schemaRef("ApiErrorEnvelope"),
+    "Auth login 401 response must reference ApiErrorEnvelope."
+  );
+
+  const adminUsersPost = openApi.paths["/api/v1/admin/users"]?.post;
+  assert(
+    jsonContentSchema(adminUsersPost?.responses?.["403"])?.$ref === schemaRef("ApiErrorEnvelope"),
+    "Admin user create 403 response must reference ApiErrorEnvelope."
+  );
+  assert(
+    jsonContentSchema(adminUsersPost?.responses?.["422"])?.$ref === schemaRef("ApiErrorEnvelope"),
+    "Admin user create 422 response must reference ApiErrorEnvelope."
+  );
+
+  const internalSettle = openApi.paths["/internal/v1/runs/{runId}/rounds/{roundNo}/settle"]?.post;
+  assert(internalSettle, "Missing internal settle operation.");
+  assert(
+    internalSettle["x-simwar-internal"] === true,
+    "Internal settle operation must be marked x-simwar-internal."
+  );
+  assert(
+    internalSettle["x-simwar-public-client"] === false,
+    "Internal settle operation must be excluded from public clients."
+  );
+  assert(
+    internalSettle["x-simwar-service-principal-only"] === true,
+    "Internal settle operation must be service-principal-only."
+  );
+  const internalSecurity = internalSettle.security?.[0] ?? {};
+  assert(
+    Array.isArray(internalSecurity.InternalServiceBearer),
+    "Internal settle operation must require InternalServiceBearer."
+  );
+  assert(
+    Array.isArray(internalSecurity.ServicePrincipalHeader),
+    "Internal settle operation must require ServicePrincipalHeader."
+  );
+  assert(
+    jsonContentSchema(internalSettle.responses?.["403"])?.$ref === schemaRef("ApiErrorEnvelope"),
+    "Internal settle 403 response must reference ApiErrorEnvelope."
+  );
 
   const decisionsPost = openApi.paths["/api/v1/runs/{runId}/rounds/{roundNo}/decisions"]?.post;
   assert(decisionsPost, "Missing POST operation for M1 decision submission.");
@@ -200,6 +258,20 @@ function assertM1OpenApiBindings(openApi) {
   }
 }
 
+function assertFrontendDoesNotUseInternalRoutes() {
+  for (const file of [
+    "apps/admin/src/App.tsx",
+    "apps/teacher/src/App.tsx",
+    "apps/student/src/App.tsx"
+  ]) {
+    const source = readFileSync(repoPath(file), "utf8");
+    assert(
+      !source.includes("/internal/v1"),
+      `Frontend source must not call internal route: ${file}`
+    );
+  }
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -257,6 +329,7 @@ export function runContractValidation() {
 
   const openApi = readOpenApi();
   assertM1OpenApiBindings(openApi);
+  assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();
 

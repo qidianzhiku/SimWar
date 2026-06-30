@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -61,8 +61,25 @@ async function login(
   return envelope.data.access_token;
 }
 
+async function signInStudentPage(page: Page): Promise<void> {
+  await page.getByLabel("tenant").fill("tenant_demo");
+  await page.getByLabel("username").fill("student");
+  await page.getByLabel("password").fill("student");
+  await page.getByRole("button", { name: "学员登录" }).click();
+  await expect(page.getByText("signed in")).toBeVisible();
+}
+
+async function signInTeacherPage(page: Page): Promise<void> {
+  await page.getByLabel("tenant").fill("tenant_demo");
+  await page.getByLabel("username").fill("teacher");
+  await page.getByLabel("password").fill("teacher");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByText("signed in")).toBeVisible();
+}
+
 test("loads the seeded student dashboard through real API login", async ({ page }) => {
   await page.goto("/");
+  await signInStudentPage(page);
 
   await expect(page.getByRole("heading", { name: "SimWar M1 学员驾驶舱" })).toBeVisible();
   await expect(page.getByText(m1ResultLabel)).toBeVisible();
@@ -76,6 +93,7 @@ test("loads the seeded student dashboard through real API login", async ({ page 
 
 test("clears student classroom state when the login context changes", async ({ page }) => {
   await page.goto("/");
+  await signInStudentPage(page);
 
   await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
   await page.getByLabel("tenant").fill("tenant_other");
@@ -107,6 +125,7 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   request
 }) => {
   await page.goto(teacherBaseUrl);
+  await signInTeacherPage(page);
 
   await expect(page.getByRole("heading", { name: "SimWar M1 教师控制台" })).toBeVisible();
   await expect(page.getByText(m1ResultLabel)).toBeVisible();
@@ -139,6 +158,7 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   });
 
   await page.reload();
+  await signInTeacherPage(page);
   await expect(page.getByRole("button", { name: "锁定回合" })).toBeVisible();
   await page.getByRole("button", { name: "锁定回合" }).click();
   await expect(page.getByText("round locked")).toBeVisible();

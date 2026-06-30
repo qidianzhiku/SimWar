@@ -26,6 +26,7 @@ import {
   M1_JSON_RUNTIME_BOUNDARY,
   M1_JSON_RUNTIME_LIMITATIONS,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
+  ROLE_PERMISSION_MATRIX,
   actorHasPermission,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
@@ -835,8 +836,19 @@ function requireManagedTenant(
   return tenant;
 }
 
+function isKnownActorRole(role: string): role is ActorRole {
+  return Object.prototype.hasOwnProperty.call(ROLE_PERMISSION_MATRIX, role);
+}
+
 function normalizeRoles(actor: CurrentUser, roles?: ActorRole[]): ActorRole[] {
   const requested = roles && roles.length > 0 ? roles : ["learner"];
+  const invalidRole = requested.find((role) => !isKnownActorRole(role));
+
+  if (invalidRole) {
+    throw new HttpError(422, "ROLE-422-001", "invalid role requested", [
+      { field: "roles", reason: "invalid_role" }
+    ]);
+  }
 
   if (!actorHasAnyRole(actor, ["platform_admin"]) && requested.includes("platform_admin")) {
     throw new HttpError(403, "AUTHZ-403-003", "tenant administrators cannot assign platform_admin");
@@ -1044,11 +1056,15 @@ async function routeRequest(
     const tenant = requireManagedTenant(store, actor, context, body.tenant_id);
     const username = body.username?.trim();
     const email = body.email?.trim().toLowerCase();
-    const password = body.password ?? "simwar123";
+    const password = body.password;
     const displayName = body.display_name?.trim() || username;
 
-    if (!username || !email || !displayName) {
-      throw new HttpError(422, "USER-422-001", "username, email and display_name are required");
+    if (!username || !email || !displayName || !password?.trim()) {
+      throw new HttpError(
+        422,
+        "USER-422-001",
+        "username, email, display_name and password are required"
+      );
     }
 
     if (
