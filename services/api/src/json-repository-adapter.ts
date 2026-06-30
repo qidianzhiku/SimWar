@@ -1,5 +1,6 @@
 import type {
   AuditLog,
+  Course,
   Decision,
   DomainEvent,
   ParameterSet,
@@ -123,6 +124,18 @@ function applyLimit<T>(items: T[], limit?: number): T[] {
   }
 
   return items.slice(0, limit);
+}
+
+function toCourseReadModel(course: Course): RepositoryCourseReadModel {
+  return {
+    course_id: course.course_id,
+    tenant_id: course.tenant_id,
+    title: course.title,
+    status: course.status,
+    scenario_package_id: course.scenario_package_id,
+    parameter_set_id: course.parameter_set_id,
+    created_by: course.created_by
+  };
 }
 
 function hasOwnReplayHash(round: Round): boolean {
@@ -307,11 +320,7 @@ export function createJsonRepositoryPorts(
           return null;
         }
 
-        return {
-          tenant_id: course.tenant_id,
-          course_id: course.course_id,
-          status: course.status
-        };
+        return toCourseReadModel(course);
       },
 
       async listCoursesForUser(tenantId, userId): Promise<RepositoryCourseReadModel[]> {
@@ -325,11 +334,7 @@ export function createJsonRepositoryPorts(
 
         return store.courses
           .filter((course) => course.tenant_id === tenantId)
-          .map((course) => ({
-            tenant_id: course.tenant_id,
-            course_id: course.course_id,
-            status: course.status
-          }));
+          .map(toCourseReadModel);
       }
     },
 

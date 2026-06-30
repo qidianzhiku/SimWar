@@ -10,6 +10,8 @@
 import { randomUUID } from "node:crypto";
 import type {
   AuditLog,
+  Course,
+  CourseStatus,
   Decision,
   ReplayDiffReport,
   ReplayInputManifest,
@@ -214,6 +216,7 @@ interface PostgresUserPresenceRow extends Record<string, unknown> {
 
 interface PostgresCourseReadRow extends Record<string, unknown> {
   course_id: RepositoryId;
+  payload: Course;
   status?: string | null;
   tenant_id: RepositoryId;
 }
@@ -298,16 +301,16 @@ interface PostgresSettlementOutcomeCommitRow extends Record<string, unknown> {
 }
 
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
-  const course: RepositoryCourseReadModel = {
+  return {
+    ...row.payload,
     course_id: row.course_id,
-    tenant_id: row.tenant_id
+    tenant_id: row.tenant_id,
+    status: isCourseStatus(row.status) ? row.status : row.payload.status
   };
+}
 
-  if (typeof row.status === "string") {
-    course.status = row.status;
-  }
-
-  return course;
+function isCourseStatus(value: unknown): value is CourseStatus {
+  return value === "draft" || value === "published" || value === "active" || value === "archived";
 }
 
 function toRun(row: PostgresRunReadRow): Run {
@@ -659,7 +662,7 @@ export class PostgresRepositoryAdapter {
     this.courses = {
       getCourse: async (tenantId, courseId) => {
         const row = await this.queryOne<PostgresCourseReadRow>(
-          "SELECT tenant_id, course_id, status FROM courses WHERE tenant_id = $1 AND course_id = $2",
+          "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 AND course_id = $2",
           [tenantId, courseId]
         );
 
@@ -676,7 +679,7 @@ export class PostgresRepositoryAdapter {
         }
 
         const rows = await this.queryRows<PostgresCourseReadRow>(
-          "SELECT tenant_id, course_id, status FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC",
+          "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC",
           [tenantId]
         );
 

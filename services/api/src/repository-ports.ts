@@ -1,5 +1,6 @@
 import type {
   AuditLog,
+  Course,
   Decision,
   DomainEvent,
   ParameterSet,
@@ -50,11 +51,7 @@ export interface RepositorySessionReadModel {
   expires_at?: string;
 }
 
-export interface RepositoryCourseReadModel {
-  tenant_id: RepositoryId;
-  course_id: RepositoryId;
-  status?: string;
-}
+export type RepositoryCourseReadModel = Course;
 
 export interface RepositoryEventQuery {
   tenant_id: RepositoryId;

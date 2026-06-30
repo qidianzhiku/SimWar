@@ -233,7 +233,17 @@ describe("JSON repository adapter", () => {
           expires_at: "2099-01-01T00:00:00.000Z"
         }
       ],
-      courses: [{ tenant_id: "tenant-1", course_id: "course-1", status: "active" }]
+      courses: [
+        {
+          tenant_id: "tenant-1",
+          course_id: "course-1",
+          title: "Course 1",
+          status: "active",
+          scenario_package_id: "scenario-1",
+          parameter_set_id: "parameter-1",
+          created_by: "user-1"
+        }
+      ]
     } as Partial<SimWarStore>);
 
     const ports = createJsonRepositoryPorts(store);
@@ -259,7 +269,11 @@ describe("JSON repository adapter", () => {
     await expect(ports.courses.getCourse("tenant-1", "course-1")).resolves.toEqual({
       tenant_id: "tenant-1",
       course_id: "course-1",
-      status: "active"
+      title: "Course 1",
+      status: "active",
+      scenario_package_id: "scenario-1",
+      parameter_set_id: "parameter-1",
+      created_by: "user-1"
     });
   });
 

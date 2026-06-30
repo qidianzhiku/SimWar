@@ -529,17 +529,7 @@ async function getCourseForRead(runtime: ApiRuntime, context: RequestContext, co
     throw new HttpError(404, "COURSE-404-001", "course not found");
   }
 
-  const course = runtime.store.courses.find(
-    (candidate) =>
-      candidate.course_id === courseReadModel.course_id &&
-      candidate.tenant_id === courseReadModel.tenant_id
-  );
-
-  if (!course) {
-    throw new HttpError(404, "COURSE-404-001", "course not found");
-  }
-
-  return course;
+  return courseReadModel;
 }
 
 function getRun(store: SimWarStore, context: RequestContext, runId: string) {
