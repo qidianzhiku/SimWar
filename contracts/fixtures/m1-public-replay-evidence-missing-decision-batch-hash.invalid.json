@@ -1,0 +1,11 @@
+{
+  "manifest_hash": "manifest-hash-demo-001",
+  "engine_version": "json-runtime-demo",
+  "plugin_ids": ["wellness-v1"],
+  "seed": 42,
+  "frozen_inputs": {
+    "scenario_id": "scenario-wellness-m1",
+    "parameter_set_id": "parameter-wellness-m1"
+  },
+  "generated_at": "2026-06-30T03:30:00.000Z"
+}

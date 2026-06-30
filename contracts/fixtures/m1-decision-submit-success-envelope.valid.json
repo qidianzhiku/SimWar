@@ -1,0 +1,27 @@
+{
+  "request_id": "req-m1-decision-submit-001",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "decision_id": "decision-alpha-r1",
+    "tenant_id": "tenant-demo",
+    "run_id": "run-m1-demo",
+    "round_id": "round-m1-demo-1",
+    "round_no": 1,
+    "team_id": "team-alpha",
+    "status": "validated",
+    "version": 1,
+    "payload": {
+      "pricing": {
+        "base_price": 12800
+      },
+      "marketing_budget": 5200,
+      "service_quality_budget": 2800,
+      "capacity_plan": "hold",
+      "cash_buffer_target": 0.3,
+      "strategy_statement": "Hold price stability while improving care quality."
+    },
+    "validation_report": [],
+    "submitted_by": "learner-alpha"
+  }
+}

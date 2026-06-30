@@ -172,13 +172,43 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/M1DecisionSubmitRequest"
       responses:
         "201":
           description: Decision accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1DecisionSubmitSuccessEnvelope"
+        "403":
+          description: Student is not authorized for the requested team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "404":
+          description: Run, round, or team not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "409":
           description: Round is no longer open
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "422":
           description: Decision validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/lock:
     post:
       summary: Lock a round for settlement.
@@ -269,9 +299,41 @@ paths:
       responses:
         "200":
           description: Public result view
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/M1StudentResultEnvelope"
+                  - $ref: "#/components/schemas/M1TeacherAdminResultEnvelope"
+        "403":
+          description: Actor is not authorized to read this result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "404":
+          description: Run or round not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/audit/logs:
     get:
       summary: Read tenant-scoped audit logs.
       responses:
         "200":
           description: Audit logs
+components:
+  schemas:
+    ApiErrorEnvelope:
+      $ref: "../schemas/api-error-envelope.v1.json"
+    M1DecisionSubmitRequest:
+      $ref: "../schemas/m1-decision-submit-request.v1.json"
+    M1DecisionSubmitSuccessEnvelope:
+      $ref: "../schemas/m1-decision-submit-success-envelope.v1.json"
+    M1StudentResultEnvelope:
+      $ref: "../schemas/m1-student-result-envelope.v1.json"
+    M1TeacherAdminResultEnvelope:
+      $ref: "../schemas/m1-teacher-admin-result-envelope.v1.json"
+    M1PublicReplayEvidence:
+      $ref: "../schemas/m1-public-replay-evidence.v1.json"

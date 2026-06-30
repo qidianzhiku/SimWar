@@ -1,0 +1,48 @@
+{
+  "request_id": "req-m1-teacher-result-invalid-001",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "run_id": "run-m1-demo",
+    "round_no": 1,
+    "status": "published",
+    "result_label": "M1 Teaching-Official Result under Current JSON Active Runtime",
+    "runtime_boundary": "current_json_active_runtime",
+    "runtime_limitations": ["No durable settlement claim."],
+    "classroom_debrief_prompts": [
+      "Compare teams by price discipline and service quality allocation."
+    ],
+    "replay_hash": "replay-hash-demo-001",
+    "replay_evidence": {
+      "manifest_hash": "manifest-hash-demo-001",
+      "engine_version": "json-runtime-demo",
+      "plugin_ids": ["wellness-v1"],
+      "seed": 42,
+      "frozen_inputs": {
+        "scenario_id": "scenario-wellness-m1",
+        "parameter_set_id": "parameter-wellness-m1",
+        "decision_batch_hash": "decision-batch-hash-demo-001"
+      },
+      "generated_at": "2026-06-30T03:30:00.000Z"
+    },
+    "results": [
+      {
+        "team_id": "team-alpha",
+        "team_name": "Alpha Care",
+        "state_obs": {
+          "demand_band": "high",
+          "served_demand": 245,
+          "revenue": 3136000,
+          "profit_band": "healthy",
+          "score": 79,
+          "rank": 1
+        },
+        "state_est": {
+          "next_round_risk": "balanced",
+          "explanation": "Price and service quality stayed aligned with demand.",
+          "recommended_focus": "Hold capacity while protecting cash buffer."
+        }
+      }
+    ]
+  }
+}

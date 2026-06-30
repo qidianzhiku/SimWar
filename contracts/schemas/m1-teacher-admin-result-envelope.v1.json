@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-teacher-admin-result-envelope.v1.json",
+  "title": "M1TeacherAdminResultEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "code": {
+      "const": "OK"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "round_no",
+        "status",
+        "result_label",
+        "runtime_boundary",
+        "runtime_limitations",
+        "classroom_debrief_prompts",
+        "results"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "round_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_label": {
+          "const": "M1 Teaching-Official Result under Current JSON Active Runtime"
+        },
+        "runtime_boundary": {
+          "const": "current_json_active_runtime"
+        },
+        "runtime_limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "classroom_debrief_prompts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "replay_hash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replay_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "manifest_hash",
+            "engine_version",
+            "plugin_ids",
+            "seed",
+            "frozen_inputs",
+            "generated_at"
+          ],
+          "properties": {
+            "manifest_hash": {
+              "type": "string",
+              "minLength": 1
+            },
+            "engine_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "plugin_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "seed": {
+              "type": "integer"
+            },
+            "frozen_inputs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["scenario_id", "parameter_set_id", "decision_batch_hash"],
+              "properties": {
+                "scenario_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "parameter_set_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "decision_batch_hash": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "generated_at": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["team_id", "team_name", "state_true", "state_obs", "state_est"],
+            "properties": {
+              "team_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "team_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "state_true": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "market_share",
+                  "demand",
+                  "served_demand",
+                  "revenue",
+                  "cost",
+                  "profit",
+                  "cash_flow",
+                  "score",
+                  "rank",
+                  "settlement_status"
+                ],
+                "properties": {
+                  "market_share": {
+                    "type": "number"
+                  },
+                  "demand": {
+                    "type": "number"
+                  },
+                  "served_demand": {
+                    "type": "number"
+                  },
+                  "revenue": {
+                    "type": "number"
+                  },
+                  "cost": {
+                    "type": "number"
+                  },
+                  "profit": {
+                    "type": "number"
+                  },
+                  "cash_flow": {
+                    "type": "number"
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "settlement_status": {
+                    "const": "settled"
+                  }
+                }
+              },
+              "state_obs": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "demand_band",
+                  "served_demand",
+                  "revenue",
+                  "profit_band",
+                  "score",
+                  "rank"
+                ],
+                "properties": {
+                  "demand_band": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"]
+                  },
+                  "served_demand": {
+                    "type": "number"
+                  },
+                  "revenue": {
+                    "type": "number"
+                  },
+                  "profit_band": {
+                    "type": "string",
+                    "enum": ["loss", "thin", "healthy"]
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "state_est": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["next_round_risk", "explanation", "recommended_focus"],
+                "properties": {
+                  "next_round_risk": {
+                    "type": "string",
+                    "enum": ["capacity", "cash", "demand", "balanced"]
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "recommended_focus": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
