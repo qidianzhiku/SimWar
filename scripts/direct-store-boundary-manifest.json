@@ -116,20 +116,6 @@
       "evidence": "services/api/src/server.ts:459 getCourse store.courses.find"
     },
     {
-      "id": "direct-store-services-api-src-server-getcourseforread-010",
-      "file": "services/api/src/server.ts",
-      "symbol": "getCourseForRead",
-      "accessKind": "read",
-      "expression": "runtime.store.courses.find",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy getCourseForRead read access to runtime.store.courses.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:479 getCourseForRead runtime.store.courses.find"
-    },
-    {
       "id": "direct-store-services-api-src-server-getrun-011",
       "file": "services/api/src/server.ts",
       "symbol": "getRun",
