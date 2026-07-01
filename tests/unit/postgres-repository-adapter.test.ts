@@ -656,6 +656,38 @@ describe("Postgres repository adapter skeleton", () => {
     await expect(adapter.courses.getCourse("tenant-1", "missing-course")).resolves.toBeNull();
   });
 
+  it("courses.listCoursesForTenant delegates through the injected executor without user-presence checks", async () => {
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const rows: RepositoryCourseReadModel[] = [
+      {
+        course_id: "course-1",
+        title: "Course 1",
+        status: "published",
+        tenant_id: "tenant-1",
+        scenario_package_id: "scenario-1",
+        parameter_set_id: "parameter-1",
+        created_by: "user-1"
+      }
+    ];
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      calls.push({ sql, params });
+
+      return {
+        rowCount: rows.length,
+        rows: rows.map((row) => ({ ...row, payload: row }))
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    await expect(adapter.courses.listCoursesForTenant("tenant-1")).resolves.toEqual(rows);
+    expect(calls).toEqual([
+      {
+        params: ["tenant-1"],
+        sql: "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC"
+      }
+    ]);
+  });
+
   it("courses.listCoursesForUser checks user existence before listing courses", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const rows: RepositoryCourseReadModel[] = [
@@ -3043,6 +3075,7 @@ describe("Postgres repository adapter skeleton", () => {
     expect(adapter.auditLogs.appendAuditLog).toEqual(expect.any(Function));
     expect(adapter.auditLogs.listAuditLogs).toEqual(expect.any(Function));
     expect(adapter.courses.getCourse).toEqual(expect.any(Function));
+    expect(adapter.courses.listCoursesForTenant).toEqual(expect.any(Function));
     expect(adapter.courses.listCoursesForUser).toEqual(expect.any(Function));
     expect(adapter.runs.getRun).toEqual(expect.any(Function));
     expect(adapter.runs.listRunsForCourse).toEqual(expect.any(Function));

@@ -648,20 +648,6 @@
       "evidence": "services/api/src/server.ts:1069 routeRequest store.decisions.filter"
     },
     {
-      "id": "direct-store-services-api-src-server-routerequest-049",
-      "file": "services/api/src/server.ts",
-      "symbol": "routeRequest",
-      "accessKind": "read",
-      "expression": "store.courses.filter",
-      "occurrence": 2,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy routeRequest read access to store.courses.filter; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:1092 routeRequest store.courses.filter"
-    },
-    {
       "id": "direct-store-services-api-src-server-routerequest-050",
       "file": "services/api/src/server.ts",
       "symbol": "routeRequest",

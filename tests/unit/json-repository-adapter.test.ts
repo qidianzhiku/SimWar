@@ -277,6 +277,36 @@ describe("JSON repository adapter", () => {
     });
   });
 
+  it("lists courses by tenant without requiring user existence", async () => {
+    const tenantCourse = {
+      tenant_id: "tenant-1",
+      course_id: "course-1",
+      title: "Course 1",
+      status: "published",
+      scenario_package_id: "scenario-1",
+      parameter_set_id: "parameter-1",
+      created_by: "user-1"
+    };
+    const otherTenantCourse = {
+      ...tenantCourse,
+      tenant_id: "tenant-2",
+      course_id: "course-2",
+      title: "Course 2"
+    };
+    const store = createMinimalStore({
+      courses: [tenantCourse, otherTenantCourse],
+      users: []
+    } as Partial<SimWarStore>);
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(ports.courses.listCoursesForTenant("tenant-1")).resolves.toEqual([
+      tenantCourse
+    ]);
+    await expect(ports.courses.listCoursesForUser("tenant-1", "missing-user")).resolves.toEqual(
+      []
+    );
+  });
+
   it("returns the first submitted canonical decision for a team round instead of the latest version", async () => {
     const firstSubmitted = createDecision({
       decision_id: "decision-first",

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { describe, expect, it, vi } from "vitest";
 import type { ApiEnvelope, AuthSession, Course } from "../../packages/shared-contracts/src";
+import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
 import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
@@ -111,6 +112,94 @@ describe("R4b G1 course read facade slice", () => {
     }
   });
 
+  it("reads the course list through the repository facade without falling back to the concrete store", async () => {
+    const store = createP1Store();
+    const tenantCourses = store.courses.filter((course) => course.tenant_id === "tenant_demo");
+    expect(tenantCourses.length).toBeGreaterThan(0);
+
+    const provider = createJsonRepositoryProvider({ store });
+    const listCoursesForTenant = vi.fn(async (tenantId: string) =>
+      tenantId === "tenant_demo" ? tenantCourses : []
+    );
+    (
+      provider.facade.courses as typeof provider.facade.courses & {
+        listCoursesForTenant: (tenantId: string) => Promise<Course[]>;
+      }
+    ).listCoursesForTenant = listCoursesForTenant;
+    store.courses = [];
+
+    const { baseUrl, server } = await startServer(store, { repositoryProvider: provider });
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const auditCountBeforeRead = store.auditLogs.length;
+      const response = await request<Course[]>(baseUrl, "/api/v1/courses", {
+        token: teacherToken
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual(tenantCourses);
+      expect(response.body.data.length).toBe(tenantCourses.length);
+      expect(JSON.stringify(response.body.data)).not.toContain("state_true");
+      expect(JSON.stringify(response.body.data)).not.toContain("decision_batch_hash");
+      expect(JSON.stringify(response.body.data)).not.toContain("json_runtime_source_digest");
+      expect(JSON.stringify(response.body.data)).not.toContain("canonical_evidence_digest");
+      expect(listCoursesForTenant).toHaveBeenCalledWith("tenant_demo");
+      expect(store.auditLogs).toHaveLength(auditCountBeforeRead);
+      expect(store.courses).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("preserves course-list empty, auth, permission, and tenant boundaries", async () => {
+    const store = createP1Store();
+    store.users.push({
+      created_at: "2026-07-01T00:00:00.000Z",
+      display_name: "Service Only",
+      email: "service-only@demo.simwar.local",
+      password_hash: hashPassword("service-only"),
+      permissions: ["internal:settle"],
+      roles: ["service_kernel"],
+      status: "active",
+      tenant_id: "tenant_demo",
+      updated_at: "2026-07-01T00:00:00.000Z",
+      user_id: "usr_service_only",
+      username: "service_only"
+    });
+    const { baseUrl, server } = await startServer(store);
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      store.courses = [];
+      const emptyList = await request<Course[]>(baseUrl, "/api/v1/courses", {
+        token: teacherToken
+      });
+      expect(emptyList.status).toBe(200);
+      expect(emptyList.body.data).toEqual([]);
+
+      const unauthenticated = await request<unknown>(baseUrl, "/api/v1/courses");
+      expect(unauthenticated.status).toBe(401);
+      expect(unauthenticated.body.code).toBe("AUTH-401-001");
+
+      const serviceOnlyToken = await login(baseUrl, "service_only", "service-only");
+      const forbidden = await request<unknown>(baseUrl, "/api/v1/courses", {
+        token: serviceOnlyToken
+      });
+      expect(forbidden.status).toBe(403);
+      expect(forbidden.body.code).toBe("AUTHZ-403-001");
+
+      const crossTenant = await request<unknown>(baseUrl, "/api/v1/courses", {
+        token: teacherToken,
+        tenantId: "tenant_other"
+      });
+      expect(crossTenant.status).toBe(403);
+      expect(crossTenant.body.code).toBe("TENANT-403-001");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("preserves course read not-found, auth, and tenant boundaries", async () => {
     const { baseUrl, server } = await startServer();
 
@@ -151,6 +240,16 @@ describe("R4b G1 course read facade slice", () => {
     expect(courseReadSource).toContain("runtime.repositoryProvider.facade.courses.getCourse(");
     expect(courseReadSource).not.toContain("runtime.store.courses.find");
     expect(courseReadSource).not.toContain("store.courses.find");
+
+    const courseListSource = serverSource.slice(
+      serverSource.indexOf('request.method === "GET" && url.pathname === "/api/v1/courses"'),
+      serverSource.indexOf('request.method === "POST" && url.pathname === "/api/v1/courses"')
+    );
+
+    expect(courseListSource).toContain(
+      "runtime.repositoryProvider.facade.courses.listCoursesForTenant("
+    );
+    expect(courseListSource).not.toContain("store.courses.filter");
     expect(serverSource).not.toContain("DATABASE_URL");
   });
 });

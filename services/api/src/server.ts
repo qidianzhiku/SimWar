@@ -1249,14 +1249,10 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/courses") {
     requirePermission(context, "course:read");
-    sendJson(
-      response,
-      200,
-      createEnvelope(
-        context,
-        store.courses.filter((course) => course.tenant_id === context.tenantId)
-      )
+    const courses = await runtime.repositoryProvider.facade.courses.listCoursesForTenant(
+      context.tenantId
     );
+    sendJson(response, 200, createEnvelope(context, courses));
     return;
   }
 

@@ -40,6 +40,13 @@ function createMockPorts(): SimWarRepositoryPorts {
         course_id: courseId,
         status: "active"
       })),
+      listCoursesForTenant: vi.fn(async (tenantId) => [
+        {
+          tenant_id: tenantId,
+          course_id: "course-1",
+          status: "active"
+        }
+      ]),
       listCoursesForUser: vi.fn(async () => [])
     },
 
@@ -156,6 +163,22 @@ describe("repository facade", () => {
 
     expect(ports.identity.getTenant).toHaveBeenCalledWith("tenant-1");
     expect(ports.identity.getUser).toHaveBeenCalledWith("tenant-1", "user-1");
+  });
+
+  it("forwards tenant-scoped course list reads without adding user-presence semantics", async () => {
+    const ports = createMockPorts();
+    const facade = createRepositoryFacade({ ports });
+
+    await expect(facade.courses.listCoursesForTenant("tenant-1")).resolves.toEqual([
+      {
+        tenant_id: "tenant-1",
+        course_id: "course-1",
+        status: "active"
+      }
+    ]);
+
+    expect(ports.courses.listCoursesForTenant).toHaveBeenCalledWith("tenant-1");
+    expect(ports.courses.listCoursesForUser).not.toHaveBeenCalled();
   });
 
   it("forwards canonical decision and settlement writes without changing payloads", async () => {

@@ -33,6 +33,7 @@ function createMockPorts(): SimWarRepositoryPorts {
 
     courses: {
       getCourse: vi.fn(async () => null),
+      listCoursesForTenant: vi.fn(async () => []),
       listCoursesForUser: vi.fn(async () => [])
     },
 
