@@ -56,6 +56,7 @@ export interface RepositoryFacade {
 
   courses: {
     getCourse(tenantId: string, courseId: string): Promise<RepositoryCourseReadModel | null>;
+    listCoursesForTenant(tenantId: string): Promise<RepositoryCourseReadModel[]>;
     listCoursesForUser(tenantId: string, userId: string): Promise<RepositoryCourseReadModel[]>;
   };
 
@@ -284,6 +285,7 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
 
     courses: {
       getCourse: (tenantId, courseId) => ports.courses.getCourse(tenantId, courseId),
+      listCoursesForTenant: (tenantId) => ports.courses.listCoursesForTenant(tenantId),
       listCoursesForUser: (tenantId, userId) => ports.courses.listCoursesForUser(tenantId, userId)
     },
 

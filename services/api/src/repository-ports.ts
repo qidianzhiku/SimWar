@@ -92,6 +92,8 @@ export interface CourseRepositoryPort {
     courseId: RepositoryId
   ): Promise<RepositoryCourseReadModel | null>;
 
+  listCoursesForTenant(tenantId: RepositoryId): Promise<RepositoryCourseReadModel[]>;
+
   listCoursesForUser(
     tenantId: RepositoryId,
     userId: RepositoryId

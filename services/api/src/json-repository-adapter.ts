@@ -323,6 +323,12 @@ export function createJsonRepositoryPorts(
         return toCourseReadModel(course);
       },
 
+      async listCoursesForTenant(tenantId): Promise<RepositoryCourseReadModel[]> {
+        return store.courses
+          .filter((course) => course.tenant_id === tenantId)
+          .map((course) => toCourseReadModel(course));
+      },
+
       async listCoursesForUser(tenantId, userId): Promise<RepositoryCourseReadModel[]> {
         const user = store.users.find(
           (candidate) => candidate.tenant_id === tenantId && candidate.user_id === userId

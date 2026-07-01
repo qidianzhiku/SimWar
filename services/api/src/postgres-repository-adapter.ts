@@ -71,6 +71,7 @@ export interface PostgresCourseReadMapping {
     tenantId: RepositoryId,
     courseId: RepositoryId
   ): Promise<RepositoryCourseReadModel | null>;
+  listCoursesForTenant(tenantId: RepositoryId): Promise<RepositoryCourseReadModel[]>;
   listCoursesForUser(
     tenantId: RepositoryId,
     userId: RepositoryId
@@ -667,6 +668,14 @@ export class PostgresRepositoryAdapter {
         );
 
         return row === null ? null : toCourseReadModel(row);
+      },
+      listCoursesForTenant: async (tenantId) => {
+        const rows = await this.queryRows<PostgresCourseReadRow>(
+          "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC",
+          [tenantId]
+        );
+
+        return rows.map((row) => toCourseReadModel(row));
       },
       listCoursesForUser: async (tenantId, userId) => {
         const user = await this.queryOne<PostgresUserPresenceRow>(
