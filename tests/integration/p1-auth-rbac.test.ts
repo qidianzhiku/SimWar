@@ -1,7 +1,13 @@
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
-import type { ApiEnvelope, AuthSession, Tenant, User } from "../../packages/shared-contracts/src";
+import type {
+  ApiEnvelope,
+  ApiErrorEnvelope,
+  AuthSession,
+  Tenant,
+  User
+} from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store } from "../../services/api/src/store";
 
@@ -196,6 +202,7 @@ describe("P1 auth, RBAC and tenant governance", () => {
 
   it("rejects truth-field writes before learner decision validation", async () => {
     const { baseUrl, server } = await startServer();
+    const protectedTruthSentinel = "r6-cand-002-protected-truth-sentinel";
 
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher", "tenant_demo");
@@ -226,13 +233,24 @@ describe("P1 auth, RBAC and tenant governance", () => {
             capacity_plan: "expand",
             cash_buffer_target: 0.16,
             strategy_statement: "尝试写入真值字段应被拒绝",
-            state_true: { score: 100 }
+            state_true: { score: protectedTruthSentinel }
           }
         }
       });
 
       expect(response.status).toBe(403);
       expect(response.body.code).toBe("TRUTH-403-001");
+      const errorBody = response.body as ApiErrorEnvelope;
+      expect(errorBody.message).not.toContain(protectedTruthSentinel);
+      expect(errorBody.details).toEqual(
+        expect.arrayContaining([
+          { field: "decision_payload.state_true", reason: "truth_protected" },
+          { field: "decision_payload.state_true.score", reason: "truth_protected" }
+        ])
+      );
+      expect(JSON.stringify(errorBody.details)).not.toContain(protectedTruthSentinel);
+      const serializedResponse = JSON.stringify(errorBody);
+      expect(serializedResponse).not.toContain(protectedTruthSentinel);
     } finally {
       await stopServer(server);
     }
