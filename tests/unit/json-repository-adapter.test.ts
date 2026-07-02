@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  AuditLog,
   Decision,
   DecisionPayload,
   ReplayDiffReport,
@@ -141,6 +142,21 @@ function createStateSnapshot(overrides: Partial<JsonStateSnapshot> = {}): JsonSt
       },
       status: "settled"
     },
+    ...overrides
+  };
+}
+
+function createAuditLog(overrides: Partial<AuditLog> = {}): AuditLog {
+  return {
+    audit_id: "audit-1",
+    tenant_id: "tenant-1",
+    actor_id: "actor-1",
+    actor_role: "tenant_admin",
+    action: "auth.login",
+    resource_type: "user",
+    resource_id: "actor-1",
+    request_id: "request-1",
+    created_at: "2026-06-08T00:00:00.000Z",
     ...overrides
   };
 }
@@ -1381,6 +1397,97 @@ describe("JSON repository adapter", () => {
     expect(JSON.stringify({ replayRuns, replayReports, replayDiffReports })).not.toMatch(
       /role_draft|ai_advice|learning_evidence|prompt_output|analytics/i
     );
+  });
+
+  it("JSON audit log reads support platform scope while preserving append order", async () => {
+    const first = createAuditLog({
+      audit_id: "audit-1",
+      tenant_id: "tenant-1",
+      actor_id: "actor-1",
+      action: "auth.login",
+      resource_id: "actor-1",
+      request_id: "request-1"
+    });
+    const second = createAuditLog({
+      audit_id: "audit-2",
+      tenant_id: "tenant-2",
+      actor_id: "actor-2",
+      action: "user.create",
+      resource_id: "resource-2",
+      request_id: "request-2"
+    });
+    const third = createAuditLog({
+      audit_id: "audit-3",
+      tenant_id: "tenant-1",
+      actor_id: "actor-3",
+      action: "tenant.create",
+      resource_type: "tenant",
+      resource_id: "tenant-1",
+      request_id: "request-3"
+    });
+    const ports = createJsonRepositoryPorts(
+      createMinimalStore({ auditLogs: [first, second, third] })
+    );
+
+    await expect(ports.auditLogs.listAuditLogs({ scope: "platform" })).resolves.toEqual([
+      first,
+      second,
+      third
+    ]);
+    await expect(
+      ports.auditLogs.listAuditLogs({
+        scope: "platform",
+        action: "user.create",
+        actor_id: "actor-2",
+        resource_id: "resource-2",
+        resource_type: "user",
+        limit: 1
+      })
+    ).resolves.toEqual([second]);
+  });
+
+  it("JSON audit log reads keep tenant scope isolated with the same filter contract", async () => {
+    const tenantOneUser = createAuditLog({
+      audit_id: "audit-1",
+      tenant_id: "tenant-1",
+      actor_id: "actor-1",
+      action: "user.create",
+      resource_type: "user",
+      resource_id: "user-1"
+    });
+    const tenantTwoUser = createAuditLog({
+      audit_id: "audit-2",
+      tenant_id: "tenant-2",
+      actor_id: "actor-2",
+      action: "user.create",
+      resource_type: "user",
+      resource_id: "user-2"
+    });
+    const tenantOneTenant = createAuditLog({
+      audit_id: "audit-3",
+      tenant_id: "tenant-1",
+      actor_id: "actor-1",
+      action: "tenant.create",
+      resource_type: "tenant",
+      resource_id: "tenant-1"
+    });
+    const ports = createJsonRepositoryPorts(
+      createMinimalStore({ auditLogs: [tenantOneUser, tenantTwoUser, tenantOneTenant] })
+    );
+
+    await expect(
+      ports.auditLogs.listAuditLogs({
+        scope: "tenant",
+        tenant_id: "tenant-1"
+      })
+    ).resolves.toEqual([tenantOneUser, tenantOneTenant]);
+    await expect(
+      ports.auditLogs.listAuditLogs({
+        scope: "tenant",
+        tenant_id: "tenant-1",
+        resource_type: "tenant"
+      })
+    ).resolves.toEqual([tenantOneTenant]);
   });
 
   it("JSON state snapshots retain duplicate snapshot_id appends", async () => {

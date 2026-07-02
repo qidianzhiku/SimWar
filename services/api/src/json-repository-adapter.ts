@@ -629,7 +629,15 @@ export function createJsonRepositoryPorts(
       async listAuditLogs(query): Promise<AuditLog[]> {
         return applyLimit(
           store.auditLogs.filter((auditLog) => {
-            if (auditLog.tenant_id !== query.tenant_id) {
+            if (query.scope === "tenant" && auditLog.tenant_id !== query.tenant_id) {
+              return false;
+            }
+
+            if (
+              query.scope === "platform" &&
+              query.tenant_id &&
+              auditLog.tenant_id !== query.tenant_id
+            ) {
               return false;
             }
 
@@ -642,6 +650,10 @@ export function createJsonRepositoryPorts(
             }
 
             if (query.resource_id && auditLog.resource_id !== query.resource_id) {
+              return false;
+            }
+
+            if (query.resource_type && auditLog.resource_type !== query.resource_type) {
               return false;
             }
 

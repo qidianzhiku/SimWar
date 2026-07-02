@@ -266,6 +266,21 @@ describe("audit append characterization", () => {
         store.auditLogs.map((log) => log.audit_id)
       );
 
+      const platformActionFilter = await request<AuditLog[]>(
+        baseUrl,
+        "/api/v1/audit/logs?action=auth.login",
+        {
+          token: platformToken,
+          tenantId: "tenant_platform"
+        }
+      );
+      expect(platformActionFilter.status).toBe(200);
+      expect(platformActionFilter.body.data.map((log) => log.audit_id)).toEqual(
+        store.auditLogs
+          .filter((log) => log.action === "auth.login")
+          .map((log) => log.audit_id)
+      );
+
       const newTenantAudit = await request<AuditLog[]>(
         baseUrl,
         `/api/v1/audit/logs?tenant_id=${createdTenant.body.data.tenant_id}`,
@@ -301,6 +316,16 @@ describe("audit append characterization", () => {
         "auth.login",
         "user.create"
       ]);
+
+      const tenantAdminResourceFilter = await request<AuditLog[]>(
+        baseUrl,
+        "/api/v1/audit/logs?resource_type=tenant",
+        {
+          token: adminToken
+        }
+      );
+      expect(tenantAdminResourceFilter.status).toBe(200);
+      expect(tenantAdminResourceFilter.body.data).toEqual([]);
     } finally {
       await stopServer(server);
     }
