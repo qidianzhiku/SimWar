@@ -15,6 +15,7 @@ import type {
   Team
 } from "@simwar/shared-contracts";
 import type {
+  AuditLogQuery,
   CommitSettlementOutcomeCommand,
   RepositoryCourseReadModel,
   RepositoryEventQuery,
@@ -128,13 +129,7 @@ export interface RepositoryFacade {
 
   auditLogs: {
     appendAuditLog(auditLog: AuditLog): Promise<void>;
-    listAuditLogs(query: {
-      tenant_id: string;
-      actor_id?: string;
-      action?: string;
-      resource_id?: string;
-      limit?: number;
-    }): Promise<AuditLog[]>;
+    listAuditLogs(query: AuditLogQuery): Promise<AuditLog[]>;
   };
 
   replay: {

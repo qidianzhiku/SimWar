@@ -731,51 +731,23 @@ function assertRoundStatus(
 async function filterAuditLogs(runtime: ApiRuntime, context: RequestContext, url: URL) {
   const actor = requirePermission(context, "audit:read");
   const requestedTenant = url.searchParams.get("tenant_id");
-  const tenantScope = actorHasAnyRole(actor, ["platform_admin"])
-    ? requestedTenant
-    : context.tenantId;
   const action = url.searchParams.get("action");
   const actorId = url.searchParams.get("actor_id");
   const resourceType = url.searchParams.get("resource_type");
-  const tenantIds = tenantScope
-    ? [tenantScope]
-    : runtime.store.tenants.map((tenant) => tenant.tenant_id);
-  const auditLogOrder = new Map(runtime.store.auditLogs.map((log, index) => [log.audit_id, index]));
-  const auditLogs = (
-    await Promise.all(
-      tenantIds.map((tenantId) =>
-        runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
-          tenant_id: tenantId,
-          ...(actorId ? { actor_id: actorId } : {}),
-          ...(action ? { action } : {})
-        })
-      )
-    )
-  )
-    .flat()
-    .sort(
-      (left, right) =>
-        (auditLogOrder.get(left.audit_id) ?? 0) - (auditLogOrder.get(right.audit_id) ?? 0)
-    );
 
-  return auditLogs.filter((log) => {
-    if (tenantScope && log.tenant_id !== tenantScope) {
-      return false;
-    }
-
-    if (action && log.action !== action) {
-      return false;
-    }
-
-    if (actorId && log.actor_id !== actorId) {
-      return false;
-    }
-
-    if (resourceType && log.resource_type !== resourceType) {
-      return false;
-    }
-
-    return true;
+  return runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+    ...(actorHasAnyRole(actor, ["platform_admin"])
+      ? {
+          scope: "platform" as const,
+          ...(requestedTenant ? { tenant_id: requestedTenant } : {})
+        }
+      : {
+          scope: "tenant" as const,
+          tenant_id: context.tenantId
+        }),
+    ...(actorId ? { actor_id: actorId } : {}),
+    ...(action ? { action } : {}),
+    ...(resourceType ? { resource_type: resourceType } : {})
   });
 }
 

@@ -144,34 +144,6 @@
       "evidence": "services/api/src/server.ts:504 getRound store.rounds.find"
     },
     {
-      "id": "direct-store-services-api-src-server-filterauditlogs-013",
-      "file": "services/api/src/server.ts",
-      "symbol": "filterAuditLogs",
-      "accessKind": "read",
-      "expression": "runtime.store.tenants.map",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy filterAuditLogs read access to runtime.store.tenants.map; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:616 filterAuditLogs runtime.store.tenants.map"
-    },
-    {
-      "id": "direct-store-services-api-src-server-filterauditlogs-014",
-      "file": "services/api/src/server.ts",
-      "symbol": "filterAuditLogs",
-      "accessKind": "read",
-      "expression": "runtime.store.auditLogs.map",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy filterAuditLogs read access to runtime.store.auditLogs.map; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:617 filterAuditLogs runtime.store.auditLogs.map"
-    },
-    {
       "id": "direct-store-services-api-src-server-createadminstate-015",
       "file": "services/api/src/server.ts",
       "symbol": "createAdminState",

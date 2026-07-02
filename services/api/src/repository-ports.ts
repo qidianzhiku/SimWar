@@ -212,16 +212,30 @@ export interface StateSnapshotRepositoryPort {
   saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
 }
 
+export interface AuditLogFilterQuery {
+  actor_id?: RepositoryId;
+  action?: string;
+  resource_id?: RepositoryId;
+  resource_type?: string;
+  limit?: number;
+}
+
+export interface TenantScopedAuditQuery extends AuditLogFilterQuery {
+  scope: "tenant";
+  tenant_id: RepositoryId;
+}
+
+export interface PlatformScopedAuditQuery extends AuditLogFilterQuery {
+  scope: "platform";
+  tenant_id?: RepositoryId;
+}
+
+export type AuditLogQuery = TenantScopedAuditQuery | PlatformScopedAuditQuery;
+
 export interface AuditLogRepositoryPort {
   appendAuditLog(auditLog: AuditLog): Promise<void>;
 
-  listAuditLogs(query: {
-    tenant_id: RepositoryId;
-    actor_id?: RepositoryId;
-    action?: string;
-    resource_id?: RepositoryId;
-    limit?: number;
-  }): Promise<AuditLog[]>;
+  listAuditLogs(query: AuditLogQuery): Promise<AuditLog[]>;
 }
 
 export interface ReplayRepositoryPort {
