@@ -31,6 +31,7 @@ type OpenApiDocument = {
 };
 
 type JsonSchema = Record<string, unknown>;
+type JsonObject = Record<string, unknown>;
 
 const openApi = (): OpenApiDocument =>
   readYaml<OpenApiDocument>("contracts/openapi/p0-api.openapi.yaml");
@@ -38,6 +39,15 @@ const openApi = (): OpenApiDocument =>
 const schema = (path: string): JsonSchema => readJson<JsonSchema>(path);
 
 const fixture = (path: string): unknown => readJson<unknown>(path);
+
+const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const asJsonObject = (value: unknown, label: string): JsonObject => {
+  expect(value, `${label} should be an object`).toBeTruthy();
+  expect(typeof value, `${label} should be an object`).toBe("object");
+  expect(Array.isArray(value), `${label} should not be an array`).toBe(false);
+  return value as JsonObject;
+};
 
 const schemaRef = (name: string): string => `#/components/schemas/${name}`;
 
@@ -139,5 +149,82 @@ describe("M1 contract conformance gate", () => {
     expect(serialized).not.toContain("json_runtime_source_digest");
     expect(serialized).not.toContain("canonical_evidence_digest");
     expect(serialized).not.toContain("Teacher");
+  });
+
+  it("keeps replay_hash allowed while rejecting student replay-private fields", () => {
+    const ajv = new Ajv2020({ allErrors: true });
+    const validate = ajv.compile(schema("contracts/schemas/m1-student-result-envelope.v1.json"));
+    const validStudent = fixture("contracts/fixtures/m1-student-result-envelope.valid.json");
+    const studentData = asJsonObject(
+      asJsonObject(validStudent, "valid student envelope").data,
+      "valid student data"
+    );
+    const privateReplayMetadata = fixture(
+      "contracts/fixtures/m1-student-result-private-replay-metadata.invalid.json"
+    );
+    const privateReplayData = asJsonObject(
+      asJsonObject(privateReplayMetadata, "private replay fixture").data,
+      "private replay fixture data"
+    );
+    const withStudentDataMutation = (mutate: (data: JsonObject) => void): unknown => {
+      const draft = cloneJson(validStudent);
+      mutate(
+        asJsonObject(
+          asJsonObject(draft, "student mutation envelope").data,
+          "student mutation data"
+        )
+      );
+      return draft;
+    };
+    const deniedCases = [
+      {
+        label: "state_true in a student result",
+        value: fixture("contracts/fixtures/m1-student-result-state-true.invalid.json")
+      },
+      {
+        label: "replay_evidence with private manifest metadata",
+        value: privateReplayMetadata
+      },
+      {
+        label: "decision_batch_hash on student result data",
+        value: fixture("contracts/fixtures/m1-student-result-decision-batch-hash.invalid.json")
+      },
+      {
+        label: "json_runtime_source_digest on student result data",
+        value: withStudentDataMutation((data) => {
+          data.json_runtime_source_digest = "json-runtime-source-digest";
+        })
+      },
+      {
+        label: "canonical_evidence_digest on student result data",
+        value: withStudentDataMutation((data) => {
+          data.canonical_evidence_digest = privateReplayData.canonical_evidence_digest;
+        })
+      },
+      {
+        label: "manifest_hash on student result data",
+        value: withStudentDataMutation((data) => {
+          data.manifest_hash = asJsonObject(
+            privateReplayData.replay_evidence,
+            "private replay evidence"
+          ).manifest_hash;
+        })
+      },
+      {
+        label: "source_result_id on student result data",
+        value: withStudentDataMutation((data) => {
+          data.source_result_id = asJsonObject(
+            privateReplayData.replay_evidence,
+            "private replay evidence"
+          ).source_result_id;
+        })
+      }
+    ];
+
+    expect(studentData.replay_hash).toBe("replay-hash-demo-001");
+    expect(validate(validStudent), "valid student fixture should allow replay_hash").toBe(true);
+    for (const testCase of deniedCases) {
+      expect(validate(testCase.value), testCase.label).toBe(false);
+    }
   });
 });
