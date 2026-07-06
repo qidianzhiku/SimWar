@@ -1,10 +1,10 @@
 # SimWar Package Scripts 标准化设计
 
-更新时间：2026-05-27
+更新时间：2026-07-06
 
 适用范围：SimWar 根目录 `package.json`、npm workspaces 下的各 `package.json`、质量门禁脚本、GitHub Actions / Harness 命令入口，以及后续 AGENTS / CI 文档中的默认命令写法。
 
-本文基于当前 package scripts 只读检查结果、`AGENTS.md`、`docs/architecture/simwar-development-quality-toolchain-roadmap.md` 和 `docs/architecture/student-role-based-decision-test-strategy.md` 整理。本文只定义脚本标准化方案，不代表新增了任何脚本、依赖或 CI 配置。
+本文基于当前 package scripts 只读检查结果、`AGENTS.md`、`docs/architecture/simwar-development-quality-toolchain-roadmap.md` 和 `docs/architecture/student-role-based-decision-test-strategy.md` 整理。本文记录当前脚本标准化状态；2026-07-06 起，根 `npm test` 会先运行 workspace package test prerequisites，再执行 Vitest。
 
 ## 1. 当前包管理器结论
 
@@ -18,13 +18,15 @@
 | `pnpm-workspace.yaml` | 不存在                                                                       |
 | `pnpm-lock.yaml`      | 不存在                                                                       |
 | 当前默认安装命令      | `npm ci` 用于 CI，`npm install` 用于本地依赖安装                             |
-| 当前默认质量命令      | `npm run quality`                                                            |
+| 当前默认质量命令      | 当前没有根 `npm run quality`；使用 `npm test`、`npm run typecheck`、`npm run test:contract`、`npm run build` 等真实脚本 |
 
 因此，当前不能假设任何 pnpm 命令存在。后续 Codex、CI、Harness、AGENTS.md 和质量文档中的默认命令应优先使用 npm。
 
 如果未来要迁移到 pnpm，应先引入 `pnpm-workspace.yaml`、锁文件、CI 安装策略、AGENTS 命令说明和 package scripts 映射，再逐步替换文档中的当前命令。
 
-## 2. 当前已有 scripts 清单
+## 2. 当前 scripts 清单与标准化目标
+
+当前真实可运行脚本以根 `package.json` 和 workspace `package.json` 为准。下列表格同时保留部分历史标准化目标；凡未出现在当前 `package.json` 的命令，不得作为当前可运行门禁引用，必须按“拟新增命令”处理。
 
 ### 2.1 根目录 scripts
 
@@ -35,6 +37,7 @@
 | `npm run dev:admin`             | 根 `package.json` | 启动 admin 前端                                                                                                 | E2E 支撑                                                         | 是               | 可作为 E2E 支撑                      | `VITE_API_BASE_URL` 可选                                    | 否                    |
 | `npm run dev:teacher`           | 根 `package.json` | 启动 teacher 前端                                                                                               | E2E 支撑                                                         | 是               | Playwright webServer 间接使用        | `VITE_API_BASE_URL` 可选                                    | 否                    |
 | `npm run dev:student`           | 根 `package.json` | 启动 student 前端                                                                                               | E2E 支撑                                                         | 是               | Playwright webServer 间接使用        | `VITE_API_BASE_URL` 可选                                    | 否                    |
+| `npm run build:test-prerequisites` | 根 `package.json` | 构建 Vitest integration baseline 需要通过真实 package entry 加载的 workspace package：shared-contracts、simulation-core | unit、integration、package contract                              | 是               | 通过 `npm test` 间接执行             | 无                                                          | 是                    |
 | `npm run build`                 | 根 `package.json` | 构建 shared-contracts、simulation-core、API、三端 apps                                                          | typecheck、quality                                               | 是               | 是                                   | 无                                                          | 是                    |
 | `npm run quality`               | 根 `package.json` | 聚合 format、lint、unused、安全、typecheck、coverage、contract、schema、migration、Postgres adapter、build、E2E | quality                                                          | 是               | 可作为本地等价门禁，也可拆成 CI jobs | `DATABASE_URL` 影响部分 DB 子命令                           | 是                    |
 | `npm run format`                | 根 `package.json` | Prettier 写入格式化                                                                                             | lint 辅助                                                        | 是               | 通常否                               | 无                                                          | 否                    |
@@ -44,7 +47,7 @@
 | `npm run check:unused`          | 根 `package.json` | Knip unused files / dependencies / binaries 检查                                                                | lint、quality                                                    | 是               | 是                                   | 无                                                          | 建议阻断              |
 | `npm run security:audit`        | 根 `package.json` | `npm audit --audit-level=high`                                                                                  | quality、安全                                                    | 是               | 是                                   | 无                                                          | high 级别建议阻断     |
 | `npm run typecheck`             | 根 `package.json` | TypeScript project references 检查                                                                              | typecheck、quality                                               | 是               | 是                                   | 无                                                          | 是                    |
-| `npm test`                      | 根 `package.json` | Vitest 全量测试                                                                                                 | unit、integration、contract、replay、settlement、plugin boundary | 是               | 是                                   | 无                                                          | 是                    |
+| `npm test`                      | 根 `package.json` | 先运行 `npm run build:test-prerequisites`，再执行 `vitest run`；支持 `npm test -- <path>` 聚焦测试                 | unit、integration、contract、replay、settlement、plugin boundary | 是               | 是                                   | 无                                                          | 是                    |
 | `npm run test:coverage`         | 根 `package.json` | Vitest coverage，输出 `coverage/vitest`                                                                         | unit、quality                                                    | 是               | 是                                   | 无                                                          | 是                    |
 | `npm run test:contract`         | 根 `package.json` | 检查 OpenAPI 路径、JSON Schema、fixtures、shared-contracts、domain events                                       | contract、schema、OpenAPI                                        | 是               | 是                                   | 无                                                          | 是                    |
 | `npm run test:schema-drift`     | 根 `package.json` | 当前同样调用 contract/schema 检查脚本                                                                           | schema、contract                                                 | 是               | 是                                   | 无                                                          | 是                    |
@@ -77,6 +80,8 @@
 | `npm run start -w @simwar/api`              | `services/api/package.json`              | 启动 API dist/server.js             | 部署 / smoke 辅助                      | 是           | 可用于发布后 smoke            | 运行时环境变量                        | 发布门禁可阻断 |
 | `npm run build -w @simwar/simulation-core`  | `services/simulation-core/package.json`  | simulation-core TypeScript build    | typecheck、settlement、plugin boundary | 是           | 是                            | 无                                    | 是             |
 
+`npm test` 必须保持真实 package export contract：`@simwar/simulation-core` 通过 `services/simulation-core/package.json` 的 `main` / `types` 指向 `dist/`，测试前先构建该 package，而不是在 Vitest 中添加 source alias、TypeScript paths fallback 或手工生成 `dist`。该契约只恢复 clean clone integration baseline，不表示 G0 PASS、L1 readiness、Pilot 或 Production ready。
+
 ## 3. 当前已有质量门禁能力
 
 SimWar 当前已经具备 npm-based 质量门禁雏形，不是没有 quality。
@@ -89,7 +94,7 @@ SimWar 当前已经具备 npm-based 质量门禁雏形，不是没有 quality。
 | unused / dependency check     | `npm run check:unused`                               | 未使用文件、依赖、二进制、未声明依赖                                                     |
 | security audit                | `npm run security:audit`                             | high 级别 npm 依赖漏洞                                                                   |
 | typecheck                     | `npm run typecheck`                                  | 全仓 TypeScript project references                                                       |
-| Vitest                        | `npm test`                                           | unit / integration / repository / simulation-core 测试                                   |
+| Vitest                        | `npm test`                                           | 先构建 shared-contracts 与 simulation-core，再运行 unit / integration / repository / simulation-core 测试 |
 | coverage                      | `npm run test:coverage`                              | coverage 输出和阈值                                                                      |
 | contract / schema check       | `npm run test:contract`、`npm run test:schema-drift` | OpenAPI、JSON Schema、fixtures、shared-contracts、domain events                          |
 | migration static check        | `npm run test:migration`                             | SQL migration 文件、表、索引、RLS、关键约束                                              |
@@ -159,11 +164,11 @@ Storybook / Chromatic / Lighthouse / Sonar / Snyk 相关命令
 
 ```text
 npm ci
-npm run quality
 npm run typecheck
 npm test
 npm run test:contract
 npm run test:e2e:ui
+npm run build
 ```
 
 ## 6. 推荐进入 GitHub Actions / Harness 的门禁
