@@ -257,4 +257,44 @@ describe("M1 contract conformance gate", () => {
       "teacher/admin replay evidence must not grow private runtime-source metadata"
     ).toBe(false);
   });
+
+  it("keeps structured API error envelopes free of student-private truth and replay artifacts", () => {
+    const ajv = new Ajv2020({ allErrors: true });
+    const apiErrorSchema = schema("contracts/schemas/api-error-envelope.v1.json");
+    const validate = ajv.compile(apiErrorSchema);
+    const schemaObject = asJsonObject(apiErrorSchema, "ApiErrorEnvelope schema");
+    const properties = asJsonObject(
+      schemaObject.properties,
+      "ApiErrorEnvelope schema properties"
+    );
+    const detailsSchema = asJsonObject(properties.details, "ApiErrorEnvelope details schema");
+    const detailsItemSchema = asJsonObject(
+      detailsSchema.items,
+      "ApiErrorEnvelope details item schema"
+    );
+    const deniedCases = [
+      {
+        label: "top-level structured truth and replay artifacts",
+        value: fixture(
+          "contracts/fixtures/api-error-envelope-private-top-level-artifacts.invalid.json"
+        )
+      },
+      {
+        label: "details payload with private replay manifest and digests",
+        value: fixture(
+          "contracts/fixtures/api-error-envelope-private-details-payload.invalid.json"
+        )
+      }
+    ];
+
+    expect(schemaObject.additionalProperties).toBe(false);
+    expect(detailsItemSchema.additionalProperties).toBe(false);
+    expect(
+      validate(fixture("contracts/fixtures/api-error-envelope-safe.valid.json")),
+      "safe structured error envelope should remain valid"
+    ).toBe(true);
+    for (const testCase of deniedCases) {
+      expect(validate(testCase.value), testCase.label).toBe(false);
+    }
+  });
 });

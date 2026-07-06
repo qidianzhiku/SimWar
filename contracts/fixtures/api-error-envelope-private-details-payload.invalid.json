@@ -1,0 +1,20 @@
+{
+  "request_id": "req-api-error-private-details-001",
+  "code": "RESULT-403-PRIVATE",
+  "message": "result is not visible",
+  "details": [
+    {
+      "field": "result",
+      "reason": "private_artifact_not_visible",
+      "payload": {
+        "replay_manifest": {
+          "evidence_kind": "m1_json_runtime_replay_evidence",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "decision_batch_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "json_runtime_source_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "canonical_evidence_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    }
+  ]
+}

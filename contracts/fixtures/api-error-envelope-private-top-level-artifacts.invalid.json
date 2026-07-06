@@ -1,0 +1,12 @@
+{
+  "request_id": "req-api-error-private-top-level-001",
+  "code": "RESULT-403-PRIVATE",
+  "message": "result is not visible",
+  "state_true": {
+    "profit": 250000,
+    "settlement_status": "settled"
+  },
+  "replay_evidence": {
+    "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}
