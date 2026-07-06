@@ -1,0 +1,45 @@
+{
+  "request_id": "req-m1-student-result-full-manifest-001",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "run_id": "run-m1-demo",
+    "round_no": 1,
+    "status": "published",
+    "result_label": "M1 Teaching-Official Result under Current JSON Active Runtime",
+    "runtime_boundary": "current_json_active_runtime",
+    "runtime_limitations": ["No durable settlement claim."],
+    "classroom_debrief_prompts": ["Discuss what the team can infer from the trimmed result."],
+    "replay_hash": "replay-hash-demo-001",
+    "replay_manifest": {
+      "schema_version": "run-manifest.v1",
+      "evidence_semantics_version": "m1-json-replay-evidence.v1",
+      "evidence_kind": "m1_json_runtime_replay_evidence",
+      "manifest_id": "manifest_private",
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_result_id": "settlement_result_private",
+      "decision_batch_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "json_runtime_source_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "excluded_from_truth_hash": ["role_drafts", "billing_entitlement"]
+    },
+    "results": [
+      {
+        "team_id": "team-alpha",
+        "team_name": "Alpha Care",
+        "state_obs": {
+          "demand_band": "high",
+          "served_demand": 245,
+          "revenue": 3136000,
+          "profit_band": "healthy",
+          "score": 79,
+          "rank": 1
+        },
+        "state_est": {
+          "next_round_risk": "balanced",
+          "explanation": "Price and service quality stayed aligned with demand.",
+          "recommended_focus": "Hold capacity while protecting cash buffer."
+        }
+      }
+    ]
+  }
+}

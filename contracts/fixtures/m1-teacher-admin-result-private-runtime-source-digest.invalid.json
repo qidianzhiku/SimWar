@@ -1,0 +1,73 @@
+{
+  "request_id": "req-m1-teacher-result-runtime-source-001",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "run_id": "run-m1-demo",
+    "round_no": 1,
+    "status": "published",
+    "result_label": "M1 Teaching-Official Result under Current JSON Active Runtime",
+    "runtime_boundary": "current_json_active_runtime",
+    "runtime_limitations": ["No durable settlement claim.", "No PostgreSQL active runtime claim."],
+    "classroom_debrief_prompts": [
+      "Compare teams by price discipline and service quality allocation.",
+      "Identify which capacity choices caused bottlenecks."
+    ],
+    "replay_hash": "replay-hash-demo-001",
+    "replay_evidence": {
+      "evidence_semantics_version": "m1-json-replay-evidence.v1",
+      "evidence_kind": "m1_json_runtime_replay_evidence",
+      "manifest_id": "manifest_demo_001",
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifest_version": "run-manifest.v1",
+      "source_result_id": "settlement_result_demo_001",
+      "canonical_evidence_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "json_runtime_source_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "replay_status": "matched",
+      "replay_result_hash": "replay-hash-demo-001",
+      "replay_writes_formal_results": false,
+      "frozen_inputs": {
+        "course_id": "course_demo",
+        "run_id": "run-m1-demo",
+        "round_id": "round-m1-demo-1",
+        "round_no": 1,
+        "scenario_package_id": "scenario_eldercare_demo",
+        "parameter_set_id": "param_toy_approved_1",
+        "seed": 20260517,
+        "engine_id": "toy_logit_wellness_v1",
+        "decision_batch_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    "results": [
+      {
+        "team_id": "team-alpha",
+        "team_name": "Alpha Care",
+        "state_true": {
+          "profit": 18200,
+          "demand": 245,
+          "market_share": 0.38,
+          "served_demand": 245,
+          "revenue": 3136000,
+          "cost": 3117800,
+          "cash_flow": 18200,
+          "score": 79,
+          "rank": 1,
+          "settlement_status": "settled"
+        },
+        "state_obs": {
+          "demand_band": "high",
+          "served_demand": 245,
+          "revenue": 3136000,
+          "profit_band": "healthy",
+          "score": 79,
+          "rank": 1
+        },
+        "state_est": {
+          "next_round_risk": "balanced",
+          "explanation": "Price and service quality stayed aligned with demand.",
+          "recommended_focus": "Hold capacity while protecting cash buffer."
+        }
+      }
+    ]
+  }
+}

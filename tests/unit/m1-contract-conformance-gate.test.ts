@@ -190,6 +190,16 @@ describe("M1 contract conformance gate", () => {
         value: fixture("contracts/fixtures/m1-student-result-decision-batch-hash.invalid.json")
       },
       {
+        label: "json_runtime_source_digest fixture on student result data",
+        value: fixture(
+          "contracts/fixtures/m1-student-result-json-runtime-source-digest.invalid.json"
+        )
+      },
+      {
+        label: "full ReplayManifest fixture on student result data",
+        value: fixture("contracts/fixtures/m1-student-result-full-replay-manifest.invalid.json")
+      },
+      {
         label: "json_runtime_source_digest on student result data",
         value: withStudentDataMutation((data) => {
           data.json_runtime_source_digest = "json-runtime-source-digest";
@@ -226,5 +236,25 @@ describe("M1 contract conformance gate", () => {
     for (const testCase of deniedCases) {
       expect(validate(testCase.value), testCase.label).toBe(false);
     }
+  });
+
+  it("keeps teacher and admin replay evidence limited to the approved public surface", () => {
+    const ajv = new Ajv2020({ allErrors: true });
+    const validate = ajv.compile(
+      schema("contracts/schemas/m1-teacher-admin-result-envelope.v1.json")
+    );
+
+    expect(
+      validate(fixture("contracts/fixtures/m1-teacher-admin-result-envelope.valid.json")),
+      "teacher/admin fixture should allow the approved public replay evidence surface"
+    ).toBe(true);
+    expect(
+      validate(
+        fixture(
+          "contracts/fixtures/m1-teacher-admin-result-private-runtime-source-digest.invalid.json"
+        )
+      ),
+      "teacher/admin replay evidence must not grow private runtime-source metadata"
+    ).toBe(false);
   });
 });
