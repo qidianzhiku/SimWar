@@ -25,3 +25,32 @@ export {
   getWellnessParameters
 } from "./wellness-parameters.js";
 export { WELLNESS_PLUGIN_MANIFEST, wellnessPluginV1 } from "./wellness-plugin.js";
+export {
+  createDefaultEldercareModelInput,
+  evaluateEldercareCoreRound,
+  projectEldercareLearnerBrief
+} from "./eldercare-core-model.js";
+export type {
+  EldercareControlledFailure,
+  EldercareDecisionProfile,
+  EldercareEvidenceLabel,
+  EldercareFacilityPlan,
+  EldercareLearnerBrief,
+  EldercareLicenseScope,
+  EldercareModelInput,
+  EldercarePayerMix,
+  EldercarePluginTrace,
+  EldercareRegionId,
+  EldercareRegionProfile,
+  EldercareRoundEvaluation,
+  EldercareRoundMetrics,
+  EldercareSegmentProfile
+} from "./eldercare-core-model.js";
+export {
+  compileBeijingYanjiaoEldercareScenarioAsset,
+  validateEldercareScenarioAsset
+} from "./eldercare-scenario-compiler.js";
+export type {
+  EldercareScenarioAsset,
+  EldercareScenarioRound
+} from "./eldercare-scenario-compiler.js";
