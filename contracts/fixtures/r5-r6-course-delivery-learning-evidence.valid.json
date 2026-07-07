@@ -1,0 +1,62 @@
+{
+  "fixture_id": "r5-r6-course-delivery-learning-evidence",
+  "fixture_version": "course-delivery.synthetic.v1",
+  "metadata": {
+    "g0_status": "EXCEPTION",
+    "g0_pass": "NOT_GRANTED",
+    "l1_status": "NOT_READY",
+    "postgresql_runtime": "NOT_AUTHORIZED",
+    "durable_settlement": "NOT_PROVEN",
+    "direct_store_delta": "NONE",
+    "synthetic_only": true
+  },
+  "course_blueprint": {
+    "blueprint_id": "course-blueprint-r7c-golden-m1-v1",
+    "tenant_id": "tenant_demo",
+    "teacher": "teacher",
+    "course_title": "R5/R6/R7-C synthetic course delivery evidence",
+    "scenario_family": "r7c-beijing-yanjiao-eldercare-family-v1",
+    "scenario_variant": "base_operations",
+    "required_asset_status": ["APPROVED", "FROZEN", "RELEASE_CANDIDATE", "BOUND_TO_RUN"],
+    "team_count": 2,
+    "round_count": 1
+  },
+  "learning_evidence_ledger": {
+    "ledger_kind": "learning_evidence_ledger",
+    "formal_truth_write": false,
+    "excluded_from_truth_hash": true,
+    "student_feedback_shape": ["state_obs", "state_est", "classroom_debrief_prompts"],
+    "teacher_evidence_shape": [
+      "approved replay evidence",
+      "scenario trace",
+      "plugin trace",
+      "shadow arena summary"
+    ],
+    "tenant_admin_scope": "tenant_only"
+  },
+  "forbidden_student_fields": [
+    "state_true",
+    "replay_evidence",
+    "ReplayManifest",
+    "replay_manifest",
+    "manifest_hash",
+    "decision_batch_hash",
+    "json_runtime_source_digest",
+    "canonical_evidence_digest",
+    "private_parameter",
+    "private_plugin_trace",
+    "private_replay",
+    "private_assumption",
+    "tenant_other",
+    "usr_other_teacher"
+  ],
+  "known_limits": [
+    "not G0 PASS",
+    "not L1 READY",
+    "not PostgreSQL runtime proof",
+    "not durable settlement proof",
+    "not real teacher rehearsal",
+    "not Pilot readiness",
+    "not Production readiness"
+  ]
+}
