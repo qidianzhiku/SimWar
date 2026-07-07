@@ -42,6 +42,7 @@ import { createJsonRepositoryProvider, type RepositoryProvider } from "./reposit
 import {
   resolveRuntimeSecurityConfig,
   validateRuntimeSecurityConfig,
+  type RuntimeEnvironment,
   type RuntimeSecurityConfig,
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
@@ -99,6 +100,22 @@ class HttpError extends Error {
 const defaultStore = createP1Store({
   persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
 });
+const sharedRuntimeEnvironments = new Set<RuntimeEnvironment>(["production", "staging"]);
+const seededDemoUserIds = new Set([
+  "usr_platform",
+  "usr_teacher",
+  "usr_student",
+  "usr_admin",
+  "usr_other_teacher"
+]);
+
+function isSharedRuntime(environment: RuntimeEnvironment): boolean {
+  return sharedRuntimeEnvironments.has(environment);
+}
+
+function isSeededDemoUser(user: StoredUser): boolean {
+  return seededDemoUserIds.has(user.user_id);
+}
 
 function createRuntimeRepositoryProvider(
   store: SimWarStore,
@@ -780,8 +797,18 @@ function requireManagedTenant(
   context: RequestContext,
   tenantId?: string
 ): Tenant {
+  const requestedTenantId = tenantId?.trim();
+
+  if (
+    !actorHasAnyRole(actor, ["platform_admin"]) &&
+    requestedTenantId &&
+    requestedTenantId !== context.tenantId
+  ) {
+    throw new HttpError(403, "TENANT-403-001", "tenant boundary violation");
+  }
+
   const targetTenantId = actorHasAnyRole(actor, ["platform_admin"])
-    ? (tenantId ?? context.tenantId)
+    ? (requestedTenantId ?? context.tenantId)
     : context.tenantId;
   const tenant = store.tenants.find(
     (candidate) => candidate.tenant_id === targetTenantId && candidate.status === "active"
@@ -854,6 +881,10 @@ async function routeRequest(
 
     if (!user || !body.password || !verifyPassword(body.password, user.password_hash)) {
       throw new HttpError(401, "AUTH-401-002", "invalid credentials");
+    }
+
+    if (isSharedRuntime(runtime.securityConfig.environment) && isSeededDemoUser(user)) {
+      throw new HttpError(401, "AUTH-401-003", "demo accounts disabled in shared runtime");
     }
 
     const actor = getActorFromUser(store, user);
