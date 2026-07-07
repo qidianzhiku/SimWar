@@ -1,0 +1,71 @@
+{
+  "scenario_id": "l1-shared-golden-m1-scenario",
+  "scenario_version": "postmerge-formal.v1",
+  "metadata": {
+    "g0_status": "EXCEPTION",
+    "g0_pass": "NOT_GRANTED",
+    "l1_status": "NOT_READY",
+    "runtime_boundary": "current_json_active_runtime",
+    "postgresql_runtime": "NOT_AUTHORIZED",
+    "durable_settlement": "NOT_PROVEN",
+    "direct_store_delta": "NONE"
+  },
+  "synthetic_resources": {
+    "tenant": "tenant_demo",
+    "course": "course_demo",
+    "teacher": "teacher",
+    "student": "student",
+    "tenant_admin": "admin",
+    "teams": ["team_alpha", "generated_beta_team"],
+    "round_no": 1
+  },
+  "required_flow": [
+    "create beta learner through admin API",
+    "create beta team through course team API",
+    "create run",
+    "start round",
+    "controlled truth-protected submit failure",
+    "submit one decision per team",
+    "teacher locks round",
+    "teacher runs existing settlement path",
+    "teacher publishes result",
+    "student reads redacted result",
+    "teacher reads authorized evidence",
+    "tenant admin reads tenant-scoped status",
+    "shadow replay evidence is generated without formal result write"
+  ],
+  "forbidden_student_fields": [
+    "state_true",
+    "replay_evidence",
+    "ReplayManifest",
+    "replay_manifest",
+    "manifest_hash",
+    "decision_batch_hash",
+    "json_runtime_source_digest",
+    "canonical_evidence_digest",
+    "Teacher metadata",
+    "Tenant Admin metadata",
+    "private replay metadata",
+    "tenant_other",
+    "usr_other_teacher"
+  ],
+  "expected_evidence": {
+    "student_visibility": "INTEGRATION_TEST_EVIDENCE",
+    "teacher_evidence_boundary": "INTEGRATION_TEST_EVIDENCE",
+    "tenant_admin_scope": "INTEGRATION_TEST_EVIDENCE",
+    "replay_non_overwrite": "INTEGRATION_TEST_EVIDENCE",
+    "contract_private_field_guard": "CONTRACT_BACKED_EVIDENCE",
+    "truth_authority": "SOURCE_ONLY_INFERENCE"
+  },
+  "known_limits": [
+    "not G0 PASS",
+    "not L1 READY",
+    "not PostgreSQL runtime proof",
+    "not durable settlement proof",
+    "not Pilot readiness",
+    "not Production readiness",
+    "not backup or restore proof",
+    "not UI projection proof",
+    "not telemetry proof"
+  ]
+}
