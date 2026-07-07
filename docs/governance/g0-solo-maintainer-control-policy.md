@@ -18,6 +18,14 @@ NOT_AUTHORIZED
 
 本文记录当前 single-maintainer governance control policy。它不是 `G0 PASS` 授权，不是 `L1 READY`，不授权 `Pilot`、`Production`、PostgreSQL runtime、SQL、migration、durable settlement 或 bypass merge。
 
+## Evidence Package Boundary
+
+```text
+INTERNAL_ONLY_DRAFT_NOT_RELEASED
+```
+
+本文可被 synthetic internal application evidence package 引用，但只能作为 G0 solo-maintainer control 的内部草案证据。它不授权 `Pilot`、`Production`，且 PostgreSQL runtime 保持 `NOT_AUTHORIZED`。
+
 ## Policy Statement
 
 The current solo-maintainer policy is not self-approval. It is:
@@ -33,11 +41,11 @@ The current solo-maintainer policy is not self-approval. It is:
 
 ## Required Checks
 
-| Check | Required |
-|---|---|
-| `quality` | yes |
-| `browser-smoke` | yes |
-| `Analyze JavaScript and TypeScript` | yes |
+| Check                               | Required |
+| ----------------------------------- | -------- |
+| `quality`                           | yes      |
+| `browser-smoke`                     | yes      |
+| `Analyze JavaScript and TypeScript` | yes      |
 
 ## Control Layer Rules
 

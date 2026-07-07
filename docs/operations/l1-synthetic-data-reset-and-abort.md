@@ -18,6 +18,14 @@ NOT_AUTHORIZED
 
 本 procedure 只描述 synthetic JSON runtime reset and abort handling。它不授权 `Pilot`、`Production`、PostgreSQL runtime、SQL、migration、durable settlement、backup restore 或 real data cleanup。
 
+## Evidence Package Boundary
+
+```text
+INTERNAL_ONLY_DRAFT_NOT_RELEASED
+```
+
+本 procedure 只能支持 synthetic abort/reset evidence。它不证明 durable recovery、`Pilot`、`Production`，且 PostgreSQL runtime 保持 `NOT_AUTHORIZED`。
+
 ## Synthetic Reset Model
 
 The current integration harness uses `createP1Store()` with an in-memory store. A fresh store instance is the synthetic reset boundary used by `tests/integration/l1-session-abort-reset-recovery.test.ts`.
@@ -48,14 +56,14 @@ This does not prove:
 
 ## Evidence Classification
 
-| Evidence | Classification |
-|---|---|
+| Evidence                         | Classification              |
+| -------------------------------- | --------------------------- |
 | `TRUTH-403-001` controlled abort | `INTEGRATION_TEST_EVIDENCE` |
-| request id preservation | `INTEGRATION_TEST_EVIDENCE` |
-| no protected sentinel echo | `INTEGRATION_TEST_EVIDENCE` |
-| fresh in-memory reset | `INTEGRATION_TEST_EVIDENCE` |
-| backup restore | `NOT_IMPLEMENTED` |
-| durable recovery | `NOT_IMPLEMENTED` |
+| request id preservation          | `INTEGRATION_TEST_EVIDENCE` |
+| no protected sentinel echo       | `INTEGRATION_TEST_EVIDENCE` |
+| fresh in-memory reset            | `INTEGRATION_TEST_EVIDENCE` |
+| backup restore                   | `NOT_IMPLEMENTED`           |
+| durable recovery                 | `NOT_IMPLEMENTED`           |
 
 ## Non-Proofs
 

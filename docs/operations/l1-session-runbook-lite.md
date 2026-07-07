@@ -18,16 +18,24 @@ NOT_AUTHORIZED
 
 本 runbook 只覆盖 JSON runtime 下的 synthetic internal application validation。它不授权 `Pilot`、`Production`、PostgreSQL runtime、SQL、migration、durable settlement 或真实教师试跑。
 
+## Evidence Package Boundary
+
+```text
+INTERNAL_ONLY_DRAFT_NOT_RELEASED
+```
+
+本 runbook 是 internal-only draft。它支持 synthetic application evidence collection，不授权 `Pilot`、`Production`，也不改变 PostgreSQL runtime `NOT_AUTHORIZED` 边界。
+
 ## Preflight
 
-| Check | Required state |
-|---|---|
-| data | synthetic or cleanable only |
-| runtime | JSON runtime only |
-| PostgreSQL runtime | `NOT_AUTHORIZED` |
-| issues | #111 / #114 / #115 remain open unless separately disposed |
-| branch | no protected main workspace use |
-| scope | no runtime, service, route, schema, OpenAPI, database or lockfile change |
+| Check              | Required state                                                           |
+| ------------------ | ------------------------------------------------------------------------ |
+| data               | synthetic or cleanable only                                              |
+| runtime            | JSON runtime only                                                        |
+| PostgreSQL runtime | `NOT_AUTHORIZED`                                                         |
+| issues             | #111 / #114 / #115 remain open unless separately disposed                |
+| branch             | no protected main workspace use                                          |
+| scope              | no runtime, service, route, schema, OpenAPI, database or lockfile change |
 
 ## Happy Path
 
