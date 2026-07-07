@@ -1,0 +1,68 @@
+{
+  "asset_id": "r7b-beijing-yanjiao-eldercare-scenario-lifecycle-v1",
+  "compiler_version": "r7b.eldercare.lifecycle-compiler.v1",
+  "template_version": "r7b.beijing-yanjiao.mother-scenario.v1",
+  "seed": 7070714,
+  "scenario_package_id": "scenario_r7b_beijing_yanjiao_eldercare_lifecycle_v1",
+  "parameter_set_id": "parameter_r7b_eldercare_lifecycle_v1",
+  "plugin_package_ids": ["plugin_wellness_eldercare_v1"],
+  "synthetic_data_classification": [
+    "SYNTHETIC_TEACHING_SCENARIO",
+    "UN_CALIBRATED",
+    "NOT_FOR_REAL_OPERATING_DECISION",
+    "NOT_FOR_PUBLIC_POLICY_DECISION",
+    "NOT_FOR_INVESTMENT_DECISION"
+  ],
+  "lifecycle": {
+    "status_sequence": ["DRAFT", "COMPILED", "VALIDATED", "APPROVED", "FROZEN", "BOUND_TO_RUN"],
+    "approval_authority": "teacher",
+    "freeze_mutation_allowed": false,
+    "run_binding_mutation_allowed": false,
+    "direct_store_delta": "NONE"
+  },
+  "rounds": [
+    {
+      "round_no": 1,
+      "objective": "Market entry, positioning, and care offer selection.",
+      "shock_id": "shock_round_1_market_entry_signal"
+    },
+    {
+      "round_no": 2,
+      "objective": "Price, service quality, bed capacity, staffing, and operations configuration.",
+      "shock_id": "shock_round_2_staffing_capacity_signal"
+    },
+    {
+      "round_no": 3,
+      "objective": "Long-term care insurance, medical-payment bridge, subsidy, and payer-policy change.",
+      "shock_id": "shock_round_3_payer_policy_change"
+    },
+    {
+      "round_no": 4,
+      "objective": "Transportation access, visitation convenience, regional migration, and channel friction change.",
+      "shock_id": "shock_round_4_regional_migration_friction"
+    },
+    {
+      "round_no": 5,
+      "objective": "Competitive entry, labor cost pressure, financing cost pressure, and operating stress.",
+      "shock_id": "shock_round_5_competition_labor_finance_pressure"
+    },
+    {
+      "round_no": 6,
+      "objective": "Public health, regulation, service quality crisis, incident risk, and replay review.",
+      "shock_id": "shock_round_6_public_health_quality_event"
+    }
+  ],
+  "visibility": {
+    "teacher": "authorized scenario diff, validation report, replay evidence summary",
+    "student": "redacted state_obs/state_est only",
+    "tenant_admin": "tenant-scoped scenario status only"
+  },
+  "non_proofs": [
+    "G0_PASS",
+    "L1_READY",
+    "Pilot",
+    "Production",
+    "PostgreSQL runtime",
+    "durable settlement"
+  ]
+}
