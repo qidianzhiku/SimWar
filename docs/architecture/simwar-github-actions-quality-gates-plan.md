@@ -1,6 +1,6 @@
 # SimWar GitHub Actions 质量门禁改造计划
 
-更新时间：2026-05-27
+更新时间：2026-07-06
 
 适用范围：SimWar GitHub Actions、Dependabot、CodeQL、Playwright、Knip、package scripts、数据库迁移门禁、Replay / settlement / plugin boundary 质量门禁，以及后续 Harness release gates。
 
@@ -21,6 +21,8 @@ npm run test:contract
 npm run build
 ```
 
+其中 `npm test` 当前会先执行 `npm run build:test-prerequisites`，构建 shared-contracts 与 `@simwar/simulation-core` 的真实 package artifact，然后再执行 `vitest run`。因此当前 CI 不需要新增 workflow step 也能恢复 clean clone 下 integration baseline 的 package entry resolution。
+
 当前本地 `package.json` 还提供 `npm run format:check` 和 `npm run security:audit`，但这两个命令没有进入当前 CI workflow。
 
 Knip 和 Playwright 已有配置文件，但尚未形成可运行门禁：`knip` 和 `@playwright/test` 依赖不存在，相关 package scripts 不存在，CI job 不存在，Playwright E2E 测试目录也尚未在当前主线形成正式 gate。
@@ -37,10 +39,10 @@ Knip 和 Playwright 已有配置文件，但尚未形成可运行门禁：`knip`
 | `npm run check:hidden-unicode` | `.github/workflows/ci.yml`     | 扫描 tracked source/config/document files 中的 bidi、零宽字符和 BOM        | 无                                           | CI 执行        |
 | `npm run lint`                 | `.github/workflows/ci.yml`     | ESLint 全仓静态检查                                                        | 无                                           | CI 执行        |
 | `npm run typecheck`            | `.github/workflows/ci.yml`     | TypeScript project references 检查                                         | 无                                           | CI 执行        |
-| `npm test`                     | `.github/workflows/ci.yml`     | Vitest unit / integration / characterization 测试                          | 无                                           | CI 执行        |
+| `npm test`                     | `.github/workflows/ci.yml`     | 先构建 test prerequisites，再运行 Vitest unit / integration / characterization 测试 | 无                                           | CI 执行        |
 | `npm run test:postgres-replay` | `.github/workflows/ci.yml`     | Disposable PostgreSQL 16 replay / migration / adapter verification harness | Postgres service、`SIMWAR_TEST_DATABASE_URL` | CI 执行        |
 | `npm run test:contract`        | `.github/workflows/ci.yml`     | contract baseline、OpenAPI 路径、schema、fixtures、shared types 存在性检查 | 无                                           | CI 执行        |
-| `npm run build`                | `.github/workflows/ci.yml`     | 构建 shared-contracts、API、admin、teacher、student                        | 无                                           | CI 执行        |
+| `npm run build`                | `.github/workflows/ci.yml`     | 构建 shared-contracts、simulation-core、API、admin、teacher、student       | 无                                           | CI 执行        |
 | CodeQL pull request scan       | `.github/workflows/codeql.yml` | JS/TS CodeQL security-extended 与 security-and-quality scan                | GitHub CodeQL                                | PR 执行        |
 
 ### 2.2 Implemented locally but not enforced in CI
@@ -117,6 +119,8 @@ npm run test:contract
 npm run build
 ```
 
+`npm test` 是当前 CI 的稳定入口；它内部包含 `npm run build:test-prerequisites`。该做法保持 `@simwar/simulation-core` 的 `main` / `types` 指向 `dist/` 的 package contract，不使用 Vitest source alias、TypeScript paths fallback 或 workflow-only workaround。
+
 ### 5.2 当前本地可运行但未进入 CI
 
 ```text
@@ -152,6 +156,7 @@ playwright.config.ts
 当前 CI 已经覆盖基础门禁，但仍有以下不完整点：
 
 - `test:contract` 是 baseline / presence check，不能等同于完整 JSON Schema validation。
+- `npm test` 当前已恢复 package build precondition，但不等同于完整 L1 readiness gate。
 - 当前没有 Spectral OpenAPI lint。
 - 当前没有 dedicated schema drift script。
 - 当前没有 dedicated migration static script；真实 DB 验证集中在 `test:postgres-replay`。

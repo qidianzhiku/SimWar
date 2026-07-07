@@ -4,6 +4,8 @@ Sources: `package.json`, workspace package files, `.github/workflows/ci.yml`, `.
 
 This matrix records currently discoverable commands and CI checks. It does not execute them and does not create new gates.
 
+`npm test` currently runs `npm run build:test-prerequisites` before `vitest run`, so clean-clone Vitest integration tests consume `@simwar/simulation-core` through its built package contract instead of a test-only source alias.
+
 ## Availability Values
 
 | Value | Meaning |
@@ -20,8 +22,8 @@ This matrix records currently discoverable commands and CI checks. It does not e
 
 | Domain | Trigger condition | Local required commands | CI required checks | Optional commands or checks | Source path | Availability | Not-available handling | Evidence artifact candidate | Risk tier |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Auth / Tenant / Membership | Auth, session, tenant, role, membership, or decision authorization changes. | `npm run lint`; `npm run typecheck`; `npm test` | `quality`; `Analyze JavaScript and TypeScript` | `npm run test:e2e:ui` when browser-visible authorization is touched. | `package.json`; `.github/workflows/ci.yml`; `.github/workflows/codeql.yml`; `vitest.config.ts`; `playwright.config.ts` | BOTH_AVAILABLE | If no focused test exists, task must add or cite a focused Vitest/integration seam before claiming coverage. | lint, typecheck, Vitest, CodeQL/quality check logs | RISK_TIER_0 |
-| Team / Course / Run | Course, Team, Run, Round, or lifecycle route/model changes. | `npm run lint`; `npm run typecheck`; `npm test`; `npm run build` | `quality` | `npm run test:e2e:ui` for browser-visible workflow changes. | `package.json`; workspace package files; `.github/workflows/ci.yml` | BOTH_AVAILABLE | Missing domain-specific command must be recorded; use focused tests plus aggregate commands. | Vitest/build/quality logs | RISK_TIER_1 |
+| Auth / Tenant / Membership | Auth, session, tenant, role, membership, or decision authorization changes. | `npm run lint`; `npm run typecheck`; `npm test` | `quality`; `Analyze JavaScript and TypeScript` | `npm run test:e2e:ui` when browser-visible authorization is touched. | `package.json`; `.github/workflows/ci.yml`; `.github/workflows/codeql.yml`; `vitest.config.ts`; `playwright.config.ts` | BOTH_AVAILABLE | If no focused test exists, task must add or cite a focused Vitest/integration seam before claiming coverage. | lint, typecheck, build:test-prerequisites, Vitest, CodeQL/quality check logs | RISK_TIER_0 |
+| Team / Course / Run | Course, Team, Run, Round, or lifecycle route/model changes. | `npm run lint`; `npm run typecheck`; `npm test`; `npm run build` | `quality` | `npm run test:e2e:ui` for browser-visible workflow changes. | `package.json`; workspace package files; `.github/workflows/ci.yml` | BOTH_AVAILABLE | Missing domain-specific command must be recorded; use focused tests plus aggregate commands. | build:test-prerequisites, Vitest/build/quality logs | RISK_TIER_1 |
 | ParameterSet / Replay Manifest | ParameterSet, replay manifest, truth hash, engine input, or Run binding changes. | `npm test`; `npm run test:contract`; `npm run test:postgres-replay` when replay/Postgres mapping is touched. | `quality` | Future `npm run test:replay` is not available. | `package.json`; `scripts/postgres-replay-verification.test.ts`; `contracts/`; `docs/quality/replay-shadow-replay-test-plan.md` | PARTIAL | Dedicated replay command is `COMMAND_NOT_AVAILABLE`; do not claim full replay gate from generic tests. | Vitest, contract, postgres replay reports | RISK_TIER_0 |
 | ScenarioPackage / Plugin Reference | Scenario metadata, plugin reference, plugin compatibility, or package lifecycle changes. | `npm test`; `npm run test:contract`; `npm run build` | `quality` | Future `npm run test:plugin-boundary` is not available. | `contracts/`; `packages/shared-contracts/`; `docs/architecture/industry-plugin-model-report.md`; `package.json` | PARTIAL | Add focused tests or document evidence limits; do not claim plugin runtime proof. | Contract, Vitest, build logs | RISK_TIER_1 |
 | Settlement | Settlement route, outcome, audit, replay hash, idempotency, result shape, or response header changes. | `npm run check:direct-store-boundaries`; `npm run lint`; `npm run typecheck`; `npm test`; `npm run test:contract`; `npm run test:postgres-replay` | `quality` | No transaction, row-lock, cross-process, or crash-recovery command exists. | `package.json`; `.github/workflows/ci.yml`; `tests/integration/settlement-write-replay-hash-characterization.test.ts` | PARTIAL | Missing durable gates block durable claims. Keep `DO_NOT_START_POSTGRES_OR_CROSS_PROCESS_IMPLEMENTATION` active. | Direct-store, Vitest, contract, postgres replay logs | RISK_TIER_0 |
@@ -36,6 +38,7 @@ This matrix records currently discoverable commands and CI checks. It does not e
 - `npm run lint`
 - `npm run security:audit`
 - `npm run typecheck`
+- `npm run build:test-prerequisites`
 - `npm test`
 - `npm run test:contract`
 - `npm run test:postgres-replay`
