@@ -80,7 +80,10 @@ function classifyPath(file) {
     return "test-only";
   }
 
-  if (normalized.startsWith("scripts/") && normalized !== "scripts/check-direct-store-boundaries.mjs") {
+  if (
+    normalized.startsWith("scripts/") &&
+    normalized !== "scripts/check-direct-store-boundaries.mjs"
+  ) {
     return "script-only";
   }
 
@@ -290,9 +293,13 @@ function fingerprintBase(entry) {
 }
 
 function fingerprint(entry) {
-  return [entry.file, entry.symbol, entry.expression, entry.accessKind, String(entry.occurrence)].join(
-    "|"
-  );
+  return [
+    entry.file,
+    entry.symbol,
+    entry.expression,
+    entry.accessKind,
+    String(entry.occurrence)
+  ].join("|");
 }
 
 function loadManifest(path) {
@@ -324,8 +331,9 @@ function validateManifest(entries) {
     fingerprints.add(entryFingerprint);
 
     const hasWildcard =
-      [entry.file, entry.symbol, entry.expression].some((value) => String(value ?? "").includes("*")) ||
-      String(entry.file ?? "").endsWith("/");
+      [entry.file, entry.symbol, entry.expression].some((value) =>
+        String(value ?? "").includes("*")
+      ) || String(entry.file ?? "").endsWith("/");
     if (hasWildcard) {
       broadExceptions.push(entry);
     }
@@ -365,7 +373,8 @@ export function analyze({ root, manifestPath, files }) {
   }
 
   const staleApprovedExceptions = approvedExceptions.filter(
-    (entry) => entry.runtimeClass === "active runtime" && !detectedByFingerprint.has(fingerprint(entry))
+    (entry) =>
+      entry.runtimeClass === "active runtime" && !detectedByFingerprint.has(fingerprint(entry))
   );
 
   return {
@@ -399,8 +408,12 @@ function printSection(label, entries, suggestion) {
   }
 
   console.log(label);
-  for (const entry of entries.toSorted((left, right) => fingerprint(left).localeCompare(fingerprint(right)))) {
-    console.log(`- ${label} ${formatCallSite(entry)}${suggestion ? ` suggestion=${suggestion}` : ""}`);
+  for (const entry of entries.toSorted((left, right) =>
+    fingerprint(left).localeCompare(fingerprint(right))
+  )) {
+    console.log(
+      `- ${label} ${formatCallSite(entry)}${suggestion ? ` suggestion=${suggestion}` : ""}`
+    );
   }
 }
 

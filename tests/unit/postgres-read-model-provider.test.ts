@@ -128,15 +128,19 @@ describe("Postgres settlement read-model provider assembly", () => {
     expect(Object.prototype.hasOwnProperty.call(provider.facade.decisions, "saveDecision")).toBe(
       false
     );
-    expect(Object.prototype.hasOwnProperty.call(provider.facade.settlements, "saveSettlementResult"))
-      .toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(provider.facade.settlements, "saveSettlementResult")
+    ).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(provider.facade, "commitSettlementOutcome")).toBe(
       false
     );
   });
 
   it("does not make Postgres read-model assembly reachable from the active API bootstrap", () => {
-    const serverSource = readFileSync(resolve(__dirname, "../../services/api/src/server.ts"), "utf8");
+    const serverSource = readFileSync(
+      resolve(__dirname, "../../services/api/src/server.ts"),
+      "utf8"
+    );
 
     expect(serverSource).toContain("createJsonRepositoryProvider({ store })");
     expect(serverSource).not.toContain("createPostgresSettlementReadModelProvider");

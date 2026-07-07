@@ -19,19 +19,19 @@ This file is a future evaluation template and evidence entry point for #114. It 
 
 ## Status Values
 
-| Status | Meaning |
-| --- | --- |
-| NOT_REVIEWED | Route or domain has not been reviewed for this matrix. |
-| COMPLIANT | No direct-store access remains in the reviewed active runtime path. |
+| Status             | Meaning                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| NOT_REVIEWED       | Route or domain has not been reviewed for this matrix.                                         |
+| COMPLIANT          | No direct-store access remains in the reviewed active runtime path.                            |
 | APPROVED_EXCEPTION | Direct-store access remains but is explicitly approved with owner, reason, and exit condition. |
-| NEEDS_REFACTOR | Direct-store access remains and must move behind facade or ports. |
-| NOT_APPLICABLE | Domain is not active runtime, not tenant-scoped, or not storage-backed. |
+| NEEDS_REFACTOR     | Direct-store access remains and must move behind facade or ports.                              |
+| NOT_APPLICABLE     | Domain is not active runtime, not tenant-scoped, or not storage-backed.                        |
 
 ## Future Matrix
 
-| domain_or_route | active_route | direct_store_access | allowed_location | required_facade_or_port | test_evidence | exception_owner | exception_reason | exit_condition | status |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| _template_ | _route or use case_ | _expression or none_ | _file/path or none_ | _facade/port_ | _test/CI evidence_ | _owner_ | _reason_ | _exit condition_ | NOT_REVIEWED |
+| domain_or_route | active_route        | direct_store_access  | allowed_location    | required_facade_or_port | test_evidence      | exception_owner | exception_reason | exit_condition   | status       |
+| --------------- | ------------------- | -------------------- | ------------------- | ----------------------- | ------------------ | --------------- | ---------------- | ---------------- | ------------ |
+| _template_      | _route or use case_ | _expression or none_ | _file/path or none_ | _facade/port_           | _test/CI evidence_ | _owner_         | _reason_         | _exit condition_ | NOT_REVIEWED |
 
 ## Closeout Gate
 

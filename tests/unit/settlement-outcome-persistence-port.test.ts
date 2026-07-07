@@ -130,14 +130,8 @@ describe("settlement outcome persistence port contract", () => {
 
     const variants = [committed, reused, conflict];
 
-    expect(variants.map((variant) => variant.status)).toEqual([
-      "committed",
-      "reused",
-      "conflict"
-    ]);
+    expect(variants.map((variant) => variant.status)).toEqual(["committed", "reused", "conflict"]);
     expect(conflict.reason).toBe("replay_hash_mismatch");
-    expect(variants).not.toContainEqual(
-      expect.objectContaining({ status: "in_progress" })
-    );
+    expect(variants).not.toContainEqual(expect.objectContaining({ status: "in_progress" }));
   });
 });

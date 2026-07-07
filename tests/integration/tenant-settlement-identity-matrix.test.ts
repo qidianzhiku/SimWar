@@ -366,7 +366,8 @@ describe("tenant settlement identity matrix", () => {
       expect(store.settlementResults).toHaveLength(2);
       expect(
         store.auditLogs.filter(
-          (log) => log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+          (log) =>
+            log.action === "round.settle_requested" && log.resource_type === "settlement_result"
         )
       ).toHaveLength(auditCountBeforeRetry);
     } finally {
@@ -467,7 +468,8 @@ describe("tenant settlement identity matrix", () => {
       expect(store.settlementResults).toHaveLength(0);
       expect(
         store.auditLogs.some(
-          (log) => log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+          (log) =>
+            log.action === "round.settle_requested" && log.resource_type === "settlement_result"
         )
       ).toBe(false);
     } finally {

@@ -42,13 +42,13 @@ The answer must preserve three boundaries:
 
 This annex uses these labels to prevent mixing evidence and proposal:
 
-| Label | Meaning |
-| --- | --- |
-| CURRENT_SOURCE_FACT | Current repository behavior or current route-level evidence. |
-| ACCEPTED_PRINCIPLE | Accepted by `ADR-DATA-005`, `HUMAN_DECISION_ADR-DATA-005`, or `HUMAN_DECISION_ADR-DATA-005A`. |
-| PROPOSED_DOMAIN_DESIGN | Recommended but not accepted Team / TeamMember policy. |
-| UNRESOLVED_FOLLOW_UP | Design detail that still needs a later task or human decision. |
-| FUTURE_EVIDENCE_REQUIREMENT | Tests, contracts, or implementation proof required before relying on the design. |
+| Label                       | Meaning                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| CURRENT_SOURCE_FACT         | Current repository behavior or current route-level evidence.                                  |
+| ACCEPTED_PRINCIPLE          | Accepted by `ADR-DATA-005`, `HUMAN_DECISION_ADR-DATA-005`, or `HUMAN_DECISION_ADR-DATA-005A`. |
+| PROPOSED_DOMAIN_DESIGN      | Recommended but not accepted Team / TeamMember policy.                                        |
+| UNRESOLVED_FOLLOW_UP        | Design detail that still needs a later task or human decision.                                |
+| FUTURE_EVIDENCE_REQUIREMENT | Tests, contracts, or implementation proof required before relying on the design.              |
 
 ## 3. CURRENT_SOURCE_FACT
 
@@ -176,15 +176,15 @@ membership lifecycle should be explicit and audit-relevant.
 
 Recommended membership states:
 
-| State | Meaning | Decision submit | Result visibility |
-| --- | --- | --- | --- |
-| invited | User was invited but has not joined. | No. | No learner team projection unless separately allowed by teacher/admin policy. |
-| active | User is an active team member. | Yes, if Run/Round eligibility also permits. | Yes, for own-team learner projection. |
-| suspended | Membership temporarily disabled. | No. | No learner projection for future views unless historical Run reference says otherwise. |
-| exited | User voluntarily left the Team. | No for future rounds. | Historical visibility depends on Run membership reference. |
-| removed | Teacher/admin removed the user. | No for future rounds. | Historical visibility depends on Run membership reference. |
-| transferred | User moved to a different Team. | Only for the new Team after effective time and Run eligibility. | Historical visibility remains tied to each Run reference. |
-| disabled | User account or membership disabled by governance action. | No. | No current learner projection; historical audit remains preserved. |
+| State       | Meaning                                                   | Decision submit                                                 | Result visibility                                                                      |
+| ----------- | --------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| invited     | User was invited but has not joined.                      | No.                                                             | No learner team projection unless separately allowed by teacher/admin policy.          |
+| active      | User is an active team member.                            | Yes, if Run/Round eligibility also permits.                     | Yes, for own-team learner projection.                                                  |
+| suspended   | Membership temporarily disabled.                          | No.                                                             | No learner projection for future views unless historical Run reference says otherwise. |
+| exited      | User voluntarily left the Team.                           | No for future rounds.                                           | Historical visibility depends on Run membership reference.                             |
+| removed     | Teacher/admin removed the user.                           | No for future rounds.                                           | Historical visibility depends on Run membership reference.                             |
+| transferred | User moved to a different Team.                           | Only for the new Team after effective time and Run eligibility. | Historical visibility remains tied to each Run reference.                              |
+| disabled    | User account or membership disabled by governance action. | No.                                                             | No current learner projection; historical audit remains preserved.                     |
 
 Recommended lifecycle invariants:
 
@@ -397,17 +397,17 @@ Summary:
 
 Evaluation:
 
-| Dimension | Assessment |
-| --- | --- |
-| Tenant isolation | Strong if snapshot is tenant-scoped. |
-| Submission eligibility | Clear at Run start; less flexible for mid-Run joins. |
-| Auditability | Strong; historical roster is stable. |
-| Replay consistency | Strong; replay does not depend on later membership edits. |
-| Result visibility | Clear for participants at Run start; needs policy for replacements. |
-| Current JSON compatibility | Compatible as a future reference layer; current JSON does not yet capture it. |
-| Future PostgreSQL compatibility | Strong target durable authority fit. |
-| Implementation and governance risk | Moderate; requires snapshot capture timing and exceptions. |
-| Rejected / deferred reasons | Not rejected; may be too rigid for live course operations without replacement policy. |
+| Dimension                          | Assessment                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------- |
+| Tenant isolation                   | Strong if snapshot is tenant-scoped.                                                  |
+| Submission eligibility             | Clear at Run start; less flexible for mid-Run joins.                                  |
+| Auditability                       | Strong; historical roster is stable.                                                  |
+| Replay consistency                 | Strong; replay does not depend on later membership edits.                             |
+| Result visibility                  | Clear for participants at Run start; needs policy for replacements.                   |
+| Current JSON compatibility         | Compatible as a future reference layer; current JSON does not yet capture it.         |
+| Future PostgreSQL compatibility    | Strong target durable authority fit.                                                  |
+| Implementation and governance risk | Moderate; requires snapshot capture timing and exceptions.                            |
+| Rejected / deferred reasons        | Not rejected; may be too rigid for live course operations without replacement policy. |
 
 ### Option B: Live membership interpretation for active and historical Run
 
@@ -418,17 +418,17 @@ Summary:
 
 Evaluation:
 
-| Dimension | Assessment |
-| --- | --- |
-| Tenant isolation | Can be enforced, but live changes increase accidental exposure risk. |
-| Submission eligibility | Simple for current actions. |
-| Auditability | Weak; old events can be reinterpreted by later edits. |
-| Replay consistency | Weak; replay context changes when membership changes. |
-| Result visibility | Risky; transfers/removals can expose or hide old results unexpectedly. |
-| Current JSON compatibility | Closest to current `actor.team_id` shortcut. |
-| Future PostgreSQL compatibility | Poor for governance history unless versioning is added later. |
-| Implementation and governance risk | High; likely creates historical ambiguity. |
-| Rejected / deferred reasons | Rejected as final policy because it can rewrite historical interpretation. |
+| Dimension                          | Assessment                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------- |
+| Tenant isolation                   | Can be enforced, but live changes increase accidental exposure risk.       |
+| Submission eligibility             | Simple for current actions.                                                |
+| Auditability                       | Weak; old events can be reinterpreted by later edits.                      |
+| Replay consistency                 | Weak; replay context changes when membership changes.                      |
+| Result visibility                  | Risky; transfers/removals can expose or hide old results unexpectedly.     |
+| Current JSON compatibility         | Closest to current `actor.team_id` shortcut.                               |
+| Future PostgreSQL compatibility    | Poor for governance history unless versioning is added later.              |
+| Implementation and governance risk | High; likely creates historical ambiguity.                                 |
+| Rejected / deferred reasons        | Rejected as final policy because it can rewrite historical interpretation. |
 
 ### Option C: Hybrid model: live membership for current authorization plus immutable Run membership reference for historical interpretation
 
@@ -443,17 +443,17 @@ Summary:
 
 Evaluation:
 
-| Dimension | Assessment |
-| --- | --- |
-| Tenant isolation | Strong when both live membership and Run reference are tenant-scoped. |
-| Submission eligibility | Flexible for current operations while preserving Run-specific history. |
-| Auditability | Strong; official history does not drift after membership changes. |
-| Replay consistency | Strong; replay can cite the Run membership reference. |
-| Result visibility | Supports current policy and historical policy separately. |
-| Current JSON compatibility | Compatible with current `actor.team_id` as temporary active-route shortcut. |
-| Future PostgreSQL compatibility | Strong; maps to target durable governance authority without requiring immediate runtime activation. |
-| Implementation and governance risk | Moderate; requires precise contract and evidence tests, but avoids Option B ambiguity. |
-| Rejected / deferred reasons | Recommended, not accepted. Exact capture timing remains deferred. |
+| Dimension                          | Assessment                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Tenant isolation                   | Strong when both live membership and Run reference are tenant-scoped.                               |
+| Submission eligibility             | Flexible for current operations while preserving Run-specific history.                              |
+| Auditability                       | Strong; official history does not drift after membership changes.                                   |
+| Replay consistency                 | Strong; replay can cite the Run membership reference.                                               |
+| Result visibility                  | Supports current policy and historical policy separately.                                           |
+| Current JSON compatibility         | Compatible with current `actor.team_id` as temporary active-route shortcut.                         |
+| Future PostgreSQL compatibility    | Strong; maps to target durable governance authority without requiring immediate runtime activation. |
+| Implementation and governance risk | Moderate; requires precise contract and evidence tests, but avoids Option B ambiguity.              |
+| Rejected / deferred reasons        | Recommended, not accepted. Exact capture timing remains deferred.                                   |
 
 ## 7. Accepted Option
 

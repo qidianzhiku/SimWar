@@ -403,10 +403,7 @@ export function createJsonRepositoryPorts(
     },
 
     scenarios: {
-      async getScenarioPackage(
-        tenantId,
-        scenarioPackageId
-      ): Promise<ScenarioPackage | null> {
+      async getScenarioPackage(tenantId, scenarioPackageId): Promise<ScenarioPackage | null> {
         return (
           store.scenarios.find(
             (candidate) =>

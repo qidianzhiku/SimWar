@@ -187,14 +187,10 @@ describe("L1 session abort, reset, and recovery boundary guard", () => {
       );
       expect(decision.team_id).toBe("team_alpha");
 
-      const lock = await request<Round>(
-        first.baseUrl,
-        `/api/v1/runs/${run.run_id}/rounds/1/lock`,
-        {
-          method: "POST",
-          token: teacherToken
-        }
-      );
+      const lock = await request<Round>(first.baseUrl, `/api/v1/runs/${run.run_id}/rounds/1/lock`, {
+        method: "POST",
+        token: teacherToken
+      });
       expect(lock.status).toBe(200);
       expect(lock.body.data.status).toBe("locked");
 

@@ -59,7 +59,9 @@ test("keeps the student internal-validation browser surface redacted", async ({ 
   }
 });
 
-test("keeps the tenant admin internal-validation browser surface tenant scoped", async ({ page }) => {
+test("keeps the tenant admin internal-validation browser surface tenant scoped", async ({
+  page
+}) => {
   await page.goto(adminBaseUrl);
   await signInAdminPage(page);
 

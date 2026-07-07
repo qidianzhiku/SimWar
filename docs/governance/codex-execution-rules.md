@@ -6,27 +6,27 @@ This document is the reusable execution control plane for Codex tasks. It does n
 
 ## Authority Terms
 
-| Term | Meaning | Current SimWar baseline |
-| --- | --- | --- |
-| Current Active Authority | The source that current active routes actually read from or write to today. | JSON runtime remains the active default runtime unless a task proves otherwise. |
-| Target Durable Authority | The accepted long-term authority for durable operational control-plane and governance assets. | ADR-DATA-005 accepts PostgreSQL as target durable authority for Team, TeamMember, ParameterSet, and ScenarioPackage metadata. |
-| Transition Authority | A temporary, explicitly bounded authority during migration or compatibility work. | Must be documented in a Human Decision Artifact before implementation work depends on it. |
-| Projection | A read, reporting, search, analytics, or compatibility view that is not authoritative for writes. | PostgreSQL surfaces can be projection-only until explicitly accepted as authority. |
-| Fixture / Seed | Demo, test, import/export, or controlled compatibility data. | JSON may continue as fixture, seed, demo, import/export, or compatibility data under ADR-DATA-005. |
+| Term                     | Meaning                                                                                           | Current SimWar baseline                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Current Active Authority | The source that current active routes actually read from or write to today.                       | JSON runtime remains the active default runtime unless a task proves otherwise.                                               |
+| Target Durable Authority | The accepted long-term authority for durable operational control-plane and governance assets.     | ADR-DATA-005 accepts PostgreSQL as target durable authority for Team, TeamMember, ParameterSet, and ScenarioPackage metadata. |
+| Transition Authority     | A temporary, explicitly bounded authority during migration or compatibility work.                 | Must be documented in a Human Decision Artifact before implementation work depends on it.                                     |
+| Projection               | A read, reporting, search, analytics, or compatibility view that is not authoritative for writes. | PostgreSQL surfaces can be projection-only until explicitly accepted as authority.                                            |
+| Fixture / Seed           | Demo, test, import/export, or controlled compatibility data.                                      | JSON may continue as fixture, seed, demo, import/export, or compatibility data under ADR-DATA-005.                            |
 
 ## Anchor Table
 
 `status` and `risk_tier` are separate fields. A stable high-risk anchor can have `status: confirmed`; a low-risk anchor can still be `status: conflict`.
 
-| ID | Conclusion | Status values | Risk tier | Update condition |
-| --- | --- | --- | --- | --- |
-| ANCHOR-001 | `D:\codex\SimWar` main worktree is protected and not a development surface. | confirmed / evidence_limited / conflict | RISK_TIER_0 | Any task wants to modify, clean, reset, stash, or develop in main. |
-| ANCHOR-003 | JSON is the current active default runtime. | confirmed / changed / not_verified | RISK_TIER_1 | Runtime provider selection, server bootstrap, or active route wiring changes. |
-| ANCHOR-004 | PostgreSQL is not the default active runtime. | confirmed / changed / not_verified | RISK_TIER_1 | Any task adds `DATABASE_URL`, provider-kind activation, server selection, or request/runtime switching. |
-| ANCHOR-005 | Core Simulation Engine L1-L3 is the sole formal simulation truth writer. | in_scope / not_in_scope / conflict | RISK_TIER_0 | Settlement, score, rank, result, replay hash, or truth-field changes. |
-| ANCHOR-006 | AI remains advisory_only and cannot write formal truth. | in_scope / not_in_scope / conflict | RISK_TIER_0 | Any task touches AI output, model policy, prompt, RAG, tool policy, settlement, score, or rank. |
-| ANCHOR-008 | #111 remains open and durable settlement is unproven. | confirmed / not_verified / conflict | RISK_TIER_0 | Settlement durability, transaction, lock, crash recovery, cross-process, or issue-state changes. |
-| ANCHOR-009 | #114 and #115 remain open. | confirmed / not_verified / conflict | RISK_TIER_1 | Direct-store closeout, contract parity closeout, or issue-state changes. |
+| ID         | Conclusion                                                                  | Status values                           | Risk tier   | Update condition                                                                                        |
+| ---------- | --------------------------------------------------------------------------- | --------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| ANCHOR-001 | `D:\codex\SimWar` main worktree is protected and not a development surface. | confirmed / evidence_limited / conflict | RISK_TIER_0 | Any task wants to modify, clean, reset, stash, or develop in main.                                      |
+| ANCHOR-003 | JSON is the current active default runtime.                                 | confirmed / changed / not_verified      | RISK_TIER_1 | Runtime provider selection, server bootstrap, or active route wiring changes.                           |
+| ANCHOR-004 | PostgreSQL is not the default active runtime.                               | confirmed / changed / not_verified      | RISK_TIER_1 | Any task adds `DATABASE_URL`, provider-kind activation, server selection, or request/runtime switching. |
+| ANCHOR-005 | Core Simulation Engine L1-L3 is the sole formal simulation truth writer.    | in_scope / not_in_scope / conflict      | RISK_TIER_0 | Settlement, score, rank, result, replay hash, or truth-field changes.                                   |
+| ANCHOR-006 | AI remains advisory_only and cannot write formal truth.                     | in_scope / not_in_scope / conflict      | RISK_TIER_0 | Any task touches AI output, model policy, prompt, RAG, tool policy, settlement, score, or rank.         |
+| ANCHOR-008 | #111 remains open and durable settlement is unproven.                       | confirmed / not_verified / conflict     | RISK_TIER_0 | Settlement durability, transaction, lock, crash recovery, cross-process, or issue-state changes.        |
+| ANCHOR-009 | #114 and #115 remain open.                                                  | confirmed / not_verified / conflict     | RISK_TIER_1 | Direct-store closeout, contract parity closeout, or issue-state changes.                                |
 
 ## Main Worktree Rule
 
@@ -56,15 +56,15 @@ Unless a human task card explicitly grants a narrower exception, do not run: `gi
 
 ## L0-L6 Loop Engineering
 
-| Loop | Purpose | Required output |
-| --- | --- | --- |
-| L0 Baseline | Verify remote stability, accepted decisions, issue state, worktree cleanliness. | Baseline note or final report section. |
-| L1 Scope | Confirm allowed files, forbidden files, touched domains, and hard gates. | Task card scope decision. |
-| L2 Evidence | Read only the source, docs, tests, workflow, and issue evidence needed for the task. | Evidence refs, not broad audit sprawl. |
-| L3 First Change | For implementation tasks, add the smallest approved test or docs change first. | Focused diff in approved paths. |
-| L4 Verification | Run only the gate matrix rows required by touched domains. | Logs or explicit not-available evidence. |
-| L5 Review | Confirm diff scope, issue wording, no forbidden paths, and no overclaims. | Review checklist. |
-| L6 Handoff | Stop at the required final status and do not auto-start the next task. | Final report and next allowed task. |
+| Loop            | Purpose                                                                              | Required output                          |
+| --------------- | ------------------------------------------------------------------------------------ | ---------------------------------------- |
+| L0 Baseline     | Verify remote stability, accepted decisions, issue state, worktree cleanliness.      | Baseline note or final report section.   |
+| L1 Scope        | Confirm allowed files, forbidden files, touched domains, and hard gates.             | Task card scope decision.                |
+| L2 Evidence     | Read only the source, docs, tests, workflow, and issue evidence needed for the task. | Evidence refs, not broad audit sprawl.   |
+| L3 First Change | For implementation tasks, add the smallest approved test or docs change first.       | Focused diff in approved paths.          |
+| L4 Verification | Run only the gate matrix rows required by touched domains.                           | Logs or explicit not-available evidence. |
+| L5 Review       | Confirm diff scope, issue wording, no forbidden paths, and no overclaims.            | Review checklist.                        |
+| L6 Handoff      | Stop at the required final status and do not auto-start the next task.               | Final report and next allowed task.      |
 
 ## STOP And REPLAN Triggers
 

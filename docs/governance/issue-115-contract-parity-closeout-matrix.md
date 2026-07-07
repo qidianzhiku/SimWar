@@ -19,19 +19,19 @@ This file is a future evaluation template and evidence entry point for #115. It 
 
 ## Status Values
 
-| Status | Meaning |
-| --- | --- |
-| NOT_IN_SCOPE | Route or object is outside the reviewed slice. |
-| PARTIALLY_ALIGNED | Some contract layers exist, but parity is incomplete. |
-| ALIGNED | OpenAPI, JSON Schema, shared type, fixture, route behavior, and tests are aligned for the reviewed slice. |
-| KNOWN_DRIFT | A documented mismatch exists. |
-| BLOCKED_BY_DECISION | A product, architecture, or governance decision is needed before parity can be evaluated. |
+| Status              | Meaning                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| NOT_IN_SCOPE        | Route or object is outside the reviewed slice.                                                            |
+| PARTIALLY_ALIGNED   | Some contract layers exist, but parity is incomplete.                                                     |
+| ALIGNED             | OpenAPI, JSON Schema, shared type, fixture, route behavior, and tests are aligned for the reviewed slice. |
+| KNOWN_DRIFT         | A documented mismatch exists.                                                                             |
+| BLOCKED_BY_DECISION | A product, architecture, or governance decision is needed before parity can be evaluated.                 |
 
 ## Future Matrix
 
-| p0_route | openapi | json_schema | shared_type | fixture | route_behavior | tenant_role_scope | idempotency | audit_fields | contract_test | status |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| _template_ | _path/operation_ | _schema_ | _type/guard_ | _fixture_ | _test/evidence_ | _scope evidence_ | _idempotency evidence_ | _audit evidence_ | _test evidence_ | PARTIALLY_ALIGNED |
+| p0_route   | openapi          | json_schema | shared_type  | fixture   | route_behavior  | tenant_role_scope | idempotency            | audit_fields     | contract_test   | status            |
+| ---------- | ---------------- | ----------- | ------------ | --------- | --------------- | ----------------- | ---------------------- | ---------------- | --------------- | ----------------- |
+| _template_ | _path/operation_ | _schema_    | _type/guard_ | _fixture_ | _test/evidence_ | _scope evidence_  | _idempotency evidence_ | _audit evidence_ | _test evidence_ | PARTIALLY_ALIGNED |
 
 ## Closeout Gate
 

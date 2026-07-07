@@ -315,12 +315,8 @@ describe("JSON repository adapter", () => {
     } as Partial<SimWarStore>);
     const ports = createJsonRepositoryPorts(store);
 
-    await expect(ports.courses.listCoursesForTenant("tenant-1")).resolves.toEqual([
-      tenantCourse
-    ]);
-    await expect(ports.courses.listCoursesForUser("tenant-1", "missing-user")).resolves.toEqual(
-      []
-    );
+    await expect(ports.courses.listCoursesForTenant("tenant-1")).resolves.toEqual([tenantCourse]);
+    await expect(ports.courses.listCoursesForUser("tenant-1", "missing-user")).resolves.toEqual([]);
   });
 
   it("returns the first submitted canonical decision for a team round instead of the latest version", async () => {

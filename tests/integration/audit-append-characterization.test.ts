@@ -276,9 +276,7 @@ describe("audit append characterization", () => {
       );
       expect(platformActionFilter.status).toBe(200);
       expect(platformActionFilter.body.data.map((log) => log.audit_id)).toEqual(
-        store.auditLogs
-          .filter((log) => log.action === "auth.login")
-          .map((log) => log.audit_id)
+        store.auditLogs.filter((log) => log.action === "auth.login").map((log) => log.audit_id)
       );
 
       const newTenantAudit = await request<AuditLog[]>(

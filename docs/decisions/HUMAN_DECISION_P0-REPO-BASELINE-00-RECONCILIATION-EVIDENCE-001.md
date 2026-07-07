@@ -104,42 +104,42 @@ following:
 
 Remote Git evidence can establish:
 
-* remote `master` content;
-* merge-parent topology;
-* reviewed and merge commit ancestry;
-* exact parent-to-merge path delta;
-* landed Decision Note presence;
-* current artifact hash, size, and byte-level diagnostic scope.
+- remote `master` content;
+- merge-parent topology;
+- reviewed and merge commit ancestry;
+- exact parent-to-merge path delta;
+- landed Decision Note presence;
+- current artifact hash, size, and byte-level diagnostic scope.
 
 Remote Git evidence alone does not establish:
 
-* current GitHub PR title or body UI presentation;
-* current GitHub checks UI presentation;
-* current GitHub GraphQL response availability.
+- current GitHub PR title or body UI presentation;
+- current GitHub checks UI presentation;
+- current GitHub GraphQL response availability.
 
 ## Non-Goals
 
 This decision does not:
 
-* waive GitHub API or GraphQL verification for open PRs;
-* waive PR metadata or check verification before PR review or merge;
-* waive CI requirements;
-* authorize GitHub writes;
-* authorize push, PR create, PR edit, PR review, PR merge, or branch delete;
-* apply to another PR, another baseline import, or any implementation task;
-* modify permanent governance rules;
-* modify Git/worktree protocol;
-* close #111, #114, or #115;
-* authorize PostgreSQL, migration, transaction, row lock, cross-process,
+- waive GitHub API or GraphQL verification for open PRs;
+- waive PR metadata or check verification before PR review or merge;
+- waive CI requirements;
+- authorize GitHub writes;
+- authorize push, PR create, PR edit, PR review, PR merge, or branch delete;
+- apply to another PR, another baseline import, or any implementation task;
+- modify permanent governance rules;
+- modify Git/worktree protocol;
+- close #111, #114, or #115;
+- authorize PostgreSQL, migration, transaction, row lock, cross-process,
   durable settlement, Replay, Team, ParameterSet, ScenarioPackage, AI,
   Billing, deployment, or production work.
 
 ## Evidence References
 
-* `docs/decisions/HUMAN_DECISION_P0-REPO-BASELINE-IMPORT-001.md`
-* reviewed commit `5e6915945a5dcbfa1e41538d23e9b80c7f8e1383`
-* merge commit `98f2bf28e2a18ac537d2c174040a1b9b0cf5f6d8`
-* approved target SHA-256
+- `docs/decisions/HUMAN_DECISION_P0-REPO-BASELINE-IMPORT-001.md`
+- reviewed commit `5e6915945a5dcbfa1e41538d23e9b80c7f8e1383`
+- merge commit `98f2bf28e2a18ac537d2c174040a1b9b0cf5f6d8`
+- approved target SHA-256
   `67467B7E40E048C01063E69C9857DD15CF59AF4B9BE9D4FB23C3953B415B4670`
 
 ## Next Allowed Task
