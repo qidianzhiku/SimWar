@@ -1,0 +1,187 @@
+{
+  "asset_id": "r7a-beijing-yanjiao-eldercare-core-scenario-v1",
+  "learner_visibility_forbidden_categories": [
+    "formal_truth_fields",
+    "formal_result_shape",
+    "private_replay_manifest",
+    "private_replay_digest_fields",
+    "teacher_private_metadata",
+    "tenant_admin_private_metadata",
+    "other_tenant_data"
+  ],
+  "model_preview": {
+    "controlled_failures": [],
+    "formal_truth_write": false,
+    "model_family": "eldercare_core_model_v1",
+    "plugin_trace": [
+      {
+        "evidence_label": "SOURCE_ONLY_INFERENCE",
+        "formula_ref": "eldercare.segment-demand.v1",
+        "hook": "segmentDemand",
+        "input_ref": "regions+segments+price+quality+outreach",
+        "output_delta": 254.62
+      },
+      {
+        "evidence_label": "SOURCE_ONLY_INFERENCE",
+        "formula_ref": "eldercare.capacity-guardrail.v1",
+        "hook": "capacityGuardrail",
+        "input_ref": "beds+day_care_slots+staff_count+nurse_ratio",
+        "output_delta": 0
+      },
+      {
+        "evidence_label": "SOURCE_ONLY_INFERENCE",
+        "formula_ref": "eldercare.payer-mix-resilience.v1",
+        "hook": "payerMix",
+        "input_ref": "self_pay+commercial_insurance+public_subsidy",
+        "output_delta": 0.41
+      },
+      {
+        "evidence_label": "SOURCE_ONLY_INFERENCE",
+        "formula_ref": "eldercare.service-quality-risk.v1",
+        "hook": "serviceQualityRisk",
+        "input_ref": "service_quality_budget+staffing_safety_index",
+        "output_delta": 0.87
+      }
+    ],
+    "postgresql_runtime_required": false,
+    "replay_writes_formal_results": false,
+    "round_metrics": {
+      "finance": {
+        "expected_cost": 1370064,
+        "expected_revenue": 1472736,
+        "operating_margin": 0.07
+      },
+      "market": {
+        "demand_index": 254.62,
+        "price_friction": 0.22,
+        "qualified_demand": 106.72
+      },
+      "operations": {
+        "service_capacity": 106.72,
+        "staffed_capacity": 106.72,
+        "utilization": 1
+      },
+      "quality": {
+        "care_quality_index": 0.87,
+        "payer_resilience_index": 0.41,
+        "staffing_safety_index": 1.16
+      }
+    },
+    "scenario_id": "r7a-beijing-yanjiao-eldercare-core-scenario-v1"
+  },
+  "parameter_set": {
+    "base_capacity": 138,
+    "base_market_size": 210,
+    "fixed_cost": 260000,
+    "model_family": "toy_logit",
+    "parameter_set_id": "parameter_r7a_eldercare_v1",
+    "parameters": {
+      "schema_version": "wellness.parameters.v1",
+      "demand_curve": {
+        "reference_price": 15000,
+        "price_friction_scale": 3500,
+        "quality_budget_per_utility": 40000,
+        "max_quality_lift": 9,
+        "quality_lift_weight": 1,
+        "price_sensitivity": 1
+      },
+      "cost_structure": {
+        "partnership_discount_threshold": 150000,
+        "partnership_discount_rate": 0.015
+      },
+      "operations_constraints": {
+        "max_capacity_modifier": 1.2,
+        "min_service_quality_budget": 60000
+      },
+      "scoring_weights": {
+        "service_quality_bonus_per_budget": 0.00001,
+        "max_service_quality_bonus": 3,
+        "underfunded_service_penalty": 3
+      }
+    },
+    "seed": 70707,
+    "status": "candidate",
+    "tenant_id": "tenant_r7a_synthetic",
+    "unit_cost": 6200,
+    "version": "r7a.eldercare.parameters.v1"
+  },
+  "r7a_evidence": {
+    "direct_store_delta": "NONE",
+    "postgres_required": false,
+    "replay_writes_formal_results": false,
+    "runtime_truth_change": false
+  },
+  "regions": [
+    {
+      "region_id": "beijing",
+      "display_name": "Beijing urban eldercare demand",
+      "demand_weight": 0.62,
+      "distance_friction": 0.08,
+      "income_index": 1.18
+    },
+    {
+      "region_id": "yanjiao",
+      "display_name": "Yanjiao commuter-family eldercare demand",
+      "demand_weight": 0.38,
+      "distance_friction": 0.18,
+      "income_index": 0.92
+    }
+  ],
+  "rounds": [
+    {
+      "decision_focus": ["region selection", "community channel discovery"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 1,
+      "title": "Beijing-Yanjiao demand discovery"
+    },
+    {
+      "decision_focus": ["bed capacity", "day-care slot planning", "staffing ratio"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 2,
+      "title": "Facility and service capacity"
+    },
+    {
+      "decision_focus": ["payer mix", "public subsidy", "commercial insurance"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 3,
+      "title": "Payer mix and affordability"
+    },
+    {
+      "decision_focus": ["license scope", "medical care boundary"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 4,
+      "title": "Medical-care license boundary"
+    },
+    {
+      "decision_focus": ["service quality", "staff safety", "family trust"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 5,
+      "title": "Care quality and staffing risk"
+    },
+    {
+      "decision_focus": ["shadow replay candidate", "non-overwrite evidence"],
+      "evidence_boundary": "SOURCE_ONLY_INFERENCE",
+      "round_no": 6,
+      "title": "Replay and non-overwrite review"
+    }
+  ],
+  "scenario_package": {
+    "name": "R7-A Beijing-Yanjiao Eldercare Core Scenario Asset",
+    "plugin_package_ids": ["plugin_wellness_eldercare_v1"],
+    "scenario_package_id": "scenario_r7a_beijing_yanjiao_eldercare_v1",
+    "status": "approved",
+    "tenant_id": "tenant_r7a_synthetic",
+    "version": "1.0.0"
+  },
+  "status_boundary": {
+    "g0_pass": "NOT_GRANTED",
+    "g0_status": "EXCEPTION",
+    "l1_status": "NOT_READY"
+  },
+  "synthetic_data_policy": {
+    "production_identifier": false,
+    "real_payment_data": false,
+    "real_user_data": false
+  },
+  "asset_hash": "563863f007ba344dcc1c9eeed403a0bc2cf420ad3032a8bf63a7d447ad60023f"
+}
