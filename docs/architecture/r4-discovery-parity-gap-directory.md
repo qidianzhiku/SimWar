@@ -153,6 +153,25 @@ This update is documentation only. It does not implement R4 Macro, PostgreSQL ru
 
 This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
 
+## Program 021 Course Delivery Runtime V2 Discovery Update
+
+`Course Delivery Runtime V2` converges the PR #205 course delivery productization path with Scenario Factory, Replay evidence, Shadow Arena, Tenant Admin scope, Platform explicit authority and Learning Evidence truth isolation. It remains JSON-runtime synthetic evidence and does not close R4 Macro gaps.
+
+| R4 Discovery area                        | Program 021 current evidence                                                                                   | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                                                                                    | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | Course Delivery Runtime V2 remains current JSON runtime plus simulation-core settlement                        | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | evidence helper is pure and does not add direct-store reads or writes                                          | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                            | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                  | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                            | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | repeated settlement and Shadow Arena non-overwrite remain verified only in the JSON runtime                    | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | repeated settlement keeps stable replay hash and formal result identity in the synthetic guard                 | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                        | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | Course Delivery Runtime V2 records internal-only known limits but does not test backup restore or crash replay | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
