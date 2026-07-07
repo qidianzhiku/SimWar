@@ -18,14 +18,22 @@ NOT_AUTHORIZED
 
 本 Teacher Kit 仅用于 synthetic internal application validation 准备。它不是真实教师试跑批准，不是 `Pilot`，不是 `Production`，不证明 PostgreSQL runtime、SQL、migration 或 durable settlement。
 
+## Evidence Package Boundary
+
+```text
+INTERNAL_ONLY_DRAFT_NOT_RELEASED
+```
+
+本 Teacher Kit 只能用于 synthetic internal application decision package。它不把任何 local validation、Owner authorization 或 PR 合并结果提升为 `G0 PASS`、`L1 READY`、`Pilot`、`Production`，且 PostgreSQL runtime 保持 `NOT_AUTHORIZED`。
+
 ## Audience
 
-| Role | Allowed use |
-|---|---|
-| Teacher operator | run a synthetic M1 session with cleanable data only |
-| Student participant | use seeded or synthetic student identity only |
-| Tenant Admin observer | inspect current-tenant status only |
-| Reviewer | inspect evidence and non-proof boundaries |
+| Role                  | Allowed use                                         |
+| --------------------- | --------------------------------------------------- |
+| Teacher operator      | run a synthetic M1 session with cleanable data only |
+| Student participant   | use seeded or synthetic student identity only       |
+| Tenant Admin observer | inspect current-tenant status only                  |
+| Reviewer              | inspect evidence and non-proof boundaries           |
 
 ## Session Scope
 
