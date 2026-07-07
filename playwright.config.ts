@@ -2,9 +2,11 @@ import { resolve } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const apiPort = Number(process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100);
+const adminPort = Number(process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103);
 const teacherPort = Number(process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101);
 const studentPort = Number(process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102);
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
+const adminBaseUrl = `http://127.0.0.1:${adminPort}`;
 const teacherBaseUrl = `http://127.0.0.1:${teacherPort}`;
 const studentBaseUrl = `http://127.0.0.1:${studentPort}`;
 const playwrightStoreFile = resolve("services/api/tmp/playwright-store.json");
@@ -50,6 +52,15 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 180_000,
       url: `${apiBaseUrl}/healthz`
+    },
+    {
+      command: `npm run dev -w @simwar/admin -- --host 127.0.0.1 --port ${adminPort}`,
+      env: {
+        VITE_API_BASE_URL: apiBaseUrl
+      },
+      reuseExistingServer: false,
+      timeout: 180_000,
+      url: adminBaseUrl
     },
     {
       command: `npm run dev -w @simwar/teacher -- --host 127.0.0.1 --port ${teacherPort}`,

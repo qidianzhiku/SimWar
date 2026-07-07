@@ -9,6 +9,7 @@ import type {
 import { cleanupPlaywrightStore } from "./store-isolation";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
+const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const m1ResultLabel = "M1 Teaching-Official Result under Current JSON Active Runtime";
 
@@ -74,6 +75,15 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByText("signed in")).toBeVisible();
+}
+
+async function signInAdminPage(page: Page): Promise<void> {
+  const login = page.locator('section[aria-label="admin login"]');
+  await login.getByLabel("tenant").fill("tenant_demo");
+  await login.getByLabel("username").fill("admin");
+  await login.getByLabel("password").fill("admin");
+  await login.getByRole("button", { name: "管理员登录" }).click();
   await expect(page.getByText("signed in")).toBeVisible();
 }
 
@@ -180,4 +190,19 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   expect(finalState.data.latest_result?.result_label).toBe(m1ResultLabel);
   expect(finalState.data.latest_result?.replay_evidence?.replay_status).toBe("matched");
   expect(finalState.data.latest_result?.replay_evidence?.replay_writes_formal_results).toBe(false);
+});
+
+test("keeps tenant admin browser scope limited to the current tenant", async ({ page }) => {
+  await page.goto(adminBaseUrl);
+  await signInAdminPage(page);
+
+  await expect(page.getByRole("heading", { name: "SimWar P1 管理后台" })).toBeVisible();
+  await expect(page.getByText("P0 Admin · tenant_admin")).toBeVisible();
+  await expect(page.getByText("Demo Business School").first()).toBeVisible();
+  await expect(page.getByText("P0 Teacher").first()).toBeVisible();
+  await expect(page.getByText("P0 Student").first()).toBeVisible();
+  await expect(page.getByText("P0 Admin").first()).toBeVisible();
+  await expect(page.getByText("Other Tenant")).toHaveCount(0);
+  await expect(page.getByText("Other Teacher")).toHaveCount(0);
+  await expect(page.getByText("SimWar Platform")).toHaveCount(0);
 });
