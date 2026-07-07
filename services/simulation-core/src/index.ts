@@ -90,3 +90,41 @@ export type {
   R7BShadowReplayEvidence,
   R7BShockEvent
 } from "./eldercare-scenario-lifecycle.js";
+export {
+  R7C_SCENARIO_FACTORY_COMPILER_VERSION,
+  R7C_SCENARIO_FACTORY_SEED,
+  R7C_SCENARIO_FACTORY_TEMPLATE_VERSION,
+  approveR7CCompiledScenario,
+  bindR7CReleaseCandidateToRun,
+  buildR7CBeijingYanjiaoScenarioFamily,
+  buildR7CScenarioDiffAndTrace,
+  buildR7CShadowArenaBatch,
+  buildR7CShadowReplayEvidence,
+  compileR7CScenarioDraft,
+  createR7CReleaseCandidate,
+  createR7CScenarioDraft,
+  createR7CScenarioRegistry,
+  freezeR7CApprovedScenario,
+  projectR7CScenarioForActor,
+  rejectR7CScenarioMutation,
+  validateR7CScenarioFactory
+} from "./eldercare-scenario-factory.js";
+export type {
+  R7CActorRole,
+  R7CCompiledScenario,
+  R7CProjection,
+  R7CReleaseCandidate,
+  R7CScenarioDraft,
+  R7CScenarioDiffAndTrace,
+  R7CScenarioFactoryActor,
+  R7CScenarioFactoryStatus,
+  R7CScenarioFamily,
+  R7CScenarioRegistry,
+  R7CScenarioTemplate,
+  R7CScenarioTraceEvent,
+  R7CScenarioValidationReport,
+  R7CScenarioVariant,
+  R7CScenarioVariantId,
+  R7CShadowArenaBatch,
+  R7CShadowArenaCase
+} from "./eldercare-scenario-factory.js";

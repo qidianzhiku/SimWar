@@ -96,6 +96,25 @@ R4 Discovery is `READ_ONLY_ONLY`. R4 Macro remains `NOT_AUTHORIZED`. This direct
 
 This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
 
+## R7-C Scenario Factory Discovery Update
+
+`R7-C` adds Scenario Factory Runtime and Shadow Arena evidence on top of the merged R7-B lifecycle. This improves the JSON-only scenario asset governance inventory, but it does not close R4 Macro gaps.
+
+| R4 Discovery area                        | R7-C current evidence                                       | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                                 | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | Scenario Factory remains pure TypeScript and JSON-only      | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | no new direct store access                                  | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                         | runtime selector remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                               | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                         | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | no database transaction                                     | cross-process transaction proof absent                         | `NOT_PROVEN`              |
+| Idempotency Evidence Gap Directory       | release candidate binding rejects silent mutation locally   | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                     | opt-in mechanism not authorized                                | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | Shadow Arena evidence is candidate-only and non-overwriting | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
