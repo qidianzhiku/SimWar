@@ -1,0 +1,75 @@
+{
+  "family_id": "r7c-beijing-yanjiao-eldercare-family-v1",
+  "family_version": "1.0.0",
+  "template_id": "r7c-beijing-yanjiao-eldercare-template-v1",
+  "template_version": "r7c.beijing-yanjiao.scenario-family.v1",
+  "compiler_version": "r7c.scenario-factory.compiler.v1",
+  "seed": 7070715,
+  "source_r7b": {
+    "compiler_version": "r7b.eldercare.lifecycle-compiler.v1",
+    "template_version": "r7b.beijing-yanjiao.mother-scenario.v1",
+    "seed": 7070714
+  },
+  "variants": [
+    {
+      "variant_id": "base_operations",
+      "title": "Base operations pressure",
+      "scenario_version": "r7c.base_operations.v1"
+    },
+    {
+      "variant_id": "payer_policy_shift",
+      "title": "Payer policy shift",
+      "scenario_version": "r7c.payer_policy_shift.v1"
+    },
+    {
+      "variant_id": "regional_migration",
+      "title": "Regional migration friction",
+      "scenario_version": "r7c.regional_migration.v1"
+    },
+    {
+      "variant_id": "competition_entry",
+      "title": "Competition entry",
+      "scenario_version": "r7c.competition_entry.v1"
+    },
+    {
+      "variant_id": "crisis_shock",
+      "title": "Crisis shock",
+      "scenario_version": "r7c.crisis_shock.v1"
+    }
+  ],
+  "registry": {
+    "teacher_visible": true,
+    "student_visible": false,
+    "tenant_admin_scope": "tenant_only"
+  },
+  "status_sequence": [
+    "DRAFT",
+    "COMPILED",
+    "VALIDATED",
+    "APPROVED",
+    "FROZEN",
+    "RELEASE_CANDIDATE",
+    "BOUND_TO_RUN"
+  ],
+  "shadow_arena": {
+    "replay_mode": "shadow_arena_batch",
+    "official_result_non_overwrite": true,
+    "replay_writes_formal_results": false
+  },
+  "synthetic_data_classification": [
+    "SYNTHETIC_TEACHING_SCENARIO",
+    "UN_CALIBRATED",
+    "NOT_FOR_REAL_OPERATING_DECISION",
+    "NOT_FOR_PUBLIC_POLICY_DECISION",
+    "NOT_FOR_INVESTMENT_DECISION"
+  ],
+  "direct_store_delta": "NONE",
+  "non_proofs": [
+    "G0_PASS",
+    "L1_READY",
+    "Pilot",
+    "Production",
+    "PostgreSQL runtime",
+    "durable settlement"
+  ]
+}
