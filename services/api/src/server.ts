@@ -280,6 +280,9 @@ async function lockRound(
   const actor = requirePermission(context, "round:lock");
   const run = getRun(store, context, runId);
   const round = getRound(store, context, run.run_id, roundNo);
+  if (round.status === "locked") {
+    return round;
+  }
   assertRoundStatus(round, "open", "ROUND-409-003");
   const before = clonePublic(round);
 
@@ -314,6 +317,9 @@ async function publishRound(
   const actor = requirePermission(context, "round:publish");
   const run = getRun(store, context, runId);
   const round = getRound(store, context, run.run_id, roundNo);
+  if (round.status === "published") {
+    return round;
+  }
   assertRoundStatus(round, "settled", "ROUND-409-005");
   const before = clonePublic(round);
 
@@ -1310,6 +1316,13 @@ async function routeRequest(
     const actor = requirePermission(context, "course:publish");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/publish$/);
     const course = getCourse(store, context, courseId ?? "");
+    if (course.status === "published") {
+      sendJson(response, 200, createEnvelope(context, course));
+      return;
+    }
+    if (course.status !== "draft") {
+      throw new HttpError(409, "COURSE-409-001", "course must be draft before publish");
+    }
     const before = clonePublic(course);
     course.status = "published";
     await appendAudit(runtime, {
