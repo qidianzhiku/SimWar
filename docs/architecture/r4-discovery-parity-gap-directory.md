@@ -134,6 +134,25 @@ This update is documentation only. It does not implement R4 Macro, PostgreSQL ru
 
 This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
 
+## Program 020 Course Delivery Productization Discovery Update
+
+`Course Delivery Productization V1` strengthens the synthetic course/run/round delivery evidence after PR #204 entered master. It adds a focused API helper, integration guard and documentation for Course Blueprint binding, three-part feedback, Learning Evidence and idempotent state transitions. It still does not close R4 Macro gaps.
+
+| R4 Discovery area                        | Program 020 current evidence                                                               | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                                                                | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | Course Delivery remains JSON runtime and current simulation-core settlement                | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | idempotency strengthening is limited to existing route state transitions                   | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                        | runtime selector remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                              | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                        | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | repeated course publish, round lock, settlement and publish are covered in JSON runtime    | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | duplicate state-transition requests avoid duplicate audit side effects where tested        | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                    | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | Learning Evidence and Shadow Arena evidence remain non-overwriting and excluded from truth | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
