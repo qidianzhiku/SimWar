@@ -61,12 +61,12 @@ remains open.
 
 ## Options
 
-| Option | Summary | Evaluation |
-| --- | --- | --- |
-| A | PostgreSQL target authority for runtime control plane and governance assets; Core Simulation Engine remains truth writer; JSON becomes fixture, seed, import/export, or compatibility. | ACCEPTED_TARGET_WITH_DEFERRED_DETAILS. |
-| B | JSON remains long-term authority; PostgreSQL only projection/search/reporting. | Not recommended. Keeps dual-authority risk. |
-| C | PostgreSQL only covers settlement outcome / audit subset. | Not recommended. Leaves active read-side gaps. |
-| D | No target model selected. | Safe fallback if humans require more product governance. |
+| Option | Summary                                                                                                                                                                                | Evaluation                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| A      | PostgreSQL target authority for runtime control plane and governance assets; Core Simulation Engine remains truth writer; JSON becomes fixture, seed, import/export, or compatibility. | ACCEPTED_TARGET_WITH_DEFERRED_DETAILS.                   |
+| B      | JSON remains long-term authority; PostgreSQL only projection/search/reporting.                                                                                                         | Not recommended. Keeps dual-authority risk.              |
+| C      | PostgreSQL only covers settlement outcome / audit subset.                                                                                                                              | Not recommended. Leaves active read-side gaps.           |
+| D      | No target model selected.                                                                                                                                                              | Safe fallback if humans require more product governance. |
 
 ## Accepted Decision
 

@@ -73,7 +73,10 @@ export interface RepositoryFacade {
   };
 
   scenarios: {
-    getScenarioPackage(tenantId: string, scenarioPackageId: string): Promise<ScenarioPackage | null>;
+    getScenarioPackage(
+      tenantId: string,
+      scenarioPackageId: string
+    ): Promise<ScenarioPackage | null>;
   };
 
   parameterSets: {
@@ -171,7 +174,10 @@ export interface SettlementReadRepositoryFacade {
   };
 
   scenarios: {
-    getScenarioPackage(tenantId: string, scenarioPackageId: string): Promise<ScenarioPackage | null>;
+    getScenarioPackage(
+      tenantId: string,
+      scenarioPackageId: string
+    ): Promise<ScenarioPackage | null>;
   };
 
   settlements: {

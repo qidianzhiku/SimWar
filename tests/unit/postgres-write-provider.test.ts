@@ -163,7 +163,10 @@ describe("Postgres settlement write provider surface assembly", () => {
   });
 
   it("keeps Postgres write assembly unreachable from active API bootstrap and JSON default runtime", () => {
-    const serverSource = readFileSync(resolve(__dirname, "../../services/api/src/server.ts"), "utf8");
+    const serverSource = readFileSync(
+      resolve(__dirname, "../../services/api/src/server.ts"),
+      "utf8"
+    );
 
     expect(serverSource).toContain("createJsonRepositoryProvider({ store })");
     expect(serverSource).toContain("runtime.repositoryProvider.facade.commitSettlementOutcome(");

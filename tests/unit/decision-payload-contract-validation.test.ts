@@ -4,8 +4,7 @@ import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { validateDecisionPayload } from "../../services/api/src/simulation";
 
-const readJson = <T>(path: string): T =>
-  JSON.parse(readFileSync(resolve(path), "utf8")) as T;
+const readJson = <T>(path: string): T => JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 
 type JsonSchemaObject = {
   type?: string;

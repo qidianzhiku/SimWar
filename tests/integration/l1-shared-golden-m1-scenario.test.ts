@@ -310,10 +310,14 @@ describe("L1 Shared Golden M1 formal integration guard", () => {
       expect(crossTeamAttempt.body.code).toBe("TEAM-403-001");
       expect(JSON.stringify(crossTeamAttempt.body)).not.toContain(betaDecision.decision_id);
 
-      const lockResponse = await request<Round>(baseUrl, `/api/v1/runs/${run.run_id}/rounds/1/lock`, {
-        method: "POST",
-        token: teacherToken
-      });
+      const lockResponse = await request<Round>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/lock`,
+        {
+          method: "POST",
+          token: teacherToken
+        }
+      );
       expect(lockResponse.status).toBe(200);
       expect(lockResponse.body.data.status).toBe("locked");
 
@@ -326,9 +330,9 @@ describe("L1 Shared Golden M1 formal integration guard", () => {
         }
       );
       expect(settlementResponse.status).toBe(200);
-      expect(settlementResponse.body.data.team_results.map((result) => result.team_id).sort()).toEqual(
-        ["team_alpha", betaTeam.team_id].sort()
-      );
+      expect(
+        settlementResponse.body.data.team_results.map((result) => result.team_id).sort()
+      ).toEqual(["team_alpha", betaTeam.team_id].sort());
 
       const publishResponse = await request<Round>(
         baseUrl,
@@ -343,11 +347,7 @@ describe("L1 Shared Golden M1 formal integration guard", () => {
 
       const resultSnapshot = structuredClone(store.settlementResults);
       const roundSnapshot = structuredClone(store.rounds);
-      const replayEvidence = buildReplayEvidenceFromStore(
-        store,
-        run,
-        settlementResponse.body.data
-      );
+      const replayEvidence = buildReplayEvidenceFromStore(store, run, settlementResponse.body.data);
       expect(replayEvidence.replay_status).toBe("matched");
       expect(replayEvidence.replay_result_hash).toBe(settlementResponse.body.data.replay_hash);
       expect(replayEvidence.replay_writes_formal_results).toBe(false);
@@ -367,7 +367,10 @@ describe("L1 Shared Golden M1 formal integration guard", () => {
       expect(studentResult.body.data.results[0]?.team_id).toBe("team_alpha");
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
       expect(studentResult.body.data.replay_evidence).toBeUndefined();
-      assertDoesNotContainAny(JSON.stringify(studentResult.body.data), fixture.forbidden_student_fields);
+      assertDoesNotContainAny(
+        JSON.stringify(studentResult.body.data),
+        fixture.forbidden_student_fields
+      );
       expect(JSON.stringify(studentResult.body.data)).not.toContain(betaTeam.team_id);
       expect(JSON.stringify(studentResult.body.data)).not.toContain(betaUser.user_id);
 

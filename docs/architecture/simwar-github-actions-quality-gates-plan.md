@@ -33,17 +33,17 @@ Knip 和 Playwright 已有配置文件，但尚未形成可运行门禁：`knip`
 
 ### 2.1 Implemented and enforced in CI
 
-| 门禁                           | 当前文件位置                   | 当前作用                                                                   | 环境变量或 service                           | PR / push 状态 |
-| ------------------------------ | ------------------------------ | -------------------------------------------------------------------------- | -------------------------------------------- | -------------- |
-| `npm ci`                       | `.github/workflows/ci.yml`     | 使用 lockfile 安装依赖                                                     | 无                                           | CI 执行        |
-| `npm run check:hidden-unicode` | `.github/workflows/ci.yml`     | 扫描 tracked source/config/document files 中的 bidi、零宽字符和 BOM        | 无                                           | CI 执行        |
-| `npm run lint`                 | `.github/workflows/ci.yml`     | ESLint 全仓静态检查                                                        | 无                                           | CI 执行        |
-| `npm run typecheck`            | `.github/workflows/ci.yml`     | TypeScript project references 检查                                         | 无                                           | CI 执行        |
+| 门禁                           | 当前文件位置                   | 当前作用                                                                            | 环境变量或 service                           | PR / push 状态 |
+| ------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------- | -------------------------------------------- | -------------- |
+| `npm ci`                       | `.github/workflows/ci.yml`     | 使用 lockfile 安装依赖                                                              | 无                                           | CI 执行        |
+| `npm run check:hidden-unicode` | `.github/workflows/ci.yml`     | 扫描 tracked source/config/document files 中的 bidi、零宽字符和 BOM                 | 无                                           | CI 执行        |
+| `npm run lint`                 | `.github/workflows/ci.yml`     | ESLint 全仓静态检查                                                                 | 无                                           | CI 执行        |
+| `npm run typecheck`            | `.github/workflows/ci.yml`     | TypeScript project references 检查                                                  | 无                                           | CI 执行        |
 | `npm test`                     | `.github/workflows/ci.yml`     | 先构建 test prerequisites，再运行 Vitest unit / integration / characterization 测试 | 无                                           | CI 执行        |
-| `npm run test:postgres-replay` | `.github/workflows/ci.yml`     | Disposable PostgreSQL 16 replay / migration / adapter verification harness | Postgres service、`SIMWAR_TEST_DATABASE_URL` | CI 执行        |
-| `npm run test:contract`        | `.github/workflows/ci.yml`     | contract baseline、OpenAPI 路径、schema、fixtures、shared types 存在性检查 | 无                                           | CI 执行        |
-| `npm run build`                | `.github/workflows/ci.yml`     | 构建 shared-contracts、simulation-core、API、admin、teacher、student       | 无                                           | CI 执行        |
-| CodeQL pull request scan       | `.github/workflows/codeql.yml` | JS/TS CodeQL security-extended 与 security-and-quality scan                | GitHub CodeQL                                | PR 执行        |
+| `npm run test:postgres-replay` | `.github/workflows/ci.yml`     | Disposable PostgreSQL 16 replay / migration / adapter verification harness          | Postgres service、`SIMWAR_TEST_DATABASE_URL` | CI 执行        |
+| `npm run test:contract`        | `.github/workflows/ci.yml`     | contract baseline、OpenAPI 路径、schema、fixtures、shared types 存在性检查          | 无                                           | CI 执行        |
+| `npm run build`                | `.github/workflows/ci.yml`     | 构建 shared-contracts、simulation-core、API、admin、teacher、student                | 无                                           | CI 执行        |
+| CodeQL pull request scan       | `.github/workflows/codeql.yml` | JS/TS CodeQL security-extended 与 security-and-quality scan                         | GitHub CodeQL                                | PR 执行        |
 
 ### 2.2 Implemented locally but not enforced in CI
 

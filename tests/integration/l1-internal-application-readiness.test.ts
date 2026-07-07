@@ -132,7 +132,9 @@ describe("L1 internal application readiness pack", () => {
         token: studentToken
       });
       expect(studentState.status).toBe(200);
-      expect((studentState.body.data as unknown as Record<string, unknown>).tenants).toBeUndefined();
+      expect(
+        (studentState.body.data as unknown as Record<string, unknown>).tenants
+      ).toBeUndefined();
       expect((studentState.body.data as unknown as Record<string, unknown>).users).toBeUndefined();
       assertSerializedDoesNotContain(studentState.body.data, [
         "tenant_other",

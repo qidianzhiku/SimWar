@@ -359,9 +359,9 @@ describe("R3 runtime boundary guard", () => {
         "tenant_other",
         "tenant_platform"
       ]);
-      expect(platformState.body.data.users.some((user) => user.user_id === "usr_other_teacher")).toBe(
-        true
-      );
+      expect(
+        platformState.body.data.users.some((user) => user.user_id === "usr_other_teacher")
+      ).toBe(true);
     } finally {
       await stopServer(server);
     }

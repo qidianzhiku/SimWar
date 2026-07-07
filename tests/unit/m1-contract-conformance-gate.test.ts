@@ -169,10 +169,7 @@ describe("M1 contract conformance gate", () => {
     const withStudentDataMutation = (mutate: (data: JsonObject) => void): unknown => {
       const draft = cloneJson(validStudent);
       mutate(
-        asJsonObject(
-          asJsonObject(draft, "student mutation envelope").data,
-          "student mutation data"
-        )
+        asJsonObject(asJsonObject(draft, "student mutation envelope").data, "student mutation data")
       );
       return draft;
     };
@@ -263,10 +260,7 @@ describe("M1 contract conformance gate", () => {
     const apiErrorSchema = schema("contracts/schemas/api-error-envelope.v1.json");
     const validate = ajv.compile(apiErrorSchema);
     const schemaObject = asJsonObject(apiErrorSchema, "ApiErrorEnvelope schema");
-    const properties = asJsonObject(
-      schemaObject.properties,
-      "ApiErrorEnvelope schema properties"
-    );
+    const properties = asJsonObject(schemaObject.properties, "ApiErrorEnvelope schema properties");
     const detailsSchema = asJsonObject(properties.details, "ApiErrorEnvelope details schema");
     const detailsItemSchema = asJsonObject(
       detailsSchema.items,
@@ -281,9 +275,7 @@ describe("M1 contract conformance gate", () => {
       },
       {
         label: "details payload with private replay manifest and digests",
-        value: fixture(
-          "contracts/fixtures/api-error-envelope-private-details-payload.invalid.json"
-        )
+        value: fixture("contracts/fixtures/api-error-envelope-private-details-payload.invalid.json")
       }
     ];
 
