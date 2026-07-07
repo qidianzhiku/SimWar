@@ -235,6 +235,17 @@ async function submitDecision(
   if (validationErrors.length > 0) {
     throw new HttpError(422, "DEC-422-001", "decision validation failed", validationErrors);
   }
+  const decisionPayload = body.decision_payload as DecisionPayload;
+  const idempotentDecision = await findIdempotentDecisionSubmission(runtime, context, {
+    actor,
+    payload: decisionPayload,
+    roundNo: round.round_no,
+    runId: run.run_id,
+    teamId: team.team_id
+  });
+  if (idempotentDecision) {
+    return idempotentDecision;
+  }
 
   const priorVersions = store.decisions.filter(
     (decision) =>
@@ -252,7 +263,7 @@ async function submitDecision(
     team_id: team.team_id,
     status: "validated",
     version: priorVersions.length + 1,
-    payload: body.decision_payload as DecisionPayload,
+    payload: decisionPayload,
     validation_report: [],
     submitted_by: actor.user_id
   };
@@ -500,6 +511,67 @@ function matchPath(pathname: string, pattern: RegExp): RegExpMatchArray {
 
 function clonePublic(input: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
+}
+
+function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): string {
+  return JSON.stringify(payload);
+}
+
+async function findIdempotentDecisionSubmission(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  input: {
+    actor: CurrentUser;
+    payload: DecisionPayload;
+    roundNo: number;
+    runId: string;
+    teamId: string;
+  }
+): Promise<Decision | null> {
+  const priorDecisionSubmitLogs = await runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+    action: "decision.submit",
+    actor_id: input.actor.user_id,
+    resource_type: "decision",
+    scope: "tenant",
+    tenant_id: context.tenantId
+  });
+  const matchingLog = priorDecisionSubmitLogs.find(
+    (auditLog) => auditLog.request_id === context.requestId
+  );
+
+  if (!matchingLog) {
+    return null;
+  }
+
+  const priorDecision = await runtime.repositoryProvider.facade.decisions.getDecisionById(
+    context.tenantId,
+    matchingLog.resource_id
+  );
+  if (!priorDecision) {
+    throw new HttpError(
+      409,
+      "DEC-409-003",
+      "decision idempotency key references a missing decision"
+    );
+  }
+
+  const sameCommandTarget =
+    priorDecision.run_id === input.runId &&
+    priorDecision.round_no === input.roundNo &&
+    priorDecision.team_id === input.teamId;
+  const samePayload =
+    serializeDecisionPayloadForIdempotency(priorDecision.payload) ===
+    serializeDecisionPayloadForIdempotency(input.payload);
+
+  if (!sameCommandTarget || !samePayload) {
+    throw new HttpError(
+      409,
+      "DEC-409-002",
+      "decision idempotency key was reused with a different decision command"
+    );
+  }
+
+  return priorDecision;
 }
 
 function findTruthProtectedFields(value: unknown, path = ""): string[] {

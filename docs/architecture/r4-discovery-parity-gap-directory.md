@@ -172,6 +172,30 @@ This update is documentation only. It does not implement R4 Macro, PostgreSQL ru
 
 This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
 
+## Program 022 Course Runtime V3 Discovery Update
+
+`Course Runtime V3` adds request-id idempotency, audit request-id integrity and
+synthetic course execution convergence on top of the merged Runtime V2 path. It
+remains JSON-runtime synthetic evidence and does not close R4 Macro gaps.
+
+| R4 Discovery area                        | Program 022 current evidence                                                                                         | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | `decision.submit` idempotency readback uses the repository facade for decision and audit lookup                      | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | Course Runtime V3 remains current JSON runtime plus simulation-core settlement                                       | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | evidence helper is pure and does not add direct-store reads or writes; server guard uses existing route runtime data | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                  | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                        | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                  | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | request-id idempotency is verified in JSON runtime only                                                              | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | duplicate decision submit, round lock, settlement and publish stay stable in the synthetic guard                     | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                              | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | internal draft records known limits but does not test backup restore or crash replay                                 | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL
+runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
+dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
+Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
