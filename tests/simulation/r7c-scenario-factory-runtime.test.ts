@@ -6,7 +6,7 @@ import {
   buildR7CBeijingYanjiaoScenarioFamily,
   compileR7CScenarioDraft,
   createR7CReleaseCandidate,
-  createR7CScenarioAuthoringDraft,
+  createR7CScenarioDraft,
   createR7CScenarioRegistry,
   freezeR7CApprovedScenario,
   rejectR7CScenarioMutation,
@@ -35,7 +35,7 @@ const otherTenantTeacher = {
 
 function compiledCrisisScenario() {
   const registry = createR7CScenarioRegistry({ actor: teacherActor });
-  const draft = createR7CScenarioAuthoringDraft(registry, {
+  const draft = createR7CScenarioDraft(registry, {
     actor: teacherActor,
     variant_id: "crisis_shock"
   });

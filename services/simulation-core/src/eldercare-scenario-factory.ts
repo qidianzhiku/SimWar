@@ -113,7 +113,7 @@ export interface R7CScenarioRegistry {
   direct_store_delta: "NONE";
 }
 
-export interface R7CScenarioAuthoringDraft {
+export interface R7CScenarioDraft {
   draft_id: string;
   status: "DRAFT";
   tenant_id: string;
@@ -443,10 +443,10 @@ export function createR7CScenarioRegistry(options: {
   };
 }
 
-export function createR7CScenarioAuthoringDraft(
+export function createR7CScenarioDraft(
   registry: R7CScenarioRegistry,
   options: { actor: R7CScenarioFactoryActor; variant_id: R7CScenarioVariantId }
-): R7CScenarioAuthoringDraft {
+): R7CScenarioDraft {
   assertTeacherActor(registry.tenant_id, registry.course_id, options.actor);
   const variant = registry.family.variants.find((item) => item.variant_id === options.variant_id);
 
@@ -496,7 +496,7 @@ function validationReport(errors: string[]): R7CScenarioValidationReport {
   };
 }
 
-export function compileR7CScenarioDraft(draft: R7CScenarioAuthoringDraft): R7CCompiledScenario {
+export function compileR7CScenarioDraft(draft: R7CScenarioDraft): R7CCompiledScenario {
   const compiledRecord = compileR7BScenarioDraft(draft.source_record);
   const variant = variantOf(draft.family, draft.variant_id);
   const variantRecord: R7BScenarioLifecycleRecord = {

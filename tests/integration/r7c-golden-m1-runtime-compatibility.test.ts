@@ -6,7 +6,7 @@ import {
   buildR7CShadowArenaBatch,
   compileR7CScenarioDraft,
   createR7CReleaseCandidate,
-  createR7CScenarioAuthoringDraft,
+  createR7CScenarioDraft,
   createR7CScenarioRegistry,
   freezeR7CApprovedScenario,
   projectR7CScenarioForActor
@@ -75,7 +75,7 @@ function decision(team_id: string, price: number, serviceQualityBudget: number):
 
 function boundCandidate() {
   const registry = createR7CScenarioRegistry({ actor: teacherActor });
-  const draft = createR7CScenarioAuthoringDraft(registry, {
+  const draft = createR7CScenarioDraft(registry, {
     actor: teacherActor,
     variant_id: "base_operations"
   });

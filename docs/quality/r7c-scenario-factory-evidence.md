@@ -21,7 +21,7 @@ NOT_READY
 | ------------------------------------------ | --------------------------------------------------------------- | --------------------------- | ---------------------------------- |
 | Scenario Family V1                         | `buildR7CBeijingYanjiaoScenarioFamily`                          | `CONTRACT_BACKED_EVIDENCE`  | synthetic-only family              |
 | Scenario Registry                          | `createR7CScenarioRegistry`                                     | `CONTRACT_BACKED_EVIDENCE`  | no store write                     |
-| Teacher authoring                          | `createR7CScenarioAuthoringDraft` through release candidate     | `UNIT_TEST_EVIDENCE`        | teacher authority only             |
+| Teacher authoring                          | `createR7CScenarioDraft` through release candidate              | `UNIT_TEST_EVIDENCE`        | teacher authority only             |
 | Compile determinism                        | repeated family and shadow arena equality assertions            | `UNIT_TEST_EVIDENCE`        | deterministic synthetic inputs     |
 | Validation failure classification          | invalid family test                                             | `UNIT_TEST_EVIDENCE`        | no scope expansion                 |
 | Freeze immutability                        | bound mutation rejection                                        | `UNIT_TEST_EVIDENCE`        | requires new version               |

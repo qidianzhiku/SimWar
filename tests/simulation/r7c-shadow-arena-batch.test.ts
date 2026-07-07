@@ -8,7 +8,7 @@ import {
   buildR7CShadowReplayEvidence,
   compileR7CScenarioDraft,
   createR7CReleaseCandidate,
-  createR7CScenarioAuthoringDraft,
+  createR7CScenarioDraft,
   createR7CScenarioRegistry,
   freezeR7CApprovedScenario
 } from "../../services/simulation-core/src/eldercare-scenario-factory";
@@ -34,7 +34,7 @@ const officialResult = Object.freeze({
 
 function boundCandidate() {
   const registry = createR7CScenarioRegistry({ actor: teacherActor });
-  const draft = createR7CScenarioAuthoringDraft(registry, {
+  const draft = createR7CScenarioDraft(registry, {
     actor: teacherActor,
     variant_id: "crisis_shock"
   });
