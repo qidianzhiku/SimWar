@@ -54,3 +54,39 @@ export type {
   EldercareScenarioAsset,
   EldercareScenarioRound
 } from "./eldercare-scenario-compiler.js";
+export {
+  R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION,
+  R7B_SCENARIO_SEED,
+  R7B_SCENARIO_TEMPLATE_VERSION,
+  approveR7BScenarioDraft,
+  bindR7BFrozenScenarioToRun,
+  buildR7BShadowReplayEvidence,
+  compileR7BScenarioDraft,
+  createR7BScenarioDiff,
+  createR7BScenarioDraft,
+  evaluateR7BPolicyAndQualification,
+  freezeR7BApprovedScenario,
+  projectR7BScenarioForActor,
+  rejectR7BBoundScenarioMutation,
+  validateR7BScenarioLifecycleRecord
+} from "./eldercare-scenario-lifecycle.js";
+export type {
+  R7BPolicyQualificationRequest,
+  R7BPolicyQualificationResult,
+  R7BProjection,
+  R7BScenarioActor,
+  R7BScenarioActorRole,
+  R7BScenarioDiff,
+  R7BScenarioDiffEntry,
+  R7BScenarioLifecycleAsset,
+  R7BScenarioLifecycleRecord,
+  R7BScenarioLifecycleStatus,
+  R7BScenarioMutationRejection,
+  R7BScenarioPolicyRule,
+  R7BScenarioRound,
+  R7BScenarioRunBinding,
+  R7BScenarioTrace,
+  R7BScenarioValidationResult,
+  R7BShadowReplayEvidence,
+  R7BShockEvent
+} from "./eldercare-scenario-lifecycle.js";

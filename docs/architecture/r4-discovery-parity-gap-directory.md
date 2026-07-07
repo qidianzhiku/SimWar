@@ -77,6 +77,25 @@ Current source supports JSON/custom provider concepts. It does not authorize Pro
 
 R4 Discovery is `READ_ONLY_ONLY`. R4 Macro remains `NOT_AUTHORIZED`. This directory must not be used as PostgreSQL readiness, durable settlement readiness, R9 readiness or R10 readiness proof.
 
+## R7-B Scenario Lifecycle Discovery Update
+
+`R7-B` adds scenario lifecycle evidence that is useful to R4 Discovery, but it does not close R4 Macro gaps.
+
+| R4 Discovery area                        | R7-B current evidence                                    | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                              | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | scenario lifecycle remains JSON-only and pure TypeScript | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | no new direct store access                               | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                      | runtime selector remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                            | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                      | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | no database transaction                                  | cross-process transaction proof absent                         | `NOT_PROVEN`              |
+| Idempotency Evidence Gap Directory       | R7-B bound scenario mutation is rejected locally         | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                  | opt-in mechanism not authorized                                | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | synthetic cleanup boundary documented                    | backup/restore not proven                                      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read, dual write, shadow write, transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
