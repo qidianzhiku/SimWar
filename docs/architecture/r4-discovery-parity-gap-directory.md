@@ -223,6 +223,32 @@ runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
 dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
 Production.
 
+## Program 027 L1 Internal Validation Ready Package Discovery Update
+
+`L1 Internal Validation Ready Package` reconciles PR #209 as already merged,
+the sealed Codex Security scan with zero findings, CodeGraph MCP evidence,
+Graphify code preflight evidence, post-merge baseline validation and the Golden
+M1 runtime consolidation helper into an internal validation handoff package. It
+does not close R4 Macro gaps.
+
+| R4 Discovery area                        | Program 027 current evidence                                                                                              | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                                                                                               | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | internal validation package consumes synthetic JSON-runtime evidence and records `direct_store_delta = NONE`              | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | evidence helper is pure and does not add direct-store reads or writes                                                     | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                       | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                             | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                       | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | idempotency evidence remains synthetic JSON runtime evidence only                                                         | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | go/no-go package requires independent evidence review and does not authorize merge, release, Pilot or Production          | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                                   | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | R8-G1 validation ready draft remains internal-only and does not test backup restore, crash replay or distributed recovery | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL
+runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
+dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
+Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
