@@ -303,6 +303,35 @@ implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB,
 ProviderSelector PostgreSQL mode, dual read, dual write, shadow write,
 transaction locking, RLS, backup restore, Pilot or Production.
 
+## Program 030 L1 Internal Validation Rehearsal Gate Discovery Update
+
+`L1 Internal Validation Rehearsal Gate` formalizes the PR #213 controlled
+runtime entrypoint evidence into an internal validation Go / No-Go package. It
+adds a second HTTP-route integration guard and internal-only documentation for
+freshness, owner, expiry, no-go conditions, current checks evidence and
+non-proofs. It does not add new route handlers, repository ports, PostgreSQL
+runtime, SQL, migration, direct-store access, branch policy changes, Pilot or
+Production behavior.
+
+| R4 Discovery area                        | Program 030 current evidence                                                                                                        | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation; rehearsal gate reuses existing HTTP API routes and current facade-backed settlement/replay paths       | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | rehearsal gate remains current JSON runtime plus simulation-core settlement                                                         | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | no production direct-store access added; integration guard enters through API routes and records `direct_store_delta = NONE`        | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                                 | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                                       | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                                 | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | duplicate decision, round lock, internal settlement and publish are verified in one JSON runtime process                            | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | repeated settlement reuses official result identity and replay hash; duplicate route calls avoid duplicate action logs where tested | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                                             | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | internal rehearsal gate does not test backup restore, crash replay or distributed recovery                                          | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+| Shadow Replay Route Evidence             | no dedicated Shadow Replay HTTP route is present; existing helper evidence remains a limitation                                     | route-level shadow replay proof absent                         | `PASS_WITH_LIMITATION`    |
+
+This update is integration-test and documentation work only. It does not
+implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB,
+ProviderSelector PostgreSQL mode, dual read, dual write, shadow write,
+transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
