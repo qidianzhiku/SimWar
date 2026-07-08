@@ -249,6 +249,33 @@ runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
 dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
 Production.
 
+## Program 028 L1 Runtime Path Activation Discovery Update
+
+`L1 Runtime Path Activation` classifies the Program 027 helper chain against
+the existing API runtime paths after PR #211 entered master. It does not add
+new route handlers, repository ports, PostgreSQL runtime, SQL, migration or
+direct-store access. The improvement is evidence classification: helper-only
+factories are explicitly held as `HELPER_PATH`, while the current API dispatcher
+and route actions are recorded as the existing controlled runtime path.
+
+| R4 Discovery area                        | Program 028 current evidence                                                                                                | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation                                                                                                 | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | runtime path activation consumes current JSON runtime evidence and records `direct_store_delta = NONE`                      | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | evidence helper is pure and does not add direct-store reads or writes                                                       | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                         | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                               | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                         | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | idempotency evidence remains synthetic JSON runtime evidence only                                                           | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | helper-only evidence is no longer allowed to be misclassified as runtime proof                                              | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                                     | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | R8-G1 runtime activation draft remains internal-only and does not test backup restore, crash replay or distributed recovery | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation and evidence-helper work only. It does not
+implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB,
+ProviderSelector PostgreSQL mode, dual read, dual write, shadow write,
+transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
