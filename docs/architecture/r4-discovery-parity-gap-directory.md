@@ -276,6 +276,33 @@ implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB,
 ProviderSelector PostgreSQL mode, dual read, dual write, shadow write,
 transaction locking, RLS, backup restore, Pilot or Production.
 
+## Program 029 L1 Controlled Runtime Entrypoint Binding Discovery Update
+
+`L1 Controlled Runtime Entrypoint Binding` moves the Program 028 classification
+from helper-only evidence toward a real API-entrypoint guard. It adds an
+integration test that drives Teacher, Student, Tenant Admin, Platform Admin and
+service-kernel actions through existing HTTP routes. It does not add new route
+handlers, repository ports, PostgreSQL runtime, SQL, migration, direct-store
+access, branch policy changes, Pilot or Production behavior.
+
+| R4 Discovery area                        | Program 029 current evidence                                                                                                       | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation; the guard exercises existing HTTP routes and current facade-backed settlement/replay paths            | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | course/run/round/decision/settlement/result/audit binding remains current JSON runtime plus simulation-core settlement             | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | no production direct-store access added; integration guard enters through API routes instead of helper factories or store mutation | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                                | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                                      | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                                | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | idempotent course publish, decision submit, round lock, internal settle and round publish are verified in one JSON runtime process | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | duplicate route calls avoid duplicate action logs where current routes are designed to be idempotent                               | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                                            | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | controlled route binding does not test backup restore, crash replay or distributed recovery                                        | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is integration-test and documentation work only. It does not
+implement R4 Macro, PostgreSQL runtime, SQL, migration, Docker DB,
+ProviderSelector PostgreSQL mode, dual read, dual write, shadow write,
+transaction locking, RLS, backup restore, Pilot or Production.
+
 ## Non-Proofs
 
 This directory does not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration, backup restore or durable settlement.
