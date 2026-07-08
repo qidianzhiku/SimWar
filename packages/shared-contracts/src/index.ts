@@ -996,6 +996,247 @@ export type M1TeacherAdminResultEnvelope = ApiEnvelope<
   }
 >;
 
+export type BffDtoEvidenceLabel =
+  | "BFF_DTO_PRODUCTIZATION"
+  | "RUNTIME_ENTRYPOINT_EVIDENCE"
+  | "TEACHER_PROJECTION_EVIDENCE"
+  | "STUDENT_PROJECTION_EVIDENCE"
+  | "TENANT_BOUNDARY_EVIDENCE"
+  | "AI_ADVISORY_PLACEHOLDER_EVIDENCE"
+  | "SCENARIO_REFERENCE_EVIDENCE";
+
+export interface BffDtoAuditReference {
+  action: string;
+  audit_ids: string[];
+  request_ids: string[];
+}
+
+export interface BffDtoAdvisorySlot {
+  advisory_only: true;
+  coach_output_reference: Pick<
+    CoachOutput,
+    "coach_output_id" | "model_call_log_id" | "output_type"
+  > | null;
+  model_call_log_reference: Pick<ModelCallLog, "model_call_log_id" | "purpose" | "status"> | null;
+  slot_id: "strategy_advisor" | "risk_review" | "debrief_coach" | "learning_recommender";
+}
+
+export interface BffDtoScenarioReference {
+  parameter_set_id: string;
+  parameter_set_version?: string;
+  plugin_package_id: string;
+  run_seed: number;
+  scenario_package_id: string;
+  scenario_version?: string;
+}
+
+export interface TeacherDashboardDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  audit_reference: BffDtoAuditReference[];
+  course_id: string;
+  explicit_non_proof: string[];
+  evidence_label: BffDtoEvidenceLabel;
+  redacted_fields: string[];
+  run_id: string;
+  source_runtime_path: string[];
+  tenant_id: string;
+  visible_state: {
+    course_status: CourseStatus;
+    round_status: RoundStatus;
+    team_count: number;
+  };
+}
+
+export interface CourseWorkspaceDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  audit_reference: BffDtoAuditReference[];
+  course_id: string;
+  explicit_non_proof: string[];
+  evidence_label: BffDtoEvidenceLabel;
+  redacted_fields: string[];
+  run_id: string;
+  scenario_reference: BffDtoScenarioReference;
+  source_runtime_path: string[];
+  tenant_id: string;
+  visible_state: {
+    course_title: string;
+    run_status: Run["status"];
+  };
+}
+
+export interface RoundControlDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  audit_reference: BffDtoAuditReference[];
+  course_id: string;
+  explicit_non_proof: string[];
+  evidence_label: BffDtoEvidenceLabel;
+  redacted_fields: string[];
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  source_runtime_path: string[];
+  status: RoundStatus;
+  tenant_id: string;
+  visible_state: {
+    decision_count: number;
+    settlement_available: boolean;
+    team_count: number;
+  };
+}
+
+export interface TeamMonitorDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  audit_reference: BffDtoAuditReference[];
+  course_id: string;
+  explicit_non_proof: string[];
+  evidence_label: BffDtoEvidenceLabel;
+  redacted_fields: string[];
+  run_id: string;
+  source_runtime_path: string[];
+  teams: Array<{
+    decision_submitted: boolean;
+    members: number;
+    team_id: string;
+    team_name: string;
+  }>;
+  tenant_id: string;
+  visible_state: {
+    decision_count: number;
+    team_count: number;
+  };
+}
+
+export interface TeacherReplaySummaryDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  audit_reference: BffDtoAuditReference[];
+  authorized_result_snapshot: TeamSettlement[];
+  course_id: string;
+  explicit_non_proof: string[];
+  evidence_label: BffDtoEvidenceLabel;
+  formal_truth_write_allowed: false;
+  redacted_fields: string[];
+  replay_hash?: string;
+  replay_status?: ReplayReportStatus;
+  replay_writes_formal_results?: false;
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  source_runtime_path: string[];
+  tenant_id: string;
+  visible_state: {
+    result_count: number;
+    runtime_boundary: M1JsonRuntimeBoundary;
+  };
+}
+
+export interface TeacherBffWorkspaceDTO {
+  course_workspace: CourseWorkspaceDTO;
+  round_control: RoundControlDTO;
+  teacher_dashboard: TeacherDashboardDTO;
+  teacher_replay_summary: TeacherReplaySummaryDTO;
+  team_monitor: TeamMonitorDTO;
+}
+
+export interface StudentBffDtoBase {
+  actor_role: ActorRole;
+  advisory_slots: BffDtoAdvisorySlot[];
+  allowed_actions: PermissionKey[];
+  course_id: string;
+  explicit_non_proof: string[];
+  forbidden_fields: string[];
+  redacted_result?: StudentSafeTeamSettlement;
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  source_runtime_path: string[];
+  state_est?: StudentSafeTeamSettlement["state_est"];
+  state_obs?: StudentSafeTeamSettlement["state_obs"];
+  team_id: string;
+  tenant_id: string;
+}
+
+export interface StudentCockpitDTO extends StudentBffDtoBase {
+  evidence_label: BffDtoEvidenceLabel;
+  visible_state: {
+    course_status: CourseStatus;
+    round_status: RoundStatus;
+    team_name: string;
+  };
+}
+
+export interface DecisionFormDTO extends StudentBffDtoBase {
+  decision_schema_version: "m1-decision-form.v1";
+  editable_fields: DecisionPayloadFieldPath[];
+  evidence_label: BffDtoEvidenceLabel;
+}
+
+export interface PublishedResultDTO extends StudentBffDtoBase {
+  evidence_label: BffDtoEvidenceLabel;
+  result_label: typeof M1_TEACHING_OFFICIAL_RESULT_LABEL;
+}
+
+export interface ThreePartFeedbackDTO extends StudentBffDtoBase {
+  evidence_label: BffDtoEvidenceLabel;
+  feedback: {
+    next_step_risk?: StudentSafeTeamSettlement["state_est"]["next_round_risk"];
+    what_happened?: StudentSafeTeamSettlement["state_obs"];
+    why_it_happened?: string;
+  };
+}
+
+export interface LearningReportDTO extends StudentBffDtoBase {
+  evidence_label: BffDtoEvidenceLabel;
+  learning_evidence: {
+    advisory_only: true;
+    formal_grade: false;
+    prompts: string[];
+  };
+}
+
+export interface StudentBffCockpitDTO {
+  decision_form: DecisionFormDTO;
+  learning_report: LearningReportDTO;
+  published_result: PublishedResultDTO;
+  student_cockpit: StudentCockpitDTO;
+  three_part_feedback: ThreePartFeedbackDTO;
+}
+
+export interface TenantAdminSummaryDTO {
+  actor_role: ActorRole;
+  allowed_actions: PermissionKey[];
+  explicit_non_proof: string[];
+  redacted_fields: string[];
+  source_runtime_path: string[];
+  tenant_id: string;
+  visible_state: {
+    audit_event_count: number;
+    course_count: number;
+    run_count: number;
+    team_count: number;
+  };
+  visible_tenant_ids: string[];
+}
+
+export interface PlatformAdminAuthorityDTO {
+  actor_role: "platform_admin";
+  allowed_actions: PermissionKey[];
+  explicit_authority_source: "platform_admin role";
+  explicit_non_proof: string[];
+  platform_authority: true;
+  redacted_fields: string[];
+  required_scope: "platform";
+  source_runtime_path: string[];
+  visible_state: {
+    tenant_count: number;
+    tenant_ids: string[];
+  };
+}
+
 export type DomainEventType = string;
 
 export interface DomainEvent {
