@@ -3,10 +3,15 @@ import {
   COURSE_RUNTIME_V3_REQUIRED_CHAIN,
   type CourseRuntimeV3Evidence
 } from "../../services/api/src/course-runtime-v3";
-import { createL1GoldenM1CourseRuntimeConsolidationReport } from "../../services/api/src/l1-golden-m1-course-runtime-consolidation";
+import {
+  L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS,
+  createL1GoldenM1CourseRuntimeConsolidationReport,
+  createL1GoldenM1RuntimeContractCompletionReport
+} from "../../services/api/src/l1-golden-m1-course-runtime-consolidation";
 import { createL1SyntheticInternalApplicationReadinessReport } from "../../services/api/src/l1-synthetic-internal-application-readiness";
 
 const PR_208_MERGE_COMMIT = "b3257e1272e571cadf7eb0fbe390d1cfe66450be";
+const PR_209_MERGE_COMMIT = "e44bd949b79d3bee1314795689339863f2b03099";
 
 function createRuntimeV3Evidence(): CourseRuntimeV3Evidence {
   return {
@@ -191,6 +196,82 @@ describe("L1 Golden M1 Course Runtime Consolidation", () => {
         "DURABLE_SETTLEMENT_PROVEN"
       ])
     );
+
+    const runtimeContract = createL1GoldenM1RuntimeContractCompletionReport({
+      courseRuntimeV3Evidence: runtimeEvidence,
+      postMergeEvidence: {
+        baseline_validation: "PASSED",
+        direct_store_delta: "NONE",
+        pr_209_merge_commit: PR_209_MERGE_COMMIT
+      },
+      readinessReport,
+      r4DiscoveryReference: "docs/architecture/r4-discovery-parity-gap-directory.md",
+      r8G1DraftPackReferences: [
+        "docs/operations/l1-teacher-kit-internal-only.md",
+        "docs/operations/l1-session-runbook-lite.md",
+        "docs/operations/l1-replay-evidence-review-checklist.md",
+        "docs/operations/l1-issue-escalation-procedure.md"
+      ],
+      sourceEvidence: {
+        graphify_preflight: "GRAPHIFY_PREFLIGHT_EVIDENCE",
+        codegraph_query: "CODEGRAPH_EVIDENCE",
+        post_merge_baseline: "POSTMERGE_MASTER_EVIDENCE",
+        pr_208_merge_commit: PR_208_MERGE_COMMIT
+      }
+    });
+
+    expect(runtimeContract.evidence_kind).toBe("l1_golden_m1_runtime_contract_completion");
+    expect(runtimeContract.runtime_contract_boundary).toBe(
+      "CONTROLLED_API_BFF_SERVER_COMMAND_PATH"
+    );
+    expect(runtimeContract.contract_operations.map((item) => item.operation)).toEqual(
+      L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS
+    );
+    expect(runtimeContract.synthetic_internal_application_harness.harness_id).toBe(
+      "L1_SYNTHETIC_INTERNAL_APPLICATION_HARNESS_V3"
+    );
+    expect(runtimeContract.consolidation_report.evidence_kind).toBe(
+      "l1_golden_m1_course_runtime_consolidation"
+    );
+  });
+
+  it("fails closed when PR #209 post-merge baseline evidence is invalid", () => {
+    const runtimeEvidence = createRuntimeV3Evidence();
+    const readinessReport = createL1SyntheticInternalApplicationReadinessReport({
+      courseRuntimeV3Evidence: runtimeEvidence,
+      internalDraftReference:
+        "docs/operations/r8-g1-l1-synthetic-internal-application-readiness-draft.md",
+      postMergeEvidence: {
+        baseline_validation: "PASSED",
+        direct_store_delta: "NONE",
+        pr_207_merge_commit: "5ea8e70e9fc30fc6590c0be3949464652b61c30b"
+      }
+    });
+
+    expect(() =>
+      createL1GoldenM1RuntimeContractCompletionReport({
+        courseRuntimeV3Evidence: runtimeEvidence,
+        postMergeEvidence: {
+          baseline_validation: "PASSED",
+          direct_store_delta: "NONE",
+          pr_209_merge_commit: "not-a-merge-sha"
+        },
+        readinessReport,
+        r4DiscoveryReference: "docs/architecture/r4-discovery-parity-gap-directory.md",
+        r8G1DraftPackReferences: [
+          "docs/operations/l1-teacher-kit-internal-only.md",
+          "docs/operations/l1-session-runbook-lite.md",
+          "docs/operations/l1-replay-evidence-review-checklist.md",
+          "docs/operations/l1-issue-escalation-procedure.md"
+        ],
+        sourceEvidence: {
+          graphify_preflight: "GRAPHIFY_PREFLIGHT_EVIDENCE",
+          codegraph_query: "CODEGRAPH_EVIDENCE",
+          post_merge_baseline: "POSTMERGE_MASTER_EVIDENCE",
+          pr_208_merge_commit: PR_208_MERGE_COMMIT
+        }
+      })
+    ).toThrow(/L1_GOLDEN_M1_PR209_POST_MERGE_EVIDENCE_INVALID/);
   });
 
   it("fails closed when Runtime V3 evidence exposes private student markers", () => {

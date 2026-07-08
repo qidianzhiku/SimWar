@@ -196,6 +196,33 @@ runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
 dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
 Production.
 
+## Program 025 L1 Golden M1 Runtime Contract Completion Discovery Update
+
+`L1 Golden M1 Runtime Contract Completion` extends the Program 024 consolidation
+artifact with an explicit runtime contract matrix for the existing Runtime V3
+API / BFF / server-command path. It records role, tenant, course, team, DTO,
+request-id, audit-event, state, projection, stable-error and forbidden-caller
+metadata for the Golden M1 internal synthetic application harness. It remains
+JSON-runtime synthetic evidence and does not close R4 Macro gaps.
+
+| R4 Discovery area                        | Program 025 current evidence                                                                                        | Remaining gap                                                  | Classification            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------- |
+| Repository Port Matrix                   | no repository port mutation; contract matrix documents existing API / BFF / server-command path only                | API surfaces still need future port/facade migration decisions | `SOURCE_ONLY_INFERENCE`   |
+| JSON Runtime Authority Matrix            | runtime contract completion remains JSON-runtime synthetic evidence plus existing simulation-core settlement        | no PostgreSQL runtime proof                                    | `CURRENT_LOCAL_READ_ONLY` |
+| Direct Store Access Inventory            | evidence helper is pure and adds no direct-store reads or writes                                                    | existing legacy direct-store exceptions remain                 | `DISCOVERY_ONLY`          |
+| ProviderSelector Inventory               | no ProviderSelector PostgreSQL mode                                                                                 | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Migration / Rollback Risk Directory      | no SQL or migration execution                                                                                       | rollback is not proven                                         | `NOT_AUTHORIZED`          |
+| RLS Evidence Gap Directory               | no database runtime                                                                                                 | RLS not proven                                                 | `NOT_PROVEN`              |
+| Transaction Evidence Gap Directory       | idempotency and stable duplicate command evidence remain JSON-runtime only                                          | cross-process transaction proof absent                         | `PARTIAL_JSON_RUNTIME`    |
+| Idempotency Evidence Gap Directory       | contract matrix records required idempotency keys, request ids and stable error paths for current synthetic harness | durable cross-process idempotency not proven                   | `PARTIAL_JSON_RUNTIME`    |
+| Runtime Opt-In Evidence Gap Directory    | no runtime opt-in added                                                                                             | opt-in mechanism remains future work                           | `NOT_AUTHORIZED`          |
+| Recovery / Backup Evidence Gap Directory | no backup restore, crash replay or distributed recovery proof                                                       | backup/restore and cross-process recovery remain unproven      | `NOT_PROVEN`              |
+
+This update is documentation only. It does not implement R4 Macro, PostgreSQL
+runtime, SQL, migration, Docker DB, ProviderSelector PostgreSQL mode, dual read,
+dual write, shadow write, transaction locking, RLS, backup restore, Pilot or
+Production.
+
 ## Program 024 L1 Golden M1 Course Runtime Consolidation Discovery Update
 
 `L1 Golden M1 Course Runtime Consolidation` consumes the merged Runtime V3 and
