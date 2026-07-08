@@ -29,6 +29,10 @@ import {
   COURSE_RUNTIME_V3_REQUIRED_CHAIN,
   createCourseRuntimeV3Evidence
 } from "../../services/api/src/course-runtime-v3";
+import {
+  L1_SYNTHETIC_INTERNAL_APPLICATION_REQUIRED_CAPABILITIES,
+  createL1SyntheticInternalApplicationReadinessReport
+} from "../../services/api/src/l1-synthetic-internal-application-readiness";
 import { createCourseDeliveryRuntimeV2Evidence } from "../../services/api/src/course-delivery-runtime-v2";
 import { createM1RunReplayEvidence } from "../../services/api/src/run-manifest-replay-evidence";
 import { createApiServer } from "../../services/api/src/server";
@@ -794,6 +798,38 @@ describe("Course Runtime V3 synthetic execution evidence", () => {
         ])
       );
       assertDoesNotContain(evidence, [
+        protectedTruthSentinel,
+        "state_true",
+        beta.user.user_id,
+        "private_replay"
+      ]);
+
+      const readiness = createL1SyntheticInternalApplicationReadinessReport({
+        courseRuntimeV3Evidence: evidence,
+        internalDraftReference:
+          "docs/operations/r8-g1-l1-synthetic-internal-application-readiness-draft.md",
+        postMergeEvidence: {
+          baseline_validation: "PASSED",
+          direct_store_delta: "NONE",
+          pr_207_merge_commit: "5ea8e70e9fc30fc6590c0be3949464652b61c30b"
+        }
+      });
+
+      expect(readiness.evidence_kind).toBe("l1_synthetic_internal_application_readiness");
+      expect(readiness.g0_status).toBe("EXCEPTION");
+      expect(readiness.g0_pass).toBe("NOT_GRANTED");
+      expect(readiness.l1_status).toBe("NOT_READY");
+      expect(readiness.direct_store_delta).toBe("NONE");
+      expect(readiness.readiness_boundary).toBe("SYNTHETIC_INTERNAL_ONLY");
+      expect(readiness.capability_matrix.map((item) => item.capability)).toEqual(
+        L1_SYNTHETIC_INTERNAL_APPLICATION_REQUIRED_CAPABILITIES
+      );
+      expect(readiness.capability_matrix.every((item) => item.evidence_present)).toBe(true);
+      expect(readiness.independent_evidence_review_required).toBe(true);
+      expect(readiness.non_proofs).toEqual(
+        expect.arrayContaining(["G0_PASS", "L1_READY", "PILOT_READY", "PRODUCTION_READY"])
+      );
+      assertDoesNotContain(readiness, [
         protectedTruthSentinel,
         "state_true",
         beta.user.user_id,

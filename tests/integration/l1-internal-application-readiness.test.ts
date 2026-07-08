@@ -15,7 +15,9 @@ import { createP1Store } from "../../services/api/src/store";
 const REQUIRED_INTERNAL_PACK_DOCUMENTS = [
   "docs/quality/l1-g0-g7-current-evidence-ledger.md",
   "docs/quality/l1-known-limits-and-release-note.md",
+  "docs/quality/l1-synthetic-internal-application-readiness.md",
   "docs/operations/l1-teacher-kit-internal-only.md",
+  "docs/operations/r8-g1-l1-synthetic-internal-application-readiness-draft.md",
   "docs/operations/l1-session-runbook-lite.md",
   "docs/operations/l1-synthetic-data-reset-and-abort.md",
   "docs/operations/l1-replay-evidence-review-checklist.md",
