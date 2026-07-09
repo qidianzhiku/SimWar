@@ -1459,3 +1459,5 @@ export function getRolePermissions(roles: ActorRole[]): PermissionKey[] {
 export function actorHasPermission(actor: CurrentUser, permission: PermissionKey): boolean {
   return (actor.permissions ?? getRolePermissions(actor.roles)).includes(permission);
 }
+
+export * from "./scenario-factory.js";
