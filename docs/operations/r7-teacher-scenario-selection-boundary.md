@@ -67,6 +67,57 @@ QA register
 ParameterSet and Shadow Replay boundary
 ```
 
+## Alignment Package Status Boundary
+
+```text
+Source SHA:
+2038c8f0ebaa762461cd1140565426e37a268b2c
+```
+
+## Teacher scenario selection next-slice package
+
+The next slice remains internal-only and reference-only. Teacher-facing selection may inspect compatibility evidence, but it must not publish runtime scenarios, mutate official ParameterSet records, execute Shadow Replay, or overwrite formal results.
+
+Allowed next-slice actions:
+
+```text
+preview_alignment_matrix
+compare_internal_seed_references
+request_owner_parameter_review
+```
+
+Forbidden next-slice actions:
+
+```text
+write_state_true
+write_settlement_result
+publish_runtime_scenario
+modify_official_parameter_set
+execute_shadow_replay
+overwrite_official_replay_result
+```
+
+## ParameterSet compatibility matrix
+
+```text
+official_parameter_set_write = false
+parameter_set_version_mutation = false
+```
+
+## Shadow Replay compatibility matrix
+
+```text
+shadow_replay_executes = false
+shadow_replay_overwrites_official_result = false
+```
+
+## Calibration register
+
+```text
+calibration_register_id = r7-parameterset-shadow-replay-calibration-register-v1
+status = DRAFT_REGISTER_ONLY
+```
+
 ```text
 AI Advisory: NOT_AUTHORIZED_TO_WRITE_TRUTH
 Plugin Runtime: NOT_AUTHORIZED
