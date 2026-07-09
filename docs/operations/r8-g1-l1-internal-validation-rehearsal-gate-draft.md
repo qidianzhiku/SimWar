@@ -32,6 +32,37 @@ to prepare independent evidence review of the L1 internal validation rehearsal
 gate. It is not a classroom runbook for real users and does not authorize Pilot
 or Production activity.
 
+## REL-040 Pack Release-Candidate Binding
+
+```text
+Mission:
+SIMWAR-P6-R8G1-REL-040
+
+Current master anchor:
+6f2ec0283a41eebc9bac49b408ebaba0a97559db
+
+Current mainline anchor:
+PR #216 merged
+
+Phase 5 Gate:
+L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+
+Phase 6 Entry:
+PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+
+R8-G1 Status:
+RELEASE_CANDIDATE_PENDING_CLOSURE
+
+Next:
+SIMWAR-P6-R8G1-AUD-CLOSURE-040B
+```
+
+REL-040 packages this draft with the Teacher Kit, Known Limits, Session Runbook,
+Reset / Abort Procedure, Replay Evidence Review Checklist, Issue Escalation
+Procedure and pack index. It is a release candidate for independent closure
+review only. It does not release R8-G1 and does not authorize Phase 7 L1
+Internal Validation.
+
 ## Rehearsal Preparation Checklist
 
 1. Confirm PR #213 is merged and current `master` contains the merge commit used
@@ -141,6 +172,31 @@ No merge, review, approval, Pilot, Production, PostgreSQL runtime, SQL,
 migration, branch protection mutation, ruleset mutation, Issue mutation or
 workflow dispatch is authorized by this draft.
 
+REL-040 Go / No-Go must additionally confirm:
+
+- current master remains `6f2ec0283a41eebc9bac49b408ebaba0a97559db`;
+- Phase 5 Gate remains `L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK`;
+- Phase 6 Entry remains `PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL`;
+- `docs/operations/r8-g1-internal-application-pack-index.md` exists and lists
+  every pack component;
+- Issue #111, #114 and #115 remain relationship-only references;
+- the pack PR body uses `Relates to` only and does not use `Closes`, `Fixes` or
+  `Resolves`.
+
 ## Issue Relationship
 
 Relates to #111. Relates to #114. Relates to #115.
+
+## REL-040 Evidence Handoff
+
+| Field                | Value                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Evidence Type        | `R8_G1_REL_CANDIDATE_EVIDENCE / DOCS_ONLY`                                                                          |
+| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                                          |
+| Result               | `UPDATED`                                                                                                           |
+| Scope of Proof       | Internal rehearsal gate draft and Go / No-Go boundary                                                               |
+| Explicit Non-Proof   | Not R8-G1 release, not L1 validation, not Pilot, not Production                                                     |
+| Owner                | Marshall                                                                                                            |
+| Expiry Trigger       | master SHA, Phase 5 Gate, Phase 6 Entry, product surface, DTO, auth, tenant boundary, replay or known-limit changes |
+| Revalidation Command | `npm test -- tests/integration/l1-internal-validation-rehearsal-gate.test.ts`                                       |
+| No-Go Trigger        | Draft used as real rehearsal, Pilot, Production, PostgreSQL runtime or durable settlement proof                     |

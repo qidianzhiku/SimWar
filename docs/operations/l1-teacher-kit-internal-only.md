@@ -26,6 +26,33 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 
 本 Teacher Kit 只能用于 synthetic internal application decision package。它不把任何 local validation、Owner authorization 或 PR 合并结果提升为 `G0 PASS`、`L1 READY`、`Pilot`、`Production`，且 PostgreSQL runtime 保持 `NOT_AUTHORIZED`。
 
+## REL-040 Release-Candidate Binding
+
+```text
+Mission:
+SIMWAR-P6-R8G1-REL-040
+
+Current master anchor:
+6f2ec0283a41eebc9bac49b408ebaba0a97559db
+
+Phase 5 Gate:
+L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+
+Phase 6 Entry:
+PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+
+R8-G1 Status:
+RELEASE_CANDIDATE_PENDING_CLOSURE
+
+Next audit:
+SIMWAR-P6-R8G1-AUD-CLOSURE-040B
+```
+
+This Teacher Kit is refreshed as an internal-only release candidate package. It
+does not release R8-G1, does not start Phase 7 L1 Internal Validation, and does
+not authorize real teacher rehearsal, external customers, Pilot, Production,
+PostgreSQL runtime, SQL, migration or durable settlement.
+
 ## Audience
 
 | Role                  | Allowed use                                         |
@@ -70,6 +97,34 @@ Forbidden:
 5. Confirm no PostgreSQL runtime, SQL or migration action is planned.
 6. Confirm session has an abort point and evidence preservation rule.
 7. Confirm issue references are `Relates to #111`, `Relates to #114`, and `Relates to #115` only.
+
+## Teacher Operating Flow
+
+1. Open the Teacher Workspace for the synthetic run.
+2. Review course, run and round context before action.
+3. Monitor team readiness and decision submission state.
+4. Lock the round only through the authorized public Teacher route.
+5. Use the authorized settlement and publish path; do not directly mutate
+   `SettlementResult`, score, rank, `state_true`, replay artifacts or store
+   state.
+6. Review replay summary only after publish and only as authorized Teacher
+   evidence.
+7. Check Known Limits before any Go / No-Go discussion.
+8. Follow the abort, reset and escalation procedures if any boundary fails.
+
+## Evidence Handoff
+
+| Field                | Value                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Evidence Type        | `R8_G1_REL_CANDIDATE_EVIDENCE / DOCS_ONLY`                                                                                      |
+| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                                                      |
+| Result               | `UPDATED`                                                                                                                       |
+| Scope of Proof       | Internal Teacher Kit release-candidate boundary and operator flow                                                               |
+| Explicit Non-Proof   | Not R8-G1 release, not L1 validation, not real teacher rehearsal                                                                |
+| Owner                | Marshall                                                                                                                        |
+| Expiry Trigger       | master SHA, Phase 5 Gate, Phase 6 Entry, Teacher surface, DTO, auth, tenant boundary or replay evidence changes                 |
+| Revalidation Command | `npm test -- tests/integration/l1-internal-validation-rehearsal-gate.test.ts`                                                   |
+| No-Go Trigger        | Kit used with real users, external customers, Pilot, Production, PostgreSQL runtime, SQL, migration or durable settlement claim |
 
 ## Non-Proofs
 
