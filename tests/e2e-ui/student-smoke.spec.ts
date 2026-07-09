@@ -179,8 +179,8 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   await page.getByRole("button", { name: "发布结果" }).click();
   await expect(page.getByText("result published")).toBeVisible();
   await expect(page.getByText("M1 教学正式结果")).toBeVisible();
-  await expect(page.getByText("Replay Evidence")).toBeVisible();
-  await expect(page.getByLabel("replay evidence").getByText("Manifest")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
+  await expect(page.getByLabel("teacher bff dto surface").getByText("read-only")).toBeVisible();
   await expect(page.getByRole("heading", { name: "课堂复盘材料" })).toBeVisible();
   await expect(page.getByText("Rank 1")).toBeVisible();
 

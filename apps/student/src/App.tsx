@@ -8,7 +8,8 @@ import type {
   AuthSession,
   Decision,
   DecisionPayload,
-  P0DemoState
+  P0DemoState,
+  StudentBffCockpitDTO
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -33,6 +34,10 @@ const DEMO_LOGIN: LoginForm = {
 const DEMO_LOGIN_ENABLED =
   import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
   Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
+
+function toStudentSafeCopy(value: string): string {
+  return value.replaceAll("state_true", "正式真值字段");
+}
 
 const defaultDecision: DecisionPayload = {
   pricing: { base_price: 12800 },
@@ -81,6 +86,7 @@ async function apiRequest<TData>(
 
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
+  const [cockpit, setCockpit] = useState<StudentBffCockpitDTO | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
@@ -92,14 +98,9 @@ export function App() {
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
   const team = state?.teams.find((candidate) => candidate.team_id === state.current_user.team_id);
-  const myResult = state?.latest_result?.results.find((result) => result.team_id === team?.team_id);
-  const resultLabel = state?.latest_result?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
-  const runtimeLimitations = state?.latest_result?.runtime_limitations ?? [
-    "not_production_durable_settlement",
-    "not_cross_process_idempotency",
-    "not_database_transaction_recovery",
-    "not_postgresql_active_runtime"
-  ];
+  const publishedResult = cockpit?.published_result;
+  const myResult = publishedResult?.redacted_result;
+  const resultLabel = publishedResult?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
   const learnerKit = M1_TEACHING_PRODUCT_PACKAGE.learnerOnboarding;
   const submittedDecision = useMemo(() => {
     if (!latestRun || !latestRound || !team || !state) {
@@ -119,11 +120,25 @@ export function App() {
       return;
     }
 
-    setState(
-      await apiRequest<P0DemoState>("/api/v1/demo-state", {
-        token: session.access_token,
-        tenantId: login.tenantId
-      })
+    const auth = { token: session.access_token, tenantId: login.tenantId };
+    const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+    const nextRun = nextState.runs.at(-1);
+    const nextRound = nextRun
+      ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
+      : undefined;
+
+    setState(nextState);
+
+    if (!nextRun || !nextRound) {
+      setCockpit(null);
+      return;
+    }
+
+    setCockpit(
+      await apiRequest<StudentBffCockpitDTO>(
+        `/api/v1/bff/student/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/cockpit`,
+        auth
+      )
     );
   }, [login.tenantId, session]);
 
@@ -131,6 +146,7 @@ export function App() {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
+    setCockpit(null);
     setNotice("context changed");
   }
 
@@ -138,6 +154,7 @@ export function App() {
     setBusy(true);
     setSession(null);
     setState(null);
+    setCockpit(null);
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -195,9 +212,13 @@ export function App() {
   const cards = [
     ["身份", session?.user.display_name ?? "anonymous"],
     ["课程", state?.courses[0]?.title ?? "loading"],
-    ["队伍", team?.name ?? "not assigned"],
-    ["回合", latestRound?.status ?? "not created"],
-    ["决策", submittedDecision ? `v${submittedDecision.version}` : "draft"]
+    ["队伍", cockpit?.student_cockpit.visible_state.team_name ?? team?.name ?? "not assigned"],
+    [
+      "回合",
+      cockpit?.student_cockpit.visible_state.round_status ?? latestRound?.status ?? "not created"
+    ],
+    ["决策", submittedDecision ? `v${submittedDecision.version}` : "draft"],
+    ["BFF", cockpit?.student_cockpit.evidence_label ?? "pending"]
   ];
 
   return (
@@ -286,9 +307,145 @@ export function App() {
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <p className="visibility-note">{learnerKit.visibilityBoundary}</p>
+          <p className="visibility-note">{toStudentSafeCopy(learnerKit.visibilityBoundary)}</p>
         </article>
       </section>
+
+      {cockpit ? (
+        <section className="bff-surface" aria-label="student bff dto surface">
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 学员驾驶舱</h2>
+              <span>{cockpit.student_cockpit.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Team</span>
+                <strong>{cockpit.student_cockpit.visible_state.team_name}</strong>
+              </div>
+              <div>
+                <span>Round</span>
+                <strong>{cockpit.student_cockpit.visible_state.round_status}</strong>
+              </div>
+              <div>
+                <span>Tenant</span>
+                <strong>{cockpit.student_cockpit.tenant_id}</strong>
+              </div>
+            </div>
+            <p className="evidence-note">
+              Protected fields hidden: {cockpit.student_cockpit.forbidden_fields.length}
+            </p>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 决策表单</h2>
+              <span>{cockpit.decision_form.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Schema</span>
+                <strong>{cockpit.decision_form.decision_schema_version}</strong>
+              </div>
+              <div>
+                <span>Editable</span>
+                <strong>{cockpit.decision_form.editable_fields.length}</strong>
+              </div>
+              <div>
+                <span>Actions</span>
+                <strong>{cockpit.decision_form.allowed_actions.length}</strong>
+              </div>
+            </div>
+            <ul className="tag-list">
+              {cockpit.decision_form.editable_fields.map((field) => (
+                <li key={field}>{field}</li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 发布结果</h2>
+              <span>{cockpit.published_result.evidence_label}</span>
+            </div>
+            {myResult ? (
+              <div className="status-grid">
+                <div>
+                  <span>Rank</span>
+                  <strong>{myResult.state_obs.rank}</strong>
+                </div>
+                <div>
+                  <span>Score</span>
+                  <strong>{myResult.state_obs.score}</strong>
+                </div>
+                <div>
+                  <span>Band</span>
+                  <strong>{myResult.state_obs.profit_band}</strong>
+                </div>
+              </div>
+            ) : (
+              <p className="muted">结果发布后显示可见反馈。</p>
+            )}
+            <p className="evidence-note">{cockpit.published_result.result_label}</p>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>三段式反馈</h2>
+              <span>{cockpit.three_part_feedback.evidence_label}</span>
+            </div>
+            {cockpit.three_part_feedback.feedback.what_happened ? (
+              <div className="feedback-stack">
+                <div>
+                  <span>What happened</span>
+                  <strong>
+                    Rank {cockpit.three_part_feedback.feedback.what_happened.rank} / Score{" "}
+                    {cockpit.three_part_feedback.feedback.what_happened.score}
+                  </strong>
+                </div>
+                <div>
+                  <span>Why it happened</span>
+                  <p>{cockpit.three_part_feedback.feedback.why_it_happened}</p>
+                </div>
+                <div>
+                  <span>Next step risk</span>
+                  <strong>{cockpit.three_part_feedback.feedback.next_step_risk}</strong>
+                </div>
+              </div>
+            ) : (
+              <p className="muted">等待发布后的三段式反馈。</p>
+            )}
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>Learning Report</h2>
+              <span>{cockpit.learning_report.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Advisory</span>
+                <strong>advisory_only: true</strong>
+              </div>
+              <div>
+                <span>Formal grade</span>
+                <strong>
+                  {cockpit.learning_report.learning_evidence.formal_grade ? "yes" : "no"}
+                </strong>
+              </div>
+              <div>
+                <span>Prompts</span>
+                <strong>{cockpit.learning_report.learning_evidence.prompts.length}</strong>
+              </div>
+            </div>
+            <ul className="compact-list">
+              {cockpit.learning_report.learning_evidence.prompts.map((prompt) => (
+                <li key={prompt}>{toStudentSafeCopy(prompt)}</li>
+              ))}
+            </ul>
+          </article>
+        </section>
+      ) : null}
 
       <section className="workspace">
         <article className="panel form-panel">
@@ -404,7 +561,7 @@ export function App() {
               <div className="feedback-block runtime-note">
                 <span>结果边界</span>
                 <strong>{resultLabel}</strong>
-                <p>学员视图只展示可见结果与反馈，不暴露正式 state_true。</p>
+                <p>学员视图只展示可见结果与反馈，不暴露正式真值字段。</p>
               </div>
               <div className="feedback-block">
                 <span>发生了什么</span>
@@ -425,7 +582,9 @@ export function App() {
                 <strong>{myResult.state_est.next_round_risk}</strong>
                 <p>建议关注 {myResult.state_est.recommended_focus}。</p>
               </div>
-              <p className="runtime-limits">当前限制：{runtimeLimitations.join(" / ")}</p>
+              <p className="runtime-limits">
+                当前边界：{publishedResult?.explicit_non_proof.join(" / ")}
+              </p>
             </>
           ) : (
             <p className="muted">结果发布后显示可见反馈。</p>
