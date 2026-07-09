@@ -185,6 +185,25 @@ Program 012 在 PR #198 合并后追加 synthetic internal application decision 
 | Issue escalation refresh              | `docs/operations/l1-issue-escalation-procedure.md` now records issue states, closeout keyword prohibition, issue mutation non-authorization and REL-040 evidence handoff                             | `ESCALATION_EVIDENCE / DOCS_ONLY`                              |
 | R8-G1 pack index                      | `docs/operations/r8-g1-internal-application-pack-index.md` lists every pack component, proof scope, explicit non-proof, expiry trigger, revalidation command, no-go trigger, owner and status        | `EVIDENCE_HANDOFF / R8_G1_REL_CANDIDATE_EVIDENCE`              |
 
+## Program 041A Phase 7 Dry-run Harness Addendum
+
+| Evidence                       | Current result                                                                                                                                                                                                          | Evidence label                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Current anchor                 | Phase 7 dry-run harness is anchored to current master `26be81a7f89bcba883e20ab80894d5284e39e681`, after PR #217 merged and R8-G1 pack became `MERGED_AND_POSTMERGE_VALIDATED`.                                          | `CURRENT_REMOTE_GIT_READBACK / R8_G1_ON_MASTER_EVIDENCE` |
+| Phase 7 entry package          | `docs/operations/l1-internal-validation-entry-package.md` records participant matrix, entry criteria, no-go triggers, issue relationship and non-proofs for internal-only dry-run.                                      | `PHASE7_ENTRY_PACKAGE_EVIDENCE / DOCS_ONLY`              |
+| L1 dry-run harness             | `docs/operations/l1-internal-validation-dry-run-harness.md` records Teacher path, Student path, Tenant Admin path, Platform Admin path, Replay Review path, Abort / Reset path, Cleanup path and Issue Escalation path. | `L1_DRY_RUN_HARNESS_EVIDENCE / DOCS_ONLY`                |
+| L1 evidence pack               | `docs/quality/l1-internal-validation-evidence-pack.md` records source SHA, revalidation commands, expiry triggers, no-go triggers and Student negative visibility markers.                                              | `L1_EVIDENCE_PACK_EVIDENCE / DOCS_ONLY`                  |
+| Integration harness            | `tests/integration/l1-internal-validation-dry-run-harness.test.ts` verifies the Phase 7 documents, relation-only issue governance, protected marker no-go list and ledger addendum.                                     | `INTEGRATION_TEST_EVIDENCE`                              |
+| Expected formalization posture | `PROGRAM_COMPLETED_L1_DRY_RUN_HARNESS_PR_CREATED_PENDING_INDEPENDENT_EVIDENCE_REVIEW` is the intended outcome only after validation, commit, push and PR creation succeed.                                              | `VALUE_DENSITY_GATE`                                     |
+
+`L1 Status: NOT_READY` remains unchanged.
+
+Dry-run harness PR created != L1 Internal Validation completed.
+Dry-run harness PR created != Teacher rehearsal.
+Dry-run harness PR created != Pilot.
+Dry-run harness PR created != Production.
+Dry-run harness PR created != durable settlement.
+
 ## Reachable Surface Matrix
 
 | Surface                   | Current classification | Evidence                                                        |
