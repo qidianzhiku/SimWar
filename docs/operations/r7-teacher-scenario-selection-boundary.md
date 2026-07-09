@@ -118,6 +118,25 @@ calibration_register_id = r7-parameterset-shadow-replay-calibration-register-v1
 status = DRAFT_REGISTER_ONLY
 ```
 
+## Teacher Scenario Selection BFF/DTO Boundary
+
+```text
+Source SHA:
+f51d49cf736bef1e3645b6b56f85c41c12d9872e
+
+runtime_route_enabled = false
+teacher_bff_endpoint_enabled = false
+frontend_ui_enabled = false
+direct_store_access = false
+official_parameter_set_write = false
+official_scenario_binding_write = false
+shadow_replay_executes = false
+shadow_replay_overwrites_official_result = false
+student_visibility_expansion = false
+```
+
+Teacher scenario selection remains a boundary package only. It may define DTO, query and command contract fields for a future teacher BFF, but it must not introduce a runtime route, frontend UI, official Scenario binding, official ParameterSet write, Shadow Replay execution, or Student visibility expansion.
+
 ```text
 AI Advisory: NOT_AUTHORIZED_TO_WRITE_TRUTH
 Plugin Runtime: NOT_AUTHORIZED
