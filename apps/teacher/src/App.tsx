@@ -8,7 +8,8 @@ import type {
   AuthSession,
   P0DemoState,
   Round,
-  SettlementResult
+  SettlementResult,
+  TeacherBffWorkspaceDTO
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -96,6 +97,7 @@ function getRoundAction(round?: Round): string {
 
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
+  const [workspace, setWorkspace] = useState<TeacherBffWorkspaceDTO | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -105,9 +107,12 @@ export function App() {
   const latestRound = latestRun
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
-  const resultRows = state?.latest_result?.results ?? [];
+  const resultRows = workspace?.teacher_replay_summary.authorized_result_snapshot ?? [];
   const resultLabel = state?.latest_result?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
-  const runtimeBoundary = state?.latest_result?.runtime_boundary ?? "current_json_active_runtime";
+  const runtimeBoundary =
+    workspace?.teacher_replay_summary.visible_state.runtime_boundary ??
+    state?.latest_result?.runtime_boundary ??
+    "current_json_active_runtime";
   const runtimeLimitations = state?.latest_result?.runtime_limitations ?? [
     "not_production_durable_settlement",
     "not_cross_process_idempotency",
@@ -115,8 +120,12 @@ export function App() {
     "not_postgresql_active_runtime"
   ];
   const debriefPrompts = state?.latest_result?.classroom_debrief_prompts ?? [];
-  const replayEvidence = state?.latest_result?.replay_evidence;
   const teachingPackage = M1_TEACHING_PRODUCT_PACKAGE;
+  const teacherDashboard = workspace?.teacher_dashboard;
+  const courseWorkspace = workspace?.course_workspace;
+  const roundControl = workspace?.round_control;
+  const teamMonitor = workspace?.team_monitor;
+  const replaySummary = workspace?.teacher_replay_summary;
   const hasDecision = useMemo(() => {
     if (!latestRun || !latestRound || !state) {
       return false;
@@ -133,11 +142,25 @@ export function App() {
       return;
     }
 
-    setState(
-      await apiRequest<P0DemoState>("/api/v1/demo-state", {
-        token: session.access_token,
-        tenantId: login.tenantId
-      })
+    const auth = { token: session.access_token, tenantId: login.tenantId };
+    const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+    const nextRun = nextState.runs.at(-1);
+    const nextRound = nextRun
+      ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
+      : undefined;
+
+    setState(nextState);
+
+    if (!nextRun || !nextRound) {
+      setWorkspace(null);
+      return;
+    }
+
+    setWorkspace(
+      await apiRequest<TeacherBffWorkspaceDTO>(
+        `/api/v1/bff/teacher/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/workspace`,
+        auth
+      )
     );
   }, [login.tenantId, session]);
 
@@ -145,6 +168,7 @@ export function App() {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
+    setWorkspace(null);
     setNotice("context changed");
   }
 
@@ -152,6 +176,7 @@ export function App() {
     setBusy(true);
     setSession(null);
     setState(null);
+    setWorkspace(null);
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -229,13 +254,20 @@ export function App() {
 
   const metrics = [
     ["身份", session?.user.display_name ?? "anonymous"],
-    ["课程", state?.courses[0]?.title ?? "loading"],
-    ["队伍", `${state?.teams.length ?? 0}`],
-    ["回合", latestRound?.status ?? "not created"],
-    ["决策", hasDecision ? "validated" : "waiting"],
+    ["课程", courseWorkspace?.visible_state.course_title ?? state?.courses[0]?.title ?? "loading"],
+    ["队伍", `${teacherDashboard?.visible_state.team_count ?? state?.teams.length ?? 0}`],
+    ["回合", roundControl?.status ?? latestRound?.status ?? "not created"],
+    [
+      "决策",
+      roundControl?.visible_state.decision_count
+        ? "validated"
+        : hasDecision
+          ? "validated"
+          : "waiting"
+    ],
     ["运行时", runtimeBoundary],
-    ["Replay", state?.latest_result?.replay_hash?.slice(0, 8) ?? "pending"],
-    ["Manifest", replayEvidence?.manifest_hash.slice(0, 8) ?? "pending"]
+    ["Replay", replaySummary?.replay_status ?? "pending"],
+    ["BFF", teacherDashboard?.evidence_label ?? "pending"]
   ];
 
   return (
@@ -346,6 +378,109 @@ export function App() {
         </article>
       </section>
 
+      {workspace ? (
+        <section className="bff-surface" aria-label="teacher bff dto surface">
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 教师工作台</h2>
+              <span>{teacherDashboard?.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Course</span>
+                <strong>{courseWorkspace?.visible_state.course_title}</strong>
+              </div>
+              <div>
+                <span>Run</span>
+                <strong>{courseWorkspace?.visible_state.run_status}</strong>
+              </div>
+              <div>
+                <span>Teams</span>
+                <strong>{teacherDashboard?.visible_state.team_count}</strong>
+              </div>
+            </div>
+            <p className="evidence-note">{courseWorkspace?.evidence_label}</p>
+            <ul className="tag-list">
+              {teacherDashboard?.allowed_actions.map((action) => (
+                <li key={action}>{action}</li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 回合控制</h2>
+              <span>{roundControl?.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Round</span>
+                <strong>{roundControl?.round_no}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{roundControl?.status}</strong>
+              </div>
+              <div>
+                <span>Settlement</span>
+                <strong>
+                  {roundControl?.visible_state.settlement_available ? "available" : "pending"}
+                </strong>
+              </div>
+            </div>
+            <p className="evidence-note">
+              Decisions {roundControl?.visible_state.decision_count} / Teams{" "}
+              {roundControl?.visible_state.team_count}
+            </p>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF 队伍监控</h2>
+              <span>{teamMonitor?.evidence_label}</span>
+            </div>
+            <div className="table">
+              {teamMonitor?.teams.map((team) => (
+                <div className="table-row" key={team.team_id}>
+                  <span>{team.team_name}</span>
+                  <span>{team.members} members</span>
+                  <strong>{team.decision_submitted ? "submitted" : "waiting"}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel bff-panel">
+            <div className="panel-title">
+              <h2>BFF Replay 摘要</h2>
+              <span>{replaySummary?.evidence_label}</span>
+            </div>
+            <div className="status-grid">
+              <div>
+                <span>Results</span>
+                <strong>{replaySummary?.visible_state.result_count}</strong>
+              </div>
+              <div>
+                <span>Replay</span>
+                <strong>{replaySummary?.replay_status ?? "pending"}</strong>
+              </div>
+              <div>
+                <span>Non-overwrite</span>
+                <strong>
+                  {replaySummary?.replay_writes_formal_results === false ? "read-only" : "pending"}
+                </strong>
+              </div>
+            </div>
+            <p className="evidence-note">formal_truth_write_allowed: false</p>
+            <ul className="tag-list">
+              {replaySummary?.redacted_fields.map((field) => (
+                <li key={field}>{field}</li>
+              ))}
+            </ul>
+          </article>
+        </section>
+      ) : null}
+
       <section className="workspace">
         <article className="panel">
           <div className="panel-title">
@@ -399,35 +534,6 @@ export function App() {
                 )}
               </ul>
               <small>当前限制：{runtimeLimitations.join(" / ")}</small>
-            </div>
-          ) : null}
-          {replayEvidence ? (
-            <div className="replay-evidence" aria-label="replay evidence">
-              <h3>Replay Evidence</h3>
-              <div className="evidence-grid">
-                <div>
-                  <span>Manifest</span>
-                  <code>{replayEvidence.manifest_hash.slice(0, 12)}</code>
-                </div>
-                <div>
-                  <span>Replay</span>
-                  <code>{replayEvidence.replay_result_hash.slice(0, 12)}</code>
-                </div>
-                <div>
-                  <span>Determinism</span>
-                  <strong>{replayEvidence.replay_status}</strong>
-                </div>
-                <div>
-                  <span>Non-overwrite</span>
-                  <strong>
-                    {replayEvidence.replay_writes_formal_results ? "writes" : "read-only"}
-                  </strong>
-                </div>
-              </div>
-              <small>
-                Seed {replayEvidence.frozen_inputs.seed} · {replayEvidence.frozen_inputs.engine_id}{" "}
-                · {replayEvidence.frozen_inputs.decision_batch_hash.slice(0, 12)}
-              </small>
             </div>
           ) : null}
         </article>
