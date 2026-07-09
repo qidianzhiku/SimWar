@@ -103,6 +103,27 @@ no truth field write
 no runtime route activation without Owner authorization
 ```
 
+## Teacher Scenario Selection BFF/DTO Boundary
+
+```text
+Source SHA:
+f51d49cf736bef1e3645b6b56f85c41c12d9872e
+
+runtime_route_enabled = false
+teacher_bff_endpoint_enabled = false
+frontend_ui_enabled = false
+official_parameter_set_write = false
+shadow_replay_overwrites_official_result = false
+student_visibility_expansion = false
+direct_store_delta = NONE
+```
+
+Evidence ledger addition:
+
+| Evidence ID                           | Evidence Type                               | Evidence Label           | Status  | Proof Scope                        | Explicit Non-Proof    |
+| ------------------------------------- | ------------------------------------------- | ------------------------ | ------- | ---------------------------------- | --------------------- |
+| r7-teacher-selection-bff-dto-boundary | Teacher Scenario Selection BFF/DTO Boundary | CONTRACT_BACKED_EVIDENCE | PRESENT | DTO/query/command boundary package | not runtime BFF route |
+
 ## Non-Proof
 
 This ledger is not `G0 PASS`, `L1 READY`, R8-G1 release, Teacher rehearsal, Pilot readiness, Production readiness, PostgreSQL runtime readiness, or durable settlement proof.
