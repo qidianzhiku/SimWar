@@ -26,6 +26,32 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 
 本 escalation procedure 只服务 internal synthetic decision package。它不授权 Issue mutation，不授权 `Pilot`、`Production`，且 PostgreSQL runtime 保持 `NOT_AUTHORIZED`。
 
+## REL-040 Release-Candidate Binding
+
+```text
+Current master anchor:
+6f2ec0283a41eebc9bac49b408ebaba0a97559db
+
+Phase 5 Gate:
+L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+
+Phase 6 Entry:
+PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+
+Issue #111:
+OPEN
+
+Issue #114:
+OPEN
+
+Issue #115:
+OPEN
+```
+
+This procedure is refreshed for the R8-G1 internal application pack release
+candidate. This mission does not authorize issue creation, mutation, labels,
+comments, closeout, milestone, project or assignment changes.
+
 ## Escalation Categories
 
 | Category               | Examples                                                              | Required action                                            |
@@ -59,6 +85,29 @@ Do not record secrets, tokens, passwords, payment data, real customer data or pr
 
 Use `Relates to #111`, `Relates to #114`, and `Relates to #115` only. Do not use issue closeout keywords in PR bodies unless separately authorized.
 
+Issue closeout keywords remain forbidden in this pack PR body:
+
+- `Closes`
+- `Fixes`
+- `Resolves`
+
+New issue creation is allowed only by a separately signed Owner authorization or
+a future mission scope that explicitly authorizes issue mutation.
+
 ## Non-Proofs
 
 Escalation records do not prove `G0 PASS`, `L1 READY`, `Pilot`, `Production`, PostgreSQL runtime, SQL migration or durable settlement.
+
+## REL-040 Evidence Handoff
+
+| Field                | Value                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------- | ----- | --------------------------------------- |
+| Evidence Type        | `ESCALATION_EVIDENCE / DOCS_ONLY`                                                           |
+| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                  |
+| Result               | `UPDATED`                                                                                   |
+| Scope of Proof       | Internal escalation classification and issue relationship boundary                          |
+| Explicit Non-Proof   | Not Issue mutation, not issue closeout, not release authorization                           |
+| Owner                | Marshall                                                                                    |
+| Expiry Trigger       | master SHA, issue state, PR body policy, governance or escalation procedure changes         |
+| Revalidation Command | `rg -n "Closes                                                                              | Fixes | Resolves" docs/operations docs/quality` |
+| No-Go Trigger        | PR body or pack docs use closeout wording for #111/#114/#115 without separate authorization |
