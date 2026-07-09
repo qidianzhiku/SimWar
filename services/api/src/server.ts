@@ -60,6 +60,12 @@ import {
   type SimWarStore,
   type StoredUser
 } from "./store.js";
+import {
+  createPlatformAdminAuthorityDto,
+  createStudentBffCockpitDto,
+  createTeacherBffWorkspaceDto,
+  createTenantAdminSummaryDto
+} from "./teacher-student-bff-dto.js";
 
 const DEFAULT_PORT = 3000;
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -1324,6 +1330,173 @@ async function routeRequest(
             ).slice(-20)
           : []
       })
+    );
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/teacher\/runs\/[^/]+\/rounds\/\d+\/workspace$/.test(url.pathname)
+  ) {
+    const actor = requirePermission(context, "result:read");
+    if (!actorHasAnyRole(actor, ["teacher"])) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher BFF requires teacher authority");
+    }
+
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/runs\/([^/]+)\/rounds\/(\d+)\/workspace$/
+    );
+    const run = getRun(store, context, runId ?? "");
+    const course = getCourse(store, context, run.course_id);
+    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+    const teams = store.teams.filter(
+      (team) => team.tenant_id === context.tenantId && team.course_id === course.course_id
+    );
+    const decisions = store.decisions.filter(
+      (decision) =>
+        decision.tenant_id === context.tenantId &&
+        decision.run_id === run.run_id &&
+        decision.round_no === round.round_no
+    );
+    const resultView = await createPublicResultView(runtime, context, run.run_id, round.round_no);
+    const scenario = store.scenarios.find(
+      (candidate) =>
+        candidate.tenant_id === context.tenantId &&
+        candidate.scenario_package_id === course.scenario_package_id
+    );
+    const parameterSet = store.parameterSets.find(
+      (candidate) =>
+        candidate.tenant_id === context.tenantId &&
+        candidate.parameter_set_id === course.parameter_set_id
+    );
+
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        createTeacherBffWorkspaceDto({
+          actor,
+          auditLogs: store.auditLogs.filter((log) => log.tenant_id === context.tenantId),
+          course,
+          decisions,
+          resultView,
+          round,
+          run,
+          ...(parameterSet ? { parameterSet } : {}),
+          ...(scenario ? { scenario } : {}),
+          teams
+        })
+      )
+    );
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/student\/runs\/[^/]+\/rounds\/\d+\/cockpit$/.test(url.pathname)
+  ) {
+    const actor = requirePermission(context, "result:read");
+    if (canReadClassroomScope(actor) || !actor.team_id) {
+      throw new HttpError(403, "AUTHZ-403-001", "student BFF requires learner team scope");
+    }
+
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/student\/runs\/([^/]+)\/rounds\/(\d+)\/cockpit$/
+    );
+    const run = getRun(store, context, runId ?? "");
+    const course = getCourse(store, context, run.course_id);
+    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+    const team = store.teams.find(
+      (candidate) =>
+        candidate.tenant_id === context.tenantId &&
+        candidate.course_id === course.course_id &&
+        candidate.team_id === actor.team_id &&
+        isActorMemberOfTeam(actor, candidate)
+    );
+
+    if (!team) {
+      throw new HttpError(404, "TEAM-404-001", "team not found");
+    }
+
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        createStudentBffCockpitDto({
+          actor,
+          course,
+          resultView: await createPublicResultView(runtime, context, run.run_id, round.round_no),
+          round,
+          run,
+          team
+        })
+      )
+    );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/tenant-summary") {
+    const actor = requirePermission(context, "tenant:read");
+    if (!actorHasAnyRole(actor, ["tenant_admin"])) {
+      throw new HttpError(
+        403,
+        "AUTHZ-403-001",
+        "tenant summary BFF requires tenant admin authority"
+      );
+    }
+    const tenant = store.tenants.find(
+      (candidate) => candidate.tenant_id === context.tenantId && candidate.status === "active"
+    );
+
+    if (!tenant) {
+      throw new HttpError(404, "TENANT-404-001", "tenant not found");
+    }
+
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        createTenantAdminSummaryDto({
+          actor,
+          auditLogs: store.auditLogs.filter((log) => log.tenant_id === tenant.tenant_id),
+          courses: store.courses.filter((course) => course.tenant_id === tenant.tenant_id),
+          runs: store.runs.filter((run) => run.tenant_id === tenant.tenant_id),
+          teams: store.teams.filter((team) => team.tenant_id === tenant.tenant_id),
+          tenant
+        })
+      )
+    );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/platform-authority") {
+    const actor = requirePermission(context, "tenant:read");
+    if (!actorHasAnyRole(actor, ["platform_admin"])) {
+      throw new HttpError(403, "AUTHZ-403-001", "platform BFF requires platform authority");
+    }
+    if (url.searchParams.get("scope") !== "platform") {
+      throw new HttpError(
+        422,
+        "BFF-422-001",
+        "platform authority BFF requires explicit scope=platform"
+      );
+    }
+
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        createPlatformAdminAuthorityDto({
+          actor,
+          tenants: store.tenants
+        })
+      )
     );
     return;
   }
