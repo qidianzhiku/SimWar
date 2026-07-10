@@ -189,3 +189,25 @@ Source master: `40e4e6b2e7c1440598e54dc92ea66a5d9d8160d3`.
 | Readiness, No-Go and boundary documents         | `docs/architecture/r7-bff-endpoint-implementation-gate.md`; `docs/quality/r7-bff-endpoint-implementation-readiness-matrix.md`; `docs/quality/r7-bff-endpoint-implementation-no-go-register.md`; `docs/operations/r7-bff-endpoint-implementation-boundary.md` | `R7_BFF_ENDPOINT_IMPLEMENTATION_GATE_EVIDENCE` | Gate package is not endpoint implementation or release readiness                  |
 
 Source master: `aec5d6f762a16cd3f503bf6c4d33e45a753a830c`.
+
+## R7 Teacher Scenario Selection Readiness Endpoint
+
+| Evidence                                                                   | Source                                                                                                                                                                                                                             | Status                        | Explicit non-proof                                                        |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| Teacher-only runtime route and projection                                  | `services/api/src/server.ts`; `services/api/src/r7-teacher-scenario-selection-readiness.ts`                                                                                                                                        | `RUNTIME_ENTRYPOINT_EVIDENCE` | No Scenario execution, binding, ParameterSet write, Replay, or settlement |
+| Authentication, tenant, resource-scope, gate, redaction and no-write tests | `tests/integration/r7-teacher-scenario-selection-readiness-endpoint.test.ts`                                                                                                                                                       | `INTEGRATION_TEST_EVIDENCE`   | Endpoint tests are not whole-repository security proof                    |
+| Architecture, security and operations boundaries                           | `docs/architecture/r7-teacher-scenario-selection-readiness-endpoint.md`; `docs/quality/r7-teacher-scenario-selection-readiness-security-matrix.md`; `docs/operations/r7-teacher-scenario-selection-readiness-endpoint-boundary.md` | `CONTRACT_BACKED_EVIDENCE`    | Documentation is not runtime or release proof                             |
+
+The endpoint evaluates the existing merged implementation gate and reads only
+the tenant-scoped Run, Scenario Package, and ParameterSet through
+`runtime.repositoryProvider.facade`. It introduces no direct-store access and
+no write path.
+
+```text
+G0 Status: EXCEPTION
+G0 PASS: NOT_GRANTED
+L1 Status: NOT_READY
+Scenario Runtime: NOT_AUTHORIZED
+Replay / Settlement: NOT_RUN
+Pilot / Production: NOT_AUTHORIZED
+```
