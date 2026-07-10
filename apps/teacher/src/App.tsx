@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE
@@ -11,6 +11,13 @@ import type {
   SettlementResult,
   TeacherBffWorkspaceDTO
 } from "@simwar/shared-contracts";
+import {
+  ScenarioReadinessRequestError,
+  getScenarioReadinessErrorMessage,
+  requestScenarioReadiness,
+  validateScenarioReadinessInput,
+  type ScenarioReadinessResponse
+} from "./scenario-readiness";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -19,11 +26,41 @@ type LoginForm = {
   password: string;
 };
 
+type ScenarioReadinessForm = {
+  parameterSetId: string;
+  scenarioPackageId: string;
+};
+
+type ScenarioReadinessState =
+  | { phase: "IDLE" }
+  | { phase: "LOADING" }
+  | { phase: "INVALID_REQUEST"; message: string }
+  | {
+      phase: "UNAUTHENTICATED" | "UNAUTHORIZED" | "NOT_FOUND_OR_OUT_OF_SCOPE" | "INTERNAL_ERROR";
+      message: string;
+    }
+  | { phase: "READY" | "BLOCKED"; response: ScenarioReadinessResponse };
+
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
   username: "",
   password: ""
 };
+
+const EMPTY_SCENARIO_READINESS_FORM: ScenarioReadinessForm = {
+  parameterSetId: "",
+  scenarioPackageId: ""
+};
+
+const SCENARIO_READINESS_KNOWN_LIMITS = [
+  "Readiness check only",
+  "Does not activate Scenario runtime",
+  "Does not bind or modify ParameterSet",
+  "Does not execute Replay",
+  "Does not settle a round",
+  "Does not publish an official result",
+  "Does not establish Pilot or Production readiness"
+] as const;
 
 const DEMO_LOGIN: LoginForm = {
   tenantId: import.meta.env.VITE_SIMWAR_DEMO_TENANT_ID ?? "",
@@ -102,6 +139,13 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("ready");
+  const [scenarioReadinessForm, setScenarioReadinessForm] = useState<ScenarioReadinessForm>(
+    EMPTY_SCENARIO_READINESS_FORM
+  );
+  const [scenarioReadiness, setScenarioReadiness] = useState<ScenarioReadinessState>({
+    phase: "IDLE"
+  });
+  const readinessRequestSequence = useRef(0);
 
   const latestRun = state?.runs.at(-1);
   const latestRound = latestRun
@@ -169,7 +213,74 @@ export function App() {
     setSession(null);
     setState(null);
     setWorkspace(null);
+    setScenarioReadiness({ phase: "IDLE" });
+    setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
     setNotice("context changed");
+  }
+
+  function updateScenarioReadinessForm(field: keyof ScenarioReadinessForm, value: string): void {
+    setScenarioReadinessForm((current) => ({ ...current, [field]: value }));
+    if (scenarioReadiness.phase !== "LOADING") {
+      setScenarioReadiness({ phase: "IDLE" });
+    }
+  }
+
+  async function checkScenarioReadiness(): Promise<void> {
+    const validationMessage = validateScenarioReadinessInput(scenarioReadinessForm);
+    if (validationMessage) {
+      setScenarioReadiness({ phase: "INVALID_REQUEST", message: validationMessage });
+      return;
+    }
+    if (!session || !latestRun) {
+      setScenarioReadiness({
+        phase: "UNAUTHENTICATED",
+        message: "Authentication is required to check readiness."
+      });
+      return;
+    }
+
+    const requestSequence = readinessRequestSequence.current + 1;
+    readinessRequestSequence.current = requestSequence;
+    setScenarioReadiness({ phase: "LOADING" });
+
+    try {
+      const response = await requestScenarioReadiness({
+        apiBaseUrl: API_BASE,
+        parameterSetId: scenarioReadinessForm.parameterSetId,
+        runId: latestRun.run_id,
+        scenarioPackageId: scenarioReadinessForm.scenarioPackageId,
+        token: session.access_token
+      });
+
+      if (readinessRequestSequence.current === requestSequence) {
+        setScenarioReadiness({
+          phase: response.eligible ? "READY" : "BLOCKED",
+          response
+        });
+      }
+    } catch (error) {
+      if (readinessRequestSequence.current !== requestSequence) {
+        return;
+      }
+
+      const message = getScenarioReadinessErrorMessage(error);
+      if (error instanceof ScenarioReadinessRequestError) {
+        const { status } = error;
+        setScenarioReadiness({
+          phase:
+            status === 401
+              ? "UNAUTHENTICATED"
+              : status === 403
+                ? "UNAUTHORIZED"
+                : status === 404
+                  ? "NOT_FOUND_OR_OUT_OF_SCOPE"
+                  : "INTERNAL_ERROR",
+          message
+        });
+        return;
+      }
+      setScenarioReadiness({ phase: "INTERNAL_ERROR", message });
+    }
   }
 
   async function signIn(nextLogin = login): Promise<void> {
@@ -406,6 +517,108 @@ export function App() {
               ))}
             </ul>
           </article>
+
+          {session && latestRun ? (
+            <article className="panel readiness-panel" aria-label="scenario readiness">
+              <div className="panel-title">
+                <h2>Scenario Readiness</h2>
+                <span>{scenarioReadiness.phase}</span>
+              </div>
+              <p className="evidence-note">Run context: {latestRun.run_id}</p>
+              <label className="field-label">
+                Scenario Package ID
+                <input
+                  aria-label="scenario package id"
+                  disabled={scenarioReadiness.phase === "LOADING"}
+                  onChange={(event) =>
+                    updateScenarioReadinessForm("scenarioPackageId", event.target.value)
+                  }
+                  value={scenarioReadinessForm.scenarioPackageId}
+                />
+              </label>
+              <label className="field-label">
+                ParameterSet ID
+                <input
+                  aria-label="parameter set id"
+                  disabled={scenarioReadiness.phase === "LOADING"}
+                  onChange={(event) =>
+                    updateScenarioReadinessForm("parameterSetId", event.target.value)
+                  }
+                  value={scenarioReadinessForm.parameterSetId}
+                />
+              </label>
+              <button
+                disabled={scenarioReadiness.phase === "LOADING"}
+                onClick={() => void checkScenarioReadiness()}
+              >
+                {scenarioReadiness.phase === "LOADING" ? "Checking readiness" : "Check readiness"}
+              </button>
+              {scenarioReadiness.phase === "INVALID_REQUEST" ||
+              scenarioReadiness.phase === "UNAUTHENTICATED" ||
+              scenarioReadiness.phase === "UNAUTHORIZED" ||
+              scenarioReadiness.phase === "NOT_FOUND_OR_OUT_OF_SCOPE" ||
+              scenarioReadiness.phase === "INTERNAL_ERROR" ? (
+                <p className="readiness-message" role="status">
+                  {scenarioReadiness.message}
+                </p>
+              ) : null}
+              {scenarioReadiness.phase === "READY" || scenarioReadiness.phase === "BLOCKED" ? (
+                <div className="readiness-result">
+                  <strong>{scenarioReadiness.response.readiness_status}</strong>
+                  <div className="status-grid">
+                    <div>
+                      <span>Compatibility</span>
+                      <strong>{scenarioReadiness.response.compatibility_status}</strong>
+                    </div>
+                    <div>
+                      <span>Provenance</span>
+                      <strong>{scenarioReadiness.response.provenance_status}</strong>
+                    </div>
+                    <div>
+                      <span>QA</span>
+                      <strong>{scenarioReadiness.response.qa_status}</strong>
+                    </div>
+                    <div>
+                      <span>License</span>
+                      <strong>{scenarioReadiness.response.license_status}</strong>
+                    </div>
+                    <div>
+                      <span>Calibration</span>
+                      <strong>{scenarioReadiness.response.calibration_status}</strong>
+                    </div>
+                    <div>
+                      <span>Runtime adapter</span>
+                      <strong>{scenarioReadiness.response.runtime_adapter_status}</strong>
+                    </div>
+                  </div>
+                  <p className="evidence-note">
+                    Evidence freshness:{" "}
+                    {scenarioReadiness.response.evidence_freshness.collected_at ?? "unavailable"}
+                  </p>
+                  {scenarioReadiness.response.no_go_reasons.length > 0 ? (
+                    <ul className="tag-list">
+                      {scenarioReadiness.response.no_go_reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <ul className="tag-list">
+                    {scenarioReadiness.response.explicit_non_proofs.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <section className="known-limits" aria-label="known limits">
+                <h3>Known limits</h3>
+                <ul className="compact-list">
+                  {SCENARIO_READINESS_KNOWN_LIMITS.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+            </article>
+          ) : null}
 
           <article className="panel bff-panel">
             <div className="panel-title">
