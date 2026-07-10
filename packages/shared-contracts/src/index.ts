@@ -1465,3 +1465,4 @@ export * from "./scenario-alignment.js";
 export * from "./scenario-selection.js";
 export * from "./scenario-runtime-adapter.js";
 export * from "./scenario-bff-endpoint-contract.js";
+export * from "./scenario-bff-endpoint-implementation-gate.js";
