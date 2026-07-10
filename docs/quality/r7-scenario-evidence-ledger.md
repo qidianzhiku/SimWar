@@ -32,6 +32,7 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 | r7-parameterset-compatibility  | ParameterSet compatibility matrix       | CONTRACT_BACKED_EVIDENCE | PRESENT | reference-only compatibility                       | not official ParameterSet write |
 | r7-shadow-replay-compatibility | Shadow Replay compatibility matrix      | CONTRACT_BACKED_EVIDENCE | PRESENT | non-overwrite boundary                             | not Shadow Replay execution     |
 | r7-calibration-register        | Calibration register                    | SOURCE_ONLY_INFERENCE    | PRESENT | draft calibration register                         | not runtime calibration         |
+| r7-runtime-adapter-preparation | Runtime adapter preparation             | CONTRACT_BACKED_EVIDENCE | PRESENT | contract-only adapter readiness boundary           | not runtime activation          |
 
 ## Alignment Package Status Boundary
 
@@ -123,6 +124,38 @@ Evidence ledger addition:
 | Evidence ID                           | Evidence Type                               | Evidence Label           | Status  | Proof Scope                        | Explicit Non-Proof    |
 | ------------------------------------- | ------------------------------------------- | ------------------------ | ------- | ---------------------------------- | --------------------- |
 | r7-teacher-selection-bff-dto-boundary | Teacher Scenario Selection BFF/DTO Boundary | CONTRACT_BACKED_EVIDENCE | PRESENT | DTO/query/command boundary package | not runtime BFF route |
+
+## Runtime Adapter Preparation Without Activation
+
+```text
+Source SHA:
+9bc3c1dac3491fd6103fb50354bff566b75579ef
+
+runtime_route_enabled = false
+api_route_enabled = false
+bff_endpoint_enabled = false
+frontend_ui_enabled = false
+scenario_runtime_executes = false
+official_parameter_set_write = false
+official_scenario_binding_write = false
+state_true_exposure = false
+settlement_result_write = false
+replay_executes = false
+shadow_replay_executes = false
+shadow_replay_overwrites_official_result = false
+replay_hash_semantics_changed = false
+manifest_hash_semantics_changed = false
+student_visibility_expansion = false
+direct_store_delta = NONE
+```
+
+Evidence ledger addition:
+
+| Evidence ID                    | Evidence Type               | Evidence Label           | Status  | Proof Scope                     | Explicit Non-Proof     |
+| ------------------------------ | --------------------------- | ------------------------ | ------- | ------------------------------- | ---------------------- |
+| r7-runtime-adapter-preparation | Runtime adapter preparation | CONTRACT_BACKED_EVIDENCE | PRESENT | no-activation readiness package | not runtime activation |
+
+Runtime adapter preparation without activation is a contract-only package. It defines future adapter input/output reference scope, compatibility guard and no-go register. It does not create a runtime route, execute Scenario runtime, write official ParameterSet records, execute Shadow Replay, enable Plugin runtime, enable AI runtime, or expand Student visibility.
 
 ## Non-Proof
 

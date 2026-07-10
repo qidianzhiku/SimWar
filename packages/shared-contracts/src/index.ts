@@ -1463,3 +1463,4 @@ export function actorHasPermission(actor: CurrentUser, permission: PermissionKey
 export * from "./scenario-factory.js";
 export * from "./scenario-alignment.js";
 export * from "./scenario-selection.js";
+export * from "./scenario-runtime-adapter.js";
