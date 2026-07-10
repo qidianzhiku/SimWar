@@ -16,23 +16,53 @@ async function signIn(page: Page, buttonName: "教师登录" | "学员登录", u
   await expect(page.getByText("signed in")).toBeVisible();
 }
 
+async function openScenarioReadinessPanel(page: Page) {
+  const initialState = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/demo-state") &&
+      response.request().method() === "GET" &&
+      response.status() === 200
+  );
+
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "教师登录", "teacher");
+  await initialState;
+
+  const runStatus = page.getByRole("region", { name: "M1 run status" });
+  await expect(runStatus.getByText("M1 康养教学闭环课程")).toBeVisible();
+
+  const primaryAction = page.locator("header.topbar > button.primary");
+  await expect(primaryAction).toBeVisible();
+  const actionLabel = (await primaryAction.textContent())?.trim();
+  await test.info().attach("scenario-readiness-workspace-state.json", {
+    body: JSON.stringify({ actionLabel }),
+    contentType: "application/json"
+  });
+
+  if (actionLabel === "创建 Run") {
+    const createdState = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/demo-state") &&
+        response.request().method() === "GET" &&
+        response.status() === 200
+    );
+    await primaryAction.click();
+    await expect(page.getByText("run created")).toBeVisible();
+    await createdState;
+  }
+
+  const panel = page.getByLabel("scenario readiness");
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
 test("Teacher checks scenario readiness through the read-only BFF without a tenant header", async ({
   page
 }) => {
   const consoleMessages: string[] = [];
   page.on("console", (message) => consoleMessages.push(message.text()));
 
-  await page.goto(teacherBaseUrl);
-  await signIn(page, "教师登录", "teacher");
-  await expect(page.getByText("M1 康养教学闭环课程").first()).toBeVisible();
-  const createRun = page.getByRole("button", { name: "创建 Run" });
-  if (await createRun.isVisible()) {
-    await createRun.click();
-    await expect(page.getByText("run created")).toBeVisible();
-  }
-
-  const panel = page.getByLabel("scenario readiness");
-  await expect(panel).toBeVisible();
+  const panel = await openScenarioReadinessPanel(page);
   await panel.getByRole("button", { name: "Check readiness" }).click();
   await expect(panel.getByText("Scenario Package ID is required.")).toBeVisible();
   await panel.getByLabel("scenario package id").fill("scenario_eldercare_demo");
