@@ -169,3 +169,13 @@ Plugin Runtime: NOT_AUTHORIZED
 Relates to #111.
 Relates to #114.
 Relates to #115.
+
+## R7 BFF Endpoint Contract Draft
+
+| Evidence                                | Source                                                                                                                                                                                                                                    | Status                                    | Non-proof                                                             |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| Contract-only shared type and validator | `packages/shared-contracts/src/scenario-bff-endpoint-contract.ts`                                                                                                                                                                         | `CONTRACT_BACKED_EVIDENCE`                | No API route, BFF implementation, IO, runtime activation, or frontend |
+| Contract boundary test                  | `tests/integration/r7-bff-endpoint-contract-draft-no-implementation.test.ts`                                                                                                                                                              | `INTEGRATION_TEST_EVIDENCE`               | No complete permission or runtime proof                               |
+| Contract/docs boundary pack             | `docs/architecture/r7-bff-endpoint-contract-draft-no-implementation.md`; `docs/quality/r7-bff-endpoint-contract-compatibility-matrix.md`; `docs/quality/r7-bff-endpoint-no-go-register.md`; `docs/operations/r7-bff-endpoint-boundary.md` | `R7_BFF_ENDPOINT_CONTRACT_DRAFT_EVIDENCE` | Not an endpoint implementation or release                             |
+
+Source master: `40e4e6b2e7c1440598e54dc92ea66a5d9d8160d3`.
