@@ -47,6 +47,10 @@ import {
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
+import {
+  R7TeacherScenarioSelectionGateBlockedError,
+  createR7TeacherScenarioSelectionReadinessProjection
+} from "./r7-teacher-scenario-selection-readiness.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
   DEFAULT_TENANT_ID,
@@ -394,6 +398,31 @@ function sendError(response: ServerResponse, context: RequestContext, error: Htt
   });
 }
 
+function sendR7ScenarioSelectionReadinessError(
+  response: ServerResponse,
+  statusCode: number,
+  code: string,
+  message: string,
+  correlationId: string | null
+): void {
+  sendJson(response, statusCode, {
+    error: {
+      code,
+      message,
+      correlation_id: correlationId
+    }
+  });
+}
+
+function parseR7ScenarioSelectionIdentifier(rawValue: string | undefined): string | undefined {
+  try {
+    const value = decodeURIComponent(rawValue ?? "").trim();
+    return /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getBearerToken(request: IncomingMessage): string | undefined {
   const header = request.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
@@ -465,6 +494,144 @@ function requirePermission(context: RequestContext, permission: PermissionKey): 
   }
 
   return actor;
+}
+
+async function handleR7TeacherScenarioSelectionReadiness(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL
+): Promise<void> {
+  let context: RequestContext | undefined;
+  const correlationId = () =>
+    context?.requestId ?? request.headers["x-request-id"]?.toString() ?? null;
+
+  try {
+    context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+
+    if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+    }
+
+    const match = url.pathname.match(
+      /^\/api\/v1\/bff\/teacher\/runs\/([^/]*)\/scenario-selection-readiness$/
+    );
+    const runId = parseR7ScenarioSelectionIdentifier(match?.[1]);
+    const scenarioPackageIds = url.searchParams.getAll("scenarioPackageId");
+    const parameterSetIds = url.searchParams.getAll("parameterSetId");
+    const scenarioPackageId = parseR7ScenarioSelectionIdentifier(scenarioPackageIds[0]);
+    const parameterSetId = parseR7ScenarioSelectionIdentifier(parameterSetIds[0]);
+
+    if (
+      !runId ||
+      !scenarioPackageId ||
+      !parameterSetId ||
+      scenarioPackageIds.length !== 1 ||
+      parameterSetIds.length !== 1
+    ) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        400,
+        "R7_BFF_INVALID_REQUEST",
+        "runId, scenarioPackageId and parameterSetId are required",
+        correlationId()
+      );
+      return;
+    }
+
+    const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+    if (!run) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        404,
+        "R7_BFF_SCENARIO_SELECTION_CONTEXT_NOT_FOUND",
+        "scenario selection context not found",
+        correlationId()
+      );
+      return;
+    }
+
+    const [scenarioPackage, parameterSet] = await Promise.all([
+      runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
+        context.tenantId,
+        scenarioPackageId
+      ),
+      runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+        context.tenantId,
+        parameterSetId
+      )
+    ]);
+
+    if (
+      !scenarioPackage ||
+      !parameterSet ||
+      run.tenant_id !== context.tenantId ||
+      scenarioPackage.tenant_id !== context.tenantId ||
+      parameterSet.tenant_id !== context.tenantId ||
+      run.scenario_package_id !== scenarioPackage.scenario_package_id ||
+      run.parameter_set_id !== parameterSet.parameter_set_id
+    ) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        404,
+        "R7_BFF_SCENARIO_SELECTION_CONTEXT_NOT_FOUND",
+        "scenario selection context not found",
+        correlationId()
+      );
+      return;
+    }
+
+    sendJson(
+      response,
+      200,
+      createR7TeacherScenarioSelectionReadinessProjection({
+        parameterSet,
+        run,
+        scenarioPackage,
+        tenantId: context.tenantId
+      })
+    );
+  } catch (error: unknown) {
+    if (error instanceof R7TeacherScenarioSelectionGateBlockedError) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        409,
+        "R7_BFF_SCENARIO_SELECTION_GATE_BLOCKED",
+        "scenario selection readiness gate blocked",
+        correlationId()
+      );
+      return;
+    }
+    if (error instanceof HttpError && error.statusCode === 401) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        401,
+        "R7_BFF_AUTHENTICATION_REQUIRED",
+        "authentication required",
+        correlationId()
+      );
+      return;
+    }
+    if (error instanceof HttpError && error.statusCode === 403) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        403,
+        "R7_BFF_TEACHER_AUTHORITY_REQUIRED",
+        "teacher authority required",
+        correlationId()
+      );
+      return;
+    }
+
+    sendR7ScenarioSelectionReadinessError(
+      response,
+      500,
+      "R7_BFF_INTERNAL_ERROR",
+      "internal server error",
+      correlationId()
+    );
+  }
 }
 
 function requireServiceKernel(
@@ -943,6 +1110,16 @@ async function routeRequest(
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
+
+  if (
+    request.method === "GET" &&
+    url.pathname.startsWith("/api/v1/bff/teacher/runs/") &&
+    url.pathname.endsWith("/scenario-selection-readiness")
+  ) {
+    await handleR7TeacherScenarioSelectionReadiness(runtime, request, response, url);
+    return;
+  }
+
   const context = createContext(runtime, request);
 
   if (
