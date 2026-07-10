@@ -95,7 +95,7 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await expect(page.getByText(m1ResultLabel)).toBeVisible();
   await expect(page.getByText("learner / team_captain · tenant_demo")).toBeVisible();
   await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
-  await expect(page.getByText("Alpha 康养队")).toBeVisible();
+  await expect(page.getByLabel("learner status").getByText("Alpha 康养队")).toBeVisible();
   await expect(page.getByText("学员试讲导入")).toBeVisible();
   await expect(page.getByText("提交前检查")).toBeVisible();
   await expect(page.getByText("反馈怎么读")).toBeVisible();

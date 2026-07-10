@@ -153,6 +153,41 @@ h3 {
   margin-bottom: 18px;
 }
 
+.readiness-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.field-label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field-label input {
+  border: 1px solid #cad3de;
+  border-radius: 4px;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.readiness-message {
+  color: #8f2d2d;
+  font-weight: 700;
+  margin: 0;
+}
+
+.readiness-result {
+  display: grid;
+  gap: 10px;
+}
+
+.known-limits {
+  border-top: 1px solid #d8dee6;
+  padding-top: 10px;
+}
+
 .metric,
 .panel {
   background: #fff;
