@@ -4,6 +4,22 @@ import {
   type R7ScenarioParameterShadowReplayAlignmentPackage
 } from "./scenario-alignment.js";
 
+export const R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_OPERATION_ID =
+  "R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_GET_V1" as const;
+
+export interface R7TeacherScenarioPackageCandidateDto {
+  scenario_package_id: string;
+  display_name: string;
+  version_label: string;
+  is_current: boolean;
+}
+
+export interface R7TeacherScenarioPackageCandidatesDto {
+  run_id: string;
+  current_scenario_package_id: string | null;
+  candidates: R7TeacherScenarioPackageCandidateDto[];
+}
+
 export const R7_TEACHER_SCENARIO_SELECTION_SOURCE_MASTER_SHA =
   "f51d49cf736bef1e3645b6b56f85c41c12d9872e" as const;
 

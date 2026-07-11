@@ -1,3 +1,5 @@
+import type { R7TeacherScenarioPackageCandidatesDto } from "@simwar/shared-contracts";
+
 export const SCENARIO_READINESS_OPERATION_ID =
   "R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1" as const;
 
@@ -33,6 +35,63 @@ export class ScenarioReadinessRequestError extends Error {
     super(message);
     this.name = "ScenarioReadinessRequestError";
   }
+}
+
+export class ScenarioCandidatesRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "ScenarioCandidatesRequestError";
+  }
+}
+
+export async function requestScenarioPackageCandidates(input: {
+  apiBaseUrl: string;
+  runId: string;
+  token: string;
+}): Promise<R7TeacherScenarioPackageCandidatesDto> {
+  const response = await fetch(
+    `${input.apiBaseUrl}/api/v1/bff/teacher/runs/${encodeURIComponent(input.runId)}/scenario-package-candidates`,
+    {
+      headers: { authorization: `Bearer ${input.token}` },
+      method: "GET"
+    }
+  );
+  const payload = (await response.json()) as
+    | R7TeacherScenarioPackageCandidatesDto
+    | { error?: { message?: string } };
+
+  if (!response.ok) {
+    throw new ScenarioCandidatesRequestError(
+      response.status,
+      "error" in payload && payload.error?.message
+        ? payload.error.message
+        : "scenario candidates request failed"
+    );
+  }
+
+  return payload as R7TeacherScenarioPackageCandidatesDto;
+}
+
+export function getScenarioCandidatesErrorMessage(error: unknown): string {
+  if (!(error instanceof ScenarioCandidatesRequestError)) {
+    return "Scenario candidates could not be loaded.";
+  }
+  if (error.status === 401) {
+    return "Authentication is required to load Scenario candidates.";
+  }
+  if (error.status === 403) {
+    return "Teacher authority is required to load Scenario candidates.";
+  }
+  if (error.status === 404) {
+    return "Scenario candidates are unavailable or out of scope.";
+  }
+  if (error.status === 503) {
+    return "Scenario candidate provider is unavailable.";
+  }
+  return "Scenario candidates could not be loaded.";
 }
 
 export function validateScenarioReadinessInput(input: {

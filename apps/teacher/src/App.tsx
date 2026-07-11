@@ -7,13 +7,17 @@ import type {
   ApiEnvelope,
   AuthSession,
   P0DemoState,
+  R7TeacherScenarioPackageCandidateDto,
+  R7TeacherScenarioPackageCandidatesDto,
   Round,
   SettlementResult,
   TeacherBffWorkspaceDTO
 } from "@simwar/shared-contracts";
 import {
   ScenarioReadinessRequestError,
+  getScenarioCandidatesErrorMessage,
   getScenarioReadinessErrorMessage,
+  requestScenarioPackageCandidates,
   requestScenarioReadiness,
   validateScenarioReadinessInput,
   type ScenarioReadinessResponse
@@ -40,6 +44,11 @@ type ScenarioReadinessState =
       message: string;
     }
   | { phase: "READY" | "BLOCKED"; response: ScenarioReadinessResponse };
+
+type ScenarioCandidatesState =
+  | { phase: "IDLE" | "LOADING" }
+  | { phase: "ERROR"; message: string }
+  | { phase: "READY"; response: R7TeacherScenarioPackageCandidatesDto };
 
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
@@ -145,7 +154,13 @@ export function App() {
   const [scenarioReadiness, setScenarioReadiness] = useState<ScenarioReadinessState>({
     phase: "IDLE"
   });
+  const [scenarioCandidates, setScenarioCandidates] = useState<ScenarioCandidatesState>({
+    phase: "IDLE"
+  });
+  const [previewCandidate, setPreviewCandidate] =
+    useState<R7TeacherScenarioPackageCandidateDto | null>(null);
   const readinessRequestSequence = useRef(0);
+  const candidateRequestSequence = useRef(0);
 
   const latestRun = state?.runs.at(-1);
   const latestRound = latestRun
@@ -214,6 +229,8 @@ export function App() {
     setState(null);
     setWorkspace(null);
     setScenarioReadiness({ phase: "IDLE" });
+    setScenarioCandidates({ phase: "IDLE" });
+    setPreviewCandidate(null);
     setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
     setNotice("context changed");
   }
@@ -311,6 +328,38 @@ export function App() {
       setNotice(error instanceof Error ? error.message : "load failed");
     });
   }, [refresh]);
+
+  useEffect(() => {
+    setPreviewCandidate(null);
+    if (!session || !latestRun) {
+      candidateRequestSequence.current += 1;
+      setScenarioCandidates({ phase: "IDLE" });
+      return;
+    }
+
+    const requestSequence = candidateRequestSequence.current + 1;
+    candidateRequestSequence.current = requestSequence;
+    setScenarioCandidates({ phase: "LOADING" });
+
+    requestScenarioPackageCandidates({
+      apiBaseUrl: API_BASE,
+      runId: latestRun.run_id,
+      token: session.access_token
+    })
+      .then((response) => {
+        if (candidateRequestSequence.current === requestSequence) {
+          setScenarioCandidates({ phase: "READY", response });
+        }
+      })
+      .catch((error: unknown) => {
+        if (candidateRequestSequence.current === requestSequence) {
+          setScenarioCandidates({
+            phase: "ERROR",
+            message: getScenarioCandidatesErrorMessage(error)
+          });
+        }
+      });
+  }, [latestRun?.run_id, session]);
 
   async function runNextStep(): Promise<void> {
     if (!session) {
@@ -525,6 +574,64 @@ export function App() {
                 <span>{scenarioReadiness.phase}</span>
               </div>
               <p className="evidence-note">Run context: {latestRun.run_id}</p>
+              <section className="candidate-surface" aria-label="scenario package candidates">
+                <div className="candidate-heading">
+                  <h3>Scenario Candidates</h3>
+                  <span>{scenarioCandidates.phase}</span>
+                </div>
+                {scenarioCandidates.phase === "LOADING" ? (
+                  <p className="evidence-note" role="status">
+                    Loading Scenario candidates
+                  </p>
+                ) : null}
+                {scenarioCandidates.phase === "ERROR" ? (
+                  <p className="readiness-message" role="status">
+                    {scenarioCandidates.message}
+                  </p>
+                ) : null}
+                {scenarioCandidates.phase === "READY" ? (
+                  <>
+                    {scenarioCandidates.response.candidates.length === 0 ? (
+                      <p className="evidence-note">No ScenarioPackage candidates available.</p>
+                    ) : (
+                      <div className="candidate-list">
+                        {scenarioCandidates.response.candidates.map((candidate) =>
+                          candidate.is_current ? (
+                            <article
+                              className="candidate-card current-candidate"
+                              key={candidate.scenario_package_id}
+                            >
+                              <span>Current ScenarioPackage</span>
+                              <strong>{candidate.display_name}</strong>
+                              <small>{candidate.version_label}</small>
+                            </article>
+                          ) : (
+                            <article className="candidate-card" key={candidate.scenario_package_id}>
+                              <span>Candidate</span>
+                              <strong>{candidate.display_name}</strong>
+                              <small>{candidate.version_label}</small>
+                              <button onClick={() => setPreviewCandidate(candidate)}>
+                                Preview {candidate.display_name}
+                              </button>
+                            </article>
+                          )
+                        )}
+                      </div>
+                    )}
+                    {previewCandidate ? (
+                      <article
+                        className="candidate-preview"
+                        aria-label="scenario candidate local preview"
+                      >
+                        <span>Preview Candidate</span>
+                        <strong>{previewCandidate.display_name}</strong>
+                        <small>{previewCandidate.version_label}</small>
+                        <p>仅本地预览，不会修改当前 Run</p>
+                      </article>
+                    ) : null}
+                  </>
+                ) : null}
+              </section>
               <label className="field-label">
                 Scenario Package ID
                 <input

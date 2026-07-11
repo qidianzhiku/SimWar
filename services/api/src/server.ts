@@ -49,6 +49,7 @@ import {
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
 import {
   R7TeacherScenarioSelectionGateBlockedError,
+  createR7TeacherScenarioPackageCandidatesProjection,
   createR7TeacherScenarioSelectionReadinessProjection
 } from "./r7-teacher-scenario-selection-readiness.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
@@ -634,6 +635,103 @@ async function handleR7TeacherScenarioSelectionReadiness(
   }
 }
 
+async function handleR7TeacherScenarioPackageCandidates(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL
+): Promise<void> {
+  let context: RequestContext | undefined;
+  const correlationId = () =>
+    context?.requestId ?? request.headers["x-request-id"]?.toString() ?? null;
+
+  try {
+    context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+
+    if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+    }
+
+    const match = url.pathname.match(
+      /^\/api\/v1\/bff\/teacher\/runs\/([^/]*)\/scenario-package-candidates$/
+    );
+    const runId = parseR7ScenarioSelectionIdentifier(match?.[1]);
+    if (!runId) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        400,
+        "R7_BFF_INVALID_REQUEST",
+        "runId is required",
+        correlationId()
+      );
+      return;
+    }
+
+    const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+    if (!run || run.tenant_id !== context.tenantId) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        404,
+        "R7_BFF_SCENARIO_SELECTION_CONTEXT_NOT_FOUND",
+        "scenario selection context not found",
+        correlationId()
+      );
+      return;
+    }
+
+    const scenarioFacade = runtime.repositoryProvider.facade.scenarios;
+    if (typeof scenarioFacade.listScenarioPackagesForTenant !== "function") {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        503,
+        "R7_BFF_SCENARIO_CANDIDATE_PROVIDER_UNAVAILABLE",
+        "scenario candidate provider unavailable",
+        correlationId()
+      );
+      return;
+    }
+
+    const candidates = (
+      await scenarioFacade.listScenarioPackagesForTenant(context.tenantId)
+    ).filter((candidate) => candidate.tenant_id === context?.tenantId);
+    sendJson(
+      response,
+      200,
+      createR7TeacherScenarioPackageCandidatesProjection({ candidates, run })
+    );
+  } catch (error: unknown) {
+    if (error instanceof HttpError && error.statusCode === 401) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        401,
+        "R7_BFF_AUTHENTICATION_REQUIRED",
+        "authentication required",
+        correlationId()
+      );
+      return;
+    }
+    if (error instanceof HttpError && error.statusCode === 403) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        403,
+        "R7_BFF_TEACHER_AUTHORITY_REQUIRED",
+        "teacher authority required",
+        correlationId()
+      );
+      return;
+    }
+
+    sendR7ScenarioSelectionReadinessError(
+      response,
+      500,
+      "R7_BFF_INTERNAL_ERROR",
+      "internal server error",
+      correlationId()
+    );
+  }
+}
+
 function requireServiceKernel(
   runtime: ApiRuntime,
   request: IncomingMessage,
@@ -1110,6 +1208,15 @@ async function routeRequest(
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
+
+  if (
+    request.method === "GET" &&
+    url.pathname.startsWith("/api/v1/bff/teacher/runs/") &&
+    url.pathname.endsWith("/scenario-package-candidates")
+  ) {
+    await handleR7TeacherScenarioPackageCandidates(runtime, request, response, url);
+    return;
+  }
 
   if (
     request.method === "GET" &&
