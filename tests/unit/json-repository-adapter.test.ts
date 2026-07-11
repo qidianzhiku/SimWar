@@ -8,6 +8,7 @@ import type {
   ReplayReport,
   ReplayRun,
   Round,
+  ScenarioPackage,
   SettlementResult,
   StateSnapshot
 } from "@simwar/shared-contracts";
@@ -64,6 +65,18 @@ function createRound(overrides: Partial<Round> = {}): Round {
     run_id: "run-1",
     round_no: 1,
     status: "open",
+    ...overrides
+  };
+}
+
+function createScenarioPackage(overrides: Partial<ScenarioPackage> = {}): ScenarioPackage {
+  return {
+    scenario_package_id: "scenario-1",
+    tenant_id: "tenant-1",
+    name: "Scenario 1",
+    version: "1.0.0",
+    status: "approved",
+    plugin_package_ids: [],
     ...overrides
   };
 }
@@ -317,6 +330,43 @@ describe("JSON repository adapter", () => {
 
     await expect(ports.courses.listCoursesForTenant("tenant-1")).resolves.toEqual([tenantCourse]);
     await expect(ports.courses.listCoursesForUser("tenant-1", "missing-user")).resolves.toEqual([]);
+  });
+
+  it("lists only tenant scenario packages in deterministic id order without mutating store order", async () => {
+    const scenarioB = createScenarioPackage({
+      scenario_package_id: "scenario-b",
+      name: "Scenario B"
+    });
+    const otherTenantScenario = createScenarioPackage({
+      scenario_package_id: "scenario-a",
+      tenant_id: "tenant-2",
+      name: "Other tenant scenario"
+    });
+    const scenarioA = createScenarioPackage({
+      scenario_package_id: "scenario-a",
+      name: "Scenario A"
+    });
+    const store = createMinimalStore({
+      scenarios: [scenarioB, otherTenantScenario, scenarioA]
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(ports.scenarios.listScenarioPackagesForTenant("tenant-1")).resolves.toEqual([
+      scenarioA,
+      scenarioB
+    ]);
+    expect(store.scenarios).toEqual([scenarioB, otherTenantScenario, scenarioA]);
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty scenario package list for a tenant with no candidates", async () => {
+    const ports = createJsonRepositoryPorts(
+      createMinimalStore({
+        scenarios: [createScenarioPackage({ tenant_id: "tenant-2" })]
+      })
+    );
+
+    await expect(ports.scenarios.listScenarioPackagesForTenant("tenant-1")).resolves.toEqual([]);
   });
 
   it("returns the first submitted canonical decision for a team round instead of the latest version", async () => {

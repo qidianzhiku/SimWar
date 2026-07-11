@@ -77,6 +77,7 @@ export interface RepositoryFacade {
       tenantId: string,
       scenarioPackageId: string
     ): Promise<ScenarioPackage | null>;
+    listScenarioPackagesForTenant(tenantId: string): Promise<ScenarioPackage[]>;
   };
 
   parameterSets: {
@@ -304,7 +305,9 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
 
     scenarios: {
       getScenarioPackage: (tenantId, scenarioPackageId) =>
-        ports.scenarios.getScenarioPackage(tenantId, scenarioPackageId)
+        ports.scenarios.getScenarioPackage(tenantId, scenarioPackageId),
+      listScenarioPackagesForTenant: (tenantId) =>
+        ports.scenarios.listScenarioPackagesForTenant(tenantId)
     },
 
     parameterSets: {
