@@ -259,6 +259,63 @@ paths:
       responses:
         "200":
           description: Settlement result
+  /api/v1/bff/teacher/runs/{runId}/scenario-package-candidates:
+    get:
+      operationId: R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_GET_V1
+      summary: List the Teacher-safe ScenarioPackage candidates for a run tenant.
+      description: Read-only Teacher BFF projection. It does not assign or activate a ScenarioPackage, mutate a ParameterSet, execute Replay, or settle a round.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Minimal run-scoped ScenarioPackage candidate projection
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - run_id
+                  - current_scenario_package_id
+                  - candidates
+                properties:
+                  run_id:
+                    type: string
+                  current_scenario_package_id:
+                    type:
+                      - string
+                      - "null"
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - scenario_package_id
+                        - display_name
+                        - version_label
+                        - is_current
+                      properties:
+                        scenario_package_id:
+                          type: string
+                        display_name:
+                          type: string
+                        version_label:
+                          type: string
+                        is_current:
+                          type: boolean
+        "401":
+          description: Authentication required
+        "403":
+          description: Teacher authority required
+        "404":
+          description: Run context not found or out of scope
+        "503":
+          description: Scenario candidate provider capability unavailable
   /internal/v1/runs/{runId}/rounds/{roundNo}/settle:
     post:
       summary: Internal structured-core-only settlement entrypoint.

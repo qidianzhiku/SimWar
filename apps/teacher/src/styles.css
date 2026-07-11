@@ -183,6 +183,75 @@ h3 {
   gap: 10px;
 }
 
+.candidate-surface {
+  border-bottom: 1px solid #d8dee6;
+  border-top: 1px solid #d8dee6;
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.candidate-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.candidate-heading h3,
+.candidate-heading span,
+.candidate-card span,
+.candidate-card small,
+.candidate-preview span,
+.candidate-preview small {
+  margin: 0;
+}
+
+.candidate-heading span,
+.candidate-card span,
+.candidate-card small,
+.candidate-preview span,
+.candidate-preview small {
+  color: #61707d;
+  font-size: 12px;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.candidate-card,
+.candidate-preview {
+  border: 1px solid #d8e3e7;
+  border-radius: 7px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.candidate-card strong,
+.candidate-preview strong {
+  overflow-wrap: anywhere;
+}
+
+.current-candidate {
+  background: #eef4f3;
+  border-color: #8cb8aa;
+}
+
+.candidate-preview {
+  background: #fff8e7;
+  border-color: #d8b96f;
+}
+
+.candidate-preview p {
+  color: #66541e;
+  font-size: 13px;
+  margin: 0;
+}
+
 .known-limits {
   border-top: 1px solid #d8dee6;
   padding-top: 10px;

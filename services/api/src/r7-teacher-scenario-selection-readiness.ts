@@ -5,6 +5,7 @@ import {
   createR7ScenarioParameterShadowReplayAlignmentPackage,
   validateR7BffEndpointImplementationGate,
   type ParameterSet,
+  type R7TeacherScenarioPackageCandidatesDto,
   type Run,
   type ScenarioPackage
 } from "@simwar/shared-contracts";
@@ -62,6 +63,26 @@ export interface R7TeacherScenarioSelectionReadinessInput {
   run: Run;
   scenarioPackage: ScenarioPackage;
   tenantId: string;
+}
+
+export function createR7TeacherScenarioPackageCandidatesProjection(input: {
+  candidates: ScenarioPackage[];
+  run: Run;
+}): R7TeacherScenarioPackageCandidatesDto {
+  const currentScenarioPackageId = input.run.scenario_package_id ?? null;
+
+  return {
+    run_id: input.run.run_id,
+    current_scenario_package_id: currentScenarioPackageId,
+    candidates: [...input.candidates]
+      .sort((left, right) => left.scenario_package_id.localeCompare(right.scenario_package_id))
+      .map((candidate) => ({
+        scenario_package_id: candidate.scenario_package_id,
+        display_name: candidate.name,
+        version_label: candidate.version,
+        is_current: candidate.scenario_package_id === currentScenarioPackageId
+      }))
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

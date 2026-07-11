@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import {
+  R7_GOLDEN_M1_ALTERNATE_SCENARIO_ID,
   R7_GOLDEN_M1_BLOCKED_PARAMETER_SET_ID,
   R7_GOLDEN_M1_BLOCKED_RUN_ID,
+  R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID,
   R7_GOLDEN_M1_READY_PARAMETER_SET_ID,
   R7_GOLDEN_M1_READY_RUN_ID,
   R7_GOLDEN_M1_READY_SCENARIO_ID
@@ -205,4 +207,132 @@ test("Student has no Golden M1 readiness surface and never calls the Teacher end
     expect(studentText).not.toContain(marker);
   }
   expect(readinessRequests).toEqual([]);
+});
+
+test("Teacher previews a same-tenant ScenarioPackage locally through the real read-only BFF", async ({
+  page
+}) => {
+  const consoleMessages: string[] = [];
+  const candidateRequests: Array<{ method: string; url: string; tenantHeader?: string }> = [];
+  const forbiddenRequests: Array<{ method: string; url: string }> = [];
+  page.on("console", (message) => consoleMessages.push(message.text()));
+  page.on("request", (request) => {
+    if (request.url().includes("/scenario-package-candidates")) {
+      candidateRequests.push({
+        method: request.method(),
+        url: request.url(),
+        tenantHeader: request.headers()["x-tenant-id"]
+      });
+    }
+    if (/\/internal\/|\/settle|\/replay|\/activate|\/publish|\/assign/.test(request.url())) {
+      forbiddenRequests.push({ method: request.method(), url: request.url() });
+    }
+  });
+
+  const digestBeforePreview = readinessStateDigest();
+  const candidateRequest = page.waitForRequest((request) =>
+    request.url().includes("/scenario-package-candidates")
+  );
+  const panel = await openScenarioReadinessPanel(page);
+  const request = await candidateRequest;
+  const candidates = panel.getByLabel("scenario package candidates");
+
+  expect(request.method()).toBe("GET");
+  expect(request.headers()["x-tenant-id"]).toBeUndefined();
+  await expect(candidates.getByText("Current ScenarioPackage")).toBeVisible();
+  await expect(
+    candidates.getByText("Synthetic Golden M1 Scenario Readiness Fixture")
+  ).toBeVisible();
+  await expect(
+    candidates.getByText("Synthetic Alternate Scenario Candidate", { exact: true })
+  ).toBeVisible();
+  await expect(candidates.getByText("Other Tenant Private Scenario")).toHaveCount(0);
+
+  await candidates
+    .getByRole("button", { name: "Preview Synthetic Alternate Scenario Candidate" })
+    .click();
+  const localPreview = candidates.getByLabel("scenario candidate local preview");
+  await expect(localPreview.getByText("Preview Candidate")).toBeVisible();
+  await expect(localPreview.getByText("Synthetic Alternate Scenario Candidate")).toBeVisible();
+  await expect(localPreview.getByText("仅本地预览，不会修改当前 Run")).toBeVisible();
+
+  const candidateSurfaceText = await candidates.innerText();
+  for (const marker of [...privateMarkers, "private trace", "protected digest"]) {
+    expect(candidateSurfaceText).not.toContain(marker);
+    expect(consoleMessages.join("\n")).not.toContain(marker);
+  }
+  expect(candidateSurfaceText).not.toContain(R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID);
+  expect(
+    candidates.getByRole("button", {
+      name: /Activate|Apply|Publish|Assign|Confirm Selection|Save Selection|Use for Run/i
+    })
+  ).toHaveCount(0);
+  expect(candidateRequests).toEqual([
+    {
+      method: "GET",
+      tenantHeader: undefined,
+      url: expect.stringContaining(
+        `/api/v1/bff/teacher/runs/${R7_GOLDEN_M1_READY_RUN_ID}/scenario-package-candidates`
+      )
+    }
+  ]);
+  expect(forbiddenRequests).toEqual([]);
+  expect(readinessStateDigest()).toBe(digestBeforePreview);
+
+  await page.reload();
+  await expect(page.getByLabel("scenario candidate local preview")).toHaveCount(0);
+  expect(readinessStateDigest()).toBe(digestBeforePreview);
+});
+
+test("Student product makes zero candidate requests and direct access fails closed", async ({
+  page
+}) => {
+  const automaticCandidateRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/scenario-package-candidates")) {
+      automaticCandidateRequests.push(request.url());
+    }
+  });
+
+  const loginResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/v1/auth/login") && response.status() === 200
+  );
+  await page.goto(studentBaseUrl);
+  await signIn(page, "学员登录", "student");
+  const authPayload = (await (await loginResponse).json()) as {
+    data: { access_token: string };
+  };
+
+  expect(automaticCandidateRequests).toEqual([]);
+  await expect(page.getByLabel("scenario package candidates")).toHaveCount(0);
+  const bodyText = await page.locator("body").innerText();
+  expect(bodyText).not.toContain(R7_GOLDEN_M1_ALTERNATE_SCENARIO_ID);
+  expect(bodyText).not.toContain(R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID);
+
+  const denied = await page.evaluate(
+    async ({ apiUrl, runId, token }) => {
+      const response = await fetch(
+        `${apiUrl}/api/v1/bff/teacher/runs/${encodeURIComponent(runId)}/scenario-package-candidates`,
+        { headers: { authorization: `Bearer ${token}` }, method: "GET" }
+      );
+      return { body: await response.json(), status: response.status };
+    },
+    {
+      apiUrl: apiBaseUrl,
+      runId: R7_GOLDEN_M1_READY_RUN_ID,
+      token: authPayload.data.access_token
+    }
+  );
+
+  expect(denied.status).toBe(403);
+  expect(denied.body).toEqual({
+    error: {
+      code: "R7_BFF_TEACHER_AUTHORITY_REQUIRED",
+      correlation_id: expect.any(String),
+      message: "teacher authority required"
+    }
+  });
+  expect(JSON.stringify(denied.body)).not.toMatch(
+    /candidate|tenant_demo|scenario_r7|state_true|ReplayManifest|parameter_set/i
+  );
 });

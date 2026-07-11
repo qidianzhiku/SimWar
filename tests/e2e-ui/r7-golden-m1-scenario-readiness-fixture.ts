@@ -1,6 +1,8 @@
-import { createP1Store } from "../../services/api/src/store";
+import { OTHER_TENANT_ID, createP1Store } from "../../services/api/src/store";
 
 export const R7_GOLDEN_M1_READY_SCENARIO_ID = "scenario_r7_golden_m1_ready";
+export const R7_GOLDEN_M1_ALTERNATE_SCENARIO_ID = "scenario_r7_golden_m1_alternate";
+export const R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID = "scenario_r7_other_tenant_private";
 export const R7_GOLDEN_M1_READY_PARAMETER_SET_ID = "param_r7_golden_m1_ready";
 export const R7_GOLDEN_M1_BLOCKED_PARAMETER_SET_ID = "param_r7_golden_m1_blocked";
 export const R7_GOLDEN_M1_READY_RUN_ID = "run_r7_golden_m1_ready";
@@ -29,6 +31,8 @@ export function seedR7GoldenM1ScenarioReadinessFixture(storeFile: string): void 
 
   const fixtureIds = [
     R7_GOLDEN_M1_READY_SCENARIO_ID,
+    R7_GOLDEN_M1_ALTERNATE_SCENARIO_ID,
+    R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID,
     R7_GOLDEN_M1_READY_PARAMETER_SET_ID,
     R7_GOLDEN_M1_BLOCKED_PARAMETER_SET_ID
   ];
@@ -40,12 +44,27 @@ export function seedR7GoldenM1ScenarioReadinessFixture(storeFile: string): void 
     throw new Error("Golden M1 Playwright fixture must be seeded into a freshly reset store.");
   }
 
-  store.scenarios.push({
-    ...sourceScenario,
-    scenario_package_id: R7_GOLDEN_M1_READY_SCENARIO_ID,
-    name: "Synthetic Golden M1 Scenario Readiness Fixture",
-    version: "1.0.0-golden-m1-ready"
-  });
+  store.scenarios.push(
+    {
+      ...sourceScenario,
+      scenario_package_id: R7_GOLDEN_M1_READY_SCENARIO_ID,
+      name: "Synthetic Golden M1 Scenario Readiness Fixture",
+      version: "1.0.0-golden-m1-ready"
+    },
+    {
+      ...sourceScenario,
+      scenario_package_id: R7_GOLDEN_M1_ALTERNATE_SCENARIO_ID,
+      name: "Synthetic Alternate Scenario Candidate",
+      version: "1.1.0-local-preview"
+    },
+    {
+      ...sourceScenario,
+      scenario_package_id: R7_GOLDEN_M1_OTHER_TENANT_SCENARIO_ID,
+      tenant_id: OTHER_TENANT_ID,
+      name: "Other Tenant Private Scenario",
+      version: "9.9.9-private"
+    }
+  );
   store.parameterSets.push(
     {
       ...sourceParameterSet,

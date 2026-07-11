@@ -1,8 +1,11 @@
 import { once } from "node:events";
-import type { Server } from "node:http";
+import { request as nodeRequest, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type { ApiEnvelope, AuthSession, Run } from "../../packages/shared-contracts/src";
-import { createR7BffEndpointImplementationGate } from "../../packages/shared-contracts/src";
+import {
+  R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_OPERATION_ID,
+  createR7BffEndpointImplementationGate
+} from "../../packages/shared-contracts/src";
 import {
   R7TeacherScenarioSelectionGateBlockedError,
   createR7TeacherScenarioSelectionReadinessProjection
@@ -20,6 +23,7 @@ import {
 const OPERATION_ID = "R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1";
 const RUN_ID = "run_r7_selection_readiness";
 const SCENARIO_PACKAGE_ID = "scenario_eldercare_demo";
+const ALTERNATE_SCENARIO_PACKAGE_ID = "scenario_r7_candidate_alternate";
 const PARAMETER_SET_ID = "param_toy_approved_1";
 
 interface R7ErrorBody {
@@ -52,6 +56,17 @@ interface R7ReadinessBody {
   runtime_adapter_status: string;
   scenario_package_id: string;
   tenant_id: string;
+}
+
+interface R7CandidateBody {
+  run_id: string;
+  current_scenario_package_id: string | null;
+  candidates: Array<{
+    scenario_package_id: string;
+    display_name: string;
+    version_label: string;
+    is_current: boolean;
+  }>;
 }
 
 function seedRun(store: SimWarStore): Run {
@@ -88,10 +103,45 @@ async function stopServer(server: Server): Promise<void> {
   await once(server, "close");
 }
 
+async function requestJson<TBody>(
+  url: string,
+  options: { body?: string; headers?: Record<string, string>; method?: string } = {}
+): Promise<{ body: TBody; status: number }> {
+  return new Promise((resolve, reject) => {
+    const request = nodeRequest(
+      url,
+      {
+        headers: options.headers,
+        method: options.method ?? "GET"
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => {
+          try {
+            resolve({
+              body: JSON.parse(Buffer.concat(chunks).toString("utf8")) as TBody,
+              status: response.statusCode ?? 0
+            });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+    if (options.body) {
+      request.write(options.body);
+    }
+    request.end();
+  });
+}
+
 async function request<TBody>(
   baseUrl: string,
   path: string,
   options: {
+    method?: string;
     omitTenantHeader?: boolean;
     requestId?: string;
     tenantId?: string;
@@ -108,8 +158,10 @@ async function request<TBody>(
     headers.set("authorization", `Bearer ${options.token}`);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, { headers });
-  return { body: (await response.json()) as TBody, status: response.status };
+  return requestJson<TBody>(`${baseUrl}${path}`, {
+    headers: Object.fromEntries(headers.entries()),
+    method: options.method ?? "GET"
+  });
 }
 
 async function login(
@@ -118,14 +170,13 @@ async function login(
   password: string,
   tenantId = DEFAULT_TENANT_ID
 ): Promise<AuthSession> {
-  const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+  const response = await requestJson<ApiEnvelope<AuthSession>>(`${baseUrl}/api/v1/auth/login`, {
     body: JSON.stringify({ password, username }),
     headers: { "content-type": "application/json", "x-tenant-id": tenantId },
     method: "POST"
   });
-  const body = (await response.json()) as ApiEnvelope<AuthSession>;
   expect(response.status).toBe(200);
-  return body.data;
+  return response.body.data;
 }
 
 function endpointPath(
@@ -134,6 +185,10 @@ function endpointPath(
   parameterSetId = PARAMETER_SET_ID
 ): string {
   return `/api/v1/bff/teacher/runs/${runId}/scenario-selection-readiness?scenarioPackageId=${scenarioPackageId}&parameterSetId=${parameterSetId}`;
+}
+
+function candidateEndpointPath(runId = RUN_ID): string {
+  return `/api/v1/bff/teacher/runs/${runId}/scenario-package-candidates`;
 }
 
 function expectSafeError(body: R7ErrorBody, code: string): void {
@@ -390,6 +445,178 @@ describe("R7 Teacher scenario selection readiness endpoint", () => {
       expect(response.status).toBe(500);
       expectSafeError(response.body, "R7_BFF_INTERNAL_ERROR");
       expect(JSON.stringify(response.body)).not.toContain("C:/secret/snapshot.json");
+    } finally {
+      await stopServer(server);
+    }
+  });
+});
+
+describe("R7 Teacher scenario package candidates endpoint", () => {
+  it("returns a deterministic Teacher-safe same-tenant projection without writes", async () => {
+    const { baseUrl, server, store } = await startServer();
+    const sourceScenario = store.scenarios.find(
+      (scenario) => scenario.scenario_package_id === SCENARIO_PACKAGE_ID
+    );
+    expect(sourceScenario).toBeDefined();
+    store.scenarios.push(
+      {
+        ...sourceScenario!,
+        scenario_package_id: ALTERNATE_SCENARIO_PACKAGE_ID,
+        name: "Alternate R7 Candidate",
+        version: "2.0.0"
+      },
+      {
+        ...sourceScenario!,
+        scenario_package_id: "scenario_other_tenant_private",
+        tenant_id: OTHER_TENANT_ID,
+        name: "Other Tenant Private Candidate",
+        version: "9.9.9"
+      }
+    );
+
+    try {
+      const teacher = await login(baseUrl, "teacher", "teacher");
+      const stateBefore = JSON.stringify(store);
+      const response = await request<R7CandidateBody>(baseUrl, candidateEndpointPath(), {
+        omitTenantHeader: true,
+        requestId: "req_r7_candidates",
+        token: teacher.access_token
+      });
+
+      expect(response.status).toBe(200);
+      expect(R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_OPERATION_ID).toBe(
+        "R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_GET_V1"
+      );
+      expect(response.body).toEqual({
+        run_id: RUN_ID,
+        current_scenario_package_id: SCENARIO_PACKAGE_ID,
+        candidates: [
+          {
+            scenario_package_id: SCENARIO_PACKAGE_ID,
+            display_name: "康养商战 M1 教学场景",
+            version_label: "1.0.0",
+            is_current: true
+          },
+          {
+            scenario_package_id: ALTERNATE_SCENARIO_PACKAGE_ID,
+            display_name: "Alternate R7 Candidate",
+            version_label: "2.0.0",
+            is_current: false
+          }
+        ]
+      });
+      expect(Object.keys(response.body).sort()).toEqual([
+        "candidates",
+        "current_scenario_package_id",
+        "run_id"
+      ]);
+      expect(JSON.stringify(response.body)).not.toMatch(
+        /tenant_id|plugin_package_ids|state_true|SettlementResult|ReplayManifest|canonical_evidence_digest|parameter_set/i
+      );
+      expect(JSON.stringify(response.body)).not.toContain("scenario_other_tenant_private");
+      expect(JSON.stringify(store)).toBe(stateBefore);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("supports an empty provider result without inventing compatibility", async () => {
+    const store = createP1Store();
+    seedRun(store);
+    const repositoryProvider = createJsonRepositoryProvider({ store });
+    repositoryProvider.facade.scenarios.listScenarioPackagesForTenant = async () => [];
+    const server = createApiServer(store, { repositoryProvider });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("test server did not bind to a TCP port");
+    }
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const teacher = await login(baseUrl, "teacher", "teacher");
+      const response = await request<R7CandidateBody>(baseUrl, candidateEndpointPath(), {
+        token: teacher.access_token
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        current_scenario_package_id: SCENARIO_PACKAGE_ID,
+        candidates: []
+      });
+      expect(JSON.stringify(response.body)).not.toMatch(/READY|BLOCKED|compatible/i);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("fails closed for missing auth, non-Teacher actors and unknown or cross-tenant runs", async () => {
+    const { baseUrl, server } = await startServer();
+
+    try {
+      const teacher = await login(baseUrl, "teacher", "teacher");
+      const student = await login(baseUrl, "student", "student");
+      const otherTeacher = await login(baseUrl, "other_teacher", "teacher", OTHER_TENANT_ID);
+
+      const unauthenticated = await request<R7ErrorBody>(baseUrl, candidateEndpointPath());
+      expect(unauthenticated.status).toBe(401);
+      expectSafeError(unauthenticated.body, "R7_BFF_AUTHENTICATION_REQUIRED");
+
+      const denied = await request<R7ErrorBody>(baseUrl, candidateEndpointPath(), {
+        token: student.access_token
+      });
+      expect(denied.status).toBe(403);
+      expectSafeError(denied.body, "R7_BFF_TEACHER_AUTHORITY_REQUIRED");
+
+      for (const response of await Promise.all([
+        request<R7ErrorBody>(baseUrl, candidateEndpointPath("run_unknown"), {
+          token: teacher.access_token
+        }),
+        request<R7ErrorBody>(baseUrl, candidateEndpointPath(), {
+          tenantId: OTHER_TENANT_ID,
+          token: otherTeacher.access_token
+        })
+      ])) {
+        expect(response.status).toBe(404);
+        expectSafeError(response.body, "R7_BFF_SCENARIO_SELECTION_CONTEXT_NOT_FOUND");
+      }
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("fails safely when the provider capability is unavailable and exposes no write method", async () => {
+    const store = createP1Store();
+    seedRun(store);
+    const repositoryProvider = createJsonRepositoryProvider({ store });
+    Object.assign(repositoryProvider.facade.scenarios, {
+      listScenarioPackagesForTenant: undefined
+    });
+    const server = createApiServer(store, { repositoryProvider });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("test server did not bind to a TCP port");
+    }
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const teacher = await login(baseUrl, "teacher", "teacher");
+      const unavailable = await request<R7ErrorBody>(baseUrl, candidateEndpointPath(), {
+        token: teacher.access_token
+      });
+      expect(unavailable.status).toBe(503);
+      expectSafeError(unavailable.body, "R7_BFF_SCENARIO_CANDIDATE_PROVIDER_UNAVAILABLE");
+
+      for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+        const response = await request<R7ErrorBody>(baseUrl, candidateEndpointPath(), {
+          method,
+          token: teacher.access_token
+        });
+        expect(response.status).not.toBe(200);
+      }
     } finally {
       await stopServer(server);
     }
