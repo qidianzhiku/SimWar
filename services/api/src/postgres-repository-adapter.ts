@@ -149,6 +149,10 @@ export interface PostgresStateSnapshotMapping {
   saveStateSnapshot(snapshot: StateSnapshot): Promise<void>;
 }
 
+export const POSTGRES_SCENARIO_CANDIDATE_READ_CAPABILITY_GAPS = [
+  "scenarios.listScenarioPackagesForTenant"
+] as const;
+
 export const POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS = [
   "teams.listTeamsForRun",
   "scenarios.getScenarioPackage",

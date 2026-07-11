@@ -123,6 +123,8 @@ export interface ScenarioRepositoryPort {
     tenantId: RepositoryId,
     scenarioPackageId: RepositoryId
   ): Promise<ScenarioPackage | null>;
+
+  listScenarioPackagesForTenant(tenantId: RepositoryId): Promise<ScenarioPackage[]>;
 }
 
 export interface ParameterSetRepositoryPort {

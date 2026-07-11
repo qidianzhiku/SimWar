@@ -62,7 +62,17 @@ function createMockPorts(): SimWarRepositoryPorts {
     },
 
     scenarios: {
-      getScenarioPackage: vi.fn(async () => null)
+      getScenarioPackage: vi.fn(async () => null),
+      listScenarioPackagesForTenant: vi.fn(async (tenantId) => [
+        {
+          scenario_package_id: "scenario-1",
+          tenant_id: tenantId,
+          name: "Scenario 1",
+          version: "1.0.0",
+          status: "approved",
+          plugin_package_ids: []
+        }
+      ])
     },
 
     parameterSets: {
@@ -179,6 +189,24 @@ describe("repository facade", () => {
 
     expect(ports.courses.listCoursesForTenant).toHaveBeenCalledWith("tenant-1");
     expect(ports.courses.listCoursesForUser).not.toHaveBeenCalled();
+  });
+
+  it("forwards tenant-scoped scenario package list reads through the provider boundary", async () => {
+    const ports = createMockPorts();
+    const facade = createRepositoryFacade({ ports });
+
+    await expect(facade.scenarios.listScenarioPackagesForTenant("tenant-1")).resolves.toEqual([
+      {
+        scenario_package_id: "scenario-1",
+        tenant_id: "tenant-1",
+        name: "Scenario 1",
+        version: "1.0.0",
+        status: "approved",
+        plugin_package_ids: []
+      }
+    ]);
+
+    expect(ports.scenarios.listScenarioPackagesForTenant).toHaveBeenCalledWith("tenant-1");
   });
 
   it("forwards canonical decision and settlement writes without changing payloads", async () => {

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import * as postgresAdapterModule from "../../services/api/src/postgres-repository-adapter.js";
 import {
   createPostgresRepositoryAdapter,
   createPostgresSettlementReadModelProvider,
@@ -14,6 +15,12 @@ import type { SettlementReadRepositoryPorts } from "../../services/api/src/repos
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("Postgres settlement read-model provider assembly", () => {
+  it("declares tenant-scoped scenario candidate listing as an explicit Postgres capability gap", () => {
+    expect(postgresAdapterModule.POSTGRES_SCENARIO_CANDIDATE_READ_CAPABILITY_GAPS).toEqual([
+      "scenarios.listScenarioPackagesForTenant"
+    ]);
+  });
+
   it("creates a provider-neutral settlement read facade without write-side methods", async () => {
     const calls: string[] = [];
     const ports: SettlementReadRepositoryPorts = {

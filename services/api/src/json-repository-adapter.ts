@@ -411,6 +411,18 @@ export function createJsonRepositoryPorts(
               candidate.scenario_package_id === scenarioPackageId
           ) ?? null
         );
+      },
+
+      async listScenarioPackagesForTenant(tenantId): Promise<ScenarioPackage[]> {
+        return store.scenarios
+          .filter((candidate) => candidate.tenant_id === tenantId)
+          .sort((left, right) => {
+            if (left.scenario_package_id < right.scenario_package_id) {
+              return -1;
+            }
+
+            return left.scenario_package_id > right.scenario_package_id ? 1 : 0;
+          });
       }
     },
 
