@@ -266,6 +266,7 @@ h3 {
 
 .metric {
   min-height: 76px;
+  min-width: 0;
   padding: 16px;
 }
 
@@ -289,6 +290,7 @@ h3 {
   font-size: 22px;
   line-height: 1.2;
   margin-top: 8px;
+  overflow-wrap: anywhere;
 }
 
 .workspace {

@@ -115,6 +115,17 @@ async function verifyDisclosure(
     expect(text).not.toContain(marker);
   }
 
+  const overflowingElements = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => element.scrollWidth > element.clientWidth + 1)
+      .map((element) => ({
+        className: element.className,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        tagName: element.tagName
+      }))
+  );
+  expect(overflowingElements).toEqual([]);
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
