@@ -536,6 +536,46 @@ h3 {
   min-height: 34px;
 }
 
+.known-limits-disclosure {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #c7ccd4;
+  border-left: 4px solid #236b54;
+  background: #f7faf8;
+}
+
+.known-limits-disclosure h2,
+.known-limits-disclosure p {
+  margin: 0 0 10px;
+}
+
+.known-limits-disclosure details {
+  border-top: 1px solid #d9dedc;
+  padding-top: 10px;
+}
+
+.known-limits-disclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.known-limits-disclosure ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+}
+
+.known-limits-disclosure li span {
+  display: block;
+  margin-top: 3px;
+}
+
+.known-limits-disclosure .policy-version {
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 760px) {
   .shell {
     padding: 18px;
@@ -543,6 +583,7 @@ h3 {
 
   .topbar,
   .bff-surface,
+  .metrics,
   .teaching-pack,
   .workspace,
   .login-strip {

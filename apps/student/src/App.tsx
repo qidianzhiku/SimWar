@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE
 } from "@simwar/shared-contracts";
@@ -13,6 +14,7 @@ import type {
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const knownLimits = getKnownLimitsProjection("student");
 type LoginForm = {
   tenantId: string;
   username: string;
@@ -261,6 +263,28 @@ export function App() {
           </button>
         ) : null}
       </section>
+
+      {session ? (
+        <section className="known-limits-disclosure" aria-label="known limits product disclosure">
+          <p className="eyebrow">Internal Use Boundary</p>
+          <h2>已知限制与内部使用说明</h2>
+          <p>{knownLimits.summary}</p>
+          <details>
+            <summary>查看完整限制</summary>
+            <p className="policy-version">Policy {knownLimits.policy_version}</p>
+            <ul>
+              {knownLimits.items.map((item) => (
+                <li key={item.semantic_id}>
+                  <strong>
+                    {item.semantic_id} · {item.title}
+                  </strong>
+                  <span>{item.role_note ?? item.description}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      ) : null}
 
       <section className="board" aria-label="learner status">
         {cards.map(([name, value]) => (
