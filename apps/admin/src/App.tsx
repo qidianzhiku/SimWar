@@ -4,9 +4,13 @@ import type {
   AdminState,
   ApiEnvelope,
   AuthSession,
-  Tenant,
   User
 } from "@simwar/shared-contracts";
+import {
+  getAdminSummaryErrorMessage,
+  loadAdminSummary,
+  type AdminSummarySurface
+} from "./admin-bff";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -78,11 +82,12 @@ async function apiRequest<TData>(
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [state, setState] = useState<AdminState | null>(null);
+  const [adminSummary, setAdminSummary] = useState<AdminSummarySurface>({ kind: "none" });
+  const [summaryStatus, setSummaryStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle"
+  );
+  const [summaryError, setSummaryError] = useState("");
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
-  const [tenantDraft, setTenantDraft] = useState({
-    name: "New Tenant",
-    domain: "new.simwar.local"
-  });
   const [userDraft, setUserDraft] = useState({
     tenant_id: "tenant_demo",
     username: "new_learner",
@@ -99,9 +104,14 @@ export function App() {
     [state?.tenants]
   );
   const recentAudits = state?.audit_logs.slice(-8).reverse() ?? [];
+  const isTenantAdmin = session?.user.roles.includes("tenant_admin") ?? false;
+  const hasAdminSummaryRole =
+    session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin") ??
+    false;
 
   const refresh = useCallback(async () => {
-    if (!session) {
+    if (!session || !session.user.roles.includes("tenant_admin")) {
+      setState(null);
       return;
     }
 
@@ -117,6 +127,9 @@ export function App() {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
+    setAdminSummary({ kind: "none" });
+    setSummaryStatus("idle");
+    setSummaryError("");
     setNotice("context changed");
   }
 
@@ -124,6 +137,9 @@ export function App() {
     setBusy(true);
     setSession(null);
     setState(null);
+    setAdminSummary({ kind: "none" });
+    setSummaryStatus("idle");
+    setSummaryError("");
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -148,28 +164,42 @@ export function App() {
     });
   }, [refresh]);
 
-  async function createTenant(): Promise<void> {
+  useEffect(() => {
+    let cancelled = false;
+
     if (!session) {
       return;
     }
 
-    setBusy(true);
-    try {
-      const tenant = await apiRequest<Tenant>("/api/v1/admin/tenants", {
-        method: "POST",
-        token: session.access_token,
-        tenantId: login.tenantId,
-        body: tenantDraft
-      });
-      setTenantDraft({ name: `${tenant.name} Copy`, domain: `copy-${tenant.domain}` });
-      setNotice(`tenant created: ${tenant.tenant_id}`);
-      await refresh();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "tenant create failed");
-    } finally {
-      setBusy(false);
+    if (!session.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
+      setAdminSummary({ kind: "none" });
+      setSummaryStatus("idle");
+      return;
     }
-  }
+
+    setSummaryStatus("loading");
+    setSummaryError("");
+    loadAdminSummary(session.user.roles, session.access_token, (path, init) =>
+      fetch(`${API_BASE}${path}`, init)
+    )
+      .then((surface) => {
+        if (!cancelled) {
+          setAdminSummary(surface);
+          setSummaryStatus("ready");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setAdminSummary({ kind: "none" });
+          setSummaryError(getAdminSummaryErrorMessage(error));
+          setSummaryStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   async function createUser(): Promise<void> {
     if (!session) {
@@ -247,179 +277,198 @@ export function App() {
         ) : null}
       </section>
 
-      <section className="metrics">
-        <article>
-          <span>租户</span>
-          <strong>{state?.tenants.length ?? 0}</strong>
-        </article>
-        <article>
-          <span>用户</span>
-          <strong>{state?.users.length ?? 0}</strong>
-        </article>
-        <article>
-          <span>角色</span>
-          <strong>{state?.roles.length ?? 0}</strong>
-        </article>
-        <article>
-          <span>权限</span>
-          <strong>{state?.permissions.length ?? 0}</strong>
-        </article>
-      </section>
+      {summaryStatus === "loading" && hasAdminSummaryRole ? (
+        <section className="summary-status" aria-live="polite">
+          Loading Admin summary...
+        </section>
+      ) : null}
 
-      <section className="workspace">
-        <article className="panel form-panel">
-          <div className="panel-title">
-            <h2>创建租户</h2>
-            <span>platform_admin</span>
-          </div>
-          <label>
-            名称
-            <input
-              value={tenantDraft.name}
-              onChange={(event) =>
-                setTenantDraft((current) => ({ ...current, name: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            域标识
-            <input
-              value={tenantDraft.domain}
-              onChange={(event) =>
-                setTenantDraft((current) => ({ ...current, domain: event.target.value }))
-              }
-            />
-          </label>
-          <button
-            className="primary"
-            disabled={busy || !session}
-            onClick={() => void createTenant()}
-          >
-            创建租户
-          </button>
-        </article>
+      {summaryStatus === "error" && hasAdminSummaryRole ? (
+        <section className="summary-error" role="alert">
+          {summaryError}
+        </section>
+      ) : null}
 
-        <article className="panel form-panel">
-          <div className="panel-title">
-            <h2>创建用户</h2>
-            <span>tenant scoped</span>
-          </div>
-          <label>
-            租户
-            <input
-              value={userDraft.tenant_id}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            用户名
-            <input
-              value={userDraft.username}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, username: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            邮箱
-            <input
-              value={userDraft.email}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, email: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            显示名
-            <input
-              value={userDraft.display_name}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, display_name: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            初始密码
-            <input
-              type="password"
-              value={userDraft.password}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, password: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            角色
-            <select
-              value={userDraft.role}
-              onChange={(event) =>
-                setUserDraft((current) => ({ ...current, role: event.target.value as ActorRole }))
-              }
-            >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="primary" disabled={busy || !session} onClick={() => void createUser()}>
-            创建用户
-          </button>
-        </article>
-      </section>
-
-      <section className="workspace wide">
-        <article className="panel">
-          <div className="panel-title">
-            <h2>租户目录</h2>
-            <span>{state?.tenants.length ?? 0}</span>
-          </div>
-          <div className="table">
-            {(state?.tenants ?? []).map((tenant) => (
-              <div className="table-row" key={tenant.tenant_id}>
-                <span>{tenant.name}</span>
-                <strong>{tenant.domain}</strong>
-                <small>{tenant.status}</small>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel-title">
-            <h2>用户目录</h2>
-            <span>{state?.users.length ?? 0}</span>
-          </div>
-          <div className="table">
-            {(state?.users ?? []).map((user) => (
-              <div className="table-row" key={user.user_id}>
-                <span>{user.display_name}</span>
-                <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
-                <small>{user.roles.join(", ")}</small>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="panel audit">
-        <div className="panel-title">
-          <h2>审计事件</h2>
-          <span>{state?.audit_logs.length ?? 0}</span>
-        </div>
-        <div className="timeline">
-          {recentAudits.map((event) => (
-            <div className="timeline-item" key={event.audit_id}>
-              <span>{event.action}</span>
-              <strong>{event.resource_type}</strong>
-              <small>{new Date(event.created_at).toLocaleTimeString()}</small>
+      {adminSummary.kind === "tenant" ? (
+        <section className="summary-panel" aria-label="tenant admin scoped summary">
+          <div className="summary-heading">
+            <div>
+              <p className="eyebrow">只读摘要</p>
+              <h2>当前租户范围</h2>
             </div>
-          ))}
-        </div>
-      </section>
+            <strong className="summary-badge">{adminSummary.summary.tenant_id}</strong>
+          </div>
+          <div className="summary-grid">
+            <article>
+              <span>课程</span>
+              <strong>{adminSummary.summary.visible_state.course_count}</strong>
+            </article>
+            <article>
+              <span>队伍</span>
+              <strong>{adminSummary.summary.visible_state.team_count}</strong>
+            </article>
+            <article>
+              <span>运行</span>
+              <strong>{adminSummary.summary.visible_state.run_count}</strong>
+            </article>
+            <article>
+              <span>审计事件</span>
+              <strong>{adminSummary.summary.visible_state.audit_event_count}</strong>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
+      {adminSummary.kind === "platform" ? (
+        <section className="summary-panel" aria-label="platform admin authority summary">
+          <div className="summary-heading">
+            <div>
+              <p className="eyebrow">Explicit platform authority</p>
+              <h2>Platform scope</h2>
+            </div>
+            <strong className="summary-badge">Read-only summary</strong>
+          </div>
+          <div className="summary-grid platform-summary-grid">
+            <article>
+              <span>Tenant count</span>
+              <strong>{adminSummary.authority.visible_state.tenant_count}</strong>
+            </article>
+          </div>
+        </section>
+      ) : null}
+
+      {isTenantAdmin && state ? (
+        <section className="workspace legacy-operations">
+          <article className="panel form-panel">
+            <div className="panel-title">
+              <h2>创建用户</h2>
+              <span>tenant scoped</span>
+            </div>
+            <label>
+              租户
+              <input
+                value={userDraft.tenant_id}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              用户名
+              <input
+                value={userDraft.username}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, username: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              邮箱
+              <input
+                value={userDraft.email}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, email: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              显示名
+              <input
+                value={userDraft.display_name}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, display_name: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              初始密码
+              <input
+                type="password"
+                value={userDraft.password}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, password: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              角色
+              <select
+                value={userDraft.role}
+                onChange={(event) =>
+                  setUserDraft((current) => ({ ...current, role: event.target.value as ActorRole }))
+                }
+              >
+                {roleOptions.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary"
+              disabled={busy || !session}
+              onClick={() => void createUser()}
+            >
+              创建用户
+            </button>
+          </article>
+        </section>
+      ) : null}
+
+      {isTenantAdmin && state ? (
+        <section className="workspace wide legacy-operations">
+          <article className="panel">
+            <div className="panel-title">
+              <h2>租户目录</h2>
+              <span>{state?.tenants.length ?? 0}</span>
+            </div>
+            <div className="table">
+              {(state?.tenants ?? []).map((tenant) => (
+                <div className="table-row" key={tenant.tenant_id}>
+                  <span>{tenant.name}</span>
+                  <strong>{tenant.domain}</strong>
+                  <small>{tenant.status}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="panel">
+            <div className="panel-title">
+              <h2>用户目录</h2>
+              <span>{state?.users.length ?? 0}</span>
+            </div>
+            <div className="table">
+              {(state?.users ?? []).map((user) => (
+                <div className="table-row" key={user.user_id}>
+                  <span>{user.display_name}</span>
+                  <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
+                  <small>{user.roles.join(", ")}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+      ) : null}
+
+      {isTenantAdmin && state ? (
+        <section className="panel audit legacy-operations">
+          <div className="panel-title">
+            <h2>审计事件</h2>
+            <span>{state?.audit_logs.length ?? 0}</span>
+          </div>
+          <div className="timeline">
+            {recentAudits.map((event) => (
+              <div className="timeline-item" key={event.audit_id}>
+                <span>{event.action}</span>
+                <strong>{event.resource_type}</strong>
+                <small>{new Date(event.created_at).toLocaleTimeString()}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
