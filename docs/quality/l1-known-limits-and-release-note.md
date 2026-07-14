@@ -12,6 +12,15 @@ NOT_GRANTED
 L1 Status:
 NOT_READY
 
+Phase 7:
+NOT_AUTHORIZED
+
+Controlled Pilot:
+NOT_AUTHORIZED
+
+Production:
+NOT_AUTHORIZED
+
 PostgreSQL runtime:
 NOT_AUTHORIZED
 ```
@@ -30,35 +39,38 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 
 Program 011 将 PR #197 的 R3 runtime boundary 合并到 master 后，建立了 L1 Internal Application Readiness Pack 的 test/docs-only 候选。Program 012 在 PR #198 合并后的 master 上追加 synthetic internal application decision evidence。该候选覆盖 synthetic JSON runtime 下的身份、RBAC、tenant scope、Student projection、Teacher evidence、Tenant Admin status、Platform Admin authority observation、Shared Golden M1、replay non-overwrite、abort/reset 和 internal operator package。
 
-### REL-040 Internal Release Candidate Note
+### Limited Phase 6 Internal Pack Candidate Note
 
 ```text
 Mission:
-SIMWAR-P6-R8G1-REL-040
+SIMWAR-P6-R8G1-REL-040-LIMITED-INTERNAL-PACK
 
 Current master anchor:
-6f2ec0283a41eebc9bac49b408ebaba0a97559db
+695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf
 
 Current mainline anchor:
-PR #216 merged
+PR #232 merged
 
-Phase 5 Gate:
-L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+Phase 5 Outcome:
+L1_GATE_EXCEPTION_WITH_OWNER_AND_EXPIRY
 
 Phase 6 Entry:
-PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+PHASE6_PACK_PR_CANDIDATE
 
 Release-candidate status:
-R8_G1_INTERNAL_PACK_CREATED_PENDING_AUD_CLOSURE
+LIMITED_INTERNAL_PACK_CANDIDATE_UNDER_G0_EXCEPTION
 
-Next:
-SIMWAR-P6-R8G1-AUD-CLOSURE-040B
+G0 Exception Expiry:
+2026-07-21T23:59:59+08:00
+
+Postmerge requirement:
+POSTMERGE_PHASE6_CLOSURE_REQUIRED
 ```
 
-This is an internal-only release candidate for the R8-G1 application pack. It is
-not an external release, not a Pilot, not Production, not L1 completed and not a
-real teacher rehearsal approval. It only prepares the package for independent
-AUD-CLOSURE review.
+This is a limited internal-only pack candidate under an expiring G0 exception.
+It is not an external release, not Phase 7, not a Pilot, not Production, not L1
+completed and not a real Teacher rehearsal approval. A future exact-head review,
+merge authorization and postmerge Phase 6 closure remain separate decisions.
 
 ## Known Limits
 
@@ -66,6 +78,7 @@ AUD-CLOSURE review.
 | ------------------------------- | -------------------------------------------------------------------------------- |
 | G0                              | solo-maintainer control is current evidence, but `G0 PASS` remains `NOT_GRANTED` |
 | L1                              | current pack is internal readiness evidence, not `L1 READY`                      |
+| Phase 7                         | `NOT_AUTHORIZED`                                                                 |
 | runtime                         | JSON runtime only                                                                |
 | PostgreSQL runtime              | `NOT_AUTHORIZED`                                                                 |
 | SQL / migration                 | `NOT_AUTHORIZED`                                                                 |
@@ -83,10 +96,13 @@ AUD-CLOSURE review.
 | browser smoke                   | not a full UI security audit                                                     |
 | security audit                  | not a complete security proof                                                    |
 | Replay evidence                 | not durable recovery or backup restore proof                                     |
+| Shadow Replay HTTP route        | no dedicated route proof                                                         |
+| reset / cleanup                 | synthetic in-memory only; no production cleanup proof                            |
+| G0 exception                    | expires no later than `2026-07-21T23:59:59+08:00` and may expire earlier         |
 
 ## Release Boundary
 
-The pack may support an Owner go/no-go decision for synthetic internal application validation only. It may not be used to approve real teacher rehearsal, Controlled Pilot, Production, PostgreSQL runtime activation, SQL migration, durable settlement, R4 Macro, R9 or R10.
+The pack may support an independent exact-head review of a synthetic internal pack candidate only. It may not be used to approve Phase 7, real Teacher rehearsal, Controlled Pilot, Production, PostgreSQL runtime activation, SQL migration, durable settlement, R4 Macro, R9 or R10.
 
 ## Abort Rule
 
@@ -96,16 +112,16 @@ If a synthetic session exposes protected truth, private replay metadata, other-t
 
 Relates to #111. Relates to #114. Relates to #115.
 
-## REL-040 Evidence Handoff
+## Phase 6 Limited Pack Evidence Handoff
 
 | Field                | Value                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Evidence Type        | `KNOWN_LIMITS_EVIDENCE / L1_RELEASE_NOTE_EVIDENCE / DOCS_ONLY`                                                     |
-| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                                         |
-| Result               | `UPDATED`                                                                                                          |
-| Scope of Proof       | Known limits and internal release-candidate note for R8-G1 pack                                                    |
-| Explicit Non-Proof   | Not L1 ready, not R8-G1 released, not Pilot, not Production, not PostgreSQL runtime, not durable settlement        |
+| Evidence Type        | `KNOWN_LIMITS_EVIDENCE / PHASE6_LIMITED_PACK_EVIDENCE / DOCS_ONLY`                                                 |
+| Source SHA           | `695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf`                                                                         |
+| Result               | `PHASE6_PACK_PR_CANDIDATE`                                                                                         |
+| Scope of Proof       | Known limits, exception notice and internal candidate note for the limited R8-G1 pack                              |
+| Explicit Non-Proof   | Not Phase 7, not L1 ready, not R8-G1 released, not Pilot, not Production, not PostgreSQL runtime or durable proof  |
 | Owner                | Marshall                                                                                                           |
-| Expiry Trigger       | master SHA, Phase 5 Gate, Phase 6 Entry, product surface, dependency, security policy or known-limit changes       |
+| Expiry Trigger       | 2026-07-21 23:59:59 +08:00 or earlier source, policy, product, dependency, replay, reset or Known Limits change    |
 | Revalidation Command | `npm run security:audit` and `npm audit --json`                                                                    |
 | No-Go Trigger        | Missing known limits, dependency critical risk requiring human decision, or release note implying external release |
