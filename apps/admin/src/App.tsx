@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getKnownLimitsProjection } from "@simwar/shared-contracts";
 import type {
   ActorRole,
   AdminState,
@@ -108,6 +109,9 @@ export function App() {
   const hasAdminSummaryRole =
     session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin") ??
     false;
+  const knownLimits = session?.user.roles.includes("platform_admin")
+    ? getKnownLimitsProjection("platform_admin")
+    : getKnownLimitsProjection("tenant_admin");
 
   const refresh = useCallback(async () => {
     if (!session || !session.user.roles.includes("tenant_admin")) {
@@ -276,6 +280,28 @@ export function App() {
           </button>
         ) : null}
       </section>
+
+      {session && hasAdminSummaryRole ? (
+        <section className="known-limits-disclosure" aria-label="known limits product disclosure">
+          <p className="eyebrow">Internal Use Boundary</p>
+          <h2>已知限制与内部使用说明</h2>
+          <p>{knownLimits.summary}</p>
+          <details>
+            <summary>查看完整限制</summary>
+            <p className="policy-version">Policy {knownLimits.policy_version}</p>
+            <ul>
+              {knownLimits.items.map((item) => (
+                <li key={item.semantic_id}>
+                  <strong>
+                    {item.semantic_id} · {item.title}
+                  </strong>
+                  <span>{item.role_note ?? item.description}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </section>
+      ) : null}
 
       {summaryStatus === "loading" && hasAdminSummaryRole ? (
         <section className="summary-status" aria-live="polite">
