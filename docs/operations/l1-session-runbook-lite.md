@@ -12,6 +12,15 @@ NOT_GRANTED
 L1 Status:
 NOT_READY
 
+Phase 7:
+NOT_AUTHORIZED
+
+Controlled Pilot:
+NOT_AUTHORIZED
+
+Production:
+NOT_AUTHORIZED
+
 PostgreSQL runtime:
 NOT_AUTHORIZED
 ```
@@ -30,19 +39,22 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 
 ```text
 Current master anchor:
-6f2ec0283a41eebc9bac49b408ebaba0a97559db
+695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf
 
-Phase 5 Gate:
-L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+Phase 5 Outcome:
+L1_GATE_EXCEPTION_WITH_OWNER_AND_EXPIRY
 
 Phase 6 Entry:
-PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+PHASE6_PACK_PR_CANDIDATE
 
 R8-G1 Status:
-RELEASE_CANDIDATE_PENDING_CLOSURE
+LIMITED_INTERNAL_PACK_CANDIDATE_UNDER_G0_EXCEPTION
+
+G0 Exception Expiry:
+2026-07-21T23:59:59+08:00
 ```
 
-This runbook is refreshed for the R8-G1 internal application pack release
+This runbook is refreshed for a limited R8-G1 internal application pack
 candidate. It remains synthetic-only, JSON-runtime-only and internal-only.
 
 ## Preflight
@@ -55,6 +67,8 @@ candidate. It remains synthetic-only, JSON-runtime-only and internal-only.
 | issues             | #111 / #114 / #115 remain open unless separately disposed                |
 | branch             | no protected main workspace use                                          |
 | scope              | no runtime, service, route, schema, OpenAPI, database or lockfile change |
+| evidence form      | `phase6-limited-internal-evidence-capture-template.md` ready             |
+| exception          | active and not past `2026-07-21T23:59:59+08:00`                          |
 
 ## Happy Path
 
@@ -63,7 +77,7 @@ candidate. It remains synthetic-only, JSON-runtime-only and internal-only.
 3. Teacher opens round 1.
 4. Student submits a valid decision for own team.
 5. Teacher locks round 1.
-6. Existing settlement path computes official JSON runtime result.
+6. The service-kernel-only settlement boundary computes the official JSON runtime result. Do not call the internal settlement route from a frontend.
 7. Teacher publishes the result.
 8. Student confirms redacted result only.
 9. Student reviews three-part feedback and learning report only as
@@ -71,6 +85,18 @@ candidate. It remains synthetic-only, JSON-runtime-only and internal-only.
 10. Teacher confirms authorized replay evidence.
 11. Tenant Admin confirms current-tenant status or audit surface.
 12. Operator records post-session evidence, known limits and expiry triggers.
+
+The operator must not read `runtime.store`, edit the JSON snapshot, call an
+internal settlement route from a frontend, or improvise a direct-store fallback.
+
+## Operator Runbook Controls
+
+1. Use only the current product surfaces and controlled service-kernel path.
+2. Record role, tenant, run, round, request id and evidence label without private payloads.
+3. Stop on the first no-go trigger; do not retry by changing source or configuration.
+4. Preserve the official result identity before replay review.
+5. Run the synthetic cleanup checklist after evidence capture.
+6. Mark every unexecuted step `NOT_RUN`; never infer a pass from documentation.
 
 ## Abort Points
 
@@ -96,6 +122,8 @@ Preserve:
 - run id and round number
 - replay hash or statement that replay evidence was not created
 - known limit classification
+- source SHA and exception-expiry check
+- explicit non-proof and no-go disposition
 
 Do not preserve real customer data, secrets, passwords, tokens, payment data or production data.
 
@@ -107,12 +135,12 @@ This runbook does not prove crash recovery, backup restore, distributed recovery
 
 | Field                | Value                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Evidence Type        | `R8_G1_REL_CANDIDATE_EVIDENCE / DOCS_ONLY`                                                                                      |
-| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                                                      |
-| Result               | `UPDATED`                                                                                                                       |
+| Evidence Type        | `PHASE6_LIMITED_PACK_EVIDENCE / DOCS_ONLY`                                                                                      |
+| Source SHA           | `695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf`                                                                                      |
+| Result               | `PHASE6_PACK_PR_CANDIDATE`                                                                                                      |
 | Scope of Proof       | Internal synthetic session runbook and evidence collection path                                                                 |
-| Explicit Non-Proof   | Not operational rehearsal, not Pilot, not Production, not durable recovery                                                      |
+| Explicit Non-Proof   | Not Phase 7, not operational rehearsal, not Pilot, not Production, not durable recovery                                         |
 | Owner                | Marshall                                                                                                                        |
-| Expiry Trigger       | master SHA, product surface, DTO, auth, tenant boundary, replay or known-limit changes                                          |
+| Expiry Trigger       | 2026-07-21 23:59:59 +08:00 or earlier master, policy, product, auth, tenant, replay, reset or Known Limits change               |
 | Revalidation Command | `npm test -- tests/integration/l1-internal-validation-rehearsal-gate.test.ts`                                                   |
 | No-Go Trigger        | Student privacy leak, cross-tenant/team leak, replay overwrite, protected marker in DOM/console or forbidden runtime dependency |

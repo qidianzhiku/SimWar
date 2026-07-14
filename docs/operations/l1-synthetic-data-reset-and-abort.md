@@ -12,6 +12,15 @@ NOT_GRANTED
 L1 Status:
 NOT_READY
 
+Phase 7:
+NOT_AUTHORIZED
+
+Controlled Pilot:
+NOT_AUTHORIZED
+
+Production:
+NOT_AUTHORIZED
+
 PostgreSQL runtime:
 NOT_AUTHORIZED
 ```
@@ -30,13 +39,16 @@ INTERNAL_ONLY_DRAFT_NOT_RELEASED
 
 ```text
 Current master anchor:
-6f2ec0283a41eebc9bac49b408ebaba0a97559db
+695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf
 
-Phase 5 Gate:
-L1_GATE_READY_FOR_R8_G1_INTERNAL_PACK
+Phase 5 Outcome:
+L1_GATE_EXCEPTION_WITH_OWNER_AND_EXPIRY
 
 Phase 6 Entry:
-PHASE6_ENTRY_READY_WITH_LIMITS_FOR_R8_G1_REL
+PHASE6_PACK_PR_CANDIDATE
+
+G0 Exception Expiry:
+2026-07-21T23:59:59+08:00
 ```
 
 This reset and abort procedure is part of the R8-G1 internal application pack
@@ -82,6 +94,17 @@ Hard abort triggers:
 - protected marker appears in DOM or browser console.
 - PostgreSQL, SQL, migration, Pilot, Production, external users or real data become necessary.
 
+## Synthetic Data Cleanup Checklist
+
+1. Confirm the session used only a test-created in-memory store and synthetic identities.
+2. Stop the test server through its normal teardown path.
+3. Confirm the test did not target `tmp/simwar-store.json` or any real/customer data path.
+4. Confirm the fresh-store assertion proves only absence from a new in-memory instance.
+5. Preserve bounded evidence before discarding the synthetic process state.
+6. Mark cleanup `BLOCKED` if the data origin or tenant scope is unknown.
+7. Do not use SQL, migration, database deletion, `git clean`, direct JSON editing or production cleanup tools.
+8. Record `SYNTHETIC_IN_MEMORY_RESET_ONLY` and the explicit durable-recovery non-proof.
+
 ## Evidence Classification
 
 | Evidence                         | Classification              |
@@ -92,6 +115,9 @@ Hard abort triggers:
 | fresh in-memory reset            | `INTEGRATION_TEST_EVIDENCE` |
 | backup restore                   | `NOT_IMPLEMENTED`           |
 | durable recovery                 | `NOT_IMPLEMENTED`           |
+| cross-process recovery           | `NOT_IMPLEMENTED`           |
+| durable retention                | `NOT_IMPLEMENTED`           |
+| production cleanup               | `NOT_AUTHORIZED`            |
 
 ## Non-Proofs
 
@@ -99,14 +125,14 @@ This procedure is not a `Pilot` or `Production` recovery runbook and does not pr
 
 ## REL-040 Evidence Handoff
 
-| Field                | Value                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Evidence Type        | `ABORT_RESET_EVIDENCE / DOCS_ONLY`                                                                           |
-| Source SHA           | `6f2ec0283a41eebc9bac49b408ebaba0a97559db`                                                                   |
-| Result               | `UPDATED`                                                                                                    |
-| Scope of Proof       | Synthetic reset model and abort handling boundary                                                            |
-| Explicit Non-Proof   | Not backup restore, not durable recovery, not cross-process recovery                                         |
-| Owner                | Marshall                                                                                                     |
-| Expiry Trigger       | master SHA, reset model, runtime store, replay or privacy boundary changes                                   |
-| Revalidation Command | `npm test -- tests/integration/l1-session-abort-reset-recovery.test.ts`                                      |
-| No-Go Trigger        | Missing hard abort trigger, real data cleanup claim, durable recovery claim or forbidden runtime requirement |
+| Field                | Value                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Evidence Type        | `ABORT_RESET_EVIDENCE / DOCS_ONLY`                                                                             |
+| Source SHA           | `695cf955b3c9ab1d96b7fb59ac92671cf82dfdcf`                                                                     |
+| Result               | `PHASE6_PACK_PR_CANDIDATE`                                                                                     |
+| Scope of Proof       | Synthetic reset model and abort handling boundary                                                              |
+| Explicit Non-Proof   | Not Phase 7, not backup restore, not durable recovery, not cross-process recovery or production cleanup        |
+| Owner                | Marshall                                                                                                       |
+| Expiry Trigger       | 2026-07-21 23:59:59 +08:00 or earlier master, reset, cleanup, runtime store, replay or privacy boundary change |
+| Revalidation Command | `npm test -- tests/integration/l1-session-abort-reset-recovery.test.ts`                                        |
+| No-Go Trigger        | Missing hard abort trigger, real data cleanup claim, durable recovery claim or forbidden runtime requirement   |
