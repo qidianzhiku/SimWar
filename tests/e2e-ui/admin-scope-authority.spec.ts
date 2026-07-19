@@ -83,7 +83,7 @@ test("Tenant Admin consumes the scoped summary without platform authority or cro
   page.on("console", (message) => consoleMessages.push(message.text()));
   page.on("request", (request) => {
     requestUrls.push(request.url());
-    if (request.url().includes("/api/v1/bff/admin/")) {
+    if (request.url().includes("/api/v1/bff/admin/tenant-summary")) {
       summaryRequests.push({
         method: request.method(),
         tenantHeader: request.headers()["x-tenant-id"],

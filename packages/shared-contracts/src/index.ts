@@ -71,6 +71,7 @@ export type PermissionKey =
   | "course:publish"
   | "team:create"
   | "run:create"
+  | "run:lifecycle"
   | "round:start"
   | "round:lock"
   | "settlement:settle"
@@ -1224,6 +1225,35 @@ export interface TenantAdminSummaryDTO {
   visible_tenant_ids: string[];
 }
 
+export type SyntheticRunLifecycleState = "ACTIVE" | "ABORTED" | "RESET_READY" | "CLEANED";
+
+export type SyntheticRunLifecycleOperation = "abort" | "reset" | "cleanup";
+
+export interface SyntheticRunLifecycleControlDTO {
+  allowed_operations: SyntheticRunLifecycleOperation[];
+  audit_reference: string | null;
+  blocked_reasons: string[];
+  course_id: string;
+  evidence_frozen: boolean;
+  ephemeral_artifact_allowlist: string[];
+  explicit_non_proofs: string[];
+  lifecycle_state: SyntheticRunLifecycleState;
+  pre_publication: boolean;
+  pre_settlement: boolean;
+  preserved_state: string[];
+  run_id: string;
+  runtime_boundary: "JSON_INTERNAL_ONLY";
+  synthetic_marker: boolean;
+  tenant_id: string;
+}
+
+export interface SyntheticRunLifecycleOperationResultDTO {
+  control: SyntheticRunLifecycleControlDTO;
+  ephemeral_artifacts_changed: string[];
+  idempotent: boolean;
+  operation: SyntheticRunLifecycleOperation;
+}
+
 export interface PlatformAdminAuthorityDTO {
   actor_role: "platform_admin";
   allowed_actions: PermissionKey[];
@@ -1410,6 +1440,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "course:publish",
     "team:create",
     "run:create",
+    "run:lifecycle",
     "round:start",
     "round:lock",
     "settlement:settle",

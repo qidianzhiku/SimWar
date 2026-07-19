@@ -17,6 +17,7 @@ import type {
   Round,
   RoundStatus,
   SettlementResult,
+  SyntheticRunLifecycleOperation,
   Team,
   Tenant,
   User
@@ -54,6 +55,13 @@ import {
 } from "./r7-teacher-scenario-selection-readiness.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
+  SyntheticRunLifecycleError,
+  assertRunLifecycleAllowsProgress,
+  createSyntheticRunCreationAuditMarker,
+  executeSyntheticRunLifecycleOperation,
+  listSyntheticRunLifecycleControls
+} from "./synthetic-run-lifecycle.js";
+import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
   actorHasAnyRole,
@@ -86,7 +94,7 @@ interface ApiRuntime {
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
   securityConfig: RuntimeSecurityConfig;
-  settlementLocks: Map<string, Promise<void>>;
+  runMutationLocks: Map<string, Promise<void>>;
 }
 
 export interface CreateApiServerOptions {
@@ -142,7 +150,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
-    settlementLocks: new Map()
+    runMutationLocks: new Map()
   };
 }
 
@@ -152,27 +160,27 @@ interface RunSettlementOutcome {
   responseSemantics: "committed" | "reused";
 }
 
-function settlementBusinessKey(tenantId: string, runId: string, roundNo: number): string {
-  return `${tenantId}:${runId}:${roundNo}`;
+function runMutationBusinessKey(tenantId: string, runId: string): string {
+  return `${tenantId}:${runId}`;
 }
 
-async function acquireSettlementLock(runtime: ApiRuntime, key: string): Promise<() => void> {
-  const previous = runtime.settlementLocks.get(key) ?? Promise.resolve();
+async function acquireRunMutationLock(runtime: ApiRuntime, key: string): Promise<() => void> {
+  const previous = runtime.runMutationLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
     release = resolve;
   });
   const queued = previous.catch(() => undefined).then(() => current);
 
-  runtime.settlementLocks.set(key, queued);
+  runtime.runMutationLocks.set(key, queued);
 
   await previous.catch(() => undefined);
 
   return () => {
     release();
 
-    if (runtime.settlementLocks.get(key) === queued) {
-      runtime.settlementLocks.delete(key);
+    if (runtime.runMutationLocks.get(key) === queued) {
+      runtime.runMutationLocks.delete(key);
     }
   };
 }
@@ -208,6 +216,24 @@ async function appendAudit(
   return log;
 }
 
+async function submitDecisionWithRunLock(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  request: IncomingMessage,
+  runId: string,
+  roundNo: number
+): Promise<Decision> {
+  const release = await acquireRunMutationLock(
+    runtime,
+    runMutationBusinessKey(context.tenantId, runId)
+  );
+  try {
+    return await submitDecision(runtime, context, request, runId, roundNo);
+  } finally {
+    release();
+  }
+}
+
 async function submitDecision(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -218,6 +244,11 @@ async function submitDecision(
   const store = runtime.store;
   const actor = requirePermission(context, "decision:submit");
   const run = getRun(store, context, runId);
+  await assertRunLifecycleAllowsProgress({
+    provider: runtime.repositoryProvider,
+    runId: run.run_id,
+    tenantId: context.tenantId
+  });
   const round = getRound(store, context, run.run_id, roundNo);
   assertRoundStatus(round, "open", "ROUND-409-002");
   const body = await readJson<DecisionSubmitBody>(request);
@@ -292,6 +323,23 @@ async function submitDecision(
   return decision;
 }
 
+async function lockRoundWithRunLock(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<Round> {
+  const release = await acquireRunMutationLock(
+    runtime,
+    runMutationBusinessKey(context.tenantId, runId)
+  );
+  try {
+    return await lockRound(runtime, context, runId, roundNo);
+  } finally {
+    release();
+  }
+}
+
 async function lockRound(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -301,6 +349,11 @@ async function lockRound(
   const store = runtime.store;
   const actor = requirePermission(context, "round:lock");
   const run = getRun(store, context, runId);
+  await assertRunLifecycleAllowsProgress({
+    provider: runtime.repositoryProvider,
+    runId: run.run_id,
+    tenantId: context.tenantId
+  });
   const round = getRound(store, context, run.run_id, roundNo);
   if (round.status === "locked") {
     return round;
@@ -329,6 +382,23 @@ async function lockRound(
   return lockedRound;
 }
 
+async function publishRoundWithRunLock(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<Round> {
+  const release = await acquireRunMutationLock(
+    runtime,
+    runMutationBusinessKey(context.tenantId, runId)
+  );
+  try {
+    return await publishRound(runtime, context, runId, roundNo);
+  } finally {
+    release();
+  }
+}
+
 async function publishRound(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -338,6 +408,11 @@ async function publishRound(
   const store = runtime.store;
   const actor = requirePermission(context, "round:publish");
   const run = getRun(store, context, runId);
+  await assertRunLifecycleAllowsProgress({
+    provider: runtime.repositoryProvider,
+    runId: run.run_id,
+    tenantId: context.tenantId
+  });
   const round = getRound(store, context, run.run_id, roundNo);
   if (round.status === "published") {
     return round;
@@ -1758,6 +1833,88 @@ async function routeRequest(
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/run-lifecycle-controls") {
+    const actor = requirePermission(context, "run:lifecycle");
+    if (!actorHasAnyRole(actor, ["tenant_admin"]) || actor.tenant_id !== context.tenantId) {
+      throw new HttpError(
+        403,
+        "AUTHZ-403-001",
+        "run lifecycle controls require tenant admin authority"
+      );
+    }
+
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await listSyntheticRunLifecycleControls({
+          actor,
+          environment: runtime.securityConfig.environment,
+          provider: runtime.repositoryProvider,
+          tenantId: actor.tenant_id
+        })
+      )
+    );
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/bff\/admin\/courses\/[^/]+\/runs\/[^/]+\/lifecycle\/(abort|reset|cleanup)$/.test(
+      url.pathname
+    )
+  ) {
+    const actor = requirePermission(context, "run:lifecycle");
+    if (!actorHasAnyRole(actor, ["tenant_admin"]) || actor.tenant_id !== context.tenantId) {
+      throw new HttpError(
+        403,
+        "AUTHZ-403-001",
+        "run lifecycle controls require tenant admin authority"
+      );
+    }
+    const [, courseId, runId, operationRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/admin\/courses\/([^/]+)\/runs\/([^/]+)\/lifecycle\/(abort|reset|cleanup)$/
+    );
+    const operation = operationRaw as SyntheticRunLifecycleOperation;
+    const body = await readJson<{ confirmation?: string }>(request);
+    if (body.confirmation !== `${operation.toUpperCase()} ${runId}`) {
+      throw new HttpError(
+        422,
+        "LIFECYCLE-422-001",
+        "exact lifecycle operation confirmation is required"
+      );
+    }
+
+    const release = await acquireRunMutationLock(
+      runtime,
+      runMutationBusinessKey(actor.tenant_id, runId ?? "")
+    );
+    try {
+      sendJson(
+        response,
+        200,
+        createEnvelope(
+          context,
+          await executeSyntheticRunLifecycleOperation({
+            actor,
+            courseId: courseId ?? "",
+            environment: runtime.securityConfig.environment,
+            operation,
+            provider: runtime.repositoryProvider,
+            requestId: context.requestId,
+            runId: runId ?? "",
+            tenantId: actor.tenant_id
+          })
+        )
+      );
+    } finally {
+      release();
+    }
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/platform-authority") {
     const actor = requirePermission(context, "tenant:read");
     if (!actorHasAnyRole(actor, ["platform_admin"])) {
@@ -1953,7 +2110,13 @@ async function routeRequest(
       resourceType: "run",
       resourceId: run.run_id,
       requestId: context.requestId,
-      after: clonePublic(run)
+      after: clonePublic({
+        ...run,
+        ...createSyntheticRunCreationAuditMarker(
+          runtime.repositoryProvider.mode,
+          runtime.securityConfig.environment
+        )
+      })
     });
     sendJson(response, 201, createEnvelope(context, { run, round }));
     return;
@@ -1969,20 +2132,33 @@ async function routeRequest(
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/start$/
     );
     const run = getRun(store, context, runId ?? "");
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
-    assertRoundStatus(round, "draft", "ROUND-409-001");
-    const before = clonePublic(round);
-    round.status = "open";
-    await appendAudit(runtime, {
-      actor,
-      action: "round.start",
-      resourceType: "round",
-      resourceId: round.round_id,
-      requestId: context.requestId,
-      before,
-      after: clonePublic(round)
-    });
-    sendJson(response, 200, createEnvelope(context, round));
+    const release = await acquireRunMutationLock(
+      runtime,
+      runMutationBusinessKey(context.tenantId, run.run_id)
+    );
+    try {
+      await assertRunLifecycleAllowsProgress({
+        provider: runtime.repositoryProvider,
+        runId: run.run_id,
+        tenantId: context.tenantId
+      });
+      const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+      assertRoundStatus(round, "draft", "ROUND-409-001");
+      const before = clonePublic(round);
+      round.status = "open";
+      await appendAudit(runtime, {
+        actor,
+        action: "round.start",
+        resourceType: "round",
+        resourceId: round.round_id,
+        requestId: context.requestId,
+        before,
+        after: clonePublic(round)
+      });
+      sendJson(response, 200, createEnvelope(context, round));
+    } finally {
+      release();
+    }
     return;
   }
 
@@ -1994,7 +2170,7 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/decisions$/
     );
-    const decision = await submitDecision(
+    const decision = await submitDecisionWithRunLock(
       runtime,
       context,
       request,
@@ -2013,7 +2189,7 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/lock$/
     );
-    const round = await lockRound(runtime, context, runId ?? "", Number(roundNoRaw));
+    const round = await lockRoundWithRunLock(runtime, context, runId ?? "", Number(roundNoRaw));
     sendJson(response, 200, createEnvelope(context, round));
     return;
   }
@@ -2086,7 +2262,7 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/publish$/
     );
-    const round = await publishRound(runtime, context, runId ?? "", Number(roundNoRaw));
+    const round = await publishRoundWithRunLock(runtime, context, runId ?? "", Number(roundNoRaw));
     sendJson(response, 200, createEnvelope(context, round));
     return;
   }
@@ -2130,10 +2306,15 @@ async function runSettlement(
     throw new HttpError(404, "RUN-404-001", "run not found");
   }
 
-  const lockKey = settlementBusinessKey(context.tenantId, run.run_id, roundNo);
-  const releaseSettlementLock = await acquireSettlementLock(runtime, lockKey);
+  const lockKey = runMutationBusinessKey(context.tenantId, run.run_id);
+  const releaseRunMutationLock = await acquireRunMutationLock(runtime, lockKey);
 
   try {
+    await assertRunLifecycleAllowsProgress({
+      provider: runtime.repositoryProvider,
+      runId: run.run_id,
+      tenantId: context.tenantId
+    });
     const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
       context.tenantId,
       run.run_id
@@ -2234,7 +2415,7 @@ async function runSettlement(
       responseSemantics: outcome.shouldCommit ? "committed" : "reused"
     };
   } finally {
-    releaseSettlementLock();
+    releaseRunMutationLock();
   }
 }
 
@@ -2250,6 +2431,15 @@ export function createApiServer(
         requestId: request.headers["x-request-id"]?.toString() ?? `req_${Date.now()}`,
         tenantId: request.headers["x-tenant-id"]?.toString() ?? DEFAULT_TENANT_ID
       };
+
+      if (error instanceof SyntheticRunLifecycleError) {
+        sendError(
+          response,
+          fallbackContext,
+          new HttpError(error.statusCode, error.code, error.message)
+        );
+        return;
+      }
 
       if (error instanceof HttpError) {
         sendError(response, fallbackContext, error);

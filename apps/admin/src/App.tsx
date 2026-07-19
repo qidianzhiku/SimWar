@@ -5,11 +5,15 @@ import type {
   AdminState,
   ApiEnvelope,
   AuthSession,
+  SyntheticRunLifecycleControlDTO,
+  SyntheticRunLifecycleOperation,
   User
 } from "@simwar/shared-contracts";
 import {
+  executeRunLifecycleOperation,
   getAdminSummaryErrorMessage,
   loadAdminSummary,
+  loadRunLifecycleControls,
   type AdminSummarySurface
 } from "./admin-bff";
 
@@ -88,6 +92,11 @@ export function App() {
     "idle"
   );
   const [summaryError, setSummaryError] = useState("");
+  const [lifecycleControls, setLifecycleControls] = useState<SyntheticRunLifecycleControlDTO[]>([]);
+  const [lifecycleStatus, setLifecycleStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle"
+  );
+  const [lifecycleError, setLifecycleError] = useState("");
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [userDraft, setUserDraft] = useState({
     tenant_id: "tenant_demo",
@@ -127,6 +136,29 @@ export function App() {
     );
   }, [login.tenantId, session]);
 
+  const refreshLifecycleControls = useCallback(async () => {
+    if (!session?.user.roles.includes("tenant_admin")) {
+      setLifecycleControls([]);
+      setLifecycleStatus("idle");
+      return;
+    }
+
+    setLifecycleStatus("loading");
+    setLifecycleError("");
+    try {
+      setLifecycleControls(
+        await loadRunLifecycleControls(session.access_token, (path, init) =>
+          fetch(`${API_BASE}${path}`, init)
+        )
+      );
+      setLifecycleStatus("ready");
+    } catch (error) {
+      setLifecycleControls([]);
+      setLifecycleError(getAdminSummaryErrorMessage(error));
+      setLifecycleStatus("error");
+    }
+  }, [session]);
+
   function updateLogin(field: keyof LoginForm, value: string): void {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
@@ -134,6 +166,9 @@ export function App() {
     setAdminSummary({ kind: "none" });
     setSummaryStatus("idle");
     setSummaryError("");
+    setLifecycleControls([]);
+    setLifecycleStatus("idle");
+    setLifecycleError("");
     setNotice("context changed");
   }
 
@@ -144,6 +179,9 @@ export function App() {
     setAdminSummary({ kind: "none" });
     setSummaryStatus("idle");
     setSummaryError("");
+    setLifecycleControls([]);
+    setLifecycleStatus("idle");
+    setLifecycleError("");
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -205,6 +243,10 @@ export function App() {
     };
   }, [session]);
 
+  useEffect(() => {
+    void refreshLifecycleControls();
+  }, [refreshLifecycleControls]);
+
   async function createUser(): Promise<void> {
     if (!session) {
       return;
@@ -234,6 +276,49 @@ export function App() {
       await refresh();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "user create failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyLifecycleOperation(
+    control: SyntheticRunLifecycleControlDTO,
+    operation: SyntheticRunLifecycleOperation
+  ): Promise<void> {
+    if (!session || !control.allowed_operations.includes(operation)) {
+      return;
+    }
+
+    const consequences: Record<SyntheticRunLifecycleOperation, string> = {
+      abort:
+        "Abort blocks submission, lock, settlement, and publication while preserving evidence.",
+      reset:
+        "Reset reopens only an unsettled round lock and preserves decisions, audit, results, and Replay evidence.",
+      cleanup:
+        "Cleanup seals this synthetic run with an audit tombstone; v1 deletes no persisted artifacts."
+    };
+    const confirmed = window.confirm(
+      `${operation.toUpperCase()} ${control.run_id}\n${control.tenant_id} / ${control.course_id}\n\n${consequences[operation]}`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const result = await executeRunLifecycleOperation(
+        control,
+        operation,
+        session.access_token,
+        (path, init) => fetch(`${API_BASE}${path}`, init)
+      );
+      setNotice(
+        `${operation} ${control.run_id}: ${result.idempotent ? "already applied" : "completed"}`
+      );
+      await Promise.all([refresh(), refreshLifecycleControls()]);
+    } catch (error) {
+      setNotice(getAdminSummaryErrorMessage(error));
+      await refreshLifecycleControls();
     } finally {
       setBusy(false);
     }
@@ -359,6 +444,82 @@ export function App() {
               <span>Tenant count</span>
               <strong>{adminSummary.authority.visible_state.tenant_count}</strong>
             </article>
+          </div>
+        </section>
+      ) : null}
+
+      {isTenantAdmin ? (
+        <section className="lifecycle-surface" aria-label="synthetic run lifecycle controls">
+          <div className="lifecycle-heading">
+            <div>
+              <p className="eyebrow">Synthetic JSON Internal Only</p>
+              <h2>预结算运行控制</h2>
+            </div>
+            <button
+              aria-label="refresh lifecycle controls"
+              disabled={busy || lifecycleStatus === "loading"}
+              onClick={() => void refreshLifecycleControls()}
+              title="Refresh lifecycle controls"
+            >
+              刷新
+            </button>
+          </div>
+
+          <p className="lifecycle-boundary">
+            仅作用于当前认证租户内、未结算且未发布的 synthetic JSON run。所有正式决策、审计、结果、
+            score、rank、truth 与 Replay 证据均保留。
+          </p>
+
+          {lifecycleStatus !== "ready" || lifecycleControls.length === 0 ? (
+            <p
+              className={lifecycleStatus === "error" ? "lifecycle-error" : "lifecycle-status"}
+              role={lifecycleStatus === "error" ? "alert" : undefined}
+            >
+              {lifecycleStatus === "loading"
+                ? "正在读取可控运行..."
+                : lifecycleStatus === "error"
+                  ? lifecycleError
+                  : "当前租户没有可显示的 synthetic JSON run。"}
+            </p>
+          ) : null}
+
+          <div className="lifecycle-list">
+            {lifecycleControls.map((control) => (
+              <article className="lifecycle-run" key={control.run_id}>
+                <div className="lifecycle-run-title">
+                  <div>
+                    <strong>{control.run_id}</strong>
+                    <span className="identity">
+                      {control.tenant_id} / {control.course_id}
+                    </span>
+                  </div>
+                  <span className="summary-badge">{control.lifecycle_state}</span>
+                </div>
+
+                <p className="lifecycle-facts">
+                  预结算 {control.pre_settlement ? "YES" : "NO"} · 预发布{" "}
+                  {control.pre_publication ? "YES" : "NO"} · 证据冻结{" "}
+                  {control.evidence_frozen ? "YES" : "NO"} · Cleanup 删除 0 个持久化对象
+                </p>
+
+                {control.blocked_reasons.length > 0 ? (
+                  <p className="lifecycle-blocked">Blocked: {control.blocked_reasons.join(", ")}</p>
+                ) : null}
+
+                <div className="lifecycle-actions" aria-label={`actions for ${control.run_id}`}>
+                  {(["abort", "reset", "cleanup"] as const).map((operation) => (
+                    <button
+                      disabled={busy || !control.allowed_operations.includes(operation)}
+                      key={operation}
+                      onClick={() => void applyLifecycleOperation(control, operation)}
+                      title={`${operation} ${control.run_id}`}
+                    >
+                      {operation.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       ) : null}
