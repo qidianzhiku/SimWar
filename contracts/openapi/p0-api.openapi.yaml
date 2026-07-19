@@ -316,6 +316,101 @@ paths:
           description: Run context not found or out of scope
         "503":
           description: Scenario candidate provider capability unavailable
+  /api/v1/bff/admin/run-lifecycle-controls:
+    get:
+      operationId: SYNTHETIC_RUN_LIFECYCLE_CONTROLS_LIST_V1
+      summary: List tenant-scoped synthetic JSON pre-settlement lifecycle controls.
+      description: Tenant Admin only. Tenant authority comes from the authenticated session, never a client-supplied tenant identifier. This projection contains no formal truth or private Replay payload.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Authenticated tenant-scoped lifecycle controls
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [code, message, data, request_id]
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  request_id:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SyntheticRunLifecycleControl"
+        "401":
+          description: Authentication required
+        "403":
+          description: Tenant Admin lifecycle authority required
+  /api/v1/bff/admin/courses/{courseId}/runs/{runId}/lifecycle/{operation}:
+    post:
+      operationId: SYNTHETIC_RUN_LIFECYCLE_OPERATION_POST_V1
+      summary: Apply one bounded pre-settlement lifecycle operation.
+      description: ABORT freezes evidence and blocks run progress. RESET may only reopen the transient round lock control. CLEANUP writes an evidence-sealed tombstone and deletes zero persisted artifacts in v1. Settled or published runs fail closed.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: operation
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [abort, reset, cleanup]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties:
+                confirmation:
+                  type: string
+                  description: Exact uppercase operation followed by one space and the run ID, for example ABORT run_001.
+      responses:
+        "200":
+          description: Operation completed or returned idempotently
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [code, message, data, request_id]
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  request_id:
+                    type: string
+                  data:
+                    $ref: "#/components/schemas/SyntheticRunLifecycleOperationResult"
+        "401":
+          description: Authentication required
+        "403":
+          description: Tenant or role boundary denied
+        "404":
+          description: Run is absent or outside the authenticated tenant/course scope
+        "409":
+          description: Runtime, lifecycle, settlement, publication, evidence-freeze, or state transition boundary denied
+        "422":
+          description: Exact operation confirmation is missing or invalid
   /internal/v1/runs/{runId}/rounds/{roundNo}/settle:
     post:
       summary: Internal structured-core-only settlement entrypoint.
@@ -411,6 +506,10 @@ paths:
           description: Audit logs
 components:
   securitySchemes:
+    SessionBearer:
+      type: http
+      scheme: bearer
+      description: Signed user session. Tenant scope is resolved by the server from this identity.
     InternalServiceBearer:
       type: http
       scheme: bearer
@@ -421,6 +520,86 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    SyntheticRunLifecycleControl:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - course_id
+        - run_id
+        - runtime_boundary
+        - synthetic_marker
+        - lifecycle_state
+        - pre_settlement
+        - pre_publication
+        - evidence_frozen
+        - allowed_operations
+        - blocked_reasons
+        - ephemeral_artifact_allowlist
+        - preserved_state
+        - explicit_non_proofs
+        - audit_reference
+      properties:
+        tenant_id:
+          type: string
+        course_id:
+          type: string
+        run_id:
+          type: string
+        runtime_boundary:
+          const: JSON_INTERNAL_ONLY
+        synthetic_marker:
+          type: boolean
+        lifecycle_state:
+          type: string
+          enum: [ACTIVE, ABORTED, RESET_READY, CLEANED]
+        pre_settlement:
+          type: boolean
+        pre_publication:
+          type: boolean
+        evidence_frozen:
+          type: boolean
+        allowed_operations:
+          type: array
+          items:
+            type: string
+            enum: [abort, reset, cleanup]
+        blocked_reasons:
+          type: array
+          items:
+            type: string
+        ephemeral_artifact_allowlist:
+          type: array
+          items:
+            type: string
+        preserved_state:
+          type: array
+          items:
+            type: string
+        explicit_non_proofs:
+          type: array
+          items:
+            type: string
+        audit_reference:
+          type:
+            - string
+            - "null"
+    SyntheticRunLifecycleOperationResult:
+      type: object
+      additionalProperties: false
+      required: [operation, idempotent, ephemeral_artifacts_changed, control]
+      properties:
+        operation:
+          type: string
+          enum: [abort, reset, cleanup]
+        idempotent:
+          type: boolean
+        ephemeral_artifacts_changed:
+          type: array
+          items:
+            type: string
+        control:
+          $ref: "#/components/schemas/SyntheticRunLifecycleControl"
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"
     M1DecisionSubmitRequest:
