@@ -1,4 +1,4 @@
-export * from "./known-limits";
+export * from "./known-limits.js";
 
 export type ActorRole =
   | "platform_admin"
