@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
@@ -15,9 +16,20 @@ import {
   test,
   type APIRequestContext,
   type BrowserContext,
-  type Page
+  type Page,
+  type TestInfo
 } from "@playwright/test";
-import type { ApiEnvelope, AuthSession } from "../../packages/shared-contracts/src";
+import type {
+  ApiEnvelope,
+  AuditLog,
+  AuthSession,
+  P0DemoState,
+  PublicResultView,
+  StudentBffCockpitDTO,
+  SyntheticRunLifecycleControlDTO,
+  TeacherBffWorkspaceDTO,
+  TenantAdminSummaryDTO
+} from "../../packages/shared-contracts/src";
 import {
   LEGACY_PLAYWRIGHT_STORE_FILE,
   assertPlaywrightStoreFile,
@@ -184,6 +196,92 @@ async function apiPost<TData>(
   return (await response.json()) as ApiEnvelope<TData>;
 }
 
+async function apiGet<TData>(
+  request: APIRequestContext,
+  path: string,
+  token: string
+): Promise<ApiEnvelope<TData>> {
+  const response = await request.get(`${apiBaseUrl}${path}`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "x-tenant-id": "tenant_demo"
+    }
+  });
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as ApiEnvelope<TData>;
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== "object") return value;
+
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort()
+      .map((key) => [key, canonicalize(record[key])])
+  );
+}
+
+function safeJsonDigest(value: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(value)))
+    .digest("hex");
+}
+
+async function attachSafeJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
+  await testInfo.attach(name, {
+    body: Buffer.from(`${JSON.stringify(canonicalize(value), null, 2)}\n`),
+    contentType: "application/json"
+  });
+}
+
+function auditDelta(baseline: AuditLog[], current: AuditLog[]): AuditLog[] {
+  const baselineIds = new Set(baseline.map((entry) => entry.audit_id));
+  return current.filter((entry) => !baselineIds.has(entry.audit_id));
+}
+
+function auditActionCounts(logs: AuditLog[]): Record<string, number> {
+  const counts = new Map<string, number>();
+  for (const log of logs) counts.set(log.action, (counts.get(log.action) ?? 0) + 1);
+  return Object.fromEntries(
+    [...counts.entries()].sort(([left], [right]) => left.localeCompare(right))
+  );
+}
+
+function safeOfficialResultSnapshot(result: PublicResultView) {
+  return {
+    result_label: result.result_label,
+    round_no: result.round_no,
+    run_id: result.run_id,
+    runtime_boundary: result.runtime_boundary,
+    status: result.status,
+    teams: result.results
+      .map((team) => ({
+        state_est: team.state_est,
+        state_obs: team.state_obs,
+        team_id: team.team_id,
+        team_name: team.team_name
+      }))
+      .sort((left, right) => left.team_id.localeCompare(right.team_id))
+  };
+}
+
+function safeReplaySummarySnapshot(workspace: TeacherBffWorkspaceDTO) {
+  const summary = workspace.teacher_replay_summary;
+  return {
+    formal_truth_write_allowed: summary.formal_truth_write_allowed,
+    replay_hash: summary.replay_hash,
+    replay_status: summary.replay_status,
+    replay_writes_formal_results: summary.replay_writes_formal_results,
+    result_count: summary.visible_state.result_count,
+    round_id: summary.round_id,
+    round_no: summary.round_no,
+    run_id: summary.run_id,
+    runtime_boundary: summary.visible_state.runtime_boundary
+  };
+}
+
 async function login(request: APIRequestContext, credentials: Credentials): Promise<string> {
   const envelope = await apiPost<AuthSession>(
     request,
@@ -255,6 +353,28 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
   };
   const contexts: BrowserContext[] = [];
   const observedRequests: string[] = [];
+  let adminToken = "";
+  let teacherToken = "";
+  let studentAToken = "";
+  let studentBToken = "";
+  let runAId = "";
+  let runBId = "";
+  let settlementOutcome = "";
+  let businessAttemptCount = 0;
+  let settlementAttemptCount = 0;
+  let preflightAudits: AuditLog[] = [];
+  let teamA = { name: "", team_id: "" };
+  let teamB = { name: "", team_id: "" };
+  let studentIsolationPassed = false;
+  let runAFreeze:
+    | {
+        auditLogs: AuditLog[];
+        officialResult: PublicResultView;
+        safeOfficialResult: ReturnType<typeof safeOfficialResultSnapshot>;
+        safeReplaySummary: ReturnType<typeof safeReplaySummarySnapshot>;
+        teacherWorkspace: TeacherBffWorkspaceDTO;
+      }
+    | undefined;
 
   try {
     const teacherContext = await browser.newContext();
@@ -272,23 +392,142 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
     await test.step("baseline and allowlisted public fixture setup", async () => {
       await adminPage.goto(adminBaseUrl);
       await signIn(adminPage, "管理员登录", adminCredentials);
-      const studentBUserId = await createStudentBThroughAdminUi(adminPage, studentBCredentials);
+      adminToken = await login(request, adminCredentials);
+      teacherToken = await login(request, teacherCredentials);
+      studentAToken = await login(request, studentACredentials);
 
-      const teacherToken = await login(request, teacherCredentials);
-      const teamEnvelope = await apiPost<{ team_id: string }>(
+      const baselineStateEnvelope = await apiGet<P0DemoState>(
+        request,
+        "/api/v1/demo-state",
+        adminToken
+      );
+      const baselineAuditsEnvelope = await apiGet<AuditLog[]>(
+        request,
+        "/api/v1/audit/logs",
+        adminToken
+      );
+      const baselineState = baselineStateEnvelope.data;
+      const baselineAudits = baselineAuditsEnvelope.data;
+      const baselineUsers = baselineState.users ?? [];
+      const studentAUser = baselineUsers.find((user) => user.username === "student");
+      expect(studentAUser?.team_id).toBeTruthy();
+      const baselineTeamA = baselineState.teams.find(
+        (team) => team.team_id === studentAUser?.team_id
+      );
+      expect(baselineTeamA).toBeTruthy();
+
+      const studentBUserId = await createStudentBThroughAdminUi(adminPage, studentBCredentials);
+      const teamEnvelope = await apiPost<P0DemoState["teams"][number]>(
         request,
         "/api/v1/courses/course_demo/teams",
         teacherToken,
         { captain_user_id: studentBUserId, name: "Phase 7 Team B" }
       );
       expect(teamEnvelope.data.team_id).toMatch(/^team_/);
+      studentBToken = await login(request, studentBCredentials);
+
+      const currentStateEnvelope = await apiGet<P0DemoState>(
+        request,
+        "/api/v1/demo-state",
+        adminToken
+      );
+      const currentAuditsEnvelope = await apiGet<AuditLog[]>(
+        request,
+        "/api/v1/audit/logs",
+        adminToken
+      );
+      const currentState = currentStateEnvelope.data;
+      const currentUsers = currentState.users ?? [];
+      const baselineUserIds = new Set(baselineUsers.map((user) => user.user_id));
+      const baselineTeamIds = new Set(baselineState.teams.map((team) => team.team_id));
+      const addedUsers = currentUsers.filter((user) => !baselineUserIds.has(user.user_id));
+      const addedTeams = currentState.teams.filter((team) => !baselineTeamIds.has(team.team_id));
+      const fixtureAuditDelta = auditDelta(baselineAudits, currentAuditsEnvelope.data);
+      const fixtureAuditCounts = auditActionCounts(fixtureAuditDelta);
+
+      expect(addedUsers).toHaveLength(1);
+      expect(addedUsers[0]?.user_id).toBe(studentBUserId);
+      expect(addedUsers[0]?.team_id).toBe(teamEnvelope.data.team_id);
+      expect(addedTeams).toHaveLength(1);
+      expect(addedTeams[0]?.team_id).toBe(teamEnvelope.data.team_id);
+      expect(addedTeams[0]?.captain_user_id).toBe(studentBUserId);
+      expect(addedTeams[0]?.members.map((member) => member.user_id)).toEqual([studentBUserId]);
+      expect(fixtureAuditCounts).toEqual({
+        "auth.login": 1,
+        "team.create": 1,
+        "user.create": 1
+      });
+      expect(currentState.runs).toEqual(baselineState.runs);
+      expect(currentState.rounds).toEqual(baselineState.rounds);
+      expect(currentState.decisions).toEqual(baselineState.decisions);
+      expect(
+        fixtureAuditDelta.filter((log) =>
+          /^(run\.create|round\.|decision\.|run\.lifecycle\.|replay\.)/.test(log.action)
+        )
+      ).toEqual([]);
+      expect(businessAttemptCount).toBe(0);
+
+      teamA = { name: baselineTeamA!.name, team_id: baselineTeamA!.team_id };
+      teamB = { name: addedTeams[0]!.name, team_id: addedTeams[0]!.team_id };
+      preflightAudits = currentAuditsEnvelope.data;
+      await attachSafeJson(testInfo, "phase7-preflight-delta", {
+        audit_action_counts: fixtureAuditCounts,
+        baseline: {
+          audit_count: baselineAudits.length,
+          decision_count: baselineState.decisions.length,
+          round_count: baselineState.rounds.length,
+          run_count: baselineState.runs.length,
+          team_count: baselineState.teams.length,
+          user_count: baselineUsers.length
+        },
+        business_mutations_before_gate: 0,
+        delta: {
+          added_membership_count: addedTeams[0]!.members.length,
+          added_team_count: addedTeams.length,
+          added_team_id: teamB.team_id,
+          added_user_count: addedUsers.length,
+          captain_matches_created_user: true,
+          decision_count: 0,
+          round_count: 0,
+          run_count: 0
+        },
+        fixture_allowlist: ["auth.login", "team.create", "user.create"],
+        public_surfaces_only: true
+      });
     });
 
     await test.step("Run A is created and opened through the Teacher product surface", async () => {
+      expect(preflightAudits.length).toBeGreaterThan(0);
+      expect(businessAttemptCount).toBe(0);
       await teacherPage.goto(teacherBaseUrl);
       await signIn(teacherPage, "教师登录", teacherCredentials);
+      const createRunResponsePromise = teacherPage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === "/api/v1/courses/course_demo/runs" &&
+          response.status() === 201
+      );
       await teacherPage.getByRole("button", { name: "创建 Run" }).click();
+      const createRunResponse = await createRunResponsePromise;
+      const created = (await createRunResponse.json()) as ApiEnvelope<{
+        round: P0DemoState["rounds"][number];
+        run: P0DemoState["runs"][number];
+      }>;
+      runAId = created.data.run.run_id;
+      expect(runAId).toMatch(/^run_/);
       await expect(teacherPage.getByText("run created")).toBeVisible();
+      await expect(teacherPage.getByLabel("run selector")).toHaveValue(runAId);
+      businessAttemptCount += 1;
+      expect(businessAttemptCount).toBe(1);
+      await attachSafeJson(testInfo, "phase7-business-attempt", {
+        allowlisted_fixture_gate_passed: true,
+        business_attempt_after: businessAttemptCount,
+        business_attempt_before: 0,
+        consumption_event: "teacher_product_run_created_with_server_run_id",
+        run_id: runAId,
+        server_response_status: createRunResponse.status()
+      });
+
       await teacherPage.getByRole("button", { name: "开启回合" }).click();
       await expect(teacherPage.getByText("round opened")).toBeVisible();
     });
@@ -308,45 +547,209 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
     await test.step("Teacher locks, settles, and publishes Run A once", async () => {
       await teacherPage.reload();
       await signIn(teacherPage, "教师登录", teacherCredentials);
+      await expect(teacherPage.getByLabel("run selector")).toHaveValue(runAId);
       await teacherPage.getByRole("button", { name: "锁定回合" }).click();
       await expect(teacherPage.getByText("round locked")).toBeVisible();
+
+      const settlementResponsePromise = teacherPage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === `/api/v1/runs/${runAId}/rounds/1/settle`
+      );
       await teacherPage.getByRole("button", { name: "请求结算" }).click();
+      const settlementResponse = await settlementResponsePromise;
+      settlementAttemptCount += 1;
+      settlementOutcome =
+        (await settlementResponse.headerValue("x-simwar-settlement-outcome")) ?? "";
+      expect(settlementResponse.status()).toBe(200);
+      expect(settlementAttemptCount).toBe(1);
+      expect(settlementOutcome).toBe("committed");
       await expect(teacherPage.getByText("settlement completed")).toBeVisible();
+
       await teacherPage.getByRole("button", { name: "发布结果" }).click();
       await expect(teacherPage.getByText("result published")).toBeVisible();
       await expect(teacherPage.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
     });
 
     await test.step("results, feedback, learning evidence, and tenant scope stay product-safe", async () => {
-      for (const page of [studentAPage, studentBPage]) {
-        await page.reload();
-        await signIn(
-          page,
-          "学员登录",
-          page === studentAPage ? studentACredentials : studentBCredentials
+      const studentEvidence: Array<Record<string, unknown>> = [];
+      for (const student of [
+        {
+          credentials: studentACredentials,
+          otherTeam: teamB,
+          ownTeam: teamA,
+          page: studentAPage,
+          token: studentAToken
+        },
+        {
+          credentials: studentBCredentials,
+          otherTeam: teamA,
+          ownTeam: teamB,
+          page: studentBPage,
+          token: studentBToken
+        }
+      ]) {
+        await student.page.reload();
+        await signIn(student.page, "学员登录", student.credentials);
+        await expect(student.page.getByRole("heading", { name: "BFF 发布结果" })).toBeVisible();
+        await expect(student.page.getByRole("heading", { name: "三段式反馈" })).toBeVisible();
+        await expect(student.page.getByRole("heading", { name: "Learning Report" })).toBeVisible();
+
+        const cockpitEnvelope = await apiGet<StudentBffCockpitDTO>(
+          request,
+          `/api/v1/bff/student/runs/${runAId}/rounds/1/cockpit`,
+          student.token
         );
-        await expect(page.getByRole("heading", { name: "BFF 发布结果" })).toBeVisible();
-        await expect(page.getByRole("heading", { name: "三段式反馈" })).toBeVisible();
-        await expect(page.getByRole("heading", { name: "Learning Report" })).toBeVisible();
-        const text = await page.locator("body").innerText();
+        const cockpit = cockpitEnvelope.data;
+        const redactedResult = cockpit.published_result.redacted_result;
+        expect(cockpit.student_cockpit.run_id).toBe(runAId);
+        expect(cockpit.student_cockpit.team_id).toBe(student.ownTeam.team_id);
+        expect(cockpit.student_cockpit.visible_state.team_name).toBe(student.ownTeam.name);
+        expect(cockpit.student_cockpit.visible_state.round_status).toBe("published");
+        expect(redactedResult?.team_id).toBe(student.ownTeam.team_id);
+        expect(Object.prototype.hasOwnProperty.call(redactedResult ?? {}, "state_true")).toBe(
+          false
+        );
+        expect(cockpit.three_part_feedback.feedback.what_happened).toBeDefined();
+        expect(cockpit.three_part_feedback.feedback.why_it_happened).toBeTruthy();
+        expect(cockpit.learning_report.learning_evidence.advisory_only).toBe(true);
+        expect(cockpit.learning_report.learning_evidence.formal_grade).toBe(false);
+
+        const text = await student.page.locator("body").innerText();
+        expect(text).not.toContain(student.otherTeam.team_id);
+        expect(text).not.toContain(student.otherTeam.name);
+        expect(text).not.toContain("Other Tenant");
+        expect(text).not.toContain("tenant_other");
         for (const marker of privateMarkers) expect(text).not.toContain(marker);
+
+        studentEvidence.push({
+          learning_report: {
+            advisory_only: cockpit.learning_report.learning_evidence.advisory_only,
+            formal_grade: cockpit.learning_report.learning_evidence.formal_grade,
+            prompt_count: cockpit.learning_report.learning_evidence.prompts.length
+          },
+          own_team_id: student.ownTeam.team_id,
+          own_team_name: student.ownTeam.name,
+          redacted_result_digest: safeJsonDigest(redactedResult),
+          run_id: cockpit.student_cockpit.run_id,
+          three_part_feedback: {
+            next_step_risk: Boolean(cockpit.three_part_feedback.feedback.next_step_risk),
+            what_happened: Boolean(cockpit.three_part_feedback.feedback.what_happened),
+            why_it_happened: Boolean(cockpit.three_part_feedback.feedback.why_it_happened)
+          }
+        });
       }
+      studentIsolationPassed = true;
 
       await expect(teacherPage.getByText("formal_truth_write_allowed: false")).toBeVisible();
       await expect(teacherPage.getByRole("heading", { name: "课堂复盘材料" })).toBeVisible();
+      await adminPage.reload();
+      await signIn(adminPage, "管理员登录", adminCredentials);
       await expect(adminPage.getByLabel("tenant admin scoped summary")).toBeVisible();
       await expect(adminPage.getByText("Other Tenant")).toHaveCount(0);
-      await testInfo.attach("phase7-run-a-product-evidence", {
-        body: Buffer.from(JSON.stringify({ state: "PUBLISHED", surface: "public-product-only" })),
-        contentType: "application/json"
+
+      const teacherWorkspaceEnvelope = await apiGet<TeacherBffWorkspaceDTO>(
+        request,
+        `/api/v1/bff/teacher/runs/${runAId}/rounds/1/workspace`,
+        teacherToken
+      );
+      const officialResultEnvelope = await apiGet<PublicResultView>(
+        request,
+        `/api/v1/runs/${runAId}/rounds/1/results`,
+        teacherToken
+      );
+      const tenantSummaryEnvelope = await apiGet<TenantAdminSummaryDTO>(
+        request,
+        "/api/v1/bff/admin/tenant-summary",
+        adminToken
+      );
+      const currentAuditsEnvelope = await apiGet<AuditLog[]>(
+        request,
+        "/api/v1/audit/logs",
+        adminToken
+      );
+      const teacherWorkspace = teacherWorkspaceEnvelope.data;
+      const officialResult = officialResultEnvelope.data;
+      const tenantSummary = tenantSummaryEnvelope.data;
+      const businessAuditCounts = auditActionCounts(
+        auditDelta(preflightAudits, currentAuditsEnvelope.data)
+      );
+      const monitoredTeams = teacherWorkspace.team_monitor.teams.filter((team) =>
+        [teamA.team_id, teamB.team_id].includes(team.team_id)
+      );
+
+      expect(monitoredTeams).toHaveLength(2);
+      expect(monitoredTeams.every((team) => team.decision_submitted)).toBe(true);
+      expect(teacherWorkspace.round_control.status).toBe("published");
+      expect(teacherWorkspace.round_control.visible_state.decision_count).toBe(2);
+      expect(teacherWorkspace.teacher_replay_summary.formal_truth_write_allowed).toBe(false);
+      expect(teacherWorkspace.teacher_replay_summary.replay_hash).toBeTruthy();
+      expect(teacherWorkspace.teacher_replay_summary.replay_writes_formal_results).toBe(false);
+      expect(officialResult.run_id).toBe(runAId);
+      expect(officialResult.status).toBe("published");
+      expect(tenantSummary.visible_tenant_ids).toEqual(["tenant_demo"]);
+      expect(businessAuditCounts["run.create"]).toBe(1);
+      expect(businessAuditCounts["round.start"]).toBe(1);
+      expect(businessAuditCounts["decision.submit"]).toBe(2);
+      expect(businessAuditCounts["round.lock"]).toBe(1);
+      expect(businessAuditCounts["round.settle_requested"]).toBe(1);
+      expect(businessAuditCounts["round.publish"]).toBe(1);
+      expect(settlementAttemptCount).toBe(1);
+      expect(businessAttemptCount).toBe(1);
+
+      const safeOfficialResult = safeOfficialResultSnapshot(officialResult);
+      const safeReplaySummary = safeReplaySummarySnapshot(teacherWorkspace);
+      runAFreeze = {
+        auditLogs: structuredClone(currentAuditsEnvelope.data),
+        officialResult: structuredClone(officialResult),
+        safeOfficialResult,
+        safeReplaySummary,
+        teacherWorkspace: structuredClone(teacherWorkspace)
+      };
+      await attachSafeJson(testInfo, "phase7-run-a-product-evidence", {
+        audit_action_counts: businessAuditCounts,
+        decision_submitted_team_ids: monitoredTeams.map((team) => team.team_id).sort(),
+        published_status: officialResult.status,
+        run_id: runAId,
+        settlement_attempt_count: settlementAttemptCount,
+        settlement_outcome_header: settlementOutcome,
+        students: studentEvidence,
+        tenant_admin_summary: {
+          tenant_id: tenantSummary.tenant_id,
+          visible_state: tenantSummary.visible_state,
+          visible_tenant_ids: tenantSummary.visible_tenant_ids
+        },
+        teacher_replay_summary: safeReplaySummary
+      });
+      await attachSafeJson(testInfo, "phase7-run-a-evidence-freeze", {
+        frozen_before_run_b: true,
+        official_result_safe_digest: safeJsonDigest(safeOfficialResult),
+        replay_summary_safe_digest: safeJsonDigest(safeReplaySummary),
+        run_id: runAId,
+        team_ids: [teamA.team_id, teamB.team_id].sort()
       });
     });
 
     await test.step("Run B uses the separate pre-settlement lifecycle product path", async () => {
+      expect(runAFreeze).toBeDefined();
+      const createRunResponsePromise = teacherPage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === "/api/v1/courses/course_demo/runs" &&
+          response.status() === 201
+      );
       await teacherPage.getByRole("button", { name: "Create Next Run" }).click();
+      const createRunResponse = await createRunResponsePromise;
+      const created = (await createRunResponse.json()) as ApiEnvelope<{
+        round: P0DemoState["rounds"][number];
+        run: P0DemoState["runs"][number];
+      }>;
       await expect(teacherPage.getByText("run created")).toBeVisible();
-      const runBId = await teacherPage.getByLabel("run selector").inputValue();
+      runBId = await teacherPage.getByLabel("run selector").inputValue();
+      expect(runBId).toBe(created.data.run.run_id);
       expect(runBId).toMatch(/^run_/);
+      expect(runBId).not.toBe(runAId);
+      expect(businessAttemptCount).toBe(1);
 
       await adminPage.reload();
       await signIn(adminPage, "管理员登录", adminCredentials);
@@ -363,6 +766,141 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
       await expect(runB.getByText("ABORTED", { exact: true })).toBeVisible();
       await runB.getByRole("button", { name: "CLEANUP" }).click();
       await expect(runB.getByText("CLEANED", { exact: true })).toBeVisible();
+
+      const lifecycleEnvelope = await apiGet<SyntheticRunLifecycleControlDTO[]>(
+        request,
+        "/api/v1/bff/admin/run-lifecycle-controls",
+        adminToken
+      );
+      const currentStateEnvelope = await apiGet<P0DemoState>(
+        request,
+        "/api/v1/demo-state",
+        adminToken
+      );
+      const currentAuditsEnvelope = await apiGet<AuditLog[]>(
+        request,
+        "/api/v1/audit/logs",
+        adminToken
+      );
+      const runBControl = lifecycleEnvelope.data.find((control) => control.run_id === runBId);
+      const runBRounds = currentStateEnvelope.data.rounds.filter(
+        (round) => round.run_id === runBId
+      );
+      const runBDecisions = currentStateEnvelope.data.decisions.filter(
+        (decision) => decision.run_id === runBId
+      );
+      const runBDeltaAudits = auditDelta(runAFreeze!.auditLogs, currentAuditsEnvelope.data);
+      const runBLifecycleAudits = runBDeltaAudits.filter(
+        (log) => log.resource_id === runBId && log.action.startsWith("run.lifecycle.")
+      );
+      const runBLifecycleCounts = auditActionCounts(runBLifecycleAudits);
+      const settlementActionCount = runBDeltaAudits.filter((log) =>
+        ["round.settle", "round.settle_requested"].includes(log.action)
+      ).length;
+      const publishActionCount = runBDeltaAudits.filter(
+        (log) => log.action === "round.publish"
+      ).length;
+      const replayActionCount = runBDeltaAudits.filter((log) =>
+        log.action.toLowerCase().includes("replay")
+      ).length;
+
+      expect(runBControl).toMatchObject({
+        evidence_frozen: true,
+        lifecycle_state: "CLEANED",
+        pre_publication: true,
+        pre_settlement: true,
+        run_id: runBId,
+        runtime_boundary: "JSON_INTERNAL_ONLY",
+        synthetic_marker: true,
+        tenant_id: "tenant_demo"
+      });
+      expect(runBRounds).toHaveLength(1);
+      expect(runBRounds[0]?.status).toBe("draft");
+      expect(runBRounds[0]?.replay_hash).toBeUndefined();
+      expect(runBDecisions).toEqual([]);
+      expect(settlementActionCount).toBe(0);
+      expect(publishActionCount).toBe(0);
+      expect(replayActionCount).toBe(0);
+      expect(runBLifecycleCounts).toEqual({
+        "run.lifecycle.abort": 2,
+        "run.lifecycle.cleanup": 1,
+        "run.lifecycle.reset": 1
+      });
+
+      await attachSafeJson(testInfo, "phase7-run-b-lifecycle", {
+        audit_action_counts: runBLifecycleCounts,
+        lifecycle_state: runBControl!.lifecycle_state,
+        pre_publication: runBControl!.pre_publication,
+        pre_settlement: runBControl!.pre_settlement,
+        publish_action_count: publishActionCount,
+        replay_action_count: replayActionCount,
+        replay_reference_count: runBRounds.filter((round) => Boolean(round.replay_hash)).length,
+        run_id: runBId,
+        settlement_action_count: settlementActionCount
+      });
+    });
+
+    await test.step("Run A remains historical and official evidence is not overwritten", async () => {
+      expect(runAFreeze).toBeDefined();
+      await teacherPage.getByLabel("run selector").selectOption(runAId);
+      await expect(teacherPage.getByText("Historical Run · read-only")).toBeVisible();
+      await expect(teacherPage.getByRole("button", { name: "已发布" })).toBeDisabled();
+      await expect(teacherPage.getByText(`Run context: ${runAId}`)).toBeVisible();
+
+      const teacherWorkspaceEnvelope = await apiGet<TeacherBffWorkspaceDTO>(
+        request,
+        `/api/v1/bff/teacher/runs/${runAId}/rounds/1/workspace`,
+        teacherToken
+      );
+      const officialResultEnvelope = await apiGet<PublicResultView>(
+        request,
+        `/api/v1/runs/${runAId}/rounds/1/results`,
+        teacherToken
+      );
+      const currentAuditsEnvelope = await apiGet<AuditLog[]>(
+        request,
+        "/api/v1/audit/logs",
+        adminToken
+      );
+      const currentSafeOfficialResult = safeOfficialResultSnapshot(officialResultEnvelope.data);
+      const currentSafeReplaySummary = safeReplaySummarySnapshot(teacherWorkspaceEnvelope.data);
+      const frozenAuditCounts = auditActionCounts(runAFreeze!.auditLogs);
+      const currentAuditCounts = auditActionCounts(currentAuditsEnvelope.data);
+
+      expect(officialResultEnvelope.data).toEqual(runAFreeze!.officialResult);
+      expect(currentSafeOfficialResult).toEqual(runAFreeze!.safeOfficialResult);
+      expect(currentSafeReplaySummary).toEqual(runAFreeze!.safeReplaySummary);
+      expect(teacherWorkspaceEnvelope.data.teacher_replay_summary).toEqual(
+        runAFreeze!.teacherWorkspace.teacher_replay_summary
+      );
+      expect(currentAuditCounts["round.settle_requested"]).toBe(
+        frozenAuditCounts["round.settle_requested"]
+      );
+      expect(currentAuditCounts["round.settle"]).toBe(frozenAuditCounts["round.settle"]);
+      expect(currentAuditCounts["round.publish"]).toBe(frozenAuditCounts["round.publish"]);
+      expect(teacherWorkspaceEnvelope.data.teacher_replay_summary.formal_truth_write_allowed).toBe(
+        false
+      );
+      expect(observedRequests.some((url) => url.includes("/internal/"))).toBe(false);
+
+      await attachSafeJson(testInfo, "phase7-boundary-evidence", {
+        business_attempt_count: businessAttemptCount,
+        cross_team_exposure_count: studentIsolationPassed ? 0 : 1,
+        cross_tenant_exposure_count: 0,
+        frontend_internal_request_count: observedRequests.filter((url) =>
+          url.includes("/internal/")
+        ).length,
+        run_a_historical_read_only: true,
+        run_a_official_result_safe_digest_unchanged:
+          safeJsonDigest(currentSafeOfficialResult) ===
+          safeJsonDigest(runAFreeze!.safeOfficialResult),
+        run_a_replay_summary_safe_digest_unchanged:
+          safeJsonDigest(currentSafeReplaySummary) ===
+          safeJsonDigest(runAFreeze!.safeReplaySummary),
+        settlement_attempt_count: settlementAttemptCount,
+        student_private_marker_count: 0,
+        teacher_formal_truth_write_allowed: false
+      });
     });
 
     expect(observedRequests.some((url) => url.includes("/internal/"))).toBe(false);
