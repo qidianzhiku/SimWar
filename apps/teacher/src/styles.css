@@ -15,6 +15,12 @@ body {
   margin: 0;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 button,
 input,
 select,
@@ -103,6 +109,62 @@ h3 {
   cursor: not-allowed;
 }
 
+.run-toolbar {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  max-width: 680px;
+  min-width: 0;
+}
+
+.run-selector {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.run-selector span {
+  color: #607080;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.run-selector select {
+  background: #fff;
+  border: 1px solid #c8d1d5;
+  border-radius: 7px;
+  color: #17202a;
+  min-height: 42px;
+  min-width: 180px;
+  max-width: 100%;
+  padding: 0 10px;
+}
+
+.run-readonly {
+  color: #7a4f13;
+  font-size: 12px;
+  font-weight: 700;
+  padding-bottom: 12px;
+}
+
+.secondary {
+  background: #fff;
+  border: 1px solid #145c50;
+  border-radius: 7px;
+  color: #145c50;
+  cursor: pointer;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.secondary:disabled {
+  border-color: #90a19b;
+  color: #90a19b;
+  cursor: not-allowed;
+}
+
 .login-strip {
   align-items: center;
   background: #fff;
@@ -151,6 +213,7 @@ h3 {
   gap: 18px;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   margin-bottom: 18px;
+  min-width: 0;
 }
 
 .readiness-panel {
@@ -300,13 +363,25 @@ h3 {
 }
 
 .panel {
+  min-width: 0;
   padding: 18px;
 }
 
 .panel-title {
   border-bottom: 1px solid #edf0f1;
+  gap: 8px;
   margin: -2px 0 14px;
+  min-width: 0;
   padding-bottom: 12px;
+}
+
+.panel-title > * {
+  min-width: 0;
+}
+
+.panel-title span {
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .package-brief,
@@ -530,12 +605,21 @@ h3 {
 .timeline {
   display: grid;
   gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .timeline-item {
   border-bottom: 1px solid #edf0f1;
+  flex-wrap: wrap;
   gap: 10px;
   min-height: 34px;
+  min-width: 0;
+}
+
+.timeline-item > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .known-limits-disclosure {
@@ -591,10 +675,31 @@ h3 {
   .login-strip {
     align-items: stretch;
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .primary {
     width: 100%;
+  }
+
+  .run-toolbar {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: none;
+  }
+
+  .run-selector select,
+  .secondary {
+    width: 100%;
+  }
+
+  .run-readonly {
+    padding-bottom: 0;
+  }
+
+  .panel-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 }
