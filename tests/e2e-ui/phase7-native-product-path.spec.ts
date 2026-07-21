@@ -18,7 +18,6 @@ import {
   type Page
 } from "@playwright/test";
 import type { ApiEnvelope, AuthSession } from "../../packages/shared-contracts/src";
-import { resolveApiHost } from "../../services/api/src/server";
 import {
   LEGACY_PLAYWRIGHT_STORE_FILE,
   assertPlaywrightStoreFile,
@@ -148,7 +147,9 @@ test("@foundation rejects a symbolic-link mission directory", () => {
   }
 });
 
-test("@foundation keeps API host opt-in and the native spec free of forbidden paths", () => {
+test("@foundation keeps API host opt-in and the native spec free of forbidden paths", async () => {
+  const { resolveApiHost } = await import("../../services/api/src/server");
+
   expect(resolveApiHost(undefined)).toBeUndefined();
   expect(resolveApiHost(" 127.0.0.1 ")).toBe("127.0.0.1");
   expect(resolveApiHost("0.0.0.0")).toBe("0.0.0.0");

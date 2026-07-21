@@ -2,7 +2,6 @@ import { existsSync, lstatSync, readdirSync, realpathSync, rmSync, rmdirSync } f
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { seedR7GoldenM1ScenarioReadinessFixture } from "./r7-golden-m1-scenario-readiness-fixture";
 
 const modulePath = fileURLToPath(import.meta.url);
 const moduleDir = dirname(modulePath);
@@ -113,6 +112,8 @@ export function cleanupPlaywrightStore(storeFile = PLAYWRIGHT_STORE_FILE): void 
 if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
   cleanupPlaywrightStore();
   if (process.env.SIMWAR_PLAYWRIGHT_GOLDEN_M1 === "true") {
+    const { seedR7GoldenM1ScenarioReadinessFixture } =
+      await import("./r7-golden-m1-scenario-readiness-fixture");
     seedR7GoldenM1ScenarioReadinessFixture(PLAYWRIGHT_STORE_FILE);
   }
 }
