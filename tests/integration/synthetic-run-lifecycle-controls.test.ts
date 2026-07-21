@@ -1,5 +1,5 @@
 import { once } from "node:events";
-import type { Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
@@ -25,25 +25,84 @@ const VALID_DECISION_PAYLOAD = {
   strategy_statement: "Synthetic lifecycle control evidence."
 } as const satisfies DecisionPayload;
 
+type BaseUrlProbe = (baseUrl: string) => Promise<void>;
+
+const MAX_LISTEN_ATTEMPTS = 8;
+
+async function probeBaseUrl(baseUrl: string): Promise<void> {
+  const response = await fetch(`${baseUrl}/healthz`);
+
+  if (response.status !== 200) {
+    throw new Error("test server health contract mismatch");
+  }
+
+  const envelope = (await response.json()) as ApiEnvelope<{
+    service: string;
+    status: string;
+    truthBoundary: string;
+  }>;
+
+  if (
+    envelope.data.service !== "@simwar/api" ||
+    envelope.data.status !== "ok" ||
+    envelope.data.truthBoundary !== "structured-core-only"
+  ) {
+    throw new Error("test server health contract mismatch");
+  }
+}
+
+function isNodeFetchBadPortError(error: unknown): boolean {
+  return (
+    error instanceof TypeError &&
+    error.message === "fetch failed" &&
+    error.cause instanceof Error &&
+    error.cause.message === "bad port"
+  );
+}
+
 async function startServer(
-  options: CreateApiServerOptions = {}
+  options: CreateApiServerOptions = {},
+  probe: BaseUrlProbe = probeBaseUrl
 ): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const store = createP1Store();
   const server = createApiServer(store, options);
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
 
-  if (!address || typeof address === "string") {
-    throw new Error("test server did not bind to a TCP port");
+  for (let attempt = 1; attempt <= MAX_LISTEN_ATTEMPTS; attempt += 1) {
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+
+    if (!address || typeof address === "string" || address.port <= 0) {
+      await stopServer(server);
+      throw new Error("test server did not bind to a TCP port");
+    }
+
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      await probe(baseUrl);
+      return { baseUrl, server, store };
+    } catch (error) {
+      await stopServer(server);
+
+      if (server.listening) {
+        throw new Error("test server failed to close after probe failure");
+      }
+
+      if (!isNodeFetchBadPortError(error)) {
+        throw error;
+      }
+    }
   }
 
-  return { baseUrl: `http://127.0.0.1:${address.port}`, server, store };
+  throw new Error("unable to allocate a Node-fetch-usable ephemeral port");
 }
 
 async function stopServer(server: Server): Promise<void> {
+  if (!server.listening) return;
+  const closeEvent = once(server, "close");
   server.close();
-  await once(server, "close");
+  await closeEvent;
 }
 
 async function request<TData>(
@@ -152,6 +211,128 @@ async function lifecycleOperation(
 }
 
 describe("synthetic pre-settlement lifecycle controls", () => {
+  it("rejects a health endpoint with the wrong contract", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          data: {
+            service: "@simwar/api",
+            status: "degraded",
+            truthBoundary: "structured-core-only"
+          }
+        })
+      );
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+
+    if (!address || typeof address === "string") {
+      await stopServer(server);
+      throw new Error("invalid health test server address");
+    }
+
+    try {
+      await expect(probeBaseUrl(`http://127.0.0.1:${address.port}`)).rejects.toThrow(
+        "test server health contract mismatch"
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("retries after an explicit Node fetch bad-port rejection", async () => {
+    let probeCount = 0;
+    const probedBaseUrls: string[] = [];
+    const started = await startServer({}, async (baseUrl) => {
+      probeCount += 1;
+      probedBaseUrls.push(baseUrl);
+
+      if (probeCount === 1) {
+        throw new TypeError("fetch failed", { cause: new Error("bad port") });
+      }
+    });
+
+    try {
+      expect(probeCount).toBe(2);
+      expect(probedBaseUrls).toHaveLength(2);
+      expect(started.server.listening).toBe(true);
+      expect(started.baseUrl).toBe(probedBaseUrls[1]);
+    } finally {
+      await stopServer(started.server);
+    }
+
+    expect(started.server.listening).toBe(false);
+  });
+
+  it("classifies only the exact Node fetch bad-port error", () => {
+    expect(
+      isNodeFetchBadPortError(new TypeError("fetch failed", { cause: new Error("bad port") }))
+    ).toBe(true);
+    expect(
+      isNodeFetchBadPortError(new TypeError("different failure", { cause: new Error("bad port") }))
+    ).toBe(false);
+    expect(
+      isNodeFetchBadPortError(new TypeError("fetch failed", { cause: new Error("other cause") }))
+    ).toBe(false);
+    expect(isNodeFetchBadPortError(new Error("bad port"))).toBe(false);
+  });
+
+  it("rethrows unrelated probe failures without retrying", async () => {
+    const failure = new TypeError("unrelated probe failure");
+    let probeCount = 0;
+    let probedBaseUrl = "";
+
+    await expect(
+      startServer({}, async (baseUrl) => {
+        probeCount += 1;
+        probedBaseUrl = baseUrl;
+        throw failure;
+      })
+    ).rejects.toBe(failure);
+
+    expect(probeCount).toBe(1);
+    await expect(fetch(`${probedBaseUrl}/healthz`)).rejects.toThrow();
+  });
+
+  it("fails closed after eight explicit bad-port errors", async () => {
+    let probeCount = 0;
+
+    await expect(
+      startServer({}, async () => {
+        probeCount += 1;
+        throw new TypeError("fetch failed", { cause: new Error("bad port") });
+      })
+    ).rejects.toThrow("unable to allocate a Node-fetch-usable ephemeral port");
+
+    expect(probeCount).toBe(8);
+  });
+
+  it("accepts the real API health contract before returning", async () => {
+    const started = await startServer();
+
+    try {
+      const response = await fetch(`${started.baseUrl}/healthz`);
+      const body = (await response.json()) as ApiEnvelope<{
+        service: string;
+        status: string;
+        truthBoundary: string;
+      }>;
+
+      expect(response.status).toBe(200);
+      expect(body.data).toMatchObject({
+        service: "@simwar/api",
+        status: "ok",
+        truthBoundary: "structured-core-only"
+      });
+    } finally {
+      await stopServer(started.server);
+    }
+
+    expect(started.server.listening).toBe(false);
+  });
+
   it("exposes only authenticated tenant-admin controls from server-owned tenant scope", async () => {
     const { baseUrl, server } = await startServer();
 
