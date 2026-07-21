@@ -83,6 +83,10 @@ import {
 const DEFAULT_PORT = 3000;
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 
+export function resolveApiHost(value = process.env.API_HOST): string | undefined {
+  return value?.trim() || undefined;
+}
+
 interface RequestContext {
   requestId: string;
   tenantId: string;
@@ -2464,10 +2468,11 @@ const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
   const port = Number.parseInt(process.env.API_PORT ?? "", 10) || DEFAULT_PORT;
+  const host = resolveApiHost();
   const server = createApiServer();
 
-  server.listen(port, () => {
-    console.log(`SimWar API listening on http://localhost:${port}`);
+  server.listen(host ? { host, port } : { port }, () => {
+    console.log(`SimWar API listening on http://${host ?? "system-default"}:${port}`);
     console.log(`SimWar API store: ${defaultStore.persistenceFile ?? "memory"}`);
     console.log(`Platform admin: tenant=${PLATFORM_TENANT_ID} username=platform`);
   });
