@@ -11,6 +11,7 @@ import type {
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
   Round,
+  Run,
   SettlementResult,
   TeacherBffWorkspaceDTO
 } from "@simwar/shared-contracts";
@@ -143,9 +144,36 @@ function getRoundAction(round?: Round): string {
   return "已发布";
 }
 
+function getCourseRuns(state: P0DemoState): Run[] {
+  const courseId = state.courses.at(0)?.course_id;
+  return courseId ? state.runs.filter((run) => run.course_id === courseId) : [];
+}
+
+function getRunRound(state: P0DemoState, runId: string): Round | undefined {
+  return state.rounds.find((round) => round.run_id === runId);
+}
+
+function selectVisibleRun(state: P0DemoState, preferredRunId?: string | null): Run | undefined {
+  const courseRuns = getCourseRuns(state);
+  const preferredRun = preferredRunId
+    ? courseRuns.find((run) => run.run_id === preferredRunId)
+    : undefined;
+
+  if (preferredRun) {
+    return preferredRun;
+  }
+
+  return (
+    [...courseRuns]
+      .reverse()
+      .find((run) => getRunRound(state, run.run_id)?.status !== "published") ?? courseRuns.at(-1)
+  );
+}
+
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
   const [workspace, setWorkspace] = useState<TeacherBffWorkspaceDTO | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -163,24 +191,32 @@ export function App() {
     useState<R7TeacherScenarioPackageCandidateDto | null>(null);
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
+  const selectedRunIdRef = useRef<string | null>(null);
 
-  const latestRun = state?.runs.at(-1);
+  const courseRuns = state ? getCourseRuns(state) : [];
+  const latestRun = courseRuns.at(-1);
   const latestRound = latestRun
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
+  const selectedRun = state ? selectVisibleRun(state, selectedRunId) : undefined;
+  const selectedRound = selectedRun
+    ? state?.rounds.find((round) => round.run_id === selectedRun.run_id)
+    : undefined;
+  const latestResult = state?.latest_result;
+  const selectedResult = latestResult?.run_id === selectedRun?.run_id ? latestResult : undefined;
   const resultRows = workspace?.teacher_replay_summary.authorized_result_snapshot ?? [];
-  const resultLabel = state?.latest_result?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
+  const resultLabel = selectedResult?.result_label ?? M1_TEACHING_OFFICIAL_RESULT_LABEL;
   const runtimeBoundary =
     workspace?.teacher_replay_summary.visible_state.runtime_boundary ??
-    state?.latest_result?.runtime_boundary ??
+    selectedResult?.runtime_boundary ??
     "current_json_active_runtime";
-  const runtimeLimitations = state?.latest_result?.runtime_limitations ?? [
+  const runtimeLimitations = selectedResult?.runtime_limitations ?? [
     "not_production_durable_settlement",
     "not_cross_process_idempotency",
     "not_database_transaction_recovery",
     "not_postgresql_active_runtime"
   ];
-  const debriefPrompts = state?.latest_result?.classroom_debrief_prompts ?? [];
+  const debriefPrompts = selectedResult?.classroom_debrief_prompts ?? [];
   const teachingPackage = M1_TEACHING_PRODUCT_PACKAGE;
   const teacherDashboard = workspace?.teacher_dashboard;
   const courseWorkspace = workspace?.course_workspace;
@@ -188,48 +224,58 @@ export function App() {
   const teamMonitor = workspace?.team_monitor;
   const replaySummary = workspace?.teacher_replay_summary;
   const hasDecision = useMemo(() => {
-    if (!latestRun || !latestRound || !state) {
+    if (!selectedRun || !selectedRound || !state) {
       return false;
     }
 
     return state.decisions.some(
       (decision) =>
-        decision.run_id === latestRun.run_id && decision.round_no === latestRound.round_no
+        decision.run_id === selectedRun.run_id && decision.round_no === selectedRound.round_no
     );
-  }, [latestRun, latestRound, state]);
+  }, [selectedRun, selectedRound, state]);
 
-  const refresh = useCallback(async () => {
-    if (!session) {
-      return;
-    }
+  const refresh = useCallback(
+    async (preferredRunId?: string | null) => {
+      if (!session) {
+        return;
+      }
 
-    const auth = { token: session.access_token, tenantId: login.tenantId };
-    const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
-    const nextRun = nextState.runs.at(-1);
-    const nextRound = nextRun
-      ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
-      : undefined;
+      const auth = { token: session.access_token, tenantId: login.tenantId };
+      const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+      const nextRun = selectVisibleRun(
+        nextState,
+        preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId
+      );
+      const nextRound = nextRun
+        ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
+        : undefined;
 
-    setState(nextState);
-
-    if (!nextRun || !nextRound) {
+      setState(nextState);
+      selectedRunIdRef.current = nextRun?.run_id ?? null;
+      setSelectedRunId(nextRun?.run_id ?? null);
       setWorkspace(null);
-      return;
-    }
 
-    setWorkspace(
-      await apiRequest<TeacherBffWorkspaceDTO>(
-        `/api/v1/bff/teacher/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/workspace`,
-        auth
-      )
-    );
-  }, [login.tenantId, session]);
+      if (!nextRun || !nextRound) {
+        return;
+      }
+
+      setWorkspace(
+        await apiRequest<TeacherBffWorkspaceDTO>(
+          `/api/v1/bff/teacher/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/workspace`,
+          auth
+        )
+      );
+    },
+    [login.tenantId, session]
+  );
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
     setWorkspace(null);
+    selectedRunIdRef.current = null;
+    setSelectedRunId(null);
     setScenarioReadiness({ phase: "IDLE" });
     setScenarioCandidates({ phase: "IDLE" });
     setPreviewCandidate(null);
@@ -250,7 +296,7 @@ export function App() {
       setScenarioReadiness({ phase: "INVALID_REQUEST", message: validationMessage });
       return;
     }
-    if (!session || !latestRun) {
+    if (!session || !selectedRun) {
       setScenarioReadiness({
         phase: "UNAUTHENTICATED",
         message: "Authentication is required to check readiness."
@@ -266,7 +312,7 @@ export function App() {
       const response = await requestScenarioReadiness({
         apiBaseUrl: API_BASE,
         parameterSetId: scenarioReadinessForm.parameterSetId,
-        runId: latestRun.run_id,
+        runId: selectedRun.run_id,
         scenarioPackageId: scenarioReadinessForm.scenarioPackageId,
         token: session.access_token
       });
@@ -307,6 +353,8 @@ export function App() {
     setSession(null);
     setState(null);
     setWorkspace(null);
+    selectedRunIdRef.current = null;
+    setSelectedRunId(null);
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -333,7 +381,8 @@ export function App() {
 
   useEffect(() => {
     setPreviewCandidate(null);
-    if (!session || !latestRun) {
+    setScenarioReadiness({ phase: "IDLE" });
+    if (!session || !selectedRun) {
       candidateRequestSequence.current += 1;
       setScenarioCandidates({ phase: "IDLE" });
       return;
@@ -345,7 +394,7 @@ export function App() {
 
     requestScenarioPackageCandidates({
       apiBaseUrl: API_BASE,
-      runId: latestRun.run_id,
+      runId: selectedRun.run_id,
       token: session.access_token
     })
       .then((response) => {
@@ -361,7 +410,45 @@ export function App() {
           });
         }
       });
-  }, [latestRun?.run_id, session]);
+  }, [selectedRun?.run_id, session]);
+
+  async function createCourseRun(): Promise<void> {
+    if (!session) {
+      setNotice("please sign in first");
+      return;
+    }
+
+    const courseId = state?.courses.at(0)?.course_id;
+    if (!courseId) {
+      throw new Error("course not available");
+    }
+
+    const auth = { token: session.access_token, tenantId: login.tenantId };
+    const created = await apiRequest<{ run: Run; round: Round }>(
+      `/api/v1/courses/${courseId}/runs`,
+      { ...auth, method: "POST" }
+    );
+    selectedRunIdRef.current = created.run.run_id;
+    setSelectedRunId(created.run.run_id);
+    setNotice("run created");
+    await refresh(created.run.run_id);
+  }
+
+  async function createNextRun(): Promise<void> {
+    if (!session || latestRound?.status !== "published") {
+      setNotice("latest Run must be published first");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await createCourseRun();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "run creation failed");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function runNextStep(): Promise<void> {
     if (!session) {
@@ -373,40 +460,40 @@ export function App() {
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
 
-      if (!latestRun) {
-        await apiRequest("/api/v1/courses/course_demo/runs", { ...auth, method: "POST" });
-        setNotice("run created");
-      } else if (latestRound?.status === "draft") {
-        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/start`, {
+      if (!selectedRun) {
+        await createCourseRun();
+        return;
+      } else if (selectedRound?.status === "draft") {
+        await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/start`, {
           ...auth,
           method: "POST"
         });
         setNotice("round opened");
-      } else if (latestRound?.status === "open") {
+      } else if (selectedRound?.status === "open") {
         if (!hasDecision) {
           setNotice("waiting for learner decision");
         } else {
-          await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/lock`, {
+          await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/lock`, {
             ...auth,
             method: "POST"
           });
           setNotice("round locked");
         }
-      } else if (latestRound?.status === "locked") {
-        await apiRequest<SettlementResult>(`/api/v1/runs/${latestRun.run_id}/rounds/1/settle`, {
+      } else if (selectedRound?.status === "locked") {
+        await apiRequest<SettlementResult>(`/api/v1/runs/${selectedRun.run_id}/rounds/1/settle`, {
           ...auth,
           method: "POST"
         });
         setNotice("settlement completed");
-      } else if (latestRound?.status === "settled") {
-        await apiRequest(`/api/v1/runs/${latestRun.run_id}/rounds/1/publish`, {
+      } else if (selectedRound?.status === "settled") {
+        await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/publish`, {
           ...auth,
           method: "POST"
         });
         setNotice("result published");
       }
 
-      await refresh();
+      await refresh(selectedRun.run_id);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "action failed");
     } finally {
@@ -418,7 +505,7 @@ export function App() {
     ["身份", session?.user.display_name ?? "anonymous"],
     ["课程", courseWorkspace?.visible_state.course_title ?? state?.courses[0]?.title ?? "loading"],
     ["队伍", `${teacherDashboard?.visible_state.team_count ?? state?.teams.length ?? 0}`],
-    ["回合", roundControl?.status ?? latestRound?.status ?? "not created"],
+    ["回合", roundControl?.status ?? selectedRound?.status ?? "not created"],
     [
       "决策",
       roundControl?.visible_state.decision_count
@@ -443,12 +530,46 @@ export function App() {
             {session ? `${session.user.roles.join(" / ")} · ${login.tenantId}` : "not signed in"}
           </span>
         </div>
+        <div className="run-toolbar">
+          {courseRuns.length > 0 ? (
+            <label className="run-selector">
+              <span>Run</span>
+              <select
+                aria-label="run selector"
+                disabled={busy || !session}
+                onChange={(event) => {
+                  void refresh(event.target.value).catch((error: unknown) => {
+                    setNotice(error instanceof Error ? error.message : "run selection failed");
+                  });
+                }}
+                value={selectedRun?.run_id ?? ""}
+              >
+                {courseRuns.map((run) => {
+                  const round = state?.rounds.find((candidate) => candidate.run_id === run.run_id);
+                  return (
+                    <option key={run.run_id} value={run.run_id}>
+                      {run.run_id} · {round?.status ?? run.status}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+          ) : null}
+          {selectedRound?.status === "published" ? (
+            <span className="run-readonly">Historical Run · read-only</span>
+          ) : null}
+          {session && latestRound?.status === "published" ? (
+            <button className="secondary" disabled={busy} onClick={() => void createNextRun()}>
+              Create Next Run
+            </button>
+          ) : null}
+        </div>
         <button
           className="primary"
-          disabled={busy || latestRound?.status === "published" || !session}
+          disabled={busy || selectedRound?.status === "published" || !session || !state}
           onClick={() => void runNextStep()}
         >
-          {busy ? "处理中" : getRoundAction(latestRound)}
+          {busy ? "处理中" : getRoundAction(selectedRound)}
         </button>
       </header>
 
@@ -591,13 +712,13 @@ export function App() {
             </ul>
           </article>
 
-          {session && latestRun ? (
+          {session && selectedRun ? (
             <article className="panel readiness-panel" aria-label="scenario readiness">
               <div className="panel-title">
                 <h2>Scenario Readiness</h2>
                 <span>{scenarioReadiness.phase}</span>
               </div>
-              <p className="evidence-note">Run context: {latestRun.run_id}</p>
+              <p className="evidence-note">Run context: {selectedRun.run_id}</p>
               <section className="candidate-surface" aria-label="scenario package candidates">
                 <div className="candidate-heading">
                   <h3>Scenario Candidates</h3>
@@ -850,7 +971,7 @@ export function App() {
         <article className="panel">
           <div className="panel-title">
             <h2>M1 教学正式结果</h2>
-            <span>{latestRound?.status ?? "not created"}</span>
+            <span>{selectedRound?.status ?? "not created"}</span>
           </div>
           <div className="result-grid">
             {resultRows.map((result) => (
