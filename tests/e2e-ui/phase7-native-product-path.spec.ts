@@ -5,8 +5,10 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
-  symlinkSync
+  symlinkSync,
+  writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -31,6 +33,16 @@ import type {
   TenantAdminSummaryDTO
 } from "../../packages/shared-contracts/src";
 import {
+  RUN_A_DURABLE_FREEZE_GATE,
+  assertExternalPhase7EvidencePath,
+  assertRunADurableFreezeGate,
+  persistPhase7EvidenceFile,
+  readBackPhase7EvidenceFile,
+  type Phase7EvidenceReadback,
+  type Phase7EvidenceReceipt
+} from "./phase7-evidence-persistence";
+
+import {
   LEGACY_PLAYWRIGHT_STORE_FILE,
   assertPlaywrightStoreFile,
   cleanupPlaywrightStore,
@@ -42,6 +54,8 @@ const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_POR
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
 const sourcePath = fileURLToPath(import.meta.url);
+const repositoryRoot = resolve(dirname(sourcePath), "..", "..");
+const foundationSourceSha = "a".repeat(40);
 const privateMarkers = [
   "state_true",
   "ReplayManifest",
@@ -258,6 +272,192 @@ test("@foundation keeps API host opt-in and the native spec free of forbidden pa
   expect(source).not.toContain(tempAdapterMarker);
 });
 
+test("@foundation exposes repository-native durable evidence persistence", () => {
+  expect(typeof persistPhase7EvidenceFile).toBe("function");
+  expect(typeof readBackPhase7EvidenceFile).toBe("function");
+  expect(typeof assertRunADurableFreezeGate).toBe("function");
+});
+
+test("@foundation persists and rereads canonical evidence without reporter bodies", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "reporter-independent-readback",
+    source_sha: foundationSourceSha
+  });
+  const readback = readBackPhase7EvidenceFile(testInfo, receipt);
+
+  expect(readback.payload.label).toBe("reporter-independent-readback");
+  expect(receipt.bytes).toBeGreaterThan(0);
+  expect(receipt.sha256).toMatch(/^[0-9a-f]{64}$/);
+  expect(receipt.json_validation).toBe("PASS");
+});
+
+test("@foundation attaches core evidence by path instead of body", async ({
+  browserName: _browserName
+}, testInfo) => {
+  await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "path-attachment",
+    source_sha: foundationSourceSha
+  });
+
+  const attachment = testInfo.attachments.find(
+    (candidate) => candidate.name === "run-a-evidence.json"
+  );
+  expect(attachment?.path).toBeTruthy();
+  expect(attachment?.body).toBeUndefined();
+});
+
+test("@foundation rejects non-allowlisted and traversal evidence filenames", async ({
+  browserName: _browserName
+}, testInfo) => {
+  await expect(
+    persistPhase7EvidenceFile(testInfo, "../run-a-evidence.json", {
+      label: "unsafe-path",
+      source_sha: foundationSourceSha
+    })
+  ).rejects.toThrow("not allowlisted");
+  await expect(
+    persistPhase7EvidenceFile(testInfo, "unexpected.json", {
+      label: "unexpected-file",
+      source_sha: foundationSourceSha
+    })
+  ).rejects.toThrow("not allowlisted");
+});
+
+test("@foundation atomically finalizes evidence with no temporary residue", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "atomic-finalize",
+    source_sha: foundationSourceSha
+  });
+
+  expect(existsSync(testInfo.outputPath(receipt.filename))).toBe(true);
+  expect(readdirSync(testInfo.outputDir).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+  expect(receipt.temporary_residue_count).toBe(0);
+});
+
+test("@foundation rejects duplicate finals without overwriting evidence", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "first-write",
+    source_sha: foundationSourceSha
+  });
+  const before = readFileSync(testInfo.outputPath(receipt.filename));
+
+  await expect(
+    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+      label: "second-write",
+      source_sha: foundationSourceSha
+    })
+  ).rejects.toThrow("already exists");
+  expect(readFileSync(testInfo.outputPath(receipt.filename))).toEqual(before);
+});
+
+test("@foundation detects evidence tampering during independent readback", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "tamper-target",
+    source_sha: foundationSourceSha
+  });
+  writeFileSync(testInfo.outputPath(receipt.filename), '{"label":"tampered"}\n');
+
+  expect(() => readBackPhase7EvidenceFile(testInfo, receipt)).toThrow("hash readback failed");
+});
+
+test("@foundation binds a verified Run A freeze to its evidence digest", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const evidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "run-a",
+    source_sha: foundationSourceSha
+  });
+  const evidence = readBackPhase7EvidenceFile(testInfo, evidenceReceipt);
+  const freezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
+    frozen_before_run_b: true,
+    run_b_creation_allowed: true,
+    gate: RUN_A_DURABLE_FREEZE_GATE,
+    gate_status: "PASS",
+    run_a_evidence_sha256: evidence.receipt.sha256,
+    run_id: "run_foundation",
+    source_sha: foundationSourceSha
+  });
+  const freeze = readBackPhase7EvidenceFile(testInfo, freezeReceipt);
+
+  expect(
+    assertRunADurableFreezeGate({
+      evidence,
+      expectedRunId: "run_foundation",
+      expectedSourceSha: foundationSourceSha,
+      freeze
+    })
+  ).toMatchObject({ gate: RUN_A_DURABLE_FREEZE_GATE, status: "PASS" });
+});
+
+test("@foundation blocks Run B when the durable freeze is unverified", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const evidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+    label: "run-a",
+    source_sha: foundationSourceSha
+  });
+  const evidence = readBackPhase7EvidenceFile(testInfo, evidenceReceipt);
+  const freezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
+    frozen_before_run_b: true,
+    run_b_creation_allowed: false,
+    gate: RUN_A_DURABLE_FREEZE_GATE,
+    gate_status: "FAIL",
+    run_a_evidence_sha256: evidence.receipt.sha256,
+    run_id: "run_foundation",
+    source_sha: foundationSourceSha
+  });
+  const freeze = readBackPhase7EvidenceFile(testInfo, freezeReceipt);
+
+  expect(() =>
+    assertRunADurableFreezeGate({
+      evidence,
+      expectedRunId: "run_foundation",
+      expectedSourceSha: foundationSourceSha,
+      freeze
+    })
+  ).toThrow("did not pass");
+});
+
+test("@foundation rejects credential fields and unresolved placeholders", async ({
+  browserName: _browserName
+}, testInfo) => {
+  await expect(
+    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+      password: "must-not-persist",
+      source_sha: foundationSourceSha
+    })
+  ).rejects.toThrow("forbidden key");
+  await expect(
+    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
+      note: "<CURRENT_VALUE>",
+      source_sha: foundationSourceSha
+    })
+  ).rejects.toThrow("forbidden value");
+});
+
+test("@foundation requires the formal evidence output to remain outside the repository", () => {
+  expect(() =>
+    assertExternalPhase7EvidencePath(
+      resolve(tmpdir(), "simwar-playwright-evidence", "run-a-evidence.json"),
+      repositoryRoot
+    )
+  ).not.toThrow();
+  expect(() =>
+    assertExternalPhase7EvidencePath(
+      resolve(repositoryRoot, "tmp", "playwright", "run-a-evidence.json"),
+      repositoryRoot
+    )
+  ).toThrow("outside the repository");
+});
+
 async function apiPost<TData>(
   request: APIRequestContext,
   path: string,
@@ -423,6 +623,10 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
     "full Phase 7 product validation requires a separate explicit authorization"
   );
 
+  const sourceSha = process.env.SIMWAR_PHASE7_SOURCE_SHA ?? "";
+  expect(sourceSha).toMatch(/^[0-9a-f]{40}$/);
+  assertExternalPhase7EvidencePath(testInfo.outputPath("run-a-evidence.json"), repositoryRoot);
+
   const suffix = `${testInfo.workerIndex}-${Date.now()}`;
   const teacherCredentials = { username: "teacher", password: "teacher" };
   const adminCredentials = { username: "admin", password: "admin" };
@@ -455,6 +659,16 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         teacherWorkspace: TeacherBffWorkspaceDTO;
       }
     | undefined;
+  let runAEvidenceReceipt: Phase7EvidenceReceipt | undefined;
+  let runAEvidenceReadback: Phase7EvidenceReadback | undefined;
+  let runAFreezeReceipt: Phase7EvidenceReceipt | undefined;
+  let runAFreezeReadback: Phase7EvidenceReadback | undefined;
+  let runBOrderReceipt: Phase7EvidenceReceipt | undefined;
+  let runBOrderReadback: Phase7EvidenceReadback | undefined;
+  let runBLifecycleReceipt: Phase7EvidenceReceipt | undefined;
+  let runBLifecycleReadback: Phase7EvidenceReadback | undefined;
+  let runBLifecycleEvidence: Record<string, unknown> | undefined;
+  let runBCreationStartedAt = "";
 
   try {
     const teacherContext = await browser.newContext();
@@ -786,32 +1000,82 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         safeReplaySummary,
         teacherWorkspace: structuredClone(teacherWorkspace)
       };
-      await attachSafeJson(testInfo, "phase7-run-a-product-evidence", {
+      runAEvidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
         audit_action_counts: businessAuditCounts,
+        credential_matches: 0,
         decision_submitted_team_ids: monitoredTeams.map((team) => team.team_id).sort(),
+        official_result_safe_digest: safeJsonDigest(safeOfficialResult),
+        private_marker_matches: 0,
         published_status: officialResult.status,
+        replay_summary_safe_digest: safeJsonDigest(safeReplaySummary),
         run_id: runAId,
         settlement_attempt_count: settlementAttemptCount,
         settlement_outcome_header: settlementOutcome,
+        source_sha: sourceSha,
+        student_projection_pass: studentIsolationPassed,
         students: studentEvidence,
-        tenant_admin_summary: {
+        tenant_admin_summary_digest: safeJsonDigest({
           tenant_id: tenantSummary.tenant_id,
           visible_state: tenantSummary.visible_state,
           visible_tenant_ids: tenantSummary.visible_tenant_ids
-        },
+        }),
         teacher_replay_summary: safeReplaySummary
       });
-      await attachSafeJson(testInfo, "phase7-run-a-evidence-freeze", {
+      runAEvidenceReadback = readBackPhase7EvidenceFile(testInfo, runAEvidenceReceipt);
+      runAFreezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
         frozen_before_run_b: true,
+        run_b_creation_allowed: true,
+        gate: RUN_A_DURABLE_FREEZE_GATE,
+        gate_status: "PASS",
         official_result_safe_digest: safeJsonDigest(safeOfficialResult),
         replay_summary_safe_digest: safeJsonDigest(safeReplaySummary),
+        run_a_evidence_sha256: runAEvidenceReadback.receipt.sha256,
+        run_a_evidence_verified_at: runAEvidenceReadback.verified_at,
         run_id: runAId,
+        source_sha: sourceSha,
         team_ids: [teamA.team_id, teamB.team_id].sort()
+      });
+      runAFreezeReadback = readBackPhase7EvidenceFile(testInfo, runAFreezeReceipt);
+      expect(
+        assertRunADurableFreezeGate({
+          evidence: runAEvidenceReadback,
+          expectedRunId: runAId,
+          expectedSourceSha: sourceSha,
+          freeze: runAFreezeReadback
+        })
+      ).toMatchObject({
+        evidence_sha256: runAEvidenceReceipt.sha256,
+        freeze_sha256: runAFreezeReceipt.sha256,
+        gate: RUN_A_DURABLE_FREEZE_GATE,
+        status: "PASS"
       });
     });
 
     await test.step("Run B uses the separate pre-settlement lifecycle product path", async () => {
       expect(runAFreeze).toBeDefined();
+      if (
+        !runAEvidenceReceipt ||
+        !runAEvidenceReadback ||
+        !runAFreezeReceipt ||
+        !runAFreezeReadback
+      ) {
+        throw new Error("Run B is blocked until Run A durable evidence is verified");
+      }
+      runAFreezeReadback = readBackPhase7EvidenceFile(testInfo, runAFreezeReceipt);
+      const runAGate = assertRunADurableFreezeGate({
+        evidence: runAEvidenceReadback,
+        expectedRunId: runAId,
+        expectedSourceSha: sourceSha,
+        freeze: runAFreezeReadback
+      });
+      expect(runAGate).toMatchObject({
+        evidence_sha256: runAEvidenceReceipt.sha256,
+        freeze_sha256: runAFreezeReceipt.sha256,
+        gate: RUN_A_DURABLE_FREEZE_GATE,
+        status: "PASS"
+      });
+      runBCreationStartedAt = new Date().toISOString();
+
       const createRunResponsePromise = teacherPage.waitForResponse(
         (response) =>
           response.request().method() === "POST" &&
@@ -830,6 +1094,30 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
       expect(runBId).toMatch(/^run_/);
       expect(runBId).not.toBe(runAId);
       expect(businessAttemptCount).toBe(1);
+      const runBCreatedAt = new Date().toISOString();
+      expect(Date.parse(runBCreationStartedAt)).toBeGreaterThanOrEqual(
+        Date.parse(runAFreezeReadback.verified_at)
+      );
+      expect(Date.parse(runBCreatedAt)).toBeGreaterThanOrEqual(Date.parse(runBCreationStartedAt));
+      runBOrderReceipt = await persistPhase7EvidenceFile(testInfo, "phase7-evidence-order.json", {
+        ordering_pass: true,
+        run_b_created_after_freeze_readback: true,
+        run_a_evidence_sha256: runAEvidenceReceipt.sha256,
+        run_a_freeze_sha256: runAFreezeReceipt.sha256,
+        run_a_freeze_verified_at: runAFreezeReadback.verified_at,
+        run_b_created_at: runBCreatedAt,
+        run_b_creation_started_at: runBCreationStartedAt,
+        run_b_id: runBId,
+        source_sha: sourceSha
+      });
+      runBOrderReadback = readBackPhase7EvidenceFile(testInfo, runBOrderReceipt);
+      expect(runBOrderReadback.payload).toMatchObject({
+        ordering_pass: true,
+        run_b_created_after_freeze_readback: true,
+        run_a_freeze_sha256: runAFreezeReceipt.sha256,
+        run_b_id: runBId,
+        source_sha: sourceSha
+      });
 
       await adminPage.reload();
       await signIn(adminPage, "管理员登录", adminCredentials);
@@ -907,17 +1195,23 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         "run.lifecycle.reset": 1
       });
 
-      await attachSafeJson(testInfo, "phase7-run-b-lifecycle", {
+      if (!runBOrderReceipt || !runBOrderReadback) {
+        throw new Error("Run B lifecycle evidence requires a verified ordering receipt");
+      }
+      runBLifecycleEvidence = {
         audit_action_counts: runBLifecycleCounts,
+        evidence_order_sha256: runBOrderReceipt.sha256,
         lifecycle_state: runBControl!.lifecycle_state,
+        ordering_pass: runBOrderReadback.payload.ordering_pass,
         pre_publication: runBControl!.pre_publication,
         pre_settlement: runBControl!.pre_settlement,
         publish_action_count: publishActionCount,
         replay_action_count: replayActionCount,
         replay_reference_count: runBRounds.filter((round) => Boolean(round.replay_hash)).length,
         run_id: runBId,
-        settlement_action_count: settlementActionCount
-      });
+        settlement_action_count: settlementActionCount,
+        source_sha: sourceSha
+      };
     });
 
     await test.step("Run A remains historical and official evidence is not overwritten", async () => {
@@ -981,6 +1275,61 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         student_private_marker_count: 0,
         teacher_formal_truth_write_allowed: false
       });
+      if (
+        !runAEvidenceReceipt ||
+        !runAFreezeReceipt ||
+        !runBOrderReceipt ||
+        !runBLifecycleEvidence
+      ) {
+        throw new Error("Run B lifecycle evidence is incomplete");
+      }
+      runBLifecycleReceipt = await persistPhase7EvidenceFile(testInfo, "run-b-lifecycle.json", {
+        ...runBLifecycleEvidence,
+        run_a_evidence_sha256: runAEvidenceReceipt.sha256,
+        run_a_freeze_sha256: runAFreezeReceipt.sha256,
+        run_a_historical_read_only: true,
+        run_a_official_result_safe_digest_unchanged: true,
+        run_a_replay_summary_safe_digest_unchanged: true
+      });
+      runBLifecycleReadback = readBackPhase7EvidenceFile(testInfo, runBLifecycleReceipt);
+      expect(runBLifecycleReadback.payload).toMatchObject({
+        evidence_order_sha256: runBOrderReceipt.sha256,
+        lifecycle_state: "CLEANED",
+        ordering_pass: true,
+        publish_action_count: 0,
+        replay_action_count: 0,
+        run_a_historical_read_only: true,
+        run_id: runBId,
+        settlement_action_count: 0,
+        source_sha: sourceSha
+      });
+
+      const coreReceipts = [
+        runAEvidenceReceipt,
+        runAFreezeReceipt,
+        runBOrderReceipt,
+        runBLifecycleReceipt
+      ];
+      expect(coreReceipts.map((receipt) => receipt.filename).sort()).toEqual([
+        "phase7-evidence-order.json",
+        "run-a-evidence.json",
+        "run-a-freeze.json",
+        "run-b-lifecycle.json"
+      ]);
+      expect(coreReceipts.every((receipt) => receipt.temporary_residue_count === 0)).toBe(true);
+      expect(
+        testInfo.attachments
+          .filter((attachment) =>
+            coreReceipts.some((receipt) => receipt.filename === attachment.name)
+          )
+          .map((attachment) => attachment.name)
+          .sort()
+      ).toEqual(coreReceipts.map((receipt) => receipt.filename).sort());
+      expect(
+        readdirSync(testInfo.outputDir)
+          .filter((name) => coreReceipts.some((receipt) => receipt.filename === name))
+          .sort()
+      ).toEqual(coreReceipts.map((receipt) => receipt.filename).sort());
     });
 
     expect(observedRequests.some((url) => url.includes("/internal/"))).toBe(false);
