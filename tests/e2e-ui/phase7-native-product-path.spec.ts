@@ -63,8 +63,88 @@ test.afterAll(() => {
   cleanupPlaywrightStore();
 });
 
-test("@foundation preserves the legacy Store when no override is configured", () => {
-  expect(resolvePlaywrightStoreFile({ environment: {} })).toBe(LEGACY_PLAYWRIGHT_STORE_FILE);
+function controlledStoreFile(missionId: string): string {
+  return resolve(tmpdir(), "simwar-playwright", missionId, "playwright-store.json");
+}
+
+function withGlobalStoreOverride(value: string | undefined, action: () => void): void {
+  const previousValue = process.env.SIMWAR_PLAYWRIGHT_STORE_FILE;
+  try {
+    if (value === undefined) {
+      delete process.env.SIMWAR_PLAYWRIGHT_STORE_FILE;
+    } else {
+      process.env.SIMWAR_PLAYWRIGHT_STORE_FILE = value;
+    }
+    action();
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.SIMWAR_PLAYWRIGHT_STORE_FILE;
+    } else {
+      process.env.SIMWAR_PLAYWRIGHT_STORE_FILE = previousValue;
+    }
+  }
+}
+
+test("@foundation uses the global Store override when environment is omitted", () => {
+  const globalStoreFile = controlledStoreFile("phase7-global-environment");
+
+  withGlobalStoreOverride(globalStoreFile, () => {
+    expect(resolvePlaywrightStoreFile()).toBe(globalStoreFile);
+  });
+});
+
+test("@foundation treats an explicit empty environment as an isolation boundary", () => {
+  const globalStoreFile = controlledStoreFile("phase7-explicit-empty-environment");
+
+  withGlobalStoreOverride(globalStoreFile, () => {
+    expect(resolvePlaywrightStoreFile({ environment: {} })).toBe(LEGACY_PLAYWRIGHT_STORE_FILE);
+  });
+});
+
+test("@foundation prefers an explicit Store override over the global environment", () => {
+  const globalStoreFile = controlledStoreFile("phase7-global-store");
+  const explicitStoreFile = controlledStoreFile("phase7-explicit-store");
+
+  withGlobalStoreOverride(globalStoreFile, () => {
+    expect(
+      resolvePlaywrightStoreFile({
+        environment: { SIMWAR_PLAYWRIGHT_STORE_FILE: explicitStoreFile }
+      })
+    ).toBe(explicitStoreFile);
+  });
+});
+
+test("@foundation isolates a global override when the explicit environment omits the key", () => {
+  const globalStoreFile = controlledStoreFile("phase7-missing-explicit-key");
+
+  withGlobalStoreOverride(globalStoreFile, () => {
+    expect(resolvePlaywrightStoreFile({ environment: { OTHER_KEY: "value" } })).toBe(
+      LEGACY_PLAYWRIGHT_STORE_FILE
+    );
+  });
+});
+
+test("@foundation rejects an invalid explicit Store path without falling back", () => {
+  const globalStoreFile = controlledStoreFile("phase7-valid-global-fallback");
+
+  withGlobalStoreOverride(globalStoreFile, () => {
+    expect(() =>
+      resolvePlaywrightStoreFile({
+        environment: { SIMWAR_PLAYWRIGHT_STORE_FILE: "playwright-store.json" }
+      })
+    ).toThrow("absolute path");
+  });
+});
+
+test("@foundation restores the global Store environment after isolated checks", () => {
+  const previousValue = process.env.SIMWAR_PLAYWRIGHT_STORE_FILE;
+  const temporaryValue = controlledStoreFile("phase7-environment-restoration");
+
+  withGlobalStoreOverride(temporaryValue, () => {
+    expect(process.env.SIMWAR_PLAYWRIGHT_STORE_FILE).toBe(temporaryValue);
+  });
+
+  expect(process.env.SIMWAR_PLAYWRIGHT_STORE_FILE).toBe(previousValue);
 });
 
 test("@foundation accepts the exact legacy Store override", () => {
