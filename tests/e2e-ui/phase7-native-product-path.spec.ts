@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -33,11 +34,20 @@ import type {
   TenantAdminSummaryDTO
 } from "../../packages/shared-contracts/src";
 import {
+  EVIDENCE_ORDER_EVENT_SEQUENCE,
+  PHASE7_CORE_EVIDENCE_DIRECTORY,
+  PHASE7_CORE_EVIDENCE_FILENAMES,
+  RUN_A_EVIDENCE_EVENT_SEQUENCE,
+  RUN_A_FREEZE_EVENT_SEQUENCE,
+  RUN_B_LIFECYCLE_EVENTS,
   RUN_A_DURABLE_FREEZE_GATE,
   assertExternalPhase7EvidencePath,
+  assertSeparatePhase7OutputRoots,
   assertRunADurableFreezeGate,
   persistPhase7EvidenceFile,
   readBackPhase7EvidenceFile,
+  validatePhase7CoreEvidence,
+  verifyPhase7CoreEvidenceRoot,
   type Phase7EvidenceReadback,
   type Phase7EvidenceReceipt
 } from "./phase7-evidence-persistence";
@@ -70,6 +80,155 @@ type Credentials = {
   password: string;
   username: string;
 };
+
+const foundationDigest = "b".repeat(64);
+const foundationTimestamp = "2026-07-22T00:00:00.000Z";
+const foundationRunAId = "run_foundation_a";
+const foundationRunBId = "run_foundation_b";
+
+function foundationRunAEvidencePayload(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    schema_version: "simwar.phase7.run-a-evidence.v1",
+    classification: "AUTOMATED_OPERATOR_EXECUTION",
+    source_sha: foundationSourceSha,
+    course_safe_reference: "course_demo",
+    run_a_id: foundationRunAId,
+    student_a_team_id: "team_foundation_a",
+    student_b_team_id: "team_foundation_b",
+    decision_submission_states: { student_a: "SUBMITTED", student_b: "SUBMITTED" },
+    lock_count: 1,
+    settlement_count: 1,
+    settlement_outcome: "COMMITTED",
+    publish_count: 1,
+    published_state: "PUBLISHED",
+    student_a_result_safe_digest: foundationDigest,
+    student_b_result_safe_digest: foundationDigest,
+    feedback_safe_digests: { student_a: foundationDigest, student_b: foundationDigest },
+    learning_report_safe_digests: { student_a: foundationDigest, student_b: foundationDigest },
+    teacher_replay_summary_safe_digest: foundationDigest,
+    tenant_admin_summary_safe_digest: foundationDigest,
+    official_result_safe_digest: foundationDigest,
+    context_isolation: {
+      admin_context: "ISOLATED",
+      teacher_context: "ISOLATED",
+      student_a_context: "ISOLATED",
+      student_b_context: "ISOLATED",
+      student_a_b_storage_isolated: true,
+      student_a_b_identity_isolated: true,
+      student_a_b_team_isolated: true
+    },
+    boundary_results: {
+      student_a_state_true_exposure: 0,
+      student_a_private_replay_exposure: 0,
+      student_a_other_team_exposure: 0,
+      student_a_other_tenant_exposure: 0,
+      student_a_internal_route_count: 0,
+      student_b_state_true_exposure: 0,
+      student_b_private_replay_exposure: 0,
+      student_b_other_team_exposure: 0,
+      student_b_other_tenant_exposure: 0,
+      student_b_internal_route_count: 0,
+      cross_team_exposure: 0,
+      cross_tenant_exposure: 0
+    },
+    credential_scan: 0,
+    placeholder_scan: 0,
+    captured_at: foundationTimestamp,
+    event_sequence: [...RUN_A_EVIDENCE_EVENT_SEQUENCE],
+    ...overrides
+  };
+}
+
+function foundationRunAFreezePayload(
+  runAEvidenceSha256 = foundationDigest,
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    schema_version: "simwar.phase7.run-a-freeze.v1",
+    freeze_id: "freeze_foundation_a",
+    status: "SEALED_AUTOMATED_RUN_A_BEFORE_RUN_B",
+    source_sha: foundationSourceSha,
+    run_a_id: foundationRunAId,
+    run_a_evidence_filename: "run-a-evidence.json",
+    run_a_evidence_sha256: runAEvidenceSha256,
+    student_result_digests: { student_a: foundationDigest, student_b: foundationDigest },
+    feedback_digests: { student_a: foundationDigest, student_b: foundationDigest },
+    learning_report_digests: { student_a: foundationDigest, student_b: foundationDigest },
+    teacher_replay_summary_digest: foundationDigest,
+    tenant_admin_summary_digest: foundationDigest,
+    official_result_digest: foundationDigest,
+    settlement_count: 1,
+    publish_count: 1,
+    boundary_status: "PASS",
+    credential_scan: 0,
+    placeholder_scan: 0,
+    run_b_exists_at_freeze: false,
+    run_b_creation_attempted_at_freeze: false,
+    sealed_at: "2026-07-22T00:00:01.000Z",
+    event_sequence: [...RUN_A_FREEZE_EVENT_SEQUENCE],
+    run_b_creation_allowed: true,
+    ...overrides
+  };
+}
+
+function foundationEvidenceOrderPayload(
+  runAEvidenceSha256 = foundationDigest,
+  runAFreezeSha256 = foundationDigest,
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    schema_version: "simwar.phase7.evidence-order.v1",
+    source_sha: foundationSourceSha,
+    run_a_id: foundationRunAId,
+    run_b_id: foundationRunBId,
+    run_a_evidence_filename: "run-a-evidence.json",
+    run_a_evidence_sha256: runAEvidenceSha256,
+    run_a_freeze_filename: "run-a-freeze.json",
+    run_a_freeze_sha256: runAFreezeSha256,
+    run_a_evidence_readback_verified_at: "2026-07-22T00:00:00.500Z",
+    run_a_freeze_readback_verified_at: "2026-07-22T00:00:01.500Z",
+    run_b_creation_started_at: "2026-07-22T00:00:02.000Z",
+    run_b_created_at: "2026-07-22T00:00:03.000Z",
+    run_b_created_after_freeze_readback: true,
+    event_sequence: [...EVIDENCE_ORDER_EVENT_SEQUENCE],
+    ...overrides
+  };
+}
+
+function foundationRunBLifecyclePayload(
+  runAFreezeSha256 = foundationDigest,
+  evidenceOrderSha256 = foundationDigest,
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    schema_version: "simwar.phase7.run-b-lifecycle.v1",
+    classification: "AUTOMATED_OPERATOR_EXECUTION",
+    source_sha: foundationSourceSha,
+    run_a_id: foundationRunAId,
+    run_b_id: foundationRunBId,
+    run_a_freeze_filename: "run-a-freeze.json",
+    run_a_freeze_sha256: runAFreezeSha256,
+    evidence_order_filename: "phase7-evidence-order.json",
+    evidence_order_sha256: evidenceOrderSha256,
+    initial_state: "ACTIVE",
+    lifecycle_events: [...RUN_B_LIFECYCLE_EVENTS],
+    abort_count: 2,
+    reset_count: 1,
+    cleanup_count: 1,
+    final_state: "CLEANED",
+    settlement_count: 0,
+    publish_count: 0,
+    replay_execution_count: 0,
+    student_decision_count: 0,
+    run_a_official_result_unchanged: true,
+    run_a_replay_summary_unchanged: true,
+    run_a_historical_state_unchanged: true,
+    completed_at: "2026-07-22T00:00:04.000Z",
+    ...overrides
+  };
+}
 
 test.describe.configure({ mode: "serial" });
 
@@ -272,154 +431,179 @@ test("@foundation keeps API host opt-in and the native spec free of forbidden pa
   expect(source).not.toContain(tempAdapterMarker);
 });
 
-test("@foundation exposes repository-native durable evidence persistence", () => {
+test("@foundation exposes exact repository-native evidence contracts", () => {
   expect(typeof persistPhase7EvidenceFile).toBe("function");
   expect(typeof readBackPhase7EvidenceFile).toBe("function");
-  expect(typeof assertRunADurableFreezeGate).toBe("function");
+  expect(typeof validatePhase7CoreEvidence).toBe("function");
+  expect(typeof verifyPhase7CoreEvidenceRoot).toBe("function");
 });
 
-test("@foundation persists and rereads canonical evidence without reporter bodies", async ({
-  browserName: _browserName
-}, testInfo) => {
-  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "reporter-independent-readback",
-    source_sha: foundationSourceSha
-  });
-  const readback = readBackPhase7EvidenceFile(testInfo, receipt);
-
-  expect(readback.payload.label).toBe("reporter-independent-readback");
-  expect(receipt.bytes).toBeGreaterThan(0);
-  expect(receipt.sha256).toMatch(/^[0-9a-f]{64}$/);
-  expect(receipt.json_validation).toBe("PASS");
+test("@foundation validates all four exact core schemas", () => {
+  expect(() =>
+    validatePhase7CoreEvidence("run-a-evidence.json", foundationRunAEvidencePayload())
+  ).not.toThrow();
+  expect(() =>
+    validatePhase7CoreEvidence("run-a-freeze.json", foundationRunAFreezePayload())
+  ).not.toThrow();
+  expect(() =>
+    validatePhase7CoreEvidence("phase7-evidence-order.json", foundationEvidenceOrderPayload())
+  ).not.toThrow();
+  expect(() =>
+    validatePhase7CoreEvidence("run-b-lifecycle.json", foundationRunBLifecyclePayload())
+  ).not.toThrow();
 });
 
-test("@foundation attaches core evidence by path instead of body", async ({
+test("@foundation rejects incomplete and nested schema drift", () => {
+  expect(() =>
+    validatePhase7CoreEvidence("run-a-evidence.json", { source_sha: foundationSourceSha })
+  ).toThrow("Run A evidence schema");
+  const runA = foundationRunAEvidencePayload();
+  runA.context_isolation = {
+    ...(runA.context_isolation as Record<string, unknown>),
+    unexpected_context: true
+  };
+  expect(() => validatePhase7CoreEvidence("run-a-evidence.json", runA)).toThrow("exact keys");
+  expect(() =>
+    validatePhase7CoreEvidence(
+      "run-a-freeze.json",
+      foundationRunAFreezePayload(foundationDigest, {
+        event_sequence: [...RUN_A_FREEZE_EVENT_SEQUENCE].reverse()
+      })
+    )
+  ).toThrow("event sequence");
+});
+
+test("@foundation rejects invalid digest, source, ordering, and lifecycle values", () => {
+  expect(() =>
+    validatePhase7CoreEvidence(
+      "run-a-evidence.json",
+      foundationRunAEvidencePayload({ source_sha: "a".repeat(39) })
+    )
+  ).toThrow("source SHA");
+  expect(() =>
+    validatePhase7CoreEvidence("run-a-freeze.json", foundationRunAFreezePayload("B".repeat(64)))
+  ).toThrow("lowercase SHA-256");
+  expect(() =>
+    validatePhase7CoreEvidence(
+      "phase7-evidence-order.json",
+      foundationEvidenceOrderPayload(foundationDigest, foundationDigest, {
+        run_b_creation_started_at: "2026-07-22T00:00:01.500Z"
+      })
+    )
+  ).toThrow("after freeze readback");
+  expect(() =>
+    validatePhase7CoreEvidence(
+      "run-b-lifecycle.json",
+      foundationRunBLifecyclePayload(foundationDigest, foundationDigest, {
+        lifecycle_events: ["ACTIVE", "ABORTED", "CLEANED"]
+      })
+    )
+  ).toThrow("event sequence");
+});
+
+test("@foundation persists and rereads with before-and-after schema validation", async ({
   browserName: _browserName
 }, testInfo) => {
-  await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "path-attachment",
-    source_sha: foundationSourceSha
-  });
-
-  const attachment = testInfo.attachments.find(
-    (candidate) => candidate.name === "run-a-evidence.json"
+  const receipt = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-evidence.json",
+    foundationRunAEvidencePayload()
   );
-  expect(attachment?.path).toBeTruthy();
-  expect(attachment?.body).toBeUndefined();
+  const readback = readBackPhase7EvidenceFile(testInfo, receipt);
+  expect(readback.payload.schema_version).toBe("simwar.phase7.run-a-evidence.v1");
+  expect(receipt).toMatchObject({
+    attachment_mode: "NONE_FOR_CORE_EVIDENCE",
+    json_parse: "PASS",
+    safe_relative_path: "core-evidence/run-a-evidence.json",
+    schema_validation_after_readback: "PASS",
+    schema_validation_before_write: "PASS",
+    temp_residue: 0
+  });
+  expect(receipt.byte_length).toBeGreaterThan(0);
+  expect(receipt.sha256).toMatch(/^[0-9a-f]{64}$/);
+  expect(
+    testInfo.attachments.some((attachment) =>
+      (PHASE7_CORE_EVIDENCE_FILENAMES as readonly string[]).includes(attachment.name)
+    )
+  ).toBe(false);
 });
 
 test("@foundation rejects non-allowlisted and traversal evidence filenames", async ({
   browserName: _browserName
 }, testInfo) => {
   await expect(
-    persistPhase7EvidenceFile(testInfo, "../run-a-evidence.json", {
-      label: "unsafe-path",
-      source_sha: foundationSourceSha
-    })
+    persistPhase7EvidenceFile(testInfo, "../run-a-evidence.json", foundationRunAEvidencePayload())
   ).rejects.toThrow("not allowlisted");
   await expect(
-    persistPhase7EvidenceFile(testInfo, "unexpected.json", {
-      label: "unexpected-file",
-      source_sha: foundationSourceSha
-    })
+    persistPhase7EvidenceFile(testInfo, "unexpected.json", foundationRunAEvidencePayload())
   ).rejects.toThrow("not allowlisted");
 });
 
-test("@foundation atomically finalizes evidence with no temporary residue", async ({
+test("@foundation atomically finalizes and rejects duplicate evidence", async ({
   browserName: _browserName
 }, testInfo) => {
-  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "atomic-finalize",
-    source_sha: foundationSourceSha
-  });
-
-  expect(existsSync(testInfo.outputPath(receipt.filename))).toBe(true);
-  expect(readdirSync(testInfo.outputDir).filter((name) => name.endsWith(".tmp"))).toEqual([]);
-  expect(receipt.temporary_residue_count).toBe(0);
-});
-
-test("@foundation rejects duplicate finals without overwriting evidence", async ({
-  browserName: _browserName
-}, testInfo) => {
-  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "first-write",
-    source_sha: foundationSourceSha
-  });
-  const before = readFileSync(testInfo.outputPath(receipt.filename));
-
+  const receipt = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-evidence.json",
+    foundationRunAEvidencePayload()
+  );
+  const outputFile = testInfo.outputPath(receipt.safe_relative_path);
+  const before = readFileSync(outputFile);
+  expect(existsSync(outputFile)).toBe(true);
+  expect(
+    readdirSync(testInfo.outputPath(PHASE7_CORE_EVIDENCE_DIRECTORY)).filter((name) =>
+      name.endsWith(".tmp")
+    )
+  ).toEqual([]);
   await expect(
-    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-      label: "second-write",
-      source_sha: foundationSourceSha
-    })
+    persistPhase7EvidenceFile(
+      testInfo,
+      "run-a-evidence.json",
+      foundationRunAEvidencePayload({ captured_at: "2026-07-22T00:00:05.000Z" })
+    )
   ).rejects.toThrow("already exists");
-  expect(readFileSync(testInfo.outputPath(receipt.filename))).toEqual(before);
+  expect(readFileSync(outputFile)).toEqual(before);
 });
 
 test("@foundation detects evidence tampering during independent readback", async ({
   browserName: _browserName
 }, testInfo) => {
-  const receipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "tamper-target",
-    source_sha: foundationSourceSha
-  });
-  writeFileSync(testInfo.outputPath(receipt.filename), '{"label":"tampered"}\n');
-
+  const receipt = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-evidence.json",
+    foundationRunAEvidencePayload()
+  );
+  writeFileSync(testInfo.outputPath(receipt.safe_relative_path), "{}\n");
   expect(() => readBackPhase7EvidenceFile(testInfo, receipt)).toThrow("hash readback failed");
 });
 
 test("@foundation binds a verified Run A freeze to its evidence digest", async ({
   browserName: _browserName
 }, testInfo) => {
-  const evidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "run-a",
-    source_sha: foundationSourceSha
-  });
+  const evidenceReceipt = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-evidence.json",
+    foundationRunAEvidencePayload()
+  );
   const evidence = readBackPhase7EvidenceFile(testInfo, evidenceReceipt);
-  const freezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
-    frozen_before_run_b: true,
-    run_b_creation_allowed: true,
-    gate: RUN_A_DURABLE_FREEZE_GATE,
-    gate_status: "PASS",
-    run_a_evidence_sha256: evidence.receipt.sha256,
-    run_id: "run_foundation",
-    source_sha: foundationSourceSha
-  });
+  const freezeReceipt = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-freeze.json",
+    foundationRunAFreezePayload(evidence.receipt.sha256)
+  );
   const freeze = readBackPhase7EvidenceFile(testInfo, freezeReceipt);
-
   expect(
     assertRunADurableFreezeGate({
       evidence,
-      expectedRunId: "run_foundation",
+      expectedRunId: foundationRunAId,
       expectedSourceSha: foundationSourceSha,
       freeze
     })
   ).toMatchObject({ gate: RUN_A_DURABLE_FREEZE_GATE, status: "PASS" });
-});
-
-test("@foundation blocks Run B when the durable freeze is unverified", async ({
-  browserName: _browserName
-}, testInfo) => {
-  const evidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-    label: "run-a",
-    source_sha: foundationSourceSha
-  });
-  const evidence = readBackPhase7EvidenceFile(testInfo, evidenceReceipt);
-  const freezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
-    frozen_before_run_b: true,
-    run_b_creation_allowed: false,
-    gate: RUN_A_DURABLE_FREEZE_GATE,
-    gate_status: "FAIL",
-    run_a_evidence_sha256: evidence.receipt.sha256,
-    run_id: "run_foundation",
-    source_sha: foundationSourceSha
-  });
-  const freeze = readBackPhase7EvidenceFile(testInfo, freezeReceipt);
-
   expect(() =>
     assertRunADurableFreezeGate({
       evidence,
-      expectedRunId: "run_foundation",
+      expectedRunId: "run_wrong",
       expectedSourceSha: foundationSourceSha,
       freeze
     })
@@ -430,32 +614,92 @@ test("@foundation rejects credential fields and unresolved placeholders", async 
   browserName: _browserName
 }, testInfo) => {
   await expect(
-    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-      password: "must-not-persist",
-      source_sha: foundationSourceSha
-    })
+    persistPhase7EvidenceFile(
+      testInfo,
+      "run-a-evidence.json",
+      foundationRunAEvidencePayload({ password: "must-not-persist" })
+    )
   ).rejects.toThrow("forbidden key");
   await expect(
-    persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-      note: "<CURRENT_VALUE>",
-      source_sha: foundationSourceSha
-    })
+    persistPhase7EvidenceFile(
+      testInfo,
+      "run-a-evidence.json",
+      foundationRunAEvidencePayload({ course_safe_reference: "<CURRENT_VALUE>" })
+    )
   ).rejects.toThrow("forbidden value");
 });
 
-test("@foundation requires the formal evidence output to remain outside the repository", () => {
-  expect(() =>
-    assertExternalPhase7EvidencePath(
-      resolve(tmpdir(), "simwar-playwright-evidence", "run-a-evidence.json"),
-      repositoryRoot
-    )
-  ).not.toThrow();
-  expect(() =>
-    assertExternalPhase7EvidencePath(
-      resolve(repositoryRoot, "tmp", "playwright", "run-a-evidence.json"),
-      repositoryRoot
-    )
-  ).toThrow("outside the repository");
+test("@foundation requires external and separate output roots", () => {
+  const isolatedRoot = mkdtempSync(join(tmpdir(), "simwar-phase7-output-roots-"));
+  const foundationRoot = resolve(isolatedRoot, "foundation-output");
+  const productRoot = resolve(isolatedRoot, "product-output");
+  try {
+    expect(() =>
+      assertExternalPhase7EvidencePath(
+        resolve(productRoot, "core-evidence", "run-a-evidence.json"),
+        repositoryRoot
+      )
+    ).not.toThrow();
+    expect(() => assertSeparatePhase7OutputRoots(foundationRoot, productRoot)).not.toThrow();
+    expect(() =>
+      assertSeparatePhase7OutputRoots(foundationRoot, resolve(foundationRoot, "product-output"))
+    ).toThrow("separate");
+    expect(() =>
+      assertExternalPhase7EvidencePath(
+        resolve(repositoryRoot, "tmp", "playwright", "run-a-evidence.json"),
+        repositoryRoot
+      )
+    ).toThrow("outside the repository");
+  } finally {
+    rmSync(isolatedRoot, { force: true, recursive: true });
+  }
+});
+
+test("@foundation enforces one common parent and basename uniqueness", async ({
+  browserName: _browserName
+}, testInfo) => {
+  const evidence = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-evidence.json",
+    foundationRunAEvidencePayload()
+  );
+  const freeze = await persistPhase7EvidenceFile(
+    testInfo,
+    "run-a-freeze.json",
+    foundationRunAFreezePayload(evidence.sha256)
+  );
+  const order = await persistPhase7EvidenceFile(
+    testInfo,
+    "phase7-evidence-order.json",
+    foundationEvidenceOrderPayload(evidence.sha256, freeze.sha256)
+  );
+  await persistPhase7EvidenceFile(
+    testInfo,
+    "run-b-lifecycle.json",
+    foundationRunBLifecyclePayload(freeze.sha256, order.sha256)
+  );
+  expect(verifyPhase7CoreEvidenceRoot(testInfo.outputDir)).toMatchObject({
+    common_parent: "core-evidence",
+    exact_match_counts: {
+      "phase7-evidence-order.json": 1,
+      "run-a-evidence.json": 1,
+      "run-a-freeze.json": 1,
+      "run-b-lifecycle.json": 1
+    }
+  });
+  const duplicateRoot = testInfo.outputPath("attachments");
+  mkdirSync(duplicateRoot, { recursive: true });
+  copyFileSync(
+    testInfo.outputPath(PHASE7_CORE_EVIDENCE_DIRECTORY, "run-a-evidence.json"),
+    resolve(duplicateRoot, "run-a-evidence.json")
+  );
+  expect(() => verifyPhase7CoreEvidenceRoot(testInfo.outputDir)).toThrow("exactly once");
+});
+
+test("@foundation keeps product tagging unique and disjoint", () => {
+  const source = readFileSync(sourcePath, "utf8");
+  expect(source.match(/test\("@phase7-product/g) ?? []).toHaveLength(1);
+  expect(source.match(/test\("[^"]*@foundation[^"]*@phase7-product/g) ?? []).toHaveLength(0);
 });
 
 async function apiPost<TData>(
@@ -614,7 +858,7 @@ async function closeContexts(contexts: BrowserContext[]): Promise<void> {
   await Promise.all(contexts.map((context) => context.close()));
 }
 
-test("@phase7 executes the serial two-Run product path only under its exact gate", async ({
+test("@phase7-product executes the serial two-Run product path only under its exact gate", async ({
   browser,
   request
 }, testInfo) => {
@@ -625,7 +869,10 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
 
   const sourceSha = process.env.SIMWAR_PHASE7_SOURCE_SHA ?? "";
   expect(sourceSha).toMatch(/^[0-9a-f]{40}$/);
-  assertExternalPhase7EvidencePath(testInfo.outputPath("run-a-evidence.json"), repositoryRoot);
+  assertExternalPhase7EvidencePath(
+    testInfo.outputPath(PHASE7_CORE_EVIDENCE_DIRECTORY, "run-a-evidence.json"),
+    repositoryRoot
+  );
 
   const suffix = `${testInfo.workerIndex}-${Date.now()}`;
   const teacherCredentials = { username: "teacher", password: "teacher" };
@@ -667,7 +914,6 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
   let runBOrderReadback: Phase7EvidenceReadback | undefined;
   let runBLifecycleReceipt: Phase7EvidenceReceipt | undefined;
   let runBLifecycleReadback: Phase7EvidenceReadback | undefined;
-  let runBLifecycleEvidence: Record<string, unknown> | undefined;
   let runBCreationStartedAt = "";
 
   try {
@@ -917,20 +1163,10 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         for (const marker of privateMarkers) expect(text).not.toContain(marker);
 
         studentEvidence.push({
-          learning_report: {
-            advisory_only: cockpit.learning_report.learning_evidence.advisory_only,
-            formal_grade: cockpit.learning_report.learning_evidence.formal_grade,
-            prompt_count: cockpit.learning_report.learning_evidence.prompts.length
-          },
+          feedback_digest: safeJsonDigest(cockpit.three_part_feedback.feedback),
+          learning_report_digest: safeJsonDigest(cockpit.learning_report.learning_evidence),
           own_team_id: student.ownTeam.team_id,
-          own_team_name: student.ownTeam.name,
-          redacted_result_digest: safeJsonDigest(redactedResult),
-          run_id: cockpit.student_cockpit.run_id,
-          three_part_feedback: {
-            next_step_risk: Boolean(cockpit.three_part_feedback.feedback.next_step_risk),
-            what_happened: Boolean(cockpit.three_part_feedback.feedback.what_happened),
-            why_it_happened: Boolean(cockpit.three_part_feedback.feedback.why_it_happened)
-          }
+          redacted_result_digest: safeJsonDigest(redactedResult)
         });
       }
       studentIsolationPassed = true;
@@ -1000,40 +1236,118 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         safeReplaySummary,
         teacherWorkspace: structuredClone(teacherWorkspace)
       };
+      const studentAResultDigest = studentEvidence[0]?.redacted_result_digest;
+      const studentBResultDigest = studentEvidence[1]?.redacted_result_digest;
+      const studentAFeedbackDigest = studentEvidence[0]?.feedback_digest;
+      const studentBFeedbackDigest = studentEvidence[1]?.feedback_digest;
+      const studentALearningDigest = studentEvidence[0]?.learning_report_digest;
+      const studentBLearningDigest = studentEvidence[1]?.learning_report_digest;
+      for (const digest of [
+        studentAResultDigest,
+        studentBResultDigest,
+        studentAFeedbackDigest,
+        studentBFeedbackDigest,
+        studentALearningDigest,
+        studentBLearningDigest
+      ]) {
+        if (typeof digest !== "string") throw new Error("Student safe evidence digest is missing");
+      }
+      const officialResultDigest = safeJsonDigest(safeOfficialResult);
+      const replaySummaryDigest = safeJsonDigest(safeReplaySummary);
+      const tenantSummaryDigest = safeJsonDigest({
+        tenant_id: tenantSummary.tenant_id,
+        visible_state: tenantSummary.visible_state,
+        visible_tenant_ids: tenantSummary.visible_tenant_ids
+      });
       runAEvidenceReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-evidence.json", {
-        audit_action_counts: businessAuditCounts,
-        credential_matches: 0,
-        decision_submitted_team_ids: monitoredTeams.map((team) => team.team_id).sort(),
-        official_result_safe_digest: safeJsonDigest(safeOfficialResult),
-        private_marker_matches: 0,
-        published_status: officialResult.status,
-        replay_summary_safe_digest: safeJsonDigest(safeReplaySummary),
-        run_id: runAId,
-        settlement_attempt_count: settlementAttemptCount,
-        settlement_outcome_header: settlementOutcome,
+        schema_version: "simwar.phase7.run-a-evidence.v1",
+        classification: "AUTOMATED_OPERATOR_EXECUTION",
         source_sha: sourceSha,
-        student_projection_pass: studentIsolationPassed,
-        students: studentEvidence,
-        tenant_admin_summary_digest: safeJsonDigest({
-          tenant_id: tenantSummary.tenant_id,
-          visible_state: tenantSummary.visible_state,
-          visible_tenant_ids: tenantSummary.visible_tenant_ids
-        }),
-        teacher_replay_summary: safeReplaySummary
+        course_safe_reference: "course_demo",
+        run_a_id: runAId,
+        student_a_team_id: teamA.team_id,
+        student_b_team_id: teamB.team_id,
+        decision_submission_states: { student_a: "SUBMITTED", student_b: "SUBMITTED" },
+        lock_count: 1,
+        settlement_count: 1,
+        settlement_outcome: settlementOutcome.toUpperCase(),
+        publish_count: 1,
+        published_state: "PUBLISHED",
+        student_a_result_safe_digest: studentAResultDigest,
+        student_b_result_safe_digest: studentBResultDigest,
+        feedback_safe_digests: {
+          student_a: studentAFeedbackDigest,
+          student_b: studentBFeedbackDigest
+        },
+        learning_report_safe_digests: {
+          student_a: studentALearningDigest,
+          student_b: studentBLearningDigest
+        },
+        teacher_replay_summary_safe_digest: replaySummaryDigest,
+        tenant_admin_summary_safe_digest: tenantSummaryDigest,
+        official_result_safe_digest: officialResultDigest,
+        context_isolation: {
+          admin_context: "ISOLATED",
+          teacher_context: "ISOLATED",
+          student_a_context: "ISOLATED",
+          student_b_context: "ISOLATED",
+          student_a_b_storage_isolated: true,
+          student_a_b_identity_isolated: true,
+          student_a_b_team_isolated: true
+        },
+        boundary_results: {
+          student_a_state_true_exposure: 0,
+          student_a_private_replay_exposure: 0,
+          student_a_other_team_exposure: 0,
+          student_a_other_tenant_exposure: 0,
+          student_a_internal_route_count: 0,
+          student_b_state_true_exposure: 0,
+          student_b_private_replay_exposure: 0,
+          student_b_other_team_exposure: 0,
+          student_b_other_tenant_exposure: 0,
+          student_b_internal_route_count: 0,
+          cross_team_exposure: 0,
+          cross_tenant_exposure: 0
+        },
+        credential_scan: 0,
+        placeholder_scan: 0,
+        captured_at: new Date().toISOString(),
+        event_sequence: [...RUN_A_EVIDENCE_EVENT_SEQUENCE]
       });
       runAEvidenceReadback = readBackPhase7EvidenceFile(testInfo, runAEvidenceReceipt);
       runAFreezeReceipt = await persistPhase7EvidenceFile(testInfo, "run-a-freeze.json", {
-        frozen_before_run_b: true,
-        run_b_creation_allowed: true,
-        gate: RUN_A_DURABLE_FREEZE_GATE,
-        gate_status: "PASS",
-        official_result_safe_digest: safeJsonDigest(safeOfficialResult),
-        replay_summary_safe_digest: safeJsonDigest(safeReplaySummary),
-        run_a_evidence_sha256: runAEvidenceReadback.receipt.sha256,
-        run_a_evidence_verified_at: runAEvidenceReadback.verified_at,
-        run_id: runAId,
+        schema_version: "simwar.phase7.run-a-freeze.v1",
+        freeze_id: `freeze_${runAId}`,
+        status: "SEALED_AUTOMATED_RUN_A_BEFORE_RUN_B",
         source_sha: sourceSha,
-        team_ids: [teamA.team_id, teamB.team_id].sort()
+        run_a_id: runAId,
+        run_a_evidence_filename: "run-a-evidence.json",
+        run_a_evidence_sha256: runAEvidenceReadback.receipt.sha256,
+        student_result_digests: {
+          student_a: studentAResultDigest,
+          student_b: studentBResultDigest
+        },
+        feedback_digests: {
+          student_a: studentAFeedbackDigest,
+          student_b: studentBFeedbackDigest
+        },
+        learning_report_digests: {
+          student_a: studentALearningDigest,
+          student_b: studentBLearningDigest
+        },
+        teacher_replay_summary_digest: replaySummaryDigest,
+        tenant_admin_summary_digest: tenantSummaryDigest,
+        official_result_digest: officialResultDigest,
+        settlement_count: 1,
+        publish_count: 1,
+        boundary_status: "PASS",
+        credential_scan: 0,
+        placeholder_scan: 0,
+        run_b_exists_at_freeze: false,
+        run_b_creation_attempted_at_freeze: false,
+        sealed_at: new Date().toISOString(),
+        event_sequence: [...RUN_A_FREEZE_EVENT_SEQUENCE],
+        run_b_creation_allowed: true
       });
       runAFreezeReadback = readBackPhase7EvidenceFile(testInfo, runAFreezeReceipt);
       expect(
@@ -1074,7 +1388,9 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         gate: RUN_A_DURABLE_FREEZE_GATE,
         status: "PASS"
       });
-      runBCreationStartedAt = new Date().toISOString();
+      runBCreationStartedAt = new Date(
+        Math.max(Date.now(), Date.parse(runAFreezeReadback.verified_at) + 1)
+      ).toISOString();
 
       const createRunResponsePromise = teacherPage.waitForResponse(
         (response) =>
@@ -1094,31 +1410,37 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
       expect(runBId).toMatch(/^run_/);
       expect(runBId).not.toBe(runAId);
       expect(businessAttemptCount).toBe(1);
-      const runBCreatedAt = new Date().toISOString();
-      expect(Date.parse(runBCreationStartedAt)).toBeGreaterThanOrEqual(
+      const runBCreatedAt = new Date(
+        Math.max(Date.now(), Date.parse(runBCreationStartedAt))
+      ).toISOString();
+      expect(Date.parse(runBCreationStartedAt)).toBeGreaterThan(
         Date.parse(runAFreezeReadback.verified_at)
       );
       expect(Date.parse(runBCreatedAt)).toBeGreaterThanOrEqual(Date.parse(runBCreationStartedAt));
       runBOrderReceipt = await persistPhase7EvidenceFile(testInfo, "phase7-evidence-order.json", {
-        ordering_pass: true,
-        run_b_created_after_freeze_readback: true,
-        run_a_evidence_sha256: runAEvidenceReceipt.sha256,
-        run_a_freeze_sha256: runAFreezeReceipt.sha256,
-        run_a_freeze_verified_at: runAFreezeReadback.verified_at,
-        run_b_created_at: runBCreatedAt,
-        run_b_creation_started_at: runBCreationStartedAt,
+        schema_version: "simwar.phase7.evidence-order.v1",
+        source_sha: sourceSha,
+        run_a_id: runAId,
         run_b_id: runBId,
-        source_sha: sourceSha
+        run_a_evidence_filename: "run-a-evidence.json",
+        run_a_evidence_sha256: runAEvidenceReceipt.sha256,
+        run_a_freeze_filename: "run-a-freeze.json",
+        run_a_freeze_sha256: runAFreezeReceipt.sha256,
+        run_a_evidence_readback_verified_at: runAEvidenceReadback.verified_at,
+        run_a_freeze_readback_verified_at: runAFreezeReadback.verified_at,
+        run_b_creation_started_at: runBCreationStartedAt,
+        run_b_created_at: runBCreatedAt,
+        run_b_created_after_freeze_readback: true,
+        event_sequence: [...EVIDENCE_ORDER_EVENT_SEQUENCE]
       });
       runBOrderReadback = readBackPhase7EvidenceFile(testInfo, runBOrderReceipt);
       expect(runBOrderReadback.payload).toMatchObject({
-        ordering_pass: true,
-        run_b_created_after_freeze_readback: true,
+        schema_version: "simwar.phase7.evidence-order.v1",
         run_a_freeze_sha256: runAFreezeReceipt.sha256,
+        run_b_created_after_freeze_readback: true,
         run_b_id: runBId,
         source_sha: sourceSha
       });
-
       await adminPage.reload();
       await signIn(adminPage, "管理员登录", adminCredentials);
       const lifecycleSurface = adminPage.getByLabel("synthetic run lifecycle controls");
@@ -1198,20 +1520,6 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
       if (!runBOrderReceipt || !runBOrderReadback) {
         throw new Error("Run B lifecycle evidence requires a verified ordering receipt");
       }
-      runBLifecycleEvidence = {
-        audit_action_counts: runBLifecycleCounts,
-        evidence_order_sha256: runBOrderReceipt.sha256,
-        lifecycle_state: runBControl!.lifecycle_state,
-        ordering_pass: runBOrderReadback.payload.ordering_pass,
-        pre_publication: runBControl!.pre_publication,
-        pre_settlement: runBControl!.pre_settlement,
-        publish_action_count: publishActionCount,
-        replay_action_count: replayActionCount,
-        replay_reference_count: runBRounds.filter((round) => Boolean(round.replay_hash)).length,
-        run_id: runBId,
-        settlement_action_count: settlementActionCount,
-        source_sha: sourceSha
-      };
     });
 
     await test.step("Run A remains historical and official evidence is not overwritten", async () => {
@@ -1275,35 +1583,45 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         student_private_marker_count: 0,
         teacher_formal_truth_write_allowed: false
       });
-      if (
-        !runAEvidenceReceipt ||
-        !runAFreezeReceipt ||
-        !runBOrderReceipt ||
-        !runBLifecycleEvidence
-      ) {
+      if (!runAEvidenceReceipt || !runAFreezeReceipt || !runBOrderReceipt) {
         throw new Error("Run B lifecycle evidence is incomplete");
       }
       runBLifecycleReceipt = await persistPhase7EvidenceFile(testInfo, "run-b-lifecycle.json", {
-        ...runBLifecycleEvidence,
-        run_a_evidence_sha256: runAEvidenceReceipt.sha256,
+        schema_version: "simwar.phase7.run-b-lifecycle.v1",
+        classification: "AUTOMATED_OPERATOR_EXECUTION",
+        source_sha: sourceSha,
+        run_a_id: runAId,
+        run_b_id: runBId,
+        run_a_freeze_filename: "run-a-freeze.json",
         run_a_freeze_sha256: runAFreezeReceipt.sha256,
-        run_a_historical_read_only: true,
-        run_a_official_result_safe_digest_unchanged: true,
-        run_a_replay_summary_safe_digest_unchanged: true
+        evidence_order_filename: "phase7-evidence-order.json",
+        evidence_order_sha256: runBOrderReceipt.sha256,
+        initial_state: "ACTIVE",
+        lifecycle_events: [...RUN_B_LIFECYCLE_EVENTS],
+        abort_count: 2,
+        reset_count: 1,
+        cleanup_count: 1,
+        final_state: "CLEANED",
+        settlement_count: 0,
+        publish_count: 0,
+        replay_execution_count: 0,
+        student_decision_count: 0,
+        run_a_official_result_unchanged: true,
+        run_a_replay_summary_unchanged: true,
+        run_a_historical_state_unchanged: true,
+        completed_at: new Date().toISOString()
       });
       runBLifecycleReadback = readBackPhase7EvidenceFile(testInfo, runBLifecycleReceipt);
       expect(runBLifecycleReadback.payload).toMatchObject({
         evidence_order_sha256: runBOrderReceipt.sha256,
-        lifecycle_state: "CLEANED",
-        ordering_pass: true,
-        publish_action_count: 0,
-        replay_action_count: 0,
-        run_a_historical_read_only: true,
-        run_id: runBId,
-        settlement_action_count: 0,
+        final_state: "CLEANED",
+        publish_count: 0,
+        replay_execution_count: 0,
+        run_a_historical_state_unchanged: true,
+        run_b_id: runBId,
+        settlement_count: 0,
         source_sha: sourceSha
       });
-
       const coreReceipts = [
         runAEvidenceReceipt,
         runAFreezeReceipt,
@@ -1316,20 +1634,21 @@ test("@phase7 executes the serial two-Run product path only under its exact gate
         "run-a-freeze.json",
         "run-b-lifecycle.json"
       ]);
-      expect(coreReceipts.every((receipt) => receipt.temporary_residue_count === 0)).toBe(true);
+      expect(coreReceipts.every((receipt) => receipt.temp_residue === 0)).toBe(true);
       expect(
-        testInfo.attachments
-          .filter((attachment) =>
-            coreReceipts.some((receipt) => receipt.filename === attachment.name)
-          )
-          .map((attachment) => attachment.name)
-          .sort()
-      ).toEqual(coreReceipts.map((receipt) => receipt.filename).sort());
-      expect(
-        readdirSync(testInfo.outputDir)
-          .filter((name) => coreReceipts.some((receipt) => receipt.filename === name))
-          .sort()
-      ).toEqual(coreReceipts.map((receipt) => receipt.filename).sort());
+        testInfo.attachments.filter((attachment) =>
+          coreReceipts.some((receipt) => receipt.filename === attachment.name)
+        )
+      ).toEqual([]);
+      expect(verifyPhase7CoreEvidenceRoot(testInfo.outputDir)).toMatchObject({
+        common_parent: "core-evidence",
+        exact_match_counts: {
+          "phase7-evidence-order.json": 1,
+          "run-a-evidence.json": 1,
+          "run-a-freeze.json": 1,
+          "run-b-lifecycle.json": 1
+        }
+      });
     });
 
     expect(observedRequests.some((url) => url.includes("/internal/"))).toBe(false);
