@@ -56,8 +56,10 @@ function assertExternalStorePath(storeFile: string, tempDirectory: string): stri
 }
 
 export function resolvePlaywrightStoreFile(options: PlaywrightStoreResolutionOptions = {}): string {
-  const externalStoreFile =
-    options.environment?.SIMWAR_PLAYWRIGHT_STORE_FILE ?? process.env.SIMWAR_PLAYWRIGHT_STORE_FILE;
+  const environment = Object.prototype.hasOwnProperty.call(options, "environment")
+    ? (options.environment ?? {})
+    : process.env;
+  const externalStoreFile = environment.SIMWAR_PLAYWRIGHT_STORE_FILE;
 
   const trimmedStoreFile = externalStoreFile?.trim();
   if (!trimmedStoreFile) {
