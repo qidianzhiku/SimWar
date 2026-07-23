@@ -25,6 +25,12 @@ Consolidation artifact. It consumes the merged Course Runtime V3 and L1
 Synthetic Internal Application Readiness evidence and turns them into a single
 reviewable runtime-consolidation package.
 
+Program 025 extends the same artifact with a runtime contract completion
+matrix. The matrix is derived from the real Runtime V3 API/server-command
+harness and records the teacher, student, tenant-admin, replay, shadow replay
+and controlled-failure operations that make the Golden M1 runtime chain
+reviewable as an internal synthetic application contract.
+
 The artifact is synthetic JSON-runtime evidence only. It does not activate
 PostgreSQL runtime, SQL, migration, durable settlement, Pilot, Production, real
 teacher rehearsal, real user data, real tenant data or real payment.
@@ -84,6 +90,26 @@ The consolidation helper verifies:
 - R8-G1 materials remain internal-only drafts.
 - R4 Discovery remains read-only only.
 
+The runtime contract completion helper additionally verifies:
+
+- PR #209 post-merge evidence is present and points to a valid merge commit.
+- Post-merge baseline validation remains `PASSED`.
+- Direct-store delta remains `NONE`.
+- The primary path is the controlled API / BFF / server-command path, not a
+  parallel runtime helper or direct store mutation.
+- The synthetic internal application harness is V3, uses one tenant, one
+  course, two teams, one run and one round, and is backed by existing kernel
+  settlement.
+- Every operation records API layer, actor, tenant/course/team scope, input
+  DTO, output DTO, idempotency key, request id, audit event, state
+  preconditions, state postconditions, stable error codes, projection rule,
+  forbidden callers and explicit non-proofs.
+- `student.team_decision_submit`, `teacher.internal_settlement_trigger` and
+  `tenant_admin.scoped_summary_read` remain role-scoped and fail closed on
+  negative probes.
+- Replay, Shadow Replay and learning evidence remain non-writing and excluded
+  from formal truth authority.
+
 ## Explicit Non-Proofs
 
 This package does not prove or authorize:
@@ -103,8 +129,9 @@ This package does not prove or authorize:
 
 ## Validation Notes
 
-Program 024 validation must include:
+Program 025 validation must include:
 
+- `npm test -- tests/integration/course-runtime-v3-synthetic-execution.test.ts`
 - `npm test -- tests/integration/l1-golden-m1-course-runtime-consolidation.test.ts`
 - `npm run test:e2e:ui`
 - existing Runtime V3 and L1 readiness integration tests

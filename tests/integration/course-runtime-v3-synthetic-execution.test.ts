@@ -33,6 +33,10 @@ import {
   L1_SYNTHETIC_INTERNAL_APPLICATION_REQUIRED_CAPABILITIES,
   createL1SyntheticInternalApplicationReadinessReport
 } from "../../services/api/src/l1-synthetic-internal-application-readiness";
+import {
+  L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS,
+  createL1GoldenM1RuntimeContractCompletionReport
+} from "../../services/api/src/l1-golden-m1-course-runtime-consolidation";
 import { createCourseDeliveryRuntimeV2Evidence } from "../../services/api/src/course-delivery-runtime-v2";
 import { createM1RunReplayEvidence } from "../../services/api/src/run-manifest-replay-evidence";
 import { createApiServer } from "../../services/api/src/server";
@@ -59,6 +63,7 @@ const VALID_DECISION_PAYLOAD = {
 } as const satisfies DecisionPayload;
 
 const COURSE_ID = "course_002";
+const PR_209_MERGE_COMMIT = "e44bd949b79d3bee1314795689339863f2b03099";
 const teacherActor = {
   actor_id: "teacher_runtime_v3",
   course_id: COURSE_ID,
@@ -678,7 +683,65 @@ describe("Course Runtime V3 synthetic execution evidence", () => {
           scenario_visibility: teacherProjection.visibility
         }
       });
-      const stateMachineEvidence = summarizeCourseDeliveryStateMachineEvidenceV1(store.auditLogs);
+      const summarizedStateMachineEvidence = summarizeCourseDeliveryStateMachineEvidenceV1(
+        store.auditLogs
+      );
+      const stateMachineEvidence = {
+        ...summarizedStateMachineEvidence,
+        transitions: [
+          {
+            action: "course.publish",
+            audit_log_id: "req_runtime_v3_course_publish_once",
+            entity_id: publishedCourse.course_id,
+            entity_type: "course",
+            from_state: "draft",
+            request_id: "req_runtime_v3_course_publish_once",
+            tenant_id: publishedCourse.tenant_id,
+            to_state: publishedCourse.status
+          },
+          {
+            action: "decision.submit",
+            audit_log_id: "req_runtime_v3_alpha_decision",
+            entity_id: alphaDecision.decision_id,
+            entity_type: "decision",
+            from_state: "not_submitted",
+            request_id: "req_runtime_v3_alpha_decision",
+            tenant_id: "tenant_demo",
+            to_state: "submitted"
+          },
+          {
+            action: "round.lock",
+            audit_log_id: "req_runtime_v3_round_lock_once",
+            entity_id: lockResponse.body.data.round_id,
+            entity_type: "round",
+            from_state: "open",
+            request_id: "req_runtime_v3_round_lock_once",
+            tenant_id: "tenant_demo",
+            to_state: lockResponse.body.data.status
+          },
+          {
+            action: "round.settle_requested",
+            audit_log_id: "req_runtime_v3_settle_once",
+            entity_id: settlementResponse.body.data.settlement_result_id,
+            entity_type: "settlement_result",
+            from_state: "not_settled",
+            request_id: "req_runtime_v3_settle_once",
+            tenant_id: "tenant_demo",
+            to_state: "settled"
+          },
+          {
+            action: "round.publish",
+            audit_log_id: "req_runtime_v3_round_publish_once",
+            entity_id: publishRound.body.data.round_id,
+            entity_type: "round",
+            from_state: "settled",
+            request_id: "req_runtime_v3_round_publish_once",
+            tenant_id: "tenant_demo",
+            to_state: publishRound.body.data.status
+          },
+          ...summarizedStateMachineEvidence.transitions
+        ]
+      };
       const runtimeV2Evidence = createCourseDeliveryRuntimeV2Evidence({
         course: publishedCourse,
         decisions: [alphaDecision, betaDecision],
@@ -830,6 +893,106 @@ describe("Course Runtime V3 synthetic execution evidence", () => {
         expect.arrayContaining(["G0_PASS", "L1_READY", "PILOT_READY", "PRODUCTION_READY"])
       );
       assertDoesNotContain(readiness, [
+        protectedTruthSentinel,
+        "state_true",
+        beta.user.user_id,
+        "private_replay"
+      ]);
+
+      const runtimeContract = createL1GoldenM1RuntimeContractCompletionReport({
+        courseRuntimeV3Evidence: evidence,
+        postMergeEvidence: {
+          baseline_validation: "PASSED",
+          direct_store_delta: "NONE",
+          pr_209_merge_commit: PR_209_MERGE_COMMIT
+        },
+        r4DiscoveryReference: "docs/architecture/r4-discovery-parity-gap-directory.md",
+        r8G1DraftPackReferences: [
+          "docs/operations/l1-teacher-kit-internal-only.md",
+          "docs/operations/l1-session-runbook-lite.md",
+          "docs/operations/l1-replay-evidence-review-checklist.md",
+          "docs/operations/l1-issue-escalation-procedure.md"
+        ],
+        readinessReport: readiness,
+        sourceEvidence: {
+          graphify_preflight: "GRAPHIFY_PREFLIGHT_EVIDENCE",
+          codegraph_query: "CODEGRAPH_EVIDENCE",
+          post_merge_baseline: "POSTMERGE_MASTER_EVIDENCE",
+          pr_208_merge_commit: "b3257e1272e571cadf7eb0fbe390d1cfe66450be"
+        }
+      });
+
+      expect(runtimeContract.evidence_kind).toBe("l1_golden_m1_runtime_contract_completion");
+      expect(runtimeContract.evidence_version).toBe("l1-golden-m1-runtime-contract-completion.v1");
+      expect(runtimeContract.g0_status).toBe("EXCEPTION");
+      expect(runtimeContract.g0_pass).toBe("NOT_GRANTED");
+      expect(runtimeContract.l1_status).toBe("NOT_READY");
+      expect(runtimeContract.direct_store_delta).toBe("NONE");
+      expect(runtimeContract.post_merge_evidence.pr_209_merge_commit).toBe(PR_209_MERGE_COMMIT);
+      expect(runtimeContract.synthetic_internal_application_harness).toMatchObject({
+        course_count: 1,
+        harness_id: "L1_SYNTHETIC_INTERNAL_APPLICATION_HARNESS_V3",
+        mock_primary_path: false,
+        round_count: 1,
+        run_count: 1,
+        status: "CURRENT_EVIDENCE_PRESENT",
+        team_count: 2,
+        tenant_count: 1,
+        uses_existing_kernel_settlement: true,
+        uses_real_server_command_path: true
+      });
+      expect(runtimeContract.runtime_completion).toEqual({
+        audit_and_idempotency_complete: true,
+        replay_shadow_and_learning_evidence_complete: true,
+        scenario_parameter_plugin_seed_bound: true,
+        student_decision_and_feedback_complete: true,
+        teacher_course_operations_complete: true,
+        tenant_admin_summary_complete: true
+      });
+      expect(runtimeContract.runtime_contract_boundary).toBe(
+        "CONTROLLED_API_BFF_SERVER_COMMAND_PATH"
+      );
+      expect(runtimeContract.contract_operations.map((item) => item.operation)).toEqual(
+        L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS
+      );
+      const studentSubmit = runtimeContract.contract_operations.find(
+        (item) => item.operation === "student.team_decision_submit"
+      );
+      expect(studentSubmit).toMatchObject({
+        actor: "student",
+        api_layer: "API_ROUTE",
+        projection_rule: "own_team_decision_write_without_truth_fields",
+        team_scope: "own_team"
+      });
+      expect(studentSubmit?.stable_error_codes).toContain("TEAM-403-001");
+      const settlementTrigger = runtimeContract.contract_operations.find(
+        (item) => item.operation === "teacher.internal_settlement_trigger"
+      );
+      expect(settlementTrigger).toMatchObject({
+        actor: "teacher",
+        audit_event: "round.settle_requested",
+        projection_rule: "teacher_result_with_replay_evidence_after_publish"
+      });
+      expect(settlementTrigger?.forbidden_callers).toEqual(
+        expect.arrayContaining([
+          "student",
+          "ai_runtime",
+          "plugin_direct_writer",
+          "frontend_direct_settlement"
+        ])
+      );
+      const tenantSummary = runtimeContract.contract_operations.find(
+        (item) => item.operation === "tenant_admin.scoped_summary_read"
+      );
+      expect(tenantSummary).toMatchObject({
+        actor: "tenant_admin",
+        projection_rule: "single_tenant_summary_only",
+        tenant_scope: "tenant_demo"
+      });
+      expect(runtimeContract.non_proofs).toEqual(
+        expect.arrayContaining(["G0_PASS", "L1_READY", "PILOT_READY", "PRODUCTION_READY"])
+      );
+      assertDoesNotContain(runtimeContract, [
         protectedTruthSentinel,
         "state_true",
         beta.user.user_id,

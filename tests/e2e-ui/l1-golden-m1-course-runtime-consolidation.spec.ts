@@ -2,7 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { COURSE_RUNTIME_V3_FORBIDDEN_STUDENT_MARKERS } from "../../services/api/src/course-runtime-v3";
 import {
   L1_GOLDEN_M1_COURSE_RUNTIME_CHAIN,
-  L1_GOLDEN_M1_COURSE_RUNTIME_NON_PROOFS
+  L1_GOLDEN_M1_COURSE_RUNTIME_NON_PROOFS,
+  L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS
 } from "../../services/api/src/l1-golden-m1-course-runtime-consolidation";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
@@ -54,6 +55,11 @@ test("renders L1 Golden M1 consolidation summaries without widening student visi
       replay_writes_formal_results: false,
       shadow_replay_writes_formal_results: false
     },
+    runtime_contract_completion: {
+      evidence_kind: "l1_golden_m1_runtime_contract_completion",
+      harness_id: "L1_SYNTHETIC_INTERNAL_APPLICATION_HARNESS_V3",
+      operations: L1_GOLDEN_M1_RUNTIME_CONTRACT_REQUIRED_OPERATIONS
+    },
     runtime_chain: L1_GOLDEN_M1_COURSE_RUNTIME_CHAIN,
     tenant_admin_scope: {
       visible_tenants: ["tenant_demo"]
@@ -71,6 +77,9 @@ test("renders L1 Golden M1 consolidation summaries without widening student visi
   );
   await expect(page.getByText("l1_golden_m1_course_runtime_consolidation")).toBeVisible();
   await expect(page.getByText("teacher.course_draft")).toBeVisible();
+  await expect(page.getByText("l1_golden_m1_runtime_contract_completion")).toBeVisible();
+  await expect(page.getByText("L1_SYNTHETIC_INTERNAL_APPLICATION_HARNESS_V3")).toBeVisible();
+  await expect(page.getByText("teacher.internal_settlement_trigger")).toBeVisible();
   await expect(page.getByText("shadow_replay_writes_formal_results")).toBeVisible();
   await expect(page.getByText("NOT_READY")).toBeVisible();
 
