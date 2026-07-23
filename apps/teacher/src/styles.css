@@ -652,6 +652,10 @@ h3 {
   padding-left: 20px;
 }
 
+.known-limits-disclosure li > strong {
+  overflow-wrap: anywhere;
+}
+
 .known-limits-disclosure li span {
   display: block;
   margin-top: 3px;

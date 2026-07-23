@@ -7,6 +7,29 @@ const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
 const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
+const commonKnownLimitIds = [
+  "JSON_INTERNAL_ONLY",
+  "SYNTHETIC_ONLY",
+  "LOOPBACK_ONLY",
+  "POSTGRESQL_NOT_ACTIVE",
+  "DURABLE_SETTLEMENT_NOT_PROVEN",
+  "DURABLE_RECOVERY_NOT_PROVEN",
+  "ABORT_IS_NOT_ROLLBACK",
+  "RESET_IS_NOT_RECOVERY",
+  "CLEANUP_IS_NOT_PURGE",
+  "REPLAY_MATCHED_IS_NOT_BACKUP_OR_RESTORE",
+  "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION",
+  "NO_PILOT_OR_PRODUCTION_AUTHORIZATION"
+] as const;
+
+const teacherAdminKnownLimitIds = [
+  "ISSUE_111_OPEN",
+  "ISSUE_114_OPEN",
+  "ISSUE_115_OPEN",
+  "HUMAN_VALIDATION_WAIVED_BY_OWNER",
+  "AI_ADVISORY_ONLY",
+  "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY"
+] as const;
 
 test.afterAll(() => {
   cleanupPlaywrightStore();
@@ -73,6 +96,8 @@ async function signIn(
 async function verifyDisclosure(
   page: Page,
   expectedRoleBoundary: string,
+  expectedSemanticIds: readonly string[],
+  forbiddenSemanticIds: readonly string[] = [],
   forbiddenMarkers: readonly string[] = []
 ): Promise<void> {
   const panel = page.locator('section[aria-label="known limits product disclosure"]');
@@ -93,8 +118,13 @@ async function verifyDisclosure(
   );
   page.on("request", recordRequest);
   await panel.getByText("查看完整限制").click();
-  await expect(panel.getByText("KL-01", { exact: false })).toBeVisible();
-  await expect(panel.getByText("KL-08", { exact: false })).toBeVisible();
+  const visibleSemanticIds = await panel.locator("strong").allTextContents();
+  expect(visibleSemanticIds).toEqual(
+    expectedSemanticIds.map((semanticId) => expect.stringContaining(semanticId))
+  );
+  for (const forbiddenSemanticId of forbiddenSemanticIds) {
+    await expect(panel.getByText(forbiddenSemanticId, { exact: false })).toHaveCount(0);
+  }
   await expect(panel.getByText(expectedRoleBoundary, { exact: false })).toBeVisible();
   page.off("request", recordRequest);
   const requestCountAfter = await page.evaluate(
@@ -165,7 +195,10 @@ test("Teacher and Student consume role-safe Known Limits without formal-state mu
     username: "teacher"
   });
   const teacherDigest = await formalStateDigest(page, teacherToken, "tenant_demo");
-  await verifyDisclosure(page, "教师操作仍受现有角色权限约束");
+  await verifyDisclosure(page, "教师操作仍受现有角色权限约束", [
+    ...commonKnownLimitIds,
+    ...teacherAdminKnownLimitIds
+  ]);
   expect(await formalStateDigest(page, teacherToken, "tenant_demo")).toBe(teacherDigest);
   await attachSurfaceScreenshot(page, testInfo, "teacher-known-limits-mobile");
 
@@ -176,14 +209,20 @@ test("Teacher and Student consume role-safe Known Limits without formal-state mu
     username: "student"
   });
   const studentDigest = await formalStateDigest(page, studentToken, "tenant_demo");
-  await verifyDisclosure(page, "学习反馈不是正式成绩", [
-    "state_true",
-    "SettlementResult",
-    "canonical_evidence_digest",
-    "decision_batch_hash",
-    "json_runtime_source_digest",
-    "ParameterSet"
-  ]);
+  await verifyDisclosure(
+    page,
+    "学习反馈不是正式成绩",
+    commonKnownLimitIds,
+    teacherAdminKnownLimitIds,
+    [
+      "state_true",
+      "SettlementResult",
+      "canonical_evidence_digest",
+      "decision_batch_hash",
+      "json_runtime_source_digest",
+      "ParameterSet"
+    ]
+  );
   expect(await formalStateDigest(page, studentToken, "tenant_demo")).toBe(studentDigest);
   await attachSurfaceScreenshot(page, testInfo, "student-known-limits-mobile");
   expect(consoleErrors).toEqual([]);
@@ -201,7 +240,10 @@ test("Tenant and Platform Admin receive distinct authority-safe disclosures", as
     username: "admin"
   });
   const tenantDigest = await formalStateDigest(page, tenantToken, "tenant_demo");
-  await verifyDisclosure(page, "仅说明当前租户范围");
+  await verifyDisclosure(page, "仅说明当前租户范围", [
+    ...commonKnownLimitIds,
+    ...teacherAdminKnownLimitIds
+  ]);
   expect(await formalStateDigest(page, tenantToken, "tenant_demo")).toBe(tenantDigest);
   await attachSurfaceScreenshot(page, testInfo, "tenant-admin-known-limits-desktop");
 
@@ -212,7 +254,10 @@ test("Tenant and Platform Admin receive distinct authority-safe disclosures", as
     username: "platform"
   });
   const platformDigest = await formalStateDigest(page, platformToken, "tenant_platform");
-  await verifyDisclosure(page, "平台范围必须来自显式平台权限");
+  await verifyDisclosure(page, "平台范围必须来自显式平台权限", [
+    ...commonKnownLimitIds,
+    ...teacherAdminKnownLimitIds
+  ]);
   expect(await formalStateDigest(page, platformToken, "tenant_platform")).toBe(platformDigest);
   await attachSurfaceScreenshot(page, testInfo, "platform-admin-known-limits-desktop");
   expect(consoleErrors).toEqual([]);

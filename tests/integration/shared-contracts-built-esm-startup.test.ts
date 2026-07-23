@@ -107,7 +107,7 @@ describe("built shared-contracts Node ESM runtime", () => {
     expect(JSON.parse(probe.stdout.trim())).toEqual({
       health: "function",
       limits: "function",
-      policy: "phase4-known-limits.v1",
+      policy: "phase7-known-limits-runtime.v1",
       scenario: "function"
     });
   });
