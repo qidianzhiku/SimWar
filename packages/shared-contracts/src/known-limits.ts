@@ -1,20 +1,31 @@
-export const KNOWN_LIMITS_POLICY_VERSION = "phase4-known-limits.v1" as const;
+export const KNOWN_LIMITS_POLICY_VERSION = "phase7-known-limits-runtime.v1" as const;
 
 export type KnownLimitsRole = "teacher" | "student" | "tenant_admin" | "platform_admin";
 export type KnownLimitSemanticId =
-  | "KL-01"
-  | "KL-02"
-  | "KL-03"
-  | "KL-04"
-  | "KL-05"
-  | "KL-06"
-  | "KL-07"
-  | "KL-08";
+  | "JSON_INTERNAL_ONLY"
+  | "SYNTHETIC_ONLY"
+  | "LOOPBACK_ONLY"
+  | "POSTGRESQL_NOT_ACTIVE"
+  | "DURABLE_SETTLEMENT_NOT_PROVEN"
+  | "DURABLE_RECOVERY_NOT_PROVEN"
+  | "ABORT_IS_NOT_ROLLBACK"
+  | "RESET_IS_NOT_RECOVERY"
+  | "CLEANUP_IS_NOT_PURGE"
+  | "REPLAY_MATCHED_IS_NOT_BACKUP_OR_RESTORE"
+  | "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION"
+  | "NO_PILOT_OR_PRODUCTION_AUTHORIZATION"
+  | "ISSUE_111_OPEN"
+  | "ISSUE_114_OPEN"
+  | "ISSUE_115_OPEN"
+  | "HUMAN_VALIDATION_WAIVED_BY_OWNER"
+  | "AI_ADVISORY_ONLY"
+  | "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY";
 
 export interface KnownLimitCatalogItem {
   semantic_id: KnownLimitSemanticId;
   title: string;
   description: string;
+  visible_to: readonly KnownLimitsRole[];
 }
 
 export interface KnownLimitsProjectionItem extends KnownLimitCatalogItem {
@@ -31,46 +42,126 @@ export interface KnownLimitsProjection {
   summary: string;
 }
 
+const ALL_PRODUCT_ROLES: readonly KnownLimitsRole[] = [
+  "teacher",
+  "student",
+  "tenant_admin",
+  "platform_admin"
+];
+const PRIVILEGED_PRODUCT_ROLES: readonly KnownLimitsRole[] = [
+  "teacher",
+  "tenant_admin",
+  "platform_admin"
+];
+
 export const KNOWN_LIMITS_CATALOG: readonly KnownLimitCatalogItem[] = [
   {
-    semantic_id: "KL-01",
-    title: "仅限内部合成验证",
-    description: "当前产品表面用于内部合成验证，不代表真实教师试讲、受控试点或生产发布。"
+    semantic_id: "JSON_INTERNAL_ONLY",
+    title: "仅限 JSON 内部运行时",
+    description: "当前产品表面仅使用 JSON 内部运行时，不代表持久化运行时已经正式启用。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-02",
-    title: "JSON 仍是默认运行时",
-    description: "当前界面读取 JSON 运行时能力；该状态不代表持久化运行时已经正式启用。"
+    semantic_id: "SYNTHETIC_ONLY",
+    title: "仅限合成数据",
+    description: "当前验证与产品表面仅可使用合成或可清理数据，不代表真实客户数据可用。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-03",
-    title: "重置后数据不可保证保留",
-    description: "内部演练数据可能随环境重置而消失，不应作为长期保存或恢复依据。"
+    semantic_id: "LOOPBACK_ONLY",
+    title: "仅限本机回环网络",
+    description: "当前运行范围限于本机回环网络，不代表外部访问、受控试点或生产网络已获授权。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-04",
-    title: "回放证据不是备份",
-    description: "回放与影子回放证据只用于验证和比较，不能替代备份、恢复或灾难恢复机制。"
+    semantic_id: "POSTGRESQL_NOT_ACTIVE",
+    title: "PostgreSQL 尚未激活",
+    description: "PostgreSQL 运行时、SQL 与迁移未在当前内部产品范围内激活。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-05",
-    title: "持久化正式化尚未启用",
-    description: "数据库持久化和 durable settlement 尚未获得授权或证明。"
+    semantic_id: "DURABLE_SETTLEMENT_NOT_PROVEN",
+    title: "持久化结算尚未证明",
+    description: "当前 JSON 内部运行时不证明结算具备持久化保证。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-06",
-    title: "异常需要人工处置",
-    description: "内部演练中的异常、重置与证据差异仍需按现有运维流程人工确认。"
+    semantic_id: "DURABLE_RECOVERY_NOT_PROVEN",
+    title: "持久化恢复尚未证明",
+    description: "当前证据不证明备份、恢复或灾难恢复能力。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-07",
-    title: "不构成发布许可",
-    description: "本披露、局部测试或浏览器证据均不授予 Pilot、Production、G0 PASS 或 L1 READY。"
+    semantic_id: "ABORT_IS_NOT_ROLLBACK",
+    title: "中止不是回滚",
+    description: "ABORT 只改变受控预结算生命周期状态，不会回滚已经形成的正式事实。",
+    visible_to: ALL_PRODUCT_ROLES
   },
   {
-    semantic_id: "KL-08",
-    title: "角色边界保持生效",
-    description: "所有可见信息与可用动作仍受当前角色、租户和产品权限边界约束。"
+    semantic_id: "RESET_IS_NOT_RECOVERY",
+    title: "重置不是恢复",
+    description: "RESET 只可用于受控生命周期准备状态，不构成数据恢复或灾难恢复。",
+    visible_to: ALL_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "CLEANUP_IS_NOT_PURGE",
+    title: "清理不是通用删除",
+    description: "CLEANUP 仅处理受控合成预结算运行，不是通用数据清除能力。",
+    visible_to: ALL_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "REPLAY_MATCHED_IS_NOT_BACKUP_OR_RESTORE",
+    title: "回放匹配不是备份或恢复",
+    description: "Replay 证据用于读取、比较与验证，不能替代备份、恢复或灾难恢复机制。",
+    visible_to: ALL_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION",
+    title: "自动化验证不是真人验证",
+    description: "自动化角色与浏览器证据不能替代真人参与、真人观察或真人可用性结论。",
+    visible_to: ALL_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "NO_PILOT_OR_PRODUCTION_AUTHORIZATION",
+    title: "未授权试点或生产",
+    description: "本披露和当前内部验证不授予 Controlled Pilot 或 Production 授权。",
+    visible_to: ALL_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "ISSUE_111_OPEN",
+    title: "Issue #111 仍处于开放状态",
+    description: "当前治理连续性要求 #111 保持 OPEN；本披露不构成该 Issue 的关闭条件。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "ISSUE_114_OPEN",
+    title: "Issue #114 仍处于开放状态",
+    description: "当前治理连续性要求 #114 保持 OPEN；本披露不构成该 Issue 的关闭条件。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "ISSUE_115_OPEN",
+    title: "Issue #115 仍处于开放状态",
+    description: "当前治理连续性要求 #115 保持 OPEN；本披露不构成该 Issue 的关闭条件。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "HUMAN_VALIDATION_WAIVED_BY_OWNER",
+    title: "真人验证由 Owner 豁免",
+    description: "当前 L1 内部例外仅接受 Owner 批准的自动化替代证据，不表示真人验证已经完成。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "AI_ADVISORY_ONLY",
+    title: "AI 仅提供建议",
+    description: "AI、Agent 或自动化建议不得改写正式真值、结算结果或权限边界。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
+  },
+  {
+    semantic_id: "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY",
+    title: "仿真内核是真值权威",
+    description: "正式市场、运营、财务、评分与结算真值只能由受控仿真内核或插件路径计算。",
+    visible_to: PRIVILEGED_PRODUCT_ROLES
   }
 ] as const;
 
@@ -82,6 +173,8 @@ const ROLE_NOTES: Readonly<Record<KnownLimitsRole, string>> = {
 };
 
 export function getKnownLimitsProjection(role: KnownLimitsRole): KnownLimitsProjection {
+  const items = KNOWN_LIMITS_CATALOG.filter((item) => item.visible_to.includes(role));
+
   return {
     actor_role: role,
     allowed_actions: [],
@@ -90,8 +183,8 @@ export function getKnownLimitsProjection(role: KnownLimitsRole): KnownLimitsProj
       "This disclosure does not grant L1 readiness.",
       "This disclosure does not authorize Pilot or Production."
     ],
-    items: KNOWN_LIMITS_CATALOG.map((item) =>
-      item.semantic_id === "KL-08" ? { ...item, role_note: ROLE_NOTES[role] } : item
+    items: items.map((item, index) =>
+      index === items.length - 1 ? { ...item, role_note: ROLE_NOTES[role] } : item
     ),
     mutation_capability: "NONE",
     policy_version: KNOWN_LIMITS_POLICY_VERSION,

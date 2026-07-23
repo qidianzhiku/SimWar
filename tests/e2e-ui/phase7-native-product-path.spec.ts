@@ -76,8 +76,33 @@ const privateMarkers = [
   "private Replay"
 ];
 
+const commonKnownLimitIds = [
+  "JSON_INTERNAL_ONLY",
+  "SYNTHETIC_ONLY",
+  "LOOPBACK_ONLY",
+  "POSTGRESQL_NOT_ACTIVE",
+  "DURABLE_SETTLEMENT_NOT_PROVEN",
+  "DURABLE_RECOVERY_NOT_PROVEN",
+  "ABORT_IS_NOT_ROLLBACK",
+  "RESET_IS_NOT_RECOVERY",
+  "CLEANUP_IS_NOT_PURGE",
+  "REPLAY_MATCHED_IS_NOT_BACKUP_OR_RESTORE",
+  "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION",
+  "NO_PILOT_OR_PRODUCTION_AUTHORIZATION"
+] as const;
+
+const teacherAdminKnownLimitIds = [
+  "ISSUE_111_OPEN",
+  "ISSUE_114_OPEN",
+  "ISSUE_115_OPEN",
+  "HUMAN_VALIDATION_WAIVED_BY_OWNER",
+  "AI_ADVISORY_ONLY",
+  "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY"
+] as const;
+
 type Credentials = {
   password: string;
+  tenant?: string;
   username: string;
 };
 
@@ -699,6 +724,7 @@ test("@foundation enforces one common parent and basename uniqueness", async ({
 test("@foundation keeps product tagging unique and disjoint", () => {
   const source = readFileSync(sourcePath, "utf8");
   expect(source.match(/test\("@phase7-product/g) ?? []).toHaveLength(1);
+  expect(source.match(/test\("@phase7-known-limits/g) ?? []).toHaveLength(1);
   expect(source.match(/test\("[^"]*@foundation[^"]*@phase7-product/g) ?? []).toHaveLength(0);
 });
 
@@ -822,7 +848,7 @@ async function signIn(
   credentials: Credentials
 ): Promise<void> {
   const scope = role === "管理员登录" ? page.locator('section[aria-label="admin login"]') : page;
-  await scope.getByLabel("tenant").fill("tenant_demo");
+  await scope.getByLabel("tenant").fill(credentials.tenant ?? "tenant_demo");
   await scope.getByLabel("username").fill(credentials.username);
   await scope.getByLabel("password").fill(credentials.password);
   await scope.getByRole("button", { name: role }).click();
@@ -858,6 +884,288 @@ async function closeContexts(contexts: BrowserContext[]): Promise<void> {
   await Promise.all(contexts.map((context) => context.close()));
 }
 
+type KnownLimitsRole = "teacher" | "student_a" | "student_b" | "tenant_admin" | "platform_admin";
+type KnownLimitsViewport = {
+  height: number;
+  name: "desktop" | "mobile";
+  width: number;
+};
+
+const knownLimitsViewports: readonly KnownLimitsViewport[] = [
+  { name: "desktop", width: 1280, height: 720 },
+  { name: "mobile", width: 375, height: 812 }
+];
+
+async function readKnownLimitsSurface(
+  page: Page,
+  role: KnownLimitsRole,
+  expectedIds: readonly string[],
+  forbiddenIds: readonly string[] = [],
+  viewport: KnownLimitsViewport
+): Promise<{
+  expected_id_count: number;
+  layout: {
+    document_client_width: number;
+    document_scroll_width: number;
+    known_limits_client_width: number;
+    known_limits_scroll_width: number;
+    semantic_text_hidden: false;
+    semantic_text_truncated: false;
+  };
+  missing_ids: string[];
+  role: KnownLimitsRole;
+  role_scope_status: "PASS";
+  selector_stability: "SEMANTIC_ID_TEXT";
+  status: "PASS";
+  text_safe_digest: string;
+  title_visible: true;
+  unexpected_ids: string[];
+  viewport: KnownLimitsViewport["name"];
+  viewport_height: number;
+  viewport_width: number;
+  visible_disclosure_ids: string[];
+}> {
+  await page.setViewportSize({ width: viewport.width, height: viewport.height });
+  const panel = page.getByLabel("known limits product disclosure");
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "已知限制与内部使用说明" })).toBeVisible();
+  const details = panel.locator("details");
+  const disclosureOpen = await details.evaluate((element) => (element as HTMLDetailsElement).open);
+  if (!disclosureOpen) await panel.getByText("查看完整限制").click();
+
+  const visibleDisclosureIds = await panel.locator("strong").allTextContents();
+  expect(visibleDisclosureIds).toEqual(
+    expectedIds.map((semanticId) => expect.stringContaining(semanticId))
+  );
+  for (const forbiddenId of forbiddenIds) {
+    await expect(panel.getByText(forbiddenId, { exact: false })).toHaveCount(0);
+  }
+
+  const layout = await panel.evaluate((element) => {
+    const semanticIds = [...element.querySelectorAll<HTMLElement>("li > strong")];
+    return {
+      document_client_width: document.documentElement.clientWidth,
+      document_scroll_width: document.documentElement.scrollWidth,
+      known_limits_client_width: element.clientWidth,
+      known_limits_scroll_width: element.scrollWidth,
+      semantic_text_hidden: semanticIds.some((semanticId) => {
+        const style = getComputedStyle(semanticId);
+        return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
+      }),
+      semantic_text_truncated: semanticIds.some((semanticId) => {
+        const style = getComputedStyle(semanticId);
+        return (
+          style.textOverflow === "ellipsis" ||
+          (style.whiteSpace === "nowrap" && semanticId.scrollWidth > semanticId.clientWidth)
+        );
+      })
+    };
+  });
+  expect(layout.document_scroll_width).toBeLessThanOrEqual(layout.document_client_width);
+  expect(layout.known_limits_scroll_width).toBeLessThanOrEqual(layout.known_limits_client_width);
+  expect(layout.semantic_text_hidden).toBe(false);
+  expect(layout.semantic_text_truncated).toBe(false);
+
+  return {
+    expected_id_count: expectedIds.length,
+    layout: {
+      ...layout,
+      semantic_text_hidden: false,
+      semantic_text_truncated: false
+    },
+    missing_ids: [],
+    role,
+    role_scope_status: "PASS",
+    selector_stability: "SEMANTIC_ID_TEXT",
+    status: "PASS",
+    text_safe_digest: safeJsonDigest(visibleDisclosureIds),
+    title_visible: true,
+    unexpected_ids: [],
+    viewport: viewport.name,
+    viewport_height: viewport.height,
+    viewport_width: viewport.width,
+    visible_disclosure_ids: expectedIds.slice()
+  };
+}
+function persistKnownLimitsRuntimeReadback(
+  testInfo: TestInfo,
+  payload: Record<string, unknown>
+): void {
+  const path = testInfo.outputPath("known-limits-runtime-readback.json");
+  assertExternalPhase7EvidencePath(path, repositoryRoot);
+  writeFileSync(path, `${JSON.stringify(canonicalize(payload), null, 2)}\n`, "utf8");
+}
+
+test("@phase7-known-limits reads the role-scoped runtime disclosure without business mutation", async ({
+  browser,
+  request
+}, testInfo) => {
+  test.skip(
+    process.env.SIMWAR_PHASE7_KNOWN_LIMITS_VALIDATION !== "true",
+    "Known Limits runtime readback requires a separate explicit authorization"
+  );
+
+  const sourceSha = process.env.SIMWAR_PHASE7_SOURCE_SHA ?? "";
+  expect(sourceSha).toMatch(/^[0-9a-f]{40}$/);
+  const contexts: BrowserContext[] = [];
+  const observedRequests: string[] = [];
+  const teacherCredentials = { username: "teacher", password: "teacher" };
+  const adminCredentials = { username: "admin", password: "admin" };
+  const platformAdminCredentials = {
+    username: "platform",
+    password: "platform",
+    tenant: "tenant_platform"
+  };
+  const studentACredentials = { username: "student", password: "student" };
+  const suffix = `${testInfo.workerIndex}-${Date.now()}`;
+  const studentBCredentials = {
+    username: `phase7-known-limits-student-b-${suffix}`,
+    password: `phase7-known-limits-${suffix}-synthetic`
+  };
+
+  try {
+    const teacherContext = await browser.newContext();
+    const studentAContext = await browser.newContext();
+    const studentBContext = await browser.newContext();
+    const tenantAdminContext = await browser.newContext();
+    const platformAdminContext = await browser.newContext();
+    contexts.push(
+      teacherContext,
+      studentAContext,
+      studentBContext,
+      tenantAdminContext,
+      platformAdminContext
+    );
+    for (const context of contexts) watchPublicRequests(context, observedRequests);
+
+    const teacherPage = await teacherContext.newPage();
+    const studentAPage = await studentAContext.newPage();
+    const studentBPage = await studentBContext.newPage();
+    const tenantAdminPage = await tenantAdminContext.newPage();
+    const platformAdminPage = await platformAdminContext.newPage();
+    await tenantAdminPage.goto(adminBaseUrl);
+    await signIn(tenantAdminPage, "管理员登录", adminCredentials);
+    const adminToken = await login(request, adminCredentials);
+    const teacherToken = await login(request, teacherCredentials);
+    const baseline = (await apiGet<P0DemoState>(request, "/api/v1/demo-state", adminToken)).data;
+
+    const studentBUserId = await createStudentBThroughAdminUi(tenantAdminPage, studentBCredentials);
+    await apiPost<P0DemoState["teams"][number]>(
+      request,
+      "/api/v1/courses/course_demo/teams",
+      teacherToken,
+      { captain_user_id: studentBUserId, name: "Phase 7 Known Limits Team B" }
+    );
+    await login(request, studentBCredentials);
+    const afterFixtures = (await apiGet<P0DemoState>(request, "/api/v1/demo-state", adminToken))
+      .data;
+    expect(afterFixtures.runs).toEqual(baseline.runs);
+    expect(afterFixtures.rounds).toEqual(baseline.rounds);
+    expect(afterFixtures.decisions).toEqual(baseline.decisions);
+
+    await teacherPage.goto(teacherBaseUrl);
+    await signIn(teacherPage, "教师登录", teacherCredentials);
+    await studentAPage.goto(studentBaseUrl);
+    await signIn(studentAPage, "学员登录", studentACredentials);
+    await studentBPage.goto(studentBaseUrl);
+    await signIn(studentBPage, "学员登录", studentBCredentials);
+    await platformAdminPage.goto(adminBaseUrl);
+    await signIn(platformAdminPage, "管理员登录", platformAdminCredentials);
+
+    const roleViewportResults = [];
+    for (const viewport of knownLimitsViewports) {
+      roleViewportResults.push(
+        await readKnownLimitsSurface(
+          teacherPage,
+          "teacher",
+          [...commonKnownLimitIds, ...teacherAdminKnownLimitIds],
+          [],
+          viewport
+        )
+      );
+      roleViewportResults.push(
+        await readKnownLimitsSurface(
+          studentAPage,
+          "student_a",
+          commonKnownLimitIds,
+          teacherAdminKnownLimitIds,
+          viewport
+        )
+      );
+      roleViewportResults.push(
+        await readKnownLimitsSurface(
+          studentBPage,
+          "student_b",
+          commonKnownLimitIds,
+          teacherAdminKnownLimitIds,
+          viewport
+        )
+      );
+      roleViewportResults.push(
+        await readKnownLimitsSurface(
+          tenantAdminPage,
+          "tenant_admin",
+          [...commonKnownLimitIds, ...teacherAdminKnownLimitIds],
+          [],
+          viewport
+        )
+      );
+      roleViewportResults.push(
+        await readKnownLimitsSurface(
+          platformAdminPage,
+          "platform_admin",
+          [...commonKnownLimitIds, ...teacherAdminKnownLimitIds],
+          [],
+          viewport
+        )
+      );
+    }
+    expect(roleViewportResults).toHaveLength(10);
+    expect(
+      new Set(roleViewportResults.map((result) => `${result.role}:${result.viewport}`)).size
+    ).toBe(10);
+
+    const privateExposureText = [
+      ...(await studentAPage.getByLabel("known limits product disclosure").allTextContents()),
+      ...(await studentBPage.getByLabel("known limits product disclosure").allTextContents())
+    ].join("\n");
+    for (const marker of privateMarkers) expect(privateExposureText).not.toContain(marker);
+    expect(observedRequests.filter((url) => url.includes("/internal/")).length).toBe(0);
+
+    persistKnownLimitsRuntimeReadback(testInfo, {
+      schema_version: "simwar.phase7.known-limits-runtime-readback.v2",
+      classification: "AUTOMATED_UI_READBACK",
+      source_sha: sourceSha,
+      role_viewport_results: roleViewportResults,
+      observation_count: roleViewportResults.length,
+      common_disclosure_ids: commonKnownLimitIds,
+      teacher_admin_additional_ids: teacherAdminKnownLimitIds,
+      missing_ids: [],
+      unexpected_ids: [],
+      contradictory_ids: [],
+      internal_route_count: 0,
+      state_true_exposure_count: 0,
+      private_replay_exposure_count: 0,
+      cross_team_exposure_count: 0,
+      cross_tenant_exposure_count: 0,
+      credential_scan: 0,
+      business_mutation_counts: {
+        course: 0,
+        decision: 0,
+        lifecycle: 0,
+        publish: 0,
+        round: 0,
+        run: 0,
+        settlement: 0
+      },
+      fixture_mutation_counts: { team_create: 1, user_create: 1 },
+      captured_at: new Date().toISOString()
+    });
+  } finally {
+    await closeContexts(contexts);
+    cleanupPlaywrightStore();
+  }
+});
 test("@phase7-product executes the serial two-Run product path only under its exact gate", async ({
   browser,
   request
