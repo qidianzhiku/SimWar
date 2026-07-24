@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -184,8 +184,89 @@ function runNpmMigrationPlanCommand(args: string[]) {
   });
 }
 
-function runMigrationApplyCommand(args: string[]) {
-  return spawnSync(
+type TimedCommandResult = {
+  signal: NodeJS.Signals | null;
+  status: number | null;
+  stderr: string;
+  stdout: string;
+};
+
+function terminateChildProcessTree(child: ChildProcess): void {
+  if (process.platform !== "win32" || child.pid === undefined) {
+    child.kill();
+    return;
+  }
+
+  const terminator = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+    stdio: "ignore",
+    windowsHide: true
+  });
+  terminator.once("error", () => {
+    child.kill();
+  });
+  terminator.once("close", (status) => {
+    if (status !== 0) {
+      child.kill();
+    }
+  });
+}
+
+function runCommandWithDeadline(
+  command: string,
+  args: string[],
+  timeoutMs: number
+): Promise<TimedCommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
+    });
+    let settled = false;
+    let stderr = "";
+    let stdout = "";
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      terminateChildProcessTree(child);
+    }, timeoutMs);
+
+    const settle = (callback: () => void): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      callback();
+    };
+
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    child.once("error", (error) => {
+      settle(() => reject(error));
+    });
+    child.once("close", (status, signal) => {
+      settle(() => {
+        if (timedOut) {
+          reject(new Error(`Command did not complete within ${timeoutMs}ms.`));
+          return;
+        }
+
+        resolve({ signal, status, stderr, stdout });
+      });
+    });
+  });
+}
+
+function runMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
+  return runCommandWithDeadline(
     process.execPath,
     [
       tsxCliPath,
@@ -194,30 +275,25 @@ function runMigrationApplyCommand(args: string[]) {
       "scripts/apply-json-snapshot-migration.ts",
       ...args
     ],
-    {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    }
+    4_000
   );
 }
 
-function runNpmMigrationApplyCommand(args: string[]) {
+function runNpmMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
   if (process.platform === "win32") {
     const command = ["npm run --silent snapshot:migration:apply --", ...args].join(" ");
-    return spawnSync("cmd.exe", ["/d", "/c", command], {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    });
+    return runCommandWithDeadline("cmd.exe", ["/d", "/c", command], 4_000);
   }
 
-  return spawnSync(npmCommand, ["run", "--silent", "snapshot:migration:apply", "--", ...args], {
-    cwd: process.cwd(),
-    encoding: "utf8"
-  });
+  return runCommandWithDeadline(
+    npmCommand,
+    ["run", "--silent", "snapshot:migration:apply", "--", ...args],
+    4_000
+  );
 }
 
-function runSnapshotRestoreCommand(args: string[]) {
-  return spawnSync(
+function runSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
+  return runCommandWithDeadline(
     process.execPath,
     [
       tsxCliPath,
@@ -226,27 +302,34 @@ function runSnapshotRestoreCommand(args: string[]) {
       "scripts/restore-json-snapshot.ts",
       ...args
     ],
-    {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    }
+    4_000
   );
 }
 
-function runNpmSnapshotRestoreCommand(args: string[]) {
+function runNpmSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
   if (process.platform === "win32") {
     const command = ["npm run --silent snapshot:restore --", ...args].join(" ");
-    return spawnSync("cmd.exe", ["/d", "/c", command], {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    });
+    return runCommandWithDeadline("cmd.exe", ["/d", "/c", command], 4_000);
   }
 
-  return spawnSync(npmCommand, ["run", "--silent", "snapshot:restore", "--", ...args], {
-    cwd: process.cwd(),
-    encoding: "utf8"
-  });
+  return runCommandWithDeadline(
+    npmCommand,
+    ["run", "--silent", "snapshot:restore", "--", ...args],
+    4_000
+  );
 }
+
+describe("snapshot CLI process completion", () => {
+  it("fails a deliberately blocked child within its per-child deadline", async () => {
+    const startedAt = Date.now();
+
+    await expect(
+      runCommandWithDeadline(process.execPath, ["-e", "setInterval(() => {}, 1_000)"], 100)
+    ).rejects.toThrow("Command did not complete within 100ms.");
+
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+  }, 2_000);
+});
 
 function parseInspectionJsonOutput(output: string): SnapshotInspectionResult {
   return JSON.parse(output) as SnapshotInspectionResult;
@@ -2530,7 +2613,7 @@ describe("JSON snapshot migration apply", () => {
     expect(tempFilesFor(snapshotPath)).toEqual([]);
   });
 
-  it("prints human and JSON apply output and exposes the npm entrypoint", () => {
+  it("prints human and JSON apply output and exposes the npm entrypoint", async () => {
     const humanPath = createSnapshotPath("apply-human.json");
     const jsonPath = createSnapshotPath("apply-json.json");
     const npmPath = createSnapshotPath("apply-npm.json");
@@ -2538,9 +2621,9 @@ describe("JSON snapshot migration apply", () => {
     writeSnapshot(jsonPath, createLegacySnapshot());
     writeSnapshot(npmPath, createLegacySnapshot());
 
-    const human = runMigrationApplyCommand([humanPath]);
-    const machine = runMigrationApplyCommand(["--json", jsonPath]);
-    const npm = runNpmMigrationApplyCommand(["--json", npmPath]);
+    const human = await runMigrationApplyCommandWithDeadline([humanPath]);
+    const machine = await runMigrationApplyCommandWithDeadline(["--json", jsonPath]);
+    const npm = await runNpmMigrationApplyCommandWithDeadline(["--json", npmPath]);
     const parsed = parseMigrationApplyJsonOutput(machine.stdout);
 
     expect(human.status, `stdout:\n${human.stdout}\nstderr:\n${human.stderr}`).toBe(0);
@@ -2559,9 +2642,9 @@ describe("JSON snapshot migration apply", () => {
     expectSafeApplyOutput(human.stdout);
     expectSafeApplyOutput(machine.stdout);
     expectSafeApplyOutput(npm.stdout);
-  });
+  }, 10_000);
 
-  it("uses explicit CLI exit codes for no-op, blocked, usage, missing, and backup failures", () => {
+  it("uses explicit CLI exit codes for no-op, blocked, usage, missing, and backup failures", async () => {
     const currentPath = createSnapshotPath("apply-exit-current.json");
     const blockedPath = createSnapshotPath("apply-exit-blocked.json");
     const backupFailurePath = createSnapshotPath("apply-exit-backup-failure.json");
@@ -2572,15 +2655,21 @@ describe("JSON snapshot migration apply", () => {
     writeSnapshot(backupFailurePath, createLegacySnapshot());
     writeRaw(backupFailureTarget, "not a directory");
 
-    expect(runMigrationApplyCommand(["--json", currentPath]).status).toBe(0);
-    expect(runMigrationApplyCommand(["--json", blockedPath]).status).toBe(1);
-    expect(runMigrationApplyCommand(["--unknown", currentPath]).status).toBe(2);
-    expect(runMigrationApplyCommand(["--json", missingPath]).status).toBe(3);
+    expect((await runMigrationApplyCommandWithDeadline(["--json", currentPath])).status).toBe(0);
+    expect((await runMigrationApplyCommandWithDeadline(["--json", blockedPath])).status).toBe(1);
+    expect((await runMigrationApplyCommandWithDeadline(["--unknown", currentPath])).status).toBe(2);
+    expect((await runMigrationApplyCommandWithDeadline(["--json", missingPath])).status).toBe(3);
     expect(
-      runMigrationApplyCommand(["--json", "--backup-dir", backupFailureTarget, backupFailurePath])
-        .status
+      (
+        await runMigrationApplyCommandWithDeadline([
+          "--json",
+          "--backup-dir",
+          backupFailureTarget,
+          backupFailurePath
+        ])
+      ).status
     ).toBe(4);
-  });
+  }, 12_000);
 
   it("leaves runtime load, inspection, dry-run planning, and normal persist boundaries unchanged", () => {
     const inspectPath = createSnapshotPath("apply-inspection-boundary.json");
@@ -2864,7 +2953,7 @@ describe("JSON snapshot restore from backup", () => {
     expect(tempFilesFor(targetPath)).toEqual([]);
   });
 
-  it("prints human and JSON restore output and exposes the npm entrypoint", () => {
+  it("prints human and JSON restore output and exposes the npm entrypoint", async () => {
     const humanBackupPath = createSnapshotPath("restore-human-source.bak");
     const humanTargetPath = createSnapshotPath("restore-human-target.json");
     const jsonBackupPath = createSnapshotPath("restore-json-source.bak");
@@ -2878,9 +2967,17 @@ describe("JSON snapshot restore from backup", () => {
     writeSnapshot(npmBackupPath, createLegacySnapshot());
     writeValidSnapshot(npmTargetPath);
 
-    const human = runSnapshotRestoreCommand([humanBackupPath, humanTargetPath]);
-    const machine = runSnapshotRestoreCommand(["--json", jsonBackupPath, jsonTargetPath]);
-    const npm = runNpmSnapshotRestoreCommand(["--json", npmBackupPath, npmTargetPath]);
+    const human = await runSnapshotRestoreCommandWithDeadline([humanBackupPath, humanTargetPath]);
+    const machine = await runSnapshotRestoreCommandWithDeadline([
+      "--json",
+      jsonBackupPath,
+      jsonTargetPath
+    ]);
+    const npm = await runNpmSnapshotRestoreCommandWithDeadline([
+      "--json",
+      npmBackupPath,
+      npmTargetPath
+    ]);
     const parsed = parseSnapshotRestoreJsonOutput(machine.stdout);
 
     expect(human.status, `stdout:\n${human.stdout}\nstderr:\n${human.stderr}`).toBe(0);
@@ -2898,9 +2995,9 @@ describe("JSON snapshot restore from backup", () => {
     expectSafeRestoreOutput(human.stdout);
     expectSafeRestoreOutput(machine.stdout);
     expectSafeRestoreOutput(npm.stdout);
-  });
+  }, 10_000);
 
-  it("uses explicit CLI exit codes for success, blocked, usage, missing backup, and pre-restore backup failure", () => {
+  it("uses explicit CLI exit codes for success, blocked, usage, missing backup, and pre-restore backup failure", async () => {
     const successBackupPath = createSnapshotPath("restore-exit-success-source.bak");
     const successTargetPath = createSnapshotPath("restore-exit-success-target.json");
     const blockedBackupPath = createSnapshotPath("restore-exit-blocked-source.bak");
@@ -2917,28 +3014,54 @@ describe("JSON snapshot restore from backup", () => {
     writeValidSnapshot(preBackupFailureTarget);
     writeRaw(blockedBackupDirectory, "not a directory");
 
-    expect(runSnapshotRestoreCommand(["--json", successBackupPath, successTargetPath]).status).toBe(
-      0
-    );
-    expect(runSnapshotRestoreCommand(["--json", blockedBackupPath, blockedTargetPath]).status).toBe(
-      1
-    );
     expect(
-      runSnapshotRestoreCommand(["--unknown", successBackupPath, successTargetPath]).status
+      (
+        await runSnapshotRestoreCommandWithDeadline([
+          "--json",
+          successBackupPath,
+          successTargetPath
+        ])
+      ).status
+    ).toBe(0);
+    expect(
+      (
+        await runSnapshotRestoreCommandWithDeadline([
+          "--json",
+          blockedBackupPath,
+          blockedTargetPath
+        ])
+      ).status
+    ).toBe(1);
+    expect(
+      (
+        await runSnapshotRestoreCommandWithDeadline([
+          "--unknown",
+          successBackupPath,
+          successTargetPath
+        ])
+      ).status
     ).toBe(2);
-    expect(runSnapshotRestoreCommand(["--json", missingBackupPath, successTargetPath]).status).toBe(
-      3
-    );
     expect(
-      runSnapshotRestoreCommand([
-        "--json",
-        "--pre-restore-backup-dir",
-        blockedBackupDirectory,
-        preBackupFailureSource,
-        preBackupFailureTarget
-      ]).status
+      (
+        await runSnapshotRestoreCommandWithDeadline([
+          "--json",
+          missingBackupPath,
+          successTargetPath
+        ])
+      ).status
+    ).toBe(3);
+    expect(
+      (
+        await runSnapshotRestoreCommandWithDeadline([
+          "--json",
+          "--pre-restore-backup-dir",
+          blockedBackupDirectory,
+          preBackupFailureSource,
+          preBackupFailureTarget
+        ])
+      ).status
     ).toBe(4);
-  });
+  }, 12_000);
 
   it("leaves runtime load, inspection, dry-run, apply, and normal persist boundaries unchanged", () => {
     const inspectPath = createSnapshotPath("restore-inspection-boundary.json");
