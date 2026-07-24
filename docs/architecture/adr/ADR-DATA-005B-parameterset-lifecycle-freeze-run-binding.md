@@ -1,12 +1,12 @@
 # ADR-DATA-005B: ParameterSet Lifecycle, Approval, Freeze and Run Binding
 
-Status: PROPOSED
+Status: ACCEPTED
 
 Parent: `ADR-DATA-005`
 
-All recommendations are RECOMMENDED_NOT_ACCEPTED.
+Decision: `HUMAN_DECISION_SIMWAR_PARAMETER_SET_AUTHORITY_042_001` accepted the JSON-compatible, standalone immutable ParameterSetVersion authority on 2026-07-23.
 
-## Current Active Authority
+## Accepted Authority
 
 JSON stores `parameterSets`; the active route checks tenant and approved status
 before run creation, then binds the run to `parameter_set_id` and seed.
