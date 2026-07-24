@@ -37,8 +37,31 @@ import {
 } from "../../services/api/src/store";
 
 const tempDirs: string[] = [];
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const tsxCliPath = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+const snapshotPackageScripts = {
+  "snapshot:inspect":
+    "tsx --tsconfig scripts/tsconfig.snapshot-inspect.json scripts/inspect-json-snapshot.ts",
+  "snapshot:migration:apply":
+    "tsx --tsconfig scripts/tsconfig.snapshot-migration-apply.json scripts/apply-json-snapshot-migration.ts",
+  "snapshot:migration:plan":
+    "tsx --tsconfig scripts/tsconfig.snapshot-migration-plan.json scripts/plan-json-snapshot-migration.ts",
+  "snapshot:restore":
+    "tsx --tsconfig scripts/tsconfig.snapshot-restore.json scripts/restore-json-snapshot.ts"
+} as const;
+
+type SnapshotPackageScript = keyof typeof snapshotPackageScripts;
+
+function assertSnapshotPackageScript(script: SnapshotPackageScript): void {
+  const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+    scripts?: Record<string, unknown>;
+  };
+  const actual = packageJson.scripts?.[script];
+  const expected = snapshotPackageScripts[script];
+
+  if (actual !== expected) {
+    throw new Error(`Unexpected package.json script for ${script}.`);
+  }
+}
 
 function createTempDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "simwar-snapshot-"));
@@ -132,24 +155,16 @@ function runInspectionCommand(args: string[]) {
     ],
     {
       cwd: process.cwd(),
-      encoding: "utf8"
+      encoding: "utf8",
+      shell: false,
+      timeout: 4_000
     }
   );
 }
 
-function runNpmInspectionCommand(args: string[]) {
-  if (process.platform === "win32") {
-    const command = ["npm run --silent snapshot:inspect --", ...args].join(" ");
-    return spawnSync("cmd.exe", ["/d", "/c", command], {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    });
-  }
-
-  return spawnSync(npmCommand, ["run", "--silent", "snapshot:inspect", "--", ...args], {
-    cwd: process.cwd(),
-    encoding: "utf8"
-  });
+function runDeclaredInspectionCommand(args: string[]) {
+  assertSnapshotPackageScript("snapshot:inspect");
+  return runInspectionCommand(args);
 }
 
 function runMigrationPlanCommand(args: string[]) {
@@ -164,24 +179,16 @@ function runMigrationPlanCommand(args: string[]) {
     ],
     {
       cwd: process.cwd(),
-      encoding: "utf8"
+      encoding: "utf8",
+      shell: false,
+      timeout: 4_000
     }
   );
 }
 
-function runNpmMigrationPlanCommand(args: string[]) {
-  if (process.platform === "win32") {
-    const command = ["npm run --silent snapshot:migration:plan --", ...args].join(" ");
-    return spawnSync("cmd.exe", ["/d", "/c", command], {
-      cwd: process.cwd(),
-      encoding: "utf8"
-    });
-  }
-
-  return spawnSync(npmCommand, ["run", "--silent", "snapshot:migration:plan", "--", ...args], {
-    cwd: process.cwd(),
-    encoding: "utf8"
-  });
+function runDeclaredMigrationPlanCommand(args: string[]) {
+  assertSnapshotPackageScript("snapshot:migration:plan");
+  return runMigrationPlanCommand(args);
 }
 
 type TimedCommandResult = {
@@ -192,12 +199,22 @@ type TimedCommandResult = {
 };
 
 function terminateChildProcessTree(child: ChildProcess): void {
-  if (process.platform !== "win32" || child.pid === undefined) {
+  if (child.pid === undefined) {
     child.kill();
     return;
   }
 
+  if (process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch {
+      child.kill();
+    }
+    return;
+  }
+
   const terminator = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+    shell: false,
     stdio: "ignore",
     windowsHide: true
   });
@@ -211,14 +228,15 @@ function terminateChildProcessTree(child: ChildProcess): void {
   });
 }
 
-function runCommandWithDeadline(
-  command: string,
+function runNodeCommandWithDeadline(
   args: string[],
   timeoutMs: number
 ): Promise<TimedCommandResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawn(process.execPath, args, {
       cwd: process.cwd(),
+      detached: process.platform !== "win32",
+      shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true
     });
@@ -266,8 +284,7 @@ function runCommandWithDeadline(
 }
 
 function runMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
-  return runCommandWithDeadline(
-    process.execPath,
+  return runNodeCommandWithDeadline(
     [
       tsxCliPath,
       "--tsconfig",
@@ -279,22 +296,13 @@ function runMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedComm
   );
 }
 
-function runNpmMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
-  if (process.platform === "win32") {
-    const command = ["npm run --silent snapshot:migration:apply --", ...args].join(" ");
-    return runCommandWithDeadline("cmd.exe", ["/d", "/c", command], 4_000);
-  }
-
-  return runCommandWithDeadline(
-    npmCommand,
-    ["run", "--silent", "snapshot:migration:apply", "--", ...args],
-    4_000
-  );
+function runDeclaredMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
+  assertSnapshotPackageScript("snapshot:migration:apply");
+  return runMigrationApplyCommandWithDeadline(args);
 }
 
 function runSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
-  return runCommandWithDeadline(
-    process.execPath,
+  return runNodeCommandWithDeadline(
     [
       tsxCliPath,
       "--tsconfig",
@@ -306,17 +314,11 @@ function runSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCom
   );
 }
 
-function runNpmSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCommandResult> {
-  if (process.platform === "win32") {
-    const command = ["npm run --silent snapshot:restore --", ...args].join(" ");
-    return runCommandWithDeadline("cmd.exe", ["/d", "/c", command], 4_000);
-  }
-
-  return runCommandWithDeadline(
-    npmCommand,
-    ["run", "--silent", "snapshot:restore", "--", ...args],
-    4_000
-  );
+function runDeclaredSnapshotRestoreCommandWithDeadline(
+  args: string[]
+): Promise<TimedCommandResult> {
+  assertSnapshotPackageScript("snapshot:restore");
+  return runSnapshotRestoreCommandWithDeadline(args);
 }
 
 describe("snapshot CLI process completion", () => {
@@ -324,11 +326,34 @@ describe("snapshot CLI process completion", () => {
     const startedAt = Date.now();
 
     await expect(
-      runCommandWithDeadline(process.execPath, ["-e", "setInterval(() => {}, 1_000)"], 100)
+      runNodeCommandWithDeadline(["-e", "setInterval(() => {}, 1_000)"], 100)
     ).rejects.toThrow("Command did not complete within 100ms.");
 
     expect(Date.now() - startedAt).toBeLessThan(2_000);
   }, 2_000);
+
+  it("passes shell metacharacter snapshot paths as one npm script argument", () => {
+    const snapshotPath = createSnapshotPath("npm path & (percent%) caret^ bang!.json");
+    writeValidSnapshot(snapshotPath);
+
+    const result = runDeclaredInspectionCommand(["--json", snapshotPath]);
+
+    expect(result.status, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).toBe(0);
+    expect(parseInspectionJsonOutput(result.stdout).path).toBe(snapshotPath);
+  });
+
+  it("does not execute path-like shell syntax in npm snapshot arguments", () => {
+    const directory = createTempDir();
+    const markerPath = join(directory, "shell-injection-marker.txt");
+    const pathLikeArgument = `${join(
+      directory,
+      "missing-snapshot.json"
+    )} & echo simwar-codeql-marker>${markerPath}`;
+
+    runDeclaredInspectionCommand(["--json", pathLikeArgument]);
+
+    expect(existsSync(markerPath)).toBe(false);
+  });
 });
 
 function parseInspectionJsonOutput(output: string): SnapshotInspectionResult {
@@ -1930,7 +1955,7 @@ describe("JSON snapshot inspection dry-run", () => {
   it("exposes the npm snapshot inspection script", () => {
     const snapshotPath = createSnapshotPath("npm-script.json");
     writeValidSnapshot(snapshotPath);
-    const result = runNpmInspectionCommand(["--json", snapshotPath]);
+    const result = runDeclaredInspectionCommand(["--json", snapshotPath]);
 
     expect(result.status, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).toBe(0);
     expect(parseInspectionJsonOutput(result.stdout).status).toBe("valid_v1");
@@ -2349,7 +2374,7 @@ describe("JSON snapshot migration dry-run planner", () => {
     const snapshotPath = createSnapshotPath("npm-plan.json");
     writeValidSnapshot(snapshotPath);
 
-    const result = runNpmMigrationPlanCommand(["--json", snapshotPath]);
+    const result = runDeclaredMigrationPlanCommand(["--json", snapshotPath]);
 
     expect(result.status, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`).toBe(0);
     expect(parseMigrationPlanJsonOutput(result.stdout).status).toBe("already_current");
@@ -2623,7 +2648,7 @@ describe("JSON snapshot migration apply", () => {
 
     const human = await runMigrationApplyCommandWithDeadline([humanPath]);
     const machine = await runMigrationApplyCommandWithDeadline(["--json", jsonPath]);
-    const npm = await runNpmMigrationApplyCommandWithDeadline(["--json", npmPath]);
+    const npm = await runDeclaredMigrationApplyCommandWithDeadline(["--json", npmPath]);
     const parsed = parseMigrationApplyJsonOutput(machine.stdout);
 
     expect(human.status, `stdout:\n${human.stdout}\nstderr:\n${human.stderr}`).toBe(0);
@@ -2973,7 +2998,7 @@ describe("JSON snapshot restore from backup", () => {
       jsonBackupPath,
       jsonTargetPath
     ]);
-    const npm = await runNpmSnapshotRestoreCommandWithDeadline([
+    const npm = await runDeclaredSnapshotRestoreCommandWithDeadline([
       "--json",
       npmBackupPath,
       npmTargetPath
