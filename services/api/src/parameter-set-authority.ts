@@ -82,7 +82,10 @@ export class ParameterSetAuthorityError extends Error {
 }
 
 export interface ParameterSetRegistryPort extends ParameterSetAuthorityReadPort {
-  appendApproval(record: ParameterSetApprovalRecord): Promise<void>;
+  appendApprovedVersion(
+    version: ParameterSetVersion,
+    record: ParameterSetApprovalRecord
+  ): Promise<void>;
   appendVersion(version: ParameterSetVersion): Promise<void>;
   getByReference(
     tenantId: string,
@@ -242,7 +245,22 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   private readonly approvals: ParameterSetApprovalRecord[] = [];
   private readonly snapshots: ParameterSetVersion[] = [];
 
-  async appendApproval(record: ParameterSetApprovalRecord): Promise<void> {
+  async appendApprovedVersion(
+    version: ParameterSetVersion,
+    record: ParameterSetApprovalRecord
+  ): Promise<void> {
+    this.assertVersionAppendable(version);
+    this.assertApprovalAppendable(record);
+    this.snapshots.push(version);
+    this.approvals.push(Object.freeze({ ...record }));
+  }
+
+  async appendVersion(version: ParameterSetVersion): Promise<void> {
+    this.assertVersionAppendable(version);
+    this.snapshots.push(version);
+  }
+
+  private assertApprovalAppendable(record: ParameterSetApprovalRecord): void {
     const existing = this.approvals.find(
       (candidate) =>
         candidate.tenant_id === record.tenant_id && candidate.approval_id === record.approval_id
@@ -251,11 +269,9 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     if (existing) {
       throw new ParameterSetAuthorityError("PARAMETER_SET_VERSION_ALREADY_EXISTS");
     }
-
-    this.approvals.push(Object.freeze({ ...record }));
   }
 
-  async appendVersion(version: ParameterSetVersion): Promise<void> {
+  private assertVersionAppendable(version: ParameterSetVersion): void {
     const history = this.snapshots.filter(
       (candidate) =>
         candidate.tenant_id === version.tenant_id &&
@@ -271,10 +287,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     ) {
       throw new ParameterSetAuthorityError("PARAMETER_SET_VERSION_ALREADY_EXISTS");
     }
-
-    this.snapshots.push(version);
   }
-
   async assertBindable(tenantId: string, reference: ParameterSetReference): Promise<void> {
     const matchingIdentity = this.snapshots.filter(
       (candidate) =>
@@ -403,7 +416,8 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
     reference: ParameterSetReference,
     approvalId: string
   ): Promise<ParameterSetApprovalResult> {
-    const version = await this.transition(actor, reference, "FROZEN", "APPROVED");
+    const frozen = await this.getVersionForTransition(actor, reference, "FROZEN");
+    const version = transition(frozen, "FROZEN", "APPROVED");
     const approval_record = Object.freeze({
       approval_id: approvalId,
       approved_by: actor.actor_id,
@@ -412,7 +426,7 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
       tenant_id: actor.tenant_id
     });
 
-    await this.registry.appendApproval(approval_record);
+    await this.registry.appendApprovedVersion(version, approval_record);
     return { approval_record, version };
   }
 

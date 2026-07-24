@@ -41,14 +41,22 @@ function isNonBlankString(value: string): boolean {
 }
 
 function isExactVersion(value: string): boolean {
-  return value !== "latest" && value !== "*" && !value.includes("^") && !value.includes("~");
+  return (
+    isNonBlankString(value) &&
+    value !== "latest" &&
+    value !== "*" &&
+    !value.includes("^") &&
+    !value.includes("~")
+  );
 }
 
 function isDigest(value: string): boolean {
   return /^[a-f0-9]{64}$/.test(value);
 }
 
-export function createParameterSetReference(input: ParameterSetReferenceInput): ParameterSetReference {
+export function createParameterSetReference(
+  input: ParameterSetReferenceInput
+): ParameterSetReference {
   if (
     !isNonBlankString(input.parameter_set_id) ||
     !isExactVersion(input.version) ||

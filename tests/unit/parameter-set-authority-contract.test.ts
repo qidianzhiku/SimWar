@@ -27,5 +27,14 @@ describe("ParameterSet authority shared contract", () => {
         version: "latest"
       })
     ).toThrow(new ParameterSetAuthorityError("PARAMETER_SET_REFERENCE_INVALID"));
+    for (const version of ["", "   "]) {
+      expect(() =>
+        createParameterSetReference({
+          content_digest: "a".repeat(64),
+          parameter_set_id: "parameter_set_demo",
+          version
+        })
+      ).toThrow(new ParameterSetAuthorityError("PARAMETER_SET_REFERENCE_INVALID"));
+    }
   });
 });

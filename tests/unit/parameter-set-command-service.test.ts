@@ -113,4 +113,25 @@ describe("ParameterSetCommandService", () => {
       new ParameterSetAuthorityError("PARAMETER_SET_VALIDATION_FAILED")
     );
   });
+  it("does not leave an approved snapshot when its approval record conflicts", async () => {
+    const registry = new InMemoryJsonParameterSetRegistry();
+    const service = new ParameterSetCommandService(registry);
+    const createFrozenVersion = async (parameter_set_id: string) => {
+      const draft = await service.createDraft(actor, { ...draftInput, parameter_set_id });
+      const validated = await service.validate(actor, draft.reference);
+      return service.freeze(actor, validated.reference);
+    };
+
+    const first = await createFrozenVersion("parameter_set_first");
+    await service.approve(actor, first.reference, "approval_duplicate");
+    const second = await createFrozenVersion("parameter_set_second");
+
+    await expect(service.approve(actor, second.reference, "approval_duplicate")).rejects.toThrow(
+      new ParameterSetAuthorityError("PARAMETER_SET_VERSION_ALREADY_EXISTS")
+    );
+    await expect(service.getByReference("tenant_001", second.reference)).resolves.toMatchObject({
+      status: "FROZEN"
+    });
+    await expect(registry.listApprovalRecords("tenant_001", second.reference)).resolves.toEqual([]);
+  });
 });
