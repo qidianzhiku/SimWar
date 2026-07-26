@@ -321,6 +321,15 @@ function compareScenarioPackageVersions(
   );
 }
 
+function createScenarioPackageVersionIdentity(version: ScenarioPackageVersion): string {
+  return JSON.stringify([
+    version.tenant_id,
+    version.scenario_package_id,
+    version.version,
+    version.content_digest
+  ]);
+}
+
 function toAuthorityReadProjection(
   version: ScenarioPackageVersion
 ): ScenarioPackageAuthorityReadProjection {
@@ -464,8 +473,16 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   }
 
   async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {
-    return this.snapshots
-      .filter((candidate) => candidate.tenant_id === tenantId && candidate.status === "APPROVED")
+    const latestSnapshots = new Map<string, ScenarioPackageVersion>();
+
+    for (const candidate of this.snapshots) {
+      if (candidate.tenant_id === tenantId) {
+        latestSnapshots.set(createScenarioPackageVersionIdentity(candidate), candidate);
+      }
+    }
+
+    return [...latestSnapshots.values()]
+      .filter((candidate) => candidate.status === "APPROVED")
       .sort(compareScenarioPackageVersions)
       .map(toAuthorityReadProjection);
   }

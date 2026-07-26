@@ -533,6 +533,68 @@ describe("ScenarioPackageCommandService", () => {
     ]);
   });
 
+  it("excludes retired ScenarioPackage versions from Authority projections", async () => {
+    const { draftInput, service } = await createScenarioHarness();
+    const authorityReadService = service as unknown as {
+      listApprovedForTenant(tenantId: string): Promise<Array<{ scenario_package_id: string }>>;
+    };
+    const approved = await approveScenario(
+      service,
+      draftInput,
+      "scenario_retired",
+      "approval_retired"
+    );
+
+    await service.retire(actor, approved.version.reference);
+
+    await expect(authorityReadService.listApprovedForTenant("tenant_001")).resolves.toEqual([]);
+  });
+
+  it("returns only the current approved version after an earlier version is retired", async () => {
+    const { draftInput, service } = await createScenarioHarness();
+    const authorityReadService = service as unknown as {
+      listApprovedForTenant(tenantId: string): Promise<
+        Array<{
+          content_digest: string;
+          scenario_package_id: string;
+          status: string;
+          version: string;
+        }>
+      >;
+    };
+    const retired = await approveScenario(
+      service,
+      { ...draftInput, version: "1.0.0" },
+      "scenario_versions",
+      "approval_version_1"
+    );
+    await service.retire(actor, retired.version.reference);
+    const approved = await approveScenario(
+      service,
+      { ...draftInput, version: "2.0.0" },
+      "scenario_versions",
+      "approval_version_2"
+    );
+
+    const projections = await authorityReadService.listApprovedForTenant("tenant_001");
+
+    expect(
+      projections.map(({ content_digest, scenario_package_id, status, version }) => ({
+        content_digest,
+        scenario_package_id,
+        status,
+        version
+      }))
+    ).toEqual([
+      {
+        content_digest: approved.version.content_digest,
+        scenario_package_id: "scenario_versions",
+        status: "APPROVED",
+        version: "2.0.0"
+      }
+    ]);
+  });
+
   it("keeps Authority projection reads tenant-scoped and free of mutable scenario content", async () => {
     const { approved, service } = await createApprovedScenario();
     const authorityReadService = service as unknown as {
