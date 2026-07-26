@@ -18,6 +18,16 @@ combination of `tenant_id`, `scenario_package_id`, `version`, and
 in-memory registry; it does not activate a route, Store composition, or
 PostgreSQL authority.
 
+The Authority exposes an inactive, provider-neutral read seam for deterministic,
+tenant-scoped `APPROVED` projections. Each projection preserves the exact
+ScenarioPackage reference, ParameterSet reference, artifact policy,
+compatibility metadata, and plugin dependency references, while excluding
+scenario content and metadata. This seam is not wired into `SimWarRepositoryPorts`,
+the JSON Store, API routes, Teacher UI, or server bootstrap. Legacy Store
+scenario records must not be mapped into Authority references. PostgreSQL
+declares this formal read capability as an explicit gap until separately
+authorized.
+
 The canonical content lifecycle is:
 
 ```text

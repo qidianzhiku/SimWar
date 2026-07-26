@@ -21,6 +21,12 @@ describe("Postgres settlement read-model provider assembly", () => {
     ]);
   });
 
+  it("declares formal ScenarioPackage Authority listing as a separate Postgres capability gap", () => {
+    expect(postgresAdapterModule.POSTGRES_SCENARIO_PACKAGE_AUTHORITY_READ_CAPABILITY_GAPS).toEqual([
+      "scenarioPackageAuthority.listApprovedForTenant"
+    ]);
+  });
+
   it("creates a provider-neutral settlement read facade without write-side methods", async () => {
     const calls: string[] = [];
     const ports: SettlementReadRepositoryPorts = {

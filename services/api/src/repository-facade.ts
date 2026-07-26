@@ -15,6 +15,10 @@ import type {
   Team
 } from "@simwar/shared-contracts";
 import type {
+  ScenarioPackageAuthorityReadPort,
+  ScenarioPackageAuthorityReadProjection
+} from "@simwar/shared-contracts";
+import type {
   AuditLogQuery,
   CommitSettlementOutcomeCommand,
   RepositoryCourseReadModel,
@@ -204,6 +208,10 @@ export interface SettlementWriteRepositoryFacade {
   ): Promise<SettlementOutcomeCommitResult>;
 }
 
+export interface ScenarioPackageAuthorityReadFacade {
+  listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]>;
+}
+
 export interface RepositoryFacadeOptions {
   ports: SimWarRepositoryPorts;
 }
@@ -214,6 +222,10 @@ export interface SettlementReadRepositoryFacadeOptions {
 
 export interface SettlementWriteRepositoryFacadeOptions {
   ports: SettlementWriteRepositoryPorts;
+}
+
+export interface ScenarioPackageAuthorityReadFacadeOptions {
+  authority: ScenarioPackageAuthorityReadPort;
 }
 
 export interface JsonRepositoryFacadeOptions {
@@ -264,6 +276,19 @@ export function createSettlementWriteRepositoryFacade(
       appendAuditLog: (auditLog) => ports.auditLogs.appendAuditLog(auditLog)
     },
     commitSettlementOutcome: (command) => ports.settlementOutcome.commitSettlementOutcome(command)
+  };
+}
+
+/**
+ * Inactive provider-neutral seam for formal ScenarioPackage Authority reads.
+ * It is intentionally separate from the active repository facade and runtime
+ * provider so legacy scenario projections cannot be mistaken for Authority data.
+ */
+export function createScenarioPackageAuthorityReadFacade(
+  options: ScenarioPackageAuthorityReadFacadeOptions
+): ScenarioPackageAuthorityReadFacade {
+  return {
+    listApprovedForTenant: (tenantId) => options.authority.listApprovedForTenant(tenantId)
   };
 }
 

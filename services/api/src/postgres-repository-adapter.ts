@@ -153,6 +153,10 @@ export const POSTGRES_SCENARIO_CANDIDATE_READ_CAPABILITY_GAPS = [
   "scenarios.listScenarioPackagesForTenant"
 ] as const;
 
+export const POSTGRES_SCENARIO_PACKAGE_AUTHORITY_READ_CAPABILITY_GAPS = [
+  "scenarioPackageAuthority.listApprovedForTenant"
+] as const;
+
 export const POSTGRES_SETTLEMENT_READ_MODEL_CAPABILITY_GAPS = [
   "teams.listTeamsForRun",
   "scenarios.getScenarioPackage",

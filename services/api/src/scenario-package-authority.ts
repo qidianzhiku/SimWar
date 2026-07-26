@@ -7,6 +7,7 @@ import {
   type ParameterSetAuthorityReadPort,
   type ParameterSetReference,
   type ScenarioPackageAuthorityReadPort,
+  type ScenarioPackageAuthorityReadProjection,
   type ScenarioPackageReference
 } from "@simwar/shared-contracts";
 
@@ -309,6 +310,44 @@ function transition(
   return deepFreeze({ ...current, status: next });
 }
 
+function compareScenarioPackageVersions(
+  left: ScenarioPackageVersion,
+  right: ScenarioPackageVersion
+): number {
+  return (
+    left.scenario_package_id.localeCompare(right.scenario_package_id) ||
+    left.version.localeCompare(right.version) ||
+    left.content_digest.localeCompare(right.content_digest)
+  );
+}
+
+function createScenarioPackageVersionIdentity(version: ScenarioPackageVersion): string {
+  return JSON.stringify([
+    version.tenant_id,
+    version.scenario_package_id,
+    version.version,
+    version.content_digest
+  ]);
+}
+
+function toAuthorityReadProjection(
+  version: ScenarioPackageVersion
+): ScenarioPackageAuthorityReadProjection {
+  return deepFreeze({
+    artifact_policy: cloneValue(version.artifact_policy),
+    compatibility_metadata: cloneValue(version.compatibility_metadata),
+    content_digest: version.content_digest,
+    parameter_set_reference: createParameterSetReference(version.parameter_set_reference),
+    plugin_dependencies: cloneValue(version.plugin_dependencies),
+    reference: createScenarioPackageReference(version.reference),
+    scenario_package_id: version.scenario_package_id,
+    schema_version: version.schema_version,
+    status: "APPROVED" as const,
+    tenant_id: version.tenant_id,
+    version: version.version
+  });
+}
+
 export function calculateScenarioPackageContentDigest(input: ScenarioPackageDraftInput): string {
   const canonical = canonicalize({
     artifact_policy: input.artifact_policy,
@@ -433,6 +472,21 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     return exactHistory.at(-1) ?? null;
   }
 
+  async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {
+    const latestSnapshots = new Map<string, ScenarioPackageVersion>();
+
+    for (const candidate of this.snapshots) {
+      if (candidate.tenant_id === tenantId) {
+        latestSnapshots.set(createScenarioPackageVersionIdentity(candidate), candidate);
+      }
+    }
+
+    return [...latestSnapshots.values()]
+      .filter((candidate) => candidate.status === "APPROVED")
+      .sort(compareScenarioPackageVersions)
+      .map(toAuthorityReadProjection);
+  }
+
   async listApprovalRecords(
     tenantId: string,
     reference: ScenarioPackageReference
@@ -507,6 +561,10 @@ export class ScenarioPackageCommandService implements ScenarioPackageAuthorityRe
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageVersion | null> {
     return this.registry.getByReference(tenantId, reference);
+  }
+
+  async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {
+    return this.registry.listApprovedForTenant(tenantId);
   }
 
   async approve(
