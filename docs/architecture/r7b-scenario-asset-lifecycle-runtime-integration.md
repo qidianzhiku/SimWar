@@ -86,7 +86,7 @@ mutation_allowed = false
 
 Post-binding mutation attempts return `R7B_BOUND_SCENARIO_IMMUTABLE` and require a new scenario version.
 
-## Beijing-Yanjiao Scenario Deepening
+## Shanghai Scenario Deepening
 
 The synthetic mother scenario remains:
 
@@ -103,7 +103,7 @@ It includes:
 - one synthetic tenant and one synthetic course
 - Teacher, Student, and Tenant Admin roles
 - two synthetic teams through Golden M1 compatibility tests
-- Beijing and Yanjiao synthetic regional friction
+- Shanghai core-district and outer-ring synthetic regional friction
 - active senior, assisted living, and medical rehab segments
 - payer mix, license, service quality, staffing, and capacity constraints
 - six synthetic rounds with policy, migration, qualification, and shock contracts

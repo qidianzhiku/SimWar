@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   approveR7CCompiledScenario,
   bindR7CReleaseCandidateToRun,
-  buildR7CBeijingYanjiaoScenarioFamily,
+  buildR7CShanghaiScenarioFamily,
   compileR7CScenarioDraft,
   createR7CReleaseCandidate,
   createR7CScenarioDraft,
@@ -44,9 +44,9 @@ function compiledCrisisScenario() {
 }
 
 describe("R7-C scenario factory runtime", () => {
-  it("builds a deterministic Beijing-Yanjiao scenario family and matches the fixture", () => {
-    const first = buildR7CBeijingYanjiaoScenarioFamily();
-    const second = buildR7CBeijingYanjiaoScenarioFamily();
+  it("builds a deterministic Shanghai scenario family and matches the fixture", () => {
+    const first = buildR7CShanghaiScenarioFamily();
+    const second = buildR7CShanghaiScenarioFamily();
     const fixture = JSON.parse(
       readFileSync("contracts/fixtures/r7c-scenario-family.valid.json", "utf8")
     ) as {
@@ -56,8 +56,9 @@ describe("R7-C scenario factory runtime", () => {
     };
 
     expect(second).toEqual(first);
-    expect(first.family_id).toBe("r7c-beijing-yanjiao-eldercare-family-v1");
-    expect(first.template.template_version).toBe("r7c.beijing-yanjiao.scenario-family.v1");
+    expect(first.family_id).toBe("r7c-shanghai-eldercare-family-v2");
+    expect(first.template.template_version).toBe("r7c.shanghai.scenario-family.v2");
+    expect(JSON.stringify(first)).not.toMatch(/beijing|yanjiao/i);
     expect(first.variants.map((variant) => variant.variant_id)).toEqual([
       "base_operations",
       "payer_policy_shift",
@@ -81,7 +82,7 @@ describe("R7-C scenario factory runtime", () => {
   it("authorizes teacher-controlled draft, compile, approval, freeze, release and binding", () => {
     const compiled = compiledCrisisScenario();
 
-    expect(validateR7CScenarioFactory(buildR7CBeijingYanjiaoScenarioFamily()).errors).toEqual([]);
+    expect(validateR7CScenarioFactory(buildR7CShanghaiScenarioFamily()).errors).toEqual([]);
     expect(compiled.status).toBe("COMPILED");
     expect(compiled.variant.variant_id).toBe("crisis_shock");
     expect(compiled.validation_report).toMatchObject({
@@ -118,7 +119,7 @@ describe("R7-C scenario factory runtime", () => {
     expect(bound.run_binding).toMatchObject({
       mutation_allowed: false,
       run_id: "run_r7c_synthetic_001",
-      scenario_family_version: "r7c.beijing-yanjiao.scenario-family.v1"
+      scenario_family_version: "r7c.shanghai.scenario-family.v2"
     });
     expect(rejection).toMatchObject({
       accepted: false,
@@ -129,7 +130,7 @@ describe("R7-C scenario factory runtime", () => {
   });
 
   it("classifies invalid family contracts without scope expansion", () => {
-    const family = buildR7CBeijingYanjiaoScenarioFamily();
+    const family = buildR7CShanghaiScenarioFamily();
     const invalid = {
       ...family,
       variants: family.variants.slice(0, 2)

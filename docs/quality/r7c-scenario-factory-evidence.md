@@ -17,21 +17,21 @@ NOT_READY
 
 ## Evidence Matrix
 
-| Capability                                 | Evidence                                                        | Label                       | Result Boundary                    |
-| ------------------------------------------ | --------------------------------------------------------------- | --------------------------- | ---------------------------------- |
-| Scenario Family V1                         | `buildR7CBeijingYanjiaoScenarioFamily`                          | `CONTRACT_BACKED_EVIDENCE`  | synthetic-only family              |
-| Scenario Registry                          | `createR7CScenarioRegistry`                                     | `CONTRACT_BACKED_EVIDENCE`  | no store write                     |
-| Teacher authoring                          | `createR7CScenarioDraft` through release candidate              | `UNIT_TEST_EVIDENCE`        | teacher authority only             |
-| Compile determinism                        | repeated family and shadow arena equality assertions            | `UNIT_TEST_EVIDENCE`        | deterministic synthetic inputs     |
-| Validation failure classification          | invalid family test                                             | `UNIT_TEST_EVIDENCE`        | no scope expansion                 |
-| Freeze immutability                        | bound mutation rejection                                        | `UNIT_TEST_EVIDENCE`        | requires new version               |
-| Scenario / parameter / plugin / shock diff | `buildR7CScenarioDiffAndTrace`                                  | `UNIT_TEST_EVIDENCE`        | redacted evidence only             |
-| Shadow Arena Batch                         | `buildR7CShadowArenaBatch`                                      | `SHADOW_ARENA_EVIDENCE`     | candidate evidence only            |
-| Golden M1 compatibility                    | `tests/integration/r7c-golden-m1-runtime-compatibility.test.ts` | `INTEGRATION_TEST_EVIDENCE` | existing engine path only          |
-| R3 tenant/projection compatibility         | projection and cross-tenant assertions                          | `INTEGRATION_TEST_EVIDENCE` | no route mutation                  |
-| Student negative visibility                | private marker assertions                                       | `INTEGRATION_TEST_EVIDENCE` | redacted scenario observation only |
-| Browser smoke                              | `tests/e2e-ui/r7c-scenario-factory-browser-smoke.spec.ts`       | `E2E_BROWSER`               | partial browser projection proof   |
-| R4 Discovery                               | `docs/architecture/r4-discovery-parity-gap-directory.md`        | `SOURCE_ONLY_INFERENCE`     | no R4 Macro                        |
+| Capability                                 | Evidence                                                        | Label                       | Result Boundary                     |
+| ------------------------------------------ | --------------------------------------------------------------- | --------------------------- | ----------------------------------- |
+| Shanghai Scenario Family V2                | `buildR7CShanghaiScenarioFamily`                                | `CONTRACT_BACKED_EVIDENCE`  | synthetic-only, uncalibrated family |
+| Scenario Registry                          | `createR7CScenarioRegistry`                                     | `CONTRACT_BACKED_EVIDENCE`  | no store write                      |
+| Teacher authoring                          | `createR7CScenarioDraft` through release candidate              | `UNIT_TEST_EVIDENCE`        | teacher authority only              |
+| Compile determinism                        | repeated family and shadow arena equality assertions            | `UNIT_TEST_EVIDENCE`        | deterministic synthetic inputs      |
+| Validation failure classification          | invalid family test                                             | `UNIT_TEST_EVIDENCE`        | no scope expansion                  |
+| Freeze immutability                        | bound mutation rejection                                        | `UNIT_TEST_EVIDENCE`        | requires new version                |
+| Scenario / parameter / plugin / shock diff | `buildR7CScenarioDiffAndTrace`                                  | `UNIT_TEST_EVIDENCE`        | redacted evidence only              |
+| Shadow Arena Batch                         | `buildR7CShadowArenaBatch`                                      | `SHADOW_ARENA_EVIDENCE`     | candidate evidence only             |
+| Golden M1 compatibility                    | `tests/integration/r7c-golden-m1-runtime-compatibility.test.ts` | `INTEGRATION_TEST_EVIDENCE` | existing engine path only           |
+| R3 tenant/projection compatibility         | projection and cross-tenant assertions                          | `INTEGRATION_TEST_EVIDENCE` | no route mutation                   |
+| Student negative visibility                | private marker assertions                                       | `INTEGRATION_TEST_EVIDENCE` | redacted scenario observation only  |
+| Browser smoke                              | `tests/e2e-ui/r7c-scenario-factory-browser-smoke.spec.ts`       | `E2E_BROWSER`               | partial browser projection proof    |
+| R4 Discovery                               | `docs/architecture/r4-discovery-parity-gap-directory.md`        | `SOURCE_ONLY_INFERENCE`     | no R4 Macro                         |
 
 ## Validation Commands
 

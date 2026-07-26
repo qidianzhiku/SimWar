@@ -73,7 +73,7 @@ describe("R7-B scenario diff, trace, and visibility", () => {
           ...compiled.asset.scenario_package.plugin_package_ids,
           "plugin_wellness_eldercare_v1_observer"
         ],
-        version: "2.0.0"
+        version: "2.1.0"
       },
       shock_timeline: compiled.asset.shock_timeline.map((shock, index) =>
         index === 5

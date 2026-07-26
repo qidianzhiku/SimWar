@@ -36,7 +36,7 @@ NOT_AUTHORIZED
 | 项                   | 值                                                        |
 | -------------------- | --------------------------------------------------------- |
 | Course Blueprint     | `course-blueprint-r7c-golden-m1-v1`                       |
-| Scenario Family      | `r7c-beijing-yanjiao-eldercare-family-v1`                 |
+| Scenario Family      | `r7c-shanghai-eldercare-family-v2`                        |
 | Scenario Variant     | `base_operations`                                         |
 | Required asset state | `APPROVED -> FROZEN -> RELEASE_CANDIDATE -> BOUND_TO_RUN` |
 | Teams                | `Course Delivery Alpha`, `Course Delivery Beta`           |

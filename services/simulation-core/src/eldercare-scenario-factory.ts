@@ -24,9 +24,9 @@ import {
   type R7BShadowReplayEvidence
 } from "./eldercare-scenario-lifecycle.js";
 
-export const R7C_SCENARIO_FACTORY_COMPILER_VERSION = "r7c.scenario-factory.compiler.v1";
-export const R7C_SCENARIO_FACTORY_TEMPLATE_VERSION = "r7c.beijing-yanjiao.scenario-family.v1";
-export const R7C_SCENARIO_FACTORY_SEED = 7070715;
+export const R7C_SCENARIO_FACTORY_COMPILER_VERSION = "r7c.shanghai.scenario-factory.compiler.v2";
+export const R7C_SCENARIO_FACTORY_TEMPLATE_VERSION = "r7c.shanghai.scenario-family.v2";
+export const R7C_SCENARIO_FACTORY_SEED = 2026072602;
 
 export type R7CScenarioFactoryStatus =
   | "REGISTRY_READY"
@@ -53,7 +53,7 @@ export interface R7CScenarioFactoryActor extends R7BScenarioActor {
 }
 
 export interface R7CScenarioTemplate {
-  template_id: "r7c-beijing-yanjiao-eldercare-template-v1";
+  template_id: "r7c-shanghai-eldercare-template-v2";
   template_version: typeof R7C_SCENARIO_FACTORY_TEMPLATE_VERSION;
   compiler_version: typeof R7C_SCENARIO_FACTORY_COMPILER_VERSION;
   seed: typeof R7C_SCENARIO_FACTORY_SEED;
@@ -86,8 +86,8 @@ export interface R7CScenarioVariant {
 }
 
 export interface R7CScenarioFamily {
-  family_id: "r7c-beijing-yanjiao-eldercare-family-v1";
-  family_version: "1.0.0";
+  family_id: "r7c-shanghai-eldercare-family-v2";
+  family_version: "2.0.0";
   tenant_id: string;
   course_id: string;
   template: R7CScenarioTemplate;
@@ -326,13 +326,13 @@ function createVariant(
     deterministic_seed: R7C_SCENARIO_FACTORY_SEED + index,
     expected_learning_signal: `${title} classroom-only learning signal`,
     migration_rule_ids: [`migration_round_${index + 1}`],
-    parameter_version: `r7c.eldercare.parameters.${index + 1}.v1`,
+    parameter_version: `r7c.shanghai.eldercare.parameters.${index + 1}.v2`,
     plugin_version: "plugin_wellness_eldercare_v1@1.0.0",
     policy_rule_ids: [`policy_round_${index + 1}`],
     private_assumption_ref: `r7c.private.assumption.${variant_id}`,
     qualification_rule_ids: [`qualification_round_${index + 1}`],
     release_eligibility: "candidate_only",
-    scenario_version: `r7c.${variant_id}.v1`,
+    scenario_version: `r7c.shanghai.${variant_id}.v2`,
     shock_ids: [`shock_round_${index + 1}`],
     synthetic_only: true,
     teaching_objective: teachingObjective,
@@ -348,8 +348,8 @@ function scenarioFamilyWithoutHash(
   return {
     course_id: courseId,
     direct_store_delta: "NONE",
-    family_id: "r7c-beijing-yanjiao-eldercare-family-v1",
-    family_version: "1.0.0",
+    family_id: "r7c-shanghai-eldercare-family-v2",
+    family_version: "2.0.0",
     formal_truth_write: false,
     postgresql_runtime_required: false,
     replay_writes_formal_results: false,
@@ -366,7 +366,7 @@ function scenarioFamilyWithoutHash(
         "NOT_FOR_PUBLIC_POLICY_DECISION",
         "NOT_FOR_INVESTMENT_DECISION"
       ],
-      template_id: "r7c-beijing-yanjiao-eldercare-template-v1",
+      template_id: "r7c-shanghai-eldercare-template-v2",
       template_version: R7C_SCENARIO_FACTORY_TEMPLATE_VERSION
     },
     tenant_id: tenantId,
@@ -387,7 +387,7 @@ function scenarioFamilyWithoutHash(
         "regional_migration",
         2,
         "Regional migration friction",
-        "Beijing-Yanjiao commute and family visit friction"
+        "Shanghai intra-city travel and family visit friction"
       ),
       createVariant(
         "competition_entry",
@@ -405,7 +405,7 @@ function scenarioFamilyWithoutHash(
   };
 }
 
-export function buildR7CBeijingYanjiaoScenarioFamily(
+export function buildR7CShanghaiScenarioFamily(
   tenantId = "tenant_r7c_synthetic",
   courseId = "course_r7c_synthetic"
 ): R7CScenarioFamily {
@@ -425,7 +425,7 @@ export function createR7CScenarioRegistry(options: {
     options.actor.course_id ?? "course_r7c_synthetic",
     options.actor
   );
-  const family = buildR7CBeijingYanjiaoScenarioFamily(
+  const family = buildR7CShanghaiScenarioFamily(
     options.actor.tenant_id,
     options.actor.course_id ?? "course_r7c_synthetic"
   );

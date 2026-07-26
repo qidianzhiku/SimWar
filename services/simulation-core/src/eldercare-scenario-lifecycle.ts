@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import type { ParameterSet, ScenarioPackage, SettlementResult } from "@simwar/shared-contracts";
 import {
-  compileBeijingYanjiaoEldercareScenarioAsset,
+  compileShanghaiEldercareScenarioAsset,
   type EldercareScenarioAsset,
   type EldercareScenarioRound
 } from "./eldercare-scenario-compiler.js";
 
-export const R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION = "r7b.eldercare.lifecycle-compiler.v1";
-export const R7B_SCENARIO_TEMPLATE_VERSION = "r7b.beijing-yanjiao.mother-scenario.v1";
-export const R7B_SCENARIO_SEED = 7070714;
+export const R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION =
+  "r7b.shanghai.eldercare.lifecycle-compiler.v2";
+export const R7B_SCENARIO_TEMPLATE_VERSION = "r7b.shanghai.mother-scenario.v2";
+export const R7B_SCENARIO_SEED = 2026072601;
 
 export type R7BScenarioLifecycleStatus =
   | "DRAFT"
@@ -147,7 +148,7 @@ export interface R7BScenarioRound extends EldercareScenarioRound {
 }
 
 export interface R7BScenarioLifecycleAsset {
-  asset_id: "r7b-beijing-yanjiao-eldercare-scenario-lifecycle-v1";
+  asset_id: "r7b-shanghai-eldercare-scenario-lifecycle-v2";
   asset_hash: string;
   source_r7a_asset_hash: string;
   compiler_version: typeof R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION;
@@ -584,19 +585,19 @@ function makeScenarioTrace(asset: EldercareScenarioAsset): R7BScenarioTrace[] {
 }
 
 function makeAsset(): R7BScenarioLifecycleAsset {
-  const r7aAsset = compileBeijingYanjiaoEldercareScenarioAsset();
+  const r7aAsset = compileShanghaiEldercareScenarioAsset();
   const assetWithoutHash = {
-    asset_id: "r7b-beijing-yanjiao-eldercare-scenario-lifecycle-v1" as const,
+    asset_id: "r7b-shanghai-eldercare-scenario-lifecycle-v2" as const,
     compiler_version:
       R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION as typeof R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION,
     direct_store_delta: "NONE" as const,
     formal_truth_write: false as const,
     parameter_set: {
       ...r7aAsset.parameter_set,
-      parameter_set_id: "parameter_r7b_eldercare_lifecycle_v1",
+      parameter_set_id: "parameter_r7b_shanghai_eldercare_lifecycle_v2",
       seed: R7B_SCENARIO_SEED,
       tenant_id: "tenant_r7b_synthetic",
-      version: "r7b.eldercare.parameters.v1"
+      version: "r7b.shanghai.eldercare.parameters.v2"
     },
     plugin_trace_refs: [
       "eldercare.segment-demand.v1",
@@ -611,10 +612,10 @@ function makeAsset(): R7BScenarioLifecycleAsset {
     rounds: makeR7BRounds(r7aAsset.rounds),
     scenario_package: {
       ...r7aAsset.scenario_package,
-      name: "R7-B Beijing-Yanjiao Eldercare Scenario Lifecycle Asset",
-      scenario_package_id: "scenario_r7b_beijing_yanjiao_eldercare_lifecycle_v1",
+      name: "R7-B Shanghai Eldercare Scenario Lifecycle Asset",
+      scenario_package_id: "scenario_r7b_shanghai_eldercare_lifecycle_v2",
       tenant_id: "tenant_r7b_synthetic",
-      version: "1.0.0"
+      version: "2.0.0"
     },
     scenario_trace: makeScenarioTrace(r7aAsset),
     seed: R7B_SCENARIO_SEED as typeof R7B_SCENARIO_SEED,
@@ -666,7 +667,7 @@ function makeRecord(
     compiler_version: R7B_SCENARIO_LIFECYCLE_COMPILER_VERSION,
     course_id: actor.course_id ?? "course_r7b_synthetic",
     input_hash: inputHash,
-    lifecycle_id: "lifecycle_r7b_beijing_yanjiao_eldercare_v1",
+    lifecycle_id: "lifecycle_r7b_shanghai_eldercare_v2",
     output_hash: outputHash,
     plugin_version: "plugin_wellness_eldercare_v1@1.0.0",
     scenario_version: asset.scenario_package.version,

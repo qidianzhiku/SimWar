@@ -1,6 +1,6 @@
 import type { Decision, Round, Run, Team } from "@simwar/shared-contracts";
 import { describe, expect, it } from "vitest";
-import { compileBeijingYanjiaoEldercareScenarioAsset } from "../../services/simulation-core/src/eldercare-scenario-compiler";
+import { compileShanghaiEldercareScenarioAsset } from "../../services/simulation-core/src/eldercare-scenario-compiler";
 import { createToyLogitEngine } from "../../services/simulation-core/src/toy-logit-engine";
 
 function team(team_id: string, name: string): Team {
@@ -39,7 +39,7 @@ function decision(team_id: string, price: number, serviceQualityBudget: number):
 
 describe("R7-A eldercare asset compatibility with Golden M1 settlement boundary", () => {
   it("can be consumed as a candidate scenario asset without widening student visibility", () => {
-    const asset = compileBeijingYanjiaoEldercareScenarioAsset();
+    const asset = compileShanghaiEldercareScenarioAsset();
     const run: Run = {
       course_id: "course_r7a",
       parameter_set_id: asset.parameter_set.parameter_set_id,

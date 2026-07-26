@@ -153,7 +153,7 @@ describe("R7-C scenario factory compatibility with Golden M1 and R3 boundaries",
     expect(first.team_results).toHaveLength(2);
     expect(candidate.run_binding).toMatchObject({
       mutation_allowed: false,
-      scenario_family_version: "r7c.beijing-yanjiao.scenario-family.v1"
+      scenario_family_version: "r7c.shanghai.scenario-family.v2"
     });
     expect(shadowArena.official_result_non_overwrite).toBe(true);
     expect(shadowArena.replay_writes_formal_results).toBe(false);

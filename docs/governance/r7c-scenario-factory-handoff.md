@@ -22,7 +22,7 @@ This handoff prepares the `R7-C` pull request for independent evidence review. I
 | PR file scope           | R7-C simulation-core source, exports, fixture, tests, docs and R4 Discovery doc update only            |
 | Package integrity       | No `package.json` or `package-lock.json` changes                                                       |
 | Runtime scope           | No service, server, route, auth, schema, OpenAPI, database, migration, workflow or direct-store change |
-| Scenario Family         | five Beijing-Yanjiao synthetic variants with deterministic seeds                                       |
+| Scenario Family         | five Shanghai synthetic variants with deterministic seeds                                              |
 | Registry scope          | Teacher-visible, Student-hidden, Tenant Admin tenant-scoped                                            |
 | Authoring state machine | draft, compile, validate, approve, freeze, release candidate, bind                                     |
 | Freeze immutability     | bound scenario mutation rejected and requires new scenario version                                     |
