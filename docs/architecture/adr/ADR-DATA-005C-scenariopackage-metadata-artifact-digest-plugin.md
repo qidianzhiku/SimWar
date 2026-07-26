@@ -1,49 +1,89 @@
 # ADR-DATA-005C: ScenarioPackage Metadata, Artifact, Digest and Plugin Dependency
 
-Status: PROPOSED
+Status: ACCEPTED
 
 Parent: `ADR-DATA-005`
 
-All recommendations are RECOMMENDED_NOT_ACCEPTED.
+Decision: `HUMAN_DECISION_SIMWAR_SCENARIOPACKAGE_AUTHORITY_043A_001` accepted
+Option A on 2026-07-26.
 
-## Current Active Authority
+## Accepted Authority
 
-JSON stores `scenarios`; the JSON adapter resolves ScenarioPackage by tenant and
-package id. Courses and runs carry `scenario_package_id`. PostgreSQL stores
-references but has no accepted ScenarioPackage authority, digest policy, or
-plugin mapping.
+`ScenarioPackageVersion` is the canonical aggregate. Its identity is the exact
+combination of `tenant_id`, `scenario_package_id`, `version`, and
+`content_digest`.
 
-## Open Authority Boundary
+`ScenarioPackageCommandService` is the sole formal writer through
+`ScenarioPackageRegistryPort`. The current foundation uses a JSON-compatible
+in-memory registry; it does not activate a route, Store composition, or
+PostgreSQL authority.
 
-ScenarioPackage controls teaching context and may carry immutable payloads. It
-can affect Replay and plugin compatibility but must not move truth writing
-outside Core Simulation Engine.
+The canonical content lifecycle is:
 
-## Candidate Target Direction
+```text
+DRAFT -> VALIDATED -> FROZEN -> APPROVED -> RETIRED
+```
 
-RECOMMENDED_NOT_ACCEPTED: PostgreSQL should own ScenarioPackage metadata, tenant
-scope, version, status, schema version, digest, approval state, artifact
-reference, and PluginPackage dependency if the parent ADR accepts Option A.
+Lifecycle snapshots and approval records are append-only. Approval atomically
+appends the `APPROVED` snapshot and its approval record. `APPROVED` content is
+immutable. `RETIRED` versions remain historically readable but cannot be used
+for new binding.
 
-Large payloads may live behind immutable artifact boundary. PostgreSQL would
-reference artifacts, not necessarily store them inline.
+## Content Digest
 
-## Human Decisions Required
+The stable SHA-256 `content_digest` includes:
 
-- Is ScenarioPackage immutable after publication?
-- Are semantic version and content hash both required?
-- Does it depend on PluginPackage version and compatibility rules?
-- Are metadata and payload separated?
-- What owns URI, digest, status, approval, withdrawal, deprecation, rollback?
-- Does a bound Run permanently reference the historical version?
-- Do deprecated or retired packages remain replayable?
+- tenant, package, and exact version identity;
+- schema version and generic scenario content;
+- immutable metadata and artifact policy;
+- compatibility metadata;
+- exact `ParameterSetReference`;
+- PluginPackage compatibility references.
 
-## Non-Goals
+The digest excludes lifecycle status, approval metadata, actors, timestamps,
+runtime correlation state, Store state, Replay results, and settlement results.
+Object-key insertion order cannot change the digest.
 
-No object storage deployment, schema, SQL, migration, adapter implementation,
-or Plugin runtime is decided here.
+ScenarioPackage digest is not a Replay hash, truth hash, or settlement proof.
 
-## Stop Condition
+## ParameterSet Boundary
 
-Do not design ScenarioPackage schema or replace JSON scenario reads before
-human acceptance.
+ScenarioPackage directly reuses the existing `ParameterSetReference` contract.
+Only an exact, currently bindable approved ParameterSet reference may be
+accepted for a new package or final approval.
+
+ScenarioPackage does not embed ParameterSet business values, calculate a
+ParameterSet digest, mutate ParameterSet, or introduce a second ParameterSet
+writer.
+
+## Metadata, Artifact, and Plugin Boundary
+
+Generic scenario content remains industry-neutral so a later deep eldercare
+scenario can be represented without hard-coding eldercare fields into the
+authority service.
+
+Inline content and immutable artifact references share the same identity
+policy. An immutable artifact reference requires a lowercase SHA-256 digest.
+Plugin dependencies are compatibility references only. PluginPackage lifecycle
+and runtime authority remain deferred.
+
+## Run, Replay, and Truth Boundary
+
+This decision reserves only an exact historical reference seam. It does not
+bind a Run, change Run lifecycle, execute Replay, change Replay hash semantics,
+or overwrite an official result.
+
+Core Simulation Engine remains the only L1-L3 truth authority. ScenarioPackage
+cannot write `state_true`, `SettlementResult`, score, rank, or a finance ledger.
+
+## Explicit Non-Goals
+
+- no HTTP or BFF mutation route;
+- no active Store or RepositoryFacade composition;
+- no Scenario Factory runtime activation;
+- no Run binding or Replay execution;
+- no Plugin runtime;
+- no object storage deployment;
+- no PostgreSQL, SQL, migration, or RLS;
+- no deep eldercare scenario content;
+- no Human Validation, Pilot, or Production authorization.
