@@ -1501,3 +1501,4 @@ export * from "./scenario-bff-endpoint-contract.js";
 export * from "./scenario-bff-endpoint-implementation-gate.js";
 
 export * from "./parameter-set-authority.js";
+export * from "./scenario-package-authority.js";
