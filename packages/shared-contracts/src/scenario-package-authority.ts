@@ -1,3 +1,5 @@
+import type { ParameterSetReference } from "./parameter-set-authority.js";
+
 export const SCENARIO_PACKAGE_AUTHORITY_FAILURE_CODES = [
   "NOT_FOUND",
   "TENANT_SCOPE_VIOLATION",
@@ -23,9 +25,37 @@ export interface ScenarioPackageReferenceInput {
   version: string;
 }
 
+export interface ScenarioPackageAuthorityArtifactPolicyProjection {
+  artifact_digest?: string;
+  artifact_media_type?: string;
+  artifact_reference?: string;
+  mode: "INLINE" | "IMMUTABLE_REFERENCE";
+  retention: "IMMUTABLE";
+}
+
+export interface ScenarioPackageAuthorityPluginDependencyProjection {
+  plugin_package_id: string;
+  version: string;
+}
+
+export interface ScenarioPackageAuthorityReadProjection {
+  artifact_policy: Readonly<ScenarioPackageAuthorityArtifactPolicyProjection>;
+  compatibility_metadata: Readonly<Record<string, string>>;
+  content_digest: string;
+  parameter_set_reference: ParameterSetReference;
+  plugin_dependencies: readonly Readonly<ScenarioPackageAuthorityPluginDependencyProjection>[];
+  reference: ScenarioPackageReference;
+  scenario_package_id: string;
+  schema_version: string;
+  status: "APPROVED";
+  tenant_id: string;
+  version: string;
+}
+
 export interface ScenarioPackageAuthorityReadPort {
   assertBindable(tenantId: string, reference: ScenarioPackageReference): Promise<void>;
   getByReference(tenantId: string, reference: ScenarioPackageReference): Promise<unknown | null>;
+  listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]>;
 }
 
 export class ScenarioPackageAuthorityError extends Error {

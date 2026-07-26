@@ -8,6 +8,7 @@ import {
   createJsonRepositoryFacade,
   createRepositoryFacade
 } from "../../services/api/src/repository-facade.js";
+import * as repositoryFacadeModule from "../../services/api/src/repository-facade.js";
 import type { SimWarStore } from "../../services/api/src/store.js";
 
 function createMockPorts(): SimWarRepositoryPorts {
@@ -338,5 +339,58 @@ describe("repository facade", () => {
     const facade = createJsonRepositoryFacade({ store });
 
     await expect(facade.identity.getTenant("missing-tenant")).resolves.toBeNull();
+  });
+
+  it("exposes an inactive ScenarioPackage Authority read facade without write methods", async () => {
+    const authority = {
+      assertBindable: vi.fn(async () => undefined),
+      getByReference: vi.fn(async () => null),
+      listApprovedForTenant: vi.fn(async (tenantId: string) => [
+        {
+          content_digest: "a".repeat(64),
+          reference: {
+            content_digest: "a".repeat(64),
+            scenario_package_id: "scenario-1",
+            tenant_id: tenantId,
+            version: "1.0.0"
+          },
+          scenario_package_id: "scenario-1",
+          status: "APPROVED"
+        }
+      ])
+    };
+    const createAuthorityReadFacade = (
+      repositoryFacadeModule as unknown as {
+        createScenarioPackageAuthorityReadFacade?: (options: { authority: typeof authority }) => {
+          listApprovedForTenant(tenantId: string): Promise<unknown[]>;
+        };
+      }
+    ).createScenarioPackageAuthorityReadFacade;
+
+    expect(createAuthorityReadFacade).toBeTypeOf("function");
+    if (!createAuthorityReadFacade) {
+      return;
+    }
+
+    const facade = createAuthorityReadFacade({ authority });
+
+    await expect(facade.listApprovedForTenant("tenant-1")).resolves.toEqual([
+      {
+        content_digest: "a".repeat(64),
+        reference: {
+          content_digest: "a".repeat(64),
+          scenario_package_id: "scenario-1",
+          tenant_id: "tenant-1",
+          version: "1.0.0"
+        },
+        scenario_package_id: "scenario-1",
+        status: "APPROVED"
+      }
+    ]);
+    expect(authority.listApprovedForTenant).toHaveBeenCalledWith("tenant-1");
+    expect(authority.assertBindable).not.toHaveBeenCalled();
+    expect(authority.getByReference).not.toHaveBeenCalled();
+    expect(facade).not.toHaveProperty("createDraft");
+    expect(facade).not.toHaveProperty("appendVersion");
   });
 });
