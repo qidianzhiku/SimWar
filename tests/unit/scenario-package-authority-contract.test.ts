@@ -37,13 +37,48 @@ describe("ScenarioPackage authority shared contract", () => {
   });
 
   it("rejects blank, floating, wildcard and range versions", () => {
-    for (const version of ["", "   ", "latest", "*", "^1.0.0", "~1.0.0"]) {
+    for (const version of [
+      "",
+      "   ",
+      " 1.0.0",
+      "1.0.0 ",
+      "latest",
+      "next",
+      "*",
+      "1.x",
+      "1.2.x",
+      "1.X",
+      "^1.0.0",
+      "~1.0.0",
+      ">1.0.0",
+      ">=1.0.0",
+      "<2.0.0",
+      "<=2.0.0",
+      "=1.0.0",
+      "1.0.0 || 2.0.0",
+      "1.0.0,2.0.0",
+      "1.0.0 2.0.0",
+      "1.0.0 - 2.0.0",
+      "v1.0.0",
+      "1.0.0/2"
+    ]) {
       expect(() =>
         createScenarioPackageReference({
           ...validInput,
           version
         })
       ).toThrow(new ScenarioPackageAuthorityError("SCENARIO_PACKAGE_REFERENCE_INVALID"));
+    }
+  });
+
+  it("accepts single exact immutable version tokens", () => {
+    for (const version of ["1.0.0", "1.2.3", "1.2.3-alpha.1", "1.2.3+build.7", "2026.07.1"]) {
+      expect(
+        createScenarioPackageReference({
+          ...validInput,
+          version
+        }).version
+      ).toBe(version);
     }
   });
 

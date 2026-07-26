@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import {
+  TRUTH_PROTECTED_FIELDS,
   createParameterSetReference,
   createScenarioPackageReference,
+  isExactVersion,
   type ParameterSetAuthorityReadPort,
   type ParameterSetReference,
   type ScenarioPackageAuthorityReadPort,
@@ -130,12 +132,10 @@ export interface ScenarioPackageRegistryPort extends ScenarioPackageAuthorityRea
 }
 
 const FORBIDDEN_SCENARIO_CONTENT_KEYS = new Set([
+  ...TRUTH_PROTECTED_FIELDS,
   "SettlementResult",
   "parameter_values",
-  "rank",
   "replay_hash",
-  "score",
-  "state_true",
   "truth_hash"
 ]);
 
@@ -186,16 +186,6 @@ function deepFreeze<T>(value: T): T {
 
 function isNonBlankString(value: string): boolean {
   return value.trim().length > 0;
-}
-
-function isExactVersion(value: string): boolean {
-  return (
-    isNonBlankString(value) &&
-    value !== "latest" &&
-    value !== "*" &&
-    !value.includes("^") &&
-    !value.includes("~")
-  );
 }
 
 function createImmutableVersion(

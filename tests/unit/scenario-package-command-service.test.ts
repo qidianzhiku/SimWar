@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TRUTH_PROTECTED_FIELDS } from "../../packages/shared-contracts/src/index";
 import {
   InMemoryJsonParameterSetRegistry,
   ParameterSetCommandService,
@@ -362,6 +363,75 @@ describe("ScenarioPackageCommandService", () => {
       new ScenarioPackageAuthorityError("SCENARIO_PACKAGE_VALIDATION_FAILED")
     );
   });
+
+  it("rejects floating and range plugin dependency versions", async () => {
+    for (const version of [
+      "latest",
+      "next",
+      "*",
+      "1.x",
+      "1.2.x",
+      "1.X",
+      "^1.0.0",
+      "~1.0.0",
+      ">1.0.0",
+      ">=1.0.0",
+      "<2.0.0",
+      "<=2.0.0",
+      "=1.0.0",
+      "1.0.0 || 2.0.0",
+      "1.0.0,2.0.0",
+      "1.0.0 2.0.0",
+      "1.0.0 - 2.0.0",
+      "v1.0.0",
+      "1.0.0/2"
+    ]) {
+      const harness = await createScenarioHarness({
+        plugin_dependencies: [{ plugin_package_id: "generic-plugin", version }]
+      });
+      const draft = await harness.service.createDraft(actor, harness.draftInput);
+
+      await expect(harness.service.validate(actor, draft.reference)).rejects.toThrow(
+        new ScenarioPackageAuthorityError("SCENARIO_PACKAGE_VALIDATION_FAILED")
+      );
+    }
+  });
+
+  it.each(TRUTH_PROTECTED_FIELDS)(
+    "rejects canonical truth-protected field %s in nested content",
+    async (protectedField) => {
+      const harness = await createScenarioHarness({
+        content: {
+          nested: {
+            [protectedField]: "forbidden"
+          }
+        }
+      });
+      const draft = await harness.service.createDraft(actor, harness.draftInput);
+
+      await expect(harness.service.validate(actor, draft.reference)).rejects.toThrow(
+        new ScenarioPackageAuthorityError("SCENARIO_PACKAGE_VALIDATION_FAILED")
+      );
+    }
+  );
+
+  it.each(TRUTH_PROTECTED_FIELDS)(
+    "rejects canonical truth-protected field %s in nested metadata",
+    async (protectedField) => {
+      const harness = await createScenarioHarness({
+        metadata: {
+          nested: {
+            [protectedField]: "forbidden"
+          }
+        }
+      });
+      const draft = await harness.service.createDraft(actor, harness.draftInput);
+
+      await expect(harness.service.validate(actor, draft.reference)).rejects.toThrow(
+        new ScenarioPackageAuthorityError("SCENARIO_PACKAGE_VALIDATION_FAILED")
+      );
+    }
+  );
 
   it("rejects embedded ParameterSet values and formal truth output fields", async () => {
     for (const content of [

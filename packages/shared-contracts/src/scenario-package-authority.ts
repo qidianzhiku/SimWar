@@ -42,13 +42,9 @@ function isNonBlankString(value: string): boolean {
   return value.trim().length > 0;
 }
 
-function isExactVersion(value: string): boolean {
-  return (
-    isNonBlankString(value) &&
-    value !== "latest" &&
-    value !== "*" &&
-    !value.includes("^") &&
-    !value.includes("~")
+export function isExactVersion(value: string): boolean {
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(
+    value
   );
 }
 
