@@ -15,7 +15,7 @@
     "tenant_id": "tenant_demo",
     "teacher": "teacher",
     "course_title": "R5/R6/R7-C synthetic course delivery evidence",
-    "scenario_family": "r7c-beijing-yanjiao-eldercare-family-v1",
+    "scenario_family": "r7c-shanghai-eldercare-family-v2",
     "scenario_variant": "base_operations",
     "required_asset_status": ["APPROVED", "FROZEN", "RELEASE_CANDIDATE", "BOUND_TO_RUN"],
     "team_count": 2,

@@ -1,5 +1,5 @@
 {
-  "asset_id": "r7a-beijing-yanjiao-eldercare-core-scenario-v1",
+  "asset_id": "r7a-shanghai-eldercare-core-scenario-v2",
   "learner_visibility_forbidden_categories": [
     "formal_truth_fields",
     "formal_result_shape",
@@ -19,7 +19,7 @@
         "formula_ref": "eldercare.segment-demand.v1",
         "hook": "segmentDemand",
         "input_ref": "regions+segments+price+quality+outreach",
-        "output_delta": 254.62
+        "output_delta": 256.92
       },
       {
         "evidence_label": "SOURCE_ONLY_INFERENCE",
@@ -33,48 +33,48 @@
         "formula_ref": "eldercare.payer-mix-resilience.v1",
         "hook": "payerMix",
         "input_ref": "self_pay+commercial_insurance+public_subsidy",
-        "output_delta": 0.41
+        "output_delta": 0.4
       },
       {
         "evidence_label": "SOURCE_ONLY_INFERENCE",
         "formula_ref": "eldercare.service-quality-risk.v1",
         "hook": "serviceQualityRisk",
         "input_ref": "service_quality_budget+staffing_safety_index",
-        "output_delta": 0.87
+        "output_delta": 0.92
       }
     ],
     "postgresql_runtime_required": false,
     "replay_writes_formal_results": false,
     "round_metrics": {
       "finance": {
-        "expected_cost": 1370064,
-        "expected_revenue": 1472736,
-        "operating_margin": 0.07
+        "expected_cost": 1515248,
+        "expected_revenue": 1761792,
+        "operating_margin": 0.14
       },
       "market": {
-        "demand_index": 254.62,
-        "price_friction": 0.22,
-        "qualified_demand": 106.72
+        "demand_index": 256.92,
+        "price_friction": 0.33,
+        "qualified_demand": 119.04
       },
       "operations": {
-        "service_capacity": 106.72,
-        "staffed_capacity": 106.72,
+        "service_capacity": 119.04,
+        "staffed_capacity": 119.04,
         "utilization": 1
       },
       "quality": {
-        "care_quality_index": 0.87,
-        "payer_resilience_index": 0.41,
-        "staffing_safety_index": 1.16
+        "care_quality_index": 0.92,
+        "payer_resilience_index": 0.4,
+        "staffing_safety_index": 1.18
       }
     },
-    "scenario_id": "r7a-beijing-yanjiao-eldercare-core-scenario-v1"
+    "scenario_id": "r7a-shanghai-eldercare-core-scenario-v2"
   },
   "parameter_set": {
-    "base_capacity": 138,
-    "base_market_size": 210,
-    "fixed_cost": 260000,
+    "base_capacity": 156,
+    "base_market_size": 248,
+    "fixed_cost": 310000,
     "model_family": "toy_logit",
-    "parameter_set_id": "parameter_r7a_eldercare_v1",
+    "parameter_set_id": "parameter_r7a_shanghai_eldercare_v2",
     "parameters": {
       "schema_version": "wellness.parameters.v1",
       "demand_curve": {
@@ -99,11 +99,11 @@
         "underfunded_service_penalty": 3
       }
     },
-    "seed": 70707,
+    "seed": 20260726,
     "status": "candidate",
     "tenant_id": "tenant_r7a_synthetic",
-    "unit_cost": 6200,
-    "version": "r7a.eldercare.parameters.v1"
+    "unit_cost": 6800,
+    "version": "r7a.shanghai.eldercare.parameters.v2"
   },
   "r7a_evidence": {
     "direct_store_delta": "NONE",
@@ -113,18 +113,18 @@
   },
   "regions": [
     {
-      "region_id": "beijing",
-      "display_name": "Beijing urban eldercare demand",
-      "demand_weight": 0.62,
-      "distance_friction": 0.08,
-      "income_index": 1.18
+      "region_id": "shanghai_core",
+      "display_name": "Shanghai core-district eldercare demand",
+      "demand_weight": 0.6,
+      "distance_friction": 0.06,
+      "income_index": 1.2
     },
     {
-      "region_id": "yanjiao",
-      "display_name": "Yanjiao commuter-family eldercare demand",
-      "demand_weight": 0.38,
-      "distance_friction": 0.18,
-      "income_index": 0.92
+      "region_id": "shanghai_outer_ring",
+      "display_name": "Shanghai outer-ring community eldercare demand",
+      "demand_weight": 0.4,
+      "distance_friction": 0.14,
+      "income_index": 0.98
     }
   ],
   "rounds": [
@@ -132,7 +132,7 @@
       "decision_focus": ["region selection", "community channel discovery"],
       "evidence_boundary": "SOURCE_ONLY_INFERENCE",
       "round_no": 1,
-      "title": "Beijing-Yanjiao demand discovery"
+      "title": "Shanghai intra-city demand discovery"
     },
     {
       "decision_focus": ["bed capacity", "day-care slot planning", "staffing ratio"],
@@ -166,12 +166,12 @@
     }
   ],
   "scenario_package": {
-    "name": "R7-A Beijing-Yanjiao Eldercare Core Scenario Asset",
+    "name": "R7-A Shanghai Eldercare Core Scenario Asset",
     "plugin_package_ids": ["plugin_wellness_eldercare_v1"],
-    "scenario_package_id": "scenario_r7a_beijing_yanjiao_eldercare_v1",
+    "scenario_package_id": "scenario_r7a_shanghai_eldercare_v2",
     "status": "approved",
     "tenant_id": "tenant_r7a_synthetic",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "status_boundary": {
     "g0_pass": "NOT_GRANTED",
@@ -179,9 +179,11 @@
     "l1_status": "NOT_READY"
   },
   "synthetic_data_policy": {
+    "calibration_status": "UN_CALIBRATED",
+    "geography_scope": "SHANGHAI_SYNTHETIC_ONLY",
     "production_identifier": false,
     "real_payment_data": false,
     "real_user_data": false
   },
-  "asset_hash": "563863f007ba344dcc1c9eeed403a0bc2cf420ad3032a8bf63a7d447ad60023f"
+  "asset_hash": "4543f0d8b37f4a2baf75c8fa5574a3d180d7b622ce8a4a451bd6f78625ff1db9"
 }

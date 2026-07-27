@@ -18,12 +18,17 @@ const PRIVATE_MARKERS = [
 ];
 
 describe("R7-A eldercare core model", () => {
-  it("evaluates a deterministic Beijing-Yanjiao eldercare round without formal truth writes", () => {
+  it("evaluates a deterministic Shanghai eldercare round without formal truth writes", () => {
     const input = createDefaultEldercareModelInput();
     const first = evaluateEldercareCoreRound(input);
     const second = evaluateEldercareCoreRound(input);
 
     expect(second).toEqual(first);
+    expect(input.scenario_id).toBe("r7a-shanghai-eldercare-core-scenario-v2");
+    expect(input.regions.map((region) => region.region_id)).toEqual([
+      "shanghai_core",
+      "shanghai_outer_ring"
+    ]);
     expect(first.model_family).toBe("eldercare_core_model_v1");
     expect(first.formal_truth_write).toBe(false);
     expect(first.postgresql_runtime_required).toBe(false);
@@ -39,6 +44,7 @@ describe("R7-A eldercare core model", () => {
       "payerMix",
       "serviceQualityRisk"
     ]);
+    expect(JSON.stringify({ input, first })).not.toMatch(/beijing|yanjiao/i);
   });
 
   it("keeps learner-facing eldercare briefs free of protected truth and private replay fields", () => {

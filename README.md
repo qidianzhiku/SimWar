@@ -22,7 +22,7 @@ Sim War 的核心目标，不是做一个“会聊天的商战机器人”，而
 
 从业务价值看，Sim War 解决的是“复杂经营训练难以标准化、难以复盘、难以量化学习迁移”的问题。平台通过**结构化决策表单、可审计结算链、角色对抗、教师干预、社区协作、竞赛排名和学习账本**，把“赛、学、证、社、评”连接成一个持续学习闭环。fileciteturn0file8fileciteturn0file9
 
-当前参考文档显示，Sim War 的首个高保真场景聚焦康养 / 银发经济方向，尤其是“北京—燕郊一体化康养市场”这一母场景；但平台架构本身并不绑定某一个行业，而是通过 kernel/plugin 模式保留向零售、制造、金融、能源等场景迁移的能力。fileciteturn0file5fileciteturn0file6fileciteturn0file7fileciteturn0file8
+V3 规划将康养场景、行业数据和行业校准从 Core Roadmap 移入独立的 Industry Scenario / Industry Data Program。当前仓库的首个康养资产是上海合成教学场景：它用于受控的课程和插件边界验证，不是高保真真实市场、公共政策或投资决策模型；平台架构仍通过 kernel/plugin 模式保留向零售、制造、金融、能源等场景迁移的能力。
 
 ### 核心功能
 
@@ -380,7 +380,7 @@ docker compose up --build
 
 > 路由为示例，请根据前端路由实际实现修改。
 
-如果你要演示当前最成熟的课程线，建议以**北京—燕郊康养一体化**场景作为首个试点：它同时具备行业高保真、政策可参数化、需求迁移明显、竞赛脚本清晰与跨行业插件验证价值。fileciteturn0file5fileciteturn0file6fileciteturn0file7
+如果你要演示当前课程线，建议以**上海合成康养教学场景**作为受控候选：它只提供版本化的需求、容量、支付和探视摩擦教学变量，不代表真实项目数据、政策结论或投资建议。
 
 下面给出一个学员提交决策的示例：
 
@@ -619,7 +619,7 @@ Pull Request 流程建议：
 - [ ] Contract freeze：冻结 OpenAPI、JSON Schema、事件 schema 与权限矩阵
 - [ ] 核心运行闭环：开课、锁轮、提交、结算、发布、复盘
 - [ ] Python 市场求解服务与 TypeScript 业务服务打通
-- [ ] Eldercare Plugin v1 与北京—燕郊高保真场景包
+- [ ] Eldercare Plugin v1 与上海合成教学场景包
 - [ ] 教师端 / 学员端 MVP
 - [ ] xAPI / LRS 学习账本贯通
 ```
@@ -691,7 +691,7 @@ docker compose up --build
 
 #### 如何理解当前首个行业场景与未来扩展的关系？
 
-当前首个高保真母场景建议聚焦康养行业，尤其是北京—燕郊一体化市场；但平台的长期结构明确是跨行业的 kernel/plugin 架构，因此未来可以逐步扩展至零售、制造、金融、能源等行业。fileciteturn0file0fileciteturn0file5fileciteturn0file7
+当前首个合成教学母场景聚焦上海康养行业；但平台的长期结构明确是跨行业的 kernel/plugin 架构，因此未来可以逐步扩展至零售、制造、金融、能源等行业。真实行业数据、校准和高保真模型仍需要独立的数据治理与发布授权。
 
 ### 许可证
 

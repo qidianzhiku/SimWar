@@ -52,13 +52,14 @@ describe("R7-B scenario lifecycle", () => {
 
     expect(second.asset).toEqual(first.asset);
     expect(first.status).toBe("COMPILED");
-    expect(first.asset.asset_id).toBe("r7b-beijing-yanjiao-eldercare-scenario-lifecycle-v1");
+    expect(first.asset.asset_id).toBe("r7b-shanghai-eldercare-scenario-lifecycle-v2");
     expect(first.asset.rounds).toHaveLength(6);
     expect(first.asset.policy_rules).toHaveLength(6);
     expect(first.asset.segment_migration_rules).toHaveLength(6);
     expect(first.asset.qualification_rules).toHaveLength(6);
     expect(first.asset.shock_timeline).toHaveLength(6);
-    expect(first.asset.compiler_version).toBe("r7b.eldercare.lifecycle-compiler.v1");
+    expect(first.asset.compiler_version).toBe("r7b.shanghai.eldercare.lifecycle-compiler.v2");
+    expect(first.asset.template_version).toBe("r7b.shanghai.mother-scenario.v2");
     expect(first.asset.synthetic_data_classification).toEqual([
       "SYNTHETIC_TEACHING_SCENARIO",
       "UN_CALIBRATED",
@@ -77,6 +78,7 @@ describe("R7-B scenario lifecycle", () => {
     ]);
     expect(JSON.stringify(first.asset)).not.toContain("real_customer");
     expect(JSON.stringify(first.asset)).not.toContain("state_true");
+    expect(JSON.stringify(first.asset)).not.toMatch(/beijing|yanjiao/i);
   });
 
   it("requires teacher approval, freezes immutable fields, and binds a run auditably", () => {

@@ -1,6 +1,6 @@
 export type EldercareEvidenceLabel = "SOURCE_ONLY_INFERENCE" | "CONTRACT_BACKED_EVIDENCE";
 
-export type EldercareRegionId = "beijing" | "yanjiao";
+export type EldercareRegionId = "shanghai_core" | "shanghai_outer_ring";
 
 export type EldercareLicenseScope =
   | "community_daycare_only"
@@ -48,7 +48,7 @@ export interface EldercareDecisionProfile {
 }
 
 export interface EldercareModelInput {
-  scenario_id: "r7a-beijing-yanjiao-eldercare-core-scenario-v1";
+  scenario_id: "r7a-shanghai-eldercare-core-scenario-v2";
   seed: number;
   regions: EldercareRegionProfile[];
   segments: EldercareSegmentProfile[];
@@ -114,18 +114,18 @@ export interface EldercareLearnerBrief {
 
 const DEFAULT_REGIONS: EldercareRegionProfile[] = [
   {
-    region_id: "beijing",
-    display_name: "Beijing urban eldercare demand",
-    demand_weight: 0.62,
-    distance_friction: 0.08,
-    income_index: 1.18
+    region_id: "shanghai_core",
+    display_name: "Shanghai core-district eldercare demand",
+    demand_weight: 0.6,
+    distance_friction: 0.06,
+    income_index: 1.2
   },
   {
-    region_id: "yanjiao",
-    display_name: "Yanjiao commuter-family eldercare demand",
-    demand_weight: 0.38,
-    distance_friction: 0.18,
-    income_index: 0.92
+    region_id: "shanghai_outer_ring",
+    display_name: "Shanghai outer-ring community eldercare demand",
+    demand_weight: 0.4,
+    distance_friction: 0.14,
+    income_index: 0.98
   }
 ];
 
@@ -213,26 +213,26 @@ function licenseAllowsMedicalCare(input: EldercareModelInput): boolean {
 export function createDefaultEldercareModelInput(): EldercareModelInput {
   return {
     decision: {
-      community_outreach_budget: 88000,
+      community_outreach_budget: 96000,
       facility: {
-        beds: 96,
-        day_care_slots: 42,
-        nurse_ratio: 0.24,
-        staff_count: 58
+        beds: 104,
+        day_care_slots: 54,
+        nurse_ratio: 0.26,
+        staff_count: 64
       },
       license_scope: "eldercare_medical",
       medical_care_expansion: true,
-      monthly_price: 13800,
+      monthly_price: 14800,
       payer_mix: {
-        commercial_insurance: 0.18,
-        public_subsidy: 0.22,
-        self_pay: 0.6
+        commercial_insurance: 0.24,
+        public_subsidy: 0.2,
+        self_pay: 0.56
       },
-      service_quality_budget: 168000
+      service_quality_budget: 182000
     },
     regions: DEFAULT_REGIONS,
-    scenario_id: "r7a-beijing-yanjiao-eldercare-core-scenario-v1",
-    seed: 70707,
+    scenario_id: "r7a-shanghai-eldercare-core-scenario-v2",
+    seed: 20260726,
     segments: DEFAULT_SEGMENTS
   };
 }

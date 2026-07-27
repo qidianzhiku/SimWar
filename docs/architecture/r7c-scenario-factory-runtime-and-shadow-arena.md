@@ -16,7 +16,7 @@ PostgreSQL runtime:
 NOT_AUTHORIZED
 ```
 
-本文记录 `R7-C` 的 Scenario Factory Runtime、Scenario Registry、Scenario Family V1 和 Scenario Shadow Arena Batch。它只覆盖 synthetic-only、JSON-only、教学场景资产治理，不授权真实教师试跑、真实客户数据、`Pilot`、`Production`、PostgreSQL runtime、SQL、migration 或 durable settlement。
+本文记录 `R7-C` 的 Scenario Factory Runtime、Scenario Registry、Shanghai Scenario Family V2 和 Scenario Shadow Arena Batch。它只覆盖 synthetic-only、JSON-only、教学场景资产治理，不授权真实教师试跑、真实客户数据、`Pilot`、`Production`、PostgreSQL runtime、SQL、migration 或 durable settlement。
 
 ## Exact File Manifest
 
@@ -54,7 +54,7 @@ Scenario Family
 
 The implementation reuses the existing `R7-B` lifecycle and existing `createToyLogitEngine` path. It does not create another settlement engine, direct store write path, route bypass, schema bypass or formal truth writer.
 
-## Beijing-Yanjiao Scenario Family V1
+## Shanghai Scenario Family V2
 
 The family contains five synthetic variants:
 

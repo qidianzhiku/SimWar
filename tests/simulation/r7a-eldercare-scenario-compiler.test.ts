@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  compileBeijingYanjiaoEldercareScenarioAsset,
+  compileShanghaiEldercareScenarioAsset,
   validateEldercareScenarioAsset
 } from "../../services/simulation-core/src/eldercare-scenario-compiler";
 
@@ -22,9 +22,9 @@ function loadFixture(): EldercareFixture {
 }
 
 describe("R7-A eldercare scenario compiler", () => {
-  it("compiles a deterministic six-round Beijing-Yanjiao scenario asset", () => {
-    const first = compileBeijingYanjiaoEldercareScenarioAsset();
-    const second = compileBeijingYanjiaoEldercareScenarioAsset();
+  it("compiles a deterministic six-round Shanghai scenario asset", () => {
+    const first = compileShanghaiEldercareScenarioAsset();
+    const second = compileShanghaiEldercareScenarioAsset();
 
     expect(second).toEqual(first);
     expect(first.status_boundary).toEqual({
@@ -32,19 +32,27 @@ describe("R7-A eldercare scenario compiler", () => {
       g0_pass: "NOT_GRANTED",
       l1_status: "NOT_READY"
     });
-    expect(first.asset_id).toBe("r7a-beijing-yanjiao-eldercare-core-scenario-v1");
+    expect(first.asset_id).toBe("r7a-shanghai-eldercare-core-scenario-v2");
     expect(first.scenario_package.status).toBe("approved");
     expect(first.scenario_package.plugin_package_ids).toEqual(["plugin_wellness_eldercare_v1"]);
     expect(first.parameter_set.status).toBe("candidate");
     expect(first.rounds).toHaveLength(6);
-    expect(first.regions.map((region) => region.region_id)).toEqual(["beijing", "yanjiao"]);
+    expect(first.regions.map((region) => region.region_id)).toEqual([
+      "shanghai_core",
+      "shanghai_outer_ring"
+    ]);
     expect(first.synthetic_data_policy.real_user_data).toBe(false);
     expect(first.synthetic_data_policy.real_payment_data).toBe(false);
+    expect(first.synthetic_data_policy).toMatchObject({
+      calibration_status: "UN_CALIBRATED",
+      geography_scope: "SHANGHAI_SYNTHETIC_ONLY"
+    });
+    expect(JSON.stringify(first)).not.toMatch(/beijing|yanjiao/i);
     expect(validateEldercareScenarioAsset(first)).toEqual([]);
   });
 
   it("matches the committed synthetic fixture without requiring schema or OpenAPI changes", () => {
-    const asset = compileBeijingYanjiaoEldercareScenarioAsset();
+    const asset = compileShanghaiEldercareScenarioAsset();
     const fixture = loadFixture();
 
     expect(fixture.asset_id).toBe(asset.asset_id);

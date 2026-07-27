@@ -16,7 +16,7 @@ export interface EldercareScenarioRound {
 }
 
 export interface EldercareScenarioAsset {
-  asset_id: "r7a-beijing-yanjiao-eldercare-core-scenario-v1";
+  asset_id: "r7a-shanghai-eldercare-core-scenario-v2";
   asset_hash: string;
   status_boundary: {
     g0_status: "EXCEPTION";
@@ -28,6 +28,8 @@ export interface EldercareScenarioAsset {
   regions: EldercareRegionProfile[];
   rounds: EldercareScenarioRound[];
   synthetic_data_policy: {
+    calibration_status: "UN_CALIBRATED";
+    geography_scope: "SHANGHAI_SYNTHETIC_ONLY";
     real_user_data: false;
     real_payment_data: false;
     production_identifier: false;
@@ -65,7 +67,7 @@ function buildAssetWithoutHash(
   input: EldercareModelInput
 ): Omit<EldercareScenarioAsset, "asset_hash"> {
   return {
-    asset_id: "r7a-beijing-yanjiao-eldercare-core-scenario-v1",
+    asset_id: "r7a-shanghai-eldercare-core-scenario-v2",
     learner_visibility_forbidden_categories: [
       "formal_truth_fields",
       "formal_result_shape",
@@ -77,17 +79,17 @@ function buildAssetWithoutHash(
     ],
     model_preview: evaluateEldercareCoreRound(input),
     parameter_set: {
-      base_capacity: 138,
-      base_market_size: 210,
-      fixed_cost: 260000,
+      base_capacity: 156,
+      base_market_size: 248,
+      fixed_cost: 310000,
       model_family: "toy_logit",
-      parameter_set_id: "parameter_r7a_eldercare_v1",
+      parameter_set_id: "parameter_r7a_shanghai_eldercare_v2",
       parameters: DEFAULT_WELLNESS_PARAMETERS_V1,
       seed: input.seed,
       status: "candidate",
       tenant_id: "tenant_r7a_synthetic",
-      unit_cost: 6200,
-      version: "r7a.eldercare.parameters.v1"
+      unit_cost: 6800,
+      version: "r7a.shanghai.eldercare.parameters.v2"
     },
     r7a_evidence: {
       direct_store_delta: "NONE",
@@ -101,7 +103,7 @@ function buildAssetWithoutHash(
         decision_focus: ["region selection", "community channel discovery"],
         evidence_boundary: "SOURCE_ONLY_INFERENCE",
         round_no: 1,
-        title: "Beijing-Yanjiao demand discovery"
+        title: "Shanghai intra-city demand discovery"
       },
       {
         decision_focus: ["bed capacity", "day-care slot planning", "staffing ratio"],
@@ -135,12 +137,12 @@ function buildAssetWithoutHash(
       }
     ],
     scenario_package: {
-      name: "R7-A Beijing-Yanjiao Eldercare Core Scenario Asset",
+      name: "R7-A Shanghai Eldercare Core Scenario Asset",
       plugin_package_ids: ["plugin_wellness_eldercare_v1"],
-      scenario_package_id: "scenario_r7a_beijing_yanjiao_eldercare_v1",
+      scenario_package_id: "scenario_r7a_shanghai_eldercare_v2",
       status: "approved",
       tenant_id: "tenant_r7a_synthetic",
-      version: "1.0.0"
+      version: "2.0.0"
     },
     status_boundary: {
       g0_pass: "NOT_GRANTED",
@@ -148,6 +150,8 @@ function buildAssetWithoutHash(
       l1_status: "NOT_READY"
     },
     synthetic_data_policy: {
+      calibration_status: "UN_CALIBRATED",
+      geography_scope: "SHANGHAI_SYNTHETIC_ONLY",
       production_identifier: false,
       real_payment_data: false,
       real_user_data: false
@@ -155,7 +159,7 @@ function buildAssetWithoutHash(
   };
 }
 
-export function compileBeijingYanjiaoEldercareScenarioAsset(
+export function compileShanghaiEldercareScenarioAsset(
   input: EldercareModelInput = createDefaultEldercareModelInput()
 ): EldercareScenarioAsset {
   const assetWithoutHash = buildAssetWithoutHash(input);
@@ -187,6 +191,10 @@ export function validateEldercareScenarioAsset(asset: EldercareScenarioAsset): s
 
   if (asset.synthetic_data_policy.real_user_data || asset.synthetic_data_policy.real_payment_data) {
     errors.push("synthetic_asset_must_not_include_real_data");
+  }
+
+  if (asset.model_preview.scenario_id !== asset.asset_id) {
+    errors.push("scenario_identity_must_match_model_preview");
   }
 
   return errors;

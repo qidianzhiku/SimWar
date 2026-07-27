@@ -16,13 +16,13 @@ PostgreSQL runtime:
 NOT_AUTHORIZED
 ```
 
-本文记录 `R7-A` 北京-燕郊康养核心模型与 scenario asset foundation。该资产用于后续教学场景、参数候选和插件边界讨论，不是 `Pilot`、`Production` 或 durable settlement 证明。
+本文记录 `R7-A` 上海康养核心模型与 scenario asset foundation。该资产是新的 `v2` 合成教学版本，用于后续教学场景、参数候选和插件边界讨论，不是 `Pilot`、`Production` 或 durable settlement 证明。
 
 ## Purpose
 
 `R7-A` 把康养业务中最小但可复核的模型要素收束为一个纯 TypeScript scenario asset：
 
-- 北京与燕郊两个 synthetic region。
+- 上海核心区与上海外圈社区两个 synthetic region。
 - active senior、assisted living、medical rehab 三类 synthetic demand segment。
 - facility capacity、staffing ratio、payer mix、license scope 和 care quality risk。
 - 六轮 scenario draft，用于后续教学设计和 evidence review。
@@ -43,13 +43,13 @@ NOT_AUTHORIZED
 
 The default scenario uses:
 
-- `scenario_id = r7a-beijing-yanjiao-eldercare-core-scenario-v1`
-- `seed = 70707`
+- `scenario_id = r7a-shanghai-eldercare-core-scenario-v2`
+- `seed = 20260726`
 - `tenant_id = tenant_r7a_synthetic`
-- `parameter_set_id = parameter_r7a_eldercare_v1`
+- `parameter_set_id = parameter_r7a_shanghai_eldercare_v2`
 - `plugin_package_ids = [plugin_wellness_eldercare_v1]`
 
-All values are synthetic. The fixture contains no real user, real tenant, real payment, production identifier, connection string, secret, token, password or private replay payload.
+All values are synthetic and uncalibrated. The fixture contains no real user, real tenant, real payment, production identifier, connection string, secret, token, password or private replay payload. This version supersedes the old source asset by identity; it does not migrate a live Run or overwrite historical evidence.
 
 ## Core Invariants
 
@@ -64,14 +64,14 @@ The model returns source-only metrics, learner-safe projection hints and control
 
 ## Six-Round Scenario Draft
 
-| Round | Title                            | Focus                                                |
-| ----- | -------------------------------- | ---------------------------------------------------- |
-| 1     | Beijing-Yanjiao demand discovery | region selection, community channel discovery        |
-| 2     | Facility and service capacity    | bed capacity, day-care slot planning, staffing ratio |
-| 3     | Payer mix and affordability      | payer mix, public subsidy, commercial insurance      |
-| 4     | Medical-care license boundary    | license scope, medical care boundary                 |
-| 5     | Care quality and staffing risk   | service quality, staff safety, family trust          |
-| 6     | Replay and non-overwrite review  | shadow replay candidate, non-overwrite evidence      |
+| Round | Title                                | Focus                                                |
+| ----- | ------------------------------------ | ---------------------------------------------------- |
+| 1     | Shanghai intra-city demand discovery | region selection, community channel discovery        |
+| 2     | Facility and service capacity        | bed capacity, day-care slot planning, staffing ratio |
+| 3     | Payer mix and affordability          | payer mix, public subsidy, commercial insurance      |
+| 4     | Medical-care license boundary        | license scope, medical care boundary                 |
+| 5     | Care quality and staffing risk       | service quality, staff safety, family trust          |
+| 6     | Replay and non-overwrite review      | shadow replay candidate, non-overwrite evidence      |
 
 ## Controlled Failure Boundary
 

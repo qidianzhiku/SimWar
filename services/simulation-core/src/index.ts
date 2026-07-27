@@ -47,7 +47,7 @@ export type {
   EldercareSegmentProfile
 } from "./eldercare-core-model.js";
 export {
-  compileBeijingYanjiaoEldercareScenarioAsset,
+  compileShanghaiEldercareScenarioAsset,
   validateEldercareScenarioAsset
 } from "./eldercare-scenario-compiler.js";
 export type {
@@ -96,7 +96,7 @@ export {
   R7C_SCENARIO_FACTORY_TEMPLATE_VERSION,
   approveR7CCompiledScenario,
   bindR7CReleaseCandidateToRun,
-  buildR7CBeijingYanjiaoScenarioFamily,
+  buildR7CShanghaiScenarioFamily,
   buildR7CScenarioDiffAndTrace,
   buildR7CShadowArenaBatch,
   buildR7CShadowReplayEvidence,
