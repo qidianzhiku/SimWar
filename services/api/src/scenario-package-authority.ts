@@ -365,6 +365,23 @@ export function calculateScenarioPackageContentDigest(input: ScenarioPackageDraf
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
+/**
+ * Validates a candidate without appending it to the formal ScenarioPackage
+ * lifecycle. The command service remains the sole writer for persisted versions.
+ */
+export function validateScenarioPackageDraftInput(input: ScenarioPackageDraftInput): {
+  content_digest: string;
+  reference: ScenarioPackageReference;
+} {
+  const draft = createImmutableVersion(input, "DRAFT");
+  assertScenarioPackageContentValid(draft);
+
+  return deepFreeze({
+    content_digest: draft.content_digest,
+    reference: draft.reference
+  });
+}
+
 export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegistryPort {
   private readonly approvals: ScenarioPackageApprovalRecord[] = [];
   private readonly snapshots: ScenarioPackageVersion[] = [];

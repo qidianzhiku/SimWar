@@ -109,6 +109,20 @@ export {
   rejectR7CScenarioMutation,
   validateR7CScenarioFactory
 } from "./eldercare-scenario-factory.js";
+export {
+  assertHistoricalScenarioArtifactNotBindable,
+  projectHistoricalScenarioArtifactForStudent,
+  resolveHistoricalScenarioArtifactForRun
+} from "./historical-scenario-resolver.js";
+export {
+  HISTORICAL_R7_V1_ARTIFACTS,
+  HISTORICAL_R7_V1_SOURCE_REVISION
+} from "./historical-scenario-artifacts.js";
+export type {
+  HistoricalScenarioArtifact,
+  HistoricalScenarioArtifactKind,
+  HistoricalScenarioRuntimePayload
+} from "./historical-scenario-artifacts.js";
 export type {
   R7CActorRole,
   R7CCompiledScenario,
