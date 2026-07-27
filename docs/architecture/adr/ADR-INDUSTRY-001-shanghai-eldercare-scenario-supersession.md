@@ -28,14 +28,20 @@ classified as `SYNTHETIC_TEACHING_SCENARIO`. It is not a runtime activation,
 default tenant switch, real-data import, policy recommendation, investment
 recommendation, or settlement/replay change.
 
-The previous source identities remain part of Git history. This change does
-not access a persistence store, mutate an existing Run, or overwrite a
-historical evidence pack.
+The previous v1 source identities remain resolvable only through the
+read-only, exact-identity historical artifact boundary in ADR-DATA-005E.
+That boundary binds each retained record to its frozen source SHA, tenant,
+package, version, content digest, and artifact digest. Git history alone is
+not an executable resolver and must not be used to select a replacement or a
+latest version. This change does not access a persistence store, mutate an
+existing Run, or overwrite a historical evidence pack.
 
 ## Consequences
 
 - Current R7 compiler and fixture paths use the Shanghai v2 identities.
 - Tests reject Beijing-Yanjiao references from current generated assets.
+- Historical v1 readback is exact and read-only; retired content cannot bind a
+  new Run.
 - A future calibrated Shanghai scenario requires separate data-governance,
   model-calibration, runtime, and release authorization.
 - Core settlement formulas, formal truth fields, replay semantics, routes,
