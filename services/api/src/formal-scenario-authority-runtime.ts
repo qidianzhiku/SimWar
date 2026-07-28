@@ -1,16 +1,10 @@
-import {
-  InMemoryJsonParameterSetRegistry,
-  ParameterSetCommandService
-} from "./parameter-set-authority.js";
+import type { JsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
+import { ParameterSetCommandService } from "./parameter-set-authority.js";
 import {
   createScenarioPackageAuthorityReadFacade,
   type ScenarioPackageAuthorityReadFacade
 } from "./repository-facade.js";
-import {
-  InMemoryJsonScenarioPackageRegistry,
-  ScenarioPackageCommandService
-} from "./scenario-package-authority.js";
-import type { SimWarStore } from "./store.js";
+import { ScenarioPackageCommandService } from "./scenario-package-authority.js";
 
 export interface JsonFormalScenarioAuthorityRuntime {
   catalog: ScenarioPackageAuthorityReadFacade;
@@ -23,19 +17,11 @@ export interface JsonFormalScenarioAuthorityRuntime {
  * legacy Runs or exposing a Teacher runtime-selection route.
  */
 export function createJsonFormalScenarioAuthorityRuntime(
-  store: SimWarStore
+  persistence: JsonFormalScenarioAuthorityPersistence
 ): JsonFormalScenarioAuthorityRuntime {
-  const parameterRegistry = new InMemoryJsonParameterSetRegistry({
-    approvals: store.formalParameterSetApprovalRecords,
-    onAppend: store.persist,
-    snapshots: store.formalParameterSetLifecycleSnapshots
-  });
+  const parameterRegistry = persistence.createParameterSetRegistry();
   const parameterSets = new ParameterSetCommandService(parameterRegistry);
-  const scenarioRegistry = new InMemoryJsonScenarioPackageRegistry({
-    approvals: store.formalScenarioPackageApprovalRecords,
-    onAppend: store.persist,
-    snapshots: store.formalScenarioPackageLifecycleSnapshots
-  });
+  const scenarioRegistry = persistence.createScenarioPackageRegistry();
   const scenarioPackages = new ScenarioPackageCommandService(scenarioRegistry, parameterSets);
 
   return Object.freeze({

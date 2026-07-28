@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
+import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
 import { createP1Store } from "../../services/api/src/store";
 
 const tenantId = "tenant_formal_catalog";
@@ -28,7 +29,9 @@ describe("createJsonFormalScenarioAuthorityRuntime", () => {
 
     try {
       const store = createP1Store({ persistenceFile });
-      const runtime = createJsonFormalScenarioAuthorityRuntime(store);
+      const runtime = createJsonFormalScenarioAuthorityRuntime(
+        createJsonFormalScenarioAuthorityPersistence(store)
+      );
       const parameterDraft = await runtime.parameterSets.createDraft(parameterActor, {
         compatibility_metadata: { engine: "simulation-core.v1" },
         model_version_ref: "simulation-core.v1",
@@ -87,7 +90,9 @@ describe("createJsonFormalScenarioAuthorityRuntime", () => {
       expect(store.parameterSets).toHaveLength(1);
 
       const restartedStore = createP1Store({ persistenceFile });
-      const restartedRuntime = createJsonFormalScenarioAuthorityRuntime(restartedStore);
+      const restartedRuntime = createJsonFormalScenarioAuthorityRuntime(
+        createJsonFormalScenarioAuthorityPersistence(restartedStore)
+      );
       await expect(
         restartedRuntime.scenarioPackages.getByReference(
           tenantId,
@@ -106,7 +111,9 @@ describe("createJsonFormalScenarioAuthorityRuntime", () => {
       await expect(restartedRuntime.catalog.listApprovedForTenant(tenantId)).resolves.toEqual([]);
 
       const retiredStore = createP1Store({ persistenceFile });
-      const retiredRuntime = createJsonFormalScenarioAuthorityRuntime(retiredStore);
+      const retiredRuntime = createJsonFormalScenarioAuthorityRuntime(
+        createJsonFormalScenarioAuthorityPersistence(retiredStore)
+      );
       await expect(
         retiredRuntime.scenarioPackages.getByReference(tenantId, scenarioApproved.version.reference)
       ).resolves.toMatchObject({ status: "RETIRED" });

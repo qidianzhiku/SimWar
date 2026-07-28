@@ -26,6 +26,14 @@ import type {
   SettlementOutcomePersistencePort,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
+import {
+  InMemoryJsonParameterSetRegistry,
+  type InMemoryJsonParameterSetRegistryOptions
+} from "./parameter-set-authority.js";
+import {
+  InMemoryJsonScenarioPackageRegistry,
+  type InMemoryJsonScenarioPackageRegistryOptions
+} from "./scenario-package-authority.js";
 import type { SimWarStore } from "./store.js";
 
 /**
@@ -46,6 +54,36 @@ interface JsonRepositoryAdapterCollections {
   replayRuns: ReplayRun[];
   replayReports: ReplayReport[];
   replayDiffReports: ReplayDiffReport[];
+}
+
+/**
+ * JSON persistence seam for formal ScenarioPackage and ParameterSet authority
+ * registries. It is deliberately separate from API route composition.
+ */
+export interface JsonFormalScenarioAuthorityPersistence {
+  createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
+  createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
+}
+
+export function createJsonFormalScenarioAuthorityPersistence(
+  store: SimWarStore
+): JsonFormalScenarioAuthorityPersistence {
+  const parameterSetOptions: InMemoryJsonParameterSetRegistryOptions = {
+    approvals: store.formalParameterSetApprovalRecords,
+    onAppend: store.persist,
+    snapshots: store.formalParameterSetLifecycleSnapshots
+  };
+  const scenarioPackageOptions: InMemoryJsonScenarioPackageRegistryOptions = {
+    approvals: store.formalScenarioPackageApprovalRecords,
+    onAppend: store.persist,
+    snapshots: store.formalScenarioPackageLifecycleSnapshots
+  };
+
+  return Object.freeze({
+    createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
+    createScenarioPackageRegistry: () =>
+      new InMemoryJsonScenarioPackageRegistry(scenarioPackageOptions)
+  });
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
