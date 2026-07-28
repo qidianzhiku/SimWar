@@ -25,9 +25,11 @@ reference to that service. It must not access the JSON formal-authority
 collections directly or reuse the narrower Run-binding read port as a writer.
 
 Only `platform_admin` may use this first governance ingress. Tenant admins,
-teachers, and students are rejected. Platform administrators still act only
-within the request tenant; a body tenant identifier cannot select a different
-tenant.
+teachers, and students are rejected. A platform administrator may target a
+business tenant only through the already-validated request tenant context;
+the command actor is scoped to that target tenant while the audit log retains
+the actual platform-administrator identity. A body tenant identifier cannot
+select a different tenant.
 
 ## API Shape
 

@@ -12,6 +12,7 @@ import type {
   DecisionPayload,
   M1DecisionSubmitRequest,
   ParameterSet,
+  ParameterSetReference,
   PermissionKey,
   PublicRunReplayEvidence,
   PublicResultView,
@@ -34,6 +35,7 @@ import {
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   ROLE_PERMISSION_MATRIX,
   actorHasPermission,
+  createParameterSetReference,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
 import {
@@ -47,6 +49,14 @@ import { getApiHealthPayload } from "./health.js";
 import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
+import {
+  ParameterSetAuthorityError,
+  type ParameterSetAuthorityActor,
+  type ParameterSetCommandService,
+  type ParameterSetDraftInput,
+  type ParameterSetJsonValue,
+  type ParameterSetVersion
+} from "./parameter-set-authority.js";
 import type { ScenarioPackageAuthorityReadFacade } from "./repository-facade.js";
 import {
   resolveRuntimeSecurityConfig,
@@ -109,6 +119,7 @@ interface RequestContext {
 }
 
 interface ApiRuntime {
+  formalParameterSets: ParameterSetCommandService;
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
@@ -202,6 +213,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     options.formalScenarioPackageCatalog ?? formalAuthorityRuntime.catalog;
 
   return {
+    formalParameterSets: formalAuthorityRuntime.parameterSets,
     formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
     formalScenarioPackageCatalog,
@@ -1062,6 +1074,129 @@ function parseFormalRunCreateBody(value: unknown): {
   };
 }
 
+function formalParameterSetRequestError(): HttpError {
+  return new HttpError(422, "PARAMETER_SET-422-001", "formal parameter set request is invalid");
+}
+
+function parseFormalParameterSetString(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw formalParameterSetRequestError();
+  }
+
+  return value;
+}
+
+function parseFormalParameterSetStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    throw formalParameterSetRequestError();
+  }
+
+  const entries = Object.entries(value);
+  if (entries.some(([key, entry]) => key.trim().length === 0 || typeof entry !== "string")) {
+    throw formalParameterSetRequestError();
+  }
+
+  return entries.reduce<Record<string, string>>((record, [key, entry]) => {
+    record[key] = entry as string;
+    return record;
+  }, {});
+}
+
+function parseFormalParameterSetReference(value: unknown, tenantId: string): ParameterSetReference {
+  if (!isRecord(value) || parseFormalParameterSetString(value.tenant_id) !== tenantId) {
+    throw formalParameterSetRequestError();
+  }
+
+  try {
+    return createParameterSetReference({
+      content_digest: parseFormalParameterSetString(value.content_digest),
+      parameter_set_id: parseFormalParameterSetString(value.parameter_set_id),
+      version: parseFormalParameterSetString(value.version)
+    });
+  } catch {
+    throw formalParameterSetRequestError();
+  }
+}
+
+function parseFormalParameterSetDraft(value: unknown, tenantId: string): ParameterSetDraftInput {
+  if (!isRecord(value) || parseFormalParameterSetString(value.tenant_id) !== tenantId) {
+    throw formalParameterSetRequestError();
+  }
+
+  if (value.parameter_values === undefined) {
+    throw formalParameterSetRequestError();
+  }
+
+  return {
+    compatibility_metadata: parseFormalParameterSetStringRecord(value.compatibility_metadata),
+    model_version_ref: parseFormalParameterSetString(value.model_version_ref),
+    parameter_set_id: parseFormalParameterSetString(value.parameter_set_id),
+    parameter_values: value.parameter_values as ParameterSetJsonValue,
+    ...(value.parent_reference === undefined
+      ? {}
+      : { parent_reference: parseFormalParameterSetReference(value.parent_reference, tenantId) }),
+    schema_version: parseFormalParameterSetString(value.schema_version),
+    tenant_id: tenantId,
+    version: parseFormalParameterSetString(value.version)
+  };
+}
+
+function createFormalParameterSetActor(
+  context: RequestContext,
+  actor: CurrentUser
+): ParameterSetAuthorityActor {
+  return {
+    actor_id: actor.user_id,
+    capabilities: ["parameter_set:manage"],
+    correlation_id: context.requestId,
+    tenant_id: context.tenantId
+  };
+}
+
+function parameterSetAuthorityHttpError(error: unknown): HttpError {
+  if (!(error instanceof ParameterSetAuthorityError)) {
+    throw error;
+  }
+
+  switch (error.code) {
+    case "NOT_FOUND":
+      return new HttpError(404, "PARAMETER_SET-404-001", "formal parameter set version not found");
+    case "TENANT_SCOPE_VIOLATION":
+    case "PARAMETER_SET_CAPABILITY_REQUIRED":
+      return new HttpError(403, "PARAMETER_SET-403-001", "formal parameter set authority required");
+    case "PARAMETER_SET_INVALID_TRANSITION":
+    case "PARAMETER_SET_VERSION_ALREADY_EXISTS":
+    case "DIGEST_MISMATCH":
+    case "NOT_APPROVED":
+    case "RETIRED_FOR_NEW_BINDING":
+      return new HttpError(409, "PARAMETER_SET-409-001", "formal parameter set lifecycle conflict");
+    default:
+      return formalParameterSetRequestError();
+  }
+}
+
+async function executeFormalParameterSetCommand<T>(command: () => Promise<T>): Promise<T> {
+  try {
+    return await command();
+  } catch (error) {
+    throw parameterSetAuthorityHttpError(error);
+  }
+}
+
+function formalParameterSetResourceId(reference: ParameterSetReference): string {
+  return `${reference.parameter_set_id}@${reference.version}:${reference.content_digest}`;
+}
+
+function assertFormalParameterSetPathReference(
+  reference: ParameterSetReference,
+  parameterSetId: string,
+  version: string
+): void {
+  if (reference.parameter_set_id !== parameterSetId || reference.version !== version) {
+    throw formalParameterSetRequestError();
+  }
+}
+
 function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): string {
   return JSON.stringify(payload);
 }
@@ -1626,6 +1761,87 @@ async function routeRequest(
       user: actor
     };
     sendJson(response, 200, createEnvelope(context, session));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/formal-authority/parameter-sets") {
+    const actor = requirePermission(context, "parameter_set:manage");
+    const draft = parseFormalParameterSetDraft(await readJson(request), context.tenantId);
+    const created = await executeFormalParameterSetCommand(() =>
+      runtime.formalParameterSets.createDraft(createFormalParameterSetActor(context, actor), draft)
+    );
+    await appendAudit(runtime, {
+      actor,
+      action: "parameter_set.create",
+      resourceType: "formal_parameter_set",
+      resourceId: formalParameterSetResourceId(created.reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(created)
+    });
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/formal-authority\/parameter-sets\/[^/]+\/versions\/[^/]+\/(validate|freeze|approve|retire)$/.test(
+      url.pathname
+    )
+  ) {
+    const actor = requirePermission(context, "parameter_set:manage");
+    const [, parameterSetId, version, action] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/formal-authority\/parameter-sets\/([^/]+)\/versions\/([^/]+)\/(validate|freeze|approve|retire)$/
+    );
+    const body = await readJson(request);
+    const reference = parseFormalParameterSetReference(body, context.tenantId);
+    assertFormalParameterSetPathReference(reference, parameterSetId ?? "", version ?? "");
+    const commandActor = createFormalParameterSetActor(context, actor);
+    const command = runtime.formalParameterSets;
+    let result: ParameterSetVersion | { approval_record: unknown; version: ParameterSetVersion };
+
+    switch (action) {
+      case "validate":
+        result = await executeFormalParameterSetCommand(() =>
+          command.validate(commandActor, reference)
+        );
+        break;
+      case "freeze":
+        result = await executeFormalParameterSetCommand(() =>
+          command.freeze(commandActor, reference)
+        );
+        break;
+      case "approve": {
+        if (!isRecord(body)) {
+          throw formalParameterSetRequestError();
+        }
+        const approvalId = parseFormalParameterSetString(body.approval_id);
+        result = await executeFormalParameterSetCommand(() =>
+          command.approve(commandActor, reference, approvalId)
+        );
+        break;
+      }
+      case "retire":
+        result = await executeFormalParameterSetCommand(() =>
+          command.retire(commandActor, reference)
+        );
+        break;
+      default:
+        throw new HttpError(404, "ROUTE-404-001", "not found");
+    }
+
+    const versionResult = "version" in result ? result.version : result;
+    await appendAudit(runtime, {
+      actor,
+      action: `parameter_set.${action}`,
+      resourceType: "formal_parameter_set",
+      resourceId: formalParameterSetResourceId(reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(versionResult)
+    });
+    sendJson(response, 200, createEnvelope(context, result));
     return;
   }
 
