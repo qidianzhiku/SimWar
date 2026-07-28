@@ -388,8 +388,21 @@ export function createJsonRepositoryPorts(
           return [];
         }
 
+        const visibleCourseIds = new Set(
+          store.teams
+            .filter(
+              (team) =>
+                team.tenant_id === tenantId &&
+                (team.captain_user_id === user.user_id ||
+                  team.members.some((member) => member.user_id === user.user_id))
+            )
+            .map((team) => team.course_id)
+        );
+
         return store.courses
-          .filter((course) => course.tenant_id === tenantId)
+          .filter(
+            (course) => course.tenant_id === tenantId && visibleCourseIds.has(course.course_id)
+          )
           .map(toCourseReadModel);
       }
     },

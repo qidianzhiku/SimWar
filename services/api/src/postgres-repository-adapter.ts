@@ -219,10 +219,6 @@ export interface PostgresSettlementWriteModelProviderOptions {
   adapter: Pick<PostgresRepositoryAdapter, "auditLogs" | "options">;
 }
 
-interface PostgresUserPresenceRow extends Record<string, unknown> {
-  user_id: RepositoryId;
-}
-
 interface PostgresCourseReadRow extends Record<string, unknown> {
   course_id: RepositoryId;
   payload: Course;
@@ -686,18 +682,9 @@ export class PostgresRepositoryAdapter {
         return rows.map((row) => toCourseReadModel(row));
       },
       listCoursesForUser: async (tenantId, userId) => {
-        const user = await this.queryOne<PostgresUserPresenceRow>(
-          "SELECT user_id FROM users WHERE tenant_id = $1 AND user_id = $2",
-          [tenantId, userId]
-        );
-
-        if (user === null) {
-          return [];
-        }
-
         const rows = await this.queryRows<PostgresCourseReadRow>(
-          "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC",
-          [tenantId]
+          "SELECT courses.tenant_id, courses.course_id, courses.status, courses.payload FROM courses INNER JOIN course_memberships ON course_memberships.tenant_id = courses.tenant_id AND course_memberships.course_id = courses.course_id WHERE courses.tenant_id = $1 AND course_memberships.user_id = $2 ORDER BY courses.created_at ASC, courses.course_id ASC",
+          [tenantId, userId]
         );
 
         return rows.map(toCourseReadModel);

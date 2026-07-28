@@ -10,6 +10,9 @@ adapter work.
   audit logs, state snapshots, and replay records.
 - `0002_add_settlement_business_identity_constraint.sql` adds the settlement
   business identity uniqueness constraint required by ADR-DATA-004.
+- `0003_add_course_memberships.sql` adds the tenant-scoped course membership
+  read model used by the inactive Postgres adapter to limit learner course
+  visibility.
 - The schema keeps complex contract-shaped data in `jsonb` payload and metadata
   fields so future adapter work can preserve existing TypeScript object shapes.
 - There is no migration runner in the current repository.

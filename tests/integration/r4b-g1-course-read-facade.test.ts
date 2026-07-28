@@ -249,6 +249,9 @@ describe("R4b G1 course read facade slice", () => {
     expect(courseListSource).toContain(
       "runtime.repositoryProvider.facade.courses.listCoursesForTenant("
     );
+    expect(courseListSource).toContain(
+      "runtime.repositoryProvider.facade.courses.listCoursesForUser("
+    );
     expect(courseListSource).not.toContain("store.courses.filter");
     expect(serverSource).not.toContain("DATABASE_URL");
   });

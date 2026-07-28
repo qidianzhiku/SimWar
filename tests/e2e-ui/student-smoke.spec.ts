@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import type {
   ApiEnvelope,
   AuthSession,
+  Course,
   Decision,
   P0DemoState,
   Round
@@ -99,6 +100,19 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await expect(page.getByText("学员试讲导入")).toBeVisible();
   await expect(page.getByText("提交前检查")).toBeVisible();
   await expect(page.getByText("反馈怎么读")).toBeVisible();
+});
+
+test("hides an unassigned same-tenant course from the student UI", async ({ page, request }) => {
+  const teacherToken = await login(request, "teacher", "teacher");
+  const course = await apiPost<Course>(request, "/api/v1/courses", teacherToken, {
+    title: "Browser-hidden same-tenant course"
+  });
+
+  await page.goto("/");
+  await signInStudentPage(page);
+
+  await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
+  await expect(page.getByText(course.data.title)).toHaveCount(0);
 });
 
 test("clears student classroom state when the login context changes", async ({ page }) => {
