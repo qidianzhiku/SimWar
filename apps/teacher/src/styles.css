@@ -251,6 +251,7 @@ h3 {
   border-top: 1px solid #d8dee6;
   display: grid;
   gap: 10px;
+  min-width: 0;
   padding: 12px 0;
 }
 
@@ -295,8 +296,16 @@ h3 {
 }
 
 .candidate-card strong,
-.candidate-preview strong {
+.candidate-card small,
+.candidate-preview strong,
+.candidate-preview small,
+.tag-list li {
+  min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.tag-list li {
+  max-width: 100%;
 }
 
 .current-candidate {
