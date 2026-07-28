@@ -41,6 +41,11 @@ import type {
   ScenarioPackageApprovalRecord,
   ScenarioPackageVersion
 } from "./scenario-package-authority.js";
+import type {
+  PluginReleaseApprovalRecord,
+  PluginReleaseAvailabilityRecord,
+  PluginReleaseVersion
+} from "./plugin-release-authority.js";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -66,6 +71,9 @@ export interface SimWarStoreSnapshot {
   counters: Record<string, number>;
   formalParameterSetApprovalRecords: ParameterSetApprovalRecord[];
   formalParameterSetLifecycleSnapshots: ParameterSetVersion[];
+  formalPluginReleaseApprovalRecords: PluginReleaseApprovalRecord[];
+  formalPluginReleaseAvailabilityRecords: PluginReleaseAvailabilityRecord[];
+  formalPluginReleaseLifecycleSnapshots: PluginReleaseVersion[];
   formalRunRuntimeBindings: FormalRunRuntimeBinding[];
   formalScenarioPackageApprovalRecords: ScenarioPackageApprovalRecord[];
   formalScenarioPackageLifecycleSnapshots: ScenarioPackageVersion[];
@@ -553,6 +561,9 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     auditLogs: [],
     formalParameterSetApprovalRecords: [],
     formalParameterSetLifecycleSnapshots: [],
+    formalPluginReleaseApprovalRecords: [],
+    formalPluginReleaseAvailabilityRecords: [],
+    formalPluginReleaseLifecycleSnapshots: [],
     formalRunRuntimeBindings: [],
     formalScenarioPackageApprovalRecords: [],
     formalScenarioPackageLifecycleSnapshots: [],
@@ -591,6 +602,9 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     auditLogs: store.auditLogs,
     formalParameterSetApprovalRecords: store.formalParameterSetApprovalRecords,
     formalParameterSetLifecycleSnapshots: store.formalParameterSetLifecycleSnapshots,
+    formalPluginReleaseApprovalRecords: store.formalPluginReleaseApprovalRecords,
+    formalPluginReleaseAvailabilityRecords: store.formalPluginReleaseAvailabilityRecords,
+    formalPluginReleaseLifecycleSnapshots: store.formalPluginReleaseLifecycleSnapshots,
     formalRunRuntimeBindings: store.formalRunRuntimeBindings,
     formalScenarioPackageApprovalRecords: store.formalScenarioPackageApprovalRecords,
     formalScenarioPackageLifecycleSnapshots: store.formalScenarioPackageLifecycleSnapshots,
@@ -620,6 +634,9 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     sessions: snapshot.sessions ?? [],
     formalParameterSetApprovalRecords: snapshot.formalParameterSetApprovalRecords ?? [],
     formalParameterSetLifecycleSnapshots: snapshot.formalParameterSetLifecycleSnapshots ?? [],
+    formalPluginReleaseApprovalRecords: snapshot.formalPluginReleaseApprovalRecords ?? [],
+    formalPluginReleaseAvailabilityRecords: snapshot.formalPluginReleaseAvailabilityRecords ?? [],
+    formalPluginReleaseLifecycleSnapshots: snapshot.formalPluginReleaseLifecycleSnapshots ?? [],
     formalRunRuntimeBindings: snapshot.formalRunRuntimeBindings ?? [],
     formalScenarioPackageApprovalRecords: snapshot.formalScenarioPackageApprovalRecords ?? [],
     formalScenarioPackageLifecycleSnapshots: snapshot.formalScenarioPackageLifecycleSnapshots ?? [],
@@ -1444,6 +1461,9 @@ function assertSnapshotShape(
   for (const field of [
     "formalParameterSetApprovalRecords",
     "formalParameterSetLifecycleSnapshots",
+    "formalPluginReleaseApprovalRecords",
+    "formalPluginReleaseAvailabilityRecords",
+    "formalPluginReleaseLifecycleSnapshots",
     "formalScenarioPackageApprovalRecords",
     "formalScenarioPackageLifecycleSnapshots"
   ] as const) {

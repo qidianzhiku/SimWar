@@ -34,6 +34,10 @@ import {
   InMemoryJsonScenarioPackageRegistry,
   type InMemoryJsonScenarioPackageRegistryOptions
 } from "./scenario-package-authority.js";
+import {
+  InMemoryJsonPluginReleaseRegistry,
+  type InMemoryJsonPluginReleaseRegistryOptions
+} from "./plugin-release-authority.js";
 import type { SimWarStore } from "./store.js";
 
 /**
@@ -57,11 +61,12 @@ interface JsonRepositoryAdapterCollections {
 }
 
 /**
- * JSON persistence seam for formal ScenarioPackage and ParameterSet authority
+ * JSON persistence seam for formal ScenarioPackage, ParameterSet, and PluginRelease authority
  * registries. It is deliberately separate from API route composition.
  */
 export interface JsonFormalScenarioAuthorityPersistence {
   createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
+  createPluginReleaseRegistry(): InMemoryJsonPluginReleaseRegistry;
   createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
 }
 
@@ -78,9 +83,16 @@ export function createJsonFormalScenarioAuthorityPersistence(
     onAppend: store.persist,
     snapshots: store.formalScenarioPackageLifecycleSnapshots
   };
+  const pluginReleaseOptions: InMemoryJsonPluginReleaseRegistryOptions = {
+    approvals: store.formalPluginReleaseApprovalRecords,
+    availability: store.formalPluginReleaseAvailabilityRecords,
+    onAppend: store.persist,
+    snapshots: store.formalPluginReleaseLifecycleSnapshots
+  };
 
   return Object.freeze({
     createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
+    createPluginReleaseRegistry: () => new InMemoryJsonPluginReleaseRegistry(pluginReleaseOptions),
     createScenarioPackageRegistry: () =>
       new InMemoryJsonScenarioPackageRegistry(scenarioPackageOptions)
   });

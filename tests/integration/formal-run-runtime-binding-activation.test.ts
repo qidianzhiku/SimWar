@@ -18,6 +18,9 @@ import type {
   FormalRunPluginReleaseAuthorityBindingRecord,
   FormalRunScenarioPackageAuthorityBindingRecord
 } from "../../services/api/src/formal-run-runtime-binding";
+import type { ParameterSetVersion } from "../../services/api/src/parameter-set-authority";
+import type { PluginReleaseVersion } from "../../services/api/src/plugin-release-authority";
+import type { ScenarioPackageVersion } from "../../services/api/src/scenario-package-authority";
 import { resolveFormalRuntimeInputsForActiveRun } from "../../services/api/src/formal-runtime-input-resolver";
 import { createM1RunReplayEvidence } from "../../services/api/src/run-manifest-replay-evidence";
 import { createApiServer } from "../../services/api/src/server";
@@ -34,6 +37,97 @@ const decisionPayload = {
   service_quality_budget: 160000,
   strategy_statement: "Use the formally bound eldercare inputs."
 } as const satisfies DecisionPayload;
+
+function seedPersistedFormalAuthorities(store: SimWarStore): void {
+  const parameterReference = {
+    content_digest: digest("a"),
+    parameter_set_id: "param_toy_approved_1",
+    version: "1.0.0"
+  };
+  const scenarioReference = {
+    content_digest: digest("b"),
+    scenario_package_id: "scenario_eldercare_demo",
+    tenant_id: TENANT_ID,
+    version: "1.0.0"
+  };
+  const pluginReference = {
+    content_digest: digest("c"),
+    plugin_package_id: "plugin_wellness_v1",
+    version: "1.0.0"
+  };
+  const parameterSet: ParameterSetVersion = {
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content_digest: parameterReference.content_digest,
+    model_version_ref: "toy_logit_wellness_v1@0.1.0",
+    parameter_set_id: parameterReference.parameter_set_id,
+    parameter_values: {
+      runtime_parameter_set: {
+        base_capacity: 120,
+        base_market_size: 240,
+        fixed_cost: 120000,
+        model_family: "toy_logit",
+        unit_cost: 4200
+      }
+    },
+    reference: parameterReference,
+    schema_version: "parameter-set.v1",
+    status: "APPROVED",
+    tenant_id: TENANT_ID,
+    version: parameterReference.version
+  };
+  const scenario: ScenarioPackageVersion = {
+    artifact_policy: { mode: "INLINE", retention: "IMMUTABLE" },
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content: {
+      runtime_scenario_package: {
+        name: "Persisted formal M1 eldercare scenario",
+        plugin_package_ids: [pluginReference.plugin_package_id]
+      }
+    },
+    content_digest: scenarioReference.content_digest,
+    metadata: { title: "Persisted formal M1 eldercare scenario" },
+    parameter_set_reference: parameterReference,
+    plugin_dependencies: [
+      {
+        plugin_package_id: pluginReference.plugin_package_id,
+        version: pluginReference.version
+      }
+    ],
+    reference: scenarioReference,
+    scenario_package_id: scenarioReference.scenario_package_id,
+    schema_version: "scenario-package.v1",
+    status: "APPROVED",
+    tenant_id: TENANT_ID,
+    version: scenarioReference.version
+  };
+  const plugin: PluginReleaseVersion = {
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content_digest: pluginReference.content_digest,
+    official_commit_permissions: [],
+    plugin_manifest: {
+      adapter_ref: "@simwar/simulation-core/wellnessPluginV1",
+      industry: "wellness",
+      manifest_version: "1.0.0",
+      name: "Persisted wellness runtime plugin",
+      parameter_schema_ref: "contracts/schemas/wellness-parameters.v1.json",
+      parameter_schema_version: "wellness.parameters.v1",
+      plugin_id: pluginReference.plugin_package_id,
+      settlement_hook_refs: ["adjustDemand:wellness.v1"],
+      status: "approved",
+      supported_hooks: ["adjustDemand"],
+      version: pluginReference.version
+    },
+    plugin_package_id: pluginReference.plugin_package_id,
+    reference: pluginReference,
+    schema_version: "plugin-release.v1",
+    status: "AVAILABLE",
+    version: pluginReference.version
+  };
+
+  store.formalParameterSetLifecycleSnapshots.push(parameterSet);
+  store.formalScenarioPackageLifecycleSnapshots.push(scenario);
+  store.formalPluginReleaseLifecycleSnapshots.push(plugin);
+}
 
 function createFormalAuthorities(): FormalRunBindingAuthorityPorts {
   const parameterReference = {
@@ -223,7 +317,67 @@ async function login(baseUrl: string, username: string, password: string): Promi
 }
 
 describe("formal Run RuntimeBinding activation", () => {
-  it("fails closed rather than creating a legacy Run when formal Authority is unavailable", async () => {
+  it("uses persisted formal Authorities by default without injected test ports", async () => {
+    const store = createP1Store();
+    seedPersistedFormalAuthorities(store);
+    const server = createApiServer(store);
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("test server did not bind to a TCP port");
+    }
+
+    try {
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const response = await request<{ round: Round; run: Run }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        {
+          body: {
+            formal_runtime_binding: {
+              engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+              parameter_set_reference: {
+                content_digest: digest("a"),
+                parameter_set_id: "param_toy_approved_1",
+                version: "1.0.0"
+              },
+              scenario_package_reference: {
+                content_digest: digest("b"),
+                scenario_package_id: "scenario_eldercare_demo",
+                tenant_id: TENANT_ID,
+                version: "1.0.0"
+              },
+              seed: 20260728
+            }
+          },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(store.formalRunRuntimeBindings).toHaveLength(1);
+      expect(store.formalRunRuntimeBindings[0]).toMatchObject({
+        parameter_set_reference: {
+          content_digest: digest("a"),
+          parameter_set_id: "param_toy_approved_1",
+          version: "1.0.0"
+        },
+        scenario_package_reference: {
+          content_digest: digest("b"),
+          scenario_package_id: "scenario_eldercare_demo",
+          tenant_id: TENANT_ID,
+          version: "1.0.0"
+        }
+      });
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("fails closed rather than creating a legacy Run when the formal identity is unavailable", async () => {
     const store = createP1Store();
     const server = createApiServer(store);
     server.listen(0, "127.0.0.1");
@@ -262,8 +416,8 @@ describe("formal Run RuntimeBinding activation", () => {
         }
       );
 
-      expect(response.status).toBe(409);
-      expect(response.body.code).toBe("RUN-409-002");
+      expect(response.status).toBe(422);
+      expect(response.body.code).toBe("RUN-422-002");
       expect(store.runs).toHaveLength(0);
       expect(store.formalRunRuntimeBindings).toHaveLength(0);
     } finally {

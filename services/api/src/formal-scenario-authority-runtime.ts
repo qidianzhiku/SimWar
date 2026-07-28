@@ -1,5 +1,6 @@
 import type { JsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
 import { ParameterSetCommandService } from "./parameter-set-authority.js";
+import { PluginReleaseCommandService } from "./plugin-release-authority.js";
 import {
   createScenarioPackageAuthorityReadFacade,
   type ScenarioPackageAuthorityReadFacade
@@ -9,6 +10,7 @@ import { ScenarioPackageCommandService } from "./scenario-package-authority.js";
 export interface JsonFormalScenarioAuthorityRuntime {
   catalog: ScenarioPackageAuthorityReadFacade;
   parameterSets: ParameterSetCommandService;
+  pluginReleases: PluginReleaseCommandService;
   scenarioPackages: ScenarioPackageCommandService;
 }
 
@@ -21,12 +23,15 @@ export function createJsonFormalScenarioAuthorityRuntime(
 ): JsonFormalScenarioAuthorityRuntime {
   const parameterRegistry = persistence.createParameterSetRegistry();
   const parameterSets = new ParameterSetCommandService(parameterRegistry);
+  const pluginRegistry = persistence.createPluginReleaseRegistry();
+  const pluginReleases = new PluginReleaseCommandService(pluginRegistry);
   const scenarioRegistry = persistence.createScenarioPackageRegistry();
   const scenarioPackages = new ScenarioPackageCommandService(scenarioRegistry, parameterSets);
 
   return Object.freeze({
     catalog: createScenarioPackageAuthorityReadFacade({ authority: scenarioPackages }),
     parameterSets,
+    pluginReleases,
     scenarioPackages
   });
 }

@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PluginManifest } from "../../packages/shared-contracts/src";
 import {
   InMemoryJsonPluginReleaseRegistry,
   PluginReleaseAuthorityError,
   PluginReleaseCommandService,
   calculatePluginReleaseContentDigest,
+  type InMemoryJsonPluginReleaseRegistryOptions,
   type PluginReleaseDraftInput
 } from "../../services/api/src/plugin-release-authority";
 import { ELDERCARE_WELLNESS_PLUGIN_MANIFEST } from "../../plugins/wellness/eldercare-plugin-v1";
@@ -121,6 +122,63 @@ describe("PluginReleaseCommandService", () => {
     await expect(service.getByReference(retired.reference)).resolves.toMatchObject({
       status: "RETIRED"
     });
+  });
+
+  it("persists append-only lifecycle, approval, and availability records through its JSON seam", async () => {
+    const approvals: NonNullable<InMemoryJsonPluginReleaseRegistryOptions["approvals"]> = [];
+    const availability: NonNullable<InMemoryJsonPluginReleaseRegistryOptions["availability"]> = [];
+    const snapshots: NonNullable<InMemoryJsonPluginReleaseRegistryOptions["snapshots"]> = [];
+    const onAppend = vi.fn();
+    const registry = new InMemoryJsonPluginReleaseRegistry({
+      approvals,
+      availability,
+      onAppend,
+      snapshots
+    });
+    const service = new PluginReleaseCommandService(registry);
+    const manifest = approvedManifest({
+      plugin_id: "plugin_persisted_authority_test",
+      version: "1.0.0"
+    });
+
+    const draft = await service.createDraft(actor, draftInput({ manifest }));
+    const validated = await service.validate(actor, draft.reference);
+    const approved = await service.approve(
+      actor,
+      validated.reference,
+      "owner-decision-persisted-001"
+    );
+    await service.makeAvailable(actor, approved.version.reference, "availability-persisted-001");
+
+    expect(snapshots).toHaveLength(4);
+    expect(approvals).toHaveLength(1);
+    expect(availability).toHaveLength(1);
+    expect(onAppend).toHaveBeenCalledTimes(4);
+  });
+
+  it("rolls back an append when the JSON persistence seam fails", async () => {
+    const snapshots: NonNullable<InMemoryJsonPluginReleaseRegistryOptions["snapshots"]> = [];
+    const registry = new InMemoryJsonPluginReleaseRegistry({
+      onAppend: () => {
+        throw new Error("persist failed");
+      },
+      snapshots
+    });
+    const service = new PluginReleaseCommandService(registry);
+
+    await expect(
+      service.createDraft(
+        actor,
+        draftInput({
+          manifest: approvedManifest({
+            plugin_id: "plugin_persisted_authority_rollback_test",
+            version: "1.0.0"
+          })
+        })
+      )
+    ).rejects.toThrow("persist failed");
+
+    expect(snapshots).toHaveLength(0);
   });
 
   it("rejects manifest identity drift and any plugin official-commit permission", async () => {
