@@ -1749,31 +1749,6 @@ async function getCourseForActorRead(
   return course;
 }
 
-function getRun(store: SimWarStore, context: RequestContext, runId: string) {
-  const run = store.runs.find(
-    (candidate) => candidate.run_id === runId && candidate.tenant_id === context.tenantId
-  );
-  if (!run) {
-    throw new HttpError(404, "RUN-404-001", "run not found");
-  }
-
-  return run;
-}
-
-function getRound(store: SimWarStore, context: RequestContext, runId: string, roundNo: number) {
-  const round = store.rounds.find(
-    (candidate) =>
-      candidate.run_id === runId &&
-      candidate.round_no === roundNo &&
-      candidate.tenant_id === context.tenantId
-  );
-  if (!round) {
-    throw new HttpError(404, "ROUND-404-001", "round not found");
-  }
-
-  return round;
-}
-
 function canReadClassroomScope(actor: CurrentUser): boolean {
   return actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]);
 }
@@ -1889,16 +1864,26 @@ async function resolveRunRuntimeInputs(
   return scenario && parameterSet ? { parameterSet, scenario } : null;
 }
 
+async function getRunForRead(runtime: ApiRuntime, context: RequestContext, runId: string) {
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
+
+  return run;
+}
+
 async function getRoundForRead(
   runtime: ApiRuntime,
   context: RequestContext,
   runId: string,
   roundNo: number
 ) {
-  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  const run = await getRunForRead(runtime, context, runId);
   const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
     context.tenantId,
-    run?.run_id ?? runId
+    run.run_id
   );
   const round = rounds.find((candidate) => candidate.round_no === roundNo);
 
@@ -2787,9 +2772,9 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/bff\/teacher\/runs\/([^/]+)\/rounds\/(\d+)\/workspace$/
     );
-    const run = getRun(store, context, runId ?? "");
+    const run = await getRunForRead(runtime, context, runId ?? "");
     const course = await getCourseForActorRead(runtime, context, run.course_id);
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+    const round = await getRoundForRead(runtime, context, run.run_id, Number(roundNoRaw));
     const teams = store.teams.filter(
       (team) => team.tenant_id === context.tenantId && team.course_id === course.course_id
     );
@@ -2846,9 +2831,9 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/bff\/student\/runs\/([^/]+)\/rounds\/(\d+)\/cockpit$/
     );
-    const run = getRun(store, context, runId ?? "");
+    const run = await getRunForRead(runtime, context, runId ?? "");
     const course = await getCourseForActorRead(runtime, context, run.course_id);
-    const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+    const round = await getRoundForRead(runtime, context, run.run_id, Number(roundNoRaw));
     const team = store.teams.find(
       (candidate) =>
         candidate.tenant_id === context.tenantId &&
@@ -3336,7 +3321,7 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/start$/
     );
-    const run = getRun(store, context, runId ?? "");
+    const run = await getRunForRead(runtime, context, runId ?? "");
     const release = await acquireRunMutationLock(
       runtime,
       runMutationBusinessKey(context.tenantId, run.run_id)
@@ -3347,10 +3332,11 @@ async function routeRequest(
         runId: run.run_id,
         tenantId: context.tenantId
       });
-      const round = getRound(store, context, run.run_id, Number(roundNoRaw));
+      const round = await getRoundForRead(runtime, context, run.run_id, Number(roundNoRaw));
       assertRoundStatus(round, "draft", "ROUND-409-001");
       const before = clonePublic(round);
       round.status = "open";
+      await runtime.repositoryProvider.facade.rounds.saveRound(round);
       await appendAudit(runtime, {
         actor,
         action: "round.start",
