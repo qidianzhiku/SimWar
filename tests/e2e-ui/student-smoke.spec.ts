@@ -102,10 +102,7 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await expect(page.getByText("反馈怎么读")).toBeVisible();
 });
 
-test("hides an unassigned same-tenant course from the student UI", async ({
-  page,
-  request
-}) => {
+test("hides an unassigned same-tenant course from the student UI", async ({ page, request }) => {
   const teacherToken = await login(request, "teacher", "teacher");
   const course = await apiPost<Course>(request, "/api/v1/courses", teacherToken, {
     title: "Browser-hidden same-tenant course"
