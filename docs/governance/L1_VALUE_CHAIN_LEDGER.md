@@ -1,0 +1,2118 @@
+# SimWar L1价值链台账 V1.0
+
+**Document ID：** `SIMWAR-L1-VALUE-CHAIN-LEDGER-V1.0`
+**建议仓库路径：** `docs/governance/L1_VALUE_CHAIN_LEDGER.md`
+**机器文件：** `docs/governance/l1-value-chain-ledger.yaml`
+**生成时间：** `2026-07-28T09:11:06Z`
+**文档状态：** `READY_FOR_REPOSITORY_ADOPTION_WITH_CURRENT_REALITY_LIMITS`
+**评估源码锚点（Assessment Source Anchor）：** `qidianzhiku/SimWar@2b9b137830144d65970b69636c121b76df238ceb`
+**Current L1 Status：** `NOT_ASSESSED / NOT_READY_TO_CLAIM`
+**导入规范化说明：** 本文和配套 YAML 中的 `2b9b137830144d65970b69636c121b76df238ceb` 仅表示生成时的 Assessment Source Anchor，不表示采用时或未来的 current master。
+**自动启动下一目标：** `FORBIDDEN`
+
+> 本台账是L1 Current State、Target State、证据、缺口、依赖、资源锁和下一路线的动态索引。它不替代L1 Definition of Done，不替代目标任务授权矩阵，也不把长期Roadmap的全部未完成项提升为L1 blocker。
+
+---
+
+## 1. Document Control
+
+| Field                          | Value                                            |
+| ------------------------------ | ------------------------------------------------ |
+| Document Name                  | SimWar L1价值链台账（L1 Value Chain Ledger）V1.0 |
+| Document ID                    | `SIMWAR-L1-VALUE-CHAIN-LEDGER-V1.0`              |
+| Version                        | V1.0                                             |
+| Generated At                   | `2026-07-28T09:11:06Z`                           |
+| Repository                     | `qidianzhiku/SimWar`                             |
+| Default Branch                 | `master`                                         |
+| Assessment Source Anchor       | `2b9b137830144d65970b69636c121b76df238ceb`       |
+| Latest Merge                   | PR #263 — Formal PluginRelease lifecycle API     |
+| Open PR Count                  | `0`                                              |
+| Ready-for-Closure PR Count     | `0`（remote可见范围）                            |
+| Runtime Authority              | `JSON_INTERNAL_ONLY`                             |
+| Pilot / Production             | `NOT_AUTHORIZED`                                 |
+| Current Graph Status           | `STALE_REBUILD_REQUIRED`                         |
+| Current Authorization Register | `NOT_ASSESSED`                                   |
+| Strict L1 Completion Claim     | `NOT_AUTHORIZED`                                 |
+
+### 1.1 输入基线与摘要Digest
+
+| Input                        | Path / Identity                                                          | SHA-256                                                          | Status                                     |
+| ---------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------ |
+| L1 Definition of Done        | SimWar_L1_DEFINITION_OF_DONE_V1.0_20260728.md                            | 7cca60a5af67dfd7958e170316d53371f90c8cab31f7cb9e8679cecc0ce14e30 | LOCAL_GENERATED / READY_FOR_OWNER_APPROVAL |
+| Target Mode Authority Matrix | SimWar_CODEX_TARGET_MODE_AUTHORITY_MATRIX_V1.0_20260728.md               | 6b6f39b3f76c48658c83cc76e4a4d589fb5f6f72646b851dc8f4538356d118cb | LOCAL_GENERATED / READY_FOR_OWNER_APPROVAL |
+| V3.0 Roadmap                 | SimWar\_后续至上线完整开发计划\_V3.0_Stage4B整合完整版\_20260727(4).docx | aa0555cfb2fa21bf4c734e28e9421bade6e2062f52c0e2e17b81f92c446ade70 | FORMAL ROADMAP INPUT                       |
+| Bounded Parallel Plan        | SimWar*V3.0*主线牵引有限并行开发正式计划\_V1.0(2)(1).docx                | f1131766225e701785cf3f7ae2ef4c0d8963d775419611237f24aa3d96167421 | FORMAL COMPANION INPUT                     |
+
+### 1.2 事实可见性限制
+
+本次可认证：
+
+- GitHub default branch、current master、最近merge序列；
+- open PR数量；
+- PR #263 exact head的CI和CodeQL；
+- current master部分源文件与测试文件；
+- open P1 Issues；-本地生成的L1 DoD和授权矩阵文件。
+
+本次不能认证：
+
+- current master fresh clone、`npm ci`、full suite、browser和build的本地重复执行；
+- current master merge-commit workflow receipt；
+- branch protection / ruleset的完整状态；-本地active worktree、active branch、端口、容器和Resource Lock；
+- current master Graphify / CodeGraph索引；
+- Owner已批准L1 DoD、授权矩阵或当前L1完成结论。
+
+---
+
+## 2. Executive L1 Status
+
+### 2.1 首席架构师判断
+
+SimWar已经完成从“固定synthetic Run能够执行”向“正式Authority可以治理、持久化、选择并绑定Run”的关键跃迁。最近主线连续完成：
+
+1. Formal Run runtime binding；
+2. 正式Scenario authority catalog；
+3. Teacher只读正式目录；
+4. 默认JSON runtime正式Authority组合；
+5. ParameterSet lifecycle API；
+6. ScenarioPackage lifecycle API；
+7. PluginRelease lifecycle API。
+
+当前最大缺口已不再是三类正式Authority是否存在，而是：
+
+> **能否在同一个默认服务器中，通过正式HTTP治理入口创建三类Authority，再完成Formal Run → Decision → Settlement → Publish → Official Replay，并同时证明Student、Tenant、Authority、Replay和Cleanup边界无违规。**
+
+当前L1不能宣布PASS。严格阻断原因：
+
+- 4个L1 blocker仍未关闭；
+- 9个current-master evidence gap；
+- current Graphify / CodeGraph已过期；
+- current master fresh clone与post-merge receipt缺失；
+- Owner L1 acknowledgment不存在。
+
+### 2.2 当前燃尽
+
+```text
+Total L1 Required Value-Chain Capabilities:
+14
+
+Closed and Current:
+0
+
+Merged Not Closed:
+1
+
+Implemented Not Verified:
+7
+
+Partially Implemented:
+2
+
+Blocked:
+2
+
+Not Started:
+2
+
+L1 Blocker Count:
+4
+
+L1 Evidence Gap Count:
+9
+
+L1 Known Limit Count:
+12
+
+Unknown / Revalidation Required:
+9
+
+Boundary Breach Count:
+0 KNOWN / UNKNOWN TOTAL
+
+Strict L1 Completion Ratio:
+0.0%
+
+Current-Source Implementation Coverage:
+71.4%
+```
+
+解释：
+
+- `Strict L1 Completion Ratio`只计算`CLOSED_AND_CURRENT`或正式`PASS`；
+- `Current-Source Implementation Coverage`表示14条价值链中有10条具备明确源码或merged PR实现基础；-没有fresh closure时，不得把实现覆盖率宣传为L1完成率。
+
+---
+
+## 3. Purpose and Governance Position
+
+### 3.1 与L1 DoD的关系
+
+`L1_DEFINITION_OF_DONE.md`定义Target State、Gate、PASS/FAIL/UNKNOWN规则。
+本台账记录Current State、证据、缺口、依赖和下一路线。
+
+### 3.2 与授权矩阵的关系
+
+`CODEX_TARGET_MODE_AUTHORITY_MATRIX.md`定义Codex执行权限：
+
+- T0—T3：`AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW`；
+- T4：`HUMAN_REVIEW_REQUIRED`；-目标完成后停止，不自动开启下一目标；-重要Gate或模糊路径前必须调用Graphify和CodeGraph。
+
+### 3.3 与Roadmap的关系
+
+Roadmap定义Program A—H、Program M和Stage 4B的长期顺序。
+本台账只把符合L1 DoD的缺口列为L1 blocker，其余归入：
+
+- `L1_PLUS_BACKLOG`；
+- `NON_BLOCKING_SUPPORT_LINE`；
+- `HIGHER_STAGE_DEFERRED`。
+
+---
+
+## 4. Source Hierarchy and Current Reality
+
+### 4.1 证据优先级
+
+```text
+Authenticated GitHub / Runtime Facts
+> Current Source
+> Repeatable Tests
+> CI / CodeQL / Browser
+> Fresh Clone / Post-Merge Receipt
+> Approved ADR / Governance
+> L1 DoD
+> V3.0 Roadmap
+> Bounded Parallel Plan
+> Historical Mission Reports
+> Inference
+```
+
+### 4.2 Current Reality Snapshot
+
+```text
+Collected At:
+2026-07-28T09:11:06Z
+
+Repository:
+qidianzhiku/SimWar
+
+Default Branch:
+master
+
+Assessment Source Anchor:
+2b9b137830144d65970b69636c121b76df238ceb
+
+Latest Merge:
+PR #263 / feat: add formal PluginRelease lifecycle API
+
+Open PR Count:
+0
+
+Ready-for-Closure PR Count:
+0 REMOTE / LOCAL UNKNOWN
+
+Runtime Authority:
+JSON_INTERNAL_ONLY
+
+Active Provider:
+JSON repository provider by default; PostgreSQL active mode NOT_PROVEN
+
+Active Mainline:
+NONE_VERIFIED_REMOTE
+
+Active Support Track:
+UNKNOWN_LOCAL
+
+Active Docs / Discovery Track:
+UNKNOWN_LOCAL
+
+Closure Lane Status:
+IDLE_REMOTE / POST_MERGE_CURRENT_MASTER_RECEIPT_MISSING
+
+L1 Status:
+NOT_ASSESSED
+
+Evidence Freshness:
+GitHub facts current at generation;
+PR #263 head CI/CodeQL current to exact head;
+Graphify/CodeGraph stale;
+fresh clone unavailable.
+```
+
+### 4.3 最近状态转换
+
+| PR      | Merge SHA | State Transition                               | Ledger Impact                                  |
+| ------- | --------- | ---------------------------------------------- | ---------------------------------------------- |
+| PR #257 | 823c0b7…  | Formal Run runtime binding activation          | 已合并；建立formal binding运行面               |
+| PR #258 | a65578a…  | Formal Scenario authority catalog persistence  | 已合并；建立持久化正式场景目录                 |
+| PR #259 | da03ba9…  | Teacher formal scenario catalog/local draft    | 已合并；教师只读目录与本地草稿                 |
+| PR #260 | 1b97e1e…  | Default persisted formal authority composition | 已合并；默认JSON runtime组合三类Authority      |
+| PR #261 | 50cdb50…  | Formal ParameterSet lifecycle API              | 已合并；platform-admin治理入口                 |
+| PR #262 | 79e8045…  | Formal ScenarioPackage lifecycle API           | 已合并；platform-admin治理入口                 |
+| PR #263 | 2b9b137…  | Formal PluginRelease lifecycle API             | 已合并；platform-admin治理入口；current master |
+
+---
+
+## 5. L1 Value Chain Definition
+
+L1价值链固定为：
+
+```text
+Current Reality
+→ Identity / Tenant / Course / Team
+→ Synthetic Course / Run Entry
+→ Formal Authority Lifecycle and Exact Binding
+→ Run Lifecycle
+→ Student Decision
+→ Truth-L1–L3 / Settlement
+→ Publish / Safe Projection
+→ Feedback / Learning Report
+→ Official Replay / Evidence
+→ Abort / Reset / Cleanup
+→ Known Limits
+→ Completion Evidence Pack
+→ Final L1 Gate
+```
+
+任何后续能力只有在当前L1 active runtime明确依赖时才可成为L1 blocker。完整CourseBlueprint、Role Workflow、Rubric、AI、BLP Shadow、Stage 4B、PostgreSQL、Pilot和Production不自动进入L1分母。
+
+---
+
+## 6. L1 End-to-End Product Journey
+
+### 6.1 L1 Golden Product Journey
+
+```text
+Platform Admin
+→ Create ParameterSet DRAFT
+→ Validate / Freeze / Approve exact ParameterSet
+
+Platform Admin
+→ Create PluginRelease DRAFT
+→ Validate / Approve / Make Available exact PluginRelease
+
+Platform Admin
+→ Create ScenarioPackage DRAFT
+→ Bind approved ParameterSet + Plugin dependency
+→ Validate / Freeze / Approve exact ScenarioPackage
+
+Teacher
+→ Read formal Scenario catalog
+→ Select exact approved asset
+→ Create Formal Run using default JSON runtime
+→ Start round
+
+Student
+→ Submit canonical whole-team Decision
+
+Teacher
+→ Lock
+→ Settle through Simulation Core
+→ Publish
+
+Teacher
+→ Read safe result + public Replay evidence
+
+Student
+→ Read safe result + feedback / learning report
+→ No private formal binding or canonical evidence fields
+
+Admin / QA
+→ Official Replay non-overwrite
+→ Abort / Reset / Cleanup failure paths
+→ Zero residue
+→ Evidence Pack
+→ Known Limits disclosure
+```
+
+### 6.2 当前断点
+
+- 生命周期API分别存在；-默认Formal Run create存在；
+- injected authority full chain存在；
+- **同一默认服务器的完整链未形成单一current test/evidence**；
+- current browser、cleanup和fresh closure缺失。
+
+---
+
+## 7. Status and Classification Model
+
+### 7.1 状态
+
+- `NOT_STARTED`
+- `NOT_STARTED_CURRENT_SHA`
+- `DISCOVERY_REQUIRED`
+- `PARTIALLY_IMPLEMENTED`
+- `IMPLEMENTED_NOT_VERIFIED`
+- `PR_OPEN_NOT_MERGED`
+- `MERGED_NOT_CLOSED`
+- `CLOSED_AND_CURRENT`
+- `PASS`
+- `PASS_WITH_LIMITS`
+- `FAIL`
+- `UNKNOWN`
+- `BLOCKED`
+- `EXPIRED_REVALIDATION_REQUIRED`
+- `DEFERRED_TO_L1_PLUS`
+- `DEFERRED_TO_L2`
+- `DEFERRED_TO_L3`
+- `SUPPORTING_ONLY`
+- `OUT_OF_L1_SCOPE`
+
+### 7.2 强制规则
+
+1. merged不等于closed；
+2. CI green不等于L1 PASS；
+3. API存在不等于默认runtime完整接线；
+4. unit test不等于产品闭环；
+5. Replay不等于Recovery；
+6. PG adapter不等于PG active；
+7. Shadow不等于Limited Active；8.自动化验证不等于Human Validation；
+8. `UNKNOWN`不得通过；10.任何Boundary Breach为硬FAIL。
+
+---
+
+## 8. L1 Capability Status Ledger
+
+| VC       | Capability                                              | Status                   | Gap Class       | Blocks L1 | Tier                                               | Suggested Bundle                                  |
+| -------- | ------------------------------------------------------- | ------------------------ | --------------- | --------- | -------------------------------------------------- | ------------------------------------------------- |
+| L1-VC-01 | Current Reality与工程基线                               | MERGED_NOT_CLOSED        | L1_EVIDENCE_GAP | YES       | T1/T3                                              | A-VCB Current Master Closure Rebaseline           |
+| L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                  | L1_BLOCKER      | YES       | T3                                                 | L1 Visibility Closure / #112                      |
+| L1-VC-03 | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | B5 Golden Closure                                 |
+| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED    | L1_BLOCKER      | YES       | T3                                                 | B5 Default Persisted Authority Full Golden Chain  |
+| L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | B5 Golden Closure                                 |
+| L1-VC-06 | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED    | L1_EVIDENCE_GAP | NO        | T3                                                 | L1 Decision Negative Closure                      |
+| L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE | L1 Settlement Evidence Closure / #111 disposition |
+| L1-VC-08 | Publish与Teacher/Student/Admin安全Projection            | BLOCKED                  | L1_BLOCKER      | YES       | T2/T3                                              | L1 Executable Contract Parity / #115              |
+| L1-VC-09 | Three-Part Feedback与Learning Report最小闭环            | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | L1 Browser Journey Closure                        |
+| L1-VC-10 | Official Replay与Evidence Non-Overwrite                 | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | B5 Default Golden Replay Closure                  |
+| L1-VC-11 | Abort、Reset、Cleanup与Failure Matrix                   | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | YES       | T3                                                 | L1 Failure / Cleanup Closure                      |
+| L1-VC-12 | Known Limits与阶段声明边界                              | IMPLEMENTED_NOT_VERIFIED | L1_KNOWN_LIMIT  | NO        | T0/T3                                              | L1 Known Limits Evidence Closure                  |
+| L1-VC-13 | L1 Completion Evidence Pack                             | NOT_STARTED_CURRENT_SHA  | L1_EVIDENCE_GAP | YES       | T1/T3                                              | L1 Completion Evidence Pack Assembly              |
+| L1-VC-14 | Final L1 Gate与Owner Acknowledgment                     | NOT_STARTED              | L1_EVIDENCE_GAP | YES       | T4_STAGE_DECISION                                  | L1 Final Gate                                     |
+
+### 8.1 严格结论
+
+当前没有任何顶层价值链能力满足`CLOSED_AND_CURRENT`的严格条件，因为assessment source anchor 2b9b1378…缺少fresh clone/post-merge完整收口。
+这不表示功能从零开始，而表示：
+
+> 实现资产已经较多，但阶段性完成声明的证据链尚未闭合。
+
+---
+
+## 9. Current Mainline
+
+### 9.1 当前远端状态
+
+```text
+Active Mainline PR:
+NONE
+
+Current Mainline Stage:
+POST-PR263 AUTHORITY GOVERNANCE INGRESSES COMPLETE
+CURRENT-MASTER CLOSURE AND NEXT ROUTE REBASE REQUIRED
+```
+
+### 9.2 Provisional Mainline Target
+
+```text
+Target:
+L1-GAP-B01 — Default Persisted Authority Full Golden Chain
+
+Classification:
+PROVISIONAL_SELECTED / GRAPH_REBASE_REQUIRED
+
+Primary Outcome:
+使用同一个默认JSON服务器，通过正式HTTP lifecycle创建并批准
+ParameterSet、PluginRelease、ScenarioPackage，
+然后完成Formal Run create→Decision→Lock→Settle→Publish→Replay，
+证明不使用injected authority ports、不回退legacy Store，
+Student不见private evidence，official result不被覆盖。
+```
+
+### 9.3 为什么是当前最优主线
+
+-直接复用PR #260—#263，Evidence Reuse最高；-把连续Authority基础转化为真实L1产品链；-同时推进P-G1、P-G3和P-G4；-可在不进入PG、AI、Stage 4B、真实数据的前提下执行；-预计主要是测试与最小接线修复，变更面可控；-目标完成后可显著降低“系统组件都有、默认完整链仍不证明”的结构性风险。
+
+### 9.4 启动限制
+
+在创建该Mission前必须：
+
+1. current master重建Graphify；
+2. current master重建CodeGraph；3.输出Authority Writer、Runtime Call Path、Test Coverage和Shared Resource Conflict图；4.冻结`Run / Replay / Golden / formal authority`资源锁；5.确认没有本地active Track占用相同文件；6.遵守`Automatic Next Target Start: FORBIDDEN`。
+
+---
+
+## 10. Current Support and Discovery Tracks
+
+### 10.1 推荐只读Support Candidate
+
+```text
+Candidate:
+CURRENT_MASTER_GRAPH_REBASE
+
+Lane:
+READ_ONLY_DISCOVERY
+
+Tools:
+Graphify MCP + CodeGraph MCP
+
+Source:
+2b9b137830144d65970b69636c121b76df238ceb
+
+Output:
+Repository Fact Graph
+Authority Writer Graph
+Runtime Call Graph
+Product Journey Graph
+Test Coverage Graph
+Candidate Route Graph
+Resource Lock Manifest
+
+Mutation:
+0
+
+Automatic Product Implementation:
+FORBIDDEN
+```
+
+### 10.2 非阻塞支持线
+
+- Program M formal rebaseline；
+- Stage 4B S0 Impact/Reuse Map；
+- F0 durable discovery；
+- Tool TFR；
+- dependency/SBOM readback。
+
+这些工作不得抢占Mainline或shared Support Code Slot。
+
+---
+
+## 11. L1 Blocker Register
+
+| Gap ID     | Capability                                    | Current State                                                                            | Required State                                                                                   | Suggested Bundle                              | Tier  | Priority |
+| ---------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------- | ----- | -------- |
+| L1-GAP-B01 | Default persisted authority full Golden chain | current default test仅证明Run create；完整settle/publish/Replay仍使用注入authority ports | 同一默认服务器、经HTTP lifecycle创建的三类Authority完成Formal Run→Decision→Settle→Publish→Replay | B5 Default Persisted Authority Golden Closure | T3    | P0       |
+| L1-GAP-B02 | Course membership visibility                  | Issue #112仍OPEN                                                                         | 普通用户仅可见其合法Course；API/BFF/browser/log/export负向路径通过                               | L1 Visibility Closure / #112                  | T3    | P0       |
+| L1-GAP-B03 | Repository/direct-store authority boundary    | Issue #114仍OPEN；guard存在但current exceptions和关键route未完成正式closure              | L1 command/truth路径无未批准direct store bypass                                                  | L1 Authority Boundary Closure / #114          | T3    | P0       |
+| L1-GAP-B04 | L1 executable contract parity                 | Issue #115仍OPEN                                                                         | OpenAPI、JSON Schema、shared contract、handler和BFF对L1核心路由可执行一致                        | L1 Contract Parity Closure / #115             | T2/T3 | P0       |
+
+### 11.1 Blocker排序
+
+1. `B01`默认formal authority完整Golden链；
+2. `B02`Course membership visibility；
+3. `B04`Executable contract parity；
+4. `B03`Direct-store boundary。
+
+说明：
+
+- B01是当前Product Surface与关键路径优先项；
+- B02是P-G2安全硬边界，应紧随其后或在文件/authority完全独立时开发准备；
+- B04为后续API扩张的质量基础；
+- B03应限制为L1关键路径closure，不提前扩张到PostgreSQL active。
+
+---
+
+## 12. L1 Evidence Gap Register
+
+| Gap ID     | Capability                                    | Missing Evidence                                     | Priority |
+| ---------- | --------------------------------------------- | ---------------------------------------------------- | -------- |
+| L1-GAP-E01 | current master fresh clone                    | npm ci + full suite + build + browser + clean status | P0       |
+| L1-GAP-E02 | merge commit post-merge receipt               | current master exact receipt / fresh closure         | P0       |
+| L1-GAP-E03 | branch policy                                 | branch protection / ruleset readback                 | P1       |
+| L1-GAP-E04 | abort/reset/cleanup                           | current master failure matrix + zero residue         | P0       |
+| L1-GAP-E05 | settlement retry/concurrency in L1 JSON scope | same-process targeted tests + #111 disposition       | P1       |
+| L1-GAP-E06 | current browser Golden Product Journey        | Teacher/Student/Admin current-SHA artifacts          | P0       |
+| L1-GAP-E07 | Issue #116 closure                            | current source-to-issue acceptance mapping           | P1       |
+| L1-GAP-E08 | Completion Evidence Pack                      | all L1-EV artifacts and digests                      | P0       |
+| L1-GAP-E09 | Owner acknowledgment                          | signed L1 scope/limits/expiry                        | P0       |
+
+---
+
+## 13. L1 Known Limits Register
+
+| ID        | Known Limit                       | Scope                        | Owner            | Expiry / Revalidation     |
+| --------- | --------------------------------- | ---------------------------- | ---------------- | ------------------------- |
+| KL-L1-001 | JSON_INTERNAL_ONLY                | 所有L1运行                   | Architecture     | provider/authority change |
+| KL-L1-002 | 无durable settlement              | L1正式结果仅限批准的JSON范围 | Platform         | F6                        |
+| KL-L1-003 | 无backup/restore/recovery         | 所有L1                       | Platform         | F7 drill                  |
+| KL-L1-004 | 无Human Validation                | 仅自动化工程验证             | Product          | L2 study                  |
+| KL-L1-005 | 无Controlled Pilot                | 内部synthetic范围            | Project Owner    | G Go/No-Go                |
+| KL-L1-006 | 无Production                      | 无外部客户/生产流量          | Project Owner    | H Go/No-Go                |
+| KL-L1-007 | 无external AI effectiveness proof | AI关闭或inactive             | AI Owner         | controlled beta           |
+| KL-L1-008 | 无BLP formal active claim         | 稳定L1模型或inactive         | Model Owner      | M-G4/M-G6                 |
+| KL-L1-009 | 无Stage 4B runtime/fidelity claim | Plane OFF/inactive           | STK Owner        | STK-G4/G5                 |
+| KL-L1-010 | 无真实客户/个人数据               | synthetic/anonymized         | Data Owner       | separate data Gate        |
+| KL-L1-011 | 无billing/entitlement             | non-commercial               | Commercial Owner | H4                        |
+| KL-L1-012 | 无SLO/SLA                         | internal validation          | Platform         | F8/H1                     |
+
+`PASS_WITH_LIMITS`只有在每项Known Limit具备owner、scope、expiry、revalidation和user-facing disclosure后才合法。
+
+---
+
+## 14. L1+ Deferred Backlog
+
+1. Generic Scenario Compiler完整产品化
+2. Scenario publish/retire authoring完善
+3. CourseBlueprint immutable versioning
+4. Teacher Blueprint Studio
+5. 完整Role Workflow
+6. Instructor Kit
+7. Course clone
+8. Reusable Course export
+9. Learning Goal Registry
+10. Rubric Runtime
+11. Teacher Confirmation Workbench
+12. AoL/xAPI export
+13. Governed AI Teacher Review
+14. BLP/Model safe product integration或Stage 4B safe feed（可选，不得成为默认L1依赖）
+
+这些能力不进入当前L1 blocker数量。完整Role Workflow与Learning Evidence Runtime仍然重要，但属于L1+产品和课程硬化。
+
+---
+
+## 15. Higher-Stage Deferred Register
+
+- PostgreSQL active provider
+- migrations
+- durable event/snapshot
+- durable settlement
+- recovery
+- staging
+- real users
+- real data
+- Controlled Pilot
+- Production
+- billing
+- SLO/SLA
+- Industry Portfolio
+
+不得使用L1台账授权这些动作。进入上述状态必须使用相应T4人工复核或后续Stage Gate。
+
+---
+
+## 16. Dependency and Join Barrier Matrix
+
+| From                       | To          | Dependency                            | Join Barrier               | Current State         |
+| -------------------------- | ----------- | ------------------------------------- | -------------------------- | --------------------- |
+| VC-01 Engineering Baseline | 所有VC      | current source与可重复环境            | P-G0                       | receipt缺失           |
+| VC-02 Identity/Course      | VC-06/08    | membership、tenant、team              | P-G2                       | #112 open             |
+| VC-04 Formal Authority     | VC-03/05/10 | exact approved refs、binding          | B-G4/B-G5                  | 部分实现              |
+| VC-05 Run Lifecycle        | VC-07/08    | legal state transitions               | P-G3                       | current execution缺失 |
+| VC-07 Settlement           | VC-08/10    | single official result                | P-G1/P-G3/P-G5             | #111 evidence gap     |
+| VC-08 Projection           | VC-09/10    | executable contract与privacy          | P-G2/P-G3                  | #115 open             |
+| VC-10 Replay               | VC-13       | digest、non-overwrite、private/public | P-G4                       | default chain缺失     |
+| VC-11 Cleanup              | VC-13/14    | zero residue、rerun                   | P-G5                       | current evidence缺失  |
+| VC-13 Evidence Pack        | VC-14       | blocker=0、UNKNOWN=0                  | P-G8                       | not started           |
+| VC-14 Final Gate           | L1+         | Owner acknowledgment                  | exact master/evidence pack | not started           |
+
+---
+
+## 17. Shared Resource Lock View
+
+| Resource                     | Default Owner                 | Current Remote Lock        | Required Mode for Next Target | Conflict Rule                  |
+| ---------------------------- | ----------------------------- | -------------------------- | ----------------------------- | ------------------------------ |
+| `packages/shared-contracts`  | Contract Owner                | no open PR / local unknown | single writer if changed      | second writer pauses           |
+| Formal ParameterSet          | ParameterSetCommandService    | no open PR / local unknown | read unless defect found      | no direct Store write          |
+| Formal ScenarioPackage       | ScenarioPackageCommandService | no open PR / local unknown | read unless defect found      | exact ref only                 |
+| Formal PluginRelease         | PluginReleaseCommandService   | no open PR / local unknown | read unless defect found      | AVAILABLE ≠ runtime activation |
+| `services/api/src/server.ts` | API/Core Owner                | no open PR / local unknown | single writer                 | Mainline wins                  |
+| Run / Replay                 | Core / Replay Owner           | no open PR / local unknown | serial owner                  | no Industry/STK parallel write |
+| Golden M1 official baseline  | Replay/QA Owner               | no open PR / local unknown | single writer                 | no parallel overwrite          |
+| Student projection           | Security/Product Owner        | no open PR / local unknown | single writer if changed      | private field breach = FAIL    |
+| CI workflows                 | Program A / DCP               | unchanged in recent PRs    | read only for B01             | workflow change separate scope |
+| DB / migration               | Program F                     | no authorization           | NO_WRITE                      | higher-stage T4                |
+
+---
+
+## 18. Graphify and CodeGraph Findings
+
+### 18.1 Status
+
+```text
+Graphify Status:
+STALE_REBUILD_REQUIRED
+
+CodeGraph Status:
+STALE_REBUILD_REQUIRED
+
+Last Known Graph Anchor:
+0760055145f9626b3751c2e3b9b45d5b5b2a24ec
+
+Current Master:
+2b9b137830144d65970b69636c121b76df238ceb
+
+Freshness Result:
+EXPIRED_BY_MULTIPLE_MASTER_MERGES
+```
+
+### 18.2 可复用但非current proof的历史信息
+
+- 最后可复用但已过期的Graphify/CodeGraph快照绑定master 0760055145f9626b3751c2e3b9b45d5b5b2a24ec。
+- 历史Graphify索引约4,495 nodes / 7,240 edges；Graphify MCP扩展结果约4,556 nodes（含61 external refs）。
+- 该快照已被PR #259—#263等多个master merge失效，不能作为current source proof。
+- 从current GitHub source与测试可确认的关键链：formal lifecycle APIs → persisted JSON authority runtime → formal Run binding → settlement/replay；但完整默认链仍被拆成create-only与injected-port full-chain两类测试。
+- 执行下一重要Gate前必须在assessment source anchor 2b9b1378…重建Graphify和CodeGraph，输出Authority Writer、Runtime Call Path、Test Coverage和Resource Conflict图。
+
+### 18.3 Required Graph Outputs
+
+下次目标选择或P-G1—P-G5 Gate前必须输出：
+
+- `GRAPH-L1-001 Repository Fact Graph`
+- `GRAPH-L1-002 Authority Writer Graph`
+- `GRAPH-L1-003 Formal Lifecycle → Binding Runtime Call Graph`
+- `GRAPH-L1-004 Teacher/Student/Admin Product Journey Graph`
+- `GRAPH-L1-005 Run → Settlement → Replay Graph`
+- `GRAPH-L1-006 Test Coverage Graph`
+- `GRAPH-L1-007 Shared Resource Conflict Graph`
+- `GRAPH-L1-008 Candidate Route Scorecard`
+
+Graph只决定搜索空间和路径，不替代RED/GREEN、integration、E2E、CI、CodeQL或fresh clone。
+
+---
+
+## 19. Candidate Route Scorecard
+
+| Candidate | Target                                        | Lane                  | Score | Why                                                                | Constraint                                                         |
+| --------- | --------------------------------------------- | --------------------- | ----- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| CAND-01   | Default persisted authority full Golden chain | Mainline              | 90    | 直接闭合B01并复用PR #260—#263；同时补P-G3/P-G4关键证据             | 需先重建current-master Graphify/CodeGraph并冻结Run/Replay/Golden锁 |
+| CAND-02   | Course membership visibility #112             | Mainline Security     | 84    | 关闭P-G2硬边界和跨Course风险                                       | 与B01文件面预计较独立，但Closure仍串行                             |
+| CAND-03   | Executable contract parity #115               | Mainline/Quality      | 79    | 提高所有后续API可靠性并保护Student/error envelope                  | 涉及shared contract/OpenAPI写锁                                    |
+| CAND-04   | Direct-store boundary #114                    | Architecture Recovery | 76    | 降低第二authority和未来PG风险                                      | 应仅关闭L1关键路径，不扩张到PG activation                          |
+| CAND-05   | Current-master Evidence Rebaseline            | Closure/Support       | 73    | 立即消除E01/E02/E06部分UNKNOWN                                     | 不能替代四个blocker closure                                        |
+| CAND-06   | Graphify + CodeGraph current-master reindex   | Read-only Discovery   | 72    | 授权矩阵要求重要Gate/模糊路径前使用图谱；现有图谱已被多次merge失效 | 不产生产品状态；完成后确认CAND-01 exact change surface             |
+
+### 19.1 评分权重
+
+```text
+Product Surface Gain             25%
+L1 Blocker Reduction             20%
+Critical Path Shortening         15%
+Boundary Safety                  15%
+Evidence Reuse                   10%
+File / Authority Independence    10%
+Implementation Economy            5%
+```
+
+### 19.2 决策
+
+```text
+Provisional Selected Mainline:
+CAND-01 / L1-GAP-B01
+
+Mandatory Pre-Execution Support:
+CAND-06 / current-master Graphify + CodeGraph reindex
+
+Automatic Start:
+FORBIDDEN
+```
+
+---
+
+## 20. Recommended Next Mainline Target
+
+### 20.1 Target Card
+
+```text
+Candidate ID:
+CAND-01
+
+Target State:
+DEFAULT_PERSISTED_FORMAL_AUTHORITY_FULL_GOLDEN_CHAIN_CLOSED
+
+Current Gap:
+Lifecycle APIs、default binding和full chain分别存在，
+但未在同一个默认服务器和同一Evidence链中汇合。
+
+Product Value:
+把formal Authority治理基础转化为可运行、可发布、
+可回放的L1产品闭环。
+
+Program / Bundle:
+Program B / B5 Course-Run Binding & Golden Closure
+
+Risk Tier:
+T3
+若发现需要改变Settlement/Finance/Score公式或sole writer，升级T4。
+
+Human Review:
+NO for T3 under approved matrix;
+YES only if T4 trigger appears.
+
+Expected PR Count:
+0–1
+
+Expected Change Surface:
+优先扩展integration/e2e/evidence；
+生产代码仅在RED证明实际缺口后做最小修复。
+
+Resource Locks:
+formal authority runtime
+Run create
+Run/Replay
+Golden M1 official fixture
+Student result projection
+
+Required Tests:
+default HTTP lifecycle → exact binding → decision → settle → publish → replay
+missing/retired/mismatched identity fail closed
+Student private evidence negative
+historical non-overwrite
+current full closure
+
+Stop:
+PR merged + post-merge fresh validation + ledger update
+然后停止，不自动开启B02。
+```
+
+### 20.2 Explicit Non-Proof
+
+该目标不证明：
+
+- Generic Scenario Compiler完整完成；
+- CourseBlueprint或Role Workflow完成；
+- PostgreSQL active；
+- durable settlement或recovery；
+- AI/BLP/Stage 4B完成；
+- Human Validation；
+- Pilot或Production。
+
+---
+
+## 21. Evidence Freshness Register
+
+| Evidence                      | Current Status                 | Expiry                    |
+| ----------------------------- | ------------------------------ | ------------------------- |
+| current master SHA            | CURRENT at generation          | next merge                |
+| open PR count                 | CURRENT at generation          | new/closed PR             |
+| PR #263 head CI/CodeQL        | CURRENT to head `3957e0ca…`    | head change               |
+| merge commit workflow receipt | MISSING                        | N/A                       |
+| package scripts               | CURRENT source                 | package change            |
+| CI workflow                   | CURRENT source                 | workflow change           |
+| P1 issue states               | CURRENT at generation          | issue event / 4h          |
+| Graphify graph                | STALE                          | already expired           |
+| CodeGraph graph               | STALE                          | already expired           |
+| local fresh clone             | UNAVAILABLE                    | N/A                       |
+| branch protection             | UNKNOWN                        | readback required         |
+| L1 DoD                        | LOCAL READY_FOR_OWNER_APPROVAL | Owner revision            |
+| Authorization Matrix          | LOCAL READY_FOR_OWNER_APPROVAL | Owner revision            |
+| this Ledger                   | generated current              | any master/PR/lock change |
+
+---
+
+## 22. State Transition History
+
+| PR      | Merge SHA | State Transition                               | Ledger Impact                                  |
+| ------- | --------- | ---------------------------------------------- | ---------------------------------------------- |
+| PR #257 | 823c0b7…  | Formal Run runtime binding activation          | 已合并；建立formal binding运行面               |
+| PR #258 | a65578a…  | Formal Scenario authority catalog persistence  | 已合并；建立持久化正式场景目录                 |
+| PR #259 | da03ba9…  | Teacher formal scenario catalog/local draft    | 已合并；教师只读目录与本地草稿                 |
+| PR #260 | 1b97e1e…  | Default persisted formal authority composition | 已合并；默认JSON runtime组合三类Authority      |
+| PR #261 | 50cdb50…  | Formal ParameterSet lifecycle API              | 已合并；platform-admin治理入口                 |
+| PR #262 | 79e8045…  | Formal ScenarioPackage lifecycle API           | 已合并；platform-admin治理入口                 |
+| PR #263 | 2b9b137…  | Formal PluginRelease lifecycle API             | 已合并；platform-admin治理入口；current master |
+
+### 22.1 价值链解释
+
+- #257—#260关闭“formal binding存在但默认runtime未组合”的主要技术断点；
+- #261—#263关闭“测试必须直接seed lifecycle snapshots”的治理入口断点；-下一步应优先把这些能力汇合成一条默认完整Golden链，而不是继续新增第四类Authority或横向功能。
+
+---
+
+## 23. L1 Completion Burn-Down
+
+### 23.1 Strict Closure
+
+```text
+Required Top-Level Capabilities:
+14
+
+CLOSED_AND_CURRENT:
+0
+
+Remaining:
+14
+```
+
+### 23.2 Implementation Readiness
+
+```text
+Capabilities with source/merged implementation basis:
+10 / 14
+
+Implementation Coverage:
+71.4%
+
+Capabilities blocked or not started:
+4 / 14
+```
+
+### 23.3 Blocker Burn-Down Order
+
+```text
+B01 Default Formal Golden Chain
+→ B02 Course Membership Visibility
+→ B04 Executable Contract Parity
+→ B03 Direct-Store Boundary Closure
+→ E04 Failure/Cleanup
+→ Current-Master Evidence Pack
+→ Final Gate
+```
+
+该顺序是provisional，必须由current-master Graphify/CodeGraph确认文件、Authority和Runtime依赖后冻结。
+
+---
+
+## 24. Target Mode Entry and Stop Contract
+
+### 24.1 Entry
+
+每个目标任务开始前读取：
+
+1. L1 DoD；2.本L1 Ledger；
+2. Target Mode Authority Matrix；
+3. current master/open PR；
+4. current blocker；
+5. current WIP和Resource Lock；
+6. current Graphify/CodeGraph snapshot；
+7. Known Limits；
+8. current Evidence Pack delta。
+
+### 24.2 During Execution
+
+不得在以下条件前写`CLOSED_AND_CURRENT`：
+
+- PR merged；
+- exact-head gate完成；
+- current master fresh validation；
+- residue=0；
+- Ledger evidence更新；
+- Resource Lock释放。
+
+### 24.3 Stop
+
+```text
+One target
+→ one named blocker/evidence gap
+→ one state transition
+→ normally one focused PR
+→ CI / exact-head / post-merge closure
+→ Ledger update
+→ STOP
+```
+
+不得自动创建下一目标branch或继续mutation。
+
+---
+
+## 25. Ledger Update Procedure
+
+以下事件发生时必须更新：
+
+- PR create/head change/close/merge；
+- master变化；
+- Issue状态变化；
+- Authority或runtime provider变化；
+- package/lockfile/workflow变化；
+- Graphify/CodeGraph reindex；
+- Resource Lock变化；
+- Known Limit或Owner Decision变化。
+
+每次merge后：
+
+1.对应能力先更新为`MERGED_NOT_CLOSED`；2. current master更新；3.其他未合并PR的base和Join证据失效；4.运行fresh clone closure；5.通过后改为`CLOSED_AND_CURRENT`；6.更新Evidence digest；7.释放Resource Lock；8.重算候选路径；9.输出建议并停止。
+
+---
+
+## 26. Owner Acknowledgment
+
+### 26.1 Ledger Adoption
+
+```text
+Decision ID:
+SIMWAR_L1_LEDGER_ADOPTION_V1
+
+Scope:
+Adopt this ledger structure and current-reality classification.
+
+Does Not Authorize:
+L1 PASS;
+new Mission;
+merge;
+T4 mutation;
+PostgreSQL;
+migration;
+durable settlement;
+recovery;
+real data;
+Pilot;
+Production;
+billing.
+```
+
+| Role             | Name / Signature            | Date             | Decision                |
+| ---------------- | --------------------------- | ---------------- | ----------------------- |
+| Project Owner    | Marshall / \***\*\_\_\*\*** | \***\*\_\_\*\*** | ADOPT / REVISE / REJECT |
+| Chief Architect  | \***\*\_\_\*\***            | \***\*\_\_\*\*** | ACKNOWLEDGED            |
+| Product Owner    | \***\*\_\_\*\***            | \***\*\_\_\*\*** | ACKNOWLEDGED            |
+| Engineering Lead | \***\*\_\_\*\***            | \***\*\_\_\*\*** | ACKNOWLEDGED            |
+| QA / Security    | \***\*\_\_\*\***            | \***\*\_\_\*\*** | ACKNOWLEDGED            |
+
+---
+
+# Appendix A — Full Capability Ledger
+
+## L1-LEDGER-001 — Current Reality与工程基线
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-01`                              |
+| L1 DoD Reference      | `L1-DOD-001—006`                        |
+| Platform Gate         | `P-G0`                                  |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `MERGED_NOT_CLOSED`                     |
+| Confidence            | `HIGH_SOURCE_MEDIUM_CLOSURE`            |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T1/T3`                                 |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `CLOSURE_LANE`                          |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Engineering Lead / Closure Owner`      |
+| Expiry                | `on next master merge`                  |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+仓库default branch为master；current master可认证；根脚本与CI包含lint、typecheck、test、contract、build、Playwright、hidden-unicode和direct-store门禁；PR #263 exact head的CI与CodeQL成功。
+
+**Explicit Non-Proof**
+
+assessment source anchor 2b9b1378…已完成fresh clone、full suite、browser、clean/residue和post-merge receipt；branch protection当前有效。
+
+**Current Evidence**
+
+- Source: GitHub assessment source anchor 2b9b137830144d65970b69636c121b76df238ceb; package.json@2b9b1378; ci.yml@2b9b1378
+- Tests: PR #263 head CI success; PR #263 head CodeQL success
+- PR: PR #263 merged
+- Fresh Clone: MISSING
+
+**Gap**
+
+缺current-master fresh clone和merge receipt。
+
+**Dependencies**
+
+- Predecessors: NONE
+- Successors: L1-VC-14
+
+**Suggested Value Chain Bundle**
+
+`A-VCB Current Master Closure Rebaseline`
+
+**Candidate Primary Outcome**
+
+在2b9b1378上生成可重复的fresh-clone与post-merge receipt。
+
+**Required Tests**
+
+- npm ci
+- npm run check:hidden-unicode
+- npm run check:direct-store-boundaries
+- npm run lint
+- npm run typecheck
+- npm test
+- npm run test:contract
+- npm run build
+- npm run test:e2e:ui
+
+**Required Evidence**
+
+- clean status
+- process/temp/store/container residue=0
+- merge receipt
+
+**Revalidation Triggers**
+
+- master change
+- lockfile change
+- workflow change
+
+---
+
+## L1-LEDGER-002 — Identity、RBAC、Tenant、Course与Team隔离
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-02`                              |
+| L1 DoD Reference      | `L1-DOD-007—011`                        |
+| Platform Gate         | `P-G2`                                  |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `BLOCKED`                               |
+| Confidence            | `HIGH`                                  |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_BLOCKER`                            |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `AUTH_RBAC_COURSE_VISIBILITY`           |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Security Owner / Product Owner`        |
+| Expiry                | `on auth/course schema change`          |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+认证、角色权限、tenant/team相关代码与测试资产存在；平台管理员formal authority ingress具备明确权限。
+
+**Explicit Non-Proof**
+
+普通用户仅能看到已授权Course；current master上API、BFF、browser、log/export全链负向验证已关闭。
+
+**Current Evidence**
+
+- Source: ROLE_PERMISSION_MATRIX; Teacher/Student/Admin applications; Issue #112 remains open
+- Tests: recent lifecycle API permission and tenant negative tests
+- PR: PR #261—#263 permission additions
+- Fresh Clone: MISSING
+
+**Gap**
+
+Issue #112课程成员可见性仍开放，属于P-G2硬边界候选。
+
+**Dependencies**
+
+- Predecessors: L1-VC-01
+- Successors: L1-VC-06, L1-VC-08
+
+**Suggested Value Chain Bundle**
+
+`L1 Visibility Closure / #112`
+
+**Candidate Primary Outcome**
+
+建立并证明course membership visibility与跨Course负向路径。
+
+**Required Tests**
+
+- API membership negatives
+- Teacher/Student browser negatives
+- tenant/team/log/export checks
+
+**Required Evidence**
+
+- Issue #112 acceptance mapping
+- current master source and test readback
+
+**Revalidation Triggers**
+
+- role matrix change
+- course membership change
+- BFF change
+
+---
+
+## L1-LEDGER-003 — Synthetic Course与Run Entry
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-03`                              |
+| L1 DoD Reference      | `L1-DOD-012—013`                        |
+| Platform Gate         | `P-G1/P-G3`                             |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`              |
+| Confidence            | `HIGH_SOURCE`                           |
+| Blocks L1             | `NO`                                    |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `RUN_CREATE_FORMAL_BINDING`             |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Core / Run Owner`                      |
+| Expiry                | `on Run create or binding change`       |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+Teacher可通过现有Run create route创建formal opt-in Run；缺失formal identity时fail closed且不创建legacy Run。
+
+**Explicit Non-Proof**
+
+使用正式生命周期HTTP API创建三类Authority后，从默认服务器完成整个Golden链；当前浏览器产品入口已完整使用formal lifecycle。
+
+**Current Evidence**
+
+- Source: formal-run-runtime-binding-activation.test.ts; server.ts formal runtime composition
+- Tests: default persisted authority create test; missing identity fail-closed test
+- PR: PR #257、#260
+- Fresh Clone: MISSING
+
+**Gap**
+
+current master完整运行证据缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-02, L1-VC-04
+- Successors: L1-VC-05
+
+**Suggested Value Chain Bundle**
+
+`B5 Golden Closure`
+
+**Candidate Primary Outcome**
+
+把formal lifecycle API产物接入默认Run entry并形成单一端到端证据。
+
+**Required Tests**
+
+- formal Run create integration
+- fail-closed negative
+- browser or API journey
+
+**Required Evidence**
+
+- exact refs and binding digest
+- no legacy fallback
+
+**Revalidation Triggers**
+
+- server runtime composition change
+- formal authority lifecycle change
+
+---
+
+## L1-LEDGER-004 — Formal Authority Lifecycle与Exact Run Binding
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-04`                              |
+| L1 DoD Reference      | `L1-DOD-021—022、029`                   |
+| Platform Gate         | `P-G1/P-G3`                             |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `PARTIALLY_IMPLEMENTED`                 |
+| Confidence            | `HIGH`                                  |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_BLOCKER`                            |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `FORMAL_AUTHORITY_RUN_BINDING_GOLDEN`   |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Scenario / Core / Replay Owner`        |
+| Expiry                | `on authority or Run/Replay change`     |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+ParameterSet、ScenarioPackage和PluginRelease均已有platform-admin治理入口；默认JSON runtime组合三类持久化Authority；formal Run使用exact id/version/digest；不存在identity时fail closed。
+
+**Explicit Non-Proof**
+
+三类Authority完全通过HTTP生命周期创建并在同一个默认服务器中完成create→decision→settle→publish→Replay；所有direct-store旁路已关闭。
+
+**Current Evidence**
+
+- Source: PR #260 default authority composition; PR #261 ParameterSet lifecycle API; PR #262 ScenarioPackage lifecycle API; PR #263 PluginRelease lifecycle API
+- Tests: 729/731/733-test PR-reported suites; lifecycle integration tests; formal binding integration tests
+- PR: PR #260—#263 merged
+- Fresh Clone: MISSING
+
+**Gap**
+
+默认持久化Authority的完整Golden链仍由分裂测试证明；#114仍开放。
+
+**Dependencies**
+
+- Predecessors: L1-VC-01
+- Successors: L1-VC-03, L1-VC-05, L1-VC-10
+
+**Suggested Value Chain Bundle**
+
+`B5 Default Persisted Authority Full Golden Chain`
+
+**Candidate Primary Outcome**
+
+用默认服务器和HTTP治理入口完成三类Authority→Formal Run→Publish→Replay。
+
+**Required Tests**
+
+- single default-runtime end-to-end integration
+- exact binding negative matrix
+- direct-store scan
+- Student evidence negative
+
+**Required Evidence**
+
+- binding digest
+- formal resolution digest private-only
+- historical non-overwrite
+
+**Revalidation Triggers**
+
+- PR touching server.ts
+- authority lifecycle change
+- Golden change
+
+---
+
+## L1-LEDGER-005 — Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-05`                              |
+| L1 DoD Reference      | `L1-DOD-012—017`                        |
+| Platform Gate         | `P-G3/P-G5`                             |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`              |
+| Confidence            | `HIGH_SOURCE`                           |
+| Blocks L1             | `NO`                                    |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `RUN_LIFECYCLE`                         |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Core / Run Owner`                      |
+| Expiry                | `on state machine change`               |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+集成测试覆盖formal Run create、round start、decision、lock、settle、publish。
+
+**Explicit Non-Proof**
+
+current master在default persisted authority模式、失败注入、重试和浏览器路径上全部通过。
+
+**Current Evidence**
+
+- Source: formal-run-runtime-binding-activation.test.ts; server run lifecycle routes
+- Tests: injected-authority full chain test
+- PR: PR #257、#260
+- Fresh Clone: MISSING
+
+**Gap**
+
+default full-chain、failure matrix与fresh execution缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-03, L1-VC-04
+- Successors: L1-VC-07, L1-VC-08
+
+**Suggested Value Chain Bundle**
+
+`B5 Golden Closure`
+
+**Candidate Primary Outcome**
+
+在默认authority模式冻结完整Run状态转换与失败语义。
+
+**Required Tests**
+
+- invalid transition
+- late/duplicate actions
+- failure injection
+- full chain
+
+**Required Evidence**
+
+- state transition trace
+- zero legacy fallback
+
+**Revalidation Triggers**
+
+- Run/Round route change
+- Settlement route change
+
+---
+
+## L1-LEDGER-006 — Student Whole-Team Decision Flow
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-06`                              |
+| L1 DoD Reference      | `L1-DOD-018—020`                        |
+| Platform Gate         | `P-G2/P-G3`                             |
+| Classification        | `L1_REQUIRED_MINIMUM`                   |
+| Status                | `PARTIALLY_IMPLEMENTED`                 |
+| Confidence            | `HIGH_SOURCE`                           |
+| Blocks L1             | `NO`                                    |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `DECISION_LIFECYCLE`                    |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Course / Student Product Owner`        |
+| Expiry                | `on decision contract change`           |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+Student可提交whole-team canonical decision；formal Run full-chain测试覆盖team_alpha提交。
+
+**Explicit Non-Proof**
+
+完整Role Workflow已完成；duplicate、late、wrong-team、wrong-round、membership全矩阵在current master通过。
+
+**Current Evidence**
+
+- Source: Student app decision form; Decision route and contracts; Issue #119 remains open
+- Tests: formal Run decision integration
+- PR: historical Student product PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+L1最小whole-team路径可用但负向证据与membership依赖未闭合；Role Workflow延后L1+。
+
+**Dependencies**
+
+- Predecessors: L1-VC-02, L1-VC-05
+- Successors: L1-VC-07, L1-VC-09
+
+**Suggested Value Chain Bundle**
+
+`L1 Decision Negative Closure`
+
+**Candidate Primary Outcome**
+
+证明L1 whole-team decision的完整负向矩阵，同时保持Role Workflow deferred。
+
+**Required Tests**
+
+- duplicate
+- late
+- wrong team
+- wrong round
+- locked round
+- partial payload
+
+**Required Evidence**
+
+- canonical DecisionBatch trace
+- Role Workflow non-proof
+
+**Revalidation Triggers**
+
+- Decision schema change
+- role lifecycle change
+
+---
+
+## L1-LEDGER-007 — Truth-L1—L3与L1范围Settlement
+
+| Field                 | Value                                                |
+| --------------------- | ---------------------------------------------------- |
+| Value Chain ID        | `L1-VC-07`                                           |
+| L1 DoD Reference      | `L1-DOD-021、023—024`                                |
+| Platform Gate         | `P-G1/P-G3/P-G5`                                     |
+| Classification        | `L1_REQUIRED`                                        |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`                           |
+| Confidence            | `MEDIUM_HIGH`                                        |
+| Blocks L1             | `NO`                                                 |
+| Gap Classification    | `L1_EVIDENCE_GAP`                                    |
+| Risk Tier             | `T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE` |
+| Authorization         | `HUMAN_REVIEW_REQUIRED_ONLY_IF_T4`                   |
+| Human Review Required | `YES`                                                |
+| Resource Lock         | `SETTLEMENT_TRUTH`                                   |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`                      |
+| Capability Owner      | `Core / Settlement Owner`                            |
+| Expiry                | `on settlement code or formula change`               |
+| Last Updated          | `2026-07-28T09:11:06Z`                               |
+
+**Current State / Proves**
+
+现有full-chain测试能生成SettlementResult并发布；架构和边界规定Simulation Core为唯一formal writer。
+
+**Explicit Non-Proof**
+
+同一run/round重试和并发只产生唯一authoritative result；#111已正式关闭；durable settlement已完成。
+
+**Current Evidence**
+
+- Source: Settlement route and simulation-core boundary; Issue #111 remains open
+- Tests: formal Run settlement test; postgres replay harness exists but not active authority proof
+- PR: historical Truth/Settlement PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+L1 JSON范围的retry/concurrency disposition缺当前证据。
+
+**Dependencies**
+
+- Predecessors: L1-VC-05, L1-VC-06
+- Successors: L1-VC-08, L1-VC-10
+
+**Suggested Value Chain Bundle**
+
+`L1 Settlement Evidence Closure / #111 disposition`
+
+**Candidate Primary Outcome**
+
+不改财务/评分公式的前提下证明L1 JSON同进程重试唯一性；若需公式或authority变更升级T4。
+
+**Required Tests**
+
+- same run/round retry
+- concurrent settle
+- conflicting result negative
+- non-overwrite
+
+**Required Evidence**
+
+- single authoritative result
+- explicit no-durable claim
+
+**Revalidation Triggers**
+
+- Settlement algorithm change
+- Finance/Score change
+- authority change
+
+---
+
+## L1-LEDGER-008 — Publish与Teacher/Student/Admin安全Projection
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-08`                              |
+| L1 DoD Reference      | `L1-DOD-025—027`                        |
+| Platform Gate         | `P-G2/P-G3`                             |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `BLOCKED`                               |
+| Confidence            | `HIGH`                                  |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_BLOCKER`                            |
+| Risk Tier             | `T2/T3`                                 |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `CONTRACT_PROJECTION_SECURITY`          |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Contract Owner / Security Owner`       |
+| Expiry                | `on API/DTO/schema change`              |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+Teacher结果可含公开Replay evidence；Student结果不含replay_evidence、binding_digest或formal_resolution_digest；Teacher/Student/Admin应用存在。
+
+**Explicit Non-Proof**
+
+所有L1请求/响应、OpenAPI、JSON Schema、handler、shared contract、error、log和export保持可执行一致；#115已关闭。
+
+**Current Evidence**
+
+- Source: formal Run projection assertions; Teacher/Student/Admin apps; Issue #115 remains open
+- Tests: Student private evidence negative in formal binding test
+- PR: PR #193/#194 historical projection guards; PR #261—#263 contract additions
+- Fresh Clone: MISSING
+
+**Gap**
+
+可执行contract parity仍是L1 blocker。
+
+**Dependencies**
+
+- Predecessors: L1-VC-02, L1-VC-05, L1-VC-07
+- Successors: L1-VC-09, L1-VC-10
+
+**Suggested Value Chain Bundle**
+
+`L1 Executable Contract Parity / #115`
+
+**Candidate Primary Outcome**
+
+使L1核心路由请求/响应可执行验证并在CI中阻断drift。
+
+**Required Tests**
+
+- OpenAPI schema compile
+- request/response fixtures
+- handler response validation
+- Student/error/log/export negative
+
+**Required Evidence**
+
+- Issue #115 acceptance map
+- CI enforcement
+
+**Revalidation Triggers**
+
+- OpenAPI change
+- shared-contract change
+- BFF change
+
+---
+
+## L1-LEDGER-009 — Three-Part Feedback与Learning Report最小闭环
+
+| Field                 | Value                                      |
+| --------------------- | ------------------------------------------ |
+| Value Chain ID        | `L1-VC-09`                                 |
+| L1 DoD Reference      | `L1 persona acceptance / roadmap baseline` |
+| Platform Gate         | `P-G3`                                     |
+| Classification        | `L1_REQUIRED_MINIMUM`                      |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`                 |
+| Confidence            | `MEDIUM`                                   |
+| Blocks L1             | `NO`                                       |
+| Gap Classification    | `L1_EVIDENCE_GAP`                          |
+| Risk Tier             | `T3`                                       |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW`    |
+| Human Review Required | `NO`                                       |
+| Resource Lock         | `STUDENT_FEEDBACK_LEARNING_REPORT`         |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`            |
+| Capability Owner      | `Learning / Student Product Owner`         |
+| Expiry                | `on feedback/report change`                |
+| Last Updated          | `2026-07-28T09:11:06Z`                     |
+
+**Current State / Proves**
+
+路线与历史产品链表明Three-Part Feedback、Learning Report和Known Limits产品面已存在。
+
+**Explicit Non-Proof**
+
+current master浏览器旅程已验证；Learning Goal、Rubric、Teacher Confirmation或AoL已完成。
+
+**Current Evidence**
+
+- Source: Teacher/Student app imports and known product package; roadmap current capability baseline
+- Tests: historical Playwright assets; current artifact missing
+- PR: historical product surface PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+current SHA persona journey evidence缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-06, L1-VC-08
+- Successors: L1-VC-13
+
+**Suggested Value Chain Bundle**
+
+`L1 Browser Journey Closure`
+
+**Candidate Primary Outcome**
+
+在current master证明published result→feedback→learning report。
+
+**Required Tests**
+
+- Teacher/Student Playwright
+- privacy and waiting/error states
+
+**Required Evidence**
+
+- browser artifact
+- network negative
+
+**Revalidation Triggers**
+
+- Student UI change
+- result projection change
+
+---
+
+## L1-LEDGER-010 — Official Replay与Evidence Non-Overwrite
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-10`                              |
+| L1 DoD Reference      | `L1-DOD-031—033`                        |
+| Platform Gate         | `P-G4`                                  |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`              |
+| Confidence            | `HIGH_SOURCE`                           |
+| Blocks L1             | `NO`                                    |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `OFFICIAL_REPLAY_GOLDEN`                |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Replay / QA Owner`                     |
+| Expiry                | `on Replay/Golden change`               |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+formal binding full-chain测试创建private Replay inputs；public view不含formal runtime binding；Student不见private replay evidence；official result non-overwrite有既有测试基础。
+
+**Explicit Non-Proof**
+
+default persisted authority模式完整Replay；current master digest复现；Replay等同Recovery。
+
+**Current Evidence**
+
+- Source: createM1RunReplayEvidence; formal binding projection assertions
+- Tests: private/public separation test; historical replay non-overwrite
+- PR: PR #257、#260 and earlier replay PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+default full chain与current-master replay receipt缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-04, L1-VC-07, L1-VC-08
+- Successors: L1-VC-13
+
+**Suggested Value Chain Bundle**
+
+`B5 Default Golden Replay Closure`
+
+**Candidate Primary Outcome**
+
+在默认持久化Authority链上复现锁定digest和non-overwrite。
+
+**Required Tests**
+
+- official replay no-overwrite
+- private/public separation
+- digest reproducibility
+
+**Required Evidence**
+
+- canonical evidence digest
+- historical result unchanged
+
+**Revalidation Triggers**
+
+- Replay code change
+- Golden fixture change
+- provider involvement
+
+---
+
+## L1-LEDGER-011 — Abort、Reset、Cleanup与Failure Matrix
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-11`                              |
+| L1 DoD Reference      | `L1-DOD-034—037`                        |
+| Platform Gate         | `P-G5`                                  |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`              |
+| Confidence            | `MEDIUM`                                |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T3`                                    |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `RUN_FAILURE_CLEANUP`                   |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Operations / QA Owner`                 |
+| Expiry                | `on lifecycle or store change`          |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+Admin应用包含synthetic run lifecycle controls；路线图记录历史清理证据。
+
+**Explicit Non-Proof**
+
+current master失败注入、abort/reset/cleanup、zero residue和Golden rerun全部通过。
+
+**Current Evidence**
+
+- Source: Admin run lifecycle controls; roadmap historical baseline
+- Tests: current fresh failure matrix missing
+- PR: historical cleanup PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+E04 current failure matrix和零残留证据缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-05, L1-VC-07
+- Successors: L1-VC-13, L1-VC-14
+
+**Suggested Value Chain Bundle**
+
+`L1 Failure / Cleanup Closure`
+
+**Candidate Primary Outcome**
+
+生成current-master abort/reset/cleanup与zero-residue证据。
+
+**Required Tests**
+
+- decision validation failure
+- settlement failure
+- interrupted session
+- abort
+- reset
+- cleanup
+- Golden rerun
+
+**Required Evidence**
+
+- residue inventory
+- official result non-overwrite
+
+**Revalidation Triggers**
+
+- Run lifecycle change
+- store schema change
+
+---
+
+## L1-LEDGER-012 — Known Limits与阶段声明边界
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-12`                              |
+| L1 DoD Reference      | `L1-DOD-038—040`                        |
+| Platform Gate         | `P-G8 boundary`                         |
+| Classification        | `L1_REQUIRED_GOVERNANCE`                |
+| Status                | `IMPLEMENTED_NOT_VERIFIED`              |
+| Confidence            | `HIGH_DOCUMENT`                         |
+| Blocks L1             | `NO`                                    |
+| Gap Classification    | `L1_KNOWN_LIMIT`                        |
+| Risk Tier             | `T0/T3`                                 |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `KNOWN_LIMITS_POLICY`                   |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Chief Architect / Product Owner`       |
+| Expiry                | `on stage/runtime change`               |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+Teacher/Student/Admin读取Known Limits；DoD明确12项L1 Known Limits；JSON_INTERNAL_ONLY、no durable、no Pilot/Production边界明确。
+
+**Explicit Non-Proof**
+
+current UI全部正确披露、Owner/expiry已签署、L1 PASS_WITH_LIMITS已经批准。
+
+**Current Evidence**
+
+- Source: getKnownLimitsProjection imports; L1 DoD Known Limits Register
+- Tests: current browser disclosure evidence missing
+- PR: historical Known Limits product PRs
+- Fresh Clone: MISSING
+
+**Gap**
+
+Known Limits owner/expiry与current browser evidence未进入Completion Pack。
+
+**Dependencies**
+
+- Predecessors: L1-VC-01
+- Successors: L1-VC-13, L1-VC-14
+
+**Suggested Value Chain Bundle**
+
+`L1 Known Limits Evidence Closure`
+
+**Candidate Primary Outcome**
+
+将12项Known Limits、owner、expiry和UI disclosure封装到Evidence Pack。
+
+**Required Tests**
+
+- persona projection
+- claim scan
+
+**Required Evidence**
+
+- signed register
+- browser evidence
+
+**Revalidation Triggers**
+
+- runtime authority change
+- Pilot authorization
+- Known Limits change
+
+---
+
+## L1-LEDGER-013 — L1 Completion Evidence Pack
+
+| Field                 | Value                                   |
+| --------------------- | --------------------------------------- |
+| Value Chain ID        | `L1-VC-13`                              |
+| L1 DoD Reference      | `L1-DOD-041—042`                        |
+| Platform Gate         | `P-G0—P-G5/P-G8`                        |
+| Classification        | `L1_REQUIRED`                           |
+| Status                | `NOT_STARTED_CURRENT_SHA`               |
+| Confidence            | `HIGH`                                  |
+| Blocks L1             | `YES`                                   |
+| Gap Classification    | `L1_EVIDENCE_GAP`                       |
+| Risk Tier             | `T1/T3`                                 |
+| Authorization         | `AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW` |
+| Human Review Required | `NO`                                    |
+| Resource Lock         | `CLOSURE_EVIDENCE_PACK`                 |
+| Current Lock Owner    | `UNLOCKED_REMOTE_LOCAL_UNKNOWN`         |
+| Capability Owner      | `Closure Owner / QA`                    |
+| Expiry                | `on next master merge`                  |
+| Last Updated          | `2026-07-28T09:11:06Z`                  |
+
+**Current State / Proves**
+
+DoD已定义Evidence Pack结构；CI与PR evidence可作为输入。
+
+**Explicit Non-Proof**
+
+2b9b1378的完整25项Evidence Pack已经生成、digest封存并无UNKNOWN。
+
+**Current Evidence**
+
+- Source: L1 DoD Evidence Pack specification
+- Tests: NONE
+- PR: NONE
+- Fresh Clone: MISSING
+
+**Gap**
+
+E08 Completion Evidence Pack缺失。
+
+**Dependencies**
+
+- Predecessors: L1-VC-01, L1-VC-02, L1-VC-04, L1-VC-05, L1-VC-08, L1-VC-09, L1-VC-10, L1-VC-11, L1-VC-12
+- Successors: L1-VC-14
+
+**Suggested Value Chain Bundle**
+
+`L1 Completion Evidence Pack Assembly`
+
+**Candidate Primary Outcome**
+
+在所有blocker关闭后汇总current-master Evidence Pack并消除UNKNOWN。
+
+**Required Tests**
+
+- all applicable P-G0—P-G5 checks
+
+**Required Evidence**
+
+- 25-item catalog
+- digests
+- fresh clone
+- Known Limits
+- open issue disposition
+
+**Revalidation Triggers**
+
+- master change
+- evidence input change
+
+---
+
+## L1-LEDGER-014 — Final L1 Gate与Owner Acknowledgment
+
+| Field                 | Value                              |
+| --------------------- | ---------------------------------- |
+| Value Chain ID        | `L1-VC-14`                         |
+| L1 DoD Reference      | `L1-DOD-043`                       |
+| Platform Gate         | `P-G8`                             |
+| Classification        | `L1_REQUIRED`                      |
+| Status                | `NOT_STARTED`                      |
+| Confidence            | `HIGH`                             |
+| Blocks L1             | `YES`                              |
+| Gap Classification    | `L1_EVIDENCE_GAP`                  |
+| Risk Tier             | `T4_STAGE_DECISION`                |
+| Authorization         | `HUMAN_REVIEW_REQUIRED`            |
+| Human Review Required | `YES`                              |
+| Resource Lock         | `OWNER_DECISION`                   |
+| Current Lock Owner    | `PROJECT_OWNER`                    |
+| Capability Owner      | `Project Owner`                    |
+| Expiry                | `exact master/evidence pack bound` |
+| Last Updated          | `2026-07-28T09:11:06Z`             |
+
+**Current State / Proves**
+
+DoD提供未来Owner acknowledgment格式。
+
+**Explicit Non-Proof**
+
+Owner已批准L1 Definition、授权矩阵或当前L1 completion。
+
+**Current Evidence**
+
+- Source: L1 DoD sign-off template; Authorization Matrix ready for approval
+- Tests: NONE
+- PR: NONE
+- Fresh Clone: MISSING
+
+**Gap**
+
+E09 Owner acknowledgment缺失；当前blocker与UNKNOWN未清零。
+
+**Dependencies**
+
+- Predecessors: L1-VC-01—13
+- Successors: L1_PLUS_ENTRY
+
+**Suggested Value Chain Bundle**
+
+`L1 Final Gate`
+
+**Candidate Primary Outcome**
+
+在blocker=0、UNKNOWN=0、boundary breach=0后签署L1完成结论。
+
+**Required Tests**
+
+- N/A—consumes complete Evidence Pack
+
+**Required Evidence**
+
+- P-G0—P-G5 PASS/PASS_WITH_LIMITS
+- Known Limits
+- Boundary Breach=0
+
+**Revalidation Triggers**
+
+- master change
+- Known Limit change
+- evidence expiry
+
+---
+
+# Appendix B — L1 DoD Traceability
+
+| Ledger        | DoD                                      | Gate           | Current Verdict          |
+| ------------- | ---------------------------------------- | -------------- | ------------------------ |
+| L1-LEDGER-001 | L1-DOD-001—006                           | P-G0           | MERGED_NOT_CLOSED        |
+| L1-LEDGER-002 | L1-DOD-007—011                           | P-G2           | BLOCKED                  |
+| L1-LEDGER-003 | L1-DOD-012—013                           | P-G1/P-G3      | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-004 | L1-DOD-021—022、029                      | P-G1/P-G3      | PARTIALLY_IMPLEMENTED    |
+| L1-LEDGER-005 | L1-DOD-012—017                           | P-G3/P-G5      | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-006 | L1-DOD-018—020                           | P-G2/P-G3      | PARTIALLY_IMPLEMENTED    |
+| L1-LEDGER-007 | L1-DOD-021、023—024                      | P-G1/P-G3/P-G5 | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-008 | L1-DOD-025—027                           | P-G2/P-G3      | BLOCKED                  |
+| L1-LEDGER-009 | L1 persona acceptance / roadmap baseline | P-G3           | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-010 | L1-DOD-031—033                           | P-G4           | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-011 | L1-DOD-034—037                           | P-G5           | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-012 | L1-DOD-038—040                           | P-G8 boundary  | IMPLEMENTED_NOT_VERIFIED |
+| L1-LEDGER-013 | L1-DOD-041—042                           | P-G0—P-G5/P-G8 | NOT_STARTED_CURRENT_SHA  |
+| L1-LEDGER-014 | L1-DOD-043                               | P-G8           | NOT_STARTED              |
+
+---
+
+# Appendix C — Evidence Catalog
+
+| Evidence ID     | Evidence                              | Current Status | Binding                                    |
+| --------------- | ------------------------------------- | -------------- | ------------------------------------------ |
+| L1-EV-CUR-001   | GitHub current master                 | CURRENT        | `2b9b137830144d65970b69636c121b76df238ceb` |
+| L1-EV-CUR-002   | Open PR search                        | CURRENT        | `0`                                        |
+| L1-EV-PR-263    | PR #263 exact head CI / CodeQL        | PASS           | `3957e0caa0e3164ea1b7e227469d263e1582e4c3` |
+| L1-EV-SRC-001   | package scripts                       | CURRENT SOURCE | `package.json@2b9b1378`                    |
+| L1-EV-SRC-002   | CI workflow                           | CURRENT SOURCE | `.github/workflows/ci.yml@2b9b1378`        |
+| L1-EV-SRC-003   | formal Run binding integration source | CURRENT SOURCE | test blob `28804c8e…`                      |
+| L1-EV-ISSUE-111 | settlement idempotency issue          | OPEN           | #111                                       |
+| L1-EV-ISSUE-112 | course membership issue               | OPEN           | #112                                       |
+| L1-EV-ISSUE-114 | direct-store issue                    | OPEN           | #114                                       |
+| L1-EV-ISSUE-115 | executable contract parity issue      | OPEN           | #115                                       |
+| L1-EV-ISSUE-116 | CI quality alignment issue            | OPEN           | #116                                       |
+| L1-EV-GRAPH-OLD | last historical Graphify/CodeGraph    | STALE          | master `0760055…`                          |
+| L1-EV-FRESH-001 | current master fresh clone            | MISSING        | required                                   |
+| L1-EV-PACK-001  | Completion Evidence Pack              | MISSING        | required                                   |
+
+---
+
+# Appendix D — Resource Lock Register
+
+使用第17节。任何Mission启动前必须替换`UNLOCKED_REMOTE_LOCAL_UNKNOWN`为current local事实，并生成lock digest。
+
+---
+
+# Appendix E — Graph Snapshot Register
+
+```text
+Historical Graph Anchor:
+0760055145f9626b3751c2e3b9b45d5b5b2a24ec
+
+Historical Graphify:
+approximately 4,495 nodes / 7,240 edges
+
+Historical Graphify MCP Extended:
+approximately 4,556 nodes including 61 external refs
+
+Current Validity:
+STALE
+
+Required New Anchor:
+2b9b137830144d65970b69636c121b76df238ceb
+
+Required Status Before Next Important Gate:
+CURRENT
+```
+
+---
+
+# Appendix F — Machine-Readable YAML
+
+配套文件：`l1-value-chain-ledger.yaml`
+
+---
+
+## L1 Value Chain Ledger Recommendation
+
+```text
+Ledger Status:
+READY_FOR_REPOSITORY_ADOPTION
+
+Current L1 Status:
+NOT_ASSESSED
+
+Total L1 Required Capabilities:
+14
+
+Closed and Current:
+0
+
+L1 Blocker Count:
+4
+
+L1 Evidence Gap Count:
+9
+
+L1 Known Limit Count:
+12
+
+L1+ Deferred Count:
+14
+
+Unknown Count:
+9
+
+Boundary Breach Count:
+0 KNOWN / UNKNOWN TOTAL
+
+Current Mainline:
+NONE_VERIFIED_REMOTE
+
+Current Support Track:
+NONE_VERIFIED_REMOTE / LOCAL_UNKNOWN
+
+Graphify Status:
+STALE_REBUILD_REQUIRED
+
+CodeGraph Status:
+STALE_REBUILD_REQUIRED
+
+Recommended Next Mainline Target:
+PROVISIONAL L1-GAP-B01 — DEFAULT PERSISTED AUTHORITY FULL GOLDEN CHAIN
+
+Recommended Support Candidate:
+CURRENT_MASTER_GRAPHIFY_AND_CODEGRAPH_REBASE
+
+Human Review Required:
+T4_ONLY
+
+Automatic Next Target Start:
+FORBIDDEN
+
+Recommended Owner Decision:
+ADOPT_L1_VALUE_CHAIN_LEDGER
+```
