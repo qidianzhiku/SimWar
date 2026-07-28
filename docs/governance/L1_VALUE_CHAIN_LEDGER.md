@@ -96,7 +96,7 @@ Total L1 Required Value-Chain Capabilities:
 14
 
 Closed and Current:
-0
+1
 
 Merged Not Closed:
 1
@@ -114,7 +114,7 @@ Not Started:
 2
 
 L1 Blocker Count:
-4
+3
 
 L1 Evidence Gap Count:
 9
@@ -129,10 +129,10 @@ Boundary Breach Count:
 0 KNOWN / UNKNOWN TOTAL
 
 Strict L1 Completion Ratio:
-0.0%
+7.1%
 
 Current-Source Implementation Coverage:
-71.4%
+78.6%
 ```
 
 解释：
@@ -376,7 +376,7 @@ Admin / QA
 | L1-VC-01 | Current Reality与工程基线                               | MERGED_NOT_CLOSED        | L1_EVIDENCE_GAP | YES       | T1/T3                                              | A-VCB Current Master Closure Rebaseline           |
 | L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                  | L1_BLOCKER      | YES       | T3                                                 | L1 Visibility Closure / #112                      |
 | L1-VC-03 | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | B5 Golden Closure                                 |
-| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED    | L1_BLOCKER      | YES       | T3                                                 | B5 Default Persisted Authority Full Golden Chain  |
+| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | CLOSED_AND_CURRENT       | CLOSED_CURRENT  | NO        | T3                                                 | B01 closed by PR #267 and fresh-clone receipt     |
 | L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T3                                                 | B5 Golden Closure                                 |
 | L1-VC-06 | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED    | L1_EVIDENCE_GAP | NO        | T3                                                 | L1 Decision Negative Closure                      |
 | L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED | L1_EVIDENCE_GAP | NO        | T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE | L1 Settlement Evidence Closure / #111 disposition |
@@ -410,33 +410,41 @@ POST-PR263 AUTHORITY GOVERNANCE INGRESSES COMPLETE
 CURRENT-MASTER CLOSURE AND NEXT ROUTE REBASE REQUIRED
 ```
 
-### 9.2 Provisional Mainline Target
+### 9.2 B01 Closure
 
 ```text
-Target:
+Closed Target:
 L1-GAP-B01 — Default Persisted Authority Full Golden Chain
 
 Classification:
-PROVISIONAL_SELECTED / GRAPH_REBASE_REQUIRED
+CLOSED_AND_CURRENT_AT_PRODUCT_MERGE_SHA_5decc90502448e69f58427599eab8c9bec7590bb
 
 Primary Outcome:
-使用同一个默认JSON服务器，通过正式HTTP lifecycle创建并批准
-ParameterSet、PluginRelease、ScenarioPackage，
-然后完成Formal Run create→Decision→Lock→Settle→Publish→Replay，
-证明不使用injected authority ports、不回退legacy Store，
-Student不见private evidence，official result不被覆盖。
+PR #267 added one default JSON server HTTP regression covering formal
+ParameterSet, PluginRelease, and ScenarioPackage lifecycles; exact
+course/run binding; Decision→Lock→Settle→Publish; teacher replay evidence;
+student redaction; and official-result non-overwrite. Exact-head CI,
+CodeQL, and fresh-clone validation passed.
 ```
 
-### 9.3 为什么是当前最优主线
+### 9.3 Closure Boundary
 
--直接复用PR #260—#263，Evidence Reuse最高；-把连续Authority基础转化为真实L1产品链；-同时推进P-G1、P-G3和P-G4；-可在不进入PG、AI、Stage 4B、真实数据的前提下执行；-预计主要是测试与最小接线修复，变更面可控；-目标完成后可显著降低“系统组件都有、默认完整链仍不证明”的结构性风险。
+- B01 closes only the default persisted-authority Golden evidence gap.
+- It does not close B02 membership visibility, B03 direct-store authority,
+  B04 executable contract parity, cleanup evidence, Human Validation,
+  PostgreSQL activation, durable recovery, Pilot, or Production.
+- No next mainline is selected by this closure. Portfolio recompilation and a
+  current-master graph delta are required before another target is authorized.
 
-### 9.4 启动限制
+### 9.4 Evidence
 
-在创建该Mission前必须：
+Product PR: `#267` (`99d699acc8ee2f1f639ea5a109bc46f914a7b3c1`)
 
-1. current master重建Graphify；
-2. current master重建CodeGraph；3.输出Authority Writer、Runtime Call Path、Test Coverage和Shared Resource Conflict图；4.冻结`Run / Replay / Golden / formal authority`资源锁；5.确认没有本地active Track占用相同文件；6.遵守`Automatic Next Target Start: FORBIDDEN`。
+Product merge / validated source: `5decc90502448e69f58427599eab8c9bec7590bb`
+
+Fresh-clone validation: focused 6 files / 15 tests; full 97 files / 735
+tests; contracts, lint, typecheck, build, hidden-Unicode, direct-store
+boundary, Prettier, and `git diff --check` passed.
 
 ---
 
@@ -487,23 +495,21 @@ FORBIDDEN
 
 ## 11. L1 Blocker Register
 
-| Gap ID     | Capability                                    | Current State                                                                            | Required State                                                                                   | Suggested Bundle                              | Tier  | Priority |
-| ---------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------- | ----- | -------- |
-| L1-GAP-B01 | Default persisted authority full Golden chain | current default test仅证明Run create；完整settle/publish/Replay仍使用注入authority ports | 同一默认服务器、经HTTP lifecycle创建的三类Authority完成Formal Run→Decision→Settle→Publish→Replay | B5 Default Persisted Authority Golden Closure | T3    | P0       |
-| L1-GAP-B02 | Course membership visibility                  | Issue #112仍OPEN                                                                         | 普通用户仅可见其合法Course；API/BFF/browser/log/export负向路径通过                               | L1 Visibility Closure / #112                  | T3    | P0       |
-| L1-GAP-B03 | Repository/direct-store authority boundary    | Issue #114仍OPEN；guard存在但current exceptions和关键route未完成正式closure              | L1 command/truth路径无未批准direct store bypass                                                  | L1 Authority Boundary Closure / #114          | T3    | P0       |
-| L1-GAP-B04 | L1 executable contract parity                 | Issue #115仍OPEN                                                                         | OpenAPI、JSON Schema、shared contract、handler和BFF对L1核心路由可执行一致                        | L1 Contract Parity Closure / #115             | T2/T3 | P0       |
+| Gap ID     | Capability                                 | Current State                                                               | Required State                                                            | Suggested Bundle                     | Tier  | Priority |
+| ---------- | ------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ | ----- | -------- |
+| L1-GAP-B02 | Course membership visibility               | Issue #112仍OPEN                                                            | 普通用户仅可见其合法Course；API/BFF/browser/log/export负向路径通过        | L1 Visibility Closure / #112         | T3    | P0       |
+| L1-GAP-B03 | Repository/direct-store authority boundary | Issue #114仍OPEN；guard存在但current exceptions和关键route未完成正式closure | L1 command/truth路径无未批准direct store bypass                           | L1 Authority Boundary Closure / #114 | T3    | P0       |
+| L1-GAP-B04 | L1 executable contract parity              | Issue #115仍OPEN                                                            | OpenAPI、JSON Schema、shared contract、handler和BFF对L1核心路由可执行一致 | L1 Contract Parity Closure / #115    | T2/T3 | P0       |
 
 ### 11.1 Blocker排序
 
-1. `B01`默认formal authority完整Golden链；
-2. `B02`Course membership visibility；
-3. `B04`Executable contract parity；
-4. `B03`Direct-store boundary。
+1. `B02`Course membership visibility；
+2. `B04`Executable contract parity；
+3. `B03`Direct-store boundary。
 
 说明：
 
-- B01是当前Product Surface与关键路径优先项；
+- B01 was closed by PR #267 and its fresh-clone receipt; it is not a claim of L1 completion.
 - B02是P-G2安全硬边界，应紧随其后或在文件/authority完全独立时开发准备；
 - B04为后续API扩张的质量基础；
 - B03应限制为L1关键路径closure，不提前扩张到PostgreSQL active。
