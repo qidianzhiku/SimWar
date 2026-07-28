@@ -227,6 +227,37 @@ describe("R4b G1 course read facade slice", () => {
     }
   });
 
+  it("creates a course through the repository facade without falling back to the concrete store", async () => {
+    const store = createP1Store();
+    const provider = createJsonRepositoryProvider({ store });
+    const savedCourses: Course[] = [];
+    const saveCourse = vi.fn(async (course: Course) => {
+      savedCourses.push(course);
+    });
+    provider.facade.courses.saveCourse = saveCourse;
+    store.courses = [];
+
+    const { baseUrl, server } = await startServer(store, { repositoryProvider: provider });
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const response = await request<Course>(baseUrl, "/api/v1/courses", {
+        body: { title: "Facade-backed course" },
+        method: "POST",
+        token: teacherToken
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data.title).toBe("Facade-backed course");
+      expect(saveCourse).toHaveBeenCalledTimes(1);
+      expect(saveCourse).toHaveBeenCalledWith(response.body.data);
+      expect(savedCourses).toEqual([response.body.data]);
+      expect(store.courses).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("keeps the course read helper behind the repository facade boundary", () => {
     const serverSource = readFileSync(
       new URL("../../services/api/src/server.ts", import.meta.url),
@@ -253,6 +284,16 @@ describe("R4b G1 course read facade slice", () => {
       "runtime.repositoryProvider.facade.courses.listCoursesForUser("
     );
     expect(courseListSource).not.toContain("store.courses.filter");
+
+    const courseCreateSource = serverSource.slice(
+      serverSource.indexOf('request.method === "POST" && url.pathname === "/api/v1/courses"'),
+      serverSource.indexOf('request.method === "GET" && /^\\/api\\/v1\\/courses\\/[^/]+$/.test')
+    );
+
+    expect(courseCreateSource).toContain(
+      "runtime.repositoryProvider.facade.courses.saveCourse(course)"
+    );
+    expect(courseCreateSource).not.toContain("store.courses.push(course)");
     expect(serverSource).not.toContain("DATABASE_URL");
   });
 });

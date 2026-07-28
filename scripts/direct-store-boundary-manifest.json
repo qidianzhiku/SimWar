@@ -536,20 +536,6 @@
       "evidence": "services/api/src/server.ts:1103 routeRequest store.parameterSets.find"
     },
     {
-      "id": "direct-store-services-api-src-server-routerequest-052",
-      "file": "services/api/src/server.ts",
-      "symbol": "routeRequest",
-      "accessKind": "write",
-      "expression": "store.courses.push",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy routeRequest write access to store.courses.push; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:1124 routeRequest store.courses.push"
-    },
-    {
       "id": "direct-store-services-api-src-server-routerequest-053",
       "file": "services/api/src/server.ts",
       "symbol": "routeRequest",

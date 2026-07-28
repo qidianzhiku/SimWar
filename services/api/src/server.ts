@@ -3081,7 +3081,7 @@ async function routeRequest(
       parameter_set_id: parameterSetId,
       created_by: actor.user_id
     };
-    store.courses.push(course);
+    await runtime.repositoryProvider.facade.courses.saveCourse(course);
     if (formalBinding) {
       runtime.formalCourseAuthorityBindingStore.append(formalBinding);
     }
