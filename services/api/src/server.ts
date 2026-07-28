@@ -54,6 +54,11 @@ import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
+  createFormalCourseAuthorityBinding,
+  type FormalCourseAuthorityBinding
+} from "./formal-course-authority-binding.js";
+import { FormalCourseAuthorityBindingStore } from "./formal-course-authority-binding-store.js";
+import {
   ParameterSetAuthorityError,
   type ParameterSetAuthorityActor,
   type ParameterSetCommandService,
@@ -138,6 +143,7 @@ interface RequestContext {
 }
 
 interface ApiRuntime {
+  formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingStore;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -179,8 +185,32 @@ interface FormalRunCreateBody {
   seed?: unknown;
 }
 
+interface FormalCourseAuthorityBindingBody {
+  engine_reference?: {
+    engine_id?: unknown;
+    version?: unknown;
+  };
+  parameter_set_reference?: {
+    content_digest?: unknown;
+    parameter_set_id?: unknown;
+    version?: unknown;
+  };
+  scenario_package_reference?: {
+    content_digest?: unknown;
+    scenario_package_id?: unknown;
+    tenant_id?: unknown;
+    version?: unknown;
+  };
+}
+
+interface CourseCreateBody {
+  formal_authority_binding?: FormalCourseAuthorityBindingBody;
+  title?: unknown;
+}
+
 interface RunCreateBody {
   formal_runtime_binding?: FormalRunCreateBody;
+  formal_runtime_seed?: unknown;
 }
 
 class HttpError extends Error {
@@ -234,6 +264,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     options.formalScenarioPackageCatalog ?? formalAuthorityRuntime.catalog;
 
   return {
+    formalCourseAuthorityBindingStore: new FormalCourseAuthorityBindingStore(store),
     formalParameterSets: formalAuthorityRuntime.parameterSets,
     formalPluginReleases: formalAuthorityRuntime.pluginReleases,
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
@@ -1094,6 +1125,50 @@ function parseFormalRunCreateBody(value: unknown): {
       version: requireBodyString(scenarioPackageReference.version)
     },
     seed: requireBodySeed(value.seed)
+  };
+}
+
+function parseFormalCourseAuthorityBindingBody(value: unknown): {
+  engine_reference: { engine_id: string; version: string };
+  parameter_set_reference: { content_digest: string; parameter_set_id: string; version: string };
+  scenario_package_reference: {
+    content_digest: string;
+    scenario_package_id: string;
+    tenant_id: string;
+    version: string;
+  };
+} {
+  if (!isRecord(value)) {
+    throw new HttpError(422, "COURSE-422-002", "formal course authority binding is invalid");
+  }
+
+  const engineReference = value.engine_reference;
+  const parameterSetReference = value.parameter_set_reference;
+  const scenarioPackageReference = value.scenario_package_reference;
+  if (
+    !isRecord(engineReference) ||
+    !isRecord(parameterSetReference) ||
+    !isRecord(scenarioPackageReference)
+  ) {
+    throw new HttpError(422, "COURSE-422-002", "formal course authority binding is invalid");
+  }
+
+  return {
+    engine_reference: {
+      engine_id: requireBodyString(engineReference.engine_id),
+      version: requireBodyString(engineReference.version)
+    },
+    parameter_set_reference: {
+      content_digest: requireBodyString(parameterSetReference.content_digest),
+      parameter_set_id: requireBodyString(parameterSetReference.parameter_set_id),
+      version: requireBodyString(parameterSetReference.version)
+    },
+    scenario_package_reference: {
+      content_digest: requireBodyString(scenarioPackageReference.content_digest),
+      scenario_package_id: requireBodyString(scenarioPackageReference.scenario_package_id),
+      tenant_id: requireBodyString(scenarioPackageReference.tenant_id),
+      version: requireBodyString(scenarioPackageReference.version)
+    }
   };
 }
 
@@ -2941,38 +3016,79 @@ async function routeRequest(
 
   if (request.method === "POST" && url.pathname === "/api/v1/courses") {
     const actor = requirePermission(context, "course:create");
-    const body = await readJson<{ title?: string }>(request);
+    const body = await readJson<CourseCreateBody>(request);
     assertNoTruthProtectedFields(body);
-    const scenario = store.scenarios.find((candidate) => candidate.tenant_id === context.tenantId);
-    const parameterSet = store.parameterSets.find(
-      (candidate) => candidate.tenant_id === context.tenantId && candidate.status === "approved"
-    );
+    const courseId = nextId(store, "course", "course");
+    const formalRequest =
+      body.formal_authority_binding === undefined
+        ? null
+        : parseFormalCourseAuthorityBindingBody(body.formal_authority_binding);
+    let formalBinding: FormalCourseAuthorityBinding | null = null;
+    let scenarioPackageId: string;
+    let parameterSetId: string;
 
-    if (!scenario || !parameterSet) {
-      throw new HttpError(
-        422,
-        "COURSE-422-001",
-        "approved scenario and parameter set are required"
+    if (formalRequest) {
+      if (formalRequest.scenario_package_reference.tenant_id !== context.tenantId) {
+        throw new HttpError(422, "COURSE-422-002", "formal course authority binding is invalid");
+      }
+      try {
+        formalBinding = await createFormalCourseAuthorityBinding({
+          authorities: runtime.formalRunBindingAuthorities,
+          course_id: courseId,
+          engine_reference: formalRequest.engine_reference,
+          parameter_set_reference: formalRequest.parameter_set_reference,
+          scenario_package_reference: formalRequest.scenario_package_reference,
+          tenant_id: context.tenantId
+        });
+      } catch {
+        throw new HttpError(422, "COURSE-422-002", "formal course authority binding is invalid");
+      }
+      scenarioPackageId = formalBinding.scenario_package_reference.scenario_package_id;
+      parameterSetId = formalBinding.parameter_set_reference.parameter_set_id;
+    } else {
+      const scenario = store.scenarios.find(
+        (candidate) => candidate.tenant_id === context.tenantId
       );
-    }
+      const parameterSet = store.parameterSets.find(
+        (candidate) => candidate.tenant_id === context.tenantId && candidate.status === "approved"
+      );
 
+      if (!scenario || !parameterSet) {
+        throw new HttpError(
+          422,
+          "COURSE-422-001",
+          "approved scenario and parameter set are required"
+        );
+      }
+      scenarioPackageId = scenario.scenario_package_id;
+      parameterSetId = parameterSet.parameter_set_id;
+    }
     const course = {
-      course_id: nextId(store, "course", "course"),
+      course_id: courseId,
       tenant_id: context.tenantId,
-      title: body.title?.trim() || "P1 商战课程",
+      title:
+        typeof body.title === "string" && body.title.trim().length > 0
+          ? body.title.trim()
+          : "P1 商战课程",
       status: "draft" as const,
-      scenario_package_id: scenario.scenario_package_id,
-      parameter_set_id: parameterSet.parameter_set_id,
+      scenario_package_id: scenarioPackageId,
+      parameter_set_id: parameterSetId,
       created_by: actor.user_id
     };
     store.courses.push(course);
+    if (formalBinding) {
+      runtime.formalCourseAuthorityBindingStore.append(formalBinding);
+    }
     await appendAudit(runtime, {
       actor,
       action: "course.create",
       resourceType: "course",
       resourceId: course.course_id,
       requestId: context.requestId,
-      after: clonePublic(course)
+      after: clonePublic({
+        ...course,
+        ...(formalBinding ? { formal_authority_binding: formalBinding } : {})
+      })
     });
     sendJson(response, 201, createEnvelope(context, course));
     return;
@@ -3066,12 +3182,38 @@ async function routeRequest(
       throw new HttpError(409, "RUN-409-001", "course must be published before creating run");
     }
 
-    const formalRequest =
-      body.formal_runtime_binding === undefined
+    const courseBinding = runtime.formalCourseAuthorityBindingStore.getForCourse(
+      context.tenantId,
+      course.course_id
+    );
+    const formalRequest = courseBinding
+      ? body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined
+        ? null
+        : {
+            engine_reference: courseBinding.engine_reference,
+            parameter_set_reference: courseBinding.parameter_set_reference,
+            scenario_package_reference: courseBinding.scenario_package_reference,
+            seed: requireBodySeed(body.formal_runtime_seed)
+          }
+      : body.formal_runtime_binding === undefined
         ? null
         : parseFormalRunCreateBody(body.formal_runtime_binding);
     let formalBinding: ReturnType<typeof runtime.formalRunRuntimeBindingStore.getForRun> = null;
     let run: Run;
+
+    if (
+      courseBinding &&
+      (body.formal_runtime_binding !== undefined || body.formal_runtime_seed === undefined)
+    ) {
+      throw new HttpError(
+        422,
+        "RUN-422-002",
+        "formal Course binding requires an explicit runtime seed without override references"
+      );
+    }
+    if (!courseBinding && body.formal_runtime_seed !== undefined) {
+      throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+    }
 
     if (formalRequest) {
       if (!runtime.formalRunBindingAuthorities) {
