@@ -1,6 +1,6 @@
 import { once } from "node:events";
 import type { Server } from "node:http";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -11,6 +11,10 @@ import type {
   Team
 } from "../../packages/shared-contracts/src";
 import { hashPassword } from "../../services/api/src/auth";
+import {
+  createJsonRepositoryProvider,
+  type RepositoryProvider
+} from "../../services/api/src/repository-provider";
 import { createApiServer } from "../../services/api/src/server";
 import { createP0Store, type SimWarStore, type StoredUser } from "../../services/api/src/store";
 
@@ -23,9 +27,15 @@ const VALID_DECISION_PAYLOAD = {
   strategy_statement: "Hold the premium eldercare segment with reliable delivery."
 } as const;
 
-async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+async function startServer(): Promise<{
+  baseUrl: string;
+  provider: RepositoryProvider;
+  server: Server;
+  store: SimWarStore;
+}> {
   const store = createP0Store();
-  const server = createApiServer(store);
+  const provider = createJsonRepositoryProvider({ store });
+  const server = createApiServer(store, { repositoryProvider: provider });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -36,6 +46,7 @@ async function startServer(): Promise<{ baseUrl: string; server: Server; store: 
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
+    provider,
     server,
     store
   };
@@ -180,6 +191,45 @@ function addSameTenantGhostLearnerAssignedToAlpha(store: SimWarStore): void {
 }
 
 describe("decision submit characterization", () => {
+  it("routes submit-decision reads through the repository facade", async () => {
+    const { baseUrl, provider, server } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createRunAndOpenRound(baseUrl, teacherToken);
+      const runSpy = vi.spyOn(provider.facade.runs, "getRun");
+      const roundSpy = vi.spyOn(provider.facade.rounds, "listRoundsForRun");
+      const teamSpy = vi.spyOn(provider.facade.teams, "getTeam");
+      const decisionSpy = vi.spyOn(provider.facade.decisions, "listDecisionsForRound");
+
+      const response = await request<Decision>(
+        baseUrl,
+        `/api/v1/runs/${run.run_id}/rounds/1/decisions`,
+        {
+          method: "POST",
+          token: studentToken,
+          body: {
+            team_id: "team_alpha",
+            decision_payload: VALID_DECISION_PAYLOAD
+          }
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(runSpy).toHaveBeenCalledWith("tenant_demo", run.run_id);
+      expect(roundSpy).toHaveBeenCalledWith("tenant_demo", run.run_id);
+      expect(teamSpy).toHaveBeenCalledWith("tenant_demo", "team_alpha");
+      expect(decisionSpy).toHaveBeenCalledWith(
+        "tenant_demo",
+        run.run_id,
+        response.body.data.round_id
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("characterizes successful submission response, store write, and audit side effect", async () => {
     const { baseUrl, server, store } = await startServer();
 
