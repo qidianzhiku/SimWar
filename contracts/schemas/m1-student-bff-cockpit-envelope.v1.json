@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "data", "request_id"],
+  "properties": {
+    "code": { "type": "string", "minLength": 1 },
+    "message": { "type": "string" },
+    "request_id": { "type": "string" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_form",
+        "learning_report",
+        "published_result",
+        "student_cockpit",
+        "three_part_feedback"
+      ],
+      "properties": {
+        "decision_form": { "$ref": "#/$defs/student_projection" },
+        "learning_report": { "$ref": "#/$defs/student_projection" },
+        "published_result": { "$ref": "#/$defs/student_projection" },
+        "student_cockpit": { "$ref": "#/$defs/student_projection" },
+        "three_part_feedback": { "$ref": "#/$defs/student_projection" }
+      }
+    }
+  },
+  "$defs": {
+    "student_projection": {
+      "type": "object",
+      "required": [
+        "actor_role",
+        "allowed_actions",
+        "course_id",
+        "round_id",
+        "round_no",
+        "run_id",
+        "team_id",
+        "tenant_id"
+      ],
+      "properties": {
+        "actor_role": true,
+        "allowed_actions": true,
+        "course_id": true,
+        "round_id": true,
+        "round_no": true,
+        "run_id": true,
+        "team_id": true,
+        "tenant_id": true,
+        "state_true": false,
+        "replay_evidence": false,
+        "canonical_evidence_digest": false,
+        "decision_batch_hash": false,
+        "json_runtime_source_digest": false
+      }
+    }
+  }
+}

@@ -31,6 +31,18 @@ function expectEnvelopeToMatchSchema(schemaFile: string, envelope: unknown): voi
   expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);
 }
 
+function expectNoForbiddenProperties(value: unknown, forbidden: readonly string[]): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) expectNoForbiddenProperties(entry, forbidden);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    expect(forbidden).not.toContain(key);
+    expectNoForbiddenProperties(entry, forbidden);
+  }
+}
+
 async function startServer(): Promise<{ baseUrl: string; server: Server }> {
   const server = createApiServer(createP1Store());
   server.listen(0, "127.0.0.1");
@@ -164,6 +176,32 @@ describe("M1 handler contract conformance", () => {
       expect(JSON.stringify(studentResults.body.data)).not.toContain("state_true");
       expect(JSON.stringify(studentResults.body.data)).not.toContain("replay_evidence");
       expect(JSON.stringify(studentResults.body.data)).not.toContain("canonical_evidence_digest");
+
+      const teacherWorkspace = await request<unknown>(
+        baseUrl,
+        `/api/v1/bff/teacher/runs/${run.run_id}/rounds/1/workspace`,
+        { token: teacherToken }
+      );
+      expect(teacherWorkspace.status).toBe(200);
+      expectEnvelopeToMatchSchema(
+        "m1-teacher-bff-workspace-envelope.v1.json",
+        teacherWorkspace.body
+      );
+
+      const studentCockpit = await request<unknown>(
+        baseUrl,
+        `/api/v1/bff/student/runs/${run.run_id}/rounds/1/cockpit`,
+        { token: studentToken }
+      );
+      expect(studentCockpit.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-student-bff-cockpit-envelope.v1.json", studentCockpit.body);
+      expectNoForbiddenProperties(studentCockpit.body.data, [
+        "state_true",
+        "replay_evidence",
+        "canonical_evidence_digest",
+        "decision_batch_hash",
+        "json_runtime_source_digest"
+      ]);
     } finally {
       server.close();
       await once(server, "close");

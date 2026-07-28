@@ -32,6 +32,8 @@ const m1ContractFiles = [
   "contracts/schemas/m1-decision-submit-success-envelope.v1.json",
   "contracts/schemas/m1-student-result-envelope.v1.json",
   "contracts/schemas/m1-teacher-admin-result-envelope.v1.json",
+  "contracts/schemas/m1-teacher-bff-workspace-envelope.v1.json",
+  "contracts/schemas/m1-student-bff-cockpit-envelope.v1.json",
   "contracts/schemas/m1-public-replay-evidence.v1.json",
   "contracts/fixtures/m1-decision-submit-request.valid.json",
   "contracts/fixtures/m1-decision-submit-request.invalid.json",
@@ -65,7 +67,9 @@ const requiredOpenApiPaths = [
   "/api/v1/courses/{courseId}/runs",
   "/api/v1/runs/{runId}/rounds/{roundNo}/decisions",
   "/internal/v1/runs/{runId}/rounds/{roundNo}/settle",
-  "/api/v1/runs/{runId}/rounds/{roundNo}/results"
+  "/api/v1/runs/{runId}/rounds/{roundNo}/results",
+  "/api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace",
+  "/api/v1/bff/student/runs/{runId}/rounds/{roundNo}/cockpit"
 ];
 
 const schemaCases = [
@@ -238,13 +242,42 @@ function assertM1OpenApiBindings(openApi) {
     );
   }
 
+  const teacherWorkspaceGet =
+    openApi.paths["/api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace"]?.get;
+  assert(teacherWorkspaceGet, "Missing GET operation for the Teacher BFF workspace.");
+  assert(
+    jsonContentSchema(teacherWorkspaceGet.responses?.["200"])?.$ref ===
+      schemaRef("M1TeacherBffWorkspaceEnvelope"),
+    "Teacher BFF workspace 200 response must reference M1TeacherBffWorkspaceEnvelope."
+  );
+  assert(
+    jsonContentSchema(teacherWorkspaceGet.responses?.["403"])?.$ref ===
+      schemaRef("ApiErrorEnvelope"),
+    "Teacher BFF workspace 403 response must reference ApiErrorEnvelope."
+  );
+
+  const studentCockpitGet =
+    openApi.paths["/api/v1/bff/student/runs/{runId}/rounds/{roundNo}/cockpit"]?.get;
+  assert(studentCockpitGet, "Missing GET operation for the Student BFF cockpit.");
+  assert(
+    jsonContentSchema(studentCockpitGet.responses?.["200"])?.$ref ===
+      schemaRef("M1StudentBffCockpitEnvelope"),
+    "Student BFF cockpit 200 response must reference M1StudentBffCockpitEnvelope."
+  );
+  assert(
+    jsonContentSchema(studentCockpitGet.responses?.["403"])?.$ref === schemaRef("ApiErrorEnvelope"),
+    "Student BFF cockpit 403 response must reference ApiErrorEnvelope."
+  );
+
   for (const name of [
     "ApiErrorEnvelope",
     "M1DecisionSubmitRequest",
     "M1DecisionSubmitSuccessEnvelope",
     "M1StudentResultEnvelope",
     "M1TeacherAdminResultEnvelope",
-    "M1PublicReplayEvidence"
+    "M1PublicReplayEvidence",
+    "M1TeacherBffWorkspaceEnvelope",
+    "M1StudentBffCockpitEnvelope"
   ]) {
     const ref = openApi.components?.schemas?.[name]?.$ref;
     assert(
