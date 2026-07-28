@@ -14,6 +14,7 @@ import type {
   ParameterSet,
   ParameterSetReference,
   PermissionKey,
+  PluginReleaseReference,
   PublicRunReplayEvidence,
   PublicResultView,
   Round,
@@ -37,6 +38,7 @@ import {
   ROLE_PERMISSION_MATRIX,
   actorHasPermission,
   createParameterSetReference,
+  createPluginReleaseReference,
   createScenarioPackageReference,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
@@ -60,6 +62,13 @@ import {
   type ParameterSetVersion
 } from "./parameter-set-authority.js";
 import type { ScenarioPackageAuthorityReadFacade } from "./repository-facade.js";
+import {
+  PluginReleaseAuthorityError,
+  type PluginReleaseAuthorityActor,
+  type PluginReleaseCommandService,
+  type PluginReleaseDraftInput,
+  type PluginReleaseVersion
+} from "./plugin-release-authority.js";
 import {
   ScenarioPackageAuthorityError,
   type ScenarioPackageAuthorityActor,
@@ -130,6 +139,7 @@ interface RequestContext {
 
 interface ApiRuntime {
   formalParameterSets: ParameterSetCommandService;
+  formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
@@ -225,6 +235,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
 
   return {
     formalParameterSets: formalAuthorityRuntime.parameterSets,
+    formalPluginReleases: formalAuthorityRuntime.pluginReleases,
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
     formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
@@ -1432,6 +1443,105 @@ function assertFormalScenarioPackagePathReference(
   }
 }
 
+function formalPluginReleaseRequestError(): HttpError {
+  return new HttpError(422, "PLUGIN_RELEASE-422-001", "formal plugin release request is invalid");
+}
+
+function parseFormalPluginReleaseString(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0)
+    throw formalPluginReleaseRequestError();
+  return value;
+}
+
+function parseFormalPluginReleaseReference(value: unknown): PluginReleaseReference {
+  if (!isRecord(value)) throw formalPluginReleaseRequestError();
+  try {
+    return createPluginReleaseReference({
+      content_digest: parseFormalPluginReleaseString(value.content_digest),
+      plugin_package_id: parseFormalPluginReleaseString(value.plugin_package_id),
+      version: parseFormalPluginReleaseString(value.version)
+    });
+  } catch {
+    throw formalPluginReleaseRequestError();
+  }
+}
+
+function parseFormalPluginReleaseDraft(value: unknown): PluginReleaseDraftInput {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.compatibility_metadata) ||
+    !isRecord(value.plugin_manifest) ||
+    !Array.isArray(value.official_commit_permissions)
+  )
+    throw formalPluginReleaseRequestError();
+  const metadata = Object.entries(value.compatibility_metadata);
+  if (
+    metadata.some(([key, entry]) => key.trim().length === 0 || typeof entry !== "string") ||
+    value.official_commit_permissions.some((entry) => typeof entry !== "string")
+  )
+    throw formalPluginReleaseRequestError();
+  return {
+    compatibility_metadata: Object.fromEntries(metadata) as Record<string, string>,
+    official_commit_permissions: value.official_commit_permissions as string[],
+    plugin_manifest: value.plugin_manifest as unknown as PluginReleaseDraftInput["plugin_manifest"],
+    plugin_package_id: parseFormalPluginReleaseString(value.plugin_package_id),
+    schema_version: parseFormalPluginReleaseString(value.schema_version),
+    version: parseFormalPluginReleaseString(value.version)
+  };
+}
+
+function createFormalPluginReleaseActor(
+  context: RequestContext,
+  actor: CurrentUser
+): PluginReleaseAuthorityActor {
+  return {
+    actor_id: actor.user_id,
+    capabilities: [
+      "plugin_release:manage",
+      "plugin_release:approve",
+      "plugin_release:make_available"
+    ],
+    correlation_id: context.requestId
+  };
+}
+
+function pluginReleaseAuthorityHttpError(error: unknown): HttpError {
+  if (!(error instanceof PluginReleaseAuthorityError)) throw error;
+  if (error.code === "PLUGIN_RELEASE_NOT_FOUND")
+    return new HttpError(404, "PLUGIN_RELEASE-404-001", "formal plugin release not found");
+  if (error.code === "PLUGIN_RELEASE_CAPABILITY_REQUIRED")
+    return new HttpError(403, "PLUGIN_RELEASE-403-001", "formal plugin release authority required");
+  if (
+    [
+      "PLUGIN_RELEASE_INVALID_TRANSITION",
+      "PLUGIN_RELEASE_VERSION_ALREADY_EXISTS",
+      "PLUGIN_RELEASE_CONTENT_DIGEST_CONFLICT",
+      "PLUGIN_RELEASE_NOT_APPROVED",
+      "PLUGIN_RELEASE_NOT_AVAILABLE",
+      "PLUGIN_RELEASE_RETIRED_FOR_NEW_BINDING"
+    ].includes(error.code)
+  )
+    return new HttpError(409, "PLUGIN_RELEASE-409-001", "formal plugin release lifecycle conflict");
+  return formalPluginReleaseRequestError();
+}
+
+async function executeFormalPluginReleaseCommand<T>(command: () => Promise<T>): Promise<T> {
+  try {
+    return await command();
+  } catch (error) {
+    throw pluginReleaseAuthorityHttpError(error);
+  }
+}
+
+function assertFormalPluginReleasePathReference(
+  reference: PluginReleaseReference,
+  pluginPackageId: string,
+  version: string
+): void {
+  if (reference.plugin_package_id !== pluginPackageId || reference.version !== version)
+    throw formalPluginReleaseRequestError();
+}
+
 function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): string {
   return JSON.stringify(payload);
 }
@@ -2158,6 +2268,91 @@ async function routeRequest(
       action: `scenario_package.${action}`,
       resourceType: "formal_scenario_package",
       resourceId: formalScenarioPackageResourceId(reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(versionResult)
+    });
+    sendJson(response, 200, createEnvelope(context, result));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/formal-authority/plugin-releases") {
+    const actor = requirePermission(context, "plugin_release:manage");
+    const draft = parseFormalPluginReleaseDraft(await readJson(request));
+    const created = await executeFormalPluginReleaseCommand(() =>
+      runtime.formalPluginReleases.createDraft(
+        createFormalPluginReleaseActor(context, actor),
+        draft
+      )
+    );
+    await appendAudit(runtime, {
+      actor,
+      action: "plugin_release.create",
+      resourceType: "formal_plugin_release",
+      resourceId: `${created.reference.plugin_package_id}@${created.reference.version}:${created.reference.content_digest}`,
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(created)
+    });
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/formal-authority\/plugin-releases\/[^/]+\/versions\/[^/]+\/(validate|approve|make-available|retire)$/.test(
+      url.pathname
+    )
+  ) {
+    const [, pluginPackageId, version, action] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/formal-authority\/plugin-releases\/([^/]+)\/versions\/([^/]+)\/(validate|approve|make-available|retire)$/
+    );
+    const body = await readJson(request);
+    const reference = parseFormalPluginReleaseReference(body);
+    assertFormalPluginReleasePathReference(reference, pluginPackageId ?? "", version ?? "");
+    const lifecycleAction = action ?? "";
+    const actor = requirePermission(
+      context,
+      lifecycleAction === "approve"
+        ? "plugin_release:approve"
+        : lifecycleAction === "make-available"
+          ? "plugin_release:make_available"
+          : "plugin_release:manage"
+    );
+    const command = runtime.formalPluginReleases;
+    const commandActor = createFormalPluginReleaseActor(context, actor);
+    let result: PluginReleaseVersion | { version: PluginReleaseVersion };
+    if (lifecycleAction === "validate")
+      result = await executeFormalPluginReleaseCommand(() =>
+        command.validate(commandActor, reference)
+      );
+    else if (lifecycleAction === "approve")
+      result = await executeFormalPluginReleaseCommand(() =>
+        command.approve(
+          commandActor,
+          reference,
+          parseFormalPluginReleaseString(isRecord(body) ? body.owner_decision_id : undefined)
+        )
+      );
+    else if (lifecycleAction === "make-available")
+      result = await executeFormalPluginReleaseCommand(() =>
+        command.makeAvailable(
+          commandActor,
+          reference,
+          parseFormalPluginReleaseString(isRecord(body) ? body.availability_decision_id : undefined)
+        )
+      );
+    else
+      result = await executeFormalPluginReleaseCommand(() =>
+        command.retire(commandActor, reference)
+      );
+    const versionResult = "version" in result ? result.version : result;
+    await appendAudit(runtime, {
+      actor,
+      action: `plugin_release.${lifecycleAction.replace("-", "_")}`,
+      resourceType: "formal_plugin_release",
+      resourceId: `${reference.plugin_package_id}@${reference.version}:${reference.content_digest}`,
       requestId: context.requestId,
       tenantId: context.tenantId,
       after: clonePublic(versionResult)
