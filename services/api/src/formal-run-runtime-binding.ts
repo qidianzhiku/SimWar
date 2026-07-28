@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import {
   FORMAL_RUN_RUNTIME_BINDING_SCHEMA_VERSION,
   createParameterSetReference,
+  createPluginReleaseReference,
   createScenarioPackageReference,
   type FormalRunEngineReference,
-  type FormalRunPluginReleaseReference,
   type FormalRunRuntimeBinding,
   type ParameterSetReference,
+  type PluginManifest,
+  type PluginReleaseLifecycleStatus,
+  type PluginReleaseReference,
   type Run,
   type ScenarioPackageReference
 } from "@simwar/shared-contracts";
@@ -17,6 +20,7 @@ export type FormalRunRuntimeBindingFailureCode =
   | "FORMAL_RUN_BINDING_INVALID"
   | "FORMAL_RUN_BINDING_PARAMETER_NOT_BINDABLE"
   | "FORMAL_RUN_BINDING_PARAMETER_REFERENCE_MISMATCH"
+  | "FORMAL_RUN_BINDING_PLUGIN_NOT_BINDABLE"
   | "FORMAL_RUN_BINDING_RUN_MISMATCH"
   | "FORMAL_RUN_BINDING_SCENARIO_NOT_BINDABLE";
 
@@ -32,9 +36,11 @@ export class FormalRunRuntimeBindingError extends Error {
 
 type AuthorityLifecycleStatus = "DRAFT" | "VALIDATED" | "FROZEN" | "APPROVED" | "RETIRED";
 
-interface ParameterSetAuthorityBindingRecord {
+export interface FormalRunParameterSetAuthorityBindingRecord {
+  compatibility_metadata: Readonly<Record<string, string>>;
   content_digest: string;
   model_version_ref: string;
+  parameter_values: unknown;
   parameter_set_id: string;
   reference: ParameterSetReference;
   schema_version: string;
@@ -43,15 +49,35 @@ interface ParameterSetAuthorityBindingRecord {
   version: string;
 }
 
-interface ScenarioPackageAuthorityBindingRecord {
+export interface FormalRunScenarioPackagePluginDependency {
+  plugin_package_id: string;
+  version: string;
+}
+
+export interface FormalRunScenarioPackageAuthorityBindingRecord {
+  artifact_policy: unknown;
+  compatibility_metadata: Readonly<Record<string, string>>;
+  content: unknown;
   content_digest: string;
+  metadata: Readonly<Record<string, unknown>>;
   parameter_set_reference: ParameterSetReference;
-  plugin_dependencies: readonly FormalRunPluginReleaseReference[];
+  plugin_dependencies: readonly FormalRunScenarioPackagePluginDependency[];
   reference: ScenarioPackageReference;
   scenario_package_id: string;
   schema_version: string;
   status: AuthorityLifecycleStatus;
   tenant_id: string;
+  version: string;
+}
+
+export interface FormalRunPluginReleaseAuthorityBindingRecord {
+  compatibility_metadata: Readonly<Record<string, string>>;
+  content_digest: string;
+  plugin_manifest: Readonly<PluginManifest>;
+  plugin_package_id: string;
+  reference: PluginReleaseReference;
+  schema_version: string;
+  status: PluginReleaseLifecycleStatus;
   version: string;
 }
 
@@ -61,14 +87,23 @@ export interface FormalRunBindingAuthorityPorts {
     getByReference(
       tenantId: string,
       reference: ParameterSetReference
-    ): Promise<ParameterSetAuthorityBindingRecord | null>;
+    ): Promise<FormalRunParameterSetAuthorityBindingRecord | null>;
+  };
+  plugins: {
+    getByReference(
+      reference: PluginReleaseReference
+    ): Promise<FormalRunPluginReleaseAuthorityBindingRecord | null>;
+    resolveAvailableForNewBinding(
+      pluginPackageId: string,
+      version: string
+    ): Promise<FormalRunPluginReleaseAuthorityBindingRecord | null>;
   };
   scenarios: {
     assertBindable(tenantId: string, reference: ScenarioPackageReference): Promise<void>;
     getByReference(
       tenantId: string,
       reference: ScenarioPackageReference
-    ): Promise<ScenarioPackageAuthorityBindingRecord | null>;
+    ): Promise<FormalRunScenarioPackageAuthorityBindingRecord | null>;
   };
 }
 
@@ -84,7 +119,11 @@ export interface CreateFormalRunRuntimeBindingInput {
 
 export interface HistoricalFormalRunRuntimeBindingResolution {
   binding: FormalRunRuntimeBinding;
+  parameter_set: FormalRunParameterSetAuthorityBindingRecord;
   parameter_set_status: "APPROVED" | "RETIRED";
+  plugin_releases: readonly FormalRunPluginReleaseAuthorityBindingRecord[];
+  plugin_release_statuses: readonly ("AVAILABLE" | "RETIRED")[];
+  scenario_package: FormalRunScenarioPackageAuthorityBindingRecord;
   scenario_package_status: "APPROVED" | "RETIRED";
 }
 
@@ -144,6 +183,12 @@ function isHistoricallyReadableStatus(
   return status === "APPROVED" || status === "RETIRED";
 }
 
+function isHistoricallyReadablePluginReleaseStatus(
+  status: PluginReleaseLifecycleStatus
+): status is "AVAILABLE" | "RETIRED" {
+  return status === "AVAILABLE" || status === "RETIRED";
+}
+
 function sameParameterSetReference(
   left: ParameterSetReference,
   right: ParameterSetReference
@@ -200,10 +245,9 @@ function assertBindingShape(binding: FormalRunRuntimeBinding): void {
   }
 
   for (const pluginReference of binding.plugin_release_references) {
-    if (
-      !isNonBlankString(pluginReference.plugin_package_id) ||
-      !isNonBlankString(pluginReference.version)
-    ) {
+    try {
+      createPluginReleaseReference(pluginReference);
+    } catch {
       throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_INVALID");
     }
 
@@ -242,9 +286,10 @@ function assertBindingShape(binding: FormalRunRuntimeBinding): void {
 
 function createBindingFromAuthorityRecords(input: {
   engine_reference: FormalRunEngineReference;
-  parameter_set: ParameterSetAuthorityBindingRecord;
+  parameter_set: FormalRunParameterSetAuthorityBindingRecord;
+  plugin_releases: readonly FormalRunPluginReleaseAuthorityBindingRecord[];
   run_id: string;
-  scenario_package: ScenarioPackageAuthorityBindingRecord;
+  scenario_package: FormalRunScenarioPackageAuthorityBindingRecord;
   seed: number;
   tenant_id: string;
 }): FormalRunRuntimeBinding {
@@ -255,7 +300,9 @@ function createBindingFromAuthorityRecords(input: {
     engine_reference: clone(input.engine_reference),
     model_version_references: [input.parameter_set.model_version_ref],
     parameter_set_reference: parameterSetReference,
-    plugin_release_references: clone(input.scenario_package.plugin_dependencies),
+    plugin_release_references: input.plugin_releases.map((pluginRelease) =>
+      createPluginReleaseReference(pluginRelease.reference)
+    ),
     projection_schema_references: [
       { schema_id: "ParameterSet" as const, version: input.parameter_set.schema_version },
       { schema_id: "ScenarioPackage" as const, version: input.scenario_package.schema_version }
@@ -275,8 +322,9 @@ function createBindingFromAuthorityRecords(input: {
 
 function assertAuthorityRecordsMatchBinding(input: {
   binding: FormalRunRuntimeBinding;
-  parameter_set: ParameterSetAuthorityBindingRecord;
-  scenario_package: ScenarioPackageAuthorityBindingRecord;
+  parameter_set: FormalRunParameterSetAuthorityBindingRecord;
+  plugin_releases: readonly FormalRunPluginReleaseAuthorityBindingRecord[];
+  scenario_package: FormalRunScenarioPackageAuthorityBindingRecord;
 }): void {
   if (
     !sameParameterSetReference(
@@ -296,6 +344,13 @@ function assertAuthorityRecordsMatchBinding(input: {
     canonicalize([input.parameter_set.model_version_ref]) !==
       canonicalize(input.binding.model_version_references) ||
     canonicalize(input.scenario_package.plugin_dependencies) !==
+      canonicalize(
+        input.binding.plugin_release_references.map(({ plugin_package_id, version }) => ({
+          plugin_package_id,
+          version
+        }))
+      ) ||
+    canonicalize(input.plugin_releases.map((pluginRelease) => pluginRelease.reference)) !==
       canonicalize(input.binding.plugin_release_references) ||
     canonicalize([
       { schema_id: "ParameterSet", version: input.parameter_set.schema_version },
@@ -364,9 +419,38 @@ export async function createFormalRunRuntimeBinding(
     throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_PARAMETER_REFERENCE_MISMATCH");
   }
 
+  const pluginReleases = await Promise.all(
+    scenarioPackage.plugin_dependencies.map((dependency) =>
+      input.authorities.plugins.resolveAvailableForNewBinding(
+        dependency.plugin_package_id,
+        dependency.version
+      )
+    )
+  );
+  if (
+    pluginReleases.some(
+      (pluginRelease) =>
+        !pluginRelease ||
+        pluginRelease.status !== "AVAILABLE" ||
+        !scenarioPackage.plugin_dependencies.some(
+          (dependency) =>
+            dependency.plugin_package_id === pluginRelease.plugin_package_id &&
+            dependency.version === pluginRelease.version
+        )
+    )
+  ) {
+    throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_PLUGIN_NOT_BINDABLE");
+  }
+
+  const exactPluginReleases = pluginReleases.filter(
+    (pluginRelease): pluginRelease is FormalRunPluginReleaseAuthorityBindingRecord =>
+      pluginRelease !== null
+  );
+
   return createBindingFromAuthorityRecords({
     engine_reference: input.engine_reference,
     parameter_set: parameterSet,
+    plugin_releases: exactPluginReleases,
     run_id: input.run_id,
     scenario_package: scenarioPackage,
     seed: input.seed,
@@ -380,7 +464,7 @@ export async function resolveFormalRunRuntimeBindingForHistoricalRead(input: {
 }): Promise<HistoricalFormalRunRuntimeBindingResolution> {
   assertBindingShape(input.binding);
 
-  const [scenarioPackage, parameterSet] = await Promise.all([
+  const [scenarioPackage, parameterSet, pluginReleases] = await Promise.all([
     input.authorities.scenarios.getByReference(
       input.binding.tenant_id,
       input.binding.scenario_package_reference
@@ -388,27 +472,48 @@ export async function resolveFormalRunRuntimeBindingForHistoricalRead(input: {
     input.authorities.parameterSets.getByReference(
       input.binding.tenant_id,
       input.binding.parameter_set_reference
+    ),
+    Promise.all(
+      input.binding.plugin_release_references.map((reference) =>
+        input.authorities.plugins.getByReference(reference)
+      )
     )
   ]);
 
   if (
     !scenarioPackage ||
     !parameterSet ||
+    pluginReleases.some(
+      (pluginRelease) =>
+        !pluginRelease || !isHistoricallyReadablePluginReleaseStatus(pluginRelease.status)
+    ) ||
     !isHistoricallyReadableStatus(scenarioPackage.status) ||
     !isHistoricallyReadableStatus(parameterSet.status)
   ) {
     throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_HISTORICAL_REFERENCE_UNAVAILABLE");
   }
 
+  const exactPluginReleases = pluginReleases.filter(
+    (pluginRelease): pluginRelease is FormalRunPluginReleaseAuthorityBindingRecord =>
+      pluginRelease !== null
+  );
+
   assertAuthorityRecordsMatchBinding({
     binding: input.binding,
     parameter_set: parameterSet,
+    plugin_releases: exactPluginReleases,
     scenario_package: scenarioPackage
   });
 
   return deepFreeze({
     binding: input.binding,
+    parameter_set: parameterSet,
     parameter_set_status: parameterSet.status,
+    plugin_releases: exactPluginReleases,
+    plugin_release_statuses: exactPluginReleases.map(
+      (pluginRelease) => pluginRelease.status as "AVAILABLE" | "RETIRED"
+    ),
+    scenario_package: scenarioPackage,
     scenario_package_status: scenarioPackage.status
   });
 }

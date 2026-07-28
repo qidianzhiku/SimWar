@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Run } from "../../packages/shared-contracts/src";
+import type { PluginManifest, Run } from "../../packages/shared-contracts/src";
 import {
   FormalRunRuntimeBindingError,
   assertRunMatchesFormalRuntimeBinding,
@@ -18,6 +18,12 @@ import {
   type ScenarioPackageAuthorityActor,
   type ScenarioPackageVersion
 } from "../../services/api/src/scenario-package-authority";
+import {
+  InMemoryJsonPluginReleaseRegistry,
+  PluginReleaseCommandService,
+  type PluginReleaseAuthorityActor,
+  type PluginReleaseVersion
+} from "../../services/api/src/plugin-release-authority";
 
 const TENANT_ID = "tenant_formal_run_binding";
 
@@ -34,6 +40,32 @@ const scenarioActor: ScenarioPackageAuthorityActor = {
   correlation_id: "correlation_scenario",
   tenant_id: TENANT_ID
 };
+
+const pluginActor: PluginReleaseAuthorityActor = {
+  actor_id: "plugin_release_admin",
+  capabilities: [
+    "plugin_release:manage",
+    "plugin_release:approve",
+    "plugin_release:make_available"
+  ],
+  correlation_id: "correlation_plugin_release"
+};
+
+function createApprovedPluginManifest(): PluginManifest {
+  return {
+    adapter_ref: "@simwar/simulation-core/eldercareBindingTestPlugin",
+    industry: "wellness",
+    manifest_version: "1.0.0",
+    name: "Formal RuntimeBinding test plugin release",
+    parameter_schema_ref: "contracts/fixtures/eldercare-binding-test.json",
+    parameter_schema_version: "eldercare.parameters.v1",
+    plugin_id: "plugin_wellness_eldercare_binding_test",
+    settlement_hook_refs: ["adjustDemand:eldercare.binding-test.v1"],
+    status: "approved",
+    supported_hooks: ["adjustDemand"],
+    version: "1.0.0"
+  };
+}
 
 async function approveParameterSet(
   service: ParameterSetCommandService,
@@ -62,6 +94,7 @@ async function approveParameterSet(
 async function approveScenarioPackage(
   service: ScenarioPackageCommandService,
   parameterSet: ParameterSetVersion,
+  pluginRelease: PluginReleaseVersion,
   input: { scenario_package_id: string; version: string }
 ): Promise<ScenarioPackageVersion> {
   const draft = await service.createDraft(scenarioActor, {
@@ -70,7 +103,12 @@ async function approveScenarioPackage(
     content: { scenario_kind: "synthetic_internal" },
     metadata: { title: "Formal RuntimeBinding test scenario" },
     parameter_set_reference: parameterSet.reference,
-    plugin_dependencies: [{ plugin_package_id: "plugin_wellness_eldercare", version: "1.0.0" }],
+    plugin_dependencies: [
+      {
+        plugin_package_id: pluginRelease.plugin_package_id,
+        version: pluginRelease.version
+      }
+    ],
     scenario_package_id: input.scenario_package_id,
     schema_version: "scenario-package.v1",
     tenant_id: TENANT_ID,
@@ -98,16 +136,43 @@ async function createHarness() {
     parameter_set_id: "parameter_set_alternate",
     version: "1.0.0"
   });
-  const scenarioRegistry = new InMemoryJsonScenarioPackageRegistry();
-  const scenarios = new ScenarioPackageCommandService(scenarioRegistry, parameterSets);
-  const primaryScenario = await approveScenarioPackage(scenarios, primaryParameterSet, {
-    scenario_package_id: "scenario_package_primary",
+  const pluginRegistry = new InMemoryJsonPluginReleaseRegistry();
+  const plugins = new PluginReleaseCommandService(pluginRegistry);
+  const pluginDraft = await plugins.createDraft(pluginActor, {
+    compatibility_metadata: { engine_family: "eldercare-core.v1" },
+    official_commit_permissions: [],
+    plugin_manifest: createApprovedPluginManifest(),
+    plugin_package_id: "plugin_wellness_eldercare_binding_test",
+    schema_version: "plugin-release.v1",
     version: "1.0.0"
   });
+  const pluginValidated = await plugins.validate(pluginActor, pluginDraft.reference);
+  const pluginApproved = await plugins.approve(
+    pluginActor,
+    pluginValidated.reference,
+    "plugin-approval-binding-test"
+  );
+  const primaryPlugin = (
+    await plugins.makeAvailable(
+      pluginActor,
+      pluginApproved.version.reference,
+      "plugin-availability-binding-test"
+    )
+  ).version;
+  const scenarioRegistry = new InMemoryJsonScenarioPackageRegistry();
+  const scenarios = new ScenarioPackageCommandService(scenarioRegistry, parameterSets);
+  const primaryScenario = await approveScenarioPackage(
+    scenarios,
+    primaryParameterSet,
+    primaryPlugin,
+    { scenario_package_id: "scenario_package_primary", version: "1.0.0" }
+  );
 
   return {
     alternateParameterSet,
     parameterSets,
+    plugins,
+    primaryPlugin,
     primaryParameterSet,
     primaryScenario,
     scenarios
@@ -118,6 +183,7 @@ function createBindingInput(harness: Awaited<ReturnType<typeof createHarness>>) 
   return {
     authorities: {
       parameterSets: harness.parameterSets,
+      plugins: harness.plugins,
       scenarios: harness.scenarios
     },
     engine_reference: {
@@ -142,9 +208,7 @@ describe("Formal Run RuntimeBinding", () => {
     expect(binding.seed_policy).toBe("EXACT_RUN_SEED");
     expect(binding.parameter_set_reference).toEqual(harness.primaryParameterSet.reference);
     expect(binding.scenario_package_reference).toEqual(harness.primaryScenario.reference);
-    expect(binding.plugin_release_references).toEqual([
-      { plugin_package_id: "plugin_wellness_eldercare", version: "1.0.0" }
-    ]);
+    expect(binding.plugin_release_references).toEqual([harness.primaryPlugin.reference]);
     expect(binding.model_version_references).toEqual(["toy_logit_wellness_v1@0.1.0"]);
     expect(binding.projection_schema_references).toEqual([
       { schema_id: "ParameterSet", version: "parameter-set.v1" },
@@ -191,11 +255,21 @@ describe("Formal Run RuntimeBinding", () => {
     const replacementScenario = await approveScenarioPackage(
       harness.scenarios,
       replacementParameterSet,
+      harness.primaryPlugin,
       {
         scenario_package_id: harness.primaryScenario.scenario_package_id,
         version: "2.0.0"
       }
     );
+
+    await harness.plugins.retire(pluginActor, harness.primaryPlugin.reference);
+    await expect(
+      createFormalRunRuntimeBinding({
+        ...createBindingInput(harness),
+        parameter_set_reference: replacementParameterSet.reference,
+        scenario_package_reference: replacementScenario.reference
+      })
+    ).rejects.toThrow(new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_PLUGIN_NOT_BINDABLE"));
 
     await harness.scenarios.retire(scenarioActor, harness.primaryScenario.reference);
     await harness.parameterSets.retire(parameterActor, harness.primaryParameterSet.reference);
@@ -207,12 +281,14 @@ describe("Formal Run RuntimeBinding", () => {
     const historical = await resolveFormalRunRuntimeBindingForHistoricalRead({
       authorities: {
         parameterSets: harness.parameterSets,
+        plugins: harness.plugins,
         scenarios: harness.scenarios
       },
       binding
     });
 
     expect(historical.parameter_set_status).toBe("RETIRED");
+    expect(historical.plugin_release_statuses).toEqual(["RETIRED"]);
     expect(historical.scenario_package_status).toBe("RETIRED");
     expect(historical.binding).toEqual(binding);
     expect(historical.binding.parameter_set_reference).not.toEqual(

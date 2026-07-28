@@ -1504,3 +1504,4 @@ export * from "./parameter-set-authority.js";
 export * from "./scenario-package-authority.js";
 export * from "./historical-scenario-artifact.js";
 export * from "./formal-run-runtime-binding.js";
+export * from "./plugin-release-authority.js";

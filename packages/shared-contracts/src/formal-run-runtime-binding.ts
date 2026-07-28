@@ -1,4 +1,5 @@
 import type { ParameterSetReference } from "./parameter-set-authority.js";
+import type { PluginReleaseReference } from "./plugin-release-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 
 export const FORMAL_RUN_RUNTIME_BINDING_SCHEMA_VERSION = "formal-run-runtime-binding.v1" as const;
@@ -8,10 +9,7 @@ export interface FormalRunEngineReference {
   version: string;
 }
 
-export interface FormalRunPluginReleaseReference {
-  plugin_package_id: string;
-  version: string;
-}
+export type FormalRunPluginReleaseReference = PluginReleaseReference;
 
 export interface FormalRunProjectionSchemaReference {
   schema_id: "ParameterSet" | "ScenarioPackage";
