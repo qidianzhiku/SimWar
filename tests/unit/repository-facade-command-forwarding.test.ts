@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   AuditLog,
+  Course,
   Decision,
   ReplayDiffReport,
   ReplayInputManifest,
@@ -32,7 +33,8 @@ function createSpyPorts(): SimWarRepositoryPorts {
     courses: {
       getCourse: vi.fn(async () => null),
       listCoursesForTenant: vi.fn(async () => []),
-      listCoursesForUser: vi.fn(async () => [])
+      listCoursesForUser: vi.fn(async () => []),
+      saveCourse: vi.fn(async () => undefined)
     },
 
     teams: {
@@ -115,6 +117,24 @@ function createSpyPorts(): SimWarRepositoryPorts {
 }
 
 describe("repository facade command forwarding", () => {
+  it("forwards course command writes without changing the course payload", async () => {
+    const ports = createSpyPorts();
+    const facade = createRepositoryFacade({ ports });
+    const course: Course = {
+      course_id: "course_001",
+      tenant_id: "tenant_demo",
+      title: "Repository facade course",
+      status: "published",
+      scenario_package_id: "scenario_001",
+      parameter_set_id: "params_001",
+      created_by: "usr_teacher"
+    };
+
+    await expect(facade.courses.saveCourse(course)).resolves.toBeUndefined();
+
+    expect(ports.courses.saveCourse).toHaveBeenCalledWith(course);
+  });
+
   it("forwards decision and round command writes without changing payloads", async () => {
     const ports = createSpyPorts();
     const facade = createRepositoryFacade({ ports });

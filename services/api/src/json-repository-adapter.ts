@@ -404,6 +404,21 @@ export function createJsonRepositoryPorts(
             (course) => course.tenant_id === tenantId && visibleCourseIds.has(course.course_id)
           )
           .map(toCourseReadModel);
+      },
+
+      async saveCourse(course): Promise<void> {
+        const index = store.courses.findIndex(
+          (candidate) =>
+            candidate.tenant_id === course.tenant_id && candidate.course_id === course.course_id
+        );
+
+        if (index >= 0) {
+          store.courses[index] = course;
+        } else {
+          store.courses.push(course);
+        }
+
+        store.persist();
       }
     },
 

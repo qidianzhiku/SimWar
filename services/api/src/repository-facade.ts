@@ -1,5 +1,6 @@
 import type {
   AuditLog,
+  Course,
   Decision,
   DomainEvent,
   ParameterSet,
@@ -63,6 +64,7 @@ export interface RepositoryFacade {
     getCourse(tenantId: string, courseId: string): Promise<RepositoryCourseReadModel | null>;
     listCoursesForTenant(tenantId: string): Promise<RepositoryCourseReadModel[]>;
     listCoursesForUser(tenantId: string, userId: string): Promise<RepositoryCourseReadModel[]>;
+    saveCourse(course: Course): Promise<void>;
   };
 
   teams: {
@@ -313,7 +315,8 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
     courses: {
       getCourse: (tenantId, courseId) => ports.courses.getCourse(tenantId, courseId),
       listCoursesForTenant: (tenantId) => ports.courses.listCoursesForTenant(tenantId),
-      listCoursesForUser: (tenantId, userId) => ports.courses.listCoursesForUser(tenantId, userId)
+      listCoursesForUser: (tenantId, userId) => ports.courses.listCoursesForUser(tenantId, userId),
+      saveCourse: (course) => ports.courses.saveCourse(course)
     },
 
     teams: {

@@ -1713,17 +1713,6 @@ function assertNoTruthProtectedFields(value: unknown): void {
   }
 }
 
-function getCourse(store: SimWarStore, context: RequestContext, courseId: string) {
-  const course = store.courses.find(
-    (candidate) => candidate.course_id === courseId && candidate.tenant_id === context.tenantId
-  );
-  if (!course) {
-    throw new HttpError(404, "COURSE-404-001", "course not found");
-  }
-
-  return course;
-}
-
 async function getCourseForRead(runtime: ApiRuntime, context: RequestContext, courseId: string) {
   const courseReadModel = await runtime.repositoryProvider.facade.courses.getCourse(
     context.tenantId,
@@ -3137,7 +3126,7 @@ async function routeRequest(
   if (request.method === "POST" && /^\/api\/v1\/courses\/[^/]+\/publish$/.test(url.pathname)) {
     const actor = requirePermission(context, "course:publish");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/publish$/);
-    const course = getCourse(store, context, courseId ?? "");
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
     if (course.status === "published") {
       sendJson(response, 200, createEnvelope(context, course));
       return;
@@ -3147,6 +3136,7 @@ async function routeRequest(
     }
     const before = clonePublic(course);
     course.status = "published";
+    await runtime.repositoryProvider.facade.courses.saveCourse(course);
     await appendAudit(runtime, {
       actor,
       action: "course.publish",
@@ -3163,7 +3153,7 @@ async function routeRequest(
   if (request.method === "POST" && /^\/api\/v1\/courses\/[^/]+\/teams$/.test(url.pathname)) {
     const actor = requirePermission(context, "team:create");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/teams$/);
-    const course = getCourse(store, context, courseId ?? "");
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
     const body = await readJson<{ name?: string; captain_user_id?: string }>(request);
     assertNoTruthProtectedFields(body);
     const captain = store.users.find(
@@ -3207,7 +3197,7 @@ async function routeRequest(
   if (request.method === "POST" && /^\/api\/v1\/courses\/[^/]+\/runs$/.test(url.pathname)) {
     const actor = requirePermission(context, "run:create");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/runs$/);
-    const course = getCourse(store, context, courseId ?? "");
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
     const body = await readJson<RunCreateBody>(request);
 
     if (course.status !== "published" && course.status !== "active") {

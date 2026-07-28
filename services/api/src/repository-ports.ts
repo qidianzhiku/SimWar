@@ -98,6 +98,8 @@ export interface CourseRepositoryPort {
     tenantId: RepositoryId,
     userId: RepositoryId
   ): Promise<RepositoryCourseReadModel[]>;
+
+  saveCourse(course: Course): Promise<void>;
 }
 
 export interface TeamRepositoryPort {
