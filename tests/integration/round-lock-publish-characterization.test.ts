@@ -1,4 +1,6 @@
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type {
@@ -145,6 +147,28 @@ async function settleRound(
 }
 
 describe("round lock and publish characterization", () => {
+  it("requires lock and publish command reads to use the repository facade", () => {
+    const source = readFileSync(resolve("services/api/src/server.ts"), "utf8");
+    const lockSource = source.slice(
+      source.indexOf("async function lockRound("),
+      source.indexOf("async function publishRoundWithRunLock(")
+    );
+    const publishSource = source.slice(
+      source.indexOf("async function publishRound("),
+      source.indexOf("function createEnvelope<")
+    );
+
+    for (const commandSource of [lockSource, publishSource]) {
+      expect(commandSource).toContain(
+        "const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);"
+      );
+      expect(commandSource).toContain(
+        "const round = await getRoundForRead(runtime, context, run.run_id, roundNo);"
+      );
+      expect(commandSource).not.toContain("const store = runtime.store;");
+    }
+  });
+
   it("characterizes successful lock response, store mutation, and audit side effect", async () => {
     const { baseUrl, server, store } = await startServer();
 
