@@ -23,6 +23,7 @@ export interface RepositoryProvider {
 }
 
 export interface RepositoryIdGenerator {
+  createDecisionId(): string;
   createSettlementResultId(): string;
   createAuditLogId(): string;
 }
@@ -39,6 +40,9 @@ export interface JsonRepositoryProviderOptions {
 
 function createMissingRepositoryIdGenerator(mode: RepositoryProviderMode): RepositoryIdGenerator {
   return {
+    createDecisionId() {
+      throw new Error(`repository_id_generator_missing:${mode}:decision`);
+    },
     createSettlementResultId() {
       throw new Error(`repository_id_generator_missing:${mode}:settlement_result`);
     },
@@ -80,6 +84,7 @@ export function createJsonRepositoryProvider(
     mode: "json",
     ports,
     idGenerator: {
+      createDecisionId: () => nextId(store, "decision", "decision"),
       createSettlementResultId: () => nextId(store, "result", "result"),
       createAuditLogId: () => nextId(store, "audit", "audit")
     }

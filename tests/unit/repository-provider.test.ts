@@ -209,13 +209,16 @@ describe("repository provider", () => {
   it("exposes provider-owned identifiers for custom persistence boundaries", () => {
     const ports = createMockPorts();
     const idGenerator = {
+      createDecisionId: vi.fn(() => "custom_decision_001"),
       createSettlementResultId: vi.fn(() => "custom_result_001"),
       createAuditLogId: vi.fn(() => "custom_audit_001")
     };
     const provider = createRepositoryProvider({ ports, idGenerator });
 
+    expect(provider.idGenerator.createDecisionId()).toBe("custom_decision_001");
     expect(provider.idGenerator.createSettlementResultId()).toBe("custom_result_001");
     expect(provider.idGenerator.createAuditLogId()).toBe("custom_audit_001");
+    expect(idGenerator.createDecisionId).toHaveBeenCalledTimes(1);
     expect(idGenerator.createSettlementResultId).toHaveBeenCalledTimes(1);
     expect(idGenerator.createAuditLogId).toHaveBeenCalledTimes(1);
   });
@@ -240,8 +243,10 @@ describe("repository provider", () => {
     const store = createMinimalStore();
     const provider = createJsonRepositoryProvider({ store });
 
+    expect(provider.idGenerator.createDecisionId()).toBe("decision_001");
     expect(provider.idGenerator.createSettlementResultId()).toBe("result_001");
     expect(provider.idGenerator.createAuditLogId()).toBe("audit_001");
+    expect(store.counters.decision).toBe(1);
     expect(store.counters.result).toBe(1);
     expect(store.counters.audit).toBe(1);
   });

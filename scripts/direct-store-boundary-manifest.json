@@ -4,48 +4,6 @@
   "evidenceLimitation": "alias/indirect store access not fully statically detected",
   "approvedExceptions": [
     {
-      "id": "direct-store-services-api-src-server-submitdecision-002",
-      "file": "services/api/src/server.ts",
-      "symbol": "submitDecision",
-      "accessKind": "read",
-      "expression": "runtime.store",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "student",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy submitDecision read access to runtime.store; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114; P1-003B",
-      "evidence": "services/api/src/server.ts:141 submitDecision runtime.store"
-    },
-    {
-      "id": "direct-store-services-api-src-server-submitdecision-003",
-      "file": "services/api/src/server.ts",
-      "symbol": "submitDecision",
-      "accessKind": "read",
-      "expression": "store.teams.find",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "student",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy submitDecision read access to store.teams.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114; P1-003B",
-      "evidence": "services/api/src/server.ts:154 submitDecision store.teams.find"
-    },
-    {
-      "id": "direct-store-services-api-src-server-submitdecision-004",
-      "file": "services/api/src/server.ts",
-      "symbol": "submitDecision",
-      "accessKind": "read",
-      "expression": "store.decisions.filter",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "student",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy submitDecision read access to store.decisions.filter; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114; P1-003B",
-      "evidence": "services/api/src/server.ts:169 submitDecision store.decisions.filter"
-    },
-    {
       "id": "direct-store-services-api-src-server-lockround-005",
       "file": "services/api/src/server.ts",
       "symbol": "lockRound",

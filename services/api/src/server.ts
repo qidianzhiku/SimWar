@@ -391,15 +391,17 @@ async function submitDecision(
   runId: string,
   roundNo: number
 ): Promise<Decision> {
-  const store = runtime.store;
   const actor = requirePermission(context, "decision:submit");
-  const run = getRun(store, context, runId);
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
   await assertRunLifecycleAllowsProgress({
     provider: runtime.repositoryProvider,
     runId: run.run_id,
     tenantId: context.tenantId
   });
-  const round = getRound(store, context, run.run_id, roundNo);
+  const round = await getRoundForRead(runtime, context, run.run_id, roundNo);
   assertRoundStatus(round, "open", "ROUND-409-002");
   const body = await readJson<DecisionSubmitBody>(request);
   assertNoTruthProtectedFields(body);
@@ -409,13 +411,8 @@ async function submitDecision(
     throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
   }
 
-  const team = store.teams.find(
-    (candidate) =>
-      candidate.team_id === teamId &&
-      candidate.course_id === run.course_id &&
-      candidate.tenant_id === context.tenantId
-  );
-  if (!team) {
+  const team = await runtime.repositoryProvider.facade.teams.getTeam(context.tenantId, teamId);
+  if (!team || team.course_id !== run.course_id) {
     throw new HttpError(404, "TEAM-404-001", "team not found");
   }
 
@@ -439,7 +436,12 @@ async function submitDecision(
     return idempotentDecision;
   }
 
-  const priorVersions = store.decisions.filter(
+  const decisionVersions = await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+    context.tenantId,
+    run.run_id,
+    round.round_id
+  );
+  const priorVersions = decisionVersions.filter(
     (decision) =>
       decision.run_id === run.run_id &&
       decision.round_no === round.round_no &&
@@ -447,7 +449,7 @@ async function submitDecision(
       decision.tenant_id === context.tenantId
   );
   const decision: Decision = {
-    decision_id: nextId(store, "decision", "decision"),
+    decision_id: runtime.repositoryProvider.idGenerator.createDecisionId(),
     tenant_id: context.tenantId,
     run_id: run.run_id,
     round_id: round.round_id,

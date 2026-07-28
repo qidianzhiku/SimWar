@@ -493,6 +493,7 @@ describe("settlement result write and replay hash characterization", () => {
   it("uses provider-owned identifiers for settlement result and audit creation", async () => {
     let auditCounter = 0;
     const idGenerator = {
+      createDecisionId: vi.fn(() => "provider_decision_001"),
       createSettlementResultId: vi.fn(() => "provider_result_001"),
       createAuditLogId: vi.fn(() => `provider_audit_${++auditCounter}`)
     };
