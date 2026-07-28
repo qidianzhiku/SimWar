@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { PluginManifest } from "../../packages/shared-contracts/src";
+import type { PluginManifest, Run } from "../../packages/shared-contracts/src";
 import {
   FormalRunRuntimeBindingError,
   createFormalRunRuntimeBinding
 } from "../../services/api/src/formal-run-runtime-binding";
-import { resolveFormalRuntimeInputsForHistoricalRead } from "../../services/api/src/formal-runtime-input-resolver";
+import {
+  FormalRuntimeInputResolutionError,
+  resolveFormalRuntimeInputsForActiveRun,
+  resolveFormalRuntimeInputsForHistoricalRead
+} from "../../services/api/src/formal-runtime-input-resolver";
 import {
   InMemoryJsonParameterSetRegistry,
   ParameterSetCommandService,
@@ -52,14 +56,14 @@ const scenarioActor: ScenarioPackageAuthorityActor = {
 
 function pluginManifest(): PluginManifest {
   return {
-    adapter_ref: "@simwar/simulation-core/eldercareResolverTestPlugin",
+    adapter_ref: "@simwar/simulation-core/wellnessPluginV1",
     industry: "wellness",
     manifest_version: "1.0.0",
     name: "Formal runtime input resolver test plugin",
     parameter_schema_ref: "contracts/fixtures/eldercare-resolver-test.json",
     parameter_schema_version: "eldercare.parameters.v1",
-    plugin_id: "plugin_wellness_eldercare_resolver_test",
-    settlement_hook_refs: ["adjustFinance:eldercare.resolver-test.v1"],
+    plugin_id: "plugin_wellness_v1",
+    settlement_hook_refs: ["adjustFinance:wellness.v1"],
     status: "approved",
     supported_hooks: ["adjustFinance"],
     version: "1.0.0"
@@ -73,7 +77,15 @@ async function approveParameterSet(
     compatibility_metadata: { engine_family: "eldercare-core.v1" },
     model_version_ref: "eldercare-core.v1@1.0.0",
     parameter_set_id: "parameter_set_resolver_test",
-    parameter_values: { base_capacity: 100, base_market_size: 200 },
+    parameter_values: {
+      runtime_parameter_set: {
+        base_capacity: 100,
+        base_market_size: 200,
+        fixed_cost: 120000,
+        model_family: "toy_logit",
+        unit_cost: 4200
+      }
+    },
     schema_version: "parameter-set.v1",
     tenant_id: TENANT_ID,
     version: "1.0.0"
@@ -92,7 +104,7 @@ async function makePluginAvailable(
     compatibility_metadata: { engine_family: "eldercare-core.v1" },
     official_commit_permissions: [],
     plugin_manifest: pluginManifest(),
-    plugin_package_id: "plugin_wellness_eldercare_resolver_test",
+    plugin_package_id: "plugin_wellness_v1",
     schema_version: "plugin-release.v1",
     version: "1.0.0"
   });
@@ -119,7 +131,12 @@ async function approveScenarioPackage(
   const draft = await service.createDraft(scenarioActor, {
     artifact_policy: { mode: "INLINE", retention: "IMMUTABLE" },
     compatibility_metadata: { engine_family: "eldercare-core.v1" },
-    content: { market: "synthetic_eldercare" },
+    content: {
+      runtime_scenario_package: {
+        name: "Formal runtime input resolver scenario",
+        plugin_package_ids: [pluginRelease.plugin_package_id]
+      }
+    },
     metadata: { title: "Formal runtime input resolver scenario" },
     parameter_set_reference: parameterSet.reference,
     plugin_dependencies: [
@@ -152,7 +169,7 @@ async function createHarness() {
   const authorities = { parameterSets, plugins, scenarios };
   const binding = await createFormalRunRuntimeBinding({
     authorities,
-    engine_reference: { engine_id: "eldercare-core", version: "1.0.0" },
+    engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
     parameter_set_reference: parameterSet.reference,
     run_id: "run_formal_runtime_input_001",
     scenario_package_reference: scenarioPackage.reference,
@@ -173,6 +190,88 @@ async function createHarness() {
 }
 
 describe("formal runtime input resolver", () => {
+  it("materializes active runtime inputs only from the exact bound formal authority content", async () => {
+    const harness = await createHarness();
+    const run: Run = {
+      course_id: "course_formal_runtime_input",
+      parameter_set_id: harness.parameterSet.parameter_set_id,
+      run_id: harness.binding.run_id,
+      scenario_package_id: harness.scenarioPackage.scenario_package_id,
+      seed: harness.binding.seed,
+      status: "active",
+      tenant_id: TENANT_ID
+    };
+
+    const activeInputs = await resolveFormalRuntimeInputsForActiveRun({
+      authorities: harness.authorities,
+      binding: harness.binding,
+      run
+    });
+
+    expect(activeInputs.classification).toBe("FORMAL_AUTHORITY_EXACT");
+    expect(activeInputs.scenario).toEqual({
+      name: "Formal runtime input resolver scenario",
+      plugin_package_ids: [harness.pluginRelease.plugin_package_id],
+      scenario_package_id: harness.scenarioPackage.scenario_package_id,
+      status: "approved",
+      tenant_id: TENANT_ID,
+      version: harness.scenarioPackage.version
+    });
+    expect(activeInputs.parameterSet).toEqual({
+      base_capacity: 100,
+      base_market_size: 200,
+      fixed_cost: 120000,
+      model_family: "toy_logit",
+      parameter_set_id: harness.parameterSet.parameter_set_id,
+      seed: harness.binding.seed,
+      status: "approved",
+      tenant_id: TENANT_ID,
+      unit_cost: 4200,
+      version: harness.parameterSet.version
+    });
+    expect(Object.isFrozen(activeInputs)).toBe(true);
+    expect(Object.isFrozen(activeInputs.parameterSet)).toBe(true);
+    expect(Object.isFrozen(activeInputs.scenario)).toBe(true);
+  });
+
+  it("fails closed when a formal plugin manifest cannot prove the exact bound runtime plugin identity", async () => {
+    const harness = await createHarness();
+    const run: Run = {
+      course_id: "course_formal_runtime_input",
+      parameter_set_id: harness.parameterSet.parameter_set_id,
+      run_id: harness.binding.run_id,
+      scenario_package_id: harness.scenarioPackage.scenario_package_id,
+      seed: harness.binding.seed,
+      status: "active",
+      tenant_id: TENANT_ID
+    };
+    const authorities = {
+      ...harness.authorities,
+      plugins: {
+        ...harness.plugins,
+        getByReference: async (reference: Parameters<typeof harness.plugins.getByReference>[0]) => {
+          const resolved = await harness.plugins.getByReference(reference);
+          return resolved
+            ? {
+                ...resolved,
+                plugin_manifest: { ...resolved.plugin_manifest, plugin_id: "plugin_other" }
+              }
+            : null;
+        }
+      }
+    };
+
+    await expect(
+      resolveFormalRuntimeInputsForActiveRun({
+        authorities,
+        binding: harness.binding,
+        run
+      })
+    ).rejects.toThrow(
+      new FormalRuntimeInputResolutionError("FORMAL_RUNTIME_INPUT_PLUGIN_REFERENCE_MISMATCH")
+    );
+  });
+
   it("materializes immutable, digest-addressed formal inputs without an active runtime composition", async () => {
     const harness = await createHarness();
     const resolution = await resolveFormalRuntimeInputsForHistoricalRead({
