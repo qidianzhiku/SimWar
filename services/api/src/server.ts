@@ -1731,6 +1731,29 @@ async function getCourseForRead(runtime: ApiRuntime, context: RequestContext, co
   return courseReadModel;
 }
 
+async function getCourseForActorRead(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  courseId: string
+) {
+  const course = await getCourseForRead(runtime, context, courseId);
+  const actor = requireActor(context);
+
+  if (canReadClassroomScope(actor)) {
+    return course;
+  }
+
+  const visibleCourses = await runtime.repositoryProvider.facade.courses.listCoursesForUser(
+    context.tenantId,
+    actor.user_id
+  );
+  if (!visibleCourses.some((candidate) => candidate.course_id === course.course_id)) {
+    throw new HttpError(404, "COURSE-404-001", "course not found");
+  }
+
+  return course;
+}
+
 function getRun(store: SimWarStore, context: RequestContext, runId: string) {
   const run = store.runs.find(
     (candidate) => candidate.run_id === runId && candidate.tenant_id === context.tenantId
@@ -2770,7 +2793,7 @@ async function routeRequest(
       /^\/api\/v1\/bff\/teacher\/runs\/([^/]+)\/rounds\/(\d+)\/workspace$/
     );
     const run = getRun(store, context, runId ?? "");
-    const course = getCourse(store, context, run.course_id);
+    const course = await getCourseForActorRead(runtime, context, run.course_id);
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     const teams = store.teams.filter(
       (team) => team.tenant_id === context.tenantId && team.course_id === course.course_id
@@ -2829,7 +2852,7 @@ async function routeRequest(
       /^\/api\/v1\/bff\/student\/runs\/([^/]+)\/rounds\/(\d+)\/cockpit$/
     );
     const run = getRun(store, context, runId ?? "");
-    const course = getCourse(store, context, run.course_id);
+    const course = await getCourseForActorRead(runtime, context, run.course_id);
     const round = getRound(store, context, run.run_id, Number(roundNoRaw));
     const team = store.teams.find(
       (candidate) =>
@@ -3006,10 +3029,13 @@ async function routeRequest(
   }
 
   if (request.method === "GET" && url.pathname === "/api/v1/courses") {
-    requirePermission(context, "course:read");
-    const courses = await runtime.repositoryProvider.facade.courses.listCoursesForTenant(
-      context.tenantId
-    );
+    const actor = requirePermission(context, "course:read");
+    const courses = canReadClassroomScope(actor)
+      ? await runtime.repositoryProvider.facade.courses.listCoursesForTenant(context.tenantId)
+      : await runtime.repositoryProvider.facade.courses.listCoursesForUser(
+          context.tenantId,
+          actor.user_id
+        );
     sendJson(response, 200, createEnvelope(context, courses));
     return;
   }
@@ -3097,7 +3123,7 @@ async function routeRequest(
   if (request.method === "GET" && /^\/api\/v1\/courses\/[^/]+$/.test(url.pathname)) {
     requirePermission(context, "course:read");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)$/);
-    const course = await getCourseForRead(runtime, context, courseId ?? "");
+    const course = await getCourseForActorRead(runtime, context, courseId ?? "");
     sendJson(response, 200, createEnvelope(context, course));
     return;
   }

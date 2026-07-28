@@ -27,10 +27,6 @@ describe("Postgres repository adapter skeleton", () => {
     tenant_id: string;
   }
 
-  interface UserRow extends Record<string, unknown> {
-    user_id: string;
-  }
-
   interface RunRow extends Record<string, unknown> {
     course_id: string;
     parameter_set_id: string;
@@ -688,7 +684,7 @@ describe("Postgres repository adapter skeleton", () => {
     ]);
   });
 
-  it("courses.listCoursesForUser checks user existence before listing courses", async () => {
+  it("courses.listCoursesForUser returns only membership-scoped courses", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const rows: RepositoryCourseReadModel[] = [
       {
@@ -713,17 +709,6 @@ describe("Postgres repository adapter skeleton", () => {
     const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
       calls.push({ sql, params });
 
-      if (sql.startsWith("SELECT user_id FROM users")) {
-        return {
-          rowCount: 1,
-          rows: [
-            {
-              user_id: "user-1"
-            } satisfies UserRow
-          ]
-        };
-      }
-
       return {
         rowCount: rows.length,
         rows: rows.map((row) => ({ ...row, payload: row }))
@@ -735,16 +720,12 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls).toEqual([
       {
         params: ["tenant-1", "user-1"],
-        sql: "SELECT user_id FROM users WHERE tenant_id = $1 AND user_id = $2"
-      },
-      {
-        params: ["tenant-1"],
-        sql: "SELECT tenant_id, course_id, status, payload FROM courses WHERE tenant_id = $1 ORDER BY created_at ASC, course_id ASC"
+        sql: "SELECT courses.tenant_id, courses.course_id, courses.status, courses.payload FROM courses INNER JOIN course_memberships ON course_memberships.tenant_id = courses.tenant_id AND course_memberships.course_id = courses.course_id WHERE courses.tenant_id = $1 AND course_memberships.user_id = $2 ORDER BY courses.created_at ASC, courses.course_id ASC"
       }
     ]);
   });
 
-  it("courses.listCoursesForUser returns an empty list and skips course lookup when user is missing", async () => {
+  it("courses.listCoursesForUser returns an empty list when no membership exists", async () => {
     const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
     const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
       calls.push({ sql, params });
@@ -762,7 +743,7 @@ describe("Postgres repository adapter skeleton", () => {
     expect(calls).toEqual([
       {
         params: ["tenant-1", "missing-user"],
-        sql: "SELECT user_id FROM users WHERE tenant_id = $1 AND user_id = $2"
+        sql: "SELECT courses.tenant_id, courses.course_id, courses.status, courses.payload FROM courses INNER JOIN course_memberships ON course_memberships.tenant_id = courses.tenant_id AND course_memberships.course_id = courses.course_id WHERE courses.tenant_id = $1 AND course_memberships.user_id = $2 ORDER BY courses.created_at ASC, courses.course_id ASC"
       }
     ]);
   });

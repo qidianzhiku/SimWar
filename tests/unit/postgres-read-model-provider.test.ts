@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import type { Course } from "../../packages/shared-contracts/src";
 import * as postgresAdapterModule from "../../services/api/src/postgres-repository-adapter.js";
 import {
   createPostgresRepositoryAdapter,
@@ -15,6 +16,50 @@ import type { SettlementReadRepositoryPorts } from "../../services/api/src/repos
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("Postgres settlement read-model provider assembly", () => {
+  it("lists only courses backed by an exact course membership", async () => {
+    const queries: { params: readonly unknown[] | undefined; sql: string }[] = [];
+    const courseDemo: Course = {
+      course_id: "course_demo",
+      created_by: "usr_teacher",
+      parameter_set_id: "parameter_demo",
+      scenario_package_id: "scenario_demo",
+      status: "published",
+      tenant_id: "tenant_demo",
+      title: "Demo course"
+    };
+    const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+      queries.push({ params, sql });
+
+      if (!sql.includes("course_memberships")) {
+        throw new Error("course membership query required");
+      }
+
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            course_id: courseDemo.course_id,
+            payload: courseDemo,
+            status: courseDemo.status,
+            tenant_id: courseDemo.tenant_id
+          }
+        ]
+      };
+    };
+    const adapter = createPostgresRepositoryAdapter({ queryExecutor });
+
+    const courses = await adapter.courses.listCoursesForUser("tenant_demo", "usr_student");
+
+    expect(courses.map((course) => course.course_id)).toEqual(["course_demo"]);
+    expect(
+      queries.some(
+        (query) =>
+          query.sql.includes("course_memberships") &&
+          JSON.stringify(query.params) === JSON.stringify(["tenant_demo", "usr_student"])
+      )
+    ).toBe(true);
+  });
+
   it("declares tenant-scoped scenario candidate listing as an explicit Postgres capability gap", () => {
     expect(postgresAdapterModule.POSTGRES_SCENARIO_CANDIDATE_READ_CAPABILITY_GAPS).toEqual([
       "scenarios.listScenarioPackagesForTenant"
