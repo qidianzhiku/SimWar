@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 import type { Server } from "node:http";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
@@ -29,6 +31,13 @@ const VALID_DECISION_PAYLOAD = {
   cash_buffer_target: 0.16,
   strategy_statement: "Hold the premium eldercare segment with reliable delivery."
 } as const satisfies DecisionPayload;
+
+function expectEnvelopeToMatchSchema(schemaFile: string, envelope: unknown): void {
+  const schema = JSON.parse(readFileSync(resolve("contracts/schemas", schemaFile), "utf8"));
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+
+  expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);
+}
 
 type M1ReplayEvidencePublicResult = PublicResultView & {
   replay_evidence?: {
@@ -367,6 +376,7 @@ describe("M1 run manifest and replay evidence", () => {
         }
       );
       expect(teacherResult.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-teacher-admin-result-envelope.v1.json", teacherResult.body);
       expect(teacherResult.body.data.replay_evidence).toMatchObject({
         evidence_semantics_version: "m1-json-replay-evidence.v1",
         evidence_kind: "m1_json_runtime_replay_evidence",
@@ -398,6 +408,7 @@ describe("M1 run manifest and replay evidence", () => {
         }
       );
       expect(studentResult.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-student-result-envelope.v1.json", studentResult.body);
       expect(studentResult.body.data.replay_evidence).toBeUndefined();
       expect(studentResult.body.data.results).toHaveLength(1);
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
