@@ -382,9 +382,25 @@ export function validateScenarioPackageDraftInput(input: ScenarioPackageDraftInp
   });
 }
 
+export interface InMemoryJsonScenarioPackageRegistryOptions {
+  approvals?: ScenarioPackageApprovalRecord[];
+  onAppend?: () => void;
+  snapshots?: ScenarioPackageVersion[];
+}
+
 export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegistryPort {
-  private readonly approvals: ScenarioPackageApprovalRecord[] = [];
-  private readonly snapshots: ScenarioPackageVersion[] = [];
+  private readonly approvals: ScenarioPackageApprovalRecord[];
+  private readonly onAppend: (() => void) | undefined;
+  private readonly snapshots: ScenarioPackageVersion[];
+
+  constructor(options: InMemoryJsonScenarioPackageRegistryOptions = {}) {
+    this.approvals = options.approvals ?? [];
+    this.onAppend = options.onAppend;
+    this.snapshots = options.snapshots ?? [];
+
+    this.approvals.forEach((record) => deepFreeze(record));
+    this.snapshots.forEach((version) => deepFreeze(version));
+  }
 
   async appendApprovedVersion(
     version: ScenarioPackageVersion,
@@ -394,11 +410,27 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     this.assertApprovalAppendable(record);
     this.snapshots.push(version);
     this.approvals.push(deepFreeze({ ...record }));
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+      this.approvals.pop();
+    });
   }
 
   async appendVersion(version: ScenarioPackageVersion): Promise<void> {
     this.assertVersionAppendable(version);
     this.snapshots.push(version);
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+    });
+  }
+
+  private persistOrRollback(rollback: () => void): void {
+    try {
+      this.onAppend?.();
+    } catch (error) {
+      rollback();
+      throw error;
+    }
   }
 
   private assertApprovalAppendable(record: ScenarioPackageApprovalRecord): void {

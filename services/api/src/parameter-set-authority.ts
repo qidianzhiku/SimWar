@@ -241,9 +241,25 @@ export function calculateParameterSetContentDigest(input: ParameterSetDraftInput
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
+export interface InMemoryJsonParameterSetRegistryOptions {
+  approvals?: ParameterSetApprovalRecord[];
+  onAppend?: () => void;
+  snapshots?: ParameterSetVersion[];
+}
+
 export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPort {
-  private readonly approvals: ParameterSetApprovalRecord[] = [];
-  private readonly snapshots: ParameterSetVersion[] = [];
+  private readonly approvals: ParameterSetApprovalRecord[];
+  private readonly onAppend: (() => void) | undefined;
+  private readonly snapshots: ParameterSetVersion[];
+
+  constructor(options: InMemoryJsonParameterSetRegistryOptions = {}) {
+    this.approvals = options.approvals ?? [];
+    this.onAppend = options.onAppend;
+    this.snapshots = options.snapshots ?? [];
+
+    this.approvals.forEach((record) => Object.freeze(record));
+    this.snapshots.forEach((version) => deepFreeze(version));
+  }
 
   async appendApprovedVersion(
     version: ParameterSetVersion,
@@ -253,11 +269,27 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     this.assertApprovalAppendable(record);
     this.snapshots.push(version);
     this.approvals.push(Object.freeze({ ...record }));
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+      this.approvals.pop();
+    });
   }
 
   async appendVersion(version: ParameterSetVersion): Promise<void> {
     this.assertVersionAppendable(version);
     this.snapshots.push(version);
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+    });
+  }
+
+  private persistOrRollback(rollback: () => void): void {
+    try {
+      this.onAppend?.();
+    } catch (error) {
+      rollback();
+      throw error;
+    }
   }
 
   private assertApprovalAppendable(record: ParameterSetApprovalRecord): void {

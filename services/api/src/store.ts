@@ -36,6 +36,11 @@ import type {
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
+import type { ParameterSetApprovalRecord, ParameterSetVersion } from "./parameter-set-authority.js";
+import type {
+  ScenarioPackageApprovalRecord,
+  ScenarioPackageVersion
+} from "./scenario-package-authority.js";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -59,7 +64,11 @@ export interface SimWarStoreSnapshot {
   settlementResults: SettlementResult[];
   auditLogs: AuditLog[];
   counters: Record<string, number>;
+  formalParameterSetApprovalRecords: ParameterSetApprovalRecord[];
+  formalParameterSetLifecycleSnapshots: ParameterSetVersion[];
   formalRunRuntimeBindings: FormalRunRuntimeBinding[];
+  formalScenarioPackageApprovalRecords: ScenarioPackageApprovalRecord[];
+  formalScenarioPackageLifecycleSnapshots: ScenarioPackageVersion[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -542,7 +551,11 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     decisions: [],
     settlementResults: [],
     auditLogs: [],
+    formalParameterSetApprovalRecords: [],
+    formalParameterSetLifecycleSnapshots: [],
     formalRunRuntimeBindings: [],
+    formalScenarioPackageApprovalRecords: [],
+    formalScenarioPackageLifecycleSnapshots: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -576,7 +589,11 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     decisions: store.decisions,
     settlementResults: store.settlementResults,
     auditLogs: store.auditLogs,
+    formalParameterSetApprovalRecords: store.formalParameterSetApprovalRecords,
+    formalParameterSetLifecycleSnapshots: store.formalParameterSetLifecycleSnapshots,
     formalRunRuntimeBindings: store.formalRunRuntimeBindings,
+    formalScenarioPackageApprovalRecords: store.formalScenarioPackageApprovalRecords,
+    formalScenarioPackageLifecycleSnapshots: store.formalScenarioPackageLifecycleSnapshots,
     counters: store.counters
   };
 }
@@ -601,7 +618,11 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     userRoles: snapshot.userRoles ?? seed.userRoles,
     rolePermissions: snapshot.rolePermissions ?? seed.rolePermissions,
     sessions: snapshot.sessions ?? [],
+    formalParameterSetApprovalRecords: snapshot.formalParameterSetApprovalRecords ?? [],
+    formalParameterSetLifecycleSnapshots: snapshot.formalParameterSetLifecycleSnapshots ?? [],
     formalRunRuntimeBindings: snapshot.formalRunRuntimeBindings ?? [],
+    formalScenarioPackageApprovalRecords: snapshot.formalScenarioPackageApprovalRecords ?? [],
+    formalScenarioPackageLifecycleSnapshots: snapshot.formalScenarioPackageLifecycleSnapshots ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }
@@ -1418,6 +1439,17 @@ function assertSnapshotShape(
     !Array.isArray(value.formalRunRuntimeBindings)
   ) {
     throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+  }
+
+  for (const field of [
+    "formalParameterSetApprovalRecords",
+    "formalParameterSetLifecycleSnapshots",
+    "formalScenarioPackageApprovalRecords",
+    "formalScenarioPackageLifecycleSnapshots"
+  ] as const) {
+    if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
+      throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+    }
   }
 
   if (!isRecord(value.counters)) {
