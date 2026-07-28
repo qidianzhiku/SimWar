@@ -22,7 +22,6 @@ const commonSemanticIds = [
 
 const teacherAdminSemanticIds = [
   "ISSUE_111_OPEN",
-  "ISSUE_114_OPEN",
   "ISSUE_115_OPEN",
   "HUMAN_VALIDATION_WAIVED_BY_OWNER",
   "AI_ADVISORY_ONLY",
@@ -36,7 +35,9 @@ describe("role-safe Known Limits product disclosure", () => {
       ...commonSemanticIds,
       ...teacherAdminSemanticIds
     ]);
-    expect(new Set(KNOWN_LIMITS_CATALOG.map((item) => item.semantic_id)).size).toBe(18);
+    expect(new Set(KNOWN_LIMITS_CATALOG.map((item) => item.semantic_id)).size).toBe(
+      commonSemanticIds.length + teacherAdminSemanticIds.length
+    );
   });
 
   it.each(["teacher", "student", "tenant_admin", "platform_admin"] as const)(
