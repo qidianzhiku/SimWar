@@ -391,6 +391,73 @@ paths:
           description: Authentication required
         "403":
           description: Teacher authority required
+  /api/v1/formal-authority/parameter-sets:
+    post:
+      operationId: FORMAL_PARAMETER_SET_DRAFT_CREATE_V1
+      summary: Create a formal ParameterSet draft for the request tenant.
+      description: Platform-admin governance ingress only. It appends a DRAFT lifecycle snapshot through the formal authority command service. It does not activate a runtime, bind a Run, execute Replay, or settle.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalParameterSetDraftInput"
+      responses:
+        "201":
+          description: Formal DRAFT ParameterSet version
+        "401":
+          description: Authentication required
+        "403":
+          description: parameter_set:manage permission required
+        "422":
+          description: Invalid tenant-scoped formal ParameterSet draft
+  /api/v1/formal-authority/parameter-sets/{parameterSetId}/versions/{version}/{action}:
+    post:
+      operationId: FORMAL_PARAMETER_SET_LIFECYCLE_TRANSITION_V1
+      summary: Transition one exact formal ParameterSet reference.
+      description: Platform-admin governance ingress only. The request body must carry the exact immutable reference and request tenant. Supported transitions are validate, freeze, approve, and retire.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: parameterSetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [validate, freeze, approve, retire]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/FormalParameterSetReferenceInput"
+                - $ref: "#/components/schemas/FormalParameterSetApprovalInput"
+      responses:
+        "200":
+          description: Transitioned formal ParameterSet version or approval result
+        "401":
+          description: Authentication required
+        "403":
+          description: parameter_set:manage permission required
+        "404":
+          description: Exact formal ParameterSet version not found
+        "409":
+          description: Lifecycle transition conflicts with the current immutable snapshot
+        "422":
+          description: Invalid exact reference, tenant scope, or approval input
   /api/v1/bff/admin/run-lifecycle-controls:
     get:
       operationId: SYNTHETIC_RUN_LIFECYCLE_CONTROLS_LIST_V1
@@ -595,6 +662,78 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    FormalParameterSetReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, parameter_set_id, version, content_digest]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        parameter_set_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FormalParameterSetApprovalInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, parameter_set_id, version, content_digest, approval_id]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        parameter_set_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        approval_id:
+          type: string
+          minLength: 1
+    FormalParameterSetDraftInput:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - parameter_set_id
+        - version
+        - schema_version
+        - model_version_ref
+        - compatibility_metadata
+        - parameter_values
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        parameter_set_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        schema_version:
+          type: string
+          minLength: 1
+        model_version_ref:
+          type: string
+          minLength: 1
+        compatibility_metadata:
+          type: object
+          additionalProperties:
+            type: string
+        parameter_values:
+          description: Immutable JSON parameter value governed by the formal command service.
+        parent_reference:
+          $ref: "#/components/schemas/FormalParameterSetReferenceInput"
     SyntheticRunLifecycleControl:
       type: object
       additionalProperties: false

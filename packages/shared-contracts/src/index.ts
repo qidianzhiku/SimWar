@@ -79,6 +79,7 @@ export type PermissionKey =
   | "decision:submit"
   | "result:read"
   | "audit:read"
+  | "parameter_set:manage"
   | "internal:settle";
 
 export interface Tenant {
@@ -1464,6 +1465,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "decision:submit",
     "result:read",
     "audit:read",
+    "parameter_set:manage",
     "internal:settle"
   ],
   tenant_admin: [
