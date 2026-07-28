@@ -21,6 +21,7 @@ import type {
   Run,
   ScenarioPackage,
   ScenarioPackageAuthorityReadProjection,
+  ScenarioPackageReference,
   SettlementResult,
   SyntheticRunLifecycleOperation,
   TeacherFormalScenarioPackageCatalogDto,
@@ -36,6 +37,7 @@ import {
   ROLE_PERMISSION_MATRIX,
   actorHasPermission,
   createParameterSetReference,
+  createScenarioPackageReference,
   isTruthProtectedField
 } from "@simwar/shared-contracts";
 import {
@@ -58,6 +60,14 @@ import {
   type ParameterSetVersion
 } from "./parameter-set-authority.js";
 import type { ScenarioPackageAuthorityReadFacade } from "./repository-facade.js";
+import {
+  ScenarioPackageAuthorityError,
+  type ScenarioPackageAuthorityActor,
+  type ScenarioPackageCommandService,
+  type ScenarioPackageDraftInput,
+  type ScenarioPackageJsonValue,
+  type ScenarioPackageVersion
+} from "./scenario-package-authority.js";
 import {
   resolveRuntimeSecurityConfig,
   validateRuntimeSecurityConfig,
@@ -120,6 +130,7 @@ interface RequestContext {
 
 interface ApiRuntime {
   formalParameterSets: ParameterSetCommandService;
+  formalScenarioPackages: ScenarioPackageCommandService;
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
@@ -214,6 +225,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
 
   return {
     formalParameterSets: formalAuthorityRuntime.parameterSets,
+    formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
     formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
     formalScenarioPackageCatalog,
@@ -1197,6 +1209,229 @@ function assertFormalParameterSetPathReference(
   }
 }
 
+function formalScenarioPackageRequestError(): HttpError {
+  return new HttpError(
+    422,
+    "SCENARIO_PACKAGE-422-001",
+    "formal scenario package request is invalid"
+  );
+}
+
+function parseFormalScenarioPackageString(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return value;
+}
+
+function parseFormalScenarioPackageStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  const entries = Object.entries(value);
+  if (entries.some(([key, entry]) => key.trim().length === 0 || typeof entry !== "string")) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return entries.reduce<Record<string, string>>((record, [key, entry]) => {
+    record[key] = entry as string;
+    return record;
+  }, {});
+}
+
+function parseFormalScenarioPackageJsonRecord(
+  value: unknown
+): Record<string, ScenarioPackageJsonValue> {
+  if (!isRecord(value)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return value as Record<string, ScenarioPackageJsonValue>;
+}
+
+function parseFormalScenarioPackageParameterSetReference(value: unknown): ParameterSetReference {
+  if (!isRecord(value)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  try {
+    return createParameterSetReference({
+      content_digest: parseFormalScenarioPackageString(value.content_digest),
+      parameter_set_id: parseFormalScenarioPackageString(value.parameter_set_id),
+      version: parseFormalScenarioPackageString(value.version)
+    });
+  } catch {
+    throw formalScenarioPackageRequestError();
+  }
+}
+
+function parseFormalScenarioPackageReference(
+  value: unknown,
+  tenantId: string
+): ScenarioPackageReference {
+  if (!isRecord(value) || parseFormalScenarioPackageString(value.tenant_id) !== tenantId) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  try {
+    return createScenarioPackageReference({
+      content_digest: parseFormalScenarioPackageString(value.content_digest),
+      scenario_package_id: parseFormalScenarioPackageString(value.scenario_package_id),
+      tenant_id: tenantId,
+      version: parseFormalScenarioPackageString(value.version)
+    });
+  } catch {
+    throw formalScenarioPackageRequestError();
+  }
+}
+
+function parseFormalScenarioPackageArtifactPolicy(
+  value: unknown
+): ScenarioPackageDraftInput["artifact_policy"] {
+  if (!isRecord(value)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  const mode = value.mode;
+  const retention = value.retention;
+  if ((mode !== "INLINE" && mode !== "IMMUTABLE_REFERENCE") || retention !== "IMMUTABLE") {
+    throw formalScenarioPackageRequestError();
+  }
+
+  const optionalString = (entry: unknown): string | undefined =>
+    entry === undefined ? undefined : parseFormalScenarioPackageString(entry);
+  const artifactDigest = optionalString(value.artifact_digest);
+  const artifactMediaType = optionalString(value.artifact_media_type);
+  const artifactReference = optionalString(value.artifact_reference);
+
+  return {
+    ...(artifactDigest === undefined ? {} : { artifact_digest: artifactDigest }),
+    ...(artifactMediaType === undefined ? {} : { artifact_media_type: artifactMediaType }),
+    ...(artifactReference === undefined ? {} : { artifact_reference: artifactReference }),
+    mode,
+    retention
+  };
+}
+
+function parseFormalScenarioPackagePluginDependencies(
+  value: unknown
+): ScenarioPackageDraftInput["plugin_dependencies"] {
+  if (!Array.isArray(value)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return value.map((entry) => {
+    if (!isRecord(entry)) {
+      throw formalScenarioPackageRequestError();
+    }
+
+    return {
+      plugin_package_id: parseFormalScenarioPackageString(entry.plugin_package_id),
+      version: parseFormalScenarioPackageString(entry.version)
+    };
+  });
+}
+
+function parseFormalScenarioPackageDraft(
+  value: unknown,
+  tenantId: string
+): ScenarioPackageDraftInput {
+  if (!isRecord(value) || parseFormalScenarioPackageString(value.tenant_id) !== tenantId) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  if (value.content === undefined) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return {
+    artifact_policy: parseFormalScenarioPackageArtifactPolicy(value.artifact_policy),
+    compatibility_metadata: parseFormalScenarioPackageStringRecord(value.compatibility_metadata),
+    content: value.content as ScenarioPackageJsonValue,
+    metadata: parseFormalScenarioPackageJsonRecord(value.metadata),
+    parameter_set_reference: parseFormalScenarioPackageParameterSetReference(
+      value.parameter_set_reference
+    ),
+    plugin_dependencies: parseFormalScenarioPackagePluginDependencies(value.plugin_dependencies),
+    scenario_package_id: parseFormalScenarioPackageString(value.scenario_package_id),
+    schema_version: parseFormalScenarioPackageString(value.schema_version),
+    tenant_id: tenantId,
+    version: parseFormalScenarioPackageString(value.version)
+  };
+}
+
+function createFormalScenarioPackageActor(
+  context: RequestContext,
+  actor: CurrentUser
+): ScenarioPackageAuthorityActor {
+  return {
+    actor_id: actor.user_id,
+    capabilities: ["scenario_package:manage"],
+    correlation_id: context.requestId,
+    tenant_id: context.tenantId
+  };
+}
+
+function scenarioPackageAuthorityHttpError(error: unknown): HttpError {
+  if (!(error instanceof ScenarioPackageAuthorityError)) {
+    throw error;
+  }
+
+  switch (error.code) {
+    case "NOT_FOUND":
+      return new HttpError(
+        404,
+        "SCENARIO_PACKAGE-404-001",
+        "formal scenario package version not found"
+      );
+    case "TENANT_SCOPE_VIOLATION":
+    case "SCENARIO_PACKAGE_CAPABILITY_REQUIRED":
+      return new HttpError(
+        403,
+        "SCENARIO_PACKAGE-403-001",
+        "formal scenario package authority required"
+      );
+    case "SCENARIO_PACKAGE_INVALID_TRANSITION":
+    case "SCENARIO_PACKAGE_VERSION_ALREADY_EXISTS":
+    case "SCENARIO_PACKAGE_DIGEST_CONFLICT":
+    case "SCENARIO_PACKAGE_PARAMETER_SET_NOT_BINDABLE":
+    case "DIGEST_MISMATCH":
+    case "NOT_APPROVED":
+    case "RETIRED_FOR_NEW_BINDING":
+      return new HttpError(
+        409,
+        "SCENARIO_PACKAGE-409-001",
+        "formal scenario package lifecycle conflict"
+      );
+    default:
+      return formalScenarioPackageRequestError();
+  }
+}
+
+async function executeFormalScenarioPackageCommand<T>(command: () => Promise<T>): Promise<T> {
+  try {
+    return await command();
+  } catch (error) {
+    throw scenarioPackageAuthorityHttpError(error);
+  }
+}
+
+function formalScenarioPackageResourceId(reference: ScenarioPackageReference): string {
+  return `${reference.scenario_package_id}@${reference.version}:${reference.content_digest}`;
+}
+
+function assertFormalScenarioPackagePathReference(
+  reference: ScenarioPackageReference,
+  scenarioPackageId: string,
+  version: string
+): void {
+  if (reference.scenario_package_id !== scenarioPackageId || reference.version !== version) {
+    throw formalScenarioPackageRequestError();
+  }
+}
+
 function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): string {
   return JSON.stringify(payload);
 }
@@ -1837,6 +2072,92 @@ async function routeRequest(
       action: `parameter_set.${action}`,
       resourceType: "formal_parameter_set",
       resourceId: formalParameterSetResourceId(reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(versionResult)
+    });
+    sendJson(response, 200, createEnvelope(context, result));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/formal-authority/scenario-packages") {
+    const actor = requirePermission(context, "scenario_package:manage");
+    const draft = parseFormalScenarioPackageDraft(await readJson(request), context.tenantId);
+    const created = await executeFormalScenarioPackageCommand(() =>
+      runtime.formalScenarioPackages.createDraft(
+        createFormalScenarioPackageActor(context, actor),
+        draft
+      )
+    );
+    await appendAudit(runtime, {
+      actor,
+      action: "scenario_package.create",
+      resourceType: "formal_scenario_package",
+      resourceId: formalScenarioPackageResourceId(created.reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(created)
+    });
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/formal-authority\/scenario-packages\/[^/]+\/versions\/[^/]+\/(validate|freeze|approve|retire)$/.test(
+      url.pathname
+    )
+  ) {
+    const actor = requirePermission(context, "scenario_package:manage");
+    const [, scenarioPackageId, version, action] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/formal-authority\/scenario-packages\/([^/]+)\/versions\/([^/]+)\/(validate|freeze|approve|retire)$/
+    );
+    const body = await readJson(request);
+    const reference = parseFormalScenarioPackageReference(body, context.tenantId);
+    assertFormalScenarioPackagePathReference(reference, scenarioPackageId ?? "", version ?? "");
+    const commandActor = createFormalScenarioPackageActor(context, actor);
+    const command = runtime.formalScenarioPackages;
+    let result:
+      | ScenarioPackageVersion
+      | { approval_record: unknown; version: ScenarioPackageVersion };
+
+    switch (action) {
+      case "validate":
+        result = await executeFormalScenarioPackageCommand(() =>
+          command.validate(commandActor, reference)
+        );
+        break;
+      case "freeze":
+        result = await executeFormalScenarioPackageCommand(() =>
+          command.freeze(commandActor, reference)
+        );
+        break;
+      case "approve": {
+        if (!isRecord(body)) {
+          throw formalScenarioPackageRequestError();
+        }
+        const approvalId = parseFormalScenarioPackageString(body.approval_id);
+        result = await executeFormalScenarioPackageCommand(() =>
+          command.approve(commandActor, reference, approvalId)
+        );
+        break;
+      }
+      case "retire":
+        result = await executeFormalScenarioPackageCommand(() =>
+          command.retire(commandActor, reference)
+        );
+        break;
+      default:
+        throw new HttpError(404, "ROUTE-404-001", "not found");
+    }
+
+    const versionResult = "version" in result ? result.version : result;
+    await appendAudit(runtime, {
+      actor,
+      action: `scenario_package.${action}`,
+      resourceType: "formal_scenario_package",
+      resourceId: formalScenarioPackageResourceId(reference),
       requestId: context.requestId,
       tenantId: context.tenantId,
       after: clonePublic(versionResult)
