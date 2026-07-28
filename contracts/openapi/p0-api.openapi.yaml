@@ -527,6 +527,74 @@ paths:
           description: Lifecycle transition conflicts with the current immutable snapshot or bound ParameterSet
         "422":
           description: Invalid exact reference, tenant scope, or approval input
+  /api/v1/formal-authority/plugin-releases:
+    post:
+      operationId: FORMAL_PLUGIN_RELEASE_DRAFT_CREATE_V1
+      summary: Create a formal PluginRelease draft.
+      description: Platform-admin governance ingress only. It appends a DRAFT lifecycle snapshot and never loads, executes, activates, or hot-swaps a plugin runtime.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalPluginReleaseDraftInput"
+      responses:
+        "201":
+          description: Formal DRAFT PluginRelease version
+        "401":
+          description: Authentication required
+        "403":
+          description: plugin_release:manage permission required
+        "422":
+          description: Invalid formal PluginRelease draft
+  /api/v1/formal-authority/plugin-releases/{pluginPackageId}/versions/{version}/{action}:
+    post:
+      operationId: FORMAL_PLUGIN_RELEASE_LIFECYCLE_TRANSITION_V1
+      summary: Transition one exact formal PluginRelease reference.
+      description: Platform-admin governance ingress only. AVAILABLE is an append-only availability record for formal binding; it does not activate a plugin runtime.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: pluginPackageId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [validate, approve, make-available, retire]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/FormalPluginReleaseReferenceInput"
+                - $ref: "#/components/schemas/FormalPluginReleaseApprovalInput"
+                - $ref: "#/components/schemas/FormalPluginReleaseAvailabilityInput"
+      responses:
+        "200":
+          description: Transitioned formal PluginRelease version or its governance record
+        "401":
+          description: Authentication required
+        "403":
+          description: PluginRelease authority required
+        "404":
+          description: Exact formal PluginRelease version not found
+        "409":
+          description: Lifecycle transition conflicts with the current immutable snapshot
+        "422":
+          description: Invalid exact reference, manifest, or governance decision input
   /api/v1/bff/admin/run-lifecycle-controls:
     get:
       operationId: SYNTHETIC_RUN_LIFECYCLE_CONTROLS_LIST_V1
@@ -923,6 +991,85 @@ components:
               version:
                 type: string
                 minLength: 1
+    FormalPluginReleaseReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [plugin_package_id, version, content_digest]
+      properties:
+        plugin_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FormalPluginReleaseApprovalInput:
+      type: object
+      additionalProperties: false
+      required: [plugin_package_id, version, content_digest, owner_decision_id]
+      properties:
+        plugin_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        owner_decision_id:
+          type: string
+          minLength: 1
+    FormalPluginReleaseAvailabilityInput:
+      type: object
+      additionalProperties: false
+      required: [plugin_package_id, version, content_digest, availability_decision_id]
+      properties:
+        plugin_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        availability_decision_id:
+          type: string
+          minLength: 1
+    FormalPluginReleaseDraftInput:
+      type: object
+      additionalProperties: false
+      required:
+        - plugin_package_id
+        - version
+        - schema_version
+        - compatibility_metadata
+        - plugin_manifest
+        - official_commit_permissions
+      properties:
+        plugin_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        schema_version:
+          type: string
+          minLength: 1
+        compatibility_metadata:
+          type: object
+          additionalProperties:
+            type: string
+        plugin_manifest:
+          type: object
+          description: Immutable PluginManifest validated by the existing formal PluginRelease command service.
+        official_commit_permissions:
+          type: array
+          items:
+            type: string
     SyntheticRunLifecycleControl:
       type: object
       additionalProperties: false
