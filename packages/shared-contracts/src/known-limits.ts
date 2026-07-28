@@ -15,7 +15,6 @@ export type KnownLimitSemanticId =
   | "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION"
   | "NO_PILOT_OR_PRODUCTION_AUTHORIZATION"
   | "ISSUE_111_OPEN"
-  | "ISSUE_114_OPEN"
   | "ISSUE_115_OPEN"
   | "HUMAN_VALIDATION_WAIVED_BY_OWNER"
   | "AI_ADVISORY_ONLY"
@@ -131,12 +130,6 @@ export const KNOWN_LIMITS_CATALOG: readonly KnownLimitCatalogItem[] = [
     semantic_id: "ISSUE_111_OPEN",
     title: "Issue #111 仍处于开放状态",
     description: "当前治理连续性要求 #111 保持 OPEN；本披露不构成该 Issue 的关闭条件。",
-    visible_to: PRIVILEGED_PRODUCT_ROLES
-  },
-  {
-    semantic_id: "ISSUE_114_OPEN",
-    title: "Issue #114 仍处于开放状态",
-    description: "当前治理连续性要求 #114 保持 OPEN；本披露不构成该 Issue 的关闭条件。",
     visible_to: PRIVILEGED_PRODUCT_ROLES
   },
   {
