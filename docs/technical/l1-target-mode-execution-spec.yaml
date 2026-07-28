@@ -1,0 +1,1312 @@
+spec_version: "1.0"
+document_id: SIMWAR-L1-TARGET-MODE-TECH-SPEC-V1.0
+generated_at: "2026-07-28T10:55:00Z"
+repository: qidianzhiku/SimWar
+default_branch: master
+source_sha: a296f9032cf1d7fc921fa837d57e5c33e3cc4de2
+status: READY_FOR_REPOSITORY_ADOPTION
+normative_contract_status: PASS_WITH_LIMITS
+current_runtime_evidence_completeness: PARTIAL
+automatic_next_mission: false
+graph_manifest:
+  source_sha: a296f9032cf1d7fc921fa837d57e5c33e3cc4de2
+  generated_at: "2026-07-28T10:17:18.6938895Z"
+  graphify:
+    status: CONNECTED
+    version: 0.9.26
+    index_id: graphify-out/graph.json
+    source_root: C:\Users\Marshall\AppData\Local\Temp\SimWar-graph-rebase-a296f9032cf1
+    node_count: 4872
+    edge_count: 7805
+  codegraph:
+    status: CONNECTED
+    version: 1.2.0
+    index_id: mission-owned .codegraph removed after analysis
+    source_root: C:\Users\Marshall\AppData\Local\Temp\SimWar-graph-rebase-a296f9032cf1
+    symbol_count: 3559
+    edge_count: 14790
+  graphs:
+    - id: REPOSITORY_FACT_GRAPH
+      path: graphs/01-repository-fact-graph.json
+      status: PASS_WITH_LIMITS
+    - id: AUTHORITY_WRITER_GRAPH
+      path: graphs/02-authority-writer-graph.json
+      status: PARTIAL
+    - id: RUNTIME_CALL_GRAPH
+      path: graphs/03-runtime-call-graph.json
+      status: PARTIAL
+    - id: PRODUCT_JOURNEY_GRAPH
+      path: graphs/04-product-journey-graph.json
+      status: PARTIAL
+    - id: TEST_COVERAGE_GRAPH
+      path: graphs/05-test-coverage-graph.json
+      status: PARTIAL
+    - id: GAP_GRAPH
+      path: graphs/06-gap-graph.json
+      status: PASS_WITH_LIMITS
+    - id: RESOURCE_LOCK_MANIFEST
+      path: graphs/07-resource-lock-manifest.json
+      status: PASS_WITH_LIMITS
+    - id: CANDIDATE_ROUTE_GRAPH
+      path: graphs/08-candidate-route-graph.json
+      status: PASS_WITH_LIMITS
+  critical_unknowns:
+    - B01 default persisted authority Golden chain
+    - B02 course membership visibility
+    - B03 direct store boundary closure
+    - B04 executable contract parity
+  authority_breaches: []
+  recommended_mainline_candidate: CAND-01
+  recommended_support_candidate: NONE
+assessment_current_reality:
+  current_fact_reauthentication_required: true
+  latest_merge_pr: 265
+  latest_merge_title: "docs: adopt L1 governance baseline"
+  previous_product_merge_pr: 264
+  open_pr_count_at_assessment: 0
+  runtime_authority: JSON_INTERNAL_ONLY
+  l1_status: NOT_ASSESSED
+  pilot: NOT_AUTHORIZED
+  production: NOT_AUTHORIZED
+input_digests:
+  gap_graph: a32291be76f36f46488e141ab28f0243f8d9666b67a035dd49332bdb20c25eef
+  route_scorecard: 944b999505c0c61ff9c9c4fd5078f5ce52c4886536516a37e45e52c5af89e087
+  graph_manifest: eccbfad2d5d00723d8246f1395dea460b2ca4d2073f3255f534c162bb0585c57
+  graph_final_report: 3a963f60af3c3dd897b7de19a12bf76ebaaf0ccc7344ea7e27f4781fd0b54b9c
+  graph_viewer: 0e9b4218bf0f0c99f61e9cb97053b0240c48754ac992d2c8b5cd4f1c068369b8
+  dod: 8e3177862e099e61d2f87efbfac0b5e9a4f62f7fd3e8d8ccaa23b1c3d918f065
+  authority_matrix: e53d3c8c9075f0524864c081ab55f6a69805132740e9f61dc2ff130a5378ac0e
+  ledger_md: a2b257468f7e7f20f69263269b00578a8b3ef293aff9893fd84165f366996ec8
+  ledger_yaml: 0e8d75dab1530e35b47e4c07a6432665ba90125652068c63f61c5a382bfa67f0
+modules:
+  - module_id: MOD-APP-TEACHER
+    path: apps/teacher/src/App.tsx
+    role: Teacher product surface
+    responsibility: Teacher UI state, readiness, Run and round controls
+    authority: read-only product consumer
+    dependencies: Teacher BFF/API
+    evidence: teacher-next-run-product-path.spec.ts; z-r7-teacher-scenario-readiness.spec.ts
+  - module_id: MOD-APP-STUDENT
+    path: apps/student/src/App.tsx
+    role: Student product surface
+    responsibility: Decision input, published result, feedback and safe copy
+    authority: no formal writer
+    dependencies: Student BFF/API
+    evidence: student-smoke.spec.ts; teacher-student-frontend-bff-dto-consumption.spec.ts
+  - module_id: MOD-APP-ADMIN
+    path: apps/admin/src/App.tsx
+    role: Admin product surface
+    responsibility: Tenant/platform summary and synthetic lifecycle controls
+    authority: no Truth writer
+    dependencies: Admin BFF/API
+    evidence: admin-scope-authority.spec.ts; admin-lifecycle-controls.test.ts
+  - module_id: MOD-API-COMPOSITION
+    path: services/api/src/server.ts
+    role: API composition root
+    responsibility: Routes, auth context, runtime composition, formal lifecycle ingress, Run/Decision/Settlement/Projection
+    authority: delegates to designated services
+    dependencies: all API modules
+    evidence: large hotspot; multiple integration tests
+  - module_id: MOD-AUTH-PARAM
+    path: services/api/src/parameter-set-authority.ts
+    role: Formal ParameterSet authority
+    responsibility: Append-only lifecycle and exact reference
+    authority: ParameterSetCommandService
+    dependencies: JSON formal authority persistence
+    evidence: formal-parameter-set-lifecycle-endpoint.test.ts
+  - module_id: MOD-AUTH-SCENARIO
+    path: services/api/src/scenario-package-authority.ts
+    role: Formal ScenarioPackage authority
+    responsibility: Append-only lifecycle, ParameterSet binding and catalog projection
+    authority: ScenarioPackageCommandService
+    dependencies: ParameterSet authority; Plugin dependencies
+    evidence: formal-scenario-package-lifecycle-endpoint.test.ts
+  - module_id: MOD-AUTH-PLUGIN
+    path: services/api/src/plugin-release-authority.ts
+    role: Formal PluginRelease authority
+    responsibility: Lifecycle and availability for binding
+    authority: PluginReleaseCommandService
+    dependencies: Plugin registry
+    evidence: formal-plugin-release-lifecycle-endpoint.test.ts
+  - module_id: MOD-COURSE-BINDING
+    path: services/api/src/formal-course-authority-binding.ts
+    role: Formal Course authority binding
+    responsibility: Freeze exact Scenario/Parameter/Engine references
+    authority: createFormalCourseAuthorityBinding + append-only store
+    dependencies: Formal authorities
+    evidence: formal-run-runtime-binding-activation.test.ts
+  - module_id: MOD-RUN-BINDING
+    path: services/api/src/formal-run-runtime-binding.ts
+    role: Formal Run binding
+    responsibility: Freeze exact runtime inputs and seed
+    authority: createFormalRunRuntimeBinding
+    dependencies: Formal Course binding or explicit legacy-compatible input
+    evidence: formal-run-runtime-binding.test.ts
+  - module_id: MOD-RUNTIME-RESOLVER
+    path: services/api/src/formal-runtime-input-resolver.ts
+    role: Formal runtime input resolution
+    responsibility: Materialize exact active/historical inputs and digest
+    authority: read-only resolver
+    dependencies: Formal authorities and Run binding
+    evidence: formal-runtime-input-resolver.test.ts
+  - module_id: MOD-REPO-FACADE
+    path: services/api/src/repository-facade.ts
+    role: Repository boundary
+    responsibility: Typed command/read facades and atomic settlement outcome
+    authority: delegates to provider ports
+    dependencies: JSON active; PG candidates
+    evidence: repository-facade-command-forwarding.test.ts
+  - module_id: MOD-REPO-JSON
+    path: services/api/src/json-repository-adapter.ts
+    role: Active JSON repository adapter
+    responsibility: JSON persistence and formal registries
+    authority: active JSON provider
+    dependencies: SimWarStore
+    evidence: json-repository-adapter.test.ts
+  - module_id: MOD-REPO-PG
+    path: services/api/src/postgres-repository-adapter.ts
+    role: PostgreSQL candidate adapter
+    responsibility: Read/write candidates and replay verification
+    authority: not active L1 authority
+    dependencies: Program F / higher stage
+    evidence: postgres-repository-adapter.test.ts; postgres-replay-verification.test.ts
+  - module_id: MOD-KERNEL
+    path: services/simulation-core/src/simulation.ts
+    role: Settlement orchestration
+    responsibility: Prepare/calculate official settlement and replay hash
+    authority: Simulation Core L1–L3
+    dependencies: market, operations, finance, scoring
+    evidence: simulation-core.test.ts
+  - module_id: MOD-PROJECTION
+    path: services/api/src/teacher-student-bff-dto.ts
+    role: Persona projections
+    responsibility: Teacher/Student/Admin DTO creation and forbidden-field filters
+    authority: read-only projection
+    dependencies: official result and audit refs
+    evidence: teacher-student-bff-dto-productization.test.ts
+  - module_id: MOD-REPLAY
+    path: services/api/src/run-manifest-replay-evidence.ts
+    role: Replay and evidence
+    responsibility: Canonical hashes, private/public evidence and Golden selection
+    authority: Replay evidence writer only
+    dependencies: locked Run/Decision/Authority/Settlement
+    evidence: m1-run-manifest-replay-evidence.test.ts
+  - module_id: MOD-CLEANUP
+    path: services/api/src/synthetic-run-lifecycle.ts
+    role: L1 abort/reset/cleanup
+    responsibility: Synthetic JSON_INTERNAL_ONLY lifecycle controls
+    authority: lifecycle service within bounded scope
+    dependencies: Run/audit/store
+    evidence: l1-session-abort-reset-recovery.test.ts
+  - module_id: MOD-CONTRACTS
+    path: packages/shared-contracts/src/index.ts; contracts/openapi; contracts/json-schema
+    role: Shared contracts
+    responsibility: TypeScript/OpenAPI/JSON Schema/BFF DTO contracts
+    authority: contract owners
+    dependencies: API and apps
+    evidence: m1-contract-conformance-gate.test.ts
+authorities:
+  - object: ParameterSetVersion
+    sole_writer: ParameterSetCommandService
+    source: services/api/src/parameter-set-authority.ts
+    legal_caller: platform_admin formal authority ingress
+    persistence: JSON formal registry
+    forbidden_writers: Teacher/Student/AI/Plugin/legacy store direct writes
+  - object: ScenarioPackageVersion
+    sole_writer: ScenarioPackageCommandService
+    source: services/api/src/scenario-package-authority.ts
+    legal_caller: platform_admin formal authority ingress
+    persistence: JSON formal registry
+    forbidden_writers: Teacher/Student/AI/industry code direct writes
+  - object: PluginReleaseVersion
+    sole_writer: PluginReleaseCommandService
+    source: services/api/src/plugin-release-authority.ts
+    legal_caller: platform_admin formal authority ingress
+    persistence: JSON formal registry
+    forbidden_writers: runtime hot-swap and non-authorized providers
+  - object: FormalCourseAuthorityBinding
+    sole_writer: FormalCourseAuthorityBindingStore.append
+    source: services/api/src/formal-course-authority-binding-store.ts
+    legal_caller: Course create formal path
+    persistence: private append-only JSON collection
+    forbidden_writers: client override after creation
+  - object: FormalRunRuntimeBinding
+    sole_writer: FormalRunRuntimeBindingStore.append
+    source: services/api/src/formal-run-runtime-binding-store.ts
+    legal_caller: Run create formal path
+    persistence: private append-only JSON collection
+    forbidden_writers: floating/latest resolution and override
+  - object: Decision/Canonical Decision
+    sole_writer: DecisionCommandRepositoryPort.saveCanonicalDecision
+    source: services/api/src/repository-ports.ts
+    legal_caller: authorized Student team submission
+    persistence: active repository provider
+    forbidden_writers: wrong-team, AI or frontend direct write
+  - object: Truth-L1/L2/L3
+    sole_writer: Simulation Core settlement engine
+    source: services/simulation-core/src/simulation.ts
+    legal_caller: service-kernel settlement path
+    persistence: SettlementResult/StateSnapshot
+    forbidden_writers: AI, UI, Plugin direct formal write
+  - object: SettlementResult/Score/Rank
+    sole_writer: SettlementOutcomePersistencePort.commitSettlementOutcome
+    source: services/api/src/repository-ports.ts
+    legal_caller: runSettlement under run mutation lock
+    persistence: active repository provider
+    forbidden_writers: Replay overwrite, duplicate writer, non-atomic direct store
+  - object: ReplayEvidence/ReplayReport
+    sole_writer: run-manifest-replay-evidence + ReplayRepositoryPort
+    source: services/api/src/run-manifest-replay-evidence.ts
+    legal_caller: official replay/evidence path
+    persistence: repository provider
+    forbidden_writers: write official result
+  - object: Learning Evidence
+    sole_writer: course-delivery learning evidence builder
+    source: services/api/src/course-delivery-productization.ts
+    legal_caller: published-result-dependent product path
+    persistence: learning evidence ledger
+    forbidden_writers: overwrite business outcome
+  - object: Stakeholder Proposal/Signal
+    sole_writer: Stage 4B Resolver in SHADOW_ONLY
+    source: Stage 4B paths—current exact symbol requires future graph query
+    legal_caller: approved Stage 4B shadow path
+    persistence: bounded shadow store
+    forbidden_writers: Truth/Settlement/Score/Rank/ParameterSet write
+runtime_paths:
+  - path_id: PATH-01
+    purpose: Authentication and scope
+    chain: POST login → signed session → createContext → requireActor/requirePermission → tenant/course/team guards
+    source: services/api/src/auth.ts; services/api/src/server.ts
+    tests: p1-auth-rbac.test.ts
+    gap: B02 course membership negative matrix
+  - path_id: PATH-02
+    purpose: Formal asset lifecycle
+    chain: platform_admin POST formal authority route → parser → command service → append-only registry → audit
+    source: server.ts; *-authority.ts; json-repository-adapter.ts
+    tests: three formal lifecycle endpoint tests
+    gap: same-default-server chain not yet proven
+  - path_id: PATH-03
+    purpose: Formal Course and Run binding
+    chain:
+      Course create formal binding → validate exact authorities → append private Course binding → Run create with seed
+      → derive Run binding → persist
+    source: formal-course-authority-binding*.ts; formal-run-runtime-binding*.ts; server.ts
+    tests: formal-run-runtime-binding-activation.test.ts
+    gap: B01 full chain
+  - path_id: PATH-04
+    purpose: Decision and lock
+    chain:
+      Student submit → role/course/team guard → payload validation/idempotency → canonical decision → Teacher lock under
+      run lock
+    source: server.ts; repository facade/ports
+    tests: decision-submit-characterization; round-lock-publish-characterization
+    gap: B02 and default formal chain
+  - path_id: PATH-05
+    purpose: Settlement and publish
+    chain: locked round → resolve formal runtime inputs → prepare/calculate settlement → atomic commit → publish → projections
+    source: server.ts; formal-runtime-input-resolver.ts; simulation-core; repository facade
+    tests: settlement-write-replay-hash-characterization; tenant-settlement-identity-matrix
+    gap: "B01; Issue #111 remains open"
+  - path_id: PATH-06
+    purpose: Replay evidence
+    chain: locked binding/decision/inputs/result → canonical manifest/hash → private evidence → safe public view → compare/non-overwrite
+    source: run-manifest-replay-evidence.ts; formal-runtime-input-resolver.ts
+    tests: m1-run-manifest-replay-evidence; formal-run-runtime-binding-activation
+    gap: B01 and E04 closure evidence
+  - path_id: PATH-07
+    purpose: Abort/reset/cleanup
+    chain:
+      Admin/authorized operator → synthetic lifecycle controls → audit-preserving state change → reset ephemeral allowlist
+      → cleanup/readiness
+    source: synthetic-run-lifecycle.ts; server.ts
+    tests: l1-session-abort-reset-recovery; lifecycle controls tests
+    gap: E04 current zero-residue receipt
+product_journeys:
+  - persona: Teacher
+    journey:
+      Authenticate → readiness/catalog → formal Course/Run → start → monitor → lock → settle → publish → results → Replay
+      → cleanup
+    status: PARTIAL
+    required_closure: B01 full default chain; current browser receipt
+  - persona: Student
+    journey: Authenticate → course/team scope → decision form → submit → wait → published safe result → feedback/report
+    status: PARTIAL
+    required_closure: B02 course membership visibility; B04 executable parity
+  - persona: Tenant Admin
+    journey: Authenticate → tenant summary → scoped controls → Known Limits → cleanup
+    status: IMPLEMENTED_NOT_VERIFIED
+    required_closure: current browser and cross-tenant negative proof
+  - persona: Platform Admin
+    journey: Authenticate → ParameterSet/ScenarioPackage/PluginRelease lifecycle → audit/status
+    status: IMPLEMENTED_NOT_VERIFIED
+    required_closure: current post-merge full lifecycle receipt and no runtime activation overclaim
+contracts:
+  - contract_id: CON-01
+    meaning: Formal ParameterSet lifecycle
+    route_or_event: POST /api/v1/formal-authority/parameter-sets; exact-reference transition routes
+    authority: ParameterSetCommandService
+    actor_scope: platform_admin
+    evidence: formal-parameter-set-lifecycle-endpoint.test.ts
+  - contract_id: CON-02
+    meaning: Formal ScenarioPackage lifecycle
+    route_or_event: POST /api/v1/formal-authority/scenario-packages; exact-reference transition routes
+    authority: ScenarioPackageCommandService
+    actor_scope: platform_admin
+    evidence: formal-scenario-package-lifecycle-endpoint.test.ts
+  - contract_id: CON-03
+    meaning: Formal PluginRelease lifecycle
+    route_or_event: POST /api/v1/formal-authority/plugin-releases; exact-reference transition routes
+    authority: PluginReleaseCommandService
+    actor_scope: platform_admin
+    evidence: formal-plugin-release-lifecycle-endpoint.test.ts
+  - contract_id: CON-04
+    meaning: Formal Course create
+    route_or_event: POST /api/v1/courses with optional formal_authority_binding
+    authority: FormalCourseAuthorityBindingStore
+    actor_scope: authorized course creator; exact scope from request context
+    evidence: formal-run-runtime-binding-activation.test.ts
+  - contract_id: CON-05
+    meaning: Formal Run create
+    route_or_event: POST /api/v1/courses/{courseId}/runs; formal course uses formal_runtime_seed
+    authority: Run + FormalRunRuntimeBindingStore
+    actor_scope: Teacher
+    evidence: formal-run-runtime-binding-activation.test.ts
+  - contract_id: CON-06
+    meaning: Round start
+    route_or_event: POST /api/v1/runs/{runId}/rounds/{roundNo}/start
+    authority: Run/Round writer
+    actor_scope: Teacher
+    evidence: m1-teaching-loop.test.ts
+  - contract_id: CON-07
+    meaning: Decision submit
+    route_or_event: POST /api/v1/runs/{runId}/rounds/{roundNo}/decisions
+    authority: Decision command port
+    actor_scope: Student within team/course/tenant
+    evidence: decision-submit-characterization.test.ts
+  - contract_id: CON-08
+    meaning: Round lock
+    route_or_event: POST /api/v1/runs/{runId}/rounds/{roundNo}/lock
+    authority: Round writer
+    actor_scope: Teacher
+    evidence: round-lock-publish-characterization.test.ts
+  - contract_id: CON-09
+    meaning: Settlement
+    route_or_event: POST /api/v1/runs/{runId}/rounds/{roundNo}/settle
+    authority: SettlementOutcomePersistencePort
+    actor_scope: service-kernel/authorized Teacher path
+    evidence: settlement-write-replay-hash-characterization.test.ts
+  - contract_id: CON-10
+    meaning: Publish
+    route_or_event: POST /api/v1/runs/{runId}/rounds/{roundNo}/publish
+    authority: Round writer after settlement
+    actor_scope: Teacher
+    evidence: round-lock-publish-characterization.test.ts
+  - contract_id: CON-11
+    meaning: Result read
+    route_or_event: GET /api/v1/runs/{runId}/rounds/{roundNo}/results
+    authority: persona projection builders
+    actor_scope: Teacher/Student/Admin by scope
+    evidence: teacher-student-bff-dto-productization.test.ts
+  - contract_id: CON-12
+    meaning: Replay evidence
+    route_or_event: Result/replay evidence projection resolved from current OpenAPI/server before mutation
+    authority: Replay evidence builder; no official result writer
+    actor_scope: Teacher/Admin private; Student safe public only
+    evidence: m1-run-manifest-replay-evidence.test.ts
+  - contract_id: CON-13
+    meaning: Abort/reset/cleanup
+    route_or_event: Admin lifecycle control route family—exact path must be read from current OpenAPI/server
+    authority: SyntheticRunLifecycle service
+    actor_scope: authorized Admin
+    evidence: synthetic-run-lifecycle-controls.test.ts
+  - contract_id: CON-14
+    meaning: Known Limits
+    route_or_event: Known Limits projection via BFF/product surfaces
+    authority: Known Limits policy
+    actor_scope: all product personas with role projection
+    evidence: known-limits-product-disclosure.spec.ts
+state_machines:
+  - state_machine_id: SM-01
+    aggregate: ParameterSet
+    allowed_path: DRAFT → VALIDATED → FROZEN → APPROVED → RETIRED
+    writer: ParameterSetCommandService
+    negative_cases: invalid transition, digest/reference mismatch, actor scope
+  - state_machine_id: SM-02
+    aggregate: ScenarioPackage
+    allowed_path: DRAFT → VALIDATED → FROZEN → APPROVED → RETIRED
+    writer: ScenarioPackageCommandService
+    negative_cases: unapproved ParameterSet, tenant mismatch, forbidden content
+  - state_machine_id: SM-03
+    aggregate: PluginRelease
+    allowed_path: DRAFT → VALIDATED → APPROVED → AVAILABLE → RETIRED
+    writer: PluginReleaseCommandService
+    negative_cases: unapproved/unavailable release, digest conflict
+  - state_machine_id: SM-04
+    aggregate: Course Binding
+    allowed_path: ABSENT → APPENDED_EXACT_BINDING; no update
+    writer: FormalCourseAuthorityBindingStore
+    negative_cases: second append, client override
+  - state_machine_id: SM-05
+    aggregate: Run/Round
+    allowed_path: CREATED → OPEN/STARTED → LOCKED → SETTLED → PUBLISHED; bounded terminal/error states
+    writer: Run/Round command path
+    negative_cases: illegal order, concurrency, duplicate settlement
+  - state_machine_id: SM-06
+    aggregate: Decision
+    allowed_path: DRAFT/VALIDATED/SUBMITTED or current equivalent → canonical whole-team decision
+    writer: Decision command path
+    negative_cases: late/wrong-team/duplicate conflict
+  - state_machine_id: SM-07
+    aggregate: Settlement
+    allowed_path: NOT_COMMITTED → ATOMIC_COMMIT; idempotent replay/read
+    writer: SettlementOutcomePersistencePort
+    negative_cases: duplicate business identity, partial commit
+  - state_machine_id: SM-08
+    aggregate: Replay
+    allowed_path: PENDING → RUNNING → COMPLETED/MATCHED|MISMATCHED|FAILED
+    writer: Replay repository/evidence path
+    negative_cases: official result write forbidden
+  - state_machine_id: SM-09
+    aggregate: Abort/Reset/Cleanup
+    allowed_path: current synthetic states → ABORTED/RESET/CLEANED with preserved audit and bounded ephemeral removal
+    writer: SyntheticRunLifecycle
+    negative_cases: cross-tenant action, formal authority mutation, residue
+validation_tiers:
+  A_FOCUSED_RED:
+    - smallest failing test
+    - failure reason matches intended gap
+  B_FOCUSED_GREEN:
+    - focused test
+    - direct affected tests
+  C_PR_CANDIDATE:
+    - check:hidden-unicode
+    - check:direct-store-boundaries
+    - lint
+    - typecheck
+    - tests
+    - test:contract
+    - build
+    - security
+    - Playwright when applicable
+  D_EXACT_HEAD:
+    - exact base/head/files
+    - CI
+    - CodeQL
+    - review threads
+    - negative matrix
+    - mergeability
+  E_POST_MERGE:
+    - fresh clone
+    - npm ci
+    - targeted/full/build/browser as applicable
+    - clean
+    - zero residue
+    - merge receipt
+graph_query_playbook:
+  - query_id: Q-REPO-01
+    purpose: Repository module and hotspot map
+    graphify_intent: Map folders/modules, dependency fan-in/fan-out, cycles and duplicate registries
+    codegraph_intent: Trace imports/exports and public symbols
+    expected_output: Module map + collision candidates
+    stop_condition: Graph SHA drift
+  - query_id: Q-AUTH-01
+    purpose: Sole writer audit
+    graphify_intent: Connect Authority objects to adapters, routes and consumers
+    codegraph_intent: Find every definition/caller/mutation of command services and persistence methods
+    expected_output: Writer table + second-writer findings
+    stop_condition: Any unresolved writer
+  - query_id: Q-RUNTIME-01
+    purpose: Formal Golden call path
+    graphify_intent: Map authority→Course→Run→Decision→Settlement→Projection→Replay
+    codegraph_intent: Trace route→handler→service→repo for exact symbols
+    expected_output: Exact path and missing edges
+    stop_condition: Fallback or unknown edge
+  - query_id: Q-STUDENT-01
+    purpose: Student private-field exposure
+    graphify_intent: Map DTO/schema/BFF/UI/error/log/export consumers
+    codegraph_intent: Search protected markers and serialization paths
+    expected_output: Deny matrix and reachable paths
+    stop_condition: Any reachable private marker
+  - query_id: Q-TEST-01
+    purpose: Test traceability
+    graphify_intent: Map capability/source/test/script/workflow relationships
+    codegraph_intent: Find references to symbols from test cases and npm/CI invocations
+    expected_output: Coverage graph and orphan tests
+    stop_condition: Critical capability has no test
+  - query_id: Q-CAND-01
+    purpose: Candidate route comparison
+    graphify_intent: Compare file/Authority/lock/product impact for 2–5 routes
+    codegraph_intent: Resolve exact symbols and affected tests per route
+    expected_output: Selected path + rejected paths
+    stop_condition: Shared writer conflict or stale graph
+capabilities:
+  - capability_id: L1-VC-01
+    ledger_id: L1-LEDGER-001
+    name: Current Reality与工程基线
+    dod_reference: L1-DOD-001—006
+    gate: P-G0
+    current_state: MERGED_NOT_CLOSED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: true
+    product_value: 保证所有后续结论绑定同一current master、可重复安装、完整验证和post-merge receipt。
+    modules:
+      - package.json
+      - .github/workflows/ci.yml
+      - .github/workflows/codeql.yml
+      - scripts/check-hidden-unicode.mjs
+      - scripts/check-direct-store-boundaries.mjs
+      - playwright.config.ts
+    entry_symbols:
+      - root npm scripts
+      - CI quality job
+      - browser-smoke job
+    sole_writer: Repository governance / CI single writer
+    resource_locks:
+      - CI workflow
+      - package/lockfile
+      - heavy validation slot
+    risk_tier: T1/T3
+    parallel_classification: SUPPORTING_ONLY
+    required_tests:
+      - npm run check:hidden-unicode
+      - npm run check:direct-store-boundaries
+      - npm run typecheck
+      - npm test
+      - npm run test:contract
+      - npm run build
+      - npm run test:e2e:ui
+      - npm run security:audit
+    negative_tests:
+      - clean worktree
+      - no generated residue
+      - exact source SHA
+    current_gaps:
+      - current-master post-merge fresh-clone receipt未在本规格生成任务中执行
+    explicit_non_proofs:
+      - CI配置存在不证明current master所有命令已在fresh clone通过
+    capability_card: docs/technical/l1-capabilities/L1-VC-01-engineering-baseline.md
+    automatic_next_start: false
+  - capability_id: L1-VC-02
+    ledger_id: L1-LEDGER-002
+    name: Identity、RBAC、Tenant、Course与Team隔离
+    dod_reference: L1-DOD-007—011
+    gate: P-G2
+    current_state: BLOCKED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_BLOCKER
+    blocks_l1: true
+    product_value: 确保Teacher、Student、Tenant Admin、Platform Admin只读取和操作其授权tenant/course/team范围。
+    modules:
+      - services/api/src/server.ts
+      - services/api/src/auth.ts
+      - packages/shared-contracts/src/index.ts
+      - contracts/json-schema/rbac.v1.json
+      - contracts/json-schema/tenant.v1.json
+      - tests/integration/p1-auth-rbac.test.ts
+      - tests/integration/decision-submit-characterization.test.ts
+    entry_symbols:
+      - createContext
+      - requireActor
+      - requirePermission
+      - canReadClassroomScope
+      - isActorMemberOfTeam
+      - getCourseForRead
+    sole_writer: Identity/RBAC policy and API authorization guards
+    resource_locks:
+      - Teacher/Student projection
+      - tenant/course visibility
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - tests/integration/p1-auth-rbac.test.ts
+      - tests/integration/decision-submit-characterization.test.ts
+      - cross-course API/BFF/browser/log/export negative matrix
+    negative_tests:
+      - wrong tenant
+      - wrong course
+      - wrong team
+      - client-controlled tenant override
+      - student private fields
+    current_gaps:
+      - L1-GAP-B02 course membership visibility
+      - "Issue #112 remains open"
+    explicit_non_proofs:
+      - RBAC schema和登录成功不证明跨course负向隔离闭环
+    capability_card: docs/technical/l1-capabilities/L1-VC-02-identity-tenant-role.md
+    automatic_next_start: false
+  - capability_id: L1-VC-03
+    ledger_id: L1-LEDGER-003
+    name: Synthetic Course与Run Entry
+    dod_reference: L1-DOD-012—013
+    gate: P-G1/P-G3
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 让教师从合成课程进入可控Run并冻结正式输入引用。
+    modules:
+      - services/api/src/server.ts
+      - services/api/src/formal-course-authority-binding.ts
+      - services/api/src/formal-course-authority-binding-store.ts
+      - contracts/openapi/p0-api.openapi.yaml
+      - tests/integration/formal-run-runtime-binding-activation.test.ts
+    entry_symbols:
+      - CourseCreateBody
+      - FormalCourseAuthorityBindingBody
+      - createFormalCourseAuthorityBinding
+      - FormalCourseAuthorityBindingStore.append
+      - parseFormalRunCreateBody
+    sole_writer: Course binding store for formal course configuration; Run writer for Run creation
+    resource_locks:
+      - Course formal authority binding
+      - Run entry
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - formal Course binding integration tests
+      - formal Run creation tests
+      - current-SHA default server Course→Run entry receipt
+    negative_tests:
+      - client override of frozen course references
+      - missing seed
+      - unapproved exact references
+    current_gaps:
+      - current capability requires integration into B01 full Golden receipt
+    explicit_non_proofs:
+      - Course binding存在不证明后续Decision/Settlement/Replay完成
+    capability_card: docs/technical/l1-capabilities/L1-VC-03-course-run-entry.md
+    automatic_next_start: false
+  - capability_id: L1-VC-04
+    ledger_id: L1-LEDGER-004
+    name: Formal Authority Lifecycle与Exact Run Binding
+    dod_reference: L1-DOD-021—022、029
+    gate: P-G1/P-G3
+    current_state: PARTIALLY_IMPLEMENTED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_BLOCKER
+    blocks_l1: true
+    product_value: 以exact identity冻结ParameterSet、ScenarioPackage、PluginRelease和Run输入，禁止latest与silent fallback。
+    modules:
+      - services/api/src/parameter-set-authority.ts
+      - services/api/src/scenario-package-authority.ts
+      - services/api/src/plugin-release-authority.ts
+      - services/api/src/formal-run-runtime-binding.ts
+      - services/api/src/formal-run-runtime-binding-store.ts
+      - services/api/src/formal-runtime-input-resolver.ts
+      - services/api/src/server.ts
+    entry_symbols:
+      - ParameterSetCommandService
+      - ScenarioPackageCommandService
+      - PluginReleaseCommandService
+      - createFormalRunRuntimeBinding
+      - FormalRunRuntimeBindingStore.append
+      - resolveFormalRuntimeInputsForActiveRun
+    sole_writer: Formal command services and append-only binding stores
+    resource_locks:
+      - ParameterSet Authority
+      - ScenarioPackage Authority
+      - PluginRelease Authority
+      - Formal Run Binding
+      - Run/Replay/Golden
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - formal-parameter-set-lifecycle-endpoint.test.ts
+      - formal-scenario-package-lifecycle-endpoint.test.ts
+      - formal-plugin-release-lifecycle-endpoint.test.ts
+      - formal-run-runtime-binding-activation.test.ts
+      - same default server HTTP lifecycle→Course binding→Run→Publish→Replay
+    negative_tests:
+      - missing exact reference
+      - digest mismatch
+      - retired/unavailable authority
+      - legacy fallback
+      - client override
+    current_gaps:
+      - L1-GAP-B01 default persisted authority full Golden chain
+    explicit_non_proofs:
+      - 分离测试不证明同一默认server完整链
+    capability_card: docs/technical/l1-capabilities/L1-VC-04-formal-authority-binding.md
+    automatic_next_start: false
+  - capability_id: L1-VC-05
+    ledger_id: L1-LEDGER-005
+    name: Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish
+    dod_reference: L1-DOD-012—017
+    gate: P-G3/P-G5
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 形成一轮可重复、失败可解释、非法转换被拒绝的教学运行闭环。
+    modules:
+      - services/api/src/server.ts
+      - services/api/src/synthetic-run-lifecycle.ts
+      - services/api/src/repository-facade.ts
+      - tests/integration/round-lock-publish-characterization.test.ts
+      - tests/integration/settlement-write-replay-hash-characterization.test.ts
+    entry_symbols:
+      - routeRequest
+      - lockRoundWithRunLock
+      - runSettlement
+      - publishRoundWithRunLock
+      - acquireRunMutationLock
+    sole_writer: Run/Round command path and settlement outcome port
+    resource_locks:
+      - Run lifecycle
+      - Settlement
+      - Run/Replay/Golden
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - round-lock-publish-characterization.test.ts
+      - settlement-write-replay-hash-characterization.test.ts
+      - default formal Run full lifecycle receipt
+    negative_tests:
+      - invalid transition
+      - repeat settle
+      - concurrent mutation
+      - publish before settle
+    current_gaps:
+      - B01 must prove full default-server chain
+    explicit_non_proofs:
+      - characterization tests不等于current master post-merge evidence
+    capability_card: docs/technical/l1-capabilities/L1-VC-05-run-lifecycle.md
+    automatic_next_start: false
+  - capability_id: L1-VC-06
+    ledger_id: L1-LEDGER-006
+    name: Student Whole-Team Decision Flow
+    dod_reference: L1-DOD-018—020
+    gate: P-G2/P-G3
+    current_state: PARTIALLY_IMPLEMENTED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 让学生在team/course/round范围内提交唯一canonical whole-team decision。
+    modules:
+      - services/api/src/server.ts
+      - packages/shared-contracts/src/index.ts
+      - contracts/json-schema/decision*.json
+      - tests/integration/decision-submit-characterization.test.ts
+      - tests/contract/decision-payload-contract-validation.test.ts
+    entry_symbols:
+      - DecisionSubmitBody
+      - submitDecisionWithRunLock
+      - findIdempotentDecisionSubmission
+      - serializeDecisionPayloadForIdempotency
+      - saveCanonicalDecision
+    sole_writer: Decision command repository port / canonical decision writer
+    resource_locks:
+      - Decision lifecycle
+      - Student BFF projection
+    risk_tier: T3
+    parallel_classification: CONDITIONALLY_PARALLEL
+    required_tests:
+      - decision-submit-characterization.test.ts
+      - decision-payload-contract-validation.test.ts
+      - wrong-team/wrong-course/late/duplicate matrix in default formal Run
+    negative_tests:
+      - wrong team
+      - wrong tenant/course
+      - late submit
+      - duplicate payload conflict
+      - private field injection
+    current_gaps:
+      - B02 visibility completion impacts safe decision scope
+    explicit_non_proofs:
+      - 角色工作流扩展属于L1+，不作为L1 blocker
+    capability_card: docs/technical/l1-capabilities/L1-VC-06-student-decision.md
+    automatic_next_start: false
+  - capability_id: L1-VC-07
+    ledger_id: L1-LEDGER-007
+    name: Truth-L1—L3与L1范围Settlement
+    dod_reference: L1-DOD-021、023—024
+    gate: P-G1/P-G3/P-G5
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 确保市场、运营、财务和评分真值只由Kernel/Settlement正式writer产生，且一轮只有一个正式结果。
+    modules:
+      - services/simulation-core/src/simulation.ts
+      - services/simulation-core/src/market.ts
+      - services/simulation-core/src/operations.ts
+      - services/simulation-core/src/finance.ts
+      - services/simulation-core/src/scoring.ts
+      - services/api/src/repository-facade.ts
+      - services/api/src/repository-ports.ts
+    entry_symbols:
+      - prepareSettlementOutcome
+      - calculateSettlement
+      - calculateMarketDemand
+      - calculateOperations
+      - calculateFinance
+      - calculateScore
+      - commitSettlementOutcome
+    sole_writer: Simulation Core L1–L3 and atomic SettlementOutcomePersistencePort
+    resource_locks:
+      - Simulation Core Truth
+      - Settlement
+      - Score/Rank
+    risk_tier: T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - simulation-core.test.ts
+      - settlement-outcome-persistence-port.test.ts
+      - tenant-settlement-identity-matrix.test.ts
+      - formal binding default chain settles once and persists one result
+    negative_tests:
+      - AI/plugin/frontend direct Truth write
+      - duplicate settlement
+      - tenant collision
+      - replay overwrite
+    current_gaps:
+      - "B01 evidence; Issue #111 remains high-risk current issue"
+    explicit_non_proofs:
+      - PostgreSQL adapters and replay harness do not prove PostgreSQL active authority
+    capability_card: docs/technical/l1-capabilities/L1-VC-07-truth-settlement.md
+    automatic_next_start: false
+  - capability_id: L1-VC-08
+    ledger_id: L1-LEDGER-008
+    name: Publish与Teacher/Student/Admin安全Projection
+    dod_reference: L1-DOD-025—027
+    gate: P-G2/P-G3
+    current_state: BLOCKED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_BLOCKER
+    blocks_l1: true
+    product_value: 在不泄露state_true和私有Evidence的前提下向不同persona发布可用结果。
+    modules:
+      - services/api/src/server.ts
+      - services/api/src/teacher-student-bff-dto.ts
+      - packages/shared-contracts/src/index.ts
+      - contracts/json-schema/m1-student-result-envelope.v1.json
+      - contracts/json-schema/m1-teacher-admin-result-envelope.v1.json
+      - tests/integration/teacher-student-bff-dto-productization.test.ts
+    entry_symbols:
+      - createPublicResultView
+      - createPublicReplayEvidenceView
+      - createTeacherBffWorkspaceDto
+      - createStudentBffCockpitDto
+      - STUDENT_BFF_FORBIDDEN_FIELDS
+    sole_writer: Projection builders are read-only; Settlement remains formal result writer
+    resource_locks:
+      - Teacher/Student projection
+      - Public contract
+    risk_tier: T2/T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - teacher-student-bff-dto-productization.test.ts
+      - r3-runtime-boundary.test.ts
+      - teacher-student-frontend-bff-dto-consumption.spec.ts
+      - course/tenant negative projection matrix and executable contract parity
+    negative_tests:
+      - state_true
+      - binding_digest
+      - formal_resolution_digest
+      - decision_batch_hash
+      - private Manifest
+    current_gaps:
+      - L1-GAP-B02 course membership visibility
+      - L1-GAP-B04 executable contract parity
+    explicit_non_proofs:
+      - DTO过滤测试不证明log/export/error全部安全
+    capability_card: docs/technical/l1-capabilities/L1-VC-08-projection-visibility.md
+    automatic_next_start: false
+  - capability_id: L1-VC-09
+    ledger_id: L1-LEDGER-009
+    name: Three-Part Feedback与Learning Report最小闭环
+    dod_reference: Persona Acceptance / L1 product chain
+    gate: P-G3
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 在published result之后生成学习反馈，但不得覆盖业务结果或Truth。
+    modules:
+      - services/api/src/course-delivery-productization.ts
+      - services/api/src/course-runtime-v3.ts
+      - services/api/src/teacher-student-bff-dto.ts
+      - packages/shared-contracts/src/index.ts
+      - tests/integration/r5-r6-course-delivery-learning-evidence.test.ts
+    entry_symbols:
+      - buildCourseDeliveryThreePartFeedbackV1
+      - createCourseDeliveryLearningEvidenceLedgerV1
+      - LearningReportDTO
+      - ThreePartFeedbackDTO
+    sole_writer: Learning evidence writer; read-only consumer of official result
+    resource_locks:
+      - Learning Evidence
+      - Student projection
+    risk_tier: T3
+    parallel_classification: CONDITIONALLY_PARALLEL
+    required_tests:
+      - course-delivery-productization.test.ts
+      - r5-r6-course-delivery-learning-evidence.test.ts
+      - default formal Golden chain published result→feedback/report readback
+    negative_tests:
+      - learning output overwrites Settlement/Score/Rank
+      - student private evidence leak
+    current_gaps:
+      - current-SHA full product journey proof missing
+    explicit_non_proofs:
+      - 完整Goal/Rubric/AoL属于L1+
+    capability_card: docs/technical/l1-capabilities/L1-VC-09-feedback-learning-report.md
+    automatic_next_start: false
+  - capability_id: L1-VC-10
+    ledger_id: L1-LEDGER-010
+    name: Official Replay与Evidence Non-Overwrite
+    dod_reference: L1-DOD-031—033
+    gate: P-G4
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 用冻结输入重建并比较结果，同时保证Replay不覆盖official result。
+    modules:
+      - services/api/src/run-manifest-replay-evidence.ts
+      - services/api/src/formal-runtime-input-resolver.ts
+      - services/api/src/repository-facade.ts
+      - contracts/json-schema/m1-public-replay-evidence.v1.json
+      - tests/integration/m1-run-manifest-replay-evidence.test.ts
+    entry_symbols:
+      - createM1RunReplayEvidence
+      - createM1CanonicalEvidenceDigest
+      - selectM1RunReplayEvidenceGolden
+      - toPublicEvidence
+      - resolveFormalRuntimeInputsForHistoricalRead
+    sole_writer: Replay evidence/report writer; no writer authority over official SettlementResult
+    resource_locks:
+      - Run/Replay/Golden
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - m1-run-manifest-replay-evidence.test.ts
+      - formal-run-runtime-binding-activation.test.ts
+      - settlement-write-replay-hash-characterization.test.ts
+      - B01 full chain private/public replay evidence and historical non-overwrite
+    negative_tests:
+      - replay writes formal results
+      - provider calls during official replay
+      - private manifest in student projection
+    current_gaps:
+      - B01 same default server proof
+    explicit_non_proofs:
+      - Replay不等于Recovery或backup/restore
+    capability_card: docs/technical/l1-capabilities/L1-VC-10-replay-evidence.md
+    automatic_next_start: false
+  - capability_id: L1-VC-11
+    ledger_id: L1-LEDGER-011
+    name: Abort、Reset、Cleanup与Failure Matrix
+    dod_reference: L1-DOD-034—037
+    gate: P-G5
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    product_value: 失败后可受控终止、重置、清理并再次进入Golden执行，无残留污染。
+    modules:
+      - services/api/src/synthetic-run-lifecycle.ts
+      - services/api/src/server.ts
+      - tests/integration/l1-session-abort-reset-recovery.test.ts
+      - tests/integration/synthetic-run-lifecycle-controls.test.ts
+      - tests/e2e-ui/zzz-synthetic-run-lifecycle-controls.spec.ts
+    entry_symbols:
+      - executeSyntheticRunLifecycleOperation
+      - listSyntheticRunLifecycleControls
+      - RESET_EPHEMERAL_ALLOWLIST
+      - allowedOperations
+      - blockedReasons
+    sole_writer: Synthetic lifecycle service within JSON_INTERNAL_ONLY L1 scope
+    resource_locks:
+      - Run lifecycle
+      - Run/Replay/Golden
+    risk_tier: T3
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - l1-session-abort-reset-recovery.test.ts
+      - synthetic-run-lifecycle-controls.test.ts
+      - failure injection matrix and zero-residue receipt after B01
+    negative_tests:
+      - formal authority mutation
+      - official result overwrite
+      - cross-tenant lifecycle control
+    current_gaps:
+      - L1-GAP-E04 current failure matrix and zero-residue evidence
+    explicit_non_proofs:
+      - L1 cleanup不证明durable recovery、backup或restore
+    capability_card: docs/technical/l1-capabilities/L1-VC-11-abort-reset-cleanup.md
+    automatic_next_start: false
+  - capability_id: L1-VC-12
+    ledger_id: L1-LEDGER-012
+    name: Known Limits与阶段声明边界
+    dod_reference: L1-DOD-038—040
+    gate: P-G8 boundary
+    current_state: IMPLEMENTED_NOT_VERIFIED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_KNOWN_LIMIT
+    blocks_l1: false
+    product_value: 让用户明确L1是JSON内部自动化验证，不误认为Pilot或Production。
+    modules:
+      - services/api/src/known-limits.ts
+      - apps/teacher/src/App.tsx
+      - apps/student/src/App.tsx
+      - apps/admin/src/App.tsx
+      - tests/e2e-ui/known-limits-product-disclosure.spec.ts
+    entry_symbols:
+      - KNOWN_LIMITS_CATALOG
+      - getKnownLimitsProjection
+      - KNOWN_LIMITS_POLICY_VERSION
+    sole_writer: Known Limits policy owner
+    resource_locks:
+      - Known Limits policy
+    risk_tier: T0/T3
+    parallel_classification: PARALLEL_ELIGIBLE
+    required_tests:
+      - known-limits-product-disclosure.test.ts
+      - known-limits-product-disclosure.spec.ts
+      - all persona product disclosure on current master
+    negative_tests:
+      - production/Pilot/durable/PG-active claim
+    current_gaps:
+      - current-master browser disclosure receipt needed
+    explicit_non_proofs:
+      - Known Limits存在不证明L1其他能力通过
+    capability_card: docs/technical/l1-capabilities/L1-VC-12-known-limits.md
+    automatic_next_start: false
+  - capability_id: L1-VC-13
+    ledger_id: L1-LEDGER-013
+    name: L1 Completion Evidence Pack
+    dod_reference: L1-DOD-041—042
+    gate: P-G0—P-G5/P-G8
+    current_state: NOT_STARTED_CURRENT_SHA
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: true
+    product_value: 将source、测试、产品旅程、writer、negative、Replay、cleanup和Known Limits形成可审计关闭包。
+    modules:
+      - docs/governance/L1_DEFINITION_OF_DONE.md
+      - docs/governance/L1_VALUE_CHAIN_LEDGER.md
+      - services/api/src/l1-internal-validation-ready-package.ts
+      - tests/integration/l1-internal-validation-ready-package.test.ts
+    entry_symbols:
+      - createL1InternalValidationReadyPackage
+      - buildCapabilityMatrix
+      - buildG0G7FreshnessLedger
+    sole_writer: Evidence pack assembler; read-only with respect to product Truth
+    resource_locks:
+      - Evidence Root
+      - Closure lane
+    risk_tier: T1/T3
+    parallel_classification: SUPPORTING_ONLY
+    required_tests:
+      - l1-internal-validation-ready-package.test.ts
+      - l1-internal-application-readiness.test.ts
+      - all blockers closed or explicitly accepted; no UNKNOWN; post-merge source receipt
+    negative_tests:
+      - stale SHA
+      - missing command result
+      - UNKNOWN mapped to PASS
+      - secrets in evidence
+    current_gaps:
+      - depends on B01–B04 and E04 closure evidence
+    explicit_non_proofs:
+      - Evidence pack生成不等于Owner completion approval
+    capability_card: docs/technical/l1-capabilities/L1-VC-13-evidence-pack.md
+    automatic_next_start: false
+  - capability_id: L1-VC-14
+    ledger_id: L1-LEDGER-014
+    name: Final L1 Gate与Owner Acknowledgment
+    dod_reference: L1-DOD-043
+    gate: P-G8
+    current_state: NOT_STARTED
+    target_state: CLOSED_AND_CURRENT
+    classification: L1_GATE
+    blocks_l1: true
+    product_value: 对L1完成声明承担最终阶段责任，并明确只进入L1+而非Pilot/Production。
+    modules:
+      - docs/governance/L1_DEFINITION_OF_DONE.md
+      - docs/governance/L1_VALUE_CHAIN_LEDGER.md
+    entry_symbols:
+      - Owner Completion Approval record
+    sole_writer: Project Owner / designated L1 gate authority
+    resource_locks:
+      - Stage decision
+    risk_tier: T4_STAGE_DECISION
+    parallel_classification: SERIAL_REQUIRED
+    required_tests:
+      - evidence checklist review
+      - Owner acknowledgment bound to exact source and evidence pack
+    negative_tests:
+      - UNKNOWN accepted as PASS
+      - L1 completion expanded to Pilot/Production
+    current_gaps:
+      - awaits evidence pack and zero blocker/accepted limits state
+    explicit_non_proofs:
+      - Owner批准L1不授权L2/L3/T4 runtime changes
+    capability_card: docs/technical/l1-capabilities/L1-VC-14-final-gate-owner-ack.md
+    automatic_next_start: false
+gaps:
+  - gap_id: L1-GAP-B01
+    capability: Default persisted authority full Golden chain
+    current_state:
+      Formal lifecycle, JSON composition, binding and split tests exist; one default-server HTTP lifecycle through
+      Publish and Replay is not current-master proven.
+    required_l1_state:
+      Same default server; HTTP-created ParameterSet, ScenarioPackage and PluginRelease; Formal Run; Decision;
+      Lock; Settle; Publish; Replay; boundary assertions.
+    classification: L1_BLOCKER
+    blocks_l1: true
+    source_evidence:
+      - services/api/src/server.ts
+      - services/api/src/formal-run-runtime-binding*.ts
+      - docs/governance/L1_VALUE_CHAIN_LEDGER.md
+    test_evidence:
+      - tests/integration/formal-run-runtime-binding-activation.test.ts
+      - tests/integration/settlement-write-replay-hash-characterization.test.ts
+    missing_evidence:
+      - one default-server full Golden receipt
+    predecessors:
+      - current graph rebase complete
+    successors:
+      - fresh clone evidence
+      - browser Golden
+      - completion evidence
+    affected_files:
+      - services/api/src/server.ts
+      - services/api/src/formal-run-runtime-binding*.ts
+      - services/api/src/*-authority.ts
+      - tests/integration/**
+      - tests/e2e-ui/**
+    authority: FORMAL_AUTHORITY_RUN_BINDING_GOLDEN
+    risk_tier: T3
+    resource_lock: Run/Replay/Golden/formal authority
+    candidate_bundle: B5 Default Persisted Authority Golden Closure
+    expected_pr_count: 1
+    exit_evidence: current-SHA default HTTP authority-to-Replay Golden proof
+    confidence: HIGH
+  - gap_id: L1-GAP-B02
+    capability: Course membership visibility
+    current_state: "Issue #112 remains open."
+    required_l1_state: Course-scoped negative paths across API/BFF/browser/log/export.
+    classification: L1_BLOCKER
+    blocks_l1: true
+    source_evidence:
+      - "Issue #112"
+      - docs/governance/L1_VALUE_CHAIN_LEDGER.md
+    test_evidence: []
+    missing_evidence:
+      - cross-course negative matrix
+    predecessors: []
+    successors:
+      - security closure
+    affected_files:
+      - services/api/src/**
+      - apps/**
+      - tests/**
+    authority: TENANT_COURSE_VISIBILITY
+    risk_tier: T3
+    resource_lock: Teacher/Student projection
+    candidate_bundle: L1 Visibility Closure
+    expected_pr_count: 1
+    exit_evidence: current-SHA tenant/course negative proof
+    confidence: MEDIUM
+  - gap_id: L1-GAP-B03
+    capability: Repository/direct-store authority boundary
+    current_state: "CI guard exists; Issue #114 remains open."
+    required_l1_state: No unapproved command/truth direct Store bypass.
+    classification: L1_BLOCKER
+    blocks_l1: true
+    source_evidence:
+      - scripts/check-direct-store-boundaries.mjs
+      - "Issue #114"
+    test_evidence:
+      - npm run check:direct-store-boundaries
+    missing_evidence:
+      - route exception closure
+    predecessors: []
+    successors:
+      - authority closure
+    affected_files:
+      - services/api/src/server.ts
+      - services/api/src/repository-*.ts
+      - scripts/check-direct-store-boundaries.mjs
+    authority: REPOSITORY_FACADE
+    risk_tier: T3
+    resource_lock: Repository provider
+    candidate_bundle: L1 Authority Boundary Closure
+    expected_pr_count: 1
+    exit_evidence: approved direct store manifest and route review
+    confidence: MEDIUM
+  - gap_id: L1-GAP-B04
+    capability: Executable contract parity
+    current_state: "Issue #115 remains open; R7 BFF draft is contract-only and carries stale historical anchor."
+    required_l1_state: OpenAPI, JSON Schema, shared types, handler and BFF parity for core L1 routes.
+    classification: L1_BLOCKER
+    blocks_l1: true
+    source_evidence:
+      - services/api/src/scenario-bff-endpoint-contract.ts
+      - "Issue #115"
+    test_evidence:
+      - npm run test:contract
+    missing_evidence:
+      - executable parity map
+    predecessors: []
+    successors:
+      - API contract closure
+    affected_files:
+      - contracts/**
+      - packages/shared-contracts/**
+      - services/api/**
+      - tests/contract/**
+    authority: PUBLIC_CONTRACT
+    risk_tier: T2/T3
+    resource_lock: Shared contracts
+    candidate_bundle: L1 Contract Parity Closure
+    expected_pr_count: 1
+    exit_evidence: route-contract-handler-BFF parity suite
+    confidence: MEDIUM
+  - gap_id: L1-GAP-E04
+    capability: Abort reset cleanup zero residue
+    current_state: Static lifecycle implementation exists; no current-master failure matrix receipt from this audit.
+    required_l1_state: Current-SHA failure matrix and zero-residue evidence.
+    classification: L1_EVIDENCE_GAP
+    blocks_l1: false
+    source_evidence:
+      - services/api/src/synthetic-run-lifecycle.ts
+    test_evidence: []
+    missing_evidence:
+      - current runtime failure receipt
+    predecessors:
+      - B01
+    successors:
+      - completion evidence
+    affected_files:
+      - services/api/src/synthetic-run-lifecycle.ts
+      - tests/**
+    authority: RUN_LIFECYCLE
+    risk_tier: T3
+    resource_lock: Run/Replay/Golden
+    candidate_bundle: B5 closure lane
+    expected_pr_count: 1
+    exit_evidence: zero residue evidence
+    confidence: MEDIUM
+invalidation_triggers:
+  - master_sha_changed
+  - authority_changed
+  - shared_contract_changed
+  - runtime_provider_changed
+  - graph_manifest_changed
+  - critical_source_module_changed
+  - test_architecture_changed
+  - l1_dod_changed
+explicit_non_proofs:
+  - Active L1 authority is JSON_INTERNAL_ONLY; PostgreSQL is not active authority.
+  - No durable settlement, disaster recovery, backup/restore or production persistence claim.
+  - No Human Validation, Controlled Teaching Pilot or Production claim.
+  - No real data, external provider active, billing, SLA or SLO claim.
+  - Program M/BLP and Stage 4B are not formal L1 writers and are not proven active.
+  - Graph outputs are static analysis and may be partial.
+  - Current capability statuses remain NOT_ASSESSED/PARTIAL until runtime and closure evidence is produced.
+  - This document does not authorize a branch, PR, merge or T4 state change.
+recommended_owner_decision: ADOPT_L1_TARGET_MODE_EXECUTION_SPEC
