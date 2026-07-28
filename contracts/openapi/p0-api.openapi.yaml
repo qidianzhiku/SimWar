@@ -789,6 +789,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorEnvelope"
+  /api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace:
+    get:
+      summary: Read the Teacher-safe workspace projection.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Teacher workspace projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1TeacherBffWorkspaceEnvelope"
+        "403":
+          description: Teacher authority required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+  /api/v1/bff/student/runs/{runId}/rounds/{roundNo}/cockpit:
+    get:
+      summary: Read the Student-safe cockpit projection.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student cockpit projection without internal truth or Replay evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1StudentBffCockpitEnvelope"
+        "403":
+          description: Learner team scope required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/audit/logs:
     get:
       summary: Read tenant-scoped audit logs.
@@ -1236,5 +1290,9 @@ components:
       $ref: "../schemas/m1-student-result-envelope.v1.json"
     M1TeacherAdminResultEnvelope:
       $ref: "../schemas/m1-teacher-admin-result-envelope.v1.json"
+    M1TeacherBffWorkspaceEnvelope:
+      $ref: "../schemas/m1-teacher-bff-workspace-envelope.v1.json"
+    M1StudentBffCockpitEnvelope:
+      $ref: "../schemas/m1-student-bff-cockpit-envelope.v1.json"
     M1PublicReplayEvidence:
       $ref: "../schemas/m1-public-replay-evidence.v1.json"
