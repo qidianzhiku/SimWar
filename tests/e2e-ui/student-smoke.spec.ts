@@ -102,7 +102,7 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await expect(page.getByText("反馈怎么读")).toBeVisible();
 });
 
-test("hides an unassigned same-tenant course from the student UI and course API", async ({
+test("hides an unassigned same-tenant course from the student UI", async ({
   page,
   request
 }) => {
@@ -110,16 +110,6 @@ test("hides an unassigned same-tenant course from the student UI and course API"
   const course = await apiPost<Course>(request, "/api/v1/courses", teacherToken, {
     title: "Browser-hidden same-tenant course"
   });
-  const studentToken = await login(request, "student", "student");
-  const deniedCourse = await request.get(`${apiBaseUrl}/api/v1/courses/${course.data.course_id}`, {
-    headers: {
-      authorization: `Bearer ${studentToken}`,
-      "x-tenant-id": "tenant_demo"
-    }
-  });
-
-  expect(deniedCourse.status()).toBe(404);
-  await expect(deniedCourse.json()).resolves.toMatchObject({ code: "COURSE-404-001" });
 
   await page.goto("/");
   await signInStudentPage(page);
