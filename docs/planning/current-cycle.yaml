@@ -1,0 +1,37 @@
+cycle_id: L1-CYCLE-001-B01
+status: CLOSED_AWAITING_FINAL_GRAPH_REBASE
+generated_at: "2026-07-28T15:10:17Z"
+valid_until: MASTER_SHA_CHANGE_OR_GRAPH_REBASE
+repository: qidianzhiku/SimWar
+source_sha: 5decc90502448e69f58427599eab8c9bec7590bb
+l1_status: NOT_READY_TO_CLAIM
+mainline:
+  candidate_id: CAND-01
+  gap_id: L1-GAP-B01
+  status: CLOSED_AND_CURRENT
+  primary_outcome: Default persisted authority Golden chain protected by PR #267.
+  product_pr: 267
+  merge_sha: 5decc90502448e69f58427599eab8c9bec7590bb
+  mutable_authority: NONE_AFTER_CLOSURE
+  exit_evidence:
+    - exact-head CI and CodeQL passed
+    - fresh-clone focused and full validation passed
+  explicit_non_proofs:
+    - L1 is not passed
+    - Human Validation is not completed
+    - PostgreSQL and durable recovery are not proven
+    - Pilot and Production are not authorized
+support_code:
+  candidate_id: NONE
+docs_discovery:
+  candidate_id: NONE
+closure:
+  concurrency: 1
+  ready_pr_limit: 0
+  merge_execution_limit: 0
+  post_merge_required: true
+authorization:
+  status: NOT_CREATED
+  authorization_record: null
+  automatic_start: false
+automatic_next_start: false

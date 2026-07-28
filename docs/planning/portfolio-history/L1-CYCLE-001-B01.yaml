@@ -1,0 +1,31 @@
+cycle_id: L1-CYCLE-001-B01
+status: CLOSED_AND_CURRENT
+repository: qidianzhiku/SimWar
+product_base_sha: c1ce8566675f96b80dc20b20e3329de2f2e416cd
+product_head_sha: 99d699acc8ee2f1f639ea5a109bc46f914a7b3c1
+product_pr: 267
+product_merge_sha: 5decc90502448e69f58427599eab8c9bec7590bb
+primary_outcome: Default persisted authority Golden chain protected by a single HTTP integration regression.
+changed_files:
+  - tests/integration/default-persisted-authority-full-golden-chain.test.ts
+validation:
+  focused_integration: PASS_6_FILES_15_TESTS
+  full_test: PASS_97_FILES_735_TESTS
+  contract: PASS
+  lint: PASS
+  typecheck: PASS
+  build: PASS
+  direct_store_boundary: PASS_NO_NEW_UNAPPROVED_RUNTIME_ACCESS
+  ci_and_codeql: PASS
+  post_merge_fresh_clone: PASS
+gap_delta:
+  closed:
+    - L1-GAP-B01
+  remaining_blockers:
+    - L1-GAP-B02
+    - L1-GAP-B03
+    - L1-GAP-B04
+resource_lock:
+  FORMAL_AUTHORITY_RUN_BINDING_GOLDEN: RELEASED_AFTER_B01_POST_MERGE_CLOSURE
+next_action: RECOMPILE_PORTFOLIO_AFTER_FINAL_GRAPH_DELTA
+automatic_next_start: false

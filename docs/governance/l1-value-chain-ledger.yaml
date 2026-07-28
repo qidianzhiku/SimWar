@@ -207,27 +207,26 @@ capabilities:
     dod_reference: L1-DOD-021—022、029
     gate: P-G1/P-G3
     classification: L1_REQUIRED
-    status: PARTIALLY_IMPLEMENTED
+    status: CLOSED_AND_CURRENT
     confidence: HIGH
-    proves:
-      ParameterSet、ScenarioPackage和PluginRelease均已有platform-admin治理入口；默认JSON runtime组合三类持久化Authority；formal Run使用exact
-      id/version/digest；不存在identity时fail closed。
-    does_not_prove: 三类Authority完全通过HTTP生命周期创建并在同一个默认服务器中完成create→decision→settle→publish→Replay；所有direct-store旁路已关闭。
+    proves: PR #267 and its fresh-clone receipt prove the default JSON HTTP chain for ParameterSet, PluginRelease, and ScenarioPackage lifecycle, exact course/run binding, Decision, Lock, Settlement, Publish, teacher replay evidence, student redaction, and official-result non-overwrite.
+    does_not_prove: B02 membership visibility, B03 direct-store authority closure, B04 contract parity, failure/cleanup closure, Human Validation, PostgreSQL activation, durable recovery, Pilot, or Production.
     current_source_evidence:
       - "PR #260 default authority composition"
       - "PR #261 ParameterSet lifecycle API"
       - "PR #262 ScenarioPackage lifecycle API"
       - "PR #263 PluginRelease lifecycle API"
     test_evidence:
-      - 729/731/733-test PR-reported suites
-      - lifecycle integration tests
-      - formal binding integration tests
+      - tests/integration/default-persisted-authority-full-golden-chain.test.ts
+      - focused 6-file / 15-test integration suite
+      - fresh-clone full suite 97 files / 735 tests
     pr_evidence:
       - "PR #260—#263 merged"
-    fresh_clone_evidence: MISSING
-    gap: 默认持久化Authority的完整Golden链仍由分裂测试证明；#114仍开放。
-    gap_classification: L1_BLOCKER
-    blocks_l1: true
+      - "PR #267 merged as 5decc90502448e69f58427599eab8c9bec7590bb"
+    fresh_clone_evidence: "PASS at 5decc90502448e69f58427599eab8c9bec7590bb"
+    gap: B01 closed. #114 remains open as the distinct B03 direct-store authority boundary.
+    gap_classification: CLOSED_CURRENT
+    blocks_l1: false
     predecessors:
       - L1-VC-01
     successors:
@@ -235,7 +234,7 @@ capabilities:
       - L1-VC-05
       - L1-VC-10
     resource_lock: FORMAL_AUTHORITY_RUN_BINDING_GOLDEN
-    lock_owner: UNLOCKED_REMOTE_LOCAL_UNKNOWN
+    lock_owner: RELEASED_AFTER_B01_POST_MERGE_CLOSURE
     risk_tier: T3
     authorization_policy: AUTOMATED_GRAPH_GATED_EVIDENCE_REVIEW
     human_review_required: false
@@ -256,7 +255,7 @@ capabilities:
       - PR touching server.ts
       - authority lifecycle change
       - Golden change
-    last_updated: "2026-07-28T09:11:06Z"
+    last_updated: "2026-07-28T15:10:17Z"
   - ledger_id: L1-LEDGER-005
     value_chain_id: L1-VC-05
     capability: Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish
@@ -746,13 +745,6 @@ capabilities:
       - evidence expiry
     last_updated: "2026-07-28T09:11:06Z"
 blockers:
-  - gap_id: L1-GAP-B01
-    capability: Default persisted authority full Golden chain
-    current_state: current default test仅证明Run create；完整settle/publish/Replay仍使用注入authority ports
-    required_state: 同一默认服务器、经HTTP lifecycle创建的三类Authority完成Formal Run→Decision→Settle→Publish→Replay
-    suggested_bundle: B5 Default Persisted Authority Golden Closure
-    risk_tier: T3
-    priority: P0
   - gap_id: L1-GAP-B02
     capability: Course membership visibility
     current_state: "Issue #112仍OPEN"
@@ -877,8 +869,9 @@ candidate_routes:
     target: Default persisted authority full Golden chain
     lane: Mainline
     score: 90
-    reason: "直接闭合B01并复用PR #260—#263；同时补P-G3/P-G4关键证据"
-    constraint: 需先重建current-master Graphify/CodeGraph并冻结Run/Replay/Golden锁
+    status: CLOSED_AND_CURRENT
+    reason: "Closed by PR #267 with exact-head CI/CodeQL and fresh-clone validation."
+    constraint: "No automatic successor; portfolio recompilation and current-master graph delta required."
   - candidate_id: CAND-02
     target: "Course membership visibility #112"
     lane: Mainline Security
@@ -910,12 +903,12 @@ candidate_routes:
     reason: 授权矩阵要求重要Gate/模糊路径前使用图谱；现有图谱已被多次merge失效
     constraint: 不产生产品状态；完成后确认CAND-01 exact change surface
 next_route:
-  selected_candidate: CAND-01
-  selected_target: L1-GAP-B01_DEFAULT_PERSISTED_AUTHORITY_FULL_GOLDEN_CHAIN
-  status: PROVISIONAL_GRAPH_REBASE_REQUIRED
-  score: 90
-  reason: "Closes the current product-chain discontinuity and reuses PR #260-#263."
-  support_candidate: CAND-06_CURRENT_MASTER_GRAPHIFY_AND_CODEGRAPH_REBASE
+  selected_candidate: NONE
+  selected_target: NONE_PENDING_PORTFOLIO_RECOMPILATION
+  status: CLOSED_AWAITING_FINAL_GRAPH_DELTA
+  score: NOT_RECALCULATED
+  reason: "B01 closed by PR #267; no next target is selected automatically."
+  support_candidate: NONE
   graph_required: true
   automatic_start_allowed: false
 graph:
