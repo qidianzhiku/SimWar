@@ -14,7 +14,7 @@ export interface JsonFormalScenarioAuthorityRuntime {
 
 /**
  * Composes persisted formal-authority registries without activating them for
- * legacy Runs or exposing a Teacher runtime-selection route.
+ * legacy Runs. Consumers must apply their own read-only authorization boundary.
  */
 export function createJsonFormalScenarioAuthorityRuntime(
   persistence: JsonFormalScenarioAuthorityPersistence

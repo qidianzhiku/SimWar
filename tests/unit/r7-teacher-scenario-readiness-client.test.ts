@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  requestTeacherFormalScenarioPackageCatalog,
   ScenarioReadinessRequestError,
   getScenarioReadinessErrorMessage,
   requestScenarioReadiness,
@@ -11,6 +12,33 @@ afterEach(() => {
 });
 
 describe("Teacher scenario readiness client", () => {
+  it("loads the formal authority catalog through one authenticated GET without a tenant header", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          operation_id: "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1",
+          candidates: [],
+          explicit_non_proofs: ["FORMAL_CATALOG_READ_ONLY"]
+        }),
+        { headers: { "content-type": "application/json" }, status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestTeacherFormalScenarioPackageCatalog({
+      apiBaseUrl: "http://api.example.test",
+      token: "teacher-token"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://api.example.test/api/v1/bff/teacher/formal-scenario-package-catalog",
+      {
+        headers: { authorization: "Bearer teacher-token" },
+        method: "GET"
+      }
+    );
+  });
+
   it("validates required identifiers before the readiness request", () => {
     expect(
       validateScenarioReadinessInput({ parameterSetId: "param-1", scenarioPackageId: "" })

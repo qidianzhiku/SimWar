@@ -82,7 +82,9 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
   await expect(panel.locator(".readiness-result > strong")).toHaveText("READY");
   await expect(panel.getByText("COMPATIBLE_BY_REFERENCE_ONLY")).toBeVisible();
   await expect(panel.getByText("Known limits")).toBeVisible();
-  await expect(panel.getByText("SCENARIO_RUNTIME_NOT_ACTIVATED")).toBeVisible();
+  await expect(
+    panel.locator(".readiness-result").getByText("SCENARIO_RUNTIME_NOT_ACTIVATED")
+  ).toBeVisible();
   await expect(
     panel.getByRole("button", { name: /Activate|Launch|Replay|Publish|Settlement/i })
   ).toHaveCount(0);
@@ -144,6 +146,74 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
   });
   await panel.getByRole("button", { name: "Check readiness" }).click();
   await expect(panel.getByText("Readiness is unavailable or out of scope.")).toBeVisible();
+});
+
+test("Teacher selects an approved formal ScenarioPackage as a browser-local draft only", async ({
+  page
+}) => {
+  const catalogRequests: Array<{ headers: Record<string, string>; method: string }> = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/formal-scenario-package-catalog")) {
+      catalogRequests.push({ headers: request.headers(), method: request.method() });
+    }
+  });
+  await page.route(/\/formal-scenario-package-catalog$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        operation_id: "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1",
+        candidates: [
+          {
+            scenario_package_reference: {
+              tenant_id: "tenant_demo",
+              scenario_package_id: "scenario_formal_eldercare_shanghai",
+              version: "1.0.0",
+              content_digest: "a".repeat(64)
+            },
+            parameter_set_reference: {
+              parameter_set_id: "parameter_formal_eldercare_shanghai",
+              version: "1.0.0",
+              content_digest: "b".repeat(64)
+            },
+            status: "APPROVED",
+            schema_version: "scenario-package.v1",
+            compatibility_metadata: { engine: "simulation-core.v1" },
+            plugin_dependencies: [{ plugin_package_id: "wellness", version: "1.0.0" }]
+          }
+        ],
+        explicit_non_proofs: [
+          "FORMAL_CATALOG_READ_ONLY",
+          "LOCAL_DRAFT_SELECTION_DOES_NOT_BIND_A_RUN"
+        ]
+      })
+    });
+  });
+
+  const panel = await openScenarioReadinessPanel(page);
+  const catalog = panel.getByLabel("formal ScenarioPackage catalog");
+  await expect(catalog.getByText("scenario_formal_eldercare_shanghai")).toBeVisible();
+  await catalog.getByRole("button", { name: "Select local draft" }).click();
+
+  const draft = catalog.getByLabel("formal ScenarioPackage local draft");
+  await expect(draft.getByText("Local draft selection")).toBeVisible();
+  await expect(draft.getByText("Only this browser view is updated.")).toBeVisible();
+  await expect(draft.getByText("a".repeat(64))).toBeVisible();
+  await expect(draft.getByText("b".repeat(64))).toBeVisible();
+  expect(catalogRequests).toEqual([
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.not.objectContaining({ "x-tenant-id": expect.any(String) })
+    })
+  ]);
+  await expect(
+    catalog.getByRole("button", { name: /Activate|Bind|Launch|Replay|Publish|Settlement/i })
+  ).toHaveCount(0);
+
+  await page.reload();
+  await signIn(page, "教师登录", "teacher");
+  const reloadedCatalog = page.getByLabel("formal ScenarioPackage catalog");
+  await expect(reloadedCatalog).toBeVisible();
+  await expect(reloadedCatalog.getByLabel("formal ScenarioPackage local draft")).toHaveCount(0);
 });
 
 test("Student has no scenario readiness surface and never calls the Teacher endpoint", async ({

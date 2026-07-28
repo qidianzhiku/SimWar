@@ -13,14 +13,18 @@ import type {
   Round,
   Run,
   SettlementResult,
-  TeacherBffWorkspaceDTO
+  TeacherBffWorkspaceDTO,
+  TeacherFormalScenarioPackageCatalogCandidateDto,
+  TeacherFormalScenarioPackageCatalogDto
 } from "@simwar/shared-contracts";
 import {
   ScenarioReadinessRequestError,
   getScenarioCandidatesErrorMessage,
   getScenarioReadinessErrorMessage,
+  getTeacherFormalScenarioPackageCatalogErrorMessage,
   requestScenarioPackageCandidates,
   requestScenarioReadiness,
+  requestTeacherFormalScenarioPackageCatalog,
   validateScenarioReadinessInput,
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
@@ -52,6 +56,11 @@ type ScenarioCandidatesState =
   | { phase: "IDLE" | "LOADING" }
   | { phase: "ERROR"; message: string }
   | { phase: "READY"; response: R7TeacherScenarioPackageCandidatesDto };
+
+type FormalScenarioCatalogState =
+  | { phase: "IDLE" | "LOADING" }
+  | { phase: "ERROR"; message: string }
+  | { phase: "READY"; response: TeacherFormalScenarioPackageCatalogDto };
 
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
@@ -189,8 +198,14 @@ export function App() {
   });
   const [previewCandidate, setPreviewCandidate] =
     useState<R7TeacherScenarioPackageCandidateDto | null>(null);
+  const [formalScenarioCatalog, setFormalScenarioCatalog] = useState<FormalScenarioCatalogState>({
+    phase: "IDLE"
+  });
+  const [formalDraftCandidate, setFormalDraftCandidate] =
+    useState<TeacherFormalScenarioPackageCatalogCandidateDto | null>(null);
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
+  const formalCatalogRequestSequence = useRef(0);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const courseRuns = state ? getCourseRuns(state) : [];
@@ -279,6 +294,8 @@ export function App() {
     setScenarioReadiness({ phase: "IDLE" });
     setScenarioCandidates({ phase: "IDLE" });
     setPreviewCandidate(null);
+    setFormalScenarioCatalog({ phase: "IDLE" });
+    setFormalDraftCandidate(null);
     setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
     setNotice("context changed");
   }
@@ -411,6 +428,37 @@ export function App() {
         }
       });
   }, [selectedRun?.run_id, session]);
+
+  useEffect(() => {
+    setFormalDraftCandidate(null);
+    if (!session) {
+      formalCatalogRequestSequence.current += 1;
+      setFormalScenarioCatalog({ phase: "IDLE" });
+      return;
+    }
+
+    const requestSequence = formalCatalogRequestSequence.current + 1;
+    formalCatalogRequestSequence.current = requestSequence;
+    setFormalScenarioCatalog({ phase: "LOADING" });
+
+    requestTeacherFormalScenarioPackageCatalog({
+      apiBaseUrl: API_BASE,
+      token: session.access_token
+    })
+      .then((response) => {
+        if (formalCatalogRequestSequence.current === requestSequence) {
+          setFormalScenarioCatalog({ phase: "READY", response });
+        }
+      })
+      .catch((error: unknown) => {
+        if (formalCatalogRequestSequence.current === requestSequence) {
+          setFormalScenarioCatalog({
+            phase: "ERROR",
+            message: getTeacherFormalScenarioPackageCatalogErrorMessage(error)
+          });
+        }
+      });
+  }, [session]);
 
   async function createCourseRun(): Promise<void> {
     if (!session) {
@@ -774,6 +822,85 @@ export function App() {
                         <p>仅本地预览，不会修改当前 Run</p>
                       </article>
                     ) : null}
+                  </>
+                ) : null}
+              </section>
+              <section className="candidate-surface" aria-label="formal ScenarioPackage catalog">
+                <div className="candidate-heading">
+                  <h3>Formal ScenarioPackage Catalog</h3>
+                  <span>{formalScenarioCatalog.phase}</span>
+                </div>
+                {formalScenarioCatalog.phase === "LOADING" ? (
+                  <p className="evidence-note" role="status">
+                    Loading approved formal ScenarioPackages
+                  </p>
+                ) : null}
+                {formalScenarioCatalog.phase === "ERROR" ? (
+                  <p className="readiness-message" role="status">
+                    {formalScenarioCatalog.message}
+                  </p>
+                ) : null}
+                {formalScenarioCatalog.phase === "READY" ? (
+                  <>
+                    {formalScenarioCatalog.response.candidates.length === 0 ? (
+                      <p className="evidence-note">
+                        No approved formal ScenarioPackages available.
+                      </p>
+                    ) : (
+                      <div className="candidate-list">
+                        {formalScenarioCatalog.response.candidates.map((candidate) => (
+                          <article
+                            className="candidate-card"
+                            key={candidate.scenario_package_reference.content_digest}
+                          >
+                            <span>{candidate.status}</span>
+                            <strong>
+                              {candidate.scenario_package_reference.scenario_package_id}
+                            </strong>
+                            <small>
+                              {candidate.scenario_package_reference.version} /{" "}
+                              {candidate.schema_version}
+                            </small>
+                            <small>
+                              ParameterSet {candidate.parameter_set_reference.parameter_set_id} /{" "}
+                              {candidate.parameter_set_reference.version}
+                            </small>
+                            <button onClick={() => setFormalDraftCandidate(candidate)}>
+                              Select local draft
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    {formalDraftCandidate ? (
+                      <article
+                        className="candidate-preview"
+                        aria-label="formal ScenarioPackage local draft"
+                      >
+                        <span>Local draft selection</span>
+                        <strong>
+                          {formalDraftCandidate.scenario_package_reference.scenario_package_id} /{" "}
+                          {formalDraftCandidate.scenario_package_reference.version}
+                        </strong>
+                        <small>
+                          Scenario digest:{" "}
+                          {formalDraftCandidate.scenario_package_reference.content_digest}
+                        </small>
+                        <small>
+                          ParameterSet digest:{" "}
+                          {formalDraftCandidate.parameter_set_reference.content_digest}
+                        </small>
+                        <p>
+                          Only this browser view is updated. No Run binding or authority write
+                          occurs.
+                        </p>
+                      </article>
+                    ) : null}
+                    <ul className="tag-list">
+                      {formalScenarioCatalog.response.explicit_non_proofs.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
                   </>
                 ) : null}
               </section>
