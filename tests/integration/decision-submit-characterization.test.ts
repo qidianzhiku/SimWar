@@ -1,5 +1,8 @@
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import type { Server } from "node:http";
+import { resolve } from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it, vi } from "vitest";
 import type {
   ApiEnvelope,
@@ -26,6 +29,13 @@ const VALID_DECISION_PAYLOAD = {
   cash_buffer_target: 0.16,
   strategy_statement: "Hold the premium eldercare segment with reliable delivery."
 } as const;
+
+function expectEnvelopeToMatchSchema(schemaFile: string, envelope: unknown): void {
+  const schema = JSON.parse(readFileSync(resolve("contracts/schemas", schemaFile), "utf8"));
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+
+  expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);
+}
 
 async function startServer(): Promise<{
   baseUrl: string;
@@ -267,6 +277,7 @@ describe("decision submit characterization", () => {
       });
       expect(response.body.data.decision_id).toMatch(/^decision_\d+$/);
       expect(response.body.data.round_id).toBeTruthy();
+      expectEnvelopeToMatchSchema("m1-decision-submit-success-envelope.v1.json", response.body);
 
       expect(store.decisions).toHaveLength(1);
       expect(store.decisions[0]).toEqual(response.body.data);
@@ -403,6 +414,7 @@ describe("decision submit characterization", () => {
 
       expect(wrongTeamAttempt.status).toBe(403);
       expect(wrongTeamAttempt.body.code).toBe("TEAM-403-001");
+      expectEnvelopeToMatchSchema("api-error-envelope.v1.json", wrongTeamAttempt.body);
       expect(store.decisions).toEqual(decisionsBefore);
       expect(store.auditLogs).toHaveLength(auditCountBefore);
       expect(
