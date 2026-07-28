@@ -703,6 +703,37 @@ export interface ReplayDiffReport {
   created_at: string;
 }
 
+export interface FormalRuntimeBindingReplayEvidence {
+  binding_digest: string;
+  binding_schema_version: "formal-run-runtime-binding.v1";
+  engine_reference: {
+    engine_id: string;
+    version: string;
+  };
+  formal_resolution_digest: string;
+  model_version_references: string[];
+  parameter_set_reference: {
+    content_digest: string;
+    parameter_set_id: string;
+    version: string;
+  };
+  plugin_release_references: Array<{
+    content_digest: string;
+    plugin_package_id: string;
+    version: string;
+  }>;
+  projection_schema_references: Array<{
+    schema_id: "ParameterSet" | "ScenarioPackage";
+    version: string;
+  }>;
+  scenario_package_reference: {
+    content_digest: string;
+    scenario_package_id: string;
+    tenant_id: string;
+    version: string;
+  };
+}
+
 export interface ComputationalRunManifestV1 {
   schema_version: "run-manifest.v1";
   evidence_semantics_version: "m1-json-replay-evidence.v1";
@@ -731,6 +762,12 @@ export interface ComputationalRunManifestV1 {
   json_runtime_source_digest: string;
   replay_hash: string;
   excluded_from_truth_hash: string[];
+  /**
+   * Formal-authority evidence for a Run that opted into exact runtime binding.
+   * This remains in the private manifest and is intentionally absent from the
+   * role-projected public Replay view.
+   */
+  formal_runtime_binding?: FormalRuntimeBindingReplayEvidence;
 }
 
 export interface PublicRunReplayEvidence {

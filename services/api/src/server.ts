@@ -11,11 +11,14 @@ import type {
   Decision,
   DecisionPayload,
   M1DecisionSubmitRequest,
+  ParameterSet,
   PermissionKey,
   PublicRunReplayEvidence,
   PublicResultView,
   Round,
   RoundStatus,
+  Run,
+  ScenarioPackage,
   SettlementResult,
   SyntheticRunLifecycleOperation,
   Team,
@@ -48,6 +51,12 @@ import {
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
+import {
+  createFormalRunRuntimeBinding,
+  type FormalRunBindingAuthorityPorts
+} from "./formal-run-runtime-binding.js";
+import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
+import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
 import {
   R7TeacherScenarioSelectionGateBlockedError,
   createR7TeacherScenarioPackageCandidatesProjection,
@@ -95,6 +104,8 @@ interface RequestContext {
 }
 
 interface ApiRuntime {
+  formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
+  formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
   securityConfig: RuntimeSecurityConfig;
@@ -103,11 +114,35 @@ interface ApiRuntime {
 
 export interface CreateApiServerOptions {
   env?: RuntimeSecurityConfigEnv;
+  formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
   repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
 }
 
 type DecisionSubmitBody = Partial<M1DecisionSubmitRequest>;
+
+interface FormalRunCreateBody {
+  engine_reference?: {
+    engine_id?: unknown;
+    version?: unknown;
+  };
+  parameter_set_reference?: {
+    content_digest?: unknown;
+    parameter_set_id?: unknown;
+    version?: unknown;
+  };
+  scenario_package_reference?: {
+    content_digest?: unknown;
+    scenario_package_id?: unknown;
+    tenant_id?: unknown;
+    version?: unknown;
+  };
+  seed?: unknown;
+}
+
+interface RunCreateBody {
+  formal_runtime_binding?: FormalRunCreateBody;
+}
 
 class HttpError extends Error {
   constructor(
@@ -149,6 +184,10 @@ function createRuntimeRepositoryProvider(
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
   return {
+    ...(options.formalRunBindingAuthorities
+      ? { formalRunBindingAuthorities: options.formalRunBindingAuthorities }
+      : {}),
+    formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
     store,
     repositoryProvider: createRuntimeRepositoryProvider(store, options),
     securityConfig: options.securityConfig
@@ -863,6 +902,72 @@ function clonePublic(input: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function requireBodyString(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+  }
+
+  return value;
+}
+
+function requireBodySeed(value: unknown): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+  }
+
+  return value;
+}
+
+function parseFormalRunCreateBody(value: unknown): {
+  engine_reference: { engine_id: string; version: string };
+  parameter_set_reference: { content_digest: string; parameter_set_id: string; version: string };
+  scenario_package_reference: {
+    content_digest: string;
+    scenario_package_id: string;
+    tenant_id: string;
+    version: string;
+  };
+  seed: number;
+} {
+  if (!isRecord(value)) {
+    throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+  }
+
+  const engineReference = value.engine_reference;
+  const parameterSetReference = value.parameter_set_reference;
+  const scenarioPackageReference = value.scenario_package_reference;
+  if (
+    !isRecord(engineReference) ||
+    !isRecord(parameterSetReference) ||
+    !isRecord(scenarioPackageReference)
+  ) {
+    throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+  }
+
+  return {
+    engine_reference: {
+      engine_id: requireBodyString(engineReference.engine_id),
+      version: requireBodyString(engineReference.version)
+    },
+    parameter_set_reference: {
+      content_digest: requireBodyString(parameterSetReference.content_digest),
+      parameter_set_id: requireBodyString(parameterSetReference.parameter_set_id),
+      version: requireBodyString(parameterSetReference.version)
+    },
+    scenario_package_reference: {
+      content_digest: requireBodyString(scenarioPackageReference.content_digest),
+      scenario_package_id: requireBodyString(scenarioPackageReference.scenario_package_id),
+      tenant_id: requireBodyString(scenarioPackageReference.tenant_id),
+      version: requireBodyString(scenarioPackageReference.version)
+    },
+    seed: requireBodySeed(value.seed)
+  };
+}
+
 function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): string {
   return JSON.stringify(payload);
 }
@@ -1040,15 +1145,8 @@ async function createPublicReplayEvidenceView(
     return undefined;
   }
 
-  const [scenario, parameterSet, teams, decisions] = await Promise.all([
-    runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
-      context.tenantId,
-      run.scenario_package_id
-    ),
-    runtime.repositoryProvider.facade.parameterSets.getParameterSet(
-      context.tenantId,
-      run.parameter_set_id
-    ),
+  const [runtimeInputs, teams, decisions] = await Promise.all([
+    resolveRunRuntimeInputs(runtime, context.tenantId, run),
     runtime.repositoryProvider.facade.teams.listTeamsForRun(context.tenantId, run.run_id),
     runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
       context.tenantId,
@@ -1057,19 +1155,71 @@ async function createPublicReplayEvidenceView(
     )
   ]);
 
-  if (!scenario || !parameterSet) {
+  if (!runtimeInputs) {
     return undefined;
   }
 
   return createM1RunReplayEvidence({
     decisions,
-    parameterSet,
+    ...(runtimeInputs.formalRuntimeBinding
+      ? { formal_runtime_binding: runtimeInputs.formalRuntimeBinding }
+      : {}),
+    parameterSet: runtimeInputs.parameterSet,
     round,
     run,
-    scenario,
+    scenario: runtimeInputs.scenario,
     settlement,
     teams
   }).public_view;
+}
+
+async function resolveRunRuntimeInputs(
+  runtime: ApiRuntime,
+  tenantId: string,
+  run: Run
+): Promise<{
+  formalRuntimeBinding?: {
+    binding: NonNullable<ReturnType<FormalRunRuntimeBindingStore["getForRun"]>>;
+    formal_resolution_digest: string;
+  };
+  parameterSet: ParameterSet;
+  scenario: ScenarioPackage;
+} | null> {
+  const binding = runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
+
+  if (binding) {
+    if (!runtime.formalRunBindingAuthorities) {
+      throw new HttpError(409, "RUN-409-002", "formal runtime binding authority is unavailable");
+    }
+
+    try {
+      const formalInputs = await resolveFormalRuntimeInputsForActiveRun({
+        authorities: runtime.formalRunBindingAuthorities,
+        binding,
+        run
+      });
+      return {
+        formalRuntimeBinding: {
+          binding: formalInputs.binding,
+          formal_resolution_digest: formalInputs.formal_resolution_digest
+        },
+        parameterSet: formalInputs.parameterSet,
+        scenario: formalInputs.scenario
+      };
+    } catch {
+      throw new HttpError(422, "RUN-422-003", "formal runtime binding cannot resolve exact inputs");
+    }
+  }
+
+  const [scenario, parameterSet] = await Promise.all([
+    runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
+      tenantId,
+      run.scenario_package_id
+    ),
+    runtime.repositoryProvider.facade.parameterSets.getParameterSet(tenantId, run.parameter_set_id)
+  ]);
+
+  return scenario && parameterSet ? { parameterSet, scenario } : null;
 }
 
 async function getRoundForRead(
@@ -2076,29 +2226,79 @@ async function routeRequest(
     const actor = requirePermission(context, "run:create");
     const [, courseId] = matchPath(url.pathname, /^\/api\/v1\/courses\/([^/]+)\/runs$/);
     const course = getCourse(store, context, courseId ?? "");
+    const body = await readJson<RunCreateBody>(request);
 
     if (course.status !== "published" && course.status !== "active") {
       throw new HttpError(409, "RUN-409-001", "course must be published before creating run");
     }
 
-    const parameterSet = store.parameterSets.find(
-      (candidate) =>
-        candidate.parameter_set_id === course.parameter_set_id &&
-        candidate.tenant_id === context.tenantId
-    );
-    if (!parameterSet || parameterSet.status !== "approved") {
-      throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
-    }
+    const formalRequest =
+      body.formal_runtime_binding === undefined
+        ? null
+        : parseFormalRunCreateBody(body.formal_runtime_binding);
+    let formalBinding: ReturnType<typeof runtime.formalRunRuntimeBindingStore.getForRun> = null;
+    let run: Run;
 
-    const run = {
-      run_id: nextId(store, "run", "run"),
-      tenant_id: context.tenantId,
-      course_id: course.course_id,
-      scenario_package_id: course.scenario_package_id,
-      parameter_set_id: course.parameter_set_id,
-      seed: parameterSet.seed,
-      status: "active" as const
-    };
+    if (formalRequest) {
+      if (!runtime.formalRunBindingAuthorities) {
+        throw new HttpError(409, "RUN-409-002", "formal runtime binding authority is unavailable");
+      }
+      if (
+        formalRequest.parameter_set_reference.parameter_set_id !== course.parameter_set_id ||
+        formalRequest.scenario_package_reference.scenario_package_id !==
+          course.scenario_package_id ||
+        formalRequest.scenario_package_reference.tenant_id !== context.tenantId
+      ) {
+        throw new HttpError(422, "RUN-422-002", "formal runtime binding does not match course");
+      }
+
+      run = {
+        course_id: course.course_id,
+        parameter_set_id: course.parameter_set_id,
+        run_id: nextId(store, "run", "run"),
+        scenario_package_id: course.scenario_package_id,
+        seed: formalRequest.seed,
+        status: "active",
+        tenant_id: context.tenantId
+      };
+      try {
+        formalBinding = await createFormalRunRuntimeBinding({
+          authorities: runtime.formalRunBindingAuthorities,
+          engine_reference: formalRequest.engine_reference,
+          parameter_set_reference: formalRequest.parameter_set_reference,
+          run_id: run.run_id,
+          scenario_package_reference: formalRequest.scenario_package_reference,
+          seed: run.seed,
+          tenant_id: context.tenantId
+        });
+        await resolveFormalRuntimeInputsForActiveRun({
+          authorities: runtime.formalRunBindingAuthorities,
+          binding: formalBinding,
+          run
+        });
+      } catch {
+        throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
+      }
+    } else {
+      const parameterSet = store.parameterSets.find(
+        (candidate) =>
+          candidate.parameter_set_id === course.parameter_set_id &&
+          candidate.tenant_id === context.tenantId
+      );
+      if (!parameterSet || parameterSet.status !== "approved") {
+        throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
+      }
+
+      run = {
+        run_id: nextId(store, "run", "run"),
+        tenant_id: context.tenantId,
+        course_id: course.course_id,
+        scenario_package_id: course.scenario_package_id,
+        parameter_set_id: course.parameter_set_id,
+        seed: parameterSet.seed,
+        status: "active" as const
+      };
+    }
     const round = {
       round_id: nextId(store, "round", "round"),
       tenant_id: context.tenantId,
@@ -2108,6 +2308,9 @@ async function routeRequest(
     };
     store.runs.push(run);
     store.rounds.push(round);
+    if (formalBinding) {
+      runtime.formalRunRuntimeBindingStore.append(formalBinding);
+    }
     await appendAudit(runtime, {
       actor,
       action: "run.create",
@@ -2333,23 +2536,15 @@ async function runSettlement(
       throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
     }
 
-    const scenario = await runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
-      context.tenantId,
-      run.scenario_package_id
-    );
-    const parameterSet = await runtime.repositoryProvider.facade.parameterSets.getParameterSet(
-      context.tenantId,
-      run.parameter_set_id
-    );
-    const teams = await runtime.repositoryProvider.facade.teams.listTeamsForRun(
-      context.tenantId,
-      run.run_id
-    );
-    const roundDecisions = await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
-      context.tenantId,
-      run.run_id,
-      round.round_id
-    );
+    const [runtimeInputs, teams, roundDecisions] = await Promise.all([
+      resolveRunRuntimeInputs(runtime, context.tenantId, run),
+      runtime.repositoryProvider.facade.teams.listTeamsForRun(context.tenantId, run.run_id),
+      runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+        context.tenantId,
+        run.run_id,
+        round.round_id
+      )
+    ]);
     const latestDecisions = teams.map((team) => {
       const versions = roundDecisions.filter(
         (decision) => decision.round_no === round.round_no && decision.team_id === team.team_id
@@ -2357,7 +2552,7 @@ async function runSettlement(
       return versions.at(-1);
     });
 
-    if (!scenario || !parameterSet || latestDecisions.some((decision) => !decision)) {
+    if (!runtimeInputs || latestDecisions.some((decision) => !decision)) {
       throw new HttpError(
         422,
         "SETTLE-422-001",
@@ -2382,8 +2577,8 @@ async function runSettlement(
       {
         run,
         round,
-        scenario,
-        parameterSet,
+        scenario: runtimeInputs.scenario,
+        parameterSet: runtimeInputs.parameterSet,
         teams,
         decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
           Boolean(decision)

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import type {
   ComputationalRunManifestV1,
   Decision,
+  FormalRunRuntimeBinding,
+  FormalRuntimeBindingReplayEvidence,
   ParameterSet,
   PublicRunReplayEvidence,
   Round,
@@ -24,6 +26,10 @@ const EVIDENCE_KIND = "m1_json_runtime_replay_evidence";
 
 export interface CreateM1RunReplayEvidenceInput {
   decisions: Decision[];
+  formal_runtime_binding?: {
+    binding: FormalRunRuntimeBinding;
+    formal_resolution_digest: string;
+  };
   parameterSet: ParameterSet;
   round: Round;
   run: Run;
@@ -76,6 +82,7 @@ export interface M1CanonicalEvidenceDigestInput {
     scenario_package_id: string;
     scenario_version: string;
     seed: number;
+    formal_runtime_binding?: FormalRuntimeBindingReplayEvidence;
   };
   replay_comparison: {
     legacy_replay_hash: string;
@@ -155,6 +162,10 @@ function createManifest(input: CreateM1RunReplayEvidenceInput): ComputationalRun
     tenant_id: input.run.tenant_id
   };
 
+  const formalRuntimeBinding = input.formal_runtime_binding
+    ? createFormalRuntimeBindingReplayEvidence(input.formal_runtime_binding)
+    : undefined;
+
   return {
     schema_version: "run-manifest.v1",
     evidence_semantics_version: EVIDENCE_SEMANTICS_VERSION,
@@ -188,7 +199,28 @@ function createManifest(input: CreateM1RunReplayEvidenceInput): ComputationalRun
       "role_drafts",
       "billing_entitlement",
       "teacher_private_notes"
-    ]
+    ],
+    ...(formalRuntimeBinding ? { formal_runtime_binding: formalRuntimeBinding } : {})
+  };
+}
+
+function createFormalRuntimeBindingReplayEvidence(
+  input: NonNullable<CreateM1RunReplayEvidenceInput["formal_runtime_binding"]>
+): FormalRuntimeBindingReplayEvidence {
+  return {
+    binding_digest: input.binding.binding_digest,
+    binding_schema_version: input.binding.binding_schema_version,
+    engine_reference: { ...input.binding.engine_reference },
+    formal_resolution_digest: input.formal_resolution_digest,
+    model_version_references: [...input.binding.model_version_references],
+    parameter_set_reference: { ...input.binding.parameter_set_reference },
+    plugin_release_references: input.binding.plugin_release_references.map((reference) => ({
+      ...reference
+    })),
+    projection_schema_references: input.binding.projection_schema_references.map((reference) => ({
+      ...reference
+    })),
+    scenario_package_reference: { ...input.binding.scenario_package_reference }
   };
 }
 
@@ -243,7 +275,10 @@ function createCanonicalEvidenceDigestInput(
       round_no: manifest.round_no,
       scenario_package_id: manifest.scenario_package_id,
       scenario_version: manifest.scenario_version,
-      seed: manifest.seed
+      seed: manifest.seed,
+      ...(manifest.formal_runtime_binding
+        ? { formal_runtime_binding: manifest.formal_runtime_binding }
+        : {})
     },
     replay_comparison: {
       legacy_replay_hash: manifest.replay_hash,
