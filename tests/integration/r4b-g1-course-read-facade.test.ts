@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import type { Server } from "node:http";
 import { describe, expect, it, vi } from "vitest";
-import type { ApiEnvelope, AuthSession, Course } from "../../packages/shared-contracts/src";
+import type { ApiEnvelope, AuthSession, Course, Team } from "../../packages/shared-contracts/src";
 import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
 import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
@@ -258,6 +258,37 @@ describe("R4b G1 course read facade slice", () => {
     }
   });
 
+  it("creates and binds a team through the repository facade without falling back to the concrete store", async () => {
+    const store = createP1Store();
+    const provider = createJsonRepositoryProvider({ store });
+    const createTeamWithCaptain = vi.fn(async (_team: Team) => undefined);
+    (
+      provider.facade.teams as typeof provider.facade.teams & {
+        createTeamWithCaptain: (team: Team) => Promise<void>;
+      }
+    ).createTeamWithCaptain = createTeamWithCaptain;
+    store.teams = [];
+
+    const { baseUrl, server } = await startServer(store, { repositoryProvider: provider });
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const response = await request<Team>(baseUrl, "/api/v1/courses/course_demo/teams", {
+        body: { captain_user_id: "usr_student", name: "Facade-backed team" },
+        method: "POST",
+        token: teacherToken
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data.name).toBe("Facade-backed team");
+      expect(createTeamWithCaptain).toHaveBeenCalledTimes(1);
+      expect(createTeamWithCaptain).toHaveBeenCalledWith(response.body.data);
+      expect(store.teams).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("keeps the course read helper behind the repository facade boundary", () => {
     const serverSource = readFileSync(
       new URL("../../services/api/src/server.ts", import.meta.url),
@@ -294,6 +325,20 @@ describe("R4b G1 course read facade slice", () => {
       "runtime.repositoryProvider.facade.courses.saveCourse(course)"
     );
     expect(courseCreateSource).not.toContain("store.courses.push(course)");
+
+    const teamCreateSource = serverSource.slice(
+      serverSource.indexOf(
+        'request.method === "POST" && /^\\/api\\/v1\\/courses\\/[^/]+\\/teams$/.test'
+      ),
+      serverSource.indexOf(
+        'request.method === "POST" && /^\\/api\\/v1\\/courses\\/[^/]+\\/runs$/.test'
+      )
+    );
+
+    expect(teamCreateSource).toContain(
+      "runtime.repositoryProvider.facade.teams.createTeamWithCaptain(team)"
+    );
+    expect(teamCreateSource).not.toContain("store.teams.push(team)");
     expect(serverSource).not.toContain("DATABASE_URL");
   });
 });

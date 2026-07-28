@@ -112,6 +112,8 @@ export interface TeamRepositoryPort {
     runId: RepositoryId,
     userId: RepositoryId
   ): Promise<Team | null>;
+
+  createTeamWithCaptain(team: Team): Promise<void>;
 }
 
 export interface RunRepositoryPort {
