@@ -1,0 +1,43 @@
+schema_version: 1
+cycle_id: ""
+status: ""
+started_at: ""
+closed_at: ""
+repository: qidianzhiku/SimWar
+source_sha: ""
+branch: ""
+head_sha: ""
+pr: null
+merge_sha: ""
+post_merge_master_sha: ""
+mainline_candidate: ""
+support_candidate: null
+docs_discovery_candidate: null
+resource_locks: []
+validation:
+  focused: []
+  affected: []
+  full: []
+  ci: ""
+  codeql: ""
+  browser: ""
+  fresh_clone: ""
+evidence_root: ""
+gap_delta:
+  closed: []
+  new: []
+  reclassified: []
+metrics:
+  value_lead_time_hours: null
+  active_engineering_time_hours: null
+  blocked_ratio: null
+  parallel_overlap: null
+  file_conflict_rate: null
+  join_rework_ratio: null
+  owner_touch: null
+  cleanup_residue: null
+  boundary_breach: null
+  post_merge_escape: null
+explicit_non_proofs: []
+recommended_next_candidate: ""
+automatic_next_start: false
