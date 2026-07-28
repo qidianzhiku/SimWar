@@ -32,34 +32,6 @@
       "evidence": "services/api/src/server.ts:334 createContext store.users.find"
     },
     {
-      "id": "direct-store-services-api-src-server-getrun-011",
-      "file": "services/api/src/server.ts",
-      "symbol": "getRun",
-      "accessKind": "read",
-      "expression": "store.runs.find",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy getRun read access to store.runs.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:493 getRun store.runs.find"
-    },
-    {
-      "id": "direct-store-services-api-src-server-getround-012",
-      "file": "services/api/src/server.ts",
-      "symbol": "getRound",
-      "accessKind": "read",
-      "expression": "store.rounds.find",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "other",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy getRound read access to store.rounds.find; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:504 getRound store.rounds.find"
-    },
-    {
       "id": "direct-store-services-api-src-server-createadminstate-015",
       "file": "services/api/src/server.ts",
       "symbol": "createAdminState",
