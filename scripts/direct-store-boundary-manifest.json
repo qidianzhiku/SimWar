@@ -4,34 +4,6 @@
   "evidenceLimitation": "alias/indirect store access not fully statically detected",
   "approvedExceptions": [
     {
-      "id": "direct-store-services-api-src-server-lockround-005",
-      "file": "services/api/src/server.ts",
-      "symbol": "lockRound",
-      "accessKind": "read",
-      "expression": "runtime.store",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy lockRound read access to runtime.store; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:209 lockRound runtime.store"
-    },
-    {
-      "id": "direct-store-services-api-src-server-publishround-006",
-      "file": "services/api/src/server.ts",
-      "symbol": "publishRound",
-      "accessKind": "read",
-      "expression": "runtime.store",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy publishRound read access to runtime.store; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:243 publishRound runtime.store"
-    },
-    {
       "id": "direct-store-services-api-src-server-createcontext-007",
       "file": "services/api/src/server.ts",
       "symbol": "createContext",

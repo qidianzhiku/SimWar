@@ -498,15 +498,17 @@ async function lockRound(
   runId: string,
   roundNo: number
 ): Promise<Round> {
-  const store = runtime.store;
   const actor = requirePermission(context, "round:lock");
-  const run = getRun(store, context, runId);
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
   await assertRunLifecycleAllowsProgress({
     provider: runtime.repositoryProvider,
     runId: run.run_id,
     tenantId: context.tenantId
   });
-  const round = getRound(store, context, run.run_id, roundNo);
+  const round = await getRoundForRead(runtime, context, run.run_id, roundNo);
   if (round.status === "locked") {
     return round;
   }
@@ -557,15 +559,17 @@ async function publishRound(
   runId: string,
   roundNo: number
 ): Promise<Round> {
-  const store = runtime.store;
   const actor = requirePermission(context, "round:publish");
-  const run = getRun(store, context, runId);
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
   await assertRunLifecycleAllowsProgress({
     provider: runtime.repositoryProvider,
     runId: run.run_id,
     tenantId: context.tenantId
   });
-  const round = getRound(store, context, run.run_id, roundNo);
+  const round = await getRoundForRead(runtime, context, run.run_id, roundNo);
   if (round.status === "published") {
     return round;
   }
