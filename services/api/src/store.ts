@@ -36,6 +36,7 @@ import type {
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
+import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
 import type { ParameterSetApprovalRecord, ParameterSetVersion } from "./parameter-set-authority.js";
 import type {
   ScenarioPackageApprovalRecord,
@@ -74,6 +75,7 @@ export interface SimWarStoreSnapshot {
   formalPluginReleaseApprovalRecords: PluginReleaseApprovalRecord[];
   formalPluginReleaseAvailabilityRecords: PluginReleaseAvailabilityRecord[];
   formalPluginReleaseLifecycleSnapshots: PluginReleaseVersion[];
+  formalCourseAuthorityBindings: FormalCourseAuthorityBinding[];
   formalRunRuntimeBindings: FormalRunRuntimeBinding[];
   formalScenarioPackageApprovalRecords: ScenarioPackageApprovalRecord[];
   formalScenarioPackageLifecycleSnapshots: ScenarioPackageVersion[];
@@ -564,6 +566,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     formalPluginReleaseApprovalRecords: [],
     formalPluginReleaseAvailabilityRecords: [],
     formalPluginReleaseLifecycleSnapshots: [],
+    formalCourseAuthorityBindings: [],
     formalRunRuntimeBindings: [],
     formalScenarioPackageApprovalRecords: [],
     formalScenarioPackageLifecycleSnapshots: [],
@@ -605,6 +608,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     formalPluginReleaseApprovalRecords: store.formalPluginReleaseApprovalRecords,
     formalPluginReleaseAvailabilityRecords: store.formalPluginReleaseAvailabilityRecords,
     formalPluginReleaseLifecycleSnapshots: store.formalPluginReleaseLifecycleSnapshots,
+    formalCourseAuthorityBindings: store.formalCourseAuthorityBindings,
     formalRunRuntimeBindings: store.formalRunRuntimeBindings,
     formalScenarioPackageApprovalRecords: store.formalScenarioPackageApprovalRecords,
     formalScenarioPackageLifecycleSnapshots: store.formalScenarioPackageLifecycleSnapshots,
@@ -637,6 +641,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     formalPluginReleaseApprovalRecords: snapshot.formalPluginReleaseApprovalRecords ?? [],
     formalPluginReleaseAvailabilityRecords: snapshot.formalPluginReleaseAvailabilityRecords ?? [],
     formalPluginReleaseLifecycleSnapshots: snapshot.formalPluginReleaseLifecycleSnapshots ?? [],
+    formalCourseAuthorityBindings: snapshot.formalCourseAuthorityBindings ?? [],
     formalRunRuntimeBindings: snapshot.formalRunRuntimeBindings ?? [],
     formalScenarioPackageApprovalRecords: snapshot.formalScenarioPackageApprovalRecords ?? [],
     formalScenarioPackageLifecycleSnapshots: snapshot.formalScenarioPackageLifecycleSnapshots ?? [],
@@ -1449,6 +1454,13 @@ function assertSnapshotShape(
     if (!Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
     }
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(value, "formalCourseAuthorityBindings") &&
+    !Array.isArray(value.formalCourseAuthorityBindings)
+  ) {
+    throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
   }
 
   if (

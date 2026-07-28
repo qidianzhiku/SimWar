@@ -317,6 +317,100 @@ async function login(baseUrl: string, username: string, password: string): Promi
 }
 
 describe("formal Run RuntimeBinding activation", () => {
+  it("persists exact formal Course inputs and derives its Run binding without legacy Store fallback", async () => {
+    const { baseUrl, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const created = await request<{ course_id: string }>(baseUrl, "/api/v1/courses", {
+        body: {
+          formal_authority_binding: {
+            engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+            parameter_set_reference: {
+              content_digest: digest("a"),
+              parameter_set_id: "param_toy_approved_1",
+              version: "1.0.0"
+            },
+            scenario_package_reference: {
+              content_digest: digest("b"),
+              scenario_package_id: "scenario_eldercare_demo",
+              tenant_id: TENANT_ID,
+              version: "1.0.0"
+            }
+          },
+          title: "Formal authority Course"
+        },
+        method: "POST",
+        token: teacherToken
+      });
+
+      expect(created.status).toBe(201);
+      const courseId = created.body.data.course_id;
+      expect(store.formalCourseAuthorityBindings).toHaveLength(1);
+      expect(store.formalCourseAuthorityBindings[0]).toMatchObject({
+        course_id: courseId,
+        parameter_set_reference: { content_digest: digest("a") },
+        scenario_package_reference: { content_digest: digest("b"), tenant_id: TENANT_ID }
+      });
+      expect(
+        (
+          await request(baseUrl, `/api/v1/courses/${courseId}/publish`, {
+            method: "POST",
+            token: teacherToken
+          })
+        ).status
+      ).toBe(200);
+
+      store.parameterSets.splice(0);
+      store.scenarios.splice(0);
+
+      const overrideAttempt = await request(baseUrl, `/api/v1/courses/${courseId}/runs`, {
+        body: {
+          formal_runtime_binding: {
+            engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+            parameter_set_reference: {
+              content_digest: digest("a"),
+              parameter_set_id: "param_toy_approved_1",
+              version: "1.0.0"
+            },
+            scenario_package_reference: {
+              content_digest: digest("b"),
+              scenario_package_id: "scenario_eldercare_demo",
+              tenant_id: TENANT_ID,
+              version: "1.0.0"
+            },
+            seed: 20260728
+          }
+        },
+        method: "POST",
+        token: teacherToken
+      });
+
+      expect(overrideAttempt.status).toBe(422);
+      expect(store.runs).toHaveLength(0);
+
+      const run = await request<{ round: Round; run: Run }>(
+        baseUrl,
+        `/api/v1/courses/${courseId}/runs`,
+        {
+          body: { formal_runtime_seed: 20260728 },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+
+      expect(run.status).toBe(201);
+      expect(store.formalRunRuntimeBindings).toHaveLength(1);
+      expect(store.formalRunRuntimeBindings[0]).toMatchObject({
+        run_id: run.body.data.run.run_id,
+        parameter_set_reference: { content_digest: digest("a") },
+        scenario_package_reference: { content_digest: digest("b"), tenant_id: TENANT_ID }
+      });
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("uses persisted formal Authorities by default without injected test ports", async () => {
     const store = createP1Store();
     seedPersistedFormalAuthorities(store);

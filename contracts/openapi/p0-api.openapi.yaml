@@ -118,6 +118,12 @@ paths:
           description: Course list
     post:
       summary: Create a draft course.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseCreateInput"
       responses:
         "201":
           description: Course created
@@ -154,6 +160,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCreateInput"
       responses:
         "201":
           description: Run and round created
@@ -813,6 +825,70 @@ components:
         content_digest:
           type: string
           pattern: "^[a-f0-9]{64}$"
+    FormalCourseAuthorityBindingInput:
+      type: object
+      additionalProperties: false
+      required: [engine_reference, parameter_set_reference, scenario_package_reference]
+      properties:
+        engine_reference:
+          type: object
+          additionalProperties: false
+          required: [engine_id, version]
+          properties:
+            engine_id:
+              type: string
+              minLength: 1
+            version:
+              type: string
+              minLength: 1
+        parameter_set_reference:
+          $ref: "#/components/schemas/FormalParameterSetBindingReferenceInput"
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+    CourseCreateInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+        formal_authority_binding:
+          $ref: "#/components/schemas/FormalCourseAuthorityBindingInput"
+      description: A formal authority binding is append-only and freezes exact ScenarioPackage, ParameterSet, and engine references for this Course. It does not start a Run or activate a plugin runtime.
+    RunCreateInput:
+      type: object
+      additionalProperties: false
+      properties:
+        formal_runtime_seed:
+          type: integer
+          minimum: 0
+          description: Required only for a Course with a formal authority binding. The server derives exact authority references from the immutable Course binding.
+        formal_runtime_binding:
+          $ref: "#/components/schemas/FormalRunRuntimeBindingInput"
+    FormalRunRuntimeBindingInput:
+      type: object
+      additionalProperties: false
+      required: [engine_reference, parameter_set_reference, scenario_package_reference, seed]
+      properties:
+        engine_reference:
+          type: object
+          additionalProperties: false
+          required: [engine_id, version]
+          properties:
+            engine_id:
+              type: string
+              minLength: 1
+            version:
+              type: string
+              minLength: 1
+        parameter_set_reference:
+          $ref: "#/components/schemas/FormalParameterSetBindingReferenceInput"
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+        seed:
+          type: integer
+          minimum: 0
+      description: Legacy-compatible explicit formal Run binding. It is rejected when the Course already has a formal authority binding, so callers cannot override frozen Course references.
     FormalParameterSetReferenceInput:
       type: object
       additionalProperties: false
