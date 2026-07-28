@@ -3165,8 +3165,7 @@ async function routeRequest(
         }
       ]
     };
-    store.teams.push(team);
-    captain.team_id = team.team_id;
+    await runtime.repositoryProvider.facade.teams.createTeamWithCaptain(team);
     await appendAudit(runtime, {
       actor,
       action: "team.create",

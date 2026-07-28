@@ -71,6 +71,7 @@ export interface RepositoryFacade {
     getTeam(tenantId: string, teamId: string): Promise<Team | null>;
     listTeamsForRun(tenantId: string, runId: string): Promise<Team[]>;
     getTeamForUser(tenantId: string, runId: string, userId: string): Promise<Team | null>;
+    createTeamWithCaptain(team: Team): Promise<void>;
   };
 
   runs: {
@@ -323,7 +324,8 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
       getTeam: (tenantId, teamId) => ports.teams.getTeam(tenantId, teamId),
       listTeamsForRun: (tenantId, runId) => ports.teams.listTeamsForRun(tenantId, runId),
       getTeamForUser: (tenantId, runId, userId) =>
-        ports.teams.getTeamForUser(tenantId, runId, userId)
+        ports.teams.getTeamForUser(tenantId, runId, userId),
+      createTeamWithCaptain: (team) => ports.teams.createTeamWithCaptain(team)
     },
 
     runs: {

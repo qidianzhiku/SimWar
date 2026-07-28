@@ -463,6 +463,31 @@ export function createJsonRepositoryPorts(
                 team.members.some((member) => member.user_id === userId))
           ) ?? null
         );
+      },
+
+      async createTeamWithCaptain(team): Promise<void> {
+        const captain = store.users.find(
+          (candidate) =>
+            candidate.tenant_id === team.tenant_id && candidate.user_id === team.captain_user_id
+        );
+
+        if (!captain) {
+          throw new Error("team_captain_not_found");
+        }
+
+        const index = store.teams.findIndex(
+          (candidate) =>
+            candidate.tenant_id === team.tenant_id && candidate.team_id === team.team_id
+        );
+
+        if (index >= 0) {
+          store.teams[index] = team;
+        } else {
+          store.teams.push(team);
+        }
+
+        captain.team_id = team.team_id;
+        store.persist();
       }
     },
 

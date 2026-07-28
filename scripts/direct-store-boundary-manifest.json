@@ -564,20 +564,6 @@
       "evidence": "services/api/src/server.ts:1184 routeRequest store.counters.team"
     },
     {
-      "id": "direct-store-services-api-src-server-routerequest-055",
-      "file": "services/api/src/server.ts",
-      "symbol": "routeRequest",
-      "accessKind": "write",
-      "expression": "store.teams.push",
-      "occurrence": 1,
-      "runtimeClass": "active runtime",
-      "businessArea": "teacher",
-      "boundaryStatus": "approved exception",
-      "justification": "Approved legacy routeRequest write access to store.teams.push; frozen by P1-003A so future facade migration can remove it without silent expansion.",
-      "followUp": "Relates to #114",
-      "evidence": "services/api/src/server.ts:1194 routeRequest store.teams.push"
-    },
-    {
       "id": "direct-store-services-api-src-server-routerequest-056",
       "file": "services/api/src/server.ts",
       "symbol": "routeRequest",
