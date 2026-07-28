@@ -11,6 +11,8 @@ import type {
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
+const UNASSIGNED_COURSE_ID = "course_unassigned";
+
 async function startServer(store: SimWarStore): Promise<{ baseUrl: string; server: Server }> {
   const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
@@ -74,7 +76,7 @@ function addUnassignedCourse(store: SimWarStore): Course {
 
   const course: Course = {
     ...template,
-    course_id: "course_unassigned",
+    course_id: UNASSIGNED_COURSE_ID,
     title: "Unassigned Same Tenant Course"
   };
   store.courses.push(course);
@@ -129,7 +131,7 @@ describe("course membership visibility boundary", () => {
 
       const learnerUnassignedCourse = await request<unknown>(
         baseUrl,
-        `/api/v1/courses/${unassignedCourse.course_id}`,
+        "/api/v1/courses/course_unassigned",
         { token: learnerToken }
       );
       expect(learnerUnassignedCourse.status).toBe(404);
