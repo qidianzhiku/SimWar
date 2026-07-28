@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import SwaggerParser from "@apidevtools/swagger-parser";
 import Ajv2020 from "ajv/dist/2020.js";
 import yaml from "js-yaml";
 
@@ -127,8 +128,8 @@ function readJson(path) {
   return JSON.parse(readFileSync(repoPath(path), "utf8"));
 }
 
-function readOpenApi() {
-  return yaml.load(readFileSync(repoPath("contracts/openapi/p0-api.openapi.yaml"), "utf8"));
+function readOpenApi(path) {
+  return yaml.load(readFileSync(repoPath(path), "utf8"));
 }
 
 function assert(condition, message) {
@@ -351,7 +352,9 @@ function assertStudentFixtureDoesNotExposePrivateFields() {
   }
 }
 
-export function runContractValidation() {
+export async function runContractValidation(options = {}) {
+  const openApiPath = options.openApiPath ?? "contracts/openapi/p0-api.openapi.yaml";
+
   requireFiles([...requiredBaselineFiles, ...m1ContractFiles]);
 
   for (const jsonPath of [...requiredBaselineFiles, ...m1ContractFiles].filter((file) =>
@@ -360,7 +363,8 @@ export function runContractValidation() {
     readJson(jsonPath);
   }
 
-  const openApi = readOpenApi();
+  await SwaggerParser.validate(repoPath(openApiPath));
+  const openApi = readOpenApi(openApiPath);
   assertM1OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
@@ -369,6 +373,7 @@ export function runContractValidation() {
   return {
     baselineFiles: requiredBaselineFiles.length,
     m1ContractFiles: m1ContractFiles.length,
-    fixtureCases: schemaCases.length
+    fixtureCases: schemaCases.length,
+    openApiParser: "@apidevtools/swagger-parser"
   };
 }

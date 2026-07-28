@@ -1,7 +1,7 @@
 import { runContractValidation } from "./contract-validation-facade.mjs";
 
 try {
-  const summary = runContractValidation();
+  const summary = await runContractValidation();
   console.log(
     [
       "Contract conformance gate passed:",
