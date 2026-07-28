@@ -186,6 +186,10 @@ paths:
       responses:
         "200":
           description: Round opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1RoundEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/decisions:
     post:
       summary: Submit a validated team decision.
@@ -254,6 +258,10 @@ paths:
       responses:
         "200":
           description: Round locked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1RoundEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/settle:
     post:
       summary: Teacher command that requests structured-core settlement.
@@ -271,6 +279,10 @@ paths:
       responses:
         "200":
           description: Settlement result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1SettlementResultEnvelope"
   /api/v1/bff/teacher/runs/{runId}/scenario-package-candidates:
     get:
       operationId: R7_TEACHER_SCENARIO_PACKAGE_CANDIDATES_GET_V1
@@ -731,6 +743,10 @@ paths:
       responses:
         "200":
           description: Settlement result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1SettlementResultEnvelope"
         "403":
           description: Service-principal credential is missing or invalid
           content:
@@ -754,6 +770,10 @@ paths:
       responses:
         "200":
           description: Round published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1RoundEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/results:
     get:
       summary: Read role-trimmed round results.
@@ -1286,6 +1306,10 @@ components:
       $ref: "../schemas/m1-decision-submit-request.v1.json"
     M1DecisionSubmitSuccessEnvelope:
       $ref: "../schemas/m1-decision-submit-success-envelope.v1.json"
+    M1RoundEnvelope:
+      $ref: "../schemas/m1-round-envelope.v1.json"
+    M1SettlementResultEnvelope:
+      $ref: "../schemas/m1-settlement-result-envelope.v1.json"
     M1StudentResultEnvelope:
       $ref: "../schemas/m1-student-result-envelope.v1.json"
     M1TeacherAdminResultEnvelope:

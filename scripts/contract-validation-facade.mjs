@@ -31,6 +31,8 @@ const m1ContractFiles = [
   "contracts/schemas/api-error-envelope.v1.json",
   "contracts/schemas/m1-decision-submit-request.v1.json",
   "contracts/schemas/m1-decision-submit-success-envelope.v1.json",
+  "contracts/schemas/m1-round-envelope.v1.json",
+  "contracts/schemas/m1-settlement-result-envelope.v1.json",
   "contracts/schemas/m1-student-result-envelope.v1.json",
   "contracts/schemas/m1-teacher-admin-result-envelope.v1.json",
   "contracts/schemas/m1-teacher-bff-workspace-envelope.v1.json",
@@ -39,6 +41,8 @@ const m1ContractFiles = [
   "contracts/fixtures/m1-decision-submit-request.valid.json",
   "contracts/fixtures/m1-decision-submit-request.invalid.json",
   "contracts/fixtures/m1-decision-submit-success-envelope.valid.json",
+  "contracts/fixtures/m1-round-envelope.valid.json",
+  "contracts/fixtures/m1-settlement-result-envelope.valid.json",
   "contracts/fixtures/m1-wrong-team-error-envelope.valid.json",
   "contracts/fixtures/api-error-envelope-missing-code.invalid.json",
   "contracts/fixtures/m1-student-result-envelope.valid.json",
@@ -82,6 +86,16 @@ const schemaCases = [
   {
     schema: "contracts/schemas/m1-decision-submit-success-envelope.v1.json",
     valid: ["contracts/fixtures/m1-decision-submit-success-envelope.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/m1-round-envelope.v1.json",
+    valid: ["contracts/fixtures/m1-round-envelope.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/m1-settlement-result-envelope.v1.json",
+    valid: ["contracts/fixtures/m1-settlement-result-envelope.valid.json"],
     invalid: []
   },
   {
@@ -223,6 +237,32 @@ function assertM1OpenApiBindings(openApi) {
     );
   }
 
+  for (const path of [
+    "/api/v1/runs/{runId}/rounds/{roundNo}/start",
+    "/api/v1/runs/{runId}/rounds/{roundNo}/lock",
+    "/api/v1/runs/{runId}/rounds/{roundNo}/publish"
+  ]) {
+    const operation = openApi.paths[path]?.post;
+    assert(operation, `Missing POST operation for ${path}.`);
+    assert(
+      jsonContentSchema(operation.responses?.["200"])?.$ref === schemaRef("M1RoundEnvelope"),
+      `${path} 200 response must reference M1RoundEnvelope.`
+    );
+  }
+
+  for (const path of [
+    "/api/v1/runs/{runId}/rounds/{roundNo}/settle",
+    "/internal/v1/runs/{runId}/rounds/{roundNo}/settle"
+  ]) {
+    const operation = openApi.paths[path]?.post;
+    assert(operation, `Missing POST operation for ${path}.`);
+    assert(
+      jsonContentSchema(operation.responses?.["200"])?.$ref ===
+        schemaRef("M1SettlementResultEnvelope"),
+      `${path} 200 response must reference M1SettlementResultEnvelope.`
+    );
+  }
+
   const resultsGet = openApi.paths["/api/v1/runs/{runId}/rounds/{roundNo}/results"]?.get;
   assert(resultsGet, "Missing GET operation for M1 results.");
   const resultOneOf = jsonContentSchema(resultsGet.responses?.["200"])?.oneOf ?? [];
@@ -274,6 +314,8 @@ function assertM1OpenApiBindings(openApi) {
     "ApiErrorEnvelope",
     "M1DecisionSubmitRequest",
     "M1DecisionSubmitSuccessEnvelope",
+    "M1RoundEnvelope",
+    "M1SettlementResultEnvelope",
     "M1StudentResultEnvelope",
     "M1TeacherAdminResultEnvelope",
     "M1PublicReplayEvidence",
@@ -315,6 +357,7 @@ function formatAjvErrors(validate) {
 function validateFixtureCases() {
   for (const contractCase of schemaCases) {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
+    ajv.addSchema(readJson("contracts/schemas/settlement-result.v1.json"));
     const validate = ajv.compile(readJson(contractCase.schema));
 
     for (const fixture of contractCase.valid) {
