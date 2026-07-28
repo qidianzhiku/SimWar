@@ -316,6 +316,81 @@ paths:
           description: Run context not found or out of scope
         "503":
           description: Scenario candidate provider capability unavailable
+  /api/v1/bff/teacher/formal-scenario-package-catalog:
+    get:
+      operationId: TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1
+      summary: List approved formal ScenarioPackage authority references for the authenticated Teacher tenant.
+      description: Read-only Teacher BFF projection. It creates no binding, writes no formal authority state, activates no Scenario runtime, and executes no Replay or settlement.
+      responses:
+        "200":
+          description: Approved formal ScenarioPackage references safe for a local Teacher draft selection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - operation_id
+                  - candidates
+                  - explicit_non_proofs
+                properties:
+                  operation_id:
+                    type: string
+                    const: TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - scenario_package_reference
+                        - parameter_set_reference
+                        - status
+                        - schema_version
+                        - compatibility_metadata
+                        - plugin_dependencies
+                      properties:
+                        scenario_package_reference:
+                          type: object
+                          additionalProperties: false
+                          required: [tenant_id, scenario_package_id, version, content_digest]
+                          properties:
+                            tenant_id: { type: string }
+                            scenario_package_id: { type: string }
+                            version: { type: string }
+                            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+                        parameter_set_reference:
+                          type: object
+                          additionalProperties: false
+                          required: [parameter_set_id, version, content_digest]
+                          properties:
+                            parameter_set_id: { type: string }
+                            version: { type: string }
+                            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+                        status:
+                          type: string
+                          const: APPROVED
+                        schema_version:
+                          type: string
+                        compatibility_metadata:
+                          type: object
+                          additionalProperties: { type: string }
+                        plugin_dependencies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: false
+                            required: [plugin_package_id, version]
+                            properties:
+                              plugin_package_id: { type: string }
+                              version: { type: string }
+                  explicit_non_proofs:
+                    type: array
+                    items: { type: string }
+        "401":
+          description: Authentication required
+        "403":
+          description: Teacher authority required
   /api/v1/bff/admin/run-lifecycle-controls:
     get:
       operationId: SYNTHETIC_RUN_LIFECYCLE_CONTROLS_LIST_V1

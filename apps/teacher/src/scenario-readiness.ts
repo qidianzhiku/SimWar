@@ -1,4 +1,7 @@
-import type { R7TeacherScenarioPackageCandidatesDto } from "@simwar/shared-contracts";
+import type {
+  R7TeacherScenarioPackageCandidatesDto,
+  TeacherFormalScenarioPackageCatalogDto
+} from "@simwar/shared-contracts";
 
 export const SCENARIO_READINESS_OPERATION_ID =
   "R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1" as const;
@@ -45,6 +48,56 @@ export class ScenarioCandidatesRequestError extends Error {
     super(message);
     this.name = "ScenarioCandidatesRequestError";
   }
+}
+
+export class TeacherFormalScenarioPackageCatalogRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "TeacherFormalScenarioPackageCatalogRequestError";
+  }
+}
+
+export async function requestTeacherFormalScenarioPackageCatalog(input: {
+  apiBaseUrl: string;
+  token: string;
+}): Promise<TeacherFormalScenarioPackageCatalogDto> {
+  const response = await fetch(
+    `${input.apiBaseUrl}/api/v1/bff/teacher/formal-scenario-package-catalog`,
+    {
+      headers: { authorization: `Bearer ${input.token}` },
+      method: "GET"
+    }
+  );
+  const payload = (await response.json()) as
+    | TeacherFormalScenarioPackageCatalogDto
+    | { error?: { message?: string } };
+
+  if (!response.ok) {
+    throw new TeacherFormalScenarioPackageCatalogRequestError(
+      response.status,
+      "error" in payload && payload.error?.message
+        ? payload.error.message
+        : "formal ScenarioPackage catalog request failed"
+    );
+  }
+
+  return payload as TeacherFormalScenarioPackageCatalogDto;
+}
+
+export function getTeacherFormalScenarioPackageCatalogErrorMessage(error: unknown): string {
+  if (!(error instanceof TeacherFormalScenarioPackageCatalogRequestError)) {
+    return "Formal ScenarioPackage catalog could not be loaded.";
+  }
+  if (error.status === 401) {
+    return "Authentication is required to load the formal ScenarioPackage catalog.";
+  }
+  if (error.status === 403) {
+    return "Teacher authority is required to load the formal ScenarioPackage catalog.";
+  }
+  return "Formal ScenarioPackage catalog could not be loaded.";
 }
 
 export async function requestScenarioPackageCandidates(input: {

@@ -19,8 +19,10 @@ import type {
   RoundStatus,
   Run,
   ScenarioPackage,
+  ScenarioPackageAuthorityReadProjection,
   SettlementResult,
   SyntheticRunLifecycleOperation,
+  TeacherFormalScenarioPackageCatalogDto,
   Team,
   Tenant,
   User
@@ -42,7 +44,10 @@ import {
   verifySignedToken
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
+import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
+import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
+import type { ScenarioPackageAuthorityReadFacade } from "./repository-facade.js";
 import {
   resolveRuntimeSecurityConfig,
   validateRuntimeSecurityConfig,
@@ -104,6 +109,7 @@ interface RequestContext {
 }
 
 interface ApiRuntime {
+  formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
   store: SimWarStore;
@@ -115,6 +121,7 @@ interface ApiRuntime {
 export interface CreateApiServerOptions {
   env?: RuntimeSecurityConfigEnv;
   formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
+  formalScenarioPackageCatalog?: ScenarioPackageAuthorityReadFacade;
   repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
 }
@@ -183,17 +190,47 @@ function createRuntimeRepositoryProvider(
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
+  const formalScenarioPackageCatalog =
+    options.formalScenarioPackageCatalog ??
+    createJsonFormalScenarioAuthorityRuntime(createJsonFormalScenarioAuthorityPersistence(store))
+      .catalog;
+
   return {
     ...(options.formalRunBindingAuthorities
       ? { formalRunBindingAuthorities: options.formalRunBindingAuthorities }
       : {}),
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
+    formalScenarioPackageCatalog,
     store,
     repositoryProvider: createRuntimeRepositoryProvider(store, options),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
     runMutationLocks: new Map()
+  };
+}
+
+function createTeacherFormalScenarioPackageCatalogProjection(
+  candidates: ScenarioPackageAuthorityReadProjection[]
+): TeacherFormalScenarioPackageCatalogDto {
+  return {
+    candidates: candidates.map((candidate) => ({
+      compatibility_metadata: { ...candidate.compatibility_metadata },
+      parameter_set_reference: { ...candidate.parameter_set_reference },
+      plugin_dependencies: candidate.plugin_dependencies.map((dependency) => ({ ...dependency })),
+      scenario_package_reference: { ...candidate.reference },
+      schema_version: candidate.schema_version,
+      status: "APPROVED"
+    })),
+    explicit_non_proofs: [
+      "FORMAL_CATALOG_READ_ONLY",
+      "LOCAL_DRAFT_SELECTION_DOES_NOT_BIND_A_RUN",
+      "SCENARIO_RUNTIME_NOT_ACTIVATED",
+      "PARAMETERSET_NOT_MUTATED",
+      "REPLAY_NOT_EXECUTED",
+      "SETTLEMENT_NOT_EXECUTED"
+    ],
+    operation_id: "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1"
   };
 }
 
@@ -747,6 +784,59 @@ async function handleR7TeacherScenarioSelectionReadiness(
       response,
       500,
       "R7_BFF_INTERNAL_ERROR",
+      "internal server error",
+      correlationId()
+    );
+  }
+}
+
+async function handleTeacherFormalScenarioPackageCatalog(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  let context: RequestContext | undefined;
+  const correlationId = () =>
+    context?.requestId ?? request.headers["x-request-id"]?.toString() ?? null;
+
+  try {
+    context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+
+    if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+    }
+
+    const candidates = await runtime.formalScenarioPackageCatalog.listApprovedForTenant(
+      context.tenantId
+    );
+    sendJson(response, 200, createTeacherFormalScenarioPackageCatalogProjection(candidates));
+  } catch (error: unknown) {
+    if (error instanceof HttpError && error.statusCode === 401) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        401,
+        "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_AUTHENTICATION_REQUIRED",
+        "authentication required",
+        correlationId()
+      );
+      return;
+    }
+    if (error instanceof HttpError && error.statusCode === 403) {
+      sendR7ScenarioSelectionReadinessError(
+        response,
+        403,
+        "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_AUTHORITY_REQUIRED",
+        "teacher authority required",
+        correlationId()
+      );
+      return;
+    }
+
+    sendR7ScenarioSelectionReadinessError(
+      response,
+      500,
+      "TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_INTERNAL_ERROR",
       "internal server error",
       correlationId()
     );
@@ -1437,6 +1527,14 @@ async function routeRequest(
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/v1/bff/teacher/formal-scenario-package-catalog"
+  ) {
+    await handleTeacherFormalScenarioPackageCatalog(runtime, request, response);
+    return;
+  }
 
   if (
     request.method === "GET" &&
