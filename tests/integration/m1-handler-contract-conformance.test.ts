@@ -26,7 +26,11 @@ const validDecisionPayload = {
 
 function expectEnvelopeToMatchSchema(schemaFile: string, envelope: unknown): void {
   const schema = JSON.parse(readFileSync(resolve("contracts/schemas", schemaFile), "utf8"));
-  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addSchema(
+    JSON.parse(readFileSync(resolve("contracts/schemas/settlement-result.v1.json"), "utf8"))
+  );
+  const validate = ajv.compile(schema);
 
   expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);
 }
@@ -121,6 +125,7 @@ describe("M1 handler contract conformance", () => {
         { method: "POST", token: teacherToken }
       );
       expect(startResponse.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-round-envelope.v1.json", startResponse.body);
 
       const decisionResponse = await request<unknown>(
         baseUrl,
@@ -143,6 +148,7 @@ describe("M1 handler contract conformance", () => {
         { method: "POST", token: teacherToken }
       );
       expect(lockResponse.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-round-envelope.v1.json", lockResponse.body);
 
       const settlementResponse = await request<SettlementResult>(
         baseUrl,
@@ -150,6 +156,7 @@ describe("M1 handler contract conformance", () => {
         { method: "POST", token: teacherToken }
       );
       expect(settlementResponse.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-settlement-result-envelope.v1.json", settlementResponse.body);
 
       const publishResponse = await request<Round>(
         baseUrl,
@@ -157,6 +164,7 @@ describe("M1 handler contract conformance", () => {
         { method: "POST", token: teacherToken }
       );
       expect(publishResponse.status).toBe(200);
+      expectEnvelopeToMatchSchema("m1-round-envelope.v1.json", publishResponse.body);
 
       const teacherResults = await request<unknown>(
         baseUrl,

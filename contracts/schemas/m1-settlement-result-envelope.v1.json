@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-settlement-result-envelope.v1.json",
+  "title": "M1SettlementResultEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "code": { "const": "OK" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": { "$ref": "settlement-result.v1.json" }
+  }
+}

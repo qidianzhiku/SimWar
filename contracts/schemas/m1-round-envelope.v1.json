@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m1-round-envelope.v1.json",
+  "title": "M1RoundEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "code": { "const": "OK" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round_id", "tenant_id", "run_id", "round_no", "status"],
+      "properties": {
+        "round_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["draft", "open", "locked", "settled", "published"] },
+        "decision_batch_id": { "type": "string", "minLength": 1 },
+        "replay_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  }
+}
