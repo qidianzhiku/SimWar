@@ -458,6 +458,75 @@ paths:
           description: Lifecycle transition conflicts with the current immutable snapshot
         "422":
           description: Invalid exact reference, tenant scope, or approval input
+  /api/v1/formal-authority/scenario-packages:
+    post:
+      operationId: FORMAL_SCENARIO_PACKAGE_DRAFT_CREATE_V1
+      summary: Create a formal ScenarioPackage draft for the request tenant.
+      description: Platform-admin governance ingress only. It appends a DRAFT lifecycle snapshot through the formal authority command service. It neither activates a runtime nor binds a Run, executes Replay, or settles.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalScenarioPackageDraftInput"
+      responses:
+        "201":
+          description: Formal DRAFT ScenarioPackage version
+        "401":
+          description: Authentication required
+        "403":
+          description: scenario_package:manage permission required
+        "409":
+          description: The bound ParameterSet is not currently approved and bindable
+        "422":
+          description: Invalid tenant-scoped formal ScenarioPackage draft
+  /api/v1/formal-authority/scenario-packages/{scenarioPackageId}/versions/{version}/{action}:
+    post:
+      operationId: FORMAL_SCENARIO_PACKAGE_LIFECYCLE_TRANSITION_V1
+      summary: Transition one exact formal ScenarioPackage reference.
+      description: Platform-admin governance ingress only. The request body must carry the exact immutable reference and request tenant. Supported transitions are validate, freeze, approve, and retire.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: scenarioPackageId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [validate, freeze, approve, retire]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+                - $ref: "#/components/schemas/FormalScenarioPackageApprovalInput"
+      responses:
+        "200":
+          description: Transitioned formal ScenarioPackage version or approval result
+        "401":
+          description: Authentication required
+        "403":
+          description: scenario_package:manage permission required
+        "404":
+          description: Exact formal ScenarioPackage version not found
+        "409":
+          description: Lifecycle transition conflicts with the current immutable snapshot or bound ParameterSet
+        "422":
+          description: Invalid exact reference, tenant scope, or approval input
   /api/v1/bff/admin/run-lifecycle-controls:
     get:
       operationId: SYNTHETIC_RUN_LIFECYCLE_CONTROLS_LIST_V1
@@ -662,6 +731,20 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    FormalParameterSetBindingReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [parameter_set_id, version, content_digest]
+      properties:
+        parameter_set_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
     FormalParameterSetReferenceInput:
       type: object
       additionalProperties: false
@@ -734,6 +817,112 @@ components:
           description: Immutable JSON parameter value governed by the formal command service.
         parent_reference:
           $ref: "#/components/schemas/FormalParameterSetReferenceInput"
+    FormalScenarioPackageReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, scenario_package_id, version, content_digest]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        scenario_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FormalScenarioPackageApprovalInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, scenario_package_id, version, content_digest, approval_id]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        scenario_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        approval_id:
+          type: string
+          minLength: 1
+    FormalScenarioPackageDraftInput:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - scenario_package_id
+        - version
+        - schema_version
+        - artifact_policy
+        - compatibility_metadata
+        - content
+        - metadata
+        - parameter_set_reference
+        - plugin_dependencies
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        scenario_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        schema_version:
+          type: string
+          minLength: 1
+        artifact_policy:
+          type: object
+          additionalProperties: false
+          required: [mode, retention]
+          properties:
+            mode:
+              type: string
+              enum: [INLINE, IMMUTABLE_REFERENCE]
+            retention:
+              type: string
+              enum: [IMMUTABLE]
+            artifact_digest:
+              type: string
+              pattern: "^[a-f0-9]{64}$"
+            artifact_media_type:
+              type: string
+            artifact_reference:
+              type: string
+        compatibility_metadata:
+          type: object
+          additionalProperties:
+            type: string
+        content:
+          description: Immutable JSON scenario content governed by the formal command service.
+        metadata:
+          type: object
+          additionalProperties: true
+        parameter_set_reference:
+          $ref: "#/components/schemas/FormalParameterSetBindingReferenceInput"
+        plugin_dependencies:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [plugin_package_id, version]
+            properties:
+              plugin_package_id:
+                type: string
+                minLength: 1
+              version:
+                type: string
+                minLength: 1
     SyntheticRunLifecycleControl:
       type: object
       additionalProperties: false
