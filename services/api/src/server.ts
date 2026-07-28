@@ -110,7 +110,7 @@ interface RequestContext {
 
 interface ApiRuntime {
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
-  formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
+  formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
@@ -190,15 +190,19 @@ function createRuntimeRepositoryProvider(
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
+  const formalAuthorityRuntime = createJsonFormalScenarioAuthorityRuntime(
+    createJsonFormalScenarioAuthorityPersistence(store)
+  );
+  const formalRunBindingAuthorities = options.formalRunBindingAuthorities ?? {
+    parameterSets: formalAuthorityRuntime.parameterSets,
+    plugins: formalAuthorityRuntime.pluginReleases,
+    scenarios: formalAuthorityRuntime.scenarioPackages
+  };
   const formalScenarioPackageCatalog =
-    options.formalScenarioPackageCatalog ??
-    createJsonFormalScenarioAuthorityRuntime(createJsonFormalScenarioAuthorityPersistence(store))
-      .catalog;
+    options.formalScenarioPackageCatalog ?? formalAuthorityRuntime.catalog;
 
   return {
-    ...(options.formalRunBindingAuthorities
-      ? { formalRunBindingAuthorities: options.formalRunBindingAuthorities }
-      : {}),
+    formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
     formalScenarioPackageCatalog,
     store,

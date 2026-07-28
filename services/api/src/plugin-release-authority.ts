@@ -100,6 +100,13 @@ export interface PluginReleaseRegistryPort extends PluginReleaseAuthorityReadPor
   listLifecycleSnapshots(pluginPackageId: string, version: string): Promise<PluginReleaseVersion[]>;
 }
 
+export interface InMemoryJsonPluginReleaseRegistryOptions {
+  approvals?: PluginReleaseApprovalRecord[];
+  availability?: PluginReleaseAvailabilityRecord[];
+  onAppend?: () => void;
+  snapshots?: PluginReleaseVersion[];
+}
+
 function canonicalize(value: unknown): string {
   if (typeof value === "number" && !Number.isFinite(value)) {
     throw new PluginReleaseAuthorityError("PLUGIN_RELEASE_VALIDATION_FAILED");
@@ -259,9 +266,21 @@ export function calculatePluginReleaseContentDigest(input: PluginReleaseDraftInp
 }
 
 export class InMemoryJsonPluginReleaseRegistry implements PluginReleaseRegistryPort {
-  private readonly approvalRecords: PluginReleaseApprovalRecord[] = [];
-  private readonly availabilityRecords: PluginReleaseAvailabilityRecord[] = [];
-  private readonly snapshots: PluginReleaseVersion[] = [];
+  private readonly approvalRecords: PluginReleaseApprovalRecord[];
+  private readonly availabilityRecords: PluginReleaseAvailabilityRecord[];
+  private readonly onAppend: (() => void) | undefined;
+  private readonly snapshots: PluginReleaseVersion[];
+
+  constructor(options: InMemoryJsonPluginReleaseRegistryOptions = {}) {
+    this.approvalRecords = options.approvals ?? [];
+    this.availabilityRecords = options.availability ?? [];
+    this.onAppend = options.onAppend;
+    this.snapshots = options.snapshots ?? [];
+
+    this.approvalRecords.forEach((record) => deepFreeze(record));
+    this.availabilityRecords.forEach((record) => deepFreeze(record));
+    this.snapshots.forEach((version) => deepFreeze(version));
+  }
 
   async appendApprovedVersion(
     version: PluginReleaseVersion,
@@ -271,6 +290,10 @@ export class InMemoryJsonPluginReleaseRegistry implements PluginReleaseRegistryP
     this.assertApprovalAppendable(record);
     this.snapshots.push(version);
     this.approvalRecords.push(deepFreeze({ ...record }));
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+      this.approvalRecords.pop();
+    });
   }
 
   async appendAvailableVersion(
@@ -281,11 +304,18 @@ export class InMemoryJsonPluginReleaseRegistry implements PluginReleaseRegistryP
     this.assertAvailabilityAppendable(record);
     this.snapshots.push(version);
     this.availabilityRecords.push(deepFreeze({ ...record }));
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+      this.availabilityRecords.pop();
+    });
   }
 
   async appendVersion(version: PluginReleaseVersion): Promise<void> {
     this.assertVersionAppendable(version);
     this.snapshots.push(version);
+    this.persistOrRollback(() => {
+      this.snapshots.pop();
+    });
   }
 
   async getByReference(reference: PluginReleaseReference): Promise<PluginReleaseVersion | null> {
@@ -335,6 +365,15 @@ export class InMemoryJsonPluginReleaseRegistry implements PluginReleaseRegistryP
     }
 
     return matches.at(-1)?.status === "AVAILABLE" ? (matches.at(-1) ?? null) : null;
+  }
+
+  private persistOrRollback(rollback: () => void): void {
+    try {
+      this.onAppend?.();
+    } catch (error) {
+      rollback();
+      throw error;
+    }
   }
 
   private assertApprovalAppendable(record: PluginReleaseApprovalRecord): void {
