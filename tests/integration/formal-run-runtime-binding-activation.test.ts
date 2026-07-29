@@ -737,4 +737,160 @@ describe("formal Run RuntimeBinding activation", () => {
       await stopServer(server);
     }
   });
+
+  it("keeps the Teacher BFF Course-to-Run path in Golden parity with the existing direct formal path", async () => {
+    const { baseUrl, server, store } = await startServer();
+    const scenarioReference = {
+      content_digest: digest("b"),
+      scenario_package_id: "scenario_eldercare_demo",
+      tenant_id: TENANT_ID,
+      version: "1.0.0"
+    };
+    const parameterReference = {
+      content_digest: digest("a"),
+      parameter_set_id: "param_toy_approved_1",
+      version: "1.0.0"
+    };
+
+    async function completeGoldenRun(courseId: string, teamId: string, teacherToken: string) {
+      const teamCreation = await request<{ team_id: string }>(
+        baseUrl,
+        `/api/v1/courses/${courseId}/teams`,
+        {
+          body: { captain_user_id: "usr_student", name: teamId },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(teamCreation.status).toBe(201);
+      const createdTeamId = teamCreation.body.data.team_id;
+      const student = store.users.find((candidate) => candidate.user_id === "usr_student");
+      if (!student) {
+        throw new Error("missing parity student");
+      }
+      student.team_id = createdTeamId;
+      const studentToken = await login(baseUrl, "student", "student");
+      const createdRun = await request<{ run: Run }>(baseUrl, `/api/v1/courses/${courseId}/runs`, {
+        body: { formal_runtime_seed: 20260729 },
+        method: "POST",
+        token: teacherToken
+      });
+      expect(createdRun.status).toBe(201);
+      const runId = createdRun.body.data.run.run_id;
+      expect(
+        (
+          await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/start`, {
+            method: "POST",
+            token: teacherToken
+          })
+        ).status
+      ).toBe(200);
+      expect(
+        (
+          await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
+            body: { decision_payload: decisionPayload, team_id: createdTeamId },
+            method: "POST",
+            token: studentToken
+          })
+        ).status
+      ).toBe(201);
+      expect(
+        (
+          await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {
+            method: "POST",
+            token: teacherToken
+          })
+        ).status
+      ).toBe(200);
+      const settlement = await request<SettlementResult>(
+        baseUrl,
+        `/api/v1/runs/${runId}/rounds/1/settle`,
+        { method: "POST", token: teacherToken }
+      );
+      expect(settlement.status).toBe(200);
+      expect(
+        (
+          await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/publish`, {
+            method: "POST",
+            token: teacherToken
+          })
+        ).status
+      ).toBe(200);
+      return { runId, settlement: settlement.body.data };
+    }
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const directCourse = await request<{ course_id: string }>(baseUrl, "/api/v1/courses", {
+        body: {
+          formal_authority_binding: {
+            engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+            parameter_set_reference: parameterReference,
+            scenario_package_reference: scenarioReference
+          },
+          title: "Direct formal Golden parity Course"
+        },
+        method: "POST",
+        token: teacherToken
+      });
+      expect(directCourse.status).toBe(201);
+      expect(
+        (
+          await request(baseUrl, `/api/v1/courses/${directCourse.body.data.course_id}/publish`, {
+            method: "POST",
+            token: teacherToken
+          })
+        ).status
+      ).toBe(200);
+
+      const bffCourse = await request<{ course: Course }>(
+        baseUrl,
+        "/api/v1/bff/teacher/formal-courses",
+        {
+          body: {
+            scenario_package_reference: scenarioReference,
+            title: "Teacher BFF Golden parity Course"
+          },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(bffCourse.status).toBe(201);
+      expect(
+        (
+          await request(
+            baseUrl,
+            `/api/v1/courses/${bffCourse.body.data.course.course_id}/publish`,
+            { method: "POST", token: teacherToken }
+          )
+        ).status
+      ).toBe(200);
+
+      const direct = await completeGoldenRun(
+        directCourse.body.data.course_id,
+        "team_direct_parity",
+        teacherToken
+      );
+      const bff = await completeGoldenRun(
+        bffCourse.body.data.course.course_id,
+        "team_bff_parity",
+        teacherToken
+      );
+
+      const businessResults = (result: SettlementResult) =>
+        result.team_results.map(
+          ({ team_id: _teamId, team_name: _teamName, ...teamResult }) => teamResult
+        );
+      expect(businessResults(bff.settlement)).toEqual(businessResults(direct.settlement));
+      expect(
+        store.settlementResults.filter((result) => result.run_id === direct.runId)
+      ).toHaveLength(1);
+      expect(store.settlementResults.filter((result) => result.run_id === bff.runId)).toHaveLength(
+        1
+      );
+      expect(direct.runId).not.toBe(bff.runId);
+    } finally {
+      await stopServer(server);
+    }
+  });
 });
