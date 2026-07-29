@@ -11,7 +11,7 @@ latest_merge:
   merge_sha: 2b9b137830144d65970b69636c121b76df238ceb
   head_sha: 3957e0caa0e3164ea1b7e227469d263e1582e4c3
 runtime_authority: JSON_INTERNAL_ONLY
-l1_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 current_master_reconciliation:
   reconciled_at: "2026-07-29T01:31:00Z"
   assessment_source_anchor_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
@@ -40,12 +40,33 @@ current_master_reconciliation:
   graph_freshness: STALE_NOT_REQUIRED_FOR_EVIDENCE_ASSEMBLY
   expiry: ADOPTION_MERGE
   historical_sections: ASSESSMENT_SOURCE_ANCHOR_ONLY
+owner_decision_formal_closure:
+  decision_id: OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001
+  decision: APPROVE
+  evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
+  evidence_pack_sha256: fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de
+  owner_decision_record: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
+  machine_validation: PASS
+  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
+  b01_b04: CLOSED_AND_CURRENT
+  vc13: CLOSED_AND_CURRENT
+  vc14: CLOSED_AND_CURRENT
+  issue_111: OPEN_KNOWN_LIMIT
+  l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
+  next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+  non_authorizations:
+    - L1_PLUS
+    - POSTGRESQL_ACTIVE_AUTHORITY
+    - DURABLE_SETTLEMENT
+    - DURABLE_RECOVERY
+    - CONTROLLED_PILOT
+    - PRODUCTION
 evidence_freshness:
-  github_facts: CURRENT_AT_GENERATION
+  github_facts: CURRENT_AT_448CFBE3A1DC990F3BBD497214BE5FC80D8FE8AB
   pr_263_head_ci: SUCCESS
   pr_263_head_codeql: SUCCESS
-  current_master_fresh_clone: MISSING
-  post_merge_receipt: MISSING
+  current_master_fresh_clone: PASS
+  post_merge_receipt: PASS
   branch_protection: UNKNOWN
   graphify: STALE_REBUILD_REQUIRED
   codegraph: STALE_REBUILD_REQUIRED
@@ -54,7 +75,7 @@ wip:
   support_code: UNKNOWN_LOCAL
   docs: UNKNOWN_LOCAL
   discovery: UNKNOWN_LOCAL
-  closure: IDLE_REMOTE_POST_MERGE_RECEIPT_MISSING
+  closure: CLOSED_OWNER_DECISION_RECORDED
   ready_for_closure_pr_count: 0
 summary:
   total_l1_required_capabilities: 14

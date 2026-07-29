@@ -6,7 +6,7 @@
 **生成时间：** `2026-07-28T09:11:06Z`
 **文档状态：** `READY_FOR_REPOSITORY_ADOPTION_WITH_CURRENT_REALITY_LIMITS`
 **评估源码锚点（Assessment Source Anchor）：** `qidianzhiku/SimWar@2b9b137830144d65970b69636c121b76df238ceb`
-**Current L1 Status：** `AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR`
+**Current L1 Status：** `SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE`
 **导入规范化说明：** 本文和配套 YAML 中的 `2b9b137830144d65970b69636c121b76df238ceb` 仅表示生成时的 Assessment Source Anchor，不表示采用时或未来的 current master。
 **自动启动下一目标：** `FORBIDDEN`
 
@@ -36,6 +36,28 @@
 **Truthful boundary:** Human Validation remains `WAIVED_BY_OWNER_NOT_PERFORMED`; it is not recorded as completed. Issue #111 remains `OPEN_KNOWN_LIMIT` for durable settlement/idempotency policy. PostgreSQL, durable recovery, Pilot, and Production remain unproven and unauthorized.
 
 > Sections that describe `2b9b1378…` are retained as historical assessment evidence. They do not override this source-bound reconciliation and must not be read as current Issue, Portfolio, or L1 status.
+
+---
+
+## 0.1 Owner Decision Formal Closure
+
+**Recorded Decision:** `OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001`<br>
+**Decision:** `APPROVE`<br>
+**Evidence Source SHA:** `448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab`<br>
+**Evidence Pack SHA-256:** `fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de`<br>
+**Owner Decision Record:** `docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json`
+
+| Area                             | Formal disposition                                                |
+| -------------------------------- | ----------------------------------------------------------------- |
+| B01 / B02 / B03 / B04            | `CLOSED_AND_CURRENT`                                              |
+| VC-13 / Completion Evidence Pack | `CLOSED_AND_CURRENT`                                              |
+| VC-14 / Owner Acknowledgment     | `CLOSED_AND_CURRENT`                                              |
+| L1 formal status                 | `SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE` |
+| Human Validation                 | `WAIVED_BY_OWNER_NOT_PERFORMED`                                   |
+| Issue #111                       | `OPEN_KNOWN_LIMIT`                                                |
+| Next Mission                     | `NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION`                 |
+
+This formal closure is limited to the exact Evidence Source SHA and does not authorize L1+, PostgreSQL activation, durable settlement or recovery, Controlled Pilot, Production, real data, billing, external providers, or another Mission.
 
 ---
 
@@ -396,29 +418,26 @@ Admin / QA
 
 ## 8. L1 Capability Status Ledger
 
-| VC       | Capability                                              | Status                                                    | Gap Class      | Blocks L1 | Tier                                               | Suggested Bundle                                    |
-| -------- | ------------------------------------------------------- | --------------------------------------------------------- | -------------- | --------- | -------------------------------------------------- | --------------------------------------------------- |
-| L1-VC-01 | Current Reality与工程基线                               | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T1/T3                                              | Current-master fresh-clone and CI receipt           |
-| L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | #112 closure retained on current master             |
-| L1-VC-03 | Synthetic Course与Run Entry                             | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 Golden product evidence             |
-| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | B01 closed by PR #267 and fresh-clone receipt       |
-| L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 product evidence                    |
-| L1-VC-06 | Student Whole-Team Decision Flow                        | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 student decision and scope checks   |
-| L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | CLOSED_WITH_KNOWN_LIMIT                                   | L1_KNOWN_LIMIT | NO        | T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE | #111 remains durable-runtime known limit            |
-| L1-VC-08 | Publish与Teacher/Student/Admin安全Projection            | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T2/T3                                              | #112/#115 closure and Phase 7 boundary evidence     |
-| L1-VC-09 | Three-Part Feedback与Learning Report最小闭环            | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 teacher/student readback            |
-| L1-VC-10 | Official Replay与Evidence Non-Overwrite                 | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Run A historical state and replay summary unchanged |
-| L1-VC-11 | Abort、Reset、Cleanup与Failure Matrix                   | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T3                                                 | Run B abort/reset/cleanup receipt                   |
-| L1-VC-12 | Known Limits与阶段声明边界                              | CLOSED_AND_CURRENT                                        | CLOSED_CURRENT | NO        | T0/T3                                              | Current role-scoped Known Limits readback           |
-| L1-VC-13 | L1 Completion Evidence Pack                             | AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED | L1_GATE        | YES       | T1/T3                                              | Current immutable evidence pack                     |
-| L1-VC-14 | Final L1 Gate与Owner Acknowledgment                     | AWAITING_OWNER_ACKNOWLEDGMENT                             | L1_GATE        | YES       | T4_STAGE_DECISION                                  | Owner-only stage decision                           |
+| VC       | Capability                                              | Status                  | Gap Class      | Blocks L1 | Tier                                               | Suggested Bundle                                     |
+| -------- | ------------------------------------------------------- | ----------------------- | -------------- | --------- | -------------------------------------------------- | ---------------------------------------------------- |
+| L1-VC-01 | Current Reality与工程基线                               | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T1/T3                                              | Current-master fresh-clone and CI receipt            |
+| L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | #112 closure retained on current master              |
+| L1-VC-03 | Synthetic Course与Run Entry                             | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 Golden product evidence              |
+| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | B01 closed by PR #267 and fresh-clone receipt        |
+| L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 product evidence                     |
+| L1-VC-06 | Student Whole-Team Decision Flow                        | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 student decision and scope checks    |
+| L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | CLOSED_WITH_KNOWN_LIMIT | L1_KNOWN_LIMIT | NO        | T4_IF_FORMULA_OR_AUTHORITY_CHANGE_ELSE_T3_EVIDENCE | #111 remains durable-runtime known limit             |
+| L1-VC-08 | Publish与Teacher/Student/Admin安全Projection            | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T2/T3                                              | #112/#115 closure and Phase 7 boundary evidence      |
+| L1-VC-09 | Three-Part Feedback与Learning Report最小闭环            | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Current Phase 7 teacher/student readback             |
+| L1-VC-10 | Official Replay与Evidence Non-Overwrite                 | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Run A historical state and replay summary unchanged  |
+| L1-VC-11 | Abort、Reset、Cleanup与Failure Matrix                   | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T3                                                 | Run B abort/reset/cleanup receipt                    |
+| L1-VC-12 | Known Limits与阶段声明边界                              | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T0/T3                                              | Current role-scoped Known Limits readback            |
+| L1-VC-13 | L1 Completion Evidence Pack                             | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T1/T3                                              | Exact-source immutable evidence pack                 |
+| L1-VC-14 | Final L1 Gate与Owner Acknowledgment                     | CLOSED_AND_CURRENT      | CLOSED_CURRENT | NO        | T4_STAGE_DECISION                                  | Recorded Owner decision at exact Evidence Source SHA |
 
 ### 8.1 严格结论
 
-当前没有任何顶层价值链能力满足`CLOSED_AND_CURRENT`的严格条件，因为assessment source anchor 2b9b1378…缺少fresh clone/post-merge完整收口。
-这不表示功能从零开始，而表示：
-
-> 实现资产已经较多，但阶段性完成声明的证据链尚未闭合。
+The historical assessment-source discussion above remains preserved evidence. The exact-source fresh-clone evidence and recorded Owner decision in section 0.1 now close the L1 automated engineering application validation declaration, while all stated Known Limits remain in force.
 
 ---
 

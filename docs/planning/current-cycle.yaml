@@ -1,21 +1,19 @@
 cycle_id: L1-CYCLE-002-CLOSURE-EVIDENCE
-status: FROZEN_AWAITING_POST_MERGE_EVIDENCE_REBASE
+status: CLOSED_OWNER_DECISION_RECORDED
 generated_at: "2026-07-29T01:31:00Z"
-valid_until: ADOPTION_MERGE
+valid_until: EVIDENCE_SOURCE_INVALIDATION_TRIGGER
 repository: qidianzhiku/SimWar
-source_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
-l1_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
+l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 mainline:
   candidate_id: NONE
   status: NO_PRODUCT_CODE_MAINLINE
-  primary_outcome: No additional product code is selected before the Owner-only L1 gate.
+  primary_outcome: L1 automated engineering application validation is formally closed; no next Mission is authorized.
   mutable_authority: NONE
   exit_evidence:
-    - Current-master automated evidence pack
-    - Post-merge evidence rebase
-    - Owner acknowledgment bound to the rebased exact source and pack
+    - Exact-source automated evidence pack
+    - Owner acknowledgment bound to the exact source and pack
   explicit_non_proofs:
-    - L1 is not passed
     - Human Validation is not completed
     - PostgreSQL and durable recovery are not proven
     - Pilot and Production are not authorized
@@ -29,18 +27,18 @@ closure:
   merge_execution_limit: 0
   post_merge_required: true
 automated_evidence_pack:
-  path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-98206df\\l1-automated-closure-evidence-pack.json
-  sha256: 8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9
-  status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+  path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-448cfbe\\l1-automated-closure-evidence-pack.json
+  sha256: fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de
+  status: CLOSED_AND_CURRENT
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   issue_112: CLOSED
   issue_114: CLOSED
   issue_115: CLOSED
 human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-owner_acknowledgment: AWAITING_POST_MERGE_EVIDENCE_REBASE
+owner_acknowledgment: ISSUED
 authorization:
-  status: NOT_CREATED
-  authorization_record: null
+  status: OWNER_DECISION_RECORDED
+  authorization_record: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
   automatic_start: false
 automatic_next_start: false

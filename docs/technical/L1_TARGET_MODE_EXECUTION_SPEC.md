@@ -15,7 +15,7 @@
 
 The assessment source SHA and graph statistics in this specification remain historical architecture inputs. Current operational status is revalidated at `98206dff8ed747ad650d4bff82f5497fdfd3590c`: PR #286 merged the evidence assembler; the fresh-clone Phase 7 product path and Known Limits readback both passed; and the immutable closure pack has SHA-256 `8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9`.
 
-This evidence closes the automated product/evidence route at its assessment source anchor, not the Owner-only final stage. The adoption merge requires one fresh-clone evidence rebase before current state may be `AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED`; Human Validation remains `WAIVED_BY_OWNER_NOT_PERFORMED`. The historical B01–B04 references below are superseded for current Portfolio selection by their current closures: #112, #114, and #115 are closed, while #111 remains an explicit durable-runtime Known Limit.
+The historical assessment anchor remains preserved. Exact-source evidence at `448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab`, evidence pack SHA-256 `fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de`, and recorded Owner decision `OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001` close L1 automated engineering application validation with limits. Human Validation remains `WAIVED_BY_OWNER_NOT_PERFORMED`; #111 remains an explicit durable-runtime Known Limit; L1+ and all Pilot/Production paths remain unauthorized.
 
 ---
 
