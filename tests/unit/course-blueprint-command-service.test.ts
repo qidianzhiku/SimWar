@@ -50,6 +50,21 @@ async function createApproved() {
   return { approved, registry, service };
 }
 
+function createRawDraft(input: CourseBlueprintDraftInput) {
+  const content_digest = calculateCourseBlueprintContentDigest(input);
+  return {
+    ...input,
+    content_digest,
+    reference: {
+      content_digest,
+      course_blueprint_id: input.course_blueprint_id,
+      tenant_id: input.tenant_id,
+      version: input.version
+    },
+    status: "DRAFT" as const
+  };
+}
+
 describe("CourseBlueprintCommandService", () => {
   it("creates a stable exact digest and an append-only lifecycle", async () => {
     const { approved, registry, service } = await createApproved();
@@ -167,6 +182,55 @@ describe("CourseBlueprintCommandService", () => {
     await expect(() => new InMemoryJsonCourseBlueprintRegistry({
       approvals,
       snapshots
+    })).toThrow(new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED"));
+  });
+
+  it.each([
+    ["tenant_id", { ...draftInput, tenant_id: "" }],
+    ["course_blueprint_id", { ...draftInput, course_blueprint_id: "" }],
+    ["version", { ...draftInput, version: "" }]
+  ] as const)("rejects a blank %s at the raw registry boundary", async (_field, input) => {
+    const registry = new InMemoryJsonCourseBlueprintRegistry();
+
+    await expect(registry.appendVersion(createRawDraft(input))).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+    await expect(
+      registry.listLifecycleSnapshots(input.tenant_id, input.course_blueprint_id, input.version)
+    ).resolves.toEqual([]);
+  });
+
+  it("rejects duplicate tenant-scoped approval ids when persisted histories reload", async () => {
+    const first = await createApproved();
+    const secondRegistry = new InMemoryJsonCourseBlueprintRegistry();
+    const secondService = new CourseBlueprintCommandService(secondRegistry);
+    const secondDraft = await secondService.createDraft(actor, {
+      ...draftInput,
+      course_blueprint_id: "course_blueprint_002"
+    });
+    const secondValidated = await secondService.validate(actor, secondDraft.reference);
+    const secondFrozen = await secondService.freeze(actor, secondValidated.reference);
+    const secondApproved = await secondService.approve(actor, secondFrozen.reference, "approval_001");
+    const firstSnapshots = await first.registry.listLifecycleSnapshots(
+      "tenant_001",
+      first.approved.version.course_blueprint_id,
+      first.approved.version.version
+    );
+    const secondSnapshots = await secondRegistry.listLifecycleSnapshots(
+      "tenant_001",
+      secondApproved.version.course_blueprint_id,
+      secondApproved.version.version
+    );
+
+    await expect(() => new InMemoryJsonCourseBlueprintRegistry({
+      approvals: [
+        first.approved.approval_record,
+        secondApproved.approval_record
+      ],
+      snapshots: [
+        ...firstSnapshots,
+        ...secondSnapshots
+      ]
     })).toThrow(new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED"));
   });
 

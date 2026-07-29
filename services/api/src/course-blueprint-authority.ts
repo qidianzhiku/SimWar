@@ -198,9 +198,9 @@ function assertStoredVersion(version: CourseBlueprintVersion): void {
   if (
     !version ||
     !statusOrder.includes(version.status) ||
-    typeof version.tenant_id !== "string" ||
-    typeof version.course_blueprint_id !== "string" ||
-    typeof version.version !== "string" ||
+    !version.tenant_id?.trim() ||
+    !version.course_blueprint_id?.trim() ||
+    !version.version?.trim() ||
     !Array.isArray(version.objectives) ||
     !Array.isArray(version.ordered_phases) ||
     !Array.isArray(version.activity_plan) ||
@@ -224,7 +224,10 @@ function assertStoredApproval(record: CourseBlueprintApprovalRecord): void {
     !record.correlation_id?.trim() ||
     !record.tenant_id?.trim() ||
     !record.course_blueprint_reference ||
-    record.course_blueprint_reference.tenant_id !== record.tenant_id
+    record.course_blueprint_reference.tenant_id !== record.tenant_id ||
+    !record.course_blueprint_reference.course_blueprint_id?.trim() ||
+    !record.course_blueprint_reference.version?.trim() ||
+    !/^[a-f0-9]{64}$/.test(record.course_blueprint_reference.content_digest)
   ) {
     throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
   }
@@ -333,6 +336,14 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
   private assertStoredHistory(): void {
     const expected: CourseBlueprintVersionStatus[] = ["DRAFT", "VALIDATED", "FROZEN", "APPROVED", "RETIRED"];
     const byIdentity = new Map<string, CourseBlueprintVersion[]>();
+    const approvalIds = new Set<string>();
+    for (const approval of this.approvals) {
+      const key = `${approval.tenant_id}:${approval.approval_id}`;
+      if (approvalIds.has(key)) {
+        throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
+      }
+      approvalIds.add(key);
+    }
     for (const snapshot of this.snapshots) {
       const key = `${snapshot.tenant_id}:${snapshot.course_blueprint_id}:${snapshot.version}`;
       byIdentity.set(key, [...(byIdentity.get(key) ?? []), snapshot]);

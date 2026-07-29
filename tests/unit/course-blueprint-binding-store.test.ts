@@ -16,6 +16,41 @@ import { CourseBlueprintBindingStore } from "../../services/api/src/course-bluep
 import { createP1Store } from "../../services/api/src/store";
 
 describe("CourseBlueprintBindingStore", () => {
+  it.each([
+    ["blank tenant", { tenant_id: "" }],
+    ["blank course", { course_id: "" }],
+    ["blank blueprint", { course_blueprint_id: "" }],
+    ["blank version", { version: "" }],
+    ["invalid content digest", { content_digest: "not-a-digest" }]
+  ] as const)("rejects a %s before appending", (_label, override) => {
+    const reference = createCourseBlueprintReference({
+      content_digest: "a".repeat(64),
+      course_blueprint_id: "blueprint_invalid",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    });
+    expect(() => createCourseBlueprintBinding({
+      binding_schema_version: "course-blueprint-binding.v1",
+      course_blueprint_reference: {
+        ...reference,
+        ...(Object.prototype.hasOwnProperty.call(override, "course_blueprint_id")
+          ? { course_blueprint_id: override.course_blueprint_id }
+          : {}),
+        ...(Object.prototype.hasOwnProperty.call(override, "content_digest")
+          ? { content_digest: override.content_digest }
+          : {}),
+        ...(Object.prototype.hasOwnProperty.call(override, "tenant_id")
+          ? { tenant_id: override.tenant_id }
+          : {}),
+        ...(Object.prototype.hasOwnProperty.call(override, "version")
+          ? { version: override.version }
+          : {})
+      },
+      course_id: "course_id" in override ? override.course_id : "course_invalid",
+      tenant_id: "tenant_id" in override ? override.tenant_id : "tenant_demo"
+    })).toThrow("course_blueprint_binding_invalid");
+  });
+
   it("records an exact immutable reference without changing the Course or B5 binding collections", () => {
     const store = createP1Store();
     const bindings = new CourseBlueprintBindingStore(store);

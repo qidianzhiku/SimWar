@@ -497,6 +497,12 @@ paths:
       description: Client-supplied Engine, ParameterSet, Plugin, and binding digest overrides are ignored; the server resolves every hidden formal input from exact authority references.
       security:
         - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintReadinessInput"
       responses:
         "200": { description: "Exact CourseBlueprint and formal Course readiness" }
         "422": { description: "Reference unavailable, retired, cross-tenant, or incompatible" }
@@ -507,6 +513,12 @@ paths:
       description: Client-supplied hidden authority overrides are ignored and resolved server-side. JSON compensation removes the C1 binding when B5 creation fails; it is not a crash-safe durable transaction.
       security:
         - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintCourseCreateInput"
       responses:
         "201": { description: "Draft Course with Teacher-safe exact binding summaries" }
         "422": { description: "Invalid or unavailable exact authority inputs" }
@@ -533,6 +545,33 @@ paths:
       description: Supported actions are validate, freeze, approve, and retire. No lifecycle action selects latest or auto-approves.
       security:
         - SessionBearer: []
+      parameters:
+        - name: courseBlueprintId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [validate, freeze, approve, retire]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+                - $ref: "#/components/schemas/FormalCourseBlueprintApprovalInput"
       responses:
         "200": { description: "Lifecycle transition result" }
         "403": { description: "CourseBlueprint authority required" }
@@ -1060,6 +1099,66 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    FormalCourseBlueprintReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, course_blueprint_id, version, content_digest]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        course_blueprint_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+    FormalCourseBlueprintApprovalInput:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, course_blueprint_id, version, content_digest, approval_id]
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        course_blueprint_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        content_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        approval_id:
+          type: string
+          minLength: 1
+    TeacherCourseBlueprintReadinessInput:
+      type: object
+      additionalProperties: true
+      description: Unknown client fields are ignored; hidden formal inputs are always resolved server-side.
+      required: [course_blueprint_reference, scenario_package_reference]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+    TeacherCourseBlueprintCourseCreateInput:
+      type: object
+      additionalProperties: true
+      description: Unknown client fields are ignored; hidden formal inputs are always resolved server-side.
+      required: [course_blueprint_reference, scenario_package_reference, title]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+        title:
+          type: string
+          minLength: 1
     TeacherFormalCourseBindingPreviewInput:
       type: object
       additionalProperties: false
