@@ -25,6 +25,8 @@ import type {
   ScenarioPackageReference,
   SettlementResult,
   SyntheticRunLifecycleOperation,
+  TeacherFormalCourseBindingPreviewDto,
+  TeacherFormalCourseCreateDto,
   TeacherFormalScenarioPackageCatalogDto,
   Team,
   Tenant,
@@ -92,12 +94,15 @@ import {
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
-import {
-  createFormalRunRuntimeBinding,
-  type FormalRunBindingAuthorityPorts
-} from "./formal-run-runtime-binding.js";
+import type { FormalRunBindingAuthorityPorts } from "./formal-run-runtime-binding.js";
 import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
+import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
+import {
+  createTeacherFormalCourse,
+  resolveTeacherFormalCourseBindingPreview,
+  TeacherFormalCourseBindingError
+} from "./teacher-formal-course-binding-service.js";
 import {
   R7TeacherScenarioSelectionGateBlockedError,
   createR7TeacherScenarioPackageCandidatesProjection,
@@ -152,6 +157,7 @@ interface ApiRuntime {
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
+  createCourseId(): string;
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
   securityConfig: RuntimeSecurityConfig;
@@ -215,6 +221,16 @@ interface RunCreateBody {
   formal_runtime_seed?: unknown;
 }
 
+interface TeacherFormalCourseSelectionBody {
+  scenario_package_reference?: {
+    content_digest?: unknown;
+    scenario_package_id?: unknown;
+    tenant_id?: unknown;
+    version?: unknown;
+  };
+  title?: unknown;
+}
+
 class HttpError extends Error {
   constructor(
     readonly statusCode: number,
@@ -272,6 +288,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
     formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
+    createCourseId: () => nextId(store, "course", "course"),
     formalScenarioPackageCatalog,
     store,
     repositoryProvider: createRuntimeRepositoryProvider(store, options),
@@ -921,6 +938,93 @@ async function handleTeacherFormalScenarioPackageCatalog(
   }
 }
 
+function toTeacherFormalCourseBindingHttpError(error: unknown): HttpError {
+  if (error instanceof TeacherFormalCourseBindingError) {
+    return new HttpError(422, "COURSE-422-002", "formal course selection is invalid");
+  }
+  return new HttpError(422, "COURSE-422-002", "formal course selection is invalid");
+}
+
+async function handleTeacherFormalCourseBindingPreview(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  requirePermission(context, "course:create");
+  const body = parseTeacherFormalCourseSelectionBody(
+    await readJson<TeacherFormalCourseSelectionBody>(request),
+    { requireTitle: false }
+  );
+  try {
+    const preview: TeacherFormalCourseBindingPreviewDto =
+      await resolveTeacherFormalCourseBindingPreview({
+        authorities: runtime.formalRunBindingAuthorities,
+        scenario_package_reference: body.scenario_package_reference,
+        tenant_id: context.tenantId
+      });
+    sendJson(response, 200, createEnvelope(context, preview));
+  } catch (error) {
+    throw toTeacherFormalCourseBindingHttpError(error);
+  }
+}
+
+async function handleTeacherFormalCourseCreate(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  const actor = requirePermission(context, "course:create");
+  const body = parseTeacherFormalCourseSelectionBody(
+    await readJson<TeacherFormalCourseSelectionBody>(request),
+    { requireTitle: true }
+  );
+  if (!body.title) {
+    throw new HttpError(422, "COURSE-422-002", "formal course selection is invalid");
+  }
+  try {
+    const preview = await resolveTeacherFormalCourseBindingPreview({
+      authorities: runtime.formalRunBindingAuthorities,
+      scenario_package_reference: body.scenario_package_reference,
+      tenant_id: context.tenantId
+    });
+    const course = {
+      course_id: runtime.createCourseId(),
+      created_by: actor.user_id,
+      parameter_set_id: preview.parameter_set_reference.parameter_set_id,
+      scenario_package_id: preview.scenario_package_reference.scenario_package_id,
+      status: "draft" as const,
+      tenant_id: context.tenantId,
+      title: body.title
+    };
+    const created = await createTeacherFormalCourse({
+      authorities: runtime.formalRunBindingAuthorities,
+      bindingStore: runtime.formalCourseAuthorityBindingStore,
+      course,
+      persistence: runtime.repositoryProvider.facade.courses,
+      scenario_package_reference: body.scenario_package_reference,
+      tenant_id: context.tenantId
+    });
+    await appendAudit(runtime, {
+      actor,
+      action: "course.create",
+      resourceId: course.course_id,
+      resourceType: "course",
+      requestId: context.requestId,
+      after: clonePublic({ ...course, formal_authority_binding: created.binding })
+    });
+    const payload: TeacherFormalCourseCreateDto = {
+      binding_summary: created.summary,
+      course,
+      operation_id: "TEACHER_FORMAL_COURSE_CREATE_V1"
+    };
+    sendJson(response, 201, createEnvelope(context, payload));
+  } catch (error) {
+    throw toTeacherFormalCourseBindingHttpError(error);
+  }
+}
+
 async function handleR7TeacherScenarioPackageCandidates(
   runtime: ApiRuntime,
   request: IncomingMessage,
@@ -1177,6 +1281,39 @@ function parseFormalCourseAuthorityBindingBody(value: unknown): {
       tenant_id: requireBodyString(scenarioPackageReference.tenant_id),
       version: requireBodyString(scenarioPackageReference.version)
     }
+  };
+}
+
+function parseTeacherFormalCourseSelectionBody(
+  value: unknown,
+  options: { requireTitle: boolean }
+): {
+  scenario_package_reference: {
+    content_digest: string;
+    scenario_package_id: string;
+    tenant_id: string;
+    version: string;
+  };
+  title?: string;
+} {
+  if (!isRecord(value) || !isRecord(value.scenario_package_reference)) {
+    throw new HttpError(422, "COURSE-422-002", "formal course selection is invalid");
+  }
+  const reference = value.scenario_package_reference;
+  if (
+    options.requireTitle &&
+    (typeof value.title !== "string" || value.title.trim().length === 0)
+  ) {
+    throw new HttpError(422, "COURSE-422-002", "formal course selection is invalid");
+  }
+  return {
+    scenario_package_reference: {
+      content_digest: requireBodyString(reference.content_digest),
+      scenario_package_id: requireBodyString(reference.scenario_package_id),
+      tenant_id: requireBodyString(reference.tenant_id),
+      version: requireBodyString(reference.version)
+    },
+    ...(typeof value.title === "string" ? { title: value.title.trim() } : {})
   };
 }
 
@@ -2150,6 +2287,19 @@ async function routeRequest(
     url.pathname === "/api/v1/bff/teacher/formal-scenario-package-catalog"
   ) {
     await handleTeacherFormalScenarioPackageCatalog(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/formal-course-bindings/preview"
+  ) {
+    await handleTeacherFormalCourseBindingPreview(runtime, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/formal-courses") {
+    await handleTeacherFormalCourseCreate(runtime, request, response);
     return;
   }
 
@@ -3291,8 +3441,9 @@ async function routeRequest(
       : body.formal_runtime_binding === undefined
         ? null
         : parseFormalRunCreateBody(body.formal_runtime_binding);
-    let formalBinding: ReturnType<typeof runtime.formalRunRuntimeBindingStore.getForRun> = null;
+    let formalBindingPersisted = false;
     let run: Run;
+    let round: Round;
 
     if (
       courseBinding &&
@@ -3331,20 +3482,32 @@ async function routeRequest(
         tenant_id: context.tenantId
       };
       try {
-        formalBinding = await createFormalRunRuntimeBinding({
-          authorities: runtime.formalRunBindingAuthorities,
+        round = {
+          round_id: nextId(store, "round", "round"),
+          round_no: 1,
+          run_id: run.run_id,
+          status: "draft",
+          tenant_id: context.tenantId
+        };
+        const inheritedBinding = courseBinding ?? {
           engine_reference: formalRequest.engine_reference,
           parameter_set_reference: formalRequest.parameter_set_reference,
-          run_id: run.run_id,
-          scenario_package_reference: formalRequest.scenario_package_reference,
-          seed: run.seed,
-          tenant_id: context.tenantId
-        });
-        await resolveFormalRuntimeInputsForActiveRun({
+          scenario_package_reference: formalRequest.scenario_package_reference
+        };
+        await createFormalBoundRun({
           authorities: runtime.formalRunBindingAuthorities,
-          binding: formalBinding,
+          bindingStore: runtime.formalRunRuntimeBindingStore,
+          courseBinding: inheritedBinding,
+          persistence: {
+            deleteRound: runtime.repositoryProvider.facade.rounds.deleteRound,
+            deleteRun: runtime.repositoryProvider.facade.runs.deleteRun,
+            saveRound: runtime.repositoryProvider.facade.rounds.saveRound,
+            saveRun: runtime.repositoryProvider.facade.runs.saveRun
+          },
+          round,
           run
         });
+        formalBindingPersisted = true;
       } catch {
         throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
       }
@@ -3367,18 +3530,17 @@ async function routeRequest(
         seed: parameterSet.seed,
         status: "active" as const
       };
+      round = {
+        round_id: nextId(store, "round", "round"),
+        tenant_id: context.tenantId,
+        run_id: run.run_id,
+        round_no: 1,
+        status: "draft" as const
+      };
     }
-    const round = {
-      round_id: nextId(store, "round", "round"),
-      tenant_id: context.tenantId,
-      run_id: run.run_id,
-      round_no: 1,
-      status: "draft" as const
-    };
-    store.runs.push(run);
-    store.rounds.push(round);
-    if (formalBinding) {
-      runtime.formalRunRuntimeBindingStore.append(formalBinding);
+    if (!formalBindingPersisted) {
+      store.runs.push(run);
+      store.rounds.push(round);
     }
     await appendAudit(runtime, {
       actor,

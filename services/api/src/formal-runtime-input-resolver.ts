@@ -16,8 +16,10 @@ import {
 export const FORMAL_RUNTIME_INPUT_RESOLUTION_SCHEMA_VERSION =
   "formal-runtime-input-resolution.v1" as const;
 
-const ACTIVE_JSON_RUNTIME_ENGINE = {
+export const ACTIVE_JSON_RUNTIME_ENGINE_PROFILE = {
   engine_id: "toy_logit_wellness_v1",
+  model_version_ref: "toy_logit_wellness_v1@0.1.0",
+  runtime_authority: "JSON_INTERNAL_ONLY" as const,
   version: "0.1.0"
 } as const;
 
@@ -209,8 +211,8 @@ function materializeActiveRuntimeInputs(input: {
   resolution: FormalRuntimeInputResolution;
 }): Pick<FormalRuntimeInputsForActiveRun, "parameterSet" | "scenario"> {
   if (
-    input.binding.engine_reference.engine_id !== ACTIVE_JSON_RUNTIME_ENGINE.engine_id ||
-    input.binding.engine_reference.version !== ACTIVE_JSON_RUNTIME_ENGINE.version
+    input.binding.engine_reference.engine_id !== ACTIVE_JSON_RUNTIME_ENGINE_PROFILE.engine_id ||
+    input.binding.engine_reference.version !== ACTIVE_JSON_RUNTIME_ENGINE_PROFILE.version
   ) {
     throw new FormalRuntimeInputResolutionError("FORMAL_RUNTIME_INPUT_ACTIVE_ENGINE_UNSUPPORTED");
   }
@@ -255,6 +257,14 @@ function materializeActiveRuntimeInputs(input: {
   };
 
   return { parameterSet, scenario };
+}
+
+/**
+ * The active JSON runtime is the exact Engine-profile source for formal Course
+ * and Run bindings. This is descriptive only; it does not load or activate code.
+ */
+export function getActiveJsonRuntimeEngineProfile(): typeof ACTIVE_JSON_RUNTIME_ENGINE_PROFILE {
+  return deepFreeze(clone(ACTIVE_JSON_RUNTIME_ENGINE_PROFILE));
 }
 
 function materializeExactInputs(

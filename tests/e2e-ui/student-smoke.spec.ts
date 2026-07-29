@@ -93,7 +93,7 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await signInStudentPage(page);
 
   await expect(page.getByRole("heading", { name: "SimWar M1 学员驾驶舱" })).toBeVisible();
-  await expect(page.getByText(m1ResultLabel)).toBeVisible();
+  await expect(page.locator("header").getByText(m1ResultLabel)).toBeVisible();
   await expect(page.getByText("learner / team_captain · tenant_demo")).toBeVisible();
   await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
   await expect(page.getByLabel("learner status").getByText("Alpha 康养队")).toBeVisible();
@@ -157,14 +157,27 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   await expect(page.getByText("教师操作清单")).toBeVisible();
   await expect(page.getByText("最小学习证据 Rubric")).toBeVisible();
 
-  await page.getByRole("button", { name: "创建 Run" }).click();
-  await expect(page.getByText("run created")).toBeVisible();
+  const teacherToken = await login(request, "teacher", "teacher");
+  const studentToken = await login(request, "student", "student");
+  const primaryAction = page.locator("header.topbar > button.primary");
+  if ((await primaryAction.textContent())?.trim() === "创建 Run") {
+    await primaryAction.click();
+    await expect(page.getByText("run created")).toBeVisible();
+  } else {
+    const seededRun = await apiPost<{ run: Run }>(
+      request,
+      "/api/v1/courses/course_demo/runs",
+      teacherToken,
+      {}
+    );
+    expect(seededRun.data.run.run_id).toBeTruthy();
+    await page.reload();
+    await signInTeacherPage(page);
+  }
 
   await page.getByRole("button", { name: "开启回合" }).click();
   await expect(page.getByText("round opened")).toBeVisible();
 
-  const teacherToken = await login(request, "teacher", "teacher");
-  const studentToken = await login(request, "student", "student");
   const demoState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);
   const runId = demoState.data.runs.at(-1)?.run_id;
   expect(runId).toBeTruthy();

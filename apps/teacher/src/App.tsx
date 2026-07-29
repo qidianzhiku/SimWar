@@ -14,6 +14,7 @@ import type {
   Run,
   SettlementResult,
   TeacherBffWorkspaceDTO,
+  TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
   TeacherFormalScenarioPackageCatalogDto
 } from "@simwar/shared-contracts";
@@ -21,7 +22,10 @@ import {
   ScenarioReadinessRequestError,
   getScenarioCandidatesErrorMessage,
   getScenarioReadinessErrorMessage,
+  getTeacherFormalCourseBindingErrorMessage,
   getTeacherFormalScenarioPackageCatalogErrorMessage,
+  requestTeacherFormalCourseBindingPreview,
+  requestTeacherFormalCourseCreate,
   requestScenarioPackageCandidates,
   requestScenarioReadiness,
   requestTeacherFormalScenarioPackageCatalog,
@@ -153,17 +157,29 @@ function getRoundAction(round?: Round): string {
   return "已发布";
 }
 
-function getCourseRuns(state: P0DemoState): Run[] {
-  const courseId = state.courses.at(0)?.course_id;
+function getCourseRuns(state: P0DemoState, selectedCourseId?: string | null): Run[] {
+  const courseId = selectedCourseId ?? selectInitialCourseId(state);
   return courseId ? state.runs.filter((run) => run.course_id === courseId) : [];
+}
+
+function selectInitialCourseId(state: P0DemoState): string | null {
+  const coursesWithTeams = new Set(state.teams.map((team) => team.course_id));
+  const runnableCourses = state.courses.filter(
+    (course) => course.status === "published" && coursesWithTeams.has(course.course_id)
+  );
+  return runnableCourses.at(-1)?.course_id ?? null;
 }
 
 function getRunRound(state: P0DemoState, runId: string): Round | undefined {
   return state.rounds.find((round) => round.run_id === runId);
 }
 
-function selectVisibleRun(state: P0DemoState, preferredRunId?: string | null): Run | undefined {
-  const courseRuns = getCourseRuns(state);
+function selectVisibleRun(
+  state: P0DemoState,
+  preferredRunId?: string | null,
+  selectedCourseId?: string | null
+): Run | undefined {
+  const courseRuns = getCourseRuns(state, selectedCourseId);
   const preferredRun = preferredRunId
     ? courseRuns.find((run) => run.run_id === preferredRunId)
     : undefined;
@@ -182,6 +198,7 @@ function selectVisibleRun(state: P0DemoState, preferredRunId?: string | null): R
 export function App() {
   const [state, setState] = useState<P0DemoState | null>(null);
   const [workspace, setWorkspace] = useState<TeacherBffWorkspaceDTO | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
@@ -203,12 +220,18 @@ export function App() {
   });
   const [formalDraftCandidate, setFormalDraftCandidate] =
     useState<TeacherFormalScenarioPackageCatalogCandidateDto | null>(null);
+  const [formalBindingPreview, setFormalBindingPreview] =
+    useState<TeacherFormalCourseBindingPreviewDto | null>(null);
+  const [formalCourseTitle, setFormalCourseTitle] = useState("");
+  const [formalCoursePublished, setFormalCoursePublished] = useState(false);
+  const [formalRunSeed, setFormalRunSeed] = useState("20260729");
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
   const formalCatalogRequestSequence = useRef(0);
   const selectedRunIdRef = useRef<string | null>(null);
+  const selectedCourseIdRef = useRef<string | null>(null);
 
-  const courseRuns = state ? getCourseRuns(state) : [];
+  const courseRuns = state ? getCourseRuns(state, selectedCourseId) : [];
   const latestRun = courseRuns.at(-1);
   const latestRound = latestRun
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
@@ -257,15 +280,19 @@ export function App() {
 
       const auth = { token: session.access_token, tenantId: login.tenantId };
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+      const nextCourseId = selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
       const nextRun = selectVisibleRun(
         nextState,
-        preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId
+        preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId,
+        nextCourseId
       );
       const nextRound = nextRun
         ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
         : undefined;
 
       setState(nextState);
+      selectedCourseIdRef.current = nextCourseId;
+      setSelectedCourseId(nextCourseId);
       selectedRunIdRef.current = nextRun?.run_id ?? null;
       setSelectedRunId(nextRun?.run_id ?? null);
       setWorkspace(null);
@@ -289,13 +316,18 @@ export function App() {
     setSession(null);
     setState(null);
     setWorkspace(null);
+    selectedCourseIdRef.current = null;
+    setSelectedCourseId(null);
     selectedRunIdRef.current = null;
     setSelectedRunId(null);
+    setFormalCoursePublished(false);
     setScenarioReadiness({ phase: "IDLE" });
     setScenarioCandidates({ phase: "IDLE" });
     setPreviewCandidate(null);
     setFormalScenarioCatalog({ phase: "IDLE" });
     setFormalDraftCandidate(null);
+    setFormalBindingPreview(null);
+    setFormalCourseTitle("");
     setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
     setNotice("context changed");
   }
@@ -460,13 +492,105 @@ export function App() {
       });
   }, [session]);
 
+  async function prepareFormalCourse(
+    candidate: TeacherFormalScenarioPackageCatalogCandidateDto
+  ): Promise<void> {
+    if (!session) return;
+    setFormalDraftCandidate(candidate);
+    setFormalBindingPreview(null);
+    setFormalCoursePublished(false);
+    setBusy(true);
+    try {
+      const preview = await requestTeacherFormalCourseBindingPreview({
+        apiBaseUrl: API_BASE,
+        scenarioPackageReference: candidate.scenario_package_reference,
+        token: session.access_token
+      });
+      setFormalBindingPreview(preview);
+      setFormalCourseTitle(`Course: ${candidate.scenario_package_reference.scenario_package_id}`);
+      setNotice("formal Course binding preview ready");
+    } catch (error) {
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createFormalCourse(): Promise<void> {
+    if (!session || !formalDraftCandidate || !formalBindingPreview || !formalCourseTitle.trim()) {
+      setNotice("a formal Course title and binding preview are required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = await requestTeacherFormalCourseCreate({
+        apiBaseUrl: API_BASE,
+        scenarioPackageReference: formalDraftCandidate.scenario_package_reference,
+        title: formalCourseTitle.trim(),
+        token: session.access_token
+      });
+      selectedCourseIdRef.current = created.course.course_id;
+      setSelectedCourseId(created.course.course_id);
+      setFormalCoursePublished(false);
+      setNotice("formal Course created");
+    } catch (error) {
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publishFormalCourse(): Promise<void> {
+    if (!session || !selectedCourseId) {
+      setNotice("a formal Course is required before publication");
+      return;
+    }
+    setBusy(true);
+    try {
+      const auth = { token: session.access_token, tenantId: login.tenantId };
+      await apiRequest(`/api/v1/courses/${selectedCourseId}/publish`, {
+        ...auth,
+        method: "POST"
+      });
+      setFormalCoursePublished(true);
+      setNotice("formal Course published");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "formal Course publication failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createFormalCourseRun(): Promise<void> {
+    if (!session || !selectedCourseId || !/^\d+$/.test(formalRunSeed.trim())) {
+      setNotice("an explicit non-negative Run seed is required");
+      return;
+    }
+    setBusy(true);
+    try {
+      const auth = { token: session.access_token, tenantId: login.tenantId };
+      const created = await apiRequest<{ run: Run; round: Round }>(
+        `/api/v1/courses/${selectedCourseId}/runs`,
+        { ...auth, body: { formal_runtime_seed: Number(formalRunSeed) }, method: "POST" }
+      );
+      selectedRunIdRef.current = created.run.run_id;
+      setSelectedRunId(created.run.run_id);
+      setNotice("formal Run created");
+      await refresh(created.run.run_id);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "formal Run creation failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createCourseRun(): Promise<void> {
     if (!session) {
       setNotice("please sign in first");
       return;
     }
 
-    const courseId = state?.courses.at(0)?.course_id;
+    const courseId = selectedCourseId ?? (state ? selectInitialCourseId(state) : null);
     if (!courseId) {
       throw new Error("course not available");
     }
@@ -760,13 +884,13 @@ export function App() {
             </ul>
           </article>
 
-          {session && selectedRun ? (
+          {session ? (
             <article className="panel readiness-panel" aria-label="scenario readiness">
               <div className="panel-title">
                 <h2>Scenario Readiness</h2>
                 <span>{scenarioReadiness.phase}</span>
               </div>
-              <p className="evidence-note">Run context: {selectedRun.run_id}</p>
+              <p className="evidence-note">Run context: {selectedRun?.run_id ?? "not selected"}</p>
               <section className="candidate-surface" aria-label="scenario package candidates">
                 <div className="candidate-heading">
                   <h3>Scenario Candidates</h3>
@@ -865,8 +989,8 @@ export function App() {
                               ParameterSet {candidate.parameter_set_reference.parameter_set_id} /{" "}
                               {candidate.parameter_set_reference.version}
                             </small>
-                            <button onClick={() => setFormalDraftCandidate(candidate)}>
-                              Select local draft
+                            <button onClick={() => prepareFormalCourse(candidate)} disabled={busy}>
+                              Prepare formal Course
                             </button>
                           </article>
                         ))}
@@ -875,9 +999,9 @@ export function App() {
                     {formalDraftCandidate ? (
                       <article
                         className="candidate-preview"
-                        aria-label="formal ScenarioPackage local draft"
+                        aria-label="formal ScenarioPackage Course selection"
                       >
-                        <span>Local draft selection</span>
+                        <span>Teacher selection preview</span>
                         <strong>
                           {formalDraftCandidate.scenario_package_reference.scenario_package_id} /{" "}
                           {formalDraftCandidate.scenario_package_reference.version}
@@ -890,10 +1014,53 @@ export function App() {
                           ParameterSet digest:{" "}
                           {formalDraftCandidate.parameter_set_reference.content_digest}
                         </small>
-                        <p>
-                          Only this browser view is updated. No Run binding or authority write
-                          occurs.
-                        </p>
+                        {formalBindingPreview ? (
+                          <>
+                            <small>
+                              Engine {formalBindingPreview.engine_profile.engine_id} /{" "}
+                              {formalBindingPreview.engine_profile.version}
+                            </small>
+                            <small>{formalBindingPreview.engine_profile.runtime_authority}</small>
+                            <label>
+                              formal Course title
+                              <input
+                                aria-label="formal Course title"
+                                value={formalCourseTitle}
+                                onChange={(event) => setFormalCourseTitle(event.target.value)}
+                              />
+                            </label>
+                            <button onClick={() => void createFormalCourse()} disabled={busy}>
+                              Create formal Course
+                            </button>
+                          </>
+                        ) : (
+                          <p>Resolving the exact server-side formal binding preview.</p>
+                        )}
+                      </article>
+                    ) : null}
+                    {selectedCourseId && formalBindingPreview ? (
+                      <article className="candidate-preview" aria-label="formal Run creation">
+                        <span>Selected formal Course: {selectedCourseId}</span>
+                        {formalCoursePublished ? (
+                          <>
+                            <label>
+                              explicit Run seed
+                              <input
+                                aria-label="explicit Run seed"
+                                inputMode="numeric"
+                                value={formalRunSeed}
+                                onChange={(event) => setFormalRunSeed(event.target.value)}
+                              />
+                            </label>
+                            <button onClick={() => void createFormalCourseRun()} disabled={busy}>
+                              Create formal Run
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => void publishFormalCourse()} disabled={busy}>
+                            Publish formal Course
+                          </button>
+                        )}
                       </article>
                     ) : null}
                     <ul className="tag-list">

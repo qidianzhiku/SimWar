@@ -1,5 +1,7 @@
 import type {
   R7TeacherScenarioPackageCandidatesDto,
+  TeacherFormalCourseBindingPreviewDto,
+  TeacherFormalCourseCreateDto,
   TeacherFormalScenarioPackageCatalogDto
 } from "@simwar/shared-contracts";
 
@@ -58,6 +60,81 @@ export class TeacherFormalScenarioPackageCatalogRequestError extends Error {
     super(message);
     this.name = "TeacherFormalScenarioPackageCatalogRequestError";
   }
+}
+
+export class TeacherFormalCourseBindingRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "TeacherFormalCourseBindingRequestError";
+  }
+}
+
+async function requestTeacherFormalCourseBinding<T>(input: {
+  apiBaseUrl: string;
+  body: unknown;
+  path: string;
+  token: string;
+}): Promise<T> {
+  const response = await fetch(`${input.apiBaseUrl}${input.path}`, {
+    body: JSON.stringify(input.body),
+    headers: {
+      authorization: `Bearer ${input.token}`,
+      "content-type": "application/json"
+    },
+    method: "POST"
+  });
+  const payload = (await response.json()) as T | { error?: { message?: string } };
+  if (!response.ok) {
+    throw new TeacherFormalCourseBindingRequestError(
+      response.status,
+      typeof payload === "object" &&
+        payload !== null &&
+        "error" in payload &&
+        payload.error?.message
+        ? payload.error.message
+        : "formal Course binding request failed"
+    );
+  }
+  return (payload as { data: T }).data ?? (payload as T);
+}
+
+export async function requestTeacherFormalCourseBindingPreview(input: {
+  apiBaseUrl: string;
+  scenarioPackageReference: TeacherFormalScenarioPackageCatalogDto["candidates"][number]["scenario_package_reference"];
+  token: string;
+}): Promise<TeacherFormalCourseBindingPreviewDto> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: { scenario_package_reference: input.scenarioPackageReference },
+    path: "/api/v1/bff/teacher/formal-course-bindings/preview",
+    token: input.token
+  });
+}
+
+export async function requestTeacherFormalCourseCreate(input: {
+  apiBaseUrl: string;
+  scenarioPackageReference: TeacherFormalScenarioPackageCatalogDto["candidates"][number]["scenario_package_reference"];
+  title: string;
+  token: string;
+}): Promise<TeacherFormalCourseCreateDto> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: { scenario_package_reference: input.scenarioPackageReference, title: input.title },
+    path: "/api/v1/bff/teacher/formal-courses",
+    token: input.token
+  });
+}
+
+export function getTeacherFormalCourseBindingErrorMessage(error: unknown): string {
+  if (!(error instanceof TeacherFormalCourseBindingRequestError)) {
+    return "Formal Course binding could not be completed.";
+  }
+  if (error.status === 401) return "Authentication is required to create a formal Course.";
+  if (error.status === 403) return "Teacher authority is required to create a formal Course.";
+  return "The selected formal ScenarioPackage is no longer available.";
 }
 
 export async function requestTeacherFormalScenarioPackageCatalog(input: {

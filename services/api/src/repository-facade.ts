@@ -65,6 +65,7 @@ export interface RepositoryFacade {
     listCoursesForTenant(tenantId: string): Promise<RepositoryCourseReadModel[]>;
     listCoursesForUser(tenantId: string, userId: string): Promise<RepositoryCourseReadModel[]>;
     saveCourse(course: Course): Promise<void>;
+    deleteCourse(tenantId: string, courseId: string): Promise<void>;
   };
 
   teams: {
@@ -77,6 +78,8 @@ export interface RepositoryFacade {
   runs: {
     getRun(tenantId: string, runId: string): Promise<Run | null>;
     listRunsForCourse(tenantId: string, courseId: string): Promise<Run[]>;
+    saveRun(run: Run): Promise<void>;
+    deleteRun(tenantId: string, runId: string): Promise<void>;
   };
 
   scenarios: {
@@ -95,6 +98,7 @@ export interface RepositoryFacade {
     getRound(tenantId: string, roundId: string): Promise<Round | null>;
     listRoundsForRun(tenantId: string, runId: string): Promise<Round[]>;
     saveRound(round: Round): Promise<void>;
+    deleteRound(tenantId: string, roundId: string): Promise<void>;
     markRoundSettled(tenantId: string, roundId: string, settlementResultId: string): Promise<void>;
   };
 
@@ -317,7 +321,8 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
       getCourse: (tenantId, courseId) => ports.courses.getCourse(tenantId, courseId),
       listCoursesForTenant: (tenantId) => ports.courses.listCoursesForTenant(tenantId),
       listCoursesForUser: (tenantId, userId) => ports.courses.listCoursesForUser(tenantId, userId),
-      saveCourse: (course) => ports.courses.saveCourse(course)
+      saveCourse: (course) => ports.courses.saveCourse(course),
+      deleteCourse: (tenantId, courseId) => ports.courses.deleteCourse(tenantId, courseId)
     },
 
     teams: {
@@ -330,7 +335,9 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
 
     runs: {
       getRun: (tenantId, runId) => ports.runs.getRun(tenantId, runId),
-      listRunsForCourse: (tenantId, courseId) => ports.runs.listRunsForCourse(tenantId, courseId)
+      listRunsForCourse: (tenantId, courseId) => ports.runs.listRunsForCourse(tenantId, courseId),
+      saveRun: (run) => ports.runs.saveRun(run),
+      deleteRun: (tenantId, runId) => ports.runs.deleteRun(tenantId, runId)
     },
 
     scenarios: {
@@ -349,6 +356,7 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
       getRound: (tenantId, roundId) => ports.rounds.getRound(tenantId, roundId),
       listRoundsForRun: (tenantId, runId) => ports.rounds.listRoundsForRun(tenantId, runId),
       saveRound: (round) => ports.rounds.saveRound(round),
+      deleteRound: (tenantId, roundId) => ports.rounds.deleteRound(tenantId, roundId),
       markRoundSettled: (tenantId, roundId, settlementResultId) =>
         ports.rounds.markRoundSettled(tenantId, roundId, settlementResultId)
     },
