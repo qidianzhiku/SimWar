@@ -24,7 +24,6 @@ const commonKnownLimitIds = [
 
 const teacherAdminKnownLimitIds = [
   "ISSUE_111_OPEN",
-  "ISSUE_115_OPEN",
   "HUMAN_VALIDATION_WAIVED_BY_OWNER",
   "AI_ADVISORY_ONLY",
   "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY"
