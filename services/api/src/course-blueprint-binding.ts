@@ -39,19 +39,25 @@ export function calculateCourseBlueprintBindingDigest(
 }
 
 export function createCourseBlueprintBinding(input: Omit<CourseBlueprintBinding, "binding_digest">): CourseBlueprintBinding {
-  if (input.tenant_id !== input.course_blueprint_reference.tenant_id || !input.course_id.trim()) {
-    throw new Error("course_blueprint_binding_invalid");
-  }
-  return deepFreeze({
+  const binding = {
     ...clone(input),
     binding_digest: calculateCourseBlueprintBindingDigest(input)
-  });
+  };
+  assertValidCourseBlueprintBinding(binding);
+  return deepFreeze(binding);
 }
 
 export function assertValidCourseBlueprintBinding(binding: CourseBlueprintBinding): void {
   const { binding_digest, ...input } = binding;
   if (
     binding.binding_schema_version !== "course-blueprint-binding.v1" ||
+    !binding.tenant_id?.trim() ||
+    !binding.course_id?.trim() ||
+    !binding.course_blueprint_reference?.tenant_id?.trim() ||
+    !binding.course_blueprint_reference.course_blueprint_id?.trim() ||
+    !binding.course_blueprint_reference.version?.trim() ||
+    binding.tenant_id !== binding.course_blueprint_reference.tenant_id ||
+    !/^[a-f0-9]{64}$/.test(binding.course_blueprint_reference.content_digest) ||
     !/^[a-f0-9]{64}$/.test(binding_digest) ||
     calculateCourseBlueprintBindingDigest(input) !== binding_digest
   ) {

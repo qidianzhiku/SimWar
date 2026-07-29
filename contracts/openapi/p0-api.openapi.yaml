@@ -494,7 +494,7 @@ paths:
     post:
       operationId: TEACHER_COURSE_BLUEPRINT_READINESS_V1
       summary: Resolve exact approved CourseBlueprint and B5 inputs without a write.
-      description: The server rejects hidden Engine, ParameterSet, Plugin, and binding digest overrides.
+      description: Client-supplied Engine, ParameterSet, Plugin, and binding digest overrides are ignored; the server resolves every hidden formal input from exact authority references.
       security:
         - SessionBearer: []
       responses:
@@ -504,7 +504,7 @@ paths:
     post:
       operationId: TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1
       summary: Create a draft Course with independent Blueprint and B5 formal bindings.
-      description: JSON compensation removes the C1 binding when B5 creation fails; it is not a crash-safe durable transaction.
+      description: Client-supplied hidden authority overrides are ignored and resolved server-side. JSON compensation removes the C1 binding when B5 creation fails; it is not a crash-safe durable transaction.
       security:
         - SessionBearer: []
       responses:

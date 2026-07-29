@@ -8,7 +8,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createCourseBlueprintReference } from "../../packages/shared-contracts/src";
-import { createCourseBlueprintBinding } from "../../services/api/src/course-blueprint-binding";
+import {
+  calculateCourseBlueprintBindingDigest,
+  createCourseBlueprintBinding
+} from "../../services/api/src/course-blueprint-binding";
 import { CourseBlueprintBindingStore } from "../../services/api/src/course-blueprint-binding-store";
 import { createP1Store } from "../../services/api/src/store";
 
@@ -58,6 +61,22 @@ describe("CourseBlueprintBindingStore", () => {
       createP1Store({ persistenceFile: snapshotPath });
       const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8")) as Record<string, unknown>;
       snapshot.courseBlueprintBindings = [corrupted];
+      writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+      expect(() => createP1Store({ persistenceFile: snapshotPath })).toThrow("store_snapshot_corrupted");
+
+      const crossTenantInput = {
+        binding_schema_version: valid.binding_schema_version,
+        course_blueprint_reference: {
+          ...valid.course_blueprint_reference,
+          tenant_id: "tenant_other"
+        },
+        course_id: valid.course_id,
+        tenant_id: valid.tenant_id
+      };
+      snapshot.courseBlueprintBindings = [{
+        ...crossTenantInput,
+        binding_digest: calculateCourseBlueprintBindingDigest(crossTenantInput)
+      }];
       writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
       expect(() => createP1Store({ persistenceFile: snapshotPath })).toThrow("store_snapshot_corrupted");
 
