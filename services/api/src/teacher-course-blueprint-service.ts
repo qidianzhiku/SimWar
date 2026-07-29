@@ -46,6 +46,7 @@ export interface TeacherCourseBlueprintReadinessInput {
 }
 
 export interface CreateTeacherCourseFromBlueprintInput extends TeacherCourseBlueprintReadinessInput {
+  beforeCommit?: () => Promise<void>;
   bindingStore: CourseBlueprintBindingStore;
   course: Course;
   formalCourse: Omit<CreateTeacherFormalCourseInput, "course">;
@@ -180,6 +181,7 @@ export async function createTeacherCourseFromBlueprint(
   try {
     const created = await createTeacherFormalCourse({
       ...input.formalCourse,
+      ...(input.beforeCommit ? { beforeCommit: input.beforeCommit } : {}),
       course: input.course
     });
     input.bindingStore.commitPending(pendingBinding);

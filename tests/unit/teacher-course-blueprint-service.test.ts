@@ -6,12 +6,15 @@ import {
   type CourseBlueprintDraftInput
 } from "../../services/api/src/course-blueprint-authority.js";
 import { CourseBlueprintBindingStore } from "../../services/api/src/course-blueprint-binding-store.js";
+import { FormalCourseAuthorityBindingStore } from "../../services/api/src/formal-course-authority-binding-store.js";
 import { createCourseBlueprintBinding } from "../../services/api/src/course-blueprint-binding.js";
 import {
   createTeacherCourseFromBlueprint,
   listTeacherCourseBlueprintCatalog,
   resolveTeacherCourseBlueprintReadiness
 } from "../../services/api/src/teacher-course-blueprint-service.js";
+import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter.js";
+import { createP1Store } from "../../services/api/src/store.js";
 
 const tenantId = "tenant_c1";
 const actor = {
@@ -306,6 +309,70 @@ describe("Teacher CourseBlueprint product service", () => {
 
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
     expect(appendFormalBinding).not.toHaveBeenCalled();
+  });
+
+  it("rolls back a real JSON Course mutation when persistence fails", async () => {
+    const store = createP1Store();
+    store.courses.length = 0;
+    store.persist = vi.fn(() => {
+      throw new Error("course persist failed");
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(ports.courses.saveCourse(course())).rejects.toThrow("course persist failed");
+    expect(store.courses).toEqual([]);
+  });
+
+  it("rolls back a real JSON audit mutation when persistence fails", async () => {
+    const store = createP1Store();
+    store.auditLogs.length = 0;
+    store.persist = vi.fn(() => {
+      throw new Error("audit persist failed");
+    });
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(ports.auditLogs.appendAuditLog({
+      action: "course.create",
+      actor_id: "usr_teacher",
+      audit_id: "audit_c1",
+      created_at: "2026-07-29T00:00:00.000Z",
+      request_id: "request_c1",
+      resource_id: "course_c1",
+      resource_type: "course",
+      tenant_id: tenantId
+    })).rejects.toThrow("audit persist failed");
+    expect(store.auditLogs).toEqual([]);
+  });
+
+  it("compensates Course and both bindings when a pre-commit side effect fails", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const store = createP1Store();
+    store.courses.length = 0;
+    store.formalCourseAuthorityBindings.length = 0;
+    store.courseBlueprintBindings.length = 0;
+    const c1BindingStore = new CourseBlueprintBindingStore(store);
+    const ports = createJsonRepositoryPorts(store);
+
+    await expect(createTeacherCourseFromBlueprint(
+      command,
+      {
+        ...createCourseInput(command, approved.version.reference, {
+          bindingStore: c1BindingStore
+        }),
+        beforeCommit: async () => {
+          throw new Error("audit persist failed");
+        },
+        formalCourse: {
+          ...createCourseInput(command, approved.version.reference).formalCourse,
+          bindingStore: new FormalCourseAuthorityBindingStore(store),
+          persistence: ports.courses
+        }
+      }
+    )).rejects.toThrow("audit persist failed");
+
+    expect(store.courses).toEqual([]);
+    expect(store.formalCourseAuthorityBindings).toEqual([]);
+    expect(store.courseBlueprintBindings).toEqual([]);
   });
 
   it.each([

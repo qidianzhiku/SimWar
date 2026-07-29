@@ -516,6 +516,12 @@ paths:
       summary: Platform-admin-only CourseBlueprint DRAFT lifecycle ingress.
       security:
         - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/course-blueprint-version.v1.json"
       responses:
         "201": { description: "Formal CourseBlueprint DRAFT" }
         "403": { description: "CourseBlueprint authority required" }

@@ -143,4 +143,61 @@ describe("CourseBlueprintCommandService", () => {
       new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
     );
   });
+
+  it("fails closed when persisted history contains two digests for the same version", async () => {
+    const first = await createApproved();
+    const secondRegistry = new InMemoryJsonCourseBlueprintRegistry();
+    const secondService = new CourseBlueprintCommandService(secondRegistry);
+    const secondDraft = await secondService.createDraft(actor, {
+      ...draftInput,
+      description: "Different immutable content."
+    });
+    const secondValidated = await secondService.validate(actor, secondDraft.reference);
+    const secondFrozen = await secondService.freeze(actor, secondValidated.reference);
+    await secondService.approve(actor, secondFrozen.reference, "approval_002");
+    const approvals = [
+      ...(await first.registry.listApprovalRecords("tenant_001", first.approved.version.reference)),
+      ...(await secondRegistry.listApprovalRecords("tenant_001", secondDraft.reference))
+    ];
+    const snapshots = [
+      ...(await first.registry.listLifecycleSnapshots("tenant_001", "course_blueprint_001", "1.0.0")),
+      ...(await secondRegistry.listLifecycleSnapshots("tenant_001", "course_blueprint_001", "1.0.0"))
+    ];
+
+    await expect(() => new InMemoryJsonCourseBlueprintRegistry({
+      approvals,
+      snapshots
+    })).toThrow(new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED"));
+  });
+
+  it("rejects illegal lifecycle order at the registry write boundary", async () => {
+    const { approved } = await createApproved();
+    const registry = new InMemoryJsonCourseBlueprintRegistry();
+
+    await expect(registry.appendVersion({
+      ...approved.version,
+      status: "FROZEN"
+    })).rejects.toThrow(new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_INVALID_TRANSITION"));
+  });
+
+  it("requires the executable schema version and non-blank objectives", async () => {
+    const service = new CourseBlueprintCommandService(new InMemoryJsonCourseBlueprintRegistry());
+    const wrongSchema = await service.createDraft(actor, {
+      ...draftInput,
+      course_blueprint_id: "course_blueprint_wrong_schema",
+      schema_version: "future-schema"
+    });
+    await expect(service.validate(actor, wrongSchema.reference)).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+
+    const blankObjective = await service.createDraft(actor, {
+      ...draftInput,
+      course_blueprint_id: "course_blueprint_blank_objective",
+      objectives: [" "]
+    });
+    await expect(service.validate(actor, blankObjective.reference)).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+  });
 });

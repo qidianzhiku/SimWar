@@ -1,3 +1,11 @@
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createCourseBlueprintReference } from "../../packages/shared-contracts/src";
 import { createCourseBlueprintBinding } from "../../services/api/src/course-blueprint-binding";
@@ -25,5 +33,39 @@ describe("CourseBlueprintBindingStore", () => {
     expect(store.formalCourseAuthorityBindings).toEqual([]);
     expect(store.courses).toHaveLength(1);
     expect(() => bindings.append(binding)).toThrow("course_blueprint_binding_already_exists");
+  });
+
+  it("fails closed when persisted bindings are corrupt or duplicated", () => {
+    const valid = createCourseBlueprintBinding({
+      binding_schema_version: "course-blueprint-binding.v1",
+      course_blueprint_reference: createCourseBlueprintReference({
+        content_digest: "b".repeat(64),
+        course_blueprint_id: "blueprint_corrupt",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }),
+      course_id: "course_corrupt",
+      tenant_id: "tenant_demo"
+    });
+    const corrupted = {
+      ...valid,
+      binding_digest: "f".repeat(64)
+    };
+
+    const directory = mkdtempSync(join(tmpdir(), "simwar-course-blueprint-binding-"));
+    const snapshotPath = join(directory, "store.json");
+    try {
+      createP1Store({ persistenceFile: snapshotPath });
+      const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8")) as Record<string, unknown>;
+      snapshot.courseBlueprintBindings = [corrupted];
+      writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+      expect(() => createP1Store({ persistenceFile: snapshotPath })).toThrow("store_snapshot_corrupted");
+
+      snapshot.courseBlueprintBindings = [valid, structuredClone(valid)];
+      writeFileSync(snapshotPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+      expect(() => createP1Store({ persistenceFile: snapshotPath })).toThrow("store_snapshot_corrupted");
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
   });
 });

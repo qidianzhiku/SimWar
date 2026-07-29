@@ -37,7 +37,10 @@ import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
 import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
-import type { CourseBlueprintBinding } from "./course-blueprint-binding.js";
+import {
+  assertValidCourseBlueprintBinding,
+  type CourseBlueprintBinding
+} from "./course-blueprint-binding.js";
 import type {
   CourseBlueprintApprovalRecord,
   CourseBlueprintVersion
@@ -1487,6 +1490,22 @@ function assertSnapshotShape(
   ] as const) {
     if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+    }
+  }
+
+  if (Array.isArray(value.courseBlueprintBindings)) {
+    const identities = new Set<string>();
+    try {
+      for (const binding of value.courseBlueprintBindings as CourseBlueprintBinding[]) {
+        assertValidCourseBlueprintBinding(binding);
+        const identity = `${binding.tenant_id}:${binding.course_id}`;
+        if (identities.has(identity)) {
+          throw new Error("course_blueprint_binding_already_exists");
+        }
+        identities.add(identity);
+      }
+    } catch (error) {
+      throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath, error);
     }
   }
 

@@ -8,6 +8,11 @@ test.afterAll(() => {
   cleanupPlaywrightStore();
 });
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "wait" });
+  cleanupPlaywrightStore();
+});
+
 async function signIn(page: Page, buttonName: "教师登录" | "学员登录", username: string) {
   await page.getByLabel("tenant").fill("tenant_demo");
   await page.getByLabel("username").fill(username);

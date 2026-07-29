@@ -1425,6 +1425,19 @@ async function handleTeacherCourseBlueprintCourseCreate(
       title: body.title
     };
     const created = await createTeacherCourseFromBlueprint(runtime.formalCourseBlueprints, {
+      beforeCommit: async () => {
+        await appendAudit(runtime, {
+          actor,
+          action: "course.create",
+          resourceId: course.course_id,
+          resourceType: "course",
+          requestId: context.requestId,
+          after: clonePublic({
+            ...course,
+            course_blueprint_reference: body.course_blueprint_reference
+          })
+        });
+      },
       bindingStore: runtime.courseBlueprintBindingStore,
       course,
       course_blueprint_reference: body.course_blueprint_reference,
@@ -1440,14 +1453,6 @@ async function handleTeacherCourseBlueprintCourseCreate(
         scenario_package_reference: body.scenario_package_reference,
         tenant_id: context.tenantId
       }
-    });
-    await appendAudit(runtime, {
-      actor,
-      action: "course.create",
-      resourceId: course.course_id,
-      resourceType: "course",
-      requestId: context.requestId,
-      after: clonePublic({ ...course, course_blueprint_reference: created.binding_summary.course_blueprint_reference })
     });
     sendJson(response, 201, createEnvelope(context, created as TeacherCourseBlueprintCourseCreateDto));
   } catch (error) {

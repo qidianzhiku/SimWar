@@ -1,7 +1,11 @@
 import { once } from "node:events";
 import { request as nodeRequest, type Server } from "node:http";
 import { describe, expect, it } from "vitest";
-import type { ApiEnvelope, AuthSession } from "../../packages/shared-contracts/src";
+import {
+  M1_TEACHING_PRODUCT_PACKAGE,
+  type ApiEnvelope,
+  type AuthSession
+} from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, PLATFORM_TENANT_ID, createP1Store, type SimWarStore } from "../../services/api/src/store";
 
@@ -179,6 +183,30 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
       });
       expect(JSON.stringify(store.formalCourseAuthorityBindings[0])).not.toContain("forged");
       expect(store.courses).toContainEqual(expect.objectContaining({ course_id: created.body.data.course.course_id }));
+
+      const countsBeforeLegacyAttempt = {
+        blueprints: store.courseBlueprintBindings.length,
+        courses: store.courses.length,
+        formal: store.formalCourseAuthorityBindings.length
+      };
+      const legacyAttempt = await requestJson(
+        `${baseUrl}/api/v1/bff/teacher/course-blueprint-courses`,
+        {
+          body: {
+            course_blueprint_reference: M1_TEACHING_PRODUCT_PACKAGE.courseBlueprint,
+            scenario_package_reference: scenarioReference,
+            title: "Static v0 must not bind"
+          },
+          headers: teacherHeaders,
+          method: "POST"
+        }
+      );
+      expect(legacyAttempt.status).toBe(422);
+      expect({
+        blueprints: store.courseBlueprintBindings.length,
+        courses: store.courses.length,
+        formal: store.formalCourseAuthorityBindings.length
+      }).toEqual(countsBeforeLegacyAttempt);
     } finally { await stopServer(server); }
   });
 });

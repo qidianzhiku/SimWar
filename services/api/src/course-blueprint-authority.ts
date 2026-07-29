@@ -176,9 +176,10 @@ function assertActor(actor: CourseBlueprintAuthorityActor, tenantId: string): vo
 function assertValid(version: CourseBlueprintVersion): void {
   const positiveInteger = (value: number) => Number.isInteger(value) && value > 0;
   if (
-    !version.schema_version.trim() || !version.title.trim() || !version.description.trim() ||
+    version.schema_version !== "course-blueprint.v1" || !version.title.trim() || !version.description.trim() ||
     !version.instructor_guidance_reference.trim() || !positiveInteger(version.duration_minutes) ||
-    version.objectives.length === 0 || version.ordered_phases.length === 0 ||
+    version.objectives.length === 0 || version.objectives.some((objective) => !objective.trim()) ||
+    version.ordered_phases.length === 0 ||
     version.required_product_capabilities.some((capability) => !capability.trim()) ||
     Object.entries(version.scenario_compatibility_constraints).some(
       ([key, value]) => !key.trim() || !value.trim()
@@ -267,6 +268,9 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
   }
 
   async getByReference(tenantId: string, reference: CourseBlueprintReference): Promise<CourseBlueprintVersion | null> {
+    if (reference.tenant_id !== tenantId) {
+      throw new CourseBlueprintAuthorityError("TENANT_SCOPE_VIOLATION");
+    }
     return this.snapshots.filter((item) =>
       item.tenant_id === tenantId && item.reference.course_blueprint_id === reference.course_blueprint_id &&
       item.reference.version === reference.version && item.content_digest === reference.content_digest
@@ -298,25 +302,46 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
     if (history.some((item) => item.content_digest !== version.content_digest || item.status === version.status)) {
       throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS");
     }
+    const expected: CourseBlueprintVersionStatus[] = ["DRAFT", "VALIDATED", "FROZEN", "APPROVED", "RETIRED"];
+    if (version.status !== expected[history.length]) {
+      throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_INVALID_TRANSITION");
+    }
   }
 
   private assertStoredHistory(): void {
     const expected: CourseBlueprintVersionStatus[] = ["DRAFT", "VALIDATED", "FROZEN", "APPROVED", "RETIRED"];
     const byIdentity = new Map<string, CourseBlueprintVersion[]>();
     for (const snapshot of this.snapshots) {
-      const key = `${snapshot.tenant_id}:${snapshot.course_blueprint_id}:${snapshot.version}:${snapshot.content_digest}`;
+      const key = `${snapshot.tenant_id}:${snapshot.course_blueprint_id}:${snapshot.version}`;
       byIdentity.set(key, [...(byIdentity.get(key) ?? []), snapshot]);
     }
     for (const history of byIdentity.values()) {
-      if (history.some((snapshot, index) => snapshot.status !== expected[index])) {
+      if (
+        history.some((snapshot, index) =>
+          snapshot.status !== expected[index] ||
+          snapshot.content_digest !== history[0]!.content_digest
+        )
+      ) {
         throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
       }
       const approved = history.some((snapshot) => snapshot.status === "APPROVED");
-      if (approved && !this.approvals.some((record) =>
+      const matchingApprovals = this.approvals.filter((record) =>
         record.tenant_id === history[0]!.tenant_id &&
         record.course_blueprint_reference.content_digest === history[0]!.content_digest &&
         record.course_blueprint_reference.course_blueprint_id === history[0]!.course_blueprint_id &&
         record.course_blueprint_reference.version === history[0]!.version
+      );
+      if (matchingApprovals.length !== (approved ? 1 : 0)) {
+        throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
+      }
+    }
+    for (const approval of this.approvals) {
+      if (!this.snapshots.some((snapshot) =>
+        snapshot.status === "APPROVED" &&
+        snapshot.tenant_id === approval.tenant_id &&
+        snapshot.content_digest === approval.course_blueprint_reference.content_digest &&
+        snapshot.course_blueprint_id === approval.course_blueprint_reference.course_blueprint_id &&
+        snapshot.version === approval.course_blueprint_reference.version
       )) {
         throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
       }
