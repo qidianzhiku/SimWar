@@ -37,6 +37,11 @@ import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
 import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
+import type { CourseBlueprintBinding } from "./course-blueprint-binding.js";
+import type {
+  CourseBlueprintApprovalRecord,
+  CourseBlueprintVersion
+} from "./course-blueprint-authority.js";
 import type { ParameterSetApprovalRecord, ParameterSetVersion } from "./parameter-set-authority.js";
 import type {
   ScenarioPackageApprovalRecord,
@@ -76,6 +81,9 @@ export interface SimWarStoreSnapshot {
   formalPluginReleaseAvailabilityRecords: PluginReleaseAvailabilityRecord[];
   formalPluginReleaseLifecycleSnapshots: PluginReleaseVersion[];
   formalCourseAuthorityBindings: FormalCourseAuthorityBinding[];
+  courseBlueprintBindings: CourseBlueprintBinding[];
+  formalCourseBlueprintApprovalRecords: CourseBlueprintApprovalRecord[];
+  formalCourseBlueprintLifecycleSnapshots: CourseBlueprintVersion[];
   formalRunRuntimeBindings: FormalRunRuntimeBinding[];
   formalScenarioPackageApprovalRecords: ScenarioPackageApprovalRecord[];
   formalScenarioPackageLifecycleSnapshots: ScenarioPackageVersion[];
@@ -567,6 +575,9 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     formalPluginReleaseAvailabilityRecords: [],
     formalPluginReleaseLifecycleSnapshots: [],
     formalCourseAuthorityBindings: [],
+    courseBlueprintBindings: [],
+    formalCourseBlueprintApprovalRecords: [],
+    formalCourseBlueprintLifecycleSnapshots: [],
     formalRunRuntimeBindings: [],
     formalScenarioPackageApprovalRecords: [],
     formalScenarioPackageLifecycleSnapshots: [],
@@ -609,6 +620,9 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     formalPluginReleaseAvailabilityRecords: store.formalPluginReleaseAvailabilityRecords,
     formalPluginReleaseLifecycleSnapshots: store.formalPluginReleaseLifecycleSnapshots,
     formalCourseAuthorityBindings: store.formalCourseAuthorityBindings,
+    courseBlueprintBindings: store.courseBlueprintBindings,
+    formalCourseBlueprintApprovalRecords: store.formalCourseBlueprintApprovalRecords,
+    formalCourseBlueprintLifecycleSnapshots: store.formalCourseBlueprintLifecycleSnapshots,
     formalRunRuntimeBindings: store.formalRunRuntimeBindings,
     formalScenarioPackageApprovalRecords: store.formalScenarioPackageApprovalRecords,
     formalScenarioPackageLifecycleSnapshots: store.formalScenarioPackageLifecycleSnapshots,
@@ -642,6 +656,9 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     formalPluginReleaseAvailabilityRecords: snapshot.formalPluginReleaseAvailabilityRecords ?? [],
     formalPluginReleaseLifecycleSnapshots: snapshot.formalPluginReleaseLifecycleSnapshots ?? [],
     formalCourseAuthorityBindings: snapshot.formalCourseAuthorityBindings ?? [],
+    courseBlueprintBindings: snapshot.courseBlueprintBindings ?? [],
+    formalCourseBlueprintApprovalRecords: snapshot.formalCourseBlueprintApprovalRecords ?? [],
+    formalCourseBlueprintLifecycleSnapshots: snapshot.formalCourseBlueprintLifecycleSnapshots ?? [],
     formalRunRuntimeBindings: snapshot.formalRunRuntimeBindings ?? [],
     formalScenarioPackageApprovalRecords: snapshot.formalScenarioPackageApprovalRecords ?? [],
     formalScenarioPackageLifecycleSnapshots: snapshot.formalScenarioPackageLifecycleSnapshots ?? [],
@@ -1461,6 +1478,16 @@ function assertSnapshotShape(
     !Array.isArray(value.formalCourseAuthorityBindings)
   ) {
     throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+  }
+
+  for (const field of [
+    "courseBlueprintBindings",
+    "formalCourseBlueprintApprovalRecords",
+    "formalCourseBlueprintLifecycleSnapshots"
+  ] as const) {
+    if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
+      throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+    }
   }
 
   if (

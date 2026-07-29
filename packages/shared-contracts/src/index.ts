@@ -53,6 +53,28 @@ export type ParameterSetStatus =
   | "shadow_passed"
   | "approved"
   | "deprecated";
+
+/** Exact immutable reference for a teaching-only CourseBlueprint version. */
+export interface CourseBlueprintReference {
+  content_digest: string;
+  course_blueprint_id: string;
+  tenant_id: string;
+  version: string;
+}
+
+export function createCourseBlueprintReference(
+  reference: CourseBlueprintReference
+): CourseBlueprintReference {
+  if (
+    !reference.tenant_id.trim() ||
+    !reference.course_blueprint_id.trim() ||
+    !reference.version.trim() ||
+    !/^[a-f0-9]{64}$/.test(reference.content_digest)
+  ) {
+    throw new Error("course_blueprint_reference_invalid");
+  }
+  return Object.freeze({ ...reference });
+}
 export type SettlementHookName =
   | "adjustDemand"
   | "adjustOperations"

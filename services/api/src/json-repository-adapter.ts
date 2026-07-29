@@ -38,6 +38,10 @@ import {
   InMemoryJsonPluginReleaseRegistry,
   type InMemoryJsonPluginReleaseRegistryOptions
 } from "./plugin-release-authority.js";
+import {
+  InMemoryJsonCourseBlueprintRegistry,
+  type InMemoryJsonCourseBlueprintRegistryOptions
+} from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
 
 /**
@@ -65,6 +69,7 @@ interface JsonRepositoryAdapterCollections {
  * registries. It is deliberately separate from API route composition.
  */
 export interface JsonFormalScenarioAuthorityPersistence {
+  createCourseBlueprintRegistry(): InMemoryJsonCourseBlueprintRegistry;
   createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
   createPluginReleaseRegistry(): InMemoryJsonPluginReleaseRegistry;
   createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
@@ -77,6 +82,11 @@ export function createJsonFormalScenarioAuthorityPersistence(
     approvals: store.formalParameterSetApprovalRecords,
     onAppend: store.persist,
     snapshots: store.formalParameterSetLifecycleSnapshots
+  };
+  const courseBlueprintOptions: InMemoryJsonCourseBlueprintRegistryOptions = {
+    approvals: store.formalCourseBlueprintApprovalRecords,
+    onAppend: store.persist,
+    snapshots: store.formalCourseBlueprintLifecycleSnapshots
   };
   const scenarioPackageOptions: InMemoryJsonScenarioPackageRegistryOptions = {
     approvals: store.formalScenarioPackageApprovalRecords,
@@ -91,6 +101,7 @@ export function createJsonFormalScenarioAuthorityPersistence(
   };
 
   return Object.freeze({
+    createCourseBlueprintRegistry: () => new InMemoryJsonCourseBlueprintRegistry(courseBlueprintOptions),
     createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
     createPluginReleaseRegistry: () => new InMemoryJsonPluginReleaseRegistry(pluginReleaseOptions),
     createScenarioPackageRegistry: () =>
