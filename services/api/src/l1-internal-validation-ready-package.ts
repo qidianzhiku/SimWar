@@ -348,3 +348,371 @@ export function createL1InternalValidationReadyPackage(
     validation_boundary: "INTERNAL_VALIDATION_READY_PENDING_INDEPENDENT_REVIEW"
   };
 }
+
+export type L1ClosureIssueState = "OPEN" | "CLOSED";
+
+export type L1ClosureHumanValidation =
+  | "NOT_PERFORMED"
+  | "WAIVED_BY_OWNER_NOT_PERFORMED"
+  | "HUMAN_VALIDATION_COMPLETED";
+
+export interface L1AutomatedClosureEvidenceArtifact {
+  payload: Record<string, unknown>;
+  sha256: string;
+}
+
+export interface L1AutomatedClosureEvidenceInput {
+  current_facts: {
+    ci: {
+      browser_smoke: "PASS";
+      codeql: "PASS";
+      quality: "PASS";
+      source_sha: string;
+    };
+    fresh_clone: {
+      source_sha: string;
+      status: "PASS";
+    };
+    issues: {
+      issue_111: L1ClosureIssueState;
+      issue_114: L1ClosureIssueState;
+      issue_115: L1ClosureIssueState;
+    };
+    source_sha: string;
+  };
+  human_validation: L1ClosureHumanValidation;
+  known_limits: L1AutomatedClosureEvidenceArtifact;
+  phase7_core: {
+    evidence_order: L1AutomatedClosureEvidenceArtifact;
+    run_a: L1AutomatedClosureEvidenceArtifact;
+    run_a_freeze: L1AutomatedClosureEvidenceArtifact;
+    run_b_lifecycle: L1AutomatedClosureEvidenceArtifact;
+  };
+}
+
+export interface L1AutomatedClosureEvidencePack {
+  classification: "AUTOMATED_INTERNAL_APPLICATION_VALIDATION";
+  core_evidence_sha256: {
+    phase7_evidence_order: string;
+    run_a_evidence: string;
+    run_a_freeze: string;
+    run_b_lifecycle: string;
+  };
+  explicit_non_proofs: readonly [
+    "HUMAN_VALIDATION_NOT_PERFORMED",
+    "POSTGRESQL_NOT_ACTIVE",
+    "DURABLE_SETTLEMENT_NOT_PROVEN",
+    "DURABLE_RECOVERY_NOT_PROVEN",
+    "PILOT_NOT_AUTHORIZED",
+    "PRODUCTION_NOT_AUTHORIZED"
+  ];
+  human_validation: Exclude<L1ClosureHumanValidation, "HUMAN_VALIDATION_COMPLETED">;
+  issue_disposition: {
+    issue_111: "OPEN_KNOWN_LIMIT";
+    issue_114: "CLOSED";
+    issue_115: "CLOSED";
+  };
+  known_limits_sha256: string;
+  machine_validation: "PASS";
+  owner_acknowledgment: "NOT_ISSUED";
+  schema_version: "simwar.l1.automated-closure-evidence.v1";
+  source_sha: string;
+  status: "AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED";
+}
+
+function asClosureRecord(value: unknown, label: string): Record<string, unknown> {
+  assertCondition(
+    value !== null && !Array.isArray(value) && typeof value === "object",
+    "L1_CLOSURE_EVIDENCE_PAYLOAD_INVALID",
+    `${label} must be an object`
+  );
+  return value as Record<string, unknown>;
+}
+
+function assertClosureExactValue(value: unknown, expected: unknown, label: string): void {
+  assertCondition(
+    value === expected,
+    "L1_CLOSURE_EVIDENCE_PAYLOAD_INVALID",
+    `${label} must equal ${String(expected)}`
+  );
+}
+
+function assertClosureSha(value: string, label: string): void {
+  assertCondition(
+    /^[a-f0-9]{64}$/.test(value),
+    "L1_CLOSURE_EVIDENCE_HASH_INVALID",
+    `${label} must be a lowercase SHA-256`
+  );
+}
+
+function assertClosureSourceSha(value: unknown, expectedSourceSha: string, label: string): void {
+  assertCondition(
+    value === expectedSourceSha,
+    "L1_CLOSURE_EVIDENCE_SOURCE_SHA_DRIFT",
+    `${label} must equal the current source SHA`
+  );
+}
+
+function assertZeroCounts(value: unknown, label: string): void {
+  const record = asClosureRecord(value, label);
+  assertCondition(
+    Object.keys(record).length > 0 && Object.values(record).every((entry) => entry === 0),
+    "L1_CLOSURE_EVIDENCE_BOUNDARY_FAILED",
+    `${label} must contain only zero counts`
+  );
+}
+
+function assertEmptyArray(value: unknown, label: string): void {
+  assertCondition(
+    Array.isArray(value) && value.length === 0,
+    "L1_CLOSURE_EVIDENCE_BOUNDARY_FAILED",
+    `${label} must be an empty array`
+  );
+}
+
+function asStringSet(value: unknown, label: string): Set<string> {
+  assertCondition(
+    Array.isArray(value) && value.every((entry) => typeof entry === "string"),
+    "L1_CLOSURE_EVIDENCE_PAYLOAD_INVALID",
+    `${label} must be a string array`
+  );
+  return new Set(value as string[]);
+}
+
+function assertHasAll(values: Set<string>, required: readonly string[], label: string): void {
+  assertCondition(
+    required.every((entry) => values.has(entry)),
+    "L1_CLOSURE_EVIDENCE_KNOWN_LIMITS_INCOMPLETE",
+    `${label} is missing a required disclosure`
+  );
+}
+
+function assertNoResolvedIssueDisclosure(values: Set<string>): void {
+  assertCondition(
+    !values.has("ISSUE_114_OPEN") && !values.has("ISSUE_115_OPEN"),
+    "L1_CLOSURE_EVIDENCE_ISSUE_DISPOSITION_INVALID",
+    "resolved issue disclosures must not remain in current Known Limits"
+  );
+}
+
+function assertArtifact(
+  artifact: L1AutomatedClosureEvidenceArtifact,
+  expectedSourceSha: string,
+  label: string
+): Record<string, unknown> {
+  assertClosureSha(artifact.sha256, `${label}.sha256`);
+  const payload = asClosureRecord(artifact.payload, `${label}.payload`);
+  assertClosureSourceSha(payload.source_sha, expectedSourceSha, `${label}.payload.source_sha`);
+  return payload;
+}
+
+function assertCoreEvidence(input: L1AutomatedClosureEvidenceInput, sourceSha: string): void {
+  const runA = assertArtifact(input.phase7_core.run_a, sourceSha, "run_a");
+  assertClosureExactValue(
+    runA.classification,
+    "AUTOMATED_OPERATOR_EXECUTION",
+    "run_a.classification"
+  );
+  assertClosureExactValue(runA.lock_count, 1, "run_a.lock_count");
+  assertClosureExactValue(runA.settlement_count, 1, "run_a.settlement_count");
+  assertClosureExactValue(runA.settlement_outcome, "COMMITTED", "run_a.settlement_outcome");
+  assertClosureExactValue(runA.publish_count, 1, "run_a.publish_count");
+  assertClosureExactValue(runA.published_state, "PUBLISHED", "run_a.published_state");
+  assertZeroCounts(runA.boundary_results, "run_a.boundary_results");
+
+  const freeze = assertArtifact(input.phase7_core.run_a_freeze, sourceSha, "run_a_freeze");
+  assertClosureExactValue(
+    freeze.status,
+    "SEALED_AUTOMATED_RUN_A_BEFORE_RUN_B",
+    "run_a_freeze.status"
+  );
+  assertClosureExactValue(freeze.boundary_status, "PASS", "run_a_freeze.boundary_status");
+  assertClosureExactValue(
+    freeze.run_b_exists_at_freeze,
+    false,
+    "run_a_freeze.run_b_exists_at_freeze"
+  );
+  assertClosureExactValue(
+    freeze.run_b_creation_attempted_at_freeze,
+    false,
+    "run_a_freeze.run_b_creation_attempted_at_freeze"
+  );
+  assertClosureExactValue(
+    freeze.run_a_evidence_sha256,
+    input.phase7_core.run_a.sha256,
+    "run_a_freeze.run_a_evidence_sha256"
+  );
+
+  const order = assertArtifact(input.phase7_core.evidence_order, sourceSha, "evidence_order");
+  assertClosureExactValue(
+    order.run_b_created_after_freeze_readback,
+    true,
+    "evidence_order.run_b_created_after_freeze_readback"
+  );
+  assertClosureExactValue(
+    order.run_a_evidence_sha256,
+    input.phase7_core.run_a.sha256,
+    "evidence_order.run_a_evidence_sha256"
+  );
+  assertClosureExactValue(
+    order.run_a_freeze_sha256,
+    input.phase7_core.run_a_freeze.sha256,
+    "evidence_order.run_a_freeze_sha256"
+  );
+
+  const runB = assertArtifact(input.phase7_core.run_b_lifecycle, sourceSha, "run_b_lifecycle");
+  assertClosureExactValue(runB.abort_count, 2, "run_b_lifecycle.abort_count");
+  assertClosureExactValue(runB.reset_count, 1, "run_b_lifecycle.reset_count");
+  assertClosureExactValue(runB.cleanup_count, 1, "run_b_lifecycle.cleanup_count");
+  assertClosureExactValue(runB.final_state, "CLEANED", "run_b_lifecycle.final_state");
+  for (const key of [
+    "settlement_count",
+    "publish_count",
+    "replay_execution_count",
+    "student_decision_count"
+  ] as const) {
+    assertClosureExactValue(runB[key], 0, `run_b_lifecycle.${key}`);
+  }
+  for (const key of [
+    "run_a_official_result_unchanged",
+    "run_a_replay_summary_unchanged",
+    "run_a_historical_state_unchanged"
+  ] as const) {
+    assertClosureExactValue(runB[key], true, `run_b_lifecycle.${key}`);
+  }
+  assertClosureExactValue(
+    runB.run_a_freeze_sha256,
+    input.phase7_core.run_a_freeze.sha256,
+    "run_b_lifecycle.run_a_freeze_sha256"
+  );
+  assertClosureExactValue(
+    runB.evidence_order_sha256,
+    input.phase7_core.evidence_order.sha256,
+    "run_b_lifecycle.evidence_order_sha256"
+  );
+}
+
+function assertKnownLimits(
+  artifact: L1AutomatedClosureEvidenceArtifact,
+  sourceSha: string,
+  humanValidation: Exclude<L1ClosureHumanValidation, "HUMAN_VALIDATION_COMPLETED">
+): void {
+  const payload = assertArtifact(artifact, sourceSha, "known_limits");
+  assertZeroCounts(payload.business_mutation_counts, "known_limits.business_mutation_counts");
+  for (const key of [
+    "cross_team_exposure_count",
+    "cross_tenant_exposure_count",
+    "internal_route_count",
+    "private_replay_exposure_count",
+    "state_true_exposure_count",
+    "credential_scan"
+  ] as const) {
+    assertClosureExactValue(payload[key], 0, `known_limits.${key}`);
+  }
+  for (const key of ["missing_ids", "unexpected_ids", "contradictory_ids"] as const) {
+    assertEmptyArray(payload[key], `known_limits.${key}`);
+  }
+
+  const commonIds = asStringSet(
+    payload.common_disclosure_ids,
+    "known_limits.common_disclosure_ids"
+  );
+  assertHasAll(
+    commonIds,
+    [
+      "JSON_INTERNAL_ONLY",
+      "SYNTHETIC_ONLY",
+      "LOOPBACK_ONLY",
+      "POSTGRESQL_NOT_ACTIVE",
+      "DURABLE_SETTLEMENT_NOT_PROVEN",
+      "DURABLE_RECOVERY_NOT_PROVEN",
+      "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION",
+      "NO_PILOT_OR_PRODUCTION_AUTHORIZATION"
+    ],
+    "known_limits.common_disclosure_ids"
+  );
+  const privilegedIds = asStringSet(
+    payload.teacher_admin_additional_ids,
+    "known_limits.teacher_admin_additional_ids"
+  );
+  assertHasAll(privilegedIds, ["ISSUE_111_OPEN"], "known_limits.teacher_admin_additional_ids");
+  if (humanValidation === "WAIVED_BY_OWNER_NOT_PERFORMED") {
+    assertHasAll(
+      privilegedIds,
+      ["HUMAN_VALIDATION_WAIVED_BY_OWNER"],
+      "known_limits.teacher_admin_additional_ids"
+    );
+  }
+  assertNoResolvedIssueDisclosure(new Set([...commonIds, ...privilegedIds]));
+}
+
+export function createL1AutomatedClosureEvidencePack(
+  input: L1AutomatedClosureEvidenceInput
+): L1AutomatedClosureEvidencePack {
+  const sourceSha = input.current_facts.source_sha;
+  const humanValidation = input.human_validation;
+  assertCondition(
+    isSha(sourceSha),
+    "L1_CLOSURE_EVIDENCE_SOURCE_SHA_INVALID",
+    "current facts require an exact source SHA"
+  );
+  assertCondition(
+    input.current_facts.fresh_clone.status === "PASS" &&
+      input.current_facts.fresh_clone.source_sha === sourceSha &&
+      input.current_facts.ci.source_sha === sourceSha &&
+      input.current_facts.ci.quality === "PASS" &&
+      input.current_facts.ci.browser_smoke === "PASS" &&
+      input.current_facts.ci.codeql === "PASS",
+    "L1_CLOSURE_EVIDENCE_CURRENT_FACTS_INVALID",
+    "fresh clone and CI evidence must pass at the exact current source SHA"
+  );
+  assertCondition(
+    input.current_facts.issues.issue_111 === "OPEN" &&
+      input.current_facts.issues.issue_114 === "CLOSED" &&
+      input.current_facts.issues.issue_115 === "CLOSED",
+    "L1_CLOSURE_EVIDENCE_ISSUE_DISPOSITION_INVALID",
+    "Issue #111 must remain the explicit durable known limit while #114 and #115 are closed"
+  );
+  assertCondition(
+    humanValidation !== "HUMAN_VALIDATION_COMPLETED",
+    "L1_CLOSURE_EVIDENCE_HUMAN_VALIDATION_OVERSTATED",
+    "automated evidence must not claim completed human validation"
+  );
+
+  assertCoreEvidence(input, sourceSha);
+  const verifiedHumanValidation = humanValidation as Exclude<
+    L1ClosureHumanValidation,
+    "HUMAN_VALIDATION_COMPLETED"
+  >;
+  assertKnownLimits(input.known_limits, sourceSha, verifiedHumanValidation);
+
+  return Object.freeze({
+    classification: "AUTOMATED_INTERNAL_APPLICATION_VALIDATION",
+    core_evidence_sha256: Object.freeze({
+      phase7_evidence_order: input.phase7_core.evidence_order.sha256,
+      run_a_evidence: input.phase7_core.run_a.sha256,
+      run_a_freeze: input.phase7_core.run_a_freeze.sha256,
+      run_b_lifecycle: input.phase7_core.run_b_lifecycle.sha256
+    }),
+    explicit_non_proofs: [
+      "HUMAN_VALIDATION_NOT_PERFORMED",
+      "POSTGRESQL_NOT_ACTIVE",
+      "DURABLE_SETTLEMENT_NOT_PROVEN",
+      "DURABLE_RECOVERY_NOT_PROVEN",
+      "PILOT_NOT_AUTHORIZED",
+      "PRODUCTION_NOT_AUTHORIZED"
+    ] as const,
+    human_validation: verifiedHumanValidation,
+    issue_disposition: {
+      issue_111: "OPEN_KNOWN_LIMIT",
+      issue_114: "CLOSED",
+      issue_115: "CLOSED"
+    } as const,
+    known_limits_sha256: input.known_limits.sha256,
+    machine_validation: "PASS",
+    owner_acknowledgment: "NOT_ISSUED",
+    schema_version: "simwar.l1.automated-closure-evidence.v1",
+    source_sha: sourceSha,
+    status: "AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED"
+  });
+}
