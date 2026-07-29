@@ -11,6 +11,14 @@
 
 ---
 
+## Current-Master Reconciliation Notice
+
+The assessment source SHA and graph statistics in this specification remain historical architecture inputs. Current operational status is revalidated at `98206dff8ed747ad650d4bff82f5497fdfd3590c`: PR #286 merged the evidence assembler; the fresh-clone Phase 7 product path and Known Limits readback both passed; and the immutable closure pack has SHA-256 `8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9`.
+
+This evidence closes the automated product/evidence route at its assessment source anchor, not the Owner-only final stage. The adoption merge requires one fresh-clone evidence rebase before current state may be `AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED`; Human Validation remains `WAIVED_BY_OWNER_NOT_PERFORMED`. The historical B01–B04 references below are superseded for current Portfolio selection by their current closures: #112, #114, and #115 are closed, while #111 remains an explicit durable-runtime Known Limit.
+
+---
+
 ## 1. Document Control
 
 | Field                       | Value                                             |
@@ -124,22 +132,22 @@ Authentication → Tenant/Role Scope
 → Abort / Reset / Cleanup → L1 Completion Evidence Pack
 ```
 
-| Node     | Capability                                              | Current State            | Sole Writer / Authority                                                           | Locks                                                                                                             | Primary Gap                                                           |
-| -------- | ------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| L1-VC-01 | Current Reality与工程基线                               | MERGED_NOT_CLOSED        | Repository governance / CI single writer                                          | CI workflow, package/lockfile, heavy validation slot                                                              | current-master post-merge fresh-clone receipt未在本规格生成任务中执行 |
-| L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                  | Identity/RBAC policy and API authorization guards                                 | Teacher/Student projection, tenant/course visibility                                                              | L1-GAP-B02 course membership visibility                               |
-| L1-VC-03 | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED | Course binding store for formal course configuration; Run writer for Run creation | Course formal authority binding, Run entry                                                                        | current capability requires integration into B01 full Golden receipt  |
-| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED    | Formal command services and append-only binding stores                            | ParameterSet Authority, ScenarioPackage Authority, PluginRelease Authority, Formal Run Binding, Run/Replay/Golden | L1-GAP-B01 default persisted authority full Golden chain              |
-| L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED | Run/Round command path and settlement outcome port                                | Run lifecycle, Settlement, Run/Replay/Golden                                                                      | B01 must prove full default-server chain                              |
-| L1-VC-06 | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED    | Decision command repository port / canonical decision writer                      | Decision lifecycle, Student BFF projection                                                                        | B02 visibility completion impacts safe decision scope                 |
-| L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED | Simulation Core L1–L3 and atomic SettlementOutcomePersistencePort                 | Simulation Core Truth, Settlement, Score/Rank                                                                     | B01 evidence; Issue #111 remains high-risk current issue              |
-| L1-VC-08 | Publish与Teacher/Student/Admin安全Projection            | BLOCKED                  | Projection builders are read-only; Settlement remains formal result writer        | Teacher/Student projection, Public contract                                                                       | L1-GAP-B02 course membership visibility                               |
-| L1-VC-09 | Three-Part Feedback与Learning Report最小闭环            | IMPLEMENTED_NOT_VERIFIED | Learning evidence writer; read-only consumer of official result                   | Learning Evidence, Student projection                                                                             | current-SHA full product journey proof missing                        |
-| L1-VC-10 | Official Replay与Evidence Non-Overwrite                 | IMPLEMENTED_NOT_VERIFIED | Replay evidence/report writer; no writer authority over official SettlementResult | Run/Replay/Golden                                                                                                 | B01 same default server proof                                         |
-| L1-VC-11 | Abort、Reset、Cleanup与Failure Matrix                   | IMPLEMENTED_NOT_VERIFIED | Synthetic lifecycle service within JSON_INTERNAL_ONLY L1 scope                    | Run lifecycle, Run/Replay/Golden                                                                                  | L1-GAP-E04 current failure matrix and zero-residue evidence           |
-| L1-VC-12 | Known Limits与阶段声明边界                              | IMPLEMENTED_NOT_VERIFIED | Known Limits policy owner                                                         | Known Limits policy                                                                                               | current-master browser disclosure receipt needed                      |
-| L1-VC-13 | L1 Completion Evidence Pack                             | NOT_STARTED_CURRENT_SHA  | Evidence pack assembler; read-only with respect to product Truth                  | Evidence Root, Closure lane                                                                                       | depends on B01–B04 and E04 closure evidence                           |
-| L1-VC-14 | Final L1 Gate与Owner Acknowledgment                     | NOT_STARTED              | Project Owner / designated L1 gate authority                                      | Stage decision                                                                                                    | awaits evidence pack and zero blocker/accepted limits state           |
+| Node     | Capability                                              | Current State                                             | Sole Writer / Authority                                                           | Locks                                                                                                             | Primary Gap                                                           |
+| -------- | ------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| L1-VC-01 | Current Reality与工程基线                               | MERGED_NOT_CLOSED                                         | Repository governance / CI single writer                                          | CI workflow, package/lockfile, heavy validation slot                                                              | current-master post-merge fresh-clone receipt未在本规格生成任务中执行 |
+| L1-VC-02 | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                                                   | Identity/RBAC policy and API authorization guards                                 | Teacher/Student projection, tenant/course visibility                                                              | L1-GAP-B02 course membership visibility                               |
+| L1-VC-03 | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED                                  | Course binding store for formal course configuration; Run writer for Run creation | Course formal authority binding, Run entry                                                                        | current capability requires integration into B01 full Golden receipt  |
+| L1-VC-04 | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED                                     | Formal command services and append-only binding stores                            | ParameterSet Authority, ScenarioPackage Authority, PluginRelease Authority, Formal Run Binding, Run/Replay/Golden | L1-GAP-B01 default persisted authority full Golden chain              |
+| L1-VC-05 | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED                                  | Run/Round command path and settlement outcome port                                | Run lifecycle, Settlement, Run/Replay/Golden                                                                      | B01 must prove full default-server chain                              |
+| L1-VC-06 | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED                                     | Decision command repository port / canonical decision writer                      | Decision lifecycle, Student BFF projection                                                                        | B02 visibility completion impacts safe decision scope                 |
+| L1-VC-07 | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED                                  | Simulation Core L1–L3 and atomic SettlementOutcomePersistencePort                 | Simulation Core Truth, Settlement, Score/Rank                                                                     | B01 evidence; Issue #111 remains high-risk current issue              |
+| L1-VC-08 | Publish与Teacher/Student/Admin安全Projection            | BLOCKED                                                   | Projection builders are read-only; Settlement remains formal result writer        | Teacher/Student projection, Public contract                                                                       | L1-GAP-B02 course membership visibility                               |
+| L1-VC-09 | Three-Part Feedback与Learning Report最小闭环            | IMPLEMENTED_NOT_VERIFIED                                  | Learning evidence writer; read-only consumer of official result                   | Learning Evidence, Student projection                                                                             | current-SHA full product journey proof missing                        |
+| L1-VC-10 | Official Replay与Evidence Non-Overwrite                 | IMPLEMENTED_NOT_VERIFIED                                  | Replay evidence/report writer; no writer authority over official SettlementResult | Run/Replay/Golden                                                                                                 | B01 same default server proof                                         |
+| L1-VC-11 | Abort、Reset、Cleanup与Failure Matrix                   | IMPLEMENTED_NOT_VERIFIED                                  | Synthetic lifecycle service within JSON_INTERNAL_ONLY L1 scope                    | Run lifecycle, Run/Replay/Golden                                                                                  | L1-GAP-E04 current failure matrix and zero-residue evidence           |
+| L1-VC-12 | Known Limits与阶段声明边界                              | IMPLEMENTED_NOT_VERIFIED                                  | Known Limits policy owner                                                         | Known Limits policy                                                                                               | current-master browser disclosure receipt needed                      |
+| L1-VC-13 | L1 Completion Evidence Pack                             | AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED | Evidence pack assembler; read-only with respect to product Truth                  | Evidence Root, Closure lane                                                                                       | current immutable evidence pack at `98206df`                          |
+| L1-VC-14 | Final L1 Gate与Owner Acknowledgment                     | AWAITING_OWNER_ACKNOWLEDGMENT                             | Project Owner / designated L1 gate authority                                      | Stage decision                                                                                                    | exact-source Owner-only decision                                      |
 
 ## 7. Repository Module Map
 
@@ -510,22 +518,22 @@ These contracts are inputs to a Mission Compiler. They are not executable author
 
 ## 20. Capability Cards
 
-| Capability | Repository Card                      | Title                                                   | Current State            |
-| ---------- | ------------------------------------ | ------------------------------------------------------- | ------------------------ |
-| L1-VC-01   | L1-VC-01-engineering-baseline.md     | Current Reality与工程基线                               | MERGED_NOT_CLOSED        |
-| L1-VC-02   | L1-VC-02-identity-tenant-role.md     | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                  |
-| L1-VC-03   | L1-VC-03-course-run-entry.md         | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-04   | L1-VC-04-formal-authority-binding.md | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED    |
-| L1-VC-05   | L1-VC-05-run-lifecycle.md            | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-06   | L1-VC-06-student-decision.md         | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED    |
-| L1-VC-07   | L1-VC-07-truth-settlement.md         | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-08   | L1-VC-08-projection-visibility.md    | Publish与Teacher/Student/Admin安全Projection            | BLOCKED                  |
-| L1-VC-09   | L1-VC-09-feedback-learning-report.md | Three-Part Feedback与Learning Report最小闭环            | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-10   | L1-VC-10-replay-evidence.md          | Official Replay与Evidence Non-Overwrite                 | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-11   | L1-VC-11-abort-reset-cleanup.md      | Abort、Reset、Cleanup与Failure Matrix                   | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-12   | L1-VC-12-known-limits.md             | Known Limits与阶段声明边界                              | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-13   | L1-VC-13-evidence-pack.md            | L1 Completion Evidence Pack                             | NOT_STARTED_CURRENT_SHA  |
-| L1-VC-14   | L1-VC-14-final-gate-owner-ack.md     | Final L1 Gate与Owner Acknowledgment                     | NOT_STARTED              |
+| Capability | Repository Card                      | Title                                                   | Current State                                             |
+| ---------- | ------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------- |
+| L1-VC-01   | L1-VC-01-engineering-baseline.md     | Current Reality与工程基线                               | MERGED_NOT_CLOSED                                         |
+| L1-VC-02   | L1-VC-02-identity-tenant-role.md     | Identity、RBAC、Tenant、Course与Team隔离                | BLOCKED                                                   |
+| L1-VC-03   | L1-VC-03-course-run-entry.md         | Synthetic Course与Run Entry                             | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-04   | L1-VC-04-formal-authority-binding.md | Formal Authority Lifecycle与Exact Run Binding           | PARTIALLY_IMPLEMENTED                                     |
+| L1-VC-05   | L1-VC-05-run-lifecycle.md            | Run Lifecycle：Create→Open→Decision→Lock→Settle→Publish | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-06   | L1-VC-06-student-decision.md         | Student Whole-Team Decision Flow                        | PARTIALLY_IMPLEMENTED                                     |
+| L1-VC-07   | L1-VC-07-truth-settlement.md         | Truth-L1—L3与L1范围Settlement                           | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-08   | L1-VC-08-projection-visibility.md    | Publish与Teacher/Student/Admin安全Projection            | BLOCKED                                                   |
+| L1-VC-09   | L1-VC-09-feedback-learning-report.md | Three-Part Feedback与Learning Report最小闭环            | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-10   | L1-VC-10-replay-evidence.md          | Official Replay与Evidence Non-Overwrite                 | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-11   | L1-VC-11-abort-reset-cleanup.md      | Abort、Reset、Cleanup与Failure Matrix                   | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-12   | L1-VC-12-known-limits.md             | Known Limits与阶段声明边界                              | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-13   | L1-VC-13-evidence-pack.md            | L1 Completion Evidence Pack                             | AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED |
+| L1-VC-14   | L1-VC-14-final-gate-owner-ack.md     | Final L1 Gate与Owner Acknowledgment                     | AWAITING_OWNER_ACKNOWLEDGMENT                             |
 
 Capability cards contain stable technical contracts only. Current PR numbers, exact heads and cycle scheduling belong in the Portfolio Register and Current Cycle files.
 
@@ -745,22 +753,22 @@ Recommended Owner Decision: ADOPT_L1_TARGET_MODE_EXECUTION_SPEC
 
 ## Appendix F — Capability Card Index
 
-| Capability | File                                                                | Status                   |
-| ---------- | ------------------------------------------------------------------- | ------------------------ |
-| L1-VC-01   | docs/technical/l1-capabilities/L1-VC-01-engineering-baseline.md     | MERGED_NOT_CLOSED        |
-| L1-VC-02   | docs/technical/l1-capabilities/L1-VC-02-identity-tenant-role.md     | BLOCKED                  |
-| L1-VC-03   | docs/technical/l1-capabilities/L1-VC-03-course-run-entry.md         | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-04   | docs/technical/l1-capabilities/L1-VC-04-formal-authority-binding.md | PARTIALLY_IMPLEMENTED    |
-| L1-VC-05   | docs/technical/l1-capabilities/L1-VC-05-run-lifecycle.md            | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-06   | docs/technical/l1-capabilities/L1-VC-06-student-decision.md         | PARTIALLY_IMPLEMENTED    |
-| L1-VC-07   | docs/technical/l1-capabilities/L1-VC-07-truth-settlement.md         | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-08   | docs/technical/l1-capabilities/L1-VC-08-projection-visibility.md    | BLOCKED                  |
-| L1-VC-09   | docs/technical/l1-capabilities/L1-VC-09-feedback-learning-report.md | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-10   | docs/technical/l1-capabilities/L1-VC-10-replay-evidence.md          | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-11   | docs/technical/l1-capabilities/L1-VC-11-abort-reset-cleanup.md      | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-12   | docs/technical/l1-capabilities/L1-VC-12-known-limits.md             | IMPLEMENTED_NOT_VERIFIED |
-| L1-VC-13   | docs/technical/l1-capabilities/L1-VC-13-evidence-pack.md            | NOT_STARTED_CURRENT_SHA  |
-| L1-VC-14   | docs/technical/l1-capabilities/L1-VC-14-final-gate-owner-ack.md     | NOT_STARTED              |
+| Capability | File                                                                | Status                                                    |
+| ---------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
+| L1-VC-01   | docs/technical/l1-capabilities/L1-VC-01-engineering-baseline.md     | MERGED_NOT_CLOSED                                         |
+| L1-VC-02   | docs/technical/l1-capabilities/L1-VC-02-identity-tenant-role.md     | BLOCKED                                                   |
+| L1-VC-03   | docs/technical/l1-capabilities/L1-VC-03-course-run-entry.md         | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-04   | docs/technical/l1-capabilities/L1-VC-04-formal-authority-binding.md | PARTIALLY_IMPLEMENTED                                     |
+| L1-VC-05   | docs/technical/l1-capabilities/L1-VC-05-run-lifecycle.md            | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-06   | docs/technical/l1-capabilities/L1-VC-06-student-decision.md         | PARTIALLY_IMPLEMENTED                                     |
+| L1-VC-07   | docs/technical/l1-capabilities/L1-VC-07-truth-settlement.md         | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-08   | docs/technical/l1-capabilities/L1-VC-08-projection-visibility.md    | BLOCKED                                                   |
+| L1-VC-09   | docs/technical/l1-capabilities/L1-VC-09-feedback-learning-report.md | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-10   | docs/technical/l1-capabilities/L1-VC-10-replay-evidence.md          | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-11   | docs/technical/l1-capabilities/L1-VC-11-abort-reset-cleanup.md      | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-12   | docs/technical/l1-capabilities/L1-VC-12-known-limits.md             | IMPLEMENTED_NOT_VERIFIED                                  |
+| L1-VC-13   | docs/technical/l1-capabilities/L1-VC-13-evidence-pack.md            | AUTOMATED_EVIDENCE_COMPLETE_OWNER_ACKNOWLEDGMENT_REQUIRED |
+| L1-VC-14   | docs/technical/l1-capabilities/L1-VC-14-final-gate-owner-ack.md     | AWAITING_OWNER_ACKNOWLEDGMENT                             |
 
 ## Appendix G — Machine-Readable YAML
 

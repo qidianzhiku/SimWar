@@ -7,6 +7,20 @@ source_sha: a296f9032cf1d7fc921fa837d57e5c33e3cc4de2
 status: READY_FOR_REPOSITORY_ADOPTION
 normative_contract_status: PASS_WITH_LIMITS
 current_runtime_evidence_completeness: PARTIAL
+current_master_reconciliation:
+  assessment_source_anchor_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
+  evidence_pack_sha256: 8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9
+  automated_evidence_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+  b01_b04_current_disposition: CLOSED_AND_CURRENT_OR_KNOWN_LIMIT
+  issue_111: OPEN_KNOWN_LIMIT
+  issue_112: CLOSED
+  issue_114: CLOSED
+  issue_115: CLOSED
+  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
+  owner_acknowledgment: AWAITING_POST_MERGE_EVIDENCE_REBASE
+  graph_status: HISTORICAL_ASSESSMENT_INPUT_ONLY
+  automatic_next_mission: false
+  expiry: ADOPTION_MERGE
 automatic_next_mission: false
 graph_manifest:
   source_sha: a296f9032cf1d7fc921fa837d57e5c33e3cc4de2

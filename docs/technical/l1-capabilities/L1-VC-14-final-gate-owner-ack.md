@@ -2,11 +2,11 @@
 
 **Card Version:** `1.0`<br>
 **Repository:** `qidianzhiku/SimWar`<br>
-**Source SHA:** `a296f9032cf1d7fc921fa837d57e5c33e3cc4de2`<br>
+**Source SHA:** `98206dff8ed747ad650d4bff82f5497fdfd3590c`<br>
 **Ledger:** `L1-LEDGER-014`<br>
 **L1 DoD:** `L1-DOD-043`<br>
 **Platform Gate:** `P-G8`<br>
-**Current Status:** `NOT_STARTED`<br>
+**Current Status:** `AWAITING_POST_MERGE_EVIDENCE_REBASE_THEN_OWNER_ACKNOWLEDGMENT`<br>
 **Risk Tier:** `T4_STAGE_DECISION`<br>
 **Parallel Classification:** `SERIAL_REQUIRED`
 
@@ -17,7 +17,7 @@
 ## 2. Stable Technical Contract
 
 - **Primary Outcome type:** one recognizable L1 capability state transition.
-- **Entry condition:** current master and graph manifest remain at `a296f9032cf1d7fc921fa837d57e5c33e3cc4de2` or are revalidated.
+- **Entry condition:** after the adoption merge, a new exact-current-master automated evidence pack supersedes SHA-256 `8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9` at source SHA `98206dff8ed747ad650d4bff82f5497fdfd3590c`.
 - **Sole writer:** Project Owner / designated L1 gate authority.
 - **Resource locks:** Stage decision.
 - **Blocks L1:** `true`.
@@ -49,27 +49,24 @@
 
 ## 6. Current Gaps
 
-- awaits evidence pack and zero blocker/accepted limits state
+- awaits only the Project Owner / designated L1 gate authority decision. Automation must not create, sign, or imply that decision.
 
 ## 7. Graphify / CodeGraph Query Contract
 
-**Graphify intent:** map module ownership, file overlap, resource locks, upstream/downstream capability impact, and candidate path alternatives.<br>
-**CodeGraph intent:** trace exact definitions, callers, callees, imports, mutations, handlers, repository calls and test references for the listed entry symbols.<br>
-**Required output:** exact source paths, exact symbols, affected tests, writer conclusion, collision report and confidence.<br>
-**Stop condition:** graph source SHA differs from current master, writer is ambiguous, or a second Authority path appears.
+This is an Owner-only stage decision, not a code-navigation or graph task.
 
 ## 8. Mission Compiler Interface
 
 ```yaml
-capability_id: {c['id']}
-ledger_id: {c['ledger_id']}
-dod_reference: "{c['dod']}"
-current_state: {c['status']}
-target_state: CLOSED_AND_CURRENT
-primary_outcome: "One bounded {c['name']} state transition"
-sole_writer: "{c['writer']}"
-risk_tier: "{c['risk']}"
-parallel_classification: {c['parallel']}
+capability_id: L1-VC-14
+ledger_id: L1-LEDGER-014
+dod_reference: "L1-DOD-043"
+current_state: AWAITING_POST_MERGE_EVIDENCE_REBASE_THEN_OWNER_ACKNOWLEDGMENT
+target_state: OWNER_DECISION_RECORDED
+primary_outcome: "One exact-source Owner acknowledgment"
+sole_writer: "Project Owner / designated L1 gate authority"
+risk_tier: "T4_STAGE_DECISION"
+parallel_classification: SERIAL_REQUIRED
 resource_locks:
   - "Stage decision"
 automatic_next_start: false
