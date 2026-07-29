@@ -1,0 +1,66 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-001-SCENARIO-COMPILE-PUBLISH
+status: CLOSED_AND_CURRENT
+started_at: "2026-07-29T04:00:58Z"
+closed_at: "2026-07-29T04:23:08Z"
+repository: qidianzhiku/SimWar
+source_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+branch: codex/l1plus-pb-scenario-compile-publish-001
+head_sha: d9edd17c378bcbe648a9b819c6ed953caa83222e
+pr: 290
+merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+post_merge_master_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+mainline_candidate: CAND-L1P-B4-SCENARIO-COMPILE-PUBLISH
+support_candidate: null
+docs_discovery_candidate: null
+resource_locks:
+  - ScenarioPackageCommandService
+  - ScenarioPackage formal lifecycle
+  - Teacher formal ScenarioPackage catalog
+validation:
+  focused:
+    - scenario-compiler unit tests
+    - scenario compile-draft endpoint integration tests
+    - ScenarioPackage lifecycle integration tests
+  affected:
+    - Teacher formal ScenarioPackage catalog integration tests
+    - formal binding regression tests
+    - full browser-smoke suite
+  full:
+    - npm test
+    - npm run test:contract
+    - npm run lint
+    - npm run typecheck
+    - npm run build
+  ci: SUCCESS
+  codeql: SUCCESS
+  browser: 55 passed; 8 skipped
+  fresh_clone: PASS
+evidence_root: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1PLUS-PB-20260729T042308Z
+gap_delta:
+  closed:
+    - Generic Scenario Compiler candidate to formal ScenarioPackage DRAFT through the sole writer
+    - Explicit approval to Teacher catalog visibility with retire-history preservation
+  new: []
+  reclassified: []
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: NOT_MEASURED
+  file_conflict_rate: NOT_MEASURED
+  join_rework_ratio: NOT_MEASURED
+  owner_touch: NOT_MEASURED
+  cleanup_residue: NONE_OBSERVED
+  boundary_breach: 0_NEW_BREACHES
+  post_merge_escape: NONE_OBSERVED
+explicit_non_proofs:
+  - No Course or Run binding
+  - No runtime activation
+  - No Replay execution
+  - No PostgreSQL activation
+  - No durable settlement or recovery proof
+  - No Pilot or Production authorization
+recommended_next_candidate: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
+next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+automatic_next_start: false

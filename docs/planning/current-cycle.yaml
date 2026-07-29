@@ -1,22 +1,32 @@
-cycle_id: L1-CYCLE-002-CLOSURE-EVIDENCE
-status: CLOSED_OWNER_DECISION_RECORDED
-generated_at: "2026-07-29T01:31:00Z"
-valid_until: EVIDENCE_SOURCE_INVALIDATION_TRIGGER
+cycle_id: L1PLUS-CYCLE-001-SCENARIO-COMPILE-PUBLISH
+status: CLOSED_AND_CURRENT
+generated_at: "2026-07-29T04:23:08Z"
+valid_until: MASTER_OR_RUNTIME_AUTHORITY_OR_FORMAL_SCENARIO_AUTHORITY_CHANGE
 repository: qidianzhiku/SimWar
-source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
+source_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
+preceding_l1_closure:
+  evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
+  owner_acknowledgment: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
+  status: CLOSED_OWNER_DECISION_RECORDED
 mainline:
-  candidate_id: NONE
-  status: NO_PRODUCT_CODE_MAINLINE
-  primary_outcome: L1 automated engineering application validation is formally closed; no next Mission is authorized.
-  mutable_authority: NONE
+  candidate_id: CAND-L1P-B4-SCENARIO-COMPILE-PUBLISH
+  capability_id: L1P-VC-03
+  status: CLOSED_AND_CURRENT
+  primary_outcome: Generic Scenario Compiler creates a formal ScenarioPackage DRAFT through the sole writer; explicit lifecycle approval makes it Teacher-catalog visible.
+  mutable_authority: ScenarioPackageCommandService
+  product_pr: 290
+  product_merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
   exit_evidence:
-    - Exact-source automated evidence pack
-    - Owner acknowledgment bound to the exact source and pack
+    - Current-master fresh-clone validation
+    - Explicit compiler invalid-input negative evidence with zero ScenarioPackage snapshot writes
+    - Explicit lifecycle approval and retirement catalog evidence
   explicit_non_proofs:
-    - Human Validation is not completed
-    - PostgreSQL and durable recovery are not proven
-    - Pilot and Production are not authorized
+    - No Course or Run binding
+    - No runtime activation
+    - No Replay execution
+    - No PostgreSQL activation
+    - No Pilot or Production authorization
 support_code:
   candidate_id: NONE
 docs_discovery:
@@ -26,19 +36,19 @@ closure:
   ready_pr_limit: 0
   merge_execution_limit: 0
   post_merge_required: true
-automated_evidence_pack:
-  path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-448cfbe\\l1-automated-closure-evidence-pack.json
-  sha256: fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de
-  status: CLOSED_AND_CURRENT
+resource_locks:
+  - ScenarioPackageCommandService
+  - ScenarioPackage formal lifecycle
+  - Teacher formal ScenarioPackage catalog
 known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
-  issue_112: CLOSED
-  issue_114: CLOSED
-  issue_115: CLOSED
-human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-owner_acknowledgment: ISSUED
+  postgresql: NOT_ACTIVATED
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
 authorization:
-  status: OWNER_DECISION_RECORDED
-  authorization_record: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
+  status: CLOSED_NO_AUTOMATIC_SUCCESSOR
+  next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
   automatic_start: false
 automatic_next_start: false
