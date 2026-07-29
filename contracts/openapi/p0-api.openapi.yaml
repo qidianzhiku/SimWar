@@ -479,6 +479,59 @@ paths:
           description: Teacher authority required
         "422":
           description: Selected formal authority reference is unavailable or incompatible
+  /api/v1/bff/teacher/course-blueprints:
+    get:
+      operationId: TEACHER_COURSE_BLUEPRINT_CATALOG_V1
+      summary: List Teacher-safe approved CourseBlueprint versions for the request tenant.
+      description: Read-only catalog. It excludes approval records, audit data, binding digests, and instructor-only guidance.
+      security:
+        - SessionBearer: []
+      responses:
+        "200": { description: "Teacher-safe approved CourseBlueprint catalog" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+  /api/v1/bff/teacher/course-blueprints/readiness:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_READINESS_V1
+      summary: Resolve exact approved CourseBlueprint and B5 inputs without a write.
+      description: The server rejects hidden Engine, ParameterSet, Plugin, and binding digest overrides.
+      security:
+        - SessionBearer: []
+      responses:
+        "200": { description: "Exact CourseBlueprint and formal Course readiness" }
+        "422": { description: "Reference unavailable, retired, cross-tenant, or incompatible" }
+  /api/v1/bff/teacher/course-blueprint-courses:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1
+      summary: Create a draft Course with independent Blueprint and B5 formal bindings.
+      description: JSON compensation removes the C1 binding when B5 creation fails; it is not a crash-safe durable transaction.
+      security:
+        - SessionBearer: []
+      responses:
+        "201": { description: "Draft Course with Teacher-safe exact binding summaries" }
+        "422": { description: "Invalid or unavailable exact authority inputs" }
+  /api/v1/formal-authority/course-blueprints:
+    post:
+      operationId: FORMAL_COURSE_BLUEPRINT_DRAFT_CREATE_V1
+      summary: Platform-admin-only CourseBlueprint DRAFT lifecycle ingress.
+      security:
+        - SessionBearer: []
+      responses:
+        "201": { description: "Formal CourseBlueprint DRAFT" }
+        "403": { description: "CourseBlueprint authority required" }
+        "422": { description: "Invalid exact tenant-scoped draft" }
+  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/{action}:
+    post:
+      operationId: FORMAL_COURSE_BLUEPRINT_LIFECYCLE_TRANSITION_V1
+      summary: Transition one exact CourseBlueprint lifecycle reference.
+      description: Supported actions are validate, freeze, approve, and retire. No lifecycle action selects latest or auto-approves.
+      security:
+        - SessionBearer: []
+      responses:
+        "200": { description: "Lifecycle transition result" }
+        "403": { description: "CourseBlueprint authority required" }
+        "404": { description: "Exact CourseBlueprint reference not found" }
+        "409": { description: "Lifecycle transition conflict" }
   /api/v1/formal-authority/parameter-sets:
     post:
       operationId: FORMAL_PARAMETER_SET_DRAFT_CREATE_V1

@@ -101,6 +101,7 @@ export type PermissionKey =
   | "decision:submit"
   | "result:read"
   | "audit:read"
+  | "course_blueprint:manage"
   | "parameter_set:manage"
   | "scenario_package:manage"
   | "plugin_release:manage"
@@ -1491,6 +1492,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "decision:submit",
     "result:read",
     "audit:read",
+    "course_blueprint:manage",
     "parameter_set:manage",
     "scenario_package:manage",
     "plugin_release:manage",
@@ -1567,6 +1569,7 @@ export * from "./scenario-alignment.js";
 export * from "./scenario-selection.js";
 export * from "./teacher-formal-scenario-package-catalog.js";
 export * from "./teacher-formal-course-binding.js";
+export * from "./course-blueprint.js";
 export * from "./scenario-runtime-adapter.js";
 export * from "./scenario-bff-endpoint-contract.js";
 export * from "./scenario-bff-endpoint-implementation-gate.js";

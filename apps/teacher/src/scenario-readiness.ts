@@ -1,5 +1,8 @@
 import type {
   R7TeacherScenarioPackageCandidatesDto,
+  TeacherCourseBlueprintCatalogDto,
+  TeacherCourseBlueprintCourseCreateDto,
+  TeacherCourseBlueprintReadinessDto,
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalCourseCreateDto,
   TeacherFormalScenarioPackageCatalogDto
@@ -124,6 +127,55 @@ export async function requestTeacherFormalCourseCreate(input: {
     apiBaseUrl: input.apiBaseUrl,
     body: { scenario_package_reference: input.scenarioPackageReference, title: input.title },
     path: "/api/v1/bff/teacher/formal-courses",
+    token: input.token
+  });
+}
+
+export async function requestTeacherCourseBlueprintCatalog(input: {
+  apiBaseUrl: string;
+  token: string;
+}): Promise<TeacherCourseBlueprintCatalogDto> {
+  const response = await fetch(`${input.apiBaseUrl}/api/v1/bff/teacher/course-blueprints`, {
+    headers: { authorization: `Bearer ${input.token}` },
+    method: "GET"
+  });
+  const payload = (await response.json()) as { data?: TeacherCourseBlueprintCatalogDto; error?: { message?: string } };
+  if (!response.ok) throw new TeacherFormalCourseBindingRequestError(response.status, payload.error?.message ?? "CourseBlueprint catalog request failed");
+  return payload.data ?? (payload as unknown as TeacherCourseBlueprintCatalogDto);
+}
+
+export async function requestTeacherCourseBlueprintReadiness(input: {
+  apiBaseUrl: string;
+  courseBlueprintReference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  scenarioPackageReference: TeacherFormalScenarioPackageCatalogDto["candidates"][number]["scenario_package_reference"];
+  token: string;
+}): Promise<TeacherCourseBlueprintReadinessDto> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: {
+      course_blueprint_reference: input.courseBlueprintReference,
+      scenario_package_reference: input.scenarioPackageReference
+    },
+    path: "/api/v1/bff/teacher/course-blueprints/readiness",
+    token: input.token
+  });
+}
+
+export async function requestTeacherCourseBlueprintCourseCreate(input: {
+  apiBaseUrl: string;
+  courseBlueprintReference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  scenarioPackageReference: TeacherFormalScenarioPackageCatalogDto["candidates"][number]["scenario_package_reference"];
+  title: string;
+  token: string;
+}): Promise<TeacherCourseBlueprintCourseCreateDto> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: {
+      course_blueprint_reference: input.courseBlueprintReference,
+      scenario_package_reference: input.scenarioPackageReference,
+      title: input.title
+    },
+    path: "/api/v1/bff/teacher/course-blueprint-courses",
     token: input.token
   });
 }

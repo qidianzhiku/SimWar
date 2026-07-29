@@ -99,4 +99,20 @@ describe("CourseBlueprintCommandService", () => {
     await service.retire(actor, approved.version.reference);
     expect(await service.listApprovedForTenant("tenant_001")).toEqual([]);
   });
+
+  it("fails closed when a persisted snapshot has a forged digest, approval mismatch, or illegal lifecycle order", async () => {
+    const { approved } = await createApproved();
+    const forged = { ...approved.version, content_digest: "f".repeat(64) };
+    await expect(() => new InMemoryJsonCourseBlueprintRegistry({ snapshots: [forged] })).toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+    await expect(() => new InMemoryJsonCourseBlueprintRegistry({ snapshots: [approved.version] })).toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+    const draft = { ...approved.version, status: "DRAFT" as const };
+    const frozen = { ...approved.version, status: "FROZEN" as const };
+    await expect(() => new InMemoryJsonCourseBlueprintRegistry({ snapshots: [draft, frozen] })).toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+  });
 });

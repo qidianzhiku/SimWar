@@ -216,6 +216,49 @@ test("Teacher prepares a server-derived binding preview before creating a formal
       })
     });
   });
+  await page.route(/\/course-blueprints$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          operation_id: "TEACHER_COURSE_BLUEPRINT_CATALOG_V1",
+          candidates: [{
+            compatibility_constraints: { scenario_family: "wellness" },
+            content_digest_summary: "c".repeat(12),
+            course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) },
+            duration_minutes: 60,
+            objectives_summary: ["Run the course"],
+            phases_summary: [{ duration_minutes: 60, order: 1, title: "Briefing" }],
+            status: "APPROVED",
+            title: "Browser C1 Blueprint"
+          }]
+        }
+      })
+    });
+  });
+  await page.route(/\/course-blueprints\/readiness$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ data: {
+        operation_id: "TEACHER_COURSE_BLUEPRINT_READINESS_V1",
+        selection_status: "READY",
+        blueprint: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) }, title: "Browser C1 Blueprint", duration_minutes: 60, objectives_summary: ["Run the course"], phases_summary: [], compatibility_constraints: {}, content_digest_summary: "c".repeat(12), status: "APPROVED" },
+        formal_course_binding: { engine_profile: { engine_id: "toy_logit_wellness_v1", model_version_ref: "toy_logit_wellness_v1@0.1.0", runtime_authority: "JSON_INTERNAL_ONLY", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, plugin_dependencies: [], scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: "scenario_formal_eldercare_shanghai", version: "1.0.0", content_digest: "a".repeat(64) }, selection_status: "READY" }
+      } })
+    });
+  });
+  await page.route(/\/course-blueprint-courses$/, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      status: 201,
+      body: JSON.stringify({ data: {
+        operation_id: "TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1",
+        binding_summary: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) } },
+        formal_binding_summary: { engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: "scenario_formal_eldercare_shanghai", version: "1.0.0", content_digest: "a".repeat(64) } },
+        course: { course_id: "course_b5_browser_001", created_by: "usr_teacher", parameter_set_id: "parameter_formal_eldercare_shanghai", scenario_package_id: "scenario_formal_eldercare_shanghai", status: "draft", tenant_id: "tenant_demo", title: "Browser B5 Course" }
+      } })
+    });
+  });
   await page.route(/\/formal-courses$/, async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -304,6 +347,11 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   await expect(draft.getByText("JSON_INTERNAL_ONLY")).toBeVisible();
   await expect(draft.getByText("a".repeat(64))).toBeVisible();
   await expect(draft.getByText("b".repeat(64))).toBeVisible();
+  const blueprintCatalog = panel.getByLabel("formal CourseBlueprint catalog");
+  await expect(blueprintCatalog.getByText("Browser C1 Blueprint")).toBeVisible();
+  await blueprintCatalog.getByRole("button", { name: "Select locally" }).click();
+  await expect(blueprintCatalog.getByText("LOCAL_SELECTION_ONLY")).toBeVisible();
+  await expect(blueprintCatalog.getByText("NO_COURSE_WRITE_YET")).toBeVisible();
   await draft.getByLabel("formal Course title").fill("Browser B5 Course");
   await draft.getByRole("button", { name: "Create formal Course" }).click();
   const runCreation = catalog.getByLabel("formal Run creation");
