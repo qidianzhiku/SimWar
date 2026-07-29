@@ -1,0 +1,62 @@
+import type { Round, Run } from "@simwar/shared-contracts";
+import {
+  createFormalRunRuntimeBinding,
+  type FormalRunBindingAuthorityPorts
+} from "./formal-run-runtime-binding.js";
+import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
+import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
+import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
+
+export interface FormalBoundRunPersistence {
+  deleteRound(tenantId: string, roundId: string): Promise<void>;
+  deleteRun(tenantId: string, runId: string): Promise<void>;
+  saveRound(round: Round): Promise<void>;
+  saveRun(run: Run): Promise<void>;
+}
+
+export interface CreateFormalBoundRunInput {
+  authorities: FormalRunBindingAuthorityPorts;
+  bindingStore: Pick<FormalRunRuntimeBindingStore, "append">;
+  courseBinding: Pick<
+    FormalCourseAuthorityBinding,
+    "engine_reference" | "parameter_set_reference" | "scenario_package_reference"
+  >;
+  persistence: FormalBoundRunPersistence;
+  round: Round;
+  run: Run;
+}
+
+export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Promise<void> {
+  const binding = await createFormalRunRuntimeBinding({
+    authorities: input.authorities,
+    engine_reference: input.courseBinding.engine_reference,
+    parameter_set_reference: input.courseBinding.parameter_set_reference,
+    run_id: input.run.run_id,
+    scenario_package_reference: input.courseBinding.scenario_package_reference,
+    seed: input.run.seed,
+    tenant_id: input.run.tenant_id
+  });
+  await resolveFormalRuntimeInputsForActiveRun({
+    authorities: input.authorities,
+    binding,
+    run: input.run
+  });
+
+  let runPersisted = false;
+  let roundPersisted = false;
+  try {
+    await input.persistence.saveRun(input.run);
+    runPersisted = true;
+    await input.persistence.saveRound(input.round);
+    roundPersisted = true;
+    input.bindingStore.append(binding);
+  } catch (error) {
+    if (roundPersisted) {
+      await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);
+    }
+    if (runPersisted) {
+      await input.persistence.deleteRun(input.run.tenant_id, input.run.run_id);
+    }
+    throw error;
+  }
+}

@@ -435,6 +435,50 @@ paths:
           description: Authentication required
         "403":
           description: Teacher authority required
+  /api/v1/bff/teacher/formal-course-bindings/preview:
+    post:
+      operationId: TEACHER_FORMAL_COURSE_BINDING_PREVIEW_V1
+      summary: Resolve a Teacher-safe, exact formal Course binding preview.
+      description: The server re-resolves the selected immutable ScenarioPackage reference, its exact ParameterSet, available Plugin releases and the active JSON Engine profile. This endpoint is read-only.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherFormalCourseBindingPreviewInput"
+      responses:
+        "200":
+          description: Exact formal binding preview without a Course or Run write.
+        "401":
+          description: Authentication required
+        "403":
+          description: Teacher authority required
+        "422":
+          description: Selected formal authority reference is unavailable or incompatible
+  /api/v1/bff/teacher/formal-courses:
+    post:
+      operationId: TEACHER_FORMAL_COURSE_CREATE_V1
+      summary: Create a formal-bound Course from one selected ScenarioPackage reference.
+      description: The server resolves all hidden authority references and persists an append-only Course binding. Clients cannot submit Engine, ParameterSet or Plugin overrides.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherFormalCourseSelectionInput"
+      responses:
+        "201":
+          description: Draft Course with a Teacher-safe formal binding summary.
+        "401":
+          description: Authentication required
+        "403":
+          description: Teacher authority required
+        "422":
+          description: Selected formal authority reference is unavailable or incompatible
   /api/v1/formal-authority/parameter-sets:
     post:
       operationId: FORMAL_PARAMETER_SET_DRAFT_CREATE_V1
@@ -957,6 +1001,23 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    TeacherFormalCourseBindingPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [scenario_package_reference]
+      properties:
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+    TeacherFormalCourseSelectionInput:
+      type: object
+      additionalProperties: false
+      required: [scenario_package_reference, title]
+      properties:
+        scenario_package_reference:
+          $ref: "#/components/schemas/FormalScenarioPackageReferenceInput"
+        title:
+          type: string
+          minLength: 1
     FormalParameterSetBindingReferenceInput:
       type: object
       additionalProperties: false

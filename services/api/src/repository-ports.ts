@@ -100,6 +100,8 @@ export interface CourseRepositoryPort {
   ): Promise<RepositoryCourseReadModel[]>;
 
   saveCourse(course: Course): Promise<void>;
+
+  deleteCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<void>;
 }
 
 export interface TeamRepositoryPort {
@@ -120,6 +122,10 @@ export interface RunRepositoryPort {
   getRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Run | null>;
 
   listRunsForCourse(tenantId: RepositoryId, courseId: RepositoryId): Promise<Run[]>;
+
+  saveRun(run: Run): Promise<void>;
+
+  deleteRun(tenantId: RepositoryId, runId: RepositoryId): Promise<void>;
 }
 
 export interface ScenarioRepositoryPort {
@@ -144,6 +150,8 @@ export interface RoundRepositoryPort {
   listRoundsForRun(tenantId: RepositoryId, runId: RepositoryId): Promise<Round[]>;
 
   saveRound(round: Round): Promise<void>;
+
+  deleteRound(tenantId: RepositoryId, roundId: RepositoryId): Promise<void>;
 
   markRoundSettled(
     tenantId: RepositoryId,

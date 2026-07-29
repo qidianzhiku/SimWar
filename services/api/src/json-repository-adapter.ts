@@ -419,6 +419,16 @@ export function createJsonRepositoryPorts(
         }
 
         store.persist();
+      },
+
+      async deleteCourse(tenantId, courseId): Promise<void> {
+        const index = store.courses.findIndex(
+          (candidate) => candidate.tenant_id === tenantId && candidate.course_id === courseId
+        );
+        if (index >= 0) {
+          store.courses.splice(index, 1);
+          store.persist();
+        }
       }
     },
 
@@ -502,6 +512,28 @@ export function createJsonRepositoryPorts(
 
       async listRunsForCourse(tenantId, courseId): Promise<Run[]> {
         return store.runs.filter((run) => run.tenant_id === tenantId && run.course_id === courseId);
+      },
+
+      async saveRun(run): Promise<void> {
+        const index = store.runs.findIndex(
+          (candidate) => candidate.tenant_id === run.tenant_id && candidate.run_id === run.run_id
+        );
+        if (index >= 0) {
+          store.runs[index] = run;
+        } else {
+          store.runs.push(run);
+        }
+        store.persist();
+      },
+
+      async deleteRun(tenantId, runId): Promise<void> {
+        const index = store.runs.findIndex(
+          (candidate) => candidate.tenant_id === tenantId && candidate.run_id === runId
+        );
+        if (index >= 0) {
+          store.runs.splice(index, 1);
+          store.persist();
+        }
       }
     },
 
@@ -568,6 +600,16 @@ export function createJsonRepositoryPorts(
         }
 
         store.persist();
+      },
+
+      async deleteRound(tenantId, roundId): Promise<void> {
+        const index = store.rounds.findIndex(
+          (candidate) => candidate.tenant_id === tenantId && candidate.round_id === roundId
+        );
+        if (index >= 0) {
+          store.rounds.splice(index, 1);
+          store.persist();
+        }
       },
 
       async markRoundSettled(tenantId, roundId, settlementResultId): Promise<void> {

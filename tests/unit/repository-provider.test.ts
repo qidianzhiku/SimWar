@@ -34,7 +34,9 @@ function createMockPorts(): SimWarRepositoryPorts {
     courses: {
       getCourse: vi.fn(async () => null),
       listCoursesForTenant: vi.fn(async () => []),
-      listCoursesForUser: vi.fn(async () => [])
+      listCoursesForUser: vi.fn(async () => []),
+      saveCourse: vi.fn(async () => undefined),
+      deleteCourse: vi.fn(async () => undefined)
     },
 
     teams: {
@@ -45,7 +47,9 @@ function createMockPorts(): SimWarRepositoryPorts {
 
     runs: {
       getRun: vi.fn(async () => null),
-      listRunsForCourse: vi.fn(async () => [])
+      listRunsForCourse: vi.fn(async () => []),
+      saveRun: vi.fn(async () => undefined),
+      deleteRun: vi.fn(async () => undefined)
     },
 
     scenarios: {
@@ -60,6 +64,7 @@ function createMockPorts(): SimWarRepositoryPorts {
       getRound: vi.fn(async () => null),
       listRoundsForRun: vi.fn(async () => []),
       saveRound: vi.fn(async () => undefined),
+      deleteRound: vi.fn(async () => undefined),
       markRoundSettled: vi.fn(async () => undefined)
     },
 
