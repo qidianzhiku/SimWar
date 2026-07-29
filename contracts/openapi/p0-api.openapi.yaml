@@ -505,6 +505,8 @@ paths:
               $ref: "#/components/schemas/TeacherCourseBlueprintReadinessInput"
       responses:
         "200": { description: "Exact CourseBlueprint and formal Course readiness" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
         "422": { description: "Reference unavailable, retired, cross-tenant, or incompatible" }
   /api/v1/bff/teacher/course-blueprint-courses:
     post:
@@ -521,6 +523,8 @@ paths:
               $ref: "#/components/schemas/TeacherCourseBlueprintCourseCreateInput"
       responses:
         "201": { description: "Draft Course with Teacher-safe exact binding summaries" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
         "422": { description: "Invalid or unavailable exact authority inputs" }
   /api/v1/formal-authority/course-blueprints:
     post:
@@ -536,13 +540,13 @@ paths:
               $ref: "../schemas/course-blueprint-version.v1.json"
       responses:
         "201": { description: "Formal CourseBlueprint DRAFT" }
+        "401": { description: "Authentication required" }
         "403": { description: "CourseBlueprint authority required" }
         "422": { description: "Invalid exact tenant-scoped draft" }
-  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/{action}:
+  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/validate:
     post:
-      operationId: FORMAL_COURSE_BLUEPRINT_LIFECYCLE_TRANSITION_V1
-      summary: Transition one exact CourseBlueprint lifecycle reference.
-      description: Supported actions are validate, freeze, approve, and retire. No lifecycle action selects latest or auto-approves.
+      operationId: FORMAL_COURSE_BLUEPRINT_VALIDATE_V1
+      summary: Validate one exact CourseBlueprint lifecycle reference.
       security:
         - SessionBearer: []
       parameters:
@@ -558,25 +562,116 @@ paths:
           schema:
             type: string
             minLength: 1
-        - name: action
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [validate, freeze, approve, retire]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
-                - $ref: "#/components/schemas/FormalCourseBlueprintApprovalInput"
+              $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
       responses:
         "200": { description: "Lifecycle transition result" }
+        "401": { description: "Authentication required" }
         "403": { description: "CourseBlueprint authority required" }
         "404": { description: "Exact CourseBlueprint reference not found" }
         "409": { description: "Lifecycle transition conflict" }
+        "422": { description: "Invalid exact CourseBlueprint reference" }
+  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/freeze:
+    post:
+      operationId: FORMAL_COURSE_BLUEPRINT_FREEZE_V1
+      summary: Freeze one exact validated CourseBlueprint lifecycle reference.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseBlueprintId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+      responses:
+        "200": { description: "Lifecycle transition result" }
+        "401": { description: "Authentication required" }
+        "403": { description: "CourseBlueprint authority required" }
+        "404": { description: "Exact CourseBlueprint reference not found" }
+        "409": { description: "Lifecycle transition conflict" }
+        "422": { description: "Invalid exact CourseBlueprint reference" }
+  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/approve:
+    post:
+      operationId: FORMAL_COURSE_BLUEPRINT_APPROVE_V1
+      summary: Approve one exact frozen CourseBlueprint lifecycle reference.
+      description: approval_id is mandatory. Approval never selects latest and never auto-approves.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseBlueprintId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalCourseBlueprintApprovalInput"
+      responses:
+        "200": { description: "Lifecycle transition result" }
+        "401": { description: "Authentication required" }
+        "403": { description: "CourseBlueprint authority required" }
+        "404": { description: "Exact CourseBlueprint reference not found" }
+        "409": { description: "Lifecycle transition conflict" }
+        "422": { description: "Invalid exact CourseBlueprint approval input" }
+  /api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}/retire:
+    post:
+      operationId: FORMAL_COURSE_BLUEPRINT_RETIRE_V1
+      summary: Retire one exact approved CourseBlueprint lifecycle reference.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseBlueprintId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+      responses:
+        "200": { description: "Lifecycle transition result" }
+        "401": { description: "Authentication required" }
+        "403": { description: "CourseBlueprint authority required" }
+        "404": { description: "Exact CourseBlueprint reference not found" }
+        "409": { description: "Lifecycle transition conflict" }
+        "422": { description: "Invalid exact CourseBlueprint reference" }
   /api/v1/formal-authority/parameter-sets:
     post:
       operationId: FORMAL_PARAMETER_SET_DRAFT_CREATE_V1
@@ -1101,7 +1196,8 @@ components:
   schemas:
     FormalCourseBlueprintReferenceInput:
       type: object
-      additionalProperties: false
+      additionalProperties: true
+      description: Unknown fields are ignored; the server validates and resolves the exact reference fields.
       required: [tenant_id, course_blueprint_id, version, content_digest]
       properties:
         tenant_id:
@@ -1118,7 +1214,8 @@ components:
           pattern: "^[a-f0-9]{64}$"
     FormalCourseBlueprintApprovalInput:
       type: object
-      additionalProperties: false
+      additionalProperties: true
+      description: Unknown fields are ignored. approval_id is required for the approve action.
       required: [tenant_id, course_blueprint_id, version, content_digest, approval_id]
       properties:
         tenant_id:

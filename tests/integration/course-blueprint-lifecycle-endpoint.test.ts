@@ -1,5 +1,7 @@
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { request as nodeRequest, type Server } from "node:http";
+import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import {
   M1_TEACHING_PRODUCT_PACKAGE,
@@ -12,6 +14,22 @@ import { DEFAULT_TENANT_ID, PLATFORM_TENANT_ID, createP1Store, type SimWarStore 
 const BASE_PATH = "/api/v1/formal-authority/course-blueprints";
 const BLUEPRINT_ID = "blueprint_api_c1";
 const VERSION = "1.0.0";
+const READINESS_PATH = "/api/v1/bff/teacher/course-blueprints/readiness";
+const COURSE_CREATE_PATH = "/api/v1/bff/teacher/course-blueprint-courses";
+
+type OpenApiOperation = {
+  requestBody: { content: { "application/json": { schema: { $ref: string } } } };
+  responses: Record<string, unknown>;
+};
+
+type OpenApiDocument = {
+  components: { schemas: Record<string, { additionalProperties?: boolean; required?: string[] }> };
+  paths: Record<string, { post: OpenApiOperation }>;
+};
+
+function openApiDocument(): OpenApiDocument {
+  return yaml.load(readFileSync("contracts/openapi/p0-api.openapi.yaml", "utf8")) as OpenApiDocument;
+}
 
 async function requestJson<T>(url: string, options: { body?: unknown; headers?: Record<string, string>; method?: string } = {}) {
   return new Promise<{ body: T; status: number }>((resolve, reject) => {
@@ -68,6 +86,50 @@ function body(tenantId = DEFAULT_TENANT_ID) {
 }
 
 describe("formal CourseBlueprint lifecycle endpoint", () => {
+  it("keeps the CourseBlueprint OpenAPI request and error contracts aligned with runtime behavior", async () => {
+    const openApi = openApiDocument();
+    const lifecycleBase = "/api/v1/formal-authority/course-blueprints/{courseBlueprintId}/versions/{version}";
+    const expectedResponses = ["200", "401", "403", "404", "409", "422"];
+
+    expect(Object.keys(openApi.paths[READINESS_PATH].post.responses).sort()).toEqual(["200", "401", "403", "422"]);
+    expect(Object.keys(openApi.paths[COURSE_CREATE_PATH].post.responses).sort()).toEqual(["201", "401", "403", "422"]);
+    expect(Object.keys(openApi.paths[BASE_PATH].post.responses).sort()).toEqual(["201", "401", "403", "422"]);
+    for (const action of ["validate", "freeze", "retire"]) {
+      const operation = openApi.paths[`${lifecycleBase}/${action}`].post;
+      expect(Object.keys(operation.responses).sort()).toEqual(expectedResponses);
+      expect(operation.requestBody.content["application/json"].schema.$ref).toBe("#/components/schemas/FormalCourseBlueprintReferenceInput");
+    }
+    const approveOperation = openApi.paths[`${lifecycleBase}/approve`].post;
+    expect(Object.keys(approveOperation.responses).sort()).toEqual(expectedResponses);
+    expect(approveOperation.requestBody.content["application/json"].schema.$ref).toBe("#/components/schemas/FormalCourseBlueprintApprovalInput");
+    expect(openApi.components.schemas.FormalCourseBlueprintApprovalInput.required).toContain("approval_id");
+    expect(openApi.components.schemas.FormalCourseBlueprintReferenceInput.additionalProperties).toBe(true);
+    expect(openApi.components.schemas.FormalCourseBlueprintApprovalInput.additionalProperties).toBe(true);
+
+    const { baseUrl, server, store } = await startServer();
+    try {
+      expect((await requestJson(`${baseUrl}${READINESS_PATH}`, { body: {}, method: "POST" })).status).toBe(401);
+      expect((await requestJson(`${baseUrl}${COURSE_CREATE_PATH}`, { body: {}, method: "POST" })).status).toBe(401);
+      expect((await requestJson(`${baseUrl}${BASE_PATH}`, { body: body(), method: "POST" })).status).toBe(401);
+      expect((await requestJson(`${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/validate`, { body: {}, method: "POST" })).status).toBe(401);
+
+      const platform = await login(baseUrl, "platform", "platform", PLATFORM_TENANT_ID);
+      const headers = { authorization: `Bearer ${platform.access_token}`, "content-type": "application/json", "x-tenant-id": DEFAULT_TENANT_ID };
+      const draft = await requestJson<ApiEnvelope<{ reference: Record<string, string> }>>(`${baseUrl}${BASE_PATH}`, { body: body(), headers, method: "POST" });
+      expect(draft.status).toBe(201);
+      const reference = draft.body.data.reference;
+      expect((await requestJson(`${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/validate`, {
+        body: { ...reference, ignored_client_field: "ignored" }, headers, method: "POST"
+      })).status).toBe(200);
+      await requestJson(`${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/freeze`, { body: reference, headers, method: "POST" });
+      expect((await requestJson(`${baseUrl}${BASE_PATH}/${BLUEPRINT_ID}/versions/${VERSION}/approve`, {
+        body: reference, headers, method: "POST"
+      })).status).toBe(422);
+      expect(store.formalCourseBlueprintApprovalRecords).toEqual([]);
+      expect(store.formalCourseBlueprintLifecycleSnapshots.at(-1)?.status).toBe("FROZEN");
+    } finally { await stopServer(server); }
+  });
+
   it("permits only a platform admin to create an append-only exact lifecycle and audit trail", async () => {
     const { baseUrl, server, store } = await startServer();
     try {
