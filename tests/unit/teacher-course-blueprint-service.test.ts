@@ -81,6 +81,7 @@ function authorities() {
     scenarios: {
       assertBindable: vi.fn(async () => undefined),
       getByReference: vi.fn(async () => ({
+        compatibility_metadata: { scenario_family: "wellness" },
         parameter_set_reference: parameterReference,
         plugin_dependencies: [],
         reference: scenarioReference,
@@ -89,6 +90,55 @@ function authorities() {
       }))
     }
   };
+}
+
+function createCourseInput(
+  command: CourseBlueprintCommandService,
+  reference: Awaited<ReturnType<typeof createApprovedBlueprint>>["approved"]["version"]["reference"],
+  options: {
+    authorityPorts?: ReturnType<typeof authorities>;
+    bindingStore?: CourseBlueprintBindingStore;
+    deleteCourse?: (tenantId: string, courseId: string) => Promise<void>;
+    formalBindingAppend?: () => void;
+    saveCourse?: (item: Course) => Promise<void>;
+  } = {}
+) {
+  const authorityPorts = options.authorityPorts ?? authorities();
+  return {
+    bindingStore: options.bindingStore ?? bindingStore(),
+    course: course(),
+    course_blueprint_reference: reference,
+    formalCourse: {
+      authorities: authorityPorts,
+      bindingStore: { append: vi.fn(options.formalBindingAppend ?? (() => undefined)) },
+      persistence: {
+        deleteCourse: vi.fn(options.deleteCourse ?? (async () => undefined)),
+        saveCourse: vi.fn(options.saveCourse ?? (async () => undefined))
+      },
+      scenario_package_reference: scenarioReference,
+      tenant_id: tenantId
+    },
+    formal_course: {
+      authorities: authorityPorts,
+      scenario_package_reference: scenarioReference,
+      tenant_id: tenantId
+    }
+  } satisfies Parameters<typeof createTeacherCourseFromBlueprint>[1];
+}
+
+function authoritiesWithScenarioCompatibility(
+  compatibilityMetadata: Readonly<Record<string, string>>
+) {
+  const ports = authorities();
+  ports.scenarios.getByReference = vi.fn(async () => ({
+    compatibility_metadata: compatibilityMetadata,
+    parameter_set_reference: parameterReference,
+    plugin_dependencies: [],
+    reference: scenarioReference,
+    status: "APPROVED" as const,
+    tenant_id: tenantId
+  }));
+  return ports;
 }
 
 function course(): Course {
@@ -131,6 +181,39 @@ describe("Teacher CourseBlueprint product service", () => {
     expect(readiness.blueprint.course_blueprint_reference).toEqual(approved.version.reference);
   });
 
+  it("rejects a ScenarioPackage that does not satisfy Blueprint compatibility constraints", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    await expect(resolveTeacherCourseBlueprintReadiness(command, {
+      course_blueprint_reference: approved.version.reference,
+      formal_course: {
+        authorities: authoritiesWithScenarioCompatibility({ scenario_family: "manufacturing" }),
+        scenario_package_reference: scenarioReference,
+        tenant_id: tenantId
+      }
+    })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+  });
+
+  it("rejects a Blueprint that requires an unavailable product capability", async () => {
+    const command = new CourseBlueprintCommandService(new InMemoryJsonCourseBlueprintRegistry());
+    const draft = await command.createDraft(actor, {
+      ...blueprint,
+      course_blueprint_id: "blueprint_unsupported_capability",
+      required_product_capabilities: ["course:create", "future:unsupported"]
+    });
+    const validated = await command.validate(actor, draft.reference);
+    const frozen = await command.freeze(actor, validated.reference);
+    const approved = await command.approve(actor, frozen.reference, "approval_unsupported");
+
+    await expect(resolveTeacherCourseBlueprintReadiness(command, {
+      course_blueprint_reference: approved.version.reference,
+      formal_course: {
+        authorities: authorities(),
+        scenario_package_reference: scenarioReference,
+        tenant_id: tenantId
+      }
+    })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+  });
+
   it("removes the uncommitted Blueprint binding when B5 creation cannot append its binding", async () => {
     const { command, approved } = await createApprovedBlueprint();
     const c1BindingStore = bindingStore();
@@ -155,6 +238,131 @@ describe("Teacher CourseBlueprint product service", () => {
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
   });
 
+  it("classifies a failed Course cleanup without retaining an uncommitted Blueprint binding", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const c1BindingStore = bindingStore();
+    const persisted: Course[] = [];
+
+    await expect(createTeacherCourseFromBlueprint(
+      command,
+      createCourseInput(command, approved.version.reference, {
+        bindingStore: c1BindingStore,
+        deleteCourse: async () => {
+          throw new Error("course cleanup failed");
+        },
+        formalBindingAppend: () => {
+          throw new Error("b5 append failure");
+        },
+        saveCourse: async (item) => {
+          persisted.push(item);
+        }
+      })
+    )).rejects.toThrow("course cleanup failed");
+
+    expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
+    expect(persisted).toEqual([course()]);
+  });
+
+  it("does not create a Course or B5 binding when the Blueprint binding append cannot persist", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const failingStore = new CourseBlueprintBindingStore({
+      courseBlueprintBindings: [],
+      persist: () => {
+        throw new Error("blueprint binding persist failed");
+      }
+    } as never);
+    const saveCourse = vi.fn(async () => undefined);
+    const appendFormalBinding = vi.fn();
+
+    await expect(createTeacherCourseFromBlueprint(
+      command,
+      createCourseInput(command, approved.version.reference, {
+        bindingStore: failingStore,
+        formalBindingAppend: appendFormalBinding,
+        saveCourse
+      })
+    )).rejects.toThrow("blueprint binding persist failed");
+
+    expect(failingStore.getForCourse(tenantId, "course_c1")).toBeNull();
+    expect(saveCourse).not.toHaveBeenCalled();
+    expect(appendFormalBinding).not.toHaveBeenCalled();
+  });
+
+  it("removes the pending Blueprint binding when Course persistence fails", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const c1BindingStore = bindingStore();
+    const appendFormalBinding = vi.fn();
+
+    await expect(createTeacherCourseFromBlueprint(
+      command,
+      createCourseInput(command, approved.version.reference, {
+        bindingStore: c1BindingStore,
+        formalBindingAppend: appendFormalBinding,
+        saveCourse: async () => {
+          throw new Error("course save failed");
+        }
+      })
+    )).rejects.toThrow("course save failed");
+
+    expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
+    expect(appendFormalBinding).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "Scenario unavailable",
+      mutate: (ports: ReturnType<typeof authorities>) => {
+        ports.scenarios.getByReference = vi.fn(async () => null);
+      }
+    },
+    {
+      name: "Plugin unavailable",
+      mutate: (ports: ReturnType<typeof authorities>) => {
+        ports.scenarios.getByReference = vi.fn(async () => ({
+          compatibility_metadata: { scenario_family: "wellness" },
+          parameter_set_reference: parameterReference,
+          plugin_dependencies: [{ plugin_package_id: "missing_plugin", version: "1.0.0" }],
+          reference: scenarioReference,
+          status: "APPROVED" as const,
+          tenant_id: tenantId
+        }));
+        ports.plugins.resolveAvailableForNewBinding = vi.fn(async () => null);
+      }
+    },
+    {
+      name: "Engine incompatible",
+      mutate: (ports: ReturnType<typeof authorities>) => {
+        ports.parameterSets.getByReference = vi.fn(async () => ({
+          model_version_ref: "different_engine@9.9.9",
+          reference: parameterReference,
+          status: "APPROVED" as const,
+          tenant_id: tenantId
+        }));
+      }
+    }
+  ])("leaves zero Course and binding residue when $name", async ({ mutate }) => {
+    const { command, approved } = await createApprovedBlueprint();
+    const authorityPorts = authorities();
+    mutate(authorityPorts);
+    const c1BindingStore = bindingStore();
+    const saveCourse = vi.fn(async () => undefined);
+    const appendFormalBinding = vi.fn();
+
+    await expect(createTeacherCourseFromBlueprint(
+      command,
+      createCourseInput(command, approved.version.reference, {
+        authorityPorts,
+        bindingStore: c1BindingStore,
+        formalBindingAppend: appendFormalBinding,
+        saveCourse
+      })
+    )).rejects.toBeDefined();
+
+    expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
+    expect(saveCourse).not.toHaveBeenCalled();
+    expect(appendFormalBinding).not.toHaveBeenCalled();
+  });
+
   it("preserves an old exact binding after retirement while rejecting retired versions for new courses", async () => {
     const { command, approved } = await createApprovedBlueprint();
     const c1BindingStore = bindingStore();
@@ -171,5 +379,31 @@ describe("Teacher CourseBlueprint product service", () => {
       course_blueprint_reference: approved.version.reference,
       formal_course: { authorities: authorities(), scenario_package_reference: scenarioReference, tenant_id: tenantId }
     })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+  });
+
+  it("keeps a v1 Course binding unchanged when v2 is approved and v1 is retired", async () => {
+    const { command, approved: approvedV1 } = await createApprovedBlueprint();
+    const c1BindingStore = bindingStore();
+    c1BindingStore.append(createCourseBlueprintBinding({
+      binding_schema_version: "course-blueprint-binding.v1",
+      course_blueprint_reference: approvedV1.version.reference,
+      course_id: "course_v1",
+      tenant_id: tenantId
+    }));
+
+    const draftV2 = await command.createDraft(actor, {
+      ...blueprint,
+      title: "C1 Blueprint v2",
+      version: "2.0.0"
+    });
+    const validatedV2 = await command.validate(actor, draftV2.reference);
+    const frozenV2 = await command.freeze(actor, validatedV2.reference);
+    const approvedV2 = await command.approve(actor, frozenV2.reference, "approval_c1_v2");
+    await command.retire(actor, approvedV1.version.reference);
+
+    expect(c1BindingStore.getForCourse(tenantId, "course_v1")?.course_blueprint_reference)
+      .toEqual(approvedV1.version.reference);
+    expect(approvedV2.version.reference).not.toEqual(approvedV1.version.reference);
+    await expect(command.assertBindable(tenantId, approvedV2.version.reference)).resolves.toBeUndefined();
   });
 });

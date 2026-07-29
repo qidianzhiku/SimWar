@@ -72,6 +72,34 @@ describe("CourseBlueprintCommandService", () => {
     );
   });
 
+  it("rejects an exact reference whose tenant does not match the requested tenant", async () => {
+    const { approved, service } = await createApproved();
+    await expect(
+      service.assertBindable("tenant_001", {
+        ...approved.version.reference,
+        tenant_id: "tenant_other"
+      })
+    ).rejects.toThrow(new CourseBlueprintAuthorityError("TENANT_SCOPE_VIOLATION"));
+  });
+
+  it("rejects a blank approval id without appending an approved snapshot", async () => {
+    const registry = new InMemoryJsonCourseBlueprintRegistry();
+    const service = new CourseBlueprintCommandService(registry);
+    const draft = await service.createDraft(actor, draftInput);
+    const validated = await service.validate(actor, draft.reference);
+    const frozen = await service.freeze(actor, validated.reference);
+
+    await expect(service.approve(actor, frozen.reference, "   ")).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+    await expect(
+      registry.listLifecycleSnapshots("tenant_001", "course_blueprint_001", "1.0.0")
+    ).resolves.toHaveLength(3);
+    await expect(
+      registry.listApprovalRecords("tenant_001", frozen.reference)
+    ).resolves.toEqual([]);
+  });
+
   it("does not allow a draft to bypass validation and canonicalizes object-key order", async () => {
     const registry = new InMemoryJsonCourseBlueprintRegistry();
     const service = new CourseBlueprintCommandService(registry);

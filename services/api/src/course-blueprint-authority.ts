@@ -179,6 +179,10 @@ function assertValid(version: CourseBlueprintVersion): void {
     !version.schema_version.trim() || !version.title.trim() || !version.description.trim() ||
     !version.instructor_guidance_reference.trim() || !positiveInteger(version.duration_minutes) ||
     version.objectives.length === 0 || version.ordered_phases.length === 0 ||
+    version.required_product_capabilities.some((capability) => !capability.trim()) ||
+    Object.entries(version.scenario_compatibility_constraints).some(
+      ([key, value]) => !key.trim() || !value.trim()
+    ) ||
     version.ordered_phases.some((phase, index) =>
       !phase.phase_id.trim() || !phase.title.trim() || !phase.activity_type.trim() ||
       !phase.teacher_guidance.trim() || !phase.student_instruction.trim() ||
@@ -253,6 +257,7 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
 
   async appendApprovedVersion(version: CourseBlueprintVersion, record: CourseBlueprintApprovalRecord): Promise<void> {
     this.assertAppendable(version);
+    assertStoredApproval(record);
     if (this.approvals.some((item) => item.tenant_id === record.tenant_id && item.approval_id === record.approval_id)) {
       throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS");
     }
@@ -346,6 +351,9 @@ export class CourseBlueprintCommandService {
   }
 
   async approve(actor: CourseBlueprintAuthorityActor, reference: CourseBlueprintReference, approvalId: string): Promise<CourseBlueprintApprovalResult> {
+    if (!approvalId.trim()) {
+      throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
+    }
     const frozen = await this.requireTransition(actor, reference, "FROZEN");
     const version = deepFreeze({ ...frozen, status: "APPROVED" as const });
     const approval_record = deepFreeze({ approval_id: approvalId, approved_by: actor.actor_id, correlation_id: actor.correlation_id, course_blueprint_reference: clone(version.reference), tenant_id: actor.tenant_id });
@@ -358,6 +366,9 @@ export class CourseBlueprintCommandService {
   }
 
   async assertBindable(tenantId: string, reference: CourseBlueprintReference): Promise<void> {
+    if (reference.tenant_id !== tenantId) {
+      throw new CourseBlueprintAuthorityError("TENANT_SCOPE_VIOLATION");
+    }
     const matches = await this.registry.listLifecycleSnapshots(tenantId, reference.course_blueprint_id, reference.version);
     if (!matches.length) throw new CourseBlueprintAuthorityError("NOT_FOUND");
     const exact = matches.filter((item) => item.content_digest === reference.content_digest);

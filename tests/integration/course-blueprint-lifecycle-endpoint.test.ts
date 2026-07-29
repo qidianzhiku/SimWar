@@ -83,7 +83,11 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
         headers: { authorization: `Bearer ${teacher.access_token}` }
       });
       expect(catalog.status).toBe(200);
-      expect(JSON.stringify(catalog.body)).not.toContain("guide://api-c1");
+      const catalogJson = JSON.stringify(catalog.body);
+      expect(catalogJson).not.toContain("approval_api_c1");
+      expect(catalogJson).not.toContain("guide://api-c1");
+      expect(catalogJson).not.toContain("binding_digest");
+      expect(catalogJson).not.toContain("audit");
       const student = await login(baseUrl, "student", "student", DEFAULT_TENANT_ID);
       expect((await requestJson(`${baseUrl}/api/v1/bff/teacher/course-blueprints`, {
         headers: { authorization: `Bearer ${student.access_token}` }
@@ -120,7 +124,7 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
       formalRunBindingAuthorities: {
         parameterSets: { assertBindable: async () => undefined, getByReference: async () => ({ model_version_ref: "toy_logit_wellness_v1@0.1.0", reference: parameterReference, status: "APPROVED", tenant_id: DEFAULT_TENANT_ID }) },
         plugins: { getByReference: async () => null, resolveAvailableForNewBinding: async () => ({ status: "AVAILABLE" }) },
-        scenarios: { assertBindable: async () => undefined, getByReference: async () => ({ parameter_set_reference: parameterReference, plugin_dependencies: [], reference: scenarioReference, status: "APPROVED", tenant_id: DEFAULT_TENANT_ID }) }
+        scenarios: { assertBindable: async () => undefined, getByReference: async () => ({ compatibility_metadata: { scenario_family: "wellness" }, parameter_set_reference: parameterReference, plugin_dependencies: [], reference: scenarioReference, status: "APPROVED", tenant_id: DEFAULT_TENANT_ID }) }
       } as never
     });
     server.listen(0, "127.0.0.1");
@@ -144,13 +148,36 @@ describe("formal CourseBlueprint lifecycle endpoint", () => {
       const teacherHeaders = { authorization: `Bearer ${teacher.access_token}`, "content-type": "application/json", "x-tenant-id": DEFAULT_TENANT_ID };
       const created = await requestJson<ApiEnvelope<{ course: { course_id: string }; binding_summary: { course_blueprint_reference: Record<string, string> } }>>(
         `${baseUrl}/api/v1/bff/teacher/course-blueprint-courses`,
-        { body: { course_blueprint_reference: reference, scenario_package_reference: scenarioReference, title: "C1 exact Course" }, headers: teacherHeaders, method: "POST" }
+        {
+          body: {
+            binding_digest: "forged-binding-digest",
+            course_blueprint_reference: reference,
+            engine_reference: { engine_id: "forged", version: "latest" },
+            parameter_set_reference: {
+              content_digest: "f".repeat(64),
+              parameter_set_id: "forged_parameter",
+              version: "latest"
+            },
+            plugin_dependencies: [{ plugin_package_id: "forged_plugin", version: "latest" }],
+            scenario_package_reference: scenarioReference,
+            title: "C1 exact Course"
+          },
+          headers: teacherHeaders,
+          method: "POST"
+        }
       );
       expect(created.status).toBe(201);
       expect(created.body.data.binding_summary.course_blueprint_reference).toEqual(reference);
       expect(store.courseBlueprintBindings).toHaveLength(1);
+      expect(store.courseBlueprintBindings[0]?.binding_digest).not.toBe("forged-binding-digest");
       expect(store.formalCourseAuthorityBindings).toHaveLength(1);
       expect(store.formalCourseAuthorityBindings[0]?.scenario_package_reference).toEqual(scenarioReference);
+      expect(store.formalCourseAuthorityBindings[0]?.parameter_set_reference).toEqual(parameterReference);
+      expect(store.formalCourseAuthorityBindings[0]?.engine_reference).toEqual({
+        engine_id: "toy_logit_wellness_v1",
+        version: "0.1.0"
+      });
+      expect(JSON.stringify(store.formalCourseAuthorityBindings[0])).not.toContain("forged");
       expect(store.courses).toContainEqual(expect.objectContaining({ course_id: created.body.data.course.course_id }));
     } finally { await stopServer(server); }
   });

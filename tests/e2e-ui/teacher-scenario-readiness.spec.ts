@@ -150,7 +150,141 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
 
 test("Teacher prepares a server-derived binding preview before creating a formal Course", async ({
   page
-}) => {
+}, testInfo) => {
+  const nonce = `${testInfo.workerIndex}-${testInfo.retry}-${Date.now().toString(36)}`;
+  const ids = {
+    approvalId: `approval_browser_c1_${nonce}`,
+    blueprintId: `blueprint_browser_c1_${nonce}`,
+    courseId: `course_browser_c1_${nonce}`,
+    roundId: `round_browser_c1_${nonce}`,
+    runId: `run_browser_c1_${nonce}`,
+    scenarioId: `scenario_browser_c1_${nonce}`,
+    seed: 20260729 + testInfo.retry,
+    teamId: `team_browser_c1_${nonce}`
+  };
+  const interceptedMutations: string[] = [];
+  const serverRunCounts: number[] = [];
+  let isolatedWorkspaceRunCreated = false;
+  expect(interceptedMutations).toEqual([]);
+  await test.info().attach("c1-isolation-identities.json", {
+    body: JSON.stringify(ids),
+    contentType: "application/json"
+  });
+  await page.route(/\/api\/v1\/demo-state$/, async (route) => {
+    const response = await route.fetch();
+    const envelope = (await response.json()) as {
+      data: {
+        rounds: Array<Record<string, unknown>>;
+        runs: Array<Record<string, unknown>>;
+      };
+    };
+    serverRunCounts.push(envelope.data.runs.length);
+    if (isolatedWorkspaceRunCreated) {
+      envelope.data.runs = [
+        ...envelope.data.runs,
+        {
+          course_id: "course_demo",
+          parameter_set_id: "param_toy_approved_1",
+          run_id: ids.runId,
+          scenario_package_id: "scenario_eldercare_demo",
+          seed: ids.seed,
+          status: "active",
+          tenant_id: "tenant_demo"
+        }
+      ];
+      envelope.data.rounds = [
+        ...envelope.data.rounds,
+        {
+          round_id: ids.roundId,
+          round_no: 1,
+          run_id: ids.runId,
+          status: "draft",
+          tenant_id: "tenant_demo"
+        }
+      ];
+    }
+    await route.fulfill({ response, json: envelope });
+  });
+  await page.route(/\/api\/v1\/courses\/course_demo\/runs$/, async (route) => {
+    isolatedWorkspaceRunCreated = true;
+    interceptedMutations.push("workspace.run.create");
+    await route.fulfill({
+      contentType: "application/json",
+      status: 201,
+      body: JSON.stringify({
+        data: {
+          round: {
+            round_id: ids.roundId,
+            round_no: 1,
+            run_id: ids.runId,
+            status: "draft",
+            tenant_id: "tenant_demo"
+          },
+          run: {
+            course_id: "course_demo",
+            parameter_set_id: "param_toy_approved_1",
+            run_id: ids.runId,
+            scenario_package_id: "scenario_eldercare_demo",
+            seed: ids.seed,
+            status: "active",
+            tenant_id: "tenant_demo"
+          }
+        }
+      })
+    });
+  });
+  await page.route(
+    /\/api\/v1\/bff\/teacher\/runs\/[^/]+\/rounds\/1\/workspace$/,
+    async (route) => {
+      interceptedMutations.push("workspace.read");
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            course_workspace: {
+              evidence_label: "TEACHER_PROJECTION_EVIDENCE",
+              visible_state: {
+                course_title: "M1 康养教学闭环课程",
+                run_status: "active"
+              }
+            },
+            round_control: {
+              status: "draft",
+              visible_state: {
+                decision_count: 0,
+                settlement_available: false,
+                team_count: 1
+              }
+            },
+            teacher_dashboard: {
+              allowed_actions: [],
+              evidence_label: "BFF_DTO_PRODUCTIZATION",
+              visible_state: {
+                course_status: "active",
+                round_status: "draft",
+                team_count: 1
+              }
+            },
+            teacher_replay_summary: {
+              formal_truth_write_allowed: false,
+              redacted_fields: [],
+              visible_state: {
+                result_count: 0,
+                runtime_boundary: "current_json_active_runtime"
+              }
+            },
+            team_monitor: {
+              teams: [],
+              visible_state: {
+                decision_count: 0,
+                team_count: 1
+              }
+            }
+          }
+        })
+      });
+    }
+  );
   const catalogRequests: Array<{ headers: Record<string, string>; method: string }> = [];
   page.on("request", (request) => {
     if (request.url().includes("/formal-scenario-package-catalog")) {
@@ -166,7 +300,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
           {
             scenario_package_reference: {
               tenant_id: "tenant_demo",
-              scenario_package_id: "scenario_formal_eldercare_shanghai",
+              scenario_package_id: ids.scenarioId,
               version: "1.0.0",
               content_digest: "a".repeat(64)
             },
@@ -207,7 +341,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
           plugin_dependencies: [{ plugin_package_id: "wellness", version: "1.0.0" }],
           scenario_package_reference: {
             tenant_id: "tenant_demo",
-            scenario_package_id: "scenario_formal_eldercare_shanghai",
+            scenario_package_id: ids.scenarioId,
             version: "1.0.0",
             content_digest: "a".repeat(64)
           },
@@ -225,7 +359,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
           candidates: [{
             compatibility_constraints: { scenario_family: "wellness" },
             content_digest_summary: "c".repeat(12),
-            course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) },
+            course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) },
             duration_minutes: 60,
             objectives_summary: ["Run the course"],
             phases_summary: [{ duration_minutes: 60, order: 1, title: "Briefing" }],
@@ -242,20 +376,21 @@ test("Teacher prepares a server-derived binding preview before creating a formal
       body: JSON.stringify({ data: {
         operation_id: "TEACHER_COURSE_BLUEPRINT_READINESS_V1",
         selection_status: "READY",
-        blueprint: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) }, title: "Browser C1 Blueprint", duration_minutes: 60, objectives_summary: ["Run the course"], phases_summary: [], compatibility_constraints: {}, content_digest_summary: "c".repeat(12), status: "APPROVED" },
-        formal_course_binding: { engine_profile: { engine_id: "toy_logit_wellness_v1", model_version_ref: "toy_logit_wellness_v1@0.1.0", runtime_authority: "JSON_INTERNAL_ONLY", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, plugin_dependencies: [], scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: "scenario_formal_eldercare_shanghai", version: "1.0.0", content_digest: "a".repeat(64) }, selection_status: "READY" }
+        blueprint: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) }, title: "Browser C1 Blueprint", duration_minutes: 60, objectives_summary: ["Run the course"], phases_summary: [], compatibility_constraints: {}, content_digest_summary: "c".repeat(12), status: "APPROVED" },
+        formal_course_binding: { engine_profile: { engine_id: "toy_logit_wellness_v1", model_version_ref: "toy_logit_wellness_v1@0.1.0", runtime_authority: "JSON_INTERNAL_ONLY", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, plugin_dependencies: [], scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: ids.scenarioId, version: "1.0.0", content_digest: "a".repeat(64) }, selection_status: "READY" }
       } })
     });
   });
   await page.route(/\/course-blueprint-courses$/, async (route) => {
+    interceptedMutations.push("course.create");
     await route.fulfill({
       contentType: "application/json",
       status: 201,
       body: JSON.stringify({ data: {
         operation_id: "TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1",
-        binding_summary: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: "blueprint_browser_c1", version: "1.0.0", content_digest: "c".repeat(64) } },
-        formal_binding_summary: { engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: "scenario_formal_eldercare_shanghai", version: "1.0.0", content_digest: "a".repeat(64) } },
-        course: { course_id: "course_b5_browser_001", created_by: "usr_teacher", parameter_set_id: "parameter_formal_eldercare_shanghai", scenario_package_id: "scenario_formal_eldercare_shanghai", status: "draft", tenant_id: "tenant_demo", title: "Browser B5 Course" }
+        binding_summary: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) } },
+        formal_binding_summary: { engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: ids.scenarioId, version: "1.0.0", content_digest: "a".repeat(64) } },
+        course: { course_id: ids.courseId, created_by: "usr_teacher", parameter_set_id: "parameter_formal_eldercare_shanghai", scenario_package_id: ids.scenarioId, status: "draft", tenant_id: "tenant_demo", title: "Browser B5 Course" }
       } })
     });
   });
@@ -275,16 +410,16 @@ test("Teacher prepares a server-derived binding preview before creating a formal
             },
             scenario_package_reference: {
               tenant_id: "tenant_demo",
-              scenario_package_id: "scenario_formal_eldercare_shanghai",
+              scenario_package_id: ids.scenarioId,
               version: "1.0.0",
               content_digest: "a".repeat(64)
             }
           },
           course: {
-            course_id: "course_b5_browser_001",
+            course_id: ids.courseId,
             created_by: "usr_teacher",
             parameter_set_id: "parameter_formal_eldercare_shanghai",
-            scenario_package_id: "scenario_formal_eldercare_shanghai",
+            scenario_package_id: ids.scenarioId,
             status: "draft",
             tenant_id: "tenant_demo",
             title: "Browser B5 Course"
@@ -293,15 +428,16 @@ test("Teacher prepares a server-derived binding preview before creating a formal
       })
     });
   });
-  await page.route(/\/courses\/course_b5_browser_001\/publish$/, async (route) => {
+  await page.route(new RegExp(`/courses/${ids.courseId}/publish$`), async (route) => {
+    interceptedMutations.push("course.publish");
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
         data: {
-          course_id: "course_b5_browser_001",
+          course_id: ids.courseId,
           created_by: "usr_teacher",
           parameter_set_id: "parameter_formal_eldercare_shanghai",
-          scenario_package_id: "scenario_formal_eldercare_shanghai",
+          scenario_package_id: ids.scenarioId,
           status: "published",
           tenant_id: "tenant_demo",
           title: "Browser B5 Course"
@@ -309,25 +445,26 @@ test("Teacher prepares a server-derived binding preview before creating a formal
       })
     });
   });
-  await page.route(/\/courses\/course_b5_browser_001\/runs$/, async (route) => {
+  await page.route(new RegExp(`/courses/${ids.courseId}/runs$`), async (route) => {
+    interceptedMutations.push("run.create");
     await route.fulfill({
       contentType: "application/json",
       status: 201,
       body: JSON.stringify({
         data: {
           run: {
-            course_id: "course_b5_browser_001",
+            course_id: ids.courseId,
             parameter_set_id: "parameter_formal_eldercare_shanghai",
-            run_id: "run_b5_browser_001",
-            scenario_package_id: "scenario_formal_eldercare_shanghai",
-            seed: 20260729,
+            run_id: ids.runId,
+            scenario_package_id: ids.scenarioId,
+            seed: ids.seed,
             status: "active",
             tenant_id: "tenant_demo"
           },
           round: {
-            round_id: "round_b5_browser_001",
+            round_id: ids.roundId,
             round_no: 1,
-            run_id: "run_b5_browser_001",
+            run_id: ids.runId,
             status: "draft",
             tenant_id: "tenant_demo"
           }
@@ -338,7 +475,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
 
   const panel = await openScenarioReadinessPanel(page);
   const catalog = panel.getByLabel("formal ScenarioPackage catalog");
-  await expect(catalog.getByText("scenario_formal_eldercare_shanghai")).toBeVisible();
+  await expect(catalog.getByText(ids.scenarioId)).toBeVisible();
   await catalog.getByRole("button", { name: "Prepare formal Course" }).click();
 
   const draft = catalog.getByLabel("formal ScenarioPackage Course selection");
@@ -355,7 +492,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   await draft.getByLabel("formal Course title").fill("Browser B5 Course");
   await draft.getByRole("button", { name: "Create formal Course" }).click();
   const runCreation = catalog.getByLabel("formal Run creation");
-  await expect(runCreation).toContainText("course_b5_browser_001");
+  await expect(runCreation).toContainText(ids.courseId);
   await runCreation.getByRole("button", { name: "Publish formal Course" }).click();
   await expect(runCreation.getByLabel("explicit Run seed")).toBeVisible();
   await runCreation.getByRole("button", { name: "Create formal Run" }).click();
@@ -377,6 +514,24 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   await expect(reloadedCatalog.getByLabel("formal ScenarioPackage Course selection")).toHaveCount(
     0
   );
+  expect(
+    interceptedMutations.filter(
+      (operation) => operation !== "workspace.run.create" && operation !== "workspace.read"
+    )
+  ).toEqual(["course.create", "course.publish", "run.create"]);
+  expect(interceptedMutations).toContain("workspace.read");
+  expect(new Set(serverRunCounts).size).toBe(1);
+  await test.info().attach("c1-browser-residue.json", {
+    body: JSON.stringify({
+      approval_id: ids.approvalId,
+      intercepted_mutations: interceptedMutations,
+      server_persistence: "NONE_ALL_C1_MUTATIONS_ROUTE_ISOLATED",
+      server_run_counts: serverRunCounts,
+      team_id: ids.teamId
+    }),
+    contentType: "application/json"
+  });
+  await page.unrouteAll({ behavior: "wait" });
 });
 
 test("Student has no scenario readiness surface and never calls the Teacher endpoint", async ({

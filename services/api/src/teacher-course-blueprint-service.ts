@@ -19,6 +19,12 @@ import {
   type CreateTeacherFormalCourseInput
 } from "./teacher-formal-course-binding-service.js";
 
+const AVAILABLE_C1_PRODUCT_CAPABILITIES = new Set([
+  "course:create",
+  "decision_submit",
+  "round_publish"
+]);
+
 export type TeacherCourseBlueprintFailureCode =
   | "TEACHER_COURSE_BLUEPRINT_INVALID"
   | "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE"
@@ -83,6 +89,32 @@ function mapAuthorityError(error: unknown): never {
   throw error;
 }
 
+async function assertBlueprintCompatibility(
+  blueprint: CourseBlueprintVersion,
+  input: TeacherCourseBlueprintReadinessInput
+): Promise<void> {
+  if (
+    blueprint.required_product_capabilities.some(
+      (capability) => !AVAILABLE_C1_PRODUCT_CAPABILITIES.has(capability)
+    )
+  ) {
+    throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
+  }
+
+  const scenario = await input.formal_course.authorities.scenarios.getByReference(
+    input.formal_course.tenant_id,
+    input.formal_course.scenario_package_reference
+  );
+  if (
+    !scenario ||
+    Object.entries(blueprint.scenario_compatibility_constraints).some(
+      ([key, value]) => scenario.compatibility_metadata[key] !== value
+    )
+  ) {
+    throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
+  }
+}
+
 export async function listTeacherCourseBlueprintCatalog(
   command: CourseBlueprintCommandService,
   tenantId: string
@@ -113,6 +145,7 @@ export async function resolveTeacherCourseBlueprintReadiness(
     if (!blueprint || blueprint.status !== "APPROVED") {
       throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
     }
+    await assertBlueprintCompatibility(blueprint, input);
     const formal_course_binding = await resolveTeacherFormalCourseBindingPreview(input.formal_course);
     return deepFreeze({
       blueprint: createCatalogItem(blueprint),
