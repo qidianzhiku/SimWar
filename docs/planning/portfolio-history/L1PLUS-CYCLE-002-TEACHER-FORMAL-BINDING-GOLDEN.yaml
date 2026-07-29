@@ -1,0 +1,63 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-002-TEACHER-FORMAL-BINDING-GOLDEN
+status: CLOSED_AND_CURRENT
+started_at: "2026-07-29T04:23:08Z"
+closed_at: "2026-07-29T07:06:55Z"
+repository: qidianzhiku/SimWar
+source_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+branch: codex/l1plus-b5-teacher-formal-binding-golden-001
+head_sha: 2fe2861f761d7ed9d4f8239236590c1131483378
+pr: 292
+merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
+post_merge_master_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+mainline_candidate: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
+support_candidate: null
+docs_discovery_candidate: null
+resource_locks:
+  - Teacher formal Course binding
+  - Formal Run binding and runtime input resolution
+  - Run/Replay Golden parity
+validation:
+  focused:
+    - Teacher formal Course binding unit tests
+    - Formal-bound Run creation service unit tests
+    - Formal Run RuntimeBinding activation integration tests
+    - Direct-formal versus Teacher-BFF Golden parity integration regression
+  affected:
+    - Teacher scenario readiness and scenario compile browser isolation matrix
+    - Teacher, Student, and Admin browser smoke composition
+  full:
+    - npm test: 110 files, 767 tests
+    - npm run build
+    - npm run check:hidden-unicode
+    - npm run check:direct-store-boundaries
+  ci: SUCCESS
+  codeql: SUCCESS
+  browser: 55 passed; 8 existing Phase 7 skips
+  fresh_clone: PASS
+evidence_root: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1PLUS-B5-20260729T070655Z
+gap_delta:
+  closed:
+    - L1P-GAP-B5-TEACHER-SELECTION-FORMAL-BINDING-GOLDEN
+  new: []
+  reclassified: []
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: NOT_MEASURED
+  file_conflict_rate: NOT_MEASURED
+  join_rework_ratio: NOT_MEASURED
+  owner_touch: NOT_MEASURED
+  cleanup_residue: NONE_OBSERVED
+  boundary_breach: 0_NEW_BREACHES
+  post_merge_escape: NONE_OBSERVED
+explicit_non_proofs:
+  - Human Validation completed
+  - PostgreSQL active authority
+  - durable settlement or recovery
+  - Controlled Pilot authorization
+  - Production authorization
+recommended_next_candidate: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+automatic_next_start: false

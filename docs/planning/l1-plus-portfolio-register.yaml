@@ -1,12 +1,12 @@
 portfolio_version: 1
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-07-29T04:23:08Z"
+generated_at: "2026-07-29T07:06:55Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+assessment_source_anchor_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: SCENARIO_COMPILE_PUBLISH_CAPABILITY_CLOSED_WITH_LIMITS
+l1_plus_status: TEACHER_FORMAL_BINDING_GOLDEN_PARITY_CLOSED_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -15,25 +15,24 @@ wip_policy:
   full_suite_per_host: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-B4-SCENARIO-COMPILE-PUBLISH
-    capability_id: L1P-VC-03
+    candidate_id: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
+    capability_id: L1P-VC-05
     status: CLOSED_AND_CURRENT
-    product_pr: 290
-    product_merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+    product_pr: 292
+    product_merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
+    parity_evidence_pr: 293
+    parity_evidence_merge_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
   support_code: NONE
   docs_discovery: NONE
-  closure: L1PLUS_SCENARIO_COMPILE_PUBLISH_CLOSED
+  closure: L1PLUS_TEACHER_FORMAL_BINDING_GOLDEN_PARITY_CLOSED
 resource_locks:
-  - resource: ScenarioPackageCommandService
+  - resource: Teacher formal Course binding
     status: RELEASED_AFTER_POST_MERGE_VALIDATION
-  - resource: ScenarioPackage formal lifecycle
+  - resource: Formal Run binding and runtime input resolution
     status: RELEASED_AFTER_POST_MERGE_VALIDATION
-  - resource: Teacher formal ScenarioPackage catalog
+  - resource: Run/Replay Golden parity
     status: RELEASED_AFTER_POST_MERGE_VALIDATION
-candidate_backlog:
-  - candidate_id: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
-    status: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
-    reason: Formal Run binding and runtime activation remain outside L1P-VC-03.
+candidate_backlog: []
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
@@ -42,13 +41,16 @@ known_limits:
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
 evidence:
-  product_merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
-  product_pr: 290
+  product_merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
+  product_pr: 292
+  parity_evidence_merge_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+  parity_evidence_pr: 293
   fresh_clone_validation: REQUIRED_AND_COMPLETED
   ci_and_codeql: REQUIRED_AND_COMPLETED
 invalidation_triggers:
   - master_sha_changed
   - runtime_authority_changed
-  - formal_scenario_authority_changed
-  - teacher_catalog_contract_changed
+  - formal_course_authority_changed
+  - formal_run_binding_changed
+  - Golden_M1_truth_or_replay_contract_changed
 automatic_next_start: false
