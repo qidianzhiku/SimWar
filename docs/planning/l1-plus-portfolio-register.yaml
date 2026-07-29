@@ -1,0 +1,54 @@
+portfolio_version: 1
+document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
+generated_at: "2026-07-29T04:23:08Z"
+repository: qidianzhiku/SimWar
+default_branch: master
+assessment_source_anchor_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+runtime_authority: JSON_INTERNAL_ONLY
+l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
+l1_plus_status: SCENARIO_COMPILE_PUBLISH_CAPABILITY_CLOSED_WITH_LIMITS
+wip_policy:
+  mainline: 1
+  shared_support_code: 1
+  docs_discovery: 1
+  closure: 1
+  full_suite_per_host: 1
+selected:
+  mainline:
+    candidate_id: CAND-L1P-B4-SCENARIO-COMPILE-PUBLISH
+    capability_id: L1P-VC-03
+    status: CLOSED_AND_CURRENT
+    product_pr: 290
+    product_merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+  support_code: NONE
+  docs_discovery: NONE
+  closure: L1PLUS_SCENARIO_COMPILE_PUBLISH_CLOSED
+resource_locks:
+  - resource: ScenarioPackageCommandService
+    status: RELEASED_AFTER_POST_MERGE_VALIDATION
+  - resource: ScenarioPackage formal lifecycle
+    status: RELEASED_AFTER_POST_MERGE_VALIDATION
+  - resource: Teacher formal ScenarioPackage catalog
+    status: RELEASED_AFTER_POST_MERGE_VALIDATION
+candidate_backlog:
+  - candidate_id: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
+    status: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+    reason: Formal Run binding and runtime activation remain outside L1P-VC-03.
+known_limits:
+  issue_111: OPEN_KNOWN_LIMIT
+  runtime_authority: JSON_INTERNAL_ONLY
+  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
+  postgresql: NOT_ACTIVATED
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+evidence:
+  product_merge_sha: 19a6db737968c0840cbea488b91228ab2ce01a50
+  product_pr: 290
+  fresh_clone_validation: REQUIRED_AND_COMPLETED
+  ci_and_codeql: REQUIRED_AND_COMPLETED
+invalidation_triggers:
+  - master_sha_changed
+  - runtime_authority_changed
+  - formal_scenario_authority_changed
+  - teacher_catalog_contract_changed
+automatic_next_start: false
