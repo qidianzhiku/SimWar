@@ -29,9 +29,11 @@ const requiredBaselineFiles = [
 
 const m1ContractFiles = [
   "contracts/schemas/api-error-envelope.v1.json",
+  "contracts/schemas/m1-auth-session-envelope.v1.json",
   "contracts/schemas/m1-decision-submit-request.v1.json",
   "contracts/schemas/m1-decision-submit-success-envelope.v1.json",
   "contracts/schemas/m1-round-envelope.v1.json",
+  "contracts/schemas/m1-run-create-envelope.v1.json",
   "contracts/schemas/m1-settlement-result-envelope.v1.json",
   "contracts/schemas/m1-student-result-envelope.v1.json",
   "contracts/schemas/m1-teacher-admin-result-envelope.v1.json",
@@ -41,7 +43,9 @@ const m1ContractFiles = [
   "contracts/fixtures/m1-decision-submit-request.valid.json",
   "contracts/fixtures/m1-decision-submit-request.invalid.json",
   "contracts/fixtures/m1-decision-submit-success-envelope.valid.json",
+  "contracts/fixtures/m1-auth-session-envelope.valid.json",
   "contracts/fixtures/m1-round-envelope.valid.json",
+  "contracts/fixtures/m1-run-create-envelope.valid.json",
   "contracts/fixtures/m1-settlement-result-envelope.valid.json",
   "contracts/fixtures/m1-wrong-team-error-envelope.valid.json",
   "contracts/fixtures/api-error-envelope-missing-code.invalid.json",
@@ -79,6 +83,11 @@ const requiredOpenApiPaths = [
 
 const schemaCases = [
   {
+    schema: "contracts/schemas/m1-auth-session-envelope.v1.json",
+    valid: ["contracts/fixtures/m1-auth-session-envelope.valid.json"],
+    invalid: []
+  },
+  {
     schema: "contracts/schemas/m1-decision-submit-request.v1.json",
     valid: ["contracts/fixtures/m1-decision-submit-request.valid.json"],
     invalid: ["contracts/fixtures/m1-decision-submit-request.invalid.json"]
@@ -91,6 +100,11 @@ const schemaCases = [
   {
     schema: "contracts/schemas/m1-round-envelope.v1.json",
     valid: ["contracts/fixtures/m1-round-envelope.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/m1-run-create-envelope.v1.json",
+    valid: ["contracts/fixtures/m1-run-create-envelope.valid.json"],
     invalid: []
   },
   {
@@ -175,6 +189,10 @@ function assertM1OpenApiBindings(openApi) {
 
   const loginPost = openApi.paths["/api/v1/auth/login"]?.post;
   assert(
+    jsonContentSchema(loginPost?.responses?.["200"])?.$ref === schemaRef("M1AuthSessionEnvelope"),
+    "Auth login 200 response must reference M1AuthSessionEnvelope."
+  );
+  assert(
     jsonContentSchema(loginPost?.responses?.["401"])?.$ref === schemaRef("ApiErrorEnvelope"),
     "Auth login 401 response must reference ApiErrorEnvelope."
   );
@@ -234,6 +252,41 @@ function assertM1OpenApiBindings(openApi) {
       jsonContentSchema(decisionsPost.responses?.[statusCode])?.$ref ===
         schemaRef("ApiErrorEnvelope"),
       `M1 decision submit ${statusCode} response must reference ApiErrorEnvelope.`
+    );
+  }
+
+  const runCreatePost = openApi.paths["/api/v1/courses/{courseId}/runs"]?.post;
+  assert(runCreatePost, "Missing POST operation for M1 run creation.");
+  assert(
+    jsonContentSchema(runCreatePost.responses?.["201"])?.$ref === schemaRef("M1RunCreateEnvelope"),
+    "M1 run create 201 response must reference M1RunCreateEnvelope."
+  );
+  for (const statusCode of ["401", "403"]) {
+    assert(
+      jsonContentSchema(runCreatePost.responses?.[statusCode])?.$ref ===
+        schemaRef("ApiErrorEnvelope"),
+      `M1 run create ${statusCode} response must reference ApiErrorEnvelope.`
+    );
+  }
+
+  const lifecycleControlsGet = openApi.paths["/api/v1/bff/admin/run-lifecycle-controls"]?.get;
+  assert(lifecycleControlsGet, "Missing GET operation for M1 lifecycle controls.");
+  for (const statusCode of ["401", "403"]) {
+    assert(
+      jsonContentSchema(lifecycleControlsGet.responses?.[statusCode])?.$ref ===
+        schemaRef("ApiErrorEnvelope"),
+      `M1 lifecycle controls ${statusCode} response must reference ApiErrorEnvelope.`
+    );
+  }
+
+  const lifecycleOperationPost =
+    openApi.paths["/api/v1/bff/admin/courses/{courseId}/runs/{runId}/lifecycle/{operation}"]?.post;
+  assert(lifecycleOperationPost, "Missing POST operation for M1 lifecycle operation.");
+  for (const statusCode of ["401", "403", "404", "409", "422"]) {
+    assert(
+      jsonContentSchema(lifecycleOperationPost.responses?.[statusCode])?.$ref ===
+        schemaRef("ApiErrorEnvelope"),
+      `M1 lifecycle operation ${statusCode} response must reference ApiErrorEnvelope.`
     );
   }
 
@@ -312,9 +365,11 @@ function assertM1OpenApiBindings(openApi) {
 
   for (const name of [
     "ApiErrorEnvelope",
+    "M1AuthSessionEnvelope",
     "M1DecisionSubmitRequest",
     "M1DecisionSubmitSuccessEnvelope",
     "M1RoundEnvelope",
+    "M1RunCreateEnvelope",
     "M1SettlementResultEnvelope",
     "M1StudentResultEnvelope",
     "M1TeacherAdminResultEnvelope",
@@ -354,9 +409,24 @@ function formatAjvErrors(validate) {
     .join("; ");
 }
 
+export function createContractAjv() {
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addFormat("email", {
+    type: "string",
+    validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  });
+  ajv.addFormat("date-time", {
+    type: "string",
+    validate: (value) => !Number.isNaN(Date.parse(value))
+  });
+  return ajv;
+}
+
 function validateFixtureCases() {
   for (const contractCase of schemaCases) {
-    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    const ajv = createContractAjv();
+    ajv.addSchema(readJson("contracts/schemas/user.v1.json"));
+    ajv.addSchema(readJson("contracts/schemas/auth-session.v1.json"));
     ajv.addSchema(readJson("contracts/schemas/settlement-result.v1.json"));
     const validate = ajv.compile(readJson(contractCase.schema));
 

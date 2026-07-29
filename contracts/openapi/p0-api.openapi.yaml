@@ -12,6 +12,10 @@ paths:
       responses:
         "200":
           description: Auth session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1AuthSessionEnvelope"
         "401":
           description: Missing, malformed, or invalid authentication credentials
           content:
@@ -169,6 +173,22 @@ paths:
       responses:
         "201":
           description: Run and round created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/M1RunCreateEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "403":
+          description: Teacher run-create authority required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/start:
     post:
       summary: Start a draft round.
@@ -648,8 +668,16 @@ paths:
                       $ref: "#/components/schemas/SyntheticRunLifecycleControl"
         "401":
           description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "403":
           description: Tenant Admin lifecycle authority required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/bff/admin/courses/{courseId}/runs/{runId}/lifecycle/{operation}:
     post:
       operationId: SYNTHETIC_RUN_LIFECYCLE_OPERATION_POST_V1
@@ -706,14 +734,34 @@ paths:
                     $ref: "#/components/schemas/SyntheticRunLifecycleOperationResult"
         "401":
           description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "403":
           description: Tenant or role boundary denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "404":
           description: Run is absent or outside the authenticated tenant/course scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "409":
           description: Runtime, lifecycle, settlement, publication, evidence-freeze, or state transition boundary denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
         "422":
           description: Exact operation confirmation is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /internal/v1/runs/{runId}/rounds/{roundNo}/settle:
     post:
       summary: Internal structured-core-only settlement entrypoint.
@@ -1302,12 +1350,16 @@ components:
           $ref: "#/components/schemas/SyntheticRunLifecycleControl"
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"
+    M1AuthSessionEnvelope:
+      $ref: "../schemas/m1-auth-session-envelope.v1.json"
     M1DecisionSubmitRequest:
       $ref: "../schemas/m1-decision-submit-request.v1.json"
     M1DecisionSubmitSuccessEnvelope:
       $ref: "../schemas/m1-decision-submit-success-envelope.v1.json"
     M1RoundEnvelope:
       $ref: "../schemas/m1-round-envelope.v1.json"
+    M1RunCreateEnvelope:
+      $ref: "../schemas/m1-run-create-envelope.v1.json"
     M1SettlementResultEnvelope:
       $ref: "../schemas/m1-settlement-result-envelope.v1.json"
     M1StudentResultEnvelope:
