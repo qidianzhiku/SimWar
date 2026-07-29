@@ -230,6 +230,18 @@ function assertStoredApproval(record: CourseBlueprintApprovalRecord): void {
   }
 }
 
+function sameReference(
+  left: CourseBlueprintReference,
+  right: CourseBlueprintReference
+): boolean {
+  return (
+    left.tenant_id === right.tenant_id &&
+    left.course_blueprint_id === right.course_blueprint_id &&
+    left.version === right.version &&
+    left.content_digest === right.content_digest
+  );
+}
+
 export interface InMemoryJsonCourseBlueprintRegistryOptions {
   approvals?: CourseBlueprintApprovalRecord[];
   onAppend?: () => void;
@@ -251,6 +263,9 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
   }
 
   async appendVersion(version: CourseBlueprintVersion): Promise<void> {
+    if (version.status === "APPROVED") {
+      throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_INVALID_TRANSITION");
+    }
     this.assertAppendable(version);
     this.snapshots.push(version);
     this.persistOrRollback(() => this.snapshots.pop());
@@ -259,6 +274,13 @@ export class InMemoryJsonCourseBlueprintRegistry implements CourseBlueprintRegis
   async appendApprovedVersion(version: CourseBlueprintVersion, record: CourseBlueprintApprovalRecord): Promise<void> {
     this.assertAppendable(version);
     assertStoredApproval(record);
+    if (
+      version.status !== "APPROVED" ||
+      record.tenant_id !== version.tenant_id ||
+      !sameReference(record.course_blueprint_reference, version.reference)
+    ) {
+      throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED");
+    }
     if (this.approvals.some((item) => item.tenant_id === record.tenant_id && item.approval_id === record.approval_id)) {
       throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS");
     }

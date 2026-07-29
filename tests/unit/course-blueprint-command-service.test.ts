@@ -180,6 +180,37 @@ describe("CourseBlueprintCommandService", () => {
     })).rejects.toThrow(new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_INVALID_TRANSITION"));
   });
 
+  it("requires an exact matching approval record at the registry write boundary", async () => {
+    const registry = new InMemoryJsonCourseBlueprintRegistry();
+    const service = new CourseBlueprintCommandService(registry);
+    const draft = await service.createDraft(actor, draftInput);
+    const validated = await service.validate(actor, draft.reference);
+    const frozen = await service.freeze(actor, validated.reference);
+    const approved = { ...frozen, status: "APPROVED" as const };
+
+    await expect(registry.appendVersion(approved)).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_INVALID_TRANSITION")
+    );
+    await expect(registry.appendApprovedVersion(approved, {
+      approval_id: "approval_mismatch",
+      approved_by: actor.actor_id,
+      correlation_id: actor.correlation_id,
+      course_blueprint_reference: {
+        ...approved.reference,
+        content_digest: "f".repeat(64)
+      },
+      tenant_id: actor.tenant_id
+    })).rejects.toThrow(
+      new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VALIDATION_FAILED")
+    );
+    await expect(
+      registry.listLifecycleSnapshots("tenant_001", "course_blueprint_001", "1.0.0")
+    ).resolves.toHaveLength(3);
+    await expect(
+      registry.listApprovalRecords("tenant_001", approved.reference)
+    ).resolves.toEqual([]);
+  });
+
   it("requires the executable schema version and non-blank objectives", async () => {
     const service = new CourseBlueprintCommandService(new InMemoryJsonCourseBlueprintRegistry());
     const wrongSchema = await service.createDraft(actor, {
