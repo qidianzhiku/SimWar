@@ -5,11 +5,11 @@ repository: qidianzhiku/SimWar
 default_branch: master
 assessment_source_anchor_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
 runtime_authority: JSON_INTERNAL_ONLY
-l1_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 gap_summary:
   l1_product_code_blockers: 0
   l1_evidence_gaps: 0
-  owner_gate_pending: 1
+  owner_gate_pending: 0
   known_limits: CURRENT_WITH_LIMITS
   critical_unknowns: GRAPH_HISTORICAL_NOT_USED_FOR_CURRENT_EVIDENCE
   authority_breaches: 0_NEW_BREACHES_IN_CURRENT_EVIDENCE
@@ -23,7 +23,7 @@ selected:
   mainline: NONE
   support_code: NONE
   docs_discovery: NONE
-  closure: VC13_COMPLETE_AWAITING_POST_MERGE_EVIDENCE_REBASE
+  closure: L1_OWNER_DECISION_RECORDED
 resource_locks: []
 candidate_backlog:
   - candidate_id: CAND-02
@@ -36,19 +36,21 @@ blocked_candidates: []
 ready_for_closure: []
 merge_order: []
 graph_freshness: HISTORICAL_NOT_REQUIRED_FOR_CURRENT_EVIDENCE_PACK
-evidence_freshness: CURRENT_AT_98206DFF8ED747AD650D4BFF82F5497FDFD3590C
+evidence_freshness: EXACT_SOURCE_CLOSED_AT_448CFBE3A1DC990F3BBD497214BE5FC80D8FE8AB
 automated_evidence_pack:
-  path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-98206df\\l1-automated-closure-evidence-pack.json
-  sha256: 8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9
-  status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+  path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-448cfbe\\l1-automated-closure-evidence-pack.json
+  sha256: fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de
+  status: CLOSED_AND_CURRENT
 issue_disposition:
   issue_111: OPEN_KNOWN_LIMIT
   issue_112: CLOSED
   issue_114: CLOSED
   issue_115: CLOSED
 human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-owner_acknowledgment: AWAITING_POST_MERGE_EVIDENCE_REBASE
-valid_until: ADOPTION_MERGE
+owner_acknowledgment: ISSUED
+owner_decision_record: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
+next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+valid_until: EVIDENCE_SOURCE_INVALIDATION_TRIGGER
 invalidation_triggers:
   - master_sha_changed
   - runtime_authority_changed

@@ -9,18 +9,20 @@ normative_contract_status: PASS_WITH_LIMITS
 current_runtime_evidence_completeness: PARTIAL
 current_master_reconciliation:
   assessment_source_anchor_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
-  evidence_pack_sha256: 8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9
-  automated_evidence_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+  evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
+  evidence_pack_sha256: fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de
+  automated_evidence_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
   b01_b04_current_disposition: CLOSED_AND_CURRENT_OR_KNOWN_LIMIT
   issue_111: OPEN_KNOWN_LIMIT
   issue_112: CLOSED
   issue_114: CLOSED
   issue_115: CLOSED
   human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-  owner_acknowledgment: AWAITING_POST_MERGE_EVIDENCE_REBASE
+  owner_acknowledgment: ISSUED
+  owner_decision_record: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
   graph_status: HISTORICAL_ASSESSMENT_INPUT_ONLY
   automatic_next_mission: false
-  expiry: ADOPTION_MERGE
+  expiry: EVIDENCE_SOURCE_INVALIDATION_TRIGGER
 automatic_next_mission: false
 graph_manifest:
   source_sha: a296f9032cf1d7fc921fa837d57e5c33e3cc4de2

@@ -1,0 +1,53 @@
+{
+  "schema_version": "simwar.l1.owner-acknowledgment-record.v1",
+  "decision_id": "OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001",
+  "project": "SimWar",
+  "repository": "qidianzhiku/SimWar",
+  "decision_owner": "Marshall / Project Owner",
+  "decision_date": "2026-07-29",
+  "decision": "APPROVE",
+  "signature": "Marshall",
+  "signed_at": "2026-07-29T10:50:00+08:00",
+  "evidence_source_sha": "448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab",
+  "evidence_pack_sha256": "fe5c3cbeacdb53f34e4902a05e0c3d280d0f47492ae2f7607ae70cd4b5b762de",
+  "machine_validation": "PASS",
+  "human_validation": "WAIVED_BY_OWNER_NOT_PERFORMED",
+  "owner_acknowledgment": "ISSUED",
+  "vc14": "CLOSED_AND_CURRENT",
+  "l1_status": "SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE",
+  "known_limits": {
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "issue_111": "OPEN_KNOWN_LIMIT",
+    "postgresql": "NOT_ACTIVE",
+    "durable_settlement": "NOT_PROVEN",
+    "durable_recovery": "NOT_PROVEN",
+    "pilot": "NOT_AUTHORIZED",
+    "production": "NOT_AUTHORIZED"
+  },
+  "explicit_non_authorizations": [
+    "REAL_HUMAN_VALIDATION",
+    "L1_PLUS_AUTOMATIC_START",
+    "SCENARIO_FACTORY",
+    "COURSE_OS",
+    "LEARNING_EVIDENCE",
+    "AI",
+    "STAGE_4B",
+    "POSTGRESQL",
+    "MIGRATION",
+    "DURABLE_SETTLEMENT",
+    "RECOVERY",
+    "CONTROLLED_PILOT",
+    "PRODUCTION",
+    "REAL_DATA",
+    "BILLING",
+    "EXTERNAL_PROVIDER"
+  ],
+  "next_mission": "NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION",
+  "invalidation_triggers": [
+    "master_sha_changed",
+    "evidence_digest_mismatch",
+    "runtime_authority_changed",
+    "issue_111_state_changed",
+    "new_security_boundary_failure"
+  ]
+}
