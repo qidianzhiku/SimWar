@@ -82,6 +82,8 @@ import {
   type ScenarioPackageJsonValue,
   type ScenarioPackageVersion
 } from "./scenario-package-authority.js";
+import { compileGenericScenarioToDraft } from "./scenario-compile-draft-service.js";
+import type { GenericScenarioCompilerInput } from "./scenario-compiler.js";
 import {
   resolveRuntimeSecurityConfig,
   validateRuntimeSecurityConfig,
@@ -1454,6 +1456,59 @@ function parseFormalScenarioPackageDraft(
   };
 }
 
+function parseGenericScenarioCompileDraft(
+  value: unknown,
+  tenantId: string
+): GenericScenarioCompilerInput {
+  if (!isRecord(value) || parseFormalScenarioPackageString(value.tenant_id) !== tenantId) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  if (!isRecord(value.source_reference) || !isRecord(value.template)) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  const source = value.source_reference;
+  const sourceKind = parseFormalScenarioPackageString(source.source_kind);
+  const sourceStatus = parseFormalScenarioPackageString(source.status);
+  if (
+    (sourceKind !== "SYNTHETIC_INTERNAL" && sourceKind !== "TEACHER_AUTHORED_DRAFT") ||
+    (sourceStatus !== "REGISTERED" && sourceStatus !== "RETIRED") ||
+    parseFormalScenarioPackageString(source.tenant_id) !== tenantId ||
+    value.template.content === undefined
+  ) {
+    throw formalScenarioPackageRequestError();
+  }
+
+  return {
+    artifact_policy: parseFormalScenarioPackageArtifactPolicy(value.artifact_policy),
+    compatibility_metadata: parseFormalScenarioPackageStringRecord(value.compatibility_metadata),
+    metadata: parseFormalScenarioPackageJsonRecord(value.metadata),
+    parameter_set_reference: parseFormalScenarioPackageParameterSetReference(
+      value.parameter_set_reference
+    ),
+    plugin_dependencies: parseFormalScenarioPackagePluginDependencies(value.plugin_dependencies),
+    scenario_package_id: parseFormalScenarioPackageString(value.scenario_package_id),
+    schema_version: parseFormalScenarioPackageString(value.schema_version),
+    source_reference: {
+      license_provenance_id: parseFormalScenarioPackageString(source.license_provenance_id),
+      source_digest: parseFormalScenarioPackageString(source.source_digest),
+      source_id: parseFormalScenarioPackageString(source.source_id),
+      source_kind: sourceKind,
+      source_version: parseFormalScenarioPackageString(source.source_version),
+      status: sourceStatus,
+      tenant_id: tenantId
+    },
+    template: {
+      content: value.template.content as ScenarioPackageJsonValue,
+      template_id: parseFormalScenarioPackageString(value.template.template_id),
+      template_version: parseFormalScenarioPackageString(value.template.template_version)
+    },
+    tenant_id: tenantId,
+    version: parseFormalScenarioPackageString(value.version)
+  };
+}
+
 function createFormalScenarioPackageActor(
   context: RequestContext,
   actor: CurrentUser
@@ -2265,6 +2320,38 @@ async function routeRequest(
       after: clonePublic(versionResult)
     });
     sendJson(response, 200, createEnvelope(context, result));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/formal-authority/scenario-packages/compile-draft"
+  ) {
+    const actor = requirePermission(context, "scenario_package:manage");
+    const input = parseGenericScenarioCompileDraft(await readJson(request), context.tenantId);
+    const result = await executeFormalScenarioPackageCommand(() =>
+      compileGenericScenarioToDraft(
+        runtime.formalScenarioPackages,
+        createFormalScenarioPackageActor(context, actor),
+        input
+      )
+    );
+
+    if (result.draft === null) {
+      sendJson(response, 422, createEnvelope(context, result));
+      return;
+    }
+
+    await appendAudit(runtime, {
+      actor,
+      action: "scenario_package.compile_draft",
+      resourceType: "formal_scenario_package",
+      resourceId: formalScenarioPackageResourceId(result.draft.reference),
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      after: clonePublic(result.draft)
+    });
+    sendJson(response, 201, createEnvelope(context, result));
     return;
   }
 

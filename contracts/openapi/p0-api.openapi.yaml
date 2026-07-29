@@ -502,6 +502,30 @@ paths:
           description: Lifecycle transition conflicts with the current immutable snapshot
         "422":
           description: Invalid exact reference, tenant scope, or approval input
+  /api/v1/formal-authority/scenario-packages/compile-draft:
+    post:
+      operationId: FORMAL_SCENARIO_PACKAGE_COMPILE_DRAFT_V1
+      summary: Compile a generic ScenarioPackage candidate and append only its formal DRAFT snapshot.
+      description: Platform-admin governance ingress only. A valid generic compiler candidate is passed to the existing ScenarioPackage command service. This endpoint never validates, freezes, approves, activates a runtime, or binds a Run.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericScenarioCompileDraftInput"
+      responses:
+        "201":
+          description: Deterministic compiler report and a formal DRAFT ScenarioPackage version with matching content digest
+        "401":
+          description: Authentication required
+        "403":
+          description: scenario_package:manage permission required
+        "409":
+          description: The exact ParameterSet is not currently approved and bindable, or the immutable ScenarioPackage identity conflicts
+        "422":
+          description: Machine-readable invalid compiler report with no persisted ScenarioPackage lifecycle snapshot
   /api/v1/formal-authority/scenario-packages:
     post:
       operationId: FORMAL_SCENARIO_PACKAGE_DRAFT_CREATE_V1
@@ -1120,6 +1144,120 @@ components:
         approval_id:
           type: string
           minLength: 1
+    GenericScenarioCompileDraftInput:
+      type: object
+      additionalProperties: false
+      required:
+        - tenant_id
+        - scenario_package_id
+        - version
+        - schema_version
+        - artifact_policy
+        - compatibility_metadata
+        - metadata
+        - parameter_set_reference
+        - plugin_dependencies
+        - source_reference
+        - template
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        scenario_package_id:
+          type: string
+          minLength: 1
+        version:
+          type: string
+          minLength: 1
+        schema_version:
+          type: string
+          minLength: 1
+        artifact_policy:
+          type: object
+          additionalProperties: false
+          required: [mode, retention]
+          properties:
+            mode:
+              type: string
+              enum: [INLINE, IMMUTABLE_REFERENCE]
+            retention:
+              type: string
+              enum: [IMMUTABLE]
+            artifact_digest:
+              type: string
+              pattern: "^[a-f0-9]{64}$"
+            artifact_media_type:
+              type: string
+            artifact_reference:
+              type: string
+        compatibility_metadata:
+          type: object
+          additionalProperties:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        parameter_set_reference:
+          $ref: "#/components/schemas/FormalParameterSetBindingReferenceInput"
+        plugin_dependencies:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [plugin_package_id, version]
+            properties:
+              plugin_package_id:
+                type: string
+                minLength: 1
+              version:
+                type: string
+                minLength: 1
+        source_reference:
+          type: object
+          additionalProperties: false
+          required:
+            - license_provenance_id
+            - source_digest
+            - source_id
+            - source_kind
+            - source_version
+            - status
+            - tenant_id
+          properties:
+            license_provenance_id:
+              type: string
+              minLength: 1
+            source_digest:
+              type: string
+              pattern: "^[a-f0-9]{64}$"
+            source_id:
+              type: string
+              minLength: 1
+            source_kind:
+              type: string
+              enum: [SYNTHETIC_INTERNAL, TEACHER_AUTHORED_DRAFT]
+            source_version:
+              type: string
+              minLength: 1
+            status:
+              type: string
+              enum: [REGISTERED, RETIRED]
+            tenant_id:
+              type: string
+              minLength: 1
+        template:
+          type: object
+          additionalProperties: false
+          required: [content, template_id, template_version]
+          properties:
+            content:
+              description: Immutable JSON template content compiled into the formal ScenarioPackage candidate.
+            template_id:
+              type: string
+              minLength: 1
+            template_version:
+              type: string
+              minLength: 1
     FormalScenarioPackageDraftInput:
       type: object
       additionalProperties: false
