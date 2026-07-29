@@ -11,7 +11,35 @@ latest_merge:
   merge_sha: 2b9b137830144d65970b69636c121b76df238ceb
   head_sha: 3957e0caa0e3164ea1b7e227469d263e1582e4c3
 runtime_authority: JSON_INTERNAL_ONLY
-l1_status: NOT_ASSESSED
+l1_status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+current_master_reconciliation:
+  reconciled_at: "2026-07-29T01:31:00Z"
+  assessment_source_anchor_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
+  latest_evidence_merge:
+    pr: 286
+    merge_sha: 98206dff8ed747ad650d4bff82f5497fdfd3590c
+  automated_evidence_pack:
+    path: C:\\Users\\Marshall\\AppData\\Local\\Temp\\E-SIMWAR-L1-CLOSURE-98206df\\l1-automated-closure-evidence-pack.json
+    sha256: 8187d20f22a3500775bd2fc02439ef2620a554ebccbac0dc2bfe53b204e17cd9
+    status: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+  b01: CLOSED_AND_CURRENT
+  b02:
+    issue: 112
+    status: CLOSED_AND_CURRENT
+  b03:
+    issue: 114
+    status: CLOSED_AND_CURRENT
+    direct_store_guard: 0_NEW_UNAPPROVED_ACCESS
+  b04:
+    issue: 115
+    status: CLOSED_AND_CURRENT
+  issue_111: OPEN_KNOWN_LIMIT
+  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
+  owner_acknowledgment: AWAITING_POST_MERGE_EVIDENCE_REBASE
+  strict_l1_completion: NOT_AUTHORIZED
+  graph_freshness: STALE_NOT_REQUIRED_FOR_EVIDENCE_ASSEMBLY
+  expiry: ADOPTION_MERGE
+  historical_sections: ASSESSMENT_SOURCE_ANCHOR_ONLY
 evidence_freshness:
   github_facts: CURRENT_AT_GENERATION
   pr_263_head_ci: SUCCESS

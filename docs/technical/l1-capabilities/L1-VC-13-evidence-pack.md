@@ -2,11 +2,11 @@
 
 **Card Version:** `1.0`<br>
 **Repository:** `qidianzhiku/SimWar`<br>
-**Source SHA:** `a296f9032cf1d7fc921fa837d57e5c33e3cc4de2`<br>
+**Source SHA:** `98206dff8ed747ad650d4bff82f5497fdfd3590c`<br>
 **Ledger:** `L1-LEDGER-013`<br>
 **L1 DoD:** `L1-DOD-041—042`<br>
 **Platform Gate:** `P-G0—P-G5/P-G8`<br>
-**Current Status:** `NOT_STARTED_CURRENT_SHA`<br>
+**Current Status:** `AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR`<br>
 **Risk Tier:** `T1/T3`<br>
 **Parallel Classification:** `SUPPORTING_ONLY`
 
@@ -17,7 +17,7 @@
 ## 2. Stable Technical Contract
 
 - **Primary Outcome type:** one recognizable L1 capability state transition.
-- **Entry condition:** current master and graph manifest remain at `a296f9032cf1d7fc921fa837d57e5c33e3cc4de2` or are revalidated.
+- **Entry condition:** pre-adoption assessment source, CI/CodeQL, fresh clone, Phase 7 product, and Known Limits evidence agree at `98206dff8ed747ad650d4bff82f5497fdfd3590c`.
 - **Sole writer:** Evidence pack assembler; read-only with respect to product Truth.
 - **Resource locks:** Evidence Root, Closure lane.
 - **Blocks L1:** `true`.
@@ -28,24 +28,25 @@
 - `docs/governance/L1_DEFINITION_OF_DONE.md`
 - `docs/governance/L1_VALUE_CHAIN_LEDGER.md`
 - `services/api/src/l1-internal-validation-ready-package.ts`
-- `tests/integration/l1-internal-validation-ready-package.test.ts`
+- `scripts/assemble-l1-automated-closure-evidence.ts`
+- `tests/unit/l1-automated-closure-evidence.test.ts`
 
 ## 4. Entry Symbols and Interfaces
 
-- `createL1InternalValidationReadyPackage`
-- `buildCapabilityMatrix`
-- `buildG0G7FreshnessLedger`
+- `createL1AutomatedClosureEvidencePack`
+- `evidence:l1:assemble`
 
 ## 5. Required Validation
 
 ### Focused / Affected
 
-- `l1-internal-validation-ready-package.test.ts`
-- `l1-internal-application-readiness.test.ts`
+- `l1-automated-closure-evidence.test.ts`
+- `@phase7-product`
+- `@phase7-known-limits`
 
 ### Closure
 
-- `all blockers closed or explicitly accepted; no UNKNOWN; post-merge source receipt`
+- `fresh clone, CI/CodeQL, source-SHA-bound Phase 7 artifacts, and Known Limits agree; output is a new external file only`
 
 ### Negative Matrix
 
@@ -56,27 +57,24 @@
 
 ## 6. Current Gaps
 
-- depends on B01–B04 and E04 closure evidence
+- Completed at the assessment source anchor. The adoption merge requires a fresh-clone evidence rebase before the pack can support an Owner acknowledgment.
 
 ## 7. Graphify / CodeGraph Query Contract
 
-**Graphify intent:** map module ownership, file overlap, resource locks, upstream/downstream capability impact, and candidate path alternatives.<br>
-**CodeGraph intent:** trace exact definitions, callers, callees, imports, mutations, handlers, repository calls and test references for the listed entry symbols.<br>
-**Required output:** exact source paths, exact symbols, affected tests, writer conclusion, collision report and confidence.<br>
-**Stop condition:** graph source SHA differs from current master, writer is ambiguous, or a second Authority path appears.
+Graphify/CodeGraph are not required to reassemble an unchanged source-SHA-bound evidence pack. They remain required for a new architecture-changing candidate or a disputed writer/path conclusion.
 
 ## 8. Mission Compiler Interface
 
 ```yaml
-capability_id: {c['id']}
-ledger_id: {c['ledger_id']}
-dod_reference: "{c['dod']}"
-current_state: {c['status']}
-target_state: CLOSED_AND_CURRENT
-primary_outcome: "One bounded {c['name']} state transition"
-sole_writer: "{c['writer']}"
-risk_tier: "{c['risk']}"
-parallel_classification: {c['parallel']}
+capability_id: L1-VC-13
+ledger_id: L1-LEDGER-013
+dod_reference: "L1-DOD-041—042"
+current_state: AUTOMATED_EVIDENCE_COMPLETE_AT_ASSESSMENT_SOURCE_ANCHOR
+target_state: POST_MERGE_EVIDENCE_REBASE_REQUIRED
+primary_outcome: "One assessment-source automated evidence pack"
+sole_writer: "Evidence pack assembler"
+risk_tier: "T1"
+parallel_classification: SERIAL_CLOSURE
 resource_locks:
   - "Evidence Root"
   - "Closure lane"
