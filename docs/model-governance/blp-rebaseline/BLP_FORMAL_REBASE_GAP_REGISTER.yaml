@@ -1,0 +1,193 @@
+schema_version: 1
+document_id: SIMWAR-BLP-M0-GAP-REGISTER-001
+repository: qidianzhiku/SimWar
+source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+runtime_authority: JSON_INTERNAL_ONLY
+status: READ_ONLY_GAP_BASELINE
+external_candidate_baseline:
+  document_id: SIMWAR-PROGRAM-M-V2.0
+  status: FORMAL_ENGINEERING_BASELINE_CANDIDATE_OWNER_REVIEW
+  implementation_claim: NOT_CLAIMED
+  evidence_priority: LOWER_THAN_CURRENT_SOURCE_TESTS_GRAPHS_AND_REPOSITORY_GOVERNANCE
+gaps:
+  - gap_id: BLP-M0-GAP-001
+    capability: BLP implementation identity
+    current_state: No production BLP or PyBLP source, dependency, adapter, or callable symbol is proven.
+    classification: UNKNOWN
+    future_gate: T4_MODEL_ARCHITECTURE_AND_DEPENDENCY_DECISION
+    required_evidence:
+      - exact package and source identity
+      - license and provenance
+      - deterministic adapter contract
+    blocks_c2: false
+    reason_not_blocking_c2: C2 uses existing CourseBlueprint and formal binding surfaces.
+
+  - gap_id: BLP-M0-GAP-002
+    capability: Formal ModelVersion authority
+    current_state: model_version_ref is a string; no lifecycle authority or registry is proven.
+    classification: UNKNOWN
+    future_gate: T4_MODEL_VERSION_AUTHORITY_DECISION
+    required_evidence:
+      - sole writer
+      - lifecycle state machine
+      - immutable artifact digest
+      - tenant and approval rules
+    blocks_c2: false
+    reason_not_blocking_c2: C2 does not create or mutate model versions.
+
+  - gap_id: BLP-M0-GAP-003
+    capability: BLP artifact registry and provenance
+    current_state: No digest-addressed BLP artifact registry is proven.
+    classification: UNKNOWN
+    future_gate: MODEL_ARTIFACT_PROVENANCE_GATE
+    required_evidence:
+      - artifact digest
+      - source data provenance
+      - calibration environment
+      - reproducible build
+      - rollback identity
+    blocks_c2: false
+    reason_not_blocking_c2: Teacher Blueprint Studio does not resolve model artifacts.
+
+  - gap_id: BLP-M0-GAP-004
+    capability: ParameterSet to BLP compatibility
+    current_state: Formal ParameterSet binding exists, but active runtime only accepts model_family toy_logit.
+    classification: REFERENCE
+    future_gate: PARAMETERSET_MODEL_COMPATIBILITY_GATE
+    required_evidence:
+      - BLP parameter schema
+      - feature mapper version
+      - solver version
+      - exact ModelVersion reference
+      - fail-closed resolver behavior
+    blocks_c2: false
+    reason_not_blocking_c2: C2 edits only already-supported Blueprint content.
+
+  - gap_id: BLP-M0-GAP-005
+    capability: BLP Golden Solver
+    current_state: Current Golden proves toy_logit only.
+    classification: UNKNOWN
+    future_gate: BLP_GOLDEN_SOLVER_GATE
+    required_evidence:
+      - fixed inputs
+      - expected outputs
+      - numeric tolerance
+      - repeatability
+      - independent implementation review
+    blocks_c2: false
+    reason_not_blocking_c2: C2 Golden non-interference remains bound to the existing engine.
+
+  - gap_id: BLP-M0-GAP-006
+    capability: BLP Shadow Replay
+    current_state: No executable BLP Shadow Replay route or pipeline is proven.
+    classification: UNKNOWN
+    future_gate: BLP_SHADOW_REPLAY_NON_OVERWRITE_GATE
+    required_evidence:
+      - isolated candidate inputs
+      - diff report
+      - official result non-overwrite
+      - approval threshold
+      - historical binding identity
+    blocks_c2: false
+    reason_not_blocking_c2: C2 neither runs nor approves model candidates.
+
+  - gap_id: BLP-M0-GAP-007
+    capability: BLP active-runtime adapter
+    current_state: Active runtime directly creates the toy-logit engine.
+    classification: UNKNOWN
+    future_gate: T4_RUNTIME_ADAPTER_ACTIVATION_DECISION
+    required_evidence:
+      - single engine selection authority
+      - no silent fallback
+      - bounded resource behavior
+      - rollback path
+      - full Golden and Replay regression
+    blocks_c2: false
+    reason_not_blocking_c2: Runtime adapter activation is outside C2 scope.
+
+  - gap_id: BLP-M0-GAP-008
+    capability: BLP tenant and role-safe diagnostics
+    current_state: BLP diagnostic projection DTOs and enforcement are not proven.
+    classification: UNKNOWN
+    future_gate: MODEL_DIAGNOSTIC_VISIBILITY_GATE
+    required_evidence:
+      - teacher projection allowlist
+      - student denylist
+      - tenant isolation
+      - no hidden parameter exposure
+      - audit trail
+    blocks_c2: false
+    reason_not_blocking_c2: C2 must not expose model diagnostics.
+
+  - gap_id: BLP-M0-GAP-009
+    capability: Calibration and predictive validity
+    current_state: No calibration dataset, run, diagnostic, or validity evidence was executed in M0.
+    classification: UNKNOWN
+    future_gate: OWNER_AUTHORIZED_CALIBRATION_AND_VALIDATION
+    required_evidence:
+      - synthetic or approved data policy
+      - calibration protocol
+      - holdout evaluation
+      - bias and stability diagnostics
+      - human review
+    blocks_c2: false
+    reason_not_blocking_c2: C2 is a product workflow over current approved assets.
+
+  - gap_id: BLP-M0-GAP-010
+    capability: Stage 4B deterministic runtime preference bridge
+    current_state: Candidate architecture exists in the external plan; no current Resolver, Runtime Preference State authority, or BLP bridge is proven.
+    classification: REFERENCE
+    future_gate: M_STK_JOIN_GATE_AFTER_M_RB3
+    required_evidence:
+      - Agent proposal cannot mutate ModelVersion or ParameterSet
+      - deterministic bounded resolver
+      - versioned and expiring Runtime Preference State
+      - DemandEstimate candidate only
+      - Simulation Core L1 acceptance
+      - plane-off and zero-signal exact parity
+      - official replay provider calls equal zero
+    blocks_c2: false
+    reason_not_blocking_c2: STK S0 is read-only and future S2 waits for M-RB3.
+
+future_execution_order:
+  - gate_id: M-RB0
+    outcome: Repository Fact Map
+    current_m0_evidence: PARTIAL_COMPLETE_BY_THIS_READ_ONLY_BASELINE
+  - gate_id: M-RB1
+    outcome: Artifact, ModelVersion, and Adapter Census
+    current_m0_evidence: PARTIAL_COMPLETE_WITH_CRITICAL_UNKNOWNS
+  - gate_id: M-RB2
+    outcome: Golden, Differential, and Replay Reproduction
+    current_m0_evidence: NOT_RUN
+  - gate_id: M-RB3
+    outcome: Gate Mapping and Baseline Freeze
+    current_m0_evidence: NOT_PASSED
+  - gate_id: M-STK-J0-J1
+    outcome: Candidate contracts and plane-off harness
+    current_m0_evidence: NOT_AUTHORIZED
+  - gate_id: T4-RUNTIME-ACTIVATION
+    outcome: Explicit ModelVersion, adapter, and runtime authority decision
+    current_m0_evidence: NOT_AUTHORIZED
+global_forbidden_writes:
+  - state_true
+  - SettlementResult
+  - Score
+  - Rank
+  - replay_hash
+  - canonical_evidence_digest
+  - ParameterSet
+  - ModelVersion
+  - beta
+  - sigma
+  - pi
+  - rho
+explicit_non_proofs:
+  - BLP is active.
+  - BLP is calibrated.
+  - ModelVersion authority is complete.
+  - Shadow Replay is complete.
+  - DemandEstimate candidate is implemented.
+  - Stage 4B Resolver or Runtime Preference State is implemented.
+  - M-RB0 through M-RB3 have passed.
+  - Real-industry validity is proven.
+  - Pilot or Production is authorized.
