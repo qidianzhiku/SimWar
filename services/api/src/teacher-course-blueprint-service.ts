@@ -9,6 +9,8 @@ import type {
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
+  type CourseBlueprintAuthorityActor,
+  type CourseBlueprintDraftInput,
   type CourseBlueprintVersion
 } from "./course-blueprint-authority.js";
 import { createCourseBlueprintBinding } from "./course-blueprint-binding.js";
@@ -52,6 +54,60 @@ export interface CreateTeacherCourseFromBlueprintInput extends TeacherCourseBlue
   formalCourse: Omit<CreateTeacherFormalCourseInput, "course">;
 }
 
+export type TeacherCourseBlueprintEditableContent = Omit<
+  CourseBlueprintDraftInput,
+  "course_blueprint_id" | "tenant_id"
+>;
+
+export interface TeacherCourseBlueprintStudioPreview {
+  content_digest: string;
+  course_blueprint_reference: CourseBlueprintReference;
+  editable_content: TeacherCourseBlueprintEditableContent;
+  status: "APPROVED" | "DRAFT" | "VALIDATED";
+}
+
+export interface CreateTeacherCourseBlueprintDraftInput {
+  draft: TeacherCourseBlueprintEditableContent;
+  source_course_blueprint_reference: CourseBlueprintReference;
+}
+
+export interface TeacherCourseBlueprintStudioDraft {
+  content_digest: string;
+  course_blueprint_reference: CourseBlueprintReference;
+  source_course_blueprint_reference: CourseBlueprintReference;
+  status: "DRAFT";
+  title: string;
+  version: string;
+}
+
+export interface TeacherCourseBlueprintStudioSubmission {
+  course_blueprint_reference: CourseBlueprintReference;
+  status: "VALIDATED";
+}
+
+function createStudioDraftResult(
+  draft: CourseBlueprintVersion,
+  source: CourseBlueprintVersion
+): TeacherCourseBlueprintStudioDraft {
+  return deepFreeze({
+    content_digest: draft.content_digest,
+    course_blueprint_reference: clone(draft.reference),
+    source_course_blueprint_reference: clone(source.reference),
+    status: "DRAFT" as const,
+    title: draft.title,
+    version: draft.version
+  });
+}
+
+function createStudioSubmissionResult(
+  validated: CourseBlueprintVersion
+): TeacherCourseBlueprintStudioSubmission {
+  return deepFreeze({
+    course_blueprint_reference: clone(validated.reference),
+    status: "VALIDATED" as const
+  });
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -85,9 +141,110 @@ function createCatalogItem(version: CourseBlueprintVersion): TeacherCourseBluepr
 
 function mapAuthorityError(error: unknown): never {
   if (error instanceof CourseBlueprintAuthorityError) {
+    if (error.code === "COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS") {
+      throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_INVALID");
+    }
     throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
   }
   throw error;
+}
+
+function createEditableContent(
+  version: CourseBlueprintVersion
+): TeacherCourseBlueprintEditableContent {
+  return clone({
+    activity_plan: version.activity_plan,
+    description: version.description,
+    duration_minutes: version.duration_minutes,
+    instructor_guidance_reference: version.instructor_guidance_reference,
+    objectives: version.objectives,
+    ordered_phases: version.ordered_phases,
+    required_product_capabilities: version.required_product_capabilities,
+    scenario_compatibility_constraints: version.scenario_compatibility_constraints,
+    schema_version: version.schema_version,
+    title: version.title,
+    version: version.version
+  });
+}
+
+export async function previewTeacherCourseBlueprint(
+  command: CourseBlueprintCommandService,
+  tenantId: string,
+  reference: CourseBlueprintReference
+): Promise<TeacherCourseBlueprintStudioPreview> {
+  if (reference.tenant_id !== tenantId) {
+    throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_INVALID");
+  }
+  try {
+    const version = await command.getByReference(tenantId, reference);
+    if (!version || !["APPROVED", "DRAFT", "VALIDATED"].includes(version.status)) {
+      throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
+    }
+    return deepFreeze({
+      content_digest: version.content_digest,
+      course_blueprint_reference: clone(version.reference),
+      editable_content: createEditableContent(version),
+      status: version.status
+    } as TeacherCourseBlueprintStudioPreview);
+  } catch (error) {
+    if (error instanceof TeacherCourseBlueprintError) throw error;
+    mapAuthorityError(error);
+  }
+}
+
+export async function createTeacherCourseBlueprintDraft(
+  command: CourseBlueprintCommandService,
+  actor: CourseBlueprintAuthorityActor,
+  input: CreateTeacherCourseBlueprintDraftInput,
+  postAppend?: (created: TeacherCourseBlueprintStudioDraft) => Promise<void>
+): Promise<TeacherCourseBlueprintStudioDraft> {
+  if (
+    input.source_course_blueprint_reference.tenant_id !== actor.tenant_id ||
+    !input.draft.version.trim()
+  ) {
+    throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_INVALID");
+  }
+  try {
+    const { draft, source } = await command.createDraftFromApprovedSource(
+      actor,
+      input.source_course_blueprint_reference,
+      {
+        ...clone(input.draft),
+        course_blueprint_id: input.source_course_blueprint_reference.course_blueprint_id,
+        schema_version: input.draft.schema_version,
+        tenant_id: actor.tenant_id
+      },
+      postAppend
+        ? ({ draft: created, source: approvedSource }) =>
+            postAppend(createStudioDraftResult(created, approvedSource))
+        : undefined
+    );
+    return createStudioDraftResult(draft, source);
+  } catch (error) {
+    if (error instanceof TeacherCourseBlueprintError) throw error;
+    mapAuthorityError(error);
+  }
+}
+
+export async function submitTeacherCourseBlueprintDraft(
+  command: CourseBlueprintCommandService,
+  actor: CourseBlueprintAuthorityActor,
+  reference: CourseBlueprintReference,
+  postAppend?: (submitted: TeacherCourseBlueprintStudioSubmission) => Promise<void>
+): Promise<TeacherCourseBlueprintStudioSubmission> {
+  if (reference.tenant_id !== actor.tenant_id) {
+    throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_INVALID");
+  }
+  try {
+    const validated = await command.validate(
+      actor,
+      reference,
+      postAppend ? (next) => postAppend(createStudioSubmissionResult(next)) : undefined
+    );
+    return createStudioSubmissionResult(validated);
+  } catch (error) {
+    mapAuthorityError(error);
+  }
 }
 
 async function assertBlueprintCompatibility(
@@ -147,7 +304,9 @@ export async function resolveTeacherCourseBlueprintReadiness(
       throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE");
     }
     await assertBlueprintCompatibility(blueprint, input);
-    const formal_course_binding = await resolveTeacherFormalCourseBindingPreview(input.formal_course);
+    const formal_course_binding = await resolveTeacherFormalCourseBindingPreview(
+      input.formal_course
+    );
     return deepFreeze({
       blueprint: createCatalogItem(blueprint),
       formal_course_binding: clone(formal_course_binding),

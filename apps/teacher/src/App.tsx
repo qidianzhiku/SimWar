@@ -30,10 +30,15 @@ import {
   requestTeacherCourseBlueprintCatalog,
   requestTeacherCourseBlueprintCourseCreate,
   requestTeacherCourseBlueprintReadiness,
+  requestTeacherCourseBlueprintStudioDraftCreate,
+  requestTeacherCourseBlueprintStudioPreview,
+  requestTeacherCourseBlueprintStudioSubmission,
   requestScenarioPackageCandidates,
   requestScenarioReadiness,
   requestTeacherFormalScenarioPackageCatalog,
   validateScenarioReadinessInput,
+  type TeacherCourseBlueprintStudioEditableContent,
+  type TeacherCourseBlueprintStudioPreview,
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
 
@@ -74,6 +79,8 @@ type CourseBlueprintCatalogState =
   | { phase: "IDLE" | "LOADING" }
   | { phase: "ERROR"; message: string }
   | { phase: "READY"; response: TeacherCourseBlueprintCatalogDto };
+
+type CourseBlueprintStudioStatus = "IDLE" | "LOADING" | "EDITING" | "DRAFT" | "VALIDATED" | "ERROR";
 
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
@@ -227,14 +234,25 @@ export function App() {
   const [formalScenarioCatalog, setFormalScenarioCatalog] = useState<FormalScenarioCatalogState>({
     phase: "IDLE"
   });
-  const [courseBlueprintCatalog, setCourseBlueprintCatalog] = useState<CourseBlueprintCatalogState>({
-    phase: "IDLE"
-  });
+  const [courseBlueprintCatalog, setCourseBlueprintCatalog] = useState<CourseBlueprintCatalogState>(
+    {
+      phase: "IDLE"
+    }
+  );
   const [selectedCourseBlueprint, setSelectedCourseBlueprint] = useState<
     TeacherCourseBlueprintCatalogDto["candidates"][number] | null
   >(null);
   const [courseBlueprintReadiness, setCourseBlueprintReadiness] =
     useState<TeacherCourseBlueprintReadinessDto | null>(null);
+  const [courseBlueprintStudioStatus, setCourseBlueprintStudioStatus] =
+    useState<CourseBlueprintStudioStatus>("IDLE");
+  const [courseBlueprintStudioSource, setCourseBlueprintStudioSource] = useState<
+    TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"] | null
+  >(null);
+  const [courseBlueprintStudioPreview, setCourseBlueprintStudioPreview] =
+    useState<TeacherCourseBlueprintStudioPreview | null>(null);
+  const [courseBlueprintStudioForm, setCourseBlueprintStudioForm] =
+    useState<TeacherCourseBlueprintStudioEditableContent | null>(null);
   const [formalDraftCandidate, setFormalDraftCandidate] =
     useState<TeacherFormalScenarioPackageCatalogCandidateDto | null>(null);
   const [formalBindingPreview, setFormalBindingPreview] =
@@ -345,6 +363,10 @@ export function App() {
     setCourseBlueprintCatalog({ phase: "IDLE" });
     setSelectedCourseBlueprint(null);
     setCourseBlueprintReadiness(null);
+    setCourseBlueprintStudioStatus("IDLE");
+    setCourseBlueprintStudioSource(null);
+    setCourseBlueprintStudioPreview(null);
+    setCourseBlueprintStudioForm(null);
     setFormalDraftCandidate(null);
     setFormalBindingPreview(null);
     setFormalCourseTitle("");
@@ -522,10 +544,12 @@ export function App() {
     setCourseBlueprintCatalog({ phase: "LOADING" });
     requestTeacherCourseBlueprintCatalog({ apiBaseUrl: API_BASE, token: session.access_token })
       .then((response) => setCourseBlueprintCatalog({ phase: "READY", response }))
-      .catch((error: unknown) => setCourseBlueprintCatalog({
-        phase: "ERROR",
-        message: getTeacherFormalCourseBindingErrorMessage(error)
-      }));
+      .catch((error: unknown) =>
+        setCourseBlueprintCatalog({
+          phase: "ERROR",
+          message: getTeacherFormalCourseBindingErrorMessage(error)
+        })
+      );
   }, [session]);
 
   async function prepareFormalCourse(
@@ -553,7 +577,13 @@ export function App() {
   }
 
   async function createFormalCourse(): Promise<void> {
-    if (!session || !formalDraftCandidate || !selectedCourseBlueprint || !courseBlueprintReadiness || !formalCourseTitle.trim()) {
+    if (
+      !session ||
+      !formalDraftCandidate ||
+      !selectedCourseBlueprint ||
+      !courseBlueprintReadiness ||
+      !formalCourseTitle.trim()
+    ) {
       setNotice("an approved CourseBlueprint and exact binding readiness are required");
       return;
     }
@@ -597,6 +627,90 @@ export function App() {
       setFormalCourseTitle(`Course: ${blueprint.title}`);
       setNotice("exact Blueprint and B5 readiness confirmed");
     } catch (error) {
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function beginCourseBlueprintStudio(
+    blueprint: TeacherCourseBlueprintCatalogDto["candidates"][number]
+  ): Promise<void> {
+    if (!session) return;
+    setBusy(true);
+    setCourseBlueprintStudioStatus("LOADING");
+    try {
+      const preview = await requestTeacherCourseBlueprintStudioPreview({
+        apiBaseUrl: API_BASE,
+        courseBlueprintReference: blueprint.course_blueprint_reference,
+        token: session.access_token
+      });
+      setCourseBlueprintStudioSource(blueprint.course_blueprint_reference);
+      setCourseBlueprintStudioPreview(preview);
+      setCourseBlueprintStudioForm({
+        ...preview.editable_content,
+        version: preview.editable_content.version
+      });
+      setCourseBlueprintStudioStatus("EDITING");
+      setNotice("Blueprint Studio edit ready");
+    } catch (error) {
+      setCourseBlueprintStudioStatus("ERROR");
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateCourseBlueprintStudioForm(
+    field: "description" | "title" | "version",
+    value: string
+  ): void {
+    setCourseBlueprintStudioForm((current) => (current ? { ...current, [field]: value } : current));
+  }
+
+  async function saveCourseBlueprintStudioDraft(): Promise<void> {
+    if (!session || !courseBlueprintStudioSource || !courseBlueprintStudioForm) return;
+    setBusy(true);
+    setCourseBlueprintStudioStatus("LOADING");
+    try {
+      const draft = await requestTeacherCourseBlueprintStudioDraftCreate({
+        apiBaseUrl: API_BASE,
+        draft: courseBlueprintStudioForm,
+        sourceCourseBlueprintReference: courseBlueprintStudioSource,
+        token: session.access_token
+      });
+      const preview = await requestTeacherCourseBlueprintStudioPreview({
+        apiBaseUrl: API_BASE,
+        courseBlueprintReference: draft.course_blueprint_reference,
+        token: session.access_token
+      });
+      setCourseBlueprintStudioPreview(preview);
+      setCourseBlueprintStudioForm(preview.editable_content);
+      setCourseBlueprintStudioStatus("DRAFT");
+      setNotice("immutable Blueprint draft saved");
+    } catch (error) {
+      setCourseBlueprintStudioStatus("ERROR");
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitCourseBlueprintStudioDraft(): Promise<void> {
+    if (!session || !courseBlueprintStudioPreview || courseBlueprintStudioStatus !== "DRAFT") {
+      return;
+    }
+    setBusy(true);
+    try {
+      const submission = await requestTeacherCourseBlueprintStudioSubmission({
+        apiBaseUrl: API_BASE,
+        courseBlueprintReference: courseBlueprintStudioPreview.course_blueprint_reference,
+        token: session.access_token
+      });
+      setCourseBlueprintStudioStatus(submission.status);
+      setNotice("Blueprint draft submitted for validation");
+    } catch (error) {
+      setCourseBlueprintStudioStatus("ERROR");
       setNotice(getTeacherFormalCourseBindingErrorMessage(error));
     } finally {
       setBusy(false);
@@ -857,6 +971,93 @@ export function App() {
         </section>
       ) : null}
 
+      {session ? (
+        <section className="candidate-surface studio-surface" aria-label="Teacher Blueprint Studio">
+          <div className="candidate-heading">
+            <h2>Teacher Blueprint Studio</h2>
+            <span>{courseBlueprintStudioStatus}</span>
+          </div>
+          {courseBlueprintCatalog.phase === "READY" ? (
+            <div className="studio-source-list">
+              {courseBlueprintCatalog.response.candidates.map((blueprint) => (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  key={`studio-${blueprint.course_blueprint_reference.content_digest}`}
+                  onClick={() => void beginCourseBlueprintStudio(blueprint)}
+                >
+                  Edit new version
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {courseBlueprintStudioForm ? (
+            <div className="studio-form">
+              <label className="field-label">
+                <span>Blueprint version</span>
+                <input
+                  aria-label="Blueprint version"
+                  disabled={busy || courseBlueprintStudioStatus === "VALIDATED"}
+                  value={courseBlueprintStudioForm.version}
+                  onChange={(event) =>
+                    updateCourseBlueprintStudioForm("version", event.target.value)
+                  }
+                />
+              </label>
+              <label className="field-label">
+                <span>Blueprint title</span>
+                <input
+                  aria-label="Blueprint title"
+                  disabled={busy || courseBlueprintStudioStatus === "VALIDATED"}
+                  value={courseBlueprintStudioForm.title}
+                  onChange={(event) => updateCourseBlueprintStudioForm("title", event.target.value)}
+                />
+              </label>
+              <label className="field-label studio-description">
+                <span>Blueprint description</span>
+                <textarea
+                  aria-label="Blueprint description"
+                  disabled={busy || courseBlueprintStudioStatus === "VALIDATED"}
+                  value={courseBlueprintStudioForm.description}
+                  onChange={(event) =>
+                    updateCourseBlueprintStudioForm("description", event.target.value)
+                  }
+                />
+              </label>
+              <div className="studio-actions">
+                <button
+                  className="primary"
+                  disabled={
+                    busy ||
+                    courseBlueprintStudioStatus === "DRAFT" ||
+                    courseBlueprintStudioStatus === "VALIDATED" ||
+                    !courseBlueprintStudioForm.version.trim() ||
+                    !courseBlueprintStudioForm.title.trim() ||
+                    !courseBlueprintStudioForm.description.trim()
+                  }
+                  onClick={() => void saveCourseBlueprintStudioDraft()}
+                >
+                  Save immutable draft
+                </button>
+                <button
+                  className="secondary"
+                  disabled={busy || courseBlueprintStudioStatus !== "DRAFT"}
+                  onClick={() => void submitCourseBlueprintStudioDraft()}
+                >
+                  Submit draft for validation
+                </button>
+              </div>
+              {courseBlueprintStudioPreview ? (
+                <div className="studio-receipt" role="status">
+                  <strong>{courseBlueprintStudioStatus}</strong>
+                  <code>{courseBlueprintStudioPreview.content_digest}</code>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="metrics" aria-label="M1 run status">
         {metrics.map(([label, value]) => (
           <article className="metric" key={label}>
@@ -1017,8 +1218,12 @@ export function App() {
                   <h3>Formal CourseBlueprint Catalog</h3>
                   <span>{courseBlueprintCatalog.phase}</span>
                 </div>
-                {courseBlueprintCatalog.phase === "LOADING" ? <p className="evidence-note">Loading approved CourseBlueprints</p> : null}
-                {courseBlueprintCatalog.phase === "ERROR" ? <p className="readiness-message">{courseBlueprintCatalog.message}</p> : null}
+                {courseBlueprintCatalog.phase === "LOADING" ? (
+                  <p className="evidence-note">Loading approved CourseBlueprints</p>
+                ) : null}
+                {courseBlueprintCatalog.phase === "ERROR" ? (
+                  <p className="readiness-message">{courseBlueprintCatalog.message}</p>
+                ) : null}
                 {courseBlueprintCatalog.phase === "READY" ? (
                   <>
                     {courseBlueprintCatalog.response.candidates.length === 0 ? (
@@ -1026,11 +1231,20 @@ export function App() {
                     ) : (
                       <div className="candidate-list">
                         {courseBlueprintCatalog.response.candidates.map((blueprint) => (
-                          <article className="candidate-card" key={blueprint.course_blueprint_reference.content_digest}>
+                          <article
+                            className="candidate-card"
+                            key={blueprint.course_blueprint_reference.content_digest}
+                          >
                             <span>{blueprint.status}</span>
                             <strong>{blueprint.title}</strong>
-                            <small>{blueprint.course_blueprint_reference.version} / {blueprint.duration_minutes} minutes</small>
-                            <button onClick={() => void selectCourseBlueprintLocally(blueprint)} disabled={busy}>
+                            <small>
+                              {blueprint.course_blueprint_reference.version} /{" "}
+                              {blueprint.duration_minutes} minutes
+                            </small>
+                            <button
+                              onClick={() => void selectCourseBlueprintLocally(blueprint)}
+                              disabled={busy}
+                            >
                               Select locally
                             </button>
                           </article>
@@ -1038,11 +1252,16 @@ export function App() {
                       </div>
                     )}
                     {selectedCourseBlueprint ? (
-                      <article className="candidate-preview" aria-label="CourseBlueprint local selection">
+                      <article
+                        className="candidate-preview"
+                        aria-label="CourseBlueprint local selection"
+                      >
                         <span>LOCAL_SELECTION_ONLY</span>
                         <strong>{selectedCourseBlueprint.title}</strong>
                         <small>NO_COURSE_WRITE_YET</small>
-                        {courseBlueprintReadiness ? <small>Exact server-side readiness: READY</small> : null}
+                        {courseBlueprintReadiness ? (
+                          <small>Exact server-side readiness: READY</small>
+                        ) : null}
                       </article>
                     ) : null}
                   </>

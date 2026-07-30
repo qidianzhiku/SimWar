@@ -1,0 +1,45 @@
+{
+  "request_id": "req_teacher_blueprint_studio_contract",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "course_blueprint_reference": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "course_blueprint_id": "blueprint_contract_studio",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "editable_content": {
+      "activity_plan": [
+        {
+          "activity_id": "contract_activity",
+          "phase_id": "contract_phase"
+        }
+      ],
+      "description": "Contract gate source Blueprint.",
+      "duration_minutes": 60,
+      "instructor_guidance_reference": "guide://contract-studio",
+      "objectives": ["Exercise the Teacher Blueprint Studio contract."],
+      "ordered_phases": [
+        {
+          "activity_type": "briefing",
+          "duration_minutes": 60,
+          "order": 1,
+          "phase_id": "contract_phase",
+          "student_instruction": "Read the exercise.",
+          "teacher_guidance": "Keep the exercise bounded.",
+          "title": "Briefing"
+        }
+      ],
+      "required_product_capabilities": ["course:create"],
+      "scenario_compatibility_constraints": {
+        "scenario_family": "wellness"
+      },
+      "schema_version": "course-blueprint.v1",
+      "title": "Contract Studio Blueprint",
+      "version": "1.0.0"
+    },
+    "status": "APPROVED"
+  }
+}
