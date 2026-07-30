@@ -1,12 +1,16 @@
 portfolio_version: 1
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-07-29T07:06:55Z"
+generated_at: "2026-07-30T06:47:05Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: TEACHER_FORMAL_BINDING_GOLDEN_PARITY_CLOSED_WITH_LIMITS
+l1_plus_status: COURSEBLUEPRINT_IMMUTABLE_VERSIONING_CLOSED_WITH_LIMITS
+repository_adoption:
+  status_before_governance_merge: NOT_YET_CLOSED_BY_GOVERNANCE_MERGE
+  owner_review: REQUIRED
+  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -15,42 +19,63 @@ wip_policy:
   full_suite_per_host: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
-    capability_id: L1P-VC-05
+    candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
+    capability_id: L1P-VC-06
     status: CLOSED_AND_CURRENT
-    product_pr: 292
-    product_merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
-    parity_evidence_pr: 293
-    parity_evidence_merge_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+    product_pr: 295
+    approved_product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
+    product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
+    remediation_pr: 296
+    remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
+    remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   support_code: NONE
   docs_discovery: NONE
-  closure: L1PLUS_TEACHER_FORMAL_BINDING_GOLDEN_PARITY_CLOSED
+  closure: C1_GOVERNANCE_CLOSURE_CANDIDATE_OWNER_REVIEW_REQUIRED
 resource_locks:
-  - resource: Teacher formal Course binding
-    status: RELEASED_AFTER_POST_MERGE_VALIDATION
-  - resource: Formal Run binding and runtime input resolution
-    status: RELEASED_AFTER_POST_MERGE_VALIDATION
-  - resource: Run/Replay Golden parity
-    status: RELEASED_AFTER_POST_MERGE_VALIDATION
-candidate_backlog: []
+  - resource: COURSE_BLUEPRINT_AUTHORITY
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: COURSE_BLUEPRINT_REGISTRY
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: COURSE_BLUEPRINT_BINDING
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: CONTRACT_GATE
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: SERIAL_CLOSURE
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+candidate_backlog:
+  - candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+    status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
+    status: BLOCKED_BY_CURRENT_PREREQUISITES
+  - candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
+    status: DEFERRED_AFTER_PROGRAM_C_ENTRY
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-  postgresql: NOT_ACTIVATED
+  postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
+  c1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
+  dependency_advisories: 2_LOW_6_HIGH
+  snapshot_cli_historical_event: NOT_REPRODUCIBLE
 evidence:
-  product_merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
-  product_pr: 292
-  parity_evidence_merge_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
-  parity_evidence_pr: 293
-  fresh_clone_validation: REQUIRED_AND_COMPLETED
+  product_pr: 295
+  product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
+  product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
+  remediation_pr: 296
+  remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
+  remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  graph_registry: docs/technical/graph-registry/c1-closure-graph-assets.json
+  sealed_evidence: REQUIRED_AND_RECONCILED
   ci_and_codeql: REQUIRED_AND_COMPLETED
 invalidation_triggers:
-  - master_sha_changed
-  - runtime_authority_changed
-  - formal_course_authority_changed
-  - formal_run_binding_changed
+  - product_or_runtime_changed
+  - course_blueprint_authority_changed
+  - shared_contract_changed
+  - formal_course_or_run_binding_changed
   - Golden_M1_truth_or_replay_contract_changed
+  - student_visibility_changed
 automatic_next_start: false

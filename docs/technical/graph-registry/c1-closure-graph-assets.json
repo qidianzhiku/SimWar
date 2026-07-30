@@ -1,0 +1,59 @@
+{
+  "schema_version": "simwar.graph-asset-registry.v1",
+  "repository": "qidianzhiku/SimWar",
+  "generated_at": "2026-07-30T06:47:05Z",
+  "current_master_alias": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+  "registry_authority": "DOCUMENTATION_ONLY",
+  "runtime_proof": false,
+  "assets": [
+    {
+      "tool": "Graphify",
+      "tool_version": "0.9.26",
+      "source_sha": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+      "source_kind": "FRESH_DETACHED_CLONE",
+      "index_root": "C:\\Users\\Marshall\\AppData\\Local\\Temp\\SimWar-graphify-c1-closure-60f4f518bc51\\index",
+      "graph_status": "EXACT_SHA_CURRENT",
+      "scope": "GRAPHIFY_CODE_ONLY",
+      "node_count": 5637,
+      "edge_count": 9722,
+      "digest": "sha256:4663bb73fa288b0fc475c5dc7145707c8e1609783f88f062548420dccfc2cce8",
+      "current_master_eligible": true,
+      "known_limits": [
+        "No LLM-inferred edges",
+        "228 non-code files skipped",
+        "57 source files produced zero nodes",
+        "3 SQL files excluded because tree_sitter_sql was unavailable",
+        "Static edges do not prove runtime composition"
+      ]
+    },
+    {
+      "tool": "CodeGraph",
+      "tool_version": "1.2.0",
+      "source_sha": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+      "source_kind": "FRESH_DETACHED_CLONE",
+      "index_root": "C:\\Users\\Marshall\\AppData\\Local\\Temp\\SimWar-codegraph-c1-closure-60f4f518bc51\\source\\.codegraph",
+      "graph_status": "EXACT_SHA_CURRENT",
+      "scope": "CODE_SYMBOL_AND_CALL_GRAPH",
+      "indexed_files": 248,
+      "node_count": 4087,
+      "edge_count": 16674,
+      "digest": "sha256:c73e23e1d205705ae9737d247ec4d66d1ab5a907abbaae8c6a88f9db95069fe8",
+      "current_master_eligible": true,
+      "known_limits": [
+        "Static analysis only",
+        "Dynamic dispatch is best effort",
+        "Runtime behavior requires source and test corroboration"
+      ]
+    }
+  ],
+  "historical_graph_shas": [],
+  "invalidation_triggers": [
+    "master_product_or_runtime_sha_changed",
+    "course_blueprint_authority_changed",
+    "shared_contract_changed",
+    "formal_course_or_run_binding_changed",
+    "Golden_or_Replay_contract_changed",
+    "student_visibility_changed"
+  ],
+  "automatic_next_start": false
+}

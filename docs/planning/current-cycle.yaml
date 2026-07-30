@@ -1,54 +1,79 @@
-cycle_id: L1PLUS-CYCLE-002-TEACHER-FORMAL-BINDING-GOLDEN
+cycle_id: L1PLUS-CYCLE-003-COURSEBLUEPRINT-VERSIONING
+stage: L1_PLUS
 status: CLOSED_AND_CURRENT
-generated_at: "2026-07-29T07:06:55Z"
-valid_until: MASTER_OR_RUNTIME_AUTHORITY_OR_FORMAL_COURSE_OR_RUN_BINDING_OR_GOLDEN_CONTRACT_CHANGE
+generated_at: "2026-07-30T06:47:05Z"
+valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-source_sha: 4006ab84401f4d4faed8ea4ab7f15a92ce4746a5
+assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 preceding_l1_closure:
   evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
   owner_acknowledgment: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
   status: CLOSED_OWNER_DECISION_RECORDED
-mainline:
-  candidate_id: CAND-L1P-B5-TEACHER-SELECTION-FORMAL-BINDING
-  capability_id: L1P-VC-05
+repository_adoption:
+  status_before_governance_merge: NOT_YET_CLOSED_BY_GOVERNANCE_MERGE
+  owner_review: REQUIRED
+  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
+capability:
+  id: L1P-VC-06
+  candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
   status: CLOSED_AND_CURRENT
-  primary_outcome: Teacher selects an APPROVED ScenarioPackage and creates an exact-bound Course and explicit-seed Run; the Teacher BFF path has Golden business-result parity with the existing direct formal path.
-  mutable_authority: Formal Course and Formal Run binding services
-  product_pr: 292
-  product_merge_sha: 20d9874b75307d63cf9d993f141528b3da7fada3
-  exit_evidence:
-    - Current-master fresh-clone validation
-    - Exact Course and Run references with all-or-nothing failure-path unit evidence
-    - Teacher product browser isolation matrix and full browser suite
-    - Current-master direct-path versus Teacher-BFF-path Golden parity and Run history non-overwrite evidence
-  explicit_non_proofs:
-    - No runtime activation
-    - No Replay execution
-    - No PostgreSQL activation
-    - No Pilot or Production authorization
+  primary_outcome: CourseBlueprint versions have an immutable append-only lifecycle and can be selected through a Teacher-safe exact-reference product path without changing B5 binding or simulation truth.
+  mutable_authority: CourseBlueprintCommandService
+  sole_writer: CourseBlueprintCommandService
+evidence:
+  approved_product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
+  c1_product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
+  contract_remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
+  contract_remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
+  current_master_at_readback: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  product_acceptance: PASS
+  product_challenge_review: PASS
+  contract_regression: RESOLVED_BY_PR_296
+  snapshot_cli_diagnostic: NOT_REPRODUCIBLE
+snapshot_cli_event:
+  historical_event: RETAINED
+  classification: NOT_REPRODUCIBLE
+  root_cause: NOT_PROVEN
+  remediation: NONE
+  closure_blocker: false
 support_code:
   candidate_id: NONE
 docs_discovery:
   candidate_id: NONE
 closure:
   concurrency: 1
-  ready_pr_limit: 0
+  ready_pr_limit: 1
   merge_execution_limit: 0
   post_merge_required: true
+  merge_authorization: NOT_ISSUED
 resource_locks:
-  - Teacher formal Course binding
-  - Formal Run binding and runtime input resolution
-  - Run/Replay Golden parity
+  - resource: COURSE_BLUEPRINT_AUTHORITY
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: COURSE_BLUEPRINT_REGISTRY
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: COURSE_BLUEPRINT_BINDING
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: CONTRACT_GATE
+    status: HELD_UNTIL_GOVERNANCE_MERGE
+  - resource: SERIAL_CLOSURE
+    status: HELD_UNTIL_GOVERNANCE_MERGE
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
-  postgresql: NOT_ACTIVATED
+  postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
+  c1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
+  dependency_advisories: 2_LOW_6_HIGH
 authorization:
-  status: CLOSED_NO_AUTOMATIC_SUCCESSOR
+  status: OWNER_REVIEW_REQUIRED
+  next_candidate: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+  next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
   next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
   automatic_start: false
 automatic_next_start: false

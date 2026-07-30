@@ -1,0 +1,52 @@
+{
+  "schema_version": "simwar.governance.incident-record.v1",
+  "record_id": "POST_MERGE_REGRESSION_PR295_CONTRACT_GATE_001",
+  "repository": "qidianzhiku/SimWar",
+  "record_status": "IMMUTABLE_GOVERNANCE_CANDIDATE_PENDING_MERGE",
+  "initial_classification": "POST_MERGE_REGRESSION",
+  "baseline_sha": "6ac953d8d5573385e169e26a9ff9859158f343a0",
+  "product_head_sha": "d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a",
+  "product_merge_sha": "1f281abf02f2f79604cbe30a1145e8e249f4f18e",
+  "remediation": {
+    "pull_request": 296,
+    "head_sha": "3d2890537ea9032baf9d0353d349253b03737ec8",
+    "merge_sha": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+    "root_cause": "TEST_LOCAL_TIMEOUT_MISCONFIGURATION",
+    "changed_files": ["tests/integration/m1-handler-contract-conformance.test.ts"],
+    "test_local_timeout_ms": 10000,
+    "product_semantics_changed": false,
+    "global_timeout_changed": false,
+    "worker_serialization_added": false,
+    "retry_or_skip_added": false,
+    "default_parallel_cold_matrix": "10_OF_10_PASS",
+    "fresh_clone_contract_matrix": "10_OF_10_PASS",
+    "challenge_review": "PASS",
+    "ci": "PASS",
+    "codeql": "PASS"
+  },
+  "snapshot_cli_historical_event": {
+    "source_sha": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+    "classification": "NOT_REPRODUCIBLE",
+    "root_cause": "NOT_PROVEN",
+    "remediation": "NONE",
+    "same_root_cause_as_contract_regression": false,
+    "c1_closure_blocker": false
+  },
+  "known_limits": {
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "human_validation": "WAIVED_BY_OWNER_NOT_PERFORMED",
+    "issue_111": "OPEN_KNOWN_LIMIT",
+    "postgresql": "NOT_ACTIVE",
+    "durable_settlement_and_recovery": "NOT_PROVEN",
+    "pilot_and_production": "NOT_AUTHORIZED",
+    "c1_atomicity": "COMPENSATING_ATOMICITY_NOT_CRASH_SAFE"
+  },
+  "explicit_non_proofs": [
+    "C2 Teacher Blueprint Studio completed",
+    "Human Validation completed",
+    "PostgreSQL active authority",
+    "durable settlement or recovery",
+    "Pilot or Production authorization"
+  ],
+  "automatic_next_start": false
+}
