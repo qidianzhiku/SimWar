@@ -345,6 +345,29 @@ describe("CourseBlueprintCommandService", () => {
     await expect(retire).resolves.toMatchObject({ status: "RETIRED" });
   });
 
+  it("orders strict SemVer drafts without letting a legacy version label block migration", async () => {
+    const registry = new InMemoryJsonCourseBlueprintRegistry();
+    const service = new CourseBlueprintCommandService(registry);
+    const legacyDraft = await service.createDraft(actor, {
+      ...draftInput,
+      version: "v1"
+    });
+    const legacyValidated = await service.validate(actor, legacyDraft.reference);
+    const legacyFrozen = await service.freeze(actor, legacyValidated.reference);
+    const legacyApproved = await service.approve(actor, legacyFrozen.reference, "approval_legacy");
+
+    await expect(
+      service.createDraftFromApprovedSource(actor, legacyApproved.version.reference, {
+        ...draftInput,
+        title: "SemVer migration draft",
+        version: "2.0.0"
+      })
+    ).resolves.toMatchObject({
+      draft: { status: "DRAFT", version: "2.0.0" },
+      source: { status: "APPROVED", version: "v1" }
+    });
+  });
+
   it("rolls back a failed post-append action before queued lifecycle commands can run", async () => {
     const { approved, registry, service } = await createApproved();
     let concurrentValidation: ReturnType<CourseBlueprintCommandService["validate"]> | undefined;

@@ -588,10 +588,14 @@ export class CourseBlueprintCommandService {
       const history = (await this.registry.listForTenant(actor.tenant_id)).filter(
         (version) => version.course_blueprint_id === source.course_blueprint_id
       );
+      if (compareSemanticVersions(input.version, input.version) === null) {
+        throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS");
+      }
       if (
         history.some((version) => {
+          if (version.version === input.version) return true;
           const comparison = compareSemanticVersions(input.version, version.version);
-          return comparison === null || comparison <= 0;
+          return comparison !== null && comparison <= 0;
         })
       ) {
         throw new CourseBlueprintAuthorityError("COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS");

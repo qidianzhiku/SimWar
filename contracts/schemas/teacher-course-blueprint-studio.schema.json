@@ -78,7 +78,8 @@
         "objectives": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "description": "Draft objectives may be empty after normalization; explicit submission performs lifecycle validation.",
+          "items": { "type": "string" }
         },
         "ordered_phases": {
           "type": "array",
@@ -87,7 +88,8 @@
         },
         "required_product_capabilities": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "description": "Draft capability entries may be empty after normalization; explicit submission performs lifecycle validation.",
+          "items": { "type": "string" }
         },
         "scenario_compatibility_constraints": {
           "type": "object",

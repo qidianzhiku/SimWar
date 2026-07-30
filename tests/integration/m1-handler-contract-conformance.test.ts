@@ -338,6 +338,51 @@ describe("M1 handler contract conformance", () => {
         studioSubmission.body
       );
 
+      const invalidStudioDraft = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/drafts",
+        {
+          body: {
+            draft: {
+              ...previewData.editable_content,
+              objectives: [" "],
+              title: "Deferred validation Studio Draft",
+              version: "1.2.0"
+            },
+            source_course_blueprint_reference: blueprintReference
+          },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(invalidStudioDraft.status).toBe(201);
+      const invalidDraftReference = (
+        invalidStudioDraft.body.data as {
+          course_blueprint_reference: CourseBlueprintReference;
+        }
+      ).course_blueprint_reference;
+      const invalidDraftPreview = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/preview",
+        {
+          body: { course_blueprint_reference: invalidDraftReference },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(invalidDraftPreview.status).toBe(200);
+      expectEnvelopeToMatchSchema(
+        "teacher-course-blueprint-studio.schema.json",
+        invalidDraftPreview.body
+      );
+      expect(
+        (
+          invalidDraftPreview.body.data as {
+            editable_content: { objectives: string[] };
+          }
+        ).editable_content.objectives
+      ).toEqual([""]);
+
       const studentStudioAttempt = await request<unknown>(
         baseUrl,
         "/api/v1/bff/teacher/course-blueprints/studio/preview",
