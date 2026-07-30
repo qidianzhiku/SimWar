@@ -1,0 +1,33 @@
+{
+  "schema_version": "simwar.governance.owner-decision.v1",
+  "decision_id": "OWNER_DECISION_C1_GOVERNANCE_MERGE_001",
+  "decision_owner": "Marshall",
+  "decision": "APPROVE",
+  "signature": "NOT_SEPARATELY_PROVIDED_IN_DIRECT_OWNER_DECISION",
+  "signed_at": "2026-07-30",
+  "repository": "qidianzhiku/SimWar",
+  "pr_number": 299,
+  "approved_base_sha": "60f4f518bc51b962da3975b86fd96558aac6a35d",
+  "approved_exact_head_sha": "9d2970b72f0e4215eee85989d207d7c769370821",
+  "approved_changed_files": [
+    "docs/governance/decisions/POST_MERGE_REGRESSION_PR295_CONTRACT_GATE_001.json",
+    "docs/planning/current-cycle.yaml",
+    "docs/planning/l1-plus-portfolio-register.yaml",
+    "docs/planning/portfolio-history/L1PLUS-CYCLE-003-COURSEBLUEPRINT-VERSIONING.yaml",
+    "docs/technical/graph-registry/c1-closure-graph-assets.json",
+    "docs/technical/l1-capabilities/L1P-VC-06-courseblueprint-immutable-versioning.md"
+  ],
+  "authorized_merge_method": "ORDINARY_MERGE_COMMIT",
+  "authorized_merge_attempts": 1,
+  "governance_merge_sha": "24348d8e4073b88da375bc0e583400edd8f4ea51",
+  "merged_at": "2026-07-30T08:03:09Z",
+  "explicit_non_authorizations": [
+    "Merge this receipt pull request",
+    "Start C2 or any successor mission",
+    "Acquire C2 resource locks",
+    "Modify product, contract, test, package, lockfile, workflow, or runtime files",
+    "Delete branches or graph assets",
+    "Enable auto-merge"
+  ],
+  "automatic_next_start": false
+}

@@ -11,9 +11,11 @@ preceding_l1_closure:
   owner_acknowledgment: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
   status: CLOSED_OWNER_DECISION_RECORDED
 repository_adoption:
-  status_before_governance_merge: NOT_YET_CLOSED_BY_GOVERNANCE_MERGE
-  owner_review: REQUIRED
-  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
+  status: ADOPTED_BY_GOVERNANCE_MERGE
+  owner_review: COMPLETED
+  governance_closure_pr: 299
+  governance_closure_head_sha: 9d2970b72f0e4215eee85989d207d7c769370821
+  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
 capability:
   id: L1P-VC-06
   candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -28,8 +30,9 @@ evidence:
   contract_remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
-  current_master_at_readback: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  post_governance_readback_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  current_master_at_readback: 24348d8e4073b88da375bc0e583400edd8f4ea51
   product_acceptance: PASS
   product_challenge_review: PASS
   contract_regression: RESOLVED_BY_PR_296
@@ -46,21 +49,21 @@ docs_discovery:
   candidate_id: NONE
 closure:
   concurrency: 1
-  ready_pr_limit: 1
+  ready_pr_limit: 0
   merge_execution_limit: 0
-  post_merge_required: true
-  merge_authorization: NOT_ISSUED
+  post_merge_required: COMPLETED
+  merge_authorization: COMPLETED_FOR_PR_299
 resource_locks:
   - resource: COURSE_BLUEPRINT_AUTHORITY
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: COURSE_BLUEPRINT_REGISTRY
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: COURSE_BLUEPRINT_BINDING
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: CONTRACT_GATE
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: SERIAL_CLOSURE
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
@@ -71,7 +74,7 @@ known_limits:
   c1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
   dependency_advisories: 2_LOW_6_HIGH
 authorization:
-  status: OWNER_REVIEW_REQUIRED
+  status: CLOSED_NO_AUTOMATIC_SUCCESSOR
   next_candidate: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
   next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
   next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION

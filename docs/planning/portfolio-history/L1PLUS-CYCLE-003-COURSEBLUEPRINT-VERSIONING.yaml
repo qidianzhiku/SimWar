@@ -2,21 +2,21 @@ schema_version: 1
 cycle_id: L1PLUS-CYCLE-003-COURSEBLUEPRINT-VERSIONING
 status: CLOSED_AND_CURRENT
 started_at: "2026-07-29T12:43:31Z"
-closed_at: PENDING_UNTIL_OWNER_MERGE
+closed_at: "2026-07-30T08:03:09Z"
 repository: qidianzhiku/SimWar
 assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
 source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
 source_sha_semantics: POST_REMEDIATION_CURRENT_MASTER_AT_CLOSURE_PREPARATION
-repository_current_status_at_generation: NOT_YET_CLOSED_UNTIL_PR_MERGE
+repository_current_status_at_generation: CLOSED_BY_GOVERNANCE_MERGE
 branch: codex/l1plus-c1-courseblueprint-versioning-001
 head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
 pr: 295
 merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
 post_merge_master_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
 governance_branch: codex/l1plus-c1-post-remediation-governance-closure-001
-governance_pr: null
-governance_head_sha: PENDING
-governance_merge_sha: PENDING_UNTIL_OWNER_MERGE
+governance_pr: 299
+governance_head_sha: 9d2970b72f0e4215eee85989d207d7c769370821
+governance_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
 mainline_candidate: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
 capability_id: L1P-VC-06
 support_candidate: null
@@ -35,15 +35,19 @@ timeline:
   - event: SNAPSHOT_CLI_DIAGNOSTIC
     classification: NOT_REPRODUCIBLE
     remediation: NONE
-  - event: GOVERNANCE_CLOSURE_CANDIDATE
-    status: OWNER_REVIEW_REQUIRED
+  - event: GOVERNANCE_CLOSURE_MERGED
+    sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  - event: POST_MERGE_READBACK_COMPLETED
+    sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  - event: RESOURCE_LOCKS_RELEASED
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
 resource_locks:
   - COURSE_BLUEPRINT_AUTHORITY
   - COURSE_BLUEPRINT_REGISTRY
   - COURSE_BLUEPRINT_BINDING
   - CONTRACT_GATE
   - SERIAL_CLOSURE
-resource_lock_status: HELD_UNTIL_GOVERNANCE_MERGE
+resource_lock_status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
 validation:
   product_exact_head:
     acceptance: PASS
@@ -66,8 +70,9 @@ validation:
 graph_assets:
   source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   registry: docs/technical/graph-registry/c1-closure-graph-assets.json
-  graphify: EXACT_SHA_CURRENT
-  codegraph: EXACT_SHA_CURRENT
+  graphify: EXACT_SHA_HISTORICAL_PRODUCT_BASELINE
+  codegraph: EXACT_SHA_HISTORICAL_PRODUCT_BASELINE
+  code_equivalence_through_pr_299: PASS_DOCS_ONLY_DIFF
 evidence_root: C:\Users\Marshall\AppData\Local\Temp\E-SIMWAR-C1-POST-REMEDIATION-GOVERNANCE-CLOSURE-20260730T062949Z
 gap_delta:
   closed:
