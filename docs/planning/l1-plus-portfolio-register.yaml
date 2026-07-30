@@ -8,9 +8,11 @@ runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 l1_plus_status: COURSEBLUEPRINT_IMMUTABLE_VERSIONING_CLOSED_WITH_LIMITS
 repository_adoption:
-  status_before_governance_merge: NOT_YET_CLOSED_BY_GOVERNANCE_MERGE
-  owner_review: REQUIRED
-  governance_closure_merge_sha: PENDING_UNTIL_OWNER_MERGE
+  status: ADOPTED_BY_GOVERNANCE_MERGE
+  governance_closure_pr: 299
+  governance_closure_head_sha: 9d2970b72f0e4215eee85989d207d7c769370821
+  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  owner_review: COMPLETED
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -30,18 +32,18 @@ selected:
     remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   support_code: NONE
   docs_discovery: NONE
-  closure: C1_GOVERNANCE_CLOSURE_CANDIDATE_OWNER_REVIEW_REQUIRED
+  closure: L1PLUS_C1_CLOSED_AND_CURRENT
 resource_locks:
   - resource: COURSE_BLUEPRINT_AUTHORITY
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: COURSE_BLUEPRINT_REGISTRY
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: COURSE_BLUEPRINT_BINDING
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: CONTRACT_GATE
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
   - resource: SERIAL_CLOSURE
-    status: HELD_UNTIL_GOVERNANCE_MERGE
+    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
 candidate_backlog:
   - candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
     status: RECOMMENDED_NOT_AUTHORIZED
@@ -68,6 +70,8 @@ evidence:
   remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
   graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  post_governance_readback_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
   graph_registry: docs/technical/graph-registry/c1-closure-graph-assets.json
   sealed_evidence: REQUIRED_AND_RECONCILED
   ci_and_codeql: REQUIRED_AND_COMPLETED

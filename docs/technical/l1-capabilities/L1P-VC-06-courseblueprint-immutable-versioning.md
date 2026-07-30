@@ -1,8 +1,14 @@
 # L1P-VC-06: CourseBlueprint Immutable Versioning
 
-**Proposed status:** `CLOSED_AND_CURRENT` after this governance PR is merged
+**Status:** `CLOSED_AND_CURRENT`
 
-**Repository status before merge:** `NOT_YET_CLOSED_BY_GOVERNANCE_MERGE`
+**Governance Closure:** `PR #299` / `24348d8e4073b88da375bc0e583400edd8f4ea51`
+
+**Repository Adoption:** `COMPLETE`
+
+**Resource Locks:** `RELEASED_AFTER_GOVERNANCE_MERGE_PR_299`
+
+**Successor:** `C2 RECOMMENDED_NOT_AUTHORIZED`
 
 **Product merge:** `#295` / `1f281abf02f2f79604cbe30a1145e8e249f4f18e`
 
