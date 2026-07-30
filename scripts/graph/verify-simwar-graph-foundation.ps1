@@ -3,7 +3,7 @@ param(
   [string]$GraphInfraRoot = "D:\codex\graph-infra",
   [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
   [string]$ProtectedWorkspacePath = "D:\codex\SimWar",
-  [string]$MissionId = "SIMWAR-L1-GRAPH-FOUNDATION-LITE-PARALLEL-001",
+  [string]$MissionId = "SIMWAR-L1-GRAPH-FOUNDATION-LITE-001",
   [string]$OwnerToken,
   [string]$RegistryPath,
   [string]$ExpectedSha,
@@ -160,7 +160,7 @@ function Test-HealthQueries {
     [Parameter(Mandatory = $true)][string]$EvidenceRoot
   )
 
-  $expectedNames = @("student-published-result", "settlement-result", "replay-non-overwrite")
+  $expectedNames = @("student-published-result", "settlement-result", "replay-non-overwrite", "golden-m1", "teacher-round-control", "direct-store-boundary", "json-runtime-authority", "shared-contract-usage")
   $expectedPattern = if ($Tool -eq "codegraph") { "Found [1-9][0-9]* symbols" } else { "NODE " }
   if (@($Queries).Count -ne $expectedNames.Count) {
     return $false
@@ -335,10 +335,10 @@ try {
     Fail-Verification "graph health statuses do not match the registry"
   }
   if ($registry.codegraph.status -eq "READY" -and ($registry.codegraph.health_status -ne "PASS" -or -not (Test-HealthQueries -Tool "codegraph" -Queries $graphHealth.codegraph.queries -EvidenceRoot $registry.evidence_root))) {
-    Fail-Verification "CodeGraph READY state lacks three passing health queries"
+    Fail-Verification "CodeGraph READY state lacks the complete passing health-query catalog"
   }
   if ($registry.graphify.status -eq "READY" -and ($registry.graphify.health_status -ne "PASS" -or -not (Test-HealthQueries -Tool "graphify" -Queries $graphHealth.graphify.queries -EvidenceRoot $registry.evidence_root))) {
-    Fail-Verification "Graphify READY state lacks three passing health queries"
+    Fail-Verification "Graphify READY state lacks the complete passing health-query catalog"
   }
 
   if ($registry.codegraph.status -eq "READY" -and -not (Test-Path -LiteralPath $registry.codegraph.index_root)) {

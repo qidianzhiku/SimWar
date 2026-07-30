@@ -30,7 +30,7 @@ D:\codex\graph-infra\
   locks\simwar-graph-foundation.lock.json  local ownership record
 ```
 
-Every source, provenance record, health query, and registry entry includes the full SHA. The source is a clean detached checkout with the official SimWar origin and is not a product-development worktree.
+Every source, provenance record, health query, and registry entry includes the full SHA. The source is a clean detached checkout with the official SimWar origin and is not a product-development worktree. The reusable health-query catalog covers Student published results, SettlementResult, Replay non-overwrite, Golden M1, Teacher/Round control, direct-store boundaries, JSON runtime authority, and shared-contract use.
 
 A fresh development clone is not automatically a graph source: it can have a different SHA, uncommitted changes, generated folders, or nested task snapshots. An index directory is not healthy merely because it exists; successful representative queries tied to the SHA are required.
 
@@ -43,7 +43,7 @@ $ownerToken = "graph-foundation-<unique-task-token>"
 
 .\scripts\graph\prepare-simwar-graph-foundation.ps1 `
   -GraphInfraRoot "D:\codex\graph-infra" `
-  -EvidenceRoot "D:\codex\evidence\SIMWAR-L1-GRAPH-FOUNDATION-LITE-PARALLEL-001-<UTC>" `
+  -EvidenceRoot "D:\codex\evidence\SIMWAR-L1-GRAPH-FOUNDATION-LITE-001-<UTC>" `
   -OwnerToken $ownerToken `
   -BuildGraphify -BuildCodeGraph -RunHealthChecks
 ```

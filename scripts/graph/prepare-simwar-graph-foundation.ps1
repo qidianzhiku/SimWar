@@ -4,12 +4,13 @@ param(
   [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
   [string]$RepositoryUrl = "https://github.com/qidianzhiku/SimWar.git",
   [string]$ProtectedWorkspacePath = "D:\codex\SimWar",
-  [string]$MissionId = "SIMWAR-L1-GRAPH-FOUNDATION-LITE-PARALLEL-001",
+  [string]$MissionId = "SIMWAR-L1-GRAPH-FOUNDATION-LITE-001",
   [string]$OwnerToken = [Guid]::NewGuid().ToString("N"),
   [string]$EvidenceRoot,
   [switch]$BuildCodeGraph,
   [switch]$BuildGraphify,
   [switch]$RunHealthChecks,
+  [switch]$ListHealthQueries,
   [switch]$SkipFetch,
   [switch]$ReleaseOwnedLock
 )
@@ -150,6 +151,19 @@ function Invoke-GraphCommand {
   }
 }
 
+function Get-HealthQuerySpecifications {
+  return @(
+    [ordered]@{ name = "student-published-result"; category = "student-published-result"; codegraph_query = "Find Student Published Result or Student Result Projection."; graphify_query = "Student Published Result projection" },
+    [ordered]@{ name = "settlement-result"; category = "settlement-result"; codegraph_query = "Locate formal SettlementResult write paths and their callers."; graphify_query = "SettlementResult formal write path" },
+    [ordered]@{ name = "replay-non-overwrite"; category = "replay-non-overwrite"; codegraph_query = "Find Replay non-overwrite guards or tests."; graphify_query = "Replay must not overwrite formal settlement result" },
+    [ordered]@{ name = "golden-m1"; category = "golden-m1"; codegraph_query = "Find Golden M1 fixtures, tests, or validation entry points."; graphify_query = "Golden M1 fixture test validation" },
+    [ordered]@{ name = "teacher-round-control"; category = "teacher-round-control"; codegraph_query = "Find Teacher Round Control, Round Orchestrator, or round lock and publish controls."; graphify_query = "Teacher Round Control Round Orchestrator" },
+    [ordered]@{ name = "direct-store-boundary"; category = "direct-store-boundary"; codegraph_query = "Find direct-store-boundary checks, scripts, or tests."; graphify_query = "direct store boundary check" },
+    [ordered]@{ name = "json-runtime-authority"; category = "json-runtime-authority"; codegraph_query = "Find JSON Runtime Authority boundaries or JSON repository adapter authority."; graphify_query = "JSON Runtime Authority repository adapter" },
+    [ordered]@{ name = "shared-contract-usage"; category = "shared-contract-usage"; codegraph_query = "Find Shared Contract types and their application consumers."; graphify_query = "shared contracts application consumers" }
+  )
+}
+
 function Get-CommandVersion {
   param([Parameter(Mandatory = $true)][string]$Name)
 
@@ -161,6 +175,11 @@ function Get-CommandVersion {
     return $output.Trim()
   }
   return "UNKNOWN_NOT_EXPOSED_BY_TOOL"
+}
+
+if ($ListHealthQueries) {
+  Get-HealthQuerySpecifications | ConvertTo-Json -Depth 4
+  exit 0
 }
 
 function Test-GraphifyGraph {
@@ -364,8 +383,10 @@ try {
     throw "GRAPH_SOURCE_INVALID: source '$sourceRoot' is not a clean checkout of '$startMasterSha'"
   }
 
-  $excludePath = Join-Path $sourceRoot ".git\info\exclude"
+  $excludePathFromGit = Get-GitOutput -Path $sourceRoot -Arguments @("rev-parse", "--git-path", "info/exclude")
+  $excludePath = if ([System.IO.Path]::IsPathRooted($excludePathFromGit)) { $excludePathFromGit } else { Join-Path $sourceRoot $excludePathFromGit }
   $excludeEntries = @(".codegraph/", "graphify-out/", "node_modules/", "dist/", "build/", "coverage/", "isolated/", "artifacts/", "evidence/")
+  New-Item -ItemType Directory -Force -Path (Split-Path -Parent $excludePath) | Out-Null
   $existingExcludes = if (Test-Path -LiteralPath $excludePath) { Get-Content -LiteralPath $excludePath } else { @() }
   $missingExcludes = $excludeEntries | Where-Object { $_ -notin $existingExcludes }
   if ($missingExcludes.Count -gt 0) {
@@ -434,20 +455,21 @@ try {
     $graphifyStatus = "PARTIAL"
   }
 
+  $healthQuerySpecifications = Get-HealthQuerySpecifications
   $healthQueries = [ordered]@{ codegraph = @(); graphify = @() }
   if ($RunHealthChecks -and $codeGraphStatus -eq "READY") {
-    $healthQueries.codegraph += Invoke-GraphCommand -Name "student-published-result" -EvidencePath (Join-Path $EvidenceRoot "codegraph-student-published-result.txt") -ExpectedPattern "Found [1-9][0-9]* symbols" -Command { Push-Location -LiteralPath $sourceRoot; try { codegraph explore "Find Student Published Result or Student Result Projection." } finally { Pop-Location } }
-    $healthQueries.codegraph += Invoke-GraphCommand -Name "settlement-result" -EvidencePath (Join-Path $EvidenceRoot "codegraph-settlement-result.txt") -ExpectedPattern "Found [1-9][0-9]* symbols" -Command { Push-Location -LiteralPath $sourceRoot; try { codegraph explore "Locate formal SettlementResult write paths and their callers." } finally { Pop-Location } }
-    $healthQueries.codegraph += Invoke-GraphCommand -Name "replay-non-overwrite" -EvidencePath (Join-Path $EvidenceRoot "codegraph-replay-non-overwrite.txt") -ExpectedPattern "Found [1-9][0-9]* symbols" -Command { Push-Location -LiteralPath $sourceRoot; try { codegraph explore "Find Replay non-overwrite guards or tests." } finally { Pop-Location } }
+    foreach ($healthQuerySpecification in $healthQuerySpecifications) {
+      $healthQueries.codegraph += Invoke-GraphCommand -Name $healthQuerySpecification.name -EvidencePath (Join-Path $EvidenceRoot "codegraph-$($healthQuerySpecification.name).txt") -ExpectedPattern "Found [1-9][0-9]* symbols" -Command { Push-Location -LiteralPath $sourceRoot; try { codegraph explore $healthQuerySpecification.codegraph_query } finally { Pop-Location } }
+    }
   }
   if ($RunHealthChecks -and $graphifyStatus -eq "READY") {
-    $healthQueries.graphify += Invoke-GraphCommand -Name "student-published-result" -EvidencePath (Join-Path $EvidenceRoot "graphify-student-published-result.txt") -ExpectedPattern "NODE " -Command { graphify query "Student Published Result projection" --graph $graphifyGraphPath --budget 300 }
-    $healthQueries.graphify += Invoke-GraphCommand -Name "settlement-result" -EvidencePath (Join-Path $EvidenceRoot "graphify-settlement-result.txt") -ExpectedPattern "NODE " -Command { graphify query "SettlementResult formal write path" --graph $graphifyGraphPath --budget 300 }
-    $healthQueries.graphify += Invoke-GraphCommand -Name "replay-non-overwrite" -EvidencePath (Join-Path $EvidenceRoot "graphify-replay-non-overwrite.txt") -ExpectedPattern "NODE " -Command { graphify query "Replay must not overwrite formal settlement result" --graph $graphifyGraphPath --budget 300 }
+    foreach ($healthQuerySpecification in $healthQuerySpecifications) {
+      $healthQueries.graphify += Invoke-GraphCommand -Name $healthQuerySpecification.name -EvidencePath (Join-Path $EvidenceRoot "graphify-$($healthQuerySpecification.name).txt") -ExpectedPattern "NODE " -Command { graphify query $healthQuerySpecification.graphify_query --graph $graphifyGraphPath --budget 300 }
+    }
   }
 
-  $codeGraphHealth = if ($codeGraphStatus -eq "READY" -and $healthQueries.codegraph.Count -eq 3 -and ($healthQueries.codegraph | Where-Object status -ne "PASS").Count -eq 0) { "PASS" } elseif ($codeGraphStatus -eq "UNAVAILABLE") { "PASS_WITH_LIMITS" } else { "PASS_WITH_LIMITS" }
-  $graphifyHealth = if ($graphifyStatus -eq "READY" -and $healthQueries.graphify.Count -eq 3 -and ($healthQueries.graphify | Where-Object status -ne "PASS").Count -eq 0) { "PASS" } elseif ($graphifyStatus -eq "UNAVAILABLE") { "PASS_WITH_LIMITS" } else { "PASS_WITH_LIMITS" }
+  $codeGraphHealth = if ($codeGraphStatus -eq "READY" -and $healthQueries.codegraph.Count -eq $healthQuerySpecifications.Count -and ($healthQueries.codegraph | Where-Object status -ne "PASS").Count -eq 0) { "PASS" } elseif ($codeGraphStatus -eq "UNAVAILABLE") { "PASS_WITH_LIMITS" } else { "PASS_WITH_LIMITS" }
+  $graphifyHealth = if ($graphifyStatus -eq "READY" -and $healthQueries.graphify.Count -eq $healthQuerySpecifications.Count -and ($healthQueries.graphify | Where-Object status -ne "PASS").Count -eq 0) { "PASS" } elseif ($graphifyStatus -eq "UNAVAILABLE") { "PASS_WITH_LIMITS" } else { "PASS_WITH_LIMITS" }
 
   $codeGraphProvenance = [ordered]@{
     tool = "CodeGraph"

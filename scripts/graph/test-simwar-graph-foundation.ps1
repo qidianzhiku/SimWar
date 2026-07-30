@@ -22,9 +22,17 @@ function Invoke-External {
     [scriptblock]$Command
   )
 
-  $output = & $Command 2>&1 | Out-String
+  $exitCode = 1
+  try {
+    $output = & $Command 2>&1 | Out-String
+    $exitCode = $LASTEXITCODE
+  }
+  catch {
+    $output = $_ | Out-String
+    $exitCode = 1
+  }
   [pscustomobject]@{
-    ExitCode = $LASTEXITCODE
+    ExitCode = $exitCode
     Output = $output
   }
 }
@@ -33,8 +41,29 @@ $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\\..")).Path
 $prepareScript = Join-Path $PSScriptRoot "prepare-simwar-graph-foundation.ps1"
 $verifyScript = Join-Path $PSScriptRoot "verify-simwar-graph-foundation.ps1"
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("simwar-graph-foundation-test-" + [Guid]::NewGuid().ToString("N"))
+$linkedGitRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("simwar-graph-foundation-linked-git-test-" + [Guid]::NewGuid().ToString("N"))
 
 try {
+  $queryCatalog = Invoke-External {
+    & $prepareScript -ListHealthQueries
+  }
+  Assert-Condition ($queryCatalog.ExitCode -eq 0) "prepare must expose the reusable health-query catalog"
+  $queryCatalogJson = @($queryCatalog.Output | ConvertFrom-Json)
+  $expectedHealthQueryNames = @(
+    "student-published-result",
+    "settlement-result",
+    "replay-non-overwrite",
+    "golden-m1",
+    "teacher-round-control",
+    "direct-store-boundary",
+    "json-runtime-authority",
+    "shared-contract-usage"
+  )
+  Assert-Condition ($queryCatalogJson.Count -eq $expectedHealthQueryNames.Count) "health-query catalog must cover all eight required categories"
+  foreach ($expectedHealthQueryName in $expectedHealthQueryNames) {
+    Assert-Condition (@($queryCatalogJson | Where-Object { $_.name -eq $expectedHealthQueryName }).Count -eq 1) "health-query catalog must include '$expectedHealthQueryName' exactly once"
+  }
+
   $dryRun = Invoke-External {
     & $prepareScript -GraphInfraRoot $testRoot -RepositoryRoot $repositoryRoot -WhatIf
   }
@@ -68,8 +97,27 @@ try {
   Assert-Condition ($prepared.ExitCode -eq 0) "prepare must create an exact managed source from the local repository"
   Assert-Condition ($prepared.Output -match "GRAPH_PREPARED") "prepare must emit GRAPH_PREPARED"
   $preparedJson = $prepared.Output | ConvertFrom-Json
+  $preparedRegistry = Get-Content -Raw -LiteralPath (Join-Path $testRoot "registry\simwar-current-master.candidate.json") | ConvertFrom-Json
+  Assert-Condition ($preparedRegistry.mission_id -eq "SIMWAR-L1-GRAPH-FOUNDATION-LITE-001") "prepare must default to the formal Graph Foundation Lite mission ID"
   $sourceRemote = (& git -C $preparedJson.source_root remote get-url origin).Trim()
   Assert-Condition ($sourceRemote -eq "https://github.com/qidianzhiku/SimWar.git") "managed source must retain the official origin URL"
+
+  $linkedBareRepository = Join-Path $linkedGitRoot "repos\SimWar.git"
+  $linkedSourceRoot = Join-Path $linkedGitRoot ("sources\SimWar\$($preparedJson.start_master_sha.Substring(0, 12))")
+  & git clone --bare $repositoryRoot $linkedBareRepository | Out-Null
+  Assert-Condition ($LASTEXITCODE -eq 0) "linked-worktree fixture must create its isolated bare repository"
+  & git --git-dir=$linkedBareRepository worktree add --detach $linkedSourceRoot $preparedJson.start_master_sha | Out-Null
+  Assert-Condition ($LASTEXITCODE -eq 0) "linked-worktree fixture must create an exact detached source"
+  & git -C $linkedSourceRoot remote set-url origin "https://github.com/qidianzhiku/SimWar.git"
+  Assert-Condition ($LASTEXITCODE -eq 0) "linked-worktree fixture must retain the official origin URL"
+  $linkedSourcePrepare = Invoke-External {
+    & $prepareScript -GraphInfraRoot $linkedGitRoot -RepositoryRoot $repositoryRoot -OwnerToken "linked-git-owner-token" -SkipFetch
+  }
+  Assert-Condition ($linkedSourcePrepare.ExitCode -eq 0) "prepare must support a managed source whose .git is a worktree pointer file"
+  $linkedExcludePath = (& git -C $linkedSourceRoot rev-parse --git-path info/exclude).Trim()
+  Assert-Condition (Test-Path -LiteralPath $linkedExcludePath) "prepare must resolve the linked-worktree exclude file through Git"
+  Assert-Condition ((Get-Content -LiteralPath $linkedExcludePath) -contains ".codegraph/") "prepare must register graph-generated paths in the linked-worktree exclude file"
+  Remove-Item -LiteralPath $linkedGitRoot -Recurse -Force
 
   $skippedFetchPublication = Invoke-External {
     & $verifyScript -GraphInfraRoot $testRoot -RepositoryRoot $repositoryRoot -OwnerToken $ownerToken -SkipFetch -PublishCurrent
@@ -107,11 +155,9 @@ try {
   Assert-Condition ($healthStatusMismatch.Output -match "health statuses do not match") "health status mismatch must report its specific rejection"
 
   $testGraphHealth.graphify.status = "PASS"
-  $testGraphHealth.graphify.queries = @(
-    @{ name = "student-published-result"; exit_code = 0; status = "PASS"; evidence_file = (Join-Path (Split-Path -Parent $testGraphHealthPath) "graphify-student-published-result.txt"); result_excerpt = "NODE test"; temporary_path_detected = $false },
-    @{ name = "settlement-result"; exit_code = 0; status = "PASS"; evidence_file = (Join-Path (Split-Path -Parent $testGraphHealthPath) "graphify-settlement-result.txt"); result_excerpt = "NODE test"; temporary_path_detected = $false },
-    @{ name = "replay-non-overwrite"; exit_code = 0; status = "PASS"; evidence_file = (Join-Path (Split-Path -Parent $testGraphHealthPath) "graphify-replay-non-overwrite.txt"); result_excerpt = "NODE test"; temporary_path_detected = $false }
-  )
+  $testGraphHealth.graphify.queries = @($queryCatalogJson | ForEach-Object {
+    @{ name = $_.name; exit_code = 0; status = "PASS"; evidence_file = (Join-Path (Split-Path -Parent $testGraphHealthPath) "graphify-$($_.name).txt"); result_excerpt = "NODE test"; temporary_path_detected = $false }
+  })
   foreach ($query in $testGraphHealth.graphify.queries) {
     Set-Content -LiteralPath $query.evidence_file -Value "NODE test" -Encoding utf8
   }
@@ -189,5 +235,8 @@ try {
 finally {
   if (Test-Path -LiteralPath $testRoot) {
     Remove-Item -LiteralPath $testRoot -Recurse -Force
+  }
+  if (Test-Path -LiteralPath $linkedGitRoot) {
+    Remove-Item -LiteralPath $linkedGitRoot -Recurse -Force
   }
 }
