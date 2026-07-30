@@ -14,6 +14,8 @@ import type {
   Run,
   SettlementResult,
   TeacherBffWorkspaceDTO,
+  TeacherCourseBlueprintCatalogDto,
+  TeacherCourseBlueprintReadinessDto,
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
   TeacherFormalScenarioPackageCatalogDto
@@ -25,7 +27,9 @@ import {
   getTeacherFormalCourseBindingErrorMessage,
   getTeacherFormalScenarioPackageCatalogErrorMessage,
   requestTeacherFormalCourseBindingPreview,
-  requestTeacherFormalCourseCreate,
+  requestTeacherCourseBlueprintCatalog,
+  requestTeacherCourseBlueprintCourseCreate,
+  requestTeacherCourseBlueprintReadiness,
   requestScenarioPackageCandidates,
   requestScenarioReadiness,
   requestTeacherFormalScenarioPackageCatalog,
@@ -65,6 +69,11 @@ type FormalScenarioCatalogState =
   | { phase: "IDLE" | "LOADING" }
   | { phase: "ERROR"; message: string }
   | { phase: "READY"; response: TeacherFormalScenarioPackageCatalogDto };
+
+type CourseBlueprintCatalogState =
+  | { phase: "IDLE" | "LOADING" }
+  | { phase: "ERROR"; message: string }
+  | { phase: "READY"; response: TeacherCourseBlueprintCatalogDto };
 
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
@@ -218,6 +227,14 @@ export function App() {
   const [formalScenarioCatalog, setFormalScenarioCatalog] = useState<FormalScenarioCatalogState>({
     phase: "IDLE"
   });
+  const [courseBlueprintCatalog, setCourseBlueprintCatalog] = useState<CourseBlueprintCatalogState>({
+    phase: "IDLE"
+  });
+  const [selectedCourseBlueprint, setSelectedCourseBlueprint] = useState<
+    TeacherCourseBlueprintCatalogDto["candidates"][number] | null
+  >(null);
+  const [courseBlueprintReadiness, setCourseBlueprintReadiness] =
+    useState<TeacherCourseBlueprintReadinessDto | null>(null);
   const [formalDraftCandidate, setFormalDraftCandidate] =
     useState<TeacherFormalScenarioPackageCatalogCandidateDto | null>(null);
   const [formalBindingPreview, setFormalBindingPreview] =
@@ -325,6 +342,9 @@ export function App() {
     setScenarioCandidates({ phase: "IDLE" });
     setPreviewCandidate(null);
     setFormalScenarioCatalog({ phase: "IDLE" });
+    setCourseBlueprintCatalog({ phase: "IDLE" });
+    setSelectedCourseBlueprint(null);
+    setCourseBlueprintReadiness(null);
     setFormalDraftCandidate(null);
     setFormalBindingPreview(null);
     setFormalCourseTitle("");
@@ -492,6 +512,22 @@ export function App() {
       });
   }, [session]);
 
+  useEffect(() => {
+    setSelectedCourseBlueprint(null);
+    setCourseBlueprintReadiness(null);
+    if (!session) {
+      setCourseBlueprintCatalog({ phase: "IDLE" });
+      return;
+    }
+    setCourseBlueprintCatalog({ phase: "LOADING" });
+    requestTeacherCourseBlueprintCatalog({ apiBaseUrl: API_BASE, token: session.access_token })
+      .then((response) => setCourseBlueprintCatalog({ phase: "READY", response }))
+      .catch((error: unknown) => setCourseBlueprintCatalog({
+        phase: "ERROR",
+        message: getTeacherFormalCourseBindingErrorMessage(error)
+      }));
+  }, [session]);
+
   async function prepareFormalCourse(
     candidate: TeacherFormalScenarioPackageCatalogCandidateDto
   ): Promise<void> {
@@ -517,14 +553,15 @@ export function App() {
   }
 
   async function createFormalCourse(): Promise<void> {
-    if (!session || !formalDraftCandidate || !formalBindingPreview || !formalCourseTitle.trim()) {
-      setNotice("a formal Course title and binding preview are required");
+    if (!session || !formalDraftCandidate || !selectedCourseBlueprint || !courseBlueprintReadiness || !formalCourseTitle.trim()) {
+      setNotice("an approved CourseBlueprint and exact binding readiness are required");
       return;
     }
     setBusy(true);
     try {
-      const created = await requestTeacherFormalCourseCreate({
+      const created = await requestTeacherCourseBlueprintCourseCreate({
         apiBaseUrl: API_BASE,
+        courseBlueprintReference: selectedCourseBlueprint.course_blueprint_reference,
         scenarioPackageReference: formalDraftCandidate.scenario_package_reference,
         title: formalCourseTitle.trim(),
         token: session.access_token
@@ -533,6 +570,32 @@ export function App() {
       setSelectedCourseId(created.course.course_id);
       setFormalCoursePublished(false);
       setNotice("formal Course created");
+    } catch (error) {
+      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function selectCourseBlueprintLocally(
+    blueprint: TeacherCourseBlueprintCatalogDto["candidates"][number]
+  ): Promise<void> {
+    setSelectedCourseBlueprint(blueprint);
+    setCourseBlueprintReadiness(null);
+    setNotice("LOCAL_SELECTION_ONLY - no Course write yet");
+    if (!session || !formalDraftCandidate) return;
+    setBusy(true);
+    try {
+      const readiness = await requestTeacherCourseBlueprintReadiness({
+        apiBaseUrl: API_BASE,
+        courseBlueprintReference: blueprint.course_blueprint_reference,
+        scenarioPackageReference: formalDraftCandidate.scenario_package_reference,
+        token: session.access_token
+      });
+      setCourseBlueprintReadiness(readiness);
+      setFormalBindingPreview(readiness.formal_course_binding);
+      setFormalCourseTitle(`Course: ${blueprint.title}`);
+      setNotice("exact Blueprint and B5 readiness confirmed");
     } catch (error) {
       setNotice(getTeacherFormalCourseBindingErrorMessage(error));
     } finally {
@@ -944,6 +1007,42 @@ export function App() {
                         <strong>{previewCandidate.display_name}</strong>
                         <small>{previewCandidate.version_label}</small>
                         <p>仅本地预览，不会修改当前 Run</p>
+                      </article>
+                    ) : null}
+                  </>
+                ) : null}
+              </section>
+              <section className="candidate-surface" aria-label="formal CourseBlueprint catalog">
+                <div className="candidate-heading">
+                  <h3>Formal CourseBlueprint Catalog</h3>
+                  <span>{courseBlueprintCatalog.phase}</span>
+                </div>
+                {courseBlueprintCatalog.phase === "LOADING" ? <p className="evidence-note">Loading approved CourseBlueprints</p> : null}
+                {courseBlueprintCatalog.phase === "ERROR" ? <p className="readiness-message">{courseBlueprintCatalog.message}</p> : null}
+                {courseBlueprintCatalog.phase === "READY" ? (
+                  <>
+                    {courseBlueprintCatalog.response.candidates.length === 0 ? (
+                      <p className="evidence-note">No approved CourseBlueprints available.</p>
+                    ) : (
+                      <div className="candidate-list">
+                        {courseBlueprintCatalog.response.candidates.map((blueprint) => (
+                          <article className="candidate-card" key={blueprint.course_blueprint_reference.content_digest}>
+                            <span>{blueprint.status}</span>
+                            <strong>{blueprint.title}</strong>
+                            <small>{blueprint.course_blueprint_reference.version} / {blueprint.duration_minutes} minutes</small>
+                            <button onClick={() => void selectCourseBlueprintLocally(blueprint)} disabled={busy}>
+                              Select locally
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    {selectedCourseBlueprint ? (
+                      <article className="candidate-preview" aria-label="CourseBlueprint local selection">
+                        <span>LOCAL_SELECTION_ONLY</span>
+                        <strong>{selectedCourseBlueprint.title}</strong>
+                        <small>NO_COURSE_WRITE_YET</small>
+                        {courseBlueprintReadiness ? <small>Exact server-side readiness: READY</small> : null}
                       </article>
                     ) : null}
                   </>

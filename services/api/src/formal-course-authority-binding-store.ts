@@ -13,6 +13,12 @@ export class FormalCourseAuthorityBindingStoreError extends Error {
   }
 }
 
+export interface PendingFormalCourseAuthorityBinding {
+  readonly course_id: string;
+  readonly tenant_id: string;
+  readonly token: symbol;
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -31,9 +37,40 @@ function deepFreeze<T>(value: T): T {
  * for a formal exact-reference configuration.
  */
 export class FormalCourseAuthorityBindingStore {
+  private readonly pending = new Map<symbol, { course_id: string; tenant_id: string }>();
+
   constructor(private readonly store: SimWarStore) {}
 
   append(binding: FormalCourseAuthorityBinding): void {
+    this.appendInternal(binding);
+  }
+
+  appendPending(binding: FormalCourseAuthorityBinding): PendingFormalCourseAuthorityBinding {
+    this.appendInternal(binding);
+    const token = Symbol("formal-course-authority-binding-pending");
+    this.pending.set(token, { course_id: binding.course_id, tenant_id: binding.tenant_id });
+    return Object.freeze({ course_id: binding.course_id, tenant_id: binding.tenant_id, token });
+  }
+
+  commitPending(pending: PendingFormalCourseAuthorityBinding): void {
+    this.requirePending(pending);
+    this.pending.delete(pending.token);
+  }
+
+  removeUncommitted(pending: PendingFormalCourseAuthorityBinding): void {
+    this.requirePending(pending);
+    const index = this.store.formalCourseAuthorityBindings.findIndex(
+      (candidate) =>
+        candidate.tenant_id === pending.tenant_id && candidate.course_id === pending.course_id
+    );
+    if (index < 0) {
+      throw new Error("formal_course_authority_binding_pending_missing");
+    }
+    this.store.formalCourseAuthorityBindings.splice(index, 1);
+    this.pending.delete(pending.token);
+  }
+
+  private appendInternal(binding: FormalCourseAuthorityBinding): void {
     assertFormalCourseAuthorityBinding(binding);
     const existing = this.store.formalCourseAuthorityBindings.find(
       (candidate) =>
@@ -52,5 +89,16 @@ export class FormalCourseAuthorityBindingStore {
     if (!binding) return null;
     assertFormalCourseAuthorityBinding(binding);
     return deepFreeze(clone(binding));
+  }
+
+  private requirePending(pending: PendingFormalCourseAuthorityBinding): void {
+    const current = this.pending.get(pending.token);
+    if (
+      !current ||
+      current.course_id !== pending.course_id ||
+      current.tenant_id !== pending.tenant_id
+    ) {
+      throw new Error("formal_course_authority_binding_pending_invalid");
+    }
   }
 }

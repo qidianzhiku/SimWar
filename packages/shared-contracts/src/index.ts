@@ -53,6 +53,28 @@ export type ParameterSetStatus =
   | "shadow_passed"
   | "approved"
   | "deprecated";
+
+/** Exact immutable reference for a teaching-only CourseBlueprint version. */
+export interface CourseBlueprintReference {
+  content_digest: string;
+  course_blueprint_id: string;
+  tenant_id: string;
+  version: string;
+}
+
+export function createCourseBlueprintReference(
+  reference: CourseBlueprintReference
+): CourseBlueprintReference {
+  if (
+    !reference.tenant_id.trim() ||
+    !reference.course_blueprint_id.trim() ||
+    !reference.version.trim() ||
+    !/^[a-f0-9]{64}$/.test(reference.content_digest)
+  ) {
+    throw new Error("course_blueprint_reference_invalid");
+  }
+  return Object.freeze({ ...reference });
+}
 export type SettlementHookName =
   | "adjustDemand"
   | "adjustOperations"
@@ -79,6 +101,7 @@ export type PermissionKey =
   | "decision:submit"
   | "result:read"
   | "audit:read"
+  | "course_blueprint:manage"
   | "parameter_set:manage"
   | "scenario_package:manage"
   | "plugin_release:manage"
@@ -1469,6 +1492,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "decision:submit",
     "result:read",
     "audit:read",
+    "course_blueprint:manage",
     "parameter_set:manage",
     "scenario_package:manage",
     "plugin_release:manage",
@@ -1545,6 +1569,7 @@ export * from "./scenario-alignment.js";
 export * from "./scenario-selection.js";
 export * from "./teacher-formal-scenario-package-catalog.js";
 export * from "./teacher-formal-course-binding.js";
+export * from "./course-blueprint.js";
 export * from "./scenario-runtime-adapter.js";
 export * from "./scenario-bff-endpoint-contract.js";
 export * from "./scenario-bff-endpoint-implementation-gate.js";

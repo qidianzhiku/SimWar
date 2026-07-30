@@ -38,9 +38,14 @@ export interface TeacherFormalCourseBindingPreviewInput {
 }
 
 export interface CreateTeacherFormalCourseInput extends TeacherFormalCourseBindingPreviewInput {
+  beforeCommit?: () => Promise<void>;
   course: Course;
   persistence: TeacherFormalCoursePersistence;
-  bindingStore: Pick<FormalCourseAuthorityBindingStore, "append">;
+  bindingStore: Pick<FormalCourseAuthorityBindingStore, "append"> &
+    Partial<Pick<
+      FormalCourseAuthorityBindingStore,
+      "appendPending" | "commitPending" | "removeUncommitted"
+    >>;
 }
 
 function clone<T>(value: T): T {
@@ -168,15 +173,42 @@ export async function createTeacherFormalCourse(input: CreateTeacherFormalCourse
   });
 
   let coursePersisted = false;
+  let pendingBinding: ReturnType<FormalCourseAuthorityBindingStore["appendPending"]> | undefined;
   try {
     await input.persistence.saveCourse(input.course);
     coursePersisted = true;
-    input.bindingStore.append(binding);
+    if (input.beforeCommit) {
+      if (
+        !input.bindingStore.appendPending ||
+        !input.bindingStore.commitPending ||
+        !input.bindingStore.removeUncommitted
+      ) {
+        throw new Error("formal_course_authority_binding_transaction_required");
+      }
+      pendingBinding = input.bindingStore.appendPending(binding);
+      await input.beforeCommit();
+      input.bindingStore.commitPending(pendingBinding);
+    } else {
+      input.bindingStore.append(binding);
+    }
     return deepFreeze({ binding, summary: createSummary(binding) });
   } catch (error) {
-    if (coursePersisted) {
-      await input.persistence.deleteCourse(input.course.tenant_id, input.course.course_id);
+    let compensationError: unknown;
+    if (pendingBinding) {
+      try {
+        input.bindingStore.removeUncommitted!(pendingBinding);
+      } catch (rollbackError) {
+        compensationError = rollbackError;
+      }
     }
+    if (coursePersisted) {
+      try {
+        await input.persistence.deleteCourse(input.course.tenant_id, input.course.course_id);
+      } catch (rollbackError) {
+        compensationError ??= rollbackError;
+      }
+    }
+    if (compensationError) throw compensationError;
     throw error;
   }
 }

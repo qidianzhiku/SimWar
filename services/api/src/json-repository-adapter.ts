@@ -38,6 +38,10 @@ import {
   InMemoryJsonPluginReleaseRegistry,
   type InMemoryJsonPluginReleaseRegistryOptions
 } from "./plugin-release-authority.js";
+import {
+  InMemoryJsonCourseBlueprintRegistry,
+  type InMemoryJsonCourseBlueprintRegistryOptions
+} from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
 
 /**
@@ -65,6 +69,7 @@ interface JsonRepositoryAdapterCollections {
  * registries. It is deliberately separate from API route composition.
  */
 export interface JsonFormalScenarioAuthorityPersistence {
+  createCourseBlueprintRegistry(): InMemoryJsonCourseBlueprintRegistry;
   createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
   createPluginReleaseRegistry(): InMemoryJsonPluginReleaseRegistry;
   createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
@@ -77,6 +82,11 @@ export function createJsonFormalScenarioAuthorityPersistence(
     approvals: store.formalParameterSetApprovalRecords,
     onAppend: store.persist,
     snapshots: store.formalParameterSetLifecycleSnapshots
+  };
+  const courseBlueprintOptions: InMemoryJsonCourseBlueprintRegistryOptions = {
+    approvals: store.formalCourseBlueprintApprovalRecords,
+    onAppend: store.persist,
+    snapshots: store.formalCourseBlueprintLifecycleSnapshots
   };
   const scenarioPackageOptions: InMemoryJsonScenarioPackageRegistryOptions = {
     approvals: store.formalScenarioPackageApprovalRecords,
@@ -91,6 +101,7 @@ export function createJsonFormalScenarioAuthorityPersistence(
   };
 
   return Object.freeze({
+    createCourseBlueprintRegistry: () => new InMemoryJsonCourseBlueprintRegistry(courseBlueprintOptions),
     createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
     createPluginReleaseRegistry: () => new InMemoryJsonPluginReleaseRegistry(pluginReleaseOptions),
     createScenarioPackageRegistry: () =>
@@ -412,13 +423,22 @@ export function createJsonRepositoryPorts(
             candidate.tenant_id === course.tenant_id && candidate.course_id === course.course_id
         );
 
-        if (index >= 0) {
-          store.courses[index] = course;
-        } else {
-          store.courses.push(course);
+        const previous = index >= 0 ? store.courses[index] : undefined;
+        try {
+          if (index >= 0) {
+            store.courses[index] = course;
+          } else {
+            store.courses.push(course);
+          }
+          store.persist();
+        } catch (error) {
+          if (index >= 0) {
+            store.courses[index] = previous!;
+          } else {
+            store.courses.pop();
+          }
+          throw error;
         }
-
-        store.persist();
       },
 
       async deleteCourse(tenantId, courseId): Promise<void> {
@@ -426,8 +446,13 @@ export function createJsonRepositoryPorts(
           (candidate) => candidate.tenant_id === tenantId && candidate.course_id === courseId
         );
         if (index >= 0) {
-          store.courses.splice(index, 1);
-          store.persist();
+          const [removed] = store.courses.splice(index, 1);
+          try {
+            store.persist();
+          } catch (error) {
+            store.courses.splice(index, 0, removed!);
+            throw error;
+          }
         }
       }
     },
@@ -777,7 +802,12 @@ export function createJsonRepositoryPorts(
     auditLogs: {
       async appendAuditLog(auditLog): Promise<void> {
         store.auditLogs.push(auditLog);
-        store.persist();
+        try {
+          store.persist();
+        } catch (error) {
+          store.auditLogs.pop();
+          throw error;
+        }
       },
 
       async listAuditLogs(query): Promise<AuditLog[]> {
