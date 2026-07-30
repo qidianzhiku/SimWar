@@ -1,0 +1,98 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-003-COURSEBLUEPRINT-VERSIONING
+status: CLOSED_AND_CURRENT
+started_at: "2026-07-29T12:43:31Z"
+closed_at: PENDING_UNTIL_OWNER_MERGE
+repository: qidianzhiku/SimWar
+assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+source_sha_semantics: POST_REMEDIATION_CURRENT_MASTER_AT_CLOSURE_PREPARATION
+repository_current_status_at_generation: NOT_YET_CLOSED_UNTIL_PR_MERGE
+branch: codex/l1plus-c1-courseblueprint-versioning-001
+head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
+pr: 295
+merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
+post_merge_master_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+governance_branch: codex/l1plus-c1-post-remediation-governance-closure-001
+governance_pr: null
+governance_head_sha: PENDING
+governance_merge_sha: PENDING_UNTIL_OWNER_MERGE
+mainline_candidate: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
+capability_id: L1P-VC-06
+support_candidate: null
+docs_discovery_candidate: null
+timeline:
+  - event: C1_T4_SCOPE_APPROVED
+    status: HISTORICAL_OWNER_DECISION
+  - event: PR_295_EXACT_HEAD_APPROVED
+    sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
+  - event: PR_295_PRODUCT_MERGED
+    sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
+  - event: POST_MERGE_CONTRACT_REGRESSION
+    classification: POST_MERGE_REGRESSION
+  - event: PR_296_CONTRACT_REMEDIATION_MERGED
+    sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  - event: SNAPSHOT_CLI_DIAGNOSTIC
+    classification: NOT_REPRODUCIBLE
+    remediation: NONE
+  - event: GOVERNANCE_CLOSURE_CANDIDATE
+    status: OWNER_REVIEW_REQUIRED
+resource_locks:
+  - COURSE_BLUEPRINT_AUTHORITY
+  - COURSE_BLUEPRINT_REGISTRY
+  - COURSE_BLUEPRINT_BINDING
+  - CONTRACT_GATE
+  - SERIAL_CLOSURE
+resource_lock_status: HELD_UNTIL_GOVERNANCE_MERGE
+validation:
+  product_exact_head:
+    acceptance: PASS
+    challenge_review: PASS
+    ci: SUCCESS
+    codeql: SUCCESS
+    browser: PASS
+  contract_remediation:
+    default_parallel_cold_matrix: 10_OF_10_PASS
+    fresh_clone_contract_matrix: 10_OF_10_PASS
+    challenge_review: PASS
+    ci: SUCCESS
+    codeql: SUCCESS
+  snapshot_cli:
+    direct_matrix: 20_OF_20_PASS
+    exact_test_matrix: 20_OF_20_PASS
+    test_file_matrix: 10_OF_10_PASS
+    default_full_suite: 6_OF_6_PASS
+    residue: ZERO
+graph_assets:
+  source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+  registry: docs/technical/graph-registry/c1-closure-graph-assets.json
+  graphify: EXACT_SHA_CURRENT
+  codegraph: EXACT_SHA_CURRENT
+evidence_root: C:\Users\Marshall\AppData\Local\Temp\E-SIMWAR-C1-POST-REMEDIATION-GOVERNANCE-CLOSURE-20260730T062949Z
+gap_delta:
+  closed:
+    - L1P-GAP-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
+  new: []
+  reclassified: []
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: NOT_MEASURED
+  file_conflict_rate: NOT_MEASURED
+  join_rework_ratio: NOT_MEASURED
+  owner_touch: NOT_MEASURED
+  cleanup_residue: NONE_OBSERVED
+  boundary_breach: 0_NEW_BREACHES
+  post_merge_escape: CONTRACT_GATE_REGRESSION_REMEDIATED_BY_PR_296
+explicit_non_proofs:
+  - Human Validation completed
+  - PostgreSQL active authority
+  - durable settlement or recovery
+  - Controlled Pilot authorization
+  - Production authorization
+  - C2 Teacher Blueprint Studio completed
+recommended_next_candidate: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+recommended_next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
+next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+automatic_next_start: false
