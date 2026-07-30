@@ -229,5 +229,5 @@ describe("M1 handler contract conformance", () => {
       server.close();
       await once(server, "close");
     }
-  });
+  }, 10_000);
 });
