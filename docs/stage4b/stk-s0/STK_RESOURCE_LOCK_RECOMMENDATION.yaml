@@ -1,0 +1,123 @@
+schema_version: 1
+document_id: SIMWAR-STK-S0-RESOURCE-LOCK-RECOMMENDATION
+source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+status: RECOMMENDATION_ONLY
+locks_acquired_by_stk_s0:
+  - resource: docs/stage4b/stk-s0
+    mode: DOCS_ONLY_SINGLE_WRITER
+    owner: STK_S0
+all_product_runtime_locks_acquired: false
+resources:
+  - resource: STAGE4B_CONTRACT
+    current_status: NO_WRITE_IN_STK_S0
+    future_mode: SINGLE_WRITER
+    proposed_owner: STK_CONTRACT_OWNER
+    gate: INDEPENDENT_S1_AUTHORIZATION
+    confidence: HIGH
+  - resource: STAKEHOLDER_PROPOSAL_AND_SIGNAL_SCHEMA
+    current_status: NOT_IMPLEMENTED
+    future_mode: SINGLE_WRITER
+    proposed_owner: STK_CONTRACT_OWNER
+    gate: PRIVACY_AND_AUTHORITY_REVIEW
+    confidence: MEDIUM
+  - resource: STAKEHOLDER_BOUNDED_SHADOW_STORE
+    current_status: UNKNOWN
+    future_mode: SINGLE_WRITER_APPEND_ONLY
+    proposed_owner: UNKNOWN
+    gate: STORAGE_RETENTION_REVOCATION_DESIGN
+    confidence: LOW
+  - resource: DETERMINISTIC_SOCIAL_SIGNAL_RESOLVER
+    current_status: NOT_IMPLEMENTED_OR_PROVEN
+    future_mode: SINGLE_WRITER
+    proposed_owner: STK_OWNER
+    gate: S1_OR_S2_INDEPENDENT_MISSION
+    confidence: MEDIUM
+  - resource: BOUNDED_RUNTIME_PREFERENCE_STATE
+    current_status: BASELINE_CANDIDATE_DOCUMENTED_ONLY
+    future_mode: SINGLE_WRITER_APPEND_ONLY
+    proposed_owner: APPROVED_RUNTIME_PREFERENCE_ADAPTER
+    gate: PROGRAM_M_FORMAL_REBASE_AND_S2_GATE
+    confidence: LOW
+  - resource: packages/shared-contracts
+    current_status: READ_ONLY_NOT_ACQUIRED
+    future_mode: SINGLE_WRITER
+    proposed_owner: SHARED_CONTRACT_OWNER
+    conflicting_candidates:
+      - CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+    gate: C2_RELEASE_AND_EXACT_ALLOWLIST
+    confidence: HIGH
+  - resource: CourseBlueprintCommandService
+    current_status: C2_MAINLINE_OWNER
+    future_mode: READ_ONLY_FOR_STK
+    proposed_owner: C2
+    gate: NO_STK_WRITE
+    confidence: HIGH
+  - resource: Teacher_BFF_AND_APP
+    current_status: C2_MAINLINE_OWNER
+    future_mode: SERIAL_MAINLINE_ONLY
+    proposed_owner: PROGRAM_C_OR_LATER_MAINLINE
+    conflicting_candidates:
+      - CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+    gate: C2_RELEASE_AND_PRODUCT_ADMISSION
+    confidence: HIGH
+  - resource: Learning_Evidence
+    current_status: DEFERRED_PROGRAM_D
+    future_mode: TEACHER_CONFIRMATION_SOLE_WRITER
+    proposed_owner: PROGRAM_D
+    gate: PROGRAM_D_ADMISSION
+    confidence: HIGH
+  - resource: AI_PROVIDER_PROMPT_MEMORY
+    current_status: NOT_ACQUIRED
+    future_mode: SHARED_SUPPORT_SINGLE_WRITER
+    proposed_owner: PROGRAM_E_OR_STK_BY_EXPLICIT_JOIN
+    gate: PROVIDER_PRIVACY_AND_T4_REVIEW
+    confidence: MEDIUM
+  - resource: Run_Replay_Golden
+    current_status: READ_ONLY_PROTECTED
+    future_mode: GOLDEN_SINGLE_WRITER
+    proposed_owner: RUN_REPLAY_OWNER
+    gate: PLANE_OFF_AND_ZERO_SIGNAL_PARITY
+    confidence: HIGH
+  - resource: Settlement_Score_Rank
+    current_status: NO_WRITE
+    future_mode: NO_STK_WRITE
+    proposed_owner: SIMULATION_CORE_L3
+    gate: PERMANENT_BOUNDARY
+    confidence: HIGH
+  - resource: ParameterSet_ModelVersion
+    current_status: NO_STK_WRITE
+    future_mode: FORMAL_AUTHORITY_SINGLE_WRITER
+    proposed_owner: MODEL_AND_PARAMETER_GOVERNANCE
+    gate: PERMANENT_NO_AGENT_OR_RESOLVER_WRITE
+    confidence: HIGH
+  - resource: Heavy_Validation_Host
+    current_status: C2_ONLY
+    future_mode: ONE_AT_A_TIME
+    proposed_owner: ORCHESTRATOR
+    gate: SERIAL_SCHEDULER
+    confidence: HIGH
+c2_file_conflicts:
+  current_overlap_count: 0
+  future_serialization_required:
+    - packages/shared-contracts/**
+    - services/api/src/server.ts
+    - services/api/src/course-blueprint-authority.ts
+    - services/api/src/teacher-course-blueprint-service.ts
+    - services/api/src/teacher-student-bff-dto.ts
+    - apps/teacher/src/App.tsx
+    - contracts/**
+    - tests/contract/**
+    - tests/integration/course-blueprint-*
+join_rules:
+  s0_may_continue_read_only: true
+  s1_may_start_automatically: false
+  s2_may_start_automatically: false
+  shared_contract_change_requires_separate_gate: true
+  product_surface_change_requires_mainline_owner: true
+  official_influence_requires_t4_owner_decision: true
+unknowns:
+  - exact_shadow_store_owner
+  - exact_resolver_port
+  - exact_feature_flag_control_plane
+  - exact_provider_and_memory_registry
+  - exact_s1_test_and_ci_commands
