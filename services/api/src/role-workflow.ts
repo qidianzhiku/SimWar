@@ -190,6 +190,7 @@ export class RoleWorkflowCommandService {
     ) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_ASSIGNMENT_EXISTS");
     }
+    this.assertTeamWorkflowViable(snapshot);
 
     const assignment: StudentRoleAssignment = {
       assignment_id: this.createId("role_assignment"),
@@ -565,6 +566,23 @@ export class RoleWorkflowCommandService {
     this.assertScope(snapshot);
     if (!snapshot.round || snapshot.round.status !== "open") {
       throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_OPEN");
+    }
+  }
+
+  private assertTeamWorkflowViable(snapshot: RoleWorkflowRepositorySnapshot): void {
+    const team = snapshot.team!;
+    const requiredMembers = ROLE_MERGE_ORDER.map((roleKey) =>
+      team.members.filter((member) => member.role_slot === roleKey)
+    );
+    const ownerIds = requiredMembers.flatMap((members) => members.map((member) => member.user_id));
+    const ceo = requiredMembers[0]?.[0];
+    if (
+      requiredMembers.some((members) => members.length !== 1) ||
+      new Set(ownerIds).size !== ROLE_MERGE_ORDER.length ||
+      !ceo ||
+      team.captain_user_id !== ceo.user_id
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_TEAM_INCOMPLETE");
     }
   }
 

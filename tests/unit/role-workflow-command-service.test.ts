@@ -170,6 +170,82 @@ describe("RoleWorkflowCommandService", () => {
     expect(workspace.assignment).not.toHaveProperty("assigned_by");
   });
 
+  it("rejects every nonviable team topology before activation and keeps direct Decision available", () => {
+    const cases: Array<{
+      configure: (candidateStore: SimWarStore) => void;
+      name: string;
+    }> = [
+      {
+        name: "missing required roles",
+        configure: (candidateStore) => {
+          candidateStore.teams[0]!.members = [
+            { user_id: studentCeo.actor_id, display_name: "CEO", role_slot: "CEO" }
+          ];
+        }
+      },
+      {
+        name: "duplicate required role",
+        configure: (candidateStore) => {
+          candidateStore.teams[0]!.members.push({
+            user_id: "student_ceo_alternate",
+            display_name: "Alternate CEO",
+            role_slot: "CEO"
+          });
+        }
+      },
+      {
+        name: "one owner occupies multiple roles",
+        configure: (candidateStore) => {
+          candidateStore.teams[0]!.members[1] = {
+            user_id: studentCeo.actor_id,
+            display_name: "CEO acting as CFO",
+            role_slot: "CFO"
+          };
+        }
+      },
+      {
+        name: "captain is not the CEO owner",
+        configure: (candidateStore) => {
+          candidateStore.teams[0]!.captain_user_id = studentCfo.actor_id;
+        }
+      }
+    ];
+
+    for (const testCase of cases) {
+      const candidateStore = createStore();
+      testCase.configure(candidateStore);
+      const candidateService = new RoleWorkflowCommandService(
+        createJsonRepositoryPorts(candidateStore).roleWorkflow,
+        {
+          createId: (kind) => `${kind}_${testCase.name}`,
+          now: () => "2026-07-31T02:00:00.000Z"
+        }
+      );
+
+      expect(
+        () =>
+          candidateService.assignRole(teacher, {
+            course_id: "course_c3",
+            role_key: "CEO",
+            run_id: "run_c3",
+            team_id: "team_c3",
+            user_id: studentCeo.actor_id
+          }),
+        testCase.name
+      ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TEAM_INCOMPLETE" }));
+
+      expect(candidateStore.studentRoleAssignments, testCase.name).toEqual([]);
+      expect(candidateStore.roleWorkflowEvents, testCase.name).toEqual([]);
+      expect(() =>
+        candidateService.assertDirectDecisionSubmissionAllowed(studentCeo, {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        })
+      ).not.toThrow();
+    }
+  });
+
   it("rejects duplicate active assignments and cross-tenant assignment attempts", () => {
     const input = {
       course_id: "course_c3",

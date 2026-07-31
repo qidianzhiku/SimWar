@@ -2921,7 +2921,8 @@ function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
   const invalid = new Set([
     "ROLE_WORKFLOW_MEMBER_ROLE_INVALID",
     "ROLE_WORKFLOW_MERGED_PAYLOAD_INCOMPLETE",
-    "ROLE_WORKFLOW_SCOPE_INVALID"
+    "ROLE_WORKFLOW_SCOPE_INVALID",
+    "ROLE_WORKFLOW_TEAM_INCOMPLETE"
   ]);
   const statusCode = denied.has(error.code)
     ? 403

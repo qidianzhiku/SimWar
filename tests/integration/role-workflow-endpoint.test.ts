@@ -110,13 +110,18 @@ function configureRoleWorkflowFixture(store: SimWarStore): void {
   ];
 }
 
-async function startServer(): Promise<{
+async function startServer(options: { incompleteRoleTeam?: boolean } = {}): Promise<{
   baseUrl: string;
   server: Server;
   store: SimWarStore;
 }> {
   const store = createP1Store();
   configureRoleWorkflowFixture(store);
+  if (options.incompleteRoleTeam) {
+    store.teams[0]!.members = store.teams[0]!.members.filter(
+      (member) => member.role_slot === "CEO"
+    );
+  }
   const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -137,6 +142,58 @@ const scope = {
 };
 
 describe("Role Workflow HTTP boundary", () => {
+  it("rejects an incomplete team without disabling the legacy Decision route", async () => {
+    const { baseUrl, server, store } = await startServer({ incompleteRoleTeam: true });
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const ceoToken = await login(baseUrl, "role_ceo");
+      const assignment = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            user_id: "role_ceo"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+
+      expect(assignment.status).toBe(422);
+      expect(assignment.body.code).toBe("ROLE_WORKFLOW_TEAM_INCOMPLETE");
+      expect(store.studentRoleAssignments).toEqual([]);
+      expect(store.roleWorkflowEvents).toEqual([]);
+
+      const legacyDecision = await request<unknown>(
+        baseUrl,
+        `/api/v1/runs/${scope.run_id}/rounds/1/decisions`,
+        {
+          body: {
+            decision_payload: {
+              capacity_plan: "hold",
+              cash_buffer_target: 0.18,
+              marketing_budget: 145000,
+              pricing: { base_price: 12900 },
+              service_quality_budget: 122000,
+              strategy_statement: "Legacy path remains viable."
+            },
+            team_id: scope.team_id
+          },
+          method: "POST",
+          token: ceoToken
+        }
+      );
+      expect(legacyDecision.status).toBe(201);
+      expect(store.decisions).toHaveLength(1);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("runs Teacher assignment through Student safe drafts to one confirmed canonical Decision", async () => {
     const { baseUrl, server, store } = await startServer();
     try {
