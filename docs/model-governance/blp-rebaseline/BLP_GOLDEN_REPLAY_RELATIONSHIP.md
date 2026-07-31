@@ -3,9 +3,15 @@
 ## Source binding
 
 - Repository: `qidianzhiku/SimWar`
-- Source SHA: `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Assessment Source Anchor SHA:
+  `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Current Master Revalidated SHA:
+  `44219c30f560f07d90048f601b83cd785bae8b91`
 - Runtime authority: `JSON_INTERNAL_ONLY`
 - BLP runtime: `UNKNOWN_NOT_PROVEN_ACTIVE`
+
+The current-master C2/C3 delta does not add BLP/PyBLP to Golden inputs,
+official Replay inputs, settlement truth, or runtime selection.
 
 ## Current Golden relationship
 

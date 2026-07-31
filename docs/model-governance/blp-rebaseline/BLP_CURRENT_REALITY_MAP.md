@@ -3,13 +3,18 @@
 ## Assessment identity
 
 - Repository: `qidianzhiku/SimWar`
-- Source SHA: `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Assessment Source Anchor SHA:
+  `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Current Master Revalidated SHA:
+  `44219c30f560f07d90048f601b83cd785bae8b91`
 - Assessment mode: `READ_ONLY_SOURCE_AND_DOCS_REBASE`
 - Runtime authority: `JSON_INTERNAL_ONLY`
 - Generated for: `CAND-L1P-M0-BLP-FORMAL-REBASE`
 
-This map records current source facts. It does not activate BLP, approve a
-model, or establish a Model Registry.
+This map records source facts first assessed at the anchor and revalidated
+against the current master above. The intervening C2/C3 product delta does not
+introduce a BLP/PyBLP runtime or ModelVersion authority. This map does not
+activate BLP, approve a model, or establish a Model Registry.
 
 ## Evidence basis
 

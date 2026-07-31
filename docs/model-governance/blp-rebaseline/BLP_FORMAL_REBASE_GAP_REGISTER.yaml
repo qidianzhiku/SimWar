@@ -1,7 +1,8 @@
 schema_version: 1
 document_id: SIMWAR-BLP-M0-GAP-REGISTER-001
 repository: qidianzhiku/SimWar
-source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 44219c30f560f07d90048f601b83cd785bae8b91
 runtime_authority: JSON_INTERNAL_ONLY
 status: READ_ONLY_GAP_BASELINE
 external_candidate_baseline:

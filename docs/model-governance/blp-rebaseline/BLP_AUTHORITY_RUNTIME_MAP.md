@@ -2,9 +2,15 @@
 
 ## Source binding
 
-- Source SHA: `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Assessment Source Anchor SHA:
+  `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`
+- Current Master Revalidated SHA:
+  `44219c30f560f07d90048f601b83cd785bae8b91`
 - Active runtime authority: `JSON_INTERNAL_ONLY`
 - BLP runtime status: `UNKNOWN_NOT_PROVEN_ACTIVE`
+
+The current-master delta adds C2/C3 product capabilities but no BLP/PyBLP
+runtime, ModelVersion writer, settlement writer, or Replay writer.
 
 ## Proven authority map
 

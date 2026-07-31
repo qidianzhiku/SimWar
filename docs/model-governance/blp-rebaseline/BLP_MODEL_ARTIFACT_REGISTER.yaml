@@ -1,7 +1,8 @@
 schema_version: 1
 document_id: SIMWAR-BLP-M0-ARTIFACT-REGISTER-001
 repository: qidianzhiku/SimWar
-source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 44219c30f560f07d90048f601b83cd785bae8b91
 runtime_authority: JSON_INTERNAL_ONLY
 generated_for: CAND-L1P-M0-BLP-FORMAL-REBASE
 evidence_priority:
@@ -15,6 +16,7 @@ external_reference:
   document_id: SIMWAR-PROGRAM-M-V2.0
   status: FORMAL_ENGINEERING_BASELINE_CANDIDATE_OWNER_REVIEW
   implementation_claim: NOT_CLAIMED
+  portability: LOCAL_OWNER_EVIDENCE_PATH_NOT_REPOSITORY_PORTABLE
 launch_evidence:
   root: C:\Users\Marshall\AppData\Local\Temp\E-SIMWAR-POST-C1-BOUNDED-PARALLEL-LAUNCH-20260730T112225Z
   artifacts:

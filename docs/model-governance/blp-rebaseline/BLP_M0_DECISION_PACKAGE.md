@@ -2,25 +2,30 @@
 
 ## Decision summary
 
-| Field                         | Value                                      |
-| ----------------------------- | ------------------------------------------ |
-| Candidate                     | `CAND-L1P-M0-BLP-FORMAL-REBASE`            |
-| Source SHA                    | `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` |
-| Lane                          | Read-only source, docs-only output         |
-| Runtime authority             | `JSON_INTERNAL_ONLY`                       |
-| BLP current status            | `REFERENCE_AND_UNKNOWN_NOT_ACTIVE_RUNTIME` |
-| ModelVersion authority        | `UNKNOWN_NOT_IMPLEMENTED`                  |
-| BLP Shadow Replay             | `UNKNOWN_NOT_IMPLEMENTED`                  |
-| C2 impact                     | `NON_BLOCKING`                             |
-| Runtime activation            | `NOT_AUTHORIZED`                           |
-| External candidate            | `SIMWAR-PROGRAM-M-V2.0 / OWNER REVIEW`     |
-| External implementation claim | `NOT CLAIMED`                              |
+| Field                          | Value                                      |
+| ------------------------------ | ------------------------------------------ |
+| Candidate                      | `CAND-L1P-M0-BLP-FORMAL-REBASE`            |
+| Assessment Source Anchor SHA   | `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` |
+| Current Master Revalidated SHA | `44219c30f560f07d90048f601b83cd785bae8b91` |
+| Lane                           | Read-only source, docs-only output         |
+| Runtime authority              | `JSON_INTERNAL_ONLY`                       |
+| BLP current status             | `REFERENCE_AND_UNKNOWN_NOT_ACTIVE_RUNTIME` |
+| ModelVersion authority         | `UNKNOWN_NOT_IMPLEMENTED`                  |
+| BLP Shadow Replay              | `UNKNOWN_NOT_IMPLEMENTED`                  |
+| C2 impact                      | `NON_BLOCKING`                             |
+| Runtime activation             | `NOT_AUTHORIZED`                           |
+| External candidate             | `SIMWAR-PROGRAM-M-V2.0 / OWNER REVIEW`     |
+| External implementation claim  | `NOT CLAIMED`                              |
 
 ## Executive decision
 
 M0 should close as a current-reality rebaseline with explicit unknowns. It
 should not proceed into implementation, dependency selection, calibration,
 Shadow Replay, or runtime activation under this lane.
+
+The C2/C3 delta between the assessment anchor and revalidated current master
+does not add a BLP/PyBLP runtime, ModelVersion authority, or official
+truth/Replay write path.
 
 The current product runtime is complete enough to identify its actual engine:
 the API resolves exact JSON formal inputs and calls the TypeScript
