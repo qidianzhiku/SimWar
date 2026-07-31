@@ -299,7 +299,14 @@ describe("Role Workflow HTTP boundary", () => {
         `/api/v1/runs/${scope.run_id}/rounds/1/decisions`,
         {
           body: {
-            decision_payload: store.decisions[0]?.payload,
+            decision_payload: {
+              capacity_plan: "hold",
+              cash_buffer_target: 0.18,
+              marketing_budget: 145000,
+              pricing: { base_price: 12900 },
+              service_quality_budget: 122000,
+              strategy_statement: "One canonical team plan."
+            },
             team_id: scope.team_id
           },
           method: "POST",
