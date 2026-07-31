@@ -1,0 +1,281 @@
+schema_version: 1
+document_id: SIMWAR-BLP-M0-ARTIFACT-REGISTER-001
+repository: qidianzhiku/SimWar
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 44219c30f560f07d90048f601b83cd785bae8b91
+runtime_authority: JSON_INTERNAL_ONLY
+generated_for: CAND-L1P-M0-BLP-FORMAL-REBASE
+evidence_priority:
+  - current source and tests
+  - fresh CodeGraph and Graphify evidence
+  - repository governance
+  - external BLP RCNL candidate plan
+external_reference:
+  document_path: D:\HuaweiMoveData\Users\Marshall\Desktop\SimWar开发\SimWarL2\BLP\SimWar_独立BLP_RCNL模型开发计划_V2.0_Stage4B整合版_20260727_排版审校版.docx
+  extract_path: C:\Users\Marshall\AppData\Local\Temp\E-SIMWAR-M0-BLP-FORMAL-REBASE-20260730T112225Z\reference-BLP-RCNL-plan-extract.txt
+  document_id: SIMWAR-PROGRAM-M-V2.0
+  status: FORMAL_ENGINEERING_BASELINE_CANDIDATE_OWNER_REVIEW
+  implementation_claim: NOT_CLAIMED
+  portability: LOCAL_OWNER_EVIDENCE_PATH_NOT_REPOSITORY_PORTABLE
+launch_evidence:
+  root: C:\Users\Marshall\AppData\Local\Temp\E-SIMWAR-POST-C1-BOUNDED-PARALLEL-LAUNCH-20260730T112225Z
+  artifacts:
+    - evidence_id: LAUNCH-CODEGRAPH-CG-007
+      relative_path: graphs/codegraph-required/CG-007.txt
+      sha256: 93e735aa2361e61cdb41453396854ae160ab49b0fdedae9b7745bb53ffa01da5
+    - evidence_id: LAUNCH-CODEGRAPH-CG-008
+      relative_path: graphs/codegraph-required/CG-008.txt
+      sha256: 754cccecd3eae44bf23b0e8e177eb8159ed684139638879a0448006315b0e889
+    - evidence_id: LAUNCH-GRAPHIFY-GF-005
+      relative_path: graphs/graphify-required/GF-005.txt
+      sha256: 3aa294749e099b641ace3c9acc3a8e7e098583db638d425128e4916095010cc3
+    - evidence_id: LAUNCH-GRAPHIFY-GF-006
+      relative_path: graphs/graphify-required/GF-006.txt
+      sha256: 1ccc9bae91643cfe040e3180a720bfdaa1d26c331e7f03cce7f3150531833048
+independent_reviewer_corroboration:
+  evidence_id: REVIEWER-REPOSITORY-WIDE-BLP-SCAN
+  evidence_type: REPOSITORY_WIDE_SCAN
+  status: CORROBORATION_ONLY
+  interpretation: NOT_ABSENCE_PROOF
+  finding: No production BLP or PyBLP implementation was identified by the independent repository-wide scan.
+  known_limit: A repository-wide name and symbol scan cannot prove that a dynamically wired or externally supplied implementation is absent.
+allowed_classifications:
+  - ACTIVE_RUNTIME
+  - FIXTURE
+  - REFERENCE
+  - SHADOW
+  - HISTORICAL
+  - UNKNOWN
+artifacts:
+  - artifact_id: ACTIVE-TOY-LOGIT-ENGINE
+    path: services/simulation-core/src/toy-logit-engine.ts
+    symbol: createToyLogitEngine
+    classification: ACTIVE_RUNTIME
+    blp_asset: false
+    runtime_role: Current market, operations, finance, and score engine composition.
+    authority: Existing simulation-core settlement boundary
+    evidence:
+      - services/api/src/simulation.ts:calculateSettlement
+      - launch_graph:LAUNCH-CODEGRAPH-CG-008
+    known_limits:
+      - This engine is toy_logit, not a BLP implementation.
+
+  - artifact_id: ACTIVE-PARAMETER-SET-AUTHORITY
+    path: services/api/src/parameter-set-authority.ts
+    symbol: ParameterSetVersion
+    classification: ACTIVE_RUNTIME
+    blp_asset: false
+    runtime_role: Append-only JSON formal parameter authority.
+    authority: ParameterSetCommandService
+    evidence:
+      - services/api/src/formal-runtime-input-resolver.ts:resolveFormalRuntimeInputsForActiveRun
+      - packages/shared-contracts/src/index.ts:ParameterSet
+    known_limits:
+      - Current runtime materialization admits only model_family toy_logit.
+
+  - artifact_id: MODEL-VERSION-REFERENCE
+    path: services/api/src/parameter-set-authority.ts
+    symbol: ParameterSetVersion.model_version_ref
+    classification: REFERENCE
+    blp_asset: false
+    runtime_role: Reference string copied into the formal Run binding.
+    authority: ParameterSetVersion
+    evidence:
+      - packages/shared-contracts/src/formal-run-runtime-binding.ts:FormalRunRuntimeBinding
+      - services/api/src/formal-run-runtime-binding.ts:createFormalRunRuntimeBinding
+    known_limits:
+      - No source-proven ModelVersion registry resolves this reference.
+
+  - artifact_id: FORMAL-MODEL-VERSION-AUTHORITY
+    path: null
+    symbol: null
+    classification: UNKNOWN
+    blp_asset: false
+    runtime_role: Not proven.
+    authority: UNKNOWN
+    evidence:
+      - launch_graph:LAUNCH-CODEGRAPH-CG-007
+      - launch_graph:LAUNCH-GRAPHIFY-GF-005
+      - independent_review:REVIEWER-REPOSITORY-WIDE-BLP-SCAN
+    known_limits:
+      - No lifecycle entity, command service, registry port, or approval store was found.
+      - Repository-wide scan corroboration is not proof of absence.
+
+  - artifact_id: BLP-RUNTIME-IMPLEMENTATION
+    path: null
+    symbol: null
+    classification: UNKNOWN
+    blp_asset: true
+    runtime_role: Not proven.
+    authority: NONE_PROVEN
+    evidence:
+      - launch_graph:LAUNCH-CODEGRAPH-CG-007
+      - launch_graph:LAUNCH-GRAPHIFY-GF-005
+      - independent_review:REVIEWER-REPOSITORY-WIDE-BLP-SCAN
+    known_limits:
+      - No BLP or PyBLP production implementation or dependency was found.
+      - Repository-wide scan corroboration is not proof of absence.
+
+  - artifact_id: BLP-MODEL-ENGINEERING-CONTRACT
+    path: docs/contracts/model-engineering-contract.md
+    symbol: null
+    classification: REFERENCE
+    blp_asset: true
+    runtime_role: Architecture and engineering intent.
+    authority: Documentation only
+    evidence:
+      - docs/technical/L1_TARGET_MODE_EXECUTION_SPEC.md
+    known_limits:
+      - Contains broad target-state statements and historical citation remnants.
+      - Does not prove current implementation or activation.
+
+  - artifact_id: SYSTEM-ARCHITECTURE-BLP-SECTIONS
+    path: docs/architecture/system-architecture.md
+    symbol: null
+    classification: HISTORICAL
+    blp_asset: true
+    runtime_role: Long-term architecture description.
+    authority: Documentation only
+    evidence:
+      - docs/technical/L1_TARGET_MODE_EXECUTION_SPEC.md
+    known_limits:
+      - Must be corroborated by current source before use as a runtime fact.
+
+  - artifact_id: MODEL-CALL-LOG-SCHEMA
+    path: contracts/schemas/model-call-log.v1.json
+    symbol: ModelCallLog
+    classification: REFERENCE
+    blp_asset: false
+    runtime_role: Advisory model-call contract.
+    authority: Contract only
+    evidence:
+      - packages/shared-contracts/src/index.ts:ModelCallLog
+      - launch_graph:LAUNCH-GRAPHIFY-GF-005
+    known_limits:
+      - No active writer or model provider is proven.
+
+  - artifact_id: MODEL-CALL-LOG-FIXTURE
+    path: contracts/fixtures/model-call-log.valid.json
+    symbol: null
+    classification: FIXTURE
+    artifact_kind: TEST_EVIDENCE
+    blp_asset: false
+    runtime_role: Contract sample only.
+    authority: None
+    evidence:
+      - contracts/schemas/model-call-log.v1.json
+    known_limits:
+      - Fixture existence is not runtime evidence.
+
+  - artifact_id: GOLDEN-M1-TOY-LOGIT
+    path: tests/integration/default-persisted-authority-full-golden-chain.test.ts
+    symbol: null
+    classification: FIXTURE
+    blp_asset: false
+    runtime_role: Current exact-authority Golden evidence for toy_logit.
+    authority: Test evidence
+    evidence:
+      - tests/integration/course-blueprint-golden-non-interference.test.ts
+      - launch_graph:LAUNCH-GRAPHIFY-GF-006
+    known_limits:
+      - Does not exercise BLP.
+
+  - artifact_id: REPLAY-HASH-IMPLEMENTATION
+    path: services/api/src/simulation.ts
+    symbol: buildReplayHash
+    classification: ACTIVE_RUNTIME
+    blp_asset: false
+    runtime_role: Deterministic current settlement replay hash.
+    authority: Existing settlement path
+    evidence:
+      - services/api/src/run-manifest-replay-evidence.ts:createM1RunReplayEvidence
+      - launch_graph:LAUNCH-CODEGRAPH-CG-008
+    known_limits:
+      - model_version_ref is not an explicit legacy replay-hash field.
+
+  - artifact_id: BLP-SHADOW-REPLAY
+    path: null
+    symbol: null
+    classification: UNKNOWN
+    blp_asset: true
+    runtime_role: Not proven.
+    authority: NONE_PROVEN
+    evidence:
+      - tests/integration/l1-internal-validation-rehearsal-gate.test.ts
+      - docs/technical/L1_TARGET_MODE_EXECUTION_SPEC.md
+    known_limits:
+      - Current evidence explicitly says no shadow replay HTTP route is present.
+      - Alignment documents are not execution proof.
+
+  - artifact_id: EXTERNAL-PYBLP-REFERENCE-ENGINE-TARGET
+    path: null
+    symbol: null
+    classification: REFERENCE
+    blp_asset: true
+    runtime_role: Candidate offline estimation, diagnostics, and counterfactual reference engine.
+    authority: Candidate Model Engineering Service
+    evidence:
+      - external_reference:SIMWAR-PROGRAM-M-V2.0
+    known_limits:
+      - No current repository dependency, adapter, artifact, or execution evidence was found.
+
+  - artifact_id: EXTERNAL-SIMWAR-BLP-RUNTIME-TARGET
+    path: null
+    symbol: null
+    classification: REFERENCE
+    blp_asset: true
+    runtime_role: Candidate deterministic online producer of DemandEstimate only.
+    authority: Candidate BLP runtime; never official Truth writer
+    evidence:
+      - external_reference:SIMWAR-PROGRAM-M-V2.0
+    known_limits:
+      - No current runtime implementation or activation evidence was found.
+      - Simulation Core L1-L3 must remain the official writer.
+
+  - artifact_id: EXTERNAL-MODEL-VERSION-TARGET
+    path: null
+    symbol: BLPModelVersion
+    classification: REFERENCE
+    blp_asset: true
+    runtime_role: Candidate immutable governed model artifact identity.
+    authority: Candidate Model Governance Service
+    evidence:
+      - external_reference:SIMWAR-PROGRAM-M-V2.0
+    known_limits:
+      - Current model_version_ref string is not this authority.
+      - Agent and AI mutation is forbidden.
+
+  - artifact_id: EXTERNAL-DIFFERENTIAL-GOLDEN-TARGET
+    path: null
+    symbol: null
+    classification: REFERENCE
+    blp_asset: true
+    runtime_role: Candidate PyBLP-reference versus SimWar-runtime differential evidence.
+    authority: Test and model-validation evidence only
+    evidence:
+      - external_reference:SIMWAR-PROGRAM-M-V2.0
+    known_limits:
+      - No current Differential Golden suite was found.
+
+  - artifact_id: EXTERNAL-STAGE4B-RUNTIME-PREFERENCE-STATE-TARGET
+    path: null
+    symbol: CohortRuntimePreferenceStateSnapshot
+    classification: REFERENCE
+    blp_asset: false
+    runtime_role: Candidate bounded and expiring input to a future BLP runtime.
+    authority: Candidate deterministic Runtime Preference State Adapter
+    evidence:
+      - external_reference:SIMWAR-PROGRAM-M-V2.0
+    known_limits:
+      - No current Resolver, state authority, compatibility profile, or BLP bridge was found.
+      - It must never mutate ModelVersion or ParameterSet.
+explicit_non_proofs:
+  - BLP is active.
+  - BLP is calibrated.
+  - A ModelVersion registry exists.
+  - BLP Shadow Replay is implemented.
+  - Stage 4B Runtime Preference State is implemented.
+  - M-RB0 through M-RB3 have passed.
+  - Real-industry predictive validity is proven.
+  - PostgreSQL is active.
+  - Pilot or Production is authorized.
