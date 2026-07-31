@@ -2,11 +2,12 @@
 
 ## Scope
 
-This is a static, source-SHA-bound impact map for
-`1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`. It does not prove that a
+This static impact map was assessed at source anchor
+`1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` and revalidated against current
+master `050fcd5093b2edf9612ee297e639c48329613ae4`. It does not prove that a
 Stakeholder Plane exists or executes. CodeGraph call relationships are source
-navigation evidence; Graphify clusters are impact hints. Dynamic wiring remains
-`UNKNOWN` until a later executable gate.
+navigation evidence; Graphify clusters are impact hints. Dynamic wiring
+remains `UNKNOWN` until a later executable gate.
 
 ## Current and Candidate Planes
 
@@ -40,7 +41,7 @@ flowchart LR
 
   SAFE -. "candidate read, least privilege" .-> CTX
   CB -. "candidate exact reference" .-> CTX
-  SHADOW -. "future separately gated adapter" .-> CORE
+  SHADOW -. "T4_NOT_AUTHORIZED / FUTURE_CANDIDATE_ONLY" .-> CORE
 
   PROP -. "FORBIDDEN" .-> OFFICIAL
   RES -. "FORBIDDEN" .-> OFFICIAL
@@ -96,18 +97,27 @@ ParameterSet / ScenarioPackage / CourseBlueprint lifecycle authorities
 No proposal, resolved signal, private memory, model output, or runtime
 preference state may enter those writer paths directly.
 
-## C2 Collision Forecast
+## Current Closure And Collision Forecast
 
-STK-S0 currently has zero file overlap with C2. Future implementation must treat
-these resources as conflicts requiring serialization:
+C2 and C3 are `CLOSED_AND_CURRENT` at the revalidated master, and their
+execution locks are released. M0 is adopted as a documentation-only baseline;
+M1 remains a separate isolated reference-POC lane and is not an active runtime
+dependency. STK-S0 has zero current product-file overlap.
+
+Any future STK-S1 implementation must treat these resources as conflicts
+requiring a separately authorized serial join:
 
 - `packages/shared-contracts/**`;
 - `services/api/src/server.ts`;
 - `services/api/src/course-blueprint-authority.ts`;
 - `services/api/src/teacher-course-blueprint-service.ts`;
+- `services/api/src/role-workflow.ts`;
 - `services/api/src/teacher-student-bff-dto.ts`;
 - `apps/teacher/src/App.tsx`;
+- `apps/student/src/App.tsx`;
 - CourseBlueprint contract fixtures and contract tests;
+- Role Workflow contracts and `tests/integration/role-workflow-endpoint.test.ts`;
+- canonical Decision and formal confirmation paths;
 - Run/Replay/Golden tests.
 
 ## Graph Limits

@@ -1,8 +1,9 @@
 schema_version: 1
 document_id: SIMWAR-STK-S0-CONTRACT-CANDIDATES
-source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 050fcd5093b2edf9612ee297e639c48329613ae4
 status: CANDIDATE_ONLY_NOT_AUTHORIZED
-current_implementation: NOT_FOUND_AT_SOURCE_SHA
+current_implementation: NOT_FOUND_AT_REVALIDATED_SHA
 runtime_authority: JSON_INTERNAL_ONLY
 graph_semantics: NAVIGATION_ONLY_NOT_RUNTIME_TRUTH
 external_baseline:
@@ -12,6 +13,11 @@ global_invariants:
   stage4b_default_mode: "OFF"
   additional_properties: false
   tenant_context_required: true
+  processing_basis_required: true
+  purpose_required: true
+  retention_policy_required: true
+  pseudonymization_policy_required: true
+  real_person_data_authorized: false
   provider_call_in_official_replay: false
   formal_write_authority: false
   forbidden_fields:

@@ -4,9 +4,10 @@
 
 `ACCEPTED_FOR_S0_DISCOVERY_ONLY`
 
-This ADR is bound to source SHA
-`1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`. It does not authorize S1, S2,
-runtime activation, shared-contract mutation, a provider, real data, or a
+This ADR uses assessment source anchor
+`1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` and current-master revalidation
+SHA `050fcd5093b2edf9612ee297e639c48329613ae4`. It does not authorize S1,
+S2, runtime activation, shared-contract mutation, a provider, real data, or a
 product surface.
 
 ## Context

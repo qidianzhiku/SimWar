@@ -1,6 +1,7 @@
 schema_version: 1
 document_id: SIMWAR-STK-S0-RESOURCE-LOCK-RECOMMENDATION
-source_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 050fcd5093b2edf9612ee297e639c48329613ae4
 status: RECOMMENDATION_ONLY
 locks_acquired_by_stk_s0:
   - resource: docs/stage4b/stk-s0
@@ -39,26 +40,55 @@ resources:
     gate: PROGRAM_M_FORMAL_REBASE_AND_S2_GATE
     confidence: LOW
   - resource: packages/shared-contracts
-    current_status: READ_ONLY_NOT_ACQUIRED
+    current_status: RELEASED_AFTER_C3_GOVERNANCE
     future_mode: SINGLE_WRITER
     proposed_owner: SHARED_CONTRACT_OWNER
     conflicting_candidates:
-      - CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
-    gate: C2_RELEASE_AND_EXACT_ALLOWLIST
+      - CAND-L1P-C4-INSTRUCTOR_DEBRIEF_KIT
+      - CAND-L1P-D1-LEARNING_GOAL_RUBRIC_CONTRACTS
+      - STK-S1
+    gate: SEPARATE_ADMISSION_AND_EXACT_ALLOWLIST
     confidence: HIGH
   - resource: CourseBlueprintCommandService
-    current_status: C2_MAINLINE_OWNER
+    current_status: C2_CLOSED_LOCK_RELEASED
     future_mode: READ_ONLY_FOR_STK
-    proposed_owner: C2
+    proposed_owner: COURSE_BLUEPRINT_AUTHORITY
     gate: NO_STK_WRITE
     confidence: HIGH
   - resource: Teacher_BFF_AND_APP
-    current_status: C2_MAINLINE_OWNER
+    current_status: C2_C3_CLOSED_LOCK_RELEASED
     future_mode: SERIAL_MAINLINE_ONLY
     proposed_owner: PROGRAM_C_OR_LATER_MAINLINE
     conflicting_candidates:
-      - CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
-    gate: C2_RELEASE_AND_PRODUCT_ADMISSION
+      - CAND-L1P-C4-INSTRUCTOR_DEBRIEF_KIT
+      - STK-S1
+    gate: SEPARATE_PRODUCT_ADMISSION
+    confidence: HIGH
+  - resource: RoleWorkflowCommandService
+    current_status: C3_CLOSED_LOCK_RELEASED
+    future_mode: READ_ONLY_FOR_STK
+    proposed_owner: ROLE_WORKFLOW_AUTHORITY
+    gate: NO_STK_WRITE
+    confidence: HIGH
+  - resource: ROLE_WORKFLOW_JSON_REGISTRY
+    current_status: C3_CLOSED_LOCK_RELEASED
+    future_mode: READ_ONLY_FOR_STK
+    proposed_owner: ROLE_WORKFLOW_AUTHORITY
+    gate: NO_STK_DIRECT_STORE_OR_SECOND_REGISTRY
+    confidence: HIGH
+  - resource: Student_BFF_AND_APP
+    current_status: C3_CLOSED_LOCK_RELEASED
+    future_mode: SERIAL_MAINLINE_ONLY
+    proposed_owner: PROGRAM_C_OR_LATER_MAINLINE
+    conflicting_candidates:
+      - STK-S1
+    gate: STUDENT_VISIBILITY_AND_SEPARATE_PRODUCT_ADMISSION
+    confidence: HIGH
+  - resource: Canonical_Decision
+    current_status: ACTIVE_RUNTIME_PROTECTED
+    future_mode: NO_STK_WRITE
+    proposed_owner: FORMAL_DECISION_CHAIN
+    gate: PERMANENT_BOUNDARY
     confidence: HIGH
   - resource: Learning_Evidence
     current_status: DEFERRED_PROGRAM_D
@@ -90,25 +120,40 @@ resources:
     proposed_owner: MODEL_AND_PARAMETER_GOVERNANCE
     gate: PERMANENT_NO_AGENT_OR_RESOLVER_WRITE
     confidence: HIGH
+  - resource: PYBLP_REFERENCE_POC
+    current_status: M0_ADOPTED_M1_SEPARATE_SUPPORT_LANE_NOT_RUNTIME
+    future_mode: ISOLATED_REFERENCE_TOOL_ONLY
+    proposed_owner: PROGRAM_M_M1_SUPPORT
+    gate: NO_CLASSROOM_RUNTIME_NO_TRUTH_WRITE
+    confidence: HIGH
   - resource: Heavy_Validation_Host
-    current_status: C2_ONLY
+    current_status: AVAILABLE_AFTER_C3_CLOSURE
     future_mode: ONE_AT_A_TIME
     proposed_owner: ORCHESTRATOR
     gate: SERIAL_SCHEDULER
     confidence: HIGH
-c2_file_conflicts:
+current_cross_lane_conflicts:
   current_overlap_count: 0
   future_serialization_required:
     - packages/shared-contracts/**
     - services/api/src/server.ts
     - services/api/src/course-blueprint-authority.ts
     - services/api/src/teacher-course-blueprint-service.ts
+    - services/api/src/role-workflow.ts
     - services/api/src/teacher-student-bff-dto.ts
     - apps/teacher/src/App.tsx
+    - apps/student/src/App.tsx
     - contracts/**
     - tests/contract/**
     - tests/integration/course-blueprint-*
+    - tests/integration/role-workflow-endpoint.test.ts
+    - tests/integration/*decision*
+    - tests/replay/**
 join_rules:
+  c2_closed_and_current: true
+  c3_closed_and_current: true
+  m0_adopted_documentation_only: true
+  m1_is_separate_non_runtime_support_lane: true
   s0_may_continue_read_only: true
   s1_may_start_automatically: false
   s2_may_start_automatically: false

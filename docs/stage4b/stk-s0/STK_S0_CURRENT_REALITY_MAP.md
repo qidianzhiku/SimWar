@@ -2,22 +2,24 @@
 
 ## Record
 
-| Field                               | Value                                      |
-| ----------------------------------- | ------------------------------------------ |
-| Candidate                           | `CAND-L1P-STK-S0-IMPACT-ADR`               |
-| Lane                                | `AUTHORIZED_ACTIVE_READ_ONLY`              |
-| Source SHA                          | `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` |
-| Runtime authority                   | `JSON_INTERNAL_ONLY`                       |
-| Stakeholder Plane runtime           | `NOT_IMPLEMENTED_OR_PROVEN_AT_SOURCE_SHA`  |
-| Stage 4B activation                 | `NOT_IMPLEMENTED; EFFECTIVELY_INACTIVE`    |
-| Product, contract, runtime mutation | `FORBIDDEN_IN_STK-S0`                      |
+| Field                          | Value                                      |
+| ------------------------------ | ------------------------------------------ |
+| Candidate                      | `CAND-L1P-STK-S0-IMPACT-ADR`               |
+| Lane                           | `AUTHORIZED_ACTIVE_READ_ONLY`              |
+| Assessment Source Anchor SHA   | `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8` |
+| Current Master Revalidated SHA | `050fcd5093b2edf9612ee297e639c48329613ae4` |
+| Runtime authority              | `JSON_INTERNAL_ONLY`                       |
+| Stakeholder Plane runtime      | `NOT_IMPLEMENTED_OR_PROVEN`                |
+| Stage 4B activation            | `NOT_IMPLEMENTED; EFFECTIVELY_INACTIVE`    |
+| Product/contract mutation      | `FORBIDDEN_IN_STK-S0`                      |
 
-This record is a source-SHA-bound discovery result. CodeGraph and Graphify are
-navigation evidence, not Runtime Truth. The current source tree has no
+This record was assessed at the anchor and revalidated against the current
+master above. CodeGraph and Graphify are navigation evidence, not Runtime
+Truth. The revalidated source tree has no
 `stakeholder` or `stage 4b` symbol match under `apps/`, `services/`, `packages/`,
 `contracts/`, or `tests/`. Absence from static graphs alone would not prove
 absence; the exact-source search corroborates that no named Stage 4B runtime is
-present at this SHA.
+present. The intervening C2/C3 and M0 changes do not activate STK.
 
 The external Program M / Stage 4B material is classified
 `BASELINE_CANDIDATE / DOCUMENTED_ONLY`. The original artifact is

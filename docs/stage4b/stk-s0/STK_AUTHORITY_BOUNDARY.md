@@ -2,10 +2,12 @@
 
 ## Decision
 
-At source SHA `1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`,
-Stakeholder Plane authority is `NONE`. Stage 4B is OFF and no current resolver,
-proposal store, signal store, runtime-state adapter, provider, route, or product
-surface is proven.
+At assessment source anchor
+`1a13d81a43f667d80d3da2eaffe8aae8e48b45f8`, and after revalidation against
+current master `050fcd5093b2edf9612ee297e639c48329613ae4`, Stakeholder Plane
+authority is `NONE`. Stage 4B is OFF and no current resolver, proposal store,
+signal store, runtime-state adapter, provider, route, or product surface is
+proven.
 
 S0 is documentation-only. It neither grants future write authority nor reserves
 an implementation path.
