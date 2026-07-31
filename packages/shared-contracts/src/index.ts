@@ -480,7 +480,7 @@ export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermis
     can_save_section: true,
     can_mark_ready: true,
     can_create_merge_commit: false,
-    can_confirm_team_decision: true,
+    can_confirm_team_decision: false,
     can_submit_canonical_decision: false,
     editable_fields: ["cash_buffer_target", "service_quality_budget"],
     visible_scopes: ["team.finance_summary", "round.state_obs"],
@@ -494,7 +494,7 @@ export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermis
     can_save_section: true,
     can_mark_ready: true,
     can_create_merge_commit: false,
-    can_confirm_team_decision: true,
+    can_confirm_team_decision: false,
     can_submit_canonical_decision: false,
     editable_fields: ["pricing.base_price", "marketing_budget"],
     visible_scopes: ["team.market_summary", "round.state_obs"],
@@ -508,7 +508,7 @@ export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermis
     can_save_section: true,
     can_mark_ready: true,
     can_create_merge_commit: false,
-    can_confirm_team_decision: true,
+    can_confirm_team_decision: false,
     can_submit_canonical_decision: false,
     editable_fields: ["capacity_plan", "service_quality_budget"],
     visible_scopes: ["team.operations_summary", "round.state_obs"],
@@ -634,6 +634,7 @@ export function isRoleContext(value: unknown): value is RoleContext {
 
 export interface RoleDecisionSection {
   section_id: string;
+  assignment_id?: string;
   tenant_id: string;
   run_id: string;
   round_id: string;
@@ -1566,6 +1567,7 @@ export function actorHasPermission(actor: CurrentUser, permission: PermissionKey
 
 export * from "./scenario-factory.js";
 export * from "./scenario-alignment.js";
+export * from "./role-workflow.js";
 export * from "./scenario-selection.js";
 export * from "./teacher-formal-scenario-package-catalog.js";
 export * from "./teacher-formal-course-binding.js";

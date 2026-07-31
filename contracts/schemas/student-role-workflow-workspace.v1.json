@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/student-role-workflow-workspace.v1.json",
+  "title": "Student Role Workflow Workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "context", "assignment"],
+  "properties": {
+    "schema_version": { "const": "student-role-workflow-workspace.v1" },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_context_id",
+        "tenant_id",
+        "user_id",
+        "course_id",
+        "run_id",
+        "round_id",
+        "round_no",
+        "team_id",
+        "assignment_id",
+        "role_key",
+        "role_template_id",
+        "permissions",
+        "source",
+        "expires_at"
+      ],
+      "properties": {
+        "role_context_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "user_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "assignment_id": { "type": "string", "minLength": 1 },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+        "role_template_id": { "type": "string", "minLength": 1 },
+        "permissions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy_id",
+            "role_key",
+            "schema_version",
+            "can_read_role_workspace",
+            "can_save_section",
+            "can_mark_ready",
+            "can_create_merge_commit",
+            "can_confirm_team_decision",
+            "can_submit_canonical_decision",
+            "editable_fields",
+            "visible_scopes",
+            "advisory_scopes"
+          ],
+          "properties": {
+            "policy_id": { "type": "string" },
+            "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+            "schema_version": { "const": "role-permission-policy.v1" },
+            "can_read_role_workspace": { "type": "boolean" },
+            "can_save_section": { "type": "boolean" },
+            "can_mark_ready": { "type": "boolean" },
+            "can_create_merge_commit": { "type": "boolean" },
+            "can_confirm_team_decision": { "type": "boolean" },
+            "can_submit_canonical_decision": { "type": "boolean" },
+            "editable_fields": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "pricing.base_price",
+                  "marketing_budget",
+                  "service_quality_budget",
+                  "capacity_plan",
+                  "cash_buffer_target",
+                  "strategy_statement"
+                ]
+              }
+            },
+            "visible_scopes": { "type": "array", "items": { "type": "string" } },
+            "advisory_scopes": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "source": { "const": "resolved_from_assignment" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assignment_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "user_id",
+        "role_key",
+        "role_template_id",
+        "status",
+        "source",
+        "assigned_at"
+      ],
+      "properties": {
+        "assignment_id": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "course_id": { "type": "string" },
+        "run_id": { "type": "string" },
+        "team_id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+        "role_template_id": { "type": "string" },
+        "status": { "enum": ["active", "inactive"] },
+        "source": { "enum": ["teacher_assigned", "seeded_default"] },
+        "assigned_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "section_id",
+        "tenant_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "role_key",
+        "status",
+        "payload",
+        "version",
+        "submitted_by",
+        "submitted_at",
+        "updated_at"
+      ],
+      "properties": {
+        "section_id": { "type": "string" },
+        "assignment_id": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "run_id": { "type": "string" },
+        "round_id": { "type": "string" },
+        "team_id": { "type": "string" },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+        "status": { "enum": ["draft", "ready"] },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pricing": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["base_price"],
+              "properties": { "base_price": { "type": "number" } }
+            },
+            "marketing_budget": { "type": "number" },
+            "service_quality_budget": { "type": "number" },
+            "capacity_plan": { "enum": ["contract", "hold", "expand"] },
+            "cash_buffer_target": { "type": "number" },
+            "strategy_statement": { "type": "string" }
+          }
+        },
+        "version": { "type": "integer", "minimum": 1 },
+        "submitted_by": { "type": "string" },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "merge_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["merge_commit_id", "status", "created_at"],
+      "properties": {
+        "merge_commit_id": { "type": "string" },
+        "status": { "const": "validated" },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "confirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "confirmed_at"],
+      "properties": {
+        "status": { "const": "confirmed" },
+        "confirmed_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
