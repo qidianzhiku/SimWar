@@ -41,6 +41,7 @@ import {
   type TeacherCourseBlueprintStudioPreview,
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
+import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -969,6 +970,21 @@ export function App() {
             </ul>
           </details>
         </section>
+      ) : null}
+
+      {session ? (
+        <RoleWorkflowPanel
+          active={selectedRound?.status === "open"}
+          courseId={selectedRun?.course_id}
+          disabled={busy || selectedRound?.status !== "open"}
+          roundId={selectedRound?.round_id}
+          runId={selectedRun?.run_id}
+          teams={
+            state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? []
+          }
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
       ) : null}
 
       {session ? (

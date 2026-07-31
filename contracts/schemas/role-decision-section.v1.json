@@ -19,6 +19,7 @@
   ],
   "properties": {
     "section_id": { "type": "string", "minLength": 1 },
+    "assignment_id": { "type": "string", "minLength": 1 },
     "tenant_id": { "type": "string", "minLength": 1 },
     "run_id": { "type": "string", "minLength": 1 },
     "round_id": { "type": "string", "minLength": 1 },

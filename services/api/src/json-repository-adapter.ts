@@ -22,6 +22,8 @@ import type {
   RepositorySnapshotQuery,
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
+  RoleWorkflowCommitCommand,
+  RoleWorkflowRepositoryPort,
   SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort,
   SimWarRepositoryPorts
@@ -64,6 +66,130 @@ interface JsonRepositoryAdapterCollections {
   replayDiffReports: ReplayDiffReport[];
 }
 
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+/**
+ * Single JSON canonical Decision write primitive.
+ *
+ * Role Workflow uses it inside a larger compensating transaction, while the
+ * public Decision repository port uses it for standalone canonical writes.
+ */
+function saveCanonicalDecisionToJsonStore(store: SimWarStore, decision: Decision): void {
+  const index = store.decisions.findIndex(
+    (candidate) =>
+      candidate.tenant_id === decision.tenant_id && candidate.decision_id === decision.decision_id
+  );
+
+  if (index >= 0) {
+    store.decisions[index] = decision;
+  } else {
+    store.decisions.push(decision);
+  }
+}
+
+export function createJsonRoleWorkflowRepositoryPort(
+  store: SimWarStore
+): RoleWorkflowRepositoryPort {
+  return {
+    readRoleWorkflow(query) {
+      const run =
+        store.runs.find(
+          (candidate) =>
+            candidate.tenant_id === query.tenant_id && candidate.run_id === query.run_id
+        ) ?? null;
+      const team =
+        store.teams.find(
+          (candidate) =>
+            candidate.tenant_id === query.tenant_id && candidate.team_id === query.team_id
+        ) ?? null;
+      const round = query.round_id
+        ? (store.rounds.find(
+            (candidate) =>
+              candidate.tenant_id === query.tenant_id &&
+              candidate.run_id === query.run_id &&
+              candidate.round_id === query.round_id
+          ) ?? null)
+        : null;
+      const course = run
+        ? (store.courses.find(
+            (candidate) =>
+              candidate.tenant_id === query.tenant_id && candidate.course_id === run.course_id
+          ) ?? null)
+        : null;
+      const inWorkflow = (candidate: {
+        tenant_id: string;
+        run_id: string;
+        team_id: string;
+        round_id?: string;
+      }) =>
+        candidate.tenant_id === query.tenant_id &&
+        candidate.run_id === query.run_id &&
+        candidate.team_id === query.team_id &&
+        (!query.round_id || !candidate.round_id || candidate.round_id === query.round_id);
+
+      return clone({
+        assignments: store.studentRoleAssignments.filter((candidate) => inWorkflow(candidate)),
+        confirmations: store.teamConfirmations.filter((candidate) => inWorkflow(candidate)),
+        course,
+        decisions: store.decisions.filter((candidate) => inWorkflow(candidate)),
+        events: store.roleWorkflowEvents.filter((candidate) => inWorkflow(candidate)),
+        merge_commits: store.decisionMergeCommits.filter((candidate) => inWorkflow(candidate)),
+        round,
+        run,
+        sections: store.roleDecisionSections.filter((candidate) => inWorkflow(candidate)),
+        team
+      });
+    },
+
+    commitRoleWorkflow(command: RoleWorkflowCommitCommand): void {
+      const previous = {
+        assignments: clone(store.studentRoleAssignments),
+        confirmations: clone(store.teamConfirmations),
+        decisions: clone(store.decisions),
+        events: clone(store.roleWorkflowEvents),
+        mergeCommits: clone(store.decisionMergeCommits),
+        sections: clone(store.roleDecisionSections)
+      };
+      try {
+        switch (command.kind) {
+          case "append_assignment":
+            store.studentRoleAssignments.push(clone(command.assignment));
+            break;
+          case "append_section":
+            store.roleDecisionSections.push(clone(command.section));
+            break;
+          case "append_merge":
+            store.decisionMergeCommits.push(clone(command.merge_commit));
+            break;
+          case "append_confirmation":
+            store.teamConfirmations.push(clone(command.confirmation));
+            saveCanonicalDecisionToJsonStore(store, clone(command.decision));
+            break;
+          case "reset":
+            for (const assignment of store.studentRoleAssignments) {
+              if (command.assignment_ids.includes(assignment.assignment_id)) {
+                assignment.status = "inactive";
+              }
+            }
+            break;
+        }
+        store.roleWorkflowEvents.push(clone(command.event));
+        store.persist();
+      } catch (error) {
+        store.studentRoleAssignments = previous.assignments;
+        store.teamConfirmations = previous.confirmations;
+        store.decisions = previous.decisions;
+        store.roleWorkflowEvents = previous.events;
+        store.decisionMergeCommits = previous.mergeCommits;
+        store.roleDecisionSections = previous.sections;
+        throw error;
+      }
+    }
+  };
+}
+
 /**
  * JSON persistence seam for formal ScenarioPackage, ParameterSet, and PluginRelease authority
  * registries. It is deliberately separate from API route composition.
@@ -101,7 +227,8 @@ export function createJsonFormalScenarioAuthorityPersistence(
   };
 
   return Object.freeze({
-    createCourseBlueprintRegistry: () => new InMemoryJsonCourseBlueprintRegistry(courseBlueprintOptions),
+    createCourseBlueprintRegistry: () =>
+      new InMemoryJsonCourseBlueprintRegistry(courseBlueprintOptions),
     createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
     createPluginReleaseRegistry: () => new InMemoryJsonPluginReleaseRegistry(pluginReleaseOptions),
     createScenarioPackageRegistry: () =>
@@ -699,34 +826,12 @@ export function createJsonRepositoryPorts(
       },
 
       async saveCanonicalDecision(decision): Promise<void> {
-        const index = store.decisions.findIndex(
-          (candidate) =>
-            candidate.tenant_id === decision.tenant_id &&
-            candidate.decision_id === decision.decision_id
-        );
-
-        if (index >= 0) {
-          store.decisions[index] = decision;
-        } else {
-          store.decisions.push(decision);
-        }
-
+        saveCanonicalDecisionToJsonStore(store, decision);
         store.persist();
       },
 
       async saveDecision(decision): Promise<void> {
-        const index = store.decisions.findIndex(
-          (candidate) =>
-            candidate.tenant_id === decision.tenant_id &&
-            candidate.decision_id === decision.decision_id
-        );
-
-        if (index >= 0) {
-          store.decisions[index] = decision;
-        } else {
-          store.decisions.push(decision);
-        }
-
+        saveCanonicalDecisionToJsonStore(store, decision);
         store.persist();
       }
     },
@@ -908,6 +1013,8 @@ export function createJsonRepositoryPorts(
           ) ?? null
         );
       }
-    }
+    },
+
+    roleWorkflow: createJsonRoleWorkflowRepositoryPort(store)
   };
 }

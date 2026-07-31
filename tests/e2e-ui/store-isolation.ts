@@ -118,4 +118,8 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
       await import("./r7-golden-m1-scenario-readiness-fixture");
     seedR7GoldenM1ScenarioReadinessFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_ROLE_WORKFLOW === "true") {
+    const { seedRoleWorkflowFixture } = await import("./role-workflow-fixture");
+    seedRoleWorkflowFixture(PLAYWRIGHT_STORE_FILE);
+  }
 }

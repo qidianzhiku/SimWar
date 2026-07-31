@@ -2,6 +2,7 @@ import type {
   AuditLog,
   Course,
   Decision,
+  DecisionMergeCommit,
   DomainEvent,
   ParameterSet,
   ReplayDiffReport,
@@ -9,11 +10,15 @@ import type {
   ReplayReport,
   ReplayRun,
   Round,
+  RoleDecisionSection,
+  RoleWorkflowEvent,
   Run,
   ScenarioPackage,
   SettlementResult,
   StateSnapshot,
-  Team
+  StudentRoleAssignment,
+  Team,
+  TeamConfirmation
 } from "@simwar/shared-contracts";
 
 /**
@@ -178,6 +183,10 @@ export interface DecisionRepositoryPort {
 
   saveCanonicalDecision(decision: Decision): Promise<void>;
 
+  /**
+   * @deprecated Compatibility alias for pre-command-port callers.
+   * New runtime command paths must use saveCanonicalDecision.
+   */
   saveDecision(decision: Decision): Promise<void>;
 }
 
@@ -279,6 +288,59 @@ export interface ReplayRepositoryPort {
   ): Promise<ReplayDiffReport | null>;
 }
 
+export interface RoleWorkflowRepositoryQuery {
+  tenant_id: RepositoryId;
+  run_id: RepositoryId;
+  team_id: RepositoryId;
+  round_id?: RepositoryId;
+}
+
+export interface RoleWorkflowRepositorySnapshot {
+  course: Course | null;
+  run: Run | null;
+  round: Round | null;
+  team: Team | null;
+  assignments: StudentRoleAssignment[];
+  sections: RoleDecisionSection[];
+  merge_commits: DecisionMergeCommit[];
+  confirmations: TeamConfirmation[];
+  decisions: Decision[];
+  events: RoleWorkflowEvent[];
+}
+
+export type RoleWorkflowCommitCommand =
+  | {
+      kind: "append_assignment";
+      assignment: StudentRoleAssignment;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "append_section";
+      section: RoleDecisionSection;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "append_merge";
+      merge_commit: DecisionMergeCommit;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "append_confirmation";
+      confirmation: TeamConfirmation;
+      decision: Decision;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "reset";
+      assignment_ids: RepositoryId[];
+      event: RoleWorkflowEvent;
+    };
+
+export interface RoleWorkflowRepositoryPort {
+  readRoleWorkflow(query: RoleWorkflowRepositoryQuery): RoleWorkflowRepositorySnapshot;
+  commitRoleWorkflow(command: RoleWorkflowCommitCommand): void;
+}
+
 /**
  * Command/write path repository contracts for staged migration work.
  *
@@ -290,11 +352,10 @@ export interface ReplayRepositoryPort {
  */
 
 /**
- * Persist a submitted Decision exactly as produced by the current command
- * path. This does not make role drafts canonical and must not change the
- * canonical / latest decision selection logic.
+ * Persist a canonical Decision exactly as produced by the authorized command
+ * path. Role drafts and merge candidates are not accepted by this port.
  */
-export type DecisionCommandRepositoryPort = Pick<DecisionRepositoryPort, "saveDecision">;
+export type DecisionCommandRepositoryPort = Pick<DecisionRepositoryPort, "saveCanonicalDecision">;
 
 /**
  * Persist the complete Round after an existing command path mutates status,
@@ -407,4 +468,5 @@ export interface SimWarRepositoryPorts {
   stateSnapshots: StateSnapshotRepositoryPort;
   auditLogs: AuditLogRepositoryPort;
   replay: ReplayRepositoryPort;
+  roleWorkflow: RoleWorkflowRepositoryPort;
 }

@@ -18,20 +18,25 @@ import type {
   Course,
   CurrentUser,
   Decision,
+  DecisionMergeCommit,
   ParameterSet,
   Permission,
   PermissionKey,
   Role,
+  RoleDecisionSection,
   RolePermission,
   Round,
   Run,
   ScenarioPackage,
   SessionRecord,
   SettlementResult,
+  StudentRoleAssignment,
   Team,
+  TeamConfirmation,
   Tenant,
   User,
-  UserRole
+  UserRole,
+  RoleWorkflowEvent
 } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
@@ -90,6 +95,11 @@ export interface SimWarStoreSnapshot {
   formalRunRuntimeBindings: FormalRunRuntimeBinding[];
   formalScenarioPackageApprovalRecords: ScenarioPackageApprovalRecord[];
   formalScenarioPackageLifecycleSnapshots: ScenarioPackageVersion[];
+  studentRoleAssignments: StudentRoleAssignment[];
+  roleDecisionSections: RoleDecisionSection[];
+  decisionMergeCommits: DecisionMergeCommit[];
+  teamConfirmations: TeamConfirmation[];
+  roleWorkflowEvents: RoleWorkflowEvent[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -584,6 +594,11 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     formalRunRuntimeBindings: [],
     formalScenarioPackageApprovalRecords: [],
     formalScenarioPackageLifecycleSnapshots: [],
+    studentRoleAssignments: [],
+    roleDecisionSections: [],
+    decisionMergeCommits: [],
+    teamConfirmations: [],
+    roleWorkflowEvents: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -629,6 +644,11 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     formalRunRuntimeBindings: store.formalRunRuntimeBindings,
     formalScenarioPackageApprovalRecords: store.formalScenarioPackageApprovalRecords,
     formalScenarioPackageLifecycleSnapshots: store.formalScenarioPackageLifecycleSnapshots,
+    studentRoleAssignments: store.studentRoleAssignments,
+    roleDecisionSections: store.roleDecisionSections,
+    decisionMergeCommits: store.decisionMergeCommits,
+    teamConfirmations: store.teamConfirmations,
+    roleWorkflowEvents: store.roleWorkflowEvents,
     counters: store.counters
   };
 }
@@ -665,6 +685,11 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     formalRunRuntimeBindings: snapshot.formalRunRuntimeBindings ?? [],
     formalScenarioPackageApprovalRecords: snapshot.formalScenarioPackageApprovalRecords ?? [],
     formalScenarioPackageLifecycleSnapshots: snapshot.formalScenarioPackageLifecycleSnapshots ?? [],
+    studentRoleAssignments: snapshot.studentRoleAssignments ?? [],
+    roleDecisionSections: snapshot.roleDecisionSections ?? [],
+    decisionMergeCommits: snapshot.decisionMergeCommits ?? [],
+    teamConfirmations: snapshot.teamConfirmations ?? [],
+    roleWorkflowEvents: snapshot.roleWorkflowEvents ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

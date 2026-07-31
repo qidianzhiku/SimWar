@@ -720,6 +720,54 @@ h3 {
   font-size: 0.85rem;
 }
 
+.role-workflow-panel {
+  background: #fff;
+  border: 1px solid #d8e3e7;
+  border-left: 4px solid #236b54;
+  border-radius: 7px;
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 18px;
+}
+
+.role-workflow-team-selector {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+
+.role-workflow-team-selector select {
+  min-width: 0;
+  width: 100%;
+}
+
+.role-workflow-list {
+  display: grid;
+  gap: 8px;
+}
+
+.role-workflow-row,
+.role-workflow-footer {
+  align-items: center;
+  border-bottom: 1px solid #edf0f1;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 42px;
+}
+
+.role-workflow-row > *,
+.role-workflow-footer > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-workflow-footer {
+  border-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .shell {
     padding: 18px;
@@ -763,5 +811,11 @@ h3 {
   .panel-title {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .role-workflow-row,
+  .role-workflow-footer {
+    align-items: stretch;
+    display: grid;
   }
 }

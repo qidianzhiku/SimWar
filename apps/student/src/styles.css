@@ -163,13 +163,20 @@ h2 {
 }
 
 .panel {
+  min-width: 0;
   padding: 18px;
 }
 
 .panel-title {
   border-bottom: 1px solid #e9eef1;
   margin-bottom: 16px;
+  min-width: 0;
   padding-bottom: 12px;
+}
+
+.panel-title span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .guide-panel p,
@@ -392,6 +399,53 @@ textarea {
   font-size: 0.85rem;
 }
 
+.role-workflow-panel {
+  background: #fff;
+  border: 1px solid #d8e3e7;
+  border-left: 4px solid #236b54;
+  border-radius: 7px;
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 18px;
+}
+
+.role-workflow-summary,
+.role-workflow-fields {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.role-workflow-summary div {
+  background: #f8fbfc;
+  border: 1px solid #e3eaed;
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.role-workflow-summary span {
+  color: #52646e;
+  font-size: 12px;
+}
+
+.role-workflow-summary strong {
+  overflow-wrap: anywhere;
+}
+
+.role-workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-workflow-actions button {
+  min-height: 40px;
+}
+
 @media (max-width: 780px) {
   .shell {
     padding: 18px;
@@ -405,5 +459,14 @@ textarea {
     align-items: stretch;
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .role-workflow-summary,
+  .role-workflow-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .role-workflow-actions {
+    display: grid;
   }
 }
