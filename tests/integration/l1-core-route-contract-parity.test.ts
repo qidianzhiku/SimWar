@@ -143,6 +143,24 @@ async function request<TData>(
 describe("L1 core route contract parity", () => {
   it("binds core L1 auth, run, and lifecycle responses to OpenAPI JSON Schema envelopes", async () => {
     const openApi = openApiDocument();
+    const studioFixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/teacher-course-blueprint-studio.valid.json"), "utf8")
+    ) as unknown;
+
+    expectEnvelopeToMatchSchema("teacher-course-blueprint-studio.schema.json", studioFixture);
+    expect(
+      openApi.paths["/api/v1/bff/teacher/course-blueprints/studio/preview"].post.requestBody
+        .content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/TeacherCourseBlueprintStudioReferenceInput");
+    expect(
+      openApi.paths["/api/v1/bff/teacher/course-blueprints/studio/drafts"].post.requestBody.content[
+        "application/json"
+      ].schema.$ref
+    ).toBe("#/components/schemas/TeacherCourseBlueprintStudioDraftCreateInput");
+    expect(
+      openApi.paths["/api/v1/bff/teacher/course-blueprints/studio/submissions"].post.requestBody
+        .content["application/json"].schema.$ref
+    ).toBe("#/components/schemas/TeacherCourseBlueprintStudioReferenceInput");
 
     expect(
       openApi.paths["/api/v1/auth/login"].post.responses["200"].content["application/json"].schema

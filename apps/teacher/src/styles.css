@@ -324,6 +324,51 @@ h3 {
   margin: 0;
 }
 
+.studio-source-list,
+.studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-surface {
+  margin: 18px 0;
+}
+
+.studio-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(200px, 1fr);
+}
+
+.studio-description,
+.studio-actions,
+.studio-receipt {
+  grid-column: 1 / -1;
+}
+
+.studio-description textarea {
+  border: 1px solid #cad3de;
+  border-radius: 4px;
+  min-height: 88px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.studio-receipt {
+  background: #f8fafb;
+  border: 1px solid #d8e3e7;
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.studio-receipt code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .known-limits {
   border-top: 1px solid #d8dee6;
   padding-top: 10px;
@@ -705,6 +750,10 @@ h3 {
   .run-selector select,
   .secondary {
     width: 100%;
+  }
+
+  .studio-form {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .run-readonly {

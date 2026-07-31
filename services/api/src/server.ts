@@ -72,9 +72,12 @@ import {
   type CourseBlueprintVersion
 } from "./course-blueprint-authority.js";
 import {
+  createTeacherCourseBlueprintDraft,
   createTeacherCourseFromBlueprint,
   listTeacherCourseBlueprintCatalog,
+  previewTeacherCourseBlueprint,
   resolveTeacherCourseBlueprintReadiness,
+  submitTeacherCourseBlueprintDraft,
   TeacherCourseBlueprintError
 } from "./teacher-course-blueprint-service.js";
 import {
@@ -1342,8 +1345,15 @@ function parseTeacherFormalCourseSelectionBody(
 }
 
 function toTeacherCourseBlueprintHttpError(error: unknown): HttpError {
-  if (error instanceof TeacherCourseBlueprintError || error instanceof TeacherFormalCourseBindingError) {
-    return new HttpError(422, "COURSE_BLUEPRINT-422-002", "formal CourseBlueprint selection is invalid");
+  if (
+    error instanceof TeacherCourseBlueprintError ||
+    error instanceof TeacherFormalCourseBindingError
+  ) {
+    return new HttpError(
+      422,
+      "COURSE_BLUEPRINT-422-002",
+      "formal CourseBlueprint selection is invalid"
+    );
   }
   return courseBlueprintAuthorityHttpError(error);
 }
@@ -1375,19 +1385,19 @@ async function handleTeacherCourseBlueprintReadiness(
   if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
     throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
   }
-  const body = parseTeacherCourseBlueprintSelectionBody(await readJson(request), { requireTitle: false });
+  const body = parseTeacherCourseBlueprintSelectionBody(await readJson(request), {
+    requireTitle: false
+  });
   try {
-    const payload: TeacherCourseBlueprintReadinessDto = await resolveTeacherCourseBlueprintReadiness(
-      runtime.formalCourseBlueprints,
-      {
+    const payload: TeacherCourseBlueprintReadinessDto =
+      await resolveTeacherCourseBlueprintReadiness(runtime.formalCourseBlueprints, {
         course_blueprint_reference: body.course_blueprint_reference,
         formal_course: {
           authorities: runtime.formalRunBindingAuthorities,
           scenario_package_reference: body.scenario_package_reference,
           tenant_id: context.tenantId
         }
-      }
-    );
+      });
     sendJson(response, 200, createEnvelope(context, payload));
   } catch (error) {
     throw toTeacherCourseBlueprintHttpError(error);
@@ -1404,7 +1414,9 @@ async function handleTeacherCourseBlueprintCourseCreate(
   if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
     throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
   }
-  const body = parseTeacherCourseBlueprintSelectionBody(await readJson(request), { requireTitle: true });
+  const body = parseTeacherCourseBlueprintSelectionBody(await readJson(request), {
+    requireTitle: true
+  });
   if (!body.title) throw courseBlueprintRequestError();
   try {
     const readiness = await resolveTeacherCourseBlueprintReadiness(runtime.formalCourseBlueprints, {
@@ -1419,7 +1431,8 @@ async function handleTeacherCourseBlueprintCourseCreate(
       course_id: runtime.createCourseId(),
       created_by: actor.user_id,
       parameter_set_id: readiness.formal_course_binding.parameter_set_reference.parameter_set_id,
-      scenario_package_id: readiness.formal_course_binding.scenario_package_reference.scenario_package_id,
+      scenario_package_id:
+        readiness.formal_course_binding.scenario_package_reference.scenario_package_id,
       status: "draft" as const,
       tenant_id: context.tenantId,
       title: body.title
@@ -1454,17 +1467,217 @@ async function handleTeacherCourseBlueprintCourseCreate(
         tenant_id: context.tenantId
       }
     });
-    sendJson(response, 201, createEnvelope(context, created as TeacherCourseBlueprintCourseCreateDto));
+    sendJson(
+      response,
+      201,
+      createEnvelope(context, created as TeacherCourseBlueprintCourseCreateDto)
+    );
+  } catch (error) {
+    throw toTeacherCourseBlueprintHttpError(error);
+  }
+}
+
+function requireTeacherCourseBlueprintStudioActor(context: RequestContext): {
+  actor: CurrentUser;
+  commandActor: CourseBlueprintAuthorityActor;
+} {
+  const actor = requirePermission(context, "course:create");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+  }
+  return {
+    actor,
+    commandActor: createCourseBlueprintActor(context, actor)
+  };
+}
+
+async function handleTeacherCourseBlueprintStudioPreview(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  requireTeacherCourseBlueprintStudioActor(context);
+  const body = await readJson(request);
+  if (!isRecord(body) || !isRecord(body.course_blueprint_reference)) {
+    throw courseBlueprintRequestError();
+  }
+  assertOnlyCourseBlueprintKeys(body, ["course_blueprint_reference"]);
+  try {
+    const payload = await previewTeacherCourseBlueprint(
+      runtime.formalCourseBlueprints,
+      context.tenantId,
+      parseCourseBlueprintReference(body.course_blueprint_reference, context.tenantId)
+    );
+    sendJson(response, 200, createEnvelope(context, payload));
+  } catch (error) {
+    throw toTeacherCourseBlueprintHttpError(error);
+  }
+}
+
+async function handleTeacherCourseBlueprintStudioDraftCreate(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  const { actor, commandActor } = requireTeacherCourseBlueprintStudioActor(context);
+  const body = await readJson(request);
+  if (
+    !isRecord(body) ||
+    !isRecord(body.source_course_blueprint_reference) ||
+    !isRecord(body.draft)
+  ) {
+    throw courseBlueprintRequestError();
+  }
+  assertOnlyCourseBlueprintKeys(body, ["draft", "source_course_blueprint_reference"]);
+  assertOnlyCourseBlueprintKeys(body.draft, [
+    "activity_plan",
+    "description",
+    "duration_minutes",
+    "instructor_guidance_reference",
+    "objectives",
+    "ordered_phases",
+    "required_product_capabilities",
+    "scenario_compatibility_constraints",
+    "schema_version",
+    "title",
+    "version"
+  ]);
+  if (
+    !Array.isArray(body.draft.ordered_phases) ||
+    body.draft.ordered_phases.some((phase) => {
+      if (!isRecord(phase)) return true;
+      try {
+        assertOnlyCourseBlueprintKeys(phase, [
+          "activity_type",
+          "duration_minutes",
+          "order",
+          "phase_id",
+          "student_instruction",
+          "teacher_guidance",
+          "title"
+        ]);
+        return false;
+      } catch {
+        return true;
+      }
+    })
+  ) {
+    throw courseBlueprintRequestError();
+  }
+  const sourceReference = parseCourseBlueprintReference(
+    body.source_course_blueprint_reference,
+    context.tenantId
+  );
+  const parsed = parseCourseBlueprintDraft(
+    {
+      ...body.draft,
+      course_blueprint_id: sourceReference.course_blueprint_id,
+      tenant_id: context.tenantId
+    },
+    context.tenantId
+  );
+  const draft = {
+    activity_plan: parsed.activity_plan,
+    description: parsed.description,
+    duration_minutes: parsed.duration_minutes,
+    instructor_guidance_reference: parsed.instructor_guidance_reference,
+    objectives: parsed.objectives,
+    ordered_phases: parsed.ordered_phases,
+    required_product_capabilities: parsed.required_product_capabilities,
+    scenario_compatibility_constraints: parsed.scenario_compatibility_constraints,
+    schema_version: parsed.schema_version,
+    title: parsed.title,
+    version: parsed.version
+  };
+  try {
+    const created = await createTeacherCourseBlueprintDraft(
+      runtime.formalCourseBlueprints,
+      commandActor,
+      {
+        draft,
+        source_course_blueprint_reference: sourceReference
+      },
+      async (pending) => {
+        await appendAudit(runtime, {
+          actor,
+          action: "course_blueprint.teacher_draft_create",
+          after: clonePublic(pending),
+          requestId: context.requestId,
+          resourceId: `${pending.course_blueprint_reference.course_blueprint_id}:${pending.course_blueprint_reference.version}`,
+          resourceType: "formal_course_blueprint",
+          tenantId: context.tenantId
+        });
+      }
+    );
+    sendJson(response, 201, createEnvelope(context, created));
+  } catch (error) {
+    throw toTeacherCourseBlueprintHttpError(error);
+  }
+}
+
+async function handleTeacherCourseBlueprintStudioSubmission(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  const { actor, commandActor } = requireTeacherCourseBlueprintStudioActor(context);
+  const body = await readJson(request);
+  if (!isRecord(body) || !isRecord(body.course_blueprint_reference)) {
+    throw courseBlueprintRequestError();
+  }
+  assertOnlyCourseBlueprintKeys(body, ["course_blueprint_reference"]);
+  const reference = parseCourseBlueprintReference(
+    body.course_blueprint_reference,
+    context.tenantId
+  );
+  try {
+    const submitted = await submitTeacherCourseBlueprintDraft(
+      runtime.formalCourseBlueprints,
+      commandActor,
+      reference,
+      async (pending) => {
+        await appendAudit(runtime, {
+          actor,
+          action: "course_blueprint.teacher_draft_submit",
+          after: clonePublic(pending),
+          requestId: context.requestId,
+          resourceId: `${reference.course_blueprint_id}:${reference.version}`,
+          resourceType: "formal_course_blueprint",
+          tenantId: context.tenantId
+        });
+      }
+    );
+    sendJson(response, 200, createEnvelope(context, submitted));
   } catch (error) {
     throw toTeacherCourseBlueprintHttpError(error);
   }
 }
 
 function courseBlueprintRequestError(): HttpError {
-  return new HttpError(422, "COURSE_BLUEPRINT-422-001", "formal course blueprint request is invalid");
+  return new HttpError(
+    422,
+    "COURSE_BLUEPRINT-422-001",
+    "formal course blueprint request is invalid"
+  );
 }
 
-function parseCourseBlueprintReference(value: unknown, tenantId: string): import("@simwar/shared-contracts").CourseBlueprintReference {
+function assertOnlyCourseBlueprintKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[]
+): void {
+  const allowedKeys = new Set(allowed);
+  if (Object.keys(value).some((key) => !allowedKeys.has(key))) {
+    throw courseBlueprintRequestError();
+  }
+}
+
+function parseCourseBlueprintReference(
+  value: unknown,
+  tenantId: string
+): import("@simwar/shared-contracts").CourseBlueprintReference {
   if (!isRecord(value) || requireBodyString(value.tenant_id) !== tenantId) {
     throw courseBlueprintRequestError();
   }
@@ -1486,7 +1699,11 @@ function parseCourseBlueprintDraft(value: unknown, tenantId: string): CourseBlue
     }
     return candidate.map((item) => item.trim());
   };
-  if (!Array.isArray(value.ordered_phases) || !Array.isArray(value.activity_plan) || !isRecord(value.scenario_compatibility_constraints)) {
+  if (
+    !Array.isArray(value.ordered_phases) ||
+    !Array.isArray(value.activity_plan) ||
+    !isRecord(value.scenario_compatibility_constraints)
+  ) {
     throw courseBlueprintRequestError();
   }
   return {
@@ -1510,7 +1727,10 @@ function parseCourseBlueprintDraft(value: unknown, tenantId: string): CourseBlue
     }),
     required_product_capabilities: stringArray(value.required_product_capabilities),
     scenario_compatibility_constraints: Object.fromEntries(
-      Object.entries(value.scenario_compatibility_constraints).map(([key, item]) => [key, requireBodyString(item)])
+      Object.entries(value.scenario_compatibility_constraints).map(([key, item]) => [
+        key,
+        requireBodyString(item)
+      ])
     ),
     schema_version: requireBodyString(value.schema_version),
     tenant_id: tenantId,
@@ -1546,7 +1766,10 @@ function parseTeacherCourseBlueprintSelectionBody(
   };
 }
 
-function createCourseBlueprintActor(context: RequestContext, actor: CurrentUser): CourseBlueprintAuthorityActor {
+function createCourseBlueprintActor(
+  context: RequestContext,
+  actor: CurrentUser
+): CourseBlueprintAuthorityActor {
   return {
     actor_id: actor.user_id,
     capabilities: ["course_blueprint:manage"],
@@ -1561,16 +1784,28 @@ function courseBlueprintAuthorityHttpError(error: unknown): HttpError {
   }
   switch (error.code) {
     case "NOT_FOUND":
-      return new HttpError(404, "COURSE_BLUEPRINT-404-001", "formal course blueprint version not found");
+      return new HttpError(
+        404,
+        "COURSE_BLUEPRINT-404-001",
+        "formal course blueprint version not found"
+      );
     case "TENANT_SCOPE_VIOLATION":
     case "COURSE_BLUEPRINT_CAPABILITY_REQUIRED":
-      return new HttpError(403, "COURSE_BLUEPRINT-403-001", "formal course blueprint authority required");
+      return new HttpError(
+        403,
+        "COURSE_BLUEPRINT-403-001",
+        "formal course blueprint authority required"
+      );
     case "COURSE_BLUEPRINT_INVALID_TRANSITION":
     case "COURSE_BLUEPRINT_VERSION_ALREADY_EXISTS":
     case "DIGEST_MISMATCH":
     case "NOT_APPROVED":
     case "RETIRED_FOR_NEW_BINDING":
-      return new HttpError(409, "COURSE_BLUEPRINT-409-001", "formal course blueprint lifecycle conflict");
+      return new HttpError(
+        409,
+        "COURSE_BLUEPRINT-409-001",
+        "formal course blueprint lifecycle conflict"
+      );
     default:
       return courseBlueprintRequestError();
   }
@@ -2570,8 +2805,35 @@ async function routeRequest(
     return;
   }
 
-  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/course-blueprint-courses") {
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/course-blueprint-courses"
+  ) {
     await handleTeacherCourseBlueprintCourseCreate(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/course-blueprints/studio/preview"
+  ) {
+    await handleTeacherCourseBlueprintStudioPreview(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/course-blueprints/studio/drafts"
+  ) {
+    await handleTeacherCourseBlueprintStudioDraftCreate(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/course-blueprints/studio/submissions"
+  ) {
+    await handleTeacherCourseBlueprintStudioSubmission(runtime, request, response);
     return;
   }
 
@@ -2699,7 +2961,11 @@ async function routeRequest(
   if (request.method === "POST" && url.pathname === "/api/v1/formal-authority/course-blueprints") {
     const actor = requirePermission(context, "course_blueprint:manage");
     if (!actorHasAnyRole(actor, ["platform_admin"])) {
-      throw new HttpError(403, "COURSE_BLUEPRINT-403-001", "formal course blueprint authority required");
+      throw new HttpError(
+        403,
+        "COURSE_BLUEPRINT-403-001",
+        "formal course blueprint authority required"
+      );
     }
     const draft = parseCourseBlueprintDraft(await readJson(request), context.tenantId);
     const created = await executeCourseBlueprintCommand(() =>
@@ -2720,11 +2986,17 @@ async function routeRequest(
 
   if (
     request.method === "POST" &&
-    /^\/api\/v1\/formal-authority\/course-blueprints\/[^/]+\/versions\/[^/]+\/(validate|freeze|approve|retire)$/.test(url.pathname)
+    /^\/api\/v1\/formal-authority\/course-blueprints\/[^/]+\/versions\/[^/]+\/(validate|freeze|approve|retire)$/.test(
+      url.pathname
+    )
   ) {
     const actor = requirePermission(context, "course_blueprint:manage");
     if (!actorHasAnyRole(actor, ["platform_admin"])) {
-      throw new HttpError(403, "COURSE_BLUEPRINT-403-001", "formal course blueprint authority required");
+      throw new HttpError(
+        403,
+        "COURSE_BLUEPRINT-403-001",
+        "formal course blueprint authority required"
+      );
     }
     const [, blueprintId, version, action] = matchPath(
       url.pathname,
@@ -2736,21 +3008,35 @@ async function routeRequest(
       throw courseBlueprintRequestError();
     }
     const commandActor = createCourseBlueprintActor(context, actor);
-    let result: CourseBlueprintVersion | { approval_record: unknown; version: CourseBlueprintVersion };
+    let result:
+      | CourseBlueprintVersion
+      | { approval_record: unknown; version: CourseBlueprintVersion };
     switch (action) {
       case "validate":
-        result = await executeCourseBlueprintCommand(() => runtime.formalCourseBlueprints.validate(commandActor, reference));
+        result = await executeCourseBlueprintCommand(() =>
+          runtime.formalCourseBlueprints.validate(commandActor, reference)
+        );
         break;
       case "freeze":
-        result = await executeCourseBlueprintCommand(() => runtime.formalCourseBlueprints.freeze(commandActor, reference));
+        result = await executeCourseBlueprintCommand(() =>
+          runtime.formalCourseBlueprints.freeze(commandActor, reference)
+        );
         break;
       case "approve": {
         if (!isRecord(body)) throw courseBlueprintRequestError();
-        result = await executeCourseBlueprintCommand(() => runtime.formalCourseBlueprints.approve(commandActor, reference, requireBodyString(body.approval_id)));
+        result = await executeCourseBlueprintCommand(() =>
+          runtime.formalCourseBlueprints.approve(
+            commandActor,
+            reference,
+            requireBodyString(body.approval_id)
+          )
+        );
         break;
       }
       case "retire":
-        result = await executeCourseBlueprintCommand(() => runtime.formalCourseBlueprints.retire(commandActor, reference));
+        result = await executeCourseBlueprintCommand(() =>
+          runtime.formalCourseBlueprints.retire(commandActor, reference)
+        );
         break;
       default:
         throw new HttpError(404, "ROUTE-404-001", "not found");

@@ -526,6 +526,72 @@ paths:
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority required" }
         "422": { description: "Invalid or unavailable exact authority inputs" }
+  /api/v1/bff/teacher/course-blueprints/studio/preview:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_PREVIEW_V1
+      summary: Preview an exact approved or in-progress CourseBlueprint version for Teacher editing.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioReferenceInput"
+      responses:
+        "200":
+          description: "Teacher-safe exact CourseBlueprint Studio preview"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Reference unavailable, retired, cross-tenant, or digest-mismatched" }
+  /api/v1/bff/teacher/course-blueprints/studio/drafts:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_DRAFT_CREATE_V1
+      summary: Create a new immutable DRAFT version from one exact approved CourseBlueprint.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioDraftCreateInput"
+      responses:
+        "201":
+          description: "Server-digested immutable CourseBlueprint DRAFT"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Invalid, non-monotonic, or unavailable exact source" }
+  /api/v1/bff/teacher/course-blueprints/studio/submissions:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_SUBMIT_V1
+      summary: Explicitly validate one exact Teacher-created DRAFT without freezing or approving it.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioReferenceInput"
+      responses:
+        "200":
+          description: "Exact CourseBlueprint version transitioned to VALIDATED"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Reference unavailable, cross-tenant, or not in DRAFT state" }
   /api/v1/formal-authority/course-blueprints:
     post:
       operationId: FORMAL_COURSE_BLUEPRINT_DRAFT_CREATE_V1
@@ -1256,6 +1322,22 @@ components:
         title:
           type: string
           minLength: 1
+    TeacherCourseBlueprintStudioReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [course_blueprint_reference]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+    TeacherCourseBlueprintStudioDraftCreateInput:
+      type: object
+      additionalProperties: false
+      required: [draft, source_course_blueprint_reference]
+      properties:
+        draft:
+          $ref: "../schemas/teacher-course-blueprint-studio.schema.json#/$defs/editable_content"
+        source_course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
     TeacherFormalCourseBindingPreviewInput:
       type: object
       additionalProperties: false
