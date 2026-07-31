@@ -13,10 +13,15 @@ global_invariants:
   stage4b_default_mode: "OFF"
   additional_properties: false
   tenant_context_required: true
+  actor_identity_from_signed_session_required: true
   processing_basis_required: true
   purpose_required: true
   retention_policy_required: true
   pseudonymization_policy_required: true
+  effective_processing_status_required: true
+  effective_processing_status_must_be_approved: true
+  authenticated_policy_context_server_derived: true
+  policy_withdrawal_blocks_new_processing: true
   real_person_data_authorized: false
   provider_call_in_official_replay: false
   formal_write_authority: false
@@ -53,6 +58,7 @@ contracts:
       - actor_role
       - requested_visibility
       - request_id
+      - authenticated_policy_context_ref
     optional_fields:
       - round_id
       - team_id
@@ -60,6 +66,11 @@ contracts:
       - course_blueprint_reference
     validation:
       tenant_derived_from_authenticated_context: true
+      actor_id_derived_from_signed_session: true
+      actor_role_derived_from_signed_session: true
+      caller_actor_mismatch_rejected: true
+      policy_context_derived_by_server: true
+      caller_policy_context_override_rejected: true
       team_scope_must_narrow_access: true
       role_scope_must_narrow_access: true
       cross_tenant_fail_closed: true
@@ -94,6 +105,13 @@ contracts:
       - redacted_fields
       - source_refs
       - content_digest
+      - processing_purpose
+      - processing_basis
+      - effective_processing_status
+      - retention_policy_ref
+      - pseudonymization_policy_ref
+      - processing_policy_digest
+      - policy_evaluated_at
 
   - id: STK-C03
     name: StakeholderProposal
@@ -112,6 +130,8 @@ contracts:
       - confidence
       - context_digest
       - producer_ref
+      - processing_policy_evidence_ref
+      - processing_policy_digest
       - created_at
       - expires_at
     rules:
@@ -138,6 +158,7 @@ contracts:
       - resolver_ref
       - bounds_ref
       - evidence_digest
+      - processing_policy_evidence_ref
       - effective_from
       - expires_at
     rules:
@@ -164,6 +185,7 @@ contracts:
       - model_version_ref
       - parameter_set_ref
       - bounds_ref
+      - processing_policy_evidence_ref
       - effective_from
       - expires_at
       - content_digest
@@ -218,11 +240,21 @@ contracts:
       - resource_type
       - resource_id
       - request_id
+      - signed_session_actor_ref
+      - processing_purpose
+      - processing_basis
+      - effective_processing_status
+      - retention_policy_ref
+      - pseudonymization_policy_ref
+      - processing_policy_digest
+      - policy_evaluated_at
       - before_digest
       - after_digest
       - created_at
     rules:
       raw_private_memory_in_event: false
+      policy_evidence_is_immutable: true
+      policy_withdrawal_blocks_new_processing: true
       append_only: true
       formal_result_write: false
 admission_gates:
