@@ -75,6 +75,49 @@ export class TeacherFormalCourseBindingRequestError extends Error {
   }
 }
 
+export interface TeacherCourseBlueprintStudioEditableContent {
+  activity_plan: readonly unknown[];
+  description: string;
+  duration_minutes: number;
+  instructor_guidance_reference: string;
+  objectives: readonly string[];
+  ordered_phases: readonly {
+    activity_type: string;
+    duration_minutes: number;
+    order: number;
+    phase_id: string;
+    student_instruction: string;
+    teacher_guidance: string;
+    title: string;
+  }[];
+  required_product_capabilities: readonly string[];
+  scenario_compatibility_constraints: Readonly<Record<string, string>>;
+  schema_version: "course-blueprint.v1";
+  title: string;
+  version: string;
+}
+
+export interface TeacherCourseBlueprintStudioPreview {
+  content_digest: string;
+  course_blueprint_reference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  editable_content: TeacherCourseBlueprintStudioEditableContent;
+  status: "APPROVED" | "DRAFT" | "VALIDATED";
+}
+
+export interface TeacherCourseBlueprintStudioDraft {
+  content_digest: string;
+  course_blueprint_reference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  source_course_blueprint_reference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  status: "DRAFT";
+  title: string;
+  version: string;
+}
+
+export interface TeacherCourseBlueprintStudioSubmission {
+  course_blueprint_reference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  status: "VALIDATED";
+}
+
 async function requestTeacherFormalCourseBinding<T>(input: {
   apiBaseUrl: string;
   body: unknown;
@@ -101,7 +144,18 @@ async function requestTeacherFormalCourseBinding<T>(input: {
         : "formal Course binding request failed"
     );
   }
-  return (payload as { data: T }).data ?? (payload as T);
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("data" in payload) ||
+    (payload as { data?: unknown }).data === undefined
+  ) {
+    throw new TeacherFormalCourseBindingRequestError(
+      502,
+      "formal Course binding response envelope is invalid"
+    );
+  }
+  return (payload as { data: T }).data;
 }
 
 export async function requestTeacherFormalCourseBindingPreview(input: {
@@ -139,9 +193,22 @@ export async function requestTeacherCourseBlueprintCatalog(input: {
     headers: { authorization: `Bearer ${input.token}` },
     method: "GET"
   });
-  const payload = (await response.json()) as { data?: TeacherCourseBlueprintCatalogDto; error?: { message?: string } };
-  if (!response.ok) throw new TeacherFormalCourseBindingRequestError(response.status, payload.error?.message ?? "CourseBlueprint catalog request failed");
-  return payload.data ?? (payload as unknown as TeacherCourseBlueprintCatalogDto);
+  const payload = (await response.json()) as {
+    data?: TeacherCourseBlueprintCatalogDto;
+    error?: { message?: string };
+  };
+  if (!response.ok)
+    throw new TeacherFormalCourseBindingRequestError(
+      response.status,
+      payload.error?.message ?? "CourseBlueprint catalog request failed"
+    );
+  if (!payload.data) {
+    throw new TeacherFormalCourseBindingRequestError(
+      502,
+      "CourseBlueprint catalog response envelope is invalid"
+    );
+  }
+  return payload.data;
 }
 
 export async function requestTeacherCourseBlueprintReadiness(input: {
@@ -176,6 +243,49 @@ export async function requestTeacherCourseBlueprintCourseCreate(input: {
       title: input.title
     },
     path: "/api/v1/bff/teacher/course-blueprint-courses",
+    token: input.token
+  });
+}
+
+export async function requestTeacherCourseBlueprintStudioPreview(input: {
+  apiBaseUrl: string;
+  courseBlueprintReference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  token: string;
+}): Promise<TeacherCourseBlueprintStudioPreview> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: { course_blueprint_reference: input.courseBlueprintReference },
+    path: "/api/v1/bff/teacher/course-blueprints/studio/preview",
+    token: input.token
+  });
+}
+
+export async function requestTeacherCourseBlueprintStudioDraftCreate(input: {
+  apiBaseUrl: string;
+  draft: TeacherCourseBlueprintStudioEditableContent;
+  sourceCourseBlueprintReference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  token: string;
+}): Promise<TeacherCourseBlueprintStudioDraft> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: {
+      draft: input.draft,
+      source_course_blueprint_reference: input.sourceCourseBlueprintReference
+    },
+    path: "/api/v1/bff/teacher/course-blueprints/studio/drafts",
+    token: input.token
+  });
+}
+
+export async function requestTeacherCourseBlueprintStudioSubmission(input: {
+  apiBaseUrl: string;
+  courseBlueprintReference: TeacherCourseBlueprintCatalogDto["candidates"][number]["course_blueprint_reference"];
+  token: string;
+}): Promise<TeacherCourseBlueprintStudioSubmission> {
+  return requestTeacherFormalCourseBinding({
+    apiBaseUrl: input.apiBaseUrl,
+    body: { course_blueprint_reference: input.courseBlueprintReference },
+    path: "/api/v1/bff/teacher/course-blueprints/studio/submissions",
     token: input.token
   });
 }

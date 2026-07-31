@@ -1,48 +1,46 @@
-cycle_id: L1PLUS-CYCLE-003-COURSEBLUEPRINT-VERSIONING
+cycle_id: L1PLUS-CYCLE-005-ROLE-WORKFLOW-PRODUCTIZATION
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT
-generated_at: "2026-07-30T06:47:05Z"
+generated_at: "2026-07-31T14:00:28+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+assessment_source_anchor_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 preceding_l1_closure:
   evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
   owner_acknowledgment: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
   status: CLOSED_OWNER_DECISION_RECORDED
 repository_adoption:
-  status: ADOPTED_BY_GOVERNANCE_MERGE
-  owner_review: COMPLETED
-  governance_closure_pr: 299
-  governance_closure_head_sha: 9d2970b72f0e4215eee85989d207d7c769370821
-  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  status: ADOPTED_BY_THIS_GOVERNANCE_CHANGESET
+  owner_delegation: OWNER_DELEGATION_V3_C2_TO_C3_LONG_VALUE_CHAIN_001
 capability:
-  id: L1P-VC-06
-  candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
+  id: L1P-VC-08
+  candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
   status: CLOSED_AND_CURRENT
-  primary_outcome: CourseBlueprint versions have an immutable append-only lifecycle and can be selected through a Teacher-safe exact-reference product path without changing B5 binding or simulation truth.
-  mutable_authority: CourseBlueprintCommandService
-  sole_writer: CourseBlueprintCommandService
+  primary_outcome: Teacher and Students complete one tenant- and team-scoped Role Workflow that becomes one canonical Decision and continues through the existing lock, settlement, publish and Replay chain.
+  mutable_authority: RoleWorkflowCommandService
+  sole_writer: RoleWorkflowCommandService
+completed_predecessor:
+  id: L1P-VC-07
+  candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+  status: CLOSED_AND_CURRENT
+  product_pr: 303
+  product_head_sha: 6c84b824c52657b43a8bc176f6cd38d0b7190146
+  product_merge_sha: 70d180e370f84d451dd9b67e117409d92f797786
 evidence:
-  approved_product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
-  c1_product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
-  contract_remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
-  contract_remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
-  post_governance_readback_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
-  current_master_at_readback: 24348d8e4073b88da375bc0e583400edd8f4ea51
+  c3_product_pr: 304
+  approved_product_head_sha: b75c31a988c889a88c1ff9f60ba90171fdefff46
+  product_merge_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
+  post_merge_validation_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
   product_acceptance: PASS
   product_challenge_review: PASS
-  contract_regression: RESOLVED_BY_PR_296
-  snapshot_cli_diagnostic: NOT_REPRODUCIBLE
-snapshot_cli_event:
-  historical_event: RETAINED
-  classification: NOT_REPRODUCIBLE
-  root_cause: NOT_PROVEN
-  remediation: NONE
-  closure_blocker: false
+  challenge_blocking: 0
+  challenge_must_fix: 0
+  focused_tests: 21_OF_21_PASS
+  full_tests: 843_OF_843_PASS
+  browser: 58_CANONICAL_PASS_9_SKIP_PLUS_1_REAL_C3_PASS
+  contract_gate: PASS
+  direct_store_boundary: 0_NEW_UNAPPROVED
 support_code:
   candidate_id: NONE
 docs_discovery:
@@ -52,18 +50,24 @@ closure:
   ready_pr_limit: 0
   merge_execution_limit: 0
   post_merge_required: COMPLETED
-  merge_authorization: COMPLETED_FOR_PR_299
+  governance_adoption: THIS_CHANGESET
 resource_locks:
-  - resource: COURSE_BLUEPRINT_AUTHORITY
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: COURSE_BLUEPRINT_REGISTRY
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: COURSE_BLUEPRINT_BINDING
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: CONTRACT_GATE
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
+  - resource: ROLE_WORKFLOW_AUTHORITY
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: ROLE_WORKFLOW_JSON_REGISTRY
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: TEACHER_ROLE_WORKFLOW_SURFACE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: STUDENT_ROLE_WORKFLOW_SURFACE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: SHARED_CONTRACTS
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: RUN_REPLAY_GOLDEN
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: PLAYWRIGHT_STATE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
@@ -71,11 +75,11 @@ known_limits:
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
-  c1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
+  c3_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
   dependency_advisories: 2_LOW_6_HIGH
 authorization:
   status: CLOSED_NO_AUTOMATIC_SUCCESSOR
-  next_candidate: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+  next_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
   next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
   next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
   automatic_start: false

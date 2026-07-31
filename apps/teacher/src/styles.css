@@ -324,6 +324,51 @@ h3 {
   margin: 0;
 }
 
+.studio-source-list,
+.studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.studio-surface {
+  margin: 18px 0;
+}
+
+.studio-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 0.4fr) minmax(200px, 1fr);
+}
+
+.studio-description,
+.studio-actions,
+.studio-receipt {
+  grid-column: 1 / -1;
+}
+
+.studio-description textarea {
+  border: 1px solid #cad3de;
+  border-radius: 4px;
+  min-height: 88px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.studio-receipt {
+  background: #f8fafb;
+  border: 1px solid #d8e3e7;
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.studio-receipt code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .known-limits {
   border-top: 1px solid #d8dee6;
   padding-top: 10px;
@@ -675,6 +720,54 @@ h3 {
   font-size: 0.85rem;
 }
 
+.role-workflow-panel {
+  background: #fff;
+  border: 1px solid #d8e3e7;
+  border-left: 4px solid #236b54;
+  border-radius: 7px;
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+  padding: 18px;
+}
+
+.role-workflow-team-selector {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+
+.role-workflow-team-selector select {
+  min-width: 0;
+  width: 100%;
+}
+
+.role-workflow-list {
+  display: grid;
+  gap: 8px;
+}
+
+.role-workflow-row,
+.role-workflow-footer {
+  align-items: center;
+  border-bottom: 1px solid #edf0f1;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 42px;
+}
+
+.role-workflow-row > *,
+.role-workflow-footer > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-workflow-footer {
+  border-bottom: 0;
+}
+
 @media (max-width: 760px) {
   .shell {
     padding: 18px;
@@ -707,6 +800,10 @@ h3 {
     width: 100%;
   }
 
+  .studio-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .run-readonly {
     padding-bottom: 0;
   }
@@ -714,5 +811,11 @@ h3 {
   .panel-title {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .role-workflow-row,
+  .role-workflow-footer {
+    align-items: stretch;
+    display: grid;
   }
 }

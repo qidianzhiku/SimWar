@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/teacher-role-workflow-workspace.v1.json",
+  "title": "Teacher Role Workflow Workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "team_id",
+    "assignments",
+    "sections",
+    "section_summaries",
+    "merge_commits",
+    "confirmations",
+    "history",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "teacher-role-workflow-workspace.v1" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "assignments": { "type": "array", "items": { "type": "object" } },
+    "sections": { "type": "array", "items": { "type": "object" } },
+    "section_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role_key", "status", "version"],
+        "properties": {
+          "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+          "status": { "enum": ["missing", "draft", "ready"] },
+          "version": { "type": "integer", "minimum": 0 },
+          "submitted_by": { "type": "string" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "merge_commits": { "type": "array", "items": { "type": "object" } },
+    "confirmations": { "type": "array", "items": { "type": "object" } },
+    "history": { "type": "array", "items": { "type": "object" } },
+    "known_limits": { "type": "array", "items": { "type": "string" } }
+  }
+}

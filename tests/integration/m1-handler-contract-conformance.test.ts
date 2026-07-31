@@ -7,12 +7,18 @@ import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
+  CourseBlueprintReference,
   DecisionPayload,
   Round,
   Run,
   SettlementResult
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
+import {
+  CourseBlueprintCommandService,
+  type CourseBlueprintDraftInput
+} from "../../services/api/src/course-blueprint-authority";
+import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
 import { createP1Store } from "../../services/api/src/store";
 
 const validDecisionPayload = {
@@ -55,8 +61,59 @@ function expectNoForbiddenProperties(value: unknown, forbidden: readonly string[
   }
 }
 
-async function startServer(): Promise<{ baseUrl: string; server: Server }> {
-  const server = createApiServer(createP1Store());
+const contractBlueprint: CourseBlueprintDraftInput = {
+  activity_plan: [{ activity_id: "contract_activity", phase_id: "contract_phase" }],
+  course_blueprint_id: "blueprint_contract_studio",
+  description: "Contract gate source Blueprint.",
+  duration_minutes: 60,
+  instructor_guidance_reference: "guide://contract-studio",
+  objectives: ["Exercise the Teacher Blueprint Studio contract."],
+  ordered_phases: [
+    {
+      activity_type: "briefing",
+      duration_minutes: 60,
+      order: 1,
+      phase_id: "contract_phase",
+      student_instruction: "Read the exercise.",
+      teacher_guidance: "Keep the exercise bounded.",
+      title: "Briefing"
+    }
+  ],
+  required_product_capabilities: ["course:create"],
+  scenario_compatibility_constraints: { scenario_family: "wellness" },
+  schema_version: "course-blueprint.v1",
+  tenant_id: "tenant_demo",
+  title: "Contract Studio Blueprint",
+  version: "1.0.0"
+};
+
+async function seedContractBlueprint(
+  store: ReturnType<typeof createP1Store>
+): Promise<CourseBlueprintReference> {
+  const command = new CourseBlueprintCommandService(
+    createJsonFormalScenarioAuthorityPersistence(store).createCourseBlueprintRegistry()
+  );
+  const actor = {
+    actor_id: "contract_platform",
+    capabilities: ["course_blueprint:manage"] as const,
+    correlation_id: "contract_blueprint_seed",
+    tenant_id: contractBlueprint.tenant_id
+  };
+  const draft = await command.createDraft(actor, contractBlueprint);
+  const validated = await command.validate(actor, draft.reference);
+  const frozen = await command.freeze(actor, validated.reference);
+  return (await command.approve(actor, frozen.reference, "contract_blueprint_approval")).version
+    .reference;
+}
+
+async function startServer(): Promise<{
+  baseUrl: string;
+  blueprintReference: CourseBlueprintReference;
+  server: Server;
+}> {
+  const store = createP1Store();
+  const blueprintReference = await seedContractBlueprint(store);
+  const server = createApiServer(store);
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     server.listen(0, "127.0.0.1");
@@ -64,7 +121,7 @@ async function startServer(): Promise<{ baseUrl: string; server: Server }> {
     const address = server.address();
 
     if (address && typeof address !== "string" && !fetchBlockedPorts.has(address.port)) {
-      return { baseUrl: `http://127.0.0.1:${address.port}`, server };
+      return { baseUrl: `http://127.0.0.1:${address.port}`, blueprintReference, server };
     }
 
     await new Promise<void>((resolveClose, rejectClose) => {
@@ -110,7 +167,7 @@ async function login(baseUrl: string, username: string, password: string): Promi
 
 describe("M1 handler contract conformance", () => {
   it("validates decision, error, and role-projected result responses through the HTTP server", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, blueprintReference, server } = await startServer();
 
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher");
@@ -225,6 +282,118 @@ describe("M1 handler contract conformance", () => {
         "decision_batch_hash",
         "json_runtime_source_digest"
       ]);
+
+      const studioPreview = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/preview",
+        {
+          body: { course_blueprint_reference: blueprintReference },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(studioPreview.status).toBe(200);
+      expectEnvelopeToMatchSchema(
+        "teacher-course-blueprint-studio.schema.json",
+        studioPreview.body
+      );
+
+      const previewData = studioPreview.body.data as {
+        editable_content: Record<string, unknown>;
+      };
+      const studioDraft = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/drafts",
+        {
+          body: {
+            draft: {
+              ...previewData.editable_content,
+              title: "Contract Studio Draft",
+              version: "1.1.0"
+            },
+            source_course_blueprint_reference: blueprintReference
+          },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(studioDraft.status).toBe(201);
+      expectEnvelopeToMatchSchema("teacher-course-blueprint-studio.schema.json", studioDraft.body);
+
+      const draftReference = (
+        studioDraft.body.data as { course_blueprint_reference: CourseBlueprintReference }
+      ).course_blueprint_reference;
+      const studioSubmission = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/submissions",
+        {
+          body: { course_blueprint_reference: draftReference },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(studioSubmission.status).toBe(200);
+      expectEnvelopeToMatchSchema(
+        "teacher-course-blueprint-studio.schema.json",
+        studioSubmission.body
+      );
+
+      const invalidStudioDraft = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/drafts",
+        {
+          body: {
+            draft: {
+              ...previewData.editable_content,
+              objectives: [" "],
+              title: "Deferred validation Studio Draft",
+              version: "1.2.0"
+            },
+            source_course_blueprint_reference: blueprintReference
+          },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(invalidStudioDraft.status).toBe(201);
+      const invalidDraftReference = (
+        invalidStudioDraft.body.data as {
+          course_blueprint_reference: CourseBlueprintReference;
+        }
+      ).course_blueprint_reference;
+      const invalidDraftPreview = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/preview",
+        {
+          body: { course_blueprint_reference: invalidDraftReference },
+          method: "POST",
+          token: teacherToken
+        }
+      );
+      expect(invalidDraftPreview.status).toBe(200);
+      expectEnvelopeToMatchSchema(
+        "teacher-course-blueprint-studio.schema.json",
+        invalidDraftPreview.body
+      );
+      expect(
+        (
+          invalidDraftPreview.body.data as {
+            editable_content: { objectives: string[] };
+          }
+        ).editable_content.objectives
+      ).toEqual([""]);
+
+      const studentStudioAttempt = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-blueprints/studio/preview",
+        {
+          body: { course_blueprint_reference: blueprintReference },
+          method: "POST",
+          token: studentToken
+        }
+      );
+      expect(studentStudioAttempt.status).toBe(403);
+      expectEnvelopeToMatchSchema("api-error-envelope.v1.json", studentStudioAttempt.body);
     } finally {
       server.close();
       await once(server, "close");
