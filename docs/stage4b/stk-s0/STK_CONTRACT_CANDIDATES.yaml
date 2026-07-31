@@ -1,0 +1,272 @@
+schema_version: 1
+document_id: SIMWAR-STK-S0-CONTRACT-CANDIDATES
+assessment_source_anchor_sha: 1a13d81a43f667d80d3da2eaffe8aae8e48b45f8
+current_master_revalidated_sha: 050fcd5093b2edf9612ee297e639c48329613ae4
+status: CANDIDATE_ONLY_NOT_AUTHORIZED
+current_implementation: NOT_FOUND_AT_REVALIDATED_SHA
+runtime_authority: JSON_INTERNAL_ONLY
+graph_semantics: NAVIGATION_ONLY_NOT_RUNTIME_TRUTH
+external_baseline:
+  classification: BASELINE_CANDIDATE_DOCUMENTED_ONLY
+  digest_sha256: EFA1A1C5B6498EA22170468DE056CDB1B1BC3B4ACFDC55CD7E0B163EBB20E33A
+global_invariants:
+  stage4b_default_mode: "OFF"
+  additional_properties: false
+  tenant_context_required: true
+  actor_identity_from_signed_session_required: true
+  processing_basis_required: true
+  purpose_required: true
+  retention_policy_required: true
+  pseudonymization_policy_required: true
+  effective_processing_status_required: true
+  effective_processing_status_must_be_approved: true
+  authenticated_policy_context_server_derived: true
+  policy_withdrawal_blocks_new_processing: true
+  real_person_data_authorized: false
+  provider_call_in_official_replay: false
+  formal_write_authority: false
+  forbidden_fields:
+    - decision
+    - decision_payload
+    - state_true
+    - settlement_result
+    - score
+    - rank
+    - parameter_set
+    - model_version
+    - replay_hash
+    - canonical_evidence_digest
+    - private_replay
+    - raw_private_memory
+    - beta
+    - sigma
+    - pi
+    - rho
+contracts:
+  - id: STK-C01
+    name: StakeholderContextReadRequest
+    status: CANDIDATE_ONLY
+    purpose: Request an authorized, bounded context projection.
+    current_source_analogue:
+      - services/api/src/teacher-student-bff-dto.ts
+      - services/api/src/repository-ports.ts
+    required_fields:
+      - tenant_id
+      - course_id
+      - run_id
+      - actor_id
+      - actor_role
+      - requested_visibility
+      - request_id
+      - authenticated_policy_context_ref
+    optional_fields:
+      - round_id
+      - team_id
+      - role_id
+      - course_blueprint_reference
+    validation:
+      tenant_derived_from_authenticated_context: true
+      actor_id_derived_from_signed_session: true
+      actor_role_derived_from_signed_session: true
+      caller_actor_mismatch_rejected: true
+      policy_context_derived_by_server: true
+      caller_policy_context_override_rejected: true
+      team_scope_must_narrow_access: true
+      role_scope_must_narrow_access: true
+      cross_tenant_fail_closed: true
+
+  - id: STK-C02
+    name: StakeholderContextProjection
+    status: CANDIDATE_ONLY
+    purpose: Carry only de-identified, allowlisted observations.
+    allowed_data_classes:
+      - APPROVED_COURSE_BLUEPRINT_PUBLIC_METADATA
+      - COURSE_RUN_ROUND_STATUS
+      - COHORT_LEVEL_CONTEXT
+      - STUDENT_SAFE_STATE_OBS
+      - STUDENT_SAFE_STATE_EST
+      - PUBLISHED_SAFE_RESULT
+      - ADVISORY_ONLY_LEARNING_CONTEXT
+      - AUDIT_SAFE_REFERENCE
+    prohibited_data_classes:
+      - RAW_PERSONAL_DATA
+      - RAW_ROLE_DRAFT
+      - OTHER_TEAM_DATA
+      - STATE_TRUE
+      - PRIVATE_REPLAY
+      - HIDDEN_PARAMETER
+      - RAW_STAKEHOLDER_MEMORY
+    required_fields:
+      - projection_id
+      - tenant_id
+      - course_id
+      - run_id
+      - visibility
+      - redacted_fields
+      - source_refs
+      - content_digest
+      - processing_purpose
+      - processing_basis
+      - effective_processing_status
+      - retention_policy_ref
+      - pseudonymization_policy_ref
+      - processing_policy_digest
+      - policy_evaluated_at
+
+  - id: STK-C03
+    name: StakeholderProposal
+    status: CANDIDATE_ONLY
+    purpose: Represent a non-authoritative proposal from a synthetic/cohort agent.
+    writer: UNKNOWN_FUTURE_PROPOSAL_PRODUCER
+    persistence: UNKNOWN_BOUNDED_SHADOW_STORE
+    required_fields:
+      - proposal_id
+      - tenant_id
+      - course_id
+      - run_id
+      - cohort_id
+      - proposal_type
+      - proposed_effect
+      - confidence
+      - context_digest
+      - producer_ref
+      - processing_policy_evidence_ref
+      - processing_policy_digest
+      - created_at
+      - expires_at
+    rules:
+      advisory_only: true
+      append_only: true
+      direct_runtime_effect: false
+      formal_decision_write: false
+
+  - id: STK-C04
+    name: ResolvedStakeholderSignal
+    status: CANDIDATE_ONLY
+    purpose: Carry a deterministic, bounded result of proposal validation.
+    writer: UNKNOWN_FUTURE_DETERMINISTIC_RESOLVER
+    persistence: UNKNOWN_BOUNDED_SHADOW_STORE
+    required_fields:
+      - signal_id
+      - tenant_id
+      - run_id
+      - cohort_id
+      - signal_type
+      - resolved_magnitude
+      - confidence
+      - source_proposal_refs
+      - resolver_ref
+      - bounds_ref
+      - evidence_digest
+      - processing_policy_evidence_ref
+      - effective_from
+      - expires_at
+    rules:
+      deterministic: true
+      bounded: true
+      append_only: true
+      coefficient_write: false
+      official_metric_write: false
+
+  - id: STK-C05
+    name: BoundedRuntimePreferenceState
+    status: BASELINE_CANDIDATE_DOCUMENTED_ONLY
+    purpose: Future short-lived candidate state consumed only through a gated adapter.
+    writer: UNKNOWN_FUTURE_APPROVED_ADAPTER
+    required_fields:
+      - state_snapshot_id
+      - tenant_id
+      - run_id
+      - cohort_id
+      - runtime_state_version
+      - source_signal_batch_ref
+      - resolver_ref
+      - scenario_ref
+      - model_version_ref
+      - parameter_set_ref
+      - bounds_ref
+      - processing_policy_evidence_ref
+      - effective_from
+      - expires_at
+      - content_digest
+    prohibited_fields:
+      - beta
+      - sigma
+      - pi
+      - rho
+      - market_share
+      - occupancy
+      - revenue
+      - profit
+      - score
+      - rank
+    rules:
+      model_version_mutation: false
+      parameter_set_mutation: false
+      official_truth_write: false
+
+  - id: STK-C06
+    name: StakeholderPlaneModeStatus
+    status: CANDIDATE_ONLY
+    purpose: Expose effective mode and off-switch provenance without activating runtime.
+    enum:
+      - "OFF"
+      - SHADOW
+      - LIMITED_PENDING_OWNER_GATE
+    required_fields:
+      - effective_mode
+      - global_enabled
+      - tenant_enabled
+      - course_enabled
+      - run_enabled
+      - provider_enabled
+      - decision_source
+      - evaluated_at
+    rules:
+      default_off: true
+      silent_fallback: false
+      limited_mode_is_not_authorized_by_this_document: true
+
+  - id: STK-C07
+    name: StakeholderAuditEvent
+    status: CANDIDATE_ONLY
+    purpose: Append audit-safe lifecycle evidence.
+    required_fields:
+      - audit_id
+      - tenant_id
+      - actor_id
+      - actor_role
+      - action
+      - resource_type
+      - resource_id
+      - request_id
+      - signed_session_actor_ref
+      - processing_purpose
+      - processing_basis
+      - effective_processing_status
+      - retention_policy_ref
+      - pseudonymization_policy_ref
+      - processing_policy_digest
+      - policy_evaluated_at
+      - before_digest
+      - after_digest
+      - created_at
+    rules:
+      raw_private_memory_in_event: false
+      policy_evidence_is_immutable: true
+      policy_withdrawal_blocks_new_processing: true
+      append_only: true
+      formal_result_write: false
+admission_gates:
+  s1:
+    owner_authorization_required: true
+    contract_single_writer_required: true
+    privacy_review_required: true
+    c2_conflict_clearance_required: true
+    plane_off_parity_required: true
+  s2:
+    independent_owner_authorization_required: true
+    model_formal_rebase_required: true
+    bounded_adapter_required: true
+    replay_zero_provider_call_required: true
+    official_influence_authorized: false
