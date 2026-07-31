@@ -12,6 +12,7 @@ import type {
   P0DemoState,
   StudentBffCockpitDTO
 } from "@simwar/shared-contracts";
+import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("student");
@@ -94,6 +95,7 @@ export function App() {
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("ready");
+  const [roleWorkflowActive, setRoleWorkflowActive] = useState(false);
 
   const latestRun = state?.runs.at(-1);
   const latestRound = latestRun
@@ -210,7 +212,9 @@ export function App() {
     }
   }
 
-  const canSubmit = Boolean(latestRound?.status === "open" && team && session);
+  const canSubmit = Boolean(
+    latestRound?.status === "open" && team && session && !roleWorkflowActive
+  );
   const cards = [
     ["身份", session?.user.display_name ?? "anonymous"],
     ["课程", state?.courses[0]?.title ?? "loading"],
@@ -294,6 +298,18 @@ export function App() {
           </article>
         ))}
       </section>
+
+      {session ? (
+        <StudentRoleWorkflowPanel
+          active={latestRound?.status === "open"}
+          roundId={latestRound?.round_id}
+          runId={latestRun?.run_id}
+          teamId={team?.team_id}
+          tenantId={login.tenantId}
+          token={session.access_token}
+          onActiveChange={setRoleWorkflowActive}
+        />
+      ) : null}
 
       <section className="learner-guide" aria-label="M1 learner onboarding">
         <article className="panel guide-panel">
@@ -573,6 +589,11 @@ export function App() {
           >
             {busy ? "提交中" : "提交决策"}
           </button>
+          {roleWorkflowActive ? (
+            <p className="evidence-note">
+              当前 Run 已启用角色协作，正式 Decision 仅由团队确认生成。
+            </p>
+          ) : null}
         </article>
 
         <article className="panel feedback">

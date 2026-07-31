@@ -9,8 +9,11 @@ import { CourseBlueprintBindingStore } from "../../services/api/src/course-bluep
 import { FormalCourseAuthorityBindingStore } from "../../services/api/src/formal-course-authority-binding-store.js";
 import { createCourseBlueprintBinding } from "../../services/api/src/course-blueprint-binding.js";
 import {
+  createTeacherCourseBlueprintDraft,
   createTeacherCourseFromBlueprint,
   listTeacherCourseBlueprintCatalog,
+  previewTeacherCourseBlueprint,
+  submitTeacherCourseBlueprintDraft,
   resolveTeacherCourseBlueprintReadiness
 } from "../../services/api/src/teacher-course-blueprint-service.js";
 import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter.js";
@@ -30,15 +33,17 @@ const blueprint: CourseBlueprintDraftInput = {
   duration_minutes: 60,
   instructor_guidance_reference: "guide://private-c1",
   objectives: ["Complete the bounded course journey."],
-  ordered_phases: [{
-    activity_type: "briefing",
-    duration_minutes: 60,
-    order: 1,
-    phase_id: "phase_c1",
-    student_instruction: "Read the shared instruction.",
-    teacher_guidance: "Private instructor guidance.",
-    title: "Briefing"
-  }],
+  ordered_phases: [
+    {
+      activity_type: "briefing",
+      duration_minutes: 60,
+      order: 1,
+      phase_id: "phase_c1",
+      student_instruction: "Read the shared instruction.",
+      teacher_guidance: "Private instructor guidance.",
+      title: "Briefing"
+    }
+  ],
   required_product_capabilities: ["course:create"],
   scenario_compatibility_constraints: { scenario_family: "wellness" },
   schema_version: "course-blueprint.v1",
@@ -97,7 +102,9 @@ function authorities() {
 
 function createCourseInput(
   command: CourseBlueprintCommandService,
-  reference: Awaited<ReturnType<typeof createApprovedBlueprint>>["approved"]["version"]["reference"],
+  reference: Awaited<
+    ReturnType<typeof createApprovedBlueprint>
+  >["approved"]["version"]["reference"],
   options: {
     authorityPorts?: ReturnType<typeof authorities>;
     bindingStore?: CourseBlueprintBindingStore;
@@ -157,10 +164,140 @@ function course(): Course {
 }
 
 function bindingStore() {
-  return new CourseBlueprintBindingStore({ courseBlueprintBindings: [], persist: () => undefined } as never);
+  return new CourseBlueprintBindingStore({
+    courseBlueprintBindings: [],
+    persist: () => undefined
+  } as never);
 }
 
 describe("Teacher CourseBlueprint product service", () => {
+  it("derives an immutable Teacher draft from an exact approved Blueprint without changing the source", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const source = await previewTeacherCourseBlueprint(
+      command,
+      tenantId,
+      approved.version.reference
+    );
+
+    const draft = await createTeacherCourseBlueprintDraft(command, actor, {
+      source_course_blueprint_reference: approved.version.reference,
+      draft: {
+        ...source.editable_content,
+        description: "Teacher-edited bounded course.",
+        title: "C2 Blueprint draft",
+        version: "1.1.0"
+      }
+    });
+
+    expect(draft).toMatchObject({
+      source_course_blueprint_reference: approved.version.reference,
+      status: "DRAFT",
+      title: "C2 Blueprint draft",
+      version: "1.1.0"
+    });
+    expect(draft.content_digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(draft.course_blueprint_reference.content_digest).toBe(draft.content_digest);
+    expect(await command.getByReference(tenantId, approved.version.reference)).toMatchObject({
+      status: "APPROVED",
+      title: "C1 Blueprint",
+      version: "1.0.0"
+    });
+  });
+
+  it("previews the saved exact draft and explicitly submits only DRAFT to VALIDATED", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const source = await previewTeacherCourseBlueprint(
+      command,
+      tenantId,
+      approved.version.reference
+    );
+    const draft = await createTeacherCourseBlueprintDraft(command, actor, {
+      source_course_blueprint_reference: approved.version.reference,
+      draft: {
+        ...source.editable_content,
+        title: "C2 previewed draft",
+        version: "1.1.0"
+      }
+    });
+
+    const preview = await previewTeacherCourseBlueprint(
+      command,
+      tenantId,
+      draft.course_blueprint_reference
+    );
+    expect(preview).toMatchObject({
+      course_blueprint_reference: draft.course_blueprint_reference,
+      status: "DRAFT",
+      editable_content: {
+        title: "C2 previewed draft",
+        version: "1.1.0"
+      }
+    });
+
+    const submitted = await submitTeacherCourseBlueprintDraft(
+      command,
+      actor,
+      draft.course_blueprint_reference
+    );
+    expect(submitted).toMatchObject({
+      course_blueprint_reference: draft.course_blueprint_reference,
+      status: "VALIDATED"
+    });
+    expect(await command.getByReference(tenantId, approved.version.reference)).toMatchObject({
+      status: "APPROVED"
+    });
+    await expect(
+      submitTeacherCourseBlueprintDraft(command, actor, draft.course_blueprint_reference)
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+  });
+
+  it("fails closed for retired, digest-mismatched, cross-tenant, and invalid Teacher studio inputs", async () => {
+    const { command, approved } = await createApprovedBlueprint();
+    const source = await previewTeacherCourseBlueprint(
+      command,
+      tenantId,
+      approved.version.reference
+    );
+
+    await expect(
+      previewTeacherCourseBlueprint(command, tenantId, {
+        ...approved.version.reference,
+        content_digest: "f".repeat(64)
+      })
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+    await expect(
+      createTeacherCourseBlueprintDraft(
+        command,
+        { ...actor, tenant_id: "tenant_other" },
+        {
+          source_course_blueprint_reference: approved.version.reference,
+          draft: { ...source.editable_content, version: "1.1.0" }
+        }
+      )
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_INVALID" });
+    for (const version of ["1.0.0", "0.9.0", "1.0", "latest"]) {
+      await expect(
+        createTeacherCourseBlueprintDraft(command, actor, {
+          source_course_blueprint_reference: approved.version.reference,
+          draft: { ...source.editable_content, version }
+        })
+      ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_INVALID" });
+    }
+
+    const invalid = await createTeacherCourseBlueprintDraft(command, actor, {
+      source_course_blueprint_reference: approved.version.reference,
+      draft: { ...source.editable_content, objectives: [" "], version: "1.2.0" }
+    });
+    await expect(
+      submitTeacherCourseBlueprintDraft(command, actor, invalid.course_blueprint_reference)
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+
+    await command.retire(actor, approved.version.reference);
+    await expect(
+      previewTeacherCourseBlueprint(command, tenantId, approved.version.reference)
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+  });
+
   it("projects an approved tenant catalog without private guidance or approval records", async () => {
     const { command, approved } = await createApprovedBlueprint();
     const catalog = await listTeacherCourseBlueprintCatalog(command, tenantId);
@@ -178,7 +315,11 @@ describe("Teacher CourseBlueprint product service", () => {
     const { command, approved } = await createApprovedBlueprint();
     const readiness = await resolveTeacherCourseBlueprintReadiness(command, {
       course_blueprint_reference: approved.version.reference,
-      formal_course: { authorities: authorities(), scenario_package_reference: scenarioReference, tenant_id: tenantId }
+      formal_course: {
+        authorities: authorities(),
+        scenario_package_reference: scenarioReference,
+        tenant_id: tenantId
+      }
     });
     expect(readiness.selection_status).toBe("READY");
     expect(readiness.blueprint.course_blueprint_reference).toEqual(approved.version.reference);
@@ -186,14 +327,16 @@ describe("Teacher CourseBlueprint product service", () => {
 
   it("rejects a ScenarioPackage that does not satisfy Blueprint compatibility constraints", async () => {
     const { command, approved } = await createApprovedBlueprint();
-    await expect(resolveTeacherCourseBlueprintReadiness(command, {
-      course_blueprint_reference: approved.version.reference,
-      formal_course: {
-        authorities: authoritiesWithScenarioCompatibility({ scenario_family: "manufacturing" }),
-        scenario_package_reference: scenarioReference,
-        tenant_id: tenantId
-      }
-    })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+    await expect(
+      resolveTeacherCourseBlueprintReadiness(command, {
+        course_blueprint_reference: approved.version.reference,
+        formal_course: {
+          authorities: authoritiesWithScenarioCompatibility({ scenario_family: "manufacturing" }),
+          scenario_package_reference: scenarioReference,
+          tenant_id: tenantId
+        }
+      })
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
   });
 
   it("rejects a Blueprint that requires an unavailable product capability", async () => {
@@ -207,36 +350,52 @@ describe("Teacher CourseBlueprint product service", () => {
     const frozen = await command.freeze(actor, validated.reference);
     const approved = await command.approve(actor, frozen.reference, "approval_unsupported");
 
-    await expect(resolveTeacherCourseBlueprintReadiness(command, {
-      course_blueprint_reference: approved.version.reference,
-      formal_course: {
-        authorities: authorities(),
-        scenario_package_reference: scenarioReference,
-        tenant_id: tenantId
-      }
-    })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+    await expect(
+      resolveTeacherCourseBlueprintReadiness(command, {
+        course_blueprint_reference: approved.version.reference,
+        formal_course: {
+          authorities: authorities(),
+          scenario_package_reference: scenarioReference,
+          tenant_id: tenantId
+        }
+      })
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
   });
 
   it("removes the uncommitted Blueprint binding when B5 creation cannot append its binding", async () => {
     const { command, approved } = await createApprovedBlueprint();
     const c1BindingStore = bindingStore();
     const persisted: Course[] = [];
-    await expect(createTeacherCourseFromBlueprint(command, {
-      bindingStore: c1BindingStore,
-      course: course(),
-      course_blueprint_reference: approved.version.reference,
-      formalCourse: {
-        authorities: authorities(),
-        bindingStore: { append: vi.fn(() => { throw new Error("b5 append failure"); }) },
-        persistence: {
-          deleteCourse: vi.fn(async () => { persisted.length = 0; }),
-          saveCourse: vi.fn(async (item) => { persisted.push(item); })
+    await expect(
+      createTeacherCourseFromBlueprint(command, {
+        bindingStore: c1BindingStore,
+        course: course(),
+        course_blueprint_reference: approved.version.reference,
+        formalCourse: {
+          authorities: authorities(),
+          bindingStore: {
+            append: vi.fn(() => {
+              throw new Error("b5 append failure");
+            })
+          },
+          persistence: {
+            deleteCourse: vi.fn(async () => {
+              persisted.length = 0;
+            }),
+            saveCourse: vi.fn(async (item) => {
+              persisted.push(item);
+            })
+          },
+          scenario_package_reference: scenarioReference,
+          tenant_id: tenantId
         },
-        scenario_package_reference: scenarioReference,
-        tenant_id: tenantId
-      },
-      formal_course: { authorities: authorities(), scenario_package_reference: scenarioReference, tenant_id: tenantId }
-    })).rejects.toThrow("b5 append failure");
+        formal_course: {
+          authorities: authorities(),
+          scenario_package_reference: scenarioReference,
+          tenant_id: tenantId
+        }
+      })
+    ).rejects.toThrow("b5 append failure");
     expect(persisted).toEqual([]);
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
   });
@@ -246,21 +405,23 @@ describe("Teacher CourseBlueprint product service", () => {
     const c1BindingStore = bindingStore();
     const persisted: Course[] = [];
 
-    await expect(createTeacherCourseFromBlueprint(
-      command,
-      createCourseInput(command, approved.version.reference, {
-        bindingStore: c1BindingStore,
-        deleteCourse: async () => {
-          throw new Error("course cleanup failed");
-        },
-        formalBindingAppend: () => {
-          throw new Error("b5 append failure");
-        },
-        saveCourse: async (item) => {
-          persisted.push(item);
-        }
-      })
-    )).rejects.toThrow("course cleanup failed");
+    await expect(
+      createTeacherCourseFromBlueprint(
+        command,
+        createCourseInput(command, approved.version.reference, {
+          bindingStore: c1BindingStore,
+          deleteCourse: async () => {
+            throw new Error("course cleanup failed");
+          },
+          formalBindingAppend: () => {
+            throw new Error("b5 append failure");
+          },
+          saveCourse: async (item) => {
+            persisted.push(item);
+          }
+        })
+      )
+    ).rejects.toThrow("course cleanup failed");
 
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
     expect(persisted).toEqual([course()]);
@@ -277,14 +438,16 @@ describe("Teacher CourseBlueprint product service", () => {
     const saveCourse = vi.fn(async () => undefined);
     const appendFormalBinding = vi.fn();
 
-    await expect(createTeacherCourseFromBlueprint(
-      command,
-      createCourseInput(command, approved.version.reference, {
-        bindingStore: failingStore,
-        formalBindingAppend: appendFormalBinding,
-        saveCourse
-      })
-    )).rejects.toThrow("blueprint binding persist failed");
+    await expect(
+      createTeacherCourseFromBlueprint(
+        command,
+        createCourseInput(command, approved.version.reference, {
+          bindingStore: failingStore,
+          formalBindingAppend: appendFormalBinding,
+          saveCourse
+        })
+      )
+    ).rejects.toThrow("blueprint binding persist failed");
 
     expect(failingStore.getForCourse(tenantId, "course_c1")).toBeNull();
     expect(saveCourse).not.toHaveBeenCalled();
@@ -296,16 +459,18 @@ describe("Teacher CourseBlueprint product service", () => {
     const c1BindingStore = bindingStore();
     const appendFormalBinding = vi.fn();
 
-    await expect(createTeacherCourseFromBlueprint(
-      command,
-      createCourseInput(command, approved.version.reference, {
-        bindingStore: c1BindingStore,
-        formalBindingAppend: appendFormalBinding,
-        saveCourse: async () => {
-          throw new Error("course save failed");
-        }
-      })
-    )).rejects.toThrow("course save failed");
+    await expect(
+      createTeacherCourseFromBlueprint(
+        command,
+        createCourseInput(command, approved.version.reference, {
+          bindingStore: c1BindingStore,
+          formalBindingAppend: appendFormalBinding,
+          saveCourse: async () => {
+            throw new Error("course save failed");
+          }
+        })
+      )
+    ).rejects.toThrow("course save failed");
 
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
     expect(appendFormalBinding).not.toHaveBeenCalled();
@@ -331,16 +496,18 @@ describe("Teacher CourseBlueprint product service", () => {
     });
     const ports = createJsonRepositoryPorts(store);
 
-    await expect(ports.auditLogs.appendAuditLog({
-      action: "course.create",
-      actor_id: "usr_teacher",
-      audit_id: "audit_c1",
-      created_at: "2026-07-29T00:00:00.000Z",
-      request_id: "request_c1",
-      resource_id: "course_c1",
-      resource_type: "course",
-      tenant_id: tenantId
-    })).rejects.toThrow("audit persist failed");
+    await expect(
+      ports.auditLogs.appendAuditLog({
+        action: "course.create",
+        actor_id: "usr_teacher",
+        audit_id: "audit_c1",
+        created_at: "2026-07-29T00:00:00.000Z",
+        request_id: "request_c1",
+        resource_id: "course_c1",
+        resource_type: "course",
+        tenant_id: tenantId
+      })
+    ).rejects.toThrow("audit persist failed");
     expect(store.auditLogs).toEqual([]);
   });
 
@@ -353,9 +520,8 @@ describe("Teacher CourseBlueprint product service", () => {
     const c1BindingStore = new CourseBlueprintBindingStore(store);
     const ports = createJsonRepositoryPorts(store);
 
-    await expect(createTeacherCourseFromBlueprint(
-      command,
-      {
+    await expect(
+      createTeacherCourseFromBlueprint(command, {
         ...createCourseInput(command, approved.version.reference, {
           bindingStore: c1BindingStore
         }),
@@ -367,8 +533,8 @@ describe("Teacher CourseBlueprint product service", () => {
           bindingStore: new FormalCourseAuthorityBindingStore(store),
           persistence: ports.courses
         }
-      }
-    )).rejects.toThrow("audit persist failed");
+      })
+    ).rejects.toThrow("audit persist failed");
 
     expect(store.courses).toEqual([]);
     expect(store.formalCourseAuthorityBindings).toEqual([]);
@@ -415,15 +581,17 @@ describe("Teacher CourseBlueprint product service", () => {
     const saveCourse = vi.fn(async () => undefined);
     const appendFormalBinding = vi.fn();
 
-    await expect(createTeacherCourseFromBlueprint(
-      command,
-      createCourseInput(command, approved.version.reference, {
-        authorityPorts,
-        bindingStore: c1BindingStore,
-        formalBindingAppend: appendFormalBinding,
-        saveCourse
-      })
-    )).rejects.toBeDefined();
+    await expect(
+      createTeacherCourseFromBlueprint(
+        command,
+        createCourseInput(command, approved.version.reference, {
+          authorityPorts,
+          bindingStore: c1BindingStore,
+          formalBindingAppend: appendFormalBinding,
+          saveCourse
+        })
+      )
+    ).rejects.toBeDefined();
 
     expect(c1BindingStore.getForCourse(tenantId, "course_c1")).toBeNull();
     expect(saveCourse).not.toHaveBeenCalled();
@@ -434,29 +602,41 @@ describe("Teacher CourseBlueprint product service", () => {
     const { command, approved } = await createApprovedBlueprint();
     const c1BindingStore = bindingStore();
     const oldCourse = course();
-    c1BindingStore.append(createCourseBlueprintBinding({
-      binding_schema_version: "course-blueprint-binding.v1",
-      course_blueprint_reference: approved.version.reference,
-      course_id: oldCourse.course_id,
-      tenant_id: tenantId
-    }));
+    c1BindingStore.append(
+      createCourseBlueprintBinding({
+        binding_schema_version: "course-blueprint-binding.v1",
+        course_blueprint_reference: approved.version.reference,
+        course_id: oldCourse.course_id,
+        tenant_id: tenantId
+      })
+    );
     await command.retire(actor, approved.version.reference);
-    expect(c1BindingStore.getForCourse(tenantId, oldCourse.course_id)?.course_blueprint_reference).toEqual(approved.version.reference);
-    await expect(resolveTeacherCourseBlueprintReadiness(command, {
-      course_blueprint_reference: approved.version.reference,
-      formal_course: { authorities: authorities(), scenario_package_reference: scenarioReference, tenant_id: tenantId }
-    })).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
+    expect(
+      c1BindingStore.getForCourse(tenantId, oldCourse.course_id)?.course_blueprint_reference
+    ).toEqual(approved.version.reference);
+    await expect(
+      resolveTeacherCourseBlueprintReadiness(command, {
+        course_blueprint_reference: approved.version.reference,
+        formal_course: {
+          authorities: authorities(),
+          scenario_package_reference: scenarioReference,
+          tenant_id: tenantId
+        }
+      })
+    ).rejects.toMatchObject({ code: "TEACHER_COURSE_BLUEPRINT_NOT_AVAILABLE" });
   });
 
   it("keeps a v1 Course binding unchanged when v2 is approved and v1 is retired", async () => {
     const { command, approved: approvedV1 } = await createApprovedBlueprint();
     const c1BindingStore = bindingStore();
-    c1BindingStore.append(createCourseBlueprintBinding({
-      binding_schema_version: "course-blueprint-binding.v1",
-      course_blueprint_reference: approvedV1.version.reference,
-      course_id: "course_v1",
-      tenant_id: tenantId
-    }));
+    c1BindingStore.append(
+      createCourseBlueprintBinding({
+        binding_schema_version: "course-blueprint-binding.v1",
+        course_blueprint_reference: approvedV1.version.reference,
+        course_id: "course_v1",
+        tenant_id: tenantId
+      })
+    );
 
     const draftV2 = await command.createDraft(actor, {
       ...blueprint,
@@ -468,9 +648,12 @@ describe("Teacher CourseBlueprint product service", () => {
     const approvedV2 = await command.approve(actor, frozenV2.reference, "approval_c1_v2");
     await command.retire(actor, approvedV1.version.reference);
 
-    expect(c1BindingStore.getForCourse(tenantId, "course_v1")?.course_blueprint_reference)
-      .toEqual(approvedV1.version.reference);
+    expect(c1BindingStore.getForCourse(tenantId, "course_v1")?.course_blueprint_reference).toEqual(
+      approvedV1.version.reference
+    );
     expect(approvedV2.version.reference).not.toEqual(approvedV1.version.reference);
-    await expect(command.assertBindable(tenantId, approvedV2.version.reference)).resolves.toBeUndefined();
+    await expect(
+      command.assertBindable(tenantId, approvedV2.version.reference)
+    ).resolves.toBeUndefined();
   });
 });

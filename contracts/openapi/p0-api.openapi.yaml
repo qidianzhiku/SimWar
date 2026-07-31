@@ -526,6 +526,72 @@ paths:
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority required" }
         "422": { description: "Invalid or unavailable exact authority inputs" }
+  /api/v1/bff/teacher/course-blueprints/studio/preview:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_PREVIEW_V1
+      summary: Preview an exact approved or in-progress CourseBlueprint version for Teacher editing.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioReferenceInput"
+      responses:
+        "200":
+          description: "Teacher-safe exact CourseBlueprint Studio preview"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Reference unavailable, retired, cross-tenant, or digest-mismatched" }
+  /api/v1/bff/teacher/course-blueprints/studio/drafts:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_DRAFT_CREATE_V1
+      summary: Create a new immutable DRAFT version from one exact approved CourseBlueprint.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioDraftCreateInput"
+      responses:
+        "201":
+          description: "Server-digested immutable CourseBlueprint DRAFT"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Invalid, non-monotonic, or unavailable exact source" }
+  /api/v1/bff/teacher/course-blueprints/studio/submissions:
+    post:
+      operationId: TEACHER_COURSE_BLUEPRINT_STUDIO_SUBMIT_V1
+      summary: Explicitly validate one exact Teacher-created DRAFT without freezing or approving it.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherCourseBlueprintStudioReferenceInput"
+      responses:
+        "200":
+          description: "Exact CourseBlueprint version transitioned to VALIDATED"
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/teacher-course-blueprint-studio.schema.json"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Reference unavailable, cross-tenant, or not in DRAFT state" }
   /api/v1/formal-authority/course-blueprints:
     post:
       operationId: FORMAL_COURSE_BLUEPRINT_DRAFT_CREATE_V1
@@ -1178,6 +1244,206 @@ paths:
       responses:
         "200":
           description: Audit logs
+  /api/v1/bff/teacher/role-workflows:
+    get:
+      operationId: TEACHER_ROLE_WORKFLOW_WORKSPACE_GET_V1
+      summary: Read tenant-scoped role assignments, readiness, merge and confirmation progress.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: run_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: round_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Teacher Role Workflow workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowTeacherWorkspaceEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher role required" }
+  /api/v1/bff/teacher/role-workflows/assignments:
+    put:
+      operationId: TEACHER_ROLE_WORKFLOW_ASSIGNMENT_PUT_V1
+      summary: Assign one exact approved role template to a team member.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowAssignmentInput"
+      responses:
+        "201":
+          description: Role assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowAssignmentEnvelope"
+        "403": { description: "Teacher or tenant boundary denied" }
+        "409": { description: "Active assignment already exists" }
+        "422": { description: "Invalid member, role, or workflow scope" }
+  /api/v1/bff/teacher/role-workflows/reset:
+    post:
+      operationId: TEACHER_ROLE_WORKFLOW_RESET_V1
+      summary: Deactivate the current unconfirmed workflow while preserving history.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowResetInput"
+      responses:
+        "200":
+          description: Active assignments deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowResetEnvelope"
+        "403": { description: "Teacher role required" }
+        "409": { description: "Confirmed workflow is immutable" }
+  /api/v1/bff/student/role-workspace:
+    get:
+      operationId: STUDENT_ROLE_WORKFLOW_WORKSPACE_GET_V1
+      summary: Read only the authenticated Student's safe role context and own section.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: run_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: round_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Student-safe Role Workflow workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowStudentWorkspaceEnvelope"
+        "403": { description: "Student or tenant boundary denied" }
+        "404": { description: "Active assignment not found" }
+  /api/v1/bff/student/role-workspace/section:
+    put:
+      operationId: STUDENT_ROLE_WORKFLOW_SECTION_PUT_V1
+      summary: Append a versioned draft containing only fields owned by the authenticated role.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowSectionInput"
+      responses:
+        "200":
+          description: Draft section appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowSectionEnvelope"
+        "403": { description: "Role field ownership denied" }
+        "409": { description: "Stale version or ready section" }
+  /api/v1/bff/student/role-workspace/ready:
+    post:
+      operationId: STUDENT_ROLE_WORKFLOW_READY_POST_V1
+      summary: Append a ready version of the authenticated Student's current section.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowReadyInput"
+      responses:
+        "200":
+          description: Section marked ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowSectionEnvelope"
+        "409": { description: "Missing or stale section" }
+  /api/v1/bff/student/role-workspace/merge:
+    post:
+      operationId: STUDENT_ROLE_WORKFLOW_MERGE_POST_V1
+      summary: Let the assigned CEO captain merge server-resolved ready sections.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowMergeInput"
+      responses:
+        "201":
+          description: Validated merge commit created or reused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowMergeEnvelope"
+        "403": { description: "CEO captain authority required" }
+        "409": { description: "Required sections are not ready or overlap conflicts" }
+  /api/v1/bff/student/role-workspace/confirm:
+    post:
+      operationId: STUDENT_ROLE_WORKFLOW_CONFIRM_POST_V1
+      summary: Let the assigned CEO captain confirm one merge into a canonical Decision.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowConfirmInput"
+      responses:
+        "201":
+          description: Team confirmation and canonical Decision created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowConfirmationEnvelope"
+        "200":
+          description: Existing idempotent confirmation returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowConfirmationEnvelope"
+        "403": { description: "CEO captain authority required" }
+        "404": { description: "Merge commit not found" }
 components:
   securitySchemes:
     SessionBearer:
@@ -1256,6 +1522,22 @@ components:
         title:
           type: string
           minLength: 1
+    TeacherCourseBlueprintStudioReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [course_blueprint_reference]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
+    TeacherCourseBlueprintStudioDraftCreateInput:
+      type: object
+      additionalProperties: false
+      required: [draft, source_course_blueprint_reference]
+      properties:
+        draft:
+          $ref: "../schemas/teacher-course-blueprint-studio.schema.json#/$defs/editable_content"
+        source_course_blueprint_reference:
+          $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput"
     TeacherFormalCourseBindingPreviewInput:
       type: object
       additionalProperties: false
@@ -1802,6 +2084,324 @@ components:
             type: string
         control:
           $ref: "#/components/schemas/SyntheticRunLifecycleControl"
+    RoleWorkflowScopeInput:
+      type: object
+      additionalProperties: false
+      required: [round_id, run_id, team_id]
+      properties:
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+    RoleWorkflowAssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [course_id, role_key, run_id, team_id, user_id]
+      properties:
+        course_id:
+          type: string
+          minLength: 1
+        role_key:
+          type: string
+          enum: [CEO, CFO, CMO, COO]
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+        user_id:
+          type: string
+          minLength: 1
+    RoleWorkflowResetInput:
+      $ref: "#/components/schemas/RoleWorkflowScopeInput"
+    RoleWorkflowDecisionPayload:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        pricing:
+          type: object
+          additionalProperties: false
+          required: [base_price]
+          properties:
+            base_price:
+              type: number
+              exclusiveMinimum: 0
+        marketing_budget:
+          type: number
+          minimum: 0
+        service_quality_budget:
+          type: number
+          minimum: 0
+        capacity_plan:
+          type: string
+          enum: [contract, hold, expand]
+        cash_buffer_target:
+          type: number
+          minimum: 0
+        strategy_statement:
+          type: string
+    RoleWorkflowCanonicalDecisionPayload:
+      allOf:
+        - $ref: "#/components/schemas/RoleWorkflowDecisionPayload"
+        - type: object
+          required:
+            - pricing
+            - marketing_budget
+            - service_quality_budget
+            - capacity_plan
+            - cash_buffer_target
+            - strategy_statement
+    RoleWorkflowSectionInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, payload, round_id, run_id, team_id]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        payload:
+          $ref: "#/components/schemas/RoleWorkflowDecisionPayload"
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+    RoleWorkflowReadyInput:
+      type: object
+      additionalProperties: false
+      required: [expected_version, round_id, run_id, team_id]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+    RoleWorkflowMergeInput:
+      $ref: "#/components/schemas/RoleWorkflowScopeInput"
+    RoleWorkflowConfirmInput:
+      type: object
+      additionalProperties: false
+      required: [merge_commit_id, round_id, run_id, team_id]
+      properties:
+        merge_commit_id:
+          type: string
+          minLength: 1
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+    RoleWorkflowAssignment:
+      type: object
+      additionalProperties: false
+      required:
+        - assignment_id
+        - assigned_at
+        - assigned_by
+        - course_id
+        - role_key
+        - role_template_id
+        - run_id
+        - source
+        - status
+        - team_id
+        - tenant_id
+        - user_id
+      properties:
+        assignment_id:
+          type: string
+        assigned_at:
+          type: string
+          format: date-time
+        assigned_by:
+          type: string
+        course_id:
+          type: string
+        role_key:
+          type: string
+          enum: [CEO, CFO, CMO, COO]
+        role_template_id:
+          type: string
+        run_id:
+          type: string
+        source:
+          type: string
+          enum: [teacher_assigned, seeded_default]
+        status:
+          type: string
+          enum: [active, inactive]
+        team_id:
+          type: string
+        tenant_id:
+          type: string
+        user_id:
+          type: string
+    RoleWorkflowStudentMergeResult:
+      type: object
+      additionalProperties: false
+      required: [created_at, merge_commit_id, status]
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        merge_commit_id:
+          type: string
+        status:
+          type: string
+          const: validated
+    RoleWorkflowConfirmation:
+      type: object
+      additionalProperties: false
+      required:
+        - confirmed_at
+        - confirmed_by
+        - merge_commit_id
+        - round_id
+        - run_id
+        - status
+        - team_confirmation_id
+        - team_id
+        - tenant_id
+      properties:
+        confirmed_at:
+          type: string
+          format: date-time
+        confirmed_by:
+          type: string
+        merge_commit_id:
+          type: string
+        round_id:
+          type: string
+        run_id:
+          type: string
+        status:
+          type: string
+          const: confirmed
+        team_confirmation_id:
+          type: string
+        team_id:
+          type: string
+        tenant_id:
+          type: string
+    RoleWorkflowTeacherWorkspaceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "../schemas/teacher-role-workflow-workspace.v1.json"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowStudentWorkspaceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "../schemas/student-role-workflow-workspace.v1.json"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowAssignmentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "#/components/schemas/RoleWorkflowAssignment"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowResetEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          type: object
+          additionalProperties: false
+          required: [deactivated_assignments]
+          properties:
+            deactivated_assignments:
+              type: integer
+              minimum: 0
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowSectionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "../schemas/role-decision-section.v1.json"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowMergeEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "#/components/schemas/RoleWorkflowStudentMergeResult"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowConfirmationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "#/components/schemas/RoleWorkflowConfirmation"
+        message:
+          type: string
+        request_id:
+          type: string
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"
     M1AuthSessionEnvelope:

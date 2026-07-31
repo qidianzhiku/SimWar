@@ -1,0 +1,45 @@
+{
+  "schema_version": "student-role-workflow-workspace.v1",
+  "context": {
+    "role_context_id": "role_context_assignment_1_round_1",
+    "tenant_id": "tenant_demo",
+    "user_id": "usr_student",
+    "course_id": "course_demo",
+    "run_id": "run_demo",
+    "round_id": "round_demo_1",
+    "round_no": 1,
+    "team_id": "team_alpha",
+    "assignment_id": "assignment_1",
+    "role_key": "CEO",
+    "role_template_id": "role_template_ceo_v1",
+    "permissions": {
+      "policy_id": "role_policy_ceo_v1",
+      "role_key": "CEO",
+      "schema_version": "role-permission-policy.v1",
+      "can_read_role_workspace": true,
+      "can_save_section": true,
+      "can_mark_ready": true,
+      "can_create_merge_commit": true,
+      "can_confirm_team_decision": true,
+      "can_submit_canonical_decision": true,
+      "editable_fields": ["strategy_statement"],
+      "visible_scopes": ["team.readiness"],
+      "advisory_scopes": ["strategy"]
+    },
+    "source": "resolved_from_assignment",
+    "expires_at": "2026-07-31T10:00:00.000Z"
+  },
+  "assignment": {
+    "assignment_id": "assignment_1",
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_demo",
+    "team_id": "team_alpha",
+    "user_id": "usr_student",
+    "role_key": "CEO",
+    "role_template_id": "role_template_ceo_v1",
+    "status": "active",
+    "source": "teacher_assigned",
+    "assigned_at": "2026-07-31T02:00:00.000Z"
+  }
+}
