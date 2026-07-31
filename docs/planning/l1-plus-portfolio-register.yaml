@@ -1,18 +1,15 @@
-portfolio_version: 1
+portfolio_version: 2
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-07-30T06:47:05Z"
+generated_at: "2026-07-31T14:00:28+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+assessment_source_anchor_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: COURSEBLUEPRINT_IMMUTABLE_VERSIONING_CLOSED_WITH_LIMITS
+l1_plus_status: ROLE_WORKFLOW_PRODUCTIZATION_CLOSED_WITH_LIMITS
 repository_adoption:
-  status: ADOPTED_BY_GOVERNANCE_MERGE
-  governance_closure_pr: 299
-  governance_closure_head_sha: 9d2970b72f0e4215eee85989d207d7c769370821
-  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
-  owner_review: COMPLETED
+  status: ADOPTED_BY_THIS_GOVERNANCE_CHANGESET
+  owner_delegation: OWNER_DELEGATION_V3_C2_TO_C3_LONG_VALUE_CHAIN_001
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -21,36 +18,55 @@ wip_policy:
   full_suite_per_host: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
-    capability_id: L1P-VC-06
+    candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
+    capability_id: L1P-VC-08
     status: CLOSED_AND_CURRENT
-    product_pr: 295
-    approved_product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
-    product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
-    remediation_pr: 296
-    remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
-    remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
+    product_pr: 304
+    approved_product_head_sha: b75c31a988c889a88c1ff9f60ba90171fdefff46
+    product_merge_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
   support_code: NONE
   docs_discovery: NONE
-  closure: L1PLUS_C1_CLOSED_AND_CURRENT
+  closure: L1PLUS_C3_CLOSED_AND_CURRENT
+closed_capabilities:
+  - capability_id: L1P-VC-06
+    candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
+    status: CLOSED_AND_CURRENT
+  - capability_id: L1P-VC-07
+    candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+    status: CLOSED_AND_CURRENT
+    product_pr: 303
+    product_merge_sha: 70d180e370f84d451dd9b67e117409d92f797786
+  - capability_id: L1P-VC-08
+    candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
+    status: CLOSED_AND_CURRENT
+    product_pr: 304
+    product_merge_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
 resource_locks:
-  - resource: COURSE_BLUEPRINT_AUTHORITY
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: COURSE_BLUEPRINT_REGISTRY
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: COURSE_BLUEPRINT_BINDING
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
-  - resource: CONTRACT_GATE
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
+  - resource: ROLE_WORKFLOW_AUTHORITY
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: ROLE_WORKFLOW_JSON_REGISTRY
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: TEACHER_ROLE_WORKFLOW_SURFACE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: STUDENT_ROLE_WORKFLOW_SURFACE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: SHARED_CONTRACTS
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: RUN_REPLAY_GOLDEN
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: PLAYWRIGHT_STATE
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
-    status: RELEASED_AFTER_GOVERNANCE_MERGE_PR_299
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
-  - candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
+  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
-  - candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
-    status: BLOCKED_BY_CURRENT_PREREQUISITES
   - candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
-    status: DEFERRED_AFTER_PROGRAM_C_ENTRY
+    status: DEPENDS_ON_SEPARATE_PROGRAM_D_MISSION
+  - candidate_id: CAND-V3-M1-PYBLP-REFERENCE-POC
+    status: SUPPORT_LANE_NOT_RUNTIME_AUTHORIZED
+  - candidate_id: CAND-STK-S1-HOUSEHOLD-SHADOW
+    status: DEFERRED_READINESS_ONLY
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
@@ -59,27 +75,23 @@ known_limits:
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
   c1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
+  c3_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
   dependency_advisories: 2_LOW_6_HIGH
-  snapshot_cli_historical_event: NOT_REPRODUCIBLE
 evidence:
-  product_pr: 295
-  product_head_sha: d3dc261ad1d4b079fda5ccabeb4abb18ce954b5a
-  product_merge_sha: 1f281abf02f2f79604cbe30a1145e8e249f4f18e
-  remediation_pr: 296
-  remediation_head_sha: 3d2890537ea9032baf9d0353d349253b03737ec8
-  remediation_merge_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  post_remediation_validation_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  graph_source_sha: 60f4f518bc51b962da3975b86fd96558aac6a35d
-  governance_closure_merge_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
-  post_governance_readback_sha: 24348d8e4073b88da375bc0e583400edd8f4ea51
-  graph_registry: docs/technical/graph-registry/c1-closure-graph-assets.json
+  c2_product_pr: 303
+  c2_product_head_sha: 6c84b824c52657b43a8bc176f6cd38d0b7190146
+  c2_product_merge_sha: 70d180e370f84d451dd9b67e117409d92f797786
+  c3_product_pr: 304
+  c3_product_head_sha: b75c31a988c889a88c1ff9f60ba90171fdefff46
+  c3_product_merge_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
+  c3_post_merge_validation_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
   sealed_evidence: REQUIRED_AND_RECONCILED
-  ci_and_codeql: REQUIRED_AND_COMPLETED
+  ci_browser_and_codeql: REQUIRED_AND_COMPLETED
 invalidation_triggers:
   - product_or_runtime_changed
-  - course_blueprint_authority_changed
+  - role_workflow_authority_or_registry_changed
   - shared_contract_changed
-  - formal_course_or_run_binding_changed
+  - canonical_decision_or_formal_run_binding_changed
   - Golden_M1_truth_or_replay_contract_changed
   - student_visibility_changed
 automatic_next_start: false
