@@ -27,10 +27,13 @@ The C2/C3 delta between the assessment anchor and revalidated current master
 does not add a BLP/PyBLP runtime, ModelVersion authority, or official
 truth/Replay write path.
 
-The current product runtime is complete enough to identify its actual engine:
-the API resolves exact JSON formal inputs and calls the TypeScript
-`toy_logit_wellness_v1` settlement engine. Current source does not prove a BLP
-implementation or ModelVersion registry. The formal Run stores a
+The current product runtime is complete enough to identify its actual engine.
+For runs with a `FormalRunRuntimeBinding`, the API resolves exact JSON formal
+inputs and calls the TypeScript `toy_logit_wellness_v1` settlement engine.
+Legacy runs without that binding remain on an active compatibility edge:
+`resolveRunRuntimeInputs` reads ScenarioPackage and ParameterSet by their Run
+IDs, and that result feeds settlement and Replay evidence. Current source does
+not prove a BLP implementation or ModelVersion registry. A formal Run stores a
 `model_version_ref`, but that reference is inherited from ParameterSet and is
 not independently resolved through model authority.
 
@@ -69,8 +72,10 @@ Binding future boundaries from the candidate plan:
    strings, BLP architecture documents, and non-writing shadow-alignment
    descriptions.
 4. **ModelVersion:** no formal lifecycle authority or registry is proven.
-5. **Parameter source:** append-only JSON `ParameterSetVersion.parameter_values`
-   resolved by exact id/version/digest.
+5. **Parameter source:** formally bound runs use append-only JSON
+   `ParameterSetVersion.parameter_values` resolved by exact id/version/digest;
+   legacy unbound runs retain an ID-based repository fallback that must be
+   tracked as a compatibility gap.
 6. **BLP ParameterSet binding:** not proven; current runtime schema is
    `toy_logit`.
 7. **Golden M1:** current Golden exercises toy-logit and exact formal
@@ -88,7 +93,8 @@ Binding future boundaries from the candidate plan:
 10. **Historical evidence:** broad BLP/RCNL/PyBLP and Model Registry prose is
     design or roadmap evidence unless source-corroborated.
 11. **Future gates:** ModelVersion authority, artifact provenance, exact
-    ParameterSet compatibility, Golden Solver, Shadow Replay, visibility,
+    ParameterSet compatibility, elimination or explicit retirement of the
+    legacy unbound-run fallback, Golden Solver, Shadow Replay, visibility,
     rollback, and T4 activation.
 12. **C2 non-blockers:** all BLP implementation, calibration, registry,
     deployment, and Shadow Replay work remains outside C2.

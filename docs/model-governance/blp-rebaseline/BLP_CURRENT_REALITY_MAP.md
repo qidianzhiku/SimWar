@@ -90,6 +90,17 @@ Critical source readback:
 | 11  | Which future gates are required?                | Formal ModelVersion authority, artifact provenance/digests, BLP adapter boundary, exact ParameterSet binding, offline calibration evidence, Golden Solver tests, Shadow Replay non-overwrite, tenant/security projections, performance, rollback, and explicit T4 Owner authorization.                                      | `UNKNOWN` until separately implemented and proven                              | `BLP_FORMAL_REBASE_GAP_REGISTER.yaml`                                                                                   |
 | 12  | Which work must not block C2?                   | BLP implementation, calibration, Model Registry, Shadow Replay runtime, PyBLP dependency selection, model deployment, and model governance UI do not block Teacher Blueprint Studio because C2 reuses the existing CourseBlueprint/ParameterSet/formal binding surfaces and does not require model mutation.                | `REFERENCE` planning conclusion grounded in disjoint source paths              | `CG-010`; `GF-010`; lane ownership matrix                                                                               |
 
+## Active legacy compatibility edge
+
+`services/api/src/server.ts:resolveRunRuntimeInputs` is fail-closed and
+exact-bound when a `FormalRunRuntimeBinding` exists. If the binding is absent,
+the same active helper reads ScenarioPackage and ParameterSet by the IDs on
+the legacy Run. Both settlement and Replay evidence consume this helper.
+
+This fallback does not introduce BLP, but it prevents a universal claim that
+all active Run paths are exact-version/digest bound. It is recorded as
+`BLP-M0-GAP-011`.
+
 ## Candidate target versus current code
 
 | Candidate target from external plan                                                              | Current code fact at source SHA                                                                                          | Current classification                            | Admission rule                                                                        |

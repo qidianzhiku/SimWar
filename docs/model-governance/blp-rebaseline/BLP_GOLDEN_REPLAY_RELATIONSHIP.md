@@ -35,6 +35,13 @@ Golden M1 proves current toy-logit behavior.
 Golden M1 does not prove BLP behavior.
 ```
 
+The exact relationship above is proven for the formally bound Golden path.
+For legacy runs without a `FormalRunRuntimeBinding`,
+`server.ts:resolveRunRuntimeInputs` falls back to repository lookups by
+scenario-package and parameter-set IDs. Settlement and Replay evidence both
+consume that compatibility path. It is an active identity gap, not proof of
+BLP participation.
+
 ## Current Replay relationship
 
 `services/api/src/simulation.ts:buildReplayHash` hashes:

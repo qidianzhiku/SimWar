@@ -37,6 +37,13 @@ and defaults the repository provider to `createJsonRepositoryProvider`.
 ParameterSet and ScenarioPackage inputs without a legacy fallback. The
 materialized ParameterSet admits only `model_family: "toy_logit"`.
 
+That fail-closed resolver is used only when a
+`FormalRunRuntimeBinding` exists. The active API wrapper
+`server.ts:resolveRunRuntimeInputs` retains an ID-based repository fallback
+for legacy unbound runs. Settlement and Replay evidence both consume this
+wrapper. The fallback does not activate BLP, but it means exact formal
+identity is not universal across every active historical Run path.
+
 The active settlement implementation imports and calls
 `createToyLogitEngine`. No BLP adapter is selected by `model_version_ref`.
 

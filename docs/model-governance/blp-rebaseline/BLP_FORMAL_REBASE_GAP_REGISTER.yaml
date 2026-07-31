@@ -150,6 +150,20 @@ gaps:
     blocks_c2: false
     reason_not_blocking_c2: STK S0 is read-only and future S2 waits for M-RB3.
 
+  - gap_id: BLP-M0-GAP-011
+    capability: Exact formal identity coverage for legacy unbound runs
+    current_state: resolveRunRuntimeInputs uses exact formal authority when a FormalRunRuntimeBinding exists, but active legacy runs without a binding fall back to repository lookups by scenario-package and parameter-set IDs; settlement and Replay evidence consume both paths.
+    classification: KNOWN_COMPATIBILITY_GAP
+    future_gate: FORMAL_RUN_BINDING_FALLBACK_ELIMINATION_GATE
+    required_evidence:
+      - inventory of legacy unbound runs
+      - explicit migration or retirement policy
+      - fail-closed behavior after fallback removal
+      - settlement and Replay parity for migrated runs
+      - no silent ID-only runtime resolution
+    blocks_c2: false
+    reason_not_blocking_c2: C2 and C3 product closures do not activate BLP or alter the legacy compatibility path.
+
 future_execution_order:
   - gate_id: M-RB0
     outcome: Repository Fact Map
