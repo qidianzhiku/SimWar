@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
-import type { PublicResultView } from "../../packages/shared-contracts/src";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type {
+  InstructorAssetDTO,
+  InstructorIntelligenceKitDTO,
+  PublicResultView
+} from "../../packages/shared-contracts/src";
+import {
+  isCurrentInstructorActionRequest,
+  isCurrentInstructorAssetRequest,
+  isCurrentInstructorScopeRequest
+} from "../../apps/teacher/src/InstructorIntelligencePanel";
 import { createInstructorIntelligenceKit } from "../../services/api/src/instructor-intelligence";
+import type { InstructorAsset } from "../../services/api/src/instructor-asset-registry";
 
 const asset = {
   asset_id: "asset_001",
@@ -22,6 +32,72 @@ const asset = {
 };
 
 describe("createInstructorIntelligenceKit", () => {
+  it("uses the shared Instructor Asset and Intelligence Kit API DTOs", () => {
+    expectTypeOf<InstructorAsset>().toEqualTypeOf<InstructorAssetDTO>();
+    expectTypeOf<
+      ReturnType<typeof createInstructorIntelligenceKit>
+    >().toEqualTypeOf<InstructorIntelligenceKitDTO>();
+    expectTypeOf<
+      InstructorAssetDTO["course_blueprint_ref"]["resource_type"]
+    >().toEqualTypeOf<"course_blueprint">();
+    expectTypeOf<InstructorIntelligenceKitDTO["round"]["status"]>().toEqualTypeOf<"published">();
+    expectTypeOf<
+      InstructorIntelligenceKitDTO["source_course_blueprint_ref"]["resource_type"]
+    >().toEqualTypeOf<"course_blueprint">();
+  });
+
+  it("rejects an instructor asset response that is stale by request or course scope", () => {
+    expect(isCurrentInstructorAssetRequest("course_demo", 3, "course_demo", 3)).toBe(true);
+    expect(isCurrentInstructorAssetRequest("course_demo", 3, "course_other", 3)).toBe(false);
+    expect(isCurrentInstructorAssetRequest("course_demo", 3, "course_demo", 4)).toBe(false);
+  });
+
+  it("rejects a stale debrief action after any course, run, round, or asset scope change", () => {
+    const scope = {
+      assetId: "asset_demo",
+      courseId: "course_demo",
+      roundNo: 1,
+      runId: "run_demo"
+    };
+    expect(isCurrentInstructorScopeRequest(scope, 2, scope, 2)).toBe(true);
+    expect(
+      isCurrentInstructorScopeRequest(scope, 2, { ...scope, courseId: "course_other" }, 2)
+    ).toBe(false);
+    expect(isCurrentInstructorScopeRequest(scope, 2, { ...scope, runId: "run_other" }, 2)).toBe(
+      false
+    );
+    expect(isCurrentInstructorScopeRequest(scope, 2, { ...scope, roundNo: 2 }, 2)).toBe(false);
+    expect(isCurrentInstructorScopeRequest(scope, 2, { ...scope, assetId: "asset_other" }, 2)).toBe(
+      false
+    );
+    expect(isCurrentInstructorActionRequest(scope, 2, scope, 3)).toBe(false);
+  });
+
+  it("rejects a non-published round instead of emitting a schema-invalid kit", () => {
+    expect(() =>
+      createInstructorIntelligenceKit({
+        asset,
+        result_view: {
+          classroom_debrief_prompts: [],
+          result_label: "M1",
+          results: [],
+          round_no: 1,
+          run_id: "run_001",
+          runtime_boundary: "current_json_active_runtime",
+          runtime_limitations: [],
+          status: "open"
+        },
+        round: {
+          round_id: "round_001",
+          round_no: 1,
+          run_id: "run_001",
+          status: "open",
+          tenant_id: "tenant_demo"
+        }
+      })
+    ).toThrowError("INSTRUCTOR_INTELLIGENCE_PUBLISHED_ROUND_REQUIRED");
+  });
+
   it("is deterministic, AI-off, known-limit-aware, and marks a first round without result as baseline unavailable", () => {
     const input = {
       asset,
@@ -39,7 +115,7 @@ describe("createInstructorIntelligenceKit", () => {
         round_id: "round_001",
         round_no: 1,
         run_id: "run_001",
-        status: "open" as const,
+        status: "published" as const,
         tenant_id: "tenant_demo"
       }
     };

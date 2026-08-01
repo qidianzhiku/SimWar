@@ -2,36 +2,13 @@ import { createHash } from "node:crypto";
 import {
   M1_CLASSROOM_DEBRIEF_PROMPTS,
   M1_JSON_RUNTIME_LIMITATIONS,
+  type InstructorIntelligenceKitDTO,
   type PublicResultView,
   type Round
 } from "@simwar/shared-contracts";
 import type { InstructorAsset } from "./instructor-asset-registry.js";
 
-export interface InstructorIntelligenceKit {
-  readonly ai_status: "off";
-  readonly anomaly_status:
-    | "baseline_unavailable"
-    | "result_pending"
-    | "no_material_delta"
-    | "material_delta";
-  readonly causal_evidence_refs: readonly InstructorAsset["course_blueprint_ref"][];
-  readonly debrief_agenda: readonly string[];
-  readonly deterministic_fact_digest: string;
-  readonly discussion_points: readonly string[];
-  readonly follow_up_questions: readonly string[];
-  readonly instructor_asset_id: string;
-  readonly known_limits: readonly string[];
-  readonly round: Pick<Round, "round_id" | "round_no" | "run_id" | "status">;
-  readonly result_delta: {
-    readonly baseline_round_no?: number;
-    readonly baseline_team_count?: number;
-    readonly current_team_count: number;
-    readonly average_score_delta?: number;
-    readonly rank_change_count?: number;
-  };
-  readonly source_course_blueprint_ref: InstructorAsset["course_blueprint_ref"];
-  readonly time_guidance: string;
-}
+export type InstructorIntelligenceKit = InstructorIntelligenceKitDTO;
 
 /** Builds a deterministic teacher-only teaching projection from existing read models. */
 export function createInstructorIntelligenceKit(input: {
@@ -40,6 +17,9 @@ export function createInstructorIntelligenceKit(input: {
   result_view: PublicResultView;
   round: Round;
 }): InstructorIntelligenceKit {
+  if (input.round.status !== "published") {
+    throw new Error("INSTRUCTOR_INTELLIGENCE_PUBLISHED_ROUND_REQUIRED");
+  }
   const currentObserved = input.result_view.results.map((result) => ({
     rank: result.state_obs.rank,
     score: result.state_obs.score,

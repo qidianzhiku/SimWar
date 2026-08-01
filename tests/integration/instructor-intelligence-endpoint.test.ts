@@ -2,6 +2,7 @@ import { once } from "node:events";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type { ApiEnvelope, AuthSession } from "../../packages/shared-contracts/src";
+import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
 import { CourseBlueprintBindingStore } from "../../services/api/src/course-blueprint-binding-store";
 import { createCourseBlueprintBinding } from "../../services/api/src/course-blueprint-binding";
@@ -67,6 +68,17 @@ describe("Instructor Intelligence teacher boundary", () => {
     try {
       const teacher = await login(baseUrl, "teacher");
       const student = await login(baseUrl, "student");
+      const primaryTeacher = store.users.find((user) => user.username === "teacher");
+      if (!primaryTeacher) throw new Error("seeded teacher is required");
+      store.users.push({
+        ...primaryTeacher,
+        display_name: "Second Teacher",
+        email: "teacher-two@demo.simwar.local",
+        password_hash: hashPassword("teacher-two"),
+        user_id: "usr_teacher_two",
+        username: "teacher-two"
+      });
+      const secondTeacher = await login(baseUrl, "teacher-two");
       new CourseBlueprintBindingStore(store).append(
         createCourseBlueprintBinding({
           binding_schema_version: "course-blueprint-binding.v1",
@@ -122,6 +134,19 @@ describe("Instructor Intelligence teacher boundary", () => {
       expect(draft.status).toBe(201);
       expect(draft.body.data.status).toBe("draft");
       expect(JSON.stringify(draft.body.data)).not.toContain("state_true");
+
+      for (const action of ["publish", "reject", "revisions"] as const) {
+        const deniedOtherTeacher = await request<unknown>(
+          baseUrl,
+          `/api/v1/bff/teacher/instructor-assets/${draft.body.data.asset_id}/${action}`,
+          secondTeacher,
+          action === "revisions" ? { title: "Unauthorized revision" } : {}
+        );
+        expect(deniedOtherTeacher.status).toBe(404);
+      }
+      expect(store.instructorAssets).toEqual([
+        expect.objectContaining({ asset_id: draft.body.data.asset_id, status: "draft" })
+      ]);
 
       const published = await request<{ status: string }>(
         baseUrl,

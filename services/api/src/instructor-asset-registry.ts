@@ -1,21 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
-import { isExactRef, type ExactRef } from "@simwar/shared-contracts";
+import {
+  isExactRef,
+  type CourseBlueprintExactRef,
+  type ExactRef,
+  type InstructorAssetDTO,
+  type InstructorAssetStatus
+} from "@simwar/shared-contracts";
 
-export type InstructorAssetStatus = "draft" | "teacher_published" | "rejected";
-
-export interface InstructorAsset {
-  readonly asset_id: string;
-  readonly course_id: string;
-  readonly course_blueprint_ref: ExactRef;
-  readonly created_at: string;
-  readonly created_by: string;
-  readonly fact_digest: string;
-  readonly revision_of_asset_id?: string;
-  status: InstructorAssetStatus;
-  readonly tenant_id: string;
-  readonly title: string;
-  updated_at: string;
-}
+export type { InstructorAssetStatus } from "@simwar/shared-contracts";
+export type InstructorAsset = InstructorAssetDTO;
 
 export interface CreateInstructorAssetDraftInput {
   actor_id: string;
@@ -68,6 +61,13 @@ function isCanonicalUtcTimestamp(value: unknown): value is string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) return false;
   return parsed.toISOString() === (value.includes(".") ? value : `${value.slice(0, -1)}.000Z`);
+}
+
+function asCourseBlueprintExactRef(value: ExactRef): CourseBlueprintExactRef {
+  if (value.resource_type !== "course_blueprint") {
+    throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_EXACT_REFERENCE_REQUIRED");
+  }
+  return value as CourseBlueprintExactRef;
 }
 
 function digestFor(
@@ -155,7 +155,7 @@ export class InstructorAssetRegistry {
     const assetCore = {
       asset_id: assetId,
       course_id: input.course_id,
-      course_blueprint_ref: clone(input.course_blueprint_ref),
+      course_blueprint_ref: clone(asCourseBlueprintExactRef(input.course_blueprint_ref)),
       created_at: createdAt,
       created_by: input.actor_id,
       status: "draft" as const,
@@ -176,7 +176,7 @@ export class InstructorAssetRegistry {
   }
 
   createRevision(input: CreateInstructorAssetRevisionInput): InstructorAsset {
-    const source = this.getOwned(input.tenant_id, input.asset_id);
+    const source = this.getOwnedByActor(input);
     this.assertImmutable(source);
     if (!nonBlank(input.title))
       throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_TITLE_INVALID");
@@ -229,6 +229,7 @@ export class InstructorAssetRegistry {
 
   /** Compensates a created asset when its required audit append fails. */
   discardAfterAuditFailure(input: InstructorAssetTransitionInput): void {
+    this.getOwnedByActor(input);
     const index = this.assets.findIndex(
       (candidate) =>
         candidate.tenant_id === input.tenant_id && candidate.asset_id === input.asset_id
@@ -245,7 +246,7 @@ export class InstructorAssetRegistry {
 
   /** Restores a terminal asset to draft when its required audit append fails. */
   revertTransitionAfterAuditFailure(input: InstructorAssetTransitionInput): void {
-    const asset = this.getOwned(input.tenant_id, input.asset_id);
+    const asset = this.getOwnedByActor(input);
     if (asset.status === "draft")
       throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_IMMUTABLE");
     const previousStatus = asset.status;
@@ -309,11 +310,19 @@ export class InstructorAssetRegistry {
     return asset;
   }
 
+  private getOwnedByActor(input: InstructorAssetTransitionInput): InstructorAsset {
+    const asset = this.getOwned(input.tenant_id, input.asset_id);
+    if (asset.created_by !== input.actor_id) {
+      throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_NOT_FOUND");
+    }
+    return asset;
+  }
+
   private transition(
     input: InstructorAssetTransitionInput,
     status: Exclude<InstructorAssetStatus, "draft">
   ): InstructorAsset {
-    const asset = this.getOwned(input.tenant_id, input.asset_id);
+    const asset = this.getOwnedByActor(input);
     if (asset.status !== "draft")
       throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_IMMUTABLE");
     const previousStatus = asset.status;

@@ -139,6 +139,26 @@ describe("InstructorAssetRegistry", () => {
     expect(JSON.stringify(registry.list("tenant_demo"))).not.toContain("student");
   });
 
+  it("rejects same-tenant teachers who did not create an asset from mutating it", () => {
+    const registry = new InstructorAssetRegistry({ createId: () => "instructor_asset_owned" });
+    const draft = registry.createDraft({
+      actor_id: "teacher_owner",
+      course_id: "course_demo",
+      course_blueprint_ref: courseBlueprintRef(),
+      tenant_id: "tenant_demo",
+      title: "Owner-only kit"
+    });
+
+    expect(() =>
+      registry.publish({
+        actor_id: "teacher_other",
+        asset_id: draft.asset_id,
+        tenant_id: "tenant_demo"
+      })
+    ).toThrowError(new InstructorAssetRegistryError("INSTRUCTOR_ASSET_NOT_FOUND"));
+    expect(registry.get("tenant_demo", draft.asset_id).status).toBe("draft");
+  });
+
   it("rejects generated IDs that would make revisions ambiguous", () => {
     const registry = new InstructorAssetRegistry({ createId: () => "instructor_asset_duplicate" });
     registry.createDraft({

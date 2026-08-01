@@ -1,49 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ApiEnvelope } from "@simwar/shared-contracts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ApiEnvelope,
+  InstructorAssetDTO,
+  InstructorIntelligenceKitDTO
+} from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-
-type InstructorAssetStatus = "draft" | "teacher_published" | "rejected";
-
-interface InstructorAsset {
-  asset_id: string;
-  course_id: string;
-  course_blueprint_ref: {
-    content_digest: string;
-    resource_id: string;
-    version: string;
-  };
-  status: InstructorAssetStatus;
-  title: string;
-}
-
-interface ExactReference {
-  content_digest: string;
-  resource_id: string;
-  resource_type: string;
-  tenant_id: string;
-  version: string;
-}
-
-interface InstructorIntelligenceKit {
-  ai_status: "off";
-  anomaly_status:
-    | "baseline_unavailable"
-    | "result_pending"
-    | "no_material_delta"
-    | "material_delta";
-  causal_evidence_refs: readonly ExactReference[];
-  debrief_agenda: readonly string[];
-  discussion_points: readonly string[];
-  follow_up_questions: readonly string[];
-  known_limits: readonly string[];
-  result_delta: {
-    average_score_delta?: number;
-    baseline_round_no?: number;
-    rank_change_count?: number;
-  };
-  time_guidance: string;
-}
 
 interface InstructorIntelligencePanelProps {
   courseId: string | undefined;
@@ -57,7 +19,7 @@ interface InstructorIntelligencePanelProps {
 async function request<T>(
   path: string,
   props: Pick<InstructorIntelligencePanelProps, "tenantId" | "token">,
-  options: { body?: unknown; method?: "GET" | "POST" } = {}
+  options: { body?: unknown; method?: "GET" | "POST"; signal?: AbortSignal } = {}
 ): Promise<T> {
   const init: RequestInit = {
     headers: {
@@ -68,56 +30,152 @@ async function request<T>(
     method: options.method ?? "GET"
   };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
-  const response = await fetch(`${API_BASE}${path}`, init);
+  const response = await fetch(
+    `${API_BASE}${path}`,
+    options.signal ? { ...init, signal: options.signal } : init
+  );
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
   return envelope.data;
 }
 
+export function isCurrentInstructorAssetRequest(
+  requestCourseId: string,
+  requestSequence: number,
+  currentCourseId: string | undefined,
+  latestRequestSequence: number
+): boolean {
+  return requestCourseId === currentCourseId && requestSequence === latestRequestSequence;
+}
+
+interface InstructorIntelligenceScope {
+  readonly assetId: string;
+  readonly courseId: string | undefined;
+  readonly roundNo: number | undefined;
+  readonly runId: string | undefined;
+}
+
+export function isCurrentInstructorScopeRequest(
+  requestScope: InstructorIntelligenceScope,
+  requestSequence: number,
+  currentScope: InstructorIntelligenceScope,
+  latestRequestSequence: number
+): boolean {
+  return (
+    requestSequence === latestRequestSequence &&
+    requestScope.assetId === currentScope.assetId &&
+    requestScope.courseId === currentScope.courseId &&
+    requestScope.roundNo === currentScope.roundNo &&
+    requestScope.runId === currentScope.runId
+  );
+}
+
+export function isCurrentInstructorActionRequest(
+  requestScope: InstructorIntelligenceScope,
+  requestSequence: number,
+  currentScope: InstructorIntelligenceScope,
+  latestRequestSequence: number
+): boolean {
+  return isCurrentInstructorScopeRequest(
+    requestScope,
+    requestSequence,
+    currentScope,
+    latestRequestSequence
+  );
+}
+
 export function InstructorIntelligencePanel(props: InstructorIntelligencePanelProps) {
-  const [assets, setAssets] = useState<InstructorAsset[]>([]);
+  const [assets, setAssets] = useState<InstructorAssetDTO[]>([]);
   const [assetId, setAssetId] = useState("");
-  const [kit, setKit] = useState<InstructorIntelligenceKit | null>(null);
+  const [kit, setKit] = useState<InstructorIntelligenceKitDTO | null>(null);
   const [notice, setNotice] = useState("等待课程与 Run");
   const [title, setTitle] = useState("本回合教学复盘");
   const [busy, setBusy] = useState(false);
+  const actionRequestSequence = useRef(0);
+  const assetRequestSequence = useRef(0);
+  const kitRequestSequence = useRef(0);
+  const kitRequestController = useRef<AbortController | null>(null);
+  const currentCourseId = useRef(props.courseId);
+  currentCourseId.current = props.courseId;
+  const currentScope = useRef<InstructorIntelligenceScope>({
+    assetId,
+    courseId: props.courseId,
+    roundNo: props.roundNo,
+    runId: props.runId
+  });
+  currentScope.current = {
+    assetId,
+    courseId: props.courseId,
+    roundNo: props.roundNo,
+    runId: props.runId
+  };
   const scopeReady = Boolean(props.courseId && props.runId && props.roundNo && props.token);
   const selectedAsset = useMemo(
     () => assets.find((asset) => asset.asset_id === assetId) ?? null,
     [assetId, assets]
   );
 
-  const refresh = useCallback(async () => {
-    if (!props.token || !props.courseId) {
-      setAssets([]);
-      setAssetId("");
-      return;
-    }
-    const next = await request<InstructorAsset[]>(
-      `/api/v1/bff/teacher/instructor-assets?${new URLSearchParams({ course_id: props.courseId })}`,
-      props
-    );
-    setAssets(next);
-    setAssetId((current) =>
-      next.some((asset) => asset.asset_id === current) ? current : (next.at(-1)?.asset_id ?? "")
-    );
-  }, [props.courseId, props.tenantId, props.token]);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!props.token || !props.courseId) {
+        assetRequestSequence.current += 1;
+        setAssets([]);
+        setAssetId("");
+        return;
+      }
+      const requestCourseId = props.courseId;
+      const requestSequence = assetRequestSequence.current + 1;
+      assetRequestSequence.current = requestSequence;
+      const next = await request<InstructorAssetDTO[]>(
+        `/api/v1/bff/teacher/instructor-assets?${new URLSearchParams({ course_id: props.courseId })}`,
+        props,
+        signal ? { signal } : {}
+      );
+      if (
+        signal?.aborted ||
+        !isCurrentInstructorAssetRequest(
+          requestCourseId,
+          requestSequence,
+          currentCourseId.current,
+          assetRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setAssets(next);
+      setAssetId((current) =>
+        next.some((asset) => asset.asset_id === current) ? current : (next.at(-1)?.asset_id ?? "")
+      );
+    },
+    [props.courseId, props.tenantId, props.token]
+  );
 
   useEffect(() => {
-    void refresh().catch((error: unknown) =>
-      setNotice(error instanceof Error ? error.message : "无法读取教学复盘资产")
-    );
+    const controller = new AbortController();
+    setAssets([]);
+    setAssetId("");
+    void refresh(controller.signal).catch((error: unknown) => {
+      if (controller.signal.aborted) return;
+      setNotice(error instanceof Error ? error.message : "无法读取教学复盘资产");
+    });
+    return () => controller.abort();
   }, [refresh]);
 
   useEffect(() => {
+    actionRequestSequence.current += 1;
+    kitRequestSequence.current += 1;
+    kitRequestController.current?.abort();
+    kitRequestController.current = null;
     setKit(null);
-  }, [assetId, props.runId, props.roundNo]);
+  }, [assetId, props.courseId, props.runId, props.roundNo]);
 
   async function createDraft(): Promise<void> {
     if (!props.courseId) return;
+    const requestScope = currentScope.current;
+    const requestSequence = actionRequestSequence.current;
     setBusy(true);
     try {
-      const created = await request<InstructorAsset>(
+      const created = await request<InstructorAssetDTO>(
         "/api/v1/bff/teacher/instructor-assets/drafts",
         props,
         {
@@ -125,11 +183,30 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
           method: "POST"
         }
       );
-      await refresh();
+      if (
+        !isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setAssets((current) => [...current, created]);
       setAssetId(created.asset_id);
       setNotice("草稿已创建；需显式发布后才能用于教学复盘");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "创建草稿失败");
+      if (
+        isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "创建草稿失败");
+      }
     } finally {
       setBusy(false);
     }
@@ -137,17 +214,40 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
 
   async function publish(): Promise<void> {
     if (!selectedAsset) return;
+    const requestScope = currentScope.current;
+    const requestSequence = actionRequestSequence.current;
     setBusy(true);
     try {
-      await request<InstructorAsset>(
+      const published = await request<InstructorAssetDTO>(
         `/api/v1/bff/teacher/instructor-assets/${encodeURIComponent(selectedAsset.asset_id)}/publish`,
         props,
         { body: {}, method: "POST" }
       );
-      await refresh();
+      if (
+        !isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setAssets((current) =>
+        current.map((asset) => (asset.asset_id === published.asset_id ? published : asset))
+      );
       setNotice("教学复盘资产已发布");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "发布失败");
+      if (
+        isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "发布失败");
+      }
     } finally {
       setBusy(false);
     }
@@ -155,17 +255,40 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
 
   async function reject(): Promise<void> {
     if (!selectedAsset) return;
+    const requestScope = currentScope.current;
+    const requestSequence = actionRequestSequence.current;
     setBusy(true);
     try {
-      await request<InstructorAsset>(
+      const rejected = await request<InstructorAssetDTO>(
         `/api/v1/bff/teacher/instructor-assets/${encodeURIComponent(selectedAsset.asset_id)}/reject`,
         props,
         { body: {}, method: "POST" }
       );
-      await refresh();
+      if (
+        !isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setAssets((current) =>
+        current.map((asset) => (asset.asset_id === rejected.asset_id ? rejected : asset))
+      );
       setNotice("教学复盘草稿已拒绝；终态不可原地修改");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "拒绝失败");
+      if (
+        isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "拒绝失败");
+      }
     } finally {
       setBusy(false);
     }
@@ -173,18 +296,39 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
 
   async function createRevision(): Promise<void> {
     if (!selectedAsset) return;
+    const requestScope = currentScope.current;
+    const requestSequence = actionRequestSequence.current;
     setBusy(true);
     try {
-      const revision = await request<InstructorAsset>(
+      const revision = await request<InstructorAssetDTO>(
         `/api/v1/bff/teacher/instructor-assets/${encodeURIComponent(selectedAsset.asset_id)}/revisions`,
         props,
         { body: { title }, method: "POST" }
       );
-      await refresh();
+      if (
+        !isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setAssets((current) => [...current, revision]);
       setAssetId(revision.asset_id);
       setNotice("已创建独立修订草稿");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "创建修订失败");
+      if (
+        isCurrentInstructorActionRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          actionRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "创建修订失败");
+      }
     } finally {
       setBusy(false);
     }
@@ -192,6 +336,12 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
 
   async function loadKit(): Promise<void> {
     if (!selectedAsset || !props.runId || !props.roundNo) return;
+    kitRequestController.current?.abort();
+    const controller = new AbortController();
+    const requestScope = currentScope.current;
+    const requestSequence = kitRequestSequence.current + 1;
+    kitRequestSequence.current = requestSequence;
+    kitRequestController.current = controller;
     setBusy(true);
     try {
       const query = new URLSearchParams({
@@ -199,17 +349,47 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
         round_no: String(props.roundNo),
         run_id: props.runId
       });
-      setKit(
-        await request<InstructorIntelligenceKit>(
-          `/api/v1/bff/teacher/instructor-intelligence?${query}`,
-          props
-        )
+      const nextKit = await request<InstructorIntelligenceKitDTO>(
+        `/api/v1/bff/teacher/instructor-intelligence?${query}`,
+        props,
+        { signal: controller.signal }
       );
+      if (
+        controller.signal.aborted ||
+        !isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      setKit(nextKit);
       setNotice("已生成确定性教学复盘包；未调用 AI");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "教学复盘包不可用");
+      if (
+        !controller.signal.aborted &&
+        isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "教学复盘包不可用");
+      }
     } finally {
-      setBusy(false);
+      if (
+        isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        setBusy(false);
+      }
     }
   }
 
