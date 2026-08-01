@@ -1,0 +1,23 @@
+{
+  "schema_version": "m1-pyblp-reference-input.v1",
+  "case_id": "case-06",
+  "seed": 106,
+  "pyblp_version": "1.2.0",
+  "markets": [
+    {
+      "market_id": "m06a",
+      "products": [
+        { "product_id": "p06a", "firm_id": "firm-a", "price": 1.05, "share": 0.19 },
+        { "product_id": "p06b", "firm_id": "firm-b", "price": 1.5, "share": 0.17 }
+      ]
+    },
+    {
+      "market_id": "m06b",
+      "products": [
+        { "product_id": "p06c", "firm_id": "firm-a", "price": 1.15, "share": 0.18 },
+        { "product_id": "p06d", "firm_id": "firm-b", "price": 1.6, "share": 0.13 }
+      ]
+    }
+  ],
+  "counterfactual": { "name": "merged-firms", "firm_ids": ["firm-a"] }
+}

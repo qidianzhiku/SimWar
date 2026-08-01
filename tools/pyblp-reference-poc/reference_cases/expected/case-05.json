@@ -1,0 +1,91 @@
+{
+  "artifact_digest": "1799eb4b36994b90cd3b6a9f3e98c980e025dd4e15e7e6f586f223c694c4562e",
+  "calibration_artifact": {
+    "artifact_id": "calibration:case-05:0c62d925d230",
+    "beta_price": -2.1177684733829554,
+    "input_digest": "0c62d925d230832cb08b485811c963520de6a5a51e2f8d94e02355443b2f27f1",
+    "method": "SYNTHETIC_LOGIT_REFERENCE_ONLY",
+    "pyblp_version": "1.2.0"
+  },
+  "case_id": "case-05",
+  "counterfactual": {
+    "equilibrium_prices": [
+      1.0607138646559537, 1.4061755285594042, 1.1440179935816042, 1.4221248476933404
+    ],
+    "firm_ids": ["firm-a"],
+    "name": "merged-firms"
+  },
+  "diagnostics": {
+    "beta_price": -2.1177684733829554,
+    "converged": true,
+    "demand_moment_count": 3,
+    "instrument_rank": 3,
+    "parameter_count": 2,
+    "solver_message_digest": "e95a0c90304c2d04bab2d1b7be8bfca364e0c00d95cc86d1afc9b43f15158ae7",
+    "solver_warning_count": 0
+  },
+  "input_digest": "0c62d925d230832cb08b485811c963520de6a5a51e2f8d94e02355443b2f27f1",
+  "non_overwrite_proof": {
+    "input_digest_after": "0c62d925d230832cb08b485811c963520de6a5a51e2f8d94e02355443b2f27f1",
+    "input_digest_before": "0c62d925d230832cb08b485811c963520de6a5a51e2f8d94e02355443b2f27f1",
+    "input_unchanged": true,
+    "scope": "INPUT_SENTINEL_ONLY"
+  },
+  "pyblp_version": "1.2.0",
+  "results": {
+    "markets": [
+      {
+        "diversion_ratios": [
+          [0.7631578947368421, 0.23684210526315788],
+          [0.29268292682926833, 0.7073170731707317]
+        ],
+        "elasticities": [
+          [-1.5290288377824939, 0.47649790651116497],
+          [0.4828512119313139, -2.170712685217529]
+        ],
+        "market_id": "m05a",
+        "outside_share": 0.5800000000000001,
+        "probabilities": [[0.24], [0.18000000000000002]],
+        "products": [
+          {
+            "latent_share": 0.24,
+            "price": 0.95,
+            "product_id": "p05a"
+          },
+          {
+            "latent_share": 0.18,
+            "price": 1.25,
+            "product_id": "p05b"
+          }
+        ]
+      },
+      {
+        "diversion_ratios": [
+          [0.8, 0.19999999999999996],
+          [0.2380952380952381, 0.7619047619047619]
+        ],
+        "elasticities": [
+          [-1.7789255176416825, 0.44049584246365464],
+          [0.44473137941042057, -2.312603172934187]
+        ],
+        "market_id": "m05b",
+        "outside_share": 0.64,
+        "probabilities": [[0.2], [0.15999999999999998]],
+        "products": [
+          {
+            "latent_share": 0.2,
+            "price": 1.05,
+            "product_id": "p05c"
+          },
+          {
+            "latent_share": 0.16,
+            "price": 1.3,
+            "product_id": "p05d"
+          }
+        ]
+      }
+    ]
+  },
+  "schema_version": "m1-pyblp-reference-output.v1",
+  "seed": 105
+}

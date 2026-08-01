@@ -1,0 +1,8 @@
+[project]
+name = "simwar-pyblp-reference-poc"
+version = "0.1.0"
+description = "Isolated synthetic PyBLP reference POC; not a SimWar runtime component."
+requires-python = ">=3.12,<3.13"
+
+[tool.unittest]
+start-directory = "tests"

@@ -1,0 +1,65 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:4f07144b-308b-4a3d-8b87-58f3ddf80b22",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "bom-ref": "simwar-pyblp-reference-poc",
+      "name": "simwar-pyblp-reference-poc",
+      "type": "application",
+      "version": "0.1.0"
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/pyblp@1.2.0",
+      "name": "pyblp",
+      "type": "library",
+      "version": "1.2.0",
+      "purl": "pkg:pypi/pyblp@1.2.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/numpy@2.5.1",
+      "name": "numpy",
+      "type": "library",
+      "version": "2.5.1",
+      "purl": "pkg:pypi/numpy@2.5.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/scipy@1.18.0",
+      "name": "scipy",
+      "type": "library",
+      "version": "1.18.0",
+      "purl": "pkg:pypi/scipy@1.18.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/sympy@1.14.0",
+      "name": "sympy",
+      "type": "library",
+      "version": "1.14.0",
+      "purl": "pkg:pypi/sympy@1.14.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/patsy@1.0.2",
+      "name": "patsy",
+      "type": "library",
+      "version": "1.0.2",
+      "purl": "pkg:pypi/patsy@1.0.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyhdfe@0.2.0",
+      "name": "pyhdfe",
+      "type": "library",
+      "version": "0.2.0",
+      "purl": "pkg:pypi/pyhdfe@0.2.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/mpmath@1.3.0",
+      "name": "mpmath",
+      "type": "library",
+      "version": "1.3.0",
+      "purl": "pkg:pypi/mpmath@1.3.0"
+    }
+  ]
+}

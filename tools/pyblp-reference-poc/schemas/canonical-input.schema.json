@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simwar/m1-pyblp-reference-input.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "seed", "pyblp_version", "markets", "counterfactual"],
+  "properties": {
+    "schema_version": { "const": "m1-pyblp-reference-input.v1" },
+    "case_id": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer" },
+    "pyblp_version": { "type": "string", "minLength": 1 },
+    "markets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/market" } },
+    "counterfactual": { "$ref": "#/$defs/counterfactual" }
+  },
+  "$defs": {
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["market_id", "products"],
+      "properties": {
+        "market_id": { "type": "string", "minLength": 1 },
+        "products": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/product" } }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_id", "firm_id", "price", "share"],
+      "properties": {
+        "product_id": { "type": "string", "minLength": 1 },
+        "firm_id": { "type": "string", "minLength": 1 },
+        "price": { "type": "number" },
+        "share": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+      }
+    },
+    "counterfactual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "firm_ids"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "firm_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
