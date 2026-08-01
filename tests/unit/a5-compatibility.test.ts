@@ -201,7 +201,6 @@ describe("A5 compatibility contracts", () => {
 
   it("keeps JSON Schema ExactRef rejection case-aligned with the validator", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
-    ajv.addFormat("a5-utc-timestamp", true);
     const validate = ajv.compile(
       jsonFixture<AnySchema>("contracts/schemas/a5-compatibility.v1.json")
     );
@@ -522,12 +521,21 @@ describe("A5 compatibility contracts", () => {
 
   it("publishes closed A5 schema fixtures that the contract gate can validate", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
-    ajv.addFormat("a5-utc-timestamp", true);
     const validate = ajv.compile(
       jsonFixture<AnySchema>("contracts/schemas/a5-compatibility.v1.json")
     );
+    const fixture = jsonFixture<Record<string, unknown>>(
+      "contracts/fixtures/a5-compatibility.valid.json"
+    );
+    const evidence = fixture.evidence_artifact as Record<string, unknown>;
 
-    expect(validate(jsonFixture("contracts/fixtures/a5-compatibility.valid.json"))).toBe(true);
+    expect(validate(fixture)).toBe(true);
+    expect(
+      validate({
+        ...fixture,
+        evidence_artifact: { ...evidence, captured_at: "2026-08-01 09:00:00Z" }
+      })
+    ).toBe(false);
     expect(validate(jsonFixture("contracts/fixtures/a5-compatibility.invalid.json"))).toBe(false);
   });
 });

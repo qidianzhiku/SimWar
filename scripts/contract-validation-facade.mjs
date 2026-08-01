@@ -430,18 +430,6 @@ export function createContractAjv() {
     type: "string",
     validate: (value) => !Number.isNaN(Date.parse(value))
   });
-  ajv.addFormat("a5-utc-timestamp", {
-    type: "string",
-    validate: (value) => {
-      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
-        return false;
-      }
-
-      const parsed = new Date(value);
-      const canonicalUtc = value.includes(".") ? value : `${value.slice(0, -1)}.000Z`;
-      return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === canonicalUtc;
-    }
-  });
   return ajv;
 }
 
