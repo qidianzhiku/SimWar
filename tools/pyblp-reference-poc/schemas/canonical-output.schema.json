@@ -86,8 +86,24 @@
     "diagnostics": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["beta_price", "converged"],
-      "properties": { "beta_price": { "type": "number" }, "converged": { "type": "boolean" } }
+      "required": [
+        "beta_price",
+        "converged",
+        "demand_moment_count",
+        "instrument_rank",
+        "parameter_count",
+        "solver_message_digest",
+        "solver_warning_count"
+      ],
+      "properties": {
+        "beta_price": { "type": "number" },
+        "converged": { "const": true },
+        "demand_moment_count": { "type": "integer", "minimum": 1 },
+        "instrument_rank": { "type": "integer", "minimum": 1 },
+        "parameter_count": { "type": "integer", "minimum": 1 },
+        "solver_message_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "solver_warning_count": { "const": 0 }
+      }
     },
     "calibrationArtifact": {
       "type": "object",

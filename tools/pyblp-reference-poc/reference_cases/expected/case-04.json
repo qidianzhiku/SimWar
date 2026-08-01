@@ -1,5 +1,5 @@
 {
-  "artifact_digest": "a8637097bfc5aa384334c2c6db0fd7e8286be8ba2b7d83d9f48470f05872a33d",
+  "artifact_digest": "5f95aa08f24258794fb324d62190b9e56484e4b97713cd4e45a1e4db3f1a1f16",
   "calibration_artifact": {
     "artifact_id": "calibration:case-04:dd93a1139d7c",
     "beta_price": -1.6964826550560945,
@@ -17,7 +17,12 @@
   },
   "diagnostics": {
     "beta_price": -1.6964826550560945,
-    "converged": true
+    "converged": true,
+    "demand_moment_count": 3,
+    "instrument_rank": 3,
+    "parameter_count": 2,
+    "solver_message_digest": "dd9c4c4d45eac17f5780d7e3ec7bb4f49d066841327d7e5cfcf0729a77b706ca",
+    "solver_warning_count": 0
   },
   "input_digest": "dd93a1139d7c2911c62aec775a10bb5e7c3ef56319a7e1cef4956f69b92de845",
   "non_overwrite_proof": {

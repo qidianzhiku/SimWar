@@ -51,6 +51,34 @@ def _product_data(payload: dict[str, Any]) -> np.ndarray:
     )
 
 
+def _fail_closed_diagnostics(problem: Any, solved: Any, solver_messages: str) -> dict[str, Any]:
+    parameter_count = int(problem.K1)
+    demand_moment_count = int(problem.MD)
+    instrument_rank = int(np.linalg.matrix_rank(problem.products.ZD))
+    warning_lines = [
+        line.strip()
+        for line in solver_messages.splitlines()
+        if any(marker in line.lower() for marker in ("warning", "under-identified", "numerical error", "divide by zero", "invalid value"))
+    ]
+    if demand_moment_count < parameter_count or instrument_rank < parameter_count:
+        raise ReferencePocError(
+            f"PyBLP identification failed: moments={demand_moment_count}, rank={instrument_rank}, parameters={parameter_count}"
+        )
+    if warning_lines:
+        raise ReferencePocError(f"PyBLP diagnostic failed closed: {warning_lines[0]}")
+    if not bool(solved.converged):
+        raise ReferencePocError("PyBLP solve did not converge")
+    return {
+        "beta_price": float(np.asarray(solved.beta).reshape(-1)[-1]),
+        "converged": True,
+        "demand_moment_count": demand_moment_count,
+        "instrument_rank": instrument_rank,
+        "parameter_count": parameter_count,
+        "solver_message_digest": sha256_digest(solver_messages),
+        "solver_warning_count": 0,
+    }
+
+
 def run_reference_case(input_payload: dict[str, Any]) -> dict[str, Any]:
     validate_input(input_payload)
     if pyblp.__version__ != PYBLP_VERSION:
@@ -58,16 +86,21 @@ def run_reference_case(input_payload: dict[str, Any]) -> dict[str, Any]:
     np.random.seed(input_payload["seed"])
     data = _product_data(input_payload)
     try:
-        with contextlib.redirect_stdout(io.StringIO()):
+        solver_stdout = io.StringIO()
+        solver_stderr = io.StringIO()
+        with contextlib.redirect_stdout(solver_stdout), contextlib.redirect_stderr(solver_stderr):
             problem = pyblp.Problem(pyblp.Formulation("1 + prices"), data)
             solved = problem.solve()
             elasticities = solved.compute_elasticities()
             diversion = solved.compute_diversion_ratios()
             probabilities = solved.compute_probabilities()
             costs = solved.compute_costs()
-            firm_ids = np.array(input_payload["counterfactual"]["firm_ids"], dtype="U64")
-            reassigned_firms = np.resize(firm_ids, data.shape[0])
+            merged_firm_id = input_payload["counterfactual"]["firm_ids"][0]
+            reassigned_firms = np.full(data.shape[0], merged_firm_id, dtype="U64")
             counterfactual_prices = solved.compute_prices(costs=costs, firm_ids=reassigned_firms)
+        diagnostics = _fail_closed_diagnostics(problem, solved, solver_stdout.getvalue() + solver_stderr.getvalue())
+    except ReferencePocError:
+        raise
     except Exception as error:  # PyBLP errors are exposed as safe POC diagnostics, never a fallback path.
         raise ReferencePocError(f"PyBLP reference solve failed: {type(error).__name__}") from error
 
@@ -104,7 +137,7 @@ def run_reference_case(input_payload: dict[str, Any]) -> dict[str, Any]:
             "firm_ids": input_payload["counterfactual"]["firm_ids"],
             "equilibrium_prices": [float(value) for value in np.asarray(counterfactual_prices).reshape(-1).tolist()],
         },
-        "diagnostics": {"beta_price": float(np.asarray(solved.beta).reshape(-1)[-1]), "converged": bool(solved.converged)},
+        "diagnostics": diagnostics,
         "calibration_artifact": {
             "artifact_id": f"calibration:{input_payload['case_id']}:{sha256_digest(input_payload)[:12]}",
             "beta_price": float(np.asarray(solved.beta).reshape(-1)[-1]),
