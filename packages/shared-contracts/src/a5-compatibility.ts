@@ -114,7 +114,8 @@ const INEXACT_REFERENCE_TOKENS = new Set([
   "default",
   "fallback",
   "latest",
-  "next"
+  "next",
+  "unresolved"
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -158,7 +158,7 @@ describe("A5 compatibility contracts", () => {
   });
 
   it("rejects indirection and fallback tokens in every ExactRef identity and scope field", () => {
-    for (const inexactValue of ["latest", "*", "fallback"]) {
+    for (const inexactValue of ["latest", "*", "fallback", "unresolved"]) {
       expect(
         compatibility.isExactRef({
           ...exactRef("course_blueprint", "blueprint_001"),
@@ -196,6 +196,56 @@ describe("A5 compatibility contracts", () => {
     ).toBe(false);
   });
 
+  it("rejects duplicate, blank, malformed, and inexact decision-thread aliases", () => {
+    const thread = decisionThread();
+    const alias = thread.aliases[0]!;
+
+    expect(
+      compatibility.isDecisionThreadRef({
+        ...thread,
+        aliases: [alias, { ...alias }]
+      })
+    ).toBe(false);
+    expect(
+      compatibility.isDecisionThreadRef({
+        ...thread,
+        aliases: [{ ...alias, alias: " " }]
+      })
+    ).toBe(false);
+    expect(
+      compatibility.isDecisionThreadRef({
+        ...thread,
+        aliases: [{ ...alias, unexpected: true }]
+      })
+    ).toBe(false);
+    expect(
+      compatibility.isDecisionThreadRef({
+        ...thread,
+        aliases: [withoutField(alias, "target_ref")]
+      })
+    ).toBe(false);
+
+    for (const inexactValue of ["*", "latest", "fallback", "unresolved"]) {
+      const inexactThreadRef = {
+        ...thread.thread_ref,
+        resource_id: inexactValue
+      };
+
+      expect(
+        compatibility.isDecisionThreadRef({
+          ...thread,
+          thread_ref: inexactThreadRef,
+          aliases: [
+            {
+              ...alias,
+              target_ref: inexactThreadRef
+            }
+          ]
+        })
+      ).toBe(false);
+    }
+  });
+
   it("accepts an evidence event only when its mode and provenance links are exact", () => {
     expect(compatibility.isEvidenceArtifact(evidenceArtifact())).toBe(true);
     expect(compatibility.isProvenanceEdge(evidenceLinkedEvent().provenance_edge)).toBe(true);
@@ -210,6 +260,28 @@ describe("A5 compatibility contracts", () => {
         }
       })
     ).toBe(false);
+  });
+
+  it("accepts every legal domain-event variant and closes every variant against unknown fields", () => {
+    for (const event of [
+      referenceRecordedEvent(),
+      evidenceLinkedEvent(),
+      decisionThreadLinkedEvent()
+    ]) {
+      expect(compatibility.isDomainEventEnvelope(event)).toBe(true);
+      expect(
+        compatibility.isDomainEventEnvelope({
+          ...event,
+          discriminator: "unknown"
+        })
+      ).toBe(false);
+      expect(
+        compatibility.isDomainEventEnvelope({
+          ...event,
+          unexpected: true
+        })
+      ).toBe(false);
+    }
   });
 
   it("rejects unknown discriminators and unexpected properties for every closed object", () => {
