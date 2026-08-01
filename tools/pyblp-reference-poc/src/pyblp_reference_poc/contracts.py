@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 from .canonical import sha256_digest
@@ -21,6 +22,10 @@ def _number(value: Any, label: str) -> float:
     numeric = float(value)
     _require(math.isfinite(numeric), f"{label} must be a finite number")
     return numeric
+
+
+def _sha256(value: Any, label: str) -> None:
+    _require(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value) is not None, f"{label} must be a lowercase SHA-256")
 
 
 def _matrix(value: Any, label: str, rows: int, columns: int | None = None) -> None:
@@ -153,20 +158,21 @@ def validate_output(payload: dict[str, Any], input_payload: dict[str, Any]) -> N
         "diagnostics contain unsupported properties",
     )
     _number(diagnostics.get("beta_price"), "diagnostics.beta_price")
-    _require(isinstance(diagnostics.get("converged"), bool), "diagnostics.converged must be boolean")
+    _require(diagnostics.get("converged") is True, "diagnostics.converged must be true")
     _require(isinstance(diagnostics.get("demand_moment_count"), int), "diagnostics.demand_moment_count must be integer")
     _require(isinstance(diagnostics.get("instrument_rank"), int), "diagnostics.instrument_rank must be integer")
     _require(isinstance(diagnostics.get("parameter_count"), int), "diagnostics.parameter_count must be integer")
     _require(diagnostics["demand_moment_count"] >= diagnostics["parameter_count"], "diagnostics report under-identification")
     _require(diagnostics["instrument_rank"] >= diagnostics["parameter_count"], "diagnostics report rank-deficient instruments")
     _require(diagnostics.get("solver_warning_count") == 0, "diagnostics report PyBLP warnings")
-    _require(isinstance(diagnostics.get("solver_message_digest"), str) and len(diagnostics["solver_message_digest"]) == 64, "diagnostics.solver_message_digest is invalid")
+    _sha256(diagnostics.get("solver_message_digest"), "diagnostics.solver_message_digest")
     calibration = payload.get("calibration_artifact")
     _require(isinstance(calibration, dict), "calibration_artifact is required")
     _require(
         set(calibration) == {"artifact_id", "beta_price", "input_digest", "method", "pyblp_version"},
         "calibration artifact contains unsupported properties",
     )
+    _require(isinstance(calibration.get("artifact_id"), str), "calibration_artifact.artifact_id must be a string")
     _require(calibration.get("input_digest") == expected["input_digest"], "calibration artifact differs from input")
     _require(calibration.get("pyblp_version") == PYBLP_VERSION, "calibration artifact PyBLP version differs")
     _require(calibration.get("method") == "SYNTHETIC_LOGIT_REFERENCE_ONLY", "calibration artifact method is invalid")

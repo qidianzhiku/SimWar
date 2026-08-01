@@ -59,6 +59,22 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             assert_equivalent(self, expected, forged)
 
+    def test_schema_equivalent_output_constraints_reject_invalid_values(self) -> None:
+        input_payload = load_json(ROOT / "reference_cases" / "inputs" / "case-01.json")
+        output_payload = load_json(ROOT / "reference_cases" / "expected" / "case-01.json")
+        invalid_mutations = (
+            ("converged", lambda payload: payload["diagnostics"].__setitem__("converged", False)),
+            ("solver_message_digest", lambda payload: payload["diagnostics"].__setitem__("solver_message_digest", "A" * 64)),
+            ("calibration_artifact_id", lambda payload: payload["calibration_artifact"].__setitem__("artifact_id", 1)),
+        )
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                forged = copy.deepcopy(output_payload)
+                mutate(forged)
+                forged["artifact_digest"] = sha256_digest({key: value for key, value in forged.items() if key != "artifact_digest"})
+                with self.assertRaises(ReferencePocError):
+                    validate_output(forged, input_payload)
+
     def test_cli_rejects_paths_outside_its_synthetic_input_and_output_roots(self) -> None:
         with self.assertRaises(ReferencePocError):
             _resolve_input(str(ROOT / "README.md"))

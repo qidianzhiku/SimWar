@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import warnings
 from typing import Any
 
 import numpy as np
@@ -51,7 +52,13 @@ def _product_data(payload: dict[str, Any]) -> np.ndarray:
     )
 
 
-def _fail_closed_diagnostics(problem: Any, solved: Any, solver_messages: str) -> dict[str, Any]:
+def _captured_warning_messages(captured_warnings: list[warnings.WarningMessage]) -> list[str]:
+    return [f"{warning.category.__name__}: {warning.message}" for warning in captured_warnings]
+
+
+def _fail_closed_diagnostics(
+    problem: Any, solved: Any, solver_messages: str, python_warning_messages: list[str]
+) -> dict[str, Any]:
     parameter_count = int(problem.K1)
     demand_moment_count = int(problem.MD)
     instrument_rank = int(np.linalg.matrix_rank(problem.products.ZD))
@@ -64,8 +71,9 @@ def _fail_closed_diagnostics(problem: Any, solved: Any, solver_messages: str) ->
         raise ReferencePocError(
             f"PyBLP identification failed: moments={demand_moment_count}, rank={instrument_rank}, parameters={parameter_count}"
         )
-    if warning_lines:
-        raise ReferencePocError(f"PyBLP diagnostic failed closed: {warning_lines[0]}")
+    if warning_lines or python_warning_messages:
+        diagnostic = warning_lines[0] if warning_lines else python_warning_messages[0]
+        raise ReferencePocError(f"PyBLP diagnostic failed closed: {diagnostic}")
     if not bool(solved.converged):
         raise ReferencePocError("PyBLP solve did not converge")
     return {
@@ -88,7 +96,12 @@ def run_reference_case(input_payload: dict[str, Any]) -> dict[str, Any]:
     try:
         solver_stdout = io.StringIO()
         solver_stderr = io.StringIO()
-        with contextlib.redirect_stdout(solver_stdout), contextlib.redirect_stderr(solver_stderr):
+        with (
+            contextlib.redirect_stdout(solver_stdout),
+            contextlib.redirect_stderr(solver_stderr),
+            warnings.catch_warnings(record=True) as captured_warnings,
+        ):
+            warnings.simplefilter("always")
             problem = pyblp.Problem(pyblp.Formulation("1 + prices"), data)
             solved = problem.solve()
             elasticities = solved.compute_elasticities()
@@ -98,7 +111,12 @@ def run_reference_case(input_payload: dict[str, Any]) -> dict[str, Any]:
             merged_firm_id = input_payload["counterfactual"]["firm_ids"][0]
             reassigned_firms = np.full(data.shape[0], merged_firm_id, dtype="U64")
             counterfactual_prices = solved.compute_prices(costs=costs, firm_ids=reassigned_firms)
-        diagnostics = _fail_closed_diagnostics(problem, solved, solver_stdout.getvalue() + solver_stderr.getvalue())
+        diagnostics = _fail_closed_diagnostics(
+            problem,
+            solved,
+            solver_stdout.getvalue() + solver_stderr.getvalue(),
+            _captured_warning_messages(captured_warnings),
+        )
     except ReferencePocError:
         raise
     except Exception as error:  # PyBLP errors are exposed as safe POC diagnostics, never a fallback path.

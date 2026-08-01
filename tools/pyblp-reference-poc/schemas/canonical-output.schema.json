@@ -79,7 +79,12 @@
       "required": ["name", "firm_ids", "equilibrium_prices"],
       "properties": {
         "name": { "type": "string" },
-        "firm_ids": { "type": "array", "items": { "type": "string" } },
+        "firm_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "type": "string" }
+        },
         "equilibrium_prices": { "type": "array", "items": { "type": "number" } }
       }
     },
