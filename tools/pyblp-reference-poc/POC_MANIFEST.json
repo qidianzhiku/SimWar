@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "SIMWAR-M1-PYBLP-REFERENCE-POC",
+  "status": "REFERENCE_POC_READY_FOR_REVIEW",
+  "runtime_activation": false,
+  "input_data": "SYNTHETIC_ONLY",
+  "reference_target": "pyblp==1.2.0",
+  "classroom_runtime_import": false,
+  "formal_truth_write": false,
+  "parameter_set_write": false,
+  "model_version_write": false,
+  "fallback": "FAIL_CLOSED_WITH_STRUCTURED_ERROR",
+  "timeout_seconds": 30,
+  "removal": "Delete tools/pyblp-reference-poc and its ignored .venv; no migration or runtime rollback is required.",
+  "explicit_non_proofs": [
+    "calibration validity",
+    "model runtime activation",
+    "course, run, settlement, score, rank, or replay integration",
+    "real enterprise or personal data readiness",
+    "durable recovery, pilot, or production readiness"
+  ]
+}

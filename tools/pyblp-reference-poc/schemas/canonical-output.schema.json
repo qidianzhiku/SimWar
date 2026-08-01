@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simwar/m1-pyblp-reference-output.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "seed",
+    "pyblp_version",
+    "input_digest",
+    "results",
+    "counterfactual",
+    "diagnostics",
+    "calibration_artifact",
+    "non_overwrite_proof",
+    "artifact_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "m1-pyblp-reference-output.v1" },
+    "case_id": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer" },
+    "pyblp_version": { "type": "string", "minLength": 1 },
+    "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "results": { "$ref": "#/$defs/results" },
+    "counterfactual": { "$ref": "#/$defs/counterfactual" },
+    "diagnostics": { "$ref": "#/$defs/diagnostics" },
+    "calibration_artifact": { "$ref": "#/$defs/calibrationArtifact" },
+    "non_overwrite_proof": { "$ref": "#/$defs/nonOverwriteProof" },
+    "artifact_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["markets"],
+      "properties": { "markets": { "type": "array", "items": { "$ref": "#/$defs/market" } } }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "market_id",
+        "products",
+        "outside_share",
+        "probabilities",
+        "elasticities",
+        "diversion_ratios"
+      ],
+      "properties": {
+        "market_id": { "type": "string" },
+        "products": { "type": "array", "items": { "$ref": "#/$defs/product" } },
+        "outside_share": { "type": "number" },
+        "probabilities": {
+          "description": "product-by-integration-node probabilities; the deterministic default has one node.",
+          "$ref": "#/$defs/numericMatrix"
+        },
+        "elasticities": { "$ref": "#/$defs/numericMatrix" },
+        "diversion_ratios": { "$ref": "#/$defs/numericMatrix" }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_id", "price", "latent_share"],
+      "properties": {
+        "product_id": { "type": "string" },
+        "price": { "type": "number" },
+        "latent_share": { "type": "number" }
+      }
+    },
+    "numericMatrix": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "number" } }
+    },
+    "counterfactual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "firm_ids", "equilibrium_prices"],
+      "properties": {
+        "name": { "type": "string" },
+        "firm_ids": { "type": "array", "items": { "type": "string" } },
+        "equilibrium_prices": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beta_price", "converged"],
+      "properties": { "beta_price": { "type": "number" }, "converged": { "type": "boolean" } }
+    },
+    "calibrationArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "beta_price", "input_digest", "method", "pyblp_version"],
+      "properties": {
+        "artifact_id": { "type": "string" },
+        "beta_price": { "type": "number" },
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "method": { "const": "SYNTHETIC_LOGIT_REFERENCE_ONLY" },
+        "pyblp_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nonOverwriteProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "input_digest_before", "input_digest_after", "input_unchanged"],
+      "properties": {
+        "scope": { "const": "INPUT_SENTINEL_ONLY" },
+        "input_digest_before": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "input_digest_after": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "input_unchanged": { "const": true }
+      }
+    }
+  }
+}

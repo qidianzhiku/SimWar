@@ -1,0 +1,86 @@
+{
+  "artifact_digest": "da400fbca99be557c95975df96f124974fc68310d5b6a7b98b79423195fcf490",
+  "calibration_artifact": {
+    "artifact_id": "calibration:case-07:cee57f1cdba3",
+    "beta_price": -1.3401973453136553,
+    "input_digest": "cee57f1cdba323a9e962d299a49fe8d7cf37b579dd633a0a5e7d773111e75898",
+    "method": "SYNTHETIC_LOGIT_REFERENCE_ONLY",
+    "pyblp_version": "1.2.0"
+  },
+  "case_id": "case-07",
+  "counterfactual": {
+    "equilibrium_prices": [
+      1.3393201900047187, 1.7805237063326802, 1.3753100875983275, 1.8066700806478426
+    ],
+    "firm_ids": ["firm-a"],
+    "name": "merged-firms"
+  },
+  "diagnostics": {
+    "beta_price": -1.3401973453136553,
+    "converged": true
+  },
+  "input_digest": "cee57f1cdba323a9e962d299a49fe8d7cf37b579dd633a0a5e7d773111e75898",
+  "non_overwrite_proof": {
+    "input_digest_after": "cee57f1cdba323a9e962d299a49fe8d7cf37b579dd633a0a5e7d773111e75898",
+    "input_digest_before": "cee57f1cdba323a9e962d299a49fe8d7cf37b579dd633a0a5e7d773111e75898",
+    "input_unchanged": true,
+    "scope": "INPUT_SENTINEL_ONLY"
+  },
+  "pyblp_version": "1.2.0",
+  "results": {
+    "markets": [
+      {
+        "diversion_ratios": [
+          [0.8051948051948051, 0.19480519480519481],
+          [0.2705882352941177, 0.7294117647058823]
+        ],
+        "elasticities": [
+          [-1.2383423470698176, 0.3115958827854249],
+          [0.3698944673065689, -1.765710002450741]
+        ],
+        "market_id": "m07a",
+        "outside_share": 0.62,
+        "probabilities": [[0.23], [0.15]],
+        "products": [
+          {
+            "latent_share": 0.23,
+            "price": 1.2,
+            "product_id": "p07a"
+          },
+          {
+            "latent_share": 0.15,
+            "price": 1.55,
+            "product_id": "p07b"
+          }
+        ]
+      },
+      {
+        "diversion_ratios": [
+          [0.8313253012048193, 0.16867469879518074],
+          [0.19767441860465118, 0.8023255813953488]
+        ],
+        "elasticities": [
+          [-1.3904547457629173, 0.3095855867674544],
+          [0.28479193587915175, -1.9017400330000764]
+        ],
+        "market_id": "m07b",
+        "outside_share": 0.69,
+        "probabilities": [[0.17], [0.14]],
+        "products": [
+          {
+            "latent_share": 0.17,
+            "price": 1.25,
+            "product_id": "p07c"
+          },
+          {
+            "latent_share": 0.14,
+            "price": 1.65,
+            "product_id": "p07d"
+          }
+        ]
+      }
+    ]
+  },
+  "schema_version": "m1-pyblp-reference-output.v1",
+  "seed": 107
+}
