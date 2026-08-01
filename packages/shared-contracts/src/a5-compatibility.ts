@@ -284,7 +284,7 @@ export function isDomainEventEnvelope(value: unknown): value is DomainEventEnvel
   if (
     !isRecord(value) ||
     value.discriminator !== "domain_event_envelope" ||
-    !isNonBlank(value.event_id) ||
+    !isExactReferenceIdentity(value.event_id) ||
     !isTimestamp(value.occurred_at) ||
     !isExactRef(value.subject_ref) ||
     !isModeBinding(value.mode_binding) ||

@@ -199,6 +199,23 @@ describe("A5 compatibility contracts", () => {
     }
   });
 
+  it("keeps JSON Schema ExactRef rejection case-aligned with the validator", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    ajv.addFormat("a5-utc-timestamp", true);
+    const validate = ajv.compile(
+      jsonFixture<AnySchema>("contracts/schemas/a5-compatibility.v1.json")
+    );
+    const fixture = jsonFixture<Record<string, unknown>>(
+      "contracts/fixtures/a5-compatibility.valid.json"
+    );
+    const reference = fixture.exact_ref as Record<string, unknown>;
+
+    for (const resource_id of ["LATEST", "FALLBACK", "UNRESOLVED"]) {
+      expect(validate({ ...fixture, exact_ref: { ...reference, resource_id } })).toBe(false);
+    }
+    expect(validate({ ...fixture, exact_ref: { ...reference, version: "1.2.X" } })).toBe(false);
+  });
+
   it("requires every decision-thread alias to trace back to its exact thread reference", () => {
     expect(compatibility.isDecisionThreadRef(decisionThread())).toBe(true);
     expect(
@@ -326,6 +343,19 @@ describe("A5 compatibility contracts", () => {
         captured_at: "2024-02-29T09:00:00.000Z"
       })
     ).toBe(true);
+  });
+
+  it("requires domain event IDs to be exact identities", () => {
+    expect(compatibility.isDomainEventEnvelope(referenceRecordedEvent())).toBe(true);
+
+    for (const event_id of ["latest", "event id", "event/id"]) {
+      expect(
+        compatibility.isDomainEventEnvelope({
+          ...referenceRecordedEvent(),
+          event_id
+        })
+      ).toBe(false);
+    }
   });
 
   it("accepts every legal domain-event variant and closes every variant against unknown fields", () => {
