@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://simwar.local/contracts/schemas/a5-compatibility.v1.json",
   "title": "A5 Compatibility Fixture Set",
-  "description": "Closed, JSON-internal compatibility shapes for immutable references, provenance, evidence, and decision-thread traceability. Cross-reference rules are validated by the SimWar contract gate.",
+  "description": "Closed, JSON-internal compatibility shapes for immutable references, provenance, evidence, and decision-thread traceability. This schema validates closed object shapes, discriminators, exact-reference structure, and event variants; cross-reference semantics are enforced by pure @simwar/shared-contracts validators and focused tests.",
   "type": "object",
   "minProperties": 1,
   "properties": {
