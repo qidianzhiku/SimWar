@@ -1,0 +1,47 @@
+schema_version: 1
+package_id: V3_NEXT_VALUE_CHAIN_READINESS_PACK
+assessment_source_anchor_sha: 8e96e88955c2d5543eeadf83643f2e2e10dd4be4
+status: PROPOSED_NOT_ACQUIRED_READ_ONLY
+ownership:
+  - capability: C4_INSTRUCTOR_DEBRIEF_KIT
+    proposed_owner: Program_C_C4_Owner
+    current_authority: NONE_PROVEN
+    reference_only:
+      - services/api/src/role-workflow.ts
+      - packages/shared-contracts/src/role-workflow.ts
+    future_write_candidates:
+      - services/api/src/instructor-kit.ts
+      - packages/shared-contracts/src/instructor-kit.ts
+      - apps/teacher/src
+  - capability: D1_LEARNING_GOAL_RUBRIC
+    proposed_owner: Program_D_Learning_Owner
+    current_authority: NONE_PROVEN
+    reference_only:
+      - packages/shared-contracts/src/role-workflow.ts
+      - docs/quality/r5-r6-course-delivery-learning-evidence.md
+    future_write_candidates:
+      - packages/shared-contracts/src/learning-evidence.ts
+      - services/api/src/learning-evidence.ts
+      - apps/teacher/src
+      - apps/student/src
+  - capability: STK_S1_HOUSEHOLD_SHADOW
+    proposed_owner: STK_Owner
+    current_authority: NONE_PROVEN
+    reference_only:
+      - tools/pyblp-reference-poc/**
+      - docs/model-governance/blp-rebaseline/**
+    future_write_candidates:
+      - packages/shared-contracts/src/stakeholder-signal.ts
+      - services/api/src/stakeholder-shadow.ts
+      - services/simulation-core/src/stakeholder-shadow-adapter.ts
+shared_resources:
+  packages/shared-contracts:
+    status: SINGLE_WRITER_REQUIRED
+    candidates: [C4_INSTRUCTOR_DEBRIEF_KIT, D1_LEARNING_GOAL_RUBRIC, STK_S1_HOUSEHOLD_SHADOW]
+  teacher_surface:
+    status: MAINLINE_PRIORITY
+    candidates: [C4_INSTRUCTOR_DEBRIEF_KIT, D1_LEARNING_GOAL_RUBRIC]
+  run_replay_golden:
+    status: SERIAL_ONLY
+    candidates: [D1_LEARNING_GOAL_RUBRIC, STK_S1_HOUSEHOLD_SHADOW]
+automatic_next_start: false

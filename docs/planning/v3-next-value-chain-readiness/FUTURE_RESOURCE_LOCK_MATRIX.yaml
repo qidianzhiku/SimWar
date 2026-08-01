@@ -1,0 +1,40 @@
+schema_version: 1
+package_id: V3_NEXT_VALUE_CHAIN_READINESS_PACK
+assessment_source_anchor_sha: 8e96e88955c2d5543eeadf83643f2e2e10dd4be4
+lock_status: PROPOSED_NOT_ACQUIRED_READ_ONLY
+locks:
+  - resource: C4_INSTRUCTOR_KIT_AUTHORITY
+    mode: SINGLE_WRITER
+    proposed_owner: Program_C_C4_Owner
+    conflicts_with: []
+  - resource: D1_LEARNING_EVIDENCE_AUTHORITY
+    mode: SINGLE_WRITER
+    proposed_owner: Program_D_Learning_Owner
+    conflicts_with: [STK_S1_HOUSEHOLD_SHADOW]
+  - resource: STK_S1_SHADOW_SIGNAL_AUTHORITY
+    mode: SINGLE_WRITER
+    proposed_owner: STK_Owner
+    conflicts_with: [D1_LEARNING_GOAL_RUBRIC]
+  - resource: packages/shared-contracts
+    mode: SINGLE_WRITER
+    proposed_owner: NONE
+    conflicts_with: [C4_INSTRUCTOR_DEBRIEF_KIT, D1_LEARNING_GOAL_RUBRIC, STK_S1_HOUSEHOLD_SHADOW]
+  - resource: TEACHER_BFF_UI
+    mode: MAINLINE_PRIORITY
+    proposed_owner: NONE
+    conflicts_with: [C4_INSTRUCTOR_DEBRIEF_KIT, D1_LEARNING_GOAL_RUBRIC]
+  - resource: RUN_REPLAY_GOLDEN
+    mode: SERIAL_ONLY
+    proposed_owner: NONE
+    conflicts_with: [D1_LEARNING_GOAL_RUBRIC, STK_S1_HOUSEHOLD_SHADOW]
+join_barrier:
+  checks: [exact_file_overlap, authority_overlap, shared_contract_overlap, teacher_student_projection_overlap, run_replay_golden_overlap, full_suite_scheduler_conflict]
+t4_pause_triggers:
+  - truth_settlement_score_or_rank_change
+  - runtime_authority_parameter_set_or_model_version_activation
+  - real_person_or_real_enterprise_data
+  - external_provider
+  - official_stage4b_influence
+  - postgresql_or_migration
+  - pilot_or_production
+automatic_next_start: false
