@@ -159,12 +159,14 @@ def validate_output(payload: dict[str, Any], input_payload: dict[str, Any]) -> N
     )
     _number(diagnostics.get("beta_price"), "diagnostics.beta_price")
     _require(diagnostics.get("converged") is True, "diagnostics.converged must be true")
-    _require(isinstance(diagnostics.get("demand_moment_count"), int), "diagnostics.demand_moment_count must be integer")
-    _require(isinstance(diagnostics.get("instrument_rank"), int), "diagnostics.instrument_rank must be integer")
-    _require(isinstance(diagnostics.get("parameter_count"), int), "diagnostics.parameter_count must be integer")
+    for field in ("demand_moment_count", "instrument_rank", "parameter_count"):
+        _require(
+            type(diagnostics.get(field)) is int and diagnostics[field] >= 1,
+            f"diagnostics.{field} must be a positive integer",
+        )
     _require(diagnostics["demand_moment_count"] >= diagnostics["parameter_count"], "diagnostics report under-identification")
     _require(diagnostics["instrument_rank"] >= diagnostics["parameter_count"], "diagnostics report rank-deficient instruments")
-    _require(diagnostics.get("solver_warning_count") == 0, "diagnostics report PyBLP warnings")
+    _require(type(diagnostics.get("solver_warning_count")) is int and diagnostics["solver_warning_count"] == 0, "diagnostics report PyBLP warnings")
     _sha256(diagnostics.get("solver_message_digest"), "diagnostics.solver_message_digest")
     calibration = payload.get("calibration_artifact")
     _require(isinstance(calibration, dict), "calibration_artifact is required")

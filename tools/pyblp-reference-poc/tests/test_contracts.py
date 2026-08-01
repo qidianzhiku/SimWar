@@ -75,6 +75,23 @@ class ContractTests(unittest.TestCase):
                 with self.assertRaises(ReferencePocError):
                     validate_output(forged, input_payload)
 
+    def test_schema_equivalent_diagnostic_integer_constraints_reject_bool_and_zero(self) -> None:
+        input_payload = load_json(ROOT / "reference_cases" / "inputs" / "case-01.json")
+        output_payload = load_json(ROOT / "reference_cases" / "expected" / "case-01.json")
+        invalid_mutations = (
+            ("demand_moment_count_bool", lambda payload: payload["diagnostics"].__setitem__("demand_moment_count", True)),
+            ("instrument_rank_zero", lambda payload: payload["diagnostics"].__setitem__("instrument_rank", 0)),
+            ("parameter_count_bool", lambda payload: payload["diagnostics"].__setitem__("parameter_count", False)),
+            ("solver_warning_count_bool", lambda payload: payload["diagnostics"].__setitem__("solver_warning_count", False)),
+        )
+        for label, mutate in invalid_mutations:
+            with self.subTest(label=label):
+                forged = copy.deepcopy(output_payload)
+                mutate(forged)
+                forged["artifact_digest"] = sha256_digest({key: value for key, value in forged.items() if key != "artifact_digest"})
+                with self.assertRaises(ReferencePocError):
+                    validate_output(forged, input_payload)
+
     def test_cli_rejects_paths_outside_its_synthetic_input_and_output_roots(self) -> None:
         with self.assertRaises(ReferencePocError):
             _resolve_input(str(ROOT / "README.md"))
