@@ -108,6 +108,14 @@ const EVIDENCE_ARTIFACT_KINDS = new Set<EvidenceArtifactKind>([
   "model_output"
 ]);
 const PROVENANCE_RELATIONS = new Set<ProvenanceRelation>(["derived_from", "supported_by", "cites"]);
+const INEXACT_REFERENCE_TOKENS = new Set([
+  "any",
+  "current",
+  "default",
+  "fallback",
+  "latest",
+  "next"
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -122,13 +130,16 @@ function isNonBlank(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.trim() === value;
 }
 
-function isExactVersion(value: unknown): value is string {
+function isExactReferenceIdentity(value: unknown): value is string {
   return (
     isNonBlank(value) &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) &&
-    !["latest", "next"].includes(value.toLowerCase()) &&
-    !/^\d+(?:\.(?:x|\*))+$/i.test(value)
+    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) &&
+    value.split(/[._:-]/).every((segment) => !INEXACT_REFERENCE_TOKENS.has(segment.toLowerCase()))
   );
+}
+
+function isExactVersion(value: unknown): value is string {
+  return isExactReferenceIdentity(value) && !/^\d+(?:\.(?:x|\*))+$/i.test(value);
 }
 
 function isExactDigest(value: unknown): value is string {
@@ -165,8 +176,8 @@ export function isExactRef(value: unknown): value is ExactRef {
       "version"
     ]) &&
     value.discriminator === "exact_ref" &&
-    isNonBlank(value.tenant_id) &&
-    isNonBlank(value.resource_id) &&
+    isExactReferenceIdentity(value.tenant_id) &&
+    isExactReferenceIdentity(value.resource_id) &&
     isExactVersion(value.version) &&
     EXACT_REF_RESOURCE_TYPES.has(value.resource_type as ExactRefResourceType) &&
     isExactDigest(value.content_digest)
