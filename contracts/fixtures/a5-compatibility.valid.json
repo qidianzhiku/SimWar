@@ -1,0 +1,282 @@
+{
+  "exact_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "blueprint_001",
+    "resource_type": "course_blueprint",
+    "tenant_id": "tenant_a5",
+    "version": "1.0.0"
+  },
+  "mode_binding": {
+    "discriminator": "mode_binding",
+    "mode": "reference_only",
+    "subject_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "blueprint_001",
+      "resource_type": "course_blueprint",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    }
+  },
+  "evidence_artifact": {
+    "artifact_kind": "observation",
+    "artifact_ref": {
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "discriminator": "exact_ref",
+      "resource_id": "evidence_001",
+      "resource_type": "evidence_artifact",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    },
+    "captured_at": "2026-08-01T09:00:00.000Z",
+    "discriminator": "evidence_artifact",
+    "mode_binding": {
+      "discriminator": "mode_binding",
+      "mode": "evidence_only",
+      "subject_ref": {
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "discriminator": "exact_ref",
+        "resource_id": "evidence_001",
+        "resource_type": "evidence_artifact",
+        "tenant_id": "tenant_a5",
+        "version": "1.0.0"
+      }
+    }
+  },
+  "provenance_edge": {
+    "discriminator": "provenance_edge",
+    "relation": "cites",
+    "source_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "blueprint_001",
+      "resource_type": "course_blueprint",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    },
+    "target_ref": {
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "discriminator": "exact_ref",
+      "resource_id": "guide_001",
+      "resource_type": "instructor_artifact",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    }
+  },
+  "decision_thread_ref": {
+    "aliases": [
+      {
+        "alias": "ceo-round-one",
+        "discriminator": "decision_thread_alias",
+        "target_ref": {
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "discriminator": "exact_ref",
+          "resource_id": "thread_001",
+          "resource_type": "decision_thread",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "discriminator": "decision_thread_ref",
+    "thread_ref": {
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "discriminator": "exact_ref",
+      "resource_id": "thread_001",
+      "resource_type": "decision_thread",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    }
+  },
+  "events": [
+    {
+      "discriminator": "domain_event_envelope",
+      "event_id": "event_reference_001",
+      "event_type": "reference_recorded",
+      "mode_binding": {
+        "discriminator": "mode_binding",
+        "mode": "reference_only",
+        "subject_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "occurred_at": "2026-08-01T09:01:00.000Z",
+      "provenance_edge": {
+        "discriminator": "provenance_edge",
+        "relation": "cites",
+        "source_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        },
+        "target_ref": {
+          "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "discriminator": "exact_ref",
+          "resource_id": "guide_001",
+          "resource_type": "instructor_artifact",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "subject_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "blueprint_001",
+        "resource_type": "course_blueprint",
+        "tenant_id": "tenant_a5",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "discriminator": "domain_event_envelope",
+      "event_id": "event_evidence_001",
+      "event_type": "evidence_linked",
+      "evidence_artifact": {
+        "artifact_kind": "observation",
+        "artifact_ref": {
+          "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "discriminator": "exact_ref",
+          "resource_id": "evidence_001",
+          "resource_type": "evidence_artifact",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        },
+        "captured_at": "2026-08-01T09:00:00.000Z",
+        "discriminator": "evidence_artifact",
+        "mode_binding": {
+          "discriminator": "mode_binding",
+          "mode": "evidence_only",
+          "subject_ref": {
+            "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "discriminator": "exact_ref",
+            "resource_id": "evidence_001",
+            "resource_type": "evidence_artifact",
+            "tenant_id": "tenant_a5",
+            "version": "1.0.0"
+          }
+        }
+      },
+      "mode_binding": {
+        "discriminator": "mode_binding",
+        "mode": "reference_only",
+        "subject_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "occurred_at": "2026-08-01T09:02:00.000Z",
+      "provenance_edge": {
+        "discriminator": "provenance_edge",
+        "relation": "supported_by",
+        "source_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        },
+        "target_ref": {
+          "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "discriminator": "exact_ref",
+          "resource_id": "evidence_001",
+          "resource_type": "evidence_artifact",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "subject_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "blueprint_001",
+        "resource_type": "course_blueprint",
+        "tenant_id": "tenant_a5",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "decision_thread_ref": {
+        "aliases": [
+          {
+            "alias": "ceo-round-one",
+            "discriminator": "decision_thread_alias",
+            "target_ref": {
+              "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "discriminator": "exact_ref",
+              "resource_id": "thread_001",
+              "resource_type": "decision_thread",
+              "tenant_id": "tenant_a5",
+              "version": "1.0.0"
+            }
+          }
+        ],
+        "discriminator": "decision_thread_ref",
+        "thread_ref": {
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "discriminator": "exact_ref",
+          "resource_id": "thread_001",
+          "resource_type": "decision_thread",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "discriminator": "domain_event_envelope",
+      "event_id": "event_thread_001",
+      "event_type": "decision_thread_linked",
+      "mode_binding": {
+        "discriminator": "mode_binding",
+        "mode": "reference_only",
+        "subject_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "occurred_at": "2026-08-01T09:03:00.000Z",
+      "provenance_edge": {
+        "discriminator": "provenance_edge",
+        "relation": "derived_from",
+        "source_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "blueprint_001",
+          "resource_type": "course_blueprint",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        },
+        "target_ref": {
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "discriminator": "exact_ref",
+          "resource_id": "thread_001",
+          "resource_type": "decision_thread",
+          "tenant_id": "tenant_a5",
+          "version": "1.0.0"
+        }
+      },
+      "subject_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "blueprint_001",
+        "resource_type": "course_blueprint",
+        "tenant_id": "tenant_a5",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}

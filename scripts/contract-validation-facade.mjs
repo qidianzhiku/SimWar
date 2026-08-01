@@ -65,6 +65,12 @@ const m1ContractFiles = [
   "contracts/fixtures/user-password-required-error-envelope.valid.json"
 ];
 
+const a5ContractFiles = [
+  "contracts/schemas/a5-compatibility.v1.json",
+  "contracts/fixtures/a5-compatibility.valid.json",
+  "contracts/fixtures/a5-compatibility.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -145,6 +151,11 @@ const schemaCases = [
     invalid: [
       "contracts/fixtures/m1-public-replay-evidence-missing-decision-batch-hash.invalid.json"
     ]
+  },
+  {
+    schema: "contracts/schemas/a5-compatibility.v1.json",
+    valid: ["contracts/fixtures/a5-compatibility.valid.json"],
+    invalid: ["contracts/fixtures/a5-compatibility.invalid.json"]
   }
 ];
 
@@ -468,9 +479,9 @@ function assertStudentFixtureDoesNotExposePrivateFields() {
 export async function runContractValidation(options = {}) {
   const openApiPath = options.openApiPath ?? "contracts/openapi/p0-api.openapi.yaml";
 
-  requireFiles([...requiredBaselineFiles, ...m1ContractFiles]);
+  requireFiles([...requiredBaselineFiles, ...m1ContractFiles, ...a5ContractFiles]);
 
-  for (const jsonPath of [...requiredBaselineFiles, ...m1ContractFiles].filter((file) =>
+  for (const jsonPath of [...requiredBaselineFiles, ...m1ContractFiles, ...a5ContractFiles].filter((file) =>
     file.endsWith(".json")
   )) {
     readJson(jsonPath);
