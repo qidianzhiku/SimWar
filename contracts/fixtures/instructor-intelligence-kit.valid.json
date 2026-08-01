@@ -1,0 +1,31 @@
+{
+  "ai_status": "off",
+  "anomaly_status": "baseline_unavailable",
+  "causal_evidence_refs": [
+    {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "blueprint_course_001",
+      "resource_type": "course_blueprint",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    }
+  ],
+  "debrief_agenda": ["Review the observed result."],
+  "deterministic_fact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "discussion_points": ["Discuss a tradeoff."],
+  "follow_up_questions": ["What evidence changes the next choice?"],
+  "instructor_asset_id": "instructor_asset_001",
+  "known_limits": ["not_postgresql_active_runtime"],
+  "round": { "round_id": "round_001", "round_no": 1, "run_id": "run_001", "status": "published" },
+  "result_delta": { "current_team_count": 0 },
+  "source_course_blueprint_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "blueprint_course_001",
+    "resource_type": "course_blueprint",
+    "tenant_id": "tenant_demo",
+    "version": "1.0.0"
+  },
+  "time_guidance": "Reserve time for evidence review."
+}

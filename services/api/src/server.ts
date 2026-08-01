@@ -9,6 +9,7 @@ import type {
   AuthSession,
   CurrentUser,
   Decision,
+  ExactRef,
   DecisionPayload,
   M1DecisionSubmitRequest,
   ParameterSet,
@@ -63,6 +64,11 @@ import {
   RoleWorkflowError,
   type RoleWorkflowActor
 } from "./role-workflow.js";
+import {
+  InstructorAssetRegistry,
+  InstructorAssetRegistryError
+} from "./instructor-asset-registry.js";
+import { createInstructorIntelligenceKit } from "./instructor-intelligence.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -147,6 +153,10 @@ import {
   PLATFORM_TENANT_ID,
   actorHasAnyRole,
   createP1Store,
+  captureInstructorAssetAuditCheckpoint,
+  readInstructorAssetCollection,
+  persistInstructorAssetCollection,
+  restoreInstructorAssetAuditCheckpoint,
   getActorFromUser,
   nextId,
   sanitizeUser,
@@ -189,6 +199,7 @@ interface ApiRuntime {
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
   roleWorkflow: RoleWorkflowCommandService;
+  instructorAssets: InstructorAssetRegistry;
   securityConfig: RuntimeSecurityConfig;
   runMutationLocks: Map<string, Promise<void>>;
 }
@@ -328,6 +339,18 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     store,
     repositoryProvider,
     roleWorkflow: new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow),
+    instructorAssets: new InstructorAssetRegistry(
+      {
+        captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
+        persist: (assets) => persistInstructorAssetCollection(store, assets),
+        restoreAuditCheckpoint: (checkpoint) =>
+          restoreInstructorAssetAuditCheckpoint(
+            store,
+            checkpoint as ReturnType<typeof captureInstructorAssetAuditCheckpoint>
+          )
+      },
+      readInstructorAssetCollection(store)
+    ),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -1193,7 +1216,10 @@ function requireServiceKernel(
   };
 }
 
-async function readJson<TBody>(request: IncomingMessage): Promise<TBody> {
+async function readJson<TBody>(
+  request: IncomingMessage,
+  options: { requiredObject?: boolean } = {}
+): Promise<TBody> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -1201,10 +1227,20 @@ async function readJson<TBody>(request: IncomingMessage): Promise<TBody> {
 
   const raw = Buffer.concat(chunks).toString("utf8").trim();
   if (!raw) {
+    if (options.requiredObject) {
+      throw new HttpError(422, "INSTRUCTOR_ASSET-422-001", "instructor asset request invalid");
+    }
     return {} as TBody;
   }
 
-  return JSON.parse(raw) as TBody;
+  const body = JSON.parse(raw) as unknown;
+  if (
+    options.requiredObject &&
+    (body === null || typeof body !== "object" || Array.isArray(body))
+  ) {
+    throw new HttpError(422, "INSTRUCTOR_ASSET-422-001", "instructor asset request invalid");
+  }
+  return body as TBody;
 }
 
 function matchPath(pathname: string, pattern: RegExp): RegExpMatchArray {
@@ -2612,7 +2648,8 @@ async function createPublicResultView(
   runtime: ApiRuntime,
   context: RequestContext,
   runId: string,
-  roundNo: number
+  roundNo: number,
+  options: { includeReplayEvidence?: boolean } = {}
 ): Promise<PublicResultView> {
   const actor = requirePermission(context, "result:read");
   const round = await getRoundForRead(runtime, context, runId, roundNo);
@@ -2664,9 +2701,10 @@ async function createPublicResultView(
         state_est: result.state_est
       };
     });
-  const replayEvidence = canSeeTruth
-    ? await createPublicReplayEvidenceView(runtime, context, round, settlement)
-    : undefined;
+  const replayEvidence =
+    canSeeTruth && (options.includeReplayEvidence ?? true)
+      ? await createPublicReplayEvidenceView(runtime, context, round, settlement)
+      : undefined;
 
   return {
     ...m1ResultMetadata,
@@ -2943,6 +2981,59 @@ function executeRoleWorkflow<T>(command: () => T): T {
   }
 }
 
+function requireInstructorAssetTeacher(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "INSTRUCTOR_ASSET-403-001", "teacher authority required");
+  }
+  return actor;
+}
+
+function assertOnlyInstructorAssetFields(
+  body: Record<string, unknown>,
+  expected: readonly string[]
+): void {
+  const keys = Object.keys(body);
+  if (keys.length !== expected.length || keys.some((key) => !expected.includes(key))) {
+    throw new HttpError(422, "INSTRUCTOR_ASSET-422-001", "instructor asset request invalid");
+  }
+}
+
+function instructorAssetHttpError(error: unknown): never {
+  if (!(error instanceof InstructorAssetRegistryError)) throw error;
+  const statusCode =
+    error.code === "INSTRUCTOR_ASSET_NOT_FOUND"
+      ? 404
+      : error.code === "INSTRUCTOR_ASSET_IMMUTABLE" ||
+          error.code === "INSTRUCTOR_ASSET_REVISION_REQUIRES_FINAL_STATE"
+        ? 409
+        : 422;
+  throw new HttpError(statusCode, error.code, error.message);
+}
+
+async function appendInstructorAssetAudit(
+  runtime: ApiRuntime,
+  input: Parameters<typeof appendAudit>[1],
+  compensate: () => void
+): Promise<void> {
+  const auditCheckpoint = runtime.instructorAssets.captureAuditCheckpointForCompensation();
+  try {
+    await appendAudit(runtime, input);
+  } catch (error) {
+    try {
+      runtime.instructorAssets.restoreAuditCheckpointAfterFailure(auditCheckpoint);
+      compensate();
+    } catch (compensationError) {
+      throw new HttpError(
+        500,
+        "INSTRUCTOR_ASSET-500-001",
+        `instructor asset audit compensation failed: ${String(compensationError)}`
+      );
+    }
+    throw error;
+  }
+}
+
 async function executeLockedRoleWorkflow<T>(
   runtime: ApiRuntime,
   tenantId: string,
@@ -3056,6 +3147,220 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/instructor-assets") {
+    requireInstructorAssetTeacher(context);
+    const courseId = url.searchParams.get("course_id")?.trim();
+    if (!courseId) {
+      throw new HttpError(422, "INSTRUCTOR_ASSET-422-002", "course_id is required");
+    }
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, runtime.instructorAssets.list(context.tenantId, courseId))
+    );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/instructor-intelligence") {
+    requireInstructorAssetTeacher(context);
+    const assetId = url.searchParams.get("asset_id")?.trim();
+    const runId = url.searchParams.get("run_id")?.trim();
+    const roundNo = Number(url.searchParams.get("round_no"));
+    if (!assetId || !runId || !Number.isInteger(roundNo) || roundNo < 1) {
+      throw new HttpError(
+        422,
+        "INSTRUCTOR_ASSET-422-001",
+        "instructor intelligence request invalid"
+      );
+    }
+    try {
+      const asset = runtime.instructorAssets.get(context.tenantId, assetId);
+      if (asset.status !== "teacher_published") {
+        throw new HttpError(409, "INSTRUCTOR_ASSET-409-001", "instructor asset must be published");
+      }
+      const run = await getRunForRead(runtime, context, runId);
+      if (run.course_id !== asset.course_id) {
+        throw new HttpError(
+          404,
+          "INSTRUCTOR_ASSET-404-001",
+          "instructor asset is not bound to this course"
+        );
+      }
+      const round = await getRoundForRead(runtime, context, runId, roundNo);
+      if (round.status !== "published") {
+        throw new HttpError(
+          409,
+          "INSTRUCTOR_ASSET-409-002",
+          "instructor intelligence requires a published round"
+        );
+      }
+      const resultView = await createPublicResultView(runtime, context, runId, roundNo, {
+        includeReplayEvidence: false
+      });
+      const previousRound = (
+        await runtime.repositoryProvider.facade.rounds.listRoundsForRun(context.tenantId, runId)
+      ).find((candidate) => candidate.round_no === roundNo - 1);
+      const previousResultView =
+        previousRound?.status === "published"
+          ? await createPublicResultView(runtime, context, runId, previousRound.round_no, {
+              includeReplayEvidence: false
+            })
+          : undefined;
+      sendJson(
+        response,
+        200,
+        createEnvelope(
+          context,
+          createInstructorIntelligenceKit({
+            asset,
+            ...(previousResultView ? { previous_result_view: previousResultView } : {}),
+            result_view: resultView,
+            round
+          })
+        )
+      );
+      return;
+    } catch (error) {
+      instructorAssetHttpError(error);
+    }
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/instructor-assets/drafts"
+  ) {
+    const actor = requireInstructorAssetTeacher(context);
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyInstructorAssetFields(body, ["course_id", "title"]);
+    try {
+      const courseId = requireBodyString(body.course_id);
+      const binding = runtime.courseBlueprintBindingStore.getForCourse(context.tenantId, courseId);
+      if (!binding) {
+        throw new InstructorAssetRegistryError("INSTRUCTOR_ASSET_COURSE_BINDING_REQUIRED");
+      }
+      const courseBlueprintRef: ExactRef = {
+        content_digest: binding.course_blueprint_reference.content_digest,
+        discriminator: "exact_ref",
+        resource_id: binding.course_blueprint_reference.course_blueprint_id,
+        resource_type: "course_blueprint",
+        tenant_id: binding.course_blueprint_reference.tenant_id,
+        version: binding.course_blueprint_reference.version
+      };
+      const asset = runtime.instructorAssets.createDraft({
+        actor_id: actor.user_id,
+        course_blueprint_ref: courseBlueprintRef,
+        course_id: courseId,
+        tenant_id: context.tenantId,
+        title: requireBodyString(body.title)
+      });
+      await appendInstructorAssetAudit(
+        runtime,
+        {
+          actor,
+          action: "instructor_asset.draft_create",
+          after: clonePublic(asset),
+          requestId: context.requestId,
+          resourceId: asset.asset_id,
+          resourceType: "instructor_asset"
+        },
+        () =>
+          runtime.instructorAssets.discardAfterAuditFailure({
+            actor_id: actor.user_id,
+            asset_id: asset.asset_id,
+            tenant_id: context.tenantId
+          })
+      );
+      sendJson(response, 201, createEnvelope(context, asset));
+      return;
+    } catch (error) {
+      instructorAssetHttpError(error);
+    }
+  }
+
+  const instructorAssetRevision = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/instructor-assets\/([^/]+)\/revisions$/
+  );
+  if (request.method === "POST" && instructorAssetRevision) {
+    const actor = requireInstructorAssetTeacher(context);
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyInstructorAssetFields(body, ["title"]);
+    try {
+      const asset = runtime.instructorAssets.createRevision({
+        actor_id: actor.user_id,
+        asset_id: instructorAssetRevision[1]!,
+        tenant_id: context.tenantId,
+        title: requireBodyString(body.title)
+      });
+      await appendInstructorAssetAudit(
+        runtime,
+        {
+          actor,
+          action: "instructor_asset.revision_create",
+          after: clonePublic(asset),
+          requestId: context.requestId,
+          resourceId: asset.asset_id,
+          resourceType: "instructor_asset"
+        },
+        () =>
+          runtime.instructorAssets.discardAfterAuditFailure({
+            actor_id: actor.user_id,
+            asset_id: asset.asset_id,
+            tenant_id: context.tenantId
+          })
+      );
+      sendJson(response, 201, createEnvelope(context, asset));
+      return;
+    } catch (error) {
+      instructorAssetHttpError(error);
+    }
+  }
+
+  const instructorAssetTransition = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/instructor-assets\/([^/]+)\/(publish|reject)$/
+  );
+  if (request.method === "POST" && instructorAssetTransition) {
+    const actor = requireInstructorAssetTeacher(context);
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyInstructorAssetFields(body, []);
+    const assetId = instructorAssetTransition[1]!;
+    const action = instructorAssetTransition[2]!;
+    try {
+      const asset =
+        action === "publish"
+          ? runtime.instructorAssets.publish({
+              actor_id: actor.user_id,
+              asset_id: assetId,
+              tenant_id: context.tenantId
+            })
+          : runtime.instructorAssets.reject({
+              actor_id: actor.user_id,
+              asset_id: assetId,
+              tenant_id: context.tenantId
+            });
+      await appendInstructorAssetAudit(
+        runtime,
+        {
+          actor,
+          action: `instructor_asset.${action}`,
+          after: clonePublic(asset),
+          requestId: context.requestId,
+          resourceId: asset.asset_id,
+          resourceType: "instructor_asset"
+        },
+        () =>
+          runtime.instructorAssets.revertTransitionAfterAuditFailure({
+            actor_id: actor.user_id,
+            asset_id: asset.asset_id,
+            tenant_id: context.tenantId
+          })
+      );
+      sendJson(response, 200, createEnvelope(context, asset));
+      return;
+    } catch (error) {
+      instructorAssetHttpError(error);
+    }
+  }
 
   if (
     request.method === "GET" &&

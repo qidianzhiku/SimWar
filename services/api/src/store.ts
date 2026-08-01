@@ -60,6 +60,7 @@ import type {
   PluginReleaseAvailabilityRecord,
   PluginReleaseVersion
 } from "./plugin-release-authority.js";
+import { assertValidInstructorAsset, type InstructorAsset } from "./instructor-asset-registry.js";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -100,11 +101,60 @@ export interface SimWarStoreSnapshot {
   decisionMergeCommits: DecisionMergeCommit[];
   teamConfirmations: TeamConfirmation[];
   roleWorkflowEvents: RoleWorkflowEvent[];
+  instructorAssets: readonly Readonly<InstructorAsset>[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
   persistenceFile?: string;
   persist: () => void;
+}
+
+/** Returns a copy so only the C4 registry can mutate instructor assets. */
+export function readInstructorAssetCollection(store: SimWarStore): InstructorAsset[] {
+  return structuredClone(store.instructorAssets) as InstructorAsset[];
+}
+
+/** Replaces the C4 asset collection from the registry's private snapshot. */
+export function persistInstructorAssetCollection(
+  store: SimWarStore,
+  assets: readonly InstructorAsset[]
+): void {
+  assets.forEach(assertValidInstructorAsset);
+  const collection = store.instructorAssets as InstructorAsset[];
+  const previous = structuredClone(collection);
+  collection.splice(0, collection.length, ...structuredClone(assets));
+  try {
+    store.persist();
+  } catch (error) {
+    collection.splice(0, collection.length, ...previous);
+    throw error;
+  }
+}
+
+export interface InstructorAssetAuditCheckpoint {
+  readonly auditLogs: AuditLog[];
+  readonly counters: Record<string, number>;
+}
+
+/** Captures the JSON-only audit state needed to compensate a failed C4 audit append. */
+export function captureInstructorAssetAuditCheckpoint(
+  store: SimWarStore
+): InstructorAssetAuditCheckpoint {
+  return {
+    auditLogs: structuredClone(store.auditLogs),
+    counters: { ...store.counters }
+  };
+}
+
+export function restoreInstructorAssetAuditCheckpoint(
+  store: SimWarStore,
+  checkpoint: InstructorAssetAuditCheckpoint
+): void {
+  store.auditLogs.splice(0, store.auditLogs.length, ...checkpoint.auditLogs);
+  Object.keys(store.counters).forEach((key) => {
+    if (!(key in checkpoint.counters)) delete store.counters[key];
+  });
+  Object.assign(store.counters, checkpoint.counters);
 }
 
 export interface CreateStoreOptions {
@@ -599,6 +649,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     decisionMergeCommits: [],
     teamConfirmations: [],
     roleWorkflowEvents: [],
+    instructorAssets: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -649,6 +700,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     decisionMergeCommits: store.decisionMergeCommits,
     teamConfirmations: store.teamConfirmations,
     roleWorkflowEvents: store.roleWorkflowEvents,
+    instructorAssets: store.instructorAssets,
     counters: store.counters
   };
 }
@@ -662,6 +714,8 @@ function toPersistedSnapshot(snapshot: SimWarStoreSnapshot): PersistedSimWarStor
 
 function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   const seed = createSeedSnapshot();
+  const instructorAssets = snapshot.instructorAssets ?? [];
+  instructorAssets.forEach(assertValidInstructorAsset);
 
   return {
     ...seed,
@@ -690,6 +744,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     decisionMergeCommits: snapshot.decisionMergeCommits ?? [],
     teamConfirmations: snapshot.teamConfirmations ?? [],
     roleWorkflowEvents: snapshot.roleWorkflowEvents ?? [],
+    instructorAssets,
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }
