@@ -1,0 +1,23 @@
+{
+  "provenance_edge": {
+    "discriminator": "provenance_edge",
+    "relation": "cites",
+    "unexpected": true,
+    "source_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "blueprint_001",
+      "resource_type": "course_blueprint",
+      "tenant_id": "tenant_a5",
+      "version": "1.0.0"
+    },
+    "target_ref": {
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "discriminator": "exact_ref",
+      "resource_id": "guide_001",
+      "resource_type": "instructor_artifact",
+      "tenant_id": "tenant_other",
+      "version": "1.0.0"
+    }
+  }
+}

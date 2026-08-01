@@ -59,12 +59,19 @@ export interface DecisionThreadRef {
   readonly thread_ref: ExactRef;
 }
 
-export type DomainEventType = "reference_recorded" | "evidence_linked" | "decision_thread_linked";
+/**
+ * A5's closed event discriminator. This intentionally does not reuse the
+ * broader shared DomainEventType surface.
+ */
+export type A5DomainEventType =
+  | "reference_recorded"
+  | "evidence_linked"
+  | "decision_thread_linked";
 
 interface DomainEventEnvelopeBase {
   readonly discriminator: "domain_event_envelope";
   readonly event_id: string;
-  readonly event_type: DomainEventType;
+  readonly event_type: A5DomainEventType;
   readonly mode_binding: ModeBinding;
   readonly occurred_at: string;
   readonly provenance_edge: ProvenanceEdge;
@@ -140,7 +147,10 @@ function isExactReferenceIdentity(value: unknown): value is string {
 }
 
 function isExactVersion(value: unknown): value is string {
-  return isExactReferenceIdentity(value) && !/^\d+(?:\.(?:x|\*))+$/i.test(value);
+  return (
+    isExactReferenceIdentity(value) &&
+    !value.split(/[._:-]/).some((segment) => /^(?:x|\*)$/i.test(segment))
+  );
 }
 
 function isExactDigest(value: unknown): value is string {
@@ -148,11 +158,20 @@ function isExactDigest(value: unknown): value is string {
 }
 
 function isTimestamp(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
-    !Number.isNaN(Date.parse(value))
-  );
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  ) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return false;
+  }
+
+  const canonicalUtc = value.includes(".") ? value : `${value.slice(0, -1)}.000Z`;
+  return parsed.toISOString() === canonicalUtc;
 }
 
 function exactRefsMatch(left: ExactRef, right: ExactRef): boolean {
@@ -223,6 +242,7 @@ export function isProvenanceEdge(value: unknown): value is ProvenanceEdge {
     PROVENANCE_RELATIONS.has(value.relation as ProvenanceRelation) &&
     isExactRef(value.source_ref) &&
     isExactRef(value.target_ref) &&
+    value.source_ref.tenant_id === value.target_ref.tenant_id &&
     !exactRefsMatch(value.source_ref, value.target_ref)
   );
 }

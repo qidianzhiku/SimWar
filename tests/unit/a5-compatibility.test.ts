@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
+import type { AnySchema } from "ajv";
 import { describe, expect, it } from "vitest";
 import * as sharedContracts from "../../packages/shared-contracts/src";
+import type { A5DomainEventType } from "../../packages/shared-contracts/src";
 
 type Validator = (value: unknown) => boolean;
 
@@ -13,6 +18,9 @@ type A5CompatibilityValidators = {
 };
 
 const compatibility = sharedContracts as unknown as A5CompatibilityValidators;
+
+const jsonFixture = <T = unknown>(path: string): T =>
+  JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 
 const exactRef = (resourceType: string, resourceId: string) => ({
   content_digest: "a".repeat(64),
@@ -180,6 +188,17 @@ describe("A5 compatibility contracts", () => {
     }
   });
 
+  it("rejects wildcard version segments at every depth", () => {
+    for (const version of ["1.2.x", "1.x.3", "v1.x", "1.2.*"]) {
+      expect(
+        compatibility.isExactRef({
+          ...exactRef("course_blueprint", "blueprint_001"),
+          version
+        })
+      ).toBe(false);
+    }
+  });
+
   it("requires every decision-thread alias to trace back to its exact thread reference", () => {
     expect(compatibility.isDecisionThreadRef(decisionThread())).toBe(true);
     expect(
@@ -260,6 +279,53 @@ describe("A5 compatibility contracts", () => {
         }
       })
     ).toBe(false);
+  });
+
+  it("rejects provenance links whose exact references cross tenant scope", () => {
+    const provenance = evidenceLinkedEvent().provenance_edge;
+
+    expect(compatibility.isProvenanceEdge(provenance)).toBe(true);
+    expect(
+      compatibility.isProvenanceEdge({
+        ...provenance,
+        target_ref: { ...provenance.target_ref, tenant_id: "tenant_other" }
+      })
+    ).toBe(false);
+  });
+
+  it("rejects cross-tenant provenance for every domain-event association", () => {
+    for (const event of [
+      referenceRecordedEvent(),
+      evidenceLinkedEvent(),
+      decisionThreadLinkedEvent()
+    ]) {
+      expect(
+        compatibility.isDomainEventEnvelope({
+          ...event,
+          provenance_edge: {
+            ...event.provenance_edge,
+            target_ref: { ...event.provenance_edge.target_ref, tenant_id: "tenant_other" }
+          }
+        })
+      ).toBe(false);
+    }
+  });
+
+  it("rejects calendar-invalid UTC timestamps instead of accepting normalized dates", () => {
+    for (const timestamp of ["2026-02-29T09:00:00.000Z", "2026-04-31T09:00:00Z"]) {
+      expect(
+        compatibility.isEvidenceArtifact({
+          ...evidenceArtifact(),
+          captured_at: timestamp
+        })
+      ).toBe(false);
+    }
+    expect(
+      compatibility.isEvidenceArtifact({
+        ...evidenceArtifact(),
+        captured_at: "2024-02-29T09:00:00.000Z"
+      })
+    ).toBe(true);
   });
 
   it("accepts every legal domain-event variant and closes every variant against unknown fields", () => {
@@ -416,5 +482,22 @@ describe("A5 compatibility contracts", () => {
       "isModeBinding",
       "isProvenanceEdge"
     ]);
+  });
+
+  it("exports a dedicated narrow A5 event type from the shared-contracts barrel", () => {
+    const eventType: A5DomainEventType = "evidence_linked";
+
+    expect(eventType).toBe("evidence_linked");
+  });
+
+  it("publishes closed A5 schema fixtures that the contract gate can validate", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    ajv.addFormat("a5-utc-timestamp", true);
+    const validate = ajv.compile(
+      jsonFixture<AnySchema>("contracts/schemas/a5-compatibility.v1.json")
+    );
+
+    expect(validate(jsonFixture("contracts/fixtures/a5-compatibility.valid.json"))).toBe(true);
+    expect(validate(jsonFixture("contracts/fixtures/a5-compatibility.invalid.json"))).toBe(false);
   });
 });
