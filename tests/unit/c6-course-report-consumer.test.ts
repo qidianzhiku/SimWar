@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CourseReportDto, CourseReportFilterInput } from "../../packages/shared-contracts/src/index.js";
+import type {
+  CourseReportDto,
+  CourseReportFilterInput
+} from "../../packages/shared-contracts/src/index.js";
 import {
   ADMIN_COURSE_REPORT_EXPORT_PATH,
   ADMIN_COURSE_REPORT_PATH,
@@ -23,6 +26,10 @@ const filter: CourseReportFilterInput = {
   run_id: "run_001",
   team_id: "team_001"
 };
+
+const adminRequest = { tenantId: "tenant_demo", token: "admin-token" };
+const teacherRequest = { tenantId: "tenant_demo", token: "teacher-token" };
+const apiBase = "http://localhost:3000";
 
 const report: CourseReportDto = {
   applied_filters: filter,
@@ -59,19 +66,21 @@ describe("C6 Course Report consumers", () => {
       jsonResponse({ code: "OK", data: report, message: "success", request_id: "req_teacher" })
     );
 
-    await expect(loadAdminCourseReport(filter, "admin-token", adminFetcher)).resolves.toEqual(report);
-    await expect(loadTeacherCourseReport(filter, "teacher-token", teacherFetcher)).resolves.toEqual(
+    await expect(loadAdminCourseReport(filter, adminRequest, adminFetcher)).resolves.toEqual(
+      report
+    );
+    await expect(loadTeacherCourseReport(filter, teacherRequest, teacherFetcher)).resolves.toEqual(
       report
     );
 
     const query =
       "?course_id=course_001&run_id=run_001&team_id=team_001&role=CEO&round_no=1&kpi=revenue&kpi=score";
-    expect(adminFetcher).toHaveBeenCalledWith(`${ADMIN_COURSE_REPORT_PATH}${query}`, {
-      headers: { authorization: "Bearer admin-token" },
+    expect(adminFetcher).toHaveBeenCalledWith(`${apiBase}${ADMIN_COURSE_REPORT_PATH}${query}`, {
+      headers: { authorization: "Bearer admin-token", "x-tenant-id": "tenant_demo" },
       method: "GET"
     });
-    expect(teacherFetcher).toHaveBeenCalledWith(`${TEACHER_COURSE_REPORT_PATH}${query}`, {
-      headers: { authorization: "Bearer teacher-token" },
+    expect(teacherFetcher).toHaveBeenCalledWith(`${apiBase}${TEACHER_COURSE_REPORT_PATH}${query}`, {
+      headers: { authorization: "Bearer teacher-token", "x-tenant-id": "tenant_demo" },
       method: "GET"
     });
   });
@@ -94,19 +103,21 @@ describe("C6 Course Report consumers", () => {
       })
     );
 
-    await expect(exportAdminCourseReport(filter, "csv", "admin-token", adminFetcher)).resolves.toMatchObject({
+    await expect(
+      exportAdminCourseReport(filter, "csv", adminRequest, adminFetcher)
+    ).resolves.toMatchObject({
       export_format: "csv",
       report
     });
     await expect(
-      exportTeacherCourseReport(filter, "json", "teacher-token", teacherFetcher)
+      exportTeacherCourseReport(filter, "json", teacherRequest, teacherFetcher)
     ).resolves.toMatchObject({ export_format: "json", report });
 
     expect(adminFetcher.mock.calls[0]?.[0]).toBe(
-      `${ADMIN_COURSE_REPORT_EXPORT_PATH}?course_id=course_001&run_id=run_001&team_id=team_001&role=CEO&round_no=1&kpi=revenue&kpi=score&format=csv`
+      `${apiBase}${ADMIN_COURSE_REPORT_EXPORT_PATH}?course_id=course_001&run_id=run_001&team_id=team_001&role=CEO&round_no=1&kpi=revenue&kpi=score&format=csv`
     );
     expect(teacherFetcher.mock.calls[0]?.[0]).toBe(
-      `${TEACHER_COURSE_REPORT_EXPORT_PATH}?course_id=course_001&run_id=run_001&team_id=team_001&role=CEO&round_no=1&kpi=revenue&kpi=score&format=json`
+      `${apiBase}${TEACHER_COURSE_REPORT_EXPORT_PATH}?course_id=course_001&run_id=run_001&team_id=team_001&role=CEO&round_no=1&kpi=revenue&kpi=score&format=json`
     );
   });
 
@@ -124,19 +135,36 @@ describe("C6 Course Report consumers", () => {
     const leaking = vi.fn(async () =>
       jsonResponse({
         code: "OK",
-        data: { ...report, state_true: { profit: 1 }, student_visible: true },
+        data: {
+          ...report,
+          applied_filters: { ...report.applied_filters, tenant_id: "tenant_other" },
+          state_true: { profit: 1 },
+          student_visible: true
+        },
         message: "success",
         request_id: "req_leak"
       })
     );
+    const malformedError = vi.fn(async () =>
+      jsonResponse({ code: "COURSE_REPORT_FORBIDDEN" }, 403)
+    );
+    const malformedSuccess = vi.fn(async () =>
+      jsonResponse({ code: "OK", data: report, message: "success" })
+    );
 
-    await expect(loadAdminCourseReport(filter, "admin-token", forbidden)).rejects.toEqual(
+    await expect(loadAdminCourseReport(filter, adminRequest, forbidden)).rejects.toEqual(
       new AdminCourseReportRequestError(403, "COURSE_REPORT_FORBIDDEN")
     );
-    await expect(loadTeacherCourseReport(filter, "teacher-token", forbidden)).rejects.toEqual(
+    await expect(loadTeacherCourseReport(filter, teacherRequest, forbidden)).rejects.toEqual(
       new TeacherCourseReportRequestError(403, "COURSE_REPORT_FORBIDDEN")
     );
-    await expect(loadTeacherCourseReport(filter, "teacher-token", leaking)).rejects.toEqual(
+    await expect(loadTeacherCourseReport(filter, teacherRequest, leaking)).rejects.toEqual(
+      new TeacherCourseReportRequestError(200, "COURSE_REPORT_RESPONSE_INVALID")
+    );
+    await expect(loadAdminCourseReport(filter, adminRequest, malformedError)).rejects.toEqual(
+      new AdminCourseReportRequestError(403, "COURSE_REPORT_RESPONSE_INVALID")
+    );
+    await expect(loadTeacherCourseReport(filter, teacherRequest, malformedSuccess)).rejects.toEqual(
       new TeacherCourseReportRequestError(200, "COURSE_REPORT_RESPONSE_INVALID")
     );
   });

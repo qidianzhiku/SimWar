@@ -14,17 +14,46 @@ import {
   loadAdminCourseReport
 } from "./course-report-client";
 
-type ReportPhase = "IDLE" | "LOADING" | "READY" | "EMPTY" | "BLOCKED" | "STALE" | "ERROR" | "SUCCESS";
-type ReportForm = { course_id: string; run_id: string; team_id: string; role: string; round_no: string; kpis: CourseReportKpi[] };
+type ReportPhase =
+  | "IDLE"
+  | "LOADING"
+  | "READY"
+  | "EMPTY"
+  | "BLOCKED"
+  | "STALE"
+  | "ERROR"
+  | "SUCCESS";
+type ReportForm = {
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  role: string;
+  round_no: string;
+  kpis: CourseReportKpi[];
+};
 
-const EMPTY_FORM: ReportForm = { course_id: "", run_id: "", team_id: "", role: "", round_no: "", kpis: [] };
+const EMPTY_FORM: ReportForm = {
+  course_id: "",
+  run_id: "",
+  team_id: "",
+  role: "",
+  round_no: "",
+  kpis: []
+};
 
-function messageFor(error: unknown): { phase: Extract<ReportPhase, "BLOCKED" | "STALE" | "ERROR">; message: string } {
+function messageFor(error: unknown): {
+  phase: Extract<ReportPhase, "BLOCKED" | "STALE" | "ERROR">;
+  message: string;
+} {
   if (error instanceof CourseReportRequestError) {
-    if (error.status === 401 || error.status === 403) return { phase: "BLOCKED", message: "Report access is not available for this session." };
-    if (error.status === 404) return { phase: "STALE", message: "The selected report scope is no longer available." };
-    if (error.code === "COURSE_REPORT_INPUT_INVALID") return { phase: "ERROR", message: "Report filters are invalid." };
-    if (error.code === "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED") return { phase: "ERROR", message: "The requested export format is unavailable." };
+    if (error.status === 401 || error.status === 403)
+      return { phase: "BLOCKED", message: "Report access is not available for this session." };
+    if (error.status === 404)
+      return { phase: "STALE", message: "The selected report scope is no longer available." };
+    if (error.code === "COURSE_REPORT_INPUT_INVALID")
+      return { phase: "ERROR", message: "Report filters are invalid." };
+    if (error.code === "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED")
+      return { phase: "ERROR", message: "The requested export format is unavailable." };
   }
   return { phase: "ERROR", message: "Report request could not be completed." };
 }
@@ -40,7 +69,11 @@ function toFilter(form: ReportForm): CourseReportFilterInput {
   };
 }
 
-export function CourseReportBuilder(props: { sessionKey: string; token: string }) {
+export function CourseReportBuilder(props: {
+  sessionKey: string;
+  tenantId: string;
+  token: string;
+}) {
   const [form, setForm] = useState<ReportForm>(EMPTY_FORM);
   const [phase, setPhase] = useState<ReportPhase>("IDLE");
   const [message, setMessage] = useState("");
@@ -78,7 +111,10 @@ export function CourseReportBuilder(props: { sessionKey: string; token: string }
     setMessage("");
     setReceipt(null);
     try {
-      const next = await loadAdminCourseReport(filter, props.token);
+      const next = await loadAdminCourseReport(filter, {
+        tenantId: props.tenantId,
+        token: props.token
+      });
       if (epoch !== requestEpoch.current) return;
       setReport(next);
       setPhase(next.rows.length ? "READY" : "EMPTY");
@@ -100,8 +136,13 @@ export function CourseReportBuilder(props: { sessionKey: string; token: string }
     const epoch = ++requestEpoch.current;
     setPhase("LOADING");
     setMessage("");
+    setReport(null);
+    setReceipt(null);
     try {
-      const next = await exportAdminCourseReport(filter, format, props.token);
+      const next = await exportAdminCourseReport(filter, format, {
+        tenantId: props.tenantId,
+        token: props.token
+      });
       if (epoch !== requestEpoch.current) return;
       setReport(next.report);
       setReceipt(next);
@@ -117,24 +158,132 @@ export function CourseReportBuilder(props: { sessionKey: string; token: string }
   return (
     <section className="course-report-surface" aria-label="Admin Course Report Builder">
       <div className="lifecycle-heading">
-        <div><p className="eyebrow">Server-safe projection</p><h2>Course Report Builder</h2></div>
+        <div>
+          <p className="eyebrow">Server-safe projection</p>
+          <h2>Course Report Builder</h2>
+        </div>
         <span>Admin BFF</span>
       </div>
-      <p className="lifecycle-boundary">Reports are read-only server projections. They never expose Student-private fields, internal digests, Truth, canonical Decision, or Replay internals.</p>
+      <p className="lifecycle-boundary">
+        Reports are read-only server projections. They never expose Student-private fields, internal
+        digests, Truth, canonical Decision, or Replay internals.
+      </p>
       <div className="course-report-filters">
-        <label>Course<input aria-label="report course" value={form.course_id} onChange={(event) => change({ course_id: event.target.value })} /></label>
-        <label>Run<input aria-label="report run" value={form.run_id} onChange={(event) => change({ run_id: event.target.value })} /></label>
-        <label>Team<input aria-label="report team" value={form.team_id} onChange={(event) => change({ team_id: event.target.value })} /></label>
-        <label>Role<select aria-label="report role" value={form.role} onChange={(event) => change({ role: event.target.value })}><option value="">All roles</option>{COURSE_REPORT_ROLE_SLOTS.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
-        <label>Round<input aria-label="report round" min="1" type="number" value={form.round_no} onChange={(event) => change({ round_no: event.target.value })} /></label>
-        <fieldset><legend>KPI</legend>{COURSE_REPORT_KPIS.map((kpi) => <label key={kpi}><input aria-label={`KPI ${kpi}`} checked={form.kpis.includes(kpi)} type="checkbox" onChange={(event) => change({ kpis: event.target.checked ? [...form.kpis, kpi] : form.kpis.filter((value) => value !== kpi) })} />{kpi}</label>)}</fieldset>
+        <label>
+          Course
+          <input
+            aria-label="report course"
+            value={form.course_id}
+            onChange={(event) => change({ course_id: event.target.value })}
+          />
+        </label>
+        <label>
+          Run
+          <input
+            aria-label="report run"
+            value={form.run_id}
+            onChange={(event) => change({ run_id: event.target.value })}
+          />
+        </label>
+        <label>
+          Team
+          <input
+            aria-label="report team"
+            value={form.team_id}
+            onChange={(event) => change({ team_id: event.target.value })}
+          />
+        </label>
+        <label>
+          Role
+          <select
+            aria-label="report role"
+            value={form.role}
+            onChange={(event) => change({ role: event.target.value })}
+          >
+            <option value="">All roles</option>
+            {COURSE_REPORT_ROLE_SLOTS.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Round
+          <input
+            aria-label="report round"
+            min="1"
+            type="number"
+            value={form.round_no}
+            onChange={(event) => change({ round_no: event.target.value })}
+          />
+        </label>
+        <fieldset>
+          <legend>KPI</legend>
+          {COURSE_REPORT_KPIS.map((kpi) => (
+            <label key={kpi}>
+              <input
+                aria-label={`KPI ${kpi}`}
+                checked={form.kpis.includes(kpi)}
+                type="checkbox"
+                onChange={(event) =>
+                  change({
+                    kpis: event.target.checked
+                      ? [...form.kpis, kpi]
+                      : form.kpis.filter((value) => value !== kpi)
+                  })
+                }
+              />
+              {kpi}
+            </label>
+          ))}
+        </fieldset>
       </div>
-      <div className="lifecycle-actions"><button disabled={phase === "LOADING"} onClick={() => void preview()}>Preview Course Report</button><button disabled={phase === "LOADING"} onClick={() => void exportReport("json")}>Export report as JSON</button><button disabled={phase === "LOADING"} onClick={() => void exportReport("csv")}>Export report as CSV</button></div>
+      <div className="lifecycle-actions">
+        <button disabled={phase === "LOADING"} onClick={() => void preview()}>
+          Preview Course Report
+        </button>
+        <button disabled={phase === "LOADING"} onClick={() => void exportReport("json")}>
+          Export report as JSON
+        </button>
+        <button disabled={phase === "LOADING"} onClick={() => void exportReport("csv")}>
+          Export report as CSV
+        </button>
+      </div>
       {phase === "LOADING" ? <p role="status">Loading safe Course Report</p> : null}
       {phase === "EMPTY" ? <p role="status">No safe report rows match this scope.</p> : null}
-      {phase === "BLOCKED" || phase === "STALE" || phase === "ERROR" ? <p role="alert">{message}</p> : null}
-      {report ? <article aria-label="Course report preview"><h3>Course report preview</h3>{report.rows.map((row) => <div className="course-report-row" key={`${row.run_id}-${row.round_no}-${row.team_id}`}><strong>{row.team_name}</strong><span>{row.run_id} / round {row.round_no}</span><ul>{row.metrics.map((metric) => <li key={metric.kpi}>{metric.kpi}: {metric.value}</li>)}</ul></div>)}<small>Known limits: {report.known_limits.join(", ")}</small></article> : null}
-      {receipt ? <article aria-label="Course report export receipt"><h3>Course report export receipt</h3><p>{receipt.file_name} ({receipt.export_format}) is ready.</p></article> : null}
+      {phase === "BLOCKED" || phase === "STALE" || phase === "ERROR" ? (
+        <p role="alert">{message}</p>
+      ) : null}
+      {report ? (
+        <article aria-label="Course report preview">
+          <h3>Course report preview</h3>
+          {report.rows.map((row) => (
+            <div className="course-report-row" key={`${row.run_id}-${row.round_no}-${row.team_id}`}>
+              <strong>{row.team_name}</strong>
+              <span>
+                {row.run_id} / round {row.round_no}
+              </span>
+              <ul>
+                {row.metrics.map((metric) => (
+                  <li key={metric.kpi}>
+                    {metric.kpi}: {metric.value}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <small>Known limits: {report.known_limits.join(", ")}</small>
+        </article>
+      ) : null}
+      {receipt ? (
+        <article aria-label="Course report export receipt">
+          <h3>Course report export receipt</h3>
+          <p>
+            {receipt.file_name} ({receipt.export_format}) is ready.
+          </p>
+        </article>
+      ) : null}
     </section>
   );
 }

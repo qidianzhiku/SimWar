@@ -1094,7 +1094,11 @@ export function App() {
       ) : null}
 
       {isTeacher ? (
-        <CourseReportBuilder sessionKey={session?.access_token ?? ""} token={session?.access_token ?? ""} />
+        <CourseReportBuilder
+          sessionKey={`${session?.access_token ?? ""}:${login.tenantId}`}
+          tenantId={login.tenantId}
+          token={session?.access_token ?? ""}
+        />
       ) : null}
 
       {isTeacher ? (
