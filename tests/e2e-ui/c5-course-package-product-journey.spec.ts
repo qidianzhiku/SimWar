@@ -285,3 +285,113 @@ test("Teacher clones an exact available Course Package version without creating 
   await expect(receipt.getByText("No Course or Run was created.")).toBeVisible();
   expect(prohibitedMutations).toEqual([]);
 });
+
+test("Admin keeps a successful immutable export available for controlled import", async ({ page }) => {
+  await page.route("**/api/v1/admin/course-package-versions", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(envelope({ course_package_versions: [adminPackage] }))
+    });
+  });
+  await page.route("**/api/v1/admin/course-package-versions/**", async (route) => {
+    if (!route.request().url().includes("/export?")) {
+      throw new Error(`Unexpected CoursePackageVersion request: ${route.request().url()}`);
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(envelope({ course_package_version: adminPackage }))
+    });
+  });
+
+  await page.goto(adminBaseUrl);
+  await signInAdmin(page);
+
+  const panel = page.getByLabel("CoursePackageVersion administration");
+  await expect(panel.getByText("Wellness Teaching Package")).toBeVisible();
+  await panel.getByRole("button", { name: "Export course_package_wellness_001" }).click();
+  await expect(panel.getByLabel("course package export payload")).toHaveValue(
+    JSON.stringify(adminPackage, null, 2)
+  );
+});
+
+test("Admin ignores an earlier CoursePackageVersion response after a later session refresh", async ({
+  page
+}) => {
+  let releaseOldResponse: (() => void) | undefined;
+  const oldResponse = new Promise<void>((resolve) => {
+    releaseOldResponse = resolve;
+  });
+  let listCalls = 0;
+  const oldPackage = { ...adminPackage, title: "Old tenant package" };
+  const currentPackage = { ...adminPackage, title: "Current tenant package" };
+
+  await page.route("**/api/v1/admin/course-package-versions", async (route) => {
+    listCalls += 1;
+    if (listCalls === 1) {
+      await oldResponse;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(envelope({ course_package_versions: [oldPackage] }))
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(envelope({ course_package_versions: [currentPackage] }))
+    });
+  });
+
+  await page.goto(adminBaseUrl);
+  await signInAdmin(page);
+  const login = page.getByLabel("admin login");
+  await login.getByLabel("tenant").fill("tenant_other");
+  await login.getByLabel("tenant").fill("tenant_demo");
+  await login.getByRole("button", { name: "管理员登录" }).click();
+  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  await expect(page.getByText("Current tenant package")).toBeVisible();
+
+  releaseOldResponse?.();
+  await expect(page.getByText("Old tenant package")).toHaveCount(0);
+  await expect(page.getByText("Current tenant package")).toBeVisible();
+});
+
+test("Teacher ignores an earlier CoursePackageVersion response after a later session refresh", async ({
+  page
+}) => {
+  let releaseOldResponse: (() => void) | undefined;
+  const oldResponse = new Promise<void>((resolve) => {
+    releaseOldResponse = resolve;
+  });
+  let listCalls = 0;
+  const oldPackage = { ...teacherPackage, title: "Old teacher package" };
+  const currentPackage = { ...teacherPackage, title: "Current teacher package" };
+
+  await page.route("**/api/v1/bff/teacher/course-package-versions", async (route) => {
+    listCalls += 1;
+    if (listCalls === 1) {
+      await oldResponse;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(envelope({ course_package_versions: [oldPackage] }))
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(envelope({ course_package_versions: [currentPackage] }))
+    });
+  });
+
+  await page.goto(teacherBaseUrl);
+  await signInTeacher(page);
+  const login = page.getByLabel("teacher login");
+  await login.getByLabel("tenant").fill("tenant_other");
+  await login.getByLabel("tenant").fill("tenant_demo");
+  await login.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  await expect(page.getByText("Current teacher package")).toBeVisible();
+
+  releaseOldResponse?.();
+  await expect(page.getByText("Old teacher package")).toHaveCount(0);
+  await expect(page.getByText("Current teacher package")).toBeVisible();
+});

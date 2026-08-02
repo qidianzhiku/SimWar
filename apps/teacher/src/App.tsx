@@ -307,6 +307,7 @@ export function App() {
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
   const formalCatalogRequestSequence = useRef(0);
+  const coursePackageSessionEpoch = useRef(0);
   const selectedRunIdRef = useRef<string | null>(null);
   const selectedCourseIdRef = useRef<string | null>(null);
 
@@ -397,13 +398,16 @@ export function App() {
       return;
     }
 
+    const sessionEpoch = coursePackageSessionEpoch.current;
     setCoursePackageList({ phase: "LOADING" });
     try {
       const packages = await loadTeacherCoursePackageVersions(session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageList({ packages, phase: "READY" });
     } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageList({
         phase: "ERROR",
         surfaceState: getTeacherCoursePackageSurfaceState(error)
@@ -412,6 +416,7 @@ export function App() {
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
+    coursePackageSessionEpoch.current += 1;
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -510,6 +515,7 @@ export function App() {
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    coursePackageSessionEpoch.current += 1;
     setBusy(true);
     setSession(null);
     setState(null);

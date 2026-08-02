@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getKnownLimitsProjection } from "@simwar/shared-contracts";
 import type {
   ActorRole,
@@ -174,6 +174,7 @@ export function App() {
     EMPTY_COURSE_PACKAGE_DRAFT
   );
   const [coursePackageImportPayload, setCoursePackageImportPayload] = useState("");
+  const [coursePackageExportPayload, setCoursePackageExportPayload] = useState("");
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [userDraft, setUserDraft] = useState({
     tenant_id: "tenant_demo",
@@ -185,6 +186,7 @@ export function App() {
   });
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
+  const coursePackageSessionEpoch = useRef(0);
 
   const tenantMap = useMemo(
     () => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])),
@@ -243,14 +245,17 @@ export function App() {
       return;
     }
 
+    const sessionEpoch = coursePackageSessionEpoch.current;
     setCoursePackageList({ phase: "LOADING" });
     setCoursePackageFeedback(null);
     try {
       const packages = await loadAdminCoursePackageVersions(session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageList({ packages, phase: "READY" });
     } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageList({
         phase: "ERROR",
         surfaceState: getAdminCoursePackageSurfaceState(error, "list")
@@ -259,6 +264,7 @@ export function App() {
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
+    coursePackageSessionEpoch.current += 1;
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -272,10 +278,12 @@ export function App() {
     setCoursePackageFeedback(null);
     setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
     setCoursePackageImportPayload("");
+    setCoursePackageExportPayload("");
     setNotice("context changed");
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    coursePackageSessionEpoch.current += 1;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -287,6 +295,7 @@ export function App() {
     setLifecycleError("");
     setCoursePackageList({ phase: "IDLE" });
     setCoursePackageFeedback(null);
+    setCoursePackageExportPayload("");
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -536,13 +545,17 @@ export function App() {
   async function exportCoursePackage(coursePackage: CoursePackageVersion): Promise<void> {
     if (!session) return;
 
+    const sessionEpoch = coursePackageSessionEpoch.current;
     setBusy(true);
     setCoursePackageFeedback(null);
     try {
-      await exportAdminCoursePackageVersion(coursePackage, session.access_token, (path, init) =>
+      const exported = await exportAdminCoursePackageVersion(coursePackage, session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageExportPayload(JSON.stringify(exported, null, 2));
     } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageFeedback({
         operation: "export",
         surfaceState: getAdminCoursePackageSurfaceState(error, "export")
@@ -792,6 +805,25 @@ export function App() {
                 coursePackageFeedback.operation
               )}
             </p>
+          ) : null}
+          {coursePackageExportPayload ? (
+            <article className="panel form-panel" aria-label="CoursePackageVersion export receipt">
+              <div className="panel-title">
+                <h3>Immutable export ready</h3>
+                <span>admin-controlled JSON</span>
+              </div>
+              <label>
+                Course package export JSON
+                <textarea
+                  aria-label="course package export payload"
+                  readOnly
+                  value={coursePackageExportPayload}
+                />
+              </label>
+              <button onClick={() => setCoursePackageImportPayload(coursePackageExportPayload)}>
+                Use export as import payload
+              </button>
+            </article>
           ) : null}
           {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
             <p className="lifecycle-status">No CoursePackageVersions are available.</p>
