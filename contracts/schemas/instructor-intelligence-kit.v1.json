@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/instructor-intelligence-kit.v1.json",
+  "title": "Teacher Instructor Intelligence Kit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ai_status",
+    "anomaly_status",
+    "causal_evidence_refs",
+    "debrief_agenda",
+    "deterministic_fact_digest",
+    "discussion_points",
+    "follow_up_questions",
+    "instructor_asset_id",
+    "known_limits",
+    "round",
+    "result_delta",
+    "source_course_blueprint_ref",
+    "time_guidance"
+  ],
+  "properties": {
+    "ai_status": { "const": "off" },
+    "anomaly_status": {
+      "enum": ["baseline_unavailable", "result_pending", "no_material_delta", "material_delta"]
+    },
+    "causal_evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/exact_ref" } },
+    "debrief_agenda": { "$ref": "#/$defs/non_empty_strings" },
+    "deterministic_fact_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "discussion_points": { "$ref": "#/$defs/non_empty_strings" },
+    "follow_up_questions": { "$ref": "#/$defs/non_empty_strings" },
+    "instructor_asset_id": { "type": "string", "minLength": 1 },
+    "known_limits": { "$ref": "#/$defs/non_empty_strings" },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round_id", "round_no", "run_id", "status"],
+      "properties": {
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "status": { "const": "published" }
+      }
+    },
+    "result_delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_team_count"],
+      "properties": {
+        "average_score_delta": { "type": "number" },
+        "baseline_round_no": { "type": "integer", "minimum": 1 },
+        "baseline_team_count": { "type": "integer", "minimum": 0 },
+        "current_team_count": { "type": "integer", "minimum": 0 },
+        "rank_change_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source_course_blueprint_ref": { "$ref": "#/$defs/exact_ref" },
+    "time_guidance": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "exact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/exact_identity" },
+        "resource_type": { "const": "course_blueprint" },
+        "tenant_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    },
+    "exact_identity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+      }
+    },
+    "exact_version": {
+      "allOf": [
+        { "$ref": "#/$defs/exact_identity" },
+        { "not": { "type": "string", "pattern": "(?:^|[._:-])(?:[Xx]|\\*)(?:$|[._:-])" } }
+      ]
+    },
+    "non_empty_strings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

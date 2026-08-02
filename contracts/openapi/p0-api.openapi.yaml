@@ -1321,6 +1321,161 @@ paths:
                 $ref: "#/components/schemas/RoleWorkflowResetEnvelope"
         "403": { description: "Teacher role required" }
         "409": { description: "Confirmed workflow is immutable" }
+  /api/v1/bff/teacher/instructor-assets:
+    get:
+      operationId: TEACHER_INSTRUCTOR_ASSET_LIST_GET_V1
+      summary: List the tenant-scoped teacher debrief assets.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Teacher debrief assets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorAssetListEnvelope"
+        "403": { description: "Teacher role required" }
+        "422": { description: "Course scope is required" }
+  /api/v1/bff/teacher/instructor-assets/drafts:
+    post:
+      operationId: TEACHER_INSTRUCTOR_ASSET_DRAFT_CREATE_V1
+      summary: Create a teacher-only debrief asset from an existing frozen CourseBlueprint binding.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructorAssetDraftInput"
+      responses:
+        "201":
+          description: Draft teacher debrief asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorAssetEnvelope"
+        "403": { description: "Teacher role required" }
+        "422": { description: "Course binding or request invalid" }
+  /api/v1/bff/teacher/instructor-assets/{assetId}/publish:
+    post:
+      operationId: TEACHER_INSTRUCTOR_ASSET_PUBLISH_V1
+      summary: Explicitly publish a draft teacher debrief asset.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructorAssetEmptyInput"
+      responses:
+        "200":
+          description: Published teacher debrief asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorAssetEnvelope"
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset not found" }
+        "409": { description: "Asset is not a draft" }
+        "422": { description: "Asset request invalid" }
+  /api/v1/bff/teacher/instructor-assets/{assetId}/reject:
+    post:
+      operationId: TEACHER_INSTRUCTOR_ASSET_REJECT_V1
+      summary: Explicitly reject a draft teacher debrief asset.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructorAssetEmptyInput"
+      responses:
+        "200":
+          description: Rejected teacher debrief asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorAssetEnvelope"
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset not found" }
+        "409": { description: "Asset is not a draft" }
+        "422": { description: "Asset request invalid" }
+  /api/v1/bff/teacher/instructor-assets/{assetId}/revisions:
+    post:
+      operationId: TEACHER_INSTRUCTOR_ASSET_REVISION_CREATE_V1
+      summary: Create a new draft revision from an immutable teacher debrief asset.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstructorAssetRevisionInput"
+      responses:
+        "201":
+          description: Draft revision created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorAssetEnvelope"
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset not found" }
+        "409": { description: "Source asset is still a draft" }
+        "422": { description: "Asset request invalid" }
+  /api/v1/bff/teacher/instructor-intelligence:
+    get:
+      operationId: TEACHER_INSTRUCTOR_INTELLIGENCE_GET_V1
+      summary: Read a deterministic teacher-only debrief kit from a published asset and public result summary.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: asset_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: round_no
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Deterministic teacher-only debrief kit; AI remains off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorIntelligenceKitEnvelope"
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset, Run, or Round not found, or asset is outside the Run course" }
+        "409": { description: "Asset is not published or Round is not published" }
+        "422": { description: "Instructor intelligence request invalid" }
   /api/v1/bff/student/role-workspace:
     get:
       operationId: STUDENT_ROLE_WORKFLOW_WORKSPACE_GET_V1
@@ -2402,6 +2557,80 @@ components:
           type: string
         request_id:
           type: string
+    InstructorAssetDraftInput:
+      type: object
+      additionalProperties: false
+      required: [course_id, title]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+    InstructorAssetRevisionInput:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1 }
+    InstructorAssetEmptyInput:
+      type: object
+      additionalProperties: false
+    InstructorAsset:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          asset_id,
+          course_blueprint_ref,
+          course_id,
+          created_at,
+          created_by,
+          fact_digest,
+          status,
+          tenant_id,
+          title,
+          updated_at
+        ]
+      properties:
+        asset_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        course_blueprint_ref:
+          $ref: "../schemas/instructor-intelligence-kit.v1.json#/$defs/exact_ref"
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, minLength: 1 }
+        fact_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        revision_of_asset_id: { type: string, minLength: 1 }
+        status: { enum: [draft, teacher_published, rejected] }
+        tenant_id: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1 }
+        updated_at: { type: string, format: date-time }
+    InstructorAssetEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/InstructorAsset" }
+        message: { type: string }
+        request_id: { type: string }
+    InstructorAssetListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/InstructorAsset" }
+        message: { type: string }
+        request_id: { type: string }
+    InstructorIntelligenceKitEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/instructor-intelligence-kit.v1.json" }
+        message: { type: string }
+        request_id: { type: string }
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"
     M1AuthSessionEnvelope:

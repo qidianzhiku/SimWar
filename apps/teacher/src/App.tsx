@@ -42,6 +42,7 @@ import {
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
 import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
+import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -982,6 +983,17 @@ export function App() {
           teams={
             state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? []
           }
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+
+      {session ? (
+        <InstructorIntelligencePanel
+          courseId={selectedRun?.course_id}
+          disabled={busy}
+          roundNo={selectedRound?.round_no}
+          runId={selectedRun?.run_id}
           tenantId={login.tenantId}
           token={session.access_token}
         />
