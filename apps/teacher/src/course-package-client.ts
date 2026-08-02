@@ -1,7 +1,12 @@
-import type { CoursePackageVersionTeacherDto } from "@simwar/shared-contracts";
+import type {
+  CoursePackageVersionCloneInput,
+  CoursePackageVersionTeacherDto
+} from "@simwar/shared-contracts";
 
 export const TEACHER_COURSE_PACKAGE_VERSION_LIST_PATH =
   "/api/v1/bff/teacher/course-package-versions";
+export const TEACHER_COURSE_PACKAGE_VERSION_CLONE_PATH =
+  "/api/v1/bff/teacher/course-package-versions/clone";
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -63,6 +68,35 @@ export async function loadTeacherCoursePackageVersions(
     throw new TeacherCoursePackageRequestError(response.status, "COURSE_PACKAGE_RESPONSE_INVALID");
   }
   return payload.data.course_package_versions;
+}
+
+export async function cloneTeacherCoursePackageVersion(
+  input: CoursePackageVersionCloneInput,
+  token: string,
+  fetcher: Fetcher = fetch
+): Promise<CoursePackageVersionTeacherDto> {
+  const response = await fetcher(TEACHER_COURSE_PACKAGE_VERSION_CLONE_PATH, {
+    body: JSON.stringify(input),
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json"
+    },
+    method: "POST"
+  });
+  let payload: ResponseEnvelope<CoursePackageVersionTeacherDto>;
+  try {
+    payload = (await response.json()) as ResponseEnvelope<CoursePackageVersionTeacherDto>;
+  } catch {
+    throw new TeacherCoursePackageRequestError(response.status, "COURSE_PACKAGE_RESPONSE_INVALID");
+  }
+
+  if (!response.ok) {
+    throw new TeacherCoursePackageRequestError(response.status, responseCode(payload));
+  }
+  if (!("data" in payload) || payload.data === undefined) {
+    throw new TeacherCoursePackageRequestError(response.status, "COURSE_PACKAGE_RESPONSE_INVALID");
+  }
+  return payload.data;
 }
 
 export function getTeacherCoursePackageSurfaceState(

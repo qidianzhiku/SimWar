@@ -49,6 +49,18 @@ const teacherPackage = {
   title: adminPackage.title
 };
 
+const clonedTeacherPackage = {
+  ...teacherPackage,
+  course_package_reference: {
+    content_digest: "e".repeat(64),
+    course_package_id: "course_package_wellness_clone_001",
+    tenant_id: "tenant_demo",
+    version: "1.1.0"
+  },
+  description: "Teacher-owned Course Package version.",
+  title: "Teacher Wellness Package"
+};
+
 function envelope(data: unknown) {
   return { code: "OK", data, message: "success", request_id: "req_c5_browser" };
 }
@@ -194,10 +206,19 @@ test("Admin renders frozen CoursePackageVersion states without making compatibil
   await expect(panel.getByText("Unknown CoursePackageVersion state")).toBeVisible();
 });
 
-test("Teacher consumes only the safe CoursePackageVersion projection and exposes no Admin actions", async ({
+test("Teacher clones an exact available Course Package version without creating a Course or Run", async ({
   page
 }) => {
   let calls = 0;
+  const prohibitedMutations: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() !== "GET" &&
+      /\/(courses|runs)(?:\/|$)|\/settle|\/replay/.test(request.url())
+    ) {
+      prohibitedMutations.push(request.url());
+    }
+  });
   await page.route("**/api/v1/bff/teacher/course-package-versions", async (route) => {
     calls += 1;
     if (calls === 1) {
@@ -214,10 +235,20 @@ test("Teacher consumes only the safe CoursePackageVersion projection and exposes
       });
       return;
     }
+    throw new Error(`Unexpected CoursePackageVersion list request: ${route.request().url()}`);
+  });
+  await page.route("**/api/v1/bff/teacher/course-package-versions/clone", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      course_package_id: "course_package_wellness_clone_001",
+      description: "Teacher-owned Course Package version.",
+      source_course_package_reference: teacherPackage.course_package_reference,
+      title: "Teacher Wellness Package",
+      version: "1.1.0"
+    });
     await route.fulfill({
       contentType: "application/json",
-      status: 403,
-      body: JSON.stringify(errorEnvelope("COURSE_PACKAGE_FORBIDDEN"))
+      status: 201,
+      body: JSON.stringify(envelope(clonedTeacherPackage))
     });
   });
 
@@ -230,6 +261,22 @@ test("Teacher consumes only the safe CoursePackageVersion projection and exposes
   await expect(panel.getByText("Wellness Teaching Package")).toBeVisible();
   await expect(panel.getByText("usr_admin")).toHaveCount(0);
   await expect(panel.getByRole("button", { name: /Import|Export|Validate|Retire/ })).toHaveCount(0);
-  await panel.getByRole("button", { name: "Refresh CoursePackageVersions" }).click();
-  await expect(panel.getByText("Permission denied")).toBeVisible();
+  await panel
+    .getByRole("button", {
+      name: "Clone course_package_wellness_001 as a new Course Package version"
+    })
+    .click();
+  const cloneForm = panel.getByLabel("Teacher CoursePackageVersion clone");
+  await cloneForm.getByLabel("new Course Package ID").fill("course_package_wellness_clone_001");
+  await cloneForm.getByLabel("new Course Package version").fill("1.1.0");
+  await cloneForm.getByLabel("new Course Package title").fill("Teacher Wellness Package");
+  await cloneForm
+    .getByLabel("new Course Package description")
+    .fill("Teacher-owned Course Package version.");
+  await cloneForm.getByRole("button", { name: "Clone Course Package version" }).click();
+
+  const receipt = panel.getByLabel("Teacher CoursePackageVersion clone receipt");
+  await expect(receipt.getByText("course_package_wellness_clone_001")).toBeVisible();
+  await expect(receipt.getByText("No Course or Run was created.")).toBeVisible();
+  expect(prohibitedMutations).toEqual([]);
 });

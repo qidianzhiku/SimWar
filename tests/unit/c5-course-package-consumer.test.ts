@@ -12,6 +12,8 @@ import {
 } from "../../apps/admin/src/course-package-client";
 import {
   TEACHER_COURSE_PACKAGE_VERSION_LIST_PATH,
+  TEACHER_COURSE_PACKAGE_VERSION_CLONE_PATH,
+  cloneTeacherCoursePackageVersion,
   getTeacherCoursePackageSurfaceState,
   loadTeacherCoursePackageVersions
 } from "../../apps/teacher/src/course-package-client";
@@ -155,6 +157,37 @@ describe("C5 CoursePackageVersion consumers", () => {
         method: "GET"
       }
     ]);
+  });
+
+  it("asks the Teacher BFF to clone an exact available Course Package version without creating a Course or Run", async () => {
+    const fetcher = vi.fn(async () =>
+      jsonResponse({
+        code: "OK",
+        data: teacherPackage,
+        message: "success",
+        request_id: "req_teacher_clone"
+      })
+    );
+    const cloneInput = {
+      course_package_id: "course_package_wellness_clone_001",
+      description: "Teacher-owned Course Package version.",
+      source_course_package_reference: teacherPackage.course_package_reference,
+      title: "Teacher Wellness Package",
+      version: "1.1.0"
+    };
+
+    await expect(
+      cloneTeacherCoursePackageVersion(cloneInput, "teacher-token", fetcher)
+    ).resolves.toEqual(teacherPackage);
+
+    expect(fetcher).toHaveBeenCalledWith(TEACHER_COURSE_PACKAGE_VERSION_CLONE_PATH, {
+      body: JSON.stringify(cloneInput),
+      headers: {
+        authorization: "Bearer teacher-token",
+        "content-type": "application/json"
+      },
+      method: "POST"
+    });
   });
 
   it("renders server-provided lifecycle and command failures as safe prescribed states", async () => {
