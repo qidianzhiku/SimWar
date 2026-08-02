@@ -62,6 +62,15 @@ Stable command errors are `COURSE_PACKAGE_INPUT_INVALID`,
 `COURSE_PACKAGE_COMPATIBILITY_MISMATCH`, `COURSE_PACKAGE_IMPORT_DIGEST_INVALID`,
 `COURSE_PACKAGE_LIFECYCLE_INVALID`, and `COURSE_PACKAGE_FORBIDDEN`.
 
+Package titles and descriptions are non-empty and cannot contain leading or
+trailing whitespace. The runtime, JSON Schema, and OpenAPI contract enforce
+the same rule. A successful administrative export appends a tenant-scoped
+`course_package_version.export` audit record before its payload is returned.
+If that audit write fails, the request returns the stable
+`COURSE_PACKAGE_EXPORT_AUDIT_FAILED` response without exporting the package;
+this read-path failure does not introduce retries, transactions, recovery, or
+any new source-authority write.
+
 The JSON schema, fixture, shared types, and OpenAPI entries are frozen by this
 contract commit. Runtime implementation follows in a separate commit.
 

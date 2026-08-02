@@ -266,6 +266,14 @@ describe("CoursePackageVersion endpoints", () => {
       );
       expect(exported.status).toBe(200);
       expect(exported.body.data.course_package_version.status).toBe("AVAILABLE");
+      expect(
+        store.auditLogs.some(
+          (log) =>
+            log.action === "course_package_version.export" &&
+            log.resource_id === `${body.course_package_id}:${VERSION}` &&
+            log.tenant_id === DEFAULT_TENANT_ID
+        )
+      ).toBe(true);
       const importedDraft: CoursePackageVersionDraftInput = {
         ...exported.body.data.course_package_version,
         course_package_id: "course_package_endpoint_import",
@@ -420,6 +428,81 @@ describe("CoursePackageVersion endpoints", () => {
         runs: store.runs,
         settlementResults: store.settlementResults
       }).toEqual(beforeProtectedRecords);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("does not return a package export when its audit append fails", async () => {
+    let rejectExportAudit = false;
+    const { baseUrl, server, store } = await startServer((configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (rejectExportAudit && auditLog.action === "course_package_version.export") {
+                  throw new Error("forced_course_package_export_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const references = await seedApprovedSources(store);
+      const admin = await login(baseUrl, "admin", "admin");
+      const headers = {
+        authorization: `Bearer ${admin.access_token}`,
+        "content-type": "application/json",
+        "x-tenant-id": DEFAULT_TENANT_ID
+      };
+      const body = {
+        ...references,
+        course_package_id: "course_package_export_audit_failure",
+        description: "The export must remain private when auditing fails.",
+        title: "Export audit failure package",
+        version: VERSION
+      };
+      const created = await requestJson<ApiEnvelope<CoursePackageVersion>>(
+        `${baseUrl}${COURSE_PACKAGE_BASE}/drafts`,
+        { body, headers, method: "POST" }
+      );
+      expect(created.status).toBe(201);
+      const reference = {
+        content_digest: created.body.data.content_digest,
+        course_package_id: body.course_package_id,
+        version: VERSION
+      };
+      for (const action of ["validate", "make-available"]) {
+        expect(
+          (
+            await requestJson(
+              `${baseUrl}${COURSE_PACKAGE_BASE}/${body.course_package_id}/versions/${VERSION}/${action}`,
+              { body: reference, headers, method: "POST" }
+            )
+          ).status
+        ).toBe(200);
+      }
+
+      const snapshotsBeforeFailedExport = structuredClone(store.coursePackageLifecycleSnapshots);
+      rejectExportAudit = true;
+      const response = await requestJson<{ code: string; message: string }>(
+        `${baseUrl}${COURSE_PACKAGE_BASE}/${body.course_package_id}/versions/${VERSION}/export?content_digest=${reference.content_digest}`,
+        { headers }
+      );
+
+      expect(response.status).toBe(500);
+      expect(response.body.code).toBe("COURSE_PACKAGE_EXPORT_AUDIT_FAILED");
+      expect(response.body.message).toBe("course package export could not be completed");
+      expect(JSON.stringify(response.body)).not.toContain("forced_course_package_export_audit_failure");
+      expect(store.coursePackageLifecycleSnapshots).toEqual(snapshotsBeforeFailedExport);
     } finally {
       await stopServer(server);
     }

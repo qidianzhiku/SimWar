@@ -3677,6 +3677,23 @@ async function routeRequest(
         version: requireCoursePackageExactVersion(coursePackageExport[2])
       })
     );
+    try {
+      await appendAudit(runtime, {
+        actor,
+        action: "course_package_version.export",
+        after: clonePublic(exported),
+        requestId: context.requestId,
+        resourceId: `${exported.course_package_version.course_package_id}:${exported.course_package_version.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      });
+    } catch {
+      throw new HttpError(
+        500,
+        "COURSE_PACKAGE_EXPORT_AUDIT_FAILED",
+        "course package export could not be completed"
+      );
+    }
     sendJson(response, 200, createEnvelope(context, exported));
     return;
   }
