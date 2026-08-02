@@ -51,6 +51,7 @@ import {
   loadTeacherCoursePackageVersions,
   type TeacherCoursePackageSurfaceState
 } from "./course-package-client";
+import { CourseReportBuilder } from "./CourseReportBuilder";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1090,6 +1091,10 @@ export function App() {
             </ul>
           </details>
         </section>
+      ) : null}
+
+      {isTeacher ? (
+        <CourseReportBuilder sessionKey={session?.access_token ?? ""} token={session?.access_token ?? ""} />
       ) : null}
 
       {isTeacher ? (
