@@ -15,7 +15,10 @@ function readJson(path: string): unknown {
 
 interface OpenApiOperation {
   requestBody?: { content?: { "application/json"?: { schema?: { $ref?: string } } } };
-  responses?: Record<string, { content?: { "application/json"?: { schema?: { $ref?: string } } } }>;
+  responses?: Record<
+    string,
+    { content?: { "application/json"?: { schema?: { $ref?: string } } }; description?: string }
+  >;
 }
 
 interface OpenApiDocument {
@@ -179,5 +182,13 @@ describe("CoursePackageVersion contract freeze", () => {
     expect(
       openApi.paths["/api/v1/bff/teacher/course-package-versions/clone"]?.post?.responses?.["404"]
     ).toBeDefined();
+    expect(
+      openApi.paths["/api/v1/admin/course-package-versions/clone"]?.post?.responses?.["409"]
+        ?.description
+    ).toContain("source package is not AVAILABLE");
+    expect(
+      openApi.paths["/api/v1/bff/teacher/course-package-versions/clone"]?.post?.responses?.["409"]
+        ?.description
+    ).toContain("source package is not AVAILABLE");
   });
 });

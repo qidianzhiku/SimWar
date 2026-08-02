@@ -80,6 +80,10 @@ function sameReference(
   );
 }
 
+function coursePackageIdentityKey(...parts: readonly string[]): string {
+  return JSON.stringify(parts);
+}
+
 function isCourseBlueprintReference(
   value: CoursePackageVersion["course_blueprint_reference"]
 ): boolean {
@@ -176,7 +180,11 @@ export function assertValidCoursePackageLifecycleSnapshots(
   const histories = new Map<string, CoursePackageVersion[]>();
   for (const snapshot of snapshots) {
     assertValidCoursePackageVersion(snapshot);
-    const key = `${snapshot.tenant_id}:${snapshot.course_package_id}:${snapshot.version}`;
+    const key = coursePackageIdentityKey(
+      snapshot.tenant_id,
+      snapshot.course_package_id,
+      snapshot.version
+    );
     histories.set(key, [...(histories.get(key) ?? []), snapshot]);
   }
   for (const history of histories.values()) {
@@ -283,13 +291,13 @@ export class CoursePackageJsonRegistry {
     const latest = new Map<string, CoursePackageVersion>();
     for (const snapshot of this.snapshots) {
       if (snapshot.tenant_id !== tenantId) continue;
-      latest.set(`${snapshot.course_package_id}:${snapshot.version}`, snapshot);
+      latest.set(coursePackageIdentityKey(snapshot.course_package_id, snapshot.version), snapshot);
     }
     return [...latest.values()]
-      .sort((left, right) =>
-        `${left.course_package_id}:${left.version}`.localeCompare(
-          `${right.course_package_id}:${right.version}`
-        )
+      .sort(
+        (left, right) =>
+          left.course_package_id.localeCompare(right.course_package_id) ||
+          left.version.localeCompare(right.version)
       )
       .map(clone);
   }

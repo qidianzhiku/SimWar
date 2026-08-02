@@ -101,7 +101,10 @@ paths:
                 $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
         "403": { description: "Admin or tenant scope denied" }
         "404": { description: "Exact AVAILABLE source package not found" }
-        "409": { description: "Target exact package version already exists" }
+        "409":
+          {
+            description: "Target exact package version already exists or source package is not AVAILABLE"
+          }
         "422": { description: "Source is not an exact AVAILABLE package" }
   /api/v1/admin/course-package-versions/import:
     post:
@@ -1568,7 +1571,10 @@ paths:
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority or tenant scope denied" }
         "404": { description: "Exact AVAILABLE source package not found" }
-        "409": { description: "Target exact package version already exists" }
+        "409":
+          {
+            description: "Target exact package version already exists or source package is not AVAILABLE"
+          }
         "422": { description: "Source is not an exact AVAILABLE package" }
   /api/v1/bff/teacher/instructor-assets:
     get:

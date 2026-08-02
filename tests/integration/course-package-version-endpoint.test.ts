@@ -218,6 +218,21 @@ describe("CoursePackageVersion endpoints", () => {
       ).toBe(409);
       expect(
         (
+          await requestJson(`${baseUrl}${COURSE_PACKAGE_BASE}/clone`, {
+            body: {
+              course_package_id: "course_package_draft_source_clone",
+              description: "A DRAFT source must not be cloneable.",
+              source_course_package_reference: exactReference,
+              title: "Rejected DRAFT source clone",
+              version: VERSION
+            },
+            headers: adminHeaders,
+            method: "POST"
+          })
+        ).status
+      ).toBe(409);
+      expect(
+        (
           await requestJson(transition("validate"), {
             body: exactReference,
             headers: adminHeaders,

@@ -204,6 +204,27 @@ describe("CoursePackageCommandService", () => {
     }
   });
 
+  it("keeps distinct colon-containing package identities independent", async () => {
+    const registry = new CoursePackageJsonRegistry();
+    const service = new CoursePackageCommandService(registry, sourcePorts());
+
+    await service.createDraft(actor, {
+      ...draft,
+      course_package_id: "course:a",
+      version: "b"
+    });
+    await service.createDraft(actor, {
+      ...draft,
+      course_package_id: "course",
+      version: "a:b"
+    });
+
+    expect(await registry.listForTenant(tenant_id)).toEqual([
+      expect.objectContaining({ course_package_id: "course", version: "a:b" }),
+      expect.objectContaining({ course_package_id: "course:a", version: "b" })
+    ]);
+  });
+
   it("exports only an exact AVAILABLE package and clones it into an independent DRAFT", async () => {
     const registry = new CoursePackageJsonRegistry();
     const service = new CoursePackageCommandService(registry, sourcePorts());
