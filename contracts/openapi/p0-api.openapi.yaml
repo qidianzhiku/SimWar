@@ -1576,6 +1576,100 @@ paths:
             description: "Target exact package version already exists or source package is not AVAILABLE"
           }
         "422": { description: "Source is not an exact AVAILABLE package" }
+  /api/v1/bff/teacher/course-reports:
+    get:
+      operationId: TEACHER_COURSE_REPORT_GET_V1
+      summary: Read a tenant-scoped teacher-safe Course Report.
+      description: The server derives tenant and teacher identity. This read-only report excludes state_true, canonical Decisions, Replay material, and audit internals; it has no student counterpart.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: run_id
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: team_id
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: role
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportRole" }
+        - name: round_no
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: kpi
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            uniqueItems: true
+            items: { $ref: "#/components/schemas/CourseReportKpi" }
+      responses:
+        "200":
+          description: Teacher-safe Course Report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseReportTeacherEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority or tenant scope denied" }
+        "404":
+          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
+        "422": { description: "Course Report filters are invalid" }
+  /api/v1/bff/teacher/course-reports/export:
+    get:
+      operationId: TEACHER_COURSE_REPORT_EXPORT_GET_V1
+      summary: Export the same teacher-safe Course Report as JSON or CSV.
+      description: Export is read-only and serializes only the teacher-safe report projection. It neither writes audit, Truth, Settlement, Score, Rank, nor Replay material in this contract-freeze phase.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: run_id
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: team_id
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        - name: role
+          in: query
+          schema: { $ref: "#/components/schemas/CourseReportRole" }
+        - name: round_no
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: kpi
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            uniqueItems: true
+            items: { $ref: "#/components/schemas/CourseReportKpi" }
+        - name: format
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/CourseReportExportFormat" }
+      responses:
+        "200":
+          description: Teacher-safe Course Report export envelope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseReportExportEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority or tenant scope denied" }
+        "404":
+          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
+        "422": { description: "Course Report filters or export format are invalid" }
   /api/v1/bff/teacher/instructor-assets:
     get:
       operationId: TEACHER_INSTRUCTOR_ASSET_LIST_GET_V1
@@ -2995,6 +3089,62 @@ components:
           required: [course_package_version]
           properties:
             course_package_version: { $ref: "#/components/schemas/CoursePackageVersion" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseReport:
+      $ref: "../schemas/course-report.v1.json"
+    CourseReportExactIdentity:
+      type: string
+      minLength: 1
+      pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+      not:
+        type: string
+        pattern: "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+    CourseReportExport:
+      type: object
+      additionalProperties: false
+      required: [export_format, file_name, report]
+      properties:
+        export_format: { $ref: "#/components/schemas/CourseReportExportFormat" }
+        file_name: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
+        report: { $ref: "#/components/schemas/CourseReport" }
+    CourseReportExportEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseReportExport" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseReportExportFormat:
+      enum: [json, csv]
+    CourseReportFilterInput:
+      type: object
+      additionalProperties: false
+      required: [course_id]
+      properties:
+        course_id: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        kpis:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/CourseReportKpi" }
+        role: { $ref: "#/components/schemas/CourseReportRole" }
+        round_no: { type: integer, minimum: 1 }
+        run_id: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+        team_id: { $ref: "#/components/schemas/CourseReportExactIdentity" }
+    CourseReportKpi:
+      enum: [demand_band, served_demand, revenue, profit_band, score, rank]
+    CourseReportRole:
+      enum: [CEO, CFO, CMO, COO, risk]
+    CourseReportTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseReport" }
         message: { type: string }
         request_id: { type: string }
     InstructorAssetDraftInput:

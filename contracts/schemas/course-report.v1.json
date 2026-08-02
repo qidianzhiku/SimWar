@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/course-report.v1.json",
+  "title": "Teacher-safe Course Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["applied_filters", "known_limits", "report_schema_version", "rows"],
+  "properties": {
+    "applied_filters": { "$ref": "#/$defs/filter_input" },
+    "known_limits": { "type": "array", "items": { "$ref": "#/$defs/known_limit" } },
+    "report_schema_version": { "const": "course-report.v1" },
+    "rows": { "type": "array", "items": { "$ref": "#/$defs/report_row" } }
+  },
+  "$defs": {
+    "filter_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/exact_identity" },
+        "kpis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kpi" }
+        },
+        "role": { "$ref": "#/$defs/role_slot" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/exact_identity" },
+        "team_id": { "$ref": "#/$defs/exact_identity" }
+      }
+    },
+    "exact_identity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+      }
+    },
+    "known_limit": {
+      "enum": [
+        "JSON_INTERNAL_ONLY",
+        "SYNTHETIC_ONLY",
+        "LOOPBACK_ONLY",
+        "POSTGRESQL_NOT_ACTIVE",
+        "DURABLE_SETTLEMENT_NOT_PROVEN",
+        "DURABLE_RECOVERY_NOT_PROVEN",
+        "ABORT_IS_NOT_ROLLBACK",
+        "RESET_IS_NOT_RECOVERY",
+        "CLEANUP_IS_NOT_PURGE",
+        "REPLAY_MATCHED_IS_NOT_BACKUP_OR_RESTORE",
+        "AUTOMATED_VALIDATION_IS_NOT_HUMAN_VALIDATION",
+        "NO_PILOT_OR_PRODUCTION_AUTHORIZATION",
+        "ISSUE_111_OPEN",
+        "HUMAN_VALIDATION_WAIVED_BY_OWNER",
+        "AI_ADVISORY_ONLY",
+        "SIMULATION_CORE_IS_FORMAL_TRUTH_AUTHORITY"
+      ]
+    },
+    "kpi": { "enum": ["demand_band", "served_demand", "revenue", "profit_band", "score", "rank"] },
+    "metric_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kpi", "value"],
+      "properties": {
+        "kpi": { "$ref": "#/$defs/kpi" },
+        "value": { "oneOf": [{ "type": "number" }, { "type": "string" }] }
+      }
+    },
+    "report_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "metrics", "round_no", "run_id", "team_id", "team_name"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/exact_identity" },
+        "metrics": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/metric_value" } },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/exact_identity" },
+        "team_id": { "$ref": "#/$defs/exact_identity" },
+        "team_name": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" }
+      }
+    },
+    "role_slot": { "enum": ["CEO", "CFO", "CMO", "COO", "risk"] }
+  }
+}
