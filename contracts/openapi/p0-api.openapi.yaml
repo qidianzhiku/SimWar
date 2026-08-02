@@ -2878,12 +2878,12 @@ components:
         course_blueprint_reference:
           $ref: "#/components/schemas/CoursePackageCourseBlueprintReference"
         course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
-        description: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
         parameter_set_reference:
           $ref: "#/components/schemas/CoursePackageParameterSetReference"
         scenario_package_reference:
           $ref: "#/components/schemas/CoursePackageScenarioPackageReference"
-        title: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
         version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageVersionCloneInput:
       type: object
@@ -2891,10 +2891,10 @@ components:
       required: [course_package_id, description, source_course_package_reference, title, version]
       properties:
         course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
-        description: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
         source_course_package_reference:
           $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
-        title: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
         version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageVersionImportInput:
       type: object
@@ -2927,12 +2927,12 @@ components:
             course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
             tenant_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
             version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
-        description: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
         parameter_set_reference:
           $ref: "#/components/schemas/CoursePackageParameterSetReference"
         scenario_package_reference:
           $ref: "#/components/schemas/CoursePackageScenarioPackageReference"
-        title: { type: string, minLength: 1 }
+        title: { type: string, minLength: 1, pattern: "^\\S(?:[\\s\\S]*\\S)?$" }
     CoursePackageVersionAdminEnvelope:
       type: object
       additionalProperties: false

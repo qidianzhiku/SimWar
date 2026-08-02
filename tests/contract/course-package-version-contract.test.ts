@@ -8,9 +8,13 @@ import type {
   CoursePackageVersionAdminDto,
   CoursePackageVersionTeacherDto
 } from "../../packages/shared-contracts/src/course-package-version";
+import {
+  assertValidCoursePackageVersion,
+  calculateCoursePackageContentDigest
+} from "../../services/api/src/course-package-json-registry";
 
-function readJson(path: string): unknown {
-  return JSON.parse(readFileSync(resolve(path), "utf8")) as unknown;
+function readJson<T = unknown>(path: string): T {
+  return JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 }
 
 interface OpenApiOperation {
@@ -23,7 +27,10 @@ interface OpenApiOperation {
 
 interface OpenApiDocument {
   components: {
-    schemas: Record<string, { properties?: Record<string, { $ref?: string }> }>;
+    schemas: Record<
+      string,
+      { $ref?: string; properties?: Record<string, { $ref?: string; pattern?: string }> }
+    >;
   };
   paths: Record<string, Record<string, OpenApiOperation>>;
 }
@@ -97,6 +104,56 @@ describe("CoursePackageVersion contract freeze", () => {
     ).toBe(false);
     expect(validate.errors).toEqual(
       expect.arrayContaining([expect.objectContaining({ keyword: "not" })])
+    );
+  });
+
+  it("keeps the valid fixture semantically valid and rejects schema-valid whitespace that runtime rejects", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      readJson("contracts/schemas/course-package-version.v1.json")
+    );
+    const valid = readJson<CoursePackageVersion>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+
+    expect(() => assertValidCoursePackageVersion(valid)).not.toThrow();
+
+    for (const field of ["description", "title"] as const) {
+      const whitespaceCandidate: CoursePackageVersion = {
+        ...valid,
+        [field]: `${valid[field]} `,
+        content_digest: calculateCoursePackageContentDigest({
+          course_blueprint_reference: valid.course_blueprint_reference,
+          course_package_id: valid.course_package_id,
+          description: field === "description" ? `${valid.description} ` : valid.description,
+          parameter_set_reference: valid.parameter_set_reference,
+          scenario_package_reference: valid.scenario_package_reference,
+          title: field === "title" ? `${valid.title} ` : valid.title,
+          version: valid.version
+        })
+      };
+
+      expect(validate(whitespaceCandidate)).toBe(false);
+      expect(() => assertValidCoursePackageVersion(whitespaceCandidate)).toThrow(
+        "COURSE_PACKAGE_INPUT_INVALID"
+      );
+    }
+
+    const openApi = yaml.load(
+      readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
+    ) as OpenApiDocument;
+    for (const schemaName of [
+      "CoursePackageVersionDraftInput",
+      "CoursePackageVersionCloneInput"
+    ]) {
+      expect(openApi.components.schemas[schemaName]?.properties?.title?.pattern).toBe(
+        "^\\S(?:[\\s\\S]*\\S)?$"
+      );
+      expect(openApi.components.schemas[schemaName]?.properties?.description?.pattern).toBe(
+        "^\\S(?:[\\s\\S]*\\S)?$"
+      );
+    }
+    expect(openApi.components.schemas.CoursePackageVersion?.$ref).toBe(
+      "../schemas/course-package-version.v1.json"
     );
   });
 
