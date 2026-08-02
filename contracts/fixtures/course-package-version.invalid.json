@@ -1,0 +1,26 @@
+{
+  "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "course_package_id": "course_package_wellness_001",
+  "created_at": "2026-08-02T03:07:00.000Z",
+  "created_by": "usr_platform",
+  "description": "Invalid package fixture for the C5 contract gate.",
+  "license": "unapproved-license",
+  "mode": "teaching",
+  "parameter_set_reference": {
+    "parameter_set_id": "parameter_wellness_001",
+    "version": "1.0.0"
+  },
+  "provenance": "unverified",
+  "scenario_package_reference": {
+    "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "scenario_package_id": "scenario_wellness_001",
+    "tenant_id": "tenant_demo",
+    "version": "latest"
+  },
+  "schema_version": "course-package-version.v1",
+  "status": "PUBLISHED",
+  "tenant_id": "tenant_demo",
+  "title": "Invalid Wellness Teaching Package",
+  "unknown_field": true,
+  "version": "1.0.0"
+}

@@ -40,6 +40,210 @@ paths:
       responses:
         "200":
           description: Admin state
+  /api/v1/admin/course-package-versions:
+    get:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_LIST_V1
+      summary: List tenant-scoped CoursePackageVersion lifecycle snapshots for administration.
+      description: JSON-internal teaching/configuration records only. This does not expose a student route or modify source authority lifecycles.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Admin CoursePackageVersion list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminListEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Admin authority required" }
+  /api/v1/admin/course-package-versions/drafts:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_DRAFT_CREATE_V1
+      summary: Create one immutable DRAFT teaching package with closed exact source references.
+      description: Tenant and actor are derived from the authenticated request. Existing CourseBlueprint, ScenarioPackage, ParameterSet, Course, and Run records are never written.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionDraftInput"
+      responses:
+        "201":
+          description: Immutable DRAFT CoursePackageVersion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Admin authority required" }
+        "409": { description: "Exact package version already exists" }
+        "422": { description: "Invalid closed reference or package content" }
+  /api/v1/admin/course-package-versions/clone:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_CLONE_V1
+      summary: Clone one exact AVAILABLE teaching package into a new immutable DRAFT.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionCloneInput"
+      responses:
+        "201":
+          description: Cloned DRAFT CoursePackageVersion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "409": { description: "Target exact package version already exists" }
+        "422": { description: "Source is not an exact AVAILABLE package" }
+  /api/v1/admin/course-package-versions/import:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_IMPORT_V1
+      summary: Import a digest-verified export as a new immutable DRAFT package version.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionImportInput"
+      responses:
+        "201":
+          description: Imported DRAFT CoursePackageVersion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "409": { description: "Exact package version already exists" }
+        "422": { description: "Import digest or source content is invalid" }
+  /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/validate:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_VALIDATE_V1
+      summary: Validate a DRAFT package against existing approved exact references.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: version
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+      responses:
+        "200":
+          description: VALIDATED CoursePackageVersion snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "409": { description: "Illegal package lifecycle transition" }
+        "422": { description: "Dependency is unavailable or incompatible" }
+  /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/make-available:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_AVAILABLE_V1
+      summary: Mark one VALIDATED package AVAILABLE after a repeat dependency check.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: version
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+      responses:
+        "200":
+          description: AVAILABLE CoursePackageVersion snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "409": { description: "Illegal package lifecycle transition" }
+        "422": { description: "Dependency is unavailable or incompatible" }
+  /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/retire:
+    post:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_RETIRE_V1
+      summary: Retire one exact AVAILABLE teaching package without altering historical Courses.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: version
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+      responses:
+        "200":
+          description: RETIRED CoursePackageVersion snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "409": { description: "Illegal package lifecycle transition" }
+  /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/export:
+    get:
+      operationId: ADMIN_COURSE_PACKAGE_VERSION_EXPORT_V1
+      summary: Export one exact AVAILABLE immutable teaching package.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: version
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: content_digest
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "200":
+          description: Digest-verified CoursePackageVersion export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionExportEnvelope"
+        "403": { description: "Admin or tenant scope denied" }
+        "404": { description: "Exact AVAILABLE package not found" }
   /api/v1/admin/tenants:
     get:
       summary: List tenants visible to the current administrator.
@@ -1321,6 +1525,22 @@ paths:
                 $ref: "#/components/schemas/RoleWorkflowResetEnvelope"
         "403": { description: "Teacher role required" }
         "409": { description: "Confirmed workflow is immutable" }
+  /api/v1/bff/teacher/course-package-versions:
+    get:
+      operationId: TEACHER_COURSE_PACKAGE_VERSION_LIST_V1
+      summary: List tenant-scoped AVAILABLE CoursePackageVersions through a teacher-safe projection.
+      description: This is a read-only teaching/configuration catalog. It has no student counterpart and does not expose source lifecycle or truth data.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Teacher-safe AVAILABLE CoursePackageVersion list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionTeacherListEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
   /api/v1/bff/teacher/instructor-assets:
     get:
       operationId: TEACHER_INSTRUCTOR_ASSET_LIST_GET_V1
@@ -2557,6 +2777,169 @@ components:
           type: string
         request_id:
           type: string
+    CoursePackageVersion:
+      $ref: "../schemas/course-package-version.v1.json"
+    CoursePackageVersionReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [content_digest, course_package_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        course_package_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageCourseBlueprintReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, course_blueprint_id, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        course_blueprint_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageScenarioPackageReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, scenario_package_id, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        scenario_package_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageParameterSetReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, parameter_set_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        parameter_set_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageVersionDraftInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          course_blueprint_reference,
+          course_package_id,
+          description,
+          parameter_set_reference,
+          scenario_package_reference,
+          title,
+          version
+        ]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/CoursePackageCourseBlueprintReference"
+        course_package_id: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        parameter_set_reference:
+          $ref: "#/components/schemas/CoursePackageParameterSetReference"
+        scenario_package_reference:
+          $ref: "#/components/schemas/CoursePackageScenarioPackageReference"
+        title: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageVersionCloneInput:
+      type: object
+      additionalProperties: false
+      required: [course_package_id, description, source_course_package_reference, title, version]
+      properties:
+        course_package_id: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        source_course_package_reference:
+          $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+        title: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    CoursePackageVersionImportInput:
+      type: object
+      additionalProperties: false
+      required: [source_course_package_version]
+      properties:
+        source_course_package_version:
+          $ref: "#/components/schemas/CoursePackageVersion"
+    CoursePackageVersionTeacher:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          course_blueprint_reference,
+          course_package_reference,
+          description,
+          parameter_set_reference,
+          scenario_package_reference,
+          title
+        ]
+      properties:
+        course_blueprint_reference:
+          $ref: "#/components/schemas/CoursePackageCourseBlueprintReference"
+        course_package_reference:
+          type: object
+          additionalProperties: false
+          required: [content_digest, course_package_id, tenant_id, version]
+          properties:
+            content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+            course_package_id: { type: string, minLength: 1 }
+            tenant_id: { type: string, minLength: 1 }
+            version: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+        parameter_set_reference:
+          $ref: "#/components/schemas/CoursePackageParameterSetReference"
+        scenario_package_reference:
+          $ref: "#/components/schemas/CoursePackageScenarioPackageReference"
+        title: { type: string, minLength: 1 }
+    CoursePackageVersionAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CoursePackageVersion" }
+        message: { type: string }
+        request_id: { type: string }
+    CoursePackageVersionAdminListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [course_package_versions]
+          properties:
+            course_package_versions:
+              type: array
+              items: { $ref: "#/components/schemas/CoursePackageVersion" }
+        message: { type: string }
+        request_id: { type: string }
+    CoursePackageVersionTeacherListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [course_package_versions]
+          properties:
+            course_package_versions:
+              type: array
+              items: { $ref: "#/components/schemas/CoursePackageVersionTeacher" }
+        message: { type: string }
+        request_id: { type: string }
+    CoursePackageVersionExportEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [course_package_version]
+          properties:
+            course_package_version: { $ref: "#/components/schemas/CoursePackageVersion" }
+        message: { type: string }
+        request_id: { type: string }
     InstructorAssetDraftInput:
       type: object
       additionalProperties: false
