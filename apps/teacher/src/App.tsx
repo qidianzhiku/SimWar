@@ -7,6 +7,7 @@ import {
 import type {
   ApiEnvelope,
   AuthSession,
+  CoursePackageVersionTeacherDto,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
@@ -43,6 +44,11 @@ import {
 } from "./scenario-readiness";
 import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
+import {
+  getTeacherCoursePackageSurfaceState,
+  loadTeacherCoursePackageVersions,
+  type TeacherCoursePackageSurfaceState
+} from "./course-package-client";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -82,6 +88,11 @@ type CourseBlueprintCatalogState =
   | { phase: "ERROR"; message: string }
   | { phase: "READY"; response: TeacherCourseBlueprintCatalogDto };
 
+type TeacherCoursePackageListState =
+  | { phase: "IDLE" | "LOADING" }
+  | { packages: readonly CoursePackageVersionTeacherDto[]; phase: "READY" }
+  | { phase: "ERROR"; surfaceState: TeacherCoursePackageSurfaceState };
+
 type CourseBlueprintStudioStatus = "IDLE" | "LOADING" | "EDITING" | "DRAFT" | "VALIDATED" | "ERROR";
 
 const EMPTY_LOGIN: LoginForm = {
@@ -114,6 +125,10 @@ const DEMO_LOGIN: LoginForm = {
 const DEMO_LOGIN_ENABLED =
   import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
   Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
+
+function teacherCoursePackageStatusLabel(state: TeacherCoursePackageSurfaceState): string {
+  return state === "PERMISSION_DENIED" ? "Permission denied" : "Unknown CoursePackageVersion state";
+}
 
 async function apiRequest<TData>(
   path: string,
@@ -262,6 +277,9 @@ export function App() {
   const [formalCourseTitle, setFormalCourseTitle] = useState("");
   const [formalCoursePublished, setFormalCoursePublished] = useState(false);
   const [formalRunSeed, setFormalRunSeed] = useState("20260729");
+  const [coursePackageList, setCoursePackageList] = useState<TeacherCoursePackageListState>({
+    phase: "IDLE"
+  });
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
   const formalCatalogRequestSequence = useRef(0);
@@ -298,6 +316,7 @@ export function App() {
   const roundControl = workspace?.round_control;
   const teamMonitor = workspace?.team_monitor;
   const replaySummary = workspace?.teacher_replay_summary;
+  const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const hasDecision = useMemo(() => {
     if (!selectedRun || !selectedRound || !state) {
       return false;
@@ -348,6 +367,26 @@ export function App() {
     [login.tenantId, session]
   );
 
+  const refreshTeacherCoursePackages = useCallback(async () => {
+    if (!session?.user.roles.includes("teacher")) {
+      setCoursePackageList({ phase: "IDLE" });
+      return;
+    }
+
+    setCoursePackageList({ phase: "LOADING" });
+    try {
+      const packages = await loadTeacherCoursePackageVersions(session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
+      );
+      setCoursePackageList({ packages, phase: "READY" });
+    } catch (error) {
+      setCoursePackageList({
+        phase: "ERROR",
+        surfaceState: getTeacherCoursePackageSurfaceState(error)
+      });
+    }
+  }, [session]);
+
   function updateLogin(field: keyof LoginForm, value: string): void {
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
@@ -373,6 +412,7 @@ export function App() {
     setFormalBindingPreview(null);
     setFormalCourseTitle("");
     setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
+    setCoursePackageList({ phase: "IDLE" });
     setNotice("context changed");
   }
 
@@ -471,6 +511,10 @@ export function App() {
       setNotice(error instanceof Error ? error.message : "load failed");
     });
   }, [refresh]);
+
+  useEffect(() => {
+    void refreshTeacherCoursePackages();
+  }, [refreshTeacherCoursePackages]);
 
   useEffect(() => {
     setPreviewCandidate(null);
@@ -970,6 +1014,74 @@ export function App() {
               ))}
             </ul>
           </details>
+        </section>
+      ) : null}
+
+      {isTeacher ? (
+        <section
+          className="candidate-surface course-package-catalog"
+          aria-label="Teacher CoursePackageVersion catalog"
+        >
+          <div className="candidate-heading">
+            <div>
+              <p className="eyebrow">Teacher-safe projection</p>
+              <h2>Available CoursePackageVersions</h2>
+            </div>
+            <button
+              className="secondary"
+              disabled={busy || coursePackageList.phase === "LOADING"}
+              onClick={() => void refreshTeacherCoursePackages()}
+            >
+              Refresh CoursePackageVersions
+            </button>
+          </div>
+          <p className="evidence-note">
+            Read-only AVAILABLE teaching packages. The server owns dependency checks, digest
+            verification, compatibility, lifecycle, import, export, and all source authority.
+          </p>
+          {coursePackageList.phase === "LOADING" ? (
+            <p className="evidence-note" role="status">
+              Loading CoursePackageVersions
+            </p>
+          ) : null}
+          {coursePackageList.phase === "ERROR" ? (
+            <p className="readiness-message" role="alert">
+              {teacherCoursePackageStatusLabel(coursePackageList.surfaceState)}
+            </p>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
+            <p className="evidence-note">No available CoursePackageVersions.</p>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
+            <div className="candidate-list">
+              {coursePackageList.packages.map((coursePackage) => (
+                <article
+                  className="candidate-card"
+                  key={coursePackage.course_package_reference.content_digest}
+                >
+                  <span>AVAILABLE</span>
+                  <strong>{coursePackage.title}</strong>
+                  <small>
+                    {coursePackage.course_package_reference.course_package_id} /{" "}
+                    {coursePackage.course_package_reference.version}
+                  </small>
+                  <p>{coursePackage.description}</p>
+                  <small>
+                    CourseBlueprint {coursePackage.course_blueprint_reference.course_blueprint_id} /{" "}
+                    {coursePackage.course_blueprint_reference.version}
+                  </small>
+                  <small>
+                    ScenarioPackage {coursePackage.scenario_package_reference.scenario_package_id} /{" "}
+                    {coursePackage.scenario_package_reference.version}
+                  </small>
+                  <small>
+                    ParameterSet {coursePackage.parameter_set_reference.parameter_set_id} /{" "}
+                    {coursePackage.parameter_set_reference.version}
+                  </small>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
