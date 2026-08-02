@@ -812,6 +812,14 @@ h3 {
   min-width: 0;
 }
 
+.course-report-filters fieldset > label {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .course-report-row {
   border-top: 1px solid #d6e0e8;
   display: grid;

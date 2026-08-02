@@ -466,6 +466,14 @@ label {
   min-width: 0;
 }
 
+.course-report-filters fieldset > label {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .course-report-row {
   border-top: 1px solid #d8e7e1;
   display: grid;
