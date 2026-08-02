@@ -768,6 +768,30 @@ h3 {
   border-bottom: 0;
 }
 
+.course-package-catalog .candidate-card {
+  align-items: start;
+  display: grid;
+  gap: 6px;
+}
+
+.course-package-catalog .candidate-card p {
+  margin: 0;
+}
+
+.course-package-catalog .candidate-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.course-package-catalog .candidate-heading > * {
+  min-width: 0;
+}
+
+.course-package-catalog .candidate-heading h2 {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .shell {
     padding: 18px;

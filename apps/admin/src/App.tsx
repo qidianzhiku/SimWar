@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getKnownLimitsProjection } from "@simwar/shared-contracts";
 import type {
   ActorRole,
   AdminState,
   ApiEnvelope,
   AuthSession,
+  CoursePackageVersion,
+  CoursePackageVersionDraftInput,
   SyntheticRunLifecycleControlDTO,
   SyntheticRunLifecycleOperation,
   User
@@ -16,6 +18,16 @@ import {
   loadRunLifecycleControls,
   type AdminSummarySurface
 } from "./admin-bff";
+import {
+  createAdminCoursePackageDraft,
+  exportAdminCoursePackageVersion,
+  getAdminCoursePackageSurfaceState,
+  importAdminCoursePackageVersion,
+  loadAdminCoursePackageVersions,
+  runAdminCoursePackageLifecycle,
+  type AdminCoursePackageOperation,
+  type CoursePackageSurfaceState
+} from "./course-package-client";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -23,6 +35,28 @@ type LoginForm = {
   username: string;
   password: string;
 };
+
+type CoursePackageDraftForm = {
+  blueprintDigest: string;
+  blueprintId: string;
+  blueprintVersion: string;
+  description: string;
+  packageId: string;
+  parameterDigest: string;
+  parameterId: string;
+  parameterVersion: string;
+  scenarioDigest: string;
+  scenarioId: string;
+  scenarioVersion: string;
+  sourceTenantId: string;
+  title: string;
+  version: string;
+};
+
+type CoursePackageListState =
+  | { phase: "IDLE" | "LOADING" }
+  | { packages: readonly CoursePackageVersion[]; phase: "READY" }
+  | { phase: "ERROR"; surfaceState: CoursePackageSurfaceState };
 
 const EMPTY_LOGIN: LoginForm = {
   tenantId: "",
@@ -39,6 +73,23 @@ const DEMO_LOGIN: LoginForm = {
 const DEMO_LOGIN_ENABLED =
   import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
   Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
+
+const EMPTY_COURSE_PACKAGE_DRAFT: CoursePackageDraftForm = {
+  blueprintDigest: "",
+  blueprintId: "",
+  blueprintVersion: "",
+  description: "",
+  packageId: "",
+  parameterDigest: "",
+  parameterId: "",
+  parameterVersion: "",
+  scenarioDigest: "",
+  scenarioId: "",
+  scenarioVersion: "",
+  sourceTenantId: "",
+  title: "",
+  version: ""
+};
 
 const roleOptions: ActorRole[] = [
   "tenant_admin",
@@ -84,6 +135,21 @@ async function apiRequest<TData>(
   return envelope.data;
 }
 
+function coursePackageStatusLabel(
+  state: CoursePackageSurfaceState,
+  operation: AdminCoursePackageOperation
+): string {
+  if (state === "DEPENDENCY_MISSING") return "Dependency missing";
+  if (state === "DIGEST_MISMATCH") {
+    return operation === "import" ? "Import failed · Digest mismatch" : "Digest mismatch";
+  }
+  if (state === "EXPORT_RESTRICTED") return "Export restricted";
+  if (state === "INCOMPATIBLE") return "Incompatible";
+  if (state === "PERMISSION_DENIED") return "Permission denied";
+  if (state === "STALE") return "STALE";
+  return "Unknown CoursePackageVersion state";
+}
+
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [state, setState] = useState<AdminState | null>(null);
@@ -97,6 +163,18 @@ export function App() {
     "idle"
   );
   const [lifecycleError, setLifecycleError] = useState("");
+  const [coursePackageList, setCoursePackageList] = useState<CoursePackageListState>({
+    phase: "IDLE"
+  });
+  const [coursePackageFeedback, setCoursePackageFeedback] = useState<{
+    operation: AdminCoursePackageOperation;
+    surfaceState: CoursePackageSurfaceState;
+  } | null>(null);
+  const [coursePackageDraft, setCoursePackageDraft] = useState<CoursePackageDraftForm>(
+    EMPTY_COURSE_PACKAGE_DRAFT
+  );
+  const [coursePackageImportPayload, setCoursePackageImportPayload] = useState("");
+  const [coursePackageExportPayload, setCoursePackageExportPayload] = useState("");
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [userDraft, setUserDraft] = useState({
     tenant_id: "tenant_demo",
@@ -108,6 +186,7 @@ export function App() {
   });
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
+  const coursePackageSessionEpoch = useRef(0);
 
   const tenantMap = useMemo(
     () => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])),
@@ -118,6 +197,7 @@ export function App() {
   const hasAdminSummaryRole =
     session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin") ??
     false;
+  const hasCoursePackageAdminRole = hasAdminSummaryRole;
   const knownLimits = session?.user.roles.includes("platform_admin")
     ? getKnownLimitsProjection("platform_admin")
     : getKnownLimitsProjection("tenant_admin");
@@ -159,7 +239,32 @@ export function App() {
     }
   }, [session]);
 
+  const refreshCoursePackages = useCallback(async () => {
+    if (!session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
+      setCoursePackageList({ phase: "IDLE" });
+      return;
+    }
+
+    const sessionEpoch = coursePackageSessionEpoch.current;
+    setCoursePackageList({ phase: "LOADING" });
+    setCoursePackageFeedback(null);
+    try {
+      const packages = await loadAdminCoursePackageVersions(session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
+      );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageList({ packages, phase: "READY" });
+    } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageList({
+        phase: "ERROR",
+        surfaceState: getAdminCoursePackageSurfaceState(error, "list")
+      });
+    }
+  }, [session]);
+
   function updateLogin(field: keyof LoginForm, value: string): void {
+    coursePackageSessionEpoch.current += 1;
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -169,10 +274,16 @@ export function App() {
     setLifecycleControls([]);
     setLifecycleStatus("idle");
     setLifecycleError("");
+    setCoursePackageList({ phase: "IDLE" });
+    setCoursePackageFeedback(null);
+    setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
+    setCoursePackageImportPayload("");
+    setCoursePackageExportPayload("");
     setNotice("context changed");
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    coursePackageSessionEpoch.current += 1;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -182,6 +293,9 @@ export function App() {
     setLifecycleControls([]);
     setLifecycleStatus("idle");
     setLifecycleError("");
+    setCoursePackageList({ phase: "IDLE" });
+    setCoursePackageFeedback(null);
+    setCoursePackageExportPayload("");
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -246,6 +360,10 @@ export function App() {
   useEffect(() => {
     void refreshLifecycleControls();
   }, [refreshLifecycleControls]);
+
+  useEffect(() => {
+    void refreshCoursePackages();
+  }, [refreshCoursePackages]);
 
   async function createUser(): Promise<void> {
     if (!session) {
@@ -319,6 +437,129 @@ export function App() {
     } catch (error) {
       setNotice(getAdminSummaryErrorMessage(error));
       await refreshLifecycleControls();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateCoursePackageDraft(field: keyof CoursePackageDraftForm, value: string): void {
+    setCoursePackageDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function createCoursePackageDraft(): Promise<void> {
+    if (!session) return;
+
+    const draft: CoursePackageVersionDraftInput = {
+      course_blueprint_reference: {
+        content_digest: coursePackageDraft.blueprintDigest,
+        course_blueprint_id: coursePackageDraft.blueprintId,
+        tenant_id: coursePackageDraft.sourceTenantId,
+        version: coursePackageDraft.blueprintVersion
+      },
+      course_package_id: coursePackageDraft.packageId,
+      description: coursePackageDraft.description,
+      parameter_set_reference: {
+        content_digest: coursePackageDraft.parameterDigest,
+        parameter_set_id: coursePackageDraft.parameterId,
+        version: coursePackageDraft.parameterVersion
+      },
+      scenario_package_reference: {
+        content_digest: coursePackageDraft.scenarioDigest,
+        scenario_package_id: coursePackageDraft.scenarioId,
+        tenant_id: coursePackageDraft.sourceTenantId,
+        version: coursePackageDraft.scenarioVersion
+      },
+      title: coursePackageDraft.title,
+      version: coursePackageDraft.version
+    };
+    setBusy(true);
+    setCoursePackageFeedback(null);
+    try {
+      await createAdminCoursePackageDraft(draft, session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
+      );
+      setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
+      await refreshCoursePackages();
+    } catch (error) {
+      setCoursePackageFeedback({
+        operation: "draft",
+        surfaceState: getAdminCoursePackageSurfaceState(error, "draft")
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importCoursePackage(): Promise<void> {
+    if (!session) return;
+
+    setBusy(true);
+    setCoursePackageFeedback(null);
+    try {
+      const sourceCoursePackageVersion = JSON.parse(
+        coursePackageImportPayload
+      ) as CoursePackageVersion;
+      await importAdminCoursePackageVersion(
+        { source_course_package_version: sourceCoursePackageVersion },
+        session.access_token,
+        (path, init) => fetch(`${API_BASE}${path}`, init)
+      );
+      setCoursePackageImportPayload("");
+      await refreshCoursePackages();
+    } catch (error) {
+      setCoursePackageFeedback({
+        operation: "import",
+        surfaceState: getAdminCoursePackageSurfaceState(error, "import")
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyCoursePackageLifecycle(
+    operation: "validate" | "make-available" | "retire",
+    coursePackage: CoursePackageVersion
+  ): Promise<void> {
+    if (!session) return;
+
+    setBusy(true);
+    setCoursePackageFeedback(null);
+    try {
+      await runAdminCoursePackageLifecycle(
+        operation,
+        coursePackage,
+        session.access_token,
+        (path, init) => fetch(`${API_BASE}${path}`, init)
+      );
+      await refreshCoursePackages();
+    } catch (error) {
+      setCoursePackageFeedback({
+        operation,
+        surfaceState: getAdminCoursePackageSurfaceState(error, operation)
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportCoursePackage(coursePackage: CoursePackageVersion): Promise<void> {
+    if (!session) return;
+
+    const sessionEpoch = coursePackageSessionEpoch.current;
+    setBusy(true);
+    setCoursePackageFeedback(null);
+    try {
+      const exported = await exportAdminCoursePackageVersion(coursePackage, session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
+      );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageExportPayload(JSON.stringify(exported, null, 2));
+    } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageFeedback({
+        operation: "export",
+        surfaceState: getAdminCoursePackageSurfaceState(error, "export")
+      });
     } finally {
       setBusy(false);
     }
@@ -520,6 +761,261 @@ export function App() {
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+      ) : null}
+
+      {session && hasCoursePackageAdminRole ? (
+        <section
+          className="course-package-surface"
+          aria-label="CoursePackageVersion administration"
+        >
+          <div className="lifecycle-heading">
+            <div>
+              <p className="eyebrow">JSON Internal Only</p>
+              <h2>CoursePackageVersion administration</h2>
+            </div>
+            <button
+              disabled={busy || coursePackageList.phase === "LOADING"}
+              onClick={() => void refreshCoursePackages()}
+            >
+              Refresh CoursePackageVersions
+            </button>
+          </div>
+          <p className="lifecycle-boundary">
+            Server-owned immutable teaching/configuration snapshots only. This surface never
+            evaluates dependency compatibility, computes digests, or changes a Course, Run,
+            ParameterSet, settlement, score, rank, replay, or truth field.
+          </p>
+
+          {coursePackageList.phase === "LOADING" ? (
+            <p className="lifecycle-status" role="status">
+              Loading CoursePackageVersions
+            </p>
+          ) : null}
+          {coursePackageList.phase === "ERROR" ? (
+            <p className="lifecycle-error" role="alert">
+              {coursePackageStatusLabel(coursePackageList.surfaceState, "list")}
+            </p>
+          ) : null}
+          {coursePackageFeedback ? (
+            <p className="lifecycle-error" role="alert">
+              {coursePackageStatusLabel(
+                coursePackageFeedback.surfaceState,
+                coursePackageFeedback.operation
+              )}
+            </p>
+          ) : null}
+          {coursePackageExportPayload ? (
+            <article className="panel form-panel" aria-label="CoursePackageVersion export receipt">
+              <div className="panel-title">
+                <h3>Immutable export ready</h3>
+                <span>admin-controlled JSON</span>
+              </div>
+              <label>
+                Course package export JSON
+                <textarea
+                  aria-label="course package export payload"
+                  readOnly
+                  value={coursePackageExportPayload}
+                />
+              </label>
+              <button onClick={() => setCoursePackageImportPayload(coursePackageExportPayload)}>
+                Use export as import payload
+              </button>
+            </article>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
+            <p className="lifecycle-status">No CoursePackageVersions are available.</p>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
+            <div className="course-package-list">
+              {coursePackageList.packages.map((coursePackage) => (
+                <article
+                  className="course-package-card"
+                  key={`${coursePackage.course_package_id}-${coursePackage.version}-${coursePackage.content_digest}`}
+                >
+                  <div>
+                    <strong>{coursePackage.title}</strong>
+                    <span>{coursePackage.status}</span>
+                    {getAdminCoursePackageSurfaceState(coursePackage, "list") === "STALE" ? (
+                      <span className="lifecycle-blocked">STALE</span>
+                    ) : null}
+                  </div>
+                  <small>
+                    {coursePackage.course_package_id} / {coursePackage.version}
+                  </small>
+                  <p>{coursePackage.description}</p>
+                  <div className="lifecycle-actions">
+                    <button
+                      disabled={busy}
+                      onClick={() => void applyCoursePackageLifecycle("validate", coursePackage)}
+                    >
+                      Validate {coursePackage.course_package_id}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void applyCoursePackageLifecycle("make-available", coursePackage)
+                      }
+                    >
+                      Make {coursePackage.course_package_id} available
+                    </button>
+                    <button disabled={busy} onClick={() => void exportCoursePackage(coursePackage)}>
+                      Export {coursePackage.course_package_id}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => void applyCoursePackageLifecycle("retire", coursePackage)}
+                    >
+                      Retire {coursePackage.course_package_id}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="course-package-forms">
+            <article className="panel form-panel">
+              <div className="panel-title">
+                <h3>Create immutable DRAFT</h3>
+                <span>server validates all references</span>
+              </div>
+              <label>
+                Course package ID
+                <input
+                  value={coursePackageDraft.packageId}
+                  onChange={(event) => updateCoursePackageDraft("packageId", event.target.value)}
+                />
+              </label>
+              <label>
+                Version
+                <input
+                  value={coursePackageDraft.version}
+                  onChange={(event) => updateCoursePackageDraft("version", event.target.value)}
+                />
+              </label>
+              <label>
+                Title
+                <input
+                  value={coursePackageDraft.title}
+                  onChange={(event) => updateCoursePackageDraft("title", event.target.value)}
+                />
+              </label>
+              <label>
+                Description
+                <input
+                  value={coursePackageDraft.description}
+                  onChange={(event) => updateCoursePackageDraft("description", event.target.value)}
+                />
+              </label>
+              <label>
+                Source tenant ID
+                <input
+                  value={coursePackageDraft.sourceTenantId}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("sourceTenantId", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                CourseBlueprint ID
+                <input
+                  value={coursePackageDraft.blueprintId}
+                  onChange={(event) => updateCoursePackageDraft("blueprintId", event.target.value)}
+                />
+              </label>
+              <label>
+                CourseBlueprint version
+                <input
+                  value={coursePackageDraft.blueprintVersion}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("blueprintVersion", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                CourseBlueprint digest
+                <input
+                  value={coursePackageDraft.blueprintDigest}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("blueprintDigest", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                ScenarioPackage ID
+                <input
+                  value={coursePackageDraft.scenarioId}
+                  onChange={(event) => updateCoursePackageDraft("scenarioId", event.target.value)}
+                />
+              </label>
+              <label>
+                ScenarioPackage version
+                <input
+                  value={coursePackageDraft.scenarioVersion}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("scenarioVersion", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                ScenarioPackage digest
+                <input
+                  value={coursePackageDraft.scenarioDigest}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("scenarioDigest", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                ParameterSet ID
+                <input
+                  value={coursePackageDraft.parameterId}
+                  onChange={(event) => updateCoursePackageDraft("parameterId", event.target.value)}
+                />
+              </label>
+              <label>
+                ParameterSet version
+                <input
+                  value={coursePackageDraft.parameterVersion}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("parameterVersion", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                ParameterSet digest
+                <input
+                  value={coursePackageDraft.parameterDigest}
+                  onChange={(event) =>
+                    updateCoursePackageDraft("parameterDigest", event.target.value)
+                  }
+                />
+              </label>
+              <button disabled={busy} onClick={() => void createCoursePackageDraft()}>
+                Create CoursePackageVersion DRAFT
+              </button>
+            </article>
+
+            <article className="panel form-panel">
+              <div className="panel-title">
+                <h3>Import immutable export</h3>
+                <span>server verifies digest</span>
+              </div>
+              <label>
+                Course package export JSON
+                <textarea
+                  aria-label="course package import payload"
+                  value={coursePackageImportPayload}
+                  onChange={(event) => setCoursePackageImportPayload(event.target.value)}
+                />
+              </label>
+              <button disabled={busy} onClick={() => void importCoursePackage()}>
+                Import CoursePackageVersion
+              </button>
+            </article>
           </div>
         </section>
       ) : null}

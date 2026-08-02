@@ -7,6 +7,8 @@ import {
 import type {
   ApiEnvelope,
   AuthSession,
+  CoursePackageVersionCloneInput,
+  CoursePackageVersionTeacherDto,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
@@ -43,6 +45,12 @@ import {
 } from "./scenario-readiness";
 import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
+import {
+  cloneTeacherCoursePackageVersion as requestTeacherCoursePackageClone,
+  getTeacherCoursePackageSurfaceState,
+  loadTeacherCoursePackageVersions,
+  type TeacherCoursePackageSurfaceState
+} from "./course-package-client";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -82,6 +90,18 @@ type CourseBlueprintCatalogState =
   | { phase: "ERROR"; message: string }
   | { phase: "READY"; response: TeacherCourseBlueprintCatalogDto };
 
+type TeacherCoursePackageListState =
+  | { phase: "IDLE" | "LOADING" }
+  | { packages: readonly CoursePackageVersionTeacherDto[]; phase: "READY" }
+  | { phase: "ERROR"; surfaceState: TeacherCoursePackageSurfaceState };
+
+type TeacherCoursePackageCloneForm = {
+  coursePackageId: string;
+  description: string;
+  title: string;
+  version: string;
+};
+
 type CourseBlueprintStudioStatus = "IDLE" | "LOADING" | "EDITING" | "DRAFT" | "VALIDATED" | "ERROR";
 
 const EMPTY_LOGIN: LoginForm = {
@@ -114,6 +134,17 @@ const DEMO_LOGIN: LoginForm = {
 const DEMO_LOGIN_ENABLED =
   import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
   Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
+
+const EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM: TeacherCoursePackageCloneForm = {
+  coursePackageId: "",
+  description: "",
+  title: "",
+  version: ""
+};
+
+function teacherCoursePackageStatusLabel(state: TeacherCoursePackageSurfaceState): string {
+  return state === "PERMISSION_DENIED" ? "Permission denied" : "Unknown CoursePackageVersion state";
+}
 
 async function apiRequest<TData>(
   path: string,
@@ -262,9 +293,21 @@ export function App() {
   const [formalCourseTitle, setFormalCourseTitle] = useState("");
   const [formalCoursePublished, setFormalCoursePublished] = useState(false);
   const [formalRunSeed, setFormalRunSeed] = useState("20260729");
+  const [coursePackageList, setCoursePackageList] = useState<TeacherCoursePackageListState>({
+    phase: "IDLE"
+  });
+  const [teacherCoursePackageCloneSource, setTeacherCoursePackageCloneSource] =
+    useState<CoursePackageVersionTeacherDto | null>(null);
+  const [teacherCoursePackageCloneForm, setTeacherCoursePackageCloneForm] =
+    useState<TeacherCoursePackageCloneForm>(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
+  const [teacherCoursePackageCloneReceipt, setTeacherCoursePackageCloneReceipt] =
+    useState<CoursePackageVersionTeacherDto | null>(null);
+  const [teacherCoursePackageCloneError, setTeacherCoursePackageCloneError] =
+    useState<TeacherCoursePackageSurfaceState | null>(null);
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
   const formalCatalogRequestSequence = useRef(0);
+  const coursePackageSessionEpoch = useRef(0);
   const selectedRunIdRef = useRef<string | null>(null);
   const selectedCourseIdRef = useRef<string | null>(null);
 
@@ -298,6 +341,7 @@ export function App() {
   const roundControl = workspace?.round_control;
   const teamMonitor = workspace?.team_monitor;
   const replaySummary = workspace?.teacher_replay_summary;
+  const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const hasDecision = useMemo(() => {
     if (!selectedRun || !selectedRound || !state) {
       return false;
@@ -348,7 +392,31 @@ export function App() {
     [login.tenantId, session]
   );
 
+  const refreshTeacherCoursePackages = useCallback(async () => {
+    if (!session?.user.roles.includes("teacher")) {
+      setCoursePackageList({ phase: "IDLE" });
+      return;
+    }
+
+    const sessionEpoch = coursePackageSessionEpoch.current;
+    setCoursePackageList({ phase: "LOADING" });
+    try {
+      const packages = await loadTeacherCoursePackageVersions(session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
+      );
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageList({ packages, phase: "READY" });
+    } catch (error) {
+      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      setCoursePackageList({
+        phase: "ERROR",
+        surfaceState: getTeacherCoursePackageSurfaceState(error)
+      });
+    }
+  }, [session]);
+
   function updateLogin(field: keyof LoginForm, value: string): void {
+    coursePackageSessionEpoch.current += 1;
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -373,6 +441,11 @@ export function App() {
     setFormalBindingPreview(null);
     setFormalCourseTitle("");
     setScenarioReadinessForm(EMPTY_SCENARIO_READINESS_FORM);
+    setCoursePackageList({ phase: "IDLE" });
+    setTeacherCoursePackageCloneSource(null);
+    setTeacherCoursePackageCloneForm(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
+    setTeacherCoursePackageCloneReceipt(null);
+    setTeacherCoursePackageCloneError(null);
     setNotice("context changed");
   }
 
@@ -442,6 +515,7 @@ export function App() {
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    coursePackageSessionEpoch.current += 1;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -471,6 +545,51 @@ export function App() {
       setNotice(error instanceof Error ? error.message : "load failed");
     });
   }, [refresh]);
+
+  useEffect(() => {
+    void refreshTeacherCoursePackages();
+  }, [refreshTeacherCoursePackages]);
+
+  function beginTeacherCoursePackageClone(coursePackage: CoursePackageVersionTeacherDto): void {
+    setTeacherCoursePackageCloneSource(coursePackage);
+    setTeacherCoursePackageCloneForm(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
+    setTeacherCoursePackageCloneReceipt(null);
+    setTeacherCoursePackageCloneError(null);
+  }
+
+  function updateTeacherCoursePackageClone(
+    field: keyof TeacherCoursePackageCloneForm,
+    value: string
+  ): void {
+    setTeacherCoursePackageCloneForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function cloneTeacherCoursePackageVersion(): Promise<void> {
+    if (!session || !teacherCoursePackageCloneSource) return;
+
+    const cloneInput: CoursePackageVersionCloneInput = {
+      course_package_id: teacherCoursePackageCloneForm.coursePackageId,
+      description: teacherCoursePackageCloneForm.description,
+      source_course_package_reference: teacherCoursePackageCloneSource.course_package_reference,
+      title: teacherCoursePackageCloneForm.title,
+      version: teacherCoursePackageCloneForm.version
+    };
+    setBusy(true);
+    setTeacherCoursePackageCloneError(null);
+    try {
+      setTeacherCoursePackageCloneReceipt(
+        await requestTeacherCoursePackageClone(cloneInput, session.access_token, (path, init) =>
+          fetch(`${API_BASE}${path}`, init)
+        )
+      );
+      setTeacherCoursePackageCloneSource(null);
+      setTeacherCoursePackageCloneForm(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
+    } catch (error) {
+      setTeacherCoursePackageCloneError(getTeacherCoursePackageSurfaceState(error));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     setPreviewCandidate(null);
@@ -970,6 +1089,154 @@ export function App() {
               ))}
             </ul>
           </details>
+        </section>
+      ) : null}
+
+      {isTeacher ? (
+        <section
+          className="candidate-surface course-package-catalog"
+          aria-label="Teacher CoursePackageVersion catalog"
+        >
+          <div className="candidate-heading">
+            <div>
+              <p className="eyebrow">Teacher-safe projection</p>
+              <h2>Available CoursePackageVersions</h2>
+            </div>
+            <button
+              className="secondary"
+              disabled={busy || coursePackageList.phase === "LOADING"}
+              onClick={() => void refreshTeacherCoursePackages()}
+            >
+              Refresh CoursePackageVersions
+            </button>
+          </div>
+          <p className="evidence-note">
+            Read-only AVAILABLE teaching packages. The server owns dependency checks, digest
+            verification, compatibility, lifecycle, import, export, and all source authority.
+          </p>
+          {coursePackageList.phase === "LOADING" ? (
+            <p className="evidence-note" role="status">
+              Loading CoursePackageVersions
+            </p>
+          ) : null}
+          {coursePackageList.phase === "ERROR" ? (
+            <p className="readiness-message" role="alert">
+              {teacherCoursePackageStatusLabel(coursePackageList.surfaceState)}
+            </p>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
+            <p className="evidence-note">No available CoursePackageVersions.</p>
+          ) : null}
+          {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
+            <div className="candidate-list">
+              {coursePackageList.packages.map((coursePackage) => (
+                <article
+                  className="candidate-card"
+                  key={coursePackage.course_package_reference.content_digest}
+                >
+                  <span>AVAILABLE</span>
+                  <strong>{coursePackage.title}</strong>
+                  <small>
+                    {coursePackage.course_package_reference.course_package_id} /{" "}
+                    {coursePackage.course_package_reference.version}
+                  </small>
+                  <p>{coursePackage.description}</p>
+                  <small>
+                    CourseBlueprint {coursePackage.course_blueprint_reference.course_blueprint_id} /{" "}
+                    {coursePackage.course_blueprint_reference.version}
+                  </small>
+                  <small>
+                    ScenarioPackage {coursePackage.scenario_package_reference.scenario_package_id} /{" "}
+                    {coursePackage.scenario_package_reference.version}
+                  </small>
+                  <small>
+                    ParameterSet {coursePackage.parameter_set_reference.parameter_set_id} /{" "}
+                    {coursePackage.parameter_set_reference.version}
+                  </small>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => beginTeacherCoursePackageClone(coursePackage)}
+                  >
+                    Clone {coursePackage.course_package_reference.course_package_id} as a new Course
+                    Package version
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {teacherCoursePackageCloneSource ? (
+            <section className="candidate-preview" aria-label="Teacher CoursePackageVersion clone">
+              <span>Clone a new Course Package version</span>
+              <strong>
+                Source {teacherCoursePackageCloneSource.course_package_reference.course_package_id}{" "}
+                / {teacherCoursePackageCloneSource.course_package_reference.version}
+              </strong>
+              <small>
+                The server derives tenant and actor, and creates the DRAFT lifecycle record.
+              </small>
+              <label>
+                new Course Package ID
+                <input
+                  aria-label="new Course Package ID"
+                  value={teacherCoursePackageCloneForm.coursePackageId}
+                  onChange={(event) =>
+                    updateTeacherCoursePackageClone("coursePackageId", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                new Course Package version
+                <input
+                  aria-label="new Course Package version"
+                  value={teacherCoursePackageCloneForm.version}
+                  onChange={(event) =>
+                    updateTeacherCoursePackageClone("version", event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                new Course Package title
+                <input
+                  aria-label="new Course Package title"
+                  value={teacherCoursePackageCloneForm.title}
+                  onChange={(event) => updateTeacherCoursePackageClone("title", event.target.value)}
+                />
+              </label>
+              <label>
+                new Course Package description
+                <input
+                  aria-label="new Course Package description"
+                  value={teacherCoursePackageCloneForm.description}
+                  onChange={(event) =>
+                    updateTeacherCoursePackageClone("description", event.target.value)
+                  }
+                />
+              </label>
+              <button disabled={busy} onClick={() => void cloneTeacherCoursePackageVersion()}>
+                Clone Course Package version
+              </button>
+            </section>
+          ) : null}
+          {teacherCoursePackageCloneError ? (
+            <p className="readiness-message" role="alert">
+              {teacherCoursePackageStatusLabel(teacherCoursePackageCloneError)}
+            </p>
+          ) : null}
+          {teacherCoursePackageCloneReceipt ? (
+            <article
+              className="candidate-preview"
+              aria-label="Teacher CoursePackageVersion clone receipt"
+            >
+              <span>New Course Package version receipt</span>
+              <strong>
+                {teacherCoursePackageCloneReceipt.course_package_reference.course_package_id} /{" "}
+                {teacherCoursePackageCloneReceipt.course_package_reference.version}
+              </strong>
+              <p>A new immutable CoursePackageVersion was created as a server-owned DRAFT.</p>
+              <p>No Course or Run was created.</p>
+            </article>
+          ) : null}
         </section>
       ) : null}
 
