@@ -139,6 +139,13 @@ describe("CoursePackageVersion contract freeze", () => {
         undefined,
         "CoursePackageVersionTeacherListEnvelope",
         "200"
+      ],
+      [
+        "/api/v1/bff/teacher/course-package-versions/clone",
+        "post",
+        "CoursePackageVersionCloneInput",
+        "CoursePackageVersionTeacherEnvelope",
+        "201"
       ]
     ] as const;
 

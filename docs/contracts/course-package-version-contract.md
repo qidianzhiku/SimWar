@@ -65,6 +65,20 @@ Stable command errors are `COURSE_PACKAGE_INPUT_INVALID`,
 The JSON schema, fixture, shared types, and OpenAPI entries are frozen by this
 contract commit. Runtime implementation follows in a separate commit.
 
+## Wave 002 Phase B authorization delta
+
+The contract-freeze commit `f22e360c8369ceca98438b1cdc846ce41cd80e46`
+remains the authoritative C5 freeze. Wave 002's required primary outcome adds
+one narrow server-authorized workflow: an authenticated tenant-scoped
+`teacher` may call `POST /api/v1/bff/teacher/course-package-versions/clone`
+with a closed exact reference to an `AVAILABLE` package. It delegates to the
+same sole-writer `CoursePackageCommandService`, derives tenant and actor on the
+server, and returns `CoursePackageVersionTeacherDto` only. The result is a new
+immutable `DRAFT` package, never a Course or Run; it cannot write a source
+lifecycle, truth, SettlementResult, Score, Rank, ParameterSet, ModelVersion,
+Replay, PostgreSQL, migration, external AI, instructor asset, or role workflow
+record.
+
 ## Freeze receipt
 
 - Source anchor: `origin/master` at `7527ba5256b3245e5a95a2b3c481e86711e44b95`.

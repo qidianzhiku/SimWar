@@ -1541,6 +1541,30 @@ paths:
                 $ref: "#/components/schemas/CoursePackageVersionTeacherListEnvelope"
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority required" }
+  /api/v1/bff/teacher/course-package-versions/clone:
+    post:
+      operationId: TEACHER_COURSE_PACKAGE_VERSION_CLONE_V1
+      summary: Clone one tenant-scoped exact AVAILABLE teaching package into a teacher-owned DRAFT.
+      description: The authenticated teacher and tenant are server-derived. This creates only a new CoursePackageVersion; it never creates or changes a Course, Run, source lifecycle, truth field, or Replay record.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoursePackageVersionCloneInput"
+      responses:
+        "201":
+          description: Teacher-safe projection of the cloned DRAFT CoursePackageVersion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoursePackageVersionTeacherEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority or tenant scope denied" }
+        "409": { description: "Target exact package version already exists" }
+        "422": { description: "Source is not an exact AVAILABLE package" }
   /api/v1/bff/teacher/instructor-assets:
     get:
       operationId: TEACHER_INSTRUCTOR_ASSET_LIST_GET_V1
@@ -2924,6 +2948,15 @@ components:
             course_package_versions:
               type: array
               items: { $ref: "#/components/schemas/CoursePackageVersionTeacher" }
+        message: { type: string }
+        request_id: { type: string }
+    CoursePackageVersionTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CoursePackageVersionTeacher" }
         message: { type: string }
         request_id: { type: string }
     CoursePackageVersionExportEnvelope:
