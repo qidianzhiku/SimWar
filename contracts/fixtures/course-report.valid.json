@@ -1,0 +1,25 @@
+{
+  "applied_filters": {
+    "course_id": "course_001",
+    "kpis": ["revenue", "score"],
+    "role": "CEO",
+    "round_no": 1,
+    "run_id": "run_001",
+    "team_id": "team_001"
+  },
+  "known_limits": ["JSON_INTERNAL_ONLY", "POSTGRESQL_NOT_ACTIVE"],
+  "report_schema_version": "course-report.v1",
+  "rows": [
+    {
+      "course_id": "course_001",
+      "metrics": [
+        { "kpi": "revenue", "value": 10800 },
+        { "kpi": "score", "value": 91 }
+      ],
+      "round_no": 1,
+      "run_id": "run_001",
+      "team_id": "team_001",
+      "team_name": "North Team"
+    }
+  ]
+}

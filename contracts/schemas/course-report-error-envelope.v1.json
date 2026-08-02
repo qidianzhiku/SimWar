@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/course-report-error-envelope.v1.json",
+  "title": "CourseReportErrorEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message"],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "code": {
+      "enum": [
+        "COURSE_REPORT_AUTHENTICATION_REQUIRED",
+        "COURSE_REPORT_INPUT_INVALID",
+        "COURSE_REPORT_NOT_FOUND",
+        "COURSE_REPORT_FORBIDDEN",
+        "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED"
+      ]
+    },
+    "message": { "type": "string", "minLength": 1 },
+    "details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reason"],
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

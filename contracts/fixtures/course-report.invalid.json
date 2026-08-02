@@ -1,0 +1,11 @@
+{
+  "applied_filters": { "course_id": "course_001" },
+  "canonical_evidence_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "decision_batch_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "known_limits": ["JSON_INTERNAL_ONLY"],
+  "replay_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "report_schema_version": "course-report.v1",
+  "rows": [],
+  "state_true": { "profit": 1 },
+  "student_visible": true
+}
