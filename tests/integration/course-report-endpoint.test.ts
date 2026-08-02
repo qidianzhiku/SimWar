@@ -85,10 +85,14 @@ async function stopServer(server: Server): Promise<void> {
   await once(server, "close");
 }
 
-async function login(baseUrl: string, username: string): Promise<AuthSession> {
+async function login(
+  baseUrl: string,
+  username: string,
+  loginTenantId = tenantId
+): Promise<AuthSession> {
   const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
     body: JSON.stringify({ password: username, username }),
-    headers: { "content-type": "application/json", "x-tenant-id": tenantId },
+    headers: { "content-type": "application/json", "x-tenant-id": loginTenantId },
     method: "POST"
   });
   expect(response.status).toBe(200);
@@ -98,15 +102,29 @@ async function login(baseUrl: string, username: string): Promise<AuthSession> {
 async function request<T>(
   baseUrl: string,
   path: string,
-  token?: string
+  token?: string,
+  requestTenantId: string | null = tenantId
 ): Promise<{ body: T; status: number }> {
   const response = await fetch(`${baseUrl}${path}`, {
     headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
-      "x-tenant-id": tenantId
+      ...(requestTenantId ? { "x-tenant-id": requestTenantId } : {})
     }
   });
   return { body: (await response.json()) as T, status: response.status };
+}
+
+function expectCourseReportError(
+  response: { body: ApiErrorEnvelope; status: number },
+  status: number,
+  code: string
+): void {
+  expect(response.status).toBe(status);
+  expect(response.body).toMatchObject({
+    code,
+    message: expect.any(String),
+    request_id: expect.any(String)
+  });
 }
 
 describe("Course Report Builder BFF endpoints", () => {
@@ -216,6 +234,120 @@ describe("Course Report Builder BFF endpoints", () => {
       expect(denied).toMatchObject({ body: { code: "COURSE_REPORT_FORBIDDEN" }, status: 403 });
       expect(missing).toMatchObject({ body: { code: "COURSE_REPORT_NOT_FOUND" }, status: 404 });
       expect(invalid).toMatchObject({ body: { code: "COURSE_REPORT_INPUT_INVALID" }, status: 422 });
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("returns structured frozen failures for Admin query and export input paths", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const admin = await login(baseUrl, "admin");
+      const invalidQuery = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports?course_id=course_demo&kpi=profit",
+        admin.access_token
+      );
+      const unsupportedExport = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports/export?course_id=course_demo&format=xlsx",
+        admin.access_token
+      );
+
+      expectCourseReportError(invalidQuery, 422, "COURSE_REPORT_INPUT_INVALID");
+      expectCourseReportError(unsupportedExport, 422, "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("returns Teacher export failures without changing report access semantics", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const missingCourse = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-reports/export?course_id=course_missing&format=json",
+        teacher.access_token
+      );
+      const unsupportedFormat = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-reports/export?course_id=course_demo&format=xlsx",
+        teacher.access_token
+      );
+
+      expectCourseReportError(missingCourse, 404, "COURSE_REPORT_NOT_FOUND");
+      expectCourseReportError(unsupportedFormat, 422, "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects Student access across Admin and export report entries", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const student = await login(baseUrl, "student");
+      const adminQuery = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports?course_id=course_demo",
+        student.access_token
+      );
+      const adminExport = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports/export?course_id=course_demo&format=json",
+        student.access_token
+      );
+      const teacherExport = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-reports/export?course_id=course_demo&format=json",
+        student.access_token
+      );
+
+      expectCourseReportError(adminQuery, 403, "COURSE_REPORT_FORBIDDEN");
+      expectCourseReportError(adminExport, 403, "COURSE_REPORT_FORBIDDEN");
+      expectCourseReportError(teacherExport, 403, "COURSE_REPORT_FORBIDDEN");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("requires a platform target tenant and rejects tenant-admin cross-tenant headers", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const [platform, admin] = await Promise.all([
+        login(baseUrl, "platform", "tenant_platform"),
+        login(baseUrl, "admin")
+      ]);
+      const platformQuery = await request<ApiEnvelope<CourseReportDto>>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports?course_id=course_demo",
+        platform.access_token,
+        tenantId
+      );
+      const platformExport = await request<ApiEnvelope<CourseReportExportDto>>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports/export?course_id=course_demo&format=csv",
+        platform.access_token,
+        tenantId
+      );
+      const missingPlatformTarget = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports?course_id=course_demo",
+        platform.access_token,
+        null
+      );
+      const crossTenantAdmin = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/admin/course-reports?course_id=course_demo",
+        admin.access_token,
+        "tenant_other"
+      );
+
+      expect(platformQuery.status).toBe(200);
+      expect(platformExport.status).toBe(200);
+      expect(platformExport.body.data.export_format).toBe("csv");
+      expectCourseReportError(missingPlatformTarget, 403, "COURSE_REPORT_FORBIDDEN");
+      expectCourseReportError(crossTenantAdmin, 403, "COURSE_REPORT_FORBIDDEN");
     } finally {
       await stopServer(server);
     }
