@@ -261,6 +261,10 @@ test("Teacher clones an exact available Course Package version without creating 
   await expect(panel.getByText("Wellness Teaching Package")).toBeVisible();
   await expect(panel.getByText("usr_admin")).toHaveCount(0);
   await expect(panel.getByRole("button", { name: /Import|Export|Validate|Retire/ })).toHaveCount(0);
+  await page.setViewportSize({ height: 812, width: 375 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
   await panel
     .getByRole("button", {
       name: "Clone course_package_wellness_001 as a new Course Package version"

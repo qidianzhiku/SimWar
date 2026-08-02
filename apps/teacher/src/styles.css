@@ -778,6 +778,20 @@ h3 {
   margin: 0;
 }
 
+.course-package-catalog .candidate-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.course-package-catalog .candidate-heading > * {
+  min-width: 0;
+}
+
+.course-package-catalog .candidate-heading h2 {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .shell {
     padding: 18px;
