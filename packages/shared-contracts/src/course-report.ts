@@ -63,6 +63,12 @@ export interface CourseReportDto {
   rows: readonly CourseReportRow[];
 }
 
+/** Admin and Teacher share one safe report shape; role scope is enforced by their distinct BFF routes. */
+export type CourseReportAdminDto = CourseReportDto;
+
+/** Teacher has no additional fields beyond the shared safe report shape. */
+export type CourseReportTeacherDto = CourseReportDto;
+
 /** Export remains a read-only serialization of the same safe report DTO. */
 export interface CourseReportExportDto {
   export_format: CourseReportExportFormat;

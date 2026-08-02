@@ -8,6 +8,7 @@ import {
   COURSE_REPORT_KPIS,
   COURSE_REPORT_SCHEMA_VERSION,
   type CourseReportDto,
+  type CourseReportAdminDto,
   type CourseReportExportDto,
   type CourseReportFilterInput
 } from "../../packages/shared-contracts/src/index.js";
@@ -93,10 +94,11 @@ describe("Course Report Builder contract freeze", () => {
     ]);
     expect(COURSE_REPORT_EXPORT_FORMATS).toEqual(["json", "csv"]);
     expect(exportPayload.report.rows).toEqual([]);
+    expectTypeOf<CourseReportAdminDto>().toMatchTypeOf<CourseReportDto>();
     expectTypeOf<CourseReportExportDto>().toMatchTypeOf<{ report: CourseReportDto }>();
   });
 
-  it("binds teacher report and export endpoints, with no student counterpart", () => {
+  it("binds role-specific admin and teacher report/export endpoints, with no student counterpart", () => {
     const openApi = yaml.load(
       readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
     ) as OpenApiDocument;
@@ -106,6 +108,8 @@ describe("Course Report Builder contract freeze", () => {
     });
 
     for (const [path, responseSchema] of [
+      ["/api/v1/bff/admin/course-reports", "CourseReportAdminEnvelope"],
+      ["/api/v1/bff/admin/course-reports/export", "CourseReportAdminExportEnvelope"],
       ["/api/v1/bff/teacher/course-reports", "CourseReportTeacherEnvelope"],
       ["/api/v1/bff/teacher/course-reports/export", "CourseReportExportEnvelope"]
     ] as const) {
@@ -124,8 +128,17 @@ describe("Course Report Builder contract freeze", () => {
       expect(operation?.responses?.["200"]?.content?.["application/json"]?.schema?.$ref).toBe(
         `#/components/schemas/${responseSchema}`
       );
+      expect(operation?.parameters).not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ in: "query", name: "tenant_id" })])
+      );
     }
 
+    expect(openApi.paths["/api/v1/bff/admin/course-reports"]?.get?.description).toContain(
+      "tenant_admin"
+    );
+    expect(openApi.paths["/api/v1/bff/teacher/course-reports"]?.get?.description).toContain(
+      "teacher"
+    );
     expect(openApi.paths["/api/v1/bff/student/course-reports"]).toBeUndefined();
     expect(openApi.components.schemas.CourseReportFilterInput).toBeDefined();
     expect(openApi.components.schemas.CourseReportExport).toBeDefined();
