@@ -277,6 +277,7 @@ test("Teacher clones an exact available Course Package version without creating 
 
   const receipt = panel.getByLabel("Teacher CoursePackageVersion clone receipt");
   await expect(receipt.getByText("course_package_wellness_clone_001")).toBeVisible();
+  await expect(receipt.getByText("A new immutable CoursePackageVersion was created as a server-owned DRAFT.")).toBeVisible();
   await expect(receipt.getByText("No Course or Run was created.")).toBeVisible();
   expect(prohibitedMutations).toEqual([]);
 });

@@ -1227,7 +1227,7 @@ export function App() {
                 {teacherCoursePackageCloneReceipt.course_package_reference.course_package_id} /{" "}
                 {teacherCoursePackageCloneReceipt.course_package_reference.version}
               </strong>
-              <p>A new Course Package version was created as a server-owned DRAFT.</p>
+              <p>A new immutable CoursePackageVersion was created as a server-owned DRAFT.</p>
               <p>No Course or Run was created.</p>
             </article>
           ) : null}
