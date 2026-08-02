@@ -354,22 +354,46 @@ export function createJsonSettlementOutcomePersistencePort(
         throw new Error("settlement_outcome_round_missing");
       }
 
-      const settlementIndex = store.settlementResults.findIndex(
+      if (round.run_id !== result.run_id || round.round_no !== result.round_no) {
+        throw new Error("settlement_outcome_business_identity_mismatch");
+      }
+
+      const matchingResultId = store.settlementResults.find(
         (candidate) =>
           candidate.tenant_id === result.tenant_id &&
           candidate.settlement_result_id === result.settlement_result_id
       );
-      const settlementSnapshot =
-        settlementIndex >= 0
-          ? {
-              kind: "replace" as const,
-              index: settlementIndex,
-              previous: store.settlementResults[settlementIndex] as SettlementResult
-            }
-          : {
-              kind: "append" as const,
-              length: store.settlementResults.length
-            };
+
+      if (
+        matchingResultId &&
+        (matchingResultId.run_id !== result.run_id || matchingResultId.round_no !== result.round_no)
+      ) {
+        throw new Error("settlement_outcome_result_id_conflict");
+      }
+
+      const existingBusinessResult = store.settlementResults.find(
+        (candidate) =>
+          candidate.tenant_id === result.tenant_id &&
+          candidate.run_id === result.run_id &&
+          candidate.round_no === result.round_no
+      );
+
+      if (existingBusinessResult) {
+        if (existingBusinessResult.replay_hash === result.replay_hash) {
+          return {
+            settlement_result: existingBusinessResult,
+            status: "reused"
+          };
+        }
+
+        return {
+          reason: "replay_hash_mismatch",
+          settlement_result: existingBusinessResult,
+          status: "conflict"
+        };
+      }
+
+      const settlementLength = store.settlementResults.length;
       const roundSnapshot = {
         status: round.status,
         hadReplayHash: hasOwnReplayHash(round),
@@ -377,22 +401,14 @@ export function createJsonSettlementOutcomePersistencePort(
       };
 
       try {
-        if (settlementIndex >= 0) {
-          store.settlementResults[settlementIndex] = result;
-        } else {
-          store.settlementResults.push(result);
-        }
+        store.settlementResults.push(result);
 
         round.status = "settled";
         round.replay_hash = result.replay_hash;
 
         store.persist();
       } catch (error) {
-        if (settlementSnapshot.kind === "replace") {
-          store.settlementResults[settlementSnapshot.index] = settlementSnapshot.previous;
-        } else {
-          store.settlementResults.length = settlementSnapshot.length;
-        }
+        store.settlementResults.length = settlementLength;
 
         round.status = roundSnapshot.status;
 

@@ -387,14 +387,12 @@ export interface CommitSettlementOutcomeCommand {
 /**
  * Domain result for the settlement outcome commit boundary.
  *
- * This discriminant is the contract foundation for future provider-level
- * idempotency. Providers must return only states they can prove at their own
- * persistence boundary. The current JSON implementation can report
- * "committed" after its existing write succeeds; it does not provide durable
- * cross-process business-key CAS, file locks, leases, or create-if-absent.
+ * Providers return only states they can prove at their own persistence
+ * boundary. The active JSON implementation can report "committed", "reused",
+ * or replay-hash "conflict" within its in-process JSON store; it does not
+ * provide durable cross-process business-key CAS, file locks, leases, or
+ * create-if-absent.
  *
- * "reused" and "conflict" are reserved for a future atomic provider protocol.
- * P1-006B route-level reuse/conflict handling remains unchanged in this PR.
  * "in_progress" is intentionally absent until there is a durable producer,
  * consumer, recovery rule, and API mapping.
  */
@@ -428,11 +426,11 @@ export type SettlementOutcomeCommitResult =
  * Round, or committing a partial settlement truth state.
  *
  * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
- * Replay artifacts are not part of this minimum atomic set. Logical settlement
- * idempotency key alignment remains deferred: the current runtime lookup uses
- * run_id + round_no while repository SettlementResult identity uses tenant_id +
- * settlement_result_id. The returned discriminant is not evidence that the
- * current provider has implemented durable cross-process idempotency.
+ * Replay artifacts are not part of this minimum atomic set. The active JSON
+ * provider also performs an in-process business-key check on
+ * tenant_id + run_id + round_no and can return reuse or replay-hash conflict.
+ * This is not evidence of durable cross-process idempotency, file locking,
+ * leases, or create-if-absent semantics outside the active JSON process.
  */
 export interface SettlementOutcomePersistencePort {
   commitSettlementOutcome(

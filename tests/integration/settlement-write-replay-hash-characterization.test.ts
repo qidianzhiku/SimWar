@@ -57,6 +57,7 @@ const HIGH_DEMAND_DECISION_PAYLOAD = {
 async function startServer(
   options: {
     providerFactory?: (store: SimWarStore) => RepositoryProvider;
+    store?: SimWarStore;
   } = {}
 ): Promise<{
   baseUrl: string;
@@ -64,7 +65,7 @@ async function startServer(
   server: Server;
   store: SimWarStore;
 }> {
-  const store = createP0Store();
+  const store = options.store ?? createP0Store();
   const provider = options.providerFactory?.(store) ?? createJsonRepositoryProvider({ store });
   const server = createApiServer(store, { repositoryProvider: provider });
   server.listen(0, "127.0.0.1");
@@ -442,10 +443,11 @@ describe("settlement result write and replay hash characterization", () => {
         const originalCommand = cloneJson(command);
 
         events.push("commit:start");
-        await originalCommit(command);
+        const commit = await originalCommit(command);
         events.push("commit:done");
 
         expect(command).toEqual(originalCommand);
+        return commit;
       });
       const legacySaveSpy = vi.spyOn(provider.facade.settlements, "saveSettlementResult");
       const originalAppendAudit = provider.facade.auditLogs.appendAuditLog.bind(
@@ -821,7 +823,7 @@ describe("settlement result write and replay hash characterization", () => {
       commitSpy.mockImplementation(async (command) => {
         attemptedCommands.push(cloneJson(command));
         await releaseCommits.promise;
-        await originalCommit(command);
+        return originalCommit(command);
       });
 
       const firstPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
@@ -870,6 +872,225 @@ describe("settlement result write and replay hash characterization", () => {
     }
   });
 
+  it("returns one authoritative outcome across concurrent JSON API runtimes", async () => {
+    const store = createP0Store();
+    const firstRuntime = await startServer({ store });
+    const secondRuntime = await startServer({ store });
+
+    try {
+      const teacherToken = await login(firstRuntime.baseUrl, "teacher", "teacher");
+      const studentToken = await login(firstRuntime.baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        firstRuntime.baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const bothCommitsReady = createDeferred();
+      const originalFirstCommit = firstRuntime.provider.facade.commitSettlementOutcome.bind(
+        firstRuntime.provider.facade
+      );
+      const originalSecondCommit = secondRuntime.provider.facade.commitSettlementOutcome.bind(
+        secondRuntime.provider.facade
+      );
+      let commitArrivals = 0;
+      const waitForBothCommits = async () => {
+        commitArrivals += 1;
+        if (commitArrivals === 2) {
+          bothCommitsReady.resolve();
+        }
+        await bothCommitsReady.promise;
+      };
+      vi.spyOn(firstRuntime.provider.facade, "commitSettlementOutcome").mockImplementation(
+        async (command) => {
+          await waitForBothCommits();
+          return originalFirstCommit(command);
+        }
+      );
+      vi.spyOn(secondRuntime.provider.facade, "commitSettlementOutcome").mockImplementation(
+        async (command) => {
+          await waitForBothCommits();
+          return originalSecondCommit(command);
+        }
+      );
+
+      const [first, second] = await Promise.all([
+        settleRoundViaApi(firstRuntime.baseUrl, teacherToken, run.run_id),
+        settleRoundViaApi(secondRuntime.baseUrl, teacherToken, run.run_id)
+      ]);
+      const outcomes = [
+        first.headers.get("x-simwar-settlement-outcome"),
+        second.headers.get("x-simwar-settlement-outcome")
+      ].sort();
+      const successAudits = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      );
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(commitArrivals).toBe(2);
+      expect(outcomes).toEqual(["committed", "reused"]);
+      expect(second.body.data).toEqual(first.body.data);
+      expect(store.settlementResults).toHaveLength(1);
+      expect(successAudits).toHaveLength(1);
+      expect(successAudits[0]?.resource_id).toBe(first.body.data.settlement_result_id);
+    } finally {
+      await stopServer(firstRuntime.server);
+      await stopServer(secondRuntime.server);
+    }
+  });
+
+  it("rejects one of two concurrent JSON runtime commits with different replay inputs", async () => {
+    const store = createP0Store();
+    const firstRuntime = await startServer({ store });
+    const secondRuntime = await startServer({ store });
+
+    try {
+      const teacherToken = await login(firstRuntime.baseUrl, "teacher", "teacher");
+      const studentToken = await login(firstRuntime.baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        firstRuntime.baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const firstDecisionRead = createDeferred();
+      const releaseFirstDecisionRead = createDeferred();
+      const bothCommitsReady = createDeferred();
+      const originalFirstDecisionList =
+        firstRuntime.provider.facade.decisions.listDecisionsForRound.bind(
+          firstRuntime.provider.facade.decisions
+        );
+      const originalFirstCommit = firstRuntime.provider.facade.commitSettlementOutcome.bind(
+        firstRuntime.provider.facade
+      );
+      const originalSecondCommit = secondRuntime.provider.facade.commitSettlementOutcome.bind(
+        secondRuntime.provider.facade
+      );
+      let commitArrivals = 0;
+      const waitForBothCommits = async () => {
+        commitArrivals += 1;
+        if (commitArrivals === 2) {
+          bothCommitsReady.resolve();
+        }
+        await bothCommitsReady.promise;
+      };
+
+      vi.spyOn(firstRuntime.provider.facade.decisions, "listDecisionsForRound").mockImplementation(
+        async (...args) => {
+          const decisions = await originalFirstDecisionList(...args);
+          firstDecisionRead.resolve();
+          await releaseFirstDecisionRead.promise;
+          return decisions;
+        }
+      );
+      vi.spyOn(firstRuntime.provider.facade, "commitSettlementOutcome").mockImplementation(
+        async (command) => {
+          await waitForBothCommits();
+          return originalFirstCommit(command);
+        }
+      );
+      vi.spyOn(secondRuntime.provider.facade, "commitSettlementOutcome").mockImplementation(
+        async (command) => {
+          await waitForBothCommits();
+          return originalSecondCommit(command);
+        }
+      );
+
+      const firstPromise = settleRoundViaApi(firstRuntime.baseUrl, teacherToken, run.run_id);
+      await firstDecisionRead.promise;
+      const conflictingDecision = appendConflictingDecisionVersion(
+        store,
+        run,
+        HIGH_DEMAND_DECISION_PAYLOAD
+      );
+      const secondPromise = settleRoundViaApi(secondRuntime.baseUrl, teacherToken, run.run_id);
+
+      releaseFirstDecisionRead.resolve();
+      const [first, second] = await Promise.all([firstPromise, secondPromise]);
+      const responses = [first, second];
+      const successfulResponse = responses.find((response) => response.status === 200);
+      const conflictingResponse = responses.find((response) => response.status === 409);
+      const successAudits = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      );
+
+      expect(conflictingDecision.version).toBe(2);
+      expect(commitArrivals).toBe(2);
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      expect(successfulResponse?.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(conflictingResponse?.body.code).toBe("SETTLE-409-002");
+      expect(store.settlementResults).toHaveLength(1);
+      expect(store.settlementResults[0]).toEqual(successfulResponse?.body.data);
+      expect(successAudits).toHaveLength(1);
+      expect(successAudits[0]?.resource_id).toBe(
+        successfulResponse?.body.data.settlement_result_id
+      );
+    } finally {
+      await stopServer(firstRuntime.server);
+      await stopServer(secondRuntime.server);
+    }
+  });
+
+  it("rejects an overlapping same-key settlement whose replay-relevant input changes", async () => {
+    const { baseUrl, provider, server, store } = await startServer();
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher");
+      const studentToken = await login(baseUrl, "student", "student");
+      const run = await createLockedRunWithDecision(
+        baseUrl,
+        teacherToken,
+        studentToken,
+        BALANCED_DECISION_PAYLOAD
+      );
+      const releaseCommit = createDeferred();
+      const originalCommit = provider.facade.commitSettlementOutcome.bind(provider.facade);
+      const commitSpy = vi.spyOn(provider.facade, "commitSettlementOutcome");
+      commitSpy.mockImplementation(async (command) => {
+        await releaseCommit.promise;
+        return originalCommit(command);
+      });
+
+      const firstPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+      await waitForCondition(
+        () => commitSpy.mock.calls.length === 1,
+        "first settlement request did not reach atomic commit"
+      );
+
+      const conflictingDecision = appendConflictingDecisionVersion(
+        store,
+        run,
+        HIGH_DEMAND_DECISION_PAYLOAD
+      );
+      const secondPromise = settleRoundViaApi(baseUrl, teacherToken, run.run_id);
+
+      releaseCommit.resolve();
+      const [first, second] = await Promise.all([firstPromise, secondPromise]);
+      const settledRound = requireStoredRound(store, run.run_id);
+      const successAudits = store.auditLogs.filter(
+        (log) =>
+          log.action === "round.settle_requested" && log.resource_type === "settlement_result"
+      );
+
+      expect(conflictingDecision.version).toBe(2);
+      expect(first.status).toBe(200);
+      expect(first.headers.get("x-simwar-settlement-outcome")).toBe("committed");
+      expect(second.status).toBe(409);
+      expect(second.body.code).toBe("SETTLE-409-002");
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(store.settlementResults).toEqual([first.body.data]);
+      expect(settledRound.status).toBe("settled");
+      expect(settledRound.replay_hash).toBe(first.body.data.replay_hash);
+      expect(successAudits).toHaveLength(1);
+      expect(successAudits[0]?.resource_id).toBe(first.body.data.settlement_result_id);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("does not reuse the same settlement lock or result for different business keys", async () => {
     const { baseUrl, provider, server, store } = await startServer();
 
@@ -899,7 +1120,7 @@ describe("settlement result write and replay hash characterization", () => {
           await releaseFirstCommit.promise;
         }
 
-        await originalCommit(command);
+        return originalCommit(command);
       });
 
       const firstPromise = settleRoundViaApi(baseUrl, teacherToken, firstRun.run_id);
