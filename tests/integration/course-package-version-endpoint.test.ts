@@ -465,4 +465,66 @@ describe("CoursePackageVersion endpoints", () => {
       await stopServer(server);
     }
   });
+
+  it("does not expose a compensation persistence error to a course package client", async () => {
+    const { baseUrl, server, store } = await startServer((configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (auditLog.action.startsWith("course_package_version.")) {
+                  throw new Error("forced_course_package_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const references = await seedApprovedSources(store);
+      const admin = await login(baseUrl, "admin", "admin");
+      const persist = store.persist;
+      store.persist = () => {
+        if (store.coursePackageLifecycleSnapshots.length === 0) {
+          throw new Error("forced_compensation_failure_internal_token");
+        }
+        persist();
+      };
+
+      const response = await requestJson<{ code: string; message: string }>(
+        `${baseUrl}${COURSE_PACKAGE_BASE}/drafts`,
+        {
+          body: {
+            ...references,
+            course_package_id: "course_package_compensation_failure",
+            description: "Compensation errors must remain internal.",
+            title: "Compensation failure package",
+            version: VERSION
+          },
+          headers: {
+            authorization: `Bearer ${admin.access_token}`,
+            "content-type": "application/json",
+            "x-tenant-id": DEFAULT_TENANT_ID
+          },
+          method: "POST"
+        }
+      );
+
+      expect(response.status).toBe(500);
+      expect(response.body.code).toBe("COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED");
+      expect(response.body.message).toBe("course package request could not be completed");
+      expect(JSON.stringify(response.body)).not.toContain(
+        "forced_compensation_failure_internal_token"
+      );
+    } finally {
+      await stopServer(server);
+    }
+  });
 });

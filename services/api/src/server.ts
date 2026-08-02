@@ -3315,11 +3315,11 @@ async function executeAuditedCoursePackageCommand<T>(
   } catch (error) {
     try {
       runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
-    } catch (compensationError) {
+    } catch {
       throw new HttpError(
         500,
         "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
-        `course package audit compensation failed: ${String(compensationError)}`
+        "course package request could not be completed"
       );
     }
     throw error;
