@@ -428,7 +428,7 @@ export type SettlementOutcomeCommitResult =
  * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
  * Replay artifacts are not part of this minimum atomic set. The active JSON
  * provider also performs an in-process business-key check on
- * tenant_id + run_id + round_id and can return reuse or replay-hash conflict.
+ * tenant_id + run_id + round_no and can return reuse or replay-hash conflict.
  * This is not evidence of durable cross-process idempotency, file locking,
  * leases, or create-if-absent semantics outside the active JSON process.
  */

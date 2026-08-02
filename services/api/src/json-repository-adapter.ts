@@ -366,7 +366,7 @@ export function createJsonSettlementOutcomePersistencePort(
 
       if (
         matchingResultId &&
-        (matchingResultId.run_id !== result.run_id || matchingResultId.round_id !== result.round_id)
+        (matchingResultId.run_id !== result.run_id || matchingResultId.round_no !== result.round_no)
       ) {
         throw new Error("settlement_outcome_result_id_conflict");
       }
@@ -375,7 +375,7 @@ export function createJsonSettlementOutcomePersistencePort(
         (candidate) =>
           candidate.tenant_id === result.tenant_id &&
           candidate.run_id === result.run_id &&
-          candidate.round_id === result.round_id
+          candidate.round_no === result.round_no
       );
 
       if (existingBusinessResult) {

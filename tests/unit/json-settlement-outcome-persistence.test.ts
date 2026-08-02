@@ -333,6 +333,41 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).not.toHaveBeenCalled();
   });
 
+  it("reuses the authoritative result when a recreated Round has the same business key", async () => {
+    const recreatedRound = createRound({ round_id: "round-recreated" });
+    const originalResult = createSettlementResult({
+      round_id: "round-original",
+      replay_hash: "same-business-hash",
+      settlement_result_id: "settlement-original"
+    });
+    const retryForRecreatedRound = createSettlementResult({
+      round_id: "round-recreated",
+      replay_hash: "same-business-hash",
+      settlement_result_id: "settlement-recreated"
+    });
+    const store = createMinimalStore({
+      rounds: [recreatedRound],
+      settlementResults: [originalResult]
+    });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+    const roundBefore = structuredClone(recreatedRound);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-recreated",
+        settlement_result: retryForRecreatedRound
+      })
+    ).resolves.toEqual({
+      settlement_result: originalResult,
+      status: "reused"
+    });
+
+    expect(store.settlementResults).toEqual([originalResult]);
+    expect(recreatedRound).toEqual(roundBefore);
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
   it("does not replace another tenant SettlementResult with the same id", async () => {
     const otherTenantResult = createSettlementResult({
       tenant_id: "tenant-2",
