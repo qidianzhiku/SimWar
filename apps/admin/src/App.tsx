@@ -28,6 +28,7 @@ import {
   type AdminCoursePackageOperation,
   type CoursePackageSurfaceState
 } from "./course-package-client";
+import { CourseReportBuilder } from "./CourseReportBuilder";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -549,8 +550,10 @@ export function App() {
     setBusy(true);
     setCoursePackageFeedback(null);
     try {
-      const exported = await exportAdminCoursePackageVersion(coursePackage, session.access_token, (path, init) =>
-        fetch(`${API_BASE}${path}`, init)
+      const exported = await exportAdminCoursePackageVersion(
+        coursePackage,
+        session.access_token,
+        (path, init) => fetch(`${API_BASE}${path}`, init)
       );
       if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageExportPayload(JSON.stringify(exported, null, 2));
@@ -763,6 +766,14 @@ export function App() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {session && hasCoursePackageAdminRole ? (
+        <CourseReportBuilder
+          sessionKey={`${session.access_token}:${login.tenantId}`}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
       ) : null}
 
       {session && hasCoursePackageAdminRole ? (
