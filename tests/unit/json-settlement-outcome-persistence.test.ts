@@ -568,4 +568,40 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.settlementResults).toEqual([existing]);
     expect(store.persist).not.toHaveBeenCalled();
   });
+
+  it("rejects an occupied result id before same-business replay reuse", async () => {
+    const existingBusinessResult = createSettlementResult({
+      replay_hash: "existing-business-hash",
+      settlement_result_id: "settlement-existing-business"
+    });
+    const otherBusinessResult = createSettlementResult({
+      round_id: "round-other",
+      round_no: 2,
+      run_id: "run-other",
+      settlement_result_id: "settlement-occupied-id"
+    });
+    const reusedBusinessRequest = createSettlementResult({
+      replay_hash: "existing-business-hash",
+      settlement_result_id: "settlement-occupied-id"
+    });
+    const round = createRound();
+    const store = createMinimalStore({
+      rounds: [round],
+      settlementResults: [existingBusinessResult, otherBusinessResult]
+    });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+    const roundBefore = structuredClone(round);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: reusedBusinessRequest
+      })
+    ).rejects.toThrow("settlement_outcome_result_id_conflict");
+
+    expect(store.settlementResults).toEqual([existingBusinessResult, otherBusinessResult]);
+    expect(round).toEqual(roundBefore);
+    expect(store.persist).not.toHaveBeenCalled();
+  });
 });

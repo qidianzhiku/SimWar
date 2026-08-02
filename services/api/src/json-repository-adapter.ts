@@ -358,6 +358,19 @@ export function createJsonSettlementOutcomePersistencePort(
         throw new Error("settlement_outcome_business_identity_mismatch");
       }
 
+      const matchingResultId = store.settlementResults.find(
+        (candidate) =>
+          candidate.tenant_id === result.tenant_id &&
+          candidate.settlement_result_id === result.settlement_result_id
+      );
+
+      if (
+        matchingResultId &&
+        (matchingResultId.run_id !== result.run_id || matchingResultId.round_id !== result.round_id)
+      ) {
+        throw new Error("settlement_outcome_result_id_conflict");
+      }
+
       const existingBusinessResult = store.settlementResults.find(
         (candidate) =>
           candidate.tenant_id === result.tenant_id &&
@@ -378,16 +391,6 @@ export function createJsonSettlementOutcomePersistencePort(
           settlement_result: existingBusinessResult,
           status: "conflict"
         };
-      }
-
-      const matchingResultId = store.settlementResults.find(
-        (candidate) =>
-          candidate.tenant_id === result.tenant_id &&
-          candidate.settlement_result_id === result.settlement_result_id
-      );
-
-      if (matchingResultId) {
-        throw new Error("settlement_outcome_result_id_conflict");
       }
 
       const settlementLength = store.settlementResults.length;

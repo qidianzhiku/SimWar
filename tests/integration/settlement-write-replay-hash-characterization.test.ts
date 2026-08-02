@@ -958,9 +958,10 @@ describe("settlement result write and replay hash characterization", () => {
       const firstDecisionRead = createDeferred();
       const releaseFirstDecisionRead = createDeferred();
       const bothCommitsReady = createDeferred();
-      const originalFirstDecisionList = firstRuntime.provider.facade.decisions.listDecisionsForRound.bind(
-        firstRuntime.provider.facade.decisions
-      );
+      const originalFirstDecisionList =
+        firstRuntime.provider.facade.decisions.listDecisionsForRound.bind(
+          firstRuntime.provider.facade.decisions
+        );
       const originalFirstCommit = firstRuntime.provider.facade.commitSettlementOutcome.bind(
         firstRuntime.provider.facade
       );
