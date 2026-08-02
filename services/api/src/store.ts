@@ -156,19 +156,6 @@ export function persistCoursePackageLifecycleSnapshots(
   }
 }
 
-/** Restores the C5 registry checkpoint in memory after its atomic persist callback has failed. */
-export function restoreCoursePackageLifecycleSnapshotsAfterPersistFailure(
-  store: SimWarStore,
-  snapshots: readonly CoursePackageVersion[]
-): void {
-  assertValidCoursePackageLifecycleSnapshots(snapshots);
-  store.coursePackageLifecycleSnapshots.splice(
-    0,
-    store.coursePackageLifecycleSnapshots.length,
-    ...structuredClone(snapshots)
-  );
-}
-
 export interface InstructorAssetAuditCheckpoint {
   readonly auditLogs: AuditLog[];
   readonly counters: Record<string, number>;

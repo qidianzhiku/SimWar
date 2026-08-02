@@ -172,7 +172,6 @@ import {
   readInstructorAssetCollection,
   persistCoursePackageLifecycleSnapshots,
   persistInstructorAssetCollection,
-  restoreCoursePackageLifecycleSnapshotsAfterPersistFailure,
   restoreInstructorAssetAuditCheckpoint,
   getActorFromUser,
   nextId,
@@ -346,9 +345,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const coursePackageRegistry = new CoursePackageJsonRegistry(
     {
-      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots),
-      restoreAfterAuditCompensationPersistFailure: (snapshots) =>
-        restoreCoursePackageLifecycleSnapshotsAfterPersistFailure(store, snapshots)
+      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots)
     },
     readCoursePackageLifecycleSnapshots(store)
   );
@@ -3315,17 +3312,17 @@ async function executeAuditedCoursePackageCommand<T>(
   const result = await executeCoursePackageCommand(command);
   try {
     await appendAudit(runtime, audit(result));
-  } catch (error) {
+  } catch {
     try {
       runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
     } catch {
-      throw new HttpError(
-        500,
-        "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
-        "course package request could not be completed"
-      );
+      // The generic response below remains safe when the retry cannot persist.
     }
-    throw error;
+    throw new HttpError(
+      500,
+      "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
+      "course package request could not be completed"
+    );
   }
   return result;
 }

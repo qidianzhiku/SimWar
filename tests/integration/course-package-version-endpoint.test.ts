@@ -1,5 +1,8 @@
 import { once } from "node:events";
+import { mkdtempSync, rmSync } from "node:fs";
 import { request as nodeRequest, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
@@ -60,7 +63,13 @@ async function login(baseUrl: string, username: string, password: string): Promi
 async function startServer(
   configure?: (store: SimWarStore) => CreateApiServerOptions
 ): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
-  const store = createP1Store();
+  return startServerWithStore(createP1Store(), configure);
+}
+
+async function startServerWithStore(
+  store: SimWarStore,
+  configure?: (store: SimWarStore) => CreateApiServerOptions
+): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const server = createApiServer(store, configure?.(store));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -529,8 +538,11 @@ describe("CoursePackageVersion endpoints", () => {
   });
 
   it("restores the complete command checkpoint when audit compensation persistence fails", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "simwar-course-package-audit-"));
+    const snapshotPath = join(directory, "store.json");
     let rejectCoursePackageAudits = false;
-    const { baseUrl, server, store } = await startServer((configuredStore) => {
+    const store = createP1Store({ persistenceFile: snapshotPath });
+    const { baseUrl, server } = await startServerWithStore(store, (configuredStore) => {
       const provider = createJsonRepositoryProvider({ store: configuredStore });
       return {
         repositoryProvider: {
@@ -575,9 +587,14 @@ describe("CoursePackageVersion endpoints", () => {
       expect(initialDraft.status).toBe(201);
       const checkpoint = structuredClone(store.coursePackageLifecycleSnapshots);
       const persist = store.persist;
+      let remainingCompensationPersistFailures = 1;
       rejectCoursePackageAudits = true;
       store.persist = () => {
-        if (store.coursePackageLifecycleSnapshots.length === checkpoint.length) {
+        if (
+          store.coursePackageLifecycleSnapshots.length === checkpoint.length &&
+          remainingCompensationPersistFailures > 0
+        ) {
+          remainingCompensationPersistFailures -= 1;
           throw new Error("forced_compensation_failure_internal_token");
         }
         persist();
@@ -601,8 +618,13 @@ describe("CoursePackageVersion endpoints", () => {
       expect(response.status).toBe(500);
       expect(response.body.code).toBe("COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED");
       expect(store.coursePackageLifecycleSnapshots).toEqual(checkpoint);
+      expect(
+        createP1Store({ persistenceFile: snapshotPath }).coursePackageLifecycleSnapshots
+      ).toEqual(checkpoint);
+      expect(remainingCompensationPersistFailures).toBe(0);
     } finally {
       await stopServer(server);
+      rmSync(directory, { force: true, recursive: true });
     }
   });
 });
