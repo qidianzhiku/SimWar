@@ -527,4 +527,82 @@ describe("CoursePackageVersion endpoints", () => {
       await stopServer(server);
     }
   });
+
+  it("restores the complete command checkpoint when audit compensation persistence fails", async () => {
+    let rejectCoursePackageAudits = false;
+    const { baseUrl, server, store } = await startServer((configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (
+                  rejectCoursePackageAudits &&
+                  auditLog.action.startsWith("course_package_version.")
+                ) {
+                  throw new Error("forced_course_package_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const references = await seedApprovedSources(store);
+      const admin = await login(baseUrl, "admin", "admin");
+      const headers = {
+        authorization: `Bearer ${admin.access_token}`,
+        "content-type": "application/json",
+        "x-tenant-id": DEFAULT_TENANT_ID
+      };
+      const initialDraft = await requestJson(`${baseUrl}${COURSE_PACKAGE_BASE}/drafts`, {
+        body: {
+          ...references,
+          course_package_id: "course_package_checkpoint_before_failure",
+          description: "This draft establishes the command checkpoint.",
+          title: "Command checkpoint package",
+          version: VERSION
+        },
+        headers,
+        method: "POST"
+      });
+      expect(initialDraft.status).toBe(201);
+      const checkpoint = structuredClone(store.coursePackageLifecycleSnapshots);
+      const persist = store.persist;
+      rejectCoursePackageAudits = true;
+      store.persist = () => {
+        if (store.coursePackageLifecycleSnapshots.length === checkpoint.length) {
+          throw new Error("forced_compensation_failure_internal_token");
+        }
+        persist();
+      };
+
+      const response = await requestJson<{ code: string }>(
+        `${baseUrl}${COURSE_PACKAGE_BASE}/drafts`,
+        {
+          body: {
+            ...references,
+            course_package_id: "course_package_partial_write",
+            description: "This package must not survive a failed audit compensation.",
+            title: "Partial write package",
+            version: VERSION
+          },
+          headers,
+          method: "POST"
+        }
+      );
+
+      expect(response.status).toBe(500);
+      expect(response.body.code).toBe("COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED");
+      expect(store.coursePackageLifecycleSnapshots).toEqual(checkpoint);
+    } finally {
+      await stopServer(server);
+    }
+  });
 });

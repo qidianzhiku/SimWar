@@ -172,6 +172,7 @@ import {
   readInstructorAssetCollection,
   persistCoursePackageLifecycleSnapshots,
   persistInstructorAssetCollection,
+  restoreCoursePackageLifecycleSnapshotsAfterPersistFailure,
   restoreInstructorAssetAuditCheckpoint,
   getActorFromUser,
   nextId,
@@ -345,7 +346,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const coursePackageRegistry = new CoursePackageJsonRegistry(
     {
-      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots)
+      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots),
+      restoreAfterAuditCompensationPersistFailure: (snapshots) =>
+        restoreCoursePackageLifecycleSnapshotsAfterPersistFailure(store, snapshots)
     },
     readCoursePackageLifecycleSnapshots(store)
   );

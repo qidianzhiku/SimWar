@@ -18,6 +18,9 @@ export class CoursePackageRegistryError extends Error {
 export interface CoursePackageJsonRegistryDependencies {
   now?: () => string;
   persist?: (snapshots: readonly CoursePackageVersion[]) => void;
+  restoreAfterAuditCompensationPersistFailure?: (
+    snapshots: readonly CoursePackageVersion[]
+  ) => void;
 }
 
 function canonicalize(value: unknown): string {
@@ -236,6 +239,9 @@ export function createCoursePackageLifecycleSnapshot(
 export class CoursePackageJsonRegistry {
   private readonly now: () => string;
   private readonly persist: (snapshots: readonly CoursePackageVersion[]) => void;
+  private readonly restoreAfterAuditCompensationPersistFailure: (
+    snapshots: readonly CoursePackageVersion[]
+  ) => void;
   private readonly snapshots: CoursePackageVersion[];
 
   constructor(
@@ -245,6 +251,8 @@ export class CoursePackageJsonRegistry {
     assertValidCoursePackageLifecycleSnapshots(snapshots);
     this.now = dependencies.now ?? (() => new Date().toISOString());
     this.persist = dependencies.persist ?? (() => undefined);
+    this.restoreAfterAuditCompensationPersistFailure =
+      dependencies.restoreAfterAuditCompensationPersistFailure ?? (() => undefined);
     this.snapshots = snapshots.map((snapshot) => clone(snapshot));
   }
 
@@ -261,7 +269,15 @@ export class CoursePackageJsonRegistry {
   }
 
   restoreAuditCheckpointAfterFailure(checkpoint: readonly CoursePackageVersion[]): void {
-    this.replaceSnapshots(checkpoint);
+    assertValidCoursePackageLifecycleSnapshots(checkpoint);
+    this.snapshots.splice(0, this.snapshots.length, ...clone(checkpoint));
+    try {
+      this.persist(clone(this.snapshots));
+    } catch (error) {
+      this.snapshots.splice(0, this.snapshots.length, ...clone(checkpoint));
+      this.restoreAfterAuditCompensationPersistFailure(clone(checkpoint));
+      throw error;
+    }
   }
 
   private replaceSnapshots(next: readonly CoursePackageVersion[]): void {
