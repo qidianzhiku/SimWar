@@ -9,6 +9,7 @@ import {
   COURSE_REPORT_SCHEMA_VERSION,
   type CourseReportDto,
   type CourseReportAdminDto,
+  type CourseReportErrorEnvelope,
   type CourseReportExportDto,
   type CourseReportFilterInput
 } from "../../packages/shared-contracts/src/index.js";
@@ -21,7 +22,11 @@ interface OpenApiOperation {
   parameters?: Array<{ in: string; name: string; required?: boolean }>;
   responses?: Record<
     string,
-    { content?: { "application/json"?: { schema?: { $ref?: string } } }; description?: string }
+    {
+      content?: { "application/json"?: { schema?: { $ref?: string } } };
+      description?: string;
+      "x-simwar-course-report-error-codes"?: string[];
+    }
   >;
 }
 
@@ -142,5 +147,57 @@ describe("Course Report Builder contract freeze", () => {
     expect(openApi.paths["/api/v1/bff/student/course-reports"]).toBeUndefined();
     expect(openApi.components.schemas.CourseReportFilterInput).toBeDefined();
     expect(openApi.components.schemas.CourseReportExport).toBeDefined();
+  });
+
+  it("freezes structured stable failure envelopes for every report route", () => {
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+      readJson("contracts/schemas/course-report-error-envelope.v1.json")
+    );
+    const authenticationFailure: CourseReportErrorEnvelope = {
+      code: "COURSE_REPORT_AUTHENTICATION_REQUIRED",
+      message: "Authentication required",
+      request_id: "request_course_report_001"
+    };
+
+    expect(validate(authenticationFailure)).toBe(true);
+    expect(validate({ ...authenticationFailure, code: "AUTH-401-001" })).toBe(false);
+    expect(
+      validate({ ...authenticationFailure, code: "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED" })
+    ).toBe(true);
+
+    const openApi = yaml.load(
+      readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
+    ) as OpenApiDocument;
+    const routeErrorCodes = [
+      ["/api/v1/bff/admin/course-reports", ["COURSE_REPORT_INPUT_INVALID"]],
+      [
+        "/api/v1/bff/admin/course-reports/export",
+        ["COURSE_REPORT_INPUT_INVALID", "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED"]
+      ],
+      ["/api/v1/bff/teacher/course-reports", ["COURSE_REPORT_INPUT_INVALID"]],
+      [
+        "/api/v1/bff/teacher/course-reports/export",
+        ["COURSE_REPORT_INPUT_INVALID", "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED"]
+      ]
+    ] as const;
+
+    for (const [path, expected422Codes] of routeErrorCodes) {
+      const responses = openApi.paths[path]?.get?.responses;
+      for (const status of ["401", "403", "404", "422"] as const) {
+        expect(responses?.[status]?.content?.["application/json"]?.schema?.$ref).toBe(
+          "#/components/schemas/CourseReportErrorEnvelope"
+        );
+      }
+      expect(responses?.["401"]?.["x-simwar-course-report-error-codes"]).toEqual([
+        "COURSE_REPORT_AUTHENTICATION_REQUIRED"
+      ]);
+      expect(responses?.["403"]?.["x-simwar-course-report-error-codes"]).toEqual([
+        "COURSE_REPORT_FORBIDDEN"
+      ]);
+      expect(responses?.["404"]?.["x-simwar-course-report-error-codes"]).toEqual([
+        "COURSE_REPORT_NOT_FOUND"
+      ]);
+      expect(responses?.["422"]?.["x-simwar-course-report-error-codes"]).toEqual(expected422Codes);
+    }
   });
 });

@@ -23,6 +23,7 @@ export const COURSE_REPORT_EXPORT_FORMATS = ["json", "csv"] as const;
 export type CourseReportExportFormat = (typeof COURSE_REPORT_EXPORT_FORMATS)[number];
 
 export const COURSE_REPORT_FAILURE_CODES = [
+  "COURSE_REPORT_AUTHENTICATION_REQUIRED",
   "COURSE_REPORT_INPUT_INVALID",
   "COURSE_REPORT_NOT_FOUND",
   "COURSE_REPORT_FORBIDDEN",
@@ -30,6 +31,19 @@ export const COURSE_REPORT_FAILURE_CODES = [
 ] as const;
 
 export type CourseReportFailureCode = (typeof COURSE_REPORT_FAILURE_CODES)[number];
+
+/** Stable, route-level failure shape for the Admin and Teacher report BFF contracts. */
+export interface CourseReportErrorEnvelope {
+  code: CourseReportFailureCode;
+  details?: readonly CourseReportErrorDetail[];
+  message: string;
+  request_id: string;
+}
+
+export interface CourseReportErrorDetail {
+  field?: string;
+  reason: string;
+}
 
 /** Tenant identity is server-derived; this input never grants cross-tenant report access. */
 export interface CourseReportFilterInput {

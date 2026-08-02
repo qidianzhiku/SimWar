@@ -1616,11 +1616,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CourseReportAdminEnvelope"
-        "401": { description: "Authentication required" }
-        "403": { description: "tenant_admin or explicit platform_admin authority is required" }
+        "401":
+          description: Authentication required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_AUTHENTICATION_REQUIRED]
+          content: &course-report-error-content
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseReportErrorEnvelope" }
+        "403":
+          description: tenant_admin or explicit platform_admin authority is required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_FORBIDDEN]
+          content: *course-report-error-content
         "404":
-          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
-        "422": { description: "Course Report filters are invalid" }
+          description: Course, Run, Team, or Round is not found in the authenticated scope
+          x-simwar-course-report-error-codes: [COURSE_REPORT_NOT_FOUND]
+          content: *course-report-error-content
+        "422":
+          description: Course Report filters are invalid
+          x-simwar-course-report-error-codes: [COURSE_REPORT_INPUT_INVALID]
+          content: *course-report-error-content
   /api/v1/bff/admin/course-reports/export:
     get:
       operationId: ADMIN_COURSE_REPORT_EXPORT_GET_V1
@@ -1665,11 +1678,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CourseReportAdminExportEnvelope"
-        "401": { description: "Authentication required" }
-        "403": { description: "tenant_admin or explicit platform_admin authority is required" }
+        "401":
+          description: Authentication required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_AUTHENTICATION_REQUIRED]
+          content: *course-report-error-content
+        "403":
+          description: tenant_admin or explicit platform_admin authority is required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_FORBIDDEN]
+          content: *course-report-error-content
         "404":
-          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
-        "422": { description: "Course Report filters or export format are invalid" }
+          description: Course, Run, Team, or Round is not found in the authenticated scope
+          x-simwar-course-report-error-codes: [COURSE_REPORT_NOT_FOUND]
+          content: *course-report-error-content
+        "422":
+          description: Course Report filters or export format are invalid
+          x-simwar-course-report-error-codes:
+            [COURSE_REPORT_INPUT_INVALID, COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED]
+          content: *course-report-error-content
   /api/v1/bff/teacher/course-reports:
     get:
       operationId: TEACHER_COURSE_REPORT_GET_V1
@@ -1710,11 +1735,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CourseReportTeacherEnvelope"
-        "401": { description: "Authentication required" }
-        "403": { description: "Teacher authority or tenant scope denied" }
+        "401":
+          description: Authentication required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_AUTHENTICATION_REQUIRED]
+          content: *course-report-error-content
+        "403":
+          description: Teacher authority or tenant scope denied
+          x-simwar-course-report-error-codes: [COURSE_REPORT_FORBIDDEN]
+          content: *course-report-error-content
         "404":
-          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
-        "422": { description: "Course Report filters are invalid" }
+          description: Course, Run, Team, or Round is not found in the authenticated scope
+          x-simwar-course-report-error-codes: [COURSE_REPORT_NOT_FOUND]
+          content: *course-report-error-content
+        "422":
+          description: Course Report filters are invalid
+          x-simwar-course-report-error-codes: [COURSE_REPORT_INPUT_INVALID]
+          content: *course-report-error-content
   /api/v1/bff/teacher/course-reports/export:
     get:
       operationId: TEACHER_COURSE_REPORT_EXPORT_GET_V1
@@ -1759,11 +1795,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CourseReportExportEnvelope"
-        "401": { description: "Authentication required" }
-        "403": { description: "Teacher authority or tenant scope denied" }
+        "401":
+          description: Authentication required
+          x-simwar-course-report-error-codes: [COURSE_REPORT_AUTHENTICATION_REQUIRED]
+          content: *course-report-error-content
+        "403":
+          description: Teacher authority or tenant scope denied
+          x-simwar-course-report-error-codes: [COURSE_REPORT_FORBIDDEN]
+          content: *course-report-error-content
         "404":
-          { description: "Course, Run, Team, or Round is not found in the authenticated scope" }
-        "422": { description: "Course Report filters or export format are invalid" }
+          description: Course, Run, Team, or Round is not found in the authenticated scope
+          x-simwar-course-report-error-codes: [COURSE_REPORT_NOT_FOUND]
+          content: *course-report-error-content
+        "422":
+          description: Course Report filters or export format are invalid
+          x-simwar-course-report-error-codes:
+            [COURSE_REPORT_INPUT_INVALID, COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED]
+          content: *course-report-error-content
   /api/v1/bff/teacher/instructor-assets:
     get:
       operationId: TEACHER_INSTRUCTOR_ASSET_LIST_GET_V1
@@ -3187,6 +3235,8 @@ components:
         request_id: { type: string }
     CourseReport:
       $ref: "../schemas/course-report.v1.json"
+    CourseReportErrorEnvelope:
+      $ref: "../schemas/course-report-error-envelope.v1.json"
     CourseReportExactIdentity:
       type: string
       minLength: 1
