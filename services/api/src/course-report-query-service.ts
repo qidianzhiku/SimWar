@@ -18,10 +18,9 @@ type CourseReportRepository = Pick<
   "courses" | "rounds" | "runs" | "settlements" | "teams"
 >;
 
-const REPORT_KNOWN_LIMITS: readonly KnownLimitSemanticId[] = [
-  "JSON_INTERNAL_ONLY",
-  "POSTGRESQL_NOT_ACTIVE"
-];
+export interface CourseReportProviderCapabilities {
+  knownLimits: readonly KnownLimitSemanticId[];
+}
 
 export class CourseReportQueryServiceError extends Error {
   constructor(readonly code: CourseReportFailureCode) {
@@ -35,9 +34,15 @@ export class CourseReportQueryServiceError extends Error {
  * settlement observations and never exposes truth, decisions, or replay data.
  */
 export class CourseReportQueryService {
-  constructor(private readonly repository: CourseReportRepository) {}
+  constructor(
+    private readonly repository: CourseReportRepository,
+    private readonly providerCapabilities?: CourseReportProviderCapabilities
+  ) {}
 
   async query(tenantId: string, filters: CourseReportFilterInput): Promise<CourseReportDto> {
+    if (!this.providerCapabilities) {
+      throw new CourseReportQueryServiceError("COURSE_REPORT_PROVIDER_UNSUPPORTED");
+    }
     const course = await this.repository.courses.getCourse(tenantId, filters.course_id);
     if (!course) throw new CourseReportQueryServiceError("COURSE_REPORT_NOT_FOUND");
 
@@ -112,7 +117,7 @@ export class CourseReportQueryService {
 
     return {
       applied_filters: cloneFilters(filters),
-      known_limits: [...REPORT_KNOWN_LIMITS],
+      known_limits: [...this.providerCapabilities.knownLimits],
       report_schema_version: COURSE_REPORT_SCHEMA_VERSION,
       rows: rows.sort(compareRows)
     };

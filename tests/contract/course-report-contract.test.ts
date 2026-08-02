@@ -198,6 +198,12 @@ describe("Course Report Builder contract freeze", () => {
         "COURSE_REPORT_NOT_FOUND"
       ]);
       expect(responses?.["422"]?.["x-simwar-course-report-error-codes"]).toEqual(expected422Codes);
+      expect(responses?.["503"]?.content?.["application/json"]?.schema?.$ref).toBe(
+        "#/components/schemas/CourseReportErrorEnvelope"
+      );
+      expect(responses?.["503"]?.["x-simwar-course-report-error-codes"]).toEqual([
+        "COURSE_REPORT_PROVIDER_UNSUPPORTED"
+      ]);
     }
   });
 });

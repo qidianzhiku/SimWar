@@ -8,6 +8,7 @@ import type {
   CourseReportDto,
   CourseReportExportDto
 } from "../../packages/shared-contracts/src";
+import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
@@ -83,6 +84,18 @@ async function startServer(): Promise<{ baseUrl: string; server: Server; store: 
 async function stopServer(server: Server): Promise<void> {
   server.close();
   await once(server, "close");
+}
+
+async function startUnsupportedProviderServer(): Promise<{ baseUrl: string; server: Server }> {
+  const store = createP1Store();
+  const provider = createJsonRepositoryProvider({ store });
+  delete provider.capabilities;
+  const server = createApiServer(store, { repositoryProvider: provider });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("server address unavailable");
+  return { baseUrl: `http://127.0.0.1:${address.port}`, server };
 }
 
 async function login(
@@ -229,6 +242,10 @@ describe("Course Report Builder BFF endpoints", () => {
         { kpi: "revenue", value: 1200 },
         { kpi: "score", value: 88 }
       ]);
+      expect(teacherReport.body.data.known_limits).toEqual([
+        "JSON_INTERNAL_ONLY",
+        "POSTGRESQL_NOT_ACTIVE"
+      ]);
       expect(JSON.stringify(teacherReport.body.data)).not.toContain("state_true");
       expect(JSON.stringify(teacherReport.body.data)).not.toContain("replay_hash");
       expect(JSON.stringify(teacherReport.body.data)).not.toContain("internal only");
@@ -352,6 +369,22 @@ describe("Course Report Builder BFF endpoints", () => {
 
       expectCourseReportError(missingCourse, 404, "COURSE_REPORT_NOT_FOUND");
       expectCourseReportError(unsupportedFormat, 422, "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("fails closed when a custom provider omits Course Report capabilities", async () => {
+    const { baseUrl, server } = await startUnsupportedProviderServer();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const unsupported = await request<ApiErrorEnvelope>(
+        baseUrl,
+        "/api/v1/bff/teacher/course-reports?course_id=course_demo",
+        teacher.access_token
+      );
+
+      expectCourseReportError(unsupported, 503, "COURSE_REPORT_PROVIDER_UNSUPPORTED");
     } finally {
       await stopServer(server);
     }
