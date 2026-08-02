@@ -428,11 +428,11 @@ export type SettlementOutcomeCommitResult =
  * Round, or committing a partial settlement truth state.
  *
  * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
- * Replay artifacts are not part of this minimum atomic set. Logical settlement
- * idempotency key alignment remains deferred: the current runtime lookup uses
- * run_id + round_no while repository SettlementResult identity uses tenant_id +
- * settlement_result_id. The returned discriminant is not evidence that the
- * current provider has implemented durable cross-process idempotency.
+ * Replay artifacts are not part of this minimum atomic set. The active JSON
+ * provider also performs an in-process business-key check on
+ * tenant_id + run_id + round_id and can return reuse or replay-hash conflict.
+ * This is not evidence of durable cross-process idempotency, file locking,
+ * leases, or create-if-absent semantics outside the active JSON process.
  */
 export interface SettlementOutcomePersistencePort {
   commitSettlementOutcome(

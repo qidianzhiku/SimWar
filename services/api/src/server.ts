@@ -5108,11 +5108,26 @@ async function runSettlement(
     }
 
     if (outcome.shouldCommit) {
-      await runtime.repositoryProvider.facade.commitSettlementOutcome({
+      const commit = await runtime.repositoryProvider.facade.commitSettlementOutcome({
         tenant_id: context.tenantId,
         round_id: round.round_id,
         settlement_result: outcome.settlement
       });
+
+      if (commit.status === "conflict") {
+        throw new HttpError(
+          409,
+          "SETTLE-409-002",
+          "settlement result already exists for this business key with different replay-relevant input",
+          [{ field: "replay_hash", reason: "conflicting_existing_settlement" }]
+        );
+      }
+
+      return {
+        settlement: commit.settlement_result,
+        committed: commit.status === "committed",
+        responseSemantics: commit.status
+      };
     }
 
     return {

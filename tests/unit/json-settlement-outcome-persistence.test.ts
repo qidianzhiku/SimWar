@@ -210,6 +210,26 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).not.toHaveBeenCalled();
   });
 
+  it("rejects run and round-number identity mismatches without side effects", async () => {
+    const round = createRound({ run_id: "run-2", round_no: 2 });
+    const result = createSettlementResult();
+    const store = createMinimalStore({ rounds: [round] });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+    const roundBefore = structuredClone(round);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: result
+      })
+    ).rejects.toThrow("settlement_outcome_business_identity_mismatch");
+
+    expect(round).toEqual(roundBefore);
+    expect(store.settlementResults).toEqual([]);
+    expect(store.persist).not.toHaveBeenCalled();
+  });
+
   it("rejects missing target Rounds without saving a SettlementResult", async () => {
     const result = createSettlementResult();
     const store = createMinimalStore();
@@ -262,8 +282,11 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
-  it("replaces an existing tenant-scoped SettlementResult in place", async () => {
+  it("returns the existing result for a same-business-key replay retry", async () => {
     const unrelatedBefore = createSettlementResult({
+      round_id: "round-before",
+      round_no: 2,
+      run_id: "run-before",
       settlement_result_id: "settlement-before",
       replay_hash: "before-hash"
     });
@@ -273,12 +296,15 @@ describe("JSON settlement outcome persistence port", () => {
       team_results: []
     });
     const unrelatedAfter = createSettlementResult({
+      round_id: "round-after",
+      round_no: 3,
+      run_id: "run-after",
       settlement_result_id: "settlement-after",
       replay_hash: "after-hash"
     });
     const replacement = createSettlementResult({
-      settlement_result_id: "settlement-replace",
-      replay_hash: "new-hash",
+      settlement_result_id: "settlement-retry",
+      replay_hash: "old-hash",
       parameter_set_id: "parameter-set-replacement"
     });
     const round = createRound();
@@ -288,17 +314,23 @@ describe("JSON settlement outcome persistence port", () => {
     });
     const port = createJsonSettlementOutcomePersistencePort(store);
 
-    await port.commitSettlementOutcome({
-      tenant_id: "tenant-1",
-      round_id: "round-1",
-      settlement_result: replacement
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: replacement
+      })
+    ).resolves.toEqual({
+      settlement_result: original,
+      status: "reused"
     });
 
-    expect(store.settlementResults).toEqual([unrelatedBefore, replacement, unrelatedAfter]);
-    expect(store.settlementResults[1]).toBe(replacement);
+    expect(store.settlementResults).toEqual([unrelatedBefore, original, unrelatedAfter]);
+    expect(store.settlementResults[1]).toBe(original);
     expect(store.settlementResults).toHaveLength(3);
-    expect(round.replay_hash).toBe("new-hash");
-    expect(store.persist).toHaveBeenCalledTimes(1);
+    expect(round.status).toBe("locked");
+    expect(round.replay_hash).toBeUndefined();
+    expect(store.persist).not.toHaveBeenCalled();
   });
 
   it("does not replace another tenant SettlementResult with the same id", async () => {
@@ -332,6 +364,9 @@ describe("JSON settlement outcome persistence port", () => {
   it("rolls back an appended SettlementResult and Round mutation when persist fails", async () => {
     const persistenceError = new Error("forced persist failure");
     const unrelated = createSettlementResult({
+      round_id: "round-unrelated",
+      round_no: 2,
+      run_id: "run-unrelated",
       settlement_result_id: "settlement-unrelated",
       replay_hash: "unrelated-hash"
     });
@@ -368,14 +403,27 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
-  it("rolls back a replaced SettlementResult by restoring the original object reference", async () => {
-    const persistenceError = new Error("forced replacement persist failure");
-    const unrelatedBefore = createSettlementResult({ settlement_result_id: "settlement-before" });
+  it("rolls back a new business-key SettlementResult while preserving other results", async () => {
+    const persistenceError = new Error("forced new settlement persist failure");
+    const unrelatedBefore = createSettlementResult({
+      round_id: "round-before",
+      round_no: 2,
+      run_id: "run-before",
+      settlement_result_id: "settlement-before"
+    });
     const original = createSettlementResult({
+      round_id: "round-existing",
+      round_no: 3,
+      run_id: "run-existing",
       settlement_result_id: "settlement-1",
       replay_hash: "old-result-hash"
     });
-    const unrelatedAfter = createSettlementResult({ settlement_result_id: "settlement-after" });
+    const unrelatedAfter = createSettlementResult({
+      round_id: "round-after",
+      round_no: 4,
+      run_id: "run-after",
+      settlement_result_id: "settlement-after"
+    });
     const round = createRound({
       replay_hash: "old-round-hash",
       status: "locked"
@@ -393,7 +441,10 @@ describe("JSON settlement outcome persistence port", () => {
       port.commitSettlementOutcome({
         tenant_id: "tenant-1",
         round_id: "round-1",
-        settlement_result: createSettlementResult({ replay_hash: "new-result-hash" })
+        settlement_result: createSettlementResult({
+          replay_hash: "new-result-hash",
+          settlement_result_id: "settlement-new"
+        })
       })
     ).rejects.toBe(persistenceError);
 
@@ -455,12 +506,13 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.settlementResults).toEqual([]);
   });
 
-  it("repeated successful commits reuse the SettlementResult identity without duplicates", async () => {
+  it("rejects a same-business-key result with a different replay hash without overwriting", async () => {
     const round = createRound();
     const first = createSettlementResult({
       replay_hash: "first-hash"
     });
     const second = createSettlementResult({
+      settlement_result_id: "settlement-2",
       replay_hash: "second-hash",
       parameter_set_id: "parameter-set-second"
     });
@@ -472,16 +524,48 @@ describe("JSON settlement outcome persistence port", () => {
       round_id: "round-1",
       settlement_result: first
     });
-    await port.commitSettlementOutcome({
-      tenant_id: "tenant-1",
-      round_id: "round-1",
-      settlement_result: second
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: second
+      })
+    ).resolves.toEqual({
+      reason: "replay_hash_mismatch",
+      settlement_result: first,
+      status: "conflict"
     });
 
-    expect(store.settlementResults).toEqual([second]);
-    expect(store.settlementResults[0]).toBe(second);
+    expect(store.settlementResults).toEqual([first]);
+    expect(store.settlementResults[0]).toBe(first);
     expect(round.status).toBe("settled");
-    expect(round.replay_hash).toBe("second-hash");
-    expect(store.persist).toHaveBeenCalledTimes(2);
+    expect(round.replay_hash).toBe("first-hash");
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a tenant-scoped result id already assigned to another business key", async () => {
+    const existing = createSettlementResult({
+      round_id: "round-existing",
+      round_no: 2,
+      run_id: "run-existing",
+      settlement_result_id: "settlement-shared"
+    });
+    const result = createSettlementResult({ settlement_result_id: "settlement-shared" });
+    const store = createMinimalStore({
+      rounds: [createRound()],
+      settlementResults: [existing]
+    });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: result
+      })
+    ).rejects.toThrow("settlement_outcome_result_id_conflict");
+
+    expect(store.settlementResults).toEqual([existing]);
+    expect(store.persist).not.toHaveBeenCalled();
   });
 });
