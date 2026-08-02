@@ -1634,6 +1634,10 @@ paths:
           description: Course Report filters are invalid
           x-simwar-course-report-error-codes: [COURSE_REPORT_INPUT_INVALID]
           content: *course-report-error-content
+        "503":
+          description: The active repository provider cannot expose report capabilities
+          x-simwar-course-report-error-codes: [COURSE_REPORT_PROVIDER_UNSUPPORTED]
+          content: *course-report-error-content
   /api/v1/bff/admin/course-reports/export:
     get:
       operationId: ADMIN_COURSE_REPORT_EXPORT_GET_V1
@@ -1695,6 +1699,10 @@ paths:
           x-simwar-course-report-error-codes:
             [COURSE_REPORT_INPUT_INVALID, COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED]
           content: *course-report-error-content
+        "503":
+          description: The active repository provider cannot expose report capabilities
+          x-simwar-course-report-error-codes: [COURSE_REPORT_PROVIDER_UNSUPPORTED]
+          content: *course-report-error-content
   /api/v1/bff/teacher/course-reports:
     get:
       operationId: TEACHER_COURSE_REPORT_GET_V1
@@ -1750,6 +1758,10 @@ paths:
         "422":
           description: Course Report filters are invalid
           x-simwar-course-report-error-codes: [COURSE_REPORT_INPUT_INVALID]
+          content: *course-report-error-content
+        "503":
+          description: The active repository provider cannot expose report capabilities
+          x-simwar-course-report-error-codes: [COURSE_REPORT_PROVIDER_UNSUPPORTED]
           content: *course-report-error-content
   /api/v1/bff/teacher/course-reports/export:
     get:
@@ -1811,6 +1823,10 @@ paths:
           description: Course Report filters or export format are invalid
           x-simwar-course-report-error-codes:
             [COURSE_REPORT_INPUT_INVALID, COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED]
+          content: *course-report-error-content
+        "503":
+          description: The active repository provider cannot expose report capabilities
+          x-simwar-course-report-error-codes: [COURSE_REPORT_PROVIDER_UNSUPPORTED]
           content: *course-report-error-content
   /api/v1/bff/teacher/instructor-assets:
     get:

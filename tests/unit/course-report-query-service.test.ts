@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   CourseReportQueryService,
   CourseReportQueryServiceError,
-  createCourseReportExport
+  createCourseReportExport,
+  type CourseReportProviderCapabilities
 } from "../../services/api/src/course-report-query-service";
 
 const tenantId = "tenant_demo";
 const courseId = "course_report_demo";
 const runId = "run_report_demo";
+const jsonCapabilities: CourseReportProviderCapabilities = {
+  knownLimits: ["JSON_INTERNAL_ONLY", "POSTGRESQL_NOT_ACTIVE"]
+};
 
 function createRepository(): Pick<
   RepositoryFacade,
@@ -157,7 +161,7 @@ function createRepository(): Pick<
 
 describe("CourseReportQueryService", () => {
   it("reads published observed metrics only and applies safe filters", async () => {
-    const service = new CourseReportQueryService(createRepository());
+    const service = new CourseReportQueryService(createRepository(), jsonCapabilities);
 
     const report = await service.query(tenantId, {
       course_id: courseId,
@@ -185,7 +189,7 @@ describe("CourseReportQueryService", () => {
   });
 
   it("fails closed for a cross-course run, unknown team, and non-existent round", async () => {
-    const service = new CourseReportQueryService(createRepository());
+    const service = new CourseReportQueryService(createRepository(), jsonCapabilities);
 
     await expect(
       service.query(tenantId, { course_id: courseId, run_id: "run_other" })
@@ -199,7 +203,7 @@ describe("CourseReportQueryService", () => {
   });
 
   it("creates only safe JSON and CSV export DTOs", async () => {
-    const service = new CourseReportQueryService(createRepository());
+    const service = new CourseReportQueryService(createRepository(), jsonCapabilities);
     const report = await service.query(tenantId, { course_id: courseId });
 
     expect(createCourseReportExport(report, "json")).toMatchObject({
@@ -212,6 +216,24 @@ describe("CourseReportQueryService", () => {
     });
     expect(() => createCourseReportExport(report, "xlsx" as never)).toThrowError(
       new CourseReportQueryServiceError("COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED")
+    );
+  });
+
+  it("derives known limits from provider capabilities instead of a service constant", async () => {
+    const service = new CourseReportQueryService(createRepository(), {
+      knownLimits: ["SYNTHETIC_ONLY", "LOOPBACK_ONLY"]
+    });
+
+    await expect(service.query(tenantId, { course_id: courseId })).resolves.toMatchObject({
+      known_limits: ["SYNTHETIC_ONLY", "LOOPBACK_ONLY"]
+    });
+  });
+
+  it("fails closed when the active provider does not expose capabilities", async () => {
+    const service = new CourseReportQueryService(createRepository());
+
+    await expect(service.query(tenantId, { course_id: courseId })).rejects.toEqual(
+      new CourseReportQueryServiceError("COURSE_REPORT_PROVIDER_UNSUPPORTED")
     );
   });
 });

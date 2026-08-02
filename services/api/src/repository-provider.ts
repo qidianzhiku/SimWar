@@ -1,4 +1,5 @@
 import type { SimWarRepositoryPorts } from "./repository-ports.js";
+import type { KnownLimitSemanticId } from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
 import { createRepositoryFacade, type RepositoryFacade } from "./repository-facade.js";
 import { nextId, type SimWarStore } from "./store.js";
@@ -15,11 +16,16 @@ import { nextId, type SimWarStore } from "./store.js";
 
 export type RepositoryProviderMode = "custom" | "json";
 
+export interface RepositoryProviderCapabilities {
+  knownLimits: readonly KnownLimitSemanticId[];
+}
+
 export interface RepositoryProvider {
   mode: RepositoryProviderMode;
   ports: SimWarRepositoryPorts;
   facade: RepositoryFacade;
   idGenerator: RepositoryIdGenerator;
+  capabilities?: RepositoryProviderCapabilities;
 }
 
 export interface RepositoryIdGenerator {
@@ -32,6 +38,7 @@ export interface RepositoryProviderOptions {
   ports: SimWarRepositoryPorts;
   mode?: RepositoryProviderMode;
   idGenerator?: RepositoryIdGenerator;
+  capabilities?: RepositoryProviderCapabilities;
 }
 
 export interface JsonRepositoryProviderOptions {
@@ -65,7 +72,8 @@ export function createRepositoryProvider(options: RepositoryProviderOptions): Re
     mode,
     ports,
     facade: createRepositoryFacade({ ports }),
-    idGenerator: options.idGenerator ?? createMissingRepositoryIdGenerator(mode)
+    idGenerator: options.idGenerator ?? createMissingRepositoryIdGenerator(mode),
+    ...(options.capabilities ? { capabilities: options.capabilities } : {})
   };
 }
 
@@ -83,6 +91,7 @@ export function createJsonRepositoryProvider(
   return createRepositoryProvider({
     mode: "json",
     ports,
+    capabilities: { knownLimits: ["JSON_INTERNAL_ONLY", "POSTGRESQL_NOT_ACTIVE"] },
     idGenerator: {
       createDecisionId: () => nextId(store, "decision", "decision"),
       createSettlementResultId: () => nextId(store, "result", "result"),

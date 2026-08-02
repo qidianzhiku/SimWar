@@ -172,6 +172,7 @@ describe("repository provider", () => {
 
     expect(provider.mode).toBe("custom");
     expect(provider.ports).toBe(ports);
+    expect(provider.capabilities).toBeUndefined();
 
     await expect(provider.facade.identity.getTenant("tenant-1")).resolves.toEqual({
       tenant_id: "tenant-1",
@@ -237,6 +238,9 @@ describe("repository provider", () => {
     expect(provider.ports.settlementOutcome).toBeDefined();
     expect(provider.ports.settlementOutcome.commitSettlementOutcome).toEqual(expect.any(Function));
     expect(provider.facade).toBeDefined();
+    expect(provider.capabilities).toEqual({
+      knownLimits: ["JSON_INTERNAL_ONLY", "POSTGRESQL_NOT_ACTIVE"]
+    });
 
     await expect(provider.facade.identity.getTenant("tenant-1")).resolves.toEqual({
       tenant_id: "tenant-1",

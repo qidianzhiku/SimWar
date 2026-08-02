@@ -7,8 +7,6 @@ import type {
   ApiEnvelope,
   AuditLog,
   AuthSession,
-  CourseReportExportFormat,
-  CourseReportFilterInput,
   CurrentUser,
   CoursePackageVersion,
   CoursePackageVersionCloneInput,
@@ -94,9 +92,9 @@ import {
 } from "./course-package-query-service.js";
 import {
   CourseReportQueryService,
-  CourseReportQueryServiceError,
-  createCourseReportExport
+  CourseReportQueryServiceError
 } from "./course-report-query-service.js";
+import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-routes.js";
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
@@ -369,7 +367,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalCourseBlueprints,
     coursePackageCommands,
     coursePackageQueries: new CoursePackageQueryService(coursePackageRegistry),
-    courseReports: new CourseReportQueryService(repositoryProvider.facade),
+    courseReports: new CourseReportQueryService(
+      repositoryProvider.facade,
+      repositoryProvider.capabilities
+    ),
     formalParameterSets: formalAuthorityRuntime.parameterSets,
     formalPluginReleases: formalAuthorityRuntime.pluginReleases,
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
@@ -3099,120 +3100,6 @@ function requireCoursePackageTeacher(context: RequestContext): CurrentUser {
   return actor;
 }
 
-function courseReportRequestError(
-  code:
-    | "COURSE_REPORT_INPUT_INVALID"
-    | "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED" = "COURSE_REPORT_INPUT_INVALID"
-): CourseReportQueryServiceError {
-  return new CourseReportQueryServiceError(code);
-}
-
-function requireCourseReportExactIdentity(value: string | null): string {
-  if (
-    value === null ||
-    value.trim().length === 0 ||
-    value !== value.trim() ||
-    !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) ||
-    /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(value)
-  ) {
-    throw courseReportRequestError();
-  }
-  return value;
-}
-
-function requireCourseReportRoundNo(value: string | null): number {
-  if (value === null || !/^[1-9]\d*$/.test(value)) throw courseReportRequestError();
-  const roundNo = Number(value);
-  if (!Number.isSafeInteger(roundNo)) throw courseReportRequestError();
-  return roundNo;
-}
-
-function getSingleCourseReportParameter(params: URLSearchParams, name: string): string | null {
-  const values = params.getAll(name);
-  if (values.length > 1) throw courseReportRequestError();
-  return values[0] ?? null;
-}
-
-function parseCourseReportQuery(
-  url: URL,
-  includesExportFormat: boolean
-): { filters: CourseReportFilterInput; format?: CourseReportExportFormat } {
-  const allowed = new Set([
-    "course_id",
-    "kpi",
-    "role",
-    "round_no",
-    "run_id",
-    "team_id",
-    ...(includesExportFormat ? ["format"] : [])
-  ]);
-  if ([...url.searchParams.keys()].some((key) => !allowed.has(key))) {
-    throw courseReportRequestError();
-  }
-
-  const rawKpis = url.searchParams.getAll("kpi");
-  const allowedKpis = new Set([
-    "demand_band",
-    "served_demand",
-    "revenue",
-    "profit_band",
-    "score",
-    "rank"
-  ]);
-  if (rawKpis.some((kpi) => !allowedKpis.has(kpi)) || new Set(rawKpis).size !== rawKpis.length) {
-    throw courseReportRequestError();
-  }
-
-  const rawRole = getSingleCourseReportParameter(url.searchParams, "role");
-  if (rawRole !== null && !["CEO", "CFO", "CMO", "COO", "risk"].includes(rawRole)) {
-    throw courseReportRequestError();
-  }
-  const rawRoundNo = getSingleCourseReportParameter(url.searchParams, "round_no");
-  const rawRunId = getSingleCourseReportParameter(url.searchParams, "run_id");
-  const rawTeamId = getSingleCourseReportParameter(url.searchParams, "team_id");
-  const filters: CourseReportFilterInput = {
-    course_id: requireCourseReportExactIdentity(
-      getSingleCourseReportParameter(url.searchParams, "course_id")
-    ),
-    ...(rawKpis.length > 0
-      ? { kpis: rawKpis as NonNullable<CourseReportFilterInput["kpis"]> }
-      : {}),
-    ...(rawRole !== null ? { role: rawRole as NonNullable<CourseReportFilterInput["role"]> } : {}),
-    ...(rawRoundNo !== null ? { round_no: requireCourseReportRoundNo(rawRoundNo) } : {}),
-    ...(rawRunId !== null ? { run_id: requireCourseReportExactIdentity(rawRunId) } : {}),
-    ...(rawTeamId !== null ? { team_id: requireCourseReportExactIdentity(rawTeamId) } : {})
-  };
-
-  if (!includesExportFormat) return { filters };
-
-  const rawFormat = getSingleCourseReportParameter(url.searchParams, "format");
-  if (rawFormat !== "json" && rawFormat !== "csv") {
-    throw courseReportRequestError("COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED");
-  }
-  return { filters, format: rawFormat };
-}
-
-function requireCourseReportAdmin(context: RequestContext, request: IncomingMessage): CurrentUser {
-  const actor = requirePermission(context, "course:read");
-  const isPlatformAdmin = actorHasAnyRole(actor, ["platform_admin"]);
-  if (
-    (!isPlatformAdmin && !actorHasAnyRole(actor, ["tenant_admin"])) ||
-    (!isPlatformAdmin && actor.tenant_id !== context.tenantId) ||
-    (isPlatformAdmin && !request.headers["x-tenant-id"]?.toString().trim())
-  ) {
-    throw new HttpError(403, "COURSE_REPORT_FORBIDDEN", "course report authority required");
-  }
-  return actor;
-}
-
-function requireCourseReportTeacher(context: RequestContext): CurrentUser {
-  const actor = requirePermission(context, "course:read");
-  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
-    throw new HttpError(403, "COURSE_REPORT_FORBIDDEN", "teacher authority required");
-  }
-  return actor;
-}
-
 function courseReportHttpError(error: unknown): HttpError {
   if (error instanceof CourseReportQueryServiceError) {
     const statusCode =
@@ -3222,7 +3109,9 @@ function courseReportHttpError(error: unknown): HttpError {
           ? 403
           : error.code === "COURSE_REPORT_AUTHENTICATION_REQUIRED"
             ? 401
-            : 422;
+            : error.code === "COURSE_REPORT_PROVIDER_UNSUPPORTED"
+              ? 503
+              : 422;
     return new HttpError(statusCode, error.code, "course report request failed");
   }
   if (error instanceof HttpError) {
@@ -3551,14 +3440,7 @@ async function routeRequest(
   }
 
   const url = new URL(request.url ?? "/", "http://localhost");
-  const courseReportRoute =
-    request.method === "GET" &&
-    [
-      "/api/v1/bff/admin/course-reports",
-      "/api/v1/bff/admin/course-reports/export",
-      "/api/v1/bff/teacher/course-reports",
-      "/api/v1/bff/teacher/course-reports/export"
-    ].includes(url.pathname);
+  const courseReportRoute = isCourseReportRoute(request.method, url);
 
   if (
     request.method === "GET" &&
@@ -3644,34 +3526,23 @@ async function routeRequest(
     return;
   }
 
-  let context: RequestContext;
-  try {
-    context = createContext(runtime, request);
-  } catch (error) {
-    if (courseReportRoute) throw courseReportHttpError(error);
-    throw error;
-  }
   if (courseReportRoute) {
     try {
-      const isAdmin = url.pathname.startsWith("/api/v1/bff/admin/");
-      const isExport = url.pathname.endsWith("/export");
-      if (isAdmin) {
-        requireCourseReportAdmin(context, request);
-      } else {
-        requireCourseReportTeacher(context);
-      }
-      const { filters, format } = parseCourseReportQuery(url, isExport);
-      const report = await runtime.courseReports.query(context.tenantId, filters);
-      sendJson(
-        response,
-        200,
-        createEnvelope(context, format ? createCourseReportExport(report, format) : report)
-      );
+      await handleCourseReportRoute(request, response, url, {
+        createContext: () => createContext(runtime, request),
+        courseReports: runtime.courseReports,
+        requirePermission,
+        actorHasAnyRole,
+        createEnvelope,
+        sendJson
+      });
       return;
     } catch (error) {
       throw courseReportHttpError(error);
     }
   }
+
+  const context = createContext(runtime, request);
 
   if (request.method === "GET" && url.pathname === "/api/v1/admin/course-package-versions") {
     requireCoursePackageAdmin(context);

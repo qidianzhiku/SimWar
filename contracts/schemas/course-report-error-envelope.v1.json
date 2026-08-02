@@ -13,7 +13,8 @@
         "COURSE_REPORT_INPUT_INVALID",
         "COURSE_REPORT_NOT_FOUND",
         "COURSE_REPORT_FORBIDDEN",
-        "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED"
+        "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED",
+        "COURSE_REPORT_PROVIDER_UNSUPPORTED"
       ]
     },
     "message": { "type": "string", "minLength": 1 },
