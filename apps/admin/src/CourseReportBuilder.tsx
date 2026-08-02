@@ -120,7 +120,7 @@ export function CourseReportBuilder(props: { sessionKey: string; token: string }
         <div><p className="eyebrow">Server-safe projection</p><h2>Course Report Builder</h2></div>
         <span>Admin BFF</span>
       </div>
-      <p className="lifecycle-boundary">Reports are read-only server projections. They never expose Student-private fields, internal digests, Truth, Settlement, Score, Rank, or Replay internals.</p>
+      <p className="lifecycle-boundary">Reports are read-only server projections. They never expose Student-private fields, internal digests, Truth, canonical Decision, or Replay internals.</p>
       <div className="course-report-filters">
         <label>Course<input aria-label="report course" value={form.course_id} onChange={(event) => change({ course_id: event.target.value })} /></label>
         <label>Run<input aria-label="report run" value={form.run_id} onChange={(event) => change({ run_id: event.target.value })} /></label>
