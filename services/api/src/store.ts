@@ -62,7 +62,7 @@ import type {
   PluginReleaseVersion
 } from "./plugin-release-authority.js";
 import { assertValidInstructorAsset, type InstructorAsset } from "./instructor-asset-registry.js";
-import { assertValidCoursePackageVersion } from "./course-package-json-registry.js";
+import { assertValidCoursePackageLifecycleSnapshots } from "./course-package-json-registry.js";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -144,7 +144,7 @@ export function persistCoursePackageLifecycleSnapshots(
   store: SimWarStore,
   snapshots: readonly CoursePackageVersion[]
 ): void {
-  snapshots.forEach(assertValidCoursePackageVersion);
+  assertValidCoursePackageLifecycleSnapshots(snapshots);
   const collection = store.coursePackageLifecycleSnapshots;
   const previous = structuredClone(collection);
   collection.splice(0, collection.length, ...structuredClone(snapshots));
@@ -744,7 +744,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   const instructorAssets = snapshot.instructorAssets ?? [];
   instructorAssets.forEach(assertValidInstructorAsset);
   const coursePackageLifecycleSnapshots = snapshot.coursePackageLifecycleSnapshots ?? [];
-  coursePackageLifecycleSnapshots.forEach(assertValidCoursePackageVersion);
+  assertValidCoursePackageLifecycleSnapshots(coursePackageLifecycleSnapshots);
 
   return {
     ...seed,
@@ -1606,9 +1606,9 @@ function assertSnapshotShape(
 
   if (Array.isArray(value.coursePackageLifecycleSnapshots)) {
     try {
-      for (const snapshot of value.coursePackageLifecycleSnapshots as CoursePackageVersion[]) {
-        assertValidCoursePackageVersion(snapshot);
-      }
+      assertValidCoursePackageLifecycleSnapshots(
+        value.coursePackageLifecycleSnapshots as CoursePackageVersion[]
+      );
     } catch (error) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath, error);
     }

@@ -19,6 +19,9 @@ interface OpenApiOperation {
 }
 
 interface OpenApiDocument {
+  components: {
+    schemas: Record<string, { properties?: Record<string, { $ref?: string }> }>;
+  };
   paths: Record<string, Record<string, OpenApiOperation>>;
 }
 
@@ -163,5 +166,18 @@ describe("CoursePackageVersion contract freeze", () => {
     }
 
     expect(openApi.paths["/api/v1/bff/student/course-package-versions"]).toBeUndefined();
+    expect(openApi.components.schemas.CoursePackageVersionReferenceInput).toMatchObject({
+      properties: {
+        course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" },
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
+      }
+    });
+    expect(openApi.components.schemas.CoursePackageExactVersion).toBeDefined();
+    expect(
+      openApi.paths["/api/v1/admin/course-package-versions/clone"]?.post?.responses?.["404"]
+    ).toBeDefined();
+    expect(
+      openApi.paths["/api/v1/bff/teacher/course-package-versions/clone"]?.post?.responses?.["404"]
+    ).toBeDefined();
   });
 });

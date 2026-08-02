@@ -56,15 +56,16 @@ function isDigest(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 }
 
-function isExactVersion(value: unknown): value is string {
+function isExactIdentity(value: unknown): value is string {
   return (
     nonBlank(value) &&
-    value !== "latest" &&
-    value !== "*" &&
-    !value.includes("^") &&
-    !value.includes("~") &&
-    !/(?:^|[._:-])[xX*](?:$|[._:-])/.test(value)
+    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) &&
+    !/(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(value)
   );
+}
+
+function isExactVersion(value: unknown): value is string {
+  return isExactIdentity(value) && !/(?:^|[._:-])[xX*](?:$|[._:-])/.test(value);
 }
 
 function sameReference(
@@ -83,8 +84,8 @@ function isCourseBlueprintReference(
   value: CoursePackageVersion["course_blueprint_reference"]
 ): boolean {
   return (
-    nonBlank(value.course_blueprint_id) &&
-    nonBlank(value.tenant_id) &&
+    isExactIdentity(value.course_blueprint_id) &&
+    isExactIdentity(value.tenant_id) &&
     isExactVersion(value.version) &&
     isDigest(value.content_digest)
   );
@@ -94,8 +95,8 @@ function isScenarioPackageReference(
   value: CoursePackageVersion["scenario_package_reference"]
 ): boolean {
   return (
-    nonBlank(value.scenario_package_id) &&
-    nonBlank(value.tenant_id) &&
+    isExactIdentity(value.scenario_package_id) &&
+    isExactIdentity(value.tenant_id) &&
     isExactVersion(value.version) &&
     isDigest(value.content_digest)
   );
@@ -103,7 +104,7 @@ function isScenarioPackageReference(
 
 function isParameterSetReference(value: CoursePackageVersion["parameter_set_reference"]): boolean {
   return (
-    nonBlank(value.parameter_set_id) &&
+    isExactIdentity(value.parameter_set_id) &&
     isExactVersion(value.version) &&
     isDigest(value.content_digest)
   );
@@ -142,9 +143,9 @@ export function createCoursePackageVersionReference(
 export function assertValidCoursePackageVersion(version: Readonly<CoursePackageVersion>): void {
   const expectedDigest = calculateCoursePackageContentDigest(version);
   if (
-    !nonBlank(version.course_package_id) ||
-    !nonBlank(version.tenant_id) ||
-    !nonBlank(version.created_by) ||
+    !isExactIdentity(version.course_package_id) ||
+    !isExactIdentity(version.tenant_id) ||
+    !isExactIdentity(version.created_by) ||
     !nonBlank(version.title) ||
     !nonBlank(version.description) ||
     !isExactVersion(version.version) ||
@@ -160,6 +161,38 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
     !isParameterSetReference(version.parameter_set_reference)
   ) {
     throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
+  }
+}
+
+export function assertValidCoursePackageLifecycleSnapshots(
+  snapshots: readonly CoursePackageVersion[]
+): void {
+  const expected: readonly CoursePackageVersionStatus[] = [
+    "DRAFT",
+    "VALIDATED",
+    "AVAILABLE",
+    "RETIRED"
+  ];
+  const histories = new Map<string, CoursePackageVersion[]>();
+  for (const snapshot of snapshots) {
+    assertValidCoursePackageVersion(snapshot);
+    const key = `${snapshot.tenant_id}:${snapshot.course_package_id}:${snapshot.version}`;
+    histories.set(key, [...(histories.get(key) ?? []), snapshot]);
+  }
+  for (const history of histories.values()) {
+    const first = history[0];
+    if (
+      !first ||
+      history.some(
+        (snapshot, index) =>
+          snapshot.status !== expected[index] ||
+          snapshot.content_digest !== first.content_digest ||
+          snapshot.created_at !== first.created_at ||
+          snapshot.created_by !== first.created_by
+      )
+    ) {
+      throw new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
   }
 }
 
@@ -201,7 +234,7 @@ export class CoursePackageJsonRegistry {
     dependencies: CoursePackageJsonRegistryDependencies = {},
     snapshots: readonly CoursePackageVersion[] = []
   ) {
-    snapshots.forEach(assertValidCoursePackageVersion);
+    assertValidCoursePackageLifecycleSnapshots(snapshots);
     this.now = dependencies.now ?? (() => new Date().toISOString());
     this.persist = dependencies.persist ?? (() => undefined);
     this.snapshots = snapshots.map((snapshot) => clone(snapshot));
@@ -212,27 +245,25 @@ export class CoursePackageJsonRegistry {
   }
 
   async append(snapshot: CoursePackageVersion): Promise<void> {
-    assertValidCoursePackageVersion(snapshot);
-    const history = this.history(snapshot.tenant_id, snapshot.course_package_id, snapshot.version);
-    const previous = history.at(-1);
-    if (previous) {
-      if (
-        previous.content_digest !== snapshot.content_digest ||
-        previous.created_at !== snapshot.created_at ||
-        previous.created_by !== snapshot.created_by ||
-        previous.status === snapshot.status
-      ) {
-        throw new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID");
-      }
-    } else if (snapshot.status !== "DRAFT") {
-      throw new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID");
-    }
+    this.replaceSnapshots([...this.snapshots, clone(snapshot)]);
+  }
 
-    this.snapshots.push(clone(snapshot));
+  captureAuditCheckpointForCompensation(): CoursePackageVersion[] {
+    return clone(this.snapshots);
+  }
+
+  restoreAuditCheckpointAfterFailure(checkpoint: readonly CoursePackageVersion[]): void {
+    this.replaceSnapshots(checkpoint);
+  }
+
+  private replaceSnapshots(next: readonly CoursePackageVersion[]): void {
+    assertValidCoursePackageLifecycleSnapshots(next);
+    const previous = clone(this.snapshots);
+    this.snapshots.splice(0, this.snapshots.length, ...clone(next));
     try {
       this.persist(clone(this.snapshots));
     } catch (error) {
-      this.snapshots.pop();
+      this.snapshots.splice(0, this.snapshots.length, ...previous);
       throw error;
     }
   }

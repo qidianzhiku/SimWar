@@ -11,7 +11,8 @@ import { CourseBlueprintCommandService } from "../../services/api/src/course-blu
 import { calculateCoursePackageContentDigest } from "../../services/api/src/course-package-json-registry";
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
 import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
-import { createApiServer } from "../../services/api/src/server";
+import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
+import { createApiServer, type CreateApiServerOptions } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 const VERSION = "1.0.0";
@@ -56,9 +57,11 @@ async function login(baseUrl: string, username: string, password: string): Promi
   return response.body.data;
 }
 
-async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+async function startServer(
+  configure?: (store: SimWarStore) => CreateApiServerOptions
+): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const store = createP1Store();
-  const server = createApiServer(store);
+  const server = createApiServer(store, configure?.(store));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -301,6 +304,39 @@ describe("CoursePackageVersion endpoints", () => {
       expect(JSON.stringify(teacherClone.body.data)).not.toContain("created_by");
       expect(
         (
+          await requestJson(`${baseUrl}${COURSE_PACKAGE_BASE}/clone`, {
+            body: {
+              course_package_id: "course_package_open_reference",
+              description: "Open references must be rejected.",
+              source_course_package_reference: { ...exactReference, version: "latest" },
+              title: "Rejected open reference",
+              version: VERSION
+            },
+            headers: adminHeaders,
+            method: "POST"
+          })
+        ).status
+      ).toBe(422);
+      expect(
+        (
+          await requestJson(`${baseUrl}${COURSE_PACKAGE_BASE}/clone`, {
+            body: {
+              course_package_id: "course_package_missing_source_clone",
+              description: "Absent exact source remains not found.",
+              source_course_package_reference: {
+                ...exactReference,
+                course_package_id: "course_package_missing_source"
+              },
+              title: "Missing exact source",
+              version: VERSION
+            },
+            headers: adminHeaders,
+            method: "POST"
+          })
+        ).status
+      ).toBe(404);
+      expect(
+        (
           await requestJson(`${baseUrl}/api/v1/bff/teacher/course-package-versions/clone`, {
             body: {
               course_package_id: "course_package_student_clone",
@@ -360,6 +396,56 @@ describe("CoursePackageVersion endpoints", () => {
         runs: store.runs,
         settlementResults: store.settlementResults
       }).toEqual(beforeProtectedRecords);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("compensates a failed audit append without leaving a partial package snapshot", async () => {
+    const { baseUrl, server, store } = await startServer((configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (auditLog.action.startsWith("course_package_version.")) {
+                  throw new Error("forced_course_package_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const references = await seedApprovedSources(store);
+      const admin = await login(baseUrl, "admin", "admin");
+      const response = await requestJson(`${baseUrl}${COURSE_PACKAGE_BASE}/drafts`, {
+        body: {
+          ...references,
+          course_package_id: "course_package_audit_failure",
+          description: "This package must roll back if auditing fails.",
+          title: "Audit rollback package",
+          version: VERSION
+        },
+        headers: {
+          authorization: `Bearer ${admin.access_token}`,
+          "content-type": "application/json",
+          "x-tenant-id": DEFAULT_TENANT_ID
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(500);
+      expect(store.coursePackageLifecycleSnapshots).toEqual([]);
+      expect(
+        store.auditLogs.filter((log) => log.action.startsWith("course_package_version."))
+      ).toEqual([]);
     } finally {
       await stopServer(server);
     }

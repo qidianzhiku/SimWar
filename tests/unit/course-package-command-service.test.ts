@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type {
   CoursePackageVersionDraftInput,
@@ -8,7 +11,13 @@ import {
   CoursePackageCommandService,
   type CoursePackageSourceReadPorts
 } from "../../services/api/src/course-package-command-service";
-import { CoursePackageJsonRegistry } from "../../services/api/src/course-package-json-registry";
+import {
+  CoursePackageJsonRegistry,
+  CoursePackageRegistryError,
+  createCoursePackageDraftVersion,
+  createCoursePackageLifecycleSnapshot
+} from "../../services/api/src/course-package-json-registry";
+import { createP1Store } from "../../services/api/src/store";
 
 const tenant_id = "tenant_demo";
 const digest = (character: string) => character.repeat(64);
@@ -139,6 +148,60 @@ describe("CoursePackageCommandService", () => {
     expect(
       await registry.listLifecycleSnapshots(tenant_id, draft.course_package_id, draft.version)
     ).toEqual([expect.objectContaining({ status: "DRAFT" })]);
+  });
+
+  it("rejects an open version at the command boundary with a stable input error", async () => {
+    const service = new CoursePackageCommandService(new CoursePackageJsonRegistry(), sourcePorts());
+
+    await expect(
+      service.createDraft(actor, {
+        ...draft,
+        version: "latest"
+      })
+    ).rejects.toEqual(new CoursePackageCommandError("COURSE_PACKAGE_INPUT_INVALID"));
+  });
+
+  it("rejects persisted lifecycle history that skips validation", () => {
+    const draftSnapshot = createCoursePackageDraftVersion({
+      actor_id: actor.actor_id,
+      draft,
+      now: "2026-08-02T03:20:00.000Z",
+      tenant_id
+    });
+
+    expect(
+      () =>
+        new CoursePackageJsonRegistry({}, [
+          draftSnapshot,
+          createCoursePackageLifecycleSnapshot(draftSnapshot, "AVAILABLE")
+        ])
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID"));
+  });
+
+  it("fails closed when a persisted JSON snapshot skips the package lifecycle", () => {
+    const directory = mkdtempSync(join(tmpdir(), "simwar-course-package-history-"));
+    const snapshotPath = join(directory, "store.json");
+    const draftSnapshot = createCoursePackageDraftVersion({
+      actor_id: actor.actor_id,
+      draft,
+      now: "2026-08-02T03:20:00.000Z",
+      tenant_id
+    });
+    try {
+      createP1Store({ persistenceFile: snapshotPath });
+      const snapshot = JSON.parse(readFileSync(snapshotPath, "utf8")) as Record<string, unknown>;
+      snapshot.coursePackageLifecycleSnapshots = [
+        draftSnapshot,
+        createCoursePackageLifecycleSnapshot(draftSnapshot, "AVAILABLE")
+      ];
+      writeFileSync(snapshotPath, JSON.stringify(snapshot), "utf8");
+
+      expect(() => createP1Store({ persistenceFile: snapshotPath })).toThrow(
+        "store_snapshot_corrupted"
+      );
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it("exports only an exact AVAILABLE package and clones it into an independent DRAFT", async () => {

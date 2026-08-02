@@ -91,6 +91,14 @@ export class CoursePackageCommandService {
     private readonly sources: CoursePackageSourceReadPorts
   ) {}
 
+  captureAuditCheckpointForCompensation(): CoursePackageVersion[] {
+    return this.registry.captureAuditCheckpointForCompensation();
+  }
+
+  restoreAuditCheckpointAfterFailure(checkpoint: readonly CoursePackageVersion[]): void {
+    this.registry.restoreAuditCheckpointAfterFailure(checkpoint);
+  }
+
   async createDraft(
     actor: CoursePackageCommandActor,
     draft: CoursePackageVersionDraftInput
@@ -103,18 +111,18 @@ export class CoursePackageCommandService {
     ) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_TENANT_SCOPE_VIOLATION");
     }
-    const version = createCoursePackageDraftVersion({
-      actor_id: actor.actor_id,
-      draft,
-      now: this.registry.currentTime(),
-      tenant_id: actor.tenant_id
-    });
     try {
+      const version = createCoursePackageDraftVersion({
+        actor_id: actor.actor_id,
+        draft,
+        now: this.registry.currentTime(),
+        tenant_id: actor.tenant_id
+      });
       await this.registry.append(version);
+      return version;
     } catch (error) {
       this.mapRegistryError(error, "COURSE_PACKAGE_DUPLICATE_VERSION");
     }
-    return version;
   }
 
   async validate(

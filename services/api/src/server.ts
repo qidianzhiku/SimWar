@@ -3046,6 +3046,31 @@ function requireCoursePackageText(value: unknown): string {
   return value;
 }
 
+function requireCoursePackageExactIdentity(value: unknown): string {
+  const text = requireCoursePackageText(value);
+  if (
+    !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(text) ||
+    /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(text)
+  ) {
+    throw coursePackageRequestError();
+  }
+  return text;
+}
+
+function requireCoursePackageExactVersion(value: unknown): string {
+  const version = requireCoursePackageExactIdentity(value);
+  if (/(?:^|[._:-])[xX*](?:$|[._:-])/.test(version)) {
+    throw coursePackageRequestError();
+  }
+  return version;
+}
+
+function requireCoursePackageDigest(value: unknown): string {
+  const digest = requireCoursePackageText(value);
+  if (!/^[a-f0-9]{64}$/.test(digest)) throw coursePackageRequestError();
+  return digest;
+}
+
 function requireCoursePackageAdmin(context: RequestContext): CurrentUser {
   const actor = requirePermission(context, "course:read");
   if (!actorHasAnyRole(actor, ["platform_admin", "tenant_admin"])) {
@@ -3076,12 +3101,14 @@ function parseCoursePackageCourseBlueprintReference(
     "tenant_id",
     "version"
   ]);
-  if (requireCoursePackageText(value.tenant_id) !== tenantId) throw coursePackageRequestError();
+  if (requireCoursePackageExactIdentity(value.tenant_id) !== tenantId) {
+    throw coursePackageRequestError();
+  }
   return {
-    content_digest: requireCoursePackageText(value.content_digest),
-    course_blueprint_id: requireCoursePackageText(value.course_blueprint_id),
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    course_blueprint_id: requireCoursePackageExactIdentity(value.course_blueprint_id),
     tenant_id: tenantId,
-    version: requireCoursePackageText(value.version)
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3096,12 +3123,14 @@ function parseCoursePackageScenarioPackageReference(
     "tenant_id",
     "version"
   ]);
-  if (requireCoursePackageText(value.tenant_id) !== tenantId) throw coursePackageRequestError();
+  if (requireCoursePackageExactIdentity(value.tenant_id) !== tenantId) {
+    throw coursePackageRequestError();
+  }
   return {
-    content_digest: requireCoursePackageText(value.content_digest),
-    scenario_package_id: requireCoursePackageText(value.scenario_package_id),
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    scenario_package_id: requireCoursePackageExactIdentity(value.scenario_package_id),
     tenant_id: tenantId,
-    version: requireCoursePackageText(value.version)
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3111,9 +3140,9 @@ function parseCoursePackageParameterSetReference(
   if (!isRecord(value)) throw coursePackageRequestError();
   assertOnlyCoursePackageFields(value, ["content_digest", "parameter_set_id", "version"]);
   return {
-    content_digest: requireCoursePackageText(value.content_digest),
-    parameter_set_id: requireCoursePackageText(value.parameter_set_id),
-    version: requireCoursePackageText(value.version)
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    parameter_set_id: requireCoursePackageExactIdentity(value.parameter_set_id),
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3133,7 +3162,7 @@ function parseCoursePackageDraft(value: unknown, tenantId: string): CoursePackag
       value.course_blueprint_reference,
       tenantId
     ),
-    course_package_id: requireCoursePackageText(value.course_package_id),
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
     description: requireCoursePackageText(value.description),
     parameter_set_reference: parseCoursePackageParameterSetReference(value.parameter_set_reference),
     scenario_package_reference: parseCoursePackageScenarioPackageReference(
@@ -3141,7 +3170,7 @@ function parseCoursePackageDraft(value: unknown, tenantId: string): CoursePackag
       tenantId
     ),
     title: requireCoursePackageText(value.title),
-    version: requireCoursePackageText(value.version)
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3152,10 +3181,10 @@ function parseCoursePackageVersionReference(
   if (!isRecord(value)) throw coursePackageRequestError();
   assertOnlyCoursePackageFields(value, ["content_digest", "course_package_id", "version"]);
   return {
-    content_digest: requireCoursePackageText(value.content_digest),
-    course_package_id: requireCoursePackageText(value.course_package_id),
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
     tenant_id: tenantId,
-    version: requireCoursePackageText(value.version)
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3172,14 +3201,14 @@ function parseCoursePackageCloneInput(
     "version"
   ]);
   return {
-    course_package_id: requireCoursePackageText(value.course_package_id),
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
     description: requireCoursePackageText(value.description),
     source_course_package_reference: parseCoursePackageVersionReference(
       value.source_course_package_reference,
       tenantId
     ),
     title: requireCoursePackageText(value.title),
-    version: requireCoursePackageText(value.version)
+    version: requireCoursePackageExactVersion(value.version)
   };
 }
 
@@ -3201,7 +3230,7 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
     "version"
   ]);
   if (
-    requireCoursePackageText(value.tenant_id) !== tenantId ||
+    requireCoursePackageExactIdentity(value.tenant_id) !== tenantId ||
     requireCoursePackageText(value.schema_version) !== "course-package-version.v1" ||
     !["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"].includes(requireCoursePackageText(value.status))
   ) {
@@ -3221,9 +3250,9 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
   );
   return {
     ...draft,
-    content_digest: requireCoursePackageText(value.content_digest),
+    content_digest: requireCoursePackageDigest(value.content_digest),
     created_at: requireCoursePackageText(value.created_at),
-    created_by: requireCoursePackageText(value.created_by),
+    created_by: requireCoursePackageExactIdentity(value.created_by),
     schema_version: "course-package-version.v1",
     status: value.status as CoursePackageVersion["status"],
     tenant_id: tenantId
@@ -3272,6 +3301,30 @@ async function executeCoursePackageCommand<T>(command: () => Promise<T>): Promis
   } catch (error) {
     throw coursePackageCommandHttpError(error);
   }
+}
+
+async function executeAuditedCoursePackageCommand<T>(
+  runtime: ApiRuntime,
+  command: () => Promise<T>,
+  audit: (result: T) => Parameters<typeof appendAudit>[1]
+): Promise<T> {
+  const checkpoint = runtime.coursePackageCommands.captureAuditCheckpointForCompensation();
+  const result = await executeCoursePackageCommand(command);
+  try {
+    await appendAudit(runtime, audit(result));
+  } catch (error) {
+    try {
+      runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
+    } catch (compensationError) {
+      throw new HttpError(
+        500,
+        "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
+        `course package audit compensation failed: ${String(compensationError)}`
+      );
+    }
+    throw error;
+  }
+  return result;
 }
 
 function assertOnlyInstructorAssetFields(
@@ -3462,18 +3515,19 @@ async function routeRequest(
       await readJson<Record<string, unknown>>(request, { requiredObject: true }),
       context.tenantId
     );
-    const created = await executeCoursePackageCommand(() =>
-      runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input)
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.teacher_clone",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "course_package_version.teacher_clone",
-      after: clonePublic(created),
-      requestId: context.requestId,
-      resourceId: `${created.course_package_id}:${created.version}`,
-      resourceType: "course_package_version",
-      tenantId: context.tenantId
-    });
     sendJson(response, 201, createEnvelope(context, toTeacherCoursePackageVersionDto(created)));
     return;
   }
@@ -3487,18 +3541,20 @@ async function routeRequest(
       await readJson<Record<string, unknown>>(request, { requiredObject: true }),
       context.tenantId
     );
-    const created = await executeCoursePackageCommand(() =>
-      runtime.coursePackageCommands.createDraft(coursePackageCommandActor(context, actor), draft)
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () =>
+        runtime.coursePackageCommands.createDraft(coursePackageCommandActor(context, actor), draft),
+      (result) => ({
+        actor,
+        action: "course_package_version.draft_create",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "course_package_version.draft_create",
-      after: clonePublic(created),
-      requestId: context.requestId,
-      resourceId: `${created.course_package_id}:${created.version}`,
-      resourceType: "course_package_version",
-      tenantId: context.tenantId
-    });
     sendJson(response, 201, createEnvelope(context, created));
     return;
   }
@@ -3509,18 +3565,19 @@ async function routeRequest(
       await readJson<Record<string, unknown>>(request, { requiredObject: true }),
       context.tenantId
     );
-    const created = await executeCoursePackageCommand(() =>
-      runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input)
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.clone",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "course_package_version.clone",
-      after: clonePublic(created),
-      requestId: context.requestId,
-      resourceId: `${created.course_package_id}:${created.version}`,
-      resourceType: "course_package_version",
-      tenantId: context.tenantId
-    });
     sendJson(response, 201, createEnvelope(context, created));
     return;
   }
@@ -3534,18 +3591,19 @@ async function routeRequest(
       await readJson<Record<string, unknown>>(request, { requiredObject: true }),
       context.tenantId
     );
-    const created = await executeCoursePackageCommand(() =>
-      runtime.coursePackageCommands.import(coursePackageCommandActor(context, actor), input)
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.import(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.import",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "course_package_version.import",
-      after: clonePublic(created),
-      requestId: context.requestId,
-      resourceId: `${created.course_package_id}:${created.version}`,
-      resourceType: "course_package_version",
-      tenantId: context.tenantId
-    });
     sendJson(response, 201, createEnvelope(context, created));
     return;
   }
@@ -3570,27 +3628,30 @@ async function routeRequest(
       throw coursePackageRequestError();
     }
     const commandActor = coursePackageCommandActor(context, actor);
-    const transitioned = await executeCoursePackageCommand(() => {
-      switch (action) {
-        case "validate":
-          return runtime.coursePackageCommands.validate(commandActor, reference);
-        case "make-available":
-          return runtime.coursePackageCommands.makeAvailable(commandActor, reference);
-        case "retire":
-          return runtime.coursePackageCommands.retire(commandActor, reference);
-        default:
-          throw coursePackageRequestError();
-      }
-    });
-    await appendAudit(runtime, {
-      actor,
-      action: `course_package_version.${action}`,
-      after: clonePublic(transitioned),
-      requestId: context.requestId,
-      resourceId: `${transitioned.course_package_id}:${transitioned.version}`,
-      resourceType: "course_package_version",
-      tenantId: context.tenantId
-    });
+    const transitioned = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => {
+        switch (action) {
+          case "validate":
+            return runtime.coursePackageCommands.validate(commandActor, reference);
+          case "make-available":
+            return runtime.coursePackageCommands.makeAvailable(commandActor, reference);
+          case "retire":
+            return runtime.coursePackageCommands.retire(commandActor, reference);
+          default:
+            throw coursePackageRequestError();
+        }
+      },
+      (result) => ({
+        actor,
+        action: `course_package_version.${action}`,
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
     sendJson(response, 200, createEnvelope(context, transitioned));
     return;
   }
@@ -3610,10 +3671,10 @@ async function routeRequest(
     }
     const exported = await executeCoursePackageCommand(() =>
       runtime.coursePackageCommands.export(coursePackageCommandActor(context, actor), {
-        content_digest: requireCoursePackageText(url.searchParams.get("content_digest")),
-        course_package_id: requireCoursePackageText(coursePackageExport[1]),
+        content_digest: requireCoursePackageDigest(url.searchParams.get("content_digest")),
+        course_package_id: requireCoursePackageExactIdentity(coursePackageExport[1]),
         tenant_id: context.tenantId,
-        version: requireCoursePackageText(coursePackageExport[2])
+        version: requireCoursePackageExactVersion(coursePackageExport[2])
       })
     );
     sendJson(response, 200, createEnvelope(context, exported));

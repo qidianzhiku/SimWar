@@ -100,6 +100,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
         "403": { description: "Admin or tenant scope denied" }
+        "404": { description: "Exact AVAILABLE source package not found" }
         "409": { description: "Target exact package version already exists" }
         "422": { description: "Source is not an exact AVAILABLE package" }
   /api/v1/admin/course-package-versions/import:
@@ -134,11 +135,11 @@ paths:
         - name: coursePackageId
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         - name: version
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
       requestBody:
         required: true
         content:
@@ -153,6 +154,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
         "403": { description: "Admin or tenant scope denied" }
+        "404": { description: "Exact package version not found" }
         "409": { description: "Illegal package lifecycle transition" }
         "422": { description: "Dependency is unavailable or incompatible" }
   /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/make-available:
@@ -165,11 +167,11 @@ paths:
         - name: coursePackageId
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         - name: version
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
       requestBody:
         required: true
         content:
@@ -184,6 +186,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
         "403": { description: "Admin or tenant scope denied" }
+        "404": { description: "Exact package version not found" }
         "409": { description: "Illegal package lifecycle transition" }
         "422": { description: "Dependency is unavailable or incompatible" }
   /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/retire:
@@ -196,11 +199,11 @@ paths:
         - name: coursePackageId
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         - name: version
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
       requestBody:
         required: true
         content:
@@ -215,6 +218,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoursePackageVersionAdminEnvelope"
         "403": { description: "Admin or tenant scope denied" }
+        "404": { description: "Exact package version not found" }
         "409": { description: "Illegal package lifecycle transition" }
   /api/v1/admin/course-package-versions/{coursePackageId}/versions/{version}/export:
     get:
@@ -226,11 +230,11 @@ paths:
         - name: coursePackageId
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         - name: version
           in: path
           required: true
-          schema: { type: string, minLength: 1 }
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
         - name: content_digest
           in: query
           required: true
@@ -1563,6 +1567,7 @@ paths:
                 $ref: "#/components/schemas/CoursePackageVersionTeacherEnvelope"
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority or tenant scope denied" }
+        "404": { description: "Exact AVAILABLE source package not found" }
         "409": { description: "Target exact package version already exists" }
         "422": { description: "Source is not an exact AVAILABLE package" }
   /api/v1/bff/teacher/instructor-assets:
@@ -2803,40 +2808,53 @@ components:
           type: string
     CoursePackageVersion:
       $ref: "../schemas/course-package-version.v1.json"
+    CoursePackageExactIdentity:
+      type: string
+      minLength: 1
+      pattern: "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+      not:
+        type: string
+        pattern: "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+    CoursePackageExactVersion:
+      allOf:
+        - $ref: "#/components/schemas/CoursePackageExactIdentity"
+        - not:
+            type: string
+            pattern: "(?:^|[._:-])(?:[Xx]|\\*)(?:$|[._:-])"
     CoursePackageVersionReferenceInput:
       type: object
       additionalProperties: false
       required: [content_digest, course_package_id, version]
       properties:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-        course_package_id: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageCourseBlueprintReference:
       type: object
       additionalProperties: false
       required: [content_digest, course_blueprint_id, tenant_id, version]
       properties:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-        course_blueprint_id: { type: string, minLength: 1 }
-        tenant_id: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        course_blueprint_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        tenant_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageScenarioPackageReference:
       type: object
       additionalProperties: false
       required: [content_digest, scenario_package_id, tenant_id, version]
       properties:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-        scenario_package_id: { type: string, minLength: 1 }
-        tenant_id: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        scenario_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        tenant_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageParameterSetReference:
       type: object
       additionalProperties: false
       required: [content_digest, parameter_set_id, version]
       properties:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-        parameter_set_id: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        parameter_set_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageVersionDraftInput:
       type: object
       additionalProperties: false
@@ -2853,25 +2871,25 @@ components:
       properties:
         course_blueprint_reference:
           $ref: "#/components/schemas/CoursePackageCourseBlueprintReference"
-        course_package_id: { type: string, minLength: 1 }
+        course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         description: { type: string, minLength: 1 }
         parameter_set_reference:
           $ref: "#/components/schemas/CoursePackageParameterSetReference"
         scenario_package_reference:
           $ref: "#/components/schemas/CoursePackageScenarioPackageReference"
         title: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageVersionCloneInput:
       type: object
       additionalProperties: false
       required: [course_package_id, description, source_course_package_reference, title, version]
       properties:
-        course_package_id: { type: string, minLength: 1 }
+        course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
         description: { type: string, minLength: 1 }
         source_course_package_reference:
           $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
         title: { type: string, minLength: 1 }
-        version: { type: string, minLength: 1 }
+        version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
     CoursePackageVersionImportInput:
       type: object
       additionalProperties: false
@@ -2900,9 +2918,9 @@ components:
           required: [content_digest, course_package_id, tenant_id, version]
           properties:
             content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-            course_package_id: { type: string, minLength: 1 }
-            tenant_id: { type: string, minLength: 1 }
-            version: { type: string, minLength: 1 }
+            course_package_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+            tenant_id: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+            version: { $ref: "#/components/schemas/CoursePackageExactVersion" }
         description: { type: string, minLength: 1 }
         parameter_set_reference:
           $ref: "#/components/schemas/CoursePackageParameterSetReference"
