@@ -127,6 +127,80 @@ function expectCourseReportError(
   });
 }
 
+type CourseReportMatrixActor = "admin" | "student" | "teacher" | null;
+
+interface CourseReportFailureCase {
+  actor: CourseReportMatrixActor;
+  code: string;
+  path: string;
+  route: string;
+  status: number;
+}
+
+const courseReportFailureCases: CourseReportFailureCase[] = [
+  {
+    authorizedActor: "admin",
+    missingPath: "/api/v1/bff/admin/course-reports?course_id=course_missing",
+    path: "/api/v1/bff/admin/course-reports?course_id=course_demo",
+    route: "Admin query",
+    validationCode: "COURSE_REPORT_INPUT_INVALID",
+    validationPath: "/api/v1/bff/admin/course-reports?course_id=course_demo&kpi=profit"
+  },
+  {
+    authorizedActor: "admin",
+    missingPath: "/api/v1/bff/admin/course-reports/export?course_id=course_missing&format=json",
+    path: "/api/v1/bff/admin/course-reports/export?course_id=course_demo&format=json",
+    route: "Admin export",
+    validationCode: "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED",
+    validationPath: "/api/v1/bff/admin/course-reports/export?course_id=course_demo&format=xlsx"
+  },
+  {
+    authorizedActor: "teacher",
+    missingPath: "/api/v1/bff/teacher/course-reports?course_id=course_missing",
+    path: "/api/v1/bff/teacher/course-reports?course_id=course_demo",
+    route: "Teacher query",
+    validationCode: "COURSE_REPORT_INPUT_INVALID",
+    validationPath: "/api/v1/bff/teacher/course-reports?course_id=course_demo&kpi=profit"
+  },
+  {
+    authorizedActor: "teacher",
+    missingPath: "/api/v1/bff/teacher/course-reports/export?course_id=course_missing&format=json",
+    path: "/api/v1/bff/teacher/course-reports/export?course_id=course_demo&format=json",
+    route: "Teacher export",
+    validationCode: "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED",
+    validationPath: "/api/v1/bff/teacher/course-reports/export?course_id=course_demo&format=xlsx"
+  }
+].flatMap(({ authorizedActor, missingPath, path, route, validationCode, validationPath }) => [
+  {
+    actor: null,
+    code: "COURSE_REPORT_AUTHENTICATION_REQUIRED",
+    path,
+    route,
+    status: 401
+  },
+  {
+    actor: "student",
+    code: "COURSE_REPORT_FORBIDDEN",
+    path,
+    route,
+    status: 403
+  },
+  {
+    actor: authorizedActor,
+    code: "COURSE_REPORT_NOT_FOUND",
+    path: missingPath,
+    route,
+    status: 404
+  },
+  {
+    actor: authorizedActor,
+    code: validationCode,
+    path: validationPath,
+    route,
+    status: 422
+  }
+]);
+
 describe("Course Report Builder BFF endpoints", () => {
   it("serves the same tenant-scoped safe report to Teacher and Admin without writes", async () => {
     const { baseUrl, server, store } = await startServer();
@@ -352,4 +426,19 @@ describe("Course Report Builder BFF endpoints", () => {
       await stopServer(server);
     }
   });
+
+  it.each(courseReportFailureCases)(
+    "returns structured $status $code for $route",
+    async ({ actor, code, path, status }) => {
+      const { baseUrl, server } = await startServer();
+      try {
+        const token = actor ? (await login(baseUrl, actor)).access_token : undefined;
+        const response = await request<ApiErrorEnvelope>(baseUrl, path, token);
+
+        expectCourseReportError(response, status, code);
+      } finally {
+        await stopServer(server);
+      }
+    }
+  );
 });
