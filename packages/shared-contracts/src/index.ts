@@ -1583,3 +1583,4 @@ export * from "./formal-run-runtime-binding.js";
 export * from "./a5-compatibility.js";
 export * from "./instructor-intelligence.js";
 export * from "./plugin-release-authority.js";
+export * from "./course-package-version.js";

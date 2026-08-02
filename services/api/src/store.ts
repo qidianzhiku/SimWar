@@ -38,6 +38,7 @@ import type {
   UserRole,
   RoleWorkflowEvent
 } from "@simwar/shared-contracts";
+import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import { ROLE_PERMISSION_MATRIX, getRolePermissions } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
@@ -61,6 +62,7 @@ import type {
   PluginReleaseVersion
 } from "./plugin-release-authority.js";
 import { assertValidInstructorAsset, type InstructorAsset } from "./instructor-asset-registry.js";
+import { assertValidCoursePackageLifecycleSnapshots } from "./course-package-json-registry.js";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -102,6 +104,7 @@ export interface SimWarStoreSnapshot {
   teamConfirmations: TeamConfirmation[];
   roleWorkflowEvents: RoleWorkflowEvent[];
   instructorAssets: readonly Readonly<InstructorAsset>[];
+  coursePackageLifecycleSnapshots: CoursePackageVersion[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -123,6 +126,28 @@ export function persistInstructorAssetCollection(
   const collection = store.instructorAssets as InstructorAsset[];
   const previous = structuredClone(collection);
   collection.splice(0, collection.length, ...structuredClone(assets));
+  try {
+    store.persist();
+  } catch (error) {
+    collection.splice(0, collection.length, ...previous);
+    throw error;
+  }
+}
+
+/** Returns a copy so only the C5 JSON registry can mutate package lifecycle snapshots. */
+export function readCoursePackageLifecycleSnapshots(store: SimWarStore): CoursePackageVersion[] {
+  return structuredClone(store.coursePackageLifecycleSnapshots);
+}
+
+/** Replaces the C5 package snapshot collection from the registry's private copy. */
+export function persistCoursePackageLifecycleSnapshots(
+  store: SimWarStore,
+  snapshots: readonly CoursePackageVersion[]
+): void {
+  assertValidCoursePackageLifecycleSnapshots(snapshots);
+  const collection = store.coursePackageLifecycleSnapshots;
+  const previous = structuredClone(collection);
+  collection.splice(0, collection.length, ...structuredClone(snapshots));
   try {
     store.persist();
   } catch (error) {
@@ -650,6 +675,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     teamConfirmations: [],
     roleWorkflowEvents: [],
     instructorAssets: [],
+    coursePackageLifecycleSnapshots: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -701,6 +727,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     teamConfirmations: store.teamConfirmations,
     roleWorkflowEvents: store.roleWorkflowEvents,
     instructorAssets: store.instructorAssets,
+    coursePackageLifecycleSnapshots: store.coursePackageLifecycleSnapshots,
     counters: store.counters
   };
 }
@@ -716,6 +743,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   const seed = createSeedSnapshot();
   const instructorAssets = snapshot.instructorAssets ?? [];
   instructorAssets.forEach(assertValidInstructorAsset);
+  const coursePackageLifecycleSnapshots = snapshot.coursePackageLifecycleSnapshots ?? [];
+  assertValidCoursePackageLifecycleSnapshots(coursePackageLifecycleSnapshots);
 
   return {
     ...seed,
@@ -745,6 +774,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     teamConfirmations: snapshot.teamConfirmations ?? [],
     roleWorkflowEvents: snapshot.roleWorkflowEvents ?? [],
     instructorAssets,
+    coursePackageLifecycleSnapshots,
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }
@@ -1566,10 +1596,21 @@ function assertSnapshotShape(
   for (const field of [
     "courseBlueprintBindings",
     "formalCourseBlueprintApprovalRecords",
-    "formalCourseBlueprintLifecycleSnapshots"
+    "formalCourseBlueprintLifecycleSnapshots",
+    "coursePackageLifecycleSnapshots"
   ] as const) {
     if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
+    }
+  }
+
+  if (Array.isArray(value.coursePackageLifecycleSnapshots)) {
+    try {
+      assertValidCoursePackageLifecycleSnapshots(
+        value.coursePackageLifecycleSnapshots as CoursePackageVersion[]
+      );
+    } catch (error) {
+      throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath, error);
     }
   }
 

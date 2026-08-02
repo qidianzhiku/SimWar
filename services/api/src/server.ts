@@ -8,6 +8,11 @@ import type {
   AuditLog,
   AuthSession,
   CurrentUser,
+  CoursePackageVersion,
+  CoursePackageVersionCloneInput,
+  CoursePackageVersionDraftInput,
+  CoursePackageVersionImportInput,
+  CoursePackageVersionReference,
   Decision,
   ExactRef,
   DecisionPayload,
@@ -76,6 +81,15 @@ import {
 } from "./formal-course-authority-binding.js";
 import { FormalCourseAuthorityBindingStore } from "./formal-course-authority-binding-store.js";
 import { CourseBlueprintBindingStore } from "./course-blueprint-binding-store.js";
+import {
+  CoursePackageCommandError,
+  CoursePackageCommandService
+} from "./course-package-command-service.js";
+import { CoursePackageJsonRegistry } from "./course-package-json-registry.js";
+import {
+  CoursePackageQueryService,
+  toTeacherCoursePackageVersionDto
+} from "./course-package-query-service.js";
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
@@ -154,7 +168,9 @@ import {
   actorHasAnyRole,
   createP1Store,
   captureInstructorAssetAuditCheckpoint,
+  readCoursePackageLifecycleSnapshots,
   readInstructorAssetCollection,
+  persistCoursePackageLifecycleSnapshots,
   persistInstructorAssetCollection,
   restoreInstructorAssetAuditCheckpoint,
   getActorFromUser,
@@ -189,6 +205,8 @@ interface ApiRuntime {
   courseBlueprintBindingStore: CourseBlueprintBindingStore;
   formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingStore;
   formalCourseBlueprints: CourseBlueprintCommandService;
+  coursePackageCommands: CoursePackageCommandService;
+  coursePackageQueries: CoursePackageQueryService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -322,13 +340,27 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const formalScenarioPackageCatalog =
     options.formalScenarioPackageCatalog ?? formalAuthorityRuntime.catalog;
   const repositoryProvider = createRuntimeRepositoryProvider(store, options);
+  const formalCourseBlueprints = new CourseBlueprintCommandService(
+    formalAuthorityPersistence.createCourseBlueprintRegistry()
+  );
+  const coursePackageRegistry = new CoursePackageJsonRegistry(
+    {
+      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots)
+    },
+    readCoursePackageLifecycleSnapshots(store)
+  );
+  const coursePackageCommands = new CoursePackageCommandService(coursePackageRegistry, {
+    courseBlueprints: formalCourseBlueprints,
+    parameterSets: formalAuthorityRuntime.parameterSets,
+    scenarioPackages: formalAuthorityRuntime.scenarioPackages
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
     formalCourseAuthorityBindingStore: new FormalCourseAuthorityBindingStore(store),
-    formalCourseBlueprints: new CourseBlueprintCommandService(
-      formalAuthorityPersistence.createCourseBlueprintRegistry()
-    ),
+    formalCourseBlueprints,
+    coursePackageCommands,
+    coursePackageQueries: new CoursePackageQueryService(coursePackageRegistry),
     formalParameterSets: formalAuthorityRuntime.parameterSets,
     formalPluginReleases: formalAuthorityRuntime.pluginReleases,
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
@@ -2989,6 +3021,312 @@ function requireInstructorAssetTeacher(context: RequestContext): CurrentUser {
   return actor;
 }
 
+function coursePackageRequestError(): HttpError {
+  return new HttpError(
+    422,
+    "COURSE_PACKAGE_INPUT_INVALID",
+    "course package version request is invalid"
+  );
+}
+
+function assertOnlyCoursePackageFields(
+  value: Record<string, unknown>,
+  expected: readonly string[]
+): void {
+  const keys = Object.keys(value);
+  if (keys.length !== expected.length || keys.some((key) => !expected.includes(key))) {
+    throw coursePackageRequestError();
+  }
+}
+
+function requireCoursePackageText(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+    throw coursePackageRequestError();
+  }
+  return value;
+}
+
+function requireCoursePackageExactIdentity(value: unknown): string {
+  const text = requireCoursePackageText(value);
+  if (
+    !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(text) ||
+    /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(text)
+  ) {
+    throw coursePackageRequestError();
+  }
+  return text;
+}
+
+function requireCoursePackageExactVersion(value: unknown): string {
+  const version = requireCoursePackageExactIdentity(value);
+  if (/(?:^|[._:-])[xX*](?:$|[._:-])/.test(version)) {
+    throw coursePackageRequestError();
+  }
+  return version;
+}
+
+function requireCoursePackageDigest(value: unknown): string {
+  const digest = requireCoursePackageText(value);
+  if (!/^[a-f0-9]{64}$/.test(digest)) throw coursePackageRequestError();
+  return digest;
+}
+
+function requireCoursePackageAdmin(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["platform_admin", "tenant_admin"])) {
+    throw new HttpError(403, "COURSE_PACKAGE_FORBIDDEN", "course package authority required");
+  }
+  if (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"])) {
+    throw new HttpError(403, "COURSE_PACKAGE_FORBIDDEN", "course package tenant scope required");
+  }
+  return actor;
+}
+
+function requireCoursePackageTeacher(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "COURSE_PACKAGE_FORBIDDEN", "teacher authority required");
+  }
+  return actor;
+}
+
+function parseCoursePackageCourseBlueprintReference(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersion["course_blueprint_reference"] {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, [
+    "content_digest",
+    "course_blueprint_id",
+    "tenant_id",
+    "version"
+  ]);
+  if (requireCoursePackageExactIdentity(value.tenant_id) !== tenantId) {
+    throw coursePackageRequestError();
+  }
+  return {
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    course_blueprint_id: requireCoursePackageExactIdentity(value.course_blueprint_id),
+    tenant_id: tenantId,
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageScenarioPackageReference(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersion["scenario_package_reference"] {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, [
+    "content_digest",
+    "scenario_package_id",
+    "tenant_id",
+    "version"
+  ]);
+  if (requireCoursePackageExactIdentity(value.tenant_id) !== tenantId) {
+    throw coursePackageRequestError();
+  }
+  return {
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    scenario_package_id: requireCoursePackageExactIdentity(value.scenario_package_id),
+    tenant_id: tenantId,
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageParameterSetReference(
+  value: unknown
+): CoursePackageVersion["parameter_set_reference"] {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, ["content_digest", "parameter_set_id", "version"]);
+  return {
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    parameter_set_id: requireCoursePackageExactIdentity(value.parameter_set_id),
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageDraft(value: unknown, tenantId: string): CoursePackageVersionDraftInput {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, [
+    "course_blueprint_reference",
+    "course_package_id",
+    "description",
+    "parameter_set_reference",
+    "scenario_package_reference",
+    "title",
+    "version"
+  ]);
+  return {
+    course_blueprint_reference: parseCoursePackageCourseBlueprintReference(
+      value.course_blueprint_reference,
+      tenantId
+    ),
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
+    description: requireCoursePackageText(value.description),
+    parameter_set_reference: parseCoursePackageParameterSetReference(value.parameter_set_reference),
+    scenario_package_reference: parseCoursePackageScenarioPackageReference(
+      value.scenario_package_reference,
+      tenantId
+    ),
+    title: requireCoursePackageText(value.title),
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageVersionReference(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionReference {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, ["content_digest", "course_package_id", "version"]);
+  return {
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
+    tenant_id: tenantId,
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageCloneInput(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionCloneInput {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, [
+    "course_package_id",
+    "description",
+    "source_course_package_reference",
+    "title",
+    "version"
+  ]);
+  return {
+    course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
+    description: requireCoursePackageText(value.description),
+    source_course_package_reference: parseCoursePackageVersionReference(
+      value.source_course_package_reference,
+      tenantId
+    ),
+    title: requireCoursePackageText(value.title),
+    version: requireCoursePackageExactVersion(value.version)
+  };
+}
+
+function parseCoursePackageImportedVersion(value: unknown, tenantId: string): CoursePackageVersion {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, [
+    "content_digest",
+    "course_blueprint_reference",
+    "course_package_id",
+    "created_at",
+    "created_by",
+    "description",
+    "parameter_set_reference",
+    "scenario_package_reference",
+    "schema_version",
+    "status",
+    "tenant_id",
+    "title",
+    "version"
+  ]);
+  if (
+    requireCoursePackageExactIdentity(value.tenant_id) !== tenantId ||
+    requireCoursePackageText(value.schema_version) !== "course-package-version.v1" ||
+    !["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"].includes(requireCoursePackageText(value.status))
+  ) {
+    throw coursePackageRequestError();
+  }
+  const draft = parseCoursePackageDraft(
+    {
+      course_blueprint_reference: value.course_blueprint_reference,
+      course_package_id: value.course_package_id,
+      description: value.description,
+      parameter_set_reference: value.parameter_set_reference,
+      scenario_package_reference: value.scenario_package_reference,
+      title: value.title,
+      version: value.version
+    },
+    tenantId
+  );
+  return {
+    ...draft,
+    content_digest: requireCoursePackageDigest(value.content_digest),
+    created_at: requireCoursePackageText(value.created_at),
+    created_by: requireCoursePackageExactIdentity(value.created_by),
+    schema_version: "course-package-version.v1",
+    status: value.status as CoursePackageVersion["status"],
+    tenant_id: tenantId
+  };
+}
+
+function parseCoursePackageImportInput(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionImportInput {
+  if (!isRecord(value)) throw coursePackageRequestError();
+  assertOnlyCoursePackageFields(value, ["source_course_package_version"]);
+  return {
+    source_course_package_version: parseCoursePackageImportedVersion(
+      value.source_course_package_version,
+      tenantId
+    )
+  };
+}
+
+function coursePackageCommandActor(
+  context: RequestContext,
+  actor: CurrentUser
+): { actor_id: string; tenant_id: string } {
+  return { actor_id: actor.user_id, tenant_id: context.tenantId };
+}
+
+function coursePackageCommandHttpError(error: unknown): HttpError {
+  if (!(error instanceof CoursePackageCommandError)) throw error;
+  const statusCode =
+    error.code === "COURSE_PACKAGE_NOT_FOUND"
+      ? 404
+      : error.code === "COURSE_PACKAGE_FORBIDDEN" ||
+          error.code === "COURSE_PACKAGE_TENANT_SCOPE_VIOLATION"
+        ? 403
+        : error.code === "COURSE_PACKAGE_DUPLICATE_VERSION" ||
+            error.code === "COURSE_PACKAGE_LIFECYCLE_INVALID"
+          ? 409
+          : 422;
+  return new HttpError(statusCode, error.code, "course package command rejected");
+}
+
+async function executeCoursePackageCommand<T>(command: () => Promise<T>): Promise<T> {
+  try {
+    return await command();
+  } catch (error) {
+    throw coursePackageCommandHttpError(error);
+  }
+}
+
+async function executeAuditedCoursePackageCommand<T>(
+  runtime: ApiRuntime,
+  command: () => Promise<T>,
+  audit: (result: T) => Parameters<typeof appendAudit>[1]
+): Promise<T> {
+  const checkpoint = runtime.coursePackageCommands.captureAuditCheckpointForCompensation();
+  const result = await executeCoursePackageCommand(command);
+  try {
+    await appendAudit(runtime, audit(result));
+  } catch {
+    try {
+      runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
+    } catch {
+      // The generic response below remains safe when the retry cannot persist.
+    }
+    throw new HttpError(
+      500,
+      "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
+      "course package request could not be completed"
+    );
+  }
+  return result;
+}
+
 function assertOnlyInstructorAssetFields(
   body: Record<string, unknown>,
   expected: readonly string[]
@@ -3147,6 +3485,201 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (request.method === "GET" && url.pathname === "/api/v1/admin/course-package-versions") {
+    requireCoursePackageAdmin(context);
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, await runtime.coursePackageQueries.listAdmin(context.tenantId))
+    );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/course-package-versions") {
+    requireCoursePackageTeacher(context);
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, await runtime.coursePackageQueries.listTeacher(context.tenantId))
+    );
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/course-package-versions/clone"
+  ) {
+    const actor = requireCoursePackageTeacher(context);
+    const input = parseCoursePackageCloneInput(
+      await readJson<Record<string, unknown>>(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.teacher_clone",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, toTeacherCoursePackageVersionDto(created)));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/admin/course-package-versions/drafts"
+  ) {
+    const actor = requireCoursePackageAdmin(context);
+    const draft = parseCoursePackageDraft(
+      await readJson<Record<string, unknown>>(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () =>
+        runtime.coursePackageCommands.createDraft(coursePackageCommandActor(context, actor), draft),
+      (result) => ({
+        actor,
+        action: "course_package_version.draft_create",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/admin/course-package-versions/clone") {
+    const actor = requireCoursePackageAdmin(context);
+    const input = parseCoursePackageCloneInput(
+      await readJson<Record<string, unknown>>(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.clone(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.clone",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/admin/course-package-versions/import"
+  ) {
+    const actor = requireCoursePackageAdmin(context);
+    const input = parseCoursePackageImportInput(
+      await readJson<Record<string, unknown>>(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const created = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => runtime.coursePackageCommands.import(coursePackageCommandActor(context, actor), input),
+      (result) => ({
+        actor,
+        action: "course_package_version.import",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, created));
+    return;
+  }
+
+  const coursePackageTransition = url.pathname.match(
+    /^\/api\/v1\/admin\/course-package-versions\/([^/]+)\/versions\/([^/]+)\/(validate|make-available|retire)$/
+  );
+  if (request.method === "POST" && coursePackageTransition) {
+    const actor = requireCoursePackageAdmin(context);
+    const reference = parseCoursePackageVersionReference(
+      await readJson<Record<string, unknown>>(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const [, coursePackageId, version, action] = coursePackageTransition;
+    if (
+      !coursePackageId ||
+      !version ||
+      !action ||
+      reference.course_package_id !== coursePackageId ||
+      reference.version !== version
+    ) {
+      throw coursePackageRequestError();
+    }
+    const commandActor = coursePackageCommandActor(context, actor);
+    const transitioned = await executeAuditedCoursePackageCommand(
+      runtime,
+      () => {
+        switch (action) {
+          case "validate":
+            return runtime.coursePackageCommands.validate(commandActor, reference);
+          case "make-available":
+            return runtime.coursePackageCommands.makeAvailable(commandActor, reference);
+          case "retire":
+            return runtime.coursePackageCommands.retire(commandActor, reference);
+          default:
+            throw coursePackageRequestError();
+        }
+      },
+      (result) => ({
+        actor,
+        action: `course_package_version.${action}`,
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${result.course_package_id}:${result.version}`,
+        resourceType: "course_package_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 200, createEnvelope(context, transitioned));
+    return;
+  }
+
+  const coursePackageExport = url.pathname.match(
+    /^\/api\/v1\/admin\/course-package-versions\/([^/]+)\/versions\/([^/]+)\/export$/
+  );
+  if (request.method === "GET" && coursePackageExport) {
+    const actor = requireCoursePackageAdmin(context);
+    if (
+      [...url.searchParams.keys()].length !== 1 ||
+      !url.searchParams.has("content_digest") ||
+      !coursePackageExport[1] ||
+      !coursePackageExport[2]
+    ) {
+      throw coursePackageRequestError();
+    }
+    const exported = await executeCoursePackageCommand(() =>
+      runtime.coursePackageCommands.export(coursePackageCommandActor(context, actor), {
+        content_digest: requireCoursePackageDigest(url.searchParams.get("content_digest")),
+        course_package_id: requireCoursePackageExactIdentity(coursePackageExport[1]),
+        tenant_id: context.tenantId,
+        version: requireCoursePackageExactVersion(coursePackageExport[2])
+      })
+    );
+    sendJson(response, 200, createEnvelope(context, exported));
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/instructor-assets") {
     requireInstructorAssetTeacher(context);

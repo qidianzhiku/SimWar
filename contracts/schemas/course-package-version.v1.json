@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/course-package-version.v1.json",
+  "title": "CoursePackageVersion",
+  "description": "Immutable teaching/configuration package that references approved source versions without writing their lifecycles or simulation truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "content_digest",
+    "course_blueprint_reference",
+    "course_package_id",
+    "created_at",
+    "created_by",
+    "description",
+    "parameter_set_reference",
+    "scenario_package_reference",
+    "schema_version",
+    "status",
+    "tenant_id",
+    "title",
+    "version"
+  ],
+  "properties": {
+    "content_digest": { "$ref": "#/$defs/digest" },
+    "course_blueprint_reference": { "$ref": "#/$defs/course_blueprint_reference" },
+    "course_package_id": { "$ref": "#/$defs/exact_identity" },
+    "created_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+    },
+    "created_by": { "$ref": "#/$defs/exact_identity" },
+    "description": { "type": "string", "minLength": 1 },
+    "parameter_set_reference": { "$ref": "#/$defs/parameter_set_reference" },
+    "scenario_package_reference": { "$ref": "#/$defs/scenario_package_reference" },
+    "schema_version": { "const": "course-package-version.v1" },
+    "status": { "enum": ["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"] },
+    "tenant_id": { "$ref": "#/$defs/exact_identity" },
+    "title": { "type": "string", "minLength": 1 },
+    "version": { "$ref": "#/$defs/exact_version" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exact_identity": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "type": "string",
+        "pattern": "(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-])"
+      }
+    },
+    "exact_version": {
+      "allOf": [
+        { "$ref": "#/$defs/exact_identity" },
+        { "not": { "type": "string", "pattern": "(?:^|[._:-])(?:[Xx]|\\*)(?:$|[._:-])" } }
+      ]
+    },
+    "course_blueprint_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_blueprint_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_blueprint_id": { "$ref": "#/$defs/exact_identity" },
+        "tenant_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    },
+    "scenario_package_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "$ref": "#/$defs/exact_identity" },
+        "tenant_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    },
+    "parameter_set_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "$ref": "#/$defs/exact_identity" },
+        "version": { "$ref": "#/$defs/exact_version" }
+      }
+    }
+  }
+}
