@@ -1,10 +1,10 @@
 schema_version: 1
 cycle_id: L1PLUS-CYCLE-006-D1-GOAL-RUBRIC-MEASURED
 status: CLOSED_AND_CURRENT
-closed_at: "2026-08-03T09:53:43+08:00"
+closed_at: "2026-08-03T10:46:40+08:00"
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
-product_evidence_source_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+assessment_source_anchor_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+product_evidence_source_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 source_sha_semantics: FINAL_D1_PRODUCT_MERGE_AND_INTEGRATED_FRESH_CLONE_VALIDATION
 branch: wave005/d1-frontend
 product_prs:
@@ -14,6 +14,9 @@ product_prs:
   - number: 318
     head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
     merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+  - number: 320
+    head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
+    merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 mainline_candidate: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
 capability_id: L1P-D1
 mutable_authority: LearningDesignCommandService
@@ -29,6 +32,11 @@ timeline:
     sha: a7dcf48e810ab23eecac4c74a7293670f1374459
   - event: GOVERNANCE_ADOPTION
     status: THIS_CHANGESET
+  - event: D1_COMPLETION_CORRECTIVE_MERGED
+    pr: 320
+    sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+  - event: D1_POST_CORRECTIVE_FRESH_CLONE_VALIDATED
+    sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 resource_locks:
   - LEARNING_DESIGN_AUTHORITY
   - LEARNING_DESIGN_JSON_REGISTRY
@@ -59,12 +67,12 @@ metrics:
   cleanup_residue: NONE_OBSERVED
   boundary_breach: 0_NEW_BREACHES
   post_merge_escape: NONE_OBSERVED
-  product_pr_count: 2
-  governance_pr_count: 1
-  first_pass_exit: NO_FRONTEND_INTEGRATION_REWORK_REQUIRED
-  rework_pr_count: 0
-  acceptance_gap_count: 0
-  changed_product_file_count: 20
+  product_pr_count: 3
+  governance_pr_count: 2
+  first_pass_exit: NO
+  rework_pr_count: 1
+  acceptance_gap_count: 1
+  changed_product_file_count: 22
   net_additions: NOT_MEASURED
 explicit_non_proofs:
   - Human Validation completed

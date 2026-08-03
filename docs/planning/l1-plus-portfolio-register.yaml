@@ -1,9 +1,9 @@
 portfolio_version: 2
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-03T09:53:43+08:00"
+generated_at: "2026-08-03T10:46:40+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+assessment_source_anchor_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 l1_plus_status: D1_LEARNING_GOAL_RUBRIC_CLOSED_WITH_LIMITS
@@ -21,11 +21,13 @@ selected:
     candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
     capability_id: L1P-D1
     status: CLOSED_AND_CURRENT
-    product_prs: [317, 318]
+    product_prs: [317, 318, 320]
     backend_product_head_sha: 45cf2a730f8165f0a2c86f68e023c4f80a405f45
     backend_product_merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
     frontend_product_head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
-    product_merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+    product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+    corrective_product_pr: 320
+    corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
   support_code: NONE
   docs_discovery: NONE
   closure: L1PLUS_D1_CLOSED_AND_CURRENT
@@ -46,8 +48,8 @@ closed_capabilities:
   - capability_id: L1P-D1
     candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
     status: CLOSED_AND_CURRENT
-    product_prs: [317, 318]
-    product_merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+    product_prs: [317, 318, 320]
+    product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 resource_locks:
   - resource: LEARNING_DESIGN_AUTHORITY
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
@@ -86,8 +88,10 @@ evidence:
   d1_backend_product_merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
   d1_frontend_product_pr: 318
   d1_frontend_product_head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
-  d1_product_merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
-  d1_post_merge_validation_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+  d1_product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+  d1_post_merge_validation_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+  d1_corrective_product_pr: 320
+  d1_corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
   product_acceptance: PASS
   ci_browser_and_codeql: REQUIRED_AND_COMPLETED
   integrated_fresh_clone: PASS
