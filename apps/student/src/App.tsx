@@ -13,6 +13,7 @@ import type {
   StudentBffCockpitDTO
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
+import { StudentLearningReportPanel } from "./StudentLearningReport";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("student");
@@ -310,6 +311,8 @@ export function App() {
           onActiveChange={setRoleWorkflowActive}
         />
       ) : null}
+
+      {session ? <StudentLearningReportPanel tenantId={login.tenantId} token={session.access_token} /> : null}
 
       <section className="learner-guide" aria-label="M1 learner onboarding">
         <article className="panel guide-panel">

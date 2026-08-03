@@ -138,6 +138,145 @@ h2 {
   border-radius: 8px;
 }
 
+.d4-report-panel {
+  margin: 18px 0;
+}
+
+.d4-state,
+.d4-safe-badge {
+  background: #eef5f7;
+  border: 1px solid #cbdde1;
+  border-radius: 999px;
+  color: #1f6472;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.d4-report-list {
+  display: grid;
+  gap: 14px;
+}
+
+.d4-report-card {
+  border: 1px solid #d8e1e5;
+  border-radius: 7px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.d4-report-heading,
+.d4-section-heading,
+.d4-criterion-list li {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.d4-report-heading h3,
+.d4-section-heading h4 {
+  margin: 0;
+}
+
+.d4-report-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.d4-report-grid div {
+  background: #f8fbfc;
+  border: 1px solid #e3eaed;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.d4-report-grid span,
+.d4-report-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.d4-report-grid span {
+  color: #5b6a75;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.d4-report-grid strong {
+  font-size: 13px;
+}
+
+.d4-evidence-section,
+.d4-outcome-section {
+  border-top: 1px solid #e9eef1;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.d4-section-heading span,
+.d4-digest,
+.d4-empty p,
+.d4-outcome-section p {
+  color: #5b6a75;
+  font-size: 13px;
+}
+
+.d4-criterion-list,
+.d4-known-limits {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.d4-criterion-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.d4-criterion-list li {
+  border-bottom: 1px solid #eef2f3;
+  padding: 8px 0;
+}
+
+.d4-digest {
+  margin: 14px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.d4-digest code {
+  color: #344451;
+}
+
+.d4-error {
+  background: #fff4f1;
+  border: 1px solid #edc8bd;
+  border-radius: 6px;
+  color: #8d3d2c;
+  padding: 10px;
+}
+
+@media (max-width: 720px) {
+  .d4-report-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .d4-report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .d4-report-heading,
+  .d4-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .row {
   min-height: 58px;
   padding: 0 16px;
