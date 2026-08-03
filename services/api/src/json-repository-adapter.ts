@@ -23,6 +23,8 @@ import type {
   RepositoryTenantReadModel,
   RepositoryUserReadModel,
   RoleWorkflowCommitCommand,
+  EvidenceProvenanceCaptureCommand,
+  EvidenceProvenanceRepositoryPort,
   RoleWorkflowRepositoryPort,
   SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort,
@@ -184,6 +186,37 @@ export function createJsonRoleWorkflowRepositoryPort(
         store.roleWorkflowEvents = previous.events;
         store.decisionMergeCommits = previous.mergeCommits;
         store.roleDecisionSections = previous.sections;
+        throw error;
+      }
+    }
+  };
+}
+
+export function createJsonEvidenceProvenanceRepositoryPort(
+  store: SimWarStore
+): EvidenceProvenanceRepositoryPort {
+  return {
+    async listEvidenceArtifacts(tenantId) {
+      return clone(store.evidenceArtifacts.filter((artifact) => artifact.artifact_ref.tenant_id === tenantId));
+    },
+
+    async listProvenanceEdges(tenantId) {
+      return clone(store.evidenceProvenanceEdges.filter((edge) => edge.source_ref.tenant_id === tenantId));
+    },
+
+    async appendEvidenceCapture(command: EvidenceProvenanceCaptureCommand) {
+      const previousArtifacts = clone(store.evidenceArtifacts);
+      const previousEdges = clone(store.evidenceProvenanceEdges);
+      const previousAuditLogs = clone(store.auditLogs);
+      store.evidenceArtifacts.push(clone(command.artifact));
+      store.evidenceProvenanceEdges.push(...clone(command.provenance_edges));
+      store.auditLogs.push(clone(command.audit_log));
+      try {
+        store.persist();
+      } catch (error) {
+        store.evidenceArtifacts.splice(0, store.evidenceArtifacts.length, ...previousArtifacts);
+        store.evidenceProvenanceEdges.splice(0, store.evidenceProvenanceEdges.length, ...previousEdges);
+        store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
         throw error;
       }
     }
@@ -1031,6 +1064,7 @@ export function createJsonRepositoryPorts(
       }
     },
 
-    roleWorkflow: createJsonRoleWorkflowRepositoryPort(store)
+    roleWorkflow: createJsonRoleWorkflowRepositoryPort(store),
+    evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store)
   };
 }

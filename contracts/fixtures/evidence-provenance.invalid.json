@@ -1,0 +1,77 @@
+{
+  "data": {
+    "artifact": {
+      "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact_kind": "observation",
+      "artifact_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "artifact_001",
+        "resource_type": "evidence_artifact",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "captured_at": "2026-08-03T00:00:00.000Z",
+      "captured_by": "usr_teacher",
+      "context": {
+        "activity_id": "activity_001",
+        "course_id": "course_001",
+        "role_key": "CMO",
+        "run_id": "run_001",
+        "team_id": "team_001"
+      },
+      "course_package_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "package_001",
+        "resource_type": "course_package_version",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "discriminator": "d2_evidence_artifact_version",
+      "idempotency_key": "capture-key-001",
+      "known_limits": ["D2 evidence is not learning confirmation or final grading."],
+      "learning_goal_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "goal_001",
+        "resource_type": "learning_goal_version",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "rubric_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "rubric_001",
+        "resource_type": "rubric_version",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "schema_version": "evidence-provenance.v1",
+      "source_event_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "event_001",
+        "resource_type": "role_workflow_event",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "transformation_rule_ref": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "discriminator": "exact_ref",
+        "resource_id": "d2-role-workflow-event-to-evidence-v1",
+        "resource_type": "transformation_rule",
+        "tenant_id": "tenant_d2",
+        "version": "1.0.0"
+      },
+      "visibility": "teacher_only",
+      "private_payload": {"secret": true}
+    },
+    "provenance_edges": [],
+    "status": "generated"
+  },
+  "formal_truth_write": false,
+  "known_limits": ["D2 evidence is not learning confirmation or final grading."],
+  "request_id": "req_001",
+  "schema_version": "evidence-provenance.v1"
+}

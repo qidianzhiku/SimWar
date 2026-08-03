@@ -1,5 +1,6 @@
 export * from "./known-limits.js";
 export * from "./learning-design.js";
+export * from "./evidence-provenance.js";
 
 export type ActorRole =
   | "platform_admin"

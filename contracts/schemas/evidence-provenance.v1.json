@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/evidence-provenance.v1.json",
+  "title": "D2CaptureReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["data", "formal_truth_write", "known_limits", "request_id", "schema_version"],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "provenance_edges", "status"],
+      "properties": {
+        "artifact": { "$ref": "#/$defs/D2EvidenceArtifactVersion" },
+        "provenance_edges": { "type": "array", "items": { "$ref": "#/$defs/D2ProvenanceEdge" } },
+        "status": { "enum": ["generated", "reused"] }
+      }
+    },
+    "formal_truth_write": { "const": false },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "request_id": { "type": "string", "minLength": 1 },
+    "schema_version": { "const": "evidence-provenance.v1" }
+  },
+  "$defs": {
+    "D2ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/D2Identity" },
+        "resource_type": { "enum": ["course_package_version", "learning_goal_version", "rubric_version", "role_workflow_event", "evidence_artifact", "transformation_rule"] },
+        "tenant_id": { "$ref": "#/$defs/D2Identity" },
+        "version": { "$ref": "#/$defs/D2Version" }
+      }
+    },
+    "D2Identity": {
+      "type": "string",
+      "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+    },
+    "D2Version": {
+      "type": "string",
+      "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))(?!.*(?:[._:-][xX*])(?:$|[._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+    },
+    "D2BoundedContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "course_id", "role_key", "run_id", "team_id"],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/D2Identity" },
+        "course_id": { "$ref": "#/$defs/D2Identity" },
+        "role_key": { "$ref": "#/$defs/D2Identity" },
+        "run_id": { "$ref": "#/$defs/D2Identity" },
+        "team_id": { "$ref": "#/$defs/D2Identity" }
+      }
+    },
+    "D2EvidenceArtifactVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_digest", "artifact_kind", "artifact_ref", "captured_at", "captured_by", "context", "course_package_ref", "discriminator", "idempotency_key", "known_limits", "learning_goal_ref", "rubric_ref", "schema_version", "source_event_ref", "transformation_rule_ref", "visibility"],
+      "properties": {
+        "artifact_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "artifact_kind": { "const": "observation" },
+        "artifact_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "captured_by": { "$ref": "#/$defs/D2Identity" },
+        "context": { "$ref": "#/$defs/D2BoundedContext" },
+        "course_package_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "discriminator": { "const": "d2_evidence_artifact_version" },
+        "idempotency_key": { "$ref": "#/$defs/D2Identity" },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "learning_goal_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "rubric_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "schema_version": { "const": "evidence-provenance.v1" },
+        "source_event_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "transformation_rule_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "visibility": { "const": "teacher_only" }
+      }
+    },
+    "D2ProvenanceEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discriminator", "relation", "source_ref", "target_ref"],
+      "properties": {
+        "discriminator": { "const": "d2_provenance_edge" },
+        "relation": { "enum": ["derived_from", "supported_by"] },
+        "source_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "target_ref": { "$ref": "#/$defs/D2ExactRef" }
+      }
+    },
+    "D2CaptureReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["data", "formal_truth_write", "known_limits", "request_id", "schema_version"],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact", "provenance_edges", "status"],
+          "properties": {
+            "artifact": { "$ref": "#/$defs/D2EvidenceArtifactVersion" },
+            "provenance_edges": { "type": "array", "items": { "$ref": "#/$defs/D2ProvenanceEdge" } },
+            "status": { "enum": ["generated", "reused"] }
+          }
+        },
+        "formal_truth_write": { "const": false },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "request_id": { "type": "string", "minLength": 1 },
+        "schema_version": { "const": "evidence-provenance.v1" }
+      }
+    },
+    "D2EvidenceCaptureInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "course_id", "course_package_ref", "learning_goal_ref", "role_key", "rubric_ref", "run_id", "source_event_id", "team_id"],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/D2Identity" },
+        "course_id": { "$ref": "#/$defs/D2Identity" },
+        "course_package_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "learning_goal_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "role_key": { "$ref": "#/$defs/D2Identity" },
+        "rubric_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "run_id": { "$ref": "#/$defs/D2Identity" },
+        "source_event_id": { "$ref": "#/$defs/D2Identity" },
+        "team_id": { "$ref": "#/$defs/D2Identity" }
+      }
+    },
+    "D2SourceEventDto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "event_id", "event_type", "eligibility", "source_event_ref", "scope"],
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "event_id": { "$ref": "#/$defs/D2Identity" },
+        "event_type": { "enum": ["section_ready", "merge_created", "team_confirmed"] },
+        "eligibility": { "const": "eligible" },
+        "source_event_ref": { "$ref": "#/$defs/D2ExactRef" },
+        "scope": { "$ref": "#/$defs/D2BoundedContext" }
+      }
+    },
+    "D2EvidenceList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifacts", "eligible_events", "known_limits", "provenance_edges", "runtime_authority"],
+      "properties": {
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/D2EvidenceArtifactVersion" } },
+        "eligible_events": { "type": "array", "items": { "$ref": "#/$defs/D2SourceEventDto" } },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "provenance_edges": { "type": "array", "items": { "$ref": "#/$defs/D2ProvenanceEdge" } },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "D2EvidenceListEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "code", "message", "data"],
+      "properties": {
+        "request_id": { "type": "string", "minLength": 1 },
+        "code": { "const": "OK" },
+        "message": { "type": "string" },
+        "data": { "$ref": "#/$defs/D2EvidenceList" }
+      }
+    },
+    "D2CaptureReceiptEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "code", "message", "data"],
+      "properties": {
+        "request_id": { "type": "string", "minLength": 1 },
+        "code": { "const": "OK" },
+        "message": { "type": "string" },
+        "data": { "$ref": "#/$defs/D2CaptureReceipt" }
+      }
+    }
+  }
+}

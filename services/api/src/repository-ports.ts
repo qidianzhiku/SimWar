@@ -3,6 +3,8 @@ import type {
   Course,
   Decision,
   DecisionMergeCommit,
+  D2EvidenceArtifactVersion,
+  D2ProvenanceEdge,
   DomainEvent,
   ParameterSet,
   ReplayDiffReport,
@@ -341,6 +343,19 @@ export interface RoleWorkflowRepositoryPort {
   commitRoleWorkflow(command: RoleWorkflowCommitCommand): void;
 }
 
+export interface EvidenceProvenanceCaptureCommand {
+  artifact: D2EvidenceArtifactVersion;
+  provenance_edges: D2ProvenanceEdge[];
+  audit_log: AuditLog;
+}
+
+/** D2-only persistence boundary; it cannot write Truth, settlement, score, rank, or replay. */
+export interface EvidenceProvenanceRepositoryPort {
+  listEvidenceArtifacts(tenantId: RepositoryId): Promise<D2EvidenceArtifactVersion[]>;
+  listProvenanceEdges(tenantId: RepositoryId): Promise<D2ProvenanceEdge[]>;
+  appendEvidenceCapture(command: EvidenceProvenanceCaptureCommand): Promise<void>;
+}
+
 /**
  * Command/write path repository contracts for staged migration work.
  *
@@ -467,4 +482,5 @@ export interface SimWarRepositoryPorts {
   auditLogs: AuditLogRepositoryPort;
   replay: ReplayRepositoryPort;
   roleWorkflow: RoleWorkflowRepositoryPort;
+  evidenceProvenance: EvidenceProvenanceRepositoryPort;
 }
