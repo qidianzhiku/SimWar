@@ -1,0 +1,39 @@
+cycle_id: L1PLUS-CYCLE-007-D2-EVIDENCE-PROVENANCE
+stage: L1_PLUS
+capability_id: L1P-D2
+candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+product_merge_shas:
+  backend: ca79e18d1a026fb979efd5c67370dc64ed824873
+  frontend: 291daab32c83e256270cca5fc6a5a407c680b7c9
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Teacher-safe immutable EvidenceArtifact capture with deterministic provenance and duplicate semantics.
+sole_writer: EvidenceCaptureCommandService
+acceptance:
+  rows: 25
+  status: PASS_WITH_EXPLICIT_LIMITS
+  planned_corrective_product_pr_count: 0
+reviews:
+  backend_blocking: 0
+  backend_must_fix: 0
+  frontend_blocking: 0
+  frontend_must_fix: 0
+validation:
+  full_tests: 140_FILES_969_TESTS_PASS
+  browser: 68_PASS_9_PREEXISTING_SKIP_PLUS_ROLE_WORKFLOW_1_PASS
+  contract: 8_FILES_20_TESTS_PASS
+  direct_store_new_unapproved: 0
+  fresh_clone: PASS
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  activity_scope: REQUEST_BOUNDED_NO_NATIVE_ACTIVITY_ID
+  issue_111: OPEN_KNOWN_LIMIT
+  human_validation: NOT_PERFORMED
+  postgresql: NOT_ACTIVE
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+resource_locks: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+next_candidate:
+  candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+  status: RECOMMENDED_NOT_AUTHORIZED
+automatic_next_start: false
