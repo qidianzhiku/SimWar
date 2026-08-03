@@ -1,0 +1,44 @@
+cycle_id: L1PLUS-CYCLE-008-D3-TEACHER-CONFIRMATION
+stage: L1_PLUS
+capability_id: L1P-D3
+candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+product_merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Immutable teacher confirmation with exact learning references, exclusive work claim, explicit submit, safe projection, and audit receipt.
+sole_writer: TeacherConfirmationCommandService
+acceptance:
+  status: PASS_WITH_EXPLICIT_LIMITS
+  focused_tests: 5_FILES_19_TESTS_PASS
+  contract_tests: 10_FILES_26_TESTS_PASS
+  browser_tests: 2_PASS
+  full_tests: 145_FILES_988_TESTS_PASS
+  planned_corrective_product_pr_count: 0
+reviews:
+  challenge_blocking: 0
+  challenge_must_fix: 0
+validation:
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  fresh_clone: PASS
+fresh_clone:
+  path: D:/codex/simwar-w007-d3-postmerge-3f9145f2
+  source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+  clean_detached: true
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  teacher_confirmation_rollback: IN_MEMORY_TRANSACTIONAL_ROLLBACK_ONLY
+  accessibility: BASELINE_BROWSER_EVIDENCE_ONLY
+  issue_111: OPEN_KNOWN_LIMIT
+  human_validation: NOT_PERFORMED
+  postgresql: NOT_ACTIVE
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+resource_locks: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+automatic_next_start: false
+next_candidate:
+  candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+  status: RECOMMENDED_NOT_AUTHORIZED
