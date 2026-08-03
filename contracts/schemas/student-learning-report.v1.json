@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/student-learning-report.v1.json",
+  "title": "StudentLearningReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["business_outcome", "context", "course_package_ref", "generated_at", "evidence_refs", "known_limits", "learning_goal_ref", "learning_evidence", "report_digest", "report_ref", "rubric_ref", "runtime_authority", "schema_version", "source_confirmation_digest", "status", "student_scope", "teacher_confirmation_ref", "visibility"],
+  "properties": {
+    "business_outcome": { "$ref": "#/$defs/BusinessOutcome" },
+    "context": { "$ref": "#/$defs/Context" },
+    "course_package_ref": { "$ref": "#/$defs/CoursePackageRef" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/EvidenceRef" } },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "learning_goal_ref": { "$ref": "#/$defs/LearningGoalRef" },
+    "learning_evidence": { "$ref": "#/$defs/LearningEvidence" },
+    "report_digest": { "$ref": "#/$defs/Digest" },
+    "report_ref": { "$ref": "#/$defs/ReportRef" },
+    "rubric_ref": { "$ref": "#/$defs/RubricRef" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "schema_version": { "const": "student-learning-report.v1" },
+    "source_confirmation_digest": { "$ref": "#/$defs/Digest" },
+    "status": { "enum": ["CONFIRMED", "AMENDED"] },
+    "student_scope": { "$ref": "#/$defs/StudentScope" },
+    "teacher_confirmation_ref": { "$ref": "#/$defs/ConfirmationRef" },
+    "visibility": { "const": "student_safe" }
+  },
+  "$defs": {
+    "Digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "Identity": { "type": "string", "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+    "Version": { "type": "string", "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))(?!.*(?:[._:-])[xX*](?:$|[._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/Digest" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/Identity" },
+        "resource_type": { "enum": ["course_package_version", "learning_goal_version", "rubric_version", "evidence_artifact", "teacher_confirmation_version", "role_workflow_event", "transformation_rule", "student_learning_report"] },
+        "tenant_id": { "$ref": "#/$defs/Identity" },
+        "version": { "$ref": "#/$defs/Version" }
+      }
+    },
+    "CoursePackageRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "course_package_version" } } }] },
+    "LearningGoalRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "learning_goal_version" } } }] },
+    "RubricRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "rubric_version" } } }] },
+    "EvidenceRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "evidence_artifact" } } }] },
+    "ConfirmationRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "teacher_confirmation_version" } } }] },
+    "ReportRef": { "allOf": [{ "$ref": "#/$defs/ExactRef" }, { "type": "object", "properties": { "resource_type": { "const": "student_learning_report" } } }] },
+    "Context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "run_id", "team_id", "role_key"],
+      "properties": { "course_id": { "$ref": "#/$defs/Identity" }, "run_id": { "$ref": "#/$defs/Identity" }, "team_id": { "$ref": "#/$defs/Identity" }, "role_key": { "$ref": "#/$defs/Identity" } }
+    },
+    "StudentScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_id", "tenant_id", "user_id"],
+      "properties": { "team_id": { "$ref": "#/$defs/Identity" }, "tenant_id": { "$ref": "#/$defs/Identity" }, "user_id": { "$ref": "#/$defs/Identity" } }
+    },
+    "CriterionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "level_ordinal"],
+      "properties": { "criterion_id": { "$ref": "#/$defs/Identity" }, "level_ordinal": { "type": "integer", "minimum": 1 } }
+    },
+    "Feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feedback_id", "text"],
+      "properties": { "feedback_id": { "$ref": "#/$defs/Identity" }, "text": { "type": "string", "minLength": 1, "maxLength": 2000, "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$" } }
+    },
+    "ProvenanceEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discriminator", "relation", "source_ref", "target_ref"],
+      "properties": { "discriminator": { "const": "d4_provenance_edge" }, "relation": { "enum": ["derived_from", "supported_by"] }, "source_ref": { "$ref": "#/$defs/ExactRef" }, "target_ref": { "$ref": "#/$defs/ExactRef" } }
+    },
+    "LearningEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_results", "provenance_chain", "student_visible_feedback"],
+      "properties": {
+        "criterion_results": { "type": "array", "items": { "$ref": "#/$defs/CriterionResult" } },
+        "provenance_chain": { "type": "array", "items": { "$ref": "#/$defs/ProvenanceEdge" } },
+        "student_visible_feedback": { "type": "array", "items": { "$ref": "#/$defs/Feedback" } }
+      }
+    },
+    "BusinessOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary"],
+      "properties": { "status": { "const": "SEPARATE_SAFE_OUTCOME" }, "summary": { "type": "string", "minLength": 1, "not": { "pattern": "[sS][cC][oO][rR][eE]|[rR][aA][nN][kK]|[sS][tT][aA][tT][eE]_[tT][rR][uU][eE]|[sS][eE][tT][tT][lL][eE][mM][eE][nN][tT]_[pP][aA][yY][lL][oO][aA][dD]" } } }
+    }
+  }
+}

@@ -2478,6 +2478,99 @@ paths:
               schema: { $ref: "#/components/schemas/TeacherConfirmationClaimEnvelope" }
         "403": { description: Teacher authority required }
         "409": { description: Claim is not owned by the authenticated teacher }
+  /api/v1/bff/student/learning-reports:
+    get:
+      operationId: STUDENT_D4_LEARNING_REPORT_LIST_V1
+      summary: Read the authenticated student's safe learning reports.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Student-team scoped learning report projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Learner team scope required }
+  /api/v1/bff/student/learning-reports/{reportId}:
+    get:
+      operationId: STUDENT_D4_LEARNING_REPORT_GET_V1
+      summary: Read one student-safe learning report by exact projection identity.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: reportId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: One student-team scoped learning report.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Learner team scope required }
+        "404": { description: Report not found or not available }
+  /api/v1/bff/teacher/learning-reports:
+    get:
+      operationId: TEACHER_D4_LEARNING_REPORT_PREVIEW_LIST_V1
+      summary: Read tenant-scoped teacher preview of student-safe learning reports.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Tenant-scoped read-only teacher preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/teacher/learning-reports/{reportId}:
+    get:
+      operationId: TEACHER_D4_LEARNING_REPORT_PREVIEW_GET_V1
+      summary: Read one tenant-scoped teacher preview.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: reportId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: One tenant-scoped read-only teacher preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+        "404": { description: Report not found or not available }
+  /api/v1/bff/admin/learning-reports:
+    get:
+      operationId: ADMIN_D4_LEARNING_REPORT_PREVIEW_LIST_V1
+      summary: Read tenant-scoped admin preview of student-safe learning reports.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Tenant-scoped read-only admin preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Tenant-admin scope required }
+  /api/v1/bff/admin/learning-reports/{reportId}:
+    get:
+      operationId: ADMIN_D4_LEARNING_REPORT_PREVIEW_GET_V1
+      summary: Read one tenant-scoped admin preview.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: reportId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: One tenant-scoped read-only admin preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentLearningReportListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Tenant-admin scope required }
+        "404": { description: Report not found or not available }
 
 components:
   securitySchemes:
@@ -2509,6 +2602,26 @@ components:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimActionInput"
     TeacherConfirmationClaimEnvelope:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimEnvelope"
+    StudentLearningReport:
+      $ref: "../schemas/student-learning-report.v1.json"
+    StudentLearningReportListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data:
+          type: object
+          additionalProperties: false
+          required: [known_limits, reports, report_schema_version, runtime_authority, scope]
+          properties:
+            known_limits: { type: array, items: { type: string, minLength: 1 } }
+            reports: { type: array, items: { $ref: "#/components/schemas/StudentLearningReport" } }
+            report_schema_version: { const: student-learning-report.v1 }
+            runtime_authority: { const: JSON_INTERNAL_ONLY }
+            scope: { enum: [student_team, tenant_preview] }
+        message: { type: string }
+        request_id: { type: string }
     TeacherConfirmationListEnvelope:
       type: object
       additionalProperties: false

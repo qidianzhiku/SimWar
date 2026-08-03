@@ -89,6 +89,12 @@ const d3ContractFiles = [
   "contracts/fixtures/teacher-confirmation.invalid.json"
 ];
 
+const d4ContractFiles = [
+  "contracts/schemas/student-learning-report.v1.json",
+  "contracts/fixtures/student-learning-report.valid.json",
+  "contracts/fixtures/student-learning-report.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -195,6 +201,11 @@ const schemaCases = [
     schema: "contracts/schemas/teacher-confirmation.v1.json",
     valid: ["contracts/fixtures/teacher-confirmation.valid.json"],
     invalid: ["contracts/fixtures/teacher-confirmation.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/student-learning-report.v1.json",
+    valid: ["contracts/fixtures/student-learning-report.valid.json"],
+    invalid: ["contracts/fixtures/student-learning-report.invalid.json"]
   }
 ];
 
@@ -493,6 +504,30 @@ function assertD3OpenApiBindings(openApi) {
   }
 }
 
+function assertD4OpenApiBindings(openApi) {
+  for (const path of [
+    "/api/v1/bff/student/learning-reports",
+    "/api/v1/bff/student/learning-reports/{reportId}",
+    "/api/v1/bff/teacher/learning-reports",
+    "/api/v1/bff/teacher/learning-reports/{reportId}",
+    "/api/v1/bff/admin/learning-reports",
+    "/api/v1/bff/admin/learning-reports/{reportId}"
+  ]) {
+    const operation = openApi.paths[path]?.get;
+    assert(operation, `Missing D4 learning report operation: ${path}`);
+    assert(
+      jsonContentSchema(operation.responses?.["200"])?.$ref ===
+        "#/components/schemas/StudentLearningReportListEnvelope",
+      `D4 learning report 200 response must reference StudentLearningReportListEnvelope: ${path}`
+    );
+  }
+  assert(
+    openApi.components?.schemas?.StudentLearningReport?.$ref ===
+      "../schemas/student-learning-report.v1.json",
+    "D4 StudentLearningReport must reference its JSON Schema artifact."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -564,7 +599,8 @@ export async function runContractValidation(options = {}) {
     ...a5ContractFiles,
     ...d1ContractFiles,
     ...d2ContractFiles,
-    ...d3ContractFiles
+    ...d3ContractFiles,
+    ...d4ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -573,7 +609,8 @@ export async function runContractValidation(options = {}) {
     ...a5ContractFiles,
     ...d1ContractFiles,
     ...d2ContractFiles,
-    ...d3ContractFiles
+    ...d3ContractFiles,
+    ...d4ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -583,6 +620,7 @@ export async function runContractValidation(options = {}) {
   assertM1OpenApiBindings(openApi);
   assertD2OpenApiBindings(openApi);
   assertD3OpenApiBindings(openApi);
+  assertD4OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();
