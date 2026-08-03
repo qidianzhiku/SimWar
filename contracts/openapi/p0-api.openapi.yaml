@@ -2436,6 +2436,36 @@ paths:
         "201": { description: Process-local work claim created or reused }
         "403": { description: Teacher authority required }
         "409": { description: Work claim conflict }
+  /api/v1/bff/teacher/confirmations/claims/{claim_id}:
+    get:
+      operationId: TEACHER_D3_CONFIRMATION_CLAIM_STATUS_V1
+      summary: Read the authenticated teacher's process-local claim status.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: claim_id
+          in: path
+          required: true
+          schema: { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Identity" }
+      responses:
+        "200": { description: "Claim status, including EXPIRED when the deadline has passed" }
+        "403": { description: Teacher authority required }
+        "409": { description: Claim is not owned by the authenticated teacher }
+  /api/v1/bff/teacher/confirmations/claims/{claim_id}/release:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_CLAIM_RELEASE_V1
+      summary: Release the authenticated teacher's process-local claim.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: claim_id
+          in: path
+          required: true
+          schema: { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Identity" }
+      responses:
+        "200": { description: Released claim }
+        "403": { description: Teacher authority required }
+        "409": { description: Claim is not owned by the authenticated teacher }
 
 components:
   securitySchemes:

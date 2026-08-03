@@ -37,7 +37,36 @@ export class TeacherConfirmationWorkClaimError extends Error {
 function key(
   input: Pick<TeacherConfirmationWorkClaim, "tenant_id" | "context" | "evidence_set_digest">
 ): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        tenant_id: input.tenant_id,
+        context: canonicalContext(input.context),
+        evidence_set_digest: input.evidence_set_digest
+      })
+    )
+    .digest("hex");
+}
+
+function canonicalContext(context: TeacherConfirmationWorkClaim["context"]): string {
+  return JSON.stringify([context.course_id, context.run_id, context.team_id, context.role_key]);
+}
+
+function isContext(value: unknown): value is TeacherConfirmationWorkClaim["context"] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  if (keys.join(",") !== "course_id,role_key,run_id,team_id") return false;
+  return [record.course_id, record.run_id, record.team_id, record.role_key].every(
+    (entry) =>
+      typeof entry === "string" &&
+      entry.length > 0 &&
+      entry.trim() === entry &&
+      !Array.from(entry).some((character) => {
+        const code = character.codePointAt(0) ?? 0;
+        return code < 0x20 || code === 0x7f;
+      })
+  );
 }
 
 export class TeacherConfirmationWorkClaimService {
@@ -52,10 +81,16 @@ export class TeacherConfirmationWorkClaimService {
     now: string;
     ttl_seconds?: number;
   }): TeacherConfirmationWorkClaim {
+    const ttlSeconds = input.ttl_seconds ?? 300;
     if (
       !input.tenant_id ||
       !input.claimed_by ||
-      !/^[a-f0-9]{64}$/.test(input.evidence_set_digest)
+      !/^[a-f0-9]{64}$/.test(input.evidence_set_digest) ||
+      !isContext(input.context) ||
+      !Number.isInteger(ttlSeconds) ||
+      ttlSeconds < 1 ||
+      ttlSeconds > 3600 ||
+      Number.isNaN(Date.parse(input.now))
     ) {
       throw new TeacherConfirmationWorkClaimError("D3_INPUT_INVALID");
     }
@@ -74,9 +109,7 @@ export class TeacherConfirmationWorkClaimService {
         throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
       return structuredClone(existing);
     }
-    const expiresAt = new Date(
-      Date.parse(input.now) + (input.ttl_seconds ?? 300) * 1000
-    ).toISOString();
+    const expiresAt = new Date(Date.parse(input.now) + ttlSeconds * 1000).toISOString();
     const claim: TeacherConfirmationWorkClaim = {
       claim_id: `claim_${++this.sequence}`,
       tenant_id: input.tenant_id,
@@ -130,7 +163,7 @@ export class TeacherConfirmationWorkClaimService {
       claim.status !== "CLAIMED" ||
       claim.tenant_id !== input.tenant_id ||
       claim.evidence_set_digest !== input.evidence_set_digest ||
-      JSON.stringify(claim.context) !== JSON.stringify(input.context)
+      canonicalContext(claim.context) !== canonicalContext(input.context)
     ) {
       throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
     }

@@ -102,6 +102,7 @@ describe("D3 Teacher Confirmation BFF route", () => {
       },
       claims: {
         claim: vi.fn(() => ({ claim_id: "claim_1", status: "CLAIMED" })),
+        get: vi.fn(() => ({ claim_id: "claim_1", status: "CLAIMED" })),
         release: vi.fn(() => ({ claim_id: "claim_1", status: "RELEASED" }))
       }
     } as unknown as TeacherConfirmationRouteRuntime;
@@ -180,5 +181,28 @@ describe("D3 Teacher Confirmation BFF route", () => {
     );
     expect(runtime.claims.claim).toHaveBeenCalled();
     expect(res.statusCode).toBe(201);
+
+    const claimStatusHelpers = { ...helpers, readJson: async () => ({}) };
+    await handleTeacherConfirmationRoute(
+      runtime,
+      { method: "GET" } as unknown as IncomingMessage,
+      res as unknown as ServerResponse,
+      new URL("http://localhost/api/v1/bff/teacher/confirmations/claims/claim_1"),
+      { requestId: "req_4", tenantId: "tenant_demo", actorId: "usr_teacher" },
+      claimStatusHelpers
+    );
+    expect(runtime.claims.get).toHaveBeenCalledWith("claim_1", "usr_teacher", expect.any(String));
+    expect(res.statusCode).toBe(200);
+
+    await handleTeacherConfirmationRoute(
+      runtime,
+      { method: "POST" } as unknown as IncomingMessage,
+      res as unknown as ServerResponse,
+      new URL("http://localhost/api/v1/bff/teacher/confirmations/claims/claim_1/release"),
+      { requestId: "req_5", tenantId: "tenant_demo", actorId: "usr_teacher" },
+      claimStatusHelpers
+    );
+    expect(runtime.claims.release).toHaveBeenCalledWith("claim_1", "usr_teacher");
+    expect(res.statusCode).toBe(200);
   });
 });

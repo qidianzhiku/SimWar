@@ -16,6 +16,10 @@ const invalid = JSON.parse(
     "utf8"
   )
 );
+const openApi = readFileSync(
+  resolve(process.cwd(), "contracts/openapi/p0-api.openapi.yaml"),
+  "utf8"
+);
 
 function validator() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -48,5 +52,13 @@ describe("D3 teacher confirmation contract", () => {
     expect(isTeacherConfirmationVersion(rejected)).toBe(true);
     expect(validator()(rejectedWithoutReason)).toBe(false);
     expect(isTeacherConfirmationVersion(rejectedWithoutReason)).toBe(false);
+  });
+
+  it("declares claim creation, status, and release routes", () => {
+    expect(openApi).toContain("/api/v1/bff/teacher/confirmations/claims:");
+    expect(openApi).toContain("/api/v1/bff/teacher/confirmations/claims/{claim_id}:");
+    expect(openApi).toContain("/api/v1/bff/teacher/confirmations/claims/{claim_id}/release:");
+    expect(openApi).toContain("TEACHER_D3_CONFIRMATION_CLAIM_STATUS_V1");
+    expect(openApi).toContain("TEACHER_D3_CONFIRMATION_CLAIM_RELEASE_V1");
   });
 });

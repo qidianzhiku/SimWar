@@ -44,4 +44,32 @@ describe("D3 exclusive work claim", () => {
       "EXPIRED"
     );
   });
+
+  it("normalizes context identity and rejects invalid ttl or context values", () => {
+    const service = new TeacherConfirmationWorkClaimService();
+    const input = {
+      tenant_id: "tenant_demo",
+      context: { course_id: "c", run_id: "r", team_id: "t", role_key: "role" },
+      evidence_set_digest: "a".repeat(64),
+      claimed_by: "usr_teacher",
+      now: "2026-08-03T00:00:00.000Z"
+    };
+    expect(() => service.claim({ ...input, ttl_seconds: 0 })).toThrow("D3_INPUT_INVALID");
+    expect(() =>
+      service.claim({
+        ...input,
+        context: { course_id: "c", run_id: "r", team_id: "t", role_key: "" }
+      })
+    ).toThrow("D3_INPUT_INVALID");
+
+    const first = service.claim(input);
+    const reorderedContext = Object.fromEntries([
+      ["role_key", "role"],
+      ["team_id", "t"],
+      ["run_id", "r"],
+      ["course_id", "c"]
+    ]);
+    const second = service.claim({ ...input, context: reorderedContext });
+    expect(second.claim_id).toBe(first.claim_id);
+  });
 });
