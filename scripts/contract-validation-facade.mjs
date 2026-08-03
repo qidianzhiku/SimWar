@@ -77,6 +77,12 @@ const d1ContractFiles = [
   "contracts/fixtures/learning-design.invalid.json"
 ];
 
+const d2ContractFiles = [
+  "contracts/schemas/evidence-provenance.v1.json",
+  "contracts/fixtures/evidence-provenance.valid.json",
+  "contracts/fixtures/evidence-provenance.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -94,7 +100,9 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/learning-goals/revisions",
   "/api/v1/bff/teacher/rubrics/revisions",
   "/api/v1/bff/teacher/learning-goals/{goalId}/versions/{version}/{action}",
-  "/api/v1/bff/teacher/rubrics/{rubricId}/versions/{version}/{action}"
+  "/api/v1/bff/teacher/rubrics/{rubricId}/versions/{version}/{action}",
+  "/api/v1/bff/teacher/evidence",
+  "/api/v1/bff/teacher/evidence-artifacts/capture"
 ];
 
 const schemaCases = [
@@ -171,6 +179,11 @@ const schemaCases = [
     schema: "contracts/schemas/learning-design.v1.json",
     valid: ["contracts/fixtures/learning-design.valid.json"],
     invalid: ["contracts/fixtures/learning-design.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/evidence-provenance.v1.json",
+    valid: ["contracts/fixtures/evidence-provenance.valid.json"],
+    invalid: ["contracts/fixtures/evidence-provenance.invalid.json"]
   }
 ];
 
@@ -429,6 +442,26 @@ function assertFrontendDoesNotUseInternalRoutes() {
   }
 }
 
+function assertD2OpenApiBindings(openApi) {
+  const list = openApi.paths["/api/v1/bff/teacher/evidence"]?.get;
+  assert(list, "Missing D2 teacher evidence list operation.");
+  assert(
+    jsonContentSchema(list.responses?.["200"])?.$ref ===
+      "#/components/schemas/D2EvidenceListEnvelope",
+    "D2 evidence list must reference evidence-provenance schema."
+  );
+  const capture = openApi.paths["/api/v1/bff/teacher/evidence-artifacts/capture"]?.post;
+  assert(capture, "Missing D2 evidence capture operation.");
+  assert(
+    jsonContentSchema(capture.requestBody)?.$ref ===
+      "#/components/schemas/D2EvidenceCaptureInput",
+    "D2 evidence capture request must reference evidence-provenance schema."
+  );
+  for (const statusCode of ["201", "403", "409", "422"]) {
+    assert(capture.responses?.[statusCode], `D2 capture missing response ${statusCode}.`);
+  }
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -498,7 +531,8 @@ export async function runContractValidation(options = {}) {
     ...requiredBaselineFiles,
     ...m1ContractFiles,
     ...a5ContractFiles,
-    ...d1ContractFiles
+    ...d1ContractFiles,
+    ...d2ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -513,6 +547,7 @@ export async function runContractValidation(options = {}) {
   await SwaggerParser.validate(repoPath(openApiPath));
   const openApi = readOpenApi(openApiPath);
   assertM1OpenApiBindings(openApi);
+  assertD2OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

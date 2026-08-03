@@ -2263,6 +2263,51 @@ paths:
         "404": { description: Exact version not found }
         "409": { description: Illegal lifecycle or unpublished dependency }
         "422": { description: Exact reference invalid }
+  /api/v1/bff/teacher/evidence:
+    get:
+      operationId: TEACHER_D2_EVIDENCE_LIST_V1
+      summary: List eligible role activity events and teacher-safe D2 evidence.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Teacher-safe D2 evidence list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/D2EvidenceListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/teacher/evidence-artifacts/capture:
+    post:
+      operationId: TEACHER_D2_EVIDENCE_CAPTURE_V1
+      summary: Generate one immutable teacher-only EvidenceArtifact from an eligible event.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/D2EvidenceCaptureInput" }
+      responses:
+        "201":
+          description: Generated or reused immutable EvidenceArtifact receipt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/D2CaptureReceiptEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope or object boundary rejected }
+        "409": { description: Deterministic duplicate conflict }
+        "422":
+          description: Invalid event, stale reference, or unavailable source
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
 
 components:
   securitySchemes:
@@ -2280,6 +2325,12 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    D2EvidenceCaptureInput:
+      $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2EvidenceCaptureInput"
+    D2EvidenceListEnvelope:
+      $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2EvidenceListEnvelope"
+    D2CaptureReceiptEnvelope:
+      $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2CaptureReceiptEnvelope"
     FormalCourseBlueprintReferenceInput:
       type: object
       additionalProperties: true

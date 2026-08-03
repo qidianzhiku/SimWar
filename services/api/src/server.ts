@@ -13,6 +13,8 @@ import type {
   CoursePackageVersionDraftInput,
   CoursePackageVersionImportInput,
   CoursePackageVersionReference,
+  D2EvidenceCaptureInput,
+  D2EvidenceQuery,
   LearningGoalDraftInput,
   LearningGoalVersionReference,
   RubricDraftInput,
@@ -78,6 +80,7 @@ import {
   InstructorAssetRegistryError
 } from "./instructor-asset-registry.js";
 import { createInstructorIntelligenceKit } from "./instructor-intelligence.js";
+import { D2EvidenceError, EvidenceCaptureCommandService } from "./evidence-provenance.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -227,6 +230,7 @@ interface ApiRuntime {
   courseReports: CourseReportQueryService;
   learningDesignCommands: LearningDesignCommandService;
   learningDesignQueries: LearningDesignQueryService;
+  evidenceCapture: EvidenceCaptureCommandService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -385,6 +389,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     getByReference: (tenantId, reference) =>
       coursePackageRegistry.getByReference(tenantId, reference)
   });
+  const evidenceCapture = new EvidenceCaptureCommandService({
+    coursePackages: coursePackageRegistry,
+    learningDesign: learningDesignRegistry,
+    repository: repositoryProvider.ports.evidenceProvenance,
+    roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -394,6 +404,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     coursePackageQueries: new CoursePackageQueryService(coursePackageRegistry),
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
+    evidenceCapture,
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -3623,6 +3634,143 @@ async function executeAuditedLearningDesignCommand<T>(
   return result;
 }
 
+function d2EvidenceRequestError(): HttpError {
+  return new HttpError(422, "D2_EVIDENCE_INPUT_INVALID", "D2 evidence request is invalid");
+}
+
+function assertOnlyD2EvidenceFields(value: Record<string, unknown>, fields: readonly string[]): void {
+  const keys = Object.keys(value);
+  if (keys.length !== fields.length || keys.some((key) => !fields.includes(key))) {
+    throw d2EvidenceRequestError();
+  }
+}
+
+function parseD2EvidenceIdentity(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.trim() !== value ||
+    !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(value) ||
+    /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(value)
+  ) {
+    throw d2EvidenceRequestError();
+  }
+  return value;
+}
+
+function parseD2EvidenceRef(
+  value: unknown,
+  tenantId: string,
+  resourceType: "course_package_version" | "learning_goal_version" | "rubric_version"
+) {
+  if (!isRecord(value)) throw d2EvidenceRequestError();
+  assertOnlyD2EvidenceFields(value, ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"]);
+  if (
+    value.discriminator !== "exact_ref" ||
+    value.resource_type !== resourceType ||
+    value.tenant_id !== tenantId ||
+    !/^[a-f0-9]{64}$/.test(String(value.content_digest)) ||
+    typeof value.resource_id !== "string" ||
+    typeof value.version !== "string" ||
+    /(?:^|[._:-])[xX*](?:$|[._:-])/.test(value.version)
+  ) {
+    throw d2EvidenceRequestError();
+  }
+  return {
+    content_digest: String(value.content_digest),
+    discriminator: "exact_ref" as const,
+    resource_id: parseD2EvidenceIdentity(value.resource_id),
+    resource_type: resourceType,
+    tenant_id: tenantId,
+    version: parseD2EvidenceIdentity(value.version)
+  };
+}
+
+function parseD2EvidenceQuery(url: URL): D2EvidenceQuery {
+  const values = {
+    activity_id: url.searchParams.get("activity_id"),
+    course_id: url.searchParams.get("course_id"),
+    role_key: url.searchParams.get("role_key"),
+    run_id: url.searchParams.get("run_id"),
+    team_id: url.searchParams.get("team_id")
+  };
+  Object.values(values).forEach((value) => parseD2EvidenceIdentity(value));
+  return values as D2EvidenceQuery;
+}
+
+function requireD2EvidenceTeacher(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "D2_EVIDENCE_FORBIDDEN", "teacher evidence authority required");
+  }
+  return actor;
+}
+
+function d2EvidenceHttpError(error: unknown): HttpError {
+  if (!(error instanceof D2EvidenceError)) throw error;
+  const forbidden = [
+    "D2_EVIDENCE_TENANT_SCOPE_VIOLATION",
+    "D2_EVIDENCE_SCOPE_VIOLATION",
+    "D2_EVIDENCE_ROLE_SCOPE_VIOLATION",
+    "D2_EVIDENCE_FORBIDDEN"
+  ];
+  const conflict = ["D2_EVIDENCE_DUPLICATE_CONFLICT", "D2_EVIDENCE_REFERENCE_STALE"];
+  return new HttpError(
+    forbidden.includes(error.code) ? 403 : conflict.includes(error.code) ? 409 : 422,
+    error.code,
+    "D2 evidence command rejected"
+  );
+}
+
+async function handleD2EvidenceRoute(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  context: RequestContext
+): Promise<boolean> {
+  if (!url.pathname.startsWith("/api/v1/bff/teacher/evidence")) return false;
+  const actor = requireD2EvidenceTeacher(context);
+  try {
+    if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/evidence") {
+      const query = parseD2EvidenceQuery(url);
+      const data = await runtime.evidenceCapture.listTeacherEvidence(context.tenantId, query);
+      sendJson(response, 200, createEnvelope(context, data));
+      return true;
+    }
+    if (
+      request.method === "POST" &&
+      url.pathname === "/api/v1/bff/teacher/evidence-artifacts/capture"
+    ) {
+      const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+      assertOnlyD2EvidenceFields(body, [
+        "activity_id", "course_id", "course_package_ref", "learning_goal_ref", "role_key", "rubric_ref",
+        "run_id", "source_event_id", "team_id"
+      ]);
+      const input: D2EvidenceCaptureInput = {
+        activity_id: parseD2EvidenceIdentity(body.activity_id),
+        course_id: parseD2EvidenceIdentity(body.course_id),
+        course_package_ref: parseD2EvidenceRef(body.course_package_ref, context.tenantId, "course_package_version"),
+        learning_goal_ref: parseD2EvidenceRef(body.learning_goal_ref, context.tenantId, "learning_goal_version"),
+        role_key: parseD2EvidenceIdentity(body.role_key),
+        rubric_ref: parseD2EvidenceRef(body.rubric_ref, context.tenantId, "rubric_version"),
+        run_id: parseD2EvidenceIdentity(body.run_id),
+        source_event_id: parseD2EvidenceIdentity(body.source_event_id),
+        team_id: parseD2EvidenceIdentity(body.team_id)
+      };
+      const data = await runtime.evidenceCapture.capture(
+        { actor_id: actor.user_id, tenant_id: context.tenantId },
+        input,
+        context.requestId
+      );
+      sendJson(response, 201, createEnvelope(context, data));
+      return true;
+    }
+  } catch (error) {
+    throw d2EvidenceHttpError(error);
+  }
+  throw new HttpError(404, "ROUTE-404-001", "not found");
+}
+
 async function handleLearningDesignRoute(
   runtime: ApiRuntime,
   request: IncomingMessage,
@@ -3991,6 +4139,8 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 
   if (await handleLearningDesignRoute(runtime, request, response, url, context)) return;
 
