@@ -1,49 +1,56 @@
-cycle_id: L1PLUS-CYCLE-008-D3-TEACHER-CONFIRMATION
+cycle_id: L1PLUS-CYCLE-009-D4-STUDENT-LEARNING-REPORT
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-generated_at: "2026-08-03T21:56:09+08:00"
+generated_at: "2026-08-03T23:21:55+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
-product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+assessment_source_anchor_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
 governance_closure_merge_sha: THIS_CHANGESET
-l1_plus_status: D3_TEACHER_CONFIRMATION_COMPLETE_WITH_LIMITS
+l1_plus_status: D4_STUDENT_LEARNING_REPORT_COMPLETE_WITH_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
 capability:
-  id: L1P-D3
-  candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+  id: L1P-D4
+  candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
   status: CLOSED_AND_CURRENT_WITH_LIMITS
-  primary_outcome: Teacher can select exact learning references and controlled scope, claim an exclusive work item, submit an explicit confirmation, and inspect an immutable teacher-safe confirmation receipt.
-  mutable_authority: TeacherConfirmationCommandService
-  sole_writer: TeacherConfirmationCommandService
+  primary_outcome: Student can inspect a deterministic, teacher-safe learning report derived from confirmed evidence with exact references and provenance.
+  mutable_authority: NONE_D4_READ_ONLY_PROJECTION
+  sole_writer: TeacherConfirmationCommandService_REMAINS_D3_AUTHORITY
+  projection_service: StudentLearningReportProjectionService
   product_prs:
-    - number: 325
-      merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+    - number: 327
+      merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+      role: BACKEND_CONTRACT_AND_PROJECTION
+    - number: 328
+      merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+      role: STUDENT_WORKBENCH
   evidence:
-    product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-    acceptance_scope: D3 teacher confirmation journey and 28-file candidate
+    product_acceptance: PASS
+    acceptance_rows: A01_A25_PASS
     challenge_review_blocking: 0
     challenge_review_must_fix: 0
     post_merge_fresh_clone: PASS
-    full_tests: 145_FILES_988_TESTS_PASS
-    browser: 2_D3_TESTS_PASS
-    contract: 10_FILES_26_TESTS_PASS
+    full_tests: 149_FILES_995_TESTS_PASS
+    browser: 1_D4_TEST_PASS
+    contract: 12_FILES_30_TESTS_PASS
     direct_store_boundary: 0_NEW_UNAPPROVED
     typecheck: PASS
     lint: PASS
     build: PASS
     hidden_unicode: PASS
-    product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
-    post_merge_receipt: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W007-D3-20260803T163749Z/closure/post-merge-receipt-3f9145f.json
+    security_audit_critical_threshold: PASS_WITH_2_LOW_6_HIGH_ADVISORIES
+    product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+    backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+    frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+    fresh_clone: D:/codex/simwar-w008-d4-final-fresh-ee7e
   known_limits:
     runtime_authority: JSON_INTERNAL_ONLY
-    teacher_confirmation_rollback: IN_MEMORY_TRANSACTIONAL_ROLLBACK_ONLY
-    accessibility: BASELINE_BROWSER_EVIDENCE_ONLY
     human_validation: NOT_PERFORMED
     issue_111: OPEN_KNOWN_LIMIT
     postgresql: NOT_ACTIVE
     durable_settlement_and_recovery: NOT_PROVEN
     pilot_and_production: NOT_AUTHORIZED
+    dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 support_code:
   candidate_id: NONE
 docs_discovery:
@@ -55,29 +62,44 @@ closure:
   post_merge_required: COMPLETED
   governance_pr: THIS_CHANGESET
 resource_locks:
-  - resource: TEACHER_CONFIRMATION_AUTHORITY
+  - resource: D4_STUDENT_REPORT_CONTRACT
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_SHARED_CONTRACTS
+  - resource: D4_REPORT_PROJECTION
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_WORKBENCH
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_WORK_CLAIM
+  - resource: STUDENT_REPORT_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
-  - candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
-    status: DEFERRED_UNTIL_SEPARATE_PROGRAM_D_MISSION
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
-authorization:
-  status: CLOSED_NO_AUTOMATIC_SUCCESSOR
-  next_candidate: CAND-L1P-D4-STUDENT-LEARNING-REPORT
-  next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
-  next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
-  automatic_start: false
+  - candidate_id: D5_OR_OTHER_PROGRAM_D_EXTENSION
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
+known_limits:
+  issue_111: OPEN_KNOWN_LIMIT
+  runtime_authority: JSON_INTERNAL_ONLY
+  human_validation: NOT_PERFORMED
+  postgresql: NOT_ACTIVE
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+evidence:
+  product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+  backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+  frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+  fresh_clone: D:/codex/simwar-w008-d4-final-fresh-ee7e
+  d4_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W008-D4-20260803T142705Z
+  product_acceptance: PASS
+invalidation_triggers:
+  - product_or_runtime_changed
+  - student_report_projection_authority_changed
+  - shared_contract_changed
+  - teacher_confirmation_or_evidence_provenance_changed
+  - golden_truth_or_replay_contract_changed
+  - student_visibility_changed
+  - D4_acceptance_baseline_changed
 automatic_next_start: false

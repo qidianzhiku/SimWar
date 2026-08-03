@@ -1,0 +1,54 @@
+cycle_id: L1PLUS-CYCLE-009-D4-STUDENT-LEARNING-REPORT
+stage: L1_PLUS
+capability_id: L1P-D4
+candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+product_prs:
+  - number: 327
+    role: BACKEND_CONTRACT_AND_PROJECTION
+    merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+  - number: 328
+    role: STUDENT_WORKBENCH
+    merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Student can inspect a deterministic safe learning report with exact references, criteria, provenance and Known Limits.
+projection_service: StudentLearningReportProjectionService
+sole_mutable_writer: TeacherConfirmationCommandService_REMAINS_D3_AUTHORITY
+acceptance:
+  status: PASS
+  rows: A01_A25_PASS
+  focused_tests: 4_FILES_7_TESTS_PASS
+  contract_tests: 12_FILES_30_TESTS_PASS
+  browser_tests: 1_PASS
+  full_tests: 149_FILES_995_TESTS_PASS
+  planned_corrective_product_pr_count: 0
+reviews:
+  backend_blocking: 0
+  backend_must_fix: 0
+  frontend_blocking: 0
+  frontend_must_fix: 0
+validation:
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  fresh_clone: PASS
+security:
+  critical_threshold: PASS
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+fresh_clone:
+  path: D:/codex/simwar-w008-d4-final-fresh-ee7e
+  source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+  clean: true
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  human_validation: NOT_PERFORMED
+  issue_111: OPEN_KNOWN_LIMIT
+  postgresql: NOT_ACTIVE
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+resource_locks: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+automatic_next_start: false
