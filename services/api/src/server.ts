@@ -404,7 +404,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
   const teacherConfirmationRepository =
-    repositoryProvider.ports.teacherConfirmations ?? createJsonTeacherConfirmationRepositoryPort(store);
+    repositoryProvider.ports.teacherConfirmations ??
+    createJsonTeacherConfirmationRepositoryPort(store);
+  const teacherConfirmationClaims = new TeacherConfirmationWorkClaimService();
   const teacherConfirmations = new TeacherConfirmationCommandService({
     coursePackages: {
       getByReference: (tenantId, reference) =>
@@ -421,7 +423,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     },
     evidence: {
       async getByReference(tenantId, reference) {
-        const artifact = (await repositoryProvider.ports.evidenceProvenance.listEvidenceArtifacts(tenantId)).find(
+        const artifact = (
+          await repositoryProvider.ports.evidenceProvenance.listEvidenceArtifacts(tenantId)
+        ).find(
           (candidate) =>
             candidate.artifact_ref.resource_id === reference.resource_id &&
             candidate.artifact_ref.version === reference.version &&
@@ -430,14 +434,16 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         );
         return artifact
           ? {
-              artifact_ref: artifact.artifact_ref as unknown as import("@simwar/shared-contracts").TeacherConfirmationExactRef,
+              artifact_ref:
+                artifact.artifact_ref as unknown as import("@simwar/shared-contracts").TeacherConfirmationExactRef,
               context: artifact.context,
               visibility: "teacher_only" as const
             }
           : null;
       }
     },
-    repository: teacherConfirmationRepository
+    repository: teacherConfirmationRepository,
+    claims: teacherConfirmationClaims
   });
 
   return {
@@ -451,7 +457,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     evidenceCapture,
     teacherConfirmations,
     teacherConfirmationQueries: new TeacherConfirmationQueryService(teacherConfirmations),
-    teacherConfirmationClaims: new TeacherConfirmationWorkClaimService(),
+    teacherConfirmationClaims,
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -3685,7 +3691,10 @@ function d2EvidenceRequestError(): HttpError {
   return new HttpError(422, "D2_EVIDENCE_INPUT_INVALID", "D2 evidence request is invalid");
 }
 
-function assertOnlyD2EvidenceFields(value: Record<string, unknown>, fields: readonly string[]): void {
+function assertOnlyD2EvidenceFields(
+  value: Record<string, unknown>,
+  fields: readonly string[]
+): void {
   const keys = Object.keys(value);
   if (keys.length !== fields.length || keys.some((key) => !fields.includes(key))) {
     throw d2EvidenceRequestError();
@@ -3710,7 +3719,14 @@ function parseD2EvidenceRef(
   resourceType: "course_package_version" | "learning_goal_version" | "rubric_version"
 ) {
   if (!isRecord(value)) throw d2EvidenceRequestError();
-  assertOnlyD2EvidenceFields(value, ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"]);
+  assertOnlyD2EvidenceFields(value, [
+    "content_digest",
+    "discriminator",
+    "resource_id",
+    "resource_type",
+    "tenant_id",
+    "version"
+  ]);
   if (
     value.discriminator !== "exact_ref" ||
     value.resource_type !== resourceType ||
@@ -3790,14 +3806,29 @@ async function handleD2EvidenceRoute(
     ) {
       const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
       assertOnlyD2EvidenceFields(body, [
-        "activity_id", "course_id", "course_package_ref", "learning_goal_ref", "role_key", "rubric_ref",
-        "run_id", "source_event_id", "team_id"
+        "activity_id",
+        "course_id",
+        "course_package_ref",
+        "learning_goal_ref",
+        "role_key",
+        "rubric_ref",
+        "run_id",
+        "source_event_id",
+        "team_id"
       ]);
       const input: D2EvidenceCaptureInput = {
         activity_id: parseD2EvidenceIdentity(body.activity_id),
         course_id: parseD2EvidenceIdentity(body.course_id),
-        course_package_ref: parseD2EvidenceRef(body.course_package_ref, context.tenantId, "course_package_version"),
-        learning_goal_ref: parseD2EvidenceRef(body.learning_goal_ref, context.tenantId, "learning_goal_version"),
+        course_package_ref: parseD2EvidenceRef(
+          body.course_package_ref,
+          context.tenantId,
+          "course_package_version"
+        ),
+        learning_goal_ref: parseD2EvidenceRef(
+          body.learning_goal_ref,
+          context.tenantId,
+          "learning_goal_version"
+        ),
         role_key: parseD2EvidenceIdentity(body.role_key),
         rubric_ref: parseD2EvidenceRef(body.rubric_ref, context.tenantId, "rubric_version"),
         run_id: parseD2EvidenceIdentity(body.run_id),
@@ -4189,27 +4220,31 @@ async function routeRequest(
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 
-  if (await handleTeacherConfirmationRoute(
-    {
-      commands: runtime.teacherConfirmations,
-      queries: runtime.teacherConfirmationQueries,
-      claims: runtime.teacherConfirmationClaims
-    },
-    request,
-    response,
-    url,
-    {
-      requestId: context.requestId,
-      tenantId: context.tenantId,
-      actorId: context.actor?.user_id ?? ""
-    },
-    {
-      readJson: (incoming) => readJson(incoming),
-      sendJson,
-      createEnvelope: (routeContext, payload) => createEnvelope(routeContext as RequestContext, payload),
-      requireTeacher: () => requireD2EvidenceTeacher(context)
-    }
-  )) return;
+  if (
+    await handleTeacherConfirmationRoute(
+      {
+        commands: runtime.teacherConfirmations,
+        queries: runtime.teacherConfirmationQueries,
+        claims: runtime.teacherConfirmationClaims
+      },
+      request,
+      response,
+      url,
+      {
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        actorId: context.actor?.user_id ?? ""
+      },
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireTeacher: () => requireD2EvidenceTeacher(context)
+      }
+    )
+  )
+    return;
 
   if (await handleLearningDesignRoute(runtime, request, response, url, context)) return;
 

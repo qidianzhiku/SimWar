@@ -106,7 +106,7 @@ describe("D3 Teacher Confirmation BFF route", () => {
       }
     } as unknown as TeacherConfirmationRouteRuntime;
     const res = response();
-    const body = { rejection_reason: "Needs a clearer bounded source." };
+    const body = { claim_id: "claim_1", rejection_reason: "Needs a clearer bounded source." };
     const helpers = {
       readJson: async () => body,
       sendJson: (target: ServerResponse, status: number, payload: unknown) => {
@@ -128,12 +128,14 @@ describe("D3 Teacher Confirmation BFF route", () => {
     expect(runtime.commands.reject).toHaveBeenCalledWith(
       { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
       "confirmation_001",
+      "claim_1",
       body,
       "req_1"
     );
     expect(res.statusCode).toBe(200);
 
     const commandInput = {
+      claim_id: "claim_1",
       confirmation_id: "confirmation_001",
       course_package_ref: {},
       learning_goal_ref: {},

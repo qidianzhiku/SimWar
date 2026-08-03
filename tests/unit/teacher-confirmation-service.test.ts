@@ -61,6 +61,7 @@ function dependencies(): TeacherConfirmationCommandDependencies & {
         visibility: "teacher_only"
       })
     },
+    claims: { assertActive: () => undefined },
     repository: {
       list: async () => records,
       append: async ({ confirmation, audit_log }) => {
@@ -74,6 +75,7 @@ function dependencies(): TeacherConfirmationCommandDependencies & {
 }
 
 const input = {
+  claim_id: "claim_001",
   confirmation_id: "confirmation_001",
   course_package_ref: ref("course_package_version", "package_001"),
   learning_goal_ref: ref("learning_goal_version", "goal_001"),
@@ -102,6 +104,7 @@ describe("TeacherConfirmationCommandService", () => {
     const confirmed = await service.confirm(
       { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
       "confirmation_001",
+      "claim_001",
       "req_002"
     );
     expect(draft.data.status).toBe("generated");
@@ -121,7 +124,8 @@ describe("TeacherConfirmationCommandService", () => {
     const rejected = await service.reject(
       { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
       "confirmation_001",
-      { rejection_reason: "Evidence needs a clearer role-scoped source." },
+      "claim_001",
+      { claim_id: "claim_001", rejection_reason: "Evidence needs a clearer role-scoped source." },
       "req_002"
     );
     const revised = await service.revise(
@@ -150,7 +154,8 @@ describe("TeacherConfirmationCommandService", () => {
       service.reject(
         { actor_id: "usr_teacher", tenant_id: "tenant_demo" },
         "confirmation_001",
-        { rejection_reason: "<private>" },
+        "claim_001",
+        { claim_id: "claim_001", rejection_reason: "<private>" },
         "req_002"
       )
     ).rejects.toMatchObject({ code: "D3_INPUT_INVALID" });
@@ -201,6 +206,19 @@ describe("TeacherConfirmationCommandService", () => {
     await expect(
       service.saveDraft({ actor_id: "usr_teacher", tenant_id: "tenant_demo" }, input, "req_001")
     ).rejects.toBeInstanceOf(TeacherConfirmationError);
+    expect(deps.records).toHaveLength(0);
+    expect(deps.audits).toHaveLength(0);
+  });
+
+  it("requires the active work claim before any confirmation write", async () => {
+    const deps = dependencies();
+    deps.claims.assertActive = () => {
+      throw new Error("D3_WORK_CLAIM_CONFLICT");
+    };
+    const service = new TeacherConfirmationCommandService(deps);
+    await expect(
+      service.saveDraft({ actor_id: "usr_teacher", tenant_id: "tenant_demo" }, input, "req_001")
+    ).rejects.toThrow("D3_WORK_CLAIM_CONFLICT");
     expect(deps.records).toHaveLength(0);
     expect(deps.audits).toHaveLength(0);
   });

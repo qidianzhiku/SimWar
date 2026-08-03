@@ -8,6 +8,12 @@ revision creates a new version with a `supersedes_ref`; no version is updated
 in place. Repeating the same identity and content digest reuses the existing
 receipt, while a different digest returns a stable conflict.
 
+Every draft, confirm, reject, and revise command must carry the active
+process-local work claim. The command service checks the claim's teacher,
+tenant, scoped context, evidence-set digest, and expiry before appending an
+immutable version. Expiry is observable through the claim status endpoint and
+an expired claim fails closed for subsequent writes.
+
 The contract deliberately excludes raw event payloads, Student routes, Truth,
 SettlementResult, Score, Rank, canonical Decision, Replay authority, and AI
 private context. The active runtime remains `JSON_INTERNAL_ONLY`; durable

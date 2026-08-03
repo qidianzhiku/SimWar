@@ -79,6 +79,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "claim_id",
         "confirmation_id",
         "course_package_ref",
         "learning_goal_ref",
@@ -90,6 +91,7 @@
         "idempotency_key"
       ],
       "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
         "confirmation_id": { "$ref": "#/$defs/Identity" },
         "course_package_ref": { "$ref": "#/$defs/CoursePackageRef" },
         "learning_goal_ref": { "$ref": "#/$defs/LearningGoalRef" },
@@ -116,9 +118,18 @@
     "TeacherConfirmationRejectInput": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rejection_reason"],
+      "required": ["claim_id", "rejection_reason"],
       "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
         "rejection_reason": { "$ref": "#/$defs/RejectionReason" }
+      }
+    },
+    "TeacherConfirmationClaimActionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" }
       }
     },
     "TeacherConfirmationWorkClaim": {

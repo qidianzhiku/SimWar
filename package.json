@@ -21,7 +21,7 @@
     "test": "npm run build:test-prerequisites && vitest run",
     "test:e2e:ui": "playwright test && playwright test --config playwright.role-workflow.config.ts",
     "test:postgres-replay": "vitest run --config scripts/postgres-replay-verification.test.ts scripts/postgres-replay-verification.test.ts",
-    "test:contract": "npm run build:test-prerequisites && node scripts/check-contracts.mjs && vitest run tests/contract/role-workflow-contract.test.ts tests/contract/course-package-version-contract.test.ts tests/contract/course-report-contract.test.ts tests/contract/learning-design-contract.test.ts tests/contract/d2-evidence-provenance-contract.test.ts tests/integration/d2-evidence-provenance-endpoint.test.ts tests/integration/m1-handler-contract-conformance.test.ts tests/integration/l1-core-route-contract-parity.test.ts",
+    "test:contract": "npm run build:test-prerequisites && node scripts/check-contracts.mjs && vitest run tests/contract/role-workflow-contract.test.ts tests/contract/course-package-version-contract.test.ts tests/contract/course-report-contract.test.ts tests/contract/learning-design-contract.test.ts tests/contract/d2-evidence-provenance-contract.test.ts tests/contract/teacher-confirmation-contract.test.ts tests/integration/d2-evidence-provenance-endpoint.test.ts tests/integration/teacher-confirmation-endpoint.test.ts tests/integration/m1-handler-contract-conformance.test.ts tests/integration/l1-core-route-contract-parity.test.ts",
     "format:check": "prettier --check .",
     "security:audit": "npm audit --audit-level=critical",
     "check:hidden-unicode": "node scripts/check-hidden-unicode.mjs",

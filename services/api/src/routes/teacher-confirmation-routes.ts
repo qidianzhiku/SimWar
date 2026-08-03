@@ -43,6 +43,7 @@ function only(value: Record<string, unknown>, fields: readonly string[]): void {
 function parseInput(value: unknown): TeacherConfirmationCommandInput {
   const body = object(value);
   only(body, [
+    "claim_id",
     "confirmation_id",
     "course_package_ref",
     "learning_goal_ref",
@@ -56,12 +57,20 @@ function parseInput(value: unknown): TeacherConfirmationCommandInput {
   return body as unknown as TeacherConfirmationCommandInput;
 }
 
-function parseRejectInput(value: unknown): { rejection_reason: string } {
+function parseClaimActionInput(value: unknown): { claim_id: string } {
   const body = object(value);
-  only(body, ["rejection_reason"]);
+  only(body, ["claim_id"]);
+  if (typeof body.claim_id !== "string") throw new TeacherConfirmationError("D3_INPUT_INVALID");
+  return { claim_id: body.claim_id };
+}
+
+function parseRejectInput(value: unknown): { claim_id: string; rejection_reason: string } {
+  const body = object(value);
+  only(body, ["claim_id", "rejection_reason"]);
+  if (typeof body.claim_id !== "string") throw new TeacherConfirmationError("D3_INPUT_INVALID");
   if (typeof body.rejection_reason !== "string")
     throw new TeacherConfirmationError("D3_INPUT_INVALID");
-  return { rejection_reason: body.rejection_reason };
+  return { claim_id: body.claim_id, rejection_reason: body.rejection_reason };
 }
 
 function errorResponse(error: unknown): {
@@ -76,6 +85,7 @@ function errorResponse(error: unknown): {
   const conflict =
     code === "D3_DUPLICATE_CONFLICT" ||
     code === "D3_WORK_CLAIM_CONFLICT" ||
+    code === "D3_WORK_CLAIM_EXPIRED" ||
     code === "D3_LIFECYCLE_INVALID";
   return {
     status: forbidden ? 403 : conflict ? 409 : 422,
@@ -118,6 +128,7 @@ export async function handleTeacherConfirmationRoute(
       const receipt = await runtime.commands.confirm(
         { actor_id: context.actorId, tenant_id: context.tenantId },
         confirmationId,
+        parseClaimActionInput(await helpers.readJson(request)).claim_id,
         context.requestId
       );
       helpers.sendJson(response, 200, helpers.createEnvelope(context, receipt));
@@ -127,10 +138,12 @@ export async function handleTeacherConfirmationRoute(
     if (request.method === "POST" && reject) {
       const confirmationId = reject[1];
       if (!confirmationId) throw new TeacherConfirmationError("D3_INPUT_INVALID");
+      const rejectInput = parseRejectInput(await helpers.readJson(request));
       const receipt = await runtime.commands.reject(
         { actor_id: context.actorId, tenant_id: context.tenantId },
         confirmationId,
-        parseRejectInput(await helpers.readJson(request)),
+        rejectInput.claim_id,
+        rejectInput,
         context.requestId
       );
       helpers.sendJson(response, 200, helpers.createEnvelope(context, receipt));
@@ -166,6 +179,22 @@ export async function handleTeacherConfirmationRoute(
         201,
         helpers.createEnvelope(context, {
           claim,
+          known_limits: ["Claims are process-local and non-durable."]
+        })
+      );
+      return true;
+    }
+    const claimStatus = /^\/api\/v1\/bff\/teacher\/confirmations\/claims\/([^/]+)$/.exec(
+      url.pathname
+    );
+    if (request.method === "GET" && claimStatus) {
+      const claimId = claimStatus[1];
+      if (!claimId) throw new TeacherConfirmationError("D3_INPUT_INVALID");
+      helpers.sendJson(
+        response,
+        200,
+        helpers.createEnvelope(context, {
+          claim: runtime.claims.get(claimId, context.actorId, new Date().toISOString()),
           known_limits: ["Claims are process-local and non-durable."]
         })
       );

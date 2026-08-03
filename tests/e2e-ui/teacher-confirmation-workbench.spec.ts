@@ -281,8 +281,31 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
       })
     })
   );
+  await page.route("**/api/v1/bff/teacher/confirmations/claims/claim_demo", (route) =>
+    route.fulfill({
+      json: envelope({
+        claim: {
+          claim_id: "claim_demo",
+          tenant_id: "tenant_demo",
+          context: {
+            course_id: "course_demo",
+            run_id: "run_d3",
+            team_id: "team_demo",
+            role_key: "marketing"
+          },
+          evidence_set_digest: digest,
+          claimed_by: "usr_teacher",
+          claimed_at: "2026-08-03T07:00:00.000Z",
+          expires_at: "2026-08-03T08:00:00.000Z",
+          status: "CLAIMED"
+        },
+        known_limits: ["non-durable"]
+      })
+    })
+  );
   await page.route("**/api/v1/bff/teacher/confirmations/drafts", async (route) => {
     expect(route.request().postDataJSON().confirmation_id).toBe("confirmation_demo");
+    expect(route.request().postDataJSON().claim_id).toBe("claim_demo");
     await route.fulfill({
       json: envelope({
         data: { confirmation: draft, status: "generated" },
@@ -294,6 +317,7 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
   await page.route(
     "**/api/v1/bff/teacher/confirmations/confirmation_demo/reject",
     async (route) => {
+      expect(route.request().postDataJSON().claim_id).toBe("claim_demo");
       expect(route.request().postDataJSON().rejection_reason).toContain("clearer");
       await route.fulfill({
         json: envelope({
@@ -316,8 +340,9 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
       })
     })
   );
-  await page.route("**/api/v1/bff/teacher/confirmations/confirmation_demo/confirm", (route) =>
-    route.fulfill({
+  await page.route("**/api/v1/bff/teacher/confirmations/confirmation_demo/confirm", (route) => {
+    expect(route.request().postDataJSON().claim_id).toBe("claim_demo");
+    return route.fulfill({
       json: envelope({
         data: {
           confirmation: confirmed,
@@ -326,8 +351,8 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
         },
         known_limits: ["teacher-only"]
       })
-    })
-  );
+    });
+  });
 
   await page.goto(teacherBaseUrl);
   await signIn(page);
@@ -344,8 +369,9 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
   await workbench.getByLabel("D3 exact learning goal").selectOption("goal_demo:1.0.0");
   await workbench.getByLabel("D3 exact rubric").selectOption("rubric_demo:1.0.0");
   await workbench.getByRole("button", { name: "Load scoped evidence" }).click();
-  await workbench.getByRole("button", { name: "Claim work item" }).click();
   await workbench.getByLabel("D3 exact evidence").selectOption({ index: 1 });
+  await workbench.getByRole("button", { name: "Claim work item" }).click();
+  await workbench.getByRole("button", { name: "Check work claim" }).click();
   await workbench.getByLabel("D3 rubric criterion").selectOption("criterion_demo");
   await workbench.getByLabel("D3 rubric level").selectOption("1");
   await workbench.getByRole("button", { name: "Save immutable draft" }).click();

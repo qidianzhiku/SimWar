@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { TeacherConfirmationContext } from "@simwar/shared-contracts";
 
 export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";
 
@@ -13,14 +14,29 @@ export interface TeacherConfirmationWorkClaim {
   readonly status: TeacherConfirmationClaimStatus;
 }
 
+export interface TeacherConfirmationClaimVerification {
+  assertActive(input: {
+    claim_id: string;
+    actor_id: string;
+    tenant_id: string;
+    context: TeacherConfirmationContext;
+    evidence_set_digest: string;
+    now: string;
+  }): void;
+}
+
 export class TeacherConfirmationWorkClaimError extends Error {
-  constructor(readonly code: "D3_WORK_CLAIM_CONFLICT" | "D3_INPUT_INVALID") {
+  constructor(
+    readonly code: "D3_WORK_CLAIM_CONFLICT" | "D3_WORK_CLAIM_EXPIRED" | "D3_INPUT_INVALID"
+  ) {
     super(code);
     this.name = "TeacherConfirmationWorkClaimError";
   }
 }
 
-function key(input: Pick<TeacherConfirmationWorkClaim, "tenant_id" | "context" | "evidence_set_digest">): string {
+function key(
+  input: Pick<TeacherConfirmationWorkClaim, "tenant_id" | "context" | "evidence_set_digest">
+): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
@@ -36,7 +52,11 @@ export class TeacherConfirmationWorkClaimService {
     now: string;
     ttl_seconds?: number;
   }): TeacherConfirmationWorkClaim {
-    if (!input.tenant_id || !input.claimed_by || !/^[a-f0-9]{64}$/.test(input.evidence_set_digest)) {
+    if (
+      !input.tenant_id ||
+      !input.claimed_by ||
+      !/^[a-f0-9]{64}$/.test(input.evidence_set_digest)
+    ) {
       throw new TeacherConfirmationWorkClaimError("D3_INPUT_INVALID");
     }
     const claimKey = key({
@@ -45,11 +65,18 @@ export class TeacherConfirmationWorkClaimService {
       evidence_set_digest: input.evidence_set_digest
     });
     const existing = this.claims.get(claimKey);
-    if (existing && existing.status === "CLAIMED" && Date.parse(existing.expires_at) > Date.parse(input.now)) {
-      if (existing.claimed_by !== input.claimed_by) throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+    if (
+      existing &&
+      existing.status === "CLAIMED" &&
+      Date.parse(existing.expires_at) > Date.parse(input.now)
+    ) {
+      if (existing.claimed_by !== input.claimed_by)
+        throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
       return structuredClone(existing);
     }
-    const expiresAt = new Date(Date.parse(input.now) + (input.ttl_seconds ?? 300) * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.parse(input.now) + (input.ttl_seconds ?? 300) * 1000
+    ).toISOString();
     const claim: TeacherConfirmationWorkClaim = {
       claim_id: `claim_${++this.sequence}`,
       tenant_id: input.tenant_id,
@@ -66,10 +93,47 @@ export class TeacherConfirmationWorkClaimService {
 
   release(claimId: string, actorId: string): TeacherConfirmationWorkClaim {
     const entry = [...this.claims.entries()].find(([, claim]) => claim.claim_id === claimId);
-    if (!entry || entry[1].claimed_by !== actorId) throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+    if (!entry || entry[1].claimed_by !== actorId)
+      throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
     const released = { ...entry[1], status: "RELEASED" as const };
     this.claims.set(entry[0], released);
     return structuredClone(released);
+  }
+
+  get(claimId: string, actorId: string, now: string): TeacherConfirmationWorkClaim {
+    const entry = [...this.claims.entries()].find(([, claim]) => claim.claim_id === claimId);
+    if (!entry || entry[1].claimed_by !== actorId) {
+      throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+    }
+    const claim = entry[1];
+    if (claim.status === "CLAIMED" && Date.parse(claim.expires_at) <= Date.parse(now)) {
+      const expired = { ...claim, status: "EXPIRED" as const };
+      this.claims.set(entry[0], expired);
+      return structuredClone(expired);
+    }
+    return structuredClone(claim);
+  }
+
+  assertActive(input: {
+    claim_id: string;
+    actor_id: string;
+    tenant_id: string;
+    context: TeacherConfirmationWorkClaim["context"];
+    evidence_set_digest: string;
+    now: string;
+  }): void {
+    const claim = this.get(input.claim_id, input.actor_id, input.now);
+    if (claim.status === "EXPIRED") {
+      throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_EXPIRED");
+    }
+    if (
+      claim.status !== "CLAIMED" ||
+      claim.tenant_id !== input.tenant_id ||
+      claim.evidence_set_digest !== input.evidence_set_digest ||
+      JSON.stringify(claim.context) !== JSON.stringify(input.context)
+    ) {
+      throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+    }
   }
 
   expire(now: string): number {

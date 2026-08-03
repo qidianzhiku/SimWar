@@ -2352,6 +2352,12 @@ paths:
         - SessionBearer: []
       parameters:
         - { name: confirmationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimActionInput"
       responses:
         "200":
           description: Confirmed immutable version.
@@ -2457,6 +2463,8 @@ components:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationCommandInput"
     TeacherConfirmationRejectInput:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationRejectInput"
+    TeacherConfirmationClaimActionInput:
+      $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimActionInput"
     TeacherConfirmationListEnvelope:
       type: object
       additionalProperties: false

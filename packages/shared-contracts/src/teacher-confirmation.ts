@@ -65,6 +65,7 @@ export interface TeacherConfirmationVersion {
 }
 
 export interface TeacherConfirmationCommandInput {
+  readonly claim_id: string;
   readonly confirmation_id: string;
   readonly course_package_ref: TeacherConfirmationExactRef;
   readonly learning_goal_ref: TeacherConfirmationExactRef;
@@ -77,7 +78,12 @@ export interface TeacherConfirmationCommandInput {
 }
 
 export interface TeacherConfirmationRejectInput {
+  readonly claim_id: string;
   readonly rejection_reason: string;
+}
+
+export interface TeacherConfirmationClaimActionInput {
+  readonly claim_id: string;
 }
 
 export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";

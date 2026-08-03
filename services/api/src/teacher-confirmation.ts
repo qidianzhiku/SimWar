@@ -5,6 +5,7 @@ import {
   type LearningGoalVersion,
   type RubricVersion,
   type TeacherConfirmationCommandInput,
+  type TeacherConfirmationContext,
   type TeacherConfirmationExactRef,
   type TeacherConfirmationRejectInput,
   type TeacherConfirmationTeacherDto,
@@ -15,6 +16,7 @@ import type {
   TeacherConfirmationAppendCommand,
   TeacherConfirmationRepositoryPort
 } from "./repository-ports.js";
+import type { TeacherConfirmationClaimVerification } from "./teacher-confirmation-work-claim.js";
 
 const KNOWN_LIMITS = [
   "D3 confirmation is teacher-only and is not final grading.",
@@ -60,6 +62,7 @@ export interface TeacherConfirmationCommandDependencies {
   coursePackages: TeacherConfirmationCoursePackageLookup;
   learningDesign: TeacherConfirmationLearningDesignLookup;
   evidence: TeacherConfirmationEvidenceLookup;
+  claims: TeacherConfirmationClaimVerification;
   repository: TeacherConfirmationRepositoryPort;
   now?: () => string;
   createId?: (kind: string) => string;
@@ -95,6 +98,19 @@ function canonicalize(value: unknown): string {
 
 function digest(value: unknown): string {
   return createHash("sha256").update(canonicalize(value)).digest("hex");
+}
+
+function evidenceSetDigest(refs: readonly TeacherConfirmationExactRef[]): string {
+  const normalized = refs
+    .map((ref) => ({
+      content_digest: ref.content_digest,
+      resource_id: ref.resource_id,
+      resource_type: ref.resource_type,
+      tenant_id: ref.tenant_id,
+      version: ref.version
+    }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
 }
 
 function identity(value: unknown): string {
@@ -154,6 +170,7 @@ export class TeacherConfirmationCommandService {
     identity(actor.tenant_id);
     identity(requestId);
     this.assertInput(actor.tenant_id, input);
+    this.assertClaim(actor, input.claim_id, input.context, input.evidence_refs);
     const refs = [
       input.course_package_ref,
       input.learning_goal_ref,
@@ -196,12 +213,15 @@ export class TeacherConfirmationCommandService {
   async confirm(
     actor: { actor_id: string; tenant_id: string },
     confirmationId: string,
+    claimId: string,
     requestId: string
   ): Promise<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }> {
     identity(confirmationId);
+    identity(claimId);
     const latest = await this.latest(actor.tenant_id, confirmationId);
     if (!latest || latest.status !== "DRAFT")
       throw new TeacherConfirmationError("D3_LIFECYCLE_INVALID");
+    this.assertClaim(actor, claimId, latest.context, latest.evidence_refs);
     const version = `${versionNumber(latest.confirmation_ref.version) + 1}.0.0`;
     const contentDigest = digest({ ...latest, status: "CONFIRMED", version });
     const confirmation: TeacherConfirmationVersion = {
@@ -236,11 +256,14 @@ export class TeacherConfirmationCommandService {
   async reject(
     actor: { actor_id: string; tenant_id: string },
     confirmationId: string,
+    claimId: string,
     input: TeacherConfirmationRejectInput,
     requestId: string
   ): Promise<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }> {
     identity(confirmationId);
+    identity(claimId);
     identity(requestId);
+    if (input.claim_id !== claimId) throw new TeacherConfirmationError("D3_SCOPE_CONFLICT");
     if (
       typeof input.rejection_reason !== "string" ||
       input.rejection_reason.length === 0 ||
@@ -252,6 +275,7 @@ export class TeacherConfirmationCommandService {
     const latest = await this.latest(actor.tenant_id, confirmationId);
     if (!latest || latest.status !== "DRAFT")
       throw new TeacherConfirmationError("D3_LIFECYCLE_INVALID");
+    this.assertClaim(actor, claimId, latest.context, latest.evidence_refs);
     const version = `${versionNumber(latest.confirmation_ref.version) + 1}.0.0`;
     const contentDigest = digest({
       ...latest,
@@ -306,6 +330,7 @@ export class TeacherConfirmationCommandService {
     identity(actor.tenant_id);
     identity(requestId);
     this.assertInput(actor.tenant_id, input);
+    this.assertClaim(actor, input.claim_id, input.context, input.evidence_refs);
     ensureSameTenant(actor.tenant_id, [
       input.course_package_ref,
       input.learning_goal_ref,
@@ -355,6 +380,22 @@ export class TeacherConfirmationCommandService {
         )
         .at(-1) ?? null
     );
+  }
+
+  private assertClaim(
+    actor: { actor_id: string; tenant_id: string },
+    claimId: string,
+    context: TeacherConfirmationContext,
+    evidenceRefs: readonly TeacherConfirmationExactRef[]
+  ): void {
+    this.dependencies.claims.assertActive({
+      actor_id: actor.actor_id,
+      claim_id: claimId,
+      context,
+      evidence_set_digest: evidenceSetDigest(evidenceRefs),
+      now: this.now(),
+      tenant_id: actor.tenant_id
+    });
   }
 
   private async assertReferences(
@@ -438,6 +479,7 @@ export class TeacherConfirmationCommandService {
 
   private assertInput(tenantId: string, input: TeacherConfirmationCommandInput): void {
     identity(input.confirmation_id);
+    identity(input.claim_id);
     identity(input.idempotency_key);
     if (
       !isTeacherConfirmationExactRef(input.learning_goal_ref) ||

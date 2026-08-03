@@ -83,6 +83,12 @@ const d2ContractFiles = [
   "contracts/fixtures/evidence-provenance.invalid.json"
 ];
 
+const d3ContractFiles = [
+  "contracts/schemas/teacher-confirmation.v1.json",
+  "contracts/fixtures/teacher-confirmation.valid.json",
+  "contracts/fixtures/teacher-confirmation.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -184,6 +190,11 @@ const schemaCases = [
     schema: "contracts/schemas/evidence-provenance.v1.json",
     valid: ["contracts/fixtures/evidence-provenance.valid.json"],
     invalid: ["contracts/fixtures/evidence-provenance.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/teacher-confirmation.v1.json",
+    valid: ["contracts/fixtures/teacher-confirmation.valid.json"],
+    invalid: ["contracts/fixtures/teacher-confirmation.invalid.json"]
   }
 ];
 
@@ -453,8 +464,7 @@ function assertD2OpenApiBindings(openApi) {
   const capture = openApi.paths["/api/v1/bff/teacher/evidence-artifacts/capture"]?.post;
   assert(capture, "Missing D2 evidence capture operation.");
   assert(
-    jsonContentSchema(capture.requestBody)?.$ref ===
-      "#/components/schemas/D2EvidenceCaptureInput",
+    jsonContentSchema(capture.requestBody)?.$ref === "#/components/schemas/D2EvidenceCaptureInput",
     "D2 evidence capture request must reference evidence-provenance schema."
   );
   for (const statusCode of ["201", "403", "409", "422"]) {
@@ -532,14 +542,17 @@ export async function runContractValidation(options = {}) {
     ...m1ContractFiles,
     ...a5ContractFiles,
     ...d1ContractFiles,
-    ...d2ContractFiles
+    ...d2ContractFiles,
+    ...d3ContractFiles
   ]);
 
   for (const jsonPath of [
     ...requiredBaselineFiles,
     ...m1ContractFiles,
     ...a5ContractFiles,
-    ...d1ContractFiles
+    ...d1ContractFiles,
+    ...d2ContractFiles,
+    ...d3ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

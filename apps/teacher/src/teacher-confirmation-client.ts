@@ -109,13 +109,14 @@ export function saveTeacherConfirmationDraft(
 
 export function confirmTeacherConfirmation(
   confirmationId: string,
+  claimId: string,
   token: string,
   tenantId: string
 ): Promise<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }> {
   return fetch(
     `${API_BASE}/api/v1/bff/teacher/confirmations/${encodeURIComponent(confirmationId)}/confirm`,
     {
-      body: "{}",
+      body: JSON.stringify({ claim_id: claimId }),
       headers: headers(token, tenantId),
       method: "POST"
     }
@@ -126,6 +127,7 @@ export function confirmTeacherConfirmation(
 
 export function rejectTeacherConfirmation(
   confirmationId: string,
+  claimId: string,
   input: TeacherConfirmationRejectInput,
   token: string,
   tenantId: string
@@ -133,7 +135,7 @@ export function rejectTeacherConfirmation(
   return fetch(
     `${API_BASE}/api/v1/bff/teacher/confirmations/${encodeURIComponent(confirmationId)}/reject`,
     {
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, claim_id: claimId }),
       headers: headers(token, tenantId),
       method: "POST"
     }
@@ -184,4 +186,17 @@ export function releaseTeacherConfirmationWork(
       method: "POST"
     }
   ).then((response) => read<{ claim: TeacherConfirmationWorkClaim }>(response));
+}
+
+export function getTeacherConfirmationWorkClaim(
+  claimId: string,
+  token: string,
+  tenantId: string
+): Promise<{ claim: TeacherConfirmationWorkClaim; known_limits: readonly string[] }> {
+  return fetch(
+    `${API_BASE}/api/v1/bff/teacher/confirmations/claims/${encodeURIComponent(claimId)}`,
+    { headers: headers(token, tenantId) }
+  ).then((response) =>
+    read<{ claim: TeacherConfirmationWorkClaim; known_limits: readonly string[] }>(response)
+  );
 }

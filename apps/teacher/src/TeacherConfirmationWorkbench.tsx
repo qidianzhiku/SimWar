@@ -12,6 +12,7 @@ import type {
 import {
   claimTeacherConfirmationWork,
   confirmTeacherConfirmation,
+  getTeacherConfirmationWorkClaim,
   loadTeacherConfirmationReferences,
   loadTeacherConfirmations,
   loadTeacherEvidence,
@@ -70,6 +71,8 @@ function exactRef(
 function errorState(error: unknown): SurfaceState {
   const failure = error as TeacherConfirmationError;
   if (failure.status === 403 || failure.code === "D3_FORBIDDEN") return "FORBIDDEN";
+  if (failure.code === "D3_WORK_CLAIM_CONFLICT" || failure.code === "D3_WORK_CLAIM_EXPIRED")
+    return "STALE";
   if (failure.status === 409 || failure.code === "D3_DUPLICATE_CONFLICT") return "DUPLICATE";
   return "ERROR";
 }
@@ -232,7 +235,8 @@ export function TeacherConfirmationWorkbench({
       !selectedPackageData ||
       !selectedGoalData ||
       !selectedRubricData ||
-      !selectedEvidenceData
+      !selectedEvidenceData ||
+      claim?.status !== "CLAIMED"
     )
       return null;
     return {
@@ -261,7 +265,13 @@ export function TeacherConfirmationWorkbench({
         tenantId
       ),
       evidence_refs: [exactRef("evidence_artifact", artifactRef(selectedEvidenceData), tenantId)],
-      context: { ...scope },
+      claim_id: claim.claim_id,
+      context: {
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        role_key: scope.role_key
+      },
       criterion_decisions: [{ criterion_id: criterionId, level_ordinal: Number(levelOrdinal) }],
       teacher_feedback: feedback,
       idempotency_key: idempotencyKey
@@ -269,11 +279,11 @@ export function TeacherConfirmationWorkbench({
   }
 
   async function claimWork() {
-    if (!scopeReady || evidence.length === 0) return;
+    if (!scopeReady || !selectedEvidenceData) return;
     setState("LOADING");
     setErrorMessage("");
     try {
-      const digest = await evidenceSetDigest(evidence);
+      const digest = await evidenceSetDigest([selectedEvidenceData]);
       const result = await claimTeacherConfirmationWork(
         {
           course_id: scope.course_id,
@@ -323,11 +333,12 @@ export function TeacherConfirmationWorkbench({
   }
 
   async function confirmDraft() {
-    if (!receipt) return;
+    if (!receipt || !claim || claim.status !== "CLAIMED") return;
     setState("LOADING");
     try {
       const result = await confirmTeacherConfirmation(
         receipt.confirmation_ref.resource_id,
+        claim?.claim_id ?? "",
         token,
         tenantId
       );
@@ -341,12 +352,23 @@ export function TeacherConfirmationWorkbench({
   }
 
   async function rejectDraft() {
-    if (!receipt || receipt.status !== "DRAFT" || rejectionReason.trim().length === 0) return;
-    const input: TeacherConfirmationRejectInput = { rejection_reason: rejectionReason };
+    if (
+      !receipt ||
+      !claim ||
+      claim.status !== "CLAIMED" ||
+      receipt.status !== "DRAFT" ||
+      rejectionReason.trim().length === 0
+    )
+      return;
+    const input: TeacherConfirmationRejectInput = {
+      claim_id: claim.claim_id,
+      rejection_reason: rejectionReason
+    };
     setState("LOADING");
     try {
       const result = await rejectTeacherConfirmation(
         receipt.confirmation_ref.resource_id,
+        claim?.claim_id ?? "",
         input,
         token,
         tenantId
@@ -378,6 +400,21 @@ export function TeacherConfirmationWorkbench({
     } catch (error) {
       setState(errorState(error));
       setErrorMessage(error instanceof Error ? error.message : "Revision failed");
+    }
+  }
+
+  async function refreshClaim() {
+    if (!claim) return;
+    setState("LOADING");
+    setErrorMessage("");
+    try {
+      const result = await getTeacherConfirmationWorkClaim(claim.claim_id, token, tenantId);
+      setClaim(result.claim);
+      setState(result.claim.status === "CLAIMED" ? "CLAIMED" : "STALE");
+      if (result.claim.status === "EXPIRED") setErrorMessage("Work claim expired; claim it again.");
+    } catch (error) {
+      setState(errorState(error));
+      setErrorMessage(error instanceof Error ? error.message : "Work claim status failed");
     }
   }
 
@@ -588,6 +625,7 @@ export function TeacherConfirmationWorkbench({
             state === "LOADING" ||
             !scopeReady ||
             evidence.length === 0 ||
+            !selectedEvidenceData ||
             claim?.status === "CLAIMED"
           }
         >
@@ -601,16 +639,28 @@ export function TeacherConfirmationWorkbench({
           Release work claim
         </button>
         <button
+          className="secondary"
+          onClick={() => void refreshClaim()}
+          disabled={state === "LOADING" || !claim}
+        >
+          Check work claim
+        </button>
+        <button
           className="primary"
           onClick={() => void saveDraft()}
-          disabled={state === "LOADING" || !formReady}
+          disabled={state === "LOADING" || !formReady || claim?.status !== "CLAIMED"}
         >
           Save immutable draft
         </button>
         <button
           className="secondary"
           onClick={() => void confirmDraft()}
-          disabled={state === "LOADING" || !receipt || receipt.status !== "DRAFT"}
+          disabled={
+            state === "LOADING" ||
+            !receipt ||
+            receipt.status !== "DRAFT" ||
+            claim?.status !== "CLAIMED"
+          }
         >
           Confirm version
         </button>
@@ -620,7 +670,8 @@ export function TeacherConfirmationWorkbench({
           disabled={
             state === "LOADING" ||
             receipt?.status !== "DRAFT" ||
-            rejectionReason.trim().length === 0
+            rejectionReason.trim().length === 0 ||
+            claim?.status !== "CLAIMED"
           }
         >
           Reject version
@@ -632,7 +683,8 @@ export function TeacherConfirmationWorkbench({
             state === "LOADING" ||
             !receipt ||
             (receipt.status !== "CONFIRMED" && receipt.status !== "REJECTED") ||
-            !formReady
+            !formReady ||
+            claim?.status !== "CLAIMED"
           }
         >
           Revise as new draft
