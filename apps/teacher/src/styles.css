@@ -792,6 +792,147 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.d2-evidence-workbench {
+  background: #f8fbfa;
+  border-color: #b7d2c9;
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.d2-evidence-workbench .candidate-heading {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.d2-status {
+  color: #145c50;
+  font-size: 12px;
+  font-weight: 700;
+  max-width: 230px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.d2-scope-grid,
+.d2-reference-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+}
+
+.d2-reference-grid {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.d2-scope-grid input,
+.d2-reference-grid select,
+.d2-event-select select {
+  border: 1px solid #cad3de;
+  border-radius: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.d2-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.d2-event-select {
+  max-width: 620px;
+}
+
+.d2-state {
+  background: #eef4f3;
+  border-left: 4px solid #145c50;
+  margin: 0;
+  padding: 9px 12px;
+}
+
+.d2-state-warning {
+  background: #fff8e7;
+  border-color: #b17b15;
+}
+
+.d2-state-error {
+  background: #fff1f1;
+  border-color: #9a3636;
+  color: #7a2525;
+}
+
+.d2-state-stale {
+  background: #f4f0ff;
+  border-color: #6b4b9a;
+}
+
+.d2-source-card,
+.d2-receipt,
+.d2-artifact-card {
+  background: #fff;
+  border: 1px solid #d8e3e7;
+  border-radius: 7px;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.d2-source-card span,
+.d2-source-card small,
+.d2-artifact-card small,
+.d2-receipt span {
+  color: #61707d;
+  font-size: 12px;
+}
+
+.d2-source-card code,
+.d2-receipt code,
+.d2-artifact-card code,
+.d2-edge {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.d2-source-card > *,
+.d2-receipt > *,
+.d2-artifact-card > * {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.d2-artifact-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.d2-artifact-card details {
+  border-top: 1px solid #edf0f1;
+  padding-top: 8px;
+}
+
+.d2-artifact-card details code {
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.d2-known-limits ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 900px) {
+  .d2-scope-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+}
+
 .course-report-surface {
   display: grid;
   gap: 14px;
@@ -861,6 +1002,16 @@ h3 {
 
   .studio-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .d2-scope-grid,
+  .d2-reference-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .d2-status {
+    max-width: 100%;
+    text-align: left;
   }
 
   .run-readonly {
