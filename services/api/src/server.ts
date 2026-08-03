@@ -86,6 +86,11 @@ import { TeacherConfirmationCommandService } from "./teacher-confirmation.js";
 import { TeacherConfirmationQueryService } from "./teacher-confirmation-query.js";
 import { TeacherConfirmationWorkClaimService } from "./teacher-confirmation-work-claim.js";
 import { handleTeacherConfirmationRoute } from "./routes/teacher-confirmation-routes.js";
+import {
+  handleStudentLearningReportRoute,
+  isStudentLearningReportRoute
+} from "./routes/student-learning-report-routes.js";
+import { StudentLearningReportProjectionService } from "./student-learning-report-projection.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -239,6 +244,7 @@ interface ApiRuntime {
   teacherConfirmations: TeacherConfirmationCommandService;
   teacherConfirmationQueries: TeacherConfirmationQueryService;
   teacherConfirmationClaims: TeacherConfirmationWorkClaimService;
+  studentLearningReports: StudentLearningReportProjectionService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -445,6 +451,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     repository: teacherConfirmationRepository,
     claims: teacherConfirmationClaims
   });
+  const studentLearningReports = new StudentLearningReportProjectionService({
+    confirmations: teacherConfirmations,
+    evidence: repositoryProvider.ports.evidenceProvenance
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -458,6 +468,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     teacherConfirmations,
     teacherConfirmationQueries: new TeacherConfirmationQueryService(teacherConfirmations),
     teacherConfirmationClaims,
+    studentLearningReports,
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -3768,6 +3779,37 @@ function requireD2EvidenceTeacher(context: RequestContext): CurrentUser {
   return actor;
 }
 
+function requireD4Student(context: RequestContext): CurrentUser {
+  const actor = requireActor(context);
+  if (
+    !actorHasAnyRole(actor, ["learner", "student"]) ||
+    actor.tenant_id !== context.tenantId ||
+    !actor.team_id
+  ) {
+    throw new HttpError(403, "D4_REPORT_SCOPE_VIOLATION", "student report scope required");
+  }
+  return actor;
+}
+
+function requireD4Teacher(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "D4_REPORT_SCOPE_VIOLATION", "teacher report scope required");
+  }
+  return actor;
+}
+
+function requireD4Admin(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (
+    !actorHasAnyRole(actor, ["tenant_admin", "admin", "platform_admin"]) ||
+    (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+  ) {
+    throw new HttpError(403, "D4_REPORT_SCOPE_VIOLATION", "admin report scope required");
+  }
+  return actor;
+}
+
 function d2EvidenceHttpError(error: unknown): HttpError {
   if (!(error instanceof D2EvidenceError)) throw error;
   const forbidden = [
@@ -4217,6 +4259,25 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (isStudentLearningReportRoute(request.method, url)) {
+    await handleStudentLearningReportRoute(
+      { projections: runtime.studentLearningReports },
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context),
+        sendJson
+      }
+    );
+    return;
+  }
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 
