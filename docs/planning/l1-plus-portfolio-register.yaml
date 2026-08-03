@@ -1,14 +1,14 @@
 portfolio_version: 3
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-03T21:56:09+08:00"
+generated_at: "2026-08-03T23:21:55+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
-product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+assessment_source_anchor_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
 governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: D3_TEACHER_CONFIRMATION_COMPLETE_WITH_LIMITS
+l1_plus_status: D4_STUDENT_LEARNING_REPORT_COMPLETE_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,15 +16,19 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
-    capability_id: L1P-D3
+    candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+    capability_id: L1P-D4
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_pr: 325
-    product_merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
-    primary_outcome: Immutable teacher confirmation with exact learning references, exclusive work claim, explicit submit, safe projection, and audit receipt.
+    product_prs:
+      - 327
+      - 328
+    product_merge_shas:
+      - 0fb31f5823da3ce28970ac633a08522df8aa1273
+      - ee7e9333fee49c5b9aac4903a8daa1250190dd20
+    primary_outcome: Student can inspect a deterministic safe learning report with exact references, criteria, provenance, and Known Limits.
   support_code: NONE
   docs_discovery: NONE
-  closure: D3_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: D4_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
   - capability_id: L1P-VC-06
     candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -46,49 +50,53 @@ closed_capabilities:
     candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     product_merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+  - capability_id: L1P-D4
+    candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+    frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
 resource_locks:
-  - resource: TEACHER_CONFIRMATION_AUTHORITY
+  - resource: D4_STUDENT_REPORT_CONTRACT
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_SHARED_CONTRACTS
+  - resource: D4_REPORT_PROJECTION
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_WORKBENCH
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_CONFIRMATION_WORK_CLAIM
+  - resource: STUDENT_REPORT_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
-  - candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
-    status: RECOMMENDED_NOT_AUTHORIZED
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
+  - candidate_id: D5_OR_OTHER_PROGRAM_D_EXTENSION
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: NOT_PERFORMED
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
-  teacher_confirmation_rollback: IN_MEMORY_TRANSACTIONAL_ROLLBACK_ONLY
-  accessibility: BASELINE_BROWSER_EVIDENCE_ONLY
   pilot_and_production: NOT_AUTHORIZED
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 evidence:
-  product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
-  post_merge_receipt: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W007-D3-20260803T163749Z/closure/post-merge-receipt-3f9145f.json
-  challenge_review: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W007-D3-20260803T163749Z/reviews/independent-challenge-review-802.md
-  product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-  post_merge_full_tests: 145_FILES_988_TESTS_PASS
-  post_merge_browser: 2_D3_TESTS_PASS
+  product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+  backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
+  frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+  fresh_clone: D:/codex/simwar-w008-d4-final-fresh-ee7e
+  d4_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W008-D4-20260803T142705Z
+  product_acceptance: PASS
+  full_tests: 149_FILES_995_TESTS_PASS
+  browser: 1_D4_TEST_PASS
+  contract: 12_FILES_30_TESTS_PASS
 invalidation_triggers:
   - product_or_runtime_changed
-  - teacher_confirmation_authority_changed
+  - student_report_projection_authority_changed
   - shared_contract_changed
-  - canonical_decision_or_formal_run_binding_changed
+  - teacher_confirmation_or_evidence_provenance_changed
   - golden_truth_or_replay_contract_changed
   - student_visibility_changed
-  - D3_acceptance_baseline_changed
+  - D4_acceptance_baseline_changed
 automatic_next_start: false
