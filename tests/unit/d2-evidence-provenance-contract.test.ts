@@ -10,7 +10,6 @@ import {
 } from "@simwar/shared-contracts";
 
 const digest = "a".repeat(64);
-const otherDigest = "b".repeat(64);
 
 function ref(resource_type: D2ExactRef["resource_type"], resource_id: string): D2ExactRef {
   return {

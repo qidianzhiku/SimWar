@@ -16,7 +16,6 @@ import { createP1Store, type SimWarStore } from "../../services/api/src/store.js
 const tenantId = "tenant_demo";
 const packageDigest = "a".repeat(64);
 const goalDigest = "b".repeat(64);
-const rubricDigest = "c".repeat(64);
 const packageReference = {
   content_digest: packageDigest,
   course_package_id: "package_d2",

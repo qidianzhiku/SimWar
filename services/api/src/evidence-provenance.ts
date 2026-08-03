@@ -78,7 +78,7 @@ function digest(value: unknown): string {
   return createHash("sha256").update(canonicalize(value)).digest("hex");
 }
 
-function identity(value: string, field: string): string {
+function identity(value: string, _field: string): string {
   if (
     !value ||
     value.trim() !== value ||
