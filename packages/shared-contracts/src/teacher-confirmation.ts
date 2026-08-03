@@ -157,16 +157,6 @@ function isAuditReceipt(value: unknown): value is TeacherConfirmationAuditReceip
   );
 }
 
-function sameRef(left: TeacherConfirmationExactRef, right: TeacherConfirmationExactRef): boolean {
-  return (
-    left.content_digest === right.content_digest &&
-    left.resource_id === right.resource_id &&
-    left.resource_type === right.resource_type &&
-    left.tenant_id === right.tenant_id &&
-    left.version === right.version
-  );
-}
-
 export function isTeacherConfirmationVersion(value: unknown): value is TeacherConfirmationVersion {
   if (!isRecord(value)) return false;
   const keys = [
@@ -201,7 +191,7 @@ export function isTeacherConfirmationVersion(value: unknown): value is TeacherCo
     value.known_limits.some((limit) => typeof limit !== "string" || limit.trim() !== limit || limit.length === 0) ||
     typeof value.teacher_feedback !== "string" ||
     value.teacher_feedback.length > 2000 ||
-    /[<>\u0000-\u001f\u007f]/.test(value.teacher_feedback) ||
+    hasUnsafeText(value.teacher_feedback) ||
     typeof value.content_digest !== "string" ||
     !DIGEST_PATTERN.test(value.content_digest) ||
     !isIdentity(value.created_by) ||
@@ -215,4 +205,11 @@ export function isTeacherConfirmationVersion(value: unknown): value is TeacherCo
   if (refs.some((ref) => ref.tenant_id !== confirmationRef.tenant_id)) return false;
   if (value.supersedes_ref !== undefined && (!isTeacherConfirmationExactRef(value.supersedes_ref) || value.supersedes_ref.tenant_id !== confirmationRef.tenant_id)) return false;
   return true;
+}
+
+function hasUnsafeText(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return character === "<" || character === ">" || code < 0x20 || code === 0x7f;
+  });
 }

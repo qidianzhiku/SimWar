@@ -69,6 +69,7 @@ import {
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
 import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
+import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import {
   RoleWorkflowCommandService,
@@ -81,6 +82,10 @@ import {
 } from "./instructor-asset-registry.js";
 import { createInstructorIntelligenceKit } from "./instructor-intelligence.js";
 import { D2EvidenceError, EvidenceCaptureCommandService } from "./evidence-provenance.js";
+import { TeacherConfirmationCommandService } from "./teacher-confirmation.js";
+import { TeacherConfirmationQueryService } from "./teacher-confirmation-query.js";
+import { TeacherConfirmationWorkClaimService } from "./teacher-confirmation-work-claim.js";
+import { handleTeacherConfirmationRoute } from "./routes/teacher-confirmation-routes.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -231,6 +236,9 @@ interface ApiRuntime {
   learningDesignCommands: LearningDesignCommandService;
   learningDesignQueries: LearningDesignQueryService;
   evidenceCapture: EvidenceCaptureCommandService;
+  teacherConfirmations: TeacherConfirmationCommandService;
+  teacherConfirmationQueries: TeacherConfirmationQueryService;
+  teacherConfirmationClaims: TeacherConfirmationWorkClaimService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -395,6 +403,42 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     repository: repositoryProvider.ports.evidenceProvenance,
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
+  const teacherConfirmationRepository =
+    repositoryProvider.ports.teacherConfirmations ?? createJsonTeacherConfirmationRepositoryPort(store);
+  const teacherConfirmations = new TeacherConfirmationCommandService({
+    coursePackages: {
+      getByReference: (tenantId, reference) =>
+        coursePackageRegistry.getByReference(tenantId, {
+          content_digest: reference.content_digest,
+          course_package_id: reference.resource_id,
+          tenant_id: reference.tenant_id,
+          version: reference.version
+        })
+    },
+    learningDesign: {
+      getGoal: (reference) => learningDesignRegistry.getGoal(reference),
+      getRubric: (reference) => learningDesignRegistry.getRubric(reference)
+    },
+    evidence: {
+      async getByReference(tenantId, reference) {
+        const artifact = (await repositoryProvider.ports.evidenceProvenance.listEvidenceArtifacts(tenantId)).find(
+          (candidate) =>
+            candidate.artifact_ref.resource_id === reference.resource_id &&
+            candidate.artifact_ref.version === reference.version &&
+            candidate.artifact_ref.content_digest === reference.content_digest &&
+            candidate.artifact_ref.tenant_id === reference.tenant_id
+        );
+        return artifact
+          ? {
+              artifact_ref: artifact.artifact_ref as unknown as import("@simwar/shared-contracts").TeacherConfirmationExactRef,
+              context: artifact.context,
+              visibility: "teacher_only" as const
+            }
+          : null;
+      }
+    },
+    repository: teacherConfirmationRepository
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -405,6 +449,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
     evidenceCapture,
+    teacherConfirmations,
+    teacherConfirmationQueries: new TeacherConfirmationQueryService(teacherConfirmations),
+    teacherConfirmationClaims: new TeacherConfirmationWorkClaimService(),
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -4141,6 +4188,28 @@ async function routeRequest(
   const context = createContext(runtime, request);
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
+
+  if (await handleTeacherConfirmationRoute(
+    {
+      commands: runtime.teacherConfirmations,
+      queries: runtime.teacherConfirmationQueries,
+      claims: runtime.teacherConfirmationClaims
+    },
+    request,
+    response,
+    url,
+    {
+      requestId: context.requestId,
+      tenantId: context.tenantId,
+      actorId: context.actor?.user_id ?? ""
+    },
+    {
+      readJson: (incoming) => readJson(incoming),
+      sendJson,
+      createEnvelope: (routeContext, payload) => createEnvelope(routeContext as RequestContext, payload),
+      requireTeacher: () => requireD2EvidenceTeacher(context)
+    }
+  )) return;
 
   if (await handleLearningDesignRoute(runtime, request, response, url, context)) return;
 

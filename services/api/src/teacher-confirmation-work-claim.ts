@@ -1,0 +1,85 @@
+import { createHash } from "node:crypto";
+
+export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";
+
+export interface TeacherConfirmationWorkClaim {
+  readonly claim_id: string;
+  readonly tenant_id: string;
+  readonly context: { course_id: string; run_id: string; team_id: string; role_key: string };
+  readonly evidence_set_digest: string;
+  readonly claimed_by: string;
+  readonly claimed_at: string;
+  readonly expires_at: string;
+  readonly status: TeacherConfirmationClaimStatus;
+}
+
+export class TeacherConfirmationWorkClaimError extends Error {
+  constructor(readonly code: "D3_WORK_CLAIM_CONFLICT" | "D3_INPUT_INVALID") {
+    super(code);
+    this.name = "TeacherConfirmationWorkClaimError";
+  }
+}
+
+function key(input: Pick<TeacherConfirmationWorkClaim, "tenant_id" | "context" | "evidence_set_digest">): string {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
+export class TeacherConfirmationWorkClaimService {
+  private readonly claims = new Map<string, TeacherConfirmationWorkClaim>();
+  private sequence = 0;
+
+  claim(input: {
+    tenant_id: string;
+    context: TeacherConfirmationWorkClaim["context"];
+    evidence_set_digest: string;
+    claimed_by: string;
+    now: string;
+    ttl_seconds?: number;
+  }): TeacherConfirmationWorkClaim {
+    if (!input.tenant_id || !input.claimed_by || !/^[a-f0-9]{64}$/.test(input.evidence_set_digest)) {
+      throw new TeacherConfirmationWorkClaimError("D3_INPUT_INVALID");
+    }
+    const claimKey = key({
+      tenant_id: input.tenant_id,
+      context: input.context,
+      evidence_set_digest: input.evidence_set_digest
+    });
+    const existing = this.claims.get(claimKey);
+    if (existing && existing.status === "CLAIMED" && Date.parse(existing.expires_at) > Date.parse(input.now)) {
+      if (existing.claimed_by !== input.claimed_by) throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+      return structuredClone(existing);
+    }
+    const expiresAt = new Date(Date.parse(input.now) + (input.ttl_seconds ?? 300) * 1000).toISOString();
+    const claim: TeacherConfirmationWorkClaim = {
+      claim_id: `claim_${++this.sequence}`,
+      tenant_id: input.tenant_id,
+      context: structuredClone(input.context),
+      evidence_set_digest: input.evidence_set_digest,
+      claimed_by: input.claimed_by,
+      claimed_at: input.now,
+      expires_at: expiresAt,
+      status: "CLAIMED"
+    };
+    this.claims.set(claimKey, claim);
+    return structuredClone(claim);
+  }
+
+  release(claimId: string, actorId: string): TeacherConfirmationWorkClaim {
+    const entry = [...this.claims.entries()].find(([, claim]) => claim.claim_id === claimId);
+    if (!entry || entry[1].claimed_by !== actorId) throw new TeacherConfirmationWorkClaimError("D3_WORK_CLAIM_CONFLICT");
+    const released = { ...entry[1], status: "RELEASED" as const };
+    this.claims.set(entry[0], released);
+    return structuredClone(released);
+  }
+
+  expire(now: string): number {
+    let count = 0;
+    for (const [claimKey, claim] of this.claims) {
+      if (claim.status === "CLAIMED" && Date.parse(claim.expires_at) <= Date.parse(now)) {
+        this.claims.set(claimKey, { ...claim, status: "EXPIRED" });
+        count += 1;
+      }
+    }
+    return count;
+  }
+}

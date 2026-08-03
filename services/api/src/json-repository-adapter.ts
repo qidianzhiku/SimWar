@@ -28,7 +28,9 @@ import type {
   RoleWorkflowRepositoryPort,
   SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort,
-  SimWarRepositoryPorts
+  SimWarRepositoryPorts,
+  TeacherConfirmationAppendCommand,
+  TeacherConfirmationRepositoryPort
 } from "./repository-ports.js";
 import {
   InMemoryJsonParameterSetRegistry,
@@ -47,7 +49,6 @@ import {
   type InMemoryJsonCourseBlueprintRegistryOptions
 } from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
-import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 
 /**
  * JSON-backed repository adapter for the current SimWar API store.
@@ -71,6 +72,39 @@ interface JsonRepositoryAdapterCollections {
 
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+/** JSON adapter boundary for D3; it is not a Truth, Settlement, or Student authority. */
+export function createJsonTeacherConfirmationRepositoryPort(
+  store: SimWarStore
+): TeacherConfirmationRepositoryPort {
+  return {
+    async list(tenantId) {
+      return clone(
+        store.teacherConfirmationVersions.filter(
+          (confirmation) => confirmation.confirmation_ref.tenant_id === tenantId
+        )
+      );
+    },
+
+    async append(command: TeacherConfirmationAppendCommand) {
+      const previousConfirmations = clone(store.teacherConfirmationVersions);
+      const previousAudits = clone(store.auditLogs);
+      store.teacherConfirmationVersions.push(clone(command.confirmation));
+      store.auditLogs.push(clone(command.audit_log));
+      try {
+        store.persist();
+      } catch (error) {
+        store.teacherConfirmationVersions.splice(
+          0,
+          store.teacherConfirmationVersions.length,
+          ...previousConfirmations
+        );
+        store.auditLogs.splice(0, store.auditLogs.length, ...previousAudits);
+        throw error;
+      }
+    }
+  };
 }
 
 /**

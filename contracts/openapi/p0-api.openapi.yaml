@@ -2309,6 +2309,69 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
 
+  /api/v1/bff/teacher/confirmations:
+    get:
+      operationId: TEACHER_D3_CONFIRMATION_LIST_V1
+      summary: List teacher-only immutable confirmation versions.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Teacher-safe confirmation projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationListEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher authority required }
+  /api/v1/bff/teacher/confirmations/drafts:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_DRAFT_CREATE_V1
+      summary: Save one immutable teacher confirmation draft.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeacherConfirmationInput" }
+      responses:
+        "201":
+          description: Generated or reused draft.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationEnvelope" }
+        "403": { description: Teacher authority required }
+        "409": { description: Deterministic duplicate conflict }
+        "422":
+          description: Invalid exact reference, scope, evidence, or rubric choice
+  /api/v1/bff/teacher/confirmations/{confirmationId}/confirm:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_CONFIRM_V1
+      summary: Append a confirmed immutable teacher confirmation version.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: confirmationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Confirmed immutable version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationEnvelope" }
+        "403": { description: Teacher authority required }
+        "409": { description: Invalid lifecycle }
+        "422": { description: Invalid confirmation identity }
+  /api/v1/bff/teacher/confirmations/claims:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_CLAIM_V1
+      summary: Claim a bounded evidence set in the process-local JSON runtime.
+      security:
+        - SessionBearer: []
+      responses:
+        "201": { description: Process-local work claim created or reused }
+        "403": { description: Teacher authority required }
+        "409": { description: Work claim conflict }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -2331,6 +2394,33 @@ components:
       $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2EvidenceListEnvelope"
     D2CaptureReceiptEnvelope:
       $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2CaptureReceiptEnvelope"
+    TeacherConfirmationInput:
+      $ref: "../schemas/teacher-confirmation.v1.json"
+    TeacherConfirmationListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data:
+          type: object
+          additionalProperties: false
+          required: [confirmations, known_limits, runtime_authority]
+          properties:
+            confirmations: { type: array, items: { $ref: "../schemas/teacher-confirmation.v1.json" } }
+            known_limits: { type: array, items: { type: string } }
+            runtime_authority: { const: JSON_INTERNAL_ONLY }
+        message: { type: string }
+        request_id: { type: string }
+    TeacherConfirmationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { type: object }
+        message: { type: string }
+        request_id: { type: string }
     FormalCourseBlueprintReferenceInput:
       type: object
       additionalProperties: true

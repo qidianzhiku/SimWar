@@ -104,6 +104,13 @@ function identity(value: unknown): string {
   return value;
 }
 
+function hasUnsafeText(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return character === "<" || character === ">" || code < 0x20 || code === 0x7f;
+  });
+}
+
 function versionNumber(version: string): number {
   const match = /^([1-9]\d*)\.0\.0$/.exec(version);
   if (!match) throw new TeacherConfirmationError("D3_LIFECYCLE_INVALID");
@@ -233,7 +240,7 @@ export class TeacherConfirmationCommandService {
     identity(input.idempotency_key);
     if (!isTeacherConfirmationExactRef(input.learning_goal_ref) || input.learning_goal_ref.resource_type !== "learning_goal_version" || !isTeacherConfirmationExactRef(input.rubric_ref) || input.rubric_ref.resource_type !== "rubric_version") throw new TeacherConfirmationError("D3_EXACT_REF_INVALID");
     if (!input.evidence_refs.length || !input.criterion_decisions.length) throw new TeacherConfirmationError("D3_INPUT_INVALID");
-    if (input.teacher_feedback.length > 2000 || /[<>\u0000-\u001f\u007f]/.test(input.teacher_feedback)) throw new TeacherConfirmationError("D3_INPUT_INVALID");
+    if (input.teacher_feedback.length > 2000 || hasUnsafeText(input.teacher_feedback)) throw new TeacherConfirmationError("D3_INPUT_INVALID");
     ensureSameTenant(tenantId, [input.course_package_ref, input.learning_goal_ref, input.rubric_ref, ...input.evidence_refs]);
     [input.context.course_id, input.context.run_id, input.context.team_id, input.context.role_key].forEach(identity);
   }

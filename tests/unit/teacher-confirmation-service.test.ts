@@ -4,6 +4,7 @@ import {
   TeacherConfirmationError,
   type TeacherConfirmationCommandDependencies
 } from "../../services/api/src/teacher-confirmation.js";
+import type { AuditLog, TeacherConfirmationVersion } from "@simwar/shared-contracts";
 
 const digest = "a".repeat(64);
 const ref = (resource_type: "course_package_version" | "learning_goal_version" | "rubric_version" | "evidence_artifact", resource_id: string) => ({
@@ -15,9 +16,9 @@ const ref = (resource_type: "course_package_version" | "learning_goal_version" |
   version: "1.0.0"
 });
 
-function dependencies(): TeacherConfirmationCommandDependencies & { records: any[]; audits: any[] } {
-  const records: any[] = [];
-  const audits: any[] = [];
+function dependencies(): TeacherConfirmationCommandDependencies & { records: TeacherConfirmationVersion[]; audits: AuditLog[] } {
+  const records: TeacherConfirmationVersion[] = [];
+  const audits: AuditLog[] = [];
   return {
     records,
     audits,
@@ -40,7 +41,7 @@ function dependencies(): TeacherConfirmationCommandDependencies & { records: any
     },
     repository: {
       list: async () => records,
-      append: async ({ confirmation, audit }: any) => { records.push(confirmation); audits.push(audit); }
+      append: async ({ confirmation, audit_log }) => { records.push(confirmation); audits.push(audit_log); }
     },
     now: () => "2026-08-03T00:00:00.000Z",
     createId: (kind: string) => `${kind}_001`
