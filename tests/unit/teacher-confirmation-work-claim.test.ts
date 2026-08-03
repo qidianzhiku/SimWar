@@ -61,6 +61,12 @@ describe("D3 exclusive work claim", () => {
         context: { course_id: "c", run_id: "r", team_id: "t", role_key: "" }
       })
     ).toThrow("D3_INPUT_INVALID");
+    expect(() =>
+      service.claim({
+        ...input,
+        context: { course_id: "latest", run_id: "r", team_id: "t", role_key: "role" }
+      })
+    ).toThrow("D3_INPUT_INVALID");
 
     const first = service.claim(input);
     const reorderedContext = Object.fromEntries([

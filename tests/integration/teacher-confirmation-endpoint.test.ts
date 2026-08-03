@@ -182,6 +182,24 @@ describe("D3 Teacher Confirmation BFF route", () => {
     expect(runtime.claims.claim).toHaveBeenCalled();
     expect(res.statusCode).toBe(201);
 
+    const invalidTtlHelpers = {
+      ...helpers,
+      readJson: async () => ({
+        context: { course_id: "c", run_id: "r", team_id: "t", role_key: "role" },
+        evidence_set_digest: "a".repeat(64),
+        ttl_seconds: "30"
+      })
+    };
+    await handleTeacherConfirmationRoute(
+      runtime,
+      { method: "POST" } as unknown as IncomingMessage,
+      res as unknown as ServerResponse,
+      new URL("http://localhost/api/v1/bff/teacher/confirmations/claims"),
+      { requestId: "req_invalid_ttl", tenantId: "tenant_demo", actorId: "usr_teacher" },
+      invalidTtlHelpers
+    );
+    expect(res.statusCode).toBe(422);
+
     const claimStatusHelpers = { ...helpers, readJson: async () => ({}) };
     await handleTeacherConfirmationRoute(
       runtime,

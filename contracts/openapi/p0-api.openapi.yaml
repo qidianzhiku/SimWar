@@ -2433,7 +2433,11 @@ paths:
                   { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Digest" }
                 ttl_seconds: { type: integer, minimum: 1, maximum: 3600 }
       responses:
-        "201": { description: Process-local work claim created or reused }
+        "201":
+          description: Process-local work claim created or reused
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationClaimEnvelope" }
         "403": { description: Teacher authority required }
         "409": { description: Work claim conflict }
   /api/v1/bff/teacher/confirmations/claims/{claim_id}:
@@ -2448,7 +2452,11 @@ paths:
           required: true
           schema: { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Identity" }
       responses:
-        "200": { description: "Claim status, including EXPIRED when the deadline has passed" }
+        "200":
+          description: "Claim status, including EXPIRED when the deadline has passed"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationClaimEnvelope" }
         "403": { description: Teacher authority required }
         "409": { description: Claim is not owned by the authenticated teacher }
   /api/v1/bff/teacher/confirmations/claims/{claim_id}/release:
@@ -2463,7 +2471,11 @@ paths:
           required: true
           schema: { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Identity" }
       responses:
-        "200": { description: Released claim }
+        "200":
+          description: Released claim
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationClaimEnvelope" }
         "403": { description: Teacher authority required }
         "409": { description: Claim is not owned by the authenticated teacher }
 
@@ -2495,6 +2507,8 @@ components:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationRejectInput"
     TeacherConfirmationClaimActionInput:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimActionInput"
+    TeacherConfirmationClaimEnvelope:
+      $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationClaimEnvelope"
     TeacherConfirmationListEnvelope:
       type: object
       additionalProperties: false

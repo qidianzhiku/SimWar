@@ -165,6 +165,15 @@ export async function handleTeacherConfirmationRoute(
     if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/confirmations/claims") {
       const body = object(await helpers.readJson(request));
       only(body, ["context", "evidence_set_digest", "ttl_seconds"]);
+      if (
+        body.ttl_seconds !== undefined &&
+        (typeof body.ttl_seconds !== "number" ||
+          !Number.isInteger(body.ttl_seconds) ||
+          body.ttl_seconds < 1 ||
+          body.ttl_seconds > 3600)
+      ) {
+        throw new TeacherConfirmationError("D3_INPUT_INVALID");
+      }
       const claimInput = {
         tenant_id: context.tenantId,
         context: body.context as never,

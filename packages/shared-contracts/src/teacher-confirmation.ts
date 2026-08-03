@@ -168,7 +168,7 @@ export function isTeacherConfirmationExactRef(
   return true;
 }
 
-function isContext(value: unknown): value is TeacherConfirmationContext {
+export function isTeacherConfirmationContext(value: unknown): value is TeacherConfirmationContext {
   return (
     isRecord(value) &&
     hasOnlyKeys(value, ["course_id", "run_id", "team_id", "role_key"]) &&
@@ -240,7 +240,7 @@ export function isTeacherConfirmationVersion(value: unknown): value is TeacherCo
     value.evidence_refs.some(
       (ref) => !isTeacherConfirmationExactRef(ref) || ref.resource_type !== "evidence_artifact"
     ) ||
-    !isContext(value.context) ||
+    !isTeacherConfirmationContext(value.context) ||
     !Array.isArray(value.criterion_decisions) ||
     value.criterion_decisions.length === 0 ||
     value.criterion_decisions.some((decision) => !isCriterionDecision(decision)) ||

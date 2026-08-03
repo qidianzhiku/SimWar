@@ -472,6 +472,27 @@ function assertD2OpenApiBindings(openApi) {
   }
 }
 
+function assertD3OpenApiBindings(openApi) {
+  const claim = openApi.paths["/api/v1/bff/teacher/confirmations/claims"]?.post;
+  const status = openApi.paths["/api/v1/bff/teacher/confirmations/claims/{claim_id}"]?.get;
+  const release =
+    openApi.paths["/api/v1/bff/teacher/confirmations/claims/{claim_id}/release"]?.post;
+  assert(claim, "Missing D3 teacher confirmation claim operation.");
+  assert(status, "Missing D3 teacher confirmation claim status operation.");
+  assert(release, "Missing D3 teacher confirmation claim release operation.");
+  for (const [label, operation, statusCode] of [
+    ["claim", claim, "201"],
+    ["status", status, "200"],
+    ["release", release, "200"]
+  ]) {
+    assert(
+      jsonContentSchema(operation.responses?.[statusCode])?.$ref ===
+        "#/components/schemas/TeacherConfirmationClaimEnvelope",
+      `D3 ${label} response must reference TeacherConfirmationClaimEnvelope.`
+    );
+  }
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -561,6 +582,7 @@ export async function runContractValidation(options = {}) {
   const openApi = readOpenApi(openApiPath);
   assertM1OpenApiBindings(openApi);
   assertD2OpenApiBindings(openApi);
+  assertD3OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

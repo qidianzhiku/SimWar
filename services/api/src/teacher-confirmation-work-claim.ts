@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { TeacherConfirmationContext } from "@simwar/shared-contracts";
+import {
+  isTeacherConfirmationContext,
+  type TeacherConfirmationContext
+} from "@simwar/shared-contracts";
 
 export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";
 
@@ -52,23 +55,6 @@ function canonicalContext(context: TeacherConfirmationWorkClaim["context"]): str
   return JSON.stringify([context.course_id, context.run_id, context.team_id, context.role_key]);
 }
 
-function isContext(value: unknown): value is TeacherConfirmationWorkClaim["context"] {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (keys.join(",") !== "course_id,role_key,run_id,team_id") return false;
-  return [record.course_id, record.run_id, record.team_id, record.role_key].every(
-    (entry) =>
-      typeof entry === "string" &&
-      entry.length > 0 &&
-      entry.trim() === entry &&
-      !Array.from(entry).some((character) => {
-        const code = character.codePointAt(0) ?? 0;
-        return code < 0x20 || code === 0x7f;
-      })
-  );
-}
-
 export class TeacherConfirmationWorkClaimService {
   private readonly claims = new Map<string, TeacherConfirmationWorkClaim>();
   private sequence = 0;
@@ -86,7 +72,7 @@ export class TeacherConfirmationWorkClaimService {
       !input.tenant_id ||
       !input.claimed_by ||
       !/^[a-f0-9]{64}$/.test(input.evidence_set_digest) ||
-      !isContext(input.context) ||
+      !isTeacherConfirmationContext(input.context) ||
       !Number.isInteger(ttlSeconds) ||
       ttlSeconds < 1 ||
       ttlSeconds > 3600 ||

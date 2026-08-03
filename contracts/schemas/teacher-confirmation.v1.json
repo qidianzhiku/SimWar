@@ -156,6 +156,25 @@
         "status": { "enum": ["CLAIMED", "RELEASED", "EXPIRED"] }
       }
     },
+    "TeacherConfirmationClaimEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "data", "message", "request_id"],
+      "properties": {
+        "code": { "const": "OK" },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim", "known_limits"],
+          "properties": {
+            "claim": { "$ref": "#/$defs/TeacherConfirmationWorkClaim" },
+            "known_limits": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "message": { "type": "string" },
+        "request_id": { "type": "string" }
+      }
+    },
     "RejectionReason": {
       "type": "string",
       "minLength": 1,
