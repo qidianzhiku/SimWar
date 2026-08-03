@@ -53,6 +53,7 @@ import {
 } from "./course-package-client";
 import { CourseReportBuilder } from "./CourseReportBuilder";
 import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
+import { EvidenceWorkbench } from "./EvidenceWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1093,6 +1094,15 @@ export function App() {
             </ul>
           </details>
         </section>
+      ) : null}
+
+      {isTeacher && session ? (
+        <EvidenceWorkbench
+          courseId={selectedRun?.course_id ?? selectedCourseId}
+          runId={selectedRun?.run_id ?? selectedRunId}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
       ) : null}
 
       {isTeacher ? (
