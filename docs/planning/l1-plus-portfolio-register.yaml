@@ -1,15 +1,14 @@
-portfolio_version: 2
+portfolio_version: 3
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-03T10:46:40+08:00"
+generated_at: "2026-08-03T15:50:53+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+assessment_source_anchor_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+product_evidence_source_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: D1_LEARNING_GOAL_RUBRIC_CLOSED_WITH_LIMITS
-repository_adoption:
-  status: ADOPTED_BY_THIS_GOVERNANCE_CHANGESET
-  owner_delegation: OWNER_DIRECTION_SIMWAR_W005_D1_GOAL_RUBRIC_MEASURED
+l1_plus_status: D2_EVIDENCE_PROVENANCE_COMPLETE_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -18,19 +17,16 @@ wip_policy:
   full_suite_per_host: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
-    capability_id: L1P-D1
-    status: CLOSED_AND_CURRENT
-    product_prs: [317, 318, 320]
-    backend_product_head_sha: 45cf2a730f8165f0a2c86f68e023c4f80a405f45
-    backend_product_merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
-    frontend_product_head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
-    product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-    corrective_product_pr: 320
-    corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
+    candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
+    capability_id: L1P-D2
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    product_prs: [322, 323]
+    backend_merge_sha: ca79e18d1a026fb979efd5c67370dc64ed824873
+    frontend_merge_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+    primary_outcome: Immutable D2 evidence capture with safe provenance projection and deterministic duplicate semantics.
   support_code: NONE
   docs_discovery: NONE
-  closure: L1PLUS_D1_CLOSED_AND_CURRENT
+  closure: D2_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
   - capability_id: L1P-VC-06
     candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -38,69 +34,64 @@ closed_capabilities:
   - capability_id: L1P-VC-07
     candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
     status: CLOSED_AND_CURRENT
-    product_pr: 303
-    product_merge_sha: 70d180e370f84d451dd9b67e117409d92f797786
   - capability_id: L1P-VC-08
     candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
     status: CLOSED_AND_CURRENT
-    product_pr: 304
-    product_merge_sha: 6e657fd32c84901566796cd680270de4d3a59fc5
   - capability_id: L1P-D1
     candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
     status: CLOSED_AND_CURRENT
-    product_prs: [317, 318, 320]
-    product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+  - capability_id: L1P-D2
+    candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    product_prs: [322, 323]
+    product_merge_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
 resource_locks:
-  - resource: LEARNING_DESIGN_AUTHORITY
+  - resource: EVIDENCE_CAPTURE_AUTHORITY
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: LEARNING_DESIGN_JSON_REGISTRY
+  - resource: D2_SHARED_CONTRACTS
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_D1_WORKBENCH
+  - resource: TEACHER_EVIDENCE_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: SHARED_CONTRACTS
+  - resource: D2_RUN_REPLAY_GOLDEN
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
+  - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+    status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+    status: DEFERRED
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
-  - candidate_id: CAND-L1P-D2-EVIDENCE-CAPTURE-TEACHER-CONFIRMATION
-    status: DEFERRED_UNTIL_SEPARATE_PROGRAM_D_MISSION
-  - candidate_id: CAND-V3-M1-PYBLP-REFERENCE-POC
-    status: SUPPORT_LANE_NOT_RUNTIME_AUTHORIZED
-  - candidate_id: CAND-STK-S1-HOUSEHOLD-SHADOW
-    status: DEFERRED_READINESS_ONLY
+  - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
+    status: HIGHER_STAGE_DEFERRED
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
-  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
+  human_validation: NOT_PERFORMED
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
-  d1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
-  dependency_advisories: 2_LOW_6_HIGH
-  format_check: BASELINE_WARNINGS_OUTSIDE_D1_SCOPE
+  d2_activity_scope: REQUEST_BOUNDED_NO_NATIVE_ACTIVITY_ID
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 evidence:
-  d1_backend_product_pr: 317
-  d1_backend_product_head_sha: 45cf2a730f8165f0a2c86f68e023c4f80a405f45
-  d1_backend_product_merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
-  d1_frontend_product_pr: 318
-  d1_frontend_product_head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
-  d1_product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-  d1_post_merge_validation_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-  d1_corrective_product_pr: 320
-  d1_corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
-  product_acceptance: PASS
-  ci_browser_and_codeql: REQUIRED_AND_COMPLETED
+  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W006-D2-20260803T062317Z
+  product_acceptance: PASS_WITH_EXPLICIT_LIMITS
+  acceptance_rows: 25
+  review_blocking: 0
+  review_must_fix: 0
   integrated_fresh_clone: PASS
-sealed_evidence: REQUIRED_AND_RECONCILED
+  product_acceptance_digest: EC2B131C6DE426A99729B2C116056F4D3177784BF4C441FF228ABC830A839138
+  token_verdict: ESTIMATED_REPRODUCIBLE_WITH_PLATFORM_PROMPT_LIMIT
+  efficiency_verdict: ESTIMATED_REPRODUCIBLE_WITH_EXPLICIT_UNMEASURED_HOST_FIELDS
 invalidation_triggers:
   - product_or_runtime_changed
-  - learning_design_authority_or_registry_changed
-  - shared_contract_changed
+  - evidence_capture_authority_changed
+  - d2_shared_contract_changed
   - canonical_decision_or_formal_run_binding_changed
-  - Golden_M1_truth_or_replay_contract_changed
+  - golden_truth_or_replay_contract_changed
   - student_visibility_changed
+  - D2_reference_pack_or_acceptance_baseline_changed
 automatic_next_start: false

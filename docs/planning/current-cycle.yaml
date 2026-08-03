@@ -1,57 +1,51 @@
-cycle_id: L1PLUS-CYCLE-006-D1-GOAL-RUBRIC-MEASURED
+cycle_id: L1PLUS-CYCLE-007-D2-EVIDENCE-PROVENANCE
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT
-generated_at: "2026-08-03T10:46:40+08:00"
+generated_at: "2026-08-03T15:50:53+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-product_evidence_source_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-preceding_l1_closure:
-  evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
-  owner_acknowledgment: docs/governance/owner-decisions/OWNER_ACKNOWLEDGMENT_L1_CLOSURE_001.json
-  status: CLOSED_OWNER_DECISION_RECORDED
-repository_adoption:
-  status: ADOPTED_BY_THIS_GOVERNANCE_CHANGESET
-  owner_delegation: OWNER_DIRECTION_SIMWAR_W005_D1_GOAL_RUBRIC_MEASURED
+assessment_source_anchor_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+product_evidence_source_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+governance_closure_merge_sha: THIS_CHANGESET
+l1_plus_status: D2_EVIDENCE_PROVENANCE_COMPLETE_WITH_LIMITS
+runtime_authority: JSON_INTERNAL_ONLY
 capability:
-  id: L1P-D1
-  candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
-  status: CLOSED_AND_CURRENT
-  primary_outcome: Teacher can create, validate, publish, inspect, and revise immutable LearningGoalVersion and RubricVersion records against an exact AVAILABLE CoursePackageVersion.
-  mutable_authority: LearningDesignCommandService
-  sole_writer: LearningDesignCommandService
+  id: L1P-D2
+  candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
+  status: CLOSED_AND_CURRENT_WITH_LIMITS
+  primary_outcome: Teacher can select exact learning references and controlled source scope, generate or reuse an immutable EvidenceArtifact, inspect safe provenance, and receive deterministic duplicate/conflict feedback.
+  mutable_authority: EvidenceCaptureCommandService
+  sole_writer: EvidenceCaptureCommandService
   product_prs:
-    - number: 317
-      head_sha: 45cf2a730f8165f0a2c86f68e023c4f80a405f45
-      merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
-    - number: 318
-      head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
-      merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
-    - number: 320
-      head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
-      merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-evidence:
-  product_acceptance: PASS
-  challenge_review: PASS
-  challenge_blocking: 0
-  challenge_must_fix: 0
-  corrective_product_pr: 320
-  corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
-  corrective_product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
-  focused_tests: 7_OF_7_PASS
-  contract_gate: 15_OF_15_PASS
-  full_tests: 955_OF_955_PASS
-  browser: 67_PASS_9_SKIP_PLUS_1_REAL_ROLE_WORKFLOW_PASS
-  typecheck: PASS
-  lint: PASS
-  build: PASS
-  hidden_unicode: PASS
-  direct_store_boundary: 0_NEW_UNAPPROVED
-  security_audit: 2_LOW_6_HIGH_PREEXISTING
-  integrated_fresh_clone: PASS
-  corrective_fresh_clone: PASS_AT_B10F722_136_FILES_955_TESTS
-  governance_closure_merge_sha: THIS_CHANGESET
+    - number: 322
+      merge_sha: ca79e18d1a026fb979efd5c67370dc64ed824873
+    - number: 323
+      merge_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+  evidence:
+    product_acceptance: PASS_WITH_EXPLICIT_LIMITS
+    acceptance_rows: 25
+    challenge_review_blocking: 0
+    challenge_review_must_fix: 0
+    integrated_fresh_clone: PASS
+    full_tests: 140_FILES_969_TESTS_PASS
+    browser: 68_PASS_9_PREEXISTING_SKIP_PLUS_ROLE_WORKFLOW_1_PASS
+    direct_store_boundary: 0_NEW_UNAPPROVED
+    product_acceptance_digest: EC2B131C6DE426A99729B2C116056F4D3177784BF4C441FF228ABC830A839138
+    backend_review_digest: 5C64C484E3080960992D1F3A0E278405224433E1DC41D77C480AF39FC1EA5A4C
+    frontend_review_digest: A593CE1B9ADEDB936BDE3711F865D3009D5C5044F24921373B0CBFCC7A7A0186
+    token_receipt_digest: F17AECD8542F3371ABB050DC59B01B91CD08E08840AA82ECDD3E5C373E7658FE
+    efficiency_receipt_digest: C72991B3A83AF948F8237EFCB497CD5F3E016037B51F6B93767CAB2F919231D4
+    evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W006-D2-20260803T062317Z
+  known_limits:
+    runtime_authority: JSON_INTERNAL_ONLY
+    role_workflow_activity_scope: REQUEST_BOUNDED_NO_NATIVE_ACTIVITY_ID
+    human_validation: NOT_PERFORMED
+    issue_111: OPEN_KNOWN_LIMIT
+    postgresql: NOT_ACTIVE
+    durable_settlement_and_recovery: NOT_PROVEN
+    pilot_and_production: NOT_AUTHORIZED
+    d2_is_not_d3_or_d4: true
+    dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 support_code:
   candidate_id: NONE
 docs_discovery:
@@ -61,34 +55,32 @@ closure:
   ready_pr_limit: 1
   merge_execution_limit: 1
   post_merge_required: COMPLETED
-  governance_adoption: THIS_CHANGESET
-  corrective_reconciliation: THIS_CHANGESET
+  governance_pr: THIS_CHANGESET
 resource_locks:
-  - resource: LEARNING_DESIGN_AUTHORITY
+  - resource: EVIDENCE_CAPTURE_AUTHORITY
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: LEARNING_DESIGN_JSON_REGISTRY
+  - resource: D2_SHARED_CONTRACTS
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_D1_WORKBENCH
+  - resource: TEACHER_EVIDENCE_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: SHARED_CONTRACTS
+  - resource: D2_RUN_REPLAY_GOLDEN
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-known_limits:
-  runtime_authority: JSON_INTERNAL_ONLY
-  human_validation: WAIVED_BY_OWNER_NOT_PERFORMED
-  issue_111: OPEN_KNOWN_LIMIT
-  postgresql: NOT_ACTIVE
-  durable_settlement_and_recovery: NOT_PROVEN
-  pilot_and_production: NOT_AUTHORIZED
-  d1_atomicity: COMPENSATING_ATOMICITY_NOT_CRASH_SAFE
-  dependency_advisories: 2_LOW_6_HIGH
-  format_check: BASELINE_WARNINGS_OUTSIDE_D1_SCOPE
+candidate_backlog:
+  - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_AUTHORIZATION
+  - candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+    status: DEFERRED_UNTIL_SEPARATE_PROGRAM_D_MISSION
+  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+    status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
+    status: HIGHER_STAGE_DEFERRED
 authorization:
   status: CLOSED_NO_AUTOMATIC_SUCCESSOR
-  next_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+  next_candidate: CAND-L1P-D3-TEACHER-CONFIRMATION
   next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
   next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
   automatic_start: false
