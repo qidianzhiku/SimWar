@@ -1,0 +1,80 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-006-D1-GOAL-RUBRIC-MEASURED
+status: CLOSED_AND_CURRENT
+closed_at: "2026-08-03T09:53:43+08:00"
+repository: qidianzhiku/SimWar
+assessment_source_anchor_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+product_evidence_source_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+source_sha_semantics: FINAL_D1_PRODUCT_MERGE_AND_INTEGRATED_FRESH_CLONE_VALIDATION
+branch: wave005/d1-frontend
+product_prs:
+  - number: 317
+    head_sha: 45cf2a730f8165f0a2c86f68e023c4f80a405f45
+    merge_sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
+  - number: 318
+    head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
+    merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+mainline_candidate: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
+capability_id: L1P-D1
+mutable_authority: LearningDesignCommandService
+sole_writer: LearningDesignCommandService
+timeline:
+  - event: D1_BACKEND_PRODUCT_MERGED
+    pr: 317
+    sha: ecbd81c8edf9acbf853fc4d100be32644e3aa11e
+  - event: D1_FRONTEND_PRODUCT_MERGED
+    pr: 318
+    sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+  - event: D1_INTEGRATED_FRESH_CLONE_VALIDATED
+    sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+  - event: GOVERNANCE_ADOPTION
+    status: THIS_CHANGESET
+resource_locks:
+  - LEARNING_DESIGN_AUTHORITY
+  - LEARNING_DESIGN_JSON_REGISTRY
+  - TEACHER_D1_WORKBENCH
+  - SHARED_CONTRACTS
+  - PLAYWRIGHT_STATE
+  - SERIAL_CLOSURE
+resource_lock_status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+validation:
+  focused: PASS_7_OF_7
+  contract: PASS_15_OF_15
+  full: PASS_955_OF_955
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  direct_store_boundary: PASS_0_NEW_UNAPPROVED
+  browser: PASS_67_9_SKIP_PLUS_1_REAL_ROLE_WORKFLOW
+  ci: SUCCESS
+  codeql: SUCCESS
+  fresh_clone: PASS_DETACHED_CLEAN_AT_CURRENT_MASTER
+gap_delta:
+  closed:
+    - L1P-GAP-D1-LEARNING-GOAL-RUBRIC-MEASURED
+  new: []
+  reclassified: []
+metrics:
+  cleanup_residue: NONE_OBSERVED
+  boundary_breach: 0_NEW_BREACHES
+  post_merge_escape: NONE_OBSERVED
+  product_pr_count: 2
+  governance_pr_count: 1
+  first_pass_exit: NO_FRONTEND_INTEGRATION_REWORK_REQUIRED
+  rework_pr_count: 0
+  acceptance_gap_count: 0
+  changed_product_file_count: 20
+  net_additions: NOT_MEASURED
+explicit_non_proofs:
+  - Human Validation completed
+  - PostgreSQL active authority
+  - durable settlement or recovery
+  - final grade, EvidenceArtifact, Teacher Confirmation, or Student Learning Report
+  - Controlled Pilot authorization
+  - Production authorization
+  - D2 or successor implementation
+recommended_next_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+recommended_next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
+next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
+automatic_next_start: false

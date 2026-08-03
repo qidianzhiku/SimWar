@@ -1,6 +1,6 @@
 # L1+ D1 LearningGoal / RubricVersion
 
-Status: IMPLEMENTED_IN_WAVE_005_PENDING_SERIAL_CLOSURE
+Status: CLOSED_AND_CURRENT
 
 Primary outcome: a Teacher can create, validate, publish, inspect, and revise
 immutable LearningGoalVersion and RubricVersion records against an exact
@@ -42,9 +42,17 @@ rank, Truth, SettlementResult, EvidenceArtifact, or LearningConfirmation.
 - Unit: `tests/unit/learning-design.test.ts`
 - Integration: `tests/integration/learning-design-endpoint.test.ts`
 - Browser: `tests/e2e-ui/d1-learning-design-workbench.spec.ts`
+- Product PR #317 merge: `ecbd81c8edf9acbf853fc4d100be32644e3aa11e`
+- Product PR #318 merge and integrated fresh-clone source: `a7dcf48e810ab23eecac4c74a7293670f1374459`
+- Integrated validation: `npm test` 136 files / 955 tests PASS; browser 67 PASS / 9 SKIP
+- Contract gate: 6 files / 15 tests PASS; direct-store guard reports 0 new unapproved access
 
 ## Known Limits
 
 The runtime remains `JSON_INTERNAL_ONLY`. D2 EvidenceArtifact, D3 Teacher
 Confirmation, D4 Student Learning Report, AI final grade, PostgreSQL,
 durable recovery, Human Validation, Pilot, and Production are out of scope.
+
+The D1 cycle is closed with current-master evidence. This closure does not
+authorize a successor mission or change the runtime, Truth, settlement, score,
+rank, replay, or Student visibility boundaries.
