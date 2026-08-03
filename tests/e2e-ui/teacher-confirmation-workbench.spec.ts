@@ -218,6 +218,13 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
   const draft = baseConfirmation("DRAFT", "1.0.0");
   const rejected = baseConfirmation("REJECTED", "2.0.0", "Evidence needs a clearer source.");
   const revised = baseConfirmation("DRAFT", "3.0.0");
+  const confirmed = {
+    ...revised,
+    audit_receipt: { ...revised.audit_receipt, action: "teacher_confirmation.confirm" },
+    confirmation_ref: { ...revised.confirmation_ref, version: "4.0.0" },
+    status: "CONFIRMED" as const,
+    supersedes_ref: revised.confirmation_ref
+  };
 
   await page.route("**/api/v1/bff/teacher/confirmations", (route) =>
     route.fulfill({
@@ -309,6 +316,18 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
       })
     })
   );
+  await page.route("**/api/v1/bff/teacher/confirmations/confirmation_demo/confirm", (route) =>
+    route.fulfill({
+      json: envelope({
+        data: {
+          confirmation: confirmed,
+          known_limits: ["teacher-only"],
+          runtime_authority: "JSON_INTERNAL_ONLY"
+        },
+        known_limits: ["teacher-only"]
+      })
+    })
+  );
 
   await page.goto(teacherBaseUrl);
   await signIn(page);
@@ -336,5 +355,7 @@ test("Teacher claims, drafts, rejects and revises an immutable confirmation", as
   await expect(workbench.getByText("Rejected version appended.")).toBeVisible();
   await workbench.getByRole("button", { name: "Revise as new draft" }).click();
   await expect(workbench.getByText("Draft saved.")).toBeVisible();
+  await workbench.getByRole("button", { name: "Confirm version" }).click();
+  await expect(workbench.getByText("Confirmed version appended.")).toBeVisible();
   await expect(workbench.getByText(/REJECTED/)).toBeVisible();
 });
