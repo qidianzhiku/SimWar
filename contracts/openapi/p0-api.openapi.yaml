@@ -2395,7 +2395,7 @@ components:
     D2CaptureReceiptEnvelope:
       $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2CaptureReceiptEnvelope"
     TeacherConfirmationInput:
-      $ref: "../schemas/teacher-confirmation.v1.json"
+      $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationCommandInput"
     TeacherConfirmationListEnvelope:
       type: object
       additionalProperties: false
@@ -2407,7 +2407,8 @@ components:
           additionalProperties: false
           required: [confirmations, known_limits, runtime_authority]
           properties:
-            confirmations: { type: array, items: { $ref: "../schemas/teacher-confirmation.v1.json" } }
+            confirmations:
+              { type: array, items: { $ref: "../schemas/teacher-confirmation.v1.json" } }
             known_limits: { type: array, items: { type: string } }
             runtime_authority: { const: JSON_INTERNAL_ONLY }
         message: { type: string }
