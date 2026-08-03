@@ -52,6 +52,7 @@ import {
   type TeacherCoursePackageSurfaceState
 } from "./course-package-client";
 import { CourseReportBuilder } from "./CourseReportBuilder";
+import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -254,6 +255,7 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("ready");
+  const [showLearningDesign, setShowLearningDesign] = useState(false);
   const [scenarioReadinessForm, setScenarioReadinessForm] = useState<ScenarioReadinessForm>(
     EMPTY_SCENARIO_READINESS_FORM
   );
@@ -1099,6 +1101,31 @@ export function App() {
           tenantId={login.tenantId}
           token={session?.access_token ?? ""}
         />
+      ) : null}
+
+      {isTeacher && session ? (
+        <section className="candidate-surface" aria-label="D1 Learning Design entry point">
+          <div className="candidate-heading">
+            <div>
+              <p className="eyebrow">L1+ Program D · D1</p>
+              <h2>Learning Goals &amp; Rubrics</h2>
+            </div>
+            <button
+              className="secondary"
+              onClick={() => setShowLearningDesign((visible) => !visible)}
+            >
+              {showLearningDesign ? "Close D1 Workbench" : "Open D1 Workbench"}
+            </button>
+          </div>
+          {showLearningDesign ? (
+            <LearningDesignWorkbench tenantId={login.tenantId} token={session.access_token} />
+          ) : (
+            <p className="evidence-note">
+              Open the D1 workbench to author immutable LearningGoalVersion and RubricVersion
+              records.
+            </p>
+          )}
+        </section>
       ) : null}
 
       {isTeacher ? (
