@@ -1098,6 +1098,9 @@ export function App() {
 
       {isTeacher && session ? (
         <EvidenceWorkbench
+          availablePackages={
+            coursePackageList.phase === "READY" ? coursePackageList.packages : []
+          }
           courseId={selectedRun?.course_id ?? selectedCourseId}
           runId={selectedRun?.run_id ?? selectedRunId}
           tenantId={login.tenantId}

@@ -97,6 +97,7 @@ test("Teacher captures and inspects safe D2 evidence without private payload", a
 
   const workbench = page.getByLabel("Teacher D2 Evidence Workbench");
   await expect(workbench).toBeVisible();
+  await workbench.getByRole("button", { name: "Load exact references" }).click();
   await workbench.getByLabel("D2 course_id").fill("course_demo");
   await workbench.getByLabel("D2 run_id").fill("run_d2");
   await workbench.getByLabel("D2 team_id").fill("team_alpha");

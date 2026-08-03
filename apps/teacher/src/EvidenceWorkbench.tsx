@@ -18,6 +18,7 @@ type CaptureSurfaceState = "IDLE" | "LOADING" | "GENERATED" | "REUSED" | "DUPLIC
 type EvidenceScope = D2EvidenceQuery;
 
 type EvidenceWorkbenchProps = {
+  availablePackages: readonly CoursePackageVersionTeacherDto[];
   courseId?: string | null;
   runId?: string | null;
   tenantId: string;
@@ -106,7 +107,7 @@ function artifactSummary(artifact: D2EvidenceArtifactVersion): string {
   return `${artifact.artifact_ref.resource_id} / ${artifact.artifact_ref.version}`;
 }
 
-export function EvidenceWorkbench({ courseId, runId, tenantId, token }: EvidenceWorkbenchProps) {
+export function EvidenceWorkbench({ availablePackages, courseId, runId, tenantId, token }: EvidenceWorkbenchProps) {
   const [scope, setScope] = useState<EvidenceScope>({
     activity_id: "",
     course_id: courseId ?? "",
@@ -114,9 +115,9 @@ export function EvidenceWorkbench({ courseId, runId, tenantId, token }: Evidence
     run_id: runId ?? "",
     team_id: ""
   });
-  const [packages, setPackages] = useState<readonly CoursePackageVersionTeacherDto[]>([]);
+  const packages = availablePackages;
   const [design, setDesign] = useState<LearningDesignListDto>(EMPTY_DESIGN);
-  const [referenceState, setReferenceState] = useState<"LOADING" | "READY" | "ERROR">("LOADING");
+  const [referenceState, setReferenceState] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">("IDLE");
   const [surfaceState, setSurfaceState] = useState<EvidenceSurfaceState>("IDLE");
   const [captureState, setCaptureState] = useState<CaptureSurfaceState>("IDLE");
   const [evidence, setEvidence] = useState<D2EvidenceListDto | null>(null);
@@ -135,31 +136,20 @@ export function EvidenceWorkbench({ courseId, runId, tenantId, token }: Evidence
     }));
   }, [courseId, runId]);
 
-  useEffect(() => {
-    const controller = new AbortController();
+  async function loadReferences() {
     setReferenceState("LOADING");
-    void Promise.all([
-      fetch(`${API_BASE}/api/v1/bff/teacher/course-package-versions`, {
-        headers: authHeaders(token, tenantId),
-        signal: controller.signal
-      }).then((response) => readEnvelope<{ course_package_versions: CoursePackageVersionTeacherDto[] }>(response)),
-      fetch(`${API_BASE}/api/v1/bff/teacher/learning-designs`, {
-        headers: authHeaders(token, tenantId),
-        signal: controller.signal
-      }).then((response) => readEnvelope<LearningDesignListDto>(response))
-    ])
-      .then(([packageData, designData]) => {
-        setPackages(packageData.course_package_versions);
-        setDesign(designData);
-        setReferenceState("READY");
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setReferenceState("ERROR");
-        setErrorMessage(error instanceof Error ? error.message : "Exact reference read failed");
+    setErrorMessage("");
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/bff/teacher/learning-designs`, {
+        headers: authHeaders(token, tenantId)
       });
-    return () => controller.abort();
-  }, [tenantId, token]);
+      setDesign(await readEnvelope<LearningDesignListDto>(response));
+      setReferenceState("READY");
+    } catch (error) {
+      setReferenceState("ERROR");
+      setErrorMessage(error instanceof Error ? error.message : "Exact reference read failed");
+    }
+  }
 
   const selectedPackage = useMemo(
     () =>
@@ -338,6 +328,9 @@ export function EvidenceWorkbench({ courseId, runId, tenantId, token }: Evidence
       </div>
 
       <div className="d2-actions">
+        <button className="secondary" disabled={referenceState === "LOADING"} onClick={() => void loadReferences()}>
+          Load exact references
+        </button>
         <button className="secondary" disabled={!scopeComplete || surfaceState === "LOADING"} onClick={() => void loadEvidence()}>
           Load eligible events
         </button>
