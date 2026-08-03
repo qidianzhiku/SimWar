@@ -1,0 +1,78 @@
+{
+  "learning_goals": [
+    {
+      "activity_refs": [
+        {
+          "activity_id": "activity_observe_v1",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "1.0.0"
+        }
+      ],
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "course_package_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "course_package_id": "course_package_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "created_at": "2026-08-03T00:00:00.000Z",
+      "created_by": "user_teacher",
+      "expected_evidence_classes": ["reflection"],
+      "goal_id": "goal_measure_market",
+      "observable_behaviors": ["compare observed demand with a stated hypothesis"],
+      "role_scope": ["teacher"],
+      "schema_version": "learning-design.v1",
+      "statement": "Compare observed demand with a stated hypothesis.",
+      "status": "PUBLISHED",
+      "tenant_id": "tenant_demo",
+      "title": "Market observation",
+      "version": "1.0.0"
+    }
+  ],
+  "rubrics": [
+    {
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "course_package_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "course_package_id": "course_package_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "created_at": "2026-08-03T00:00:00.000Z",
+      "created_by": "user_teacher",
+      "criteria": [
+        {
+          "criterion_id": "criterion_reasoning",
+          "levels": [
+            {
+              "description": "evidence is connected to the claim",
+              "label": "developing",
+              "ordinal": 1
+            },
+            {
+              "description": "evidence is compared and qualified",
+              "label": "proficient",
+              "ordinal": 2
+            }
+          ],
+          "prompt": "How clearly is evidence connected to the claim?"
+        }
+      ],
+      "learning_goal_references": [
+        {
+          "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "goal_id": "goal_measure_market",
+          "tenant_id": "tenant_demo",
+          "version": "1.0.0"
+        }
+      ],
+      "rubric_id": "rubric_market_reasoning",
+      "schema_version": "learning-design.v1",
+      "scoring_policy": "NOT_ACTIVE_D1",
+      "status": "PUBLISHED",
+      "tenant_id": "tenant_demo",
+      "title": "Market reasoning",
+      "version": "1.0.0"
+    }
+  ]
+}

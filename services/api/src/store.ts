@@ -63,6 +63,12 @@ import type {
 } from "./plugin-release-authority.js";
 import { assertValidInstructorAsset, type InstructorAsset } from "./instructor-asset-registry.js";
 import { assertValidCoursePackageLifecycleSnapshots } from "./course-package-json-registry.js";
+import {
+  assertValidLearningGoalVersion,
+  assertValidRubricVersion,
+  type LearningGoalVersion,
+  type RubricVersion
+} from "@simwar/shared-contracts";
 
 export interface StoredUser extends User {
   password_hash: string;
@@ -105,6 +111,8 @@ export interface SimWarStoreSnapshot {
   roleWorkflowEvents: RoleWorkflowEvent[];
   instructorAssets: readonly Readonly<InstructorAsset>[];
   coursePackageLifecycleSnapshots: CoursePackageVersion[];
+  learningGoalVersions: LearningGoalVersion[];
+  rubricVersions: RubricVersion[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -154,6 +162,40 @@ export function persistCoursePackageLifecycleSnapshots(
     collection.splice(0, collection.length, ...previous);
     throw error;
   }
+}
+
+export function persistLearningDesignSnapshots(
+  store: SimWarStore,
+  goals: readonly LearningGoalVersion[],
+  rubrics: readonly RubricVersion[]
+): void {
+  goals.forEach(assertValidLearningGoalVersion);
+  rubrics.forEach(assertValidRubricVersion);
+  const previousGoals = structuredClone(store.learningGoalVersions);
+  const previousRubrics = structuredClone(store.rubricVersions);
+  store.learningGoalVersions.splice(
+    0,
+    store.learningGoalVersions.length,
+    ...structuredClone(goals)
+  );
+  store.rubricVersions.splice(0, store.rubricVersions.length, ...structuredClone(rubrics));
+  try {
+    store.persist();
+  } catch (error) {
+    store.learningGoalVersions.splice(0, store.learningGoalVersions.length, ...previousGoals);
+    store.rubricVersions.splice(0, store.rubricVersions.length, ...previousRubrics);
+    throw error;
+  }
+}
+
+export function readLearningDesignSnapshots(store: SimWarStore): {
+  goals: LearningGoalVersion[];
+  rubrics: RubricVersion[];
+} {
+  return {
+    goals: structuredClone(store.learningGoalVersions),
+    rubrics: structuredClone(store.rubricVersions)
+  };
 }
 
 export interface InstructorAssetAuditCheckpoint {
@@ -676,6 +718,8 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     roleWorkflowEvents: [],
     instructorAssets: [],
     coursePackageLifecycleSnapshots: [],
+    learningGoalVersions: [],
+    rubricVersions: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -728,6 +772,8 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     roleWorkflowEvents: store.roleWorkflowEvents,
     instructorAssets: store.instructorAssets,
     coursePackageLifecycleSnapshots: store.coursePackageLifecycleSnapshots,
+    learningGoalVersions: store.learningGoalVersions,
+    rubricVersions: store.rubricVersions,
     counters: store.counters
   };
 }
@@ -775,6 +821,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     roleWorkflowEvents: snapshot.roleWorkflowEvents ?? [],
     instructorAssets,
     coursePackageLifecycleSnapshots,
+    learningGoalVersions: snapshot.learningGoalVersions ?? [],
+    rubricVersions: snapshot.rubricVersions ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }
@@ -1597,7 +1645,9 @@ function assertSnapshotShape(
     "courseBlueprintBindings",
     "formalCourseBlueprintApprovalRecords",
     "formalCourseBlueprintLifecycleSnapshots",
-    "coursePackageLifecycleSnapshots"
+    "coursePackageLifecycleSnapshots",
+    "learningGoalVersions",
+    "rubricVersions"
   ] as const) {
     if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
@@ -1612,6 +1662,17 @@ function assertSnapshotShape(
     } catch (error) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath, error);
     }
+  }
+
+  try {
+    if (Array.isArray(value.learningGoalVersions)) {
+      (value.learningGoalVersions as LearningGoalVersion[]).forEach(assertValidLearningGoalVersion);
+    }
+    if (Array.isArray(value.rubricVersions)) {
+      (value.rubricVersions as RubricVersion[]).forEach(assertValidRubricVersion);
+    }
+  } catch (error) {
+    throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath, error);
   }
 
   if (Array.isArray(value.courseBlueprintBindings)) {

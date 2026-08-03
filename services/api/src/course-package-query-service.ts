@@ -1,6 +1,7 @@
 import type {
   CoursePackageVersionAdminListDto,
   CoursePackageVersion,
+  CoursePackageVersionReference,
   CoursePackageVersionTeacherDto,
   CoursePackageVersionTeacherListDto
 } from "@simwar/shared-contracts";
@@ -36,5 +37,12 @@ export class CoursePackageQueryService {
         .filter((version) => version.status === "AVAILABLE")
         .map(toTeacherCoursePackageVersionDto)
     };
+  }
+
+  async getByReference(
+    tenantId: string,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion | null> {
+    return this.registry.getByReference(tenantId, reference);
   }
 }

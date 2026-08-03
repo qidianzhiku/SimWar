@@ -71,6 +71,12 @@ const a5ContractFiles = [
   "contracts/fixtures/a5-compatibility.invalid.json"
 ];
 
+const d1ContractFiles = [
+  "contracts/schemas/learning-design.v1.json",
+  "contracts/fixtures/learning-design.valid.json",
+  "contracts/fixtures/learning-design.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -84,7 +90,11 @@ const requiredOpenApiPaths = [
   "/internal/v1/runs/{runId}/rounds/{roundNo}/settle",
   "/api/v1/runs/{runId}/rounds/{roundNo}/results",
   "/api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace",
-  "/api/v1/bff/student/runs/{runId}/rounds/{roundNo}/cockpit"
+  "/api/v1/bff/student/runs/{runId}/rounds/{roundNo}/cockpit",
+  "/api/v1/bff/teacher/learning-goals/revisions",
+  "/api/v1/bff/teacher/rubrics/revisions",
+  "/api/v1/bff/teacher/learning-goals/{goalId}/versions/{version}/{action}",
+  "/api/v1/bff/teacher/rubrics/{rubricId}/versions/{version}/{action}"
 ];
 
 const schemaCases = [
@@ -156,6 +166,11 @@ const schemaCases = [
     schema: "contracts/schemas/a5-compatibility.v1.json",
     valid: ["contracts/fixtures/a5-compatibility.valid.json"],
     invalid: ["contracts/fixtures/a5-compatibility.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/learning-design.v1.json",
+    valid: ["contracts/fixtures/learning-design.valid.json"],
+    invalid: ["contracts/fixtures/learning-design.invalid.json"]
   }
 ];
 
@@ -479,11 +494,19 @@ function assertStudentFixtureDoesNotExposePrivateFields() {
 export async function runContractValidation(options = {}) {
   const openApiPath = options.openApiPath ?? "contracts/openapi/p0-api.openapi.yaml";
 
-  requireFiles([...requiredBaselineFiles, ...m1ContractFiles, ...a5ContractFiles]);
+  requireFiles([
+    ...requiredBaselineFiles,
+    ...m1ContractFiles,
+    ...a5ContractFiles,
+    ...d1ContractFiles
+  ]);
 
-  for (const jsonPath of [...requiredBaselineFiles, ...m1ContractFiles, ...a5ContractFiles].filter((file) =>
-    file.endsWith(".json")
-  )) {
+  for (const jsonPath of [
+    ...requiredBaselineFiles,
+    ...m1ContractFiles,
+    ...a5ContractFiles,
+    ...d1ContractFiles
+  ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
 
