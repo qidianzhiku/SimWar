@@ -13,6 +13,10 @@ import type {
   CoursePackageVersionDraftInput,
   CoursePackageVersionImportInput,
   CoursePackageVersionReference,
+  LearningGoalDraftInput,
+  LearningGoalVersionReference,
+  RubricDraftInput,
+  RubricVersionReference,
   Decision,
   ExactRef,
   DecisionPayload,
@@ -90,6 +94,12 @@ import {
   CoursePackageQueryService,
   toTeacherCoursePackageVersionDto
 } from "./course-package-query-service.js";
+import {
+  LearningDesignCommandError,
+  LearningDesignCommandService,
+  LearningDesignJsonRegistry,
+  LearningDesignQueryService
+} from "./learning-design.js";
 import {
   CourseReportQueryService,
   CourseReportQueryServiceError
@@ -174,6 +184,8 @@ import {
   createP1Store,
   captureInstructorAssetAuditCheckpoint,
   readCoursePackageLifecycleSnapshots,
+  persistLearningDesignSnapshots,
+  readLearningDesignSnapshots,
   readInstructorAssetCollection,
   persistCoursePackageLifecycleSnapshots,
   persistInstructorAssetCollection,
@@ -213,6 +225,8 @@ interface ApiRuntime {
   coursePackageCommands: CoursePackageCommandService;
   coursePackageQueries: CoursePackageQueryService;
   courseReports: CourseReportQueryService;
+  learningDesignCommands: LearningDesignCommandService;
+  learningDesignQueries: LearningDesignQueryService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -360,6 +374,17 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     parameterSets: formalAuthorityRuntime.parameterSets,
     scenarioPackages: formalAuthorityRuntime.scenarioPackages
   });
+  const learningDesignRegistry = new LearningDesignJsonRegistry(
+    {
+      persist: (goals, rubrics) => persistLearningDesignSnapshots(store, goals, rubrics)
+    },
+    readLearningDesignSnapshots(store).goals,
+    readLearningDesignSnapshots(store).rubrics
+  );
+  const learningDesignCommands = new LearningDesignCommandService(learningDesignRegistry, {
+    getByReference: (tenantId, reference) =>
+      coursePackageRegistry.getByReference(tenantId, reference)
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -367,6 +392,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalCourseBlueprints,
     coursePackageCommands,
     coursePackageQueries: new CoursePackageQueryService(coursePackageRegistry),
+    learningDesignCommands,
+    learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -3368,6 +3395,427 @@ async function executeAuditedCoursePackageCommand<T>(
   return result;
 }
 
+function learningDesignRequestError(): HttpError {
+  return new HttpError(422, "LEARNING_DESIGN_INPUT_INVALID", "learning design request is invalid");
+}
+
+function assertOnlyLearningDesignFields(
+  value: Record<string, unknown>,
+  fields: readonly string[]
+): void {
+  const keys = Object.keys(value);
+  if (keys.length !== fields.length || keys.some((key) => !fields.includes(key))) {
+    throw learningDesignRequestError();
+  }
+}
+
+function parseLearningDesignText(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+    throw learningDesignRequestError();
+  }
+  return value;
+}
+
+function parseLearningDesignIdentity(value: unknown): string {
+  const text = parseLearningDesignText(value);
+  if (
+    !/^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(text) ||
+    /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(text)
+  ) {
+    throw learningDesignRequestError();
+  }
+  return text;
+}
+
+function parseLearningDesignVersion(value: unknown): string {
+  const version = parseLearningDesignIdentity(value);
+  if (
+    version === "x" ||
+    version === "X" ||
+    version === "*" ||
+    /(?:^|[._:-])[xX*](?:$|[._:-])/.test(version)
+  ) {
+    throw learningDesignRequestError();
+  }
+  return version;
+}
+
+function parseLearningDesignDigest(value: unknown): string {
+  const digest = parseLearningDesignText(value);
+  if (!/^[a-f0-9]{64}$/.test(digest)) throw learningDesignRequestError();
+  return digest;
+}
+
+function parseLearningDesignStringList(value: unknown, allowEmpty = false): string[] {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0))
+    throw learningDesignRequestError();
+  return value.map(parseLearningDesignText);
+}
+
+function parseLearningDesignReference(
+  value: unknown,
+  idField: "goal_id" | "rubric_id" | "course_package_id"
+) {
+  if (!isRecord(value)) throw learningDesignRequestError();
+  assertOnlyLearningDesignFields(value, ["content_digest", idField, "tenant_id", "version"]);
+  return {
+    content_digest: parseLearningDesignDigest(value.content_digest),
+    [idField]: parseLearningDesignIdentity(value[idField]),
+    tenant_id: parseLearningDesignIdentity(value.tenant_id),
+    version: parseLearningDesignVersion(value.version)
+  } as Record<string, string>;
+}
+
+function parseLearningDesignActivityReferences(value: unknown) {
+  if (!Array.isArray(value)) throw learningDesignRequestError();
+  return value.map((item) => {
+    if (!isRecord(item)) throw learningDesignRequestError();
+    assertOnlyLearningDesignFields(item, ["activity_id", "content_digest", "version"]);
+    return {
+      activity_id: parseLearningDesignIdentity(item.activity_id),
+      content_digest: parseLearningDesignDigest(item.content_digest),
+      version: parseLearningDesignVersion(item.version)
+    };
+  });
+}
+
+function parseLearningGoalDraftBody(value: unknown, tenantId: string) {
+  if (!isRecord(value)) throw learningDesignRequestError();
+  assertOnlyLearningDesignFields(value, [
+    "activity_refs",
+    "course_package_reference",
+    "expected_evidence_classes",
+    "goal_id",
+    "observable_behaviors",
+    "role_scope",
+    "statement",
+    "title",
+    "version"
+  ]);
+  const coursePackageReference = parseLearningDesignReference(
+    value.course_package_reference,
+    "course_package_id"
+  );
+  if (coursePackageReference.tenant_id !== tenantId)
+    throw new HttpError(403, "LEARNING_DESIGN_TENANT_SCOPE_VIOLATION", "tenant scope violation");
+  return {
+    activity_refs: parseLearningDesignActivityReferences(value.activity_refs),
+    course_package_reference:
+      coursePackageReference as unknown as LearningGoalDraftInput["course_package_reference"],
+    expected_evidence_classes: parseLearningDesignStringList(value.expected_evidence_classes),
+    goal_id: parseLearningDesignIdentity(value.goal_id),
+    observable_behaviors: parseLearningDesignStringList(value.observable_behaviors),
+    role_scope: parseLearningDesignStringList(value.role_scope),
+    statement: parseLearningDesignText(value.statement),
+    title: parseLearningDesignText(value.title),
+    version: parseLearningDesignVersion(value.version)
+  };
+}
+
+function parseRubricCriteria(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) throw learningDesignRequestError();
+  return value.map((item) => {
+    if (!isRecord(item)) throw learningDesignRequestError();
+    assertOnlyLearningDesignFields(item, ["criterion_id", "levels", "prompt"]);
+    if (!Array.isArray(item.levels) || item.levels.length === 0) throw learningDesignRequestError();
+    return {
+      criterion_id: parseLearningDesignIdentity(item.criterion_id),
+      levels: item.levels.map((level) => {
+        if (!isRecord(level)) throw learningDesignRequestError();
+        assertOnlyLearningDesignFields(level, ["description", "label", "ordinal"]);
+        if (!Number.isInteger(level.ordinal) || Number(level.ordinal) < 1)
+          throw learningDesignRequestError();
+        return {
+          description: parseLearningDesignText(level.description),
+          label: parseLearningDesignText(level.label),
+          ordinal: Number(level.ordinal)
+        };
+      }),
+      prompt: parseLearningDesignText(item.prompt)
+    };
+  });
+}
+
+function parseRubricDraftBody(value: unknown, tenantId: string) {
+  if (!isRecord(value)) throw learningDesignRequestError();
+  assertOnlyLearningDesignFields(value, [
+    "course_package_reference",
+    "criteria",
+    "learning_goal_references",
+    "rubric_id",
+    "title",
+    "version"
+  ]);
+  const coursePackageReference = parseLearningDesignReference(
+    value.course_package_reference,
+    "course_package_id"
+  );
+  if (coursePackageReference.tenant_id !== tenantId)
+    throw new HttpError(403, "LEARNING_DESIGN_TENANT_SCOPE_VIOLATION", "tenant scope violation");
+  if (!Array.isArray(value.learning_goal_references) || value.learning_goal_references.length === 0)
+    throw learningDesignRequestError();
+  return {
+    course_package_reference:
+      coursePackageReference as unknown as RubricDraftInput["course_package_reference"],
+    criteria: parseRubricCriteria(value.criteria),
+    learning_goal_references: value.learning_goal_references.map(
+      (reference) =>
+        parseLearningDesignReference(
+          reference,
+          "goal_id"
+        ) as unknown as LearningGoalVersionReference
+    ),
+    rubric_id: parseLearningDesignIdentity(value.rubric_id),
+    title: parseLearningDesignText(value.title),
+    version: parseLearningDesignVersion(value.version)
+  };
+}
+
+function learningDesignCommandHttpError(error: unknown): HttpError {
+  if (!(error instanceof LearningDesignCommandError)) throw error;
+  const statusCode = [
+    "LEARNING_DESIGN_TENANT_SCOPE_VIOLATION",
+    "LEARNING_DESIGN_FORBIDDEN"
+  ].includes(error.code)
+    ? 403
+    : error.code === "LEARNING_DESIGN_NOT_FOUND"
+      ? 404
+      : [
+            "LEARNING_DESIGN_DUPLICATE_VERSION",
+            "LEARNING_DESIGN_INVALID_TRANSITION",
+            "LEARNING_DESIGN_DEPENDENCY_NOT_PUBLISHED"
+          ].includes(error.code)
+        ? 409
+        : 422;
+  return new HttpError(statusCode, error.code, "learning design command rejected");
+}
+
+function requireLearningDesignTeacher(context: RequestContext): CurrentUser {
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "LEARNING_DESIGN_FORBIDDEN", "teacher authority required");
+  }
+  return actor;
+}
+
+async function executeAuditedLearningDesignCommand<T>(
+  runtime: ApiRuntime,
+  command: () => Promise<T>,
+  audit: (result: T) => Parameters<typeof appendAudit>[1]
+): Promise<T> {
+  const checkpoint = runtime.learningDesignCommands.captureAuditCheckpointForCompensation();
+  let result: T;
+  try {
+    result = await command();
+  } catch (error) {
+    throw learningDesignCommandHttpError(error);
+  }
+  try {
+    await appendAudit(runtime, audit(result));
+  } catch {
+    runtime.learningDesignCommands.restoreAuditCheckpointAfterFailure(checkpoint);
+    throw new HttpError(
+      500,
+      "LEARNING_DESIGN_AUDIT_FAILED",
+      "learning design request could not be completed"
+    );
+  }
+  return result;
+}
+
+async function handleLearningDesignRoute(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  context: RequestContext
+): Promise<boolean> {
+  const isD1Route =
+    url.pathname.startsWith("/api/v1/bff/teacher/learning-") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/rubrics/");
+  if (!isD1Route) return false;
+  const actor = requireLearningDesignTeacher(context);
+  const commandActor = { actor_id: actor.user_id, tenant_id: context.tenantId };
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/learning-designs") {
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, await runtime.learningDesignQueries.listTeacher(context.tenantId))
+    );
+    return true;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/learning-goals/drafts") {
+    const input = parseLearningGoalDraftBody(
+      await readJson(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () => runtime.learningDesignCommands.createGoalDraft(commandActor, input),
+      (created) => ({
+        actor,
+        action: "learning_goal_version.draft_create",
+        after: clonePublic(created),
+        requestId: context.requestId,
+        resourceId: `${created.goal_id}:${created.version}`,
+        resourceType: "learning_goal_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, result));
+    return true;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/rubrics/drafts") {
+    const input = parseRubricDraftBody(
+      await readJson(request, { requiredObject: true }),
+      context.tenantId
+    );
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () => runtime.learningDesignCommands.createRubricDraft(commandActor, input),
+      (created) => ({
+        actor,
+        action: "rubric_version.draft_create",
+        after: clonePublic(created),
+        requestId: context.requestId,
+        resourceId: `${created.rubric_id}:${created.version}`,
+        resourceType: "rubric_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, result));
+    return true;
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/learning-goals/revisions"
+  ) {
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyLearningDesignFields(body, ["source_reference", "version"]);
+    const sourceReference = parseLearningDesignReference(
+      body.source_reference,
+      "goal_id"
+    ) as unknown as LearningGoalVersionReference;
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () =>
+        runtime.learningDesignCommands.reviseGoal(commandActor, {
+          source_reference: sourceReference,
+          version: parseLearningDesignVersion(body.version)
+        }),
+      (created) => ({
+        actor,
+        action: "learning_goal_version.revise",
+        after: clonePublic(created),
+        requestId: context.requestId,
+        resourceId: `${created.goal_id}:${created.version}`,
+        resourceType: "learning_goal_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, result));
+    return true;
+  }
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/rubrics/revisions") {
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyLearningDesignFields(body, ["source_reference", "version"]);
+    const sourceReference = parseLearningDesignReference(
+      body.source_reference,
+      "rubric_id"
+    ) as unknown as RubricVersionReference;
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () =>
+        runtime.learningDesignCommands.reviseRubric(commandActor, {
+          source_reference: sourceReference,
+          version: parseLearningDesignVersion(body.version)
+        }),
+      (created) => ({
+        actor,
+        action: "rubric_version.revise",
+        after: clonePublic(created),
+        requestId: context.requestId,
+        resourceId: `${created.rubric_id}:${created.version}`,
+        resourceType: "rubric_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, result));
+    return true;
+  }
+  const goalTransition = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/learning-goals\/([^/]+)\/versions\/([^/]+)\/(validate|publish|reject)$/
+  );
+  if (request.method === "POST" && goalTransition) {
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyLearningDesignFields(body, ["content_digest"]);
+    const reference = {
+      content_digest: parseLearningDesignDigest(body.content_digest),
+      goal_id: parseLearningDesignIdentity(goalTransition[1]),
+      tenant_id: context.tenantId,
+      version: parseLearningDesignVersion(goalTransition[2])
+    };
+    const action = goalTransition[3];
+    const command =
+      action === "validate"
+        ? runtime.learningDesignCommands.validateGoal
+        : action === "publish"
+          ? runtime.learningDesignCommands.publishGoal
+          : runtime.learningDesignCommands.rejectGoal;
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () => command(commandActor, reference),
+      (updated) => ({
+        actor,
+        action: `learning_goal_version.${action}`,
+        after: clonePublic(updated),
+        requestId: context.requestId,
+        resourceId: `${updated.goal_id}:${updated.version}`,
+        resourceType: "learning_goal_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 200, createEnvelope(context, result));
+    return true;
+  }
+  const rubricTransition = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/rubrics\/([^/]+)\/versions\/([^/]+)\/(validate|publish|reject)$/
+  );
+  if (request.method === "POST" && rubricTransition) {
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    assertOnlyLearningDesignFields(body, ["content_digest"]);
+    const reference = {
+      content_digest: parseLearningDesignDigest(body.content_digest),
+      rubric_id: parseLearningDesignIdentity(rubricTransition[1]),
+      tenant_id: context.tenantId,
+      version: parseLearningDesignVersion(rubricTransition[2])
+    };
+    const action = rubricTransition[3];
+    const command =
+      action === "validate"
+        ? runtime.learningDesignCommands.validateRubric
+        : action === "publish"
+          ? runtime.learningDesignCommands.publishRubric
+          : runtime.learningDesignCommands.rejectRubric;
+    const result = await executeAuditedLearningDesignCommand(
+      runtime,
+      () => command(commandActor, reference),
+      (updated) => ({
+        actor,
+        action: `rubric_version.${action}`,
+        after: clonePublic(updated),
+        requestId: context.requestId,
+        resourceId: `${updated.rubric_id}:${updated.version}`,
+        resourceType: "rubric_version",
+        tenantId: context.tenantId
+      })
+    );
+    sendJson(response, 200, createEnvelope(context, result));
+    return true;
+  }
+  throw new HttpError(404, "ROUTE-404-001", "not found");
+}
+
 function assertOnlyInstructorAssetFields(
   body: Record<string, unknown>,
   expected: readonly string[]
@@ -3543,6 +3991,8 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (await handleLearningDesignRoute(runtime, request, response, url, context)) return;
 
   if (request.method === "GET" && url.pathname === "/api/v1/admin/course-package-versions") {
     requireCoursePackageAdmin(context);

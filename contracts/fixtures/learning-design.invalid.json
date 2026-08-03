@@ -1,0 +1,30 @@
+{
+  "learning_goals": [
+    {
+      "activity_refs": [
+        { "activity_id": "latest", "content_digest": "not-a-digest", "version": "*" }
+      ],
+      "content_digest": "not-a-digest",
+      "course_package_reference": {
+        "content_digest": "not-a-digest",
+        "course_package_id": "latest",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "created_at": "2026-08-03T00:00:00.000Z",
+      "created_by": "user_teacher",
+      "expected_evidence_classes": ["reflection"],
+      "goal_id": "goal_invalid",
+      "observable_behaviors": ["observe"],
+      "role_scope": ["teacher"],
+      "schema_version": "learning-design.v1",
+      "statement": "invalid",
+      "status": "DRAFT",
+      "tenant_id": "tenant_demo",
+      "title": "invalid",
+      "version": "1.0.0",
+      "business_score_weight": 1
+    }
+  ],
+  "rubrics": []
+}
