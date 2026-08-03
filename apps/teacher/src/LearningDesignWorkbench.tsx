@@ -32,8 +32,17 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
   );
   const [goalId, setGoalId] = useState("goal_measure_market");
   const [version, setVersion] = useState("1.0.0");
+  const [revisionVersion, setRevisionVersion] = useState("2.0.0");
+  const [activityId, setActivityId] = useState("activity_observe_v1");
+  const [roleScope, setRoleScope] = useState("teacher");
+  const [selectedPackageKey, setSelectedPackageKey] = useState("");
 
-  const selectedPackage = packages[0];
+  const selectedPackage =
+    packages.find(
+      (candidate) =>
+        `${candidate.course_package_reference.course_package_id}:${candidate.course_package_reference.version}` ===
+        selectedPackageKey
+    ) ?? packages[0];
   const packageReference = useMemo(
     () => selectedPackage?.course_package_reference,
     [selectedPackage]
@@ -85,7 +94,7 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
       body: JSON.stringify({
         activity_refs: [
           {
-            activity_id: "activity_observe_v1",
+            activity_id: activityId,
             content_digest: packageReference.content_digest,
             version: "1.0.0"
           }
@@ -94,7 +103,10 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
         expected_evidence_classes: ["reflection"],
         goal_id: goalId,
         observable_behaviors: ["compare observed demand with a stated hypothesis"],
-        role_scope: ["teacher"],
+        role_scope: roleScope
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
         statement: goalStatement,
         title: goalTitle,
         version
@@ -104,6 +116,28 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
     });
     if (!response.ok) {
       setState({ phase: "ERROR", message: "Goal DRAFT 创建失败" });
+      return;
+    }
+    await refresh();
+  }
+
+  async function reviseGoal(goal: LearningGoalVersion) {
+    setState({ phase: "LOADING" });
+    const response = await fetch(`${API_BASE}/api/v1/bff/teacher/learning-goals/revisions`, {
+      body: JSON.stringify({
+        source_reference: {
+          content_digest: goal.content_digest,
+          goal_id: goal.goal_id,
+          tenant_id: goal.tenant_id,
+          version: goal.version
+        },
+        version: revisionVersion
+      }),
+      headers: { ...authHeaders(token), "x-tenant-id": tenantId },
+      method: "POST"
+    });
+    if (!response.ok) {
+      setState({ phase: "ERROR", message: "LearningGoal 新版本创建失败" });
       return;
     }
     await refresh();
@@ -187,6 +221,28 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
     await refresh();
   }
 
+  async function reviseRubric(rubric: RubricVersion) {
+    setState({ phase: "LOADING" });
+    const response = await fetch(`${API_BASE}/api/v1/bff/teacher/rubrics/revisions`, {
+      body: JSON.stringify({
+        source_reference: {
+          content_digest: rubric.content_digest,
+          rubric_id: rubric.rubric_id,
+          tenant_id: rubric.tenant_id,
+          version: rubric.version
+        },
+        version: revisionVersion
+      }),
+      headers: { ...authHeaders(token), "x-tenant-id": tenantId },
+      method: "POST"
+    });
+    if (!response.ok) {
+      setState({ phase: "ERROR", message: "Rubric 新版本创建失败" });
+      return;
+    }
+    await refresh();
+  }
+
   return (
     <section className="candidate-surface" aria-label="D1 Learning Goal and Rubric workbench">
       <div className="candidate-heading">
@@ -213,6 +269,45 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
       ) : null}
       {state.phase === "LOADING" ? <p role="status">Loading D1 learning design...</p> : null}
       <div className="candidate-preview">
+        <label>
+          Approved CoursePackageVersion
+          <select
+            aria-label="D1 CoursePackageVersion"
+            value={
+              selectedPackage
+                ? `${selectedPackage.course_package_reference.course_package_id}:${selectedPackage.course_package_reference.version}`
+                : ""
+            }
+            onChange={(event) => setSelectedPackageKey(event.target.value)}
+            disabled={state.phase === "LOADING" || packages.length === 0}
+          >
+            {packages.map((candidate) => (
+              <option
+                key={`${candidate.course_package_reference.course_package_id}:${candidate.course_package_reference.version}`}
+                value={`${candidate.course_package_reference.course_package_id}:${candidate.course_package_reference.version}`}
+              >
+                {candidate.course_package_reference.course_package_id} /{" "}
+                {candidate.course_package_reference.version}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Activity
+          <input
+            aria-label="D1 activity id"
+            value={activityId}
+            onChange={(event) => setActivityId(event.target.value)}
+          />
+        </label>
+        <label>
+          Role scope
+          <input
+            aria-label="D1 role scope"
+            value={roleScope}
+            onChange={(event) => setRoleScope(event.target.value)}
+          />
+        </label>
         <label>
           Goal ID
           <input
@@ -245,6 +340,14 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
             onChange={(event) => setVersion(event.target.value)}
           />
         </label>
+        <label>
+          Revision version
+          <input
+            aria-label="D1 revision version"
+            value={revisionVersion}
+            onChange={(event) => setRevisionVersion(event.target.value)}
+          />
+        </label>
         <small>
           {packageReference
             ? `Using ${packageReference.course_package_id} / ${packageReference.version}`
@@ -274,7 +377,7 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
             <span>{goal.status}</span>
             <strong>{goal.title}</strong>
             <small>
-              {goal.goal_id} / {goal.version}
+              {goal.goal_id} / {goal.version} / digest {goal.content_digest}
             </small>
             <p>{goal.statement}</p>
             {goal.status === "DRAFT" ? (
@@ -292,6 +395,11 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
                 Reject
               </button>
             ) : null}
+            {goal.status === "PUBLISHED" ? (
+              <button className="secondary" onClick={() => void reviseGoal(goal)}>
+                Create Goal Revision
+              </button>
+            ) : null}
           </article>
         ))}
         {design.rubrics.map((rubric: RubricVersion) => (
@@ -299,7 +407,7 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
             <span>{rubric.status}</span>
             <strong>{rubric.title}</strong>
             <small>
-              {rubric.rubric_id} / {rubric.version}
+              {rubric.rubric_id} / {rubric.version} / digest {rubric.content_digest}
             </small>
             <p>Scoring policy: {rubric.scoring_policy}</p>
             {rubric.status === "DRAFT" ? (
@@ -321,6 +429,11 @@ export function LearningDesignWorkbench({ tenantId, token }: WorkbenchProps) {
             {rubric.status === "DRAFT" || rubric.status === "VALIDATED" ? (
               <button className="secondary" onClick={() => void transitionRubric(rubric, "reject")}>
                 Reject Rubric
+              </button>
+            ) : null}
+            {rubric.status === "PUBLISHED" ? (
+              <button className="secondary" onClick={() => void reviseRubric(rubric)}>
+                Create Rubric Revision
               </button>
             ) : null}
           </article>
