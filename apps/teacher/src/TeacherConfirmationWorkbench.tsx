@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   CoursePackageVersionTeacherDto,
   D2EvidenceArtifactVersion,
   LearningDesignListDto,
   TeacherConfirmationCommandInput,
   TeacherConfirmationExactRef,
-  TeacherConfirmationVersion
+  TeacherConfirmationRejectInput,
+  TeacherConfirmationVersion,
+  TeacherConfirmationWorkClaim
 } from "@simwar/shared-contracts";
 import {
+  claimTeacherConfirmationWork,
   confirmTeacherConfirmation,
   loadTeacherConfirmationReferences,
   loadTeacherConfirmations,
   loadTeacherEvidence,
+  releaseTeacherConfirmationWork,
+  rejectTeacherConfirmation,
+  reviseTeacherConfirmation,
   saveTeacherConfirmationDraft,
   type TeacherConfirmationError
 } from "./teacher-confirmation-client";
@@ -20,6 +26,10 @@ type SurfaceState =
   | "LOADING"
   | "EMPTY"
   | "READY"
+  | "CLAIMED"
+  | "DRAFT"
+  | "CONFIRMED"
+  | "REJECTED"
   | "GENERATED"
   | "DUPLICATE"
   | "FORBIDDEN"
@@ -84,13 +94,44 @@ function packageRef(candidate: CoursePackageVersionTeacherDto): RefFields {
   };
 }
 
+function confirmationKey(confirmation: TeacherConfirmationVersion): string {
+  return `${confirmation.confirmation_ref.resource_id}:${confirmation.confirmation_ref.version}`;
+}
+
+function mergeConfirmation(
+  current: readonly TeacherConfirmationVersion[],
+  next: TeacherConfirmationVersion
+): readonly TeacherConfirmationVersion[] {
+  return [...current.filter((item) => confirmationKey(item) !== confirmationKey(next)), next].sort(
+    (left, right) =>
+      left.confirmation_ref.resource_id.localeCompare(right.confirmation_ref.resource_id) ||
+      left.confirmation_ref.version.localeCompare(right.confirmation_ref.version)
+  );
+}
+
+async function evidenceSetDigest(artifacts: readonly D2EvidenceArtifactVersion[]): Promise<string> {
+  const refs = artifacts
+    .map((artifact) => artifact.artifact_ref)
+    .map((ref) => ({
+      content_digest: ref.content_digest,
+      resource_id: ref.resource_id,
+      resource_type: ref.resource_type,
+      tenant_id: ref.tenant_id,
+      version: ref.version
+    }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const bytes = new TextEncoder().encode(JSON.stringify(refs));
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
 export type TeacherConfirmationWorkbenchProps = { tenantId: string; token: string };
 
 export function TeacherConfirmationWorkbench({
   tenantId,
   token
 }: TeacherConfirmationWorkbenchProps) {
-  const [state, setState] = useState<SurfaceState>("LOADING");
+  const [state, setState] = useState<SurfaceState>("EMPTY");
   const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
   const [packages, setPackages] = useState<readonly CoursePackageVersionTeacherDto[]>([]);
   const [design, setDesign] = useState<LearningDesignListDto>(EMPTY_DESIGN);
@@ -107,9 +148,13 @@ export function TeacherConfirmationWorkbench({
   const [feedback, setFeedback] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [receipt, setReceipt] = useState<TeacherConfirmationVersion | null>(null);
+  const [claim, setClaim] = useState<TeacherConfirmationWorkClaim | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const selectedPackageData = packages.find(
-    (item) => item.course_package_reference.course_package_id === selectedPackage
+    (item) =>
+      `${item.course_package_reference.course_package_id}:${item.course_package_reference.version}:${item.course_package_reference.content_digest}` ===
+      selectedPackage
   );
   const selectedGoalData = design.learning_goals.find(
     (item) => `${item.goal_id}:${item.version}` === selectedGoal
@@ -131,7 +176,8 @@ export function TeacherConfirmationWorkbench({
     selectedRubricData &&
     selectedEvidenceData &&
     criterionId &&
-    levelOrdinal
+    levelOrdinal &&
+    claim?.status === "CLAIMED"
   );
 
   async function loadReferences() {
@@ -164,6 +210,8 @@ export function TeacherConfirmationWorkbench({
     try {
       const result = await loadTeacherEvidence(token, tenantId, scope);
       setEvidence(result.artifacts);
+      setClaim(null);
+      setSelectedEvidence("");
       setState(result.artifacts.length ? "READY" : "EMPTY");
     } catch (error) {
       setState(errorState(error));
@@ -173,10 +221,12 @@ export function TeacherConfirmationWorkbench({
 
   function updateScope(field: keyof Scope, value: string) {
     setScope((current) => ({ ...current, [field]: value }));
+    setClaim(null);
+    setSelectedEvidence("");
     setState("STALE");
   }
 
-  async function saveDraft() {
+  function buildInput(): TeacherConfirmationCommandInput | null {
     if (
       !formReady ||
       !selectedPackageData ||
@@ -184,10 +234,8 @@ export function TeacherConfirmationWorkbench({
       !selectedRubricData ||
       !selectedEvidenceData
     )
-      return;
-    setState("LOADING");
-    setErrorMessage("");
-    const input: TeacherConfirmationCommandInput = {
+      return null;
+    return {
       confirmation_id: confirmationId,
       course_package_ref: exactRef(
         "course_package_version",
@@ -218,18 +266,56 @@ export function TeacherConfirmationWorkbench({
       teacher_feedback: feedback,
       idempotency_key: idempotencyKey
     };
+  }
+
+  async function claimWork() {
+    if (!scopeReady || evidence.length === 0) return;
+    setState("LOADING");
+    setErrorMessage("");
+    try {
+      const digest = await evidenceSetDigest(evidence);
+      const result = await claimTeacherConfirmationWork(
+        {
+          course_id: scope.course_id,
+          run_id: scope.run_id,
+          team_id: scope.team_id,
+          role_key: scope.role_key
+        },
+        digest,
+        token,
+        tenantId
+      );
+      setClaim(result.claim);
+      setState("CLAIMED");
+    } catch (error) {
+      setState(errorState(error));
+      setErrorMessage(error instanceof Error ? error.message : "Work claim failed");
+    }
+  }
+
+  async function releaseWork() {
+    if (!claim) return;
+    setState("LOADING");
+    try {
+      const result = await releaseTeacherConfirmationWork(claim.claim_id, token, tenantId);
+      setClaim(result.claim);
+      setState("READY");
+    } catch (error) {
+      setState(errorState(error));
+      setErrorMessage(error instanceof Error ? error.message : "Work claim release failed");
+    }
+  }
+
+  async function saveDraft() {
+    const input = buildInput();
+    if (!input) return;
+    setState("LOADING");
+    setErrorMessage("");
     try {
       const result = await saveTeacherConfirmationDraft(input, token, tenantId);
       setReceipt(result.data.confirmation);
-      setState(result.data.status === "reused" ? "DUPLICATE" : "GENERATED");
-      setConfirmations((current) => [
-        ...current.filter(
-          (item) =>
-            item.confirmation_ref.resource_id !==
-            result.data.confirmation.confirmation_ref.resource_id
-        ),
-        result.data.confirmation
-      ]);
+      setState(result.data.status === "reused" ? "DUPLICATE" : "DRAFT");
+      setConfirmations((current) => mergeConfirmation(current, result.data.confirmation));
     } catch (error) {
       setState(errorState(error));
       setErrorMessage(error instanceof Error ? error.message : "Draft save failed");
@@ -246,16 +332,54 @@ export function TeacherConfirmationWorkbench({
         tenantId
       );
       setReceipt(result.data.confirmation);
-      setState("GENERATED");
+      setConfirmations((current) => mergeConfirmation(current, result.data.confirmation));
+      setState("CONFIRMED");
     } catch (error) {
       setState(errorState(error));
       setErrorMessage(error instanceof Error ? error.message : "Confirmation failed");
     }
   }
 
-  useEffect(() => {
-    void loadReferences();
-  }, [tenantId, token]);
+  async function rejectDraft() {
+    if (!receipt || receipt.status !== "DRAFT" || rejectionReason.trim().length === 0) return;
+    const input: TeacherConfirmationRejectInput = { rejection_reason: rejectionReason };
+    setState("LOADING");
+    try {
+      const result = await rejectTeacherConfirmation(
+        receipt.confirmation_ref.resource_id,
+        input,
+        token,
+        tenantId
+      );
+      setReceipt(result.data.confirmation);
+      setConfirmations((current) => mergeConfirmation(current, result.data.confirmation));
+      setState("REJECTED");
+    } catch (error) {
+      setState(errorState(error));
+      setErrorMessage(error instanceof Error ? error.message : "Rejection failed");
+    }
+  }
+
+  async function reviseRecord() {
+    if (!receipt || (receipt.status !== "CONFIRMED" && receipt.status !== "REJECTED")) return;
+    const input = buildInput();
+    if (!input) return;
+    setState("LOADING");
+    try {
+      const result = await reviseTeacherConfirmation(
+        receipt.confirmation_ref.resource_id,
+        input,
+        token,
+        tenantId
+      );
+      setReceipt(result.data.confirmation);
+      setConfirmations((current) => mergeConfirmation(current, result.data.confirmation));
+      setState("DRAFT");
+    } catch (error) {
+      setState(errorState(error));
+      setErrorMessage(error instanceof Error ? error.message : "Revision failed");
+    }
+  }
 
   return (
     <section
@@ -319,8 +443,8 @@ export function TeacherConfirmationWorkbench({
             <option value="">Select exact package</option>
             {packages.map((item) => (
               <option
-                key={`${item.course_package_reference.course_package_id}:${item.course_package_reference.version}`}
-                value={item.course_package_reference.course_package_id}
+                key={`${item.course_package_reference.course_package_id}:${item.course_package_reference.version}:${item.course_package_reference.content_digest}`}
+                value={`${item.course_package_reference.course_package_id}:${item.course_package_reference.version}:${item.course_package_reference.content_digest}`}
               >
                 {item.course_package_reference.course_package_id} /{" "}
                 {item.course_package_reference.version} /{" "}
@@ -431,6 +555,15 @@ export function TeacherConfirmationWorkbench({
             onChange={(event) => setFeedback(event.target.value)}
           />
         </label>
+        <label className="field-label d3-feedback">
+          <span>Bounded rejection reason</span>
+          <textarea
+            aria-label="D3 rejection reason"
+            value={rejectionReason}
+            maxLength={500}
+            onChange={(event) => setRejectionReason(event.target.value)}
+          />
+        </label>
       </div>
 
       <div className="d2-actions">
@@ -449,6 +582,25 @@ export function TeacherConfirmationWorkbench({
           Load scoped evidence
         </button>
         <button
+          className="secondary"
+          onClick={() => void claimWork()}
+          disabled={
+            state === "LOADING" ||
+            !scopeReady ||
+            evidence.length === 0 ||
+            claim?.status === "CLAIMED"
+          }
+        >
+          Claim work item
+        </button>
+        <button
+          className="secondary"
+          onClick={() => void releaseWork()}
+          disabled={state === "LOADING" || claim?.status !== "CLAIMED"}
+        >
+          Release work claim
+        </button>
+        <button
           className="primary"
           onClick={() => void saveDraft()}
           disabled={state === "LOADING" || !formReady}
@@ -462,7 +614,42 @@ export function TeacherConfirmationWorkbench({
         >
           Confirm version
         </button>
+        <button
+          className="secondary"
+          onClick={() => void rejectDraft()}
+          disabled={
+            state === "LOADING" ||
+            receipt?.status !== "DRAFT" ||
+            rejectionReason.trim().length === 0
+          }
+        >
+          Reject version
+        </button>
+        <button
+          className="secondary"
+          onClick={() => void reviseRecord()}
+          disabled={
+            state === "LOADING" ||
+            !receipt ||
+            (receipt.status !== "CONFIRMED" && receipt.status !== "REJECTED") ||
+            !formReady
+          }
+        >
+          Revise as new draft
+        </button>
       </div>
+
+      {claim ? (
+        <article className="d2-receipt" aria-label="D3 work claim receipt">
+          <strong>Work claim: {claim.status}</strong>
+          <code>
+            {claim.claim_id} / {claim.evidence_set_digest}
+          </code>
+          <small>
+            expires_at: {claim.expires_at} · claimed_by: {claim.claimed_by}
+          </small>
+        </article>
+      ) : null}
 
       {state === "EMPTY" ? (
         <p className="d2-state" role="status">
@@ -482,6 +669,11 @@ export function TeacherConfirmationWorkbench({
       {state === "DUPLICATE" ? (
         <p className="d2-state d2-state-warning" role="alert">
           Existing deterministic draft reused; no second authority record was created.
+        </p>
+      ) : null}
+      {state === "CLAIMED" ? (
+        <p className="d2-state" role="status">
+          Work item claimed. A draft can be saved only for this exact scoped evidence set.
         </p>
       ) : null}
       {state === "ERROR" ? (
@@ -508,6 +700,21 @@ export function TeacherConfirmationWorkbench({
           <small>{receipt.known_limits.join(" ")}</small>
         </article>
       ) : null}
+      {state === "DRAFT" && receipt ? (
+        <p className="d2-state" role="status">
+          Draft saved. Confirm or reject it explicitly; no final assessment was created.
+        </p>
+      ) : null}
+      {state === "CONFIRMED" && receipt ? (
+        <p className="d2-state" role="status">
+          Confirmed version appended. The previous version remains immutable.
+        </p>
+      ) : null}
+      {state === "REJECTED" && receipt ? (
+        <p className="d2-state d2-state-warning" role="status">
+          Rejected version appended. Revise creates a new draft version.
+        </p>
+      ) : null}
 
       {confirmations.length ? (
         <div className="d3-confirmation-list">
@@ -532,6 +739,7 @@ export function TeacherConfirmationWorkbench({
                   {JSON.stringify({
                     confirmation_ref: item.confirmation_ref,
                     evidence_refs: item.evidence_refs,
+                    rejection_reason: item.rejection_reason ?? null,
                     supersedes_ref: item.supersedes_ref ?? null
                   })}
                 </code>

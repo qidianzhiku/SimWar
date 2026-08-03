@@ -2361,12 +2361,71 @@ paths:
         "403": { description: Teacher authority required }
         "409": { description: Invalid lifecycle }
         "422": { description: Invalid confirmation identity }
+  /api/v1/bff/teacher/confirmations/{confirmationId}/reject:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_REJECT_V1
+      summary: Append a rejected immutable teacher confirmation version.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: confirmationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationRejectInput"
+      responses:
+        "200":
+          description: Rejected immutable version.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationEnvelope" }
+        "403": { description: Teacher authority required }
+        "409": { description: Invalid lifecycle }
+        "422": { description: Invalid rejection reason }
+  /api/v1/bff/teacher/confirmations/{confirmationId}/revise:
+    post:
+      operationId: TEACHER_D3_CONFIRMATION_REVISE_V1
+      summary: Append a new draft revision for a confirmed or rejected version.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: confirmationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeacherConfirmationInput" }
+      responses:
+        "201":
+          description: New immutable draft revision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeacherConfirmationEnvelope" }
+        "403": { description: Teacher authority required }
+        "409": { description: Invalid lifecycle or scope }
+        "422":
+          description: Invalid exact reference, scope, evidence, or rubric choice
   /api/v1/bff/teacher/confirmations/claims:
     post:
       operationId: TEACHER_D3_CONFIRMATION_CLAIM_V1
       summary: Claim a bounded evidence set in the process-local JSON runtime.
       security:
         - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [context, evidence_set_digest]
+              properties:
+                context: { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Context" }
+                evidence_set_digest:
+                  { $ref: "../schemas/teacher-confirmation.v1.json#/$defs/Digest" }
+                ttl_seconds: { type: integer, minimum: 1, maximum: 3600 }
       responses:
         "201": { description: Process-local work claim created or reused }
         "403": { description: Teacher authority required }
@@ -2396,6 +2455,8 @@ components:
       $ref: "../schemas/evidence-provenance.v1.json#/$defs/D2CaptureReceiptEnvelope"
     TeacherConfirmationInput:
       $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationCommandInput"
+    TeacherConfirmationRejectInput:
+      $ref: "../schemas/teacher-confirmation.v1.json#/$defs/TeacherConfirmationRejectInput"
     TeacherConfirmationListEnvelope:
       type: object
       additionalProperties: false

@@ -4,13 +4,25 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { isTeacherConfirmationVersion } from "@simwar/shared-contracts";
 
-const schema = JSON.parse(readFileSync(resolve(process.cwd(), "contracts/schemas/teacher-confirmation.v1.json"), "utf8"));
-const valid = JSON.parse(readFileSync(resolve(process.cwd(), "contracts/fixtures/teacher-confirmation.valid.json"), "utf8"));
-const invalid = JSON.parse(readFileSync(resolve(process.cwd(), "contracts/fixtures/teacher-confirmation.invalid.json"), "utf8"));
+const schema = JSON.parse(
+  readFileSync(resolve(process.cwd(), "contracts/schemas/teacher-confirmation.v1.json"), "utf8")
+);
+const valid = JSON.parse(
+  readFileSync(resolve(process.cwd(), "contracts/fixtures/teacher-confirmation.valid.json"), "utf8")
+);
+const invalid = JSON.parse(
+  readFileSync(
+    resolve(process.cwd(), "contracts/fixtures/teacher-confirmation.invalid.json"),
+    "utf8"
+  )
+);
 
 function validator() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
-  ajv.addFormat("date-time", { type: "string", validate: (value) => !Number.isNaN(Date.parse(value)) });
+  ajv.addFormat("date-time", {
+    type: "string",
+    validate: (value) => !Number.isNaN(Date.parse(value))
+  });
   return ajv.compile(schema);
 }
 
@@ -23,5 +35,18 @@ describe("D3 teacher confirmation contract", () => {
   it("rejects reserved, wildcard, unsafe, and empty values", () => {
     expect(validator()(invalid)).toBe(false);
     expect(isTeacherConfirmationVersion(invalid)).toBe(false);
+  });
+
+  it("requires a bounded rejection reason only for REJECTED versions", () => {
+    const rejected = {
+      ...valid,
+      status: "REJECTED",
+      rejection_reason: "Evidence scope requires correction."
+    };
+    const rejectedWithoutReason = { ...valid, status: "REJECTED" };
+    expect(validator()(rejected)).toBe(true);
+    expect(isTeacherConfirmationVersion(rejected)).toBe(true);
+    expect(validator()(rejectedWithoutReason)).toBe(false);
+    expect(isTeacherConfirmationVersion(rejectedWithoutReason)).toBe(false);
   });
 });

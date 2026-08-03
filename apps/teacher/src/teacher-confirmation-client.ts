@@ -4,8 +4,10 @@ import type {
   D2EvidenceListDto,
   LearningDesignListDto,
   TeacherConfirmationCommandInput,
+  TeacherConfirmationRejectInput,
   TeacherConfirmationTeacherDto,
-  TeacherConfirmationVersion
+  TeacherConfirmationVersion,
+  TeacherConfirmationWorkClaim
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -20,6 +22,11 @@ export type TeacherConfirmationDraftReceipt = {
   data: { confirmation: TeacherConfirmationVersion; status: "generated" | "reused" };
   known_limits: readonly string[];
   runtime_authority: "JSON_INTERNAL_ONLY";
+};
+
+export type TeacherConfirmationWorkClaimReceipt = {
+  claim: TeacherConfirmationWorkClaim;
+  known_limits: readonly string[];
 };
 
 export type TeacherConfirmationError = Error & { code?: string; status?: number };
@@ -115,4 +122,66 @@ export function confirmTeacherConfirmation(
   ).then((response) =>
     read<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }>(response)
   );
+}
+
+export function rejectTeacherConfirmation(
+  confirmationId: string,
+  input: TeacherConfirmationRejectInput,
+  token: string,
+  tenantId: string
+): Promise<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }> {
+  return fetch(
+    `${API_BASE}/api/v1/bff/teacher/confirmations/${encodeURIComponent(confirmationId)}/reject`,
+    {
+      body: JSON.stringify(input),
+      headers: headers(token, tenantId),
+      method: "POST"
+    }
+  ).then((response) =>
+    read<{ data: TeacherConfirmationTeacherDto; known_limits: readonly string[] }>(response)
+  );
+}
+
+export function reviseTeacherConfirmation(
+  confirmationId: string,
+  input: TeacherConfirmationCommandInput,
+  token: string,
+  tenantId: string
+): Promise<TeacherConfirmationDraftReceipt> {
+  return fetch(
+    `${API_BASE}/api/v1/bff/teacher/confirmations/${encodeURIComponent(confirmationId)}/revise`,
+    {
+      body: JSON.stringify(input),
+      headers: headers(token, tenantId),
+      method: "POST"
+    }
+  ).then((response) => read<TeacherConfirmationDraftReceipt>(response));
+}
+
+export function claimTeacherConfirmationWork(
+  context: { course_id: string; run_id: string; team_id: string; role_key: string },
+  evidenceSetDigest: string,
+  token: string,
+  tenantId: string
+): Promise<TeacherConfirmationWorkClaimReceipt> {
+  return fetch(`${API_BASE}/api/v1/bff/teacher/confirmations/claims`, {
+    body: JSON.stringify({ context, evidence_set_digest: evidenceSetDigest }),
+    headers: headers(token, tenantId),
+    method: "POST"
+  }).then((response) => read<TeacherConfirmationWorkClaimReceipt>(response));
+}
+
+export function releaseTeacherConfirmationWork(
+  claimId: string,
+  token: string,
+  tenantId: string
+): Promise<{ claim: TeacherConfirmationWorkClaim }> {
+  return fetch(
+    `${API_BASE}/api/v1/bff/teacher/confirmations/claims/${encodeURIComponent(claimId)}/release`,
+    {
+      body: "{}",
+      headers: headers(token, tenantId),
+      method: "POST"
+    }
+  ).then((response) => read<{ claim: TeacherConfirmationWorkClaim }>(response));
 }

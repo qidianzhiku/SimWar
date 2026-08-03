@@ -53,8 +53,27 @@
       "maxLength": 2000,
       "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$"
     },
+    "rejection_reason": { "$ref": "#/$defs/RejectionReason" },
     "supersedes_ref": { "$ref": "#/$defs/ConfirmationRef" }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "REJECTED" } } },
+      "then": {
+        "properties": { "rejection_reason": { "$ref": "#/$defs/RejectionReason" } },
+        "required": ["rejection_reason"]
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["DRAFT", "CONFIRMED"] } } },
+      "then": {
+        "not": {
+          "properties": { "rejection_reason": {} },
+          "required": ["rejection_reason"]
+        }
+      }
+    }
+  ],
   "$defs": {
     "TeacherConfirmationCommandInput": {
       "type": "object",
@@ -93,6 +112,44 @@
         },
         "idempotency_key": { "$ref": "#/$defs/Identity" }
       }
+    },
+    "TeacherConfirmationRejectInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rejection_reason"],
+      "properties": {
+        "rejection_reason": { "$ref": "#/$defs/RejectionReason" }
+      }
+    },
+    "TeacherConfirmationWorkClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "tenant_id",
+        "context",
+        "evidence_set_digest",
+        "claimed_by",
+        "claimed_at",
+        "expires_at",
+        "status"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
+        "tenant_id": { "$ref": "#/$defs/Identity" },
+        "context": { "$ref": "#/$defs/Context" },
+        "evidence_set_digest": { "$ref": "#/$defs/Digest" },
+        "claimed_by": { "$ref": "#/$defs/Identity" },
+        "claimed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["CLAIMED", "RELEASED", "EXPIRED"] }
+      }
+    },
+    "RejectionReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$"
     },
     "Digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "Identity": {

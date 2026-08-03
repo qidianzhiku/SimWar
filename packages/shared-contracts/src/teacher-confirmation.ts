@@ -10,7 +10,8 @@ export const TEACHER_CONFIRMATION_REFERENCE_TYPES = [
   "evidence_artifact",
   "teacher_confirmation_version"
 ] as const;
-export type TeacherConfirmationReferenceType = (typeof TEACHER_CONFIRMATION_REFERENCE_TYPES)[number];
+export type TeacherConfirmationReferenceType =
+  (typeof TEACHER_CONFIRMATION_REFERENCE_TYPES)[number];
 
 export interface TeacherConfirmationExactRef {
   readonly content_digest: string;
@@ -59,6 +60,7 @@ export interface TeacherConfirmationVersion {
   readonly schema_version: typeof TEACHER_CONFIRMATION_SCHEMA_VERSION;
   readonly status: TeacherConfirmationStatus;
   readonly teacher_feedback: string;
+  readonly rejection_reason?: string;
   readonly supersedes_ref?: TeacherConfirmationExactRef;
 }
 
@@ -74,6 +76,23 @@ export interface TeacherConfirmationCommandInput {
   readonly idempotency_key: string;
 }
 
+export interface TeacherConfirmationRejectInput {
+  readonly rejection_reason: string;
+}
+
+export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";
+
+export interface TeacherConfirmationWorkClaim {
+  readonly claim_id: string;
+  readonly tenant_id: string;
+  readonly context: TeacherConfirmationContext;
+  readonly evidence_set_digest: string;
+  readonly claimed_by: string;
+  readonly claimed_at: string;
+  readonly expires_at: string;
+  readonly status: TeacherConfirmationClaimStatus;
+}
+
 export interface TeacherConfirmationTeacherDto {
   readonly confirmation: TeacherConfirmationVersion;
   readonly known_limits: readonly string[];
@@ -83,7 +102,8 @@ export interface TeacherConfirmationTeacherDto {
 const ID_PATTERN = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
-const RESERVED_PATTERN = /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
+const RESERVED_PATTERN =
+  /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -95,7 +115,12 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isIdentity(value: unknown): value is string {
-  return typeof value === "string" && value.trim() === value && ID_PATTERN.test(value) && !RESERVED_PATTERN.test(value);
+  return (
+    typeof value === "string" &&
+    value.trim() === value &&
+    ID_PATTERN.test(value) &&
+    !RESERVED_PATTERN.test(value)
+  );
 }
 
 function isVersion(value: unknown): value is string {
@@ -109,17 +134,28 @@ function isTimestamp(value: unknown): value is string {
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === canonical;
 }
 
-export function isTeacherConfirmationExactRef(value: unknown): value is TeacherConfirmationExactRef {
+export function isTeacherConfirmationExactRef(
+  value: unknown
+): value is TeacherConfirmationExactRef {
   if (
     !isRecord(value) ||
-    !hasOnlyKeys(value, ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"]) ||
+    !hasOnlyKeys(value, [
+      "content_digest",
+      "discriminator",
+      "resource_id",
+      "resource_type",
+      "tenant_id",
+      "version"
+    ]) ||
     value.discriminator !== "exact_ref" ||
     typeof value.content_digest !== "string" ||
     !DIGEST_PATTERN.test(value.content_digest) ||
     !isIdentity(value.resource_id) ||
     !isIdentity(value.tenant_id) ||
     !isVersion(value.version) ||
-    !TEACHER_CONFIRMATION_REFERENCE_TYPES.includes(value.resource_type as TeacherConfirmationReferenceType)
+    !TEACHER_CONFIRMATION_REFERENCE_TYPES.includes(
+      value.resource_type as TeacherConfirmationReferenceType
+    )
   ) {
     return false;
   }
@@ -160,9 +196,25 @@ function isAuditReceipt(value: unknown): value is TeacherConfirmationAuditReceip
 export function isTeacherConfirmationVersion(value: unknown): value is TeacherConfirmationVersion {
   if (!isRecord(value)) return false;
   const keys = [
-    "audit_receipt", "confirmation_ref", "content_digest", "context", "course_package_ref", "created_at",
-    "created_by", "criterion_decisions", "discriminator", "evidence_refs", "idempotency_key", "known_limits",
-    "learning_goal_ref", "rubric_ref", "schema_version", "status", "teacher_feedback", "supersedes_ref"
+    "audit_receipt",
+    "confirmation_ref",
+    "content_digest",
+    "context",
+    "course_package_ref",
+    "created_at",
+    "created_by",
+    "criterion_decisions",
+    "discriminator",
+    "evidence_refs",
+    "idempotency_key",
+    "known_limits",
+    "learning_goal_ref",
+    "rejection_reason",
+    "rubric_ref",
+    "schema_version",
+    "status",
+    "teacher_feedback",
+    "supersedes_ref"
   ];
   if (
     Object.keys(value).some((key) => !keys.includes(key)) ||
@@ -179,16 +231,24 @@ export function isTeacherConfirmationVersion(value: unknown): value is TeacherCo
     value.rubric_ref.resource_type !== "rubric_version" ||
     !Array.isArray(value.evidence_refs) ||
     value.evidence_refs.length === 0 ||
-    value.evidence_refs.some((ref) => !isTeacherConfirmationExactRef(ref) || ref.resource_type !== "evidence_artifact") ||
+    value.evidence_refs.some(
+      (ref) => !isTeacherConfirmationExactRef(ref) || ref.resource_type !== "evidence_artifact"
+    ) ||
     !isContext(value.context) ||
     !Array.isArray(value.criterion_decisions) ||
     value.criterion_decisions.length === 0 ||
     value.criterion_decisions.some((decision) => !isCriterionDecision(decision)) ||
-    new Set((value.criterion_decisions as TeacherConfirmationCriterionDecision[]).map((decision) => decision.criterion_id)).size !== value.criterion_decisions.length ||
+    new Set(
+      (value.criterion_decisions as TeacherConfirmationCriterionDecision[]).map(
+        (decision) => decision.criterion_id
+      )
+    ).size !== value.criterion_decisions.length ||
     !isIdentity(value.idempotency_key) ||
     !Array.isArray(value.known_limits) ||
     value.known_limits.length === 0 ||
-    value.known_limits.some((limit) => typeof limit !== "string" || limit.trim() !== limit || limit.length === 0) ||
+    value.known_limits.some(
+      (limit) => typeof limit !== "string" || limit.trim() !== limit || limit.length === 0
+    ) ||
     typeof value.teacher_feedback !== "string" ||
     value.teacher_feedback.length > 2000 ||
     hasUnsafeText(value.teacher_feedback) ||
@@ -200,10 +260,31 @@ export function isTeacherConfirmationVersion(value: unknown): value is TeacherCo
   ) {
     return false;
   }
+  if (
+    value.rejection_reason !== undefined &&
+    (typeof value.rejection_reason !== "string" ||
+      value.rejection_reason.length === 0 ||
+      value.rejection_reason.length > 500 ||
+      hasUnsafeText(value.rejection_reason))
+  )
+    return false;
+  if (value.status === "REJECTED" && value.rejection_reason === undefined) return false;
+  if (value.status !== "REJECTED" && value.rejection_reason !== undefined) return false;
   const confirmationRef = value.confirmation_ref as TeacherConfirmationExactRef;
-  const refs = [confirmationRef, value.course_package_ref as TeacherConfirmationExactRef, value.learning_goal_ref as TeacherConfirmationExactRef, value.rubric_ref as TeacherConfirmationExactRef, ...value.evidence_refs as TeacherConfirmationExactRef[]];
+  const refs = [
+    confirmationRef,
+    value.course_package_ref as TeacherConfirmationExactRef,
+    value.learning_goal_ref as TeacherConfirmationExactRef,
+    value.rubric_ref as TeacherConfirmationExactRef,
+    ...(value.evidence_refs as TeacherConfirmationExactRef[])
+  ];
   if (refs.some((ref) => ref.tenant_id !== confirmationRef.tenant_id)) return false;
-  if (value.supersedes_ref !== undefined && (!isTeacherConfirmationExactRef(value.supersedes_ref) || value.supersedes_ref.tenant_id !== confirmationRef.tenant_id)) return false;
+  if (
+    value.supersedes_ref !== undefined &&
+    (!isTeacherConfirmationExactRef(value.supersedes_ref) ||
+      value.supersedes_ref.tenant_id !== confirmationRef.tenant_id)
+  )
+    return false;
   return true;
 }
 
