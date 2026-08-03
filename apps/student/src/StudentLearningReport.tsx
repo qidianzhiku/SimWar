@@ -62,6 +62,10 @@ function ReportCard({ report }: { report: StudentLearningReport }) {
           <span className="eyebrow">{report.status === "AMENDED" ? "已修订" : "已确认"}</span>
           <h3>{report.context.course_id} · {report.context.role_key}</h3>
         </div>
+        <div className="d4-report-identity">
+          <span>Report identity</span>
+          <strong>{formatRef(report.report_ref)}</strong>
+        </div>
         <span className="d4-safe-badge">student-safe</span>
       </div>
       <div className="d4-report-grid">

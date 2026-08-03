@@ -180,6 +180,26 @@ h2 {
   margin: 0;
 }
 
+.d4-report-identity {
+  min-width: 0;
+}
+
+.d4-report-identity span,
+.d4-report-identity strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.d4-report-identity span {
+  color: #5b6a75;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.d4-report-identity strong {
+  font-size: 13px;
+}
+
 .d4-report-grid {
   display: grid;
   gap: 8px;
