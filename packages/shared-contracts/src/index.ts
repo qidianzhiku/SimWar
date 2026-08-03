@@ -1573,6 +1573,7 @@ export * from "./role-workflow.js";
 export * from "./scenario-selection.js";
 export * from "./teacher-formal-scenario-package-catalog.js";
 export * from "./teacher-formal-course-binding.js";
+export * from "./teacher-confirmation.js";
 export * from "./course-blueprint.js";
 export * from "./scenario-runtime-adapter.js";
 export * from "./scenario-bff-endpoint-contract.js";

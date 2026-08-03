@@ -927,6 +927,54 @@ h3 {
   padding-left: 20px;
 }
 
+.d3-confirmation-workbench {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.d3-scope-grid,
+.d3-reference-grid,
+.d3-decision-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.d3-scope-grid input,
+.d3-reference-grid select,
+.d3-decision-grid select,
+.d3-decision-grid textarea {
+  border: 1px solid #cad3de;
+  border-radius: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.d3-feedback {
+  grid-column: span 2;
+}
+
+.d3-feedback textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.d3-confirmation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.d3-confirmation-list h3 {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .d3-feedback {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .d2-scope-grid {
     grid-template-columns: repeat(3, minmax(120px, 1fr));

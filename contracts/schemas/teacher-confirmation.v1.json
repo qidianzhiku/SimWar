@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/teacher-confirmation.v1.json",
+  "title": "TeacherConfirmationVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "audit_receipt",
+    "confirmation_ref",
+    "content_digest",
+    "context",
+    "course_package_ref",
+    "created_at",
+    "created_by",
+    "criterion_decisions",
+    "discriminator",
+    "evidence_refs",
+    "idempotency_key",
+    "known_limits",
+    "learning_goal_ref",
+    "rubric_ref",
+    "schema_version",
+    "status",
+    "teacher_feedback"
+  ],
+  "properties": {
+    "audit_receipt": { "$ref": "#/$defs/AuditReceipt" },
+    "confirmation_ref": { "$ref": "#/$defs/ConfirmationRef" },
+    "content_digest": { "$ref": "#/$defs/Digest" },
+    "context": { "$ref": "#/$defs/Context" },
+    "course_package_ref": { "$ref": "#/$defs/CoursePackageRef" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "created_by": { "$ref": "#/$defs/Identity" },
+    "criterion_decisions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/CriterionDecision" }
+    },
+    "discriminator": { "const": "teacher_confirmation_version" },
+    "evidence_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/EvidenceRef" } },
+    "idempotency_key": { "$ref": "#/$defs/Identity" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "learning_goal_ref": { "$ref": "#/$defs/LearningGoalRef" },
+    "rubric_ref": { "$ref": "#/$defs/RubricRef" },
+    "schema_version": { "const": "teacher-confirmation.v1" },
+    "status": { "enum": ["DRAFT", "CONFIRMED", "REJECTED"] },
+    "teacher_feedback": {
+      "type": "string",
+      "maxLength": 2000,
+      "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$"
+    },
+    "rejection_reason": { "$ref": "#/$defs/RejectionReason" },
+    "supersedes_ref": { "$ref": "#/$defs/ConfirmationRef" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "REJECTED" } } },
+      "then": {
+        "properties": { "rejection_reason": { "$ref": "#/$defs/RejectionReason" } },
+        "required": ["rejection_reason"]
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["DRAFT", "CONFIRMED"] } } },
+      "then": {
+        "not": {
+          "properties": { "rejection_reason": {} },
+          "required": ["rejection_reason"]
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "TeacherConfirmationCommandInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "confirmation_id",
+        "course_package_ref",
+        "learning_goal_ref",
+        "rubric_ref",
+        "evidence_refs",
+        "context",
+        "criterion_decisions",
+        "teacher_feedback",
+        "idempotency_key"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
+        "confirmation_id": { "$ref": "#/$defs/Identity" },
+        "course_package_ref": { "$ref": "#/$defs/CoursePackageRef" },
+        "learning_goal_ref": { "$ref": "#/$defs/LearningGoalRef" },
+        "rubric_ref": { "$ref": "#/$defs/RubricRef" },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/EvidenceRef" }
+        },
+        "context": { "$ref": "#/$defs/Context" },
+        "criterion_decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/CriterionDecision" }
+        },
+        "teacher_feedback": {
+          "type": "string",
+          "maxLength": 2000,
+          "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$"
+        },
+        "idempotency_key": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "TeacherConfirmationRejectInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "rejection_reason"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
+        "rejection_reason": { "$ref": "#/$defs/RejectionReason" }
+      }
+    },
+    "TeacherConfirmationClaimActionInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id"],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "TeacherConfirmationWorkClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "tenant_id",
+        "context",
+        "evidence_set_digest",
+        "claimed_by",
+        "claimed_at",
+        "expires_at",
+        "status"
+      ],
+      "properties": {
+        "claim_id": { "$ref": "#/$defs/Identity" },
+        "tenant_id": { "$ref": "#/$defs/Identity" },
+        "context": { "$ref": "#/$defs/Context" },
+        "evidence_set_digest": { "$ref": "#/$defs/Digest" },
+        "claimed_by": { "$ref": "#/$defs/Identity" },
+        "claimed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["CLAIMED", "RELEASED", "EXPIRED"] }
+      }
+    },
+    "TeacherConfirmationClaimEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "data", "message", "request_id"],
+      "properties": {
+        "code": { "const": "OK" },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["claim", "known_limits"],
+          "properties": {
+            "claim": { "$ref": "#/$defs/TeacherConfirmationWorkClaim" },
+            "known_limits": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "message": { "type": "string" },
+        "request_id": { "type": "string" }
+      }
+    },
+    "RejectionReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[^<>\\u0000-\\u001F\\u007F]*$"
+    },
+    "Digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "Identity": {
+      "type": "string",
+      "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+    },
+    "Version": {
+      "type": "string",
+      "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))(?!.*(?:[._:-])[xX*](?:$|[._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+    },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/Digest" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/Identity" },
+        "resource_type": {
+          "enum": [
+            "course_package_version",
+            "learning_goal_version",
+            "rubric_version",
+            "evidence_artifact",
+            "teacher_confirmation_version"
+          ]
+        },
+        "tenant_id": { "$ref": "#/$defs/Identity" },
+        "version": { "$ref": "#/$defs/Version" }
+      }
+    },
+    "ConfirmationRef": {
+      "allOf": [
+        { "$ref": "#/$defs/ExactRef" },
+        {
+          "type": "object",
+          "required": ["resource_type"],
+          "properties": { "resource_type": { "const": "teacher_confirmation_version" } }
+        }
+      ]
+    },
+    "CoursePackageRef": {
+      "allOf": [
+        { "$ref": "#/$defs/ExactRef" },
+        {
+          "type": "object",
+          "required": ["resource_type"],
+          "properties": { "resource_type": { "const": "course_package_version" } }
+        }
+      ]
+    },
+    "LearningGoalRef": {
+      "allOf": [
+        { "$ref": "#/$defs/ExactRef" },
+        {
+          "type": "object",
+          "required": ["resource_type"],
+          "properties": { "resource_type": { "const": "learning_goal_version" } }
+        }
+      ]
+    },
+    "RubricRef": {
+      "allOf": [
+        { "$ref": "#/$defs/ExactRef" },
+        {
+          "type": "object",
+          "required": ["resource_type"],
+          "properties": { "resource_type": { "const": "rubric_version" } }
+        }
+      ]
+    },
+    "EvidenceRef": {
+      "allOf": [
+        { "$ref": "#/$defs/ExactRef" },
+        {
+          "type": "object",
+          "required": ["resource_type"],
+          "properties": { "resource_type": { "const": "evidence_artifact" } }
+        }
+      ]
+    },
+    "Context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "run_id", "team_id", "role_key"],
+      "properties": {
+        "course_id": { "$ref": "#/$defs/Identity" },
+        "run_id": { "$ref": "#/$defs/Identity" },
+        "team_id": { "$ref": "#/$defs/Identity" },
+        "role_key": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "CriterionDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_id", "level_ordinal"],
+      "properties": {
+        "criterion_id": { "$ref": "#/$defs/Identity" },
+        "level_ordinal": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "AuditReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "actor_id", "audit_id", "recorded_at", "request_id"],
+      "properties": {
+        "action": { "$ref": "#/$defs/Identity" },
+        "actor_id": { "$ref": "#/$defs/Identity" },
+        "audit_id": { "$ref": "#/$defs/Identity" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "request_id": { "$ref": "#/$defs/Identity" }
+      }
+    }
+  }
+}

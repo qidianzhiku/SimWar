@@ -83,6 +83,12 @@ const d2ContractFiles = [
   "contracts/fixtures/evidence-provenance.invalid.json"
 ];
 
+const d3ContractFiles = [
+  "contracts/schemas/teacher-confirmation.v1.json",
+  "contracts/fixtures/teacher-confirmation.valid.json",
+  "contracts/fixtures/teacher-confirmation.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -184,6 +190,11 @@ const schemaCases = [
     schema: "contracts/schemas/evidence-provenance.v1.json",
     valid: ["contracts/fixtures/evidence-provenance.valid.json"],
     invalid: ["contracts/fixtures/evidence-provenance.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/teacher-confirmation.v1.json",
+    valid: ["contracts/fixtures/teacher-confirmation.valid.json"],
+    invalid: ["contracts/fixtures/teacher-confirmation.invalid.json"]
   }
 ];
 
@@ -453,12 +464,32 @@ function assertD2OpenApiBindings(openApi) {
   const capture = openApi.paths["/api/v1/bff/teacher/evidence-artifacts/capture"]?.post;
   assert(capture, "Missing D2 evidence capture operation.");
   assert(
-    jsonContentSchema(capture.requestBody)?.$ref ===
-      "#/components/schemas/D2EvidenceCaptureInput",
+    jsonContentSchema(capture.requestBody)?.$ref === "#/components/schemas/D2EvidenceCaptureInput",
     "D2 evidence capture request must reference evidence-provenance schema."
   );
   for (const statusCode of ["201", "403", "409", "422"]) {
     assert(capture.responses?.[statusCode], `D2 capture missing response ${statusCode}.`);
+  }
+}
+
+function assertD3OpenApiBindings(openApi) {
+  const claim = openApi.paths["/api/v1/bff/teacher/confirmations/claims"]?.post;
+  const status = openApi.paths["/api/v1/bff/teacher/confirmations/claims/{claim_id}"]?.get;
+  const release =
+    openApi.paths["/api/v1/bff/teacher/confirmations/claims/{claim_id}/release"]?.post;
+  assert(claim, "Missing D3 teacher confirmation claim operation.");
+  assert(status, "Missing D3 teacher confirmation claim status operation.");
+  assert(release, "Missing D3 teacher confirmation claim release operation.");
+  for (const [label, operation, statusCode] of [
+    ["claim", claim, "201"],
+    ["status", status, "200"],
+    ["release", release, "200"]
+  ]) {
+    assert(
+      jsonContentSchema(operation.responses?.[statusCode])?.$ref ===
+        "#/components/schemas/TeacherConfirmationClaimEnvelope",
+      `D3 ${label} response must reference TeacherConfirmationClaimEnvelope.`
+    );
   }
 }
 
@@ -532,14 +563,17 @@ export async function runContractValidation(options = {}) {
     ...m1ContractFiles,
     ...a5ContractFiles,
     ...d1ContractFiles,
-    ...d2ContractFiles
+    ...d2ContractFiles,
+    ...d3ContractFiles
   ]);
 
   for (const jsonPath of [
     ...requiredBaselineFiles,
     ...m1ContractFiles,
     ...a5ContractFiles,
-    ...d1ContractFiles
+    ...d1ContractFiles,
+    ...d2ContractFiles,
+    ...d3ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -548,6 +582,7 @@ export async function runContractValidation(options = {}) {
   const openApi = readOpenApi(openApiPath);
   assertM1OpenApiBindings(openApi);
   assertD2OpenApiBindings(openApi);
+  assertD3OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();
