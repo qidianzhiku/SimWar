@@ -142,7 +142,12 @@ test("Teacher can create and validate a D1 LearningGoalVersion without score sem
   );
   await page.goto(teacherBaseUrl);
   await signIn(page);
-  await expect(page.getByRole("heading", { name: "Learning Goals & Rubrics" })).toBeVisible();
+  await page.getByRole("button", { name: "Open D1 Workbench" }).click();
+  await expect(
+    page.getByLabel("D1 Learning Goal and Rubric").getByRole("heading", {
+      name: "Learning Goals & Rubrics"
+    })
+  ).toBeVisible();
   await page.getByRole("button", { name: "Create Goal DRAFT" }).click();
   await expect(page.getByText("DRAFT", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Validate" }).click();
