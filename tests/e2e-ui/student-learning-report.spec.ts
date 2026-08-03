@@ -13,7 +13,9 @@ function exactRef(resourceType: string, resourceId: string, version: string) {
   };
 }
 
-test("Student Learning Report shows exact refs, provenance, and no private payload", async ({ page }) => {
+test("Student Learning Report shows exact refs, provenance, and no private payload", async ({
+  page
+}) => {
   const report = {
     business_outcome: {
       status: "SEPARATE_SAFE_OUTCOME",
@@ -27,12 +29,14 @@ test("Student Learning Report shows exact refs, provenance, and no private paylo
     learning_goal_ref: exactRef("learning_goal_version", "goal_d4", "1.0.0"),
     learning_evidence: {
       criterion_results: [{ criterion_id: "criterion_d4", level_ordinal: 2 }],
-      provenance_chain: [{
-        discriminator: "d4_provenance_edge",
-        relation: "derived_from",
-        source_ref: exactRef("role_workflow_event", "event_d4", "1.0.0"),
-        target_ref: exactRef("evidence_artifact", "artifact_d4", "1.0.0")
-      }],
+      provenance_chain: [
+        {
+          discriminator: "d4_provenance_edge",
+          relation: "derived_from",
+          source_ref: exactRef("role_workflow_event", "event_d4", "1.0.0"),
+          target_ref: exactRef("evidence_artifact", "artifact_d4", "1.0.0")
+        }
+      ],
       student_visible_feedback: []
     },
     report_digest: "b".repeat(64),
@@ -79,5 +83,7 @@ test("Student Learning Report shows exact refs, provenance, and no private paylo
   await expect(panel.getByText("raw_evidence_payload")).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
 });

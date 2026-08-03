@@ -312,7 +312,9 @@ export function App() {
         />
       ) : null}
 
-      {session ? <StudentLearningReportPanel tenantId={login.tenantId} token={session.access_token} /> : null}
+      {session ? (
+        <StudentLearningReportPanel tenantId={login.tenantId} token={session.access_token} />
+      ) : null}
 
       <section className="learner-guide" aria-label="M1 learner onboarding">
         <article className="panel guide-panel">
