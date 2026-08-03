@@ -1,24 +1,97 @@
 {
-  "business_outcome": { "status": "SEPARATE_SAFE_OUTCOME", "summary": "Published business outcome remains in its separate safe result surface." },
-  "context": { "course_id": "course_001", "run_id": "run_001", "team_id": "team_001", "role_key": "marketing" },
-  "course_package_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "package_001", "resource_type": "course_package_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+  "business_outcome": {
+    "status": "SEPARATE_SAFE_OUTCOME",
+    "summary": "Published business outcome remains in its separate safe result surface."
+  },
+  "context": {
+    "course_id": "course_001",
+    "run_id": "run_001",
+    "team_id": "team_001",
+    "role_key": "marketing"
+  },
+  "course_package_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "package_001",
+    "resource_type": "course_package_version",
+    "tenant_id": "tenant_demo",
+    "version": "1.0.0"
+  },
   "generated_at": "2026-08-03T00:00:00.000Z",
-  "evidence_refs": [{ "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "artifact_001", "resource_type": "evidence_artifact", "tenant_id": "tenant_demo", "version": "1.0.0" }],
+  "evidence_refs": [
+    {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "artifact_001",
+      "resource_type": "evidence_artifact",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    }
+  ],
   "known_limits": ["Human validation is not performed."],
-  "learning_goal_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "goal_001", "resource_type": "learning_goal_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+  "learning_goal_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "goal_001",
+    "resource_type": "learning_goal_version",
+    "tenant_id": "tenant_demo",
+    "version": "1.0.0"
+  },
   "learning_evidence": {
     "criterion_results": [{ "criterion_id": "criterion_001", "level_ordinal": 2 }],
-    "provenance_chain": [{ "discriminator": "d4_provenance_edge", "relation": "derived_from", "source_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "event_001", "resource_type": "role_workflow_event", "tenant_id": "tenant_demo", "version": "1.0.0" }, "target_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "artifact_001", "resource_type": "evidence_artifact", "tenant_id": "tenant_demo", "version": "1.0.0" } }],
+    "provenance_chain": [
+      {
+        "discriminator": "d4_provenance_edge",
+        "relation": "derived_from",
+        "source_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "event_001",
+          "resource_type": "role_workflow_event",
+          "tenant_id": "tenant_demo",
+          "version": "1.0.0"
+        },
+        "target_ref": {
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "discriminator": "exact_ref",
+          "resource_id": "artifact_001",
+          "resource_type": "evidence_artifact",
+          "tenant_id": "tenant_demo",
+          "version": "1.0.0"
+        }
+      }
+    ],
     "student_visible_feedback": []
   },
   "report_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "report_ref": { "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "discriminator": "exact_ref", "resource_id": "report_001", "resource_type": "student_learning_report", "tenant_id": "tenant_demo", "version": "1.0.0" },
-  "rubric_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "rubric_001", "resource_type": "rubric_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+  "report_ref": {
+    "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "discriminator": "exact_ref",
+    "resource_id": "report_001",
+    "resource_type": "student_learning_report",
+    "tenant_id": "tenant_demo",
+    "version": "1.0.0"
+  },
+  "rubric_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "rubric_001",
+    "resource_type": "rubric_version",
+    "tenant_id": "tenant_demo",
+    "version": "1.0.0"
+  },
   "runtime_authority": "JSON_INTERNAL_ONLY",
   "schema_version": "student-learning-report.v1",
   "source_confirmation_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "status": "CONFIRMED",
   "student_scope": { "team_id": "team_001", "tenant_id": "tenant_demo", "user_id": "usr_student" },
-  "teacher_confirmation_ref": { "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "discriminator": "exact_ref", "resource_id": "confirmation_001", "resource_type": "teacher_confirmation_version", "tenant_id": "tenant_demo", "version": "2.0.0" },
+  "teacher_confirmation_ref": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "discriminator": "exact_ref",
+    "resource_id": "confirmation_001",
+    "resource_type": "teacher_confirmation_version",
+    "tenant_id": "tenant_demo",
+    "version": "2.0.0"
+  },
   "visibility": "student_safe"
 }

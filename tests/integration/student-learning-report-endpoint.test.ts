@@ -16,13 +16,62 @@ const digest = "a".repeat(64);
 
 function refs() {
   return {
-    course: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "package_d4", resource_type: "course_package_version" as const, tenant_id: tenant, version: "1.0.0" },
-    goal: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "goal_d4", resource_type: "learning_goal_version" as const, tenant_id: tenant, version: "1.0.0" },
-    rubric: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "rubric_d4", resource_type: "rubric_version" as const, tenant_id: tenant, version: "1.0.0" },
-    evidence: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "artifact_d4", resource_type: "evidence_artifact" as const, tenant_id: tenant, version: "1.0.0" },
-    confirmation: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "confirmation_d4", resource_type: "teacher_confirmation_version" as const, tenant_id: tenant, version: "2.0.0" },
-    event: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "event_d4", resource_type: "role_workflow_event" as const, tenant_id: tenant, version: "1.0.0" },
-    rule: { content_digest: digest, discriminator: "exact_ref" as const, resource_id: "rule_d4", resource_type: "transformation_rule" as const, tenant_id: tenant, version: "1.0.0" }
+    course: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "package_d4",
+      resource_type: "course_package_version" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    },
+    goal: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "goal_d4",
+      resource_type: "learning_goal_version" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    },
+    rubric: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "rubric_d4",
+      resource_type: "rubric_version" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    },
+    evidence: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "artifact_d4",
+      resource_type: "evidence_artifact" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    },
+    confirmation: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "confirmation_d4",
+      resource_type: "teacher_confirmation_version" as const,
+      tenant_id: tenant,
+      version: "2.0.0"
+    },
+    event: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "event_d4",
+      resource_type: "role_workflow_event" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    },
+    rule: {
+      content_digest: digest,
+      discriminator: "exact_ref" as const,
+      resource_id: "rule_d4",
+      resource_type: "transformation_rule" as const,
+      tenant_id: tenant,
+      version: "1.0.0"
+    }
   };
 }
 
@@ -30,7 +79,13 @@ function seedD4(): SimWarStore {
   const store = createP1Store();
   const value = refs();
   const confirmation: TeacherConfirmationVersion = {
-    audit_receipt: { action: "teacher_confirmation.confirm", actor_id: "usr_teacher", audit_id: "audit_d4", recorded_at: "2026-08-03T00:00:00.000Z", request_id: "request_d4" },
+    audit_receipt: {
+      action: "teacher_confirmation.confirm",
+      actor_id: "usr_teacher",
+      audit_id: "audit_d4",
+      recorded_at: "2026-08-03T00:00:00.000Z",
+      request_id: "request_d4"
+    },
     confirmation_ref: value.confirmation,
     content_digest: digest,
     context: { course_id: "course_demo", run_id: "run_d4", team_id: "team_alpha", role_key: "CEO" },
@@ -54,7 +109,13 @@ function seedD4(): SimWarStore {
     artifact_ref: value.evidence,
     captured_at: "2026-08-03T00:00:00.000Z",
     captured_by: "usr_teacher",
-    context: { activity_id: "activity_d4", course_id: "course_demo", role_key: "CEO", run_id: "run_d4", team_id: "team_alpha" },
+    context: {
+      activity_id: "activity_d4",
+      course_id: "course_demo",
+      role_key: "CEO",
+      run_id: "run_d4",
+      team_id: "team_alpha"
+    },
     course_package_ref: value.course,
     discriminator: "d2_evidence_artifact_version",
     idempotency_key: "artifact_idem_d4",
@@ -66,7 +127,12 @@ function seedD4(): SimWarStore {
     transformation_rule_ref: value.rule,
     visibility: "teacher_only"
   };
-  const edge: D2ProvenanceEdge = { discriminator: "d2_provenance_edge", relation: "derived_from", source_ref: value.event, target_ref: value.evidence };
+  const edge: D2ProvenanceEdge = {
+    discriminator: "d2_provenance_edge",
+    relation: "derived_from",
+    source_ref: value.event,
+    target_ref: value.evidence
+  };
   store.teacherConfirmationVersions.push(confirmation);
   store.evidenceArtifacts.push(artifact);
   store.evidenceProvenanceEdges.push(edge);
@@ -101,7 +167,10 @@ describe("D4 Student Learning Report endpoint", () => {
         headers: { authorization: `Bearer ${studentToken}`, "x-tenant-id": tenant }
       });
       expect(studentResponse.status).toBe(200);
-      const studentPayload = (await studentResponse.json()) as ApiEnvelope<{ reports: Array<Record<string, unknown>>; scope: string }>;
+      const studentPayload = (await studentResponse.json()) as ApiEnvelope<{
+        reports: Array<Record<string, unknown>>;
+        scope: string;
+      }>;
       expect(studentPayload.data.scope).toBe("student_team");
       expect(studentPayload.data.reports).toHaveLength(1);
       expect(studentPayload.data.reports[0]).not.toHaveProperty("teacher_feedback");
@@ -113,11 +182,17 @@ describe("D4 Student Learning Report endpoint", () => {
         headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenant }
       });
       expect(teacherResponse.status).toBe(200);
-      expect(((await teacherResponse.json()) as ApiEnvelope<{ scope: string }>).data.scope).toBe("tenant_preview");
+      expect(((await teacherResponse.json()) as ApiEnvelope<{ scope: string }>).data.scope).toBe(
+        "tenant_preview"
+      );
 
       const writeResponse = await fetch(`${baseUrl}/api/v1/bff/student/learning-reports`, {
         body: JSON.stringify({}),
-        headers: { authorization: `Bearer ${studentToken}`, "content-type": "application/json", "x-tenant-id": tenant },
+        headers: {
+          authorization: `Bearer ${studentToken}`,
+          "content-type": "application/json",
+          "x-tenant-id": tenant
+        },
         method: "POST"
       });
       expect(writeResponse.status).toBe(404);

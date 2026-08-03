@@ -76,7 +76,9 @@ function ref(value: TeacherConfirmationExactRef | D2ExactRef): StudentLearningRe
   };
 }
 
-function edge(value: D2ProvenanceEdge): StudentLearningReport["learning_evidence"]["provenance_chain"][number] {
+function edge(
+  value: D2ProvenanceEdge
+): StudentLearningReport["learning_evidence"]["provenance_chain"][number] {
   return {
     discriminator: "d4_provenance_edge",
     relation: value.relation,
@@ -90,7 +92,9 @@ function confirmationVersion(value: string): number {
   return match ? Number(match[1]) : 0;
 }
 
-function latestByConfirmation(records: readonly TeacherConfirmationVersion[]): TeacherConfirmationVersion[] {
+function latestByConfirmation(
+  records: readonly TeacherConfirmationVersion[]
+): TeacherConfirmationVersion[] {
   const groups = new Map<string, TeacherConfirmationVersion[]>();
   for (const record of records) {
     const key = `${record.confirmation_ref.resource_id}:${record.context.team_id}`;
@@ -136,16 +140,19 @@ export class StudentLearningReportProjectionService {
     };
   }
 
-  async getStudent(actor: StudentLearningReportActor, reportId: string): Promise<StudentLearningReportListDto> {
+  async getStudent(
+    actor: StudentLearningReportActor,
+    reportId: string
+  ): Promise<StudentLearningReportListDto> {
     const result = await this.listStudent(actor);
-    const report = result.reports.find((candidate) => candidate.report_ref.resource_id === reportId);
+    const report = result.reports.find(
+      (candidate) => candidate.report_ref.resource_id === reportId
+    );
     if (!report) throw new StudentLearningReportProjectionError("D4_REPORT_NOT_FOUND");
     return { ...result, reports: [report] };
   }
 
-  async listPreview(
-    actor: StudentLearningReportActor
-  ): Promise<StudentLearningReportListDto> {
+  async listPreview(actor: StudentLearningReportActor): Promise<StudentLearningReportListDto> {
     return {
       known_limits: [...KNOWN_LIMITS],
       reports: await this.buildReports(actor.tenant_id, "team_scoped"),
@@ -155,9 +162,14 @@ export class StudentLearningReportProjectionService {
     };
   }
 
-  async getPreview(actor: StudentLearningReportActor, reportId: string): Promise<StudentLearningReportListDto> {
+  async getPreview(
+    actor: StudentLearningReportActor,
+    reportId: string
+  ): Promise<StudentLearningReportListDto> {
     const result = await this.listPreview(actor);
-    const report = result.reports.find((candidate) => candidate.report_ref.resource_id === reportId);
+    const report = result.reports.find(
+      (candidate) => candidate.report_ref.resource_id === reportId
+    );
     if (!report) throw new StudentLearningReportProjectionError("D4_REPORT_NOT_FOUND");
     return { ...result, reports: [report] };
   }
@@ -202,7 +214,10 @@ export class StudentLearningReportProjectionService {
           evidenceIds.has(`${candidate.source_ref.resource_id}:${candidate.source_ref.version}`)
       )
       .map(edge);
-    const status: StudentLearningReport["status"] = hasEarlierConfirmed(allConfirmations, confirmation)
+    const status: StudentLearningReport["status"] = hasEarlierConfirmed(
+      allConfirmations,
+      confirmation
+    )
       ? "AMENDED"
       : "CONFIRMED";
     const reportId = `student_report_${confirmation.confirmation_ref.resource_id}`;

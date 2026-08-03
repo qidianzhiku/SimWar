@@ -31,9 +31,21 @@ describe("D4 Student Learning Report BFF routes", () => {
   it("exposes student and teacher preview GET routes but no D4 write route", async () => {
     const runtime = {
       projections: {
-        listStudent: vi.fn(async () => ({ reports: [], known_limits: ["limit"], report_schema_version: "student-learning-report.v1", runtime_authority: "JSON_INTERNAL_ONLY", scope: "student_team" })),
+        listStudent: vi.fn(async () => ({
+          reports: [],
+          known_limits: ["limit"],
+          report_schema_version: "student-learning-report.v1",
+          runtime_authority: "JSON_INTERNAL_ONLY",
+          scope: "student_team"
+        })),
         getStudent: vi.fn(),
-        listPreview: vi.fn(async () => ({ reports: [], known_limits: ["limit"], report_schema_version: "student-learning-report.v1", runtime_authority: "JSON_INTERNAL_ONLY", scope: "tenant_preview" })),
+        listPreview: vi.fn(async () => ({
+          reports: [],
+          known_limits: ["limit"],
+          report_schema_version: "student-learning-report.v1",
+          runtime_authority: "JSON_INTERNAL_ONLY",
+          scope: "tenant_preview"
+        })),
         getPreview: vi.fn()
       }
     } as unknown as StudentLearningReportRouteRuntime;

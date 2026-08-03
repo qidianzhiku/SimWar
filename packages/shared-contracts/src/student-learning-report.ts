@@ -310,10 +310,18 @@ export function isStudentLearningReport(value: unknown): value is StudentLearnin
   return refs.every((reference) => reference.tenant_id === studentScope.tenant_id);
 }
 
-export function isStudentLearningReportListDto(value: unknown): value is StudentLearningReportListDto {
+export function isStudentLearningReportListDto(
+  value: unknown
+): value is StudentLearningReportListDto {
   return (
     isRecord(value) &&
-    hasOnlyKeys(value, ["known_limits", "reports", "report_schema_version", "runtime_authority", "scope"]) &&
+    hasOnlyKeys(value, [
+      "known_limits",
+      "reports",
+      "report_schema_version",
+      "runtime_authority",
+      "scope"
+    ]) &&
     value.report_schema_version === STUDENT_LEARNING_REPORT_SCHEMA_VERSION &&
     value.runtime_authority === "JSON_INTERNAL_ONLY" &&
     (value.scope === "student_team" || value.scope === "tenant_preview") &&
@@ -321,6 +329,8 @@ export function isStudentLearningReportListDto(value: unknown): value is Student
     value.reports.every(isStudentLearningReport) &&
     Array.isArray(value.known_limits) &&
     value.known_limits.length > 0 &&
-    value.known_limits.every((item) => typeof item === "string" && item.trim() === item && item.length > 0)
+    value.known_limits.every(
+      (item) => typeof item === "string" && item.trim() === item && item.length > 0
+    )
   );
 }

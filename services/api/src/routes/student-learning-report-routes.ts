@@ -16,7 +16,10 @@ export interface StudentLearningReportRouteRuntime {
 }
 
 export interface StudentLearningReportRouteHelpers {
-  createEnvelope<TData>(context: StudentLearningReportRouteContext, data: TData): ApiEnvelope<TData>;
+  createEnvelope<TData>(
+    context: StudentLearningReportRouteContext,
+    data: TData
+  ): ApiEnvelope<TData>;
   requireStudent(): CurrentUser;
   requireTeacher(): CurrentUser;
   requireAdmin(): CurrentUser;
@@ -43,11 +46,12 @@ function actor(value: CurrentUser): StudentLearningReportActor {
   };
 }
 
-function errorResponse(error: unknown): { status: number; payload: { code: string; message: string } } {
+function errorResponse(error: unknown): {
+  status: number;
+  payload: { code: string; message: string };
+} {
   const code =
-    error instanceof StudentLearningReportProjectionError
-      ? error.code
-      : "D4_REPORT_OUTPUT_INVALID";
+    error instanceof StudentLearningReportProjectionError ? error.code : "D4_REPORT_OUTPUT_INVALID";
   const status =
     code === "D4_REPORT_SCOPE_VIOLATION"
       ? 403

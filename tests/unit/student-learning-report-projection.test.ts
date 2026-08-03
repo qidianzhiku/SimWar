@@ -26,7 +26,9 @@ const evidenceRef = {
   version: "1.0.0"
 };
 
-function confirmation(overrides: Partial<TeacherConfirmationVersion> = {}): TeacherConfirmationVersion {
+function confirmation(
+  overrides: Partial<TeacherConfirmationVersion> = {}
+): TeacherConfirmationVersion {
   return {
     audit_receipt: {
       action: "teacher_confirmation.confirm",
@@ -154,7 +156,11 @@ describe("D4 StudentLearningReportProjectionService", () => {
       evidence: repository
     });
 
-    const result = await service.listStudent({ tenant_id: tenant, team_id: "team_d4", user_id: "usr_student" });
+    const result = await service.listStudent({
+      tenant_id: tenant,
+      team_id: "team_d4",
+      user_id: "usr_student"
+    });
     expect(result.reports).toHaveLength(1);
     expect(result.reports[0]?.status).toBe("CONFIRMED");
     expect(result.reports[0]?.learning_evidence.student_visible_feedback).toEqual([]);
@@ -182,10 +188,16 @@ describe("D4 StudentLearningReportProjectionService", () => {
         appendEvidenceCapture: vi.fn()
       }
     });
-    const result = await service.listStudent({ tenant_id: tenant, team_id: "team_d4", user_id: "usr_student" });
+    const result = await service.listStudent({
+      tenant_id: tenant,
+      team_id: "team_d4",
+      user_id: "usr_student"
+    });
     expect(result.reports).toHaveLength(1);
     expect(result.reports[0]?.status).toBe("AMENDED");
-    await expect(service.listStudent({ tenant_id: tenant, user_id: "usr_student" })).rejects.toMatchObject({
+    await expect(
+      service.listStudent({ tenant_id: tenant, user_id: "usr_student" })
+    ).rejects.toMatchObject({
       code: "D4_REPORT_SCOPE_VIOLATION"
     });
   });
