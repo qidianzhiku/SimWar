@@ -52,6 +52,7 @@ import {
   type TeacherCoursePackageSurfaceState
 } from "./course-package-client";
 import { CourseReportBuilder } from "./CourseReportBuilder";
+import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1099,6 +1100,10 @@ export function App() {
           tenantId={login.tenantId}
           token={session?.access_token ?? ""}
         />
+      ) : null}
+
+      {isTeacher && session ? (
+        <LearningDesignWorkbench tenantId={login.tenantId} token={session.access_token} />
       ) : null}
 
       {isTeacher ? (
