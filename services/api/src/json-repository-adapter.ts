@@ -47,6 +47,7 @@ import {
   type InMemoryJsonCourseBlueprintRegistryOptions
 } from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
+import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 
 /**
  * JSON-backed repository adapter for the current SimWar API store.
@@ -1065,6 +1066,7 @@ export function createJsonRepositoryPorts(
     },
 
     roleWorkflow: createJsonRoleWorkflowRepositoryPort(store),
-    evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store)
+    evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store),
+    teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store)
   };
 }

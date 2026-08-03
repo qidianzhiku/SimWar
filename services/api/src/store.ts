@@ -38,7 +38,8 @@ import type {
   UserRole,
   RoleWorkflowEvent,
   D2EvidenceArtifactVersion,
-  D2ProvenanceEdge
+  D2ProvenanceEdge,
+  TeacherConfirmationVersion
 } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
@@ -46,7 +47,8 @@ import {
   ROLE_PERMISSION_MATRIX,
   getRolePermissions,
   isD2EvidenceArtifactVersion,
-  isD2ProvenanceEdge
+  isD2ProvenanceEdge,
+  isTeacherConfirmationVersion
 } from "@simwar/shared-contracts";
 import { hashPassword } from "./auth.js";
 import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
@@ -122,6 +124,7 @@ export interface SimWarStoreSnapshot {
   rubricVersions: RubricVersion[];
   evidenceArtifacts: D2EvidenceArtifactVersion[];
   evidenceProvenanceEdges: D2ProvenanceEdge[];
+  teacherConfirmationVersions: TeacherConfirmationVersion[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -731,6 +734,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     rubricVersions: [],
     evidenceArtifacts: [],
     evidenceProvenanceEdges: [],
+    teacherConfirmationVersions: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -787,6 +791,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     rubricVersions: store.rubricVersions,
     evidenceArtifacts: store.evidenceArtifacts,
     evidenceProvenanceEdges: store.evidenceProvenanceEdges,
+    teacherConfirmationVersions: store.teacherConfirmationVersions,
     counters: store.counters
   };
 }
@@ -838,6 +843,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     rubricVersions: snapshot.rubricVersions ?? [],
     evidenceArtifacts: snapshot.evidenceArtifacts ?? [],
     evidenceProvenanceEdges: snapshot.evidenceProvenanceEdges ?? [],
+    teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }
@@ -1664,7 +1670,8 @@ function assertSnapshotShape(
     "learningGoalVersions",
     "rubricVersions",
     "evidenceArtifacts",
-    "evidenceProvenanceEdges"
+    "evidenceProvenanceEdges",
+    "teacherConfirmationVersions"
   ] as const) {
     if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
@@ -1696,6 +1703,11 @@ function assertSnapshotShape(
     if (Array.isArray(value.evidenceProvenanceEdges)) {
       for (const edge of value.evidenceProvenanceEdges) {
         if (!isD2ProvenanceEdge(edge)) throw new Error("invalid_evidence_provenance_edge");
+      }
+    }
+    if (Array.isArray(value.teacherConfirmationVersions)) {
+      for (const confirmation of value.teacherConfirmationVersions) {
+        if (!isTeacherConfirmationVersion(confirmation)) throw new Error("invalid_teacher_confirmation");
       }
     }
   } catch (error) {

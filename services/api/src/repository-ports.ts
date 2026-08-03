@@ -20,7 +20,8 @@ import type {
   StateSnapshot,
   StudentRoleAssignment,
   Team,
-  TeamConfirmation
+  TeamConfirmation,
+  TeacherConfirmationVersion
 } from "@simwar/shared-contracts";
 
 /**
@@ -356,6 +357,17 @@ export interface EvidenceProvenanceRepositoryPort {
   appendEvidenceCapture(command: EvidenceProvenanceCaptureCommand): Promise<void>;
 }
 
+export interface TeacherConfirmationAppendCommand {
+  confirmation: TeacherConfirmationVersion;
+  audit_log: AuditLog;
+}
+
+/** D3-only teacher confirmation persistence; it cannot write formal truth or student data. */
+export interface TeacherConfirmationRepositoryPort {
+  list(tenantId: RepositoryId): Promise<TeacherConfirmationVersion[]>;
+  append(command: TeacherConfirmationAppendCommand): Promise<void>;
+}
+
 /**
  * Command/write path repository contracts for staged migration work.
  *
@@ -483,4 +495,5 @@ export interface SimWarRepositoryPorts {
   replay: ReplayRepositoryPort;
   roleWorkflow: RoleWorkflowRepositoryPort;
   evidenceProvenance: EvidenceProvenanceRepositoryPort;
+  teacherConfirmations?: TeacherConfirmationRepositoryPort;
 }
