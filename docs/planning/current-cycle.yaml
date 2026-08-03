@@ -1,11 +1,11 @@
 cycle_id: L1PLUS-CYCLE-006-D1-GOAL-RUBRIC-MEASURED
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT
-generated_at: "2026-08-03T09:53:43+08:00"
+generated_at: "2026-08-03T10:46:40+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
-product_evidence_source_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+assessment_source_anchor_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
+product_evidence_source_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
 preceding_l1_closure:
   evidence_source_sha: 448cfbe3a1dc990f3bbd497214be5fc80d8fe8ab
@@ -28,11 +28,17 @@ capability:
     - number: 318
       head_sha: 794706be91f1f4232f3a0f81894fa697b44aa563
       merge_sha: a7dcf48e810ab23eecac4c74a7293670f1374459
+    - number: 320
+      head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
+      merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
 evidence:
   product_acceptance: PASS
   challenge_review: PASS
   challenge_blocking: 0
   challenge_must_fix: 0
+  corrective_product_pr: 320
+  corrective_product_head_sha: ccc44c20675681341a7a0d5ac9d69c3962786635
+  corrective_product_merge_sha: b10f72246aa619a81699ed5ce91808ea02b0cd30
   focused_tests: 7_OF_7_PASS
   contract_gate: 15_OF_15_PASS
   full_tests: 955_OF_955_PASS
@@ -44,6 +50,7 @@ evidence:
   direct_store_boundary: 0_NEW_UNAPPROVED
   security_audit: 2_LOW_6_HIGH_PREEXISTING
   integrated_fresh_clone: PASS
+  corrective_fresh_clone: PASS_AT_B10F722_136_FILES_955_TESTS
   governance_closure_merge_sha: THIS_CHANGESET
 support_code:
   candidate_id: NONE
@@ -55,6 +62,7 @@ closure:
   merge_execution_limit: 1
   post_merge_required: COMPLETED
   governance_adoption: THIS_CHANGESET
+  corrective_reconciliation: THIS_CHANGESET
 resource_locks:
   - resource: LEARNING_DESIGN_AUTHORITY
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION

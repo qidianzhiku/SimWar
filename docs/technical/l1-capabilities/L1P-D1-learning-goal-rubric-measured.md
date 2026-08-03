@@ -44,7 +44,8 @@ rank, Truth, SettlementResult, EvidenceArtifact, or LearningConfirmation.
 - Browser: `tests/e2e-ui/d1-learning-design-workbench.spec.ts`
 - Product PR #317 merge: `ecbd81c8edf9acbf853fc4d100be32644e3aa11e`
 - Product PR #318 merge and integrated fresh-clone source: `a7dcf48e810ab23eecac4c74a7293670f1374459`
-- Integrated validation: `npm test` 136 files / 955 tests PASS; browser 67 PASS / 9 SKIP
+- Product completion corrective PR #320 merge: `b10f72246aa619a81699ed5ce91808ea02b0cd30`
+- Post-corrective fresh-clone validation at `b10f722...`: `npm test` 136 files / 955 tests PASS; browser 67 PASS / 9 SKIP; role-workflow 1 PASS
 - Contract gate: 6 files / 15 tests PASS; direct-store guard reports 0 new unapproved access
 
 ## Known Limits
@@ -53,6 +54,7 @@ The runtime remains `JSON_INTERNAL_ONLY`. D2 EvidenceArtifact, D3 Teacher
 Confirmation, D4 Student Learning Report, AI final grade, PostgreSQL,
 durable recovery, Human Validation, Pilot, and Production are out of scope.
 
-The D1 cycle is closed with current-master evidence. This closure does not
-authorize a successor mission or change the runtime, Truth, settlement, score,
-rank, replay, or Student visibility boundaries.
+The D1 cycle is closed with current-master evidence after the completion
+corrective PR #320. This closure does not authorize a successor mission or
+change the runtime, Truth, settlement, score, rank, replay, or Student
+visibility boundaries.
