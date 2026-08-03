@@ -1,51 +1,49 @@
-cycle_id: L1PLUS-CYCLE-007-D2-EVIDENCE-PROVENANCE
+cycle_id: L1PLUS-CYCLE-008-D3-TEACHER-CONFIRMATION
 stage: L1_PLUS
-status: CLOSED_AND_CURRENT
-generated_at: "2026-08-03T15:50:53+08:00"
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+generated_at: "2026-08-03T21:56:09+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
-product_evidence_source_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+assessment_source_anchor_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
 governance_closure_merge_sha: THIS_CHANGESET
-l1_plus_status: D2_EVIDENCE_PROVENANCE_COMPLETE_WITH_LIMITS
+l1_plus_status: D3_TEACHER_CONFIRMATION_COMPLETE_WITH_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
 capability:
-  id: L1P-D2
-  candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
+  id: L1P-D3
+  candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
   status: CLOSED_AND_CURRENT_WITH_LIMITS
-  primary_outcome: Teacher can select exact learning references and controlled source scope, generate or reuse an immutable EvidenceArtifact, inspect safe provenance, and receive deterministic duplicate/conflict feedback.
-  mutable_authority: EvidenceCaptureCommandService
-  sole_writer: EvidenceCaptureCommandService
+  primary_outcome: Teacher can select exact learning references and controlled scope, claim an exclusive work item, submit an explicit confirmation, and inspect an immutable teacher-safe confirmation receipt.
+  mutable_authority: TeacherConfirmationCommandService
+  sole_writer: TeacherConfirmationCommandService
   product_prs:
-    - number: 322
-      merge_sha: ca79e18d1a026fb979efd5c67370dc64ed824873
-    - number: 323
-      merge_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
+    - number: 325
+      merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
   evidence:
     product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-    acceptance_rows: 25
+    acceptance_scope: D3 teacher confirmation journey and 28-file candidate
     challenge_review_blocking: 0
     challenge_review_must_fix: 0
-    integrated_fresh_clone: PASS
-    full_tests: 140_FILES_969_TESTS_PASS
-    browser: 68_PASS_9_PREEXISTING_SKIP_PLUS_ROLE_WORKFLOW_1_PASS
+    post_merge_fresh_clone: PASS
+    full_tests: 145_FILES_988_TESTS_PASS
+    browser: 2_D3_TESTS_PASS
+    contract: 10_FILES_26_TESTS_PASS
     direct_store_boundary: 0_NEW_UNAPPROVED
-    product_acceptance_digest: EC2B131C6DE426A99729B2C116056F4D3177784BF4C441FF228ABC830A839138
-    backend_review_digest: 5C64C484E3080960992D1F3A0E278405224433E1DC41D77C480AF39FC1EA5A4C
-    frontend_review_digest: A593CE1B9ADEDB936BDE3711F865D3009D5C5044F24921373B0CBFCC7A7A0186
-    token_receipt_digest: F17AECD8542F3371ABB050DC59B01B91CD08E08840AA82ECDD3E5C373E7658FE
-    efficiency_receipt_digest: C72991B3A83AF948F8237EFCB497CD5F3E016037B51F6B93767CAB2F919231D4
-    evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W006-D2-20260803T062317Z
+    typecheck: PASS
+    lint: PASS
+    build: PASS
+    hidden_unicode: PASS
+    product_evidence_source_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
+    post_merge_receipt: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W007-D3-20260803T163749Z/closure/post-merge-receipt-3f9145f.json
   known_limits:
     runtime_authority: JSON_INTERNAL_ONLY
-    role_workflow_activity_scope: REQUEST_BOUNDED_NO_NATIVE_ACTIVITY_ID
+    teacher_confirmation_rollback: IN_MEMORY_TRANSACTIONAL_ROLLBACK_ONLY
+    accessibility: BASELINE_BROWSER_EVIDENCE_ONLY
     human_validation: NOT_PERFORMED
     issue_111: OPEN_KNOWN_LIMIT
     postgresql: NOT_ACTIVE
     durable_settlement_and_recovery: NOT_PROVEN
     pilot_and_production: NOT_AUTHORIZED
-    d2_is_not_d3_or_d4: true
-    dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 support_code:
   candidate_id: NONE
 docs_discovery:
@@ -57,21 +55,19 @@ closure:
   post_merge_required: COMPLETED
   governance_pr: THIS_CHANGESET
 resource_locks:
-  - resource: EVIDENCE_CAPTURE_AUTHORITY
+  - resource: TEACHER_CONFIRMATION_AUTHORITY
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D2_SHARED_CONTRACTS
+  - resource: TEACHER_CONFIRMATION_SHARED_CONTRACTS
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: TEACHER_EVIDENCE_WORKBENCH
+  - resource: TEACHER_CONFIRMATION_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D2_RUN_REPLAY_GOLDEN
+  - resource: TEACHER_CONFIRMATION_WORK_CLAIM
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
-  - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
-    status: DEFERRED_UNTIL_SEPARATE_OWNER_AUTHORIZATION
   - candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
     status: DEFERRED_UNTIL_SEPARATE_PROGRAM_D_MISSION
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
@@ -80,7 +76,7 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
 authorization:
   status: CLOSED_NO_AUTOMATIC_SUCCESSOR
-  next_candidate: CAND-L1P-D3-TEACHER-CONFIRMATION
+  next_candidate: CAND-L1P-D4-STUDENT-LEARNING-REPORT
   next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
   next_mission: NOT_AUTHORIZED_PENDING_SEPARATE_OWNER_DIRECTION
   automatic_start: false
