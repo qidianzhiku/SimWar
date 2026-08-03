@@ -29,6 +29,7 @@ async function signIn(page: Page) {
 test("Teacher can see D3 exact-reference and confirmation states without student exposure", async ({
   page
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/bff/teacher/confirmations", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -79,6 +80,20 @@ test("Teacher can see D3 exact-reference and confirmation states without student
   await expect(workbench.getByLabel("D3 exact learning goal")).toBeVisible();
   await expect(workbench.getByLabel("D3 exact rubric")).toBeVisible();
   await expect(page.getByLabel("Student D3 Confirmation Workbench")).toHaveCount(0);
+
+  const layout = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth
+  }));
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+
+  const actionButtons = workbench.locator("button:not([disabled])");
+  const actionButtonCount = await actionButtons.count();
+  expect(actionButtonCount).toBeGreaterThan(0);
+  for (let index = 0; index < actionButtonCount; index += 1) {
+    await actionButtons.nth(index).focus();
+    await expect(actionButtons.nth(index)).toBeFocused();
+  }
 });
 
 test("Teacher claims, drafts, rejects and revises an immutable confirmation", async ({ page }) => {

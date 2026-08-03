@@ -4,6 +4,8 @@ import {
   TeacherConfirmationError,
   type TeacherConfirmationCommandDependencies
 } from "../../services/api/src/teacher-confirmation.js";
+import { createJsonTeacherConfirmationRepositoryPort } from "../../services/api/src/json-repository-adapter.js";
+import { createP1Store } from "../../services/api/src/store.js";
 import type { AuditLog, TeacherConfirmationVersion } from "@simwar/shared-contracts";
 
 const digest = "a".repeat(64);
@@ -221,5 +223,21 @@ describe("TeacherConfirmationCommandService", () => {
     ).rejects.toThrow("D3_WORK_CLAIM_CONFLICT");
     expect(deps.records).toHaveLength(0);
     expect(deps.audits).toHaveLength(0);
+  });
+
+  it("rolls back confirmation and audit state when persistence fails", async () => {
+    const store = createP1Store();
+    store.persist = () => {
+      throw new Error("audit_persist_failed");
+    };
+    const deps = dependencies();
+    deps.repository = createJsonTeacherConfirmationRepositoryPort(store);
+    const service = new TeacherConfirmationCommandService(deps);
+
+    await expect(
+      service.saveDraft({ actor_id: "usr_teacher", tenant_id: "tenant_demo" }, input, "req_001")
+    ).rejects.toThrow("audit_persist_failed");
+    expect(store.teacherConfirmationVersions).toHaveLength(0);
+    expect(store.auditLogs).toHaveLength(0);
   });
 });
