@@ -98,6 +98,8 @@ import { handleD5ExportRoute } from "./routes/d5-export-routes.js";
 import { TransferResearchDesignCommandService } from "./transfer-research-design.js";
 import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-design-registry.js";
 import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
+import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
+import { GoldenJourneyIntegrationService } from "./golden-journey-integration.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -266,6 +268,7 @@ interface ApiRuntime {
   repositoryProvider: RepositoryProvider;
   roleWorkflow: RoleWorkflowCommandService;
   instructorAssets: InstructorAssetRegistry;
+  goldenJourney: GoldenJourneyIntegrationService;
   securityConfig: RuntimeSecurityConfig;
   runMutationLocks: Map<string, Promise<void>>;
 }
@@ -520,6 +523,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       },
       readInstructorAssetCollection(store)
     ),
+    goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -4320,7 +4324,8 @@ async function routeRequest(
         requireAdmin: () => requireD4Admin(context)
       }
     )
-  ) return;
+  )
+    return;
 
   if (
     await handleTransferResearchDesignRoute(
@@ -4338,7 +4343,30 @@ async function routeRequest(
         requireAdmin: () => requireD4Admin(context)
       }
     )
-  ) return;
+  )
+    return;
+
+  if (
+    await handleGoldenJourneyRoute(
+      { goldenJourney: runtime.goldenJourney },
+      request,
+      response,
+      url,
+      {
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        correlationId: request.headers["x-correlation-id"]?.toString() ?? context.requestId
+      },
+      {
+        sendJson,
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context)
+      }
+    )
+  )
+    return;
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 

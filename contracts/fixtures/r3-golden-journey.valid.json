@@ -1,0 +1,64 @@
+{
+  "allowed_actions": {
+    "allowed_actions": [
+      "view_context",
+      "view_allowed_actions",
+      "view_receipts",
+      "view_provenance",
+      "view_teacher_facts"
+    ],
+    "blocked_reasons": [],
+    "correlation_id": "corr_r3_001",
+    "discriminator": "golden_journey_allowed_actions",
+    "journey_id": "journey_r3_001",
+    "request_id": "req_r3_001",
+    "role": "teacher",
+    "schema_version": "r3-golden-journey.v1"
+  },
+  "context": {
+    "correlation_id": "corr_r3_001",
+    "course_id": "course_demo",
+    "course_package_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "course_demo",
+      "resource_type": "course_package_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "discriminator": "golden_journey_context",
+    "journey_id": "journey_r3_001",
+    "known_limits": ["JSON_INTERNAL_ONLY", "D2 evidence is teacher-only"],
+    "request_id": "req_r3_001",
+    "role_keys": ["CEO"],
+    "run_id": "run_demo",
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "schema_version": "r3-golden-journey.v1",
+    "status": "ready",
+    "team_id": "team_alpha",
+    "tenant_id": "tenant_demo"
+  },
+  "correlation_chain": {
+    "correlation_id": "corr_r3_001",
+    "discriminator": "correlation_chain",
+    "journey_id": "journey_r3_001",
+    "request_id": "req_r3_001",
+    "schema_version": "r3-golden-journey.v1",
+    "status": "partial",
+    "steps": [{ "exact_refs": [], "operation": "context.read", "slice": "R3" }]
+  },
+  "discriminator": "golden_journey_status",
+  "formal_truth_write": false,
+  "receipt_index": {
+    "chain_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "correlation_id": "corr_r3_001",
+    "discriminator": "cross_slice_receipt_index",
+    "entries": [],
+    "journey_id": "journey_r3_001",
+    "request_id": "req_r3_001",
+    "schema_version": "r3-golden-journey.v1"
+  },
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "schema_version": "r3-golden-journey.v1",
+  "student_private_fields_exposed": false
+}
