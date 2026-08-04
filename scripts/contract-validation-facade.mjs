@@ -101,6 +101,12 @@ const d5ContractFiles = [
   "contracts/fixtures/d5-export.invalid.json"
 ];
 
+const d6ContractFiles = [
+  "contracts/schemas/d6-transfer-evidence.v1.json",
+  "contracts/fixtures/d6-transfer-evidence.valid.json",
+  "contracts/fixtures/d6-transfer-evidence.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -133,6 +139,14 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/admin/learning-exports/jobs",
   "/api/v1/bff/admin/learning-exports/jobs/{jobId}/retry",
   "/api/v1/bff/admin/learning-exports/jobs/{jobId}/cancel"
+  ,"/api/v1/bff/teacher/transfer-research-designs"
+  ,"/api/v1/bff/teacher/transfer-research-designs/preview"
+  ,"/api/v1/bff/teacher/transfer-research-designs/freeze"
+  ,"/api/v1/bff/teacher/transfer-research-designs/{studyId}/synthetic-preview"
+  ,"/api/v1/bff/admin/transfer-research-designs"
+  ,"/api/v1/bff/admin/transfer-research-designs/preview"
+  ,"/api/v1/bff/admin/transfer-research-designs/freeze"
+  ,"/api/v1/bff/admin/transfer-research-designs/{studyId}/synthetic-preview"
 ];
 
 const schemaCases = [
@@ -229,6 +243,11 @@ const schemaCases = [
     schema: "contracts/schemas/d5-export.v1.json",
     valid: ["contracts/fixtures/d5-export.valid.json"],
     invalid: ["contracts/fixtures/d5-export.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/d6-transfer-evidence.v1.json",
+    valid: ["contracts/fixtures/d6-transfer-evidence.valid.json"],
+    invalid: ["contracts/fixtures/d6-transfer-evidence.invalid.json"]
   }
 ];
 
@@ -571,6 +590,24 @@ function assertD5OpenApiBindings(openApi) {
   );
 }
 
+function assertD6OpenApiBindings(openApi) {
+  for (const prefix of ["teacher", "admin"]) {
+    for (const path of [
+      `/api/v1/bff/${prefix}/transfer-research-designs`,
+      `/api/v1/bff/${prefix}/transfer-research-designs/preview`,
+      `/api/v1/bff/${prefix}/transfer-research-designs/freeze`,
+      `/api/v1/bff/${prefix}/transfer-research-designs/{studyId}/synthetic-preview`
+    ]) {
+      assert(openApi.paths[path], `Missing D6 transfer research operation: ${path}`);
+    }
+  }
+  assert(
+    openApi.components?.schemas?.D6TransferEvidence?.$ref ===
+      "../schemas/d6-transfer-evidence.v1.json",
+    "D6 TransferEvidence must reference its JSON Schema artifact."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -644,7 +681,8 @@ export async function runContractValidation(options = {}) {
     ...d2ContractFiles,
     ...d3ContractFiles,
     ...d4ContractFiles,
-    ...d5ContractFiles
+    ...d5ContractFiles,
+    ...d6ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -655,7 +693,8 @@ export async function runContractValidation(options = {}) {
     ...d2ContractFiles,
     ...d3ContractFiles,
     ...d4ContractFiles,
-    ...d5ContractFiles
+    ...d5ContractFiles,
+    ...d6ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -667,6 +706,7 @@ export async function runContractValidation(options = {}) {
   assertD3OpenApiBindings(openApi);
   assertD4OpenApiBindings(openApi);
   assertD5OpenApiBindings(openApi);
+  assertD6OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

@@ -1,0 +1,6 @@
+{
+  "analysis_plan": { "analysis_plan_ref": { "content_digest": "1111111111111111111111111111111111111111111111111111111111111111", "discriminator": "exact_ref", "resource_id": "latest", "resource_type": "transfer_analysis_plan_version", "tenant_id": "tenant_demo", "version": "1.0.0" }, "claim_mode": "DESCRIPTIVE_ONLY", "content_digest": "1111111111111111111111111111111111111111111111111111111111111111", "causal_claim": true, "missing_data_policy": "MISSING_NOT_NEGATIVE", "outcome_codes": ["APPLICATION_STATE"], "schema_version": "d6-transfer-evidence.v1", "small_cell_suppression": 5 },
+  "instrument": {},
+  "study": {},
+  "synthetic_preview": {}
+}

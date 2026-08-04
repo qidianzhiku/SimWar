@@ -3,6 +3,7 @@ export * from "./learning-design.js";
 export * from "./evidence-provenance.js";
 export * from "./student-learning-report.js";
 export * from "./d5-export.js";
+export * from "./d6-transfer-evidence.js";
 
 export type ActorRole =
   | "platform_admin"

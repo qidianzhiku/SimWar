@@ -95,6 +95,9 @@ import { D5ExportAssembler } from "./d5-export-assembler.js";
 import { D5DeliveryService } from "./d5-delivery.js";
 import { InMemoryD5ExportRegistry } from "./d5-export-registry.js";
 import { handleD5ExportRoute } from "./routes/d5-export-routes.js";
+import { TransferResearchDesignCommandService } from "./transfer-research-design.js";
+import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-design-registry.js";
+import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -251,6 +254,7 @@ interface ApiRuntime {
   studentLearningReports: StudentLearningReportProjectionService;
   d5ExportAssembler: D5ExportAssembler;
   d5Delivery: D5DeliveryService;
+  transferResearchDesign: TransferResearchDesignCommandService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -470,6 +474,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     assembler: d5ExportAssembler,
     repository: d5ExportRepository
   });
+  const transferResearchDesign = new TransferResearchDesignCommandService(
+    new InMemoryTransferResearchDesignRegistry()
+  );
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -486,6 +493,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     studentLearningReports,
     d5ExportAssembler,
     d5Delivery,
+    transferResearchDesign,
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -4299,6 +4307,24 @@ async function routeRequest(
   if (
     await handleD5ExportRoute(
       { exportAssembler: runtime.d5ExportAssembler, delivery: runtime.d5Delivery },
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        readJson: (incoming, options) => readJson(incoming, options),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context)
+      }
+    )
+  ) return;
+
+  if (
+    await handleTransferResearchDesignRoute(
+      { transferResearchDesign: runtime.transferResearchDesign },
       request,
       response,
       url,
