@@ -1,0 +1,55 @@
+cycle_id: L1PLUS-CYCLE-011-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+stage: L1_PLUS
+capability_id: L1P-D6
+candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+assessment_source_anchor_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Teacher and Admin can define, preview, freeze, revise, retire, and audit a synthetic transfer research design bound to exact D1-D5 references without creating a second EvidenceArtifact writer.
+authority:
+  writer: TransferResearchDesignCommandService_for_D6_design_records
+  formal_evidence_writer: D2_EvidenceCaptureCommandService
+  runtime_authority: JSON_INTERNAL_ONLY
+  student_route: ABSENT
+  truth_settlement_score_rank_writer: UNCHANGED
+evidence:
+  product_pr: 334
+  product_merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+  candidate_head: 12c694262857130c984e584417e2d109c8774b54
+  candidate_commit_count: 8
+  changed_file_count: 27
+  changed_file_manifest_sha256: 9cb989d7de27eb4bb7d29d287c2133b9ed01cb1235f2775523ea480f8086e783
+  acceptance: A01_A30_NO_UNKNOWN_OR_NOT_MAPPED
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+  contract: 13_FILES_32_TESTS_PASS_17_SCHEMA_GROUPS
+  targeted: 3_FILES_6_TESTS_PASS
+  full_tests: 155_FILES_1011_TESTS_PASS
+  browser: 1_TEST_PASS
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  quality: PASS
+  browser_smoke: PASS
+  codeql: PASS
+  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z/integration/fresh-clone/post-merge-d252df2
+  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - synthetic_only
+  - causal_claims_disabled
+  - Human_Validation_NOT_PERFORMED
+  - Issue_111_OPEN_KNOWN_LIMIT
+  - PostgreSQL_NOT_ACTIVE
+  - durable_settlement_and_recovery_NOT_PROVEN
+  - Pilot_NOT_AUTHORIZED
+  - Production_NOT_AUTHORIZED
+  - CodeGraph_GRAPH_EVIDENCE_GAP
+  - dependency_advisories_2_LOW_6_HIGH_PREEXISTING
+resource_locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+automatic_next_start: false
