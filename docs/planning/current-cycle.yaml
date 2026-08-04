@@ -1,83 +1,63 @@
-cycle_id: L1PLUS-CYCLE-011-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+cycle_id: L1PLUS-CYCLE-012-R3-GOLDEN-JOURNEY
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-generated_at: "2026-08-04T14:22:52+08:00"
-valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
+started_at: "2026-08-04T15:00:18+08:00"
+closed_at: "2026-08-04T16:16:32+08:00"
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
-product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+source_sha: ce637e7102c174804116db624c35a96c3363acec
+assessment_source_anchor_sha: ce637e7102c174804116db624c35a96c3363acec
+product_evidence_source_sha: ce637e7102c174804116db624c35a96c3363acec
 governance_closure_merge_sha: THIS_CHANGESET
-l1_plus_status: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN_COMPLETE_WITH_LIMITS
+mainline_candidate: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
+support_candidate: null
+docs_discovery_candidate: null
+mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
+primary_outcome: Teacher and Student can inspect a safe read-only D1-D6 Golden Journey with exact package identity, supported slices, receipts, allowed actions, and known limits.
 runtime_authority: JSON_INTERNAL_ONLY
 predecessor:
-  cycle_id: L1PLUS-CYCLE-010-D5-AOL-XAPI-EXPORT
-  status: CLOSED_AND_CURRENT_WITH_LIMITS
-capability:
-  id: L1P-D6
-  candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
-  status: CLOSED_AND_CURRENT_WITH_LIMITS
-  primary_outcome: Teacher and Admin can define, preview, freeze, revise, retire, and audit a synthetic transfer research design bound to exact D1-D5 references without creating a second EvidenceArtifact writer.
-  mutable_authority: TransferResearchDesignCommandService_JSON_INTERNAL_ONLY
-  sole_writer: TransferResearchDesignCommandService_for_D6_design_records
-  formal_evidence_writer: D2_EvidenceCaptureCommandService
-  projection_service: TeacherSafeTransferResearchProjection_and_AdminSafeTransferResearchProjection
-  product_prs:
-    - number: 334
-      merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
-      role: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN
-  evidence:
-    product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-    acceptance_rows: A01_A30_NO_UNKNOWN_OR_NOT_MAPPED
-    challenge_review_blocking: 0
-    challenge_review_must_fix: 0
-    post_merge_fresh_clone: PASS
-    full_tests: 155_FILES_1011_TESTS_PASS
-    browser: 1_D6_TEST_PASS
-    contract: 13_FILES_32_TESTS_PASS_17_SCHEMA_GROUPS
-    direct_store_boundary: 0_NEW_UNAPPROVED
-    typecheck: PASS
-    lint: PASS
-    build: PASS
-    hidden_unicode: PASS
-    codeql: PASS
-    quality: PASS
-    product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
-    fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z/integration/fresh-clone/post-merge-d252df2
-    evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z
-  known_limits:
-    runtime_authority: JSON_INTERNAL_ONLY
-    synthetic_only: true
-    causal_claims: DISABLED
-    human_validation: NOT_PERFORMED
-    issue_111: OPEN_KNOWN_LIMIT
-    postgresql: NOT_ACTIVE
-    durable_settlement_and_recovery: NOT_PROVEN
-    pilot_and_production: NOT_AUTHORIZED
-    codegraph: GRAPH_EVIDENCE_GAP
-    dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
-support_code:
-  candidate_id: NONE
-docs_discovery:
-  candidate_id: NONE
-closure:
-  concurrency: 1
-  ready_pr_limit: 1
-  merge_execution_limit: 1
-  post_merge_required: COMPLETED
-  governance_pr: THIS_CHANGESET
+  cycle_id: L1PLUS-CYCLE-011-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+  merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+product_prs:
+  - number: 336
+    role: BACKEND_CONTRACT_INTEGRATION
+    merge_sha: a4494906c556e70ad82d6f4544a34b8d11b0f18a
+  - number: 337
+    role: TEACHER_STUDENT_GOLDEN_JOURNEY
+    merge_sha: ce637e7102c174804116db624c35a96c3363acec
+validation:
+  acceptance: PASS_WITH_EXPLICIT_LIMITS
+  acceptance_rows: 36
+  unknown_rows: 0
+  not_mapped_rows: 0
+  focused_integration: PASS_2_TESTS
+  contract: PASS_14_FILES_37_TESTS_18_SCHEMA_GROUPS
+  full: PASS_157_FILES_1018_TESTS
+  browser: PASS_74_MAIN_9_EXISTING_ENVIRONMENT_GATED_SKIPS_PLUS_ROLE_WORKFLOW
+  ci: PASS
+  codeql: PASS
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  fresh_clone: PASS_CLEAN_DETACHED_AT_SOURCE_SHA
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+evidence:
+  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W011-R3-GOLDEN-JOURNEY-20260804T150018Z
+  product_acceptance: product-acceptance/acceptance-receipt.json
+  final_receipt: closure/final-receipt.json
+  fresh_clone_receipt: tests/fresh-clone-receipt.json
+  cell_a_review: reviews/cell-a-review-receipt.json
+  cell_b_review: reviews/cell-b-review-receipt.json
 resource_locks:
-  - resource: D6_TRANSFER_EVIDENCE_CONTRACT
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_TRANSFER_RESEARCH_DESIGN_SERVICE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_TEACHER_ADMIN_WORKBENCH
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_ACCEPTANCE_AND_BROWSER
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: PLAYWRIGHT_STATE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: SERIAL_CLOSURE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - R3_INTEGRATION_CONTRACT
+    - TEACHER_GOLDEN_JOURNEY_PROJECTION
+    - STUDENT_SAFE_GOLDEN_JOURNEY_PROJECTION
+    - GOLDEN_RECEIPTS_AND_PLAYWRIGHT_STATE
+    - SERIAL_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
     status: RECOMMENDED_NOT_AUTHORIZED
@@ -85,20 +65,33 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
   - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
+metrics:
+  product_pr_count: 2
+  governance_pr_count: 1
+  corrective_product_pr_count: 0
+  governance_reclosure_count: 0
+  first_pass_exit: true
+  readiness_mode: PARALLEL_READINESS_ONLY
+  merge_mode: SERIAL
+  resource_cost_ratio: NOT_MEASURED
 known_limits:
-  issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
+  synthetic_internal_validation: true
   human_validation: NOT_PERFORMED
+  issue_111: OPEN_KNOWN_LIMIT
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
+  codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 invalidation_triggers:
   - product_or_runtime_changed
-  - d6_shared_contract_changed
-  - d6_authority_changed
-  - d6_teacher_admin_visibility_changed
-  - golden_truth_or_replay_contract_changed
-  - student_visibility_changed
+  - r3_integration_contract_changed
+  - golden_or_visibility_changed
+  - d1_d6_authority_changed
   - post_merge_evidence_invalidated
+explicit_non_proofs:
+  - Human Validation is not performed.
+  - The synthetic flow does not prove causal learning outcomes.
+  - PostgreSQL, durable recovery, Pilot, Production, D4, and successor work are not authorized.
 automatic_next_start: false
