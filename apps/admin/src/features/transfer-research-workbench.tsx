@@ -69,14 +69,17 @@ function designInput(tenantId: string, title: string): TransferResearchDesignInp
           "OBSERVED_APPLICATION",
           "INSUFFICIENT_EVIDENCE"
         ],
-        missing_is_not_negative: true
+        missing_is_not_negative: true,
+        role: "PRIMARY"
       }
     ],
     provenance_source_policy: {
       allowed_source_types: ["LEARNER_SELF_REPORT", "SUPERVISOR_OBSERVATION"],
       minimum_source_types: 2,
       required_provenance_complete: true,
-      small_cohort_minimum: 5
+      small_cohort_minimum: 5,
+      retention_days: 90,
+      deletion_mode: "DELETE_ON_EXPIRY"
     },
     rubric_ref: exact("rubric_exact", "rubric_version", refDigest("6"), tenantId),
     title
