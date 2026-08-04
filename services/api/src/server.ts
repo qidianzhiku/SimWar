@@ -91,6 +91,10 @@ import {
   isStudentLearningReportRoute
 } from "./routes/student-learning-report-routes.js";
 import { StudentLearningReportProjectionService } from "./student-learning-report-projection.js";
+import { D5ExportAssembler } from "./d5-export-assembler.js";
+import { D5DeliveryService } from "./d5-delivery.js";
+import { InMemoryD5ExportRegistry } from "./d5-export-registry.js";
+import { handleD5ExportRoute } from "./routes/d5-export-routes.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -245,6 +249,8 @@ interface ApiRuntime {
   teacherConfirmationQueries: TeacherConfirmationQueryService;
   teacherConfirmationClaims: TeacherConfirmationWorkClaimService;
   studentLearningReports: StudentLearningReportProjectionService;
+  d5ExportAssembler: D5ExportAssembler;
+  d5Delivery: D5DeliveryService;
   formalParameterSets: ParameterSetCommandService;
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
@@ -455,6 +461,15 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     confirmations: teacherConfirmations,
     evidence: repositoryProvider.ports.evidenceProvenance
   });
+  const d5ExportRepository = new InMemoryD5ExportRegistry();
+  const d5ExportAssembler = new D5ExportAssembler({
+    reports: studentLearningReports,
+    repository: d5ExportRepository
+  });
+  const d5Delivery = new D5DeliveryService({
+    assembler: d5ExportAssembler,
+    repository: d5ExportRepository
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -469,6 +484,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     teacherConfirmationQueries: new TeacherConfirmationQueryService(teacherConfirmations),
     teacherConfirmationClaims,
     studentLearningReports,
+    d5ExportAssembler,
+    d5Delivery,
     courseReports: new CourseReportQueryService(
       repositoryProvider.facade,
       repositoryProvider.capabilities
@@ -4278,6 +4295,24 @@ async function routeRequest(
     );
     return;
   }
+
+  if (
+    await handleD5ExportRoute(
+      { exportAssembler: runtime.d5ExportAssembler, delivery: runtime.d5Delivery },
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        readJson: (incoming, options) => readJson(incoming, options),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context)
+      }
+    )
+  ) return;
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 
