@@ -196,7 +196,8 @@ export class TransferResearchDesignCommandService
       input.d4_source_ref,
       input.d5_source_ref,
       input.learning_goal_ref,
-      input.rubric_ref
+      input.rubric_ref,
+      ...(supersedesRef ? [supersedesRef] : [])
     ];
     if (!refs.every(isD6ExactRef) || !sameTenant(tenantId, refs))
       throw new TransferResearchDesignError("D6_TENANT_SCOPE_VIOLATION");
