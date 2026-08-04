@@ -16,6 +16,7 @@ export const D5_EXPORT_RESOURCE_TYPES = [
   "aol_export_dataset_version",
   "learning_export_bundle_version",
   "learning_export_job",
+  "export_delivery_attempt",
   "export_delivery_receipt",
   "transformation_rule"
 ] as const;
