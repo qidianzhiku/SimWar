@@ -1,10 +1,12 @@
 # L1P-VC-08: Role Workflow Productization
 
-**Status:** `CLOSED_AND_CURRENT`
+**Status:** `CLOSED_AND_CURRENT_WITH_LIMITS`
 
-**Product merge:** `#304` / `6e657fd32c84901566796cd680270de4d3a59fc5`
+**Product merge:** `#339` / `74b29acadf8a4649c7bdf128476bfcf0d4c629ad`
 
-**Product head:** `b75c31a988c889a88c1ff9f60ba90171fdefff46`
+**Product files:** `apps/teacher/src/RoleWorkflowPanel.tsx`,
+`services/api/src/store.ts`,
+`tests/integration/role-workflow-endpoint.test.ts`
 
 **Sole writer:** `RoleWorkflowCommandService`
 
@@ -12,61 +14,53 @@
 
 ## Product Outcome
 
-Teacher and Student surfaces now complete one governed Role Workflow:
+The default Golden demo fixture now exposes one distinct CEO, CFO, CMO and COO
+member with the CEO as captain. The Teacher surface makes the complete-team
+precondition visible and keeps assignment controls disabled until that
+precondition is true. A valid default CEO assignment is executable through the
+existing Role Workflow writer.
 
-`Role Definition -> Role Assignment -> Safe Role Context -> Individual Draft
--> Team Merge Candidate -> Final Confirmation -> canonical Decision`.
+The existing nonviable-team guard remains fail closed with
+`ROLE_WORKFLOW_TEAM_INCOMPLETE`; it still performs no assignment or event
+write and does not alter the legacy Decision boundary.
 
-The canonical Decision then continues through the existing lock, settlement,
-publish and Replay chain. Teams must have exactly one distinct CEO, CFO, CMO
-and COO owner, and the captain must own the CEO role, before workflow
-activation can close the legacy Decision path.
+The D2 eligible-event query is reachable after a valid active role assignment,
+returns a safe empty projection when no eligible event exists, and continues to
+deny reset, cross-scope, unauthorized-role, and student-route requests.
 
 ## Evidence
 
-- PR #304 passed exact-head CI, browser smoke, CodeQL and independent Challenge
-  Review with zero blocking or must-fix findings.
-- Focused unit, integration and executable contract coverage passed 21/21.
-- The post-merge fresh clone passed the contract gate, typecheck, lint,
-  843/843 full tests and the full build.
-- Canonical browser coverage passed 58 tests with nine existing conditional
-  skips, followed by the independent real C3 Role Workflow journey.
-- Direct-store protection reported zero new unapproved runtime access.
-- Student projections exclude merged private payload, `state_true`, private
-  Replay material and canonical evidence internals.
-
-## Failure, Concurrency and Historical Protection
-
-Coverage includes illegal transitions, stale draft versions, repeated
-assignment, tenant/team/role isolation, concurrent merge behavior, idempotent
-confirmation, compensation on persistence failure, reset, historical
-non-overwrite and Golden/Replay non-interference.
-
-After Role Workflow history exists, the legacy direct Decision route remains
-closed even after reset. Rejected activation of a nonviable team performs no
-assignment or event write and leaves the legacy Decision path available.
+- PR #339 passed exact-head quality, browser-smoke and CodeQL checks.
+- Independent challenge review recorded `BLOCKING=0` and `MUST_FIX=0`.
+- Focused role/D2 tests passed 4 files / 24 tests.
+- Contract gate passed 14 files / 37 tests.
+- Post-merge fresh clone passed 157 files / 1019 tests, typecheck, build,
+  direct-store boundary and hidden-Unicode checks.
+- Three new real-browser/real-API synthetic sessions passed with explicit
+  limits: `R4S-R5FIX-S1-20260804T155056024Z`,
+  `R4S-R5FIX-S2-20260804T155056024Z`, and
+  `R4S-R5FIX-S3-20260804T155056024Z`.
+- Cell B was rebased onto the product merge with no source change and no
+  second product PR.
 
 ## Boundaries and Known Limits
 
-- No second Role authority or registry was introduced.
+- No second Role authority, registry, resolver or writer was introduced.
 - SettlementResult, Score, Rank, Simulation Core and Replay hash semantics are
   unchanged.
+- D2 remains teacher-only and does not write Truth, SettlementResult, Score,
+  Rank or Replay authority.
 - `JSON_INTERNAL_ONLY` remains the sole active runtime authority.
-- JSON compensation is `COMPENSATING_ATOMICITY_NOT_CRASH_SAFE`.
-- Human Validation was waived by Owner and was not performed.
+- Human Validation remains blocked by the missing independent teacher session;
+  all browser receipts in this cycle are synthetic-agent evidence.
 - Issue #111 remains `OPEN_KNOWN_LIMIT`.
-- PostgreSQL, durable recovery, Pilot and Production are not active, proven or
-  authorized.
-- C4, D1, M1 and STK-S1 are not implemented or authorized by this closure.
+- PostgreSQL, durable recovery, Pilot, Production and successor work are not
+  active, proven or authorized.
 
-## Revalidation Triggers
+## Closure
 
-Revalidate after Role Workflow authority or registry changes, shared-contract
-changes, canonical Decision or formal Run binding changes, Golden/Replay
-changes, Student visibility changes, or product/runtime changes.
+This document is a docs-only governance closure for cycle
+`L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION`. It does not authorize C4,
+D3-D6, R5 continuation, or automatic successor work.
 
-## Successor Boundary
-
-`CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT` is
-`RECOMMENDED_NOT_AUTHORIZED`. No successor locks are acquired and
-`automatic_next_start` remains `false`.
+`automatic_next_start: false`
