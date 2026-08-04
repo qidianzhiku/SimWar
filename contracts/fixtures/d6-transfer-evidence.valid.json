@@ -1,0 +1,240 @@
+{
+  "analysis_plan": {
+    "analysis_plan_ref": {
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "discriminator": "exact_ref",
+      "resource_id": "plan_d6_demo",
+      "resource_type": "transfer_analysis_plan_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "claim_mode": "DESCRIPTIVE_ONLY",
+    "content_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "causal_claim": false,
+    "baseline_required": true,
+    "missing_data_policy": "MISSING_NOT_NEGATIVE",
+    "outcome_codes": ["APPLICATION_STATE"],
+    "schema_version": "d6-transfer-evidence.v1",
+    "small_cell_suppression": 5
+  },
+  "instrument": {
+    "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "instrument_ref": {
+      "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "discriminator": "exact_ref",
+      "resource_id": "instrument_d6_demo",
+      "resource_type": "transfer_instrument_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "items": [
+      { "item_id": "item_1", "prompt": "What opportunity was available?", "response_type": "TEXT" }
+    ],
+    "schema_version": "d6-transfer-evidence.v1",
+    "source_type": "LEARNER_SELF_REPORT",
+    "status": "FROZEN",
+    "visibility": "teacher_admin_only"
+  },
+  "study": {
+    "analysis_plan_ref": {
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "discriminator": "exact_ref",
+      "resource_id": "plan_d6_demo",
+      "resource_type": "transfer_analysis_plan_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "content_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "course_package_ref": {
+      "content_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "discriminator": "exact_ref",
+      "resource_id": "package_d6_demo",
+      "resource_type": "course_package_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "d4_source_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "report_d4_demo",
+      "resource_type": "student_learning_report",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "d4_reference_only": true,
+    "d5_source_ref": {
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "discriminator": "exact_ref",
+      "resource_id": "export_d5_demo",
+      "resource_type": "learning_export_bundle_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "d5_reference_only": true,
+    "formal_transfer_claim_write": false,
+    "instrument_refs": [
+      {
+        "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "discriminator": "exact_ref",
+        "resource_id": "instrument_d6_demo",
+        "resource_type": "transfer_instrument_version",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      }
+    ],
+    "lifecycle": "FROZEN",
+    "context_factors": ["OPPORTUNITY_TO_PERFORM", "MANAGER_SUPPORT"],
+    "observation_windows": [
+      { "code": "W0_BASELINE", "offset_days": 0, "tolerance_days": 7 },
+      { "code": "W2_30D", "offset_days": 30, "tolerance_days": 7 }
+    ],
+    "outcome_measures": [
+      {
+        "code": "APPLICATION_STATE",
+        "allowed_states": [
+          "NOT_ASSESSED",
+          "ATTEMPTED_APPLICATION",
+          "OBSERVED_APPLICATION",
+          "INSUFFICIENT_EVIDENCE"
+        ],
+        "missing_is_not_negative": true,
+        "role": "PRIMARY"
+      }
+    ],
+    "provenance_source_policy": {
+      "allowed_source_types": ["LEARNER_SELF_REPORT", "SUPERVISOR_OBSERVATION"],
+      "minimum_source_types": 2,
+      "required_provenance_complete": true,
+      "small_cohort_minimum": 5,
+      "retention_days": 90,
+      "deletion_mode": "DELETE_ON_EXPIRY"
+    },
+    "research_questions": [
+      { "question_id": "q_transfer_1", "prompt": "What transfer opportunity was available?" }
+    ],
+    "rubric_ref": {
+      "content_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "discriminator": "exact_ref",
+      "resource_id": "rubric_d6_demo",
+      "resource_type": "rubric_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "schema_version": "d6-transfer-evidence.v1",
+    "study_ref": {
+      "content_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "discriminator": "exact_ref",
+      "resource_id": "study_d6_demo",
+      "resource_type": "transfer_study_definition_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "title": "Synthetic transfer research design",
+    "learning_goal_ref": {
+      "content_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "discriminator": "exact_ref",
+      "resource_id": "goal_d6_demo",
+      "resource_type": "learning_goal_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "scope": {
+      "activity_id": "activity_d6_demo",
+      "course_id": "package_d6_demo",
+      "role_key": "CEO",
+      "run_id": "run_d6_demo",
+      "team_id": "team_d6_demo"
+    },
+    "visibility": "teacher_admin_only"
+  },
+  "synthetic_preview": {
+    "candidate_ref": {
+      "content_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "discriminator": "exact_ref",
+      "resource_id": "candidate_d6_demo",
+      "resource_type": "transfer_evidence_record_candidate",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "content_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "context_snapshot": {
+      "factors": ["OPPORTUNITY_TO_PERFORM"],
+      "opportunity_status": "AVAILABLE"
+    },
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "formal_transfer_claim_write": false,
+    "instrument_ref": {
+      "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "discriminator": "exact_ref",
+      "resource_id": "instrument_d6_demo",
+      "resource_type": "transfer_instrument_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "missingness_status": "OBSERVED",
+    "observer_relation": "SELF",
+    "observer_conflict_status": "NOT_ASSESSED",
+    "participation_status": "NOT_ESTABLISHED",
+    "participant_ref": {
+      "content_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "discriminator": "exact_ref",
+      "resource_id": "participant_pseudo_1",
+      "resource_type": "pseudonymous_participant",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "provenance_edges": [
+      {
+        "discriminator": "d6_transfer_provenance_edge",
+        "relation": "derived_from",
+        "source_ref": {
+          "content_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "discriminator": "exact_ref",
+          "resource_id": "package_d6_demo",
+          "resource_type": "course_package_version",
+          "tenant_id": "tenant_demo",
+          "version": "1.0.0"
+        },
+        "target_ref": {
+          "content_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+          "discriminator": "exact_ref",
+          "resource_id": "candidate_d6_demo",
+          "resource_type": "transfer_evidence_record_candidate",
+          "tenant_id": "tenant_demo",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "record_type": "TRANSFER_SELF_REPORT_RECORD",
+    "runtime_status": "SYNTHETIC_ONLY",
+    "schema_version": "d6-transfer-evidence.v1",
+    "source_type": "LEARNER_SELF_REPORT",
+    "suppression_status": "SUPPRESSED_BELOW_THRESHOLD",
+    "scope": {
+      "activity_id": "activity_d6_demo",
+      "course_id": "package_d6_demo",
+      "role_key": "CEO",
+      "run_id": "run_d6_demo",
+      "team_id": "team_d6_demo"
+    },
+    "study_ref": {
+      "content_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "discriminator": "exact_ref",
+      "resource_id": "study_d6_demo",
+      "resource_type": "transfer_study_definition_version",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "transfer_state": "ATTEMPTED_APPLICATION",
+    "visibility": "teacher_admin_only",
+    "window_ref": {
+      "content_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "discriminator": "exact_ref",
+      "resource_id": "window_d6_baseline",
+      "resource_type": "transfer_observation_window",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    }
+  }
+}

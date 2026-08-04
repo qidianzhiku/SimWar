@@ -2581,9 +2581,23 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [report_refs], properties: { report_refs: { type: array, minItems: 1, items: { type: object } } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [report_refs],
+                properties: { report_refs: { type: array, minItems: 1, items: { type: object } } }
+              }
       responses:
-        "200": { description: Teacher-safe D5 export preview, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportPreviewEnvelope" } } } }
+        "200":
+          {
+            description: Teacher-safe D5 export preview,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/D5ExportPreviewEnvelope" } }
+              }
+          }
         "403": { description: Teacher scope required }
         "409": { description: Deterministic export conflict }
 
@@ -2596,9 +2610,23 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [report_refs], properties: { report_refs: { type: array, minItems: 1, items: { type: object } } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [report_refs],
+                properties: { report_refs: { type: array, minItems: 1, items: { type: object } } }
+              }
       responses:
-        "201": { description: Immutable D5 export bundle, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportBundleEnvelope" } } } }
+        "201":
+          {
+            description: Immutable D5 export bundle,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/D5ExportBundleEnvelope" } }
+              }
+          }
         "403": { description: Teacher scope required }
         "409": { description: Deterministic export conflict }
 
@@ -2608,7 +2636,14 @@ paths:
       security:
         - SessionBearer: []
       responses:
-        "200": { description: Teacher-safe D5 bundle and delivery list, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportListEnvelope" } } } }
+        "200":
+          {
+            description: Teacher-safe D5 bundle and delivery list,
+            content:
+              {
+                application/json: { schema: { $ref: "#/components/schemas/D5ExportListEnvelope" } }
+              }
+          }
         "403": { description: Teacher scope required }
 
   /api/v1/bff/teacher/learning-exports/jobs:
@@ -2620,9 +2655,20 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [bundle_ref], properties: { bundle_ref: { type: object } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [bundle_ref],
+                properties: { bundle_ref: { type: object } }
+              }
       responses:
-        "201": { description: Mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "201":
+          {
+            description: Mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Teacher scope required }
         "409": { description: Idempotency conflict }
 
@@ -2634,7 +2680,12 @@ paths:
       parameters:
         - { name: jobId, in: path, required: true, schema: { type: string, minLength: 1 } }
       responses:
-        "200": { description: Retried mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "200":
+          {
+            description: Retried mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Teacher scope required }
         "404": { description: Job not found }
 
@@ -2646,7 +2697,12 @@ paths:
       parameters:
         - { name: jobId, in: path, required: true, schema: { type: string, minLength: 1 } }
       responses:
-        "200": { description: Cancelled mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "200":
+          {
+            description: Cancelled mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Teacher scope required }
         "404": { description: Job not found }
 
@@ -2659,9 +2715,23 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [report_refs], properties: { report_refs: { type: array, minItems: 1, items: { type: object } } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [report_refs],
+                properties: { report_refs: { type: array, minItems: 1, items: { type: object } } }
+              }
       responses:
-        "200": { description: Admin tenant-safe D5 export preview, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportPreviewEnvelope" } } } }
+        "200":
+          {
+            description: Admin tenant-safe D5 export preview,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/D5ExportPreviewEnvelope" } }
+              }
+          }
         "403": { description: Admin scope required }
         "409": { description: Deterministic export conflict }
 
@@ -2674,9 +2744,23 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [report_refs], properties: { report_refs: { type: array, minItems: 1, items: { type: object } } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [report_refs],
+                properties: { report_refs: { type: array, minItems: 1, items: { type: object } } }
+              }
       responses:
-        "201": { description: Immutable D5 export bundle, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportBundleEnvelope" } } } }
+        "201":
+          {
+            description: Immutable D5 export bundle,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/D5ExportBundleEnvelope" } }
+              }
+          }
         "403": { description: Admin scope required }
         "409": { description: Deterministic export conflict }
 
@@ -2686,7 +2770,14 @@ paths:
       security:
         - SessionBearer: []
       responses:
-        "200": { description: Admin tenant-safe D5 bundle and delivery list, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportListEnvelope" } } } }
+        "200":
+          {
+            description: Admin tenant-safe D5 bundle and delivery list,
+            content:
+              {
+                application/json: { schema: { $ref: "#/components/schemas/D5ExportListEnvelope" } }
+              }
+          }
         "403": { description: Admin scope required }
 
   /api/v1/bff/admin/learning-exports/jobs:
@@ -2698,9 +2789,20 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, required: [bundle_ref], properties: { bundle_ref: { type: object } } }
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [bundle_ref],
+                properties: { bundle_ref: { type: object } }
+              }
       responses:
-        "201": { description: Mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "201":
+          {
+            description: Mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Admin scope required }
         "409": { description: Idempotency conflict }
 
@@ -2712,7 +2814,12 @@ paths:
       parameters:
         - { name: jobId, in: path, required: true, schema: { type: string, minLength: 1 } }
       responses:
-        "200": { description: Retried mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "200":
+          {
+            description: Retried mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Admin scope required }
         "404": { description: Job not found }
 
@@ -2724,9 +2831,224 @@ paths:
       parameters:
         - { name: jobId, in: path, required: true, schema: { type: string, minLength: 1 } }
       responses:
-        "200": { description: Cancelled mock LRS delivery job, content: { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } } }
+        "200":
+          {
+            description: Cancelled mock LRS delivery job,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D5ExportJobEnvelope" } } }
+          }
         "403": { description: Admin scope required }
         "404": { description: Job not found }
+
+  /api/v1/bff/teacher/transfer-research-designs:
+    get:
+      operationId: teacherTransferResearchDesignList
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          {
+            description: Teacher-safe D6 study designs,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/teacher/transfer-research-designs/preview:
+    post:
+      operationId: teacherTransferResearchDesignPreview
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "200":
+          {
+            description: Synthetic D6 preview,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/teacher/transfer-research-designs/freeze:
+    post:
+      operationId: teacherTransferResearchDesignFreeze
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "201":
+          {
+            description: Frozen D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic D6 conflict }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/teacher/transfer-research-designs/{studyId}/synthetic-preview:
+    get:
+      operationId: teacherTransferResearchSyntheticPreview
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          {
+            description: Synthetic D6 evidence preview,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+        "404": { description: D6 study not found }
+  /api/v1/bff/admin/transfer-research-designs:
+    get:
+      operationId: adminTransferResearchDesignList
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          {
+            description: Admin-safe D6 study designs,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+  /api/v1/bff/admin/transfer-research-designs/preview:
+    post:
+      operationId: adminTransferResearchDesignPreview
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "200":
+          {
+            description: Synthetic D6 preview,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/admin/transfer-research-designs/freeze:
+    post:
+      operationId: adminTransferResearchDesignFreeze
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "201":
+          {
+            description: Frozen D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+        "409": { description: Deterministic D6 conflict }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/admin/transfer-research-designs/{studyId}/synthetic-preview:
+    get:
+      operationId: adminTransferResearchSyntheticPreview
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          {
+            description: Synthetic D6 evidence preview,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+        "404": { description: D6 study not found }
+
+  /api/v1/bff/teacher/transfer-research-designs/{studyId}/revise:
+    post:
+      operationId: teacherTransferResearchDesignRevise
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "201":
+          {
+            description: Revised frozen D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+        "404": { description: D6 study not found }
+        "409": { description: Deterministic D6 conflict }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/teacher/transfer-research-designs/{studyId}/retire:
+    post:
+      operationId: teacherTransferResearchDesignRetire
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          {
+            description: Retired D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Teacher scope required }
+        "404": { description: D6 study not found }
+  /api/v1/bff/admin/transfer-research-designs/{studyId}/revise:
+    post:
+      operationId: adminTransferResearchDesignRevise
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, additionalProperties: false } }
+      responses:
+        "201":
+          {
+            description: Revised frozen D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+        "404": { description: D6 study not found }
+        "409": { description: Deterministic D6 conflict }
+        "422": { description: D6 input rejected }
+  /api/v1/bff/admin/transfer-research-designs/{studyId}/retire:
+    post:
+      operationId: adminTransferResearchDesignRetire
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: studyId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          {
+            description: Retired D6 research design,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/D6TransferEnvelope" } } }
+          }
+        "403": { description: Admin scope required }
+        "404": { description: D6 study not found }
 
 components:
   securitySchemes:
@@ -2744,6 +3066,17 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    D6TransferEvidence:
+      $ref: "../schemas/d6-transfer-evidence.v1.json"
+    D6TransferEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { type: object, additionalProperties: true }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     D5LearningExportBundle:
       $ref: "../schemas/d5-export.v1.json"
     D5ExportPreviewEnvelope:

@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/d6-transfer-evidence.v1.json",
+  "title": "SimWar D6 transfer evidence research design",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["analysis_plan", "instrument", "study", "synthetic_preview"],
+  "properties": {
+    "analysis_plan": { "$ref": "#/$defs/AnalysisPlan" },
+    "instrument": { "$ref": "#/$defs/Instrument" },
+    "study": { "$ref": "#/$defs/Study" },
+    "synthetic_preview": { "$ref": "#/$defs/Candidate" }
+  },
+  "$defs": {
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": {
+          "type": "string",
+          "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved|wildcard))(?!.*[\\._:-][Xx*](?:$|[\\._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+        },
+        "resource_type": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "tenant_id": {
+          "type": "string",
+          "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved|wildcard))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved|wildcard))(?!.*[\\._:-][Xx*](?:$|[\\._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+        }
+      }
+    },
+    "Window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "offset_days", "tolerance_days"],
+      "properties": {
+        "code": { "enum": ["W0_BASELINE", "W1_IMMEDIATE", "W2_30D", "W3_60D", "W4_90D"] },
+        "offset_days": { "type": "integer", "minimum": 0 },
+        "tolerance_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ResearchQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "question_id"],
+      "properties": {
+        "prompt": { "type": "string", "minLength": 1 },
+        "question_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+      }
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "course_id", "role_key", "run_id", "team_id"],
+      "properties": {
+        "activity_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "course_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "role_key": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "run_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "team_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+      }
+    },
+    "Outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "allowed_states", "missing_is_not_negative", "role"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Za-z0-9_:-]+$" },
+        "allowed_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "NOT_ASSESSED",
+              "OPPORTUNITY_NOT_AVAILABLE",
+              "ATTEMPTED_APPLICATION",
+              "OBSERVED_APPLICATION",
+              "SUSTAINED_APPLICATION",
+              "GENERALIZED_APPLICATION",
+              "INSUFFICIENT_EVIDENCE"
+            ]
+          }
+        },
+        "missing_is_not_negative": { "const": true },
+        "role": { "enum": ["PRIMARY", "SECONDARY"] }
+      }
+    },
+    "SourcePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_source_types",
+        "minimum_source_types",
+        "required_provenance_complete",
+        "small_cohort_minimum",
+        "retention_days",
+        "deletion_mode"
+      ],
+      "properties": {
+        "allowed_source_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "LEARNER_SELF_REPORT",
+              "SUPERVISOR_OBSERVATION",
+              "WORK_ARTIFACT_REVIEW",
+              "SYSTEM_EVENT",
+              "PEER_OR_CUSTOMER_FEEDBACK"
+            ]
+          }
+        },
+        "minimum_source_types": { "type": "integer", "minimum": 2 },
+        "required_provenance_complete": { "const": true },
+        "small_cohort_minimum": { "type": "integer", "minimum": 3 },
+        "retention_days": { "type": "integer", "minimum": 1 },
+        "deletion_mode": { "enum": ["DELETE_ON_EXPIRY", "MANUAL_REVIEW_REQUIRED"] }
+      }
+    },
+    "Instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "instrument_ref",
+        "items",
+        "schema_version",
+        "source_type",
+        "status",
+        "visibility"
+      ],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "instrument_ref": { "$ref": "#/$defs/ExactRef" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["item_id", "prompt", "response_type"],
+            "properties": {
+              "item_id": { "type": "string", "minLength": 1 },
+              "prompt": { "type": "string", "minLength": 1 },
+              "response_type": { "enum": ["TEXT", "BOOLEAN", "ENUM", "NUMBER"] }
+            }
+          }
+        },
+        "schema_version": { "const": "d6-transfer-evidence.v1" },
+        "source_type": {
+          "enum": [
+            "LEARNER_SELF_REPORT",
+            "SUPERVISOR_OBSERVATION",
+            "WORK_ARTIFACT_REVIEW",
+            "SYSTEM_EVENT",
+            "PEER_OR_CUSTOMER_FEEDBACK"
+          ]
+        },
+        "status": { "enum": ["DRAFT", "FROZEN", "RETIRED"] },
+        "visibility": { "const": "teacher_admin_only" }
+      }
+    },
+    "AnalysisPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysis_plan_ref",
+        "claim_mode",
+        "content_digest",
+        "causal_claim",
+        "baseline_required",
+        "missing_data_policy",
+        "outcome_codes",
+        "schema_version",
+        "small_cell_suppression"
+      ],
+      "properties": {
+        "analysis_plan_ref": { "$ref": "#/$defs/ExactRef" },
+        "claim_mode": { "enum": ["DESCRIPTIVE_ONLY", "ASSOCIATIONAL_ONLY"] },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "causal_claim": { "const": false },
+        "baseline_required": { "const": true },
+        "missing_data_policy": { "const": "MISSING_NOT_NEGATIVE" },
+        "outcome_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "schema_version": { "const": "d6-transfer-evidence.v1" },
+        "small_cell_suppression": { "type": "integer", "minimum": 3 }
+      }
+    },
+    "Study": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysis_plan_ref",
+        "content_digest",
+        "course_package_ref",
+        "created_at",
+        "d4_source_ref",
+        "d4_reference_only",
+        "d5_source_ref",
+        "d5_reference_only",
+        "formal_transfer_claim_write",
+        "instrument_refs",
+        "lifecycle",
+        "context_factors",
+        "observation_windows",
+        "outcome_measures",
+        "provenance_source_policy",
+        "research_questions",
+        "rubric_ref",
+        "schema_version",
+        "study_ref",
+        "title",
+        "learning_goal_ref",
+        "scope",
+        "visibility"
+      ],
+      "properties": {
+        "analysis_plan_ref": { "$ref": "#/$defs/ExactRef" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "course_package_ref": { "$ref": "#/$defs/ExactRef" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "d4_source_ref": { "$ref": "#/$defs/ExactRef" },
+        "d4_reference_only": { "const": true },
+        "d5_source_ref": { "$ref": "#/$defs/ExactRef" },
+        "d5_reference_only": { "const": true },
+        "formal_transfer_claim_write": { "const": false },
+        "instrument_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ExactRef" }
+        },
+        "lifecycle": { "enum": ["DRAFT", "VALIDATING", "READY_WITH_LIMITS", "FROZEN", "RETIRED"] },
+        "context_factors": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "observation_windows": {
+          "type": "array",
+          "minItems": 2,
+          "contains": { "type": "object", "properties": { "code": { "const": "W0_BASELINE" } } },
+          "items": { "$ref": "#/$defs/Window" }
+        },
+        "outcome_measures": {
+          "type": "array",
+          "minItems": 1,
+          "contains": { "type": "object", "properties": { "role": { "const": "PRIMARY" } } },
+          "minContains": 1,
+          "maxContains": 1,
+          "items": { "$ref": "#/$defs/Outcome" }
+        },
+        "provenance_source_policy": { "$ref": "#/$defs/SourcePolicy" },
+        "research_questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ResearchQuestion" }
+        },
+        "rubric_ref": { "$ref": "#/$defs/ExactRef" },
+        "schema_version": { "const": "d6-transfer-evidence.v1" },
+        "study_ref": { "$ref": "#/$defs/ExactRef" },
+        "title": { "type": "string", "minLength": 1 },
+        "learning_goal_ref": { "$ref": "#/$defs/ExactRef" },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "supersedes_ref": { "$ref": "#/$defs/ExactRef" },
+        "visibility": { "const": "teacher_admin_only" }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discriminator", "relation", "source_ref", "target_ref"],
+      "properties": {
+        "discriminator": { "const": "d6_transfer_provenance_edge" },
+        "relation": { "enum": ["derived_from", "supported_by"] },
+        "source_ref": { "$ref": "#/$defs/ExactRef" },
+        "target_ref": { "$ref": "#/$defs/ExactRef" }
+      }
+    },
+    "Candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_ref",
+        "content_digest",
+        "context_snapshot",
+        "created_at",
+        "formal_transfer_claim_write",
+        "instrument_ref",
+        "missingness_status",
+        "observer_relation",
+        "observer_conflict_status",
+        "participation_status",
+        "participant_ref",
+        "provenance_edges",
+        "record_type",
+        "runtime_status",
+        "schema_version",
+        "source_type",
+        "suppression_status",
+        "scope",
+        "study_ref",
+        "transfer_state",
+        "visibility",
+        "window_ref"
+      ],
+      "properties": {
+        "candidate_ref": { "$ref": "#/$defs/ExactRef" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "context_snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["factors", "opportunity_status"],
+          "properties": {
+            "factors": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+            "opportunity_status": { "enum": ["AVAILABLE", "NOT_AVAILABLE", "UNKNOWN"] }
+          }
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "formal_transfer_claim_write": { "const": false },
+        "instrument_ref": { "$ref": "#/$defs/ExactRef" },
+        "missingness_status": { "enum": ["OBSERVED", "MISSING", "NOT_APPLICABLE", "WITHHELD"] },
+        "observer_relation": { "enum": ["SELF", "SUPERVISOR", "PEER", "CUSTOMER", "SYSTEM"] },
+        "observer_conflict_status": {
+          "enum": ["NOT_ASSESSED", "NO_KNOWN_CONFLICT", "POTENTIAL_CONFLICT"]
+        },
+        "participation_status": { "enum": ["NOT_ESTABLISHED", "CONSENTED", "WITHDRAWN"] },
+        "participant_ref": { "$ref": "#/$defs/ExactRef" },
+        "provenance_edges": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Provenance" }
+        },
+        "record_type": {
+          "enum": [
+            "TRANSFER_OPPORTUNITY_RECORD",
+            "TRANSFER_SELF_REPORT_RECORD",
+            "TRANSFER_OBSERVATION_RECORD",
+            "TRANSFER_ARTIFACT_RECORD",
+            "TRANSFER_SYSTEM_EVENT_RECORD",
+            "TRANSFER_CONTEXT_RECORD"
+          ]
+        },
+        "runtime_status": { "const": "SYNTHETIC_ONLY" },
+        "schema_version": { "const": "d6-transfer-evidence.v1" },
+        "source_type": {
+          "enum": [
+            "LEARNER_SELF_REPORT",
+            "SUPERVISOR_OBSERVATION",
+            "WORK_ARTIFACT_REVIEW",
+            "SYSTEM_EVENT",
+            "PEER_OR_CUSTOMER_FEEDBACK"
+          ]
+        },
+        "suppression_status": {
+          "enum": ["NOT_EVALUATED", "VISIBLE_ABOVE_THRESHOLD", "SUPPRESSED_BELOW_THRESHOLD"]
+        },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "study_ref": { "$ref": "#/$defs/ExactRef" },
+        "transfer_state": {
+          "enum": [
+            "NOT_ASSESSED",
+            "OPPORTUNITY_NOT_AVAILABLE",
+            "ATTEMPTED_APPLICATION",
+            "OBSERVED_APPLICATION",
+            "SUSTAINED_APPLICATION",
+            "GENERALIZED_APPLICATION",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        },
+        "visibility": { "const": "teacher_admin_only" },
+        "window_ref": { "$ref": "#/$defs/ExactRef" }
+      }
+    }
+  }
+}
