@@ -1,14 +1,14 @@
-portfolio_version: 3
+portfolio_version: 4
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-04T16:16:32+08:00"
+generated_at: "2026-08-04T15:55:44Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: ce637e7102c174804116db624c35a96c3363acec
-product_evidence_source_sha: ce637e7102c174804116db624c35a96c3363acec
+assessment_source_anchor_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+product_evidence_source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
 governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: R3_CROSS_SLICE_GOLDEN_JOURNEY_COMPLETE_WITH_LIMITS
+l1_plus_status: R5_SR2_FINDINGS_CLOSED_WITH_SYNTHETIC_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,19 +16,17 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
-    capability_id: L1P-R3
+    candidate_id: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
+    capability_id: L1P-R5-SR2
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     product_prs:
-      - 336
-      - 337
+      - 339
     product_merge_shas:
-      - a4494906c556e70ad82d6f4544a34b8d11b0f18a
-      - ce637e7102c174804116db624c35a96c3363acec
-    primary_outcome: Teacher and Student can inspect a safe read-only D1-D6 Golden Journey with exact package identity, supported slices, receipts, allowed actions, and known limits.
+      - 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+    primary_outcome: "Close ROLE_WORKFLOW_TEAM_INCOMPLETE and D2 eligible-event query findings without changing Authority or product semantics."
   support_code: NONE
   docs_discovery: NONE
-  closure: R3_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: R5_SR2_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
   - capability_id: L1P-VC-06
     candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -38,10 +36,10 @@ closed_capabilities:
     status: CLOSED_AND_CURRENT
   - capability_id: L1P-VC-08
     candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
-    status: CLOSED_AND_CURRENT
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
   - capability_id: L1P-D1
     candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
-    status: CLOSED_AND_CURRENT
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
   - capability_id: L1P-D2
     candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
     status: CLOSED_AND_CURRENT_WITH_LIMITS
@@ -60,64 +58,48 @@ closed_capabilities:
   - capability_id: L1P-R3
     candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
     status: CLOSED_AND_CURRENT_WITH_LIMITS
+  - capability_id: L1P-R5-SR2
+    candidate_id: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - R3_INTEGRATION_CONTRACT
-    - TEACHER_GOLDEN_JOURNEY_PROJECTION
-    - STUDENT_SAFE_GOLDEN_JOURNEY_PROJECTION
-    - GOLDEN_RECEIPTS_AND_PLAYWRIGHT_STATE
+    - ROLE_WORKFLOW_DEFAULT_FIXTURE
+    - ROLE_WORKFLOW_TEACHER_PRECONDITION_UI
+    - D2_TEACHER_SAFE_QUERY
+    - R4S_SYNTHETIC_RECHECK
     - SERIAL_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
+  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
-  - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
-    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
 blocked_candidates: []
 evidence:
-  candidate_head: ce637e7102c174804116db624c35a96c3363acec
-  product_merge_shas:
-    - a4494906c556e70ad82d6f4544a34b8d11b0f18a
-    - ce637e7102c174804116db624c35a96c3363acec
-  product_prs:
-    - 336
-    - 337
-  product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 36
-  unknown_rows: 0
-  not_mapped_rows: 0
-  challenge_review_blocking: 0
-  challenge_review_must_fix: 0
-  post_merge_fresh_clone: PASS
-  full_tests: 157_FILES_1018_TESTS_PASS
-  browser: 74_MAIN_PASS_9_EXISTING_ENVIRONMENT_GATED_SKIPS_PLUS_ROLE_WORKFLOW_PASS
-  contract: 14_FILES_37_TESTS_PASS_18_SCHEMA_GROUPS
-  direct_store_new_unapproved: 0
-  typecheck: PASS
-  lint: PASS
-  build: PASS
-  hidden_unicode: PASS
-  quality: PASS
-  browser_smoke: PASS
-  codeql: PASS
-  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W011-R3-GOLDEN-JOURNEY-20260804T150018Z
+  frozen_finding_pack: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z/R5-SR2-FROZEN-FINDING-PACK/finding-pack.json
+  root_cause_triage: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z/root-cause/root-cause-triage.md
+  product_pr: 339
+  product_merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+  fresh_clone_full_tests: 157_FILES_1019_TESTS_PASS
+  r4s_sessions: 3_NEW_SYNTHETIC_SESSIONS_PASS_WITH_LIMITS
+  human_validation: NONE
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
-  synthetic_internal_validation: true
-  human_validation: NOT_PERFORMED
+  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+  compensating_atomicity: NOT_CRASH_SAFE
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
-  - r3_integration_contract_changed
-  - golden_or_visibility_changed
-  - d1_d6_authority_changed
+  - role_workflow_authority_or_registry_changed
+  - d2_evidence_authority_or_visibility_changed
+  - golden_or_replay_changed
   - post_merge_evidence_invalidated
 automatic_next_start: false

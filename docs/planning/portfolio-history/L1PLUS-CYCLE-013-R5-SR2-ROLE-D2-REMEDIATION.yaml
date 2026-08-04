@@ -1,0 +1,58 @@
+cycle_id: L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION
+stage: L1_PLUS
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+product_prs:
+  - number: 339
+    merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+    changed_files: 3
+    purpose: "Make the default role workflow fixture executable and surface the team prerequisite."
+cell_b:
+  branch: wave013/r5-d2-eligible-event-remediation
+  disposition: NO_CODE_CHANGE_REQUIRED_AFTER_CELL_A_FIX
+  rebased_head: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+  product_pr: NONE
+findings:
+  - id: R5-SR2-001
+    status: CLOSED_WITH_EVIDENCE
+    before: "422 ROLE_WORKFLOW_TEAM_INCOMPLETE on default fixture"
+    after: "201 valid assignment; incomplete-team guard remains fail closed"
+  - id: R5-SR2-002
+    status: CLOSED_WITH_EVIDENCE
+    before: "403 D2_EVIDENCE_ROLE_SCOPE_VIOLATION on observed scope"
+    after: "200 safe eligible-event projection after valid active role assignment"
+validation:
+  fresh_clone_full_tests: PASS_157_FILES_1019_TESTS
+  focused_role_d2: PASS_4_FILES_24_TESTS
+  contract: PASS_14_FILES_37_TESTS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  direct_store_new_unapproved: 0
+  hidden_unicode: PASS
+  challenge_blocking: 0
+  challenge_must_fix: 0
+  r4s_s1: PASS_WITH_LIMITS
+  r4s_s2: PASS_WITH_LIMITS
+  r4s_s3: PASS_WITH_LIMITS
+human_validation:
+  status: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
+  evidence: NONE
+locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - ROLE_WORKFLOW_DEFAULT_FIXTURE
+    - ROLE_WORKFLOW_TEACHER_PRECONDITION_UI
+    - D2_TEACHER_SAFE_QUERY
+    - R4S_SYNTHETIC_RECHECK
+    - SERIAL_CLOSURE
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - HUMAN_VALIDATION_BLOCKED
+  - ISSUE_111_OPEN_KNOWN_LIMIT
+  - POSTGRESQL_NOT_ACTIVE
+  - DURABLE_RECOVERY_NOT_PROVEN
+  - PILOT_PRODUCTION_NOT_AUTHORIZED
+  - CODEGRAPH_EVIDENCE_GAP
+automatic_next_start: false

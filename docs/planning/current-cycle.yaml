@@ -1,38 +1,35 @@
-cycle_id: L1PLUS-CYCLE-012-R3-GOLDEN-JOURNEY
+cycle_id: L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-04T15:00:18+08:00"
-closed_at: "2026-08-04T16:16:32+08:00"
+started_at: "2026-08-04T14:58:16Z"
+closed_at: "2026-08-04T15:55:44Z"
 repository: qidianzhiku/SimWar
-source_sha: ce637e7102c174804116db624c35a96c3363acec
-assessment_source_anchor_sha: ce637e7102c174804116db624c35a96c3363acec
-product_evidence_source_sha: ce637e7102c174804116db624c35a96c3363acec
+source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+assessment_source_anchor_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+product_evidence_source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
 governance_closure_merge_sha: THIS_CHANGESET
-mainline_candidate: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
+mainline_candidate: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
 support_candidate: null
 docs_discovery_candidate: null
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: Teacher and Student can inspect a safe read-only D1-D6 Golden Journey with exact package identity, supported slices, receipts, allowed actions, and known limits.
+primary_outcome: "R5-SR2 role-workflow and D2 scope findings resolved; fresh master synthetic R4-S recheck passes with explicit limits."
 runtime_authority: JSON_INTERNAL_ONLY
 predecessor:
-  cycle_id: L1PLUS-CYCLE-011-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
-  merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+  cycle_id: L1PLUS-CYCLE-012-R3-GOLDEN-JOURNEY
+  merge_sha: ce637e7102c174804116db624c35a96c3363acec
 product_prs:
-  - number: 336
-    role: BACKEND_CONTRACT_INTEGRATION
-    merge_sha: a4494906c556e70ad82d6f4544a34b8d11b0f18a
-  - number: 337
-    role: TEACHER_STUDENT_GOLDEN_JOURNEY
-    merge_sha: ce637e7102c174804116db624c35a96c3363acec
+  - number: 339
+    role: ROLE_WORKFLOW_DEFAULT_FIXTURE_AND_UI_PRECONDITION
+    merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 36
+  acceptance_rows: 40
   unknown_rows: 0
   not_mapped_rows: 0
-  focused_integration: PASS_2_TESTS
-  contract: PASS_14_FILES_37_TESTS_18_SCHEMA_GROUPS
-  full: PASS_157_FILES_1018_TESTS
-  browser: PASS_74_MAIN_9_EXISTING_ENVIRONMENT_GATED_SKIPS_PLUS_ROLE_WORKFLOW
+  focused_role_d2: PASS_4_FILES_24_TESTS
+  contract: PASS_14_FILES_37_TESTS
+  full: PASS_157_FILES_1019_TESTS
+  browser_synthetic_r4s: PASS_WITH_LIMITS_3_NEW_SESSIONS
   ci: PASS
   codeql: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
@@ -43,30 +40,34 @@ validation:
   fresh_clone: PASS_CLEAN_DETACHED_AT_SOURCE_SHA
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
+  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
 evidence:
-  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W011-R3-GOLDEN-JOURNEY-20260804T150018Z
-  product_acceptance: product-acceptance/acceptance-receipt.json
-  final_receipt: closure/final-receipt.json
-  fresh_clone_receipt: tests/fresh-clone-receipt.json
-  cell_a_review: reviews/cell-a-review-receipt.json
-  cell_b_review: reviews/cell-b-review-receipt.json
+  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z
+  frozen_findings: R5-SR2-FROZEN-FINDING-PACK/finding-pack.json
+  root_cause: root-cause/root-cause-triage.md
+  post_merge_full_test: fresh-validation/post-merge-npm-test.log
+  direct_store: fresh-validation/post-merge-direct-store.log
+  hidden_unicode: fresh-validation/post-merge-hidden-unicode.log
+  r4s_sessions: r4s-recheck/sessions/session-index.json
+  final_report: closure/final-report.md
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - R3_INTEGRATION_CONTRACT
-    - TEACHER_GOLDEN_JOURNEY_PROJECTION
-    - STUDENT_SAFE_GOLDEN_JOURNEY_PROJECTION
-    - GOLDEN_RECEIPTS_AND_PLAYWRIGHT_STATE
+    - ROLE_WORKFLOW_DEFAULT_FIXTURE
+    - ROLE_WORKFLOW_TEACHER_PRECONDITION_UI
+    - D2_TEACHER_SAFE_QUERY
+    - R4S_SYNTHETIC_RECHECK
     - SERIAL_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
+  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
-  - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
-    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
+blocked_candidates: []
 metrics:
-  product_pr_count: 2
+  product_pr_count: 1
   governance_pr_count: 1
   corrective_product_pr_count: 0
   governance_reclosure_count: 0
@@ -74,24 +75,29 @@ metrics:
   readiness_mode: PARALLEL_READINESS_ONLY
   merge_mode: SERIAL
   resource_cost_ratio: NOT_MEASURED
+  r4s_synthetic_sessions: 3
+  r4s_synthetic_task_failures: 0
+  human_sessions: 0
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   synthetic_internal_validation: true
-  human_validation: NOT_PERFORMED
+  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
   issue_111: OPEN_KNOWN_LIMIT
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+  compensating_atomicity: NOT_CRASH_SAFE
 invalidation_triggers:
   - product_or_runtime_changed
-  - r3_integration_contract_changed
-  - golden_or_visibility_changed
-  - d1_d6_authority_changed
+  - role_workflow_authority_or_registry_changed
+  - d2_evidence_authority_or_visibility_changed
+  - golden_or_replay_changed
   - post_merge_evidence_invalidated
 explicit_non_proofs:
-  - Human Validation is not performed.
-  - The synthetic flow does not prove causal learning outcomes.
-  - PostgreSQL, durable recovery, Pilot, Production, D4, and successor work are not authorized.
+  - Human Validation is not performed and synthetic evidence is not human evidence.
+  - R4-S synthetic recheck does not prove teacher usability, learner understanding, or teaching effectiveness.
+  - PostgreSQL, durable recovery, Pilot, Production, D3-D6 successor work are not authorized.
+  - D2 evidence does not write Truth, SettlementResult, Score, Rank, or Replay authority.
 automatic_next_start: false
