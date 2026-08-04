@@ -14,6 +14,7 @@ import type {
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
+import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("student");
@@ -268,6 +269,16 @@ export function App() {
           </button>
         ) : null}
       </section>
+
+      {session ? (
+        <GoldenJourneyWorkbench
+          courseId={latestRun?.course_id}
+          runId={latestRun?.run_id}
+          teamId={team?.team_id}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
 
       {session ? (
         <section className="known-limits-disclosure" aria-label="known limits product disclosure">

@@ -15,6 +15,111 @@ body {
   margin: 0;
 }
 
+.golden-journey-workbench {
+  background: #fff;
+  border: 1px solid #c8d1d5;
+  border-radius: 8px;
+  margin: 18px 0;
+  max-width: 1180px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.golden-journey-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.golden-journey-header h2,
+.golden-journey-subtitle {
+  margin-bottom: 6px;
+}
+
+.golden-journey-subtitle,
+.golden-journey-card span,
+.golden-journey-receipt small,
+.golden-journey-label {
+  color: #53616b;
+  font-size: 12px;
+}
+
+.golden-journey-nav,
+.golden-journey-actions,
+.golden-journey-receipts,
+.golden-journey-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.golden-journey-nav a,
+.golden-journey-action {
+  border: 1px solid #b9cec9;
+  border-radius: 999px;
+  color: #145c50;
+  font-size: 12px;
+  padding: 5px 9px;
+  text-decoration: none;
+}
+
+.golden-journey-card,
+.golden-journey-receipt {
+  border: 1px solid #d8dfe2;
+  border-radius: 7px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.golden-journey-card {
+  flex: 1 1 210px;
+}
+
+.golden-journey-card code,
+.golden-journey-receipt small {
+  overflow-wrap: anywhere;
+}
+
+.golden-journey-receipt {
+  flex: 1 1 100px;
+  min-width: 100px;
+}
+
+.golden-journey-receipt span {
+  color: #145c50;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.golden-journey-limits {
+  border-top: 1px solid #d8dfe2;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.golden-journey-error {
+  color: #a52929;
+}
+
+@media (max-width: 640px) {
+  .golden-journey-workbench {
+    padding: 14px;
+  }
+
+  .golden-journey-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .golden-journey-header button {
+    width: 100%;
+  }
+}
+
 .d6-transfer-workbench {
   margin-top: 18px;
   max-width: 1100px;

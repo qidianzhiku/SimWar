@@ -57,6 +57,7 @@ import { EvidenceWorkbench } from "./EvidenceWorkbench";
 import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
+import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1076,6 +1077,15 @@ export function App() {
           </button>
         ) : null}
       </section>
+
+      {isTeacher && session ? (
+        <GoldenJourneyWorkbench
+          courseId={selectedRun?.course_id ?? selectedCourseId}
+          runId={selectedRun?.run_id ?? selectedRunId}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
 
       {session ? (
         <section className="known-limits-disclosure" aria-label="known limits product disclosure">
