@@ -130,6 +130,41 @@ async function startServer(options: { incompleteRoleTeam?: boolean } = {}): Prom
   return { baseUrl: `http://127.0.0.1:${address.port}`, server, store };
 }
 
+async function startDefaultSeedServer(): Promise<{
+  baseUrl: string;
+  server: Server;
+  store: SimWarStore;
+}> {
+  const store = createP1Store();
+  store.runs = [
+    {
+      course_id: "course_demo",
+      parameter_set_id: "param_toy_approved_1",
+      run_id: "run_seed_ready",
+      scenario_package_id: "scenario_eldercare_demo",
+      seed: 2718,
+      status: "active",
+      tenant_id: "tenant_demo"
+    }
+  ];
+  store.rounds = [
+    {
+      round_id: "round_default_seed_1",
+      round_no: 1,
+      run_id: "run_seed_ready",
+      status: "open",
+      tenant_id: "tenant_demo"
+    }
+  ];
+  const server = createApiServer(store);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string")
+    throw new Error("default seed server address unavailable");
+  return { baseUrl: `http://127.0.0.1:${address.port}`, server, store };
+}
+
 async function stopServer(server: Server): Promise<void> {
   server.close();
   await once(server, "close");
@@ -142,6 +177,40 @@ const scope = {
 };
 
 describe("Role Workflow HTTP boundary", () => {
+  it("makes the default golden team assignment-ready and preserves D2 fail-closed scope", async () => {
+    const { baseUrl, server, store } = await startDefaultSeedServer();
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const assignment = await request<StudentRoleAssignment>(
+        baseUrl,
+        "/api/v1/bff/teacher/role-workflows/assignments",
+        {
+          body: {
+            course_id: "course_demo",
+            role_key: "CEO",
+            run_id: "run_seed_ready",
+            team_id: "team_alpha",
+            user_id: "usr_student"
+          },
+          method: "PUT",
+          token: teacherToken
+        }
+      );
+      expect(assignment.status).toBe(201);
+      expect(store.studentRoleAssignments).toHaveLength(1);
+
+      const eligibleEvents = await request<{ eligible_events: unknown[] }>(
+        baseUrl,
+        "/api/v1/bff/teacher/evidence?activity_id=activity_d2&course_id=course_demo&role_key=CEO&run_id=run_seed_ready&team_id=team_alpha",
+        { token: teacherToken }
+      );
+      expect(eligibleEvents.status).toBe(200);
+      expect(eligibleEvents.body.data.eligible_events).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("rejects an incomplete team without disabling the legacy Decision route", async () => {
     const { baseUrl, server, store } = await startServer({ incompleteRoleTeam: true });
     try {
