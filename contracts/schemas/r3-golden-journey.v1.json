@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/r3-golden-journey.v1.json",
+  "title": "GoldenJourneyStatusDto",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "allowed_actions",
+    "context",
+    "correlation_chain",
+    "discriminator",
+    "formal_truth_write",
+    "receipt_index",
+    "runtime_authority",
+    "schema_version",
+    "student_private_fields_exposed"
+  ],
+  "properties": {
+    "allowed_actions": { "$ref": "#/$defs/AllowedActions" },
+    "context": { "$ref": "#/$defs/Context" },
+    "correlation_chain": { "$ref": "#/$defs/CorrelationChain" },
+    "discriminator": { "const": "golden_journey_status" },
+    "formal_truth_write": { "const": false },
+    "receipt_index": { "$ref": "#/$defs/ReceiptIndex" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "schema_version": { "const": "r3-golden-journey.v1" },
+    "student_private_fields_exposed": { "const": false }
+  },
+  "$defs": {
+    "Identity": {
+      "type": "string",
+      "pattern": "^(?!.*(?:any|current|default|fallback|latest|next|unresolved))(?!.*(?:ANY|CURRENT|DEFAULT|FALLBACK|LATEST|NEXT|UNRESOLVED))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
+    },
+    "Digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/Digest" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/Identity" },
+        "resource_type": {
+          "enum": [
+            "course_package_version",
+            "learning_goal_version",
+            "rubric_version",
+            "scenario_package_version",
+            "parameter_set_version",
+            "plugin_release_version",
+            "course",
+            "run",
+            "round",
+            "team",
+            "role",
+            "activity",
+            "role_workflow_event",
+            "evidence_artifact",
+            "teacher_confirmation",
+            "learning_report",
+            "transfer_research_design",
+            "result",
+            "receipt",
+            "transformation_rule"
+          ]
+        },
+        "tenant_id": { "$ref": "#/$defs/Identity" },
+        "version": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "Context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correlation_id",
+        "course_id",
+        "course_package_ref",
+        "discriminator",
+        "journey_id",
+        "known_limits",
+        "request_id",
+        "role_keys",
+        "runtime_authority",
+        "schema_version",
+        "status",
+        "tenant_id"
+      ],
+      "properties": {
+        "correlation_id": { "$ref": "#/$defs/Identity" },
+        "course_id": { "$ref": "#/$defs/Identity" },
+        "course_package_ref": { "$ref": "#/$defs/ExactRef" },
+        "discriminator": { "const": "golden_journey_context" },
+        "journey_id": { "$ref": "#/$defs/Identity" },
+        "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "learning_goal_ref": { "$ref": "#/$defs/ExactRef" },
+        "request_id": { "$ref": "#/$defs/Identity" },
+        "role_keys": { "type": "array", "items": { "$ref": "#/$defs/Identity" } },
+        "rubric_ref": { "$ref": "#/$defs/ExactRef" },
+        "run_id": { "$ref": "#/$defs/Identity" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+        "schema_version": { "const": "r3-golden-journey.v1" },
+        "status": {
+          "enum": [
+            "not_started",
+            "ready",
+            "in_progress",
+            "generated",
+            "published",
+            "complete",
+            "aborted",
+            "reset",
+            "failed"
+          ]
+        },
+        "team_id": { "$ref": "#/$defs/Identity" },
+        "tenant_id": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "AllowedActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_actions",
+        "blocked_reasons",
+        "correlation_id",
+        "discriminator",
+        "journey_id",
+        "request_id",
+        "role",
+        "schema_version"
+      ],
+      "properties": {
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "view_context",
+              "view_allowed_actions",
+              "view_receipts",
+              "view_provenance",
+              "view_teacher_facts",
+              "view_student_safe_report",
+              "recover_journey",
+              "abort_journey",
+              "reset_journey",
+              "cleanup_journey"
+            ]
+          }
+        },
+        "blocked_reasons": { "type": "array", "items": { "type": "string" } },
+        "correlation_id": { "$ref": "#/$defs/Identity" },
+        "discriminator": { "const": "golden_journey_allowed_actions" },
+        "journey_id": { "$ref": "#/$defs/Identity" },
+        "request_id": { "$ref": "#/$defs/Identity" },
+        "role": { "enum": ["teacher", "student", "admin"] },
+        "schema_version": { "const": "r3-golden-journey.v1" }
+      }
+    },
+    "ReceiptEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_refs", "slice", "status"],
+      "properties": {
+        "exact_refs": { "type": "array", "items": { "$ref": "#/$defs/ExactRef" } },
+        "receipt_id": { "$ref": "#/$defs/Identity" },
+        "slice": { "enum": ["D1", "R7", "M1", "D2", "D3", "D4", "D5", "D6", "R3"] },
+        "status": { "enum": ["PASS", "KNOWN_LIMIT", "BLOCKED", "NOT_RUN"] }
+      }
+    },
+    "ReceiptIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chain_digest",
+        "correlation_id",
+        "discriminator",
+        "entries",
+        "journey_id",
+        "request_id",
+        "schema_version"
+      ],
+      "properties": {
+        "chain_digest": { "$ref": "#/$defs/Digest" },
+        "correlation_id": { "$ref": "#/$defs/Identity" },
+        "discriminator": { "const": "cross_slice_receipt_index" },
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/ReceiptEntry" } },
+        "journey_id": { "$ref": "#/$defs/Identity" },
+        "request_id": { "$ref": "#/$defs/Identity" },
+        "schema_version": { "const": "r3-golden-journey.v1" }
+      }
+    },
+    "ChainStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_refs", "operation", "slice"],
+      "properties": {
+        "correlation_id": { "$ref": "#/$defs/Identity" },
+        "exact_refs": { "type": "array", "items": { "$ref": "#/$defs/ExactRef" } },
+        "operation": { "$ref": "#/$defs/Identity" },
+        "request_id": { "$ref": "#/$defs/Identity" },
+        "slice": { "enum": ["D1", "R7", "M1", "D2", "D3", "D4", "D5", "D6", "R3"] }
+      }
+    },
+    "CorrelationChain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correlation_id",
+        "discriminator",
+        "journey_id",
+        "request_id",
+        "schema_version",
+        "status",
+        "steps"
+      ],
+      "properties": {
+        "correlation_id": { "$ref": "#/$defs/Identity" },
+        "discriminator": { "const": "correlation_chain" },
+        "journey_id": { "$ref": "#/$defs/Identity" },
+        "request_id": { "$ref": "#/$defs/Identity" },
+        "schema_version": { "const": "r3-golden-journey.v1" },
+        "status": { "enum": ["complete", "partial", "unavailable"] },
+        "steps": { "type": "array", "items": { "$ref": "#/$defs/ChainStep" } }
+      }
+    }
+  }
+}

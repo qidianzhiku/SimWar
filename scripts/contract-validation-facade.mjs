@@ -108,6 +108,12 @@ const d6ContractFiles = [
   "contracts/fixtures/d6-transfer-evidence.privacy.invalid.json"
 ];
 
+const r3ContractFiles = [
+  "contracts/schemas/r3-golden-journey.v1.json",
+  "contracts/fixtures/r3-golden-journey.valid.json",
+  "contracts/fixtures/r3-golden-journey.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -147,7 +153,15 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/admin/transfer-research-designs",
   "/api/v1/bff/admin/transfer-research-designs/preview",
   "/api/v1/bff/admin/transfer-research-designs/freeze",
-  "/api/v1/bff/admin/transfer-research-designs/{studyId}/synthetic-preview"
+  "/api/v1/bff/admin/transfer-research-designs/{studyId}/synthetic-preview",
+  "/api/v1/bff/teacher/golden-journey/status",
+  "/api/v1/bff/teacher/golden-journey/context",
+  "/api/v1/bff/teacher/golden-journey/allowed-actions",
+  "/api/v1/bff/teacher/golden-journey/receipts",
+  "/api/v1/bff/student/golden-journey/status",
+  "/api/v1/bff/student/golden-journey/context",
+  "/api/v1/bff/student/golden-journey/allowed-actions",
+  "/api/v1/bff/student/golden-journey/receipts"
 ];
 
 const schemaCases = [
@@ -252,6 +266,11 @@ const schemaCases = [
       "contracts/fixtures/d6-transfer-evidence.invalid.json",
       "contracts/fixtures/d6-transfer-evidence.privacy.invalid.json"
     ]
+  },
+  {
+    schema: "contracts/schemas/r3-golden-journey.v1.json",
+    valid: ["contracts/fixtures/r3-golden-journey.valid.json"],
+    invalid: ["contracts/fixtures/r3-golden-journey.invalid.json"]
   }
 ];
 
@@ -611,6 +630,23 @@ function assertD6OpenApiBindings(openApi) {
   );
 }
 
+function assertR3OpenApiBindings(openApi) {
+  for (const [path, schema] of [
+    ["/api/v1/bff/teacher/golden-journey/status", "R3GoldenJourneyStatusEnvelope"],
+    ["/api/v1/bff/teacher/golden-journey/context", "R3GoldenJourneyContextEnvelope"],
+    ["/api/v1/bff/teacher/golden-journey/allowed-actions", "R3GoldenJourneyAllowedActionsEnvelope"],
+    ["/api/v1/bff/teacher/golden-journey/receipts", "R3GoldenJourneyReceiptIndexEnvelope"],
+    ["/api/v1/bff/student/golden-journey/status", "R3GoldenJourneyStatusEnvelope"]
+  ]) {
+    const operation = openApi.paths[path]?.get;
+    assert(operation, `Missing R3 Golden Journey operation: ${path}`);
+    assert(
+      jsonContentSchema(operation.responses?.["200"])?.$ref === `#/components/schemas/${schema}`,
+      `R3 Golden Journey path must reference ${schema}: ${path}`
+    );
+  }
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -685,7 +721,8 @@ export async function runContractValidation(options = {}) {
     ...d3ContractFiles,
     ...d4ContractFiles,
     ...d5ContractFiles,
-    ...d6ContractFiles
+    ...d6ContractFiles,
+    ...r3ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -697,7 +734,8 @@ export async function runContractValidation(options = {}) {
     ...d3ContractFiles,
     ...d4ContractFiles,
     ...d5ContractFiles,
-    ...d6ContractFiles
+    ...d6ContractFiles,
+    ...r3ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -710,6 +748,7 @@ export async function runContractValidation(options = {}) {
   assertD4OpenApiBindings(openApi);
   assertD5OpenApiBindings(openApi);
   assertD6OpenApiBindings(openApi);
+  assertR3OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

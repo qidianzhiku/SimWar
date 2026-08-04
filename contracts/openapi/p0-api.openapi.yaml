@@ -2263,6 +2263,125 @@ paths:
         "404": { description: Exact version not found }
         "409": { description: Illegal lifecycle or unpublished dependency }
         "422": { description: Exact reference invalid }
+  /api/v1/bff/teacher/golden-journey/status:
+    get:
+      operationId: TEACHER_R3_GOLDEN_JOURNEY_STATUS_V1
+      summary: Read the teacher-safe cross-slice Golden Journey status projection.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: course_id, in: query, required: false, schema: { type: string } }
+        - { name: journey_id, in: query, required: false, schema: { type: string } }
+        - { name: run_id, in: query, required: false, schema: { type: string } }
+        - { name: team_id, in: query, required: false, schema: { type: string } }
+      responses:
+        "200":
+          description: Golden Journey status projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyStatusEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+        "404": { description: "Course, run or team not found" }
+        "422": { description: Invalid Golden Journey query }
+  /api/v1/bff/teacher/golden-journey/context:
+    get:
+      operationId: TEACHER_R3_GOLDEN_JOURNEY_CONTEXT_V1
+      summary: Read exact context and known limits for the teacher journey.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Exact context projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyContextEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/teacher/golden-journey/allowed-actions:
+    get:
+      operationId: TEACHER_R3_GOLDEN_JOURNEY_ALLOWED_ACTIONS_V1
+      summary: Read explicit teacher actions and blocked reasons.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Allowed actions projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyAllowedActionsEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/teacher/golden-journey/receipts:
+    get:
+      operationId: TEACHER_R3_GOLDEN_JOURNEY_RECEIPTS_V1
+      summary: Read cross-slice receipt and correlation index.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Cross-slice receipt index.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyReceiptIndexEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+  /api/v1/bff/student/golden-journey/status:
+    get:
+      operationId: STUDENT_R3_GOLDEN_JOURNEY_STATUS_V1
+      summary: Read the student-safe cross-slice Golden Journey status projection.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Student-safe journey status without teacher-only evidence.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyStatusEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student scope required }
+  /api/v1/bff/student/golden-journey/context:
+    get:
+      operationId: STUDENT_R3_GOLDEN_JOURNEY_CONTEXT_V1
+      summary: Read student-safe exact journey context.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Student-safe context.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyContextEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student scope required }
+  /api/v1/bff/student/golden-journey/allowed-actions:
+    get:
+      operationId: STUDENT_R3_GOLDEN_JOURNEY_ALLOWED_ACTIONS_V1
+      summary: Read explicit student-safe actions.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Student-safe allowed actions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyAllowedActionsEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student scope required }
+  /api/v1/bff/student/golden-journey/receipts:
+    get:
+      operationId: STUDENT_R3_GOLDEN_JOURNEY_RECEIPTS_V1
+      summary: Read student-safe receipt index without private evidence.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Student-safe receipt index.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/R3GoldenJourneyReceiptIndexEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student scope required }
   /api/v1/bff/teacher/evidence:
     get:
       operationId: TEACHER_D2_EVIDENCE_LIST_V1
@@ -4557,6 +4676,42 @@ components:
         data: { $ref: "#/components/schemas/RubricVersion" }
         message: { type: string }
         request_id: { type: string }
+    R3GoldenJourneyStatusEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { $ref: "../schemas/r3-golden-journey.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    R3GoldenJourneyContextEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { $ref: "../schemas/r3-golden-journey.v1.json#/$defs/Context" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    R3GoldenJourneyAllowedActionsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { $ref: "../schemas/r3-golden-journey.v1.json#/$defs/AllowedActions" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    R3GoldenJourneyReceiptIndexEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { $ref: "../schemas/r3-golden-journey.v1.json#/$defs/ReceiptIndex" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     ApiErrorEnvelope:
       $ref: "../schemas/api-error-envelope.v1.json"
     M1AuthSessionEnvelope:
