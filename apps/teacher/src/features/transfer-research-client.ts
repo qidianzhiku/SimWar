@@ -60,3 +60,27 @@ export const loadSyntheticTransferPreview = (apiBase: string, token: string, stu
     token,
     `/api/v1/bff/teacher/transfer-research-designs/${encodeURIComponent(studyId)}/synthetic-preview`
   );
+export const reviseTransferResearchDesign = (
+  apiBase: string,
+  token: string,
+  studyId: string,
+  input: TransferResearchDesignInput
+) =>
+  request<TransferResearchDesignBundle>(
+    apiBase,
+    token,
+    `/api/v1/bff/teacher/transfer-research-designs/${encodeURIComponent(studyId)}/revise`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+export const retireTransferResearchDesign = (apiBase: string, token: string, studyId: string) =>
+  request<TransferResearchDesignBundle>(
+    apiBase,
+    token,
+    `/api/v1/bff/teacher/transfer-research-designs/${encodeURIComponent(studyId)}/retire`,
+    {
+      method: "POST"
+    }
+  );

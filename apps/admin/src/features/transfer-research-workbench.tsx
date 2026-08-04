@@ -55,6 +55,7 @@ function designInput(tenantId: string, title: string): TransferResearchDesignInp
       ],
       source_type: "SUPERVISOR_OBSERVATION"
     },
+    context_factors: ["OPPORTUNITY_TO_PERFORM", "MANAGER_SUPPORT"],
     learning_goal_ref: exact("goal_exact", "learning_goal_version", refDigest("5"), tenantId),
     observation_windows: [
       { code: "W0_BASELINE", offset_days: 0, tolerance_days: 7 },
@@ -81,7 +82,17 @@ function designInput(tenantId: string, title: string): TransferResearchDesignInp
       retention_days: 90,
       deletion_mode: "DELETE_ON_EXPIRY"
     },
+    research_questions: [
+      { question_id: "q_transfer_admin", prompt: "What transfer opportunity was available?" }
+    ],
     rubric_ref: exact("rubric_exact", "rubric_version", refDigest("6"), tenantId),
+    scope: {
+      activity_id: "activity_exact",
+      course_id: "course_package_exact",
+      role_key: "CEO",
+      run_id: "run_exact",
+      team_id: "team_exact"
+    },
     title
   };
 }
@@ -98,7 +109,9 @@ export function TransferResearchWorkbench({
   surface: "admin";
 }) {
   const [title, setTitle] = useState("Synthetic transfer governance design");
-  const [phase, setPhase] = useState<"LOADING" | "EMPTY" | "READY" | "ERROR">("LOADING");
+  const [phase, setPhase] = useState<
+    "LOADING" | "EMPTY" | "READY" | "ERROR" | "INVALID" | "BLOCKED" | "CONFLICT" | "FROZEN"
+  >("LOADING");
   const [list, setList] = useState<TransferResearchDesignListDto | null>(null);
   const [result, setResult] = useState<TransferResearchDesignBundle | null>(null);
   const [error, setError] = useState("");
@@ -126,11 +139,19 @@ export function TransferResearchWorkbench({
     setBusy(true);
     setError("");
     try {
-      setResult(await action());
-      setPhase("READY");
+      const next = await action();
+      setResult(next);
+      setPhase(next.study.lifecycle === "FROZEN" ? "FROZEN" : "READY");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "D6 operation failed");
-      setPhase("ERROR");
+      const message = cause instanceof Error ? cause.message : "D6 operation failed";
+      setError(message);
+      setPhase(
+        message.includes("CONFLICT")
+          ? "CONFLICT"
+          : message.includes("FORBIDDEN")
+            ? "BLOCKED"
+            : "INVALID"
+      );
     } finally {
       setBusy(false);
     }
@@ -157,6 +178,11 @@ export function TransferResearchWorkbench({
       {phase === "ERROR" ? (
         <p className="d6-error" role="alert">
           {error}
+        </p>
+      ) : null}
+      {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
+        <p className="d6-error" role="status">
+          State: {phase}
         </p>
       ) : null}
       <label>

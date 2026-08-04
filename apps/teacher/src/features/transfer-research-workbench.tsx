@@ -14,6 +14,10 @@ const digest = (char: string) => char.repeat(64);
 type D6FormValues = {
   courseId: string;
   courseDigest: string;
+  activityId: string;
+  runId: string;
+  teamId: string;
+  roleKey: string;
   d4Id: string;
   d4Digest: string;
   d5Id: string;
@@ -23,6 +27,8 @@ type D6FormValues = {
   rubricId: string;
   rubricDigest: string;
   title: string;
+  contextFactors: string;
+  researchQuestion: string;
 };
 const exact = (
   resource_id: string,
@@ -64,6 +70,10 @@ function input(tenantId: string, values: D6FormValues): TransferResearchDesignIn
       ],
       source_type: "LEARNER_SELF_REPORT"
     },
+    context_factors: values.contextFactors
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
     learning_goal_ref: exact(values.goalId, "learning_goal_version", values.goalDigest, tenantId),
     observation_windows: [
       { code: "W0_BASELINE", offset_days: 0, tolerance_days: 7 },
@@ -91,7 +101,15 @@ function input(tenantId: string, values: D6FormValues): TransferResearchDesignIn
       retention_days: 90,
       deletion_mode: "DELETE_ON_EXPIRY"
     },
+    research_questions: [{ question_id: "q_transfer_teacher", prompt: values.researchQuestion }],
     rubric_ref: exact(values.rubricId, "rubric_version", values.rubricDigest, tenantId),
+    scope: {
+      activity_id: values.activityId,
+      course_id: values.courseId,
+      role_key: values.roleKey,
+      run_id: values.runId,
+      team_id: values.teamId
+    },
     title: values.title
   };
 }
@@ -99,6 +117,10 @@ function input(tenantId: string, values: D6FormValues): TransferResearchDesignIn
 const initial = (_tenantId: string): D6FormValues => ({
   courseId: "course_package_exact",
   courseDigest: digest("2"),
+  activityId: "activity_exact",
+  runId: "run_exact",
+  teamId: "team_exact",
+  roleKey: "CEO",
   d4Id: "d4_report_exact",
   d4Digest: digest("3"),
   d5Id: "d5_bundle_exact",
@@ -107,7 +129,9 @@ const initial = (_tenantId: string): D6FormValues => ({
   goalDigest: digest("5"),
   rubricId: "rubric_exact",
   rubricDigest: digest("6"),
-  title: "Synthetic transfer research design"
+  title: "Synthetic transfer research design",
+  contextFactors: "OPPORTUNITY_TO_PERFORM,MANAGER_SUPPORT",
+  researchQuestion: "What transfer opportunity was available?"
 });
 
 export function TransferResearchWorkbench({
@@ -122,7 +146,17 @@ export function TransferResearchWorkbench({
   surface: "teacher" | "admin";
 }) {
   const [values, setValues] = useState(() => initial(tenantId));
-  const [phase, setPhase] = useState<"LOADING" | "EMPTY" | "READY" | "ERROR">("LOADING");
+  const [phase, setPhase] = useState<
+    | "LOADING"
+    | "EMPTY"
+    | "READY"
+    | "ERROR"
+    | "INVALID"
+    | "BLOCKED"
+    | "CONFLICT"
+    | "FROZEN"
+    | "RETIRED"
+  >("LOADING");
   const [list, setList] = useState<TransferResearchDesignListDto | null>(null);
   const [result, setResult] = useState<TransferResearchDesignBundle | null>(null);
   const [error, setError] = useState("");
@@ -150,11 +184,19 @@ export function TransferResearchWorkbench({
     setBusy(true);
     setError("");
     try {
-      setResult(await action());
-      setPhase("READY");
+      const next = await action();
+      setResult(next);
+      setPhase(next.study.lifecycle === "FROZEN" ? "FROZEN" : "READY");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "D6 operation failed");
-      setPhase("ERROR");
+      const message = cause instanceof Error ? cause.message : "D6 operation failed";
+      setError(message);
+      setPhase(
+        message.includes("CONFLICT")
+          ? "CONFLICT"
+          : message.includes("FORBIDDEN")
+            ? "BLOCKED"
+            : "INVALID"
+      );
     } finally {
       setBusy(false);
     }
@@ -186,8 +228,25 @@ export function TransferResearchWorkbench({
           {error}
         </p>
       ) : null}
+      {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
+        <p className="d6-error" role="status">
+          State: {phase}
+        </p>
+      ) : null}
       <div className="d6-form-grid">
-        {(["courseId", "d4Id", "d5Id", "goalId", "rubricId"] as const).map((field) => (
+        {(
+          [
+            "courseId",
+            "activityId",
+            "runId",
+            "teamId",
+            "roleKey",
+            "d4Id",
+            "d5Id",
+            "goalId",
+            "rubricId"
+          ] as const
+        ).map((field) => (
           <label key={field}>
             {field}
             <input
@@ -198,6 +257,24 @@ export function TransferResearchWorkbench({
             />
           </label>
         ))}
+        <label>
+          Context factors
+          <input
+            value={values.contextFactors}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, contextFactors: event.target.value }))
+            }
+          />
+        </label>
+        <label>
+          Research question
+          <input
+            value={values.researchQuestion}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, researchQuestion: event.target.value }))
+            }
+          />
+        </label>
         <label>
           Title
           <input
