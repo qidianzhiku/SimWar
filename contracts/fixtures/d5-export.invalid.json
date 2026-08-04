@@ -1,0 +1,37 @@
+{
+  "aol_dataset": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "dataset_ref": { "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "discriminator": "exact_ref", "resource_id": "aol_dataset_1", "resource_type": "aol_export_dataset_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "known_limits": ["mock only"],
+    "policy_ref": { "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "discriminator": "exact_ref", "resource_id": "policy_1", "resource_type": "learning_export_policy_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "rows": [{ "coarsened": false, "criterion_count": 2, "group_key": "course_1", "level_distribution": {}, "sample_size": 1, "suppressed": true }],
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "schema_version": "d5-export.v1",
+    "source_report_refs": [],
+    "visibility": "teacher_admin_only"
+  },
+  "bundle_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "bundle_ref": { "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "discriminator": "exact_ref", "resource_id": "bundle_1", "resource_type": "learning_export_bundle_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+  "created_by": "usr_teacher",
+  "known_limits": ["mock only"],
+  "sealed_at": "2026-08-04T00:00:00.000Z",
+  "schema_version": "d5-export.v1",
+  "statement_batch": {
+    "batch_ref": { "content_digest": "1111111111111111111111111111111111111111111111111111111111111111", "discriminator": "exact_ref", "resource_id": "batch_1", "resource_type": "xapi_statement_batch_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "destination_ref": { "content_digest": "3333333333333333333333333333333333333333333333333333333333333333", "discriminator": "exact_ref", "resource_id": "mock_lrs", "resource_type": "destination_profile_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "known_limits": ["mock only"],
+    "policy_ref": { "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "discriminator": "exact_ref", "resource_id": "policy_1", "resource_type": "learning_export_policy_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "profile_ref": { "content_digest": "4444444444444444444444444444444444444444444444444444444444444444", "discriminator": "exact_ref", "resource_id": "profile_1", "resource_type": "xapi_profile_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "schema_version": "d5-export.v1",
+    "source_report_refs": [],
+    "statements": [],
+    "visibility": "teacher_admin_only"
+  },
+  "status": "SEALED",
+  "visibility": "teacher_admin_only",
+  "raw_evidence": { "student_email": "forbidden" }
+}
