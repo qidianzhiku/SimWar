@@ -223,7 +223,6 @@ export interface TransferResearchDesignBundle {
   readonly study: TransferStudyDefinitionVersion;
   readonly synthetic_preview: TransferEvidenceRecordCandidate;
 }
-
 export interface TransferResearchDesignInput {
   readonly analysis_plan_ref: D6ExactRef;
   readonly course_package_ref: D6ExactRef;
