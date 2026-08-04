@@ -76,6 +76,19 @@ export interface D6ExactRef {
   readonly version: string;
 }
 
+export interface TransferResearchQuestion {
+  readonly prompt: string;
+  readonly question_id: string;
+}
+
+export interface TransferResearchScope {
+  readonly activity_id: string;
+  readonly course_id: string;
+  readonly role_key: string;
+  readonly run_id: string;
+  readonly team_id: string;
+}
+
 export interface TransferObservationWindowDefinition {
   readonly code: "W0_BASELINE" | "W1_IMMEDIATE" | "W2_30D" | "W3_60D" | "W4_90D";
   readonly offset_days: number;
@@ -136,14 +149,17 @@ export interface TransferStudyDefinitionVersion {
   readonly formal_transfer_claim_write: false;
   readonly instrument_refs: readonly D6ExactRef[];
   readonly lifecycle: D6StudyState;
+  readonly context_factors: readonly string[];
   readonly observation_windows: readonly TransferObservationWindowDefinition[];
   readonly outcome_measures: readonly TransferOutcomeMeasureDefinition[];
   readonly provenance_source_policy: TransferEvidenceSourcePolicy;
+  readonly research_questions: readonly TransferResearchQuestion[];
   readonly rubric_ref: D6ExactRef;
   readonly schema_version: typeof D6_TRANSFER_SCHEMA_VERSION;
   readonly study_ref: D6ExactRef;
   readonly title: string;
   readonly learning_goal_ref: D6ExactRef;
+  readonly scope: TransferResearchScope;
   readonly supersedes_ref?: D6ExactRef;
   readonly visibility: "teacher_admin_only";
 }
@@ -175,6 +191,7 @@ export interface TransferEvidenceRecordCandidate {
   readonly runtime_status: "SYNTHETIC_ONLY";
   readonly schema_version: typeof D6_TRANSFER_SCHEMA_VERSION;
   readonly source_type: D6SourceType;
+  readonly scope: TransferResearchScope;
   readonly suppression_status: D6SuppressionStatus;
   readonly study_ref: D6ExactRef;
   readonly transfer_state: D6TransferState;
@@ -216,11 +233,14 @@ export interface TransferResearchDesignInput {
     TransferInstrumentVersion,
     "content_digest" | "instrument_ref" | "schema_version" | "status" | "visibility"
   >;
+  readonly context_factors: readonly string[];
   readonly learning_goal_ref: D6ExactRef;
   readonly observation_windows: readonly TransferObservationWindowDefinition[];
   readonly outcome_measures: readonly TransferOutcomeMeasureDefinition[];
   readonly provenance_source_policy: TransferEvidenceSourcePolicy;
+  readonly research_questions: readonly TransferResearchQuestion[];
   readonly rubric_ref: D6ExactRef;
+  readonly scope: TransferResearchScope;
   readonly title: string;
 }
 
@@ -235,6 +255,17 @@ const keys = (value: Record<string, unknown>, expected: readonly string[]) => {
 };
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+export const isTransferResearchScope = (value: unknown): value is TransferResearchScope =>
+  record(value) &&
+  keys(value, ["activity_id", "course_id", "role_key", "run_id", "team_id"]) &&
+  [value.activity_id, value.course_id, value.role_key, value.run_id, value.team_id].every(identity);
+const isTransferResearchQuestion = (value: unknown): value is TransferResearchQuestion =>
+  record(value) &&
+  keys(value, ["prompt", "question_id"]) &&
+  identity(value.question_id) &&
+  typeof value.prompt === "string" &&
+  value.prompt.trim() === value.prompt &&
+  value.prompt.length > 0;
 const identity = (value: unknown) =>
   typeof value === "string" &&
   value.trim() === value &&
@@ -433,14 +464,17 @@ export function isTransferStudyDefinitionVersion(
       "formal_transfer_claim_write",
       "instrument_refs",
       "lifecycle",
+      "context_factors",
       "observation_windows",
       "outcome_measures",
       "provenance_source_policy",
+      "research_questions",
       "rubric_ref",
       "schema_version",
       "study_ref",
       "title",
       "learning_goal_ref",
+      "scope",
       "visibility",
       ...(value.supersedes_ref === undefined ? [] : ["supersedes_ref"])
     ])
@@ -470,6 +504,9 @@ export function isTransferStudyDefinitionVersion(
     Array.isArray(value.instrument_refs) &&
     value.instrument_refs.length > 0 &&
     value.instrument_refs.every(isD6ExactRef) &&
+    Array.isArray(value.context_factors) &&
+    value.context_factors.length > 0 &&
+    value.context_factors.every(identity) &&
     Array.isArray(value.observation_windows) &&
     value.observation_windows.length >= 2 &&
     value.observation_windows.some((window) => window.code === "W0_BASELINE") &&
@@ -479,6 +516,9 @@ export function isTransferStudyDefinitionVersion(
     value.outcome_measures.every(isTransferOutcomeMeasureDefinition) &&
     value.outcome_measures.filter((measure) => measure.role === "PRIMARY").length === 1 &&
     isTransferEvidenceSourcePolicy(value.provenance_source_policy) &&
+    Array.isArray(value.research_questions) &&
+    value.research_questions.length > 0 &&
+    value.research_questions.every(isTransferResearchQuestion) &&
     timestamp(value.created_at) &&
     D6_STUDY_STATES.includes(value.lifecycle as D6StudyState) &&
     value.d4_reference_only === true &&
@@ -487,6 +527,7 @@ export function isTransferStudyDefinitionVersion(
     value.schema_version === D6_TRANSFER_SCHEMA_VERSION &&
     typeof value.title === "string" &&
     value.title.trim().length > 0 &&
+    isTransferResearchScope(value.scope) &&
     value.visibility === "teacher_admin_only" &&
     (value.supersedes_ref === undefined || isD6ExactRef(value.supersedes_ref)) &&
     refs.every((ref): ref is D6ExactRef => isD6ExactRef(ref)) &&
@@ -517,6 +558,7 @@ export function isTransferEvidenceRecordCandidate(
       "schema_version",
       "source_type",
       "suppression_status",
+      "scope",
       "study_ref",
       "transfer_state",
       "visibility",
@@ -569,6 +611,7 @@ export function isTransferEvidenceRecordCandidate(
     value.schema_version === D6_TRANSFER_SCHEMA_VERSION &&
     D6_SOURCE_TYPES.includes(value.source_type as D6SourceType) &&
     D6_SUPPRESSION_STATUSES.includes(value.suppression_status as D6SuppressionStatus) &&
+    isTransferResearchScope(value.scope) &&
     D6_TRANSFER_STATES.includes(value.transfer_state as D6TransferState) &&
     value.visibility === "teacher_admin_only"
   );

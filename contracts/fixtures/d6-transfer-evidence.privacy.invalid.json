@@ -1,0 +1,12 @@
+{
+  "analysis_plan": {},
+  "instrument": {},
+  "study": {},
+  "synthetic_preview": {
+    "candidate_ref": {},
+    "private_payload": {
+      "state_true": "forbidden",
+      "raw_event_payload": "forbidden"
+    }
+  }
+}

@@ -51,6 +51,27 @@
         "tolerance_days": { "type": "integer", "minimum": 0 }
       }
     },
+    "ResearchQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "question_id"],
+      "properties": {
+        "prompt": { "type": "string", "minLength": 1 },
+        "question_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+      }
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "course_id", "role_key", "run_id", "team_id"],
+      "properties": {
+        "activity_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "course_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "role_key": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "run_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "team_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+      }
+    },
     "Outcome": {
       "type": "object",
       "additionalProperties": false,
@@ -196,14 +217,17 @@
         "formal_transfer_claim_write",
         "instrument_refs",
         "lifecycle",
+        "context_factors",
         "observation_windows",
         "outcome_measures",
         "provenance_source_policy",
+        "research_questions",
         "rubric_ref",
         "schema_version",
         "study_ref",
         "title",
         "learning_goal_ref",
+        "scope",
         "visibility"
       ],
       "properties": {
@@ -222,6 +246,11 @@
           "items": { "$ref": "#/$defs/ExactRef" }
         },
         "lifecycle": { "enum": ["DRAFT", "VALIDATING", "READY_WITH_LIMITS", "FROZEN", "RETIRED"] },
+        "context_factors": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "observation_windows": {
           "type": "array",
           "minItems": 2,
@@ -237,11 +266,17 @@
           "items": { "$ref": "#/$defs/Outcome" }
         },
         "provenance_source_policy": { "$ref": "#/$defs/SourcePolicy" },
+        "research_questions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ResearchQuestion" }
+        },
         "rubric_ref": { "$ref": "#/$defs/ExactRef" },
         "schema_version": { "const": "d6-transfer-evidence.v1" },
         "study_ref": { "$ref": "#/$defs/ExactRef" },
         "title": { "type": "string", "minLength": 1 },
         "learning_goal_ref": { "$ref": "#/$defs/ExactRef" },
+        "scope": { "$ref": "#/$defs/Scope" },
         "supersedes_ref": { "$ref": "#/$defs/ExactRef" },
         "visibility": { "const": "teacher_admin_only" }
       }
@@ -278,6 +313,7 @@
         "schema_version",
         "source_type",
         "suppression_status",
+        "scope",
         "study_ref",
         "transfer_state",
         "visibility",
@@ -334,6 +370,7 @@
         "suppression_status": {
           "enum": ["NOT_EVALUATED", "VISIBLE_ABOVE_THRESHOLD", "SUPPRESSED_BELOW_THRESHOLD"]
         },
+        "scope": { "$ref": "#/$defs/Scope" },
         "study_ref": { "$ref": "#/$defs/ExactRef" },
         "transfer_state": {
           "enum": [

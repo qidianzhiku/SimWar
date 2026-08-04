@@ -84,6 +84,7 @@
       }
     ],
     "lifecycle": "FROZEN",
+    "context_factors": ["OPPORTUNITY_TO_PERFORM", "MANAGER_SUPPORT"],
     "observation_windows": [
       { "code": "W0_BASELINE", "offset_days": 0, "tolerance_days": 7 },
       { "code": "W2_30D", "offset_days": 30, "tolerance_days": 7 }
@@ -109,6 +110,9 @@
       "retention_days": 90,
       "deletion_mode": "DELETE_ON_EXPIRY"
     },
+    "research_questions": [
+      { "question_id": "q_transfer_1", "prompt": "What transfer opportunity was available?" }
+    ],
     "rubric_ref": {
       "content_digest": "5555555555555555555555555555555555555555555555555555555555555555",
       "discriminator": "exact_ref",
@@ -134,6 +138,13 @@
       "resource_type": "learning_goal_version",
       "tenant_id": "tenant_demo",
       "version": "1.0.0"
+    },
+    "scope": {
+      "activity_id": "activity_d6_demo",
+      "course_id": "package_d6_demo",
+      "role_key": "CEO",
+      "run_id": "run_d6_demo",
+      "team_id": "team_d6_demo"
     },
     "visibility": "teacher_admin_only"
   },
@@ -200,6 +211,13 @@
     "schema_version": "d6-transfer-evidence.v1",
     "source_type": "LEARNER_SELF_REPORT",
     "suppression_status": "SUPPRESSED_BELOW_THRESHOLD",
+    "scope": {
+      "activity_id": "activity_d6_demo",
+      "course_id": "package_d6_demo",
+      "role_key": "CEO",
+      "run_id": "run_d6_demo",
+      "team_id": "team_d6_demo"
+    },
     "study_ref": {
       "content_digest": "3333333333333333333333333333333333333333333333333333333333333333",
       "discriminator": "exact_ref",

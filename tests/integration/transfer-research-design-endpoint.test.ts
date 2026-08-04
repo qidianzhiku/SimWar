@@ -45,6 +45,7 @@ function body() {
       items: [{ item_id: "item_1", prompt: "Describe the opportunity", response_type: "TEXT" }],
       source_type: "LEARNER_SELF_REPORT"
     },
+    context_factors: ["OPPORTUNITY_TO_PERFORM", "MANAGER_SUPPORT"],
     learning_goal_ref: ref("goal_d6", "learning_goal_version", "5".repeat(64)),
     observation_windows: [
       { code: "W0_BASELINE", offset_days: 0, tolerance_days: 7 },
@@ -66,7 +67,17 @@ function body() {
       retention_days: 90,
       deletion_mode: "DELETE_ON_EXPIRY"
     },
+    research_questions: [
+      { question_id: "q_transfer_1", prompt: "What transfer opportunity was available?" }
+    ],
     rubric_ref: ref("rubric_d6", "rubric_version", "6".repeat(64)),
+    scope: {
+      activity_id: "activity_d6",
+      course_id: "package_d6",
+      role_key: "CEO",
+      run_id: "run_d6",
+      team_id: "team_d6"
+    },
     title: "D6 API synthetic design"
   };
 }
@@ -101,6 +112,24 @@ describe("D6 transfer research design endpoint", () => {
       });
       expect(list.status).toBe(200);
       expect((await list.json()).data.studies).toHaveLength(1);
+      const studyId = frozenBody.data.study.study_ref.resource_id;
+      const revised = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/transfer-research-designs/${studyId}/revise`,
+        {
+          body: JSON.stringify({ ...body(), title: "D6 API revised design" }),
+          headers,
+          method: "POST"
+        }
+      );
+      expect(revised.status).toBe(201);
+      const revisedBody = await revised.json();
+      expect(revisedBody.data.study.supersedes_ref.resource_id).toBe(studyId);
+      const retired = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/transfer-research-designs/${revisedBody.data.study.study_ref.resource_id}/retire`,
+        { headers, method: "POST" }
+      );
+      expect(retired.status).toBe(200);
+      expect((await retired.json()).data.lifecycle).toBe("RETIRED");
       const student = await fetch(`${baseUrl}/api/v1/bff/student/transfer-research-designs`, {
         headers
       });
