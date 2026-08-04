@@ -7,7 +7,9 @@ import type {
 import {
   freezeTransferResearchDesign,
   loadTransferResearchDesigns,
-  previewTransferResearchDesign
+  previewTransferResearchDesign,
+  retireTransferResearchDesign,
+  reviseTransferResearchDesign
 } from "./transfer-research-client";
 
 const digest = (char: string) => char.repeat(64);
@@ -202,6 +204,31 @@ export function TransferResearchWorkbench({
     }
   };
 
+  const retire = async (studyId: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const retired = await retireTransferResearchDesign(apiBase, token, studyId);
+      setList((current) =>
+        current
+          ? {
+              ...current,
+              studies: current.studies.map((study) =>
+                study.study_ref.resource_id === studyId ? retired : study
+              )
+            }
+          : current
+      );
+      setPhase("RETIRED");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "D6 retirement failed";
+      setError(message);
+      setPhase(message.includes("CONFLICT") ? "CONFLICT" : "INVALID");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section
       className="candidate-surface d6-transfer-workbench"
@@ -323,6 +350,28 @@ export function TransferResearchWorkbench({
           <code>
             {study.study_ref.resource_id}@{study.study_ref.version}
           </code>
+          {study.lifecycle !== "RETIRED" ? (
+            <div className="d6-actions">
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(() =>
+                    reviseTransferResearchDesign(
+                      apiBase,
+                      token,
+                      study.study_ref.resource_id,
+                      currentInput
+                    )
+                  )
+                }
+              >
+                Revise
+              </button>
+              <button disabled={busy} onClick={() => void retire(study.study_ref.resource_id)}>
+                Retire
+              </button>
+            </div>
+          ) : null}
         </div>
       ))}
       <p className="d6-limits">

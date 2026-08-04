@@ -39,6 +39,15 @@ test("Teacher D6 workbench preserves exact refs and synthetic-only boundary", as
     expect(body.course_package_ref.resource_type).toBe("course_package_version");
     expect(body.d4_source_ref.resource_type).toBe("student_learning_report");
     expect(body.d5_source_ref.resource_type).toBe("learning_export_bundle_version");
+    expect(body.scope).toMatchObject({
+      activity_id: "activity_exact",
+      course_id: "course_package_exact",
+      role_key: "CEO",
+      run_id: "run_exact",
+      team_id: "team_exact"
+    });
+    expect(body.research_questions).toHaveLength(1);
+    expect(body.context_factors).toContain("OPPORTUNITY_TO_PERFORM");
     await route.fulfill({
       json: {
         code: "OK",

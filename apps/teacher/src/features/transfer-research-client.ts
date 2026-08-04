@@ -3,7 +3,8 @@ import type {
   TransferResearchDesignBundle,
   TransferResearchDesignInput,
   TransferResearchDesignListDto,
-  TransferEvidenceRecordCandidate
+  TransferEvidenceRecordCandidate,
+  TransferStudyDefinitionVersion
 } from "@simwar/shared-contracts";
 
 async function request<T>(
@@ -76,7 +77,7 @@ export const reviseTransferResearchDesign = (
     }
   );
 export const retireTransferResearchDesign = (apiBase: string, token: string, studyId: string) =>
-  request<TransferResearchDesignBundle>(
+  request<TransferStudyDefinitionVersion>(
     apiBase,
     token,
     `/api/v1/bff/teacher/transfer-research-designs/${encodeURIComponent(studyId)}/retire`,
