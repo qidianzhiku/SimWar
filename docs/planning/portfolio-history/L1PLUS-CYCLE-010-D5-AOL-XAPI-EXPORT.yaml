@@ -1,0 +1,62 @@
+cycle_id: L1PLUS-CYCLE-010-D5-AOL-XAPI-EXPORT
+stage: L1_PLUS
+capability_id: L1P-D5
+candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
+delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
+frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Teacher and Admin can preview, seal, inspect, and deliver a de-identified D5 export bundle from exact confirmed or amended D4 reports through the in-process Mock LRS path.
+authority:
+  writer: D5ExportAssembler_and_D5DeliveryService
+  projection: TeacherSafeExportProjection
+  runtime_authority: JSON_INTERNAL_ONLY
+  student_route: ABSENT
+acceptance:
+  status: PASS_WITH_LIMITS
+  rows: A01_A30
+  pass: 28
+  pass_with_explicit_limit: 2
+  unknown: 0
+  not_run: 0
+  planned_corrective_product_pr_count: 0
+reviews:
+  cell_a_blocking: 0
+  cell_a_must_fix: 0
+  cell_b_blocking: 0
+  cell_b_must_fix: 0
+  cell_c_blocking: 0
+  cell_c_must_fix: 0
+validation:
+  focused_d5: 10_TESTS_PASS
+  contract: 12_FILES_30_TESTS_PASS
+  full_tests: 152_FILES_1005_TESTS_PASS
+  browser: 1_TEST_PASS
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  security_critical_threshold: PASS
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+fresh_clone:
+  source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+  path: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
+  clean: true
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - Mock_LRS_ONLY
+  - durable_delivery_not_proven
+  - Human_Validation_NOT_PERFORMED
+  - Issue_111_OPEN_KNOWN_LIMIT
+  - PostgreSQL_NOT_ACTIVE
+  - Pilot_NOT_AUTHORIZED
+  - Production_NOT_AUTHORIZED
+resource_locks: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+automatic_next_start: false
+next_candidate:
+  candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
+  status: RECOMMENDED_NOT_AUTHORIZED

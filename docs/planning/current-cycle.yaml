@@ -1,48 +1,52 @@
-cycle_id: L1PLUS-CYCLE-009-D4-STUDENT-LEARNING-REPORT
+cycle_id: L1PLUS-CYCLE-010-D5-AOL-XAPI-EXPORT
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-generated_at: "2026-08-03T23:21:55+08:00"
+generated_at: "2026-08-04T09:20:00+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
+assessment_source_anchor_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
 governance_closure_merge_sha: THIS_CHANGESET
-l1_plus_status: D4_STUDENT_LEARNING_REPORT_COMPLETE_WITH_LIMITS
+l1_plus_status: D5_AOL_XAPI_EXPORT_COMPLETE_WITH_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
 capability:
-  id: L1P-D4
-  candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
+  id: L1P-D5
+  candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
   status: CLOSED_AND_CURRENT_WITH_LIMITS
-  primary_outcome: Student can inspect a deterministic, teacher-safe learning report derived from confirmed evidence with exact references and provenance.
-  mutable_authority: NONE_D4_READ_ONLY_PROJECTION
-  sole_writer: TeacherConfirmationCommandService_REMAINS_D3_AUTHORITY
-  projection_service: StudentLearningReportProjectionService
+  primary_outcome: Teacher and Admin can preview, seal, inspect, and deliver a de-identified D5 export bundle from exact confirmed or amended D4 reports through the in-process Mock LRS path.
+  mutable_authority: D5ExportAssembler_and_D5DeliveryService_JSON_INTERNAL_ONLY
+  sole_writer: D5ExportAssembler_and_D5DeliveryService
+  projection_service: TeacherSafeExportProjection
   product_prs:
-    - number: 327
-      merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
-      role: BACKEND_CONTRACT_AND_PROJECTION
-    - number: 328
-      merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-      role: STUDENT_WORKBENCH
+    - number: 330
+      merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
+      role: EXPORT_BUNDLE_CONTRACT_AND_ASSEMBLER
+    - number: 331
+      merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
+      role: DELIVERY_ENGINE_AND_MOCK_LRS
+    - number: 332
+      merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+      role: TEACHER_ADMIN_EXPORT_WORKBENCH
   evidence:
     product_acceptance: PASS
-    acceptance_rows: A01_A25_PASS
+    acceptance_rows: A01_A30_28_PASS_2_PASS_WITH_EXPLICIT_LIMIT
     challenge_review_blocking: 0
     challenge_review_must_fix: 0
     post_merge_fresh_clone: PASS
-    full_tests: 149_FILES_995_TESTS_PASS
-    browser: 1_D4_TEST_PASS
-    contract: 12_FILES_30_TESTS_PASS
+    full_tests: 152_FILES_1005_TESTS_PASS
+    browser: 1_D5_TEST_PASS
+    contract: 12_FILES_30_TESTS_PASS_16_SCHEMA_GROUPS
     direct_store_boundary: 0_NEW_UNAPPROVED
     typecheck: PASS
     lint: PASS
     build: PASS
     hidden_unicode: PASS
     security_audit_critical_threshold: PASS_WITH_2_LOW_6_HIGH_ADVISORIES
-    product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-    backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
-    frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-    fresh_clone: D:/codex/simwar-w008-d4-final-fresh-ee7e
+    product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+    backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
+    delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
+    frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+    fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
   known_limits:
     runtime_authority: JSON_INTERNAL_ONLY
     human_validation: NOT_PERFORMED
@@ -62,22 +66,24 @@ closure:
   post_merge_required: COMPLETED
   governance_pr: THIS_CHANGESET
 resource_locks:
-  - resource: D4_STUDENT_REPORT_CONTRACT
+  - resource: D5_EXPORT_BUNDLE_CONTRACT
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D4_REPORT_PROJECTION
+  - resource: D5_DELIVERY_ENGINE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: STUDENT_REPORT_WORKBENCH
+  - resource: D5_TEACHER_ADMIN_WORKBENCH
+    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  - resource: MOCK_LRS_AND_RECEIPTS
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: SERIAL_CLOSURE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
 candidate_backlog:
-  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+  - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
     status: RECOMMENDED_NOT_AUTHORIZED
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
-  - candidate_id: D5_OR_OTHER_PROGRAM_D_EXTENSION
+  - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
@@ -88,11 +94,12 @@ known_limits:
   pilot_and_production: NOT_AUTHORIZED
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 evidence:
-  product_evidence_source_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-  backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
-  frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
-  fresh_clone: D:/codex/simwar-w008-d4-final-fresh-ee7e
-  d4_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W008-D4-20260803T142705Z
+  product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+  backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
+  delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
+  frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
+  d5_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z
   product_acceptance: PASS
 invalidation_triggers:
   - product_or_runtime_changed
@@ -102,4 +109,7 @@ invalidation_triggers:
   - golden_truth_or_replay_contract_changed
   - student_visibility_changed
   - D4_acceptance_baseline_changed
+  - d5_export_contract_changed
+  - d5_delivery_authority_changed
+  - d5_teacher_admin_visibility_changed
 automatic_next_start: false
