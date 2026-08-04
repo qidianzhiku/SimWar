@@ -25,8 +25,7 @@ async function loadStatus(
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
-      "x-tenant-id": tenantId,
-      "x-correlation-id": `ui-r3-student-${Date.now()}`
+      "x-tenant-id": tenantId
     },
     signal
   });
