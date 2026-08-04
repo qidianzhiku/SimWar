@@ -9,9 +9,9 @@ const report = JSON.parse(
   readFileSync(resolve(process.cwd(), "contracts/fixtures/student-learning-report.valid.json"), "utf8")
 ) as StudentLearningReport;
 
-function assembler() {
+function assembler(reports: readonly StudentLearningReport[] = [report]) {
   return new D5ExportAssembler({
-    reports: { listPreview: async () => ({ known_limits: [], reports: [report], report_schema_version: "student-learning-report.v1", runtime_authority: "JSON_INTERNAL_ONLY", scope: "tenant_preview" }) },
+    reports: { listPreview: async () => ({ known_limits: [], reports, report_schema_version: "student-learning-report.v1", runtime_authority: "JSON_INTERNAL_ONLY", scope: "tenant_preview" }) },
     repository: new InMemoryD5ExportRegistry(),
     now: () => "2026-08-04T00:00:00.000Z"
   });
@@ -42,5 +42,11 @@ describe("D5 export assembler", () => {
   it("rejects a report reference from another tenant before projection", async () => {
     const service = assembler();
     await expect(service.preview("tenant_demo", { report_refs: [{ ...report.report_ref, tenant_id: "tenant_other" }] })).rejects.toMatchObject({ code: "D5_EXACT_REFERENCE_INVALID" });
+  });
+
+  it("rejects a bundle that crosses course, run, team, or role scope", async () => {
+    const otherScope = { ...report, report_ref: { ...report.report_ref, resource_id: "report_other" }, context: { ...report.context, run_id: "run_other" } };
+    const service = assembler([report, otherScope]);
+    await expect(service.preview("tenant_demo", { report_refs: [report.report_ref, otherScope.report_ref] })).rejects.toMatchObject({ code: "D5_EXPORT_SCOPE_VIOLATION" });
   });
 });

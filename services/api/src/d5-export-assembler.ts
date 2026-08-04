@@ -274,6 +274,15 @@ export class D5ExportAssembler {
       throw new D5ExportError("D5_REPORT_NOT_ELIGIBLE");
     }
     const reports = selected as StudentLearningReport[];
+    const scope = reports[0]?.context;
+    if (!scope || reports.some((report) =>
+      report.context.course_id !== scope.course_id ||
+      report.context.run_id !== scope.run_id ||
+      report.context.team_id !== scope.team_id ||
+      report.context.role_key !== scope.role_key
+    )) {
+      throw new D5ExportError("D5_EXPORT_SCOPE_VIOLATION");
+    }
     const statements = reports.map((report) => buildStatement(report, profileVersion, destinationVersion));
     const aolDataset = buildDataset(tenantId, reports, policyVersion);
     return {

@@ -29,6 +29,7 @@ import {
   type CoursePackageSurfaceState
 } from "./course-package-client";
 import { CourseReportBuilder } from "./CourseReportBuilder";
+import { D5ExportWorkbench } from "./D5ExportWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -630,6 +631,10 @@ export function App() {
             </ul>
           </details>
         </section>
+      ) : null}
+
+      {session && hasAdminSummaryRole ? (
+        <D5ExportWorkbench apiBase={API_BASE} tenantId={session.user.tenant_id} token={session.access_token} />
       ) : null}
 
       {summaryStatus === "loading" && hasAdminSummaryRole ? (
