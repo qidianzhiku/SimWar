@@ -1,0 +1,71 @@
+cycle_id: L1PLUS-CYCLE-012-R3-GOLDEN-JOURNEY
+stage: L1_PLUS
+capability_id: L1P-R3
+candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+assessment_source_anchor_sha: ce637e7102c174804116db624c35a96c3363acec
+product_evidence_source_sha: ce637e7102c174804116db624c35a96c3363acec
+governance_closure_merge_sha: THIS_CHANGESET
+primary_outcome: Teacher and Student can inspect a safe read-only D1-D6 Golden Journey with exact package identity, supported slices, receipts, allowed actions, and known limits.
+authority:
+  writer: NONE_R3_READ_ONLY_PROJECTION
+  integration_projection: GoldenJourneyIntegrationService_JSON_INTERNAL_ONLY
+  runtime_authority: JSON_INTERNAL_ONLY
+  student_route: SAFE_PROJECTION_ONLY
+  truth_settlement_score_rank_writer: UNCHANGED
+evidence:
+  backend_pr: 336
+  backend_merge_sha: a4494906c556e70ad82d6f4544a34b8d11b0f18a
+  frontend_pr: 337
+  frontend_merge_sha: ce637e7102c174804116db624c35a96c3363acec
+  final_master_sha: ce637e7102c174804116db624c35a96c3363acec
+  acceptance: A01_A36_PASS_WITH_EXPLICIT_LIMITS_NO_UNKNOWN_OR_NOT_MAPPED
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+  contract: 14_FILES_37_TESTS_PASS_18_SCHEMA_GROUPS
+  integration: 2_TESTS_PASS
+  browser: 74_MAIN_PASS_9_EXISTING_ENVIRONMENT_GATED_SKIPS_PLUS_ROLE_WORKFLOW_PASS
+  full_tests: 157_FILES_1018_TESTS_PASS
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  quality: PASS
+  browser_smoke: PASS
+  codeql: PASS
+  fresh_clone: PASS
+  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W011-R3-GOLDEN-JOURNEY-20260804T150018Z
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - synthetic_internal_validation
+  - D5_AND_D6_SYNTHETIC_OR_MOCK_BACKED_AS_DOCUMENTED
+  - Human_Validation_NOT_PERFORMED
+  - Issue_111_OPEN_KNOWN_LIMIT
+  - PostgreSQL_NOT_ACTIVE
+  - durable_settlement_and_recovery_NOT_PROVEN
+  - Pilot_NOT_AUTHORIZED
+  - Production_NOT_AUTHORIZED
+  - CodeGraph_GRAPH_EVIDENCE_GAP
+  - dependency_advisories_2_LOW_6_HIGH_PREEXISTING
+resource_locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - R3_INTEGRATION_CONTRACT
+    - TEACHER_GOLDEN_JOURNEY_PROJECTION
+    - STUDENT_SAFE_GOLDEN_JOURNEY_PROJECTION
+    - GOLDEN_RECEIPTS_AND_PLAYWRIGHT_STATE
+    - SERIAL_CLOSURE
+candidate_backlog:
+  - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
+    status: RECOMMENDED_NOT_AUTHORIZED
+  - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
+    status: HIGHER_STAGE_DEFERRED
+  - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
+    status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
+automatic_next_start: false
+explicit_non_proofs:
+  - No Human Validation or causal learning outcome is proven.
+  - No PostgreSQL, durable recovery, Pilot, or Production is authorized.
+  - No D4 or successor implementation is authorized.

@@ -1,14 +1,14 @@
 portfolio_version: 3
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-04T14:22:52+08:00"
+generated_at: "2026-08-04T16:16:32+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
-product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+assessment_source_anchor_sha: ce637e7102c174804116db624c35a96c3363acec
+product_evidence_source_sha: ce637e7102c174804116db624c35a96c3363acec
 governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN_COMPLETE_WITH_LIMITS
+l1_plus_status: R3_CROSS_SLICE_GOLDEN_JOURNEY_COMPLETE_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,17 +16,19 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
-    capability_id: L1P-D6
+    candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
+    capability_id: L1P-R3
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     product_prs:
-      - 334
+      - 336
+      - 337
     product_merge_shas:
-      - d252df2a45c19ea41fe1fd308fc7fe0bde185601
-    primary_outcome: Teacher and Admin can define, preview, freeze, revise, retire, and audit a synthetic transfer research design bound to exact D1-D5 references without creating a second EvidenceArtifact writer.
+      - a4494906c556e70ad82d6f4544a34b8d11b0f18a
+      - ce637e7102c174804116db624c35a96c3363acec
+    primary_outcome: Teacher and Student can inspect a safe read-only D1-D6 Golden Journey with exact package identity, supported slices, receipts, allowed actions, and known limits.
   support_code: NONE
   docs_discovery: NONE
-  closure: D6_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: R3_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
   - capability_id: L1P-VC-06
     candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -43,39 +45,29 @@ closed_capabilities:
   - capability_id: L1P-D2
     candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_merge_sha: 291daab32c83e256270cca5fc6a5a407c680b7c9
   - capability_id: L1P-D3
     candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_merge_sha: 3f9145f27700b484e0f6d5f90d5eb926448276da
   - capability_id: L1P-D4
     candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    backend_merge_sha: 0fb31f5823da3ce28970ac633a08522df8aa1273
-    frontend_merge_sha: ee7e9333fee49c5b9aac4903a8daa1250190dd20
   - capability_id: L1P-D5
     candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
-    delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-    frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
   - capability_id: L1P-D6
     candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+  - capability_id: L1P-R3
+    candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
 resource_locks:
-  - resource: D6_TRANSFER_EVIDENCE_CONTRACT
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_TRANSFER_RESEARCH_DESIGN_SERVICE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_TEACHER_ADMIN_WORKBENCH
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D6_ACCEPTANCE_AND_BROWSER
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: PLAYWRIGHT_STATE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: SERIAL_CLOSURE
-    status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - R3_INTEGRATION_CONTRACT
+    - TEACHER_GOLDEN_JOURNEY_PROJECTION
+    - STUDENT_SAFE_GOLDEN_JOURNEY_PROJECTION
+    - GOLDEN_RECEIPTS_AND_PLAYWRIGHT_STATE
+    - SERIAL_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-D6-LEARNING-EVIDENCE-CONTINUATION
     status: RECOMMENDED_NOT_AUTHORIZED
@@ -83,31 +75,25 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
   - candidate_id: CAND-L1P-CLR-OPEN-BADGES-CALIPER
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
-known_limits:
-  issue_111: OPEN_KNOWN_LIMIT
-  runtime_authority: JSON_INTERNAL_ONLY
-  synthetic_only: true
-  causal_claims: DISABLED
-  human_validation: NOT_PERFORMED
-  postgresql: NOT_ACTIVE
-  durable_settlement_and_recovery: NOT_PROVEN
-  pilot_and_production: NOT_AUTHORIZED
-  codegraph: GRAPH_EVIDENCE_GAP
-  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+blocked_candidates: []
 evidence:
-  candidate_head: 12c694262857130c984e584417e2d109c8774b54
-  product_merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
-  product_pr: 334
-  changed_file_count: 27
-  changed_file_manifest_sha256: 9cb989d7de27eb4bb7d29d287c2133b9ed01cb1235f2775523ea480f8086e783
+  candidate_head: ce637e7102c174804116db624c35a96c3363acec
+  product_merge_shas:
+    - a4494906c556e70ad82d6f4544a34b8d11b0f18a
+    - ce637e7102c174804116db624c35a96c3363acec
+  product_prs:
+    - 336
+    - 337
   product_acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: A01_A30_NO_UNKNOWN_OR_NOT_MAPPED
+  acceptance_rows: 36
+  unknown_rows: 0
+  not_mapped_rows: 0
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
   post_merge_fresh_clone: PASS
-  full_tests: 155_FILES_1011_TESTS_PASS
-  browser: 1_D6_TEST_PASS
-  contract: 13_FILES_32_TESTS_PASS_17_SCHEMA_GROUPS
+  full_tests: 157_FILES_1018_TESTS_PASS
+  browser: 74_MAIN_PASS_9_EXISTING_ENVIRONMENT_GATED_SKIPS_PLUS_ROLE_WORKFLOW_PASS
+  contract: 14_FILES_37_TESTS_PASS_18_SCHEMA_GROUPS
   direct_store_new_unapproved: 0
   typecheck: PASS
   lint: PASS
@@ -116,14 +102,22 @@ evidence:
   quality: PASS
   browser_smoke: PASS
   codeql: PASS
-  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z/integration/fresh-clone/post-merge-d252df2
-  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z
+  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W011-R3-GOLDEN-JOURNEY-20260804T150018Z
+known_limits:
+  issue_111: OPEN_KNOWN_LIMIT
+  runtime_authority: JSON_INTERNAL_ONLY
+  synthetic_internal_validation: true
+  human_validation: NOT_PERFORMED
+  postgresql: NOT_ACTIVE
+  durable_settlement_and_recovery: NOT_PROVEN
+  pilot_and_production: NOT_AUTHORIZED
+  codegraph: GRAPH_EVIDENCE_GAP
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
-  - d6_shared_contract_changed
-  - d6_authority_changed
-  - d6_teacher_admin_visibility_changed
-  - golden_truth_or_replay_contract_changed
-  - student_visibility_changed
+  - r3_integration_contract_changed
+  - golden_or_visibility_changed
+  - d1_d6_authority_changed
   - post_merge_evidence_invalidated
 automatic_next_start: false
