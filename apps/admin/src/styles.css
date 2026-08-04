@@ -511,3 +511,87 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+.d5-export-workbench {
+  border-top: 3px solid #297b72;
+}
+
+.d5-export-boundary {
+  color: #49616a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 78ch;
+}
+
+.d5-export-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.d5-export-report-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.d5-export-report-list label {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.d5-export-report-list span {
+  color: #49616a;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.d5-export-actions,
+.d5-export-job,
+.d5-export-receipt {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.d5-export-actions {
+  margin-top: 16px;
+}
+
+.d5-export-receipt,
+.d5-export-job {
+  border-top: 1px solid #d8e7e1;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.d5-export-receipt code {
+  font-size: 0.76rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.d5-export-error {
+  color: #a33f32;
+}
+
+.d5-export-empty {
+  color: #49616a;
+}
+
+@media (max-width: 820px) {
+  .d5-export-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .d5-export-report-list span {
+    margin-left: 0;
+    text-align: left;
+  }
+}
