@@ -95,6 +95,12 @@ const d4ContractFiles = [
   "contracts/fixtures/student-learning-report.invalid.json"
 ];
 
+const d5ContractFiles = [
+  "contracts/schemas/d5-export.v1.json",
+  "contracts/fixtures/d5-export.valid.json",
+  "contracts/fixtures/d5-export.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -114,7 +120,19 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/learning-goals/{goalId}/versions/{version}/{action}",
   "/api/v1/bff/teacher/rubrics/{rubricId}/versions/{version}/{action}",
   "/api/v1/bff/teacher/evidence",
-  "/api/v1/bff/teacher/evidence-artifacts/capture"
+  "/api/v1/bff/teacher/evidence-artifacts/capture",
+  "/api/v1/bff/teacher/learning-exports/preview",
+  "/api/v1/bff/teacher/learning-exports/seal",
+  "/api/v1/bff/teacher/learning-exports",
+  "/api/v1/bff/teacher/learning-exports/jobs",
+  "/api/v1/bff/teacher/learning-exports/jobs/{jobId}/retry",
+  "/api/v1/bff/teacher/learning-exports/jobs/{jobId}/cancel",
+  "/api/v1/bff/admin/learning-exports/preview",
+  "/api/v1/bff/admin/learning-exports/seal",
+  "/api/v1/bff/admin/learning-exports",
+  "/api/v1/bff/admin/learning-exports/jobs",
+  "/api/v1/bff/admin/learning-exports/jobs/{jobId}/retry",
+  "/api/v1/bff/admin/learning-exports/jobs/{jobId}/cancel"
 ];
 
 const schemaCases = [
@@ -206,6 +224,11 @@ const schemaCases = [
     schema: "contracts/schemas/student-learning-report.v1.json",
     valid: ["contracts/fixtures/student-learning-report.valid.json"],
     invalid: ["contracts/fixtures/student-learning-report.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/d5-export.v1.json",
+    valid: ["contracts/fixtures/d5-export.valid.json"],
+    invalid: ["contracts/fixtures/d5-export.invalid.json"]
   }
 ];
 
@@ -528,6 +551,26 @@ function assertD4OpenApiBindings(openApi) {
   );
 }
 
+function assertD5OpenApiBindings(openApi) {
+  for (const prefix of ["teacher", "admin"]) {
+    for (const path of [
+      `/api/v1/bff/${prefix}/learning-exports/preview`,
+      `/api/v1/bff/${prefix}/learning-exports/seal`,
+      `/api/v1/bff/${prefix}/learning-exports`,
+      `/api/v1/bff/${prefix}/learning-exports/jobs`,
+      `/api/v1/bff/${prefix}/learning-exports/jobs/{jobId}/retry`,
+      `/api/v1/bff/${prefix}/learning-exports/jobs/{jobId}/cancel`
+    ]) {
+      assert(openApi.paths[path], `Missing D5 learning export operation: ${path}`);
+    }
+  }
+  assert(
+    openApi.components?.schemas?.D5LearningExportBundle?.$ref ===
+      "../schemas/d5-export.v1.json",
+    "D5 LearningExportBundle must reference its JSON Schema artifact."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -600,7 +643,8 @@ export async function runContractValidation(options = {}) {
     ...d1ContractFiles,
     ...d2ContractFiles,
     ...d3ContractFiles,
-    ...d4ContractFiles
+    ...d4ContractFiles,
+    ...d5ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -610,7 +654,8 @@ export async function runContractValidation(options = {}) {
     ...d1ContractFiles,
     ...d2ContractFiles,
     ...d3ContractFiles,
-    ...d4ContractFiles
+    ...d4ContractFiles,
+    ...d5ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -621,6 +666,7 @@ export async function runContractValidation(options = {}) {
   assertD2OpenApiBindings(openApi);
   assertD3OpenApiBindings(openApi);
   assertD4OpenApiBindings(openApi);
+  assertD5OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/d5-export.v1.json",
+  "title": "SimWar D5 export bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["aol_dataset", "bundle_digest", "bundle_ref", "created_by", "known_limits", "sealed_at", "schema_version", "statement_batch", "status", "visibility"],
+  "properties": {
+    "aol_dataset": { "$ref": "#/$defs/AoLDataset" },
+    "bundle_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "bundle_ref": { "$ref": "#/$defs/ExactRef" },
+    "created_by": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "sealed_at": { "type": "string", "format": "date-time" },
+    "schema_version": { "const": "d5-export.v1" },
+    "statement_batch": { "$ref": "#/$defs/StatementBatch" },
+    "status": { "const": "SEALED" },
+    "visibility": { "const": "teacher_admin_only" }
+  },
+  "$defs": {
+    "ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "resource_type": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" },
+        "version": { "type": "string", "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$" }
+      }
+    },
+    "Statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor", "context", "id", "object", "result", "timestamp", "verb"],
+      "properties": {
+        "actor": {
+          "type": "object", "additionalProperties": false, "required": ["account"],
+          "properties": {
+            "account": {
+              "type": "object", "additionalProperties": false, "required": ["home_page", "name"],
+              "properties": { "home_page": { "const": "https://simwar.local/actor" }, "name": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "context": {
+          "type": "object", "additionalProperties": false, "required": ["extensions"],
+          "properties": {
+            "extensions": {
+              "type": "object", "additionalProperties": false, "required": ["course_id", "learning_goal_ref", "report_ref", "rubric_ref"],
+              "properties": {
+                "course_id": { "type": "string", "minLength": 1 },
+                "learning_goal_ref": { "$ref": "#/$defs/ExactRef" },
+                "report_ref": { "$ref": "#/$defs/ExactRef" },
+                "rubric_ref": { "$ref": "#/$defs/ExactRef" }
+              }
+            }
+          }
+        },
+        "id": { "type": "string", "pattern": "^stmt_[A-Za-z0-9]+$" },
+        "object": {
+          "type": "object", "additionalProperties": false, "required": ["definition", "id"],
+          "properties": {
+            "definition": {
+              "type": "object", "additionalProperties": false, "required": ["name", "type"],
+              "properties": { "name": { "type": "string", "minLength": 1 }, "type": { "const": "Activity" } }
+            },
+            "id": { "type": "string", "pattern": "^https://simwar.local/learning-report/" }
+          }
+        },
+        "result": {
+          "type": "object", "additionalProperties": false, "required": ["completion", "extensions"],
+          "properties": {
+            "completion": { "const": true },
+            "extensions": {
+              "type": "object", "additionalProperties": false, "required": ["status"],
+              "properties": { "status": { "enum": ["CONFIRMED", "AMENDED"] } }
+            }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "verb": {
+          "type": "object", "additionalProperties": false, "required": ["display", "id"],
+          "properties": {
+            "display": { "type": "object", "additionalProperties": false, "required": ["en-US"], "properties": { "en-US": { "const": "completed" } } },
+            "id": { "const": "https://adlnet.gov/expapi/verbs/completed" }
+          }
+        }
+      }
+    },
+    "StatementBatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["batch_ref", "content_digest", "created_at", "destination_ref", "known_limits", "policy_ref", "profile_ref", "runtime_authority", "schema_version", "source_report_refs", "statements", "visibility"],
+      "properties": {
+        "batch_ref": { "$ref": "#/$defs/ExactRef" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "destination_ref": { "$ref": "#/$defs/ExactRef" },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "policy_ref": { "$ref": "#/$defs/ExactRef" },
+        "profile_ref": { "$ref": "#/$defs/ExactRef" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+        "schema_version": { "const": "d5-export.v1" },
+        "source_report_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ExactRef" } },
+        "statements": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Statement" } },
+        "visibility": { "const": "teacher_admin_only" }
+      }
+    },
+    "AoLRow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["coarsened", "criterion_count", "group_key", "level_distribution", "sample_size", "suppressed"],
+      "properties": {
+        "coarsened": { "type": "boolean" },
+        "criterion_count": { "type": "integer", "minimum": 0 },
+        "group_key": { "type": "string", "minLength": 1 },
+        "level_distribution": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "sample_size": { "type": "integer", "minimum": 0 },
+        "suppressed": { "type": "boolean" }
+      }
+    },
+    "AoLDataset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["content_digest", "created_at", "dataset_ref", "known_limits", "policy_ref", "rows", "runtime_authority", "schema_version", "source_report_refs", "visibility"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "dataset_ref": { "$ref": "#/$defs/ExactRef" },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "policy_ref": { "$ref": "#/$defs/ExactRef" },
+        "rows": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/AoLRow" } },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+        "schema_version": { "const": "d5-export.v1" },
+        "source_report_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ExactRef" } },
+        "visibility": { "const": "teacher_admin_only" }
+      }
+    }
+  }
+}

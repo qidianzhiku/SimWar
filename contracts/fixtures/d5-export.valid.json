@@ -1,0 +1,44 @@
+{
+  "aol_dataset": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "dataset_ref": { "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "discriminator": "exact_ref", "resource_id": "aol_dataset_1", "resource_type": "aol_export_dataset_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "known_limits": ["mock only"],
+    "policy_ref": { "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "discriminator": "exact_ref", "resource_id": "policy_1", "resource_type": "learning_export_policy_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "rows": [{ "coarsened": false, "criterion_count": 2, "group_key": "course_1:goal_1:1.0.0:rubric_1:1.0.0", "level_distribution": { "2": 5 }, "sample_size": 5, "suppressed": false }],
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "schema_version": "d5-export.v1",
+    "source_report_refs": [{ "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "discriminator": "exact_ref", "resource_id": "report_1", "resource_type": "student_learning_report", "tenant_id": "tenant_demo", "version": "1.0.0" }],
+    "visibility": "teacher_admin_only"
+  },
+  "bundle_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "bundle_ref": { "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "discriminator": "exact_ref", "resource_id": "bundle_1", "resource_type": "learning_export_bundle_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+  "created_by": "usr_teacher",
+  "known_limits": ["mock only"],
+  "sealed_at": "2026-08-04T00:00:00.000Z",
+  "schema_version": "d5-export.v1",
+  "statement_batch": {
+    "batch_ref": { "content_digest": "1111111111111111111111111111111111111111111111111111111111111111", "discriminator": "exact_ref", "resource_id": "batch_1", "resource_type": "xapi_statement_batch_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "content_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "created_at": "2026-08-04T00:00:00.000Z",
+    "destination_ref": { "content_digest": "3333333333333333333333333333333333333333333333333333333333333333", "discriminator": "exact_ref", "resource_id": "mock_lrs", "resource_type": "destination_profile_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "known_limits": ["mock only"],
+    "policy_ref": { "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "discriminator": "exact_ref", "resource_id": "policy_1", "resource_type": "learning_export_policy_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "profile_ref": { "content_digest": "4444444444444444444444444444444444444444444444444444444444444444", "discriminator": "exact_ref", "resource_id": "profile_1", "resource_type": "xapi_profile_version", "tenant_id": "tenant_demo", "version": "1.0.0" },
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "schema_version": "d5-export.v1",
+    "source_report_refs": [{ "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "discriminator": "exact_ref", "resource_id": "report_1", "resource_type": "student_learning_report", "tenant_id": "tenant_demo", "version": "1.0.0" }],
+    "statements": [{
+      "actor": { "account": { "home_page": "https://simwar.local/actor", "name": "actor_1" } },
+      "context": { "extensions": { "course_id": "course_1", "learning_goal_ref": { "content_digest": "5555555555555555555555555555555555555555555555555555555555555555", "discriminator": "exact_ref", "resource_id": "goal_1", "resource_type": "learning_goal_version", "tenant_id": "tenant_demo", "version": "1.0.0" }, "report_ref": { "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "discriminator": "exact_ref", "resource_id": "report_1", "resource_type": "student_learning_report", "tenant_id": "tenant_demo", "version": "1.0.0" }, "rubric_ref": { "content_digest": "6666666666666666666666666666666666666666666666666666666666666666", "discriminator": "exact_ref", "resource_id": "rubric_1", "resource_type": "rubric_version", "tenant_id": "tenant_demo", "version": "1.0.0" } } },
+      "id": "stmt_1",
+      "object": { "definition": { "name": "Student learning report", "type": "Activity" }, "id": "https://simwar.local/learning-report/report_1/1.0.0" },
+      "result": { "completion": true, "extensions": { "status": "CONFIRMED" } },
+      "timestamp": "2026-08-04T00:00:00.000Z",
+      "verb": { "display": { "en-US": "completed" }, "id": "https://adlnet.gov/expapi/verbs/completed" }
+    }],
+    "visibility": "teacher_admin_only"
+  },
+  "status": "SEALED",
+  "visibility": "teacher_admin_only"
+}
