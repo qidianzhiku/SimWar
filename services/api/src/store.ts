@@ -612,6 +612,36 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
       team_id: "team_alpha"
     }),
     createStoredUser({
+      user_id: "usr_default_cfo",
+      tenant_id: DEFAULT_TENANT_ID,
+      username: "default_cfo",
+      email: "default_cfo@demo.simwar.local",
+      password: "default_cfo",
+      display_name: "P0 CFO",
+      roles: ["learner"],
+      team_id: "team_alpha"
+    }),
+    createStoredUser({
+      user_id: "usr_default_cmo",
+      tenant_id: DEFAULT_TENANT_ID,
+      username: "default_cmo",
+      email: "default_cmo@demo.simwar.local",
+      password: "default_cmo",
+      display_name: "P0 CMO",
+      roles: ["learner"],
+      team_id: "team_alpha"
+    }),
+    createStoredUser({
+      user_id: "usr_default_coo",
+      tenant_id: DEFAULT_TENANT_ID,
+      username: "default_coo",
+      email: "default_coo@demo.simwar.local",
+      password: "default_coo",
+      display_name: "P0 COO",
+      roles: ["learner"],
+      team_id: "team_alpha"
+    }),
+    createStoredUser({
       user_id: "usr_admin",
       tenant_id: DEFAULT_TENANT_ID,
       username: "admin",
@@ -689,6 +719,21 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
           user_id: "usr_student",
           display_name: "P0 Student",
           role_slot: "CEO"
+        },
+        {
+          user_id: "usr_default_cfo",
+          display_name: "P0 CFO",
+          role_slot: "CFO"
+        },
+        {
+          user_id: "usr_default_cmo",
+          display_name: "P0 CMO",
+          role_slot: "CMO"
+        },
+        {
+          user_id: "usr_default_coo",
+          display_name: "P0 COO",
+          role_slot: "COO"
         }
       ]
     }
@@ -1707,7 +1752,8 @@ function assertSnapshotShape(
     }
     if (Array.isArray(value.teacherConfirmationVersions)) {
       for (const confirmation of value.teacherConfirmationVersions) {
-        if (!isTeacherConfirmationVersion(confirmation)) throw new Error("invalid_teacher_confirmation");
+        if (!isTeacherConfirmationVersion(confirmation))
+          throw new Error("invalid_teacher_confirmation");
       }
     }
   } catch (error) {
