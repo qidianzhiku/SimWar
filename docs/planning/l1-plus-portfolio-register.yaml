@@ -1,14 +1,14 @@
 portfolio_version: 3
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-04T09:20:00+08:00"
+generated_at: "2026-08-04T14:22:52+08:00"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+assessment_source_anchor_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
 governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: D5_AOL_XAPI_EXPORT_COMPLETE_WITH_LIMITS
+l1_plus_status: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN_COMPLETE_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,21 +16,17 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
-    capability_id: L1P-D5
+    candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+    capability_id: L1P-D6
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     product_prs:
-      - 330
-      - 331
-      - 332
+      - 334
     product_merge_shas:
-      - c53991e9bc02ef7eb81331d83243136e4e62f3a2
-      - d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-      - 2aaa771455b77c06e431a16265e509e6532c9124
-    primary_outcome: Teacher and Admin can preview, seal, inspect, and deliver a de-identified D5 export bundle from exact confirmed or amended D4 reports through the in-process Mock LRS path.
+      - d252df2a45c19ea41fe1fd308fc7fe0bde185601
+    primary_outcome: Teacher and Admin can define, preview, freeze, revise, retire, and audit a synthetic transfer research design bound to exact D1-D5 references without creating a second EvidenceArtifact writer.
   support_code: NONE
   docs_discovery: NONE
-  closure: D5_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: D6_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
   - capability_id: L1P-VC-06
     candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
@@ -63,14 +59,18 @@ closed_capabilities:
     backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
     delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
     frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+  - capability_id: L1P-D6
+    candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    product_merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
 resource_locks:
-  - resource: D5_EXPORT_BUNDLE_CONTRACT
+  - resource: D6_TRANSFER_EVIDENCE_CONTRACT
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D5_DELIVERY_ENGINE
+  - resource: D6_TRANSFER_RESEARCH_DESIGN_SERVICE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D5_TEACHER_ADMIN_WORKBENCH
+  - resource: D6_TEACHER_ADMIN_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: MOCK_LRS_AND_RECEIPTS
+  - resource: D6_ACCEPTANCE_AND_BROWSER
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
@@ -86,31 +86,44 @@ candidate_backlog:
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
+  synthetic_only: true
+  causal_claims: DISABLED
   human_validation: NOT_PERFORMED
   postgresql: NOT_ACTIVE
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
+  codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 evidence:
-  product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-  backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
-  delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-  frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
-  d5_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z
-  product_acceptance: PASS
-  full_tests: 152_FILES_1005_TESTS_PASS
-  browser: 1_D5_TEST_PASS
-  contract: 12_FILES_30_TESTS_PASS_16_SCHEMA_GROUPS
+  candidate_head: 12c694262857130c984e584417e2d109c8774b54
+  product_merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+  product_pr: 334
+  changed_file_count: 27
+  changed_file_manifest_sha256: 9cb989d7de27eb4bb7d29d287c2133b9ed01cb1235f2775523ea480f8086e783
+  product_acceptance: PASS_WITH_EXPLICIT_LIMITS
+  acceptance_rows: A01_A30_NO_UNKNOWN_OR_NOT_MAPPED
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+  post_merge_fresh_clone: PASS
+  full_tests: 155_FILES_1011_TESTS_PASS
+  browser: 1_D6_TEST_PASS
+  contract: 13_FILES_32_TESTS_PASS_17_SCHEMA_GROUPS
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  quality: PASS
+  browser_smoke: PASS
+  codeql: PASS
+  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z/integration/fresh-clone/post-merge-d252df2
+  evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z
 invalidation_triggers:
   - product_or_runtime_changed
-  - student_report_projection_authority_changed
-  - shared_contract_changed
-  - teacher_confirmation_or_evidence_provenance_changed
+  - d6_shared_contract_changed
+  - d6_authority_changed
+  - d6_teacher_admin_visibility_changed
   - golden_truth_or_replay_contract_changed
   - student_visibility_changed
-  - D4_acceptance_baseline_changed
-  - d5_export_contract_changed
-  - d5_delivery_authority_changed
-  - d5_teacher_admin_visibility_changed
+  - post_merge_evidence_invalidated
 automatic_next_start: false

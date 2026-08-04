@@ -1,59 +1,59 @@
-cycle_id: L1PLUS-CYCLE-010-D5-AOL-XAPI-EXPORT
+cycle_id: L1PLUS-CYCLE-011-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-generated_at: "2026-08-04T09:20:00+08:00"
+generated_at: "2026-08-04T14:22:52+08:00"
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
 repository: qidianzhiku/SimWar
-assessment_source_anchor_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
+assessment_source_anchor_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
 governance_closure_merge_sha: THIS_CHANGESET
-l1_plus_status: D5_AOL_XAPI_EXPORT_COMPLETE_WITH_LIMITS
+l1_plus_status: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN_COMPLETE_WITH_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
-capability:
-  id: L1P-D5
-  candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
+predecessor:
+  cycle_id: L1PLUS-CYCLE-010-D5-AOL-XAPI-EXPORT
   status: CLOSED_AND_CURRENT_WITH_LIMITS
-  primary_outcome: Teacher and Admin can preview, seal, inspect, and deliver a de-identified D5 export bundle from exact confirmed or amended D4 reports through the in-process Mock LRS path.
-  mutable_authority: D5ExportAssembler_and_D5DeliveryService_JSON_INTERNAL_ONLY
-  sole_writer: D5ExportAssembler_and_D5DeliveryService
-  projection_service: TeacherSafeExportProjection
+capability:
+  id: L1P-D6
+  candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
+  status: CLOSED_AND_CURRENT_WITH_LIMITS
+  primary_outcome: Teacher and Admin can define, preview, freeze, revise, retire, and audit a synthetic transfer research design bound to exact D1-D5 references without creating a second EvidenceArtifact writer.
+  mutable_authority: TransferResearchDesignCommandService_JSON_INTERNAL_ONLY
+  sole_writer: TransferResearchDesignCommandService_for_D6_design_records
+  formal_evidence_writer: D2_EvidenceCaptureCommandService
+  projection_service: TeacherSafeTransferResearchProjection_and_AdminSafeTransferResearchProjection
   product_prs:
-    - number: 330
-      merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
-      role: EXPORT_BUNDLE_CONTRACT_AND_ASSEMBLER
-    - number: 331
-      merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-      role: DELIVERY_ENGINE_AND_MOCK_LRS
-    - number: 332
-      merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-      role: TEACHER_ADMIN_EXPORT_WORKBENCH
+    - number: 334
+      merge_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+      role: D6_TRANSFER_EVIDENCE_RESEARCH_DESIGN
   evidence:
-    product_acceptance: PASS
-    acceptance_rows: A01_A30_28_PASS_2_PASS_WITH_EXPLICIT_LIMIT
+    product_acceptance: PASS_WITH_EXPLICIT_LIMITS
+    acceptance_rows: A01_A30_NO_UNKNOWN_OR_NOT_MAPPED
     challenge_review_blocking: 0
     challenge_review_must_fix: 0
     post_merge_fresh_clone: PASS
-    full_tests: 152_FILES_1005_TESTS_PASS
-    browser: 1_D5_TEST_PASS
-    contract: 12_FILES_30_TESTS_PASS_16_SCHEMA_GROUPS
+    full_tests: 155_FILES_1011_TESTS_PASS
+    browser: 1_D6_TEST_PASS
+    contract: 13_FILES_32_TESTS_PASS_17_SCHEMA_GROUPS
     direct_store_boundary: 0_NEW_UNAPPROVED
     typecheck: PASS
     lint: PASS
     build: PASS
     hidden_unicode: PASS
-    security_audit_critical_threshold: PASS_WITH_2_LOW_6_HIGH_ADVISORIES
-    product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-    backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
-    delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-    frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-    fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
+    codeql: PASS
+    quality: PASS
+    product_evidence_source_sha: d252df2a45c19ea41fe1fd308fc7fe0bde185601
+    fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z/integration/fresh-clone/post-merge-d252df2
+    evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W010-D6-TRANSFER-EVIDENCE-20260804T103417Z
   known_limits:
     runtime_authority: JSON_INTERNAL_ONLY
+    synthetic_only: true
+    causal_claims: DISABLED
     human_validation: NOT_PERFORMED
     issue_111: OPEN_KNOWN_LIMIT
     postgresql: NOT_ACTIVE
     durable_settlement_and_recovery: NOT_PROVEN
     pilot_and_production: NOT_AUTHORIZED
+    codegraph: GRAPH_EVIDENCE_GAP
     dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
 support_code:
   candidate_id: NONE
@@ -66,13 +66,13 @@ closure:
   post_merge_required: COMPLETED
   governance_pr: THIS_CHANGESET
 resource_locks:
-  - resource: D5_EXPORT_BUNDLE_CONTRACT
+  - resource: D6_TRANSFER_EVIDENCE_CONTRACT
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D5_DELIVERY_ENGINE
+  - resource: D6_TRANSFER_RESEARCH_DESIGN_SERVICE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: D5_TEACHER_ADMIN_WORKBENCH
+  - resource: D6_TEACHER_ADMIN_WORKBENCH
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
-  - resource: MOCK_LRS_AND_RECEIPTS
+  - resource: D6_ACCEPTANCE_AND_BROWSER
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
   - resource: PLAYWRIGHT_STATE
     status: RELEASED_BY_THIS_GOVERNANCE_ADOPTION
@@ -93,23 +93,12 @@ known_limits:
   durable_settlement_and_recovery: NOT_PROVEN
   pilot_and_production: NOT_AUTHORIZED
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
-evidence:
-  product_evidence_source_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-  backend_merge_sha: c53991e9bc02ef7eb81331d83243136e4e62f3a2
-  delivery_merge_sha: d68c72cb17e5bd28e9f7aebfac1ad2c0135452d7
-  frontend_merge_sha: 2aaa771455b77c06e431a16265e509e6532c9124
-  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z/integration/fresh-clone-final
-  d5_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W009-D5-AOL-XAPI-20260803T235747Z
-  product_acceptance: PASS
 invalidation_triggers:
   - product_or_runtime_changed
-  - student_report_projection_authority_changed
-  - shared_contract_changed
-  - teacher_confirmation_or_evidence_provenance_changed
+  - d6_shared_contract_changed
+  - d6_authority_changed
+  - d6_teacher_admin_visibility_changed
   - golden_truth_or_replay_contract_changed
   - student_visibility_changed
-  - D4_acceptance_baseline_changed
-  - d5_export_contract_changed
-  - d5_delivery_authority_changed
-  - d5_teacher_admin_visibility_changed
+  - post_merge_evidence_invalidated
 automatic_next_start: false
