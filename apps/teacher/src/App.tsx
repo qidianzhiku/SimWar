@@ -56,6 +56,7 @@ import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
 import { EvidenceWorkbench } from "./EvidenceWorkbench";
 import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
+import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1113,7 +1114,19 @@ export function App() {
       ) : null}
 
       {isTeacher && session ? (
-        <D5ExportWorkbench apiBase={API_BASE} tenantId={login.tenantId} token={session.access_token} />
+        <D5ExportWorkbench
+          apiBase={API_BASE}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+      {isTeacher && session ? (
+        <TransferResearchWorkbench
+          apiBase={API_BASE}
+          tenantId={login.tenantId}
+          token={session.access_token}
+          surface="teacher"
+        />
       ) : null}
 
       {isTeacher ? (

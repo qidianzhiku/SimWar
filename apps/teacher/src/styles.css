@@ -15,6 +15,70 @@ body {
   margin: 0;
 }
 
+.d6-transfer-workbench {
+  margin-top: 18px;
+  max-width: 1100px;
+}
+
+.d6-boundary,
+.d6-limits {
+  color: #53616b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.d6-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 16px 0;
+}
+
+.d6-form-grid label {
+  color: #53616b;
+  display: grid;
+  font-size: 12px;
+  gap: 5px;
+}
+
+.d6-form-grid input {
+  border: 1px solid #c4cdd2;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 9px;
+}
+
+.d6-actions,
+.d6-receipt,
+.d6-study {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.d6-actions {
+  margin: 14px 0;
+}
+
+.d6-receipt,
+.d6-study {
+  border-top: 1px solid #d8dfe2;
+  padding: 12px 0;
+}
+
+.d6-receipt code,
+.d6-study code {
+  overflow-wrap: anywhere;
+}
+
+.d6-error {
+  color: #a52929;
+}
+.d6-empty {
+  color: #53616b;
+}
+
 *,
 *::before,
 *::after {
