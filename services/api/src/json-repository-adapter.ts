@@ -279,6 +279,50 @@ export interface JsonFormalScenarioAuthorityPersistence {
   createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
   createPluginReleaseRegistry(): InMemoryJsonPluginReleaseRegistry;
   createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
+  removeTenantBaselineMaterialization(materialization: JsonTenantBaselineMaterialization): void;
+}
+
+/**
+ * The exact identities produced by one tenant-baseline materialization. This
+ * private compensation input deliberately carries neither a public writer nor
+ * a broad store snapshot, so rollback cannot erase unrelated authority writes.
+ */
+export interface JsonTenantBaselineMaterialization {
+  readonly idempotencyKeyDigest: string;
+  readonly parameterSet: {
+    readonly approvalId: string;
+    readonly parameterSetId: string;
+  };
+  readonly provisioningRequestDigest: string;
+  readonly scenarioPackage: {
+    readonly approvalId: string;
+    readonly scenarioPackageId: string;
+  };
+  readonly tenantId: string;
+}
+
+function removeMatchingEntries<T>(
+  entries: T[],
+  predicate: (entry: T) => boolean
+): Array<{ readonly entry: T; readonly index: number }> {
+  const removed: Array<{ readonly entry: T; readonly index: number }> = [];
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (entry !== undefined && predicate(entry)) {
+      removed.push({ entry, index });
+      entries.splice(index, 1);
+    }
+  }
+  return removed.reverse();
+}
+
+function restoreRemovedEntries<T>(
+  entries: T[],
+  removed: readonly { readonly entry: T; readonly index: number }[]
+): void {
+  for (const { entry, index } of removed) {
+    entries.splice(Math.min(index, entries.length), 0, entry);
+  }
 }
 
 export function createJsonFormalScenarioAuthorityPersistence(
@@ -306,13 +350,88 @@ export function createJsonFormalScenarioAuthorityPersistence(
     snapshots: store.formalPluginReleaseLifecycleSnapshots
   };
 
+  const removeTenantBaselineMaterialization = (
+    materialization: JsonTenantBaselineMaterialization
+  ): void => {
+    const matchesProvenance = (baseline: {
+      baseline_provenance?: { idempotency_key_digest: string; provisioning_request_digest: string };
+    }) =>
+      baseline.baseline_provenance?.idempotency_key_digest ===
+        materialization.idempotencyKeyDigest &&
+      baseline.baseline_provenance?.provisioning_request_digest ===
+        materialization.provisioningRequestDigest;
+    const parameterReferenceKeys = new Set<string>();
+    const scenarioReferenceKeys = new Set<string>();
+    const removedParameterSnapshots = removeMatchingEntries(
+      store.formalParameterSetLifecycleSnapshots,
+      (version) => {
+        const matches =
+          version.tenant_id === materialization.tenantId &&
+          version.parameter_set_id === materialization.parameterSet.parameterSetId &&
+          matchesProvenance(version);
+        if (matches && version.status === "APPROVED") {
+          parameterReferenceKeys.add(
+            `${version.reference.parameter_set_id}:${version.reference.version}:${version.reference.content_digest}`
+          );
+        }
+        return matches;
+      }
+    );
+    const removedScenarioSnapshots = removeMatchingEntries(
+      store.formalScenarioPackageLifecycleSnapshots,
+      (version) => {
+        const matches =
+          version.tenant_id === materialization.tenantId &&
+          version.scenario_package_id === materialization.scenarioPackage.scenarioPackageId &&
+          matchesProvenance(version);
+        if (matches && version.status === "APPROVED") {
+          scenarioReferenceKeys.add(
+            `${version.reference.scenario_package_id}:${version.reference.version}:${version.reference.content_digest}`
+          );
+        }
+        return matches;
+      }
+    );
+    const removedParameterApprovals = removeMatchingEntries(
+      store.formalParameterSetApprovalRecords,
+      (record) =>
+        record.tenant_id === materialization.tenantId &&
+        record.approval_id === materialization.parameterSet.approvalId &&
+        parameterReferenceKeys.has(
+          `${record.parameter_set_reference.parameter_set_id}:${record.parameter_set_reference.version}:${record.parameter_set_reference.content_digest}`
+        )
+    );
+    const removedScenarioApprovals = removeMatchingEntries(
+      store.formalScenarioPackageApprovalRecords,
+      (record) =>
+        record.tenant_id === materialization.tenantId &&
+        record.approval_id === materialization.scenarioPackage.approvalId &&
+        scenarioReferenceKeys.has(
+          `${record.scenario_package_reference.scenario_package_id}:${record.scenario_package_reference.version}:${record.scenario_package_reference.content_digest}`
+        )
+    );
+    try {
+      store.persist();
+    } catch (error) {
+      restoreRemovedEntries(store.formalParameterSetLifecycleSnapshots, removedParameterSnapshots);
+      restoreRemovedEntries(
+        store.formalScenarioPackageLifecycleSnapshots,
+        removedScenarioSnapshots
+      );
+      restoreRemovedEntries(store.formalParameterSetApprovalRecords, removedParameterApprovals);
+      restoreRemovedEntries(store.formalScenarioPackageApprovalRecords, removedScenarioApprovals);
+      throw error;
+    }
+  };
+
   return Object.freeze({
     createCourseBlueprintRegistry: () =>
       new InMemoryJsonCourseBlueprintRegistry(courseBlueprintOptions),
     createParameterSetRegistry: () => new InMemoryJsonParameterSetRegistry(parameterSetOptions),
     createPluginReleaseRegistry: () => new InMemoryJsonPluginReleaseRegistry(pluginReleaseOptions),
     createScenarioPackageRegistry: () =>
-      new InMemoryJsonScenarioPackageRegistry(scenarioPackageOptions)
+      new InMemoryJsonScenarioPackageRegistry(scenarioPackageOptions),
+    removeTenantBaselineMaterialization
   });
 }
 

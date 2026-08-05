@@ -46,6 +46,7 @@ import type {
   TeacherFormalScenarioPackageCatalogDto,
   Team,
   Tenant,
+  TenantBaselineProvisioningRequest,
   User
 } from "@simwar/shared-contracts";
 import {
@@ -174,6 +175,10 @@ import {
   type ScenarioPackageVersion
 } from "./scenario-package-authority.js";
 import { compileGenericScenarioToDraft } from "./scenario-compile-draft-service.js";
+import {
+  TenantBaselineProvisioningError,
+  TenantBaselineProvisioningService
+} from "./tenant-baseline-provisioning.js";
 import type { GenericScenarioCompilerInput } from "./scenario-compiler.js";
 import {
   resolveRuntimeSecurityConfig,
@@ -267,6 +272,7 @@ interface ApiRuntime {
   formalPluginReleases: PluginReleaseCommandService;
   formalScenarioPackages: ScenarioPackageCommandService;
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
+  tenantBaselineProvisioning: TenantBaselineProvisioningService;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
   createCourseId(): string;
@@ -396,6 +402,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   };
   const formalScenarioPackageCatalog =
     options.formalScenarioPackageCatalog ?? formalAuthorityRuntime.catalog;
+  const tenantBaselineProvisioning = new TenantBaselineProvisioningService(formalAuthorityRuntime);
   const repositoryProvider = createRuntimeRepositoryProvider(store, options);
   const formalCourseBlueprints = new CourseBlueprintCommandService(
     formalAuthorityPersistence.createCourseBlueprintRegistry()
@@ -510,6 +517,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalParameterSets: formalAuthorityRuntime.parameterSets,
     formalPluginReleases: formalAuthorityRuntime.pluginReleases,
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
+    tenantBaselineProvisioning,
     formalRunBindingAuthorities,
     formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
     createCourseId: () => nextId(store, "course", "course"),
@@ -2359,6 +2367,138 @@ function parseFormalScenarioPackageDraft(
     tenant_id: tenantId,
     version: parseFormalScenarioPackageString(value.version)
   };
+}
+
+function tenantBaselineRequestError(): HttpError {
+  return new HttpError(
+    422,
+    "TENANT_BASELINE-422-001",
+    "tenant baseline provisioning request is invalid"
+  );
+}
+
+function assertOnlyTenantBaselineFields(
+  value: Record<string, unknown>,
+  allowed: readonly string[]
+): void {
+  const allowedFields = new Set(allowed);
+  if (Object.keys(value).some((key) => !allowedFields.has(key))) {
+    throw tenantBaselineRequestError();
+  }
+}
+
+function parseTenantBaselineMetadata(value: unknown): Readonly<Record<string, string>> | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) throw tenantBaselineRequestError();
+  assertOnlyTenantBaselineFields(value, Object.keys(value));
+  const entries = Object.entries(value);
+  if (
+    entries.some(
+      ([key, item]) =>
+        key.trim().length === 0 || typeof item !== "string" || item.trim().length === 0
+    )
+  ) {
+    throw tenantBaselineRequestError();
+  }
+  return Object.freeze(Object.fromEntries(entries) as Record<string, string>);
+}
+
+function parseTenantBaselineTenantId(value: unknown): string {
+  const tenantId = parseFormalParameterSetString(value);
+  if (tenantId !== tenantId.trim()) throw tenantBaselineRequestError();
+  return tenantId;
+}
+
+function parseTenantBaselineProvisioningRequest(value: unknown): TenantBaselineProvisioningRequest {
+  if (!isRecord(value)) throw tenantBaselineRequestError();
+  assertOnlyTenantBaselineFields(value, [
+    "idempotency_key",
+    "local_display_metadata",
+    "source_parameter_set",
+    "source_scenario_package",
+    "target_tenant_id"
+  ]);
+  if (!isRecord(value.source_parameter_set) || !isRecord(value.source_scenario_package)) {
+    throw tenantBaselineRequestError();
+  }
+  assertOnlyTenantBaselineFields(value.source_parameter_set, [
+    "content_digest",
+    "parameter_set_id",
+    "source_tenant_id",
+    "version"
+  ]);
+  assertOnlyTenantBaselineFields(value.source_scenario_package, [
+    "content_digest",
+    "scenario_package_id",
+    "source_tenant_id",
+    "tenant_id",
+    "version"
+  ]);
+  const localDisplayMetadata = parseTenantBaselineMetadata(value.local_display_metadata);
+  const request: TenantBaselineProvisioningRequest = {
+    idempotency_key: parseFormalParameterSetString(value.idempotency_key),
+    ...(localDisplayMetadata ? { local_display_metadata: localDisplayMetadata } : {}),
+    source_parameter_set: {
+      content_digest: parseFormalParameterSetString(value.source_parameter_set.content_digest),
+      parameter_set_id: parseFormalParameterSetString(value.source_parameter_set.parameter_set_id),
+      source_tenant_id: parseTenantBaselineTenantId(value.source_parameter_set.source_tenant_id),
+      version: parseFormalParameterSetString(value.source_parameter_set.version)
+    },
+    source_scenario_package: {
+      content_digest: parseFormalScenarioPackageString(
+        value.source_scenario_package.content_digest
+      ),
+      scenario_package_id: parseFormalScenarioPackageString(
+        value.source_scenario_package.scenario_package_id
+      ),
+      source_tenant_id: parseTenantBaselineTenantId(value.source_scenario_package.source_tenant_id),
+      version: parseFormalScenarioPackageString(value.source_scenario_package.version)
+    },
+    target_tenant_id: parseTenantBaselineTenantId(value.target_tenant_id)
+  };
+  if (
+    value.source_scenario_package.tenant_id !== undefined &&
+    parseTenantBaselineTenantId(value.source_scenario_package.tenant_id) !==
+      request.source_scenario_package.source_tenant_id
+  ) {
+    throw tenantBaselineRequestError();
+  }
+  try {
+    createParameterSetReference(request.source_parameter_set);
+    createScenarioPackageReference({
+      content_digest: request.source_scenario_package.content_digest,
+      scenario_package_id: request.source_scenario_package.scenario_package_id,
+      tenant_id: request.source_scenario_package.source_tenant_id,
+      version: request.source_scenario_package.version
+    });
+  } catch {
+    throw tenantBaselineRequestError();
+  }
+  return request;
+}
+
+function tenantBaselineProvisioningHttpError(error: unknown): HttpError {
+  if (!(error instanceof TenantBaselineProvisioningError)) throw error;
+  switch (error.code) {
+    case "SOURCE_NOT_FOUND":
+      return new HttpError(404, "TENANT_BASELINE-404-001", "approved source baseline not found");
+    case "SOURCE_SCOPE_DENIED":
+      return new HttpError(403, "TENANT_BASELINE-403-001", "tenant baseline scope denied");
+    case "CONFLICT":
+      return new HttpError(409, "TENANT_BASELINE-409-001", "tenant baseline conflict");
+    case "SOURCE_NOT_APPROVED":
+      return new HttpError(422, "TENANT_BASELINE-422-001", "source baseline is not approved");
+    case "REQUEST_INVALID":
+      return tenantBaselineRequestError();
+  }
+}
+
+async function executeTenantBaselineProvisioning<T>(command: () => Promise<T>): Promise<T> {
+  try {
+    return await command();
+  } catch (error) {
+    throw tenantBaselineProvisioningHttpError(error);
+  }
 }
 
 function parseGenericScenarioCompileDraft(
@@ -5280,6 +5420,47 @@ async function routeRequest(
       };
     });
     sendJson(response, result.wasExisting ? 200 : 201, createEnvelope(context, result.data));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/admin/tenant-baselines/provision") {
+    const actor = requireActor(context);
+    if (
+      !actorHasAnyRole(actor, ["platform_admin"]) ||
+      !actorHasPermission(actor, "parameter_set:manage") ||
+      !actorHasPermission(actor, "scenario_package:manage")
+    ) {
+      throw new HttpError(
+        403,
+        "TENANT_BASELINE-403-001",
+        "platform baseline provisioning authority required"
+      );
+    }
+    const input = parseTenantBaselineProvisioningRequest(await readJson(request));
+    try {
+      requireManagedTenant(store, actor, context, input.target_tenant_id);
+    } catch (error) {
+      if (error instanceof HttpError && error.statusCode === 404) {
+        throw new HttpError(404, "TENANT_BASELINE-404-001", "target tenant not found");
+      }
+      throw error;
+    }
+    const result = await executeTenantBaselineProvisioning(() =>
+      runtime.tenantBaselineProvisioning.provision(
+        { actor_id: actor.user_id, correlation_id: context.requestId },
+        input
+      )
+    );
+    await appendAudit(runtime, {
+      actor,
+      action: "tenant_baseline.provision",
+      after: clonePublic(result),
+      requestId: context.requestId,
+      resourceId: result.audit_identity,
+      resourceType: "tenant_baseline_provisioning",
+      tenantId: input.target_tenant_id
+    });
+    sendJson(response, result.outcome === "CREATED" ? 201 : 200, createEnvelope(context, result));
     return;
   }
 

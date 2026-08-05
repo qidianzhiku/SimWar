@@ -8,7 +8,8 @@ import {
   type ParameterSetReference,
   type ScenarioPackageAuthorityReadPort,
   type ScenarioPackageAuthorityReadProjection,
-  type ScenarioPackageReference
+  type ScenarioPackageReference,
+  type TenantBaselineProvenance
 } from "@simwar/shared-contracts";
 
 export type ScenarioPackageVersionStatus =
@@ -48,6 +49,7 @@ export interface ScenarioPackageAuthorityActor {
 
 export interface ScenarioPackageDraftInput {
   artifact_policy: ScenarioPackageArtifactPolicy;
+  baseline_provenance?: TenantBaselineProvenance;
   compatibility_metadata: Readonly<Record<string, string>>;
   content: ScenarioPackageJsonValue;
   metadata: Readonly<Record<string, ScenarioPackageJsonValue>>;
@@ -61,6 +63,7 @@ export interface ScenarioPackageDraftInput {
 
 export interface ScenarioPackageVersion {
   artifact_policy: Readonly<ScenarioPackageArtifactPolicy>;
+  baseline_provenance?: TenantBaselineProvenance;
   compatibility_metadata: Readonly<Record<string, string>>;
   content: ScenarioPackageJsonValue;
   content_digest: string;
@@ -204,6 +207,9 @@ function createImmutableVersion(
 
   return deepFreeze({
     artifact_policy: cloneValue(input.artifact_policy),
+    ...(input.baseline_provenance
+      ? { baseline_provenance: cloneValue(input.baseline_provenance) }
+      : {}),
     compatibility_metadata: cloneValue(input.compatibility_metadata),
     content: cloneValue(input.content),
     content_digest,
@@ -351,6 +357,7 @@ function toAuthorityReadProjection(
 export function calculateScenarioPackageContentDigest(input: ScenarioPackageDraftInput): string {
   const canonical = canonicalize({
     artifact_policy: input.artifact_policy,
+    baseline_provenance: input.baseline_provenance ?? null,
     compatibility_metadata: input.compatibility_metadata,
     content: input.content,
     metadata: input.metadata,
@@ -610,6 +617,15 @@ export class ScenarioPackageCommandService implements ScenarioPackageAuthorityRe
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageVersion | null> {
     return this.registry.getByReference(tenantId, reference);
+  }
+
+  /** Internal lifecycle read used by the idempotent baseline orchestrator. */
+  async listLifecycleSnapshots(
+    tenantId: string,
+    scenarioPackageId: string,
+    version: string
+  ): Promise<ScenarioPackageVersion[]> {
+    return this.registry.listLifecycleSnapshots(tenantId, scenarioPackageId, version);
   }
 
   async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {

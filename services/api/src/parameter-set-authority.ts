@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import {
   createParameterSetReference,
   type ParameterSetAuthorityReadPort,
-  type ParameterSetReference
+  type ParameterSetReference,
+  type TenantBaselineProvenance
 } from "@simwar/shared-contracts";
 
 export type ParameterSetVersionStatus = "DRAFT" | "VALIDATED" | "FROZEN" | "APPROVED" | "RETIRED";
@@ -23,6 +24,7 @@ export interface ParameterSetAuthorityActor {
 }
 
 export interface ParameterSetDraftInput {
+  baseline_provenance?: TenantBaselineProvenance;
   compatibility_metadata: Readonly<Record<string, string>>;
   model_version_ref: string;
   parameter_set_id: string;
@@ -34,6 +36,7 @@ export interface ParameterSetDraftInput {
 }
 
 export interface ParameterSetVersion {
+  baseline_provenance?: TenantBaselineProvenance;
   compatibility_metadata: Readonly<Record<string, string>>;
   content_digest: string;
   model_version_ref: string;
@@ -125,7 +128,7 @@ function canonicalize(value: ParameterSetJsonValue): string {
     .join(",")}}`;
 }
 
-function cloneValue<T extends ParameterSetJsonValue>(value: T): T {
+function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
@@ -153,6 +156,9 @@ function createImmutableVersion(
   });
 
   return Object.freeze({
+    ...(input.baseline_provenance
+      ? { baseline_provenance: deepFreeze(cloneValue(input.baseline_provenance)) }
+      : {}),
     compatibility_metadata: deepFreeze(cloneValue(input.compatibility_metadata)),
     content_digest,
     model_version_ref: input.model_version_ref,
@@ -229,6 +235,9 @@ function transition(
 
 export function calculateParameterSetContentDigest(input: ParameterSetDraftInput): string {
   const canonical = canonicalize({
+    baseline_provenance: input.baseline_provenance
+      ? (cloneValue(input.baseline_provenance) as unknown as ParameterSetJsonValue)
+      : null,
     compatibility_metadata: input.compatibility_metadata,
     model_version_ref: input.model_version_ref,
     parameter_set_id: input.parameter_set_id,
@@ -441,6 +450,15 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
     reference: ParameterSetReference
   ): Promise<ParameterSetVersion | null> {
     return this.registry.getByReference(tenantId, reference);
+  }
+
+  /** Internal lifecycle read used by the idempotent baseline orchestrator. */
+  async listLifecycleSnapshots(
+    tenantId: string,
+    parameterSetId: string,
+    version: string
+  ): Promise<ParameterSetVersion[]> {
+    return this.registry.listLifecycleSnapshots(tenantId, parameterSetId, version);
   }
 
   async approve(
