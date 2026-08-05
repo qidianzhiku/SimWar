@@ -69,6 +69,7 @@ import {
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
 import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
+import { createSettlementBusinessKey } from "./settlement-idempotency.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import {
@@ -586,20 +587,19 @@ async function acquireRunMutationLock(runtime: ApiRuntime, key: string): Promise
   };
 }
 
-async function appendAudit(
-  runtime: ApiRuntime,
-  input: {
-    actor: CurrentUser;
-    action: string;
-    resourceType: string;
-    resourceId: string;
-    requestId: string;
-    tenantId?: string;
-    before?: Record<string, unknown>;
-    after?: Record<string, unknown>;
-  }
-): Promise<AuditLog> {
-  const log: AuditLog = {
+type AuditLogInput = {
+  actor: CurrentUser;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  requestId: string;
+  tenantId?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+};
+
+function createAuditLog(runtime: ApiRuntime, input: AuditLogInput): AuditLog {
+  return {
     audit_id: runtime.repositoryProvider.idGenerator.createAuditLogId(),
     tenant_id: input.tenantId ?? input.actor.tenant_id,
     actor_id: input.actor.user_id,
@@ -612,6 +612,10 @@ async function appendAudit(
     ...(input.before ? { before: input.before } : {}),
     ...(input.after ? { after: input.after } : {})
   };
+}
+
+async function appendAudit(runtime: ApiRuntime, input: AuditLogInput): Promise<AuditLog> {
+  const log = createAuditLog(runtime, input);
 
   await runtime.repositoryProvider.facade.auditLogs.appendAuditLog(log);
   return log;
@@ -6379,18 +6383,10 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/settle$/
     );
-    const outcome = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw));
-
-    if (outcome.committed) {
-      await appendAudit(runtime, {
-        actor,
-        action: "round.settle_requested",
-        resourceType: "settlement_result",
-        resourceId: outcome.settlement.settlement_result_id,
-        requestId: context.requestId,
-        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
-      });
-    }
+    const outcome = await runSettlement(runtime, context, runId ?? "", Number(roundNoRaw), {
+      actor,
+      action: "round.settle_requested"
+    });
 
     response.setHeader("x-simwar-settlement-outcome", outcome.responseSemantics);
     sendJson(response, 200, createEnvelope(context, outcome.settlement));
@@ -6411,19 +6407,10 @@ async function routeRequest(
       tenantId: context.tenantId,
       actor: serviceActor
     };
-    const outcome = await runSettlement(runtime, serviceContext, runId ?? "", Number(roundNoRaw));
-
-    if (outcome.committed) {
-      await appendAudit(runtime, {
-        actor: serviceActor,
-        action: "round.settle",
-        resourceType: "settlement_result",
-        resourceId: outcome.settlement.settlement_result_id,
-        requestId: context.requestId,
-        tenantId: context.tenantId,
-        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
-      });
-    }
+    const outcome = await runSettlement(runtime, serviceContext, runId ?? "", Number(roundNoRaw), {
+      actor: serviceActor,
+      action: "round.settle"
+    });
 
     response.setHeader("x-simwar-settlement-outcome", outcome.responseSemantics);
     sendJson(response, 200, createEnvelope(context, outcome.settlement));
@@ -6474,7 +6461,8 @@ async function runSettlement(
   runtime: ApiRuntime,
   context: RequestContext,
   runId: string,
-  roundNo: number
+  roundNo: number,
+  audit: { actor: CurrentUser; action: string }
 ): Promise<RunSettlementOutcome> {
   const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
 
@@ -6482,7 +6470,11 @@ async function runSettlement(
     throw new HttpError(404, "RUN-404-001", "run not found");
   }
 
-  const lockKey = runMutationBusinessKey(context.tenantId, run.run_id);
+  const lockKey = createSettlementBusinessKey({
+    tenant_id: context.tenantId,
+    run_id: run.run_id,
+    round_no: roundNo
+  });
   const releaseRunMutationLock = await acquireRunMutationLock(runtime, lockKey);
 
   try {
@@ -6570,10 +6562,20 @@ async function runSettlement(
     }
 
     if (outcome.shouldCommit) {
+      const successAudit = createAuditLog(runtime, {
+        actor: audit.actor,
+        action: audit.action,
+        resourceType: "settlement_result",
+        resourceId: outcome.settlement.settlement_result_id,
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        after: clonePublic({ replay_hash: outcome.settlement.replay_hash })
+      });
       const commit = await runtime.repositoryProvider.facade.commitSettlementOutcome({
         tenant_id: context.tenantId,
         round_id: round.round_id,
-        settlement_result: outcome.settlement
+        settlement_result: outcome.settlement,
+        success_audit: successAudit
       });
 
       if (commit.status === "conflict") {

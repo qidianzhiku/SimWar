@@ -169,6 +169,72 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
+  it("commits exactly one success audit with the settlement truth mutation", async () => {
+    const round = createRound();
+    const result = createSettlementResult();
+    const successAudit = {
+      audit_id: "audit-settlement-1",
+      tenant_id: "tenant-1",
+      actor_id: "user-1",
+      actor_role: "teacher",
+      action: "round.settle_requested",
+      resource_type: "settlement_result",
+      resource_id: result.settlement_result_id,
+      request_id: "request-1",
+      created_at: "2026-08-05T00:00:00.000Z",
+      after: { replay_hash: result.replay_hash }
+    } as AuditLog;
+    const store = createMinimalStore({ rounds: [round] });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: result,
+        success_audit: successAudit
+      })
+    ).resolves.toEqual({ settlement_result: result, status: "committed" });
+
+    expect(store.auditLogs).toEqual([successAudit]);
+    expect(store.persist).toHaveBeenCalledTimes(1);
+  });
+
+  it("rolls back the success audit when atomic settlement persistence fails", async () => {
+    const round = createRound();
+    const result = createSettlementResult();
+    const successAudit = {
+      audit_id: "audit-failed-settlement",
+      tenant_id: "tenant-1",
+      actor_id: "user-1",
+      actor_role: "teacher",
+      action: "round.settle_requested",
+      resource_type: "settlement_result",
+      resource_id: result.settlement_result_id,
+      request_id: "request-1",
+      created_at: "2026-08-05T00:00:00.000Z"
+    } as AuditLog;
+    const persist = vi.fn(() => {
+      throw new Error("persist_failed");
+    });
+    const store = createMinimalStore({ persist, rounds: [round] });
+    const port = createJsonSettlementOutcomePersistencePort(store);
+
+    await expect(
+      port.commitSettlementOutcome({
+        tenant_id: "tenant-1",
+        round_id: "round-1",
+        settlement_result: result,
+        success_audit: successAudit
+      })
+    ).rejects.toThrow("persist_failed");
+
+    expect(store.settlementResults).toEqual([]);
+    expect(store.auditLogs).toEqual([]);
+    expect(round.status).toBe("locked");
+    expect(round.replay_hash).toBeUndefined();
+  });
+
   it("rejects tenant identity mismatches without side effects", async () => {
     const round = createRound();
     const result = createSettlementResult({ tenant_id: "tenant-2" });
@@ -282,7 +348,7 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).toHaveBeenCalledTimes(1);
   });
 
-  it("returns the existing result for a same-business-key replay retry", async () => {
+  it("conflicts when a same-business-key retry changes fingerprint inputs", async () => {
     const unrelatedBefore = createSettlementResult({
       round_id: "round-before",
       round_no: 2,
@@ -321,8 +387,9 @@ describe("JSON settlement outcome persistence port", () => {
         settlement_result: replacement
       })
     ).resolves.toEqual({
+      reason: "replay_hash_mismatch",
       settlement_result: original,
-      status: "reused"
+      status: "conflict"
     });
 
     expect(store.settlementResults).toEqual([unrelatedBefore, original, unrelatedAfter]);
@@ -333,7 +400,7 @@ describe("JSON settlement outcome persistence port", () => {
     expect(store.persist).not.toHaveBeenCalled();
   });
 
-  it("reuses the authoritative result when a recreated Round has the same business key", async () => {
+  it("conflicts when a recreated Round changes the exact round reference", async () => {
     const recreatedRound = createRound({ round_id: "round-recreated" });
     const originalResult = createSettlementResult({
       round_id: "round-original",
@@ -359,8 +426,9 @@ describe("JSON settlement outcome persistence port", () => {
         settlement_result: retryForRecreatedRound
       })
     ).resolves.toEqual({
+      reason: "replay_hash_mismatch",
       settlement_result: originalResult,
-      status: "reused"
+      status: "conflict"
     });
 
     expect(store.settlementResults).toEqual([originalResult]);

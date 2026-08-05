@@ -409,6 +409,7 @@ export interface CommitSettlementOutcomeCommand {
   tenant_id: RepositoryId;
   round_id: RepositoryId;
   settlement_result: SettlementResult;
+  success_audit?: AuditLog;
 }
 
 /**
@@ -452,9 +453,10 @@ export type SettlementOutcomeCommitResult =
  * mismatch must fail without persisting the SettlementResult, mutating the
  * Round, or committing a partial settlement truth state.
  *
- * AuditLog append is intentionally post-commit. StateSnapshot, DomainEvent, and
- * Replay artifacts are not part of this minimum atomic set. The active JSON
- * provider also performs an in-process business-key check on
+ * When supplied, success_audit is part of the same provider-owned success
+ * transaction. StateSnapshot, DomainEvent, and Replay artifacts are not part
+ * of this minimum atomic set. The active JSON provider also performs an
+ * in-process business-key check on
  * tenant_id + run_id + round_no and can return reuse or replay-hash conflict.
  * This is not evidence of durable cross-process idempotency, file locking,
  * leases, or create-if-absent semantics outside the active JSON process.
