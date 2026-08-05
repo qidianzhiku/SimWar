@@ -37,6 +37,7 @@ import type {
 
 export const STUDENT_BFF_FORBIDDEN_FIELDS = [
   "state_true",
+  "replay_hash",
   "full_manifest",
   "private_parameter_set",
   "private_scenario_assumption",

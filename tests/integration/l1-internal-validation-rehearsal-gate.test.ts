@@ -607,10 +607,11 @@ describe("L1 internal validation rehearsal gate", () => {
       expect(studentResult.body.data.results[0]?.team_id).toBe(alphaTeam.body.data.team_id);
       expect(studentResult.body.data.classroom_debrief_prompts.length).toBeGreaterThan(0);
       expect(studentResult.body.data.result_label).toContain("Official");
-      expect(studentResult.body.data.replay_hash).toBe(replayHash);
+      expect(studentResult.body.data.replay_hash).toBeUndefined();
       expect(studentResult.body.data.replay_evidence).toBeUndefined();
       assertSerializedDoesNotContain(studentResult.body.data, [
         "state_true",
+        "replay_hash",
         betaTeam.body.data.team_id,
         "canonical_evidence_digest",
         "private_replay"

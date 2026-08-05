@@ -42,7 +42,7 @@ async function login(baseUrl: string, username: string, password: string): Promi
 
 describe("R3 Golden Journey integration projection", () => {
   it("returns exact context, receipts and allowed actions for teacher and student", async () => {
-    const { baseUrl, server } = await start();
+    const { baseUrl, server, store } = await start();
     try {
       const teacherToken = await login(baseUrl, "teacher", "teacher");
       const studentToken = await login(baseUrl, "student", "student");
@@ -69,6 +69,17 @@ describe("R3 Golden Journey integration projection", () => {
       expect(student.body.data.receipt_index.entries.map((entry) => entry.slice)).not.toContain(
         "D2"
       );
+
+      const actorTeam = store.teams.find((team) => team.team_id === "team_alpha");
+      if (!actorTeam) throw new Error("team_alpha fixture is required");
+      store.teams.push({ ...actorTeam, name: "R3 other team", team_id: "team_r3_other" });
+      const crossTeam = await request<unknown>(
+        baseUrl,
+        "/api/v1/bff/student/golden-journey/status?course_id=course_demo&team_id=team_r3_other",
+        { token: studentToken }
+      );
+      expect(crossTeam.status).toBe(403);
+      expect(crossTeam.body.code).toBe("R3_GOLDEN_SCOPE_VIOLATION");
     } finally {
       server.close();
       await once(server, "close");
