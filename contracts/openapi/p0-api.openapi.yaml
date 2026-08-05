@@ -3656,6 +3656,10 @@ components:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
         scenario_package_id: { type: string, minLength: 1 }
         source_tenant_id: { type: string, minLength: 1 }
+        tenant_id:
+          type: string
+          minLength: 1
+          description: Optional redundant source tenant identifier. When present, it must equal source_tenant_id.
         version: { type: string, minLength: 1 }
     TenantBaselineProvisioningRequest:
       type: object

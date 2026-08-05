@@ -2,7 +2,42 @@ import { describe, expect, it, vi } from "vitest";
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
 import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
 import { TenantBaselineProvisioningService } from "../../services/api/src/tenant-baseline-provisioning";
-import { createP1Store } from "../../services/api/src/store";
+import type { SimWarStore } from "../../services/api/src/store";
+
+type FormalAuthorityTestStore = Pick<
+  SimWarStore,
+  | "formalCourseBlueprintApprovalRecords"
+  | "formalCourseBlueprintLifecycleSnapshots"
+  | "formalParameterSetApprovalRecords"
+  | "formalParameterSetLifecycleSnapshots"
+  | "formalPluginReleaseApprovalRecords"
+  | "formalPluginReleaseAvailabilityRecords"
+  | "formalPluginReleaseLifecycleSnapshots"
+  | "formalScenarioPackageApprovalRecords"
+  | "formalScenarioPackageLifecycleSnapshots"
+  | "persist"
+>;
+
+function createFormalAuthorityTestStore(): FormalAuthorityTestStore {
+  return {
+    formalCourseBlueprintApprovalRecords: [],
+    formalCourseBlueprintLifecycleSnapshots: [],
+    formalParameterSetApprovalRecords: [],
+    formalParameterSetLifecycleSnapshots: [],
+    formalPluginReleaseApprovalRecords: [],
+    formalPluginReleaseAvailabilityRecords: [],
+    formalPluginReleaseLifecycleSnapshots: [],
+    formalScenarioPackageApprovalRecords: [],
+    formalScenarioPackageLifecycleSnapshots: [],
+    persist: () => undefined
+  };
+}
+
+function createFormalAuthorityRuntime(store: FormalAuthorityTestStore) {
+  return createJsonFormalScenarioAuthorityRuntime(
+    createJsonFormalScenarioAuthorityPersistence(store as SimWarStore)
+  );
+}
 
 const sourceActor = {
   actor_id: "usr_platform",
@@ -12,10 +47,8 @@ const sourceActor = {
 };
 
 async function seedApprovedSource() {
-  const store = createP1Store();
-  const authority = createJsonFormalScenarioAuthorityRuntime(
-    createJsonFormalScenarioAuthorityPersistence(store)
-  );
+  const store = createFormalAuthorityTestStore();
+  const authority = createFormalAuthorityRuntime(store);
   const parameterDraft = await authority.parameterSets.createDraft(sourceActor, {
     compatibility_metadata: { engine_family: "toy_logit" },
     model_version_ref: "toy_logit_wellness_v1@0.1.0",
@@ -121,9 +154,7 @@ describe("TenantBaselineProvisioningService", () => {
       }
       originalPersist();
     };
-    const operationAuthority = createJsonFormalScenarioAuthorityRuntime(
-      createJsonFormalScenarioAuthorityPersistence(store)
-    );
+    const operationAuthority = createFormalAuthorityRuntime(store);
     const concurrentActor = {
       actor_id: "usr_platform",
       capabilities: ["parameter_set:manage", "scenario_package:manage"],
