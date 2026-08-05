@@ -1,0 +1,56 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-015-R1-BROWSER-SMOKE-RECOVERY
+stage: L1_PLUS
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+candidate_id: CAND-W015-R1-BROWSER-SMOKE-RECOVERY
+primary_outcome: >-
+  Diagnose the PR #344 required browser-smoke failure with one exact-head
+  rerun and one paired master control, classify the result, and close the
+  recovery record without changing W015 product code when causality is not
+  proven.
+classification: TRANSIENT_ENVIRONMENT
+reported_master_sha: e05052c85d5962af6e0ba83c551b280925d776c5
+product_pr: 344
+product_head_sha: 4cf8e4201c2c9e7200f246a411306b0cd7c03ee1
+product_merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+governance_closure_merge_sha: THIS_CHANGESET
+current_master_at_readback: ed422914b0d6d5c8bf17d0629ce11de4b583b06c
+head_rerun:
+  maximum: 1
+  used: 1
+  result: PASS
+master_control_rerun:
+  maximum: 1
+  used: 1
+  result: PASS
+stabilization_pr: NONE
+changed_product_files: 0
+post_merge:
+  fresh_clone: PASS
+  browser_smoke: PASS
+  contract: PASS_14_FILES_37_TESTS
+  direct_store: PASS_NEW_UNAPPROVED_0
+  runtime_authority: JSON_INTERNAL_ONLY
+  postgresql_runtime: NOT_ACTIVE
+known_limits:
+  issue_113: OPEN_PROGRESS_RECEIPT_RECORDED
+  issue_111: OPEN_KNOWN_LIMIT
+  issue_118: OPEN_BLOCKED
+  inherited_full_vitest_anomaly: ROUTE_C_ENVIRONMENT_OR_LOAD_BASELINE_LIMIT
+acceptance:
+  pass: 23
+  pass_with_explicit_limit: 5
+  fail: 0
+  unknown: 0
+  not_mapped: 0
+evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W015-R1-BROWSER-RECOVERY-20260805T152000Z
+evidence:
+  failure_fingerprint: diagnosis/03-failure-fingerprint.json
+  head_rerun: reruns/04-head-rerun.json
+  master_control: reruns/05-master-control.json
+  postmerge: postmerge/06-postmerge-receipt.json
+  acceptance: closure/07-acceptance-matrix.json
+  classification: closure/08-classification-decision.md
+  final_report: closure/10-final-report.md
+automatic_next_start: false
+next_mission: NOT_STARTED_PENDING_OWNER_DIRECTION
