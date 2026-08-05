@@ -1,35 +1,40 @@
-cycle_id: L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION
+cycle_id: L1PLUS-CYCLE-014-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-04T14:58:16Z"
-closed_at: "2026-08-04T15:55:44Z"
+started_at: "2026-08-05T00:24:32Z"
+closed_at: "2026-08-05T01:32:02Z"
 repository: qidianzhiku/SimWar
-source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
-assessment_source_anchor_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
-product_evidence_source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+source_sha: 8811e936feface9b8286043c82c155c82b23b641
+assessment_source_anchor_sha: 8811e936feface9b8286043c82c155c82b23b641
+product_evidence_source_sha: 8811e936feface9b8286043c82c155c82b23b641
 governance_closure_merge_sha: THIS_CHANGESET
-mainline_candidate: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
+mainline_candidate: CAND-L1P-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
 support_candidate: null
 docs_discovery_candidate: null
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: "R5-SR2 role-workflow and D2 scope findings resolved; fresh master synthetic R4-S recheck passes with explicit limits."
+primary_outcome: "JSON active and PostgreSQL inactive-support settlement outcomes are immutable by business identity, deterministic on retry, conflict-safe, and audit-atomic within their authorized runtime boundaries."
 runtime_authority: JSON_INTERNAL_ONLY
 predecessor:
-  cycle_id: L1PLUS-CYCLE-012-R3-GOLDEN-JOURNEY
-  merge_sha: ce637e7102c174804116db624c35a96c3363acec
+  cycle_id: L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION
+  merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
 product_prs:
-  - number: 339
-    role: ROLE_WORKFLOW_DEFAULT_FIXTURE_AND_UI_PRECONDITION
-    merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+  - number: 341
+    role: JSON_ACTIVE_SETTLEMENT_IDEMPOTENCY
+    merge_sha: f4ee308e9ea28d65d4aebcb39dd92848abfd9a3e
+  - number: 342
+    role: POSTGRES_INACTIVE_SETTLEMENT_BUSINESS_KEY_SUPPORT
+    merge_sha: 8811e936feface9b8286043c82c155c82b23b641
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 40
+  acceptance_rows: 14
   unknown_rows: 0
   not_mapped_rows: 0
-  focused_role_d2: PASS_4_FILES_24_TESTS
+  focused_json_settlement: PASS_46_TESTS
   contract: PASS_14_FILES_37_TESTS
-  full: PASS_157_FILES_1019_TESTS
-  browser_synthetic_r4s: PASS_WITH_LIMITS_3_NEW_SESSIONS
+  postgres_replay: PASS_20_TESTS_REAL_POSTGRESQL
+  full: BASELINE_LIMIT_157_FILES_1024_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
+  browser_default: PASS_74_SKIPPED_9
+  browser_role_workflow: PASS_1
   ci: PASS
   codeql: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
@@ -40,23 +45,23 @@ validation:
   fresh_clone: PASS_CLEAN_DETACHED_AT_SOURCE_SHA
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
-  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
+  human_validation: NOT_PERFORMED
 evidence:
-  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z
-  frozen_findings: R5-SR2-FROZEN-FINDING-PACK/finding-pack.json
-  root_cause: root-cause/root-cause-triage.md
-  post_merge_full_test: fresh-validation/post-merge-npm-test.log
-  direct_store: fresh-validation/post-merge-direct-store.log
-  hidden_unicode: fresh-validation/post-merge-hidden-unicode.log
-  r4s_sessions: r4s-recheck/sessions/session-index.json
-  final_report: closure/final-report.md
+  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W014-T4-F1-20260805T002432Z
+  frozen_pack: materials/t4-f1-pack/SimWar_T4_F1_Durable_Settlement_Frozen_Reference_Pack_V1.0_20260805
+  cell_a_merge: control/07-cell-a-merge.json
+  cell_b_merge: control/08-cell-b-merge.json
+  final_clone: tests/09-final-clone-validation.json
+  full_suite_limit: tests/10-full-suite-baseline-anomaly.json
+  join_decision: closure/11-join-decision.md
+  final_report: closure/12-final-report.md
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - ROLE_WORKFLOW_DEFAULT_FIXTURE
-    - ROLE_WORKFLOW_TEACHER_PRECONDITION_UI
-    - D2_TEACHER_SAFE_QUERY
-    - R4S_SYNTHETIC_RECHECK
+    - T4_F1_SETTLEMENT_BUSINESS_IDENTITY
+    - T4_F1_JSON_SETTLEMENT_IDEMPOTENCY
+    - T4_F1_POSTGRES_INACTIVE_SUPPORT
+    - SETTLEMENT_OUTCOME_WRITER
     - SERIAL_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
@@ -67,37 +72,38 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
 blocked_candidates: []
 metrics:
-  product_pr_count: 1
+  product_pr_count: 2
   governance_pr_count: 1
   corrective_product_pr_count: 0
   governance_reclosure_count: 0
   first_pass_exit: true
-  readiness_mode: PARALLEL_READINESS_ONLY
+  readiness_mode: SERIAL_INTEGRATION_AFTER_BOUNDED_CELLS
   merge_mode: SERIAL
   resource_cost_ratio: NOT_MEASURED
-  r4s_synthetic_sessions: 3
-  r4s_synthetic_task_failures: 0
-  human_sessions: 0
+  default_full_suite_anomaly_count: 1
+  browser_skipped_existing: 9
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
-  synthetic_internal_validation: true
-  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
+  postgresql_runtime: NOT_ACTIVE
+  durable_recovery: NOT_PROVEN
+  full_vitest: BASELINE_ENVIRONMENT_LOAD_ANOMALY_UNTOUCHED_SNAPSHOT_TEST
+  human_validation: WAIVED_OR_NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
-  postgresql: NOT_ACTIVE
-  durable_settlement_and_recovery: NOT_PROVEN
-  pilot_and_production: NOT_AUTHORIZED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
   compensating_atomicity: NOT_CRASH_SAFE
+  pilot_and_production: NOT_AUTHORIZED
 invalidation_triggers:
   - product_or_runtime_changed
-  - role_workflow_authority_or_registry_changed
-  - d2_evidence_authority_or_visibility_changed
-  - golden_or_replay_changed
+  - settlement_authority_or_writer_changed
+  - shared_contract_changed
+  - replay_or_golden_changed
+  - database_migration_changed
   - post_merge_evidence_invalidated
 explicit_non_proofs:
-  - Human Validation is not performed and synthetic evidence is not human evidence.
-  - R4-S synthetic recheck does not prove teacher usability, learner understanding, or teaching effectiveness.
-  - PostgreSQL, durable recovery, Pilot, Production, D3-D6 successor work are not authorized.
-  - D2 evidence does not write Truth, SettlementResult, Score, Rank, or Replay authority.
+  - PostgreSQL is not active runtime authority.
+  - Cross-process JSON safety, durable recovery, backup/restore, and crash-safe compensating atomicity are not proven.
+  - Human Validation was not performed.
+  - Issue #111 remains open and is not closed by this cycle.
+  - Pilot, Production, billing, external providers, AI, and successor missions are not authorized.
 automatic_next_start: false

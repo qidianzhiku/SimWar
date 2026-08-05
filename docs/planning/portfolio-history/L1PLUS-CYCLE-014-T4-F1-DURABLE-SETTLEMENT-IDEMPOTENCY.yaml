@@ -1,0 +1,48 @@
+cycle_id: L1PLUS-CYCLE-014-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
+stage: L1_PLUS
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+source_sha: 8811e936feface9b8286043c82c155c82b23b641
+product_prs:
+  - number: 341
+    merge_sha: f4ee308e9ea28d65d4aebcb39dd92848abfd9a3e
+    purpose: "JSON active-route settlement business-key idempotency, deterministic fingerprint, and atomic success audit."
+  - number: 342
+    merge_sha: 8811e936feface9b8286043c82c155c82b23b641
+    purpose: "PostgreSQL inactive-support transaction lock, fingerprint persistence, immutable create/reuse/conflict, and real database verification."
+acceptance:
+  focused_json_settlement: PASS_46_TESTS
+  contract: PASS_14_FILES_37_TESTS
+  postgres_replay: PASS_20_TESTS
+  browser: PASS_74_SKIPPED_9_PLUS_ROLE_WORKFLOW_1_PASS
+  direct_store_new_unapproved: 0
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  hidden_unicode: PASS
+  ci: PASS
+  codeql: PASS
+  challenge_blocking: 0
+  challenge_must_fix: 0
+  full_vitest: BASELINE_LIMIT_157_FILES_1024_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
+  snapshot_focused_control: PASS_147_TESTS
+post_merge:
+  fresh_clone: D:/codex/graph-sources/simwar-w014-final-8811e936
+  clean_detached: true
+  source_sha: 8811e936feface9b8286043c82c155c82b23b641
+locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - T4_F1_SETTLEMENT_BUSINESS_IDENTITY
+    - T4_F1_JSON_SETTLEMENT_IDEMPOTENCY
+    - T4_F1_POSTGRES_INACTIVE_SUPPORT
+    - SETTLEMENT_OUTCOME_WRITER
+    - SERIAL_CLOSURE
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - POSTGRESQL_NOT_ACTIVE
+  - DURABLE_RECOVERY_NOT_PROVEN
+  - HUMAN_VALIDATION_NOT_PERFORMED
+  - ISSUE_111_OPEN_KNOWN_LIMIT
+  - FULL_VITEST_SNAPSHOT_LOAD_ANOMALY
+automatic_next_start: false

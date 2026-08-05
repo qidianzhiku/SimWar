@@ -1,14 +1,14 @@
-portfolio_version: 4
+portfolio_version: 5
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-04T15:55:44Z"
+generated_at: "2026-08-05T01:32:02Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
-product_evidence_source_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+assessment_source_anchor_sha: 8811e936feface9b8286043c82c155c82b23b641
+product_evidence_source_sha: 8811e936feface9b8286043c82c155c82b23b641
 governance_closure_merge_sha: THIS_CHANGESET
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: R5_SR2_FINDINGS_CLOSED_WITH_SYNTHETIC_LIMITS
+l1_plus_status: T4_F1_CLOSED_WITH_RUNTIME_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,58 +16,27 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
-    capability_id: L1P-R5-SR2
+    candidate_id: CAND-L1P-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_prs:
-      - 339
+    product_prs: [341, 342]
     product_merge_shas:
-      - 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
-    primary_outcome: "Close ROLE_WORKFLOW_TEAM_INCOMPLETE and D2 eligible-event query findings without changing Authority or product semantics."
+      - f4ee308e9ea28d65d4aebcb39dd92848abfd9a3e
+      - 8811e936feface9b8286043c82c155c82b23b641
+    primary_outcome: "One authoritative settlement per tenant/run/round_no with deterministic retry, stable conflict, and no silent overwrite."
   support_code: NONE
   docs_discovery: NONE
-  closure: R5_SR2_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: T4_F1_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
-  - capability_id: L1P-VC-06
-    candidate_id: CAND-L1P-C1-COURSEBLUEPRINT-IMMUTABLE-VERSIONING
-    status: CLOSED_AND_CURRENT
-  - capability_id: L1P-VC-07
-    candidate_id: CAND-L1P-C2-TEACHER-BLUEPRINT-STUDIO
-    status: CLOSED_AND_CURRENT
-  - capability_id: L1P-VC-08
-    candidate_id: CAND-L1P-C3-ROLE-WORKFLOW-PRODUCTIZATION
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D1
-    candidate_id: CAND-L1P-D1-LEARNING-GOAL-RUBRIC
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D2
-    candidate_id: CAND-L1P-D2-EVIDENCE-PROVENANCE
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D3
-    candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D4
-    candidate_id: CAND-L1P-D4-STUDENT-LEARNING-REPORT
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D5
-    candidate_id: CAND-L1P-D5-AOL-XAPI-EXPORT
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-D6
-    candidate_id: CAND-L1P-D6-TRANSFER-EVIDENCE-RESEARCH-DESIGN
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-R3
-    candidate_id: CAND-L1P-R3-CROSS-SLICE-GOLDEN-JOURNEY
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-  - capability_id: L1P-R5-SR2
-    candidate_id: CAND-L1P-R5-SR2-ROLE-D2-RECHECK
+  - capability_id: L1P-T4-F1
+    candidate_id: CAND-L1P-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
     status: CLOSED_AND_CURRENT_WITH_LIMITS
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - ROLE_WORKFLOW_DEFAULT_FIXTURE
-    - ROLE_WORKFLOW_TEACHER_PRECONDITION_UI
-    - D2_TEACHER_SAFE_QUERY
-    - R4S_SYNTHETIC_RECHECK
+    - T4_F1_SETTLEMENT_BUSINESS_IDENTITY
+    - T4_F1_JSON_SETTLEMENT_IDEMPOTENCY
+    - T4_F1_POSTGRES_INACTIVE_SUPPORT
+    - SETTLEMENT_OUTCOME_WRITER
     - SERIAL_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
@@ -78,28 +47,29 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
 blocked_candidates: []
 evidence:
-  frozen_finding_pack: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z/R5-SR2-FROZEN-FINDING-PACK/finding-pack.json
-  root_cause_triage: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W013-R5-SR2-20260804T145816Z/root-cause/root-cause-triage.md
-  product_pr: 339
-  product_merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
-  fresh_clone_full_tests: 157_FILES_1019_TESTS_PASS
-  r4s_sessions: 3_NEW_SYNTHETIC_SESSIONS_PASS_WITH_LIMITS
-  human_validation: NONE
+  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W014-T4-F1-20260805T002432Z
+  cell_a_merge_sha: f4ee308e9ea28d65d4aebcb39dd92848abfd9a3e
+  cell_b_merge_sha: 8811e936feface9b8286043c82c155c82b23b641
+  fresh_clone: PASS_CLEAN_DETACHED_AT_SOURCE_SHA
+  postgres_replay: PASS_20_TESTS_REAL_POSTGRESQL
+  browser: PASS_74_SKIPPED_9_PLUS_ROLE_WORKFLOW_1_PASS
+  full_vitest: BASELINE_LIMIT_157_FILES_1024_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
-  human_validation: BLOCKED_BY_MISSING_INDEPENDENT_TEACHER_SESSION
-  postgresql: NOT_ACTIVE
-  durable_settlement_and_recovery: NOT_PROVEN
-  pilot_and_production: NOT_AUTHORIZED
+  postgresql_runtime: NOT_ACTIVE
+  durable_settlement_recovery: NOT_PROVEN
+  human_validation: NOT_PERFORMED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
   compensating_atomicity: NOT_CRASH_SAFE
-valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_GOLDEN_OR_VISIBILITY_CHANGE
+  pilot_production: NOT_AUTHORIZED
+valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_MIGRATION_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
-  - role_workflow_authority_or_registry_changed
-  - d2_evidence_authority_or_visibility_changed
-  - golden_or_replay_changed
+  - settlement_authority_or_writer_changed
+  - shared_contract_changed
+  - replay_or_golden_changed
+  - database_migration_changed
   - post_merge_evidence_invalidated
 automatic_next_start: false

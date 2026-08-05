@@ -1,13 +1,13 @@
 # ADR-DATA-004: Settlement Idempotency and Concurrency Policy
 
-| Field                | Value                                                                                                                                                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status               | Accepted                                                                                                                                                                                                                                                     |
-| Date                 | 2026-06-18                                                                                                                                                                                                                                                   |
-| Scope                | Settlement business idempotency, retry semantics, concurrency policy, and rollout plan                                                                                                                                                                       |
-| Implementation state | Database business constraint, JSON in-process active-route serialization, and duplicate success-audit suppression for reused JSON route results implemented; route conflict response and PostgreSQL runtime transaction/row-lock enforcement remain pending. |
-| Related issue        | #111                                                                                                                                                                                                                                                         |
-| Depends on           | #117 active settlement route atomic outcome persistence                                                                                                                                                                                                      |
+| Field                | Value                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                      |
+| Date                 | 2026-06-18                                                                                                                                                                                                                                                                                                    |
+| Scope                | Settlement business idempotency, retry semantics, concurrency policy, and rollout plan                                                                                                                                                                                                                        |
+| Implementation state | JSON active-route business-key idempotency and audit-atomic outcome commit implemented in PR #341; PostgreSQL inactive-support fingerprint migration, transaction-scoped business-key locking, immutable create/reuse/conflict handling, and transactional success audit implemented and verified in PR #342. |
+| Related issue        | #111                                                                                                                                                                                                                                                                                                          |
+| Depends on           | #117 active settlement route atomic outcome persistence                                                                                                                                                                                                                                                       |
 
 ## 1. Context
 
@@ -32,11 +32,11 @@ authoritative replay hashes, multiple ordinary authoritative results, or a
 This policy is also a blocker for a safe PostgreSQL runtime and for future
 role-based final submission flows.
 
-This ADR defines the policy and implementation boundaries. Follow-up PRs now
-add the database business constraint and JSON active-route in-process
-serialization in small stages. Route-level conflict response semantics,
-PostgreSQL runtime transaction/row-lock enforcement, distributed locks, and new
-API fields remain deferred.
+This ADR defines the policy and implementation boundaries. PR #341 completed
+the active JSON route behavior. PR #342 completed the bounded PostgreSQL
+support path and real disposable-database verification without activating
+PostgreSQL as the runtime authority. Distributed locks, crash-safe recovery,
+and any durable-provider activation remain deferred.
 
 ## 2. Current Implementation Evidence
 
@@ -399,10 +399,12 @@ Future implementation should distinguish these events:
 | Concurrent conflicting loser   | Conflict/security audit                                                            |
 | Administrator override         | Dedicated override audit with reason, actor, old result, and new result references |
 
-Current success audit remains outside the settlement storage transaction unless a
-future outbox or transactional audit design changes that. This creates a
-recoverability gap: settlement may commit while audit append fails. That risk is
-outside this ADR and should be handled by a future outbox/recovery design.
+The active JSON route now supplies its first-success audit to the JSON atomic
+commit so persistence failure rolls back the audit and outcome together. The
+bounded PostgreSQL support path inserts the first-success audit in the same
+database transaction. Identical retries and conflicts do not append a duplicate
+first-success audit. Cross-process, outbox, and crash-recovery guarantees remain
+outside this ADR.
 
 ## 16. API Semantics
 
@@ -501,7 +503,7 @@ This ADR does not solve or implement:
 - multi-region settlement;
 - administrator override implementation;
 - route-level conflicting retry conflict response;
-- PostgreSQL row-lock and transaction enforcement;
+- PostgreSQL runtime provider activation and production rollout;
 - direct adapter/port protection outside the active route.
 
 ## 22. Follow-up Implementation Plan
@@ -543,12 +545,14 @@ Scope:
 - concurrent transaction tests;
 - parity tests with JSON behavior.
 
-These PRs may be split further if review size grows. They must not be merged
-into an unreviewable single change.
+These historical follow-up items are now closed by PR #341 (JSON active route)
+and PR #342 (PostgreSQL inactive support). They were merged separately and are
+not a license to activate PostgreSQL or introduce a second runtime authority.
 
 ## 23. Scope Boundary for This ADR
 
-This ADR documents the policy boundary. The associated P1-006A implementation
-keeps the JSON active route process-local, does not change OpenAPI contracts,
-does not activate PostgreSQL as the runtime provider, and does not prove
-cross-process or production database safety.
+This ADR documents the policy boundary. The associated PR #341 implementation
+keeps the JSON active route process-local. PR #342 adds only a bounded,
+inactive PostgreSQL support path and forward migration; it does not activate
+PostgreSQL, change OpenAPI contracts, or prove cross-process JSON or production
+database safety. Issue #111 remains open.
