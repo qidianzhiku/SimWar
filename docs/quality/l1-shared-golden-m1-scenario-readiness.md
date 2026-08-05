@@ -77,13 +77,13 @@ PR #195 已进入 master 后，本 Guard 只表示 Shared Golden M1 的 test-onl
 
 ## Visibility Contract Matrix
 
-| Role           | Surface                     | Allowed                                          | Forbidden                                                                 |
-| -------------- | --------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
-| Student        | result envelope             | own-team `state_obs`, `state_est`, `replay_hash` | `state_true`, `replay_evidence`, private replay metadata, other team data |
-| Teacher        | result envelope             | classroom results and public replay evidence     | cross-tenant data                                                         |
-| Tenant Admin   | result/status/audit surface | current tenant data                              | `tenant_other`, other tenant users                                        |
-| Platform Admin | not exercised               | future governance surface                        | not proven                                                                |
-| Internal Core  | settlement path             | formal result write                              | public visibility authority                                               |
+| Role           | Surface                     | Allowed                                      | Forbidden                                                                                |
+| -------------- | --------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Student        | result envelope             | own-team `state_obs`, `state_est`            | `state_true`, `replay_hash`, `replay_evidence`, private replay metadata, other team data |
+| Teacher        | result envelope             | classroom results and public replay evidence | cross-tenant data                                                                        |
+| Tenant Admin   | result/status/audit surface | current tenant data                          | `tenant_other`, other tenant users                                                       |
+| Platform Admin | not exercised               | future governance surface                    | not proven                                                                               |
+| Internal Core  | settlement path             | formal result write                          | public visibility authority                                                              |
 
 ## Audit Correlation Matrix
 
