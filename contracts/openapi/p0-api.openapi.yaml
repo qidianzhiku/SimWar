@@ -40,6 +40,40 @@ paths:
       responses:
         "200":
           description: Admin state
+  /api/v1/admin/tenant-baselines/provision:
+    post:
+      operationId: ADMIN_TENANT_BASELINE_PROVISION_V1
+      summary: Materialize one approved formal baseline as tenant-local immutable assets.
+      description: Platform-admin governance ingress only. The caller supplies exact approved source ParameterSet and ScenarioPackage references plus a target tenant. The service materializes formal DRAFT, VALIDATED, FROZEN, and APPROVED snapshots through the existing authorities; it does not create a Course, Run, settlement, Replay, or truth record.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantBaselineProvisioningRequest"
+      responses:
+        "201":
+          description: New approved tenant-local baseline materialization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantBaselineProvisioningEnvelope"
+        "200":
+          description: Idempotent reuse of the exact completed materialization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantBaselineProvisioningEnvelope"
+        "401": { description: Authentication required }
+        "403": { description: Platform baseline authority or source tenant scope denied }
+        "404": { description: Target tenant or exact source authority reference not found }
+        "409":
+          {
+            description: Deterministic target identity exists with conflicting or partial materialization
+          }
+        "422": { description: "Malformed, noncanonical, or unapproved source request" }
   /api/v1/admin/course-package-versions:
     get:
       operationId: ADMIN_COURSE_PACKAGE_VERSION_LIST_V1
@@ -3605,6 +3639,116 @@ components:
           description: Immutable JSON parameter value governed by the formal command service.
         parent_reference:
           $ref: "#/components/schemas/FormalParameterSetReferenceInput"
+    TenantBaselineParameterSetSource:
+      type: object
+      additionalProperties: false
+      required: [content_digest, parameter_set_id, source_tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        parameter_set_id: { type: string, minLength: 1 }
+        source_tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    TenantBaselineScenarioPackageSource:
+      type: object
+      additionalProperties: false
+      required: [content_digest, scenario_package_id, source_tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        scenario_package_id: { type: string, minLength: 1 }
+        source_tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    TenantBaselineProvisioningRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotency_key, source_parameter_set, source_scenario_package, target_tenant_id]
+      properties:
+        idempotency_key: { type: string, minLength: 1 }
+        local_display_metadata:
+          type: object
+          additionalProperties: { type: string, minLength: 1 }
+        source_parameter_set:
+          $ref: "#/components/schemas/TenantBaselineParameterSetSource"
+        source_scenario_package:
+          $ref: "#/components/schemas/TenantBaselineScenarioPackageSource"
+        target_tenant_id: { type: string, minLength: 1 }
+    TenantBaselineParameterSetReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, parameter_set_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        parameter_set_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    TenantBaselineProvisionedParameterSet:
+      type: object
+      additionalProperties: false
+      required: [content_digest, reference, status, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        reference: { $ref: "#/components/schemas/TenantBaselineParameterSetReference" }
+        status: { type: string, enum: [APPROVED] }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    TenantBaselineProvisionedScenarioPackage:
+      type: object
+      additionalProperties: false
+      required: [content_digest, reference, status, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        reference: { $ref: "#/components/schemas/FormalScenarioPackageReferenceInput" }
+        status: { type: string, enum: [APPROVED] }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    TenantBaselineProvenance:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotency_key_digest
+        - provisioning_request_digest
+        - requested_local_metadata
+        - schema_version
+        - source_parameter_set
+        - source_scenario_package
+      properties:
+        idempotency_key_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        provisioning_request_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        requested_local_metadata:
+          type: object
+          additionalProperties: { type: string }
+        schema_version: { type: string, enum: [tenant-baseline-provenance.v1] }
+        source_parameter_set:
+          type: object
+          additionalProperties: false
+          required: [reference, tenant_id]
+          properties:
+            reference: { $ref: "#/components/schemas/TenantBaselineParameterSetReference" }
+            tenant_id: { type: string, minLength: 1 }
+        source_scenario_package:
+          type: object
+          additionalProperties: false
+          required: [reference, tenant_id]
+          properties:
+            reference: { $ref: "#/components/schemas/FormalScenarioPackageReferenceInput" }
+            tenant_id: { type: string, minLength: 1 }
+    TenantBaselineProvisioningResult:
+      type: object
+      additionalProperties: false
+      required: [audit_identity, outcome, parameter_set, provenance, scenario_package]
+      properties:
+        audit_identity: { type: string, minLength: 1 }
+        outcome: { type: string, enum: [CREATED, REUSED] }
+        parameter_set: { $ref: "#/components/schemas/TenantBaselineProvisionedParameterSet" }
+        provenance: { $ref: "#/components/schemas/TenantBaselineProvenance" }
+        scenario_package: { $ref: "#/components/schemas/TenantBaselineProvisionedScenarioPackage" }
+    TenantBaselineProvisioningEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/TenantBaselineProvisioningResult" }
+        message: { type: string }
+        request_id: { type: string }
     FormalScenarioPackageReferenceInput:
       type: object
       additionalProperties: false

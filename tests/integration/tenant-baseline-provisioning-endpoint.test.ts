@@ -685,6 +685,52 @@ describe("tenant baseline provisioning endpoint", () => {
       expect(coursePackageA.status).toBe("AVAILABLE");
       expect(coursePackageB.status).toBe("AVAILABLE");
 
+      const adminReadbackA = await request<
+        ApiEnvelope<{ course_package_versions: Array<{ course_package_id: string }> }>
+      >(baseUrl, "/api/v1/admin/course-package-versions", {
+        method: "GET",
+        tenantId: tenantA.tenant_id,
+        token: tenantAdminToken
+      });
+      expect(adminReadbackA.status).toBe(200);
+      expect(adminReadbackA.body.data.course_package_versions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ course_package_id: coursePackageA.course_package_id })
+        ])
+      );
+      expect(adminReadbackA.body.data.course_package_versions).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ course_package_id: coursePackageB.course_package_id })
+        ])
+      );
+      const teacherReadbackA = await request<
+        ApiEnvelope<{ course_package_versions: Array<{ course_package_id: string }> }>
+      >(baseUrl, "/api/v1/bff/teacher/course-package-versions", {
+        method: "GET",
+        tenantId: tenantA.tenant_id,
+        token: teacherToken
+      });
+      expect(teacherReadbackA.status).toBe(200);
+      expect(teacherReadbackA.body.data.course_package_versions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            course_package_reference: expect.objectContaining({
+              course_package_id: coursePackageA.course_package_id
+            })
+          })
+        ])
+      );
+      const crossTenantAdminRead = await request<ErrorPayload>(
+        baseUrl,
+        "/api/v1/admin/course-package-versions",
+        {
+          method: "GET",
+          tenantId: tenantA.tenant_id,
+          token: tenantBAdminToken
+        }
+      );
+      expect(crossTenantAdminRead.status).toBe(403);
+
       const foreignBinding = await request<ErrorPayload>(
         baseUrl,
         "/api/v1/admin/course-package-versions/drafts",

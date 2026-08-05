@@ -141,10 +141,7 @@ describe("CoursePackageVersion contract freeze", () => {
     const openApi = yaml.load(
       readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
     ) as OpenApiDocument;
-    for (const schemaName of [
-      "CoursePackageVersionDraftInput",
-      "CoursePackageVersionCloneInput"
-    ]) {
+    for (const schemaName of ["CoursePackageVersionDraftInput", "CoursePackageVersionCloneInput"]) {
       expect(openApi.components.schemas[schemaName]?.properties?.title?.pattern).toBe(
         "^\\S(?:[\\s\\S]*\\S)?$"
       );
@@ -247,5 +244,39 @@ describe("CoursePackageVersion contract freeze", () => {
       openApi.paths["/api/v1/bff/teacher/course-package-versions/clone"]?.post?.responses?.["409"]
         ?.description
     ).toContain("source package is not AVAILABLE");
+  });
+
+  it("publishes the explicit tenant baseline provisioning API contract", () => {
+    const openApi = yaml.load(
+      readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
+    ) as OpenApiDocument;
+    const operation = openApi.paths["/api/v1/admin/tenant-baselines/provision"]?.post;
+
+    expect(operation?.requestBody?.content?.["application/json"]?.schema?.$ref).toBe(
+      "#/components/schemas/TenantBaselineProvisioningRequest"
+    );
+    for (const status of ["200", "201"] as const) {
+      expect(operation?.responses?.[status]?.content?.["application/json"]?.schema?.$ref).toBe(
+        "#/components/schemas/TenantBaselineProvisioningEnvelope"
+      );
+    }
+    for (const status of ["401", "403", "404", "409", "422"] as const) {
+      expect(operation?.responses?.[status]).toBeDefined();
+    }
+    expect(openApi.components.schemas.TenantBaselineProvisioningRequest).toMatchObject({
+      properties: {
+        source_parameter_set: {
+          $ref: "#/components/schemas/TenantBaselineParameterSetSource"
+        },
+        source_scenario_package: {
+          $ref: "#/components/schemas/TenantBaselineScenarioPackageSource"
+        }
+      }
+    });
+    expect(openApi.components.schemas.TenantBaselineProvisioningResult).toMatchObject({
+      properties: {
+        provenance: { $ref: "#/components/schemas/TenantBaselineProvenance" }
+      }
+    });
   });
 });
