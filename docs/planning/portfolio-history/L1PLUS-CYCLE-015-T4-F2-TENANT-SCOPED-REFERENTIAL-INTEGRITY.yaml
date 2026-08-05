@@ -1,0 +1,54 @@
+cycle_id: L1PLUS-CYCLE-015-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+stage: L1_PLUS
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+product_prs:
+  - number: 344
+    merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+    purpose: "Tenant-scoped referential-integrity migration and real disposable PostgreSQL negative/positive validation for inactive support."
+acceptance:
+  current_master: PASS
+  candidate_scope: PASS_5_FILES_1_COMMIT
+  w015_postgres: PASS_6_TESTS
+  postgres_replay: PASS_20_TESTS
+  contract: PASS_14_FILES_37_TESTS
+  browser: PASS_EXACT_HEAD_RERUN
+  direct_store_new_unapproved: 0
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  ci: PASS
+  codeql: PASS
+  challenge_blocking: 0
+  challenge_must_fix: 0
+  full_vitest: BASELINE_LIMIT_158_FILES_1025_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
+  snapshot_focused_control: PASS_147_TESTS
+post_merge:
+  fresh_clone: D:/codex/fresh-clones/simwar-w015-postmerge-f04e8c0
+  clean_detached: true
+  source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+  remote_master_at_finish: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - W015_T4_F2_MIGRATION_SCOPE
+    - W015_T4_F2_POSTGRES_INTEGRITY_TEST_SCOPE
+    - W015_T4_F2_POSTGRES_REPLAY_COMPATIBILITY_SCOPE
+    - SERIAL_MERGE
+    - POST_MERGE_FRESH_CLONE
+    - GOVERNANCE_CLOSURE
+known_limits:
+  - JSON_INTERNAL_ONLY
+  - POSTGRESQL_NOT_ACTIVE
+  - RLS_NOT_IMPLEMENTED
+  - TEAM_REFERENTIAL_INTEGRITY_NOT_ENFORCEABLE_CURRENT_SCHEMA
+  - DURABLE_RECOVERY_NOT_PROVEN
+  - HUMAN_VALIDATION_NOT_PERFORMED
+  - ISSUE_111_OPEN_KNOWN_LIMIT
+  - ISSUE_113_OPEN_PROGRESS_RECORDED_NO_GITHUB_MUTATION
+  - ISSUE_118_OPEN_BLOCKED_UNCHANGED
+  - FULL_VITEST_SNAPSHOT_LOAD_ANOMALY
+  - GRAPH_EVIDENCE_GAP
+automatic_next_start: false
