@@ -309,7 +309,12 @@ describe("tenant settlement identity matrix", () => {
           run_id: run.run_id,
           tenant_id: "tenant_demo"
         }),
-        tenant_id: "tenant_demo"
+        tenant_id: "tenant_demo",
+        success_audit: expect.objectContaining({
+          action: "round.settle_requested",
+          resource_type: "settlement_result",
+          tenant_id: "tenant_demo"
+        })
       });
       expect(store.settlementResults).toHaveLength(1);
       expect(

@@ -598,9 +598,13 @@ type AuditLogInput = {
   after?: Record<string, unknown>;
 };
 
-function createAuditLog(runtime: ApiRuntime, input: AuditLogInput): AuditLog {
+function createAuditLog(
+  runtime: ApiRuntime,
+  input: AuditLogInput,
+  auditId = runtime.repositoryProvider.idGenerator.createAuditLogId()
+): AuditLog {
   return {
-    audit_id: runtime.repositoryProvider.idGenerator.createAuditLogId(),
+    audit_id: auditId,
     tenant_id: input.tenantId ?? input.actor.tenant_id,
     actor_id: input.actor.user_id,
     actor_role: input.actor.roles[0] ?? "learner",
@@ -615,7 +619,11 @@ function createAuditLog(runtime: ApiRuntime, input: AuditLogInput): AuditLog {
 }
 
 async function appendAudit(runtime: ApiRuntime, input: AuditLogInput): Promise<AuditLog> {
-  const log = createAuditLog(runtime, input);
+  const log = createAuditLog(
+    runtime,
+    input,
+    runtime.repositoryProvider.idGenerator.createAuditLogId()
+  );
 
   await runtime.repositoryProvider.facade.auditLogs.appendAuditLog(log);
   return log;
