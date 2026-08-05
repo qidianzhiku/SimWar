@@ -34,6 +34,10 @@ import {
   createSettlementWriteRepositoryFacade,
   type SettlementWriteRepositoryFacade
 } from "./repository-facade.js";
+import {
+  createSettlementBusinessKey,
+  createSettlementFingerprint
+} from "./settlement-idempotency.js";
 
 export interface PostgresQueryResult<
   TRow extends Record<string, unknown> = Record<string, unknown>
@@ -49,10 +53,15 @@ export type PostgresQueryExecutor = <
   params?: readonly unknown[]
 ) => Promise<PostgresQueryResult<TRow>>;
 
+export type PostgresTransactionExecutor = <TResult>(
+  callback: (queryExecutor: PostgresQueryExecutor) => Promise<TResult>
+) => Promise<TResult>;
+
 export interface PostgresRepositoryAdapterOptions {
   applicationName?: string;
   queryExecutor: PostgresQueryExecutor;
   schema?: string;
+  transactionExecutor?: PostgresTransactionExecutor;
 }
 
 export interface PostgresAuditLogMapping {
@@ -305,6 +314,17 @@ interface PostgresSettlementOutcomeCommitRow extends Record<string, unknown> {
   settlement_row_count?: bigint | number | string | null;
 }
 
+interface PostgresSettlementOutcomeExistingRow extends Record<string, unknown> {
+  payload: SettlementResult;
+  settlement_fingerprint?: string | null;
+}
+
+interface PostgresSettlementOutcomeRoundRow extends Record<string, unknown> {
+  id: RepositoryId;
+  round_no: number | null;
+  run_id: RepositoryId;
+}
+
 function toCourseReadModel(row: PostgresCourseReadRow): RepositoryCourseReadModel {
   return {
     ...row.payload,
@@ -464,6 +484,163 @@ function toSettlementResult(row: PostgresSettlementResultReadRow): SettlementRes
   };
 }
 
+async function commitPostgresSettlementOutcomeInTransaction(
+  queryExecutor: PostgresQueryExecutor,
+  command: Parameters<SettlementOutcomePersistencePort["commitSettlementOutcome"]>[0]
+): Promise<SettlementOutcomeCommitResult> {
+  const result = command.settlement_result;
+  const businessKey = createSettlementBusinessKey(result);
+  const fingerprint = createSettlementFingerprint(result);
+
+  await queryExecutor("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [businessKey]);
+
+  const targetRoundResult = await queryExecutor<PostgresSettlementOutcomeRoundRow>(
+    `SELECT id, run_id, round_no
+     FROM simulation_rounds
+     WHERE tenant_id = $1 AND round_id = $2
+     FOR UPDATE`,
+    [command.tenant_id, command.round_id]
+  );
+  const targetRound = targetRoundResult.rows[0];
+
+  if (targetRound === undefined) {
+    throw new Error("settlement_outcome_round_missing");
+  }
+
+  if (targetRound.run_id !== result.run_id) {
+    throw new Error("settlement_outcome_run_mismatch");
+  }
+
+  if (targetRound.round_no !== result.round_no) {
+    throw new Error("settlement_outcome_round_no_mismatch");
+  }
+
+  const technicalIdResult = await queryExecutor<PostgresSettlementOutcomeExistingRow>(
+    `SELECT payload, settlement_fingerprint
+     FROM settlement_results
+     WHERE tenant_id = $1 AND settlement_result_id = $2
+     FOR UPDATE`,
+    [result.tenant_id, result.settlement_result_id]
+  );
+  const technicalIdRow = technicalIdResult.rows[0];
+
+  if (technicalIdRow !== undefined) {
+    const technicalResult = technicalIdRow.payload;
+    if (technicalResult.run_id !== result.run_id || technicalResult.round_no !== result.round_no) {
+      throw new Error("settlement_outcome_result_id_conflict");
+    }
+  }
+
+  const existingResultQuery = await queryExecutor<PostgresSettlementOutcomeExistingRow>(
+    `SELECT payload, settlement_fingerprint
+     FROM settlement_results
+     WHERE tenant_id = $1 AND run_id = $2 AND round_no = $3
+     FOR UPDATE`,
+    [result.tenant_id, result.run_id, result.round_no]
+  );
+  const existingRow = existingResultQuery.rows[0];
+
+  if (existingRow !== undefined) {
+    const existingFingerprint =
+      existingRow.settlement_fingerprint ?? createSettlementFingerprint(existingRow.payload);
+
+    if (existingFingerprint === fingerprint) {
+      return { settlement_result: existingRow.payload, status: "reused" };
+    }
+
+    return {
+      reason: "replay_hash_mismatch",
+      settlement_result: existingRow.payload,
+      status: "conflict"
+    };
+  }
+
+  await queryExecutor(
+    `INSERT INTO settlement_results (
+       id,
+       settlement_result_id,
+       tenant_id,
+       run_id,
+       round_id,
+       round_no,
+       parameter_set_id,
+       scenario_package_id,
+       replay_hash,
+       team_results,
+       payload,
+       settlement_fingerprint,
+       updated_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12, now())`,
+    [
+      toSettlementResultRowId(result.tenant_id, result.settlement_result_id),
+      result.settlement_result_id,
+      result.tenant_id,
+      result.run_id,
+      result.round_id,
+      result.round_no,
+      result.parameter_set_id,
+      result.scenario_package_id,
+      result.replay_hash,
+      JSON.stringify(result.team_results),
+      JSON.stringify(result),
+      fingerprint
+    ]
+  );
+
+  const updatedRoundResult = await queryExecutor(
+    `UPDATE simulation_rounds
+     SET status = 'settled',
+         replay_hash = $2,
+         payload = jsonb_set(
+           jsonb_set(payload, '{status}', to_jsonb('settled'::text), true),
+           '{replay_hash}',
+           to_jsonb($2::text),
+           true
+         ),
+         updated_at = now()
+     WHERE id = $1`,
+    [targetRound.id, result.replay_hash]
+  );
+
+  if (updatedRoundResult.rowCount !== 1) {
+    throw new Error("settlement_outcome_round_update_invariant_failed");
+  }
+
+  if (command.success_audit) {
+    const audit = command.success_audit;
+    await queryExecutor(
+      `INSERT INTO audit_logs (
+         id,
+         audit_id,
+         tenant_id,
+         actor_id,
+         actor_role,
+         action,
+         resource_type,
+         resource_id,
+         request_id,
+         created_at,
+         payload
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)`,
+      [
+        toAuditLogRowId(),
+        audit.audit_id,
+        audit.tenant_id,
+        audit.actor_id,
+        audit.actor_role,
+        audit.action,
+        audit.resource_type,
+        audit.resource_id,
+        audit.request_id,
+        audit.created_at,
+        JSON.stringify(audit)
+      ]
+    );
+  }
+
+  return { settlement_result: result, status: "committed" };
+}
+
 export function createPostgresSettlementOutcomePersistencePort(
   options: PostgresRepositoryAdapterOptions
 ): SettlementOutcomePersistencePort {
@@ -477,6 +654,12 @@ export function createPostgresSettlementOutcomePersistencePort(
 
       if (command.round_id !== result.round_id) {
         throw new Error("settlement_outcome_round_mismatch");
+      }
+
+      if (options.transactionExecutor) {
+        return options.transactionExecutor((queryExecutor) =>
+          commitPostgresSettlementOutcomeInTransaction(queryExecutor, command)
+        );
       }
 
       const queryResult = await options.queryExecutor<PostgresSettlementOutcomeCommitRow>(
@@ -926,7 +1109,7 @@ export class PostgresRepositoryAdapter {
 
   private async saveSettlementResultRow(result: SettlementResult): Promise<void> {
     await this.execute(
-      "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, now()) ON CONFLICT (tenant_id, settlement_result_id) DO UPDATE SET run_id = EXCLUDED.run_id, round_id = EXCLUDED.round_id, round_no = EXCLUDED.round_no, parameter_set_id = EXCLUDED.parameter_set_id, scenario_package_id = EXCLUDED.scenario_package_id, replay_hash = EXCLUDED.replay_hash, team_results = EXCLUDED.team_results, updated_at = now()",
+      "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash, team_results, settlement_fingerprint, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, now()) ON CONFLICT (tenant_id, run_id, round_no) DO NOTHING",
       [
         toSettlementResultRowId(result.tenant_id, result.settlement_result_id),
         result.settlement_result_id,
@@ -937,7 +1120,8 @@ export class PostgresRepositoryAdapter {
         result.parameter_set_id,
         result.scenario_package_id,
         result.replay_hash,
-        JSON.stringify(result.team_results)
+        JSON.stringify(result.team_results),
+        createSettlementFingerprint(result)
       ]
     );
   }

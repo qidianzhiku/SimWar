@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SettlementResult } from "@simwar/shared-contracts";
 import {
   createPostgresSettlementOutcomePersistencePort,
-  type PostgresQueryExecutor
+  type PostgresQueryExecutor,
+  type PostgresTransactionExecutor
 } from "../../services/api/src/postgres-repository-adapter.js";
 
 const teamResults: SettlementResult["team_results"] = [
@@ -390,5 +391,49 @@ describe("Postgres settlement outcome persistence port", () => {
     ).rejects.toBe(persistenceError);
 
     expect(calls).toHaveLength(1);
+  });
+
+  it("uses the frozen transaction boundary for business-key idempotency and audit", async () => {
+    const result = createSettlementResult();
+    const calls: Array<{ params?: readonly unknown[]; sql: string }> = [];
+    const transactionExecutor = vi.fn<PostgresTransactionExecutor>(async (callback) =>
+      callback(async (sql, params) => {
+        calls.push({ params, sql });
+        const normalized = normalizeSql(sql);
+
+        if (normalized.includes("FROM simulation_rounds")) {
+          return {
+            rowCount: 1,
+            rows: [{ id: "round-row-1", run_id: result.run_id, round_no: result.round_no }]
+          };
+        }
+
+        return { rowCount: 1, rows: [] };
+      })
+    );
+    const port = createPostgresSettlementOutcomePersistencePort({
+      queryExecutor: createRecordingExecutor([]),
+      transactionExecutor
+    });
+
+    await expect(
+      port.commitSettlementOutcome({
+        round_id: result.round_id,
+        settlement_result: result,
+        tenant_id: result.tenant_id
+      })
+    ).resolves.toEqual({ settlement_result: result, status: "committed" });
+
+    expect(transactionExecutor).toHaveBeenCalledTimes(1);
+    expect(calls.map(({ sql }) => normalizeSql(sql))).toEqual([
+      "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+      expect.stringContaining("FROM simulation_rounds"),
+      expect.stringContaining("FROM settlement_results"),
+      expect.stringContaining("FROM settlement_results"),
+      expect.stringContaining("INSERT INTO settlement_results"),
+      expect.stringContaining("UPDATE simulation_rounds")
+    ]);
+    expect(calls.map(({ sql }) => sql).join(" ")).toContain("settlement_fingerprint");
+    expect(calls.map(({ sql }) => sql).join(" ")).not.toContain("DO UPDATE");
   });
 });

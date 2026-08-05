@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import type {
+  AuditLog,
   Round,
   ReplayDiffReport,
   ReplayInputManifest,
@@ -17,6 +18,8 @@ type SettlementOutcomeFactory =
   typeof import("../services/api/src/postgres-repository-adapter.js").createPostgresSettlementOutcomePersistencePort;
 type PostgresQueryExecutor =
   import("../services/api/src/postgres-repository-adapter.js").PostgresQueryExecutor;
+type PostgresTransactionExecutor =
+  import("../services/api/src/postgres-repository-adapter.js").PostgresTransactionExecutor;
 
 export default defineConfig({
   resolve: {
@@ -68,12 +71,16 @@ const VERIFICATION_CHECKS = [
   "settlement_business_tenant_isolation",
   "settlement_business_null_identity_rejected",
   "settlement_business_technical_id_move_rejected",
+  "settlement_fingerprint_column",
   "atomic_outcome_success",
   "atomic_outcome_round_missing",
   "atomic_outcome_run_mismatch",
   "atomic_outcome_round_no_mismatch",
   "atomic_outcome_statement_rollback",
   "atomic_outcome_retry_upsert",
+  "atomic_outcome_separate_client_identical",
+  "atomic_outcome_separate_client_conflict",
+  "atomic_outcome_success_audit_exactly_once",
   "truth_chain_tables_unchanged"
 ] as const;
 
@@ -199,6 +206,8 @@ interface DirectSettlementResultRow extends Record<string, unknown> {
 }
 
 let client: PgClient | undefined;
+let databaseConnectionString = "";
+let pgClientConstructor: PgClientConstructor | undefined;
 let schemaName = "";
 let schemaCreated = false;
 let adapter: ReturnType<AdapterFactory>;
@@ -441,6 +450,32 @@ function requiredClient(): PgClient {
   }
 
   return client;
+}
+
+function createClientQueryExecutor(pgClient: PgClient): PostgresQueryExecutor {
+  return async (sql, params) => {
+    const result = await pgClient.query(sql, params as unknown[]);
+    return {
+      rowCount: result.rowCount ?? result.rows.length,
+      rows: result.rows
+    };
+  };
+}
+
+function createClientTransactionExecutor(pgClient: PgClient): PostgresTransactionExecutor {
+  const queryExecutor = createClientQueryExecutor(pgClient);
+
+  return async (callback) => {
+    await pgClient.query("BEGIN");
+    try {
+      const result = await callback(queryExecutor);
+      await pgClient.query("COMMIT");
+      return result;
+    } catch (error) {
+      await pgClient.query("ROLLBACK");
+      throw error;
+    }
+  };
 }
 
 function appendSequence(value: string): bigint {
@@ -755,11 +790,13 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
   describe("disposable Postgres replay verification", () => {
     beforeAll(async () => {
       const connectionString = getDisposableDatabaseUrl();
+      databaseConnectionString = connectionString;
       schemaName = createSchemaName();
       const [{ default: pg }, adapterModule] = await Promise.all([
         import("pg") as Promise<{ default: { Client: PgClientConstructor } }>,
         import("../services/api/src/postgres-repository-adapter.js")
       ]);
+      pgClientConstructor = pg.Client;
       client = new pg.Client({ connectionString });
       await client.connect();
       databaseClientCleanup = "failed";
@@ -769,20 +806,27 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
       markCheckPassed("temporary_schema_creation");
       await applyMigrationIntoSchema(client, schemaName);
       markCheckPassed("migration_apply");
+      const fingerprintColumn = await client.query<{ column_name: string }>(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = $1
+           AND table_name = 'settlement_results'
+           AND column_name = 'settlement_fingerprint'`,
+        [schemaName]
+      );
+      if (fingerprintColumn.rows[0]?.column_name !== "settlement_fingerprint") {
+        throw new Error("settlement_fingerprint column missing");
+      }
+      markCheckPassed("settlement_fingerprint_column");
       await client.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
 
-      const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
-        const result = await requiredClient().query(sql, params as unknown[]);
-
-        return {
-          rowCount: result.rowCount ?? result.rows.length,
-          rows: result.rows
-        };
-      };
+      const queryExecutor = createClientQueryExecutor(requiredClient());
+      const transactionExecutor = createClientTransactionExecutor(requiredClient());
 
       adapter = adapterModule.createPostgresRepositoryAdapter({ queryExecutor });
       settlementOutcomePort = adapterModule.createPostgresSettlementOutcomePersistencePort({
-        queryExecutor
+        queryExecutor,
+        transactionExecutor
       });
     });
 
@@ -1436,7 +1480,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         markCheckPassed("atomic_outcome_statement_rollback");
       });
 
-      it("upserts repeated settlement_result_id commits without duplicate rows", async () => {
+      it("rejects a changed same-business outcome without overwriting the original", async () => {
         const result = settlementResult({ replay_hash: "replay-hash-first" });
         await insertRoundForSettlementResult(result);
         const replacement = {
@@ -1459,10 +1503,16 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
           settlement_result: result,
           tenant_id: result.tenant_id
         });
-        await settlementOutcomePort.commitSettlementOutcome({
-          round_id: replacement.round_id,
-          settlement_result: replacement,
-          tenant_id: replacement.tenant_id
+        await expect(
+          settlementOutcomePort.commitSettlementOutcome({
+            round_id: replacement.round_id,
+            settlement_result: replacement,
+            tenant_id: replacement.tenant_id
+          })
+        ).resolves.toEqual({
+          reason: "replay_hash_mismatch",
+          settlement_result: result,
+          status: "conflict"
         });
 
         const settlements = await fetchAtomicSettlements(
@@ -1470,14 +1520,167 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
           result.settlement_result_id
         );
         expect(settlements).toHaveLength(1);
-        expect(settlements[0]?.parameter_set_id).toBe(replacement.parameter_set_id);
-        expect(settlements[0]?.replay_hash).toBe(replacement.replay_hash);
-        expect(settlements[0]?.payload).toEqual(replacement);
+        expect(settlements[0]?.parameter_set_id).toBe(result.parameter_set_id);
+        expect(settlements[0]?.replay_hash).toBe(result.replay_hash);
+        expect(settlements[0]?.payload).toEqual(result);
         const committedRound = await fetchAtomicRound(result.tenant_id, result.round_id);
         expect(committedRound?.status).toBe("settled");
-        expect(committedRound?.replay_hash).toBe(replacement.replay_hash);
-        expect(committedRound?.payload.replay_hash).toBe(replacement.replay_hash);
+        expect(committedRound?.replay_hash).toBe(result.replay_hash);
+        expect(committedRound?.payload.replay_hash).toBe(result.replay_hash);
         markCheckPassed("atomic_outcome_retry_upsert");
+      });
+
+      it("serializes identical settlement attempts from separate PostgreSQL clients", async () => {
+        if (pgClientConstructor === undefined || databaseConnectionString === "") {
+          throw new Error("Postgres client constructor was not initialized");
+        }
+
+        const clientA = new pgClientConstructor({ connectionString: databaseConnectionString });
+        const clientB = new pgClientConstructor({ connectionString: databaseConnectionString });
+        const adapterModule = await import("../services/api/src/postgres-repository-adapter.js");
+        const result = settlementResult({
+          settlement_result_id: `settlement-identical-${suffix()}`,
+          replay_hash: `replay-identical-${suffix()}`
+        });
+        const audit = (auditId: string): AuditLog =>
+          ({
+            audit_id: auditId,
+            tenant_id: result.tenant_id,
+            actor_id: "teacher-1",
+            actor_role: "teacher",
+            action: "round.settle_requested",
+            resource_type: "settlement_result",
+            resource_id: result.settlement_result_id,
+            request_id: auditId,
+            created_at: "2026-08-05T00:00:00.000Z",
+            after: { replay_hash: result.replay_hash }
+          }) as AuditLog;
+
+        await clientA.connect();
+        await clientB.connect();
+        try {
+          await clientA.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
+          await clientB.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
+          await insertRoundForSettlementResult(result);
+
+          const portA = adapterModule.createPostgresSettlementOutcomePersistencePort({
+            queryExecutor: createClientQueryExecutor(clientA),
+            transactionExecutor: createClientTransactionExecutor(clientA)
+          });
+          const portB = adapterModule.createPostgresSettlementOutcomePersistencePort({
+            queryExecutor: createClientQueryExecutor(clientB),
+            transactionExecutor: createClientTransactionExecutor(clientB)
+          });
+          const retry = { ...result, settlement_result_id: `${result.settlement_result_id}-retry` };
+          const [first, second] = await Promise.all([
+            portA.commitSettlementOutcome({
+              round_id: result.round_id,
+              settlement_result: result,
+              tenant_id: result.tenant_id,
+              success_audit: audit("audit-identical-a")
+            }),
+            portB.commitSettlementOutcome({
+              round_id: retry.round_id,
+              settlement_result: retry,
+              tenant_id: retry.tenant_id,
+              success_audit: audit("audit-identical-b")
+            })
+          ]);
+
+          expect([first.status, second.status].sort()).toEqual(["committed", "reused"]);
+          expect(
+            (await fetchDirectSettlementRows(requiredClient(), schemaName)).filter(
+              (row) =>
+                row.tenant_id === result.tenant_id &&
+                row.run_id === result.run_id &&
+                row.round_no === result.round_no
+            )
+          ).toHaveLength(1);
+          const auditCount = await requiredClient().query<{ count: string }>(
+            `SELECT count(*)::text AS count
+             FROM audit_logs
+             WHERE tenant_id = $1 AND resource_id = $2`,
+            [result.tenant_id, result.settlement_result_id]
+          );
+          expect(auditCount.rows[0]?.count).toBe("1");
+          markChecksPassed([
+            "atomic_outcome_separate_client_identical",
+            "atomic_outcome_success_audit_exactly_once"
+          ]);
+        } finally {
+          await clientA.end();
+          await clientB.end();
+        }
+      });
+
+      it("returns one conflict for separate-client conflicting settlement attempts", async () => {
+        if (pgClientConstructor === undefined || databaseConnectionString === "") {
+          throw new Error("Postgres client constructor was not initialized");
+        }
+
+        const clientA = new pgClientConstructor({ connectionString: databaseConnectionString });
+        const clientB = new pgClientConstructor({ connectionString: databaseConnectionString });
+        const adapterModule = await import("../services/api/src/postgres-repository-adapter.js");
+        const base = settlementResult({
+          settlement_result_id: `settlement-conflict-${suffix()}`,
+          replay_hash: `replay-conflict-a-${suffix()}`
+        });
+        const conflicting = {
+          ...base,
+          settlement_result_id: `${base.settlement_result_id}-other`,
+          replay_hash: `replay-conflict-b-${suffix()}`,
+          team_results: [
+            {
+              ...base.team_results[0]!,
+              state_true: { ...base.team_results[0]!.state_true, profit: 999999 }
+            }
+          ]
+        } satisfies SettlementResult;
+
+        await clientA.connect();
+        await clientB.connect();
+        try {
+          await clientA.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
+          await clientB.query(`SET search_path TO ${quoteIdentifier(schemaName)}`);
+          await insertRoundForSettlementResult(base);
+
+          const portA = adapterModule.createPostgresSettlementOutcomePersistencePort({
+            queryExecutor: createClientQueryExecutor(clientA),
+            transactionExecutor: createClientTransactionExecutor(clientA)
+          });
+          const portB = adapterModule.createPostgresSettlementOutcomePersistencePort({
+            queryExecutor: createClientQueryExecutor(clientB),
+            transactionExecutor: createClientTransactionExecutor(clientB)
+          });
+          const [first, second] = await Promise.all([
+            portA.commitSettlementOutcome({
+              round_id: base.round_id,
+              settlement_result: base,
+              tenant_id: base.tenant_id
+            }),
+            portB.commitSettlementOutcome({
+              round_id: conflicting.round_id,
+              settlement_result: conflicting,
+              tenant_id: conflicting.tenant_id
+            })
+          ]);
+
+          expect([first.status, second.status].sort()).toEqual(["committed", "conflict"]);
+          const rows = (await fetchDirectSettlementRows(requiredClient(), schemaName)).filter(
+            (row) =>
+              row.tenant_id === base.tenant_id &&
+              row.run_id === base.run_id &&
+              row.round_no === base.round_no
+          );
+          expect(rows).toHaveLength(1);
+          expect(rows[0]?.payload).toEqual(
+            first.status === "committed" ? first.settlement_result : second.settlement_result
+          );
+          markCheckPassed("atomic_outcome_separate_client_conflict");
+        } finally {
+          await clientA.end();
+          await clientB.end();
+        }
       });
 
       it("rejects reusing the same technical result id for a different business identity", async () => {
@@ -1521,7 +1724,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
             settlement_result: movedResult,
             tenant_id: movedResult.tenant_id
           })
-        ).rejects.toThrow("settlement_outcome_persistence_invariant_failed");
+        ).rejects.toThrow("settlement_outcome_result_id_conflict");
 
         const settlements = await fetchAtomicSettlements(
           result.tenant_id,
