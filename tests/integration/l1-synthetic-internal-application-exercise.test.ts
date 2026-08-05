@@ -40,6 +40,7 @@ const STATUS_DOCUMENTS = [
 const STUDENT_FORBIDDEN_FIELDS = [
   "state_true",
   "replay_evidence",
+  "replay_hash",
   "ReplayManifest",
   "replay_manifest",
   "manifest_hash",
@@ -433,11 +434,18 @@ describe("L1 synthetic internal application exercise", () => {
       expect(studentResult.body.data.results[0]?.team_id).toBe("team_alpha");
       expect(studentResult.body.data.results[0]?.state_true).toBeUndefined();
       expect(studentResult.body.data.replay_evidence).toBeUndefined();
+      expect(studentResult.body.data.replay_hash).toBeUndefined();
       assertSerializedDoesNotContain(studentResult.body.data, [
         ...STUDENT_FORBIDDEN_FIELDS,
         betaTeam.team_id,
         betaUser.user_id
       ]);
+
+      const studentDemoState = await request<unknown>(baseUrl, "/api/v1/demo-state", {
+        token: studentToken
+      });
+      expect(studentDemoState.status).toBe(200);
+      assertSerializedDoesNotContain(studentDemoState.body.data, STUDENT_FORBIDDEN_FIELDS);
 
       const teacherResult = await request<ReplayEvidencePublicResult>(
         baseUrl,

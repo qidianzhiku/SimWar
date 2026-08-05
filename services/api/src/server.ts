@@ -673,6 +673,7 @@ async function submitDecision(
   assertRoundStatus(round, "open", "ROUND-409-002");
   const body = await readJson<DecisionSubmitBody>(request);
   assertNoTruthProtectedFields(body);
+  assertNoUnexpectedDecisionPayloadFields(body.decision_payload);
   const teamId = body.team_id ?? actor.team_id;
 
   if (!teamId || teamId !== actor.team_id) {
@@ -2586,6 +2587,37 @@ function serializeDecisionPayloadForIdempotency(payload: DecisionPayload): strin
   return JSON.stringify(payload);
 }
 
+const decisionPayloadKeys = [
+  "pricing",
+  "marketing_budget",
+  "service_quality_budget",
+  "capacity_plan",
+  "cash_buffer_target",
+  "strategy_statement"
+] as const;
+
+function hasOnlyKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
+  return Object.keys(value).every((key) => expected.includes(key));
+}
+
+/**
+ * The legacy direct learner submission route has no extensibility contract.
+ * Reject unknown JSON keys before they can become canonical-decision or replay-hash input.
+ */
+function assertNoUnexpectedDecisionPayloadFields(payload: unknown): void {
+  if (!isRecord(payload)) return;
+
+  const pricing = payload.pricing;
+  if (
+    !hasOnlyKeys(payload, decisionPayloadKeys) ||
+    (isRecord(pricing) && !hasOnlyKeys(pricing, ["base_price"]))
+  ) {
+    throw new HttpError(422, "DEC-422-001", "decision validation failed", [
+      { field: "decision_payload", reason: "unexpected_fields" }
+    ]);
+  }
+}
+
 async function findIdempotentDecisionSubmission(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -2731,6 +2763,22 @@ function getVisibleResultTeamIdsForActor(actor: CurrentUser): Set<string> | unde
   return new Set([actor.team_id]);
 }
 
+async function assertActorCanReadRunResults(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  actor: CurrentUser,
+  run: Run
+): Promise<void> {
+  if (canReadClassroomScope(actor)) return;
+
+  const team = actor.team_id
+    ? await runtime.repositoryProvider.facade.teams.getTeam(context.tenantId, actor.team_id)
+    : null;
+  if (!team || team.course_id !== run.course_id || !isActorMemberOfTeam(actor, team)) {
+    throw new HttpError(404, "COURSE-404-001", "course not found");
+  }
+}
+
 async function createPublicReplayEvidenceView(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -2861,6 +2909,8 @@ async function createPublicResultView(
   options: { includeReplayEvidence?: boolean } = {}
 ): Promise<PublicResultView> {
   const actor = requirePermission(context, "result:read");
+  const run = await getRunForRead(runtime, context, runId);
+  await assertActorCanReadRunResults(runtime, context, actor, run);
   const round = await getRoundForRead(runtime, context, runId, roundNo);
   const settlements =
     await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
@@ -2920,7 +2970,7 @@ async function createPublicResultView(
     run_id: runId,
     round_no: roundNo,
     status: round.status,
-    replay_hash: settlement.replay_hash,
+    ...(canSeeTruth ? { replay_hash: settlement.replay_hash } : {}),
     ...(replayEvidence ? { replay_evidence: replayEvidence } : {}),
     results: visibleResults
   };
@@ -5880,6 +5930,9 @@ async function routeRequest(
       (run) => !visibleCourseIds || visibleCourseIds.has(run.course_id)
     );
     const visibleRunIds = new Set(visibleRuns.map((run) => run.run_id));
+    const visibleRounds = store.rounds.filter(
+      (round) => round.tenant_id === context.tenantId && visibleRunIds.has(round.run_id)
+    );
     const latestRun = visibleRuns.at(-1);
     const latestRound = latestRun
       ? store.rounds.find(
@@ -5911,9 +5964,9 @@ async function routeRequest(
         courses: visibleCourses,
         teams: visibleTeams,
         runs: visibleRuns,
-        rounds: store.rounds.filter(
-          (round) => round.tenant_id === context.tenantId && visibleRunIds.has(round.run_id)
-        ),
+        rounds: canReadClassroomScope(actor)
+          ? visibleRounds
+          : visibleRounds.map(({ replay_hash: _replayHash, ...round }) => round),
         decisions: store.decisions.filter(
           (decision) =>
             decision.tenant_id === context.tenantId &&

@@ -94,6 +94,15 @@ function unique<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
+function isStudentMemberOfTeam(
+  actorId: string,
+  team: { captain_user_id: string; members: { user_id: string }[] }
+): boolean {
+  return (
+    team.captain_user_id === actorId || team.members.some((member) => member.user_id === actorId)
+  );
+}
+
 export class GoldenJourneyIntegrationService {
   constructor(private readonly dependencies: GoldenJourneyDependencies) {}
 
@@ -124,6 +133,9 @@ export class GoldenJourneyIntegrationService {
         )[0];
     if (query.run_id && !run)
       throw new GoldenJourneyIntegrationError("R3_GOLDEN_RUN_NOT_FOUND", 404);
+    if (run && run.course_id !== course.course_id) {
+      throw new GoldenJourneyIntegrationError("R3_GOLDEN_SCOPE_VIOLATION", 403);
+    }
 
     const teamId = query.team_id ?? actor.team_id;
     const team = teamId
@@ -139,6 +151,21 @@ export class GoldenJourneyIntegrationService {
     if (teamId && !team) throw new GoldenJourneyIntegrationError("R3_GOLDEN_TEAM_NOT_FOUND", 404);
     if (team && team.tenant_id !== tenantId)
       throw new GoldenJourneyIntegrationError("R3_GOLDEN_SCOPE_VIOLATION", 403);
+    if (team && team.course_id !== course.course_id) {
+      throw new GoldenJourneyIntegrationError("R3_GOLDEN_SCOPE_VIOLATION", 403);
+    }
+    if (team && run && team.course_id !== run.course_id) {
+      throw new GoldenJourneyIntegrationError("R3_GOLDEN_SCOPE_VIOLATION", 403);
+    }
+    if (
+      actor.role === "student" &&
+      (!actor.team_id ||
+        !team ||
+        team.team_id !== actor.team_id ||
+        !isStudentMemberOfTeam(actor.user_id, team))
+    ) {
+      throw new GoldenJourneyIntegrationError("R3_GOLDEN_SCOPE_VIOLATION", 403);
+    }
 
     const packageSnapshot = this.dependencies.store.coursePackageLifecycleSnapshots.find(
       (candidate) => candidate.tenant_id === tenantId && candidate.status === "AVAILABLE"

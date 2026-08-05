@@ -9,10 +9,11 @@ import type {
   User
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
-import { createP1Store } from "../../services/api/src/store";
+import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
-async function startServer(): Promise<{ baseUrl: string; server: Server }> {
-  const server = createApiServer(createP1Store());
+async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+  const store = createP1Store();
+  const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -23,7 +24,8 @@ async function startServer(): Promise<{ baseUrl: string; server: Server }> {
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
-    server
+    server,
+    store
   };
 }
 
@@ -251,6 +253,54 @@ describe("P1 auth, RBAC and tenant governance", () => {
       expect(JSON.stringify(errorBody.details)).not.toContain(protectedTruthSentinel);
       const serializedResponse = JSON.stringify(errorBody);
       expect(serializedResponse).not.toContain(protectedTruthSentinel);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("rejects unknown direct-decision payload fields before canonical persistence", async () => {
+    const { baseUrl, server, store } = await startServer();
+    const injectedValue = "p1-direct-decision-unknown-field";
+
+    try {
+      const teacherToken = await login(baseUrl, "teacher", "teacher", "tenant_demo");
+      const studentToken = await login(baseUrl, "student", "student", "tenant_demo");
+      const run = await request<{ run: { run_id: string } }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        { method: "POST", token: teacherToken }
+      );
+      const runId = run.body.data.run.run_id;
+      await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/start`, {
+        method: "POST",
+        token: teacherToken
+      });
+      const beforeDecisions = structuredClone(store.decisions);
+
+      const response = await request<unknown>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
+        method: "POST",
+        token: studentToken,
+        body: {
+          team_id: "team_alpha",
+          decision_payload: {
+            pricing: { base_price: 12800 },
+            marketing_budget: 180000,
+            service_quality_budget: 160000,
+            capacity_plan: "expand",
+            cash_buffer_target: 0.16,
+            strategy_statement: "Unknown payload fields must be rejected.",
+            replay_hash: injectedValue,
+            scenario: injectedValue,
+            parameter_set: injectedValue,
+            result: injectedValue
+          }
+        }
+      });
+
+      expect(response.status).toBe(422);
+      expect(response.body.code).toBe("DEC-422-001");
+      expect(JSON.stringify(response.body)).not.toContain(injectedValue);
+      expect(store.decisions).toEqual(beforeDecisions);
     } finally {
       await stopServer(server);
     }

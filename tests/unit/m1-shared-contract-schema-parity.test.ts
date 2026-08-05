@@ -66,7 +66,6 @@ const decisionSuccessDataKeys = {
 
 const studentResultDataKeys = {
   classroom_debrief_prompts: true,
-  replay_hash: true,
   result_label: true,
   results: true,
   round_no: true,

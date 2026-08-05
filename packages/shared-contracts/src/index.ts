@@ -1058,8 +1058,9 @@ export interface PublicResultView {
 export type M1DecisionSubmitSuccessEnvelope = ApiEnvelope<Decision>;
 
 export type M1StudentResultEnvelope = ApiEnvelope<
-  Omit<PublicResultView, "replay_evidence" | "results"> & {
+  Omit<PublicResultView, "replay_evidence" | "replay_hash" | "results"> & {
     replay_evidence?: never;
+    replay_hash?: never;
     results: StudentSafeTeamSettlement[];
   }
 >;

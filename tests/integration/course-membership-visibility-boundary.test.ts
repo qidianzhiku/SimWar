@@ -145,6 +145,14 @@ describe("course membership visibility boundary", () => {
       expect(learnerUnassignedCockpit.status).toBe(404);
       expect(learnerUnassignedCockpit.body.code).toBe("COURSE-404-001");
 
+      const learnerUnassignedResults = await request<unknown>(
+        baseUrl,
+        "/api/v1/runs/run_unassigned/rounds/1/results",
+        { token: learnerToken }
+      );
+      expect(learnerUnassignedResults.status).toBe(404);
+      expect(learnerUnassignedResults.body.code).toBe("COURSE-404-001");
+
       const teacherCourses = await request<Course[]>(baseUrl, "/api/v1/courses", {
         token: teacherToken
       });

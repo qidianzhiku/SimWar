@@ -465,9 +465,10 @@ describe("L1 controlled runtime entrypoint binding guard", () => {
       expect(studentResult.body.data.status).toBe("published");
       expect(studentResult.body.data.results).toHaveLength(1);
       expect(studentResult.body.data.results[0]?.team_id).toBe(alphaTeam.team_id);
-      expect(studentResult.body.data.replay_hash).toBe(replayHash);
+      expect(studentResult.body.data.replay_hash).toBeUndefined();
       expect(studentResult.body.data.replay_evidence).toBeUndefined();
       expect(JSON.stringify(studentResult.body.data)).not.toContain("state_true");
+      expect(JSON.stringify(studentResult.body.data)).not.toContain("replay_hash");
       expect(JSON.stringify(studentResult.body.data)).not.toContain(betaTeam.team_id);
 
       const teacherResult = await request<ApiEnvelope<PublicResultView>>(
