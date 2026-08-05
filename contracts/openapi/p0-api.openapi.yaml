@@ -1983,6 +1983,72 @@ paths:
         "404": { description: "Asset, Run, or Round not found, or asset is outside the Run course" }
         "409": { description: "Asset is not published or Round is not published" }
         "422": { description: "Instructor intelligence request invalid" }
+  /api/v1/bff/teacher/instructor-debrief-artifact:
+    get:
+      operationId: TEACHER_INSTRUCTOR_DEBRIEF_ARTIFACT_GET_V1
+      summary: Read a deterministic teacher-safe debrief artifact bound to an official result.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: asset_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: round_no
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Teacher-safe on-demand artifact; no truth fields or AI grade.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstructorDebriefArtifactEnvelope"
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset, Run, or Round not found, or asset is outside the Run course" }
+        "409": { description: "Published settlement is missing or ambiguous" }
+        "422": { description: "Instructor debrief artifact request invalid" }
+  /api/v1/bff/teacher/instructor-debrief-artifact/export:
+    get:
+      operationId: TEACHER_INSTRUCTOR_DEBRIEF_ARTIFACT_EXPORT_GET_V1
+      summary: Download a deterministic JSON or Markdown teacher-safe debrief artifact.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: asset_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: round_no
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [json, markdown], default: json }
+      responses:
+        "200":
+          description: Deterministic JSON artifact or Markdown projection.
+          content:
+            application/json:
+              schema:
+                $ref: "../schemas/instructor-debrief-artifact.v1.json"
+            text/markdown:
+              schema: { type: string }
+        "403": { description: "Teacher role required" }
+        "404": { description: "Asset, Run, or Round not found, or asset is outside the Run course" }
+        "409": { description: "Published settlement is missing or ambiguous" }
+        "422": { description: "Instructor debrief export request invalid" }
   /api/v1/bff/student/role-workspace:
     get:
       operationId: STUDENT_ROLE_WORKFLOW_WORKSPACE_GET_V1
@@ -4569,6 +4635,15 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/instructor-intelligence-kit.v1.json" }
+        message: { type: string }
+        request_id: { type: string }
+    InstructorDebriefArtifactEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/instructor-debrief-artifact.v1.json" }
         message: { type: string }
         request_id: { type: string }
     LearningDesignReference:

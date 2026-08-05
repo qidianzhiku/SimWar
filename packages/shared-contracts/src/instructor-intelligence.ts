@@ -51,3 +51,45 @@ export interface InstructorIntelligenceKitDTO {
   readonly source_course_blueprint_ref: CourseBlueprintExactRef;
   readonly time_guidance: string;
 }
+
+export type InstructorDebriefArtifactAuthorityClass = "ADVISORY_ONLY";
+
+export type InstructorDebriefBaselineBindingDTO =
+  | {
+      readonly status: "available";
+      readonly round_id: string;
+      readonly round_no: number;
+      readonly replay_hash: string;
+      readonly run_id: string;
+      readonly settlement_result_id: string;
+    }
+  | {
+      readonly reason: "NO_PRIOR_PUBLISHED_RESULT";
+      readonly status: "baseline_unavailable";
+    };
+
+export interface InstructorDebriefSourceBindingDTO {
+  readonly baseline: InstructorDebriefBaselineBindingDTO;
+  readonly course_blueprint_ref: CourseBlueprintExactRef;
+  readonly instructor_asset_fact_digest: string;
+  readonly instructor_asset_id: string;
+  readonly replay_hash: string;
+  readonly round_id: string;
+  readonly round_no: number;
+  readonly run_id: string;
+  readonly settlement_result_id: string;
+}
+
+/** On-demand teacher-safe projection; it is not a persistence or truth authority. */
+export interface InstructorDebriefArtifactDTO {
+  readonly ai_status: "off";
+  readonly artifact_digest: string;
+  readonly artifact_schema_version: "instructor-debrief-artifact.v1";
+  readonly artifact_type: "instructor_debrief_artifact";
+  readonly authority_class: InstructorDebriefArtifactAuthorityClass;
+  readonly exactness_limits: readonly string[];
+  readonly instructor_asset_fact_digest: string;
+  readonly instructor_asset_id: string;
+  readonly kit: InstructorIntelligenceKitDTO;
+  readonly source_binding: InstructorDebriefSourceBindingDTO;
+}

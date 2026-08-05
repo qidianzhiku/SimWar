@@ -51,6 +51,26 @@ describe("Instructor Intelligence executable contract", () => {
     ).toBe(false);
   });
 
+  it("validates the official-source debrief artifact and rejects private truth fields", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    ajv.addSchema(readJson("contracts/schemas/instructor-intelligence-kit.v1.json"));
+    const validate = ajv.compile(readJson("contracts/schemas/instructor-debrief-artifact.v1.json"));
+    expect(validate(readJson("contracts/fixtures/instructor-debrief-artifact.valid.json"))).toBe(
+      true
+    );
+    expect(validate(readJson("contracts/fixtures/instructor-debrief-artifact.invalid.json"))).toBe(
+      false
+    );
+    expect(validate.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "state_true" }
+        })
+      ])
+    );
+  });
+
   it("binds all teacher asset and debrief routes to explicit request and response schemas", () => {
     const openApi = yaml.load(
       readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8")
@@ -93,5 +113,14 @@ describe("Instructor Intelligence executable contract", () => {
       openApi.paths["/api/v1/bff/teacher/instructor-intelligence"]?.get?.responses?.["200"]
         ?.content?.["application/json"]?.schema?.$ref
     ).toBe("#/components/schemas/InstructorIntelligenceKitEnvelope");
+    expect(
+      openApi.paths["/api/v1/bff/teacher/instructor-debrief-artifact"]?.get?.responses?.["200"]
+        ?.content?.["application/json"]?.schema?.$ref
+    ).toBe("#/components/schemas/InstructorDebriefArtifactEnvelope");
+    expect(
+      openApi.paths["/api/v1/bff/teacher/instructor-debrief-artifact/export"]?.get?.responses?.[
+        "200"
+      ]?.content?.["application/json"]?.schema?.$ref
+    ).toBe("../schemas/instructor-debrief-artifact.v1.json");
   });
 });

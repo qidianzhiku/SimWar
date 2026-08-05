@@ -144,6 +144,81 @@ test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit 
     });
   });
 
+  const artifact = {
+    ai_status: "off",
+    artifact_digest: "d".repeat(64),
+    artifact_schema_version: "instructor-debrief-artifact.v1",
+    artifact_type: "instructor_debrief_artifact",
+    authority_class: "ADVISORY_ONLY",
+    exactness_limits: ["json_runtime_only"],
+    instructor_asset_fact_digest: "b".repeat(64),
+    instructor_asset_id: "instructor_asset_browser_c4",
+    kit: {
+      ai_status: "off",
+      anomaly_status: "baseline_unavailable",
+      causal_evidence_refs: [immutableReference],
+      debrief_agenda: ["Review evidence."],
+      deterministic_fact_digest: "c".repeat(64),
+      discussion_points: ["Discuss a tradeoff."],
+      follow_up_questions: ["What changes next?"],
+      instructor_asset_id: "instructor_asset_browser_c4",
+      known_limits: ["not_postgresql_active_runtime"],
+      round: {
+        round_id: "round_browser_c4",
+        round_no: 1,
+        run_id: "run_browser_c4",
+        status: "published"
+      },
+      result_delta: { current_team_count: 0 },
+      source_course_blueprint_ref: immutableReference,
+      time_guidance: "Reserve time for evidence review."
+    },
+    source_binding: {
+      baseline: { reason: "NO_PRIOR_PUBLISHED_RESULT", status: "baseline_unavailable" },
+      course_blueprint_ref: immutableReference,
+      instructor_asset_fact_digest: "b".repeat(64),
+      instructor_asset_id: "instructor_asset_browser_c4",
+      replay_hash: "e".repeat(64),
+      round_id: "round_browser_c4",
+      round_no: 1,
+      run_id: "run_browser_c4",
+      settlement_result_id: "settlement_browser_c4"
+    }
+  };
+  await page.route("**/api/v1/bff/teacher/instructor-debrief-artifact?*", async (route) => {
+    endpointCalls.push({
+      method: route.request().method(),
+      path: new URL(route.request().url()).pathname
+    });
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "OK",
+        data: artifact,
+        message: "success",
+        request_id: "req_c4_artifact"
+      })
+    });
+  });
+  await page.route("**/api/v1/bff/teacher/instructor-debrief-artifact/export?*", async (route) => {
+    endpointCalls.push({
+      method: route.request().method(),
+      path: new URL(route.request().url()).pathname
+    });
+    const format = new URL(route.request().url()).searchParams.get("format");
+    await route.fulfill({
+      body: format === "markdown" ? "# Instructor Debrief Artifact\n" : JSON.stringify(artifact),
+      contentType: format === "markdown" ? "text/markdown" : "application/json",
+      headers: {
+        "access-control-expose-headers": "content-disposition",
+        "content-disposition":
+          'attachment; filename="simwar-instructor-debrief-run_browser_c4-r1-dddddddd.' +
+          (format === "markdown" ? "md" : "json") +
+          '"'
+      }
+    });
+  });
+
   await page.goto(teacherBaseUrl);
   const initialState = page.waitForResponse(
     (response) =>
@@ -168,13 +243,26 @@ test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit 
   await panel.getByRole("button", { name: "读取复盘包" }).click();
 
   await expect(panel.getByLabel("确定性教学复盘包")).toContainText("AI: off");
+  await expect(panel.getByLabel("确定性教学复盘包")).toContainText("Artifact digest");
+  await expect(panel.getByLabel("确定性教学复盘包")).toContainText("settlement_browser_c4");
   await expect(panel.getByLabel("确定性教学复盘包")).toContainText("not_postgresql_active_runtime");
+  const jsonDownload = page.waitForEvent("download");
+  await panel.getByRole("button", { name: "下载 JSON" }).click();
+  expect((await jsonDownload).suggestedFilename()).toBe(
+    "simwar-instructor-debrief-run_browser_c4-r1-dddddddd.json"
+  );
+  const markdownDownload = page.waitForEvent("download");
+  await panel.getByRole("button", { name: "下载 Markdown" }).click();
+  expect((await markdownDownload).suggestedFilename()).toBe(
+    "simwar-instructor-debrief-run_browser_c4-r1-dddddddd.md"
+  );
   expect(endpointCalls.map((call) => call.path)).toEqual(
     expect.arrayContaining([
       "/api/v1/bff/teacher/instructor-assets",
       "/api/v1/bff/teacher/instructor-assets/drafts",
       "/api/v1/bff/teacher/instructor-assets/instructor_asset_browser_c4/publish",
-      "/api/v1/bff/teacher/instructor-intelligence"
+      "/api/v1/bff/teacher/instructor-debrief-artifact",
+      "/api/v1/bff/teacher/instructor-debrief-artifact/export"
     ])
   );
   expect(endpointCalls.some((call) => /\/settle|\/rounds\/.*\/publish/.test(call.path))).toBe(

@@ -1,0 +1,13 @@
+{
+  "ai_status": "off",
+  "artifact_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "artifact_schema_version": "instructor-debrief-artifact.v1",
+  "artifact_type": "instructor_debrief_artifact",
+  "authority_class": "ADVISORY_ONLY",
+  "exactness_limits": ["json_runtime_only"],
+  "instructor_asset_fact_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "instructor_asset_id": "instructor_asset_001",
+  "kit": {},
+  "source_binding": {},
+  "state_true": { "cash": 100 }
+}
