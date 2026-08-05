@@ -1,39 +1,37 @@
-cycle_id: L1PLUS-CYCLE-015-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+cycle_id: L1PLUS-CYCLE-016-C4-INSTRUCTOR-DEBRIEF-KIT-PRODUCTIZATION
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-05T03:43:16Z"
-closed_at: "2026-08-05T07:00:00Z"
+started_at: "2026-08-05T09:00:00Z"
+closed_at: "2026-08-05T10:08:29Z"
 repository: qidianzhiku/SimWar
-source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
-assessment_source_anchor_sha: e05052c85d5962af6e0ba83c551b280925d776c5
-product_evidence_source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+assessment_source_anchor_sha: c6563104d03d85ef2042d2310ca8880fc0083a42
+product_evidence_source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
 governance_closure_merge_sha: THIS_CHANGESET
-mainline_candidate: CAND-L1P-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+mainline_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
 support_candidate: null
 docs_discovery_candidate: null
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: "PostgreSQL inactive-support tenant-scoped referential integrity enforces the authorized current-schema relationships while JSON_INTERNAL_ONLY remains the active runtime authority."
+primary_outcome: "Teacher can read and export a deterministic, exact-source, teacher-safe instructor debrief artifact without creating a second authority or changing product truth."
 runtime_authority: JSON_INTERNAL_ONLY
 predecessor:
-  cycle_id: L1PLUS-CYCLE-014-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
-  merge_sha: 8811e936feface9b8286043c82c155c82b23b641
+  cycle_id: L1PLUS-CYCLE-015-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+  merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
 product_prs:
-  - number: 344
-    role: W015_T4_F2_TENANT_SCOPED_REFERENTIAL_INTEGRITY
-    merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+  - number: 347
+    role: W016_C4_INSTRUCTOR_DEBRIEF_ARTIFACT_EXPORT
+    merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 32
-  pass_rows: 30
-  pass_with_explicit_limits: 2
+  acceptance_rows: 40
+  pass_rows: 36
+  pass_with_explicit_limits: 4
   unknown_rows: 0
   not_mapped_rows: 0
-  w015_postgres: PASS_6_TESTS
-  postgres_replay: PASS_20_TESTS_REAL_POSTGRESQL
-  contract: PASS_14_FILES_37_TESTS
-  browser_default: PASS_EXACT_HEAD_RERUN
-  full: BASELINE_LIMIT_158_FILES_1025_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
-  snapshot_focused_control: PASS_147_TESTS
+  focused: PASS_2_FILES_5_TESTS
+  contract: PASS_15_FILES_40_TESTS
+  browser: PASS_1_TEST_ISOLATED_PORTS
+  full: PASS_160_FILES_1029_TESTS
   ci: PASS
   codeql: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
@@ -44,26 +42,27 @@ validation:
   fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
+  codex_review: CODEX_REVIEW_UNAVAILABLE_LOCAL_FALLBACK_COMPLETE
   human_validation: NOT_PERFORMED
 evidence:
-  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W015-T4-F2-POSTMERGE-20260805T151241Z
-  pack: materials/SimWar_W015_T4_F2_Frozen_Reference_Pack_V1.0_20260805
-  product_merge: closure/18-product-merge-receipt.json
-  post_merge: D:/codex/fresh-clones/simwar-w015-postmerge-f04e8c0
-  post_merge_receipt: closure/20-post-merge-fresh-clone-receipt.json
-  final_report: closure/21-final-governance-report.md
+  root: C:/Temp/simwar-w016-c4-20260805T165028
+  candidate_head: 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
+  product_merge: remote/11-product-merge-receipt.json
+  post_merge: D:/codex/fresh-clones/simwar-w016-c4-merge-ac78124bfeba
+  post_merge_receipt: remote/12-post-merge-fresh-clone-receipt.json
+  final_report: closure/15-final-report.md
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - W015_T4_F2_MIGRATION_SCOPE
-    - W015_T4_F2_POSTGRES_INTEGRITY_TEST_SCOPE
-    - W015_T4_F2_POSTGRES_REPLAY_COMPATIBILITY_SCOPE
+    - C4_INSTRUCTOR_DEBRIEF_ARTIFACT_SCOPE
+    - C4_TEACHER_BFF_EXPORT_SCOPE
+    - C4_TEACHER_BROWSER_SCOPE
     - SERIAL_MERGE
     - POST_MERGE_FRESH_CLONE
     - GOVERNANCE_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
-    status: RECOMMENDED_NOT_AUTHORIZED
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
   - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
@@ -78,33 +77,32 @@ metrics:
   readiness_mode: SERIAL_INTEGRATION
   merge_mode: SERIAL
   resource_cost_ratio: NOT_MEASURED
-  default_full_suite_anomaly_count: 1
-  browser_smoke_rerun_count: 1
+  default_port_collision_count: 3
+  browser_isolated_port_rerun_count: 1
+  full_suite_anomaly_count: 0
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   postgresql_runtime: NOT_ACTIVE
-  rls: NOT_IMPLEMENTED
-  team_referential_integrity: NOT_ENFORCEABLE_CURRENT_SCHEMA
   durable_recovery: NOT_PROVEN
-  full_vitest: BASELINE_ENVIRONMENT_LOAD_ANOMALY_UNTOUCHED_SNAPSHOT_TEST
   human_validation: NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
-  issue_113: OPEN_PROGRESS_RECORDED_NO_GITHUB_MUTATION
-  issue_118: OPEN_BLOCKED_UNCHANGED
+  issue_113: OPEN_KNOWN_LIMIT
+  issue_118: OPEN_KNOWN_LIMIT
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
   pilot_and_production: NOT_AUTHORIZED
+  cross_process_durable_artifact_recovery: NOT_PROVEN
 invalidation_triggers:
   - product_or_runtime_changed
-  - database_migration_changed
   - settlement_authority_or_writer_changed
   - replay_or_golden_changed
+  - instructor_artifact_contract_changed
+  - teacher_visibility_or_export_changed
   - post_merge_evidence_invalidated
 explicit_non_proofs:
-  - PostgreSQL is inactive support and is not runtime authority.
-  - This cycle does not implement RLS or canonical Team authority.
-  - Durable recovery, backup, restore, PITR, SLO and crash-safe compensating atomicity are not proven.
+  - The artifact is not Truth, SettlementResult, Score, Rank, Replay, or final-grade authority.
   - Human Validation was not performed.
-  - Issue #111 remains open; Issue #118 remains unchanged and blocked.
-  - Pilot, Production, billing, external providers, AI and successor work are not authorized.
+  - JSON_INTERNAL_ONLY remains the sole active runtime authority.
+  - PostgreSQL, durable recovery, Pilot, Production, billing, external providers and AI final grading are not authorized.
+  - The default browser-port collisions were environment residue; isolated-port browser evidence passed.
 automatic_next_start: false
