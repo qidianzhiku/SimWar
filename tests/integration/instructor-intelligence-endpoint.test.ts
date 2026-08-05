@@ -524,6 +524,41 @@ describe("Instructor Intelligence teacher boundary", () => {
         rank_change_count: 1
       });
       expect(JSON.stringify(kit.body.data)).not.toContain("state_true");
+      const artifact = await request<{
+        artifact_digest: string;
+        source_binding: {
+          replay_hash: string;
+          settlement_result_id: string;
+          baseline: { status: string };
+        };
+      }>(
+        baseUrl,
+        `/api/v1/bff/teacher/instructor-debrief-artifact?asset_id=${draft.body.data.asset_id}&run_id=run_delta_001&round_no=2`,
+        teacher
+      );
+      expect(artifact.status, JSON.stringify(artifact.body)).toBe(200);
+      expect(artifact.body.data.artifact_digest).toMatch(/^[a-f0-9]{64}$/);
+      expect(artifact.body.data.source_binding).toMatchObject({
+        replay_hash: "c".repeat(64),
+        settlement_result_id: "settlement_delta_2",
+        baseline: { status: "available" }
+      });
+      expect(JSON.stringify(artifact.body.data)).not.toContain("state_true");
+      const exported = await fetch(
+        baseUrl +
+          `/api/v1/bff/teacher/instructor-debrief-artifact/export?asset_id=${draft.body.data.asset_id}&run_id=run_delta_001&round_no=2&format=json`,
+        {
+          headers: {
+            authorization: "Bearer " + teacher,
+            "x-tenant-id": "tenant_demo"
+          }
+        }
+      );
+      expect(exported.status).toBe(200);
+      expect(exported.headers.get("content-disposition")).toMatch(
+        /simwar-instructor-debrief-run_delta_001-r2-[a-f0-9]{8}\.json/
+      );
+      expect(await exported.text()).toContain(artifact.body.data.artifact_digest);
     } finally {
       await stopServer(server);
     }

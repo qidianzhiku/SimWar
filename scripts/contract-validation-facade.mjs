@@ -114,6 +114,12 @@ const r3ContractFiles = [
   "contracts/fixtures/r3-golden-journey.invalid.json"
 ];
 
+const c4ContractFiles = [
+  "contracts/schemas/instructor-debrief-artifact.v1.json",
+  "contracts/fixtures/instructor-debrief-artifact.valid.json",
+  "contracts/fixtures/instructor-debrief-artifact.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -161,7 +167,9 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/student/golden-journey/status",
   "/api/v1/bff/student/golden-journey/context",
   "/api/v1/bff/student/golden-journey/allowed-actions",
-  "/api/v1/bff/student/golden-journey/receipts"
+  "/api/v1/bff/student/golden-journey/receipts",
+  "/api/v1/bff/teacher/instructor-debrief-artifact",
+  "/api/v1/bff/teacher/instructor-debrief-artifact/export"
 ];
 
 const schemaCases = [
@@ -271,6 +279,11 @@ const schemaCases = [
     schema: "contracts/schemas/r3-golden-journey.v1.json",
     valid: ["contracts/fixtures/r3-golden-journey.valid.json"],
     invalid: ["contracts/fixtures/r3-golden-journey.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/instructor-debrief-artifact.v1.json",
+    valid: ["contracts/fixtures/instructor-debrief-artifact.valid.json"],
+    invalid: ["contracts/fixtures/instructor-debrief-artifact.invalid.json"]
   }
 ];
 
@@ -647,6 +660,21 @@ function assertR3OpenApiBindings(openApi) {
   }
 }
 
+function assertC4OpenApiBindings(openApi) {
+  for (const path of [
+    "/api/v1/bff/teacher/instructor-debrief-artifact",
+    "/api/v1/bff/teacher/instructor-debrief-artifact/export"
+  ]) {
+    const operation = openApi.paths[path]?.get;
+    assert(operation, "Missing C4 instructor debrief operation: " + path);
+  }
+  assert(
+    openApi.components?.schemas?.InstructorDebriefArtifactEnvelope?.properties?.data?.$ref ===
+      "../schemas/instructor-debrief-artifact.v1.json",
+    "C4 instructor debrief envelope must reference its JSON Schema artifact."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -672,6 +700,7 @@ function validateFixtureCases() {
     ajv.addSchema(readJson("contracts/schemas/user.v1.json"));
     ajv.addSchema(readJson("contracts/schemas/auth-session.v1.json"));
     ajv.addSchema(readJson("contracts/schemas/settlement-result.v1.json"));
+    ajv.addSchema(readJson("contracts/schemas/instructor-intelligence-kit.v1.json"));
     const validate = ajv.compile(readJson(contractCase.schema));
 
     for (const fixture of contractCase.valid) {
@@ -722,7 +751,8 @@ export async function runContractValidation(options = {}) {
     ...d4ContractFiles,
     ...d5ContractFiles,
     ...d6ContractFiles,
-    ...r3ContractFiles
+    ...r3ContractFiles,
+    ...c4ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -735,7 +765,8 @@ export async function runContractValidation(options = {}) {
     ...d4ContractFiles,
     ...d5ContractFiles,
     ...d6ContractFiles,
-    ...r3ContractFiles
+    ...r3ContractFiles,
+    ...c4ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -749,6 +780,7 @@ export async function runContractValidation(options = {}) {
   assertD5OpenApiBindings(openApi);
   assertD6OpenApiBindings(openApi);
   assertR3OpenApiBindings(openApi);
+  assertC4OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

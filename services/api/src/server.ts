@@ -81,7 +81,12 @@ import {
   InstructorAssetRegistry,
   InstructorAssetRegistryError
 } from "./instructor-asset-registry.js";
-import { createInstructorIntelligenceKit } from "./instructor-intelligence.js";
+import {
+  createInstructorDebriefArtifact,
+  createInstructorIntelligenceKit,
+  renderInstructorDebriefMarkdown,
+  serializeInstructorDebriefArtifactJson
+} from "./instructor-intelligence.js";
 import { D2EvidenceError, EvidenceCaptureCommandService } from "./evidence-provenance.js";
 import { TeacherConfirmationCommandService } from "./teacher-confirmation.js";
 import { TeacherConfirmationQueryService } from "./teacher-confirmation-query.js";
@@ -893,6 +898,25 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown): 
     "content-type": "application/json; charset=utf-8"
   });
   response.end(JSON.stringify(body));
+}
+
+function sendInstructorDebriefDownload(
+  response: ServerResponse,
+  content: string,
+  contentType: string,
+  filename: string
+): void {
+  response.writeHead(200, {
+    "access-control-allow-headers":
+      "authorization, content-type, idempotency-key, x-request-id, x-service-principal, x-tenant-id",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
+    "access-control-allow-origin": "*",
+    "cache-control": "no-store",
+    "content-disposition": 'attachment; filename="' + filename + '"',
+    "access-control-expose-headers": "content-disposition",
+    "content-type": contentType + "; charset=utf-8"
+  });
+  response.end(content);
 }
 
 function sendError(response: ServerResponse, context: RequestContext, error: HttpError): void {
@@ -2902,6 +2926,124 @@ async function createPublicResultView(
   };
 }
 
+function selectInstructorDebriefSettlement(
+  settlements: readonly SettlementResult[]
+): SettlementResult {
+  if (settlements.length === 0) {
+    throw new HttpError(
+      409,
+      "INSTRUCTOR_DEBRIEF_SETTLEMENT_RESULT_REQUIRED",
+      "published settlement result is required"
+    );
+  }
+  if (settlements.length !== 1) {
+    throw new HttpError(
+      409,
+      "INSTRUCTOR_DEBRIEF_SETTLEMENT_AMBIGUOUS",
+      "published settlement result is ambiguous"
+    );
+  }
+  return settlements[0]!;
+}
+
+function instructorDebriefHttpError(error: unknown): never {
+  if (error instanceof HttpError) throw error;
+  const code = error instanceof Error ? error.message : "INSTRUCTOR_DEBRIEF_INVALID";
+  const statusCode =
+    code === "INSTRUCTOR_DEBRIEF_SETTLEMENT_RESULT_REQUIRED" ||
+    code === "INSTRUCTOR_DEBRIEF_SETTLEMENT_AMBIGUOUS"
+      ? 409
+      : 422;
+  throw new HttpError(statusCode, code, "instructor debrief artifact request invalid");
+}
+
+function safeInstructorDebriefFilenamePart(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80) || "unknown";
+}
+
+async function buildInstructorDebriefArtifactForRequest(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  url: URL
+) {
+  const assetId = url.searchParams.get("asset_id")?.trim();
+  const runId = url.searchParams.get("run_id")?.trim();
+  const roundNo = Number(url.searchParams.get("round_no"));
+  if (!assetId || !runId || !Number.isInteger(roundNo) || roundNo < 1) {
+    throw new HttpError(
+      422,
+      "INSTRUCTOR_DEBRIEF-422-001",
+      "instructor debrief artifact request invalid"
+    );
+  }
+  const asset = runtime.instructorAssets.get(context.tenantId, assetId);
+  if (asset.status !== "teacher_published") {
+    throw new HttpError(409, "INSTRUCTOR_ASSET-409-001", "instructor asset must be published");
+  }
+  const run = await getRunForRead(runtime, context, runId);
+  if (run.course_id !== asset.course_id) {
+    throw new HttpError(
+      404,
+      "INSTRUCTOR_ASSET-404-001",
+      "instructor asset is not bound to this course"
+    );
+  }
+  const round = await getRoundForRead(runtime, context, runId, roundNo);
+  if (round.status !== "published") {
+    throw new HttpError(
+      409,
+      "INSTRUCTOR_ASSET-409-002",
+      "instructor debrief requires a published round"
+    );
+  }
+  const settlements =
+    await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+      context.tenantId,
+      runId,
+      round.round_id
+    );
+  const settlement = selectInstructorDebriefSettlement(
+    settlements.filter(
+      (candidate) =>
+        candidate.run_id === runId &&
+        candidate.round_no === roundNo &&
+        candidate.tenant_id === context.tenantId
+    )
+  );
+  const resultView = await createPublicResultView(runtime, context, runId, roundNo, {
+    includeReplayEvidence: false
+  });
+  const previousRound = (
+    await runtime.repositoryProvider.facade.rounds.listRoundsForRun(context.tenantId, runId)
+  ).find((candidate) => candidate.round_no === roundNo - 1);
+  let previousSettlement: SettlementResult | undefined;
+  let previousResultView: PublicResultView | undefined;
+  if (previousRound?.status === "published") {
+    const previousSettlements =
+      await runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+        context.tenantId,
+        runId,
+        previousRound.round_id
+      );
+    if (previousSettlements.length > 1) {
+      previousSettlement = selectInstructorDebriefSettlement(previousSettlements);
+    } else if (previousSettlements.length === 1) {
+      previousSettlement = previousSettlements[0];
+      previousResultView = await createPublicResultView(runtime, context, runId, roundNo - 1, {
+        includeReplayEvidence: false
+      });
+    }
+  }
+  return createInstructorDebriefArtifact({
+    asset,
+    ...(previousResultView ? { previous_result_view: previousResultView } : {}),
+    ...(previousSettlement ? { previous_settlement: previousSettlement } : {}),
+    result_view: resultView,
+    round,
+    settlement
+  });
+}
+
 function assertRoundStatus(
   round: { status: RoundStatus },
   expected: RoundStatus,
@@ -4697,6 +4839,53 @@ async function routeRequest(
       return;
     } catch (error) {
       instructorAssetHttpError(error);
+    }
+  }
+
+  if (
+    request.method === "GET" &&
+    (url.pathname === "/api/v1/bff/teacher/instructor-debrief-artifact" ||
+      url.pathname === "/api/v1/bff/teacher/instructor-debrief-artifact/export")
+  ) {
+    requireInstructorAssetTeacher(context);
+    try {
+      const artifact = await buildInstructorDebriefArtifactForRequest(runtime, context, url);
+      if (url.pathname.endsWith("/export")) {
+        const format = url.searchParams.get("format") ?? "json";
+        if (format !== "json" && format !== "markdown") {
+          throw new HttpError(
+            422,
+            "INSTRUCTOR_DEBRIEF-422-002",
+            "export format must be json or markdown"
+          );
+        }
+        const extension = format === "markdown" ? "md" : "json";
+        const content =
+          format === "markdown"
+            ? renderInstructorDebriefMarkdown(artifact)
+            : serializeInstructorDebriefArtifactJson(artifact);
+        const filename =
+          "simwar-instructor-debrief-" +
+          safeInstructorDebriefFilenamePart(artifact.source_binding.run_id) +
+          "-r" +
+          artifact.source_binding.round_no +
+          "-" +
+          artifact.artifact_digest.slice(0, 8) +
+          "." +
+          extension;
+        sendInstructorDebriefDownload(
+          response,
+          content,
+          format === "markdown" ? "text/markdown" : "application/json",
+          filename
+        );
+      } else {
+        sendJson(response, 200, createEnvelope(context, artifact));
+      }
+      return;
+    } catch (error) {
+      if (error instanceof InstructorAssetRegistryError) instructorAssetHttpError(error);
+      instructorDebriefHttpError(error);
     }
   }
 

@@ -2,10 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   InstructorAssetDTO,
+  InstructorDebriefArtifactDTO,
   InstructorIntelligenceKitDTO
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+function safeInstructorDebriefFilenamePart(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80) || "unknown";
+}
 
 interface InstructorIntelligencePanelProps {
   courseId: string | undefined;
@@ -87,6 +92,7 @@ export function isCurrentInstructorActionRequest(
 export function InstructorIntelligencePanel(props: InstructorIntelligencePanelProps) {
   const [assets, setAssets] = useState<InstructorAssetDTO[]>([]);
   const [assetId, setAssetId] = useState("");
+  const [artifact, setArtifact] = useState<InstructorDebriefArtifactDTO | null>(null);
   const [kit, setKit] = useState<InstructorIntelligenceKitDTO | null>(null);
   const [notice, setNotice] = useState("等待课程与 Run");
   const [title, setTitle] = useState("本回合教学复盘");
@@ -166,6 +172,7 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
     kitRequestSequence.current += 1;
     kitRequestController.current?.abort();
     kitRequestController.current = null;
+    setArtifact(null);
     setKit(null);
   }, [assetId, props.courseId, props.runId, props.roundNo]);
 
@@ -349,8 +356,8 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
         round_no: String(props.roundNo),
         run_id: props.runId
       });
-      const nextKit = await request<InstructorIntelligenceKitDTO>(
-        `/api/v1/bff/teacher/instructor-intelligence?${query}`,
+      const nextArtifact = await request<InstructorDebriefArtifactDTO>(
+        `/api/v1/bff/teacher/instructor-debrief-artifact?${query}`,
         props,
         { signal: controller.signal }
       );
@@ -365,8 +372,9 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
       ) {
         return;
       }
-      setKit(nextKit);
-      setNotice("已生成确定性教学复盘包；未调用 AI");
+      setArtifact(nextArtifact);
+      setKit(nextArtifact.kit);
+      setNotice("已生成确定性教学复盘 artifact；未调用 AI");
     } catch (error) {
       if (
         !controller.signal.aborted &&
@@ -378,6 +386,79 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
         )
       ) {
         setNotice(error instanceof Error ? error.message : "教学复盘包不可用");
+      }
+    } finally {
+      if (
+        isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        setBusy(false);
+      }
+    }
+  }
+
+  async function downloadArtifact(format: "json" | "markdown"): Promise<void> {
+    if (!selectedAsset || !props.runId || !props.roundNo) return;
+    const requestScope = currentScope.current;
+    const requestSequence = kitRequestSequence.current;
+    setBusy(true);
+    try {
+      const query = new URLSearchParams({
+        asset_id: selectedAsset.asset_id,
+        format,
+        round_no: String(props.roundNo),
+        run_id: props.runId
+      });
+      const response = await fetch(
+        `${API_BASE}/api/v1/bff/teacher/instructor-debrief-artifact/export?${query}`,
+        {
+          headers: {
+            "x-tenant-id": props.tenantId,
+            ...(props.token ? { authorization: `Bearer ${props.token}` } : {})
+          }
+        }
+      );
+      if (!response.ok) throw new Error(`INSTRUCTOR_DEBRIEF_EXPORT_${response.status}`);
+      const blob = await response.blob();
+      if (
+        !isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download =
+        response.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ??
+        "simwar-instructor-debrief-" +
+          safeInstructorDebriefFilenamePart(props.runId) +
+          "-r" +
+          props.roundNo +
+          "-" +
+          (artifact?.artifact_digest.slice(0, 8) ?? "unknown") +
+          (format === "json" ? ".json" : ".md");
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setNotice(`${format === "json" ? "JSON" : "Markdown"} artifact 已下载`);
+    } catch (error) {
+      if (
+        isCurrentInstructorScopeRequest(
+          requestScope,
+          requestSequence,
+          currentScope.current,
+          kitRequestSequence.current
+        )
+      ) {
+        setNotice(error instanceof Error ? error.message : "artifact 下载失败");
       }
     } finally {
       if (
@@ -477,6 +558,37 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
           </div>
           {kit ? (
             <div className="studio-receipt" aria-label="确定性教学复盘包">
+              {artifact ? (
+                <>
+                  <strong>Artifact digest: {artifact.artifact_digest}</strong>
+                  <span>
+                    官方结果：{artifact.source_binding.settlement_result_id} · Replay：
+                    {artifact.source_binding.replay_hash}
+                  </span>
+                  <span>
+                    基线：
+                    {artifact.source_binding.baseline.status === "available"
+                      ? artifact.source_binding.baseline.settlement_result_id
+                      : artifact.source_binding.baseline.reason}
+                  </span>
+                  <div className="studio-actions">
+                    <button
+                      className="secondary"
+                      disabled={busy || props.disabled}
+                      onClick={() => void downloadArtifact("json")}
+                    >
+                      下载 JSON
+                    </button>
+                    <button
+                      className="secondary"
+                      disabled={busy || props.disabled}
+                      onClick={() => void downloadArtifact("markdown")}
+                    >
+                      下载 Markdown
+                    </button>
+                  </div>
+                </>
+              ) : null}
               <strong>
                 AI: {kit.ai_status} · 异常状态: {kit.anomaly_status}
               </strong>
