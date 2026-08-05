@@ -9,6 +9,7 @@ import type {
   SettlementResult,
   Team
 } from "@simwar/shared-contracts";
+import { createSettlementFingerprint } from "./settlement-idempotency.js";
 
 function buildReplayHash(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -179,12 +180,19 @@ export function prepareSettlementOutcome(
   const existing = options.existingSettlement ?? null;
 
   if (existing) {
-    const { replayHash } = calculateSettlement(input);
+    const { replayHash, teamResults } = calculateSettlement(input);
+    const candidate = createSettlementResult(
+      input,
+      existing.settlement_result_id,
+      replayHash,
+      teamResults
+    );
 
     return {
       settlement: existing,
       shouldCommit: false,
-      replayHashConflict: replayHash !== existing.replay_hash
+      replayHashConflict:
+        createSettlementFingerprint(candidate) !== createSettlementFingerprint(existing)
     };
   }
 

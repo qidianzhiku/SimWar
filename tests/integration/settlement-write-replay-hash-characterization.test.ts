@@ -482,11 +482,15 @@ describe("settlement result write and replay hash characterization", () => {
       expect(command).toMatchObject({
         tenant_id: "tenant_demo",
         round_id: response.body.data.round_id,
-        settlement_result: response.body.data
+        settlement_result: response.body.data,
+        success_audit: {
+          action: "round.settle_requested",
+          resource_id: response.body.data.settlement_result_id
+        }
       });
       expect(command?.settlement_result.replay_hash).toBe(response.body.data.replay_hash);
       expect(store.settlementResults).toEqual([response.body.data]);
-      expect(events).toEqual(["commit:start", "commit:done", "audit:success"]);
+      expect(events).toEqual(["commit:start", "commit:done"]);
     } finally {
       await stopServer(server);
     }

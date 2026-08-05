@@ -49,6 +49,10 @@ import {
   type InMemoryJsonCourseBlueprintRegistryOptions
 } from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
+import {
+  createSettlementBusinessKey,
+  createSettlementFingerprint
+} from "./settlement-idempotency.js";
 
 /**
  * JSON-backed repository adapter for the current SimWar API store.
@@ -232,11 +236,15 @@ export function createJsonEvidenceProvenanceRepositoryPort(
 ): EvidenceProvenanceRepositoryPort {
   return {
     async listEvidenceArtifacts(tenantId) {
-      return clone(store.evidenceArtifacts.filter((artifact) => artifact.artifact_ref.tenant_id === tenantId));
+      return clone(
+        store.evidenceArtifacts.filter((artifact) => artifact.artifact_ref.tenant_id === tenantId)
+      );
     },
 
     async listProvenanceEdges(tenantId) {
-      return clone(store.evidenceProvenanceEdges.filter((edge) => edge.source_ref.tenant_id === tenantId));
+      return clone(
+        store.evidenceProvenanceEdges.filter((edge) => edge.source_ref.tenant_id === tenantId)
+      );
     },
 
     async appendEvidenceCapture(command: EvidenceProvenanceCaptureCommand) {
@@ -250,7 +258,11 @@ export function createJsonEvidenceProvenanceRepositoryPort(
         store.persist();
       } catch (error) {
         store.evidenceArtifacts.splice(0, store.evidenceArtifacts.length, ...previousArtifacts);
-        store.evidenceProvenanceEdges.splice(0, store.evidenceProvenanceEdges.length, ...previousEdges);
+        store.evidenceProvenanceEdges.splice(
+          0,
+          store.evidenceProvenanceEdges.length,
+          ...previousEdges
+        );
         store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
         throw error;
       }
@@ -398,6 +410,30 @@ function hasOwnReplayHash(round: Round): boolean {
   return Object.prototype.hasOwnProperty.call(round, "replay_hash");
 }
 
+const settlementLocks = new WeakMap<SimWarStore, Map<string, Promise<void>>>();
+
+async function acquireSettlementLock(store: SimWarStore, key: string): Promise<() => void> {
+  const locks = settlementLocks.get(store) ?? new Map<string, Promise<void>>();
+  settlementLocks.set(store, locks);
+
+  const previous = locks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => current);
+  locks.set(key, queued);
+
+  await previous.catch(() => undefined);
+
+  return () => {
+    release();
+    if (locks.get(key) === queued) {
+      locks.delete(key);
+    }
+  };
+}
+
 export function createJsonSettlementOutcomePersistencePort(
   store: SimWarStore
 ): SettlementOutcomePersistencePort {
@@ -426,78 +462,100 @@ export function createJsonSettlementOutcomePersistencePort(
         throw new Error("settlement_outcome_business_identity_mismatch");
       }
 
-      const matchingResultId = store.settlementResults.find(
-        (candidate) =>
-          candidate.tenant_id === result.tenant_id &&
-          candidate.settlement_result_id === result.settlement_result_id
+      const releaseSettlementLock = await acquireSettlementLock(
+        store,
+        createSettlementBusinessKey(result)
       );
 
-      if (
-        matchingResultId &&
-        (matchingResultId.run_id !== result.run_id || matchingResultId.round_no !== result.round_no)
-      ) {
-        throw new Error("settlement_outcome_result_id_conflict");
-      }
+      try {
+        const matchingResultId = store.settlementResults.find(
+          (candidate) =>
+            candidate.tenant_id === result.tenant_id &&
+            candidate.settlement_result_id === result.settlement_result_id
+        );
 
-      const existingBusinessResult = store.settlementResults.find(
-        (candidate) =>
-          candidate.tenant_id === result.tenant_id &&
-          candidate.run_id === result.run_id &&
-          candidate.round_no === result.round_no
-      );
+        if (
+          matchingResultId &&
+          (matchingResultId.run_id !== result.run_id ||
+            matchingResultId.round_no !== result.round_no)
+        ) {
+          throw new Error("settlement_outcome_result_id_conflict");
+        }
 
-      if (existingBusinessResult) {
-        if (existingBusinessResult.replay_hash === result.replay_hash) {
+        const existingBusinessResult = store.settlementResults.find(
+          (candidate) =>
+            candidate.tenant_id === result.tenant_id &&
+            candidate.run_id === result.run_id &&
+            candidate.round_no === result.round_no
+        );
+
+        if (existingBusinessResult) {
+          if (
+            createSettlementFingerprint(existingBusinessResult) ===
+            createSettlementFingerprint(result)
+          ) {
+            return {
+              settlement_result: existingBusinessResult,
+              status: "reused"
+            };
+          }
+
           return {
+            reason: "replay_hash_mismatch",
             settlement_result: existingBusinessResult,
-            status: "reused"
+            status: "conflict"
           };
         }
 
-        return {
-          reason: "replay_hash_mismatch",
-          settlement_result: existingBusinessResult,
-          status: "conflict"
+        const settlementLength = store.settlementResults.length;
+        const auditLength = store.auditLogs.length;
+        const roundSnapshot = {
+          status: round.status,
+          hadReplayHash: hasOwnReplayHash(round),
+          replayHash: round.replay_hash
         };
-      }
 
-      const settlementLength = store.settlementResults.length;
-      const roundSnapshot = {
-        status: round.status,
-        hadReplayHash: hasOwnReplayHash(round),
-        replayHash: round.replay_hash
-      };
+        try {
+          store.settlementResults.push(result);
 
-      try {
-        store.settlementResults.push(result);
+          round.status = "settled";
+          round.replay_hash = result.replay_hash;
 
-        round.status = "settled";
-        round.replay_hash = result.replay_hash;
+          if (command.success_audit) {
+            if (command.success_audit.tenant_id !== result.tenant_id) {
+              throw new Error("settlement_outcome_audit_tenant_mismatch");
+            }
+            store.auditLogs.push(structuredClone(command.success_audit));
+          }
 
-        store.persist();
-      } catch (error) {
-        store.settlementResults.length = settlementLength;
+          store.persist();
+        } catch (error) {
+          store.settlementResults.length = settlementLength;
+          store.auditLogs.length = auditLength;
 
-        round.status = roundSnapshot.status;
+          round.status = roundSnapshot.status;
 
-        if (roundSnapshot.hadReplayHash) {
-          Object.defineProperty(round, "replay_hash", {
-            configurable: true,
-            enumerable: true,
-            value: roundSnapshot.replayHash,
-            writable: true
-          });
-        } else {
-          delete round.replay_hash;
+          if (roundSnapshot.hadReplayHash) {
+            Object.defineProperty(round, "replay_hash", {
+              configurable: true,
+              enumerable: true,
+              value: roundSnapshot.replayHash,
+              writable: true
+            });
+          } else {
+            delete round.replay_hash;
+          }
+
+          throw error;
         }
 
-        throw error;
+        return {
+          settlement_result: result,
+          status: "committed"
+        };
+      } finally {
+        releaseSettlementLock();
       }
-
-      return {
-        settlement_result: result,
-        status: "committed"
-      };
     }
   };
 }
