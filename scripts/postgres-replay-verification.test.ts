@@ -630,16 +630,23 @@ function roundForSettlementResult(result: SettlementResult, overrides: Partial<R
 }
 
 async function resetSettlementOutcomeTables(): Promise<void> {
-  await requiredClient().query("TRUNCATE settlement_results, simulation_rounds, simulation_runs");
+  await requiredClient().query(
+    "TRUNCATE course_memberships, replay_records, decisions, settlement_results, simulation_rounds, simulation_runs, courses, users"
+  );
 }
 
 async function insertSimulationRun(result: SettlementResult): Promise<void> {
+  const courseId = `course-${suffix()}`;
+  await requiredClient().query(
+    "INSERT INTO courses (id, course_id, tenant_id, status) VALUES ($1, $1, $2, 'published')",
+    [courseId, result.tenant_id]
+  );
   await requiredClient().query(
     "INSERT INTO simulation_runs (id, run_id, tenant_id, course_id, scenario_package_id, parameter_set_id, seed, status, payload) VALUES ($1, $1, $2, $3, $4, $5, $6, 'active', $7::jsonb) ON CONFLICT (run_id) DO NOTHING",
     [
       result.run_id,
       result.tenant_id,
-      `course-${suffix()}`,
+      courseId,
       result.scenario_package_id,
       result.parameter_set_id,
       12345,
@@ -678,6 +685,9 @@ async function insertRoundForSettlementResult(
 ): Promise<Round> {
   await insertSimulationRun(result);
   const round = roundForSettlementResult(result, roundOverrides);
+  if (round.run_id !== result.run_id) {
+    await insertSimulationRun({ ...result, run_id: round.run_id });
+  }
   await insertSimulationRound(round, payload);
 
   return round;
@@ -731,6 +741,31 @@ async function insertDirectSettlementResult(
   schema: string,
   row: DirectSettlementResultRow
 ): Promise<void> {
+  const courseId = `course-direct-${row.run_id}`;
+  await pgClient.query(
+    `INSERT INTO ${quoteIdentifier(schema)}.courses (id, course_id, tenant_id, status) VALUES ($1, $1, $2, 'published') ON CONFLICT (course_id) DO NOTHING`,
+    [courseId, row.tenant_id]
+  );
+  await pgClient.query(
+    `INSERT INTO ${quoteIdentifier(schema)}.simulation_runs (id, run_id, tenant_id, course_id, scenario_package_id, parameter_set_id, seed, status) VALUES ($1, $1, $2, $3, $4, $5, 1, 'active') ON CONFLICT (run_id) DO NOTHING`,
+    [
+      row.run_id,
+      row.tenant_id,
+      courseId,
+      row.payload.scenario_package_id,
+      row.payload.parameter_set_id
+    ]
+  );
+  await pgClient.query(
+    `INSERT INTO ${quoteIdentifier(schema)}.simulation_rounds (id, round_id, tenant_id, run_id, round_no, status) VALUES ($1, $2, $3, $4, $5, 'locked') ON CONFLICT (tenant_id, round_id) DO NOTHING`,
+    [
+      JSON.stringify(["round", row.tenant_id, row.round_id]),
+      row.round_id,
+      row.tenant_id,
+      row.run_id,
+      row.round_no
+    ]
+  );
   await pgClient.query(
     `INSERT INTO ${quoteIdentifier(schema)}.settlement_results (
       id,
@@ -759,6 +794,56 @@ async function insertDirectSettlementResult(
       JSON.stringify(row.payload)
     ]
   );
+}
+
+async function ensureReplayReferenceParents(reference: {
+  tenant_id: string;
+  run_id: string | null;
+  round_id: string | null;
+  source_result_id?: string | null;
+}): Promise<void> {
+  if (reference.run_id === null || reference.round_id === null) {
+    return;
+  }
+
+  const courseId = `course-replay-${reference.run_id}`;
+  await requiredClient().query(
+    "INSERT INTO courses (id, course_id, tenant_id, status) VALUES ($1, $1, $2, 'published') ON CONFLICT (course_id) DO NOTHING",
+    [courseId, reference.tenant_id]
+  );
+  await requiredClient().query(
+    "INSERT INTO simulation_runs (id, run_id, tenant_id, course_id, scenario_package_id, parameter_set_id, seed, status) VALUES ($1, $1, $2, $3, $4, $5, 1, 'active') ON CONFLICT (run_id) DO NOTHING",
+    [
+      reference.run_id,
+      reference.tenant_id,
+      courseId,
+      `scenario-${reference.run_id}`,
+      `parameter-${reference.run_id}`
+    ]
+  );
+  await requiredClient().query(
+    "INSERT INTO simulation_rounds (id, round_id, tenant_id, run_id, round_no, status) VALUES ($1, $2, $3, $4, 1, 'locked') ON CONFLICT (tenant_id, round_id) DO NOTHING",
+    [
+      JSON.stringify(["round", reference.tenant_id, reference.round_id]),
+      reference.round_id,
+      reference.tenant_id,
+      reference.run_id
+    ]
+  );
+  if (reference.source_result_id !== undefined && reference.source_result_id !== null) {
+    await requiredClient().query(
+      "INSERT INTO settlement_results (id, settlement_result_id, tenant_id, run_id, round_id, round_no, parameter_set_id, scenario_package_id, replay_hash) VALUES ($1, $1, $2, $3, $4, 1, $5, $6, $7) ON CONFLICT (tenant_id, settlement_result_id) DO NOTHING",
+      [
+        reference.source_result_id,
+        reference.tenant_id,
+        reference.run_id,
+        reference.round_id,
+        `parameter-${reference.run_id}`,
+        `scenario-${reference.run_id}`,
+        `hash-${reference.source_result_id}`
+      ]
+    );
+  }
 }
 
 async function fetchDirectSettlementRows(
@@ -828,6 +913,10 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         queryExecutor,
         transactionExecutor
       });
+    });
+
+    beforeEach(async () => {
+      await resetSettlementOutcomeTables();
     });
 
     afterAll(async () => {
@@ -1047,7 +1136,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         const differentTenant = directSettlementResultRow({
           round_id: "round-identity-tenant-2",
           round_no: base.round_no,
-          run_id: base.run_id,
+          run_id: "run-identity-tenant-2",
           settlement_result_id: "settlement-identity-tenant-2",
           tenant_id: "tenant-identity-2"
         });
@@ -1135,6 +1224,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         tenant_id: manifest.tenant_id
       });
 
+      await ensureReplayReferenceParents(manifest);
       await adapter.replay.saveReplayInputManifest(manifest);
       await adapter.replay.saveReplayRun(run);
       await adapter.replay.saveReplayReport(report);
@@ -1180,7 +1270,9 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         tenant_id: first.tenant_id
       });
 
+      await ensureReplayReferenceParents(first);
       await adapter.replay.saveReplayInputManifest(first);
+      await ensureReplayReferenceParents(second);
       await adapter.replay.saveReplayInputManifest(second);
 
       const rows = await requiredClient().query<ReplayRecordRow<ReplayInputManifest>>(
@@ -1218,7 +1310,9 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         tenant_id: `tenant-b-${suffix()}`
       });
 
+      await ensureReplayReferenceParents(tenantA);
       await adapter.replay.saveReplayInputManifest(tenantA);
+      await ensureReplayReferenceParents(tenantB);
       await adapter.replay.saveReplayInputManifest(tenantB);
 
       expect(await adapter.replay.getReplayInputManifest(tenantA.tenant_id, manifestId)).toEqual(
@@ -1253,6 +1347,7 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
         tenant_id: manifest.tenant_id
       });
 
+      await ensureReplayReferenceParents(manifest);
       await adapter.replay.saveReplayInputManifest(manifest);
       await adapter.replay.saveReplayReport(report);
 
@@ -1751,16 +1846,17 @@ if (process.env.VITEST_WORKER_ID !== undefined) {
     });
 
     it("does not mutate settlement truth-chain tables during replay persistence", async () => {
-      const before = await tableCounts();
       const manifest = replayManifest();
 
+      await ensureReplayReferenceParents(manifest);
+      const before = await tableCounts();
       await adapter.replay.saveReplayInputManifest(manifest);
       expect(
         await adapter.replay.getReplayInputManifest(manifest.tenant_id, manifest.manifest_id)
       ).toEqual(manifest);
 
       const after = await tableCounts();
-      expect(before).toEqual({ decisions: 0, settlement_results: 0, simulation_rounds: 0 });
+      expect(before).toEqual({ decisions: 0, settlement_results: 1, simulation_rounds: 1 });
       expect(after).toEqual(before);
       markCheckPassed("truth_chain_tables_unchanged");
     });
