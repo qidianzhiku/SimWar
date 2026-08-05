@@ -1,0 +1,62 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-016-C4-INSTRUCTOR-DEBRIEF-KIT-PRODUCTIZATION
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-05T09:00:00Z"
+closed_at: "2026-08-05T10:08:29Z"
+repository: qidianzhiku/SimWar
+source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+branch: codex/w016-c4-instructor-debrief
+head_sha: 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
+pr: 347
+merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+post_merge_master_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+mainline_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+support_candidate: null
+docs_discovery_candidate: null
+resource_locks:
+  - C4_INSTRUCTOR_DEBRIEF_ARTIFACT_SCOPE
+  - C4_TEACHER_BFF_EXPORT_SCOPE
+  - C4_TEACHER_BROWSER_SCOPE
+  - SERIAL_MERGE
+  - POST_MERGE_FRESH_CLONE
+  - GOVERNANCE_CLOSURE
+validation:
+  focused:
+    - "unit/integration: PASS 2 files / 5 tests"
+  affected:
+    - "browser: PASS 1 test"
+    - "contract: PASS 15 files / 40 tests"
+  full:
+    - "Vitest: PASS 160 files / 1029 tests"
+  ci: PASS
+  codeql: PASS
+  browser: PASS_ISOLATED_PORTS_3200_TO_3203
+  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+evidence_root: C:/Temp/simwar-w016-c4-20260805T165028
+gap_delta:
+  closed:
+    - C4 exact Course/Blueprint-bound instructor debrief source
+    - C4 deterministic artifact digest and official settlement binding
+    - C4 teacher-safe JSON and Markdown export
+    - C4 provenance/baseline/known-limits presentation
+  new: []
+  reclassified:
+    - "Default Playwright ports: Route-C environment residue; isolated ports pass"
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: NOT_MEASURED
+  file_conflict_rate: 0
+  join_rework_ratio: 0
+  owner_touch: 1
+  cleanup_residue: 0
+  boundary_breach: 0
+  post_merge_escape: 0
+explicit_non_proofs:
+  - Human Validation was not performed.
+  - JSON_INTERNAL_ONLY remains the sole active runtime authority.
+  - PostgreSQL, durable recovery, Pilot, Production, billing, external providers and AI final grading are not authorized.
+  - The artifact is not Truth, SettlementResult, Score, Rank or Replay authority.
+recommended_next_candidate: CAND-L1P-D3-TEACHER-CONFIRMATION
+automatic_next_start: false

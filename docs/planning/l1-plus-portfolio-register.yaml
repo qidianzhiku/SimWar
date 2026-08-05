@@ -1,14 +1,15 @@
 portfolio_version: 5
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-05T07:00:00Z"
+generated_at: "2026-08-05T10:08:29Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: e05052c85d5962af6e0ba83c551b280925d776c5
-product_evidence_source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+assessment_source_anchor_sha: c6563104d03d85ef2042d2310ca8880fc0083a42
+product_evidence_source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
 governance_closure_merge_sha: THIS_CHANGESET
+current_master_at_readback: ac78124bfeba4d76fd079199039954b3dabfde97
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: T4_F2_CLOSED_WITH_REFERENTIAL_INTEGRITY_LIMITS
+l1_plus_status: C4_INSTRUCTOR_DEBRIEF_CLOSED_WITH_EXPLICIT_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -16,68 +17,63 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+    candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_prs: [344]
+    product_prs: [347]
     product_merge_shas:
-      - f04e8c0a1ad8a0d8346c768440c006066c887ad8
-    primary_outcome: "Authorized current-schema PostgreSQL relationships are tenant-scoped and fail closed without activating PostgreSQL runtime authority."
+      - ac78124bfeba4d76fd079199039954b3dabfde97
+    primary_outcome: "Teacher-safe exact-source instructor debrief artifact can be read and exported deterministically from the official published result without changing Truth or Replay authority."
   support_code: NONE
   docs_discovery: NONE
-  closure: T4_F2_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: C4_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
-  - capability_id: L1P-T4-F2
-    candidate_id: CAND-L1P-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
+  - capability_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: CLOSED_AND_CURRENT_WITH_LIMITS
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - W015_T4_F2_MIGRATION_SCOPE
-    - W015_T4_F2_POSTGRES_INTEGRITY_TEST_SCOPE
-    - W015_T4_F2_POSTGRES_REPLAY_COMPATIBILITY_SCOPE
+    - C4_INSTRUCTOR_DEBRIEF_ARTIFACT_SCOPE
+    - C4_TEACHER_BFF_EXPORT_SCOPE
+    - C4_TEACHER_BROWSER_SCOPE
     - SERIAL_MERGE
     - POST_MERGE_FRESH_CLONE
     - GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
-    status: RECOMMENDED_NOT_AUTHORIZED
   - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
-blocked_candidates: []
+  - candidate_id: CAND-L1P-C5-COURSE-REPORT-BUILDER
+    status: RECOMMENDED_NOT_AUTHORIZED
 evidence:
-  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W015-T4-F2-POSTMERGE-20260805T151241Z
-  product_merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+  root: C:/Temp/simwar-w016-c4-20260805T165028
+  product_candidate_sha: 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
+  product_merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
   product_merge_parents:
-    - e05052c85d5962af6e0ba83c551b280925d776c5
-    - 4cf8e4201c2c9e7200f246a411306b0cd7c03ee1
-  fresh_clone: D:/codex/fresh-clones/simwar-w015-postmerge-f04e8c0
+    - c6563104d03d85ef2042d2310ca8880fc0083a42
+    - 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
+  fresh_clone: D:/codex/fresh-clones/simwar-w016-c4-merge-ac78124bfeba
   fresh_clone_status: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  w015_postgres: PASS_6_TESTS
-  postgres_replay: PASS_20_TESTS_REAL_POSTGRESQL
-  contract: PASS_14_FILES_37_TESTS
-  browser: PASS_EXACT_HEAD_RERUN
-  full_vitest: BASELINE_LIMIT_158_FILES_1025_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
-  snapshot_focused_control: PASS_147_TESTS
+  full_vitest: PASS_160_FILES_1029_TESTS
+  browser: PASS_ISOLATED_PORTS_3200_TO_3203
+  acceptance: PASS_WITH_EXPLICIT_LIMITS_40_ROWS_0_UNKNOWN
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
-  issue_113: OPEN_PROGRESS_RECORDED_NO_GITHUB_MUTATION
-  issue_118: OPEN_BLOCKED_UNCHANGED
+  issue_113: OPEN_KNOWN_LIMIT
+  issue_118: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
   postgresql_runtime: NOT_ACTIVE
-  rls: NOT_IMPLEMENTED
-  team_referential_integrity: NOT_ENFORCEABLE_CURRENT_SCHEMA
   durable_settlement_recovery: NOT_PROVEN
   human_validation: NOT_PERFORMED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
   pilot_production: NOT_AUTHORIZED
-valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_MIGRATION_CHANGE
+valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
-  - database_migration_changed
   - settlement_authority_or_writer_changed
   - replay_or_golden_changed
+  - instructor_artifact_contract_changed
+  - teacher_visibility_or_export_changed
   - post_merge_evidence_invalidated
 automatic_next_start: false
