@@ -33,6 +33,8 @@ export interface TenantBaselineScenarioPackageSource {
   readonly content_digest: string;
   readonly scenario_package_id: string;
   readonly source_tenant_id: string;
+  /** Optional redundant source tenant; when supplied it must equal source_tenant_id. */
+  readonly tenant_id?: string;
   readonly version: string;
 }
 

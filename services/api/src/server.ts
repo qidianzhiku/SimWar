@@ -2452,14 +2452,16 @@ function parseTenantBaselineProvisioningRequest(value: unknown): TenantBaselineP
         value.source_scenario_package.scenario_package_id
       ),
       source_tenant_id: parseTenantBaselineTenantId(value.source_scenario_package.source_tenant_id),
+      ...(value.source_scenario_package.tenant_id === undefined
+        ? {}
+        : { tenant_id: parseTenantBaselineTenantId(value.source_scenario_package.tenant_id) }),
       version: parseFormalScenarioPackageString(value.source_scenario_package.version)
     },
     target_tenant_id: parseTenantBaselineTenantId(value.target_tenant_id)
   };
   if (
-    value.source_scenario_package.tenant_id !== undefined &&
-    parseTenantBaselineTenantId(value.source_scenario_package.tenant_id) !==
-      request.source_scenario_package.source_tenant_id
+    request.source_scenario_package.tenant_id !== undefined &&
+    request.source_scenario_package.tenant_id !== request.source_scenario_package.source_tenant_id
   ) {
     throw tenantBaselineRequestError();
   }
