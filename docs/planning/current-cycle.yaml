@@ -1,40 +1,39 @@
-cycle_id: L1PLUS-CYCLE-014-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
+cycle_id: L1PLUS-CYCLE-015-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-05T00:24:32Z"
-closed_at: "2026-08-05T01:32:02Z"
+started_at: "2026-08-05T03:43:16Z"
+closed_at: "2026-08-05T07:00:00Z"
 repository: qidianzhiku/SimWar
-source_sha: 8811e936feface9b8286043c82c155c82b23b641
-assessment_source_anchor_sha: 8811e936feface9b8286043c82c155c82b23b641
-product_evidence_source_sha: 8811e936feface9b8286043c82c155c82b23b641
+source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+assessment_source_anchor_sha: e05052c85d5962af6e0ba83c551b280925d776c5
+product_evidence_source_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
 governance_closure_merge_sha: THIS_CHANGESET
-mainline_candidate: CAND-L1P-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
+mainline_candidate: CAND-L1P-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
 support_candidate: null
 docs_discovery_candidate: null
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: "JSON active and PostgreSQL inactive-support settlement outcomes are immutable by business identity, deterministic on retry, conflict-safe, and audit-atomic within their authorized runtime boundaries."
+primary_outcome: "PostgreSQL inactive-support tenant-scoped referential integrity enforces the authorized current-schema relationships while JSON_INTERNAL_ONLY remains the active runtime authority."
 runtime_authority: JSON_INTERNAL_ONLY
 predecessor:
-  cycle_id: L1PLUS-CYCLE-013-R5-SR2-ROLE-D2-REMEDIATION
-  merge_sha: 74b29acadf8a4649c7bdf128476bfcf0d4c629ad
+  cycle_id: L1PLUS-CYCLE-014-T4-F1-DURABLE-SETTLEMENT-IDEMPOTENCY
+  merge_sha: 8811e936feface9b8286043c82c155c82b23b641
 product_prs:
-  - number: 341
-    role: JSON_ACTIVE_SETTLEMENT_IDEMPOTENCY
-    merge_sha: f4ee308e9ea28d65d4aebcb39dd92848abfd9a3e
-  - number: 342
-    role: POSTGRES_INACTIVE_SETTLEMENT_BUSINESS_KEY_SUPPORT
-    merge_sha: 8811e936feface9b8286043c82c155c82b23b641
+  - number: 344
+    role: W015_T4_F2_TENANT_SCOPED_REFERENTIAL_INTEGRITY
+    merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 14
+  acceptance_rows: 32
+  pass_rows: 30
+  pass_with_explicit_limits: 2
   unknown_rows: 0
   not_mapped_rows: 0
-  focused_json_settlement: PASS_46_TESTS
-  contract: PASS_14_FILES_37_TESTS
+  w015_postgres: PASS_6_TESTS
   postgres_replay: PASS_20_TESTS_REAL_POSTGRESQL
-  full: BASELINE_LIMIT_157_FILES_1024_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
-  browser_default: PASS_74_SKIPPED_9
-  browser_role_workflow: PASS_1
+  contract: PASS_14_FILES_37_TESTS
+  browser_default: PASS_EXACT_HEAD_RERUN
+  full: BASELINE_LIMIT_158_FILES_1025_TESTS_1_UNTOUCHED_SNAPSHOT_ANOMALY
+  snapshot_focused_control: PASS_147_TESTS
   ci: PASS
   codeql: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
@@ -42,27 +41,26 @@ validation:
   typecheck: PASS
   lint: PASS
   build: PASS
-  fresh_clone: PASS_CLEAN_DETACHED_AT_SOURCE_SHA
+  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
   human_validation: NOT_PERFORMED
 evidence:
-  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W014-T4-F1-20260805T002432Z
-  frozen_pack: materials/t4-f1-pack/SimWar_T4_F1_Durable_Settlement_Frozen_Reference_Pack_V1.0_20260805
-  cell_a_merge: control/07-cell-a-merge.json
-  cell_b_merge: control/08-cell-b-merge.json
-  final_clone: tests/09-final-clone-validation.json
-  full_suite_limit: tests/10-full-suite-baseline-anomaly.json
-  join_decision: closure/11-join-decision.md
-  final_report: closure/12-final-report.md
+  root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W015-T4-F2-POSTMERGE-20260805T151241Z
+  pack: materials/SimWar_W015_T4_F2_Frozen_Reference_Pack_V1.0_20260805
+  product_merge: closure/18-product-merge-receipt.json
+  post_merge: D:/codex/fresh-clones/simwar-w015-postmerge-f04e8c0
+  post_merge_receipt: closure/20-post-merge-fresh-clone-receipt.json
+  final_report: closure/21-final-governance-report.md
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - T4_F1_SETTLEMENT_BUSINESS_IDENTITY
-    - T4_F1_JSON_SETTLEMENT_IDEMPOTENCY
-    - T4_F1_POSTGRES_INACTIVE_SUPPORT
-    - SETTLEMENT_OUTCOME_WRITER
-    - SERIAL_CLOSURE
+    - W015_T4_F2_MIGRATION_SCOPE
+    - W015_T4_F2_POSTGRES_INTEGRITY_TEST_SCOPE
+    - W015_T4_F2_POSTGRES_REPLAY_COMPATIBILITY_SCOPE
+    - SERIAL_MERGE
+    - POST_MERGE_FRESH_CLONE
+    - GOVERNANCE_CLOSURE
 candidate_backlog:
   - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
     status: RECOMMENDED_NOT_AUTHORIZED
@@ -72,38 +70,41 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
 blocked_candidates: []
 metrics:
-  product_pr_count: 2
+  product_pr_count: 1
   governance_pr_count: 1
   corrective_product_pr_count: 0
   governance_reclosure_count: 0
   first_pass_exit: true
-  readiness_mode: SERIAL_INTEGRATION_AFTER_BOUNDED_CELLS
+  readiness_mode: SERIAL_INTEGRATION
   merge_mode: SERIAL
   resource_cost_ratio: NOT_MEASURED
   default_full_suite_anomaly_count: 1
-  browser_skipped_existing: 9
+  browser_smoke_rerun_count: 1
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   postgresql_runtime: NOT_ACTIVE
+  rls: NOT_IMPLEMENTED
+  team_referential_integrity: NOT_ENFORCEABLE_CURRENT_SCHEMA
   durable_recovery: NOT_PROVEN
   full_vitest: BASELINE_ENVIRONMENT_LOAD_ANOMALY_UNTOUCHED_SNAPSHOT_TEST
-  human_validation: WAIVED_OR_NOT_PERFORMED
+  human_validation: NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
+  issue_113: OPEN_PROGRESS_RECORDED_NO_GITHUB_MUTATION
+  issue_118: OPEN_BLOCKED_UNCHANGED
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
-  compensating_atomicity: NOT_CRASH_SAFE
   pilot_and_production: NOT_AUTHORIZED
 invalidation_triggers:
   - product_or_runtime_changed
-  - settlement_authority_or_writer_changed
-  - shared_contract_changed
-  - replay_or_golden_changed
   - database_migration_changed
+  - settlement_authority_or_writer_changed
+  - replay_or_golden_changed
   - post_merge_evidence_invalidated
 explicit_non_proofs:
-  - PostgreSQL is not active runtime authority.
-  - Cross-process JSON safety, durable recovery, backup/restore, and crash-safe compensating atomicity are not proven.
+  - PostgreSQL is inactive support and is not runtime authority.
+  - This cycle does not implement RLS or canonical Team authority.
+  - Durable recovery, backup, restore, PITR, SLO and crash-safe compensating atomicity are not proven.
   - Human Validation was not performed.
-  - Issue #111 remains open and is not closed by this cycle.
-  - Pilot, Production, billing, external providers, AI, and successor missions are not authorized.
+  - Issue #111 remains open; Issue #118 remains unchanged and blocked.
+  - Pilot, Production, billing, external providers, AI and successor work are not authorized.
 automatic_next_start: false
