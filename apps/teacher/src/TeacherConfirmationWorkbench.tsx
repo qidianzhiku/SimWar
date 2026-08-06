@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   CoursePackageVersionTeacherDto,
   D2EvidenceArtifactVersion,
@@ -128,14 +128,19 @@ async function evidenceSetDigest(artifacts: readonly D2EvidenceArtifactVersion[]
   return [...new Uint8Array(hash)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
-export type TeacherConfirmationWorkbenchProps = { tenantId: string; token: string };
+export type TeacherConfirmationWorkbenchProps = {
+  initialScope?: Partial<Scope>;
+  tenantId: string;
+  token: string;
+};
 
 export function TeacherConfirmationWorkbench({
+  initialScope,
   tenantId,
   token
 }: TeacherConfirmationWorkbenchProps) {
   const [state, setState] = useState<SurfaceState>("EMPTY");
-  const [scope, setScope] = useState<Scope>(EMPTY_SCOPE);
+  const [scope, setScope] = useState<Scope>({ ...EMPTY_SCOPE, ...initialScope });
   const [packages, setPackages] = useState<readonly CoursePackageVersionTeacherDto[]>([]);
   const [design, setDesign] = useState<LearningDesignListDto>(EMPTY_DESIGN);
   const [evidence, setEvidence] = useState<readonly D2EvidenceArtifactVersion[]>([]);
@@ -153,6 +158,14 @@ export function TeacherConfirmationWorkbench({
   const [receipt, setReceipt] = useState<TeacherConfirmationVersion | null>(null);
   const [claim, setClaim] = useState<TeacherConfirmationWorkClaim | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  useEffect(() => {
+    setScope({ ...EMPTY_SCOPE, ...initialScope });
+    setClaim(null);
+    setEvidence([]);
+    setReceipt(null);
+    setState("STALE");
+  }, [initialScope]);
 
   const selectedPackageData = packages.find(
     (item) =>

@@ -20,6 +20,7 @@ type EvidenceScope = D2EvidenceQuery;
 type EvidenceWorkbenchProps = {
   availablePackages: readonly CoursePackageVersionTeacherDto[];
   courseId?: string | null;
+  initialScope?: Partial<EvidenceScope>;
   runId?: string | null;
   tenantId: string;
   token: string;
@@ -107,7 +108,14 @@ function artifactSummary(artifact: D2EvidenceArtifactVersion): string {
   return `${artifact.artifact_ref.resource_id} / ${artifact.artifact_ref.version}`;
 }
 
-export function EvidenceWorkbench({ availablePackages, courseId, runId, tenantId, token }: EvidenceWorkbenchProps) {
+export function EvidenceWorkbench({
+  availablePackages,
+  courseId,
+  initialScope,
+  runId,
+  tenantId,
+  token
+}: EvidenceWorkbenchProps) {
   const [scope, setScope] = useState<EvidenceScope>({
     activity_id: "",
     course_id: courseId ?? "",
@@ -122,6 +130,18 @@ export function EvidenceWorkbench({ availablePackages, courseId, runId, tenantId
   const [captureState, setCaptureState] = useState<CaptureSurfaceState>("IDLE");
   const [evidence, setEvidence] = useState<D2EvidenceListDto | null>(null);
   const [receipt, setReceipt] = useState<D2CaptureReceipt | null>(null);
+
+  useEffect(() => {
+    setScope((current) => ({
+      ...current,
+      ...initialScope,
+      course_id: initialScope?.course_id ?? courseId ?? current.course_id,
+      run_id: initialScope?.run_id ?? runId ?? current.run_id
+    }));
+    setEvidence(null);
+    setReceipt(null);
+    setSurfaceState("STALE");
+  }, [courseId, initialScope, runId]);
   const [selectedPackageKey, setSelectedPackageKey] = useState("");
   const [selectedGoalKey, setSelectedGoalKey] = useState("");
   const [selectedRubricKey, setSelectedRubricKey] = useState("");

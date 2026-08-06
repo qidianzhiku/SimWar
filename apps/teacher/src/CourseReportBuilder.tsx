@@ -70,11 +70,20 @@ function toFilter(form: ReportForm): CourseReportFilterInput {
 }
 
 export function CourseReportBuilder(props: {
+  initialFilter?: Partial<CourseReportFilterInput>;
   sessionKey: string;
   tenantId: string;
   token: string;
 }) {
-  const [form, setForm] = useState<ReportForm>(EMPTY_FORM);
+  const [form, setForm] = useState<ReportForm>(() => ({
+    ...EMPTY_FORM,
+    course_id: props.initialFilter?.course_id ?? "",
+    run_id: props.initialFilter?.run_id ?? "",
+    team_id: props.initialFilter?.team_id ?? "",
+    role: props.initialFilter?.role ?? "",
+    round_no: props.initialFilter?.round_no ? String(props.initialFilter.round_no) : "",
+    kpis: [...(props.initialFilter?.kpis ?? [])]
+  }));
   const [phase, setPhase] = useState<ReportPhase>("IDLE");
   const [message, setMessage] = useState("");
   const [report, setReport] = useState<CourseReportDto | null>(null);
@@ -83,12 +92,20 @@ export function CourseReportBuilder(props: {
 
   useEffect(() => {
     requestEpoch.current += 1;
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      course_id: props.initialFilter?.course_id ?? "",
+      run_id: props.initialFilter?.run_id ?? "",
+      team_id: props.initialFilter?.team_id ?? "",
+      role: props.initialFilter?.role ?? "",
+      round_no: props.initialFilter?.round_no ? String(props.initialFilter.round_no) : "",
+      kpis: [...(props.initialFilter?.kpis ?? [])]
+    });
     setPhase("IDLE");
     setMessage("");
     setReport(null);
     setReceipt(null);
-  }, [props.sessionKey]);
+  }, [props.initialFilter, props.sessionKey]);
 
   function change(next: Partial<ReportForm>): void {
     requestEpoch.current += 1;

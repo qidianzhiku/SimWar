@@ -1138,6 +1138,60 @@ h3 {
   margin: 0;
 }
 
+.w019-teaching-closure {
+  border: 1px solid rgba(62, 89, 117, 0.28);
+}
+
+.w019-context-grid,
+.w019-status-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin-top: 1rem;
+}
+
+.w019-context-grid > *,
+.w019-context-grid input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+
+.w019-queue-card,
+.w019-safe-preview {
+  background: rgba(244, 248, 252, 0.88);
+  border: 1px solid rgba(62, 89, 117, 0.2);
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.w019-queue-card > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  justify-content: space-between;
+}
+
+.w019-queue-card span,
+.w019-safe-preview small {
+  color: var(--muted-text, #536579);
+}
+
+.w019-surface-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.w019-status-grid span {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(62, 89, 117, 0.16);
+  padding: 0.75rem;
+}
+
 @media (max-width: 760px) {
   .d3-feedback {
     grid-column: auto;

@@ -1,0 +1,37 @@
+{
+  "context": {
+    "activity_id": "activity_001",
+    "course_id": "course_001",
+    "role_key": "marketing",
+    "run_id": "run_001",
+    "team_id": "team_001"
+  },
+  "course_report_available": true,
+  "export_formats": ["json", "markdown"],
+  "known_limits": ["JSON_INTERNAL_ONLY is the active runtime authority."],
+  "queue_item": {
+    "claim_status": "AVAILABLE",
+    "confirmation_status": "CONFIRMED",
+    "context": {
+      "activity_id": "activity_001",
+      "course_id": "course_001",
+      "role_key": "marketing",
+      "run_id": "run_001",
+      "team_id": "team_001"
+    },
+    "eligible_event_count": 1,
+    "evidence_count": 1,
+    "known_limits": ["JSON_INTERNAL_ONLY is the active runtime authority."],
+    "missing": [],
+    "outcome_status": "CONFIRMED"
+  },
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "schema_version": "teaching-closure.v1",
+  "student_safe_preview": {
+    "criterion_count": 1,
+    "evidence_count": 1,
+    "next_focus": "Review the confirmed criterion outcome with the student.",
+    "status": "CONFIRMED",
+    "visibility": "student_safe"
+  }
+}
