@@ -1593,3 +1593,4 @@ export * from "./instructor-intelligence.js";
 export * from "./plugin-release-authority.js";
 export * from "./course-package-version.js";
 export * from "./course-report.js";
+export * from "./tenant-baseline-provisioning.js";

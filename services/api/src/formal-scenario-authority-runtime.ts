@@ -1,4 +1,7 @@
-import type { JsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
+import type {
+  JsonFormalScenarioAuthorityPersistence,
+  JsonTenantBaselineMaterialization
+} from "./json-repository-adapter.js";
 import { ParameterSetCommandService } from "./parameter-set-authority.js";
 import { PluginReleaseCommandService } from "./plugin-release-authority.js";
 import {
@@ -11,6 +14,7 @@ export interface JsonFormalScenarioAuthorityRuntime {
   catalog: ScenarioPackageAuthorityReadFacade;
   parameterSets: ParameterSetCommandService;
   pluginReleases: PluginReleaseCommandService;
+  removeTenantBaselineMaterialization(materialization: JsonTenantBaselineMaterialization): void;
   scenarioPackages: ScenarioPackageCommandService;
 }
 
@@ -32,6 +36,8 @@ export function createJsonFormalScenarioAuthorityRuntime(
     catalog: createScenarioPackageAuthorityReadFacade({ authority: scenarioPackages }),
     parameterSets,
     pluginReleases,
+    removeTenantBaselineMaterialization: (materialization: JsonTenantBaselineMaterialization) =>
+      persistence.removeTenantBaselineMaterialization(materialization),
     scenarioPackages
   });
 }
