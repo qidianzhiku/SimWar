@@ -51,7 +51,11 @@ import {
   loadTeacherCoursePackageVersions,
   type TeacherCoursePackageSurfaceState
 } from "./course-package-client";
+import { CourseReportBuilder } from "./CourseReportBuilder";
+import { EvidenceWorkbench } from "./EvidenceWorkbench";
 import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
+import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
+import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
@@ -1114,6 +1118,30 @@ export function App() {
           runId={selectedRun?.run_id ?? selectedRunId}
           tenantId={login.tenantId}
           token={session.access_token}
+        />
+      ) : null}
+      {isTeacher && session ? (
+        <EvidenceWorkbench
+          availablePackages={coursePackageList.phase === "READY" ? coursePackageList.packages : []}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+      {isTeacher && session ? (
+        <TeacherConfirmationWorkbench tenantId={login.tenantId} token={session.access_token} />
+      ) : null}
+      {isTeacher && session ? (
+        <D5ExportWorkbench
+          apiBase={API_BASE}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+      {isTeacher ? (
+        <CourseReportBuilder
+          sessionKey={`${session?.access_token ?? ""}:${login.tenantId}`}
+          tenantId={login.tenantId}
+          token={session?.access_token ?? ""}
         />
       ) : null}
       {isTeacher && session ? (

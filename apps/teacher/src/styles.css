@@ -1150,6 +1150,13 @@ h3 {
   margin-top: 1rem;
 }
 
+.w019-context-grid > *,
+.w019-context-grid input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+
 .w019-queue-card,
 .w019-safe-preview {
   background: rgba(244, 248, 252, 0.88);
