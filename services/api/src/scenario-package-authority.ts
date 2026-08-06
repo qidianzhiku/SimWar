@@ -357,7 +357,9 @@ function toAuthorityReadProjection(
 export function calculateScenarioPackageContentDigest(input: ScenarioPackageDraftInput): string {
   const canonical = canonicalize({
     artifact_policy: input.artifact_policy,
-    baseline_provenance: input.baseline_provenance ?? null,
+    ...(input.baseline_provenance
+      ? { baseline_provenance: cloneValue(input.baseline_provenance) }
+      : {}),
     compatibility_metadata: input.compatibility_metadata,
     content: input.content,
     metadata: input.metadata,

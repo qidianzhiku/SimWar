@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
 import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
-import { TenantBaselineProvisioningService } from "../../services/api/src/tenant-baseline-provisioning";
+import {
+  TenantBaselineProvisioningError,
+  TenantBaselineProvisioningService
+} from "../../services/api/src/tenant-baseline-provisioning";
+import {
+  calculateParameterSetContentDigest,
+  ParameterSetAuthorityError
+} from "../../services/api/src/parameter-set-authority";
+import { calculateScenarioPackageContentDigest } from "../../services/api/src/scenario-package-authority";
 import type { SimWarStore } from "../../services/api/src/store";
 
 type FormalAuthorityTestStore = Pick<
@@ -105,6 +113,89 @@ async function seedApprovedSource() {
 }
 
 describe("TenantBaselineProvisioningService", () => {
+  it("preserves legacy formal asset digests when baseline provenance is absent", async () => {
+    const { parameter, scenario } = await seedApprovedSource();
+
+    expect(
+      calculateParameterSetContentDigest({
+        compatibility_metadata: parameter.compatibility_metadata,
+        model_version_ref: parameter.model_version_ref,
+        parameter_set_id: parameter.parameter_set_id,
+        parameter_values: parameter.parameter_values,
+        schema_version: parameter.schema_version,
+        tenant_id: parameter.tenant_id,
+        version: parameter.version
+      })
+    ).toBe(parameter.content_digest);
+    expect(
+      calculateScenarioPackageContentDigest({
+        artifact_policy: scenario.artifact_policy,
+        compatibility_metadata: scenario.compatibility_metadata,
+        content: scenario.content,
+        metadata: scenario.metadata,
+        parameter_set_reference: scenario.parameter_set_reference,
+        plugin_dependencies: scenario.plugin_dependencies,
+        scenario_package_id: scenario.scenario_package_id,
+        schema_version: scenario.schema_version,
+        tenant_id: scenario.tenant_id,
+        version: scenario.version
+      })
+    ).toBe(scenario.content_digest);
+  });
+
+  it("rejects a conflicting redundant source scenario tenant in direct service calls", async () => {
+    const { authority, parameter, scenario } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "redundant_source_tenant_conflict" },
+        {
+          idempotency_key: "redundant-source-tenant-conflict-v1",
+          source_parameter_set: {
+            ...parameter.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          source_scenario_package: {
+            ...scenario.reference,
+            source_tenant_id: sourceActor.tenant_id,
+            tenant_id: "tenant_other"
+          },
+          target_tenant_id: "tenant_target"
+        }
+      )
+    ).rejects.toMatchObject({ code: "REQUEST_INVALID" });
+  });
+
+  it("maps formal target identity races to the stable provisioning conflict", async () => {
+    const { authority, parameter, scenario } = await seedApprovedSource();
+    vi.spyOn(authority.parameterSets, "createDraft").mockRejectedValueOnce(
+      new ParameterSetAuthorityError("PARAMETER_SET_VERSION_ALREADY_EXISTS")
+    );
+    const service = new TenantBaselineProvisioningService(authority);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "formal_target_race" },
+        {
+          idempotency_key: "formal-target-race-v1",
+          source_parameter_set: {
+            ...parameter.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          source_scenario_package: {
+            ...scenario.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          target_tenant_id: "tenant_target"
+        }
+      )
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      name: "TenantBaselineProvisioningError"
+    } satisfies Partial<TenantBaselineProvisioningError>);
+  });
+
   it("ignores untyped legacy display metadata so it cannot alter formal provenance or reuse", async () => {
     const { authority, parameter, scenario } = await seedApprovedSource();
     const service = new TenantBaselineProvisioningService(authority);

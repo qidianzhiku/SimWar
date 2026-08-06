@@ -7,8 +7,11 @@ import {
   type TenantBaselineProvenance
 } from "@simwar/shared-contracts";
 import type { JsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
-import type { ParameterSetVersion } from "./parameter-set-authority.js";
-import type { ScenarioPackageVersion } from "./scenario-package-authority.js";
+import { ParameterSetAuthorityError, type ParameterSetVersion } from "./parameter-set-authority.js";
+import {
+  ScenarioPackageAuthorityError,
+  type ScenarioPackageVersion
+} from "./scenario-package-authority.js";
 
 export interface TenantBaselineProvisioningActor {
   readonly actor_id: string;
@@ -79,6 +82,16 @@ function exactScenarioReference(input: TenantBaselineProvisioningRequest) {
   } catch {
     throw new TenantBaselineProvisioningError("REQUEST_INVALID");
   }
+}
+
+function isMaterializationConflict(error: unknown): boolean {
+  return (
+    (error instanceof ParameterSetAuthorityError &&
+      error.code === "PARAMETER_SET_VERSION_ALREADY_EXISTS") ||
+    (error instanceof ScenarioPackageAuthorityError &&
+      (error.code === "SCENARIO_PACKAGE_VERSION_ALREADY_EXISTS" ||
+        error.code === "SCENARIO_PACKAGE_DIGEST_CONFLICT"))
+  );
 }
 
 function sameParameterReference(
@@ -178,7 +191,11 @@ export class TenantBaselineProvisioningService {
       !isNonBlankString(input.idempotency_key) ||
       !isCanonicalTenantId(input.target_tenant_id) ||
       !isCanonicalTenantId(input.source_parameter_set.source_tenant_id) ||
-      !isCanonicalTenantId(input.source_scenario_package.source_tenant_id)
+      !isCanonicalTenantId(input.source_scenario_package.source_tenant_id) ||
+      (input.source_scenario_package.tenant_id !== undefined &&
+        (!isCanonicalTenantId(input.source_scenario_package.tenant_id) ||
+          input.source_scenario_package.tenant_id !==
+            input.source_scenario_package.source_tenant_id))
     ) {
       throw new TenantBaselineProvisioningError("REQUEST_INVALID");
     }
@@ -346,6 +363,9 @@ export class TenantBaselineProvisioningService {
       );
     } catch (error) {
       this.authority.removeTenantBaselineMaterialization(materialization);
+      if (isMaterializationConflict(error)) {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
       throw error;
     }
   }

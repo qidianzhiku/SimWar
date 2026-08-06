@@ -235,9 +235,13 @@ function transition(
 
 export function calculateParameterSetContentDigest(input: ParameterSetDraftInput): string {
   const canonical = canonicalize({
-    baseline_provenance: input.baseline_provenance
-      ? (cloneValue(input.baseline_provenance) as unknown as ParameterSetJsonValue)
-      : null,
+    ...(input.baseline_provenance
+      ? {
+          baseline_provenance: cloneValue(
+            input.baseline_provenance
+          ) as unknown as ParameterSetJsonValue
+        }
+      : {}),
     compatibility_metadata: input.compatibility_metadata,
     model_version_ref: input.model_version_ref,
     parameter_set_id: input.parameter_set_id,
