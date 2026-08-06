@@ -48,10 +48,14 @@ already bound its exact reference.
 
 The target asset IDs are deterministic hashes of the target tenant and the
 idempotency-key digest. A retry with the same complete request returns
-`REUSED`; it must find both target assets approved, provenance-identical, and
-bound together. The same idempotency key with different structured source
-provenance returns `TENANT_BASELINE-409-001` and never overwrites an
-approved version.
+`REUSED` only when both target assets are approved, provenance-identical,
+bound together, and backed by their exact matching formal approval records.
+The provisioner reads the complete target lifecycle history before deciding:
+an earlier partial, unapproved, non-verifiable, mismatched, or different-source
+version is a stable `TENANT_BASELINE-409-001`, never a reason to create or
+reuse another version under the same deterministic identity. The same
+idempotency key with different structured source provenance therefore returns
+`TENANT_BASELINE-409-001` and never overwrites an approved version.
 
 The source ScenarioPackage and ParameterSet must:
 
@@ -98,10 +102,13 @@ settlement input.
 `tests/integration/tenant-baseline-provisioning-endpoint.test.ts` exercises the
 route through `createApiServer` and real HTTP requests. In one single server it
 creates a source tenant and two new target tenants, checks no target baseline
-exists, provisions both, verifies idempotent reuse and conflict behavior,
-drives a target-local CoursePackage to `AVAILABLE` in each tenant, rejects a
-foreign reference, and snapshots Truth-adjacent collections before and after.
-This is E3 evidence.
+exists, provisions both, verifies idempotent reuse and conflict behavior, and
+uses a JSON-runtime fault seam to remove a target approval record. The same
+HTTP route then proves both the missing-evidence retry and a V1-to-V2 retry
+return `409` without formal writes or V2 materialization. It also drives a
+target-local CoursePackage to `AVAILABLE` in each tenant, rejects a foreign
+reference, and snapshots Truth-adjacent collections before and after. This is
+E3 evidence.
 
 `tests/unit/tenant-baseline-provisioning.test.ts` injects a ScenarioPackage
 append failure after the target ParameterSet lifecycle has started and verifies

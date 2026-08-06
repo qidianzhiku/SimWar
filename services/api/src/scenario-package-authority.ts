@@ -131,7 +131,7 @@ export interface ScenarioPackageRegistryPort extends ScenarioPackageAuthorityRea
   listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
-    version: string
+    version?: string
   ): Promise<ScenarioPackageVersion[]>;
 }
 
@@ -553,6 +553,7 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
       (record) =>
         record.tenant_id === tenantId &&
         record.scenario_package_reference.scenario_package_id === reference.scenario_package_id &&
+        record.scenario_package_reference.tenant_id === reference.tenant_id &&
         record.scenario_package_reference.version === reference.version &&
         record.scenario_package_reference.content_digest === reference.content_digest
     );
@@ -561,13 +562,13 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   async listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
-    version: string
+    version?: string
   ): Promise<ScenarioPackageVersion[]> {
     return this.snapshots.filter(
       (candidate) =>
         candidate.tenant_id === tenantId &&
         candidate.scenario_package_id === scenarioPackageId &&
-        candidate.version === version
+        (version === undefined || candidate.version === version)
     );
   }
 }
@@ -625,9 +626,17 @@ export class ScenarioPackageCommandService implements ScenarioPackageAuthorityRe
   async listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
-    version: string
+    version?: string
   ): Promise<ScenarioPackageVersion[]> {
     return this.registry.listLifecycleSnapshots(tenantId, scenarioPackageId, version);
+  }
+
+  /** Internal approval-evidence read used by the idempotent baseline orchestrator. */
+  async listApprovalRecords(
+    tenantId: string,
+    reference: ScenarioPackageReference
+  ): Promise<ScenarioPackageApprovalRecord[]> {
+    return this.registry.listApprovalRecords(tenantId, reference);
   }
 
   async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {

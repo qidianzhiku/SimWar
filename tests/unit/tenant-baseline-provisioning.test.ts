@@ -112,6 +112,64 @@ async function seedApprovedSource() {
   };
 }
 
+async function seedApprovedSourceVersion(
+  authority: ReturnType<typeof createFormalAuthorityRuntime>,
+  version: string
+) {
+  const parameterDraft = await authority.parameterSets.createDraft(sourceActor, {
+    compatibility_metadata: { engine_family: "toy_logit" },
+    model_version_ref: "toy_logit_wellness_v1@0.1.0",
+    parameter_set_id: "source_parameter",
+    parameter_values: { base_capacity: 80, base_market_size: 100 },
+    schema_version: "parameter-set.v1",
+    tenant_id: sourceActor.tenant_id,
+    version
+  });
+  const parameterValidated = await authority.parameterSets.validate(
+    sourceActor,
+    parameterDraft.reference
+  );
+  const parameterFrozen = await authority.parameterSets.freeze(
+    sourceActor,
+    parameterValidated.reference
+  );
+  const parameterApproved = await authority.parameterSets.approve(
+    sourceActor,
+    parameterFrozen.reference,
+    `source_parameter_approval_${version}`
+  );
+  const scenarioDraft = await authority.scenarioPackages.createDraft(sourceActor, {
+    artifact_policy: { mode: "INLINE", retention: "IMMUTABLE" },
+    compatibility_metadata: { scenario_family: "wellness" },
+    content: { rounds: 1 },
+    metadata: { title: `Source baseline ${version}` },
+    parameter_set_reference: parameterApproved.version.reference,
+    plugin_dependencies: [],
+    scenario_package_id: "source_scenario",
+    schema_version: "scenario-package.v1",
+    tenant_id: sourceActor.tenant_id,
+    version
+  });
+  const scenarioValidated = await authority.scenarioPackages.validate(
+    sourceActor,
+    scenarioDraft.reference
+  );
+  const scenarioFrozen = await authority.scenarioPackages.freeze(
+    sourceActor,
+    scenarioValidated.reference
+  );
+  const scenarioApproved = await authority.scenarioPackages.approve(
+    sourceActor,
+    scenarioFrozen.reference,
+    `source_scenario_approval_${version}`
+  );
+
+  return {
+    parameter: parameterApproved.version,
+    scenario: scenarioApproved.version
+  };
+}
+
 describe("TenantBaselineProvisioningService", () => {
   it("preserves legacy formal asset digests when baseline provenance is absent", async () => {
     const { parameter, scenario } = await seedApprovedSource();
@@ -384,5 +442,179 @@ describe("TenantBaselineProvisioningService", () => {
         (version) => version.tenant_id === sourceActor.tenant_id
       )
     }).toEqual(sourceBefore);
+  });
+
+  it("rejects a complete target pair whose formal approval evidence is missing", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "missing-approval-evidence-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "missing_approval_create" },
+        request
+      )
+    ).resolves.toMatchObject({ outcome: "CREATED" });
+
+    store.formalParameterSetApprovalRecords.splice(
+      0,
+      store.formalParameterSetApprovalRecords.length,
+      ...store.formalParameterSetApprovalRecords.filter(
+        (record) => record.tenant_id !== request.target_tenant_id
+      )
+    );
+    const countsBeforeRetry = {
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    };
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "missing_approval_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+
+    expect({
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    }).toEqual(countsBeforeRetry);
+  });
+
+  it("treats malformed persisted provenance as a conflict instead of throwing", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "malformed-provenance-conflict-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "malformed_provenance_create" },
+      request
+    );
+    const targetParameterIndex = store.formalParameterSetLifecycleSnapshots.findLastIndex(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.parameter_set_id === created.parameter_set.reference.parameter_set_id
+    );
+    expect(targetParameterIndex).toBeGreaterThanOrEqual(0);
+    const targetParameter = store.formalParameterSetLifecycleSnapshots[targetParameterIndex]!;
+    store.formalParameterSetLifecycleSnapshots[targetParameterIndex] = {
+      ...targetParameter,
+      baseline_provenance: {
+        ...created.provenance,
+        source_parameter_set: undefined
+      } as unknown as typeof created.provenance
+    };
+    const countsBeforeRetry = {
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    };
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "malformed_provenance_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect({
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    }).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects a V2 retry when the same deterministic target has incomplete V1 history", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const key = "partial-v1-v2-conflict-v1";
+    const target = "tenant_target";
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "partial_v1_create" },
+        {
+          idempotency_key: key,
+          source_parameter_set: {
+            ...parameter.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          source_scenario_package: {
+            ...scenario.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          target_tenant_id: target
+        }
+      )
+    ).resolves.toMatchObject({ outcome: "CREATED" });
+
+    store.formalParameterSetApprovalRecords.splice(
+      0,
+      store.formalParameterSetApprovalRecords.length,
+      ...store.formalParameterSetApprovalRecords.filter((record) => record.tenant_id !== target)
+    );
+    store.formalScenarioPackageApprovalRecords.splice(
+      0,
+      store.formalScenarioPackageApprovalRecords.length,
+      ...store.formalScenarioPackageApprovalRecords.filter((record) => record.tenant_id !== target)
+    );
+    const v2 = await seedApprovedSourceVersion(authority, "2.0.0");
+    const countsBeforeRetry = {
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    };
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "partial_v1_v2_retry" },
+        {
+          idempotency_key: key,
+          source_parameter_set: {
+            ...v2.parameter.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          source_scenario_package: {
+            ...v2.scenario.reference,
+            source_tenant_id: sourceActor.tenant_id
+          },
+          target_tenant_id: target
+        }
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+
+    expect({
+      parameterApprovals: store.formalParameterSetApprovalRecords.length,
+      parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+      scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+      scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+    }).toEqual(countsBeforeRetry);
   });
 });

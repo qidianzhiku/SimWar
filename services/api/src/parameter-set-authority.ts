@@ -101,7 +101,7 @@ export interface ParameterSetRegistryPort extends ParameterSetAuthorityReadPort 
   listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
-    version: string
+    version?: string
   ): Promise<ParameterSetVersion[]>;
 }
 
@@ -404,13 +404,13 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   async listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
-    version: string
+    version?: string
   ): Promise<ParameterSetVersion[]> {
     return this.snapshots.filter(
       (candidate) =>
         candidate.tenant_id === tenantId &&
         candidate.parameter_set_id === parameterSetId &&
-        candidate.version === version
+        (version === undefined || candidate.version === version)
     );
   }
 }
@@ -460,9 +460,17 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
   async listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
-    version: string
+    version?: string
   ): Promise<ParameterSetVersion[]> {
     return this.registry.listLifecycleSnapshots(tenantId, parameterSetId, version);
+  }
+
+  /** Internal approval-evidence read used by the idempotent baseline orchestrator. */
+  async listApprovalRecords(
+    tenantId: string,
+    reference: ParameterSetReference
+  ): Promise<ParameterSetApprovalRecord[]> {
+    return this.registry.listApprovalRecords(tenantId, reference);
   }
 
   async approve(

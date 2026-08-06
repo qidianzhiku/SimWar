@@ -121,36 +121,81 @@ function sameProvenance(
   candidate: TenantBaselineProvenance | undefined,
   expected: TenantBaselineProvenance
 ): boolean {
+  const sourceParameter = candidate?.source_parameter_set;
+  const sourceScenario = candidate?.source_scenario_package;
+  if (
+    !candidate ||
+    !sourceParameter ||
+    !sourceScenario ||
+    !sourceParameter.reference ||
+    !sourceScenario.reference
+  ) {
+    return false;
+  }
+
   return (
-    candidate?.idempotency_key_digest === expected.idempotency_key_digest &&
+    candidate.idempotency_key_digest === expected.idempotency_key_digest &&
     candidate.provisioning_request_digest === expected.provisioning_request_digest &&
     candidate.schema_version === expected.schema_version &&
-    candidate.source_parameter_set.tenant_id === expected.source_parameter_set.tenant_id &&
-    candidate.source_scenario_package.tenant_id === expected.source_scenario_package.tenant_id &&
-    sameParameterReference(
-      candidate.source_parameter_set.reference,
-      expected.source_parameter_set.reference
-    ) &&
-    sameScenarioReference(
-      candidate.source_scenario_package.reference,
-      expected.source_scenario_package.reference
-    )
+    sourceParameter.tenant_id === expected.source_parameter_set.tenant_id &&
+    sourceScenario.tenant_id === expected.source_scenario_package.tenant_id &&
+    sameParameterReference(sourceParameter.reference, expected.source_parameter_set.reference) &&
+    sameScenarioReference(sourceScenario.reference, expected.source_scenario_package.reference)
   );
 }
 
-function isApprovedPair(
+function hasExpectedApproval(
+  records: readonly { readonly approval_id: string }[],
+  approvalId: string
+): boolean {
+  return records.some((record) => record.approval_id === approvalId);
+}
+
+function containsOnlyVersion(
+  snapshots: readonly { readonly version: string }[],
+  expectedVersion: string
+): boolean {
+  return snapshots.every((snapshot) => snapshot.version === expectedVersion);
+}
+
+function containsOnlyMatchingProvenance(
+  snapshots: readonly { readonly baseline_provenance?: TenantBaselineProvenance }[],
+  expected: TenantBaselineProvenance
+): boolean {
+  return snapshots.every((snapshot) => sameProvenance(snapshot.baseline_provenance, expected));
+}
+
+async function isApprovedPair(
   parameterSet: ParameterSetVersion | null,
   scenarioPackage: ScenarioPackageVersion | null,
-  provenance: TenantBaselineProvenance
-): parameterSet is ParameterSetVersion {
-  return Boolean(
-    parameterSet &&
-    scenarioPackage &&
-    parameterSet.status === "APPROVED" &&
-    scenarioPackage.status === "APPROVED" &&
-    sameProvenance(parameterSet.baseline_provenance, provenance) &&
-    sameProvenance(scenarioPackage.baseline_provenance, provenance) &&
-    sameParameterReference(scenarioPackage.parameter_set_reference, parameterSet.reference)
+  provenance: TenantBaselineProvenance,
+  parameterApprovalId: string,
+  scenarioApprovalId: string,
+  authority: JsonFormalScenarioAuthorityRuntime
+): Promise<boolean> {
+  if (
+    !parameterSet ||
+    !scenarioPackage ||
+    parameterSet.status !== "APPROVED" ||
+    scenarioPackage.status !== "APPROVED" ||
+    !sameProvenance(parameterSet.baseline_provenance, provenance) ||
+    !sameProvenance(scenarioPackage.baseline_provenance, provenance) ||
+    !sameParameterReference(scenarioPackage.parameter_set_reference, parameterSet.reference)
+  ) {
+    return false;
+  }
+
+  const [parameterApprovals, scenarioApprovals] = await Promise.all([
+    authority.parameterSets.listApprovalRecords(parameterSet.tenant_id, parameterSet.reference),
+    authority.scenarioPackages.listApprovalRecords(
+      scenarioPackage.tenant_id,
+      scenarioPackage.reference
+    )
+  ]);
+
+  return (
+    hasExpectedApproval(parameterApprovals, parameterApprovalId) &&
+    hasExpectedApproval(scenarioApprovals, scenarioApprovalId)
   );
 }
 
@@ -242,22 +287,42 @@ export class TenantBaselineProvisioningService {
     });
     const parameterSetId = `tenant_baseline_parameter_${identityDigest.slice(0, 16)}`;
     const scenarioPackageId = `tenant_baseline_scenario_${identityDigest.slice(0, 16)}`;
+    const parameterApprovalId = `tenant_baseline_parameter_approval_${identityDigest.slice(0, 16)}`;
+    const scenarioApprovalId = `tenant_baseline_scenario_approval_${identityDigest.slice(0, 16)}`;
 
     const existingParameterHistory = await this.authority.parameterSets.listLifecycleSnapshots(
       input.target_tenant_id,
-      parameterSetId,
-      sourceParameterReference.version
+      parameterSetId
     );
     const existingScenarioHistory = await this.authority.scenarioPackages.listLifecycleSnapshots(
       input.target_tenant_id,
-      scenarioPackageId,
-      sourceScenarioReference.version
+      scenarioPackageId
     );
     const existingParameter = existingParameterHistory.at(-1) ?? null;
     const existingScenario = existingScenarioHistory.at(-1) ?? null;
     if (existingParameter || existingScenario) {
+      // A deterministic target identity must represent one exact source-version
+      // materialization. Looking up every version prevents a legacy partial or
+      // mismatched version from being hidden by a later retry.
       if (
-        isApprovedPair(existingParameter, existingScenario, provenance) &&
+        !containsOnlyVersion(existingParameterHistory, sourceParameterReference.version) ||
+        !containsOnlyVersion(existingScenarioHistory, sourceScenarioReference.version) ||
+        !containsOnlyMatchingProvenance(existingParameterHistory, provenance) ||
+        !containsOnlyMatchingProvenance(existingScenarioHistory, provenance)
+      ) {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
+      if (
+        existingParameter &&
+        existingScenario &&
+        (await isApprovedPair(
+          existingParameter,
+          existingScenario,
+          provenance,
+          parameterApprovalId,
+          scenarioApprovalId,
+          this.authority
+        )) &&
         existingScenario !== null
       ) {
         return this.result(actor, "REUSED", existingParameter, existingScenario, provenance);
@@ -283,8 +348,6 @@ export class TenantBaselineProvisioningService {
       throw new TenantBaselineProvisioningError("SOURCE_SCOPE_DENIED");
     }
 
-    const parameterApprovalId = `tenant_baseline_parameter_approval_${identityDigest.slice(0, 16)}`;
-    const scenarioApprovalId = `tenant_baseline_scenario_approval_${identityDigest.slice(0, 16)}`;
     const materialization = {
       idempotencyKeyDigest,
       parameterSet: {
