@@ -166,16 +166,14 @@ function containsOnlyMatchingProvenance(
 }
 
 async function isApprovedPair(
-  parameterSet: ParameterSetVersion | null,
-  scenarioPackage: ScenarioPackageVersion | null,
+  parameterSet: ParameterSetVersion,
+  scenarioPackage: ScenarioPackageVersion,
   provenance: TenantBaselineProvenance,
   parameterApprovalId: string,
   scenarioApprovalId: string,
   authority: JsonFormalScenarioAuthorityRuntime
 ): Promise<boolean> {
   if (
-    !parameterSet ||
-    !scenarioPackage ||
     parameterSet.status !== "APPROVED" ||
     scenarioPackage.status !== "APPROVED" ||
     !sameProvenance(parameterSet.baseline_provenance, provenance) ||
