@@ -5,27 +5,11 @@ import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { once } from "node:events";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const temporaryRoot = await mkdtemp(join(tmpdir(), "simwar-built-esm-startup-"));
 let apiProcess: ChildProcessWithoutNullStreams | undefined;
-
-function buildApi(): void {
-  const result = spawnSync(
-    process.execPath,
-    [
-      resolve(repositoryRoot, "node_modules/typescript/bin/tsc"),
-      "-p",
-      "services/api/tsconfig.json"
-    ],
-    { cwd: repositoryRoot, encoding: "utf8" }
-  );
-
-  if (result.status !== 0) {
-    throw new Error(`API build failed:\n${result.stdout}\n${result.stderr}`);
-  }
-}
 
 async function allocatePort(): Promise<number> {
   const server = createServer();
@@ -82,8 +66,6 @@ async function isPortListening(port: number): Promise<boolean> {
     });
   });
 }
-
-beforeAll(buildApi);
 
 afterAll(async () => {
   await stopApi();

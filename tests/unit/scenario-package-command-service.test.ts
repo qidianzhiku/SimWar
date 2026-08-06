@@ -223,6 +223,32 @@ describe("ScenarioPackageCommandService", () => {
     expect(await registry.listApprovalRecords("tenant_001", approved.version.reference)).toEqual([
       approved.approval_record
     ]);
+    await expect(
+      registry.listApprovalRecords("tenant_001", {
+        ...approved.version.reference,
+        tenant_id: "tenant_other"
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it("lets the internal baseline authority read every lifecycle version for one target id", async () => {
+    const { draftInput, registry, service } = await createScenarioHarness();
+    const firstDraft = await service.createDraft(actor, draftInput);
+    const firstValidated = await service.validate(actor, firstDraft.reference);
+    const firstFrozen = await service.freeze(actor, firstValidated.reference);
+    await service.approve(actor, firstFrozen.reference, "scenario_approval_001");
+
+    const secondDraft = await service.createDraft(actor, { ...draftInput, version: "2.0.0" });
+    const secondValidated = await service.validate(actor, secondDraft.reference);
+    const secondFrozen = await service.freeze(actor, secondValidated.reference);
+    await service.approve(actor, secondFrozen.reference, "scenario_approval_002");
+
+    await expect(
+      service.listLifecycleSnapshots("tenant_001", "scenario_package_001")
+    ).resolves.toHaveLength(8);
+    await expect(
+      registry.listLifecycleSnapshots("tenant_001", "scenario_package_001")
+    ).resolves.toHaveLength(8);
   });
 
   it("rejects invalid, skipped, reverse, and duplicate lifecycle transitions", async () => {

@@ -56,6 +56,21 @@ describe("ParameterSetCommandService", () => {
     ).toHaveLength(4);
   });
 
+  it("lets the internal baseline authority read every lifecycle version for one target id", async () => {
+    const { registry, service } = await createApprovedVersion();
+    const secondDraft = await service.createDraft(actor, { ...draftInput, version: "2.0.0" });
+    const secondValidated = await service.validate(actor, secondDraft.reference);
+    const secondFrozen = await service.freeze(actor, secondValidated.reference);
+    await service.approve(actor, secondFrozen.reference, "approval_002");
+
+    await expect(
+      service.listLifecycleSnapshots("tenant_001", "parameter_set_001")
+    ).resolves.toHaveLength(8);
+    await expect(
+      registry.listLifecycleSnapshots("tenant_001", "parameter_set_001")
+    ).resolves.toHaveLength(8);
+  });
+
   it("rejects duplicate versions, cross-tenant commands, mutable frozen content, and retired binding", async () => {
     const { approved, service } = await createApprovedVersion();
 

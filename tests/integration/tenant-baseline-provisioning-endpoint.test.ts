@@ -139,7 +139,8 @@ async function createApprovedParameterSet(
   baseUrl: string,
   token: string,
   tenantId: string,
-  parameterSetId: string
+  parameterSetId: string,
+  version = "1.0.0"
 ): Promise<ParameterReference> {
   const draft = await request<ApiEnvelope<{ reference: ParameterReference }>>(
     baseUrl,
@@ -152,7 +153,7 @@ async function createApprovedParameterSet(
         parameter_values: { base_capacity: 80, base_market_size: 100 },
         schema_version: "parameter-set.v1",
         tenant_id: tenantId,
-        version: "1.0.0"
+        version
       },
       tenantId,
       token
@@ -163,11 +164,11 @@ async function createApprovedParameterSet(
   for (const action of ["validate", "freeze", "approve"]) {
     const response = await request<ApiEnvelope<unknown>>(
       baseUrl,
-      `/api/v1/formal-authority/parameter-sets/${parameterSetId}/versions/1.0.0/${action}`,
+      `/api/v1/formal-authority/parameter-sets/${parameterSetId}/versions/${version}/${action}`,
       {
         body: {
           ...reference,
-          ...(action === "approve" ? { approval_id: `${parameterSetId}_approval` } : {}),
+          ...(action === "approve" ? { approval_id: `${parameterSetId}_approval_${version}` } : {}),
           tenant_id: tenantId
         },
         tenantId,
@@ -184,7 +185,8 @@ async function createScenarioDraft(
   token: string,
   tenantId: string,
   scenarioPackageId: string,
-  parameterSetReference: ParameterReference
+  parameterSetReference: ParameterReference,
+  version = "1.0.0"
 ): Promise<ScenarioReference> {
   const draft = await request<ApiEnvelope<{ reference: ScenarioReference }>>(
     baseUrl,
@@ -200,7 +202,7 @@ async function createScenarioDraft(
         scenario_package_id: scenarioPackageId,
         schema_version: "scenario-package.v1",
         tenant_id: tenantId,
-        version: "1.0.0"
+        version
       },
       tenantId,
       token
@@ -215,16 +217,19 @@ async function approveScenario(
   token: string,
   tenantId: string,
   scenarioPackageId: string,
-  reference: ScenarioReference
+  reference: ScenarioReference,
+  version = "1.0.0"
 ): Promise<ScenarioReference> {
   for (const action of ["validate", "freeze", "approve"]) {
     const response = await request<ApiEnvelope<unknown>>(
       baseUrl,
-      `/api/v1/formal-authority/scenario-packages/${scenarioPackageId}/versions/1.0.0/${action}`,
+      `/api/v1/formal-authority/scenario-packages/${scenarioPackageId}/versions/${version}/${action}`,
       {
         body: {
           ...reference,
-          ...(action === "approve" ? { approval_id: `${scenarioPackageId}_approval` } : {})
+          ...(action === "approve"
+            ? { approval_id: `${scenarioPackageId}_approval_${version}` }
+            : {})
         },
         tenantId,
         token
@@ -439,6 +444,29 @@ describe("tenant baseline provisioning endpoint", () => {
         sourceTenant.tenant_id,
         "source_scenario",
         sourceScenarioDraft
+      );
+      const sourceParameterV2 = await createApprovedParameterSet(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "source_parameter",
+        "2.0.0"
+      );
+      const sourceScenarioV2Draft = await createScenarioDraft(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "source_scenario",
+        sourceParameterV2,
+        "2.0.0"
+      );
+      const sourceScenarioV2 = await approveScenario(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "source_scenario",
+        sourceScenarioV2Draft,
+        "2.0.0"
       );
       const unapprovedScenario = await createScenarioDraft(
         baseUrl,
@@ -714,6 +742,84 @@ describe("tenant baseline provisioning endpoint", () => {
       expect(store.formalScenarioPackageLifecycleSnapshots).toHaveLength(
         snapshotCountAfterFirstProvision.scenario
       );
+      const partialTarget = await createTenant(baseUrl, platformToken, "baseline-partial");
+      const partialKey = "baseline-partial-v1";
+      const partialCreated = await provision(partialTarget.tenant_id, partialKey);
+      expect(partialCreated.status).toBe(201);
+      expect(partialCreated.body.data.outcome).toBe("CREATED");
+      const partialParameterReference = partialCreated.body.data.parameter_set.reference;
+      store.formalParameterSetApprovalRecords.splice(
+        0,
+        store.formalParameterSetApprovalRecords.length,
+        ...store.formalParameterSetApprovalRecords.filter(
+          (record) =>
+            !(
+              record.tenant_id === partialTarget.tenant_id &&
+              record.parameter_set_reference.parameter_set_id ===
+                partialParameterReference.parameter_set_id &&
+              record.parameter_set_reference.version === partialParameterReference.version &&
+              record.parameter_set_reference.content_digest ===
+                partialParameterReference.content_digest
+            )
+        )
+      );
+      const partialStateBeforeRetry = formalMutableStateDigest(store);
+      const missingApprovalEvidence = await request<ErrorPayload>(
+        baseUrl,
+        "/api/v1/admin/tenant-baselines/provision",
+        {
+          body: {
+            ...baseRequest,
+            idempotency_key: partialKey,
+            target_tenant_id: partialTarget.tenant_id
+          },
+          tenantId: "tenant_platform",
+          token: platformToken
+        }
+      );
+      expect(missingApprovalEvidence.status).toBe(409);
+      expect(missingApprovalEvidence.body.code).toBe("TENANT_BASELINE-409-001");
+      expect(formalMutableStateDigest(store)).toBe(partialStateBeforeRetry);
+      const partialV1ThenV2 = await request<ErrorPayload>(
+        baseUrl,
+        "/api/v1/admin/tenant-baselines/provision",
+        {
+          body: {
+            idempotency_key: partialKey,
+            source_parameter_set: {
+              ...sourceParameterV2,
+              source_tenant_id: sourceTenant.tenant_id
+            },
+            source_scenario_package: {
+              ...sourceScenarioV2,
+              source_tenant_id: sourceTenant.tenant_id
+            },
+            target_tenant_id: partialTarget.tenant_id
+          },
+          tenantId: "tenant_platform",
+          token: platformToken
+        }
+      );
+      expect(partialV1ThenV2.status).toBe(409);
+      expect(partialV1ThenV2.body.code).toBe("TENANT_BASELINE-409-001");
+      expect(formalMutableStateDigest(store)).toBe(partialStateBeforeRetry);
+      expect(
+        store.formalParameterSetLifecycleSnapshots.some(
+          (version) =>
+            version.tenant_id === partialTarget.tenant_id &&
+            version.parameter_set_id === partialParameterReference.parameter_set_id &&
+            version.version === sourceParameterV2.version
+        )
+      ).toBe(false);
+      expect(
+        store.formalScenarioPackageLifecycleSnapshots.some(
+          (version) =>
+            version.tenant_id === partialTarget.tenant_id &&
+            version.scenario_package_id ===
+              partialCreated.body.data.scenario_package.reference.scenario_package_id &&
+            version.version === sourceScenarioV2.version
+        )
+      ).toBe(false);
       const conflict = await request<ErrorPayload>(
         baseUrl,
         "/api/v1/admin/tenant-baselines/provision",
