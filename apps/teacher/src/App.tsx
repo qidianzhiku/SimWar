@@ -51,13 +51,10 @@ import {
   loadTeacherCoursePackageVersions,
   type TeacherCoursePackageSurfaceState
 } from "./course-package-client";
-import { CourseReportBuilder } from "./CourseReportBuilder";
 import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
-import { EvidenceWorkbench } from "./EvidenceWorkbench";
-import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
-import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
+import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1110,22 +1107,11 @@ export function App() {
       ) : null}
 
       {isTeacher && session ? (
-        <EvidenceWorkbench
+        <TeachingClosureWorkspace
+          apiBase={API_BASE}
           availablePackages={coursePackageList.phase === "READY" ? coursePackageList.packages : []}
           courseId={selectedRun?.course_id ?? selectedCourseId}
           runId={selectedRun?.run_id ?? selectedRunId}
-          tenantId={login.tenantId}
-          token={session.access_token}
-        />
-      ) : null}
-
-      {isTeacher && session ? (
-        <TeacherConfirmationWorkbench tenantId={login.tenantId} token={session.access_token} />
-      ) : null}
-
-      {isTeacher && session ? (
-        <D5ExportWorkbench
-          apiBase={API_BASE}
           tenantId={login.tenantId}
           token={session.access_token}
         />
@@ -1136,14 +1122,6 @@ export function App() {
           tenantId={login.tenantId}
           token={session.access_token}
           surface="teacher"
-        />
-      ) : null}
-
-      {isTeacher ? (
-        <CourseReportBuilder
-          sessionKey={`${session?.access_token ?? ""}:${login.tenantId}`}
-          tenantId={login.tenantId}
-          token={session?.access_token ?? ""}
         />
       ) : null}
 

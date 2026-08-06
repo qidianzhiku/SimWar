@@ -1,0 +1,37 @@
+{
+  "context": {
+    "activity_id": "activity_001",
+    "course_id": "latest",
+    "role_key": "marketing",
+    "run_id": "run_001",
+    "team_id": "team_001"
+  },
+  "course_report_available": false,
+  "export_formats": ["json", "markdown"],
+  "known_limits": ["limit"],
+  "queue_item": {
+    "claim_status": "AVAILABLE",
+    "confirmation_status": "MISSING",
+    "context": {
+      "activity_id": "activity_001",
+      "course_id": "latest",
+      "role_key": "marketing",
+      "run_id": "run_001",
+      "team_id": "team_001"
+    },
+    "eligible_event_count": 0,
+    "evidence_count": 0,
+    "known_limits": ["limit"],
+    "missing": ["eligible_event", "evidence_artifact", "confirmation"],
+    "outcome_status": "UNAVAILABLE"
+  },
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "schema_version": "teaching-closure.v1",
+  "student_safe_preview": {
+    "criterion_count": 0,
+    "evidence_count": 0,
+    "next_focus": "pending",
+    "status": "UNAVAILABLE",
+    "visibility": "student_safe"
+  }
+}

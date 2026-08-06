@@ -2482,6 +2482,27 @@ paths:
               schema: { $ref: "#/components/schemas/R3GoldenJourneyReceiptIndexEnvelope" }
         "401": { description: Authentication required }
         "403": { description: Student scope required }
+  /api/v1/bff/teacher/teaching-closure:
+    get:
+      operationId: TEACHER_W019_TEACHING_CLOSURE_V1
+      summary: Read one exact context-bound teaching closure queue item.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Teacher-safe unified teaching closure projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingClosureEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope required }
+        "422": { description: Exact context invalid }
   /api/v1/bff/teacher/evidence:
     get:
       operationId: TEACHER_D2_EVIDENCE_LIST_V1
@@ -3285,6 +3306,15 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    TeachingClosureEnvelope:
+      type: object
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        message: { type: string }
+        request_id: { type: string }
+        data:
+          $ref: "../schemas/teaching-closure.v1.json"
     D6TransferEvidence:
       $ref: "../schemas/d6-transfer-evidence.v1.json"
     D6TransferEnvelope:

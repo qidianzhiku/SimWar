@@ -133,6 +133,31 @@ export class TeacherConfirmationWorkClaimService {
     return structuredClone(claim);
   }
 
+  findByContext(
+    tenantId: string,
+    context: TeacherConfirmationContext,
+    now: string
+  ): TeacherConfirmationWorkClaim | undefined {
+    for (const [claimKey, current] of this.claims) {
+      if (
+        current.tenant_id !== tenantId ||
+        current.context.course_id !== context.course_id ||
+        current.context.run_id !== context.run_id ||
+        current.context.team_id !== context.team_id ||
+        current.context.role_key !== context.role_key
+      ) {
+        continue;
+      }
+      if (current.status === "CLAIMED" && Date.parse(current.expires_at) <= Date.parse(now)) {
+        const expired = { ...current, status: "EXPIRED" as const };
+        this.claims.set(claimKey, expired);
+        return structuredClone(expired);
+      }
+      return structuredClone(current);
+    }
+    return undefined;
+  }
+
   assertActive(input: {
     claim_id: string;
     actor_id: string;

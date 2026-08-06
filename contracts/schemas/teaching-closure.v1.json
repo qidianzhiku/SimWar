@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/teaching-closure.v1.json",
+  "title": "TeachingClosureDto",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "context",
+    "course_report_available",
+    "export_formats",
+    "known_limits",
+    "queue_item",
+    "runtime_authority",
+    "schema_version",
+    "student_safe_preview"
+  ],
+  "properties": {
+    "context": { "$ref": "#/$defs/Context" },
+    "course_report_available": { "type": "boolean" },
+    "export_formats": {
+      "type": "array",
+      "prefixItems": [{ "const": "json" }, { "const": "markdown" }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "known_limits": { "$ref": "#/$defs/Strings" },
+    "queue_item": { "$ref": "#/$defs/QueueItem" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "schema_version": { "const": "teaching-closure.v1" },
+    "student_safe_preview": { "$ref": "#/$defs/StudentSafePreview" }
+  },
+  "$defs": {
+    "Identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])"
+      }
+    },
+    "Context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity_id", "course_id", "role_key", "run_id", "team_id"],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/Identity" },
+        "course_id": { "$ref": "#/$defs/Identity" },
+        "role_key": { "$ref": "#/$defs/Identity" },
+        "run_id": { "$ref": "#/$defs/Identity" },
+        "team_id": { "$ref": "#/$defs/Identity" }
+      }
+    },
+    "Strings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "QueueItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_status",
+        "confirmation_status",
+        "context",
+        "eligible_event_count",
+        "evidence_count",
+        "known_limits",
+        "missing",
+        "outcome_status"
+      ],
+      "properties": {
+        "claim_expires_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+        },
+        "claim_owner": { "$ref": "#/$defs/Identity" },
+        "claim_status": { "enum": ["AVAILABLE", "CLAIMED", "EXPIRED"] },
+        "confirmation_status": { "enum": ["MISSING", "DRAFT", "REJECTED", "CONFIRMED"] },
+        "context": { "$ref": "#/$defs/Context" },
+        "eligible_event_count": { "type": "integer", "minimum": 0 },
+        "evidence_count": { "type": "integer", "minimum": 0 },
+        "known_limits": { "$ref": "#/$defs/Strings" },
+        "missing": {
+          "type": "array",
+          "items": { "enum": ["eligible_event", "evidence_artifact", "confirmation"] }
+        },
+        "outcome_status": { "enum": ["UNAVAILABLE", "PENDING", "CONFIRMED"] }
+      }
+    },
+    "StudentSafePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["criterion_count", "evidence_count", "next_focus", "status", "visibility"],
+      "properties": {
+        "criterion_count": { "type": "integer", "minimum": 0 },
+        "evidence_count": { "type": "integer", "minimum": 0 },
+        "next_focus": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["UNAVAILABLE", "PENDING", "CONFIRMED"] },
+        "visibility": { "const": "student_safe" }
+      }
+    }
+  }
+}

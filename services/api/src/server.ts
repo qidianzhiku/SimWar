@@ -93,11 +93,13 @@ import { TeacherConfirmationCommandService } from "./teacher-confirmation.js";
 import { TeacherConfirmationQueryService } from "./teacher-confirmation-query.js";
 import { TeacherConfirmationWorkClaimService } from "./teacher-confirmation-work-claim.js";
 import { handleTeacherConfirmationRoute } from "./routes/teacher-confirmation-routes.js";
+import { handleTeachingClosureRoute } from "./routes/teaching-closure-routes.js";
 import {
   handleStudentLearningReportRoute,
   isStudentLearningReportRoute
 } from "./routes/student-learning-report-routes.js";
 import { StudentLearningReportProjectionService } from "./student-learning-report-projection.js";
+import { TeachingClosureQueryService } from "./teaching-closure-query.js";
 import { D5ExportAssembler } from "./d5-export-assembler.js";
 import { D5DeliveryService } from "./d5-delivery.js";
 import { InMemoryD5ExportRegistry } from "./d5-export-registry.js";
@@ -265,6 +267,7 @@ interface ApiRuntime {
   teacherConfirmationQueries: TeacherConfirmationQueryService;
   teacherConfirmationClaims: TeacherConfirmationWorkClaimService;
   studentLearningReports: StudentLearningReportProjectionService;
+  teachingClosure: TeachingClosureQueryService;
   d5ExportAssembler: D5ExportAssembler;
   d5Delivery: D5DeliveryService;
   transferResearchDesign: TransferResearchDesignCommandService;
@@ -481,6 +484,16 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     confirmations: teacherConfirmations,
     evidence: repositoryProvider.ports.evidenceProvenance
   });
+  const teachingClosure = new TeachingClosureQueryService({
+    courseReports: new CourseReportQueryService(
+      repositoryProvider.facade,
+      repositoryProvider.capabilities
+    ),
+    evidence: evidenceCapture,
+    confirmations: new TeacherConfirmationQueryService(teacherConfirmations),
+    studentReports: studentLearningReports,
+    claims: teacherConfirmationClaims
+  });
   const d5ExportRepository = new InMemoryD5ExportRegistry();
   const d5ExportAssembler = new D5ExportAssembler({
     reports: studentLearningReports,
@@ -507,6 +520,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     teacherConfirmationQueries: new TeacherConfirmationQueryService(teacherConfirmations),
     teacherConfirmationClaims,
     studentLearningReports,
+    teachingClosure,
     d5ExportAssembler,
     d5Delivery,
     transferResearchDesign,
@@ -4634,6 +4648,23 @@ async function routeRequest(
     );
     return;
   }
+
+  if (
+    await handleTeachingClosureRoute(
+      { closure: runtime.teachingClosure },
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireTeacher: () => requireD4Teacher(context),
+        sendJson
+      }
+    )
+  )
+    return;
 
   if (
     await handleD5ExportRoute(

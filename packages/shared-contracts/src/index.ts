@@ -4,6 +4,7 @@ export * from "./evidence-provenance.js";
 export * from "./student-learning-report.js";
 export * from "./d5-export.js";
 export * from "./d6-transfer-evidence.js";
+export * from "./teaching-closure.js";
 export * from "./r3-golden-journey.js";
 
 export type ActorRole =
