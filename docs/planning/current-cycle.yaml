@@ -1,108 +1,129 @@
-cycle_id: L1PLUS-CYCLE-016-C4-INSTRUCTOR-DEBRIEF-KIT-PRODUCTIZATION
+cycle_id: L1PLUS-CYCLE-017-W018-R1-RECOVERY-CLOSURE
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-05T09:00:00Z"
-closed_at: "2026-08-05T10:08:29Z"
+started_at: "2026-08-06T04:56:30Z"
+closed_at: "2026-08-06T05:22:00Z"
 repository: qidianzhiku/SimWar
-source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
-assessment_source_anchor_sha: c6563104d03d85ef2042d2310ca8880fc0083a42
-product_evidence_source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+source_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+assessment_source_anchor_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+product_evidence_source_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
 governance_closure_merge_sha: THIS_CHANGESET
-mainline_candidate: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
-support_candidate: null
+current_master_at_readback: ca4598875b30afe36a4d8be9eb5012e4f598e805
+mainline_candidate: CAND-L1P-W018-FRESH-TENANT-COURSE-LAUNCH
+support_candidate: CAND-W018-R1-G03-G04-POST-MERGE-CLOSURE-REPAIR
 docs_discovery_candidate: null
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: "Teacher can read and export a deterministic, exact-source, teacher-safe instructor debrief artifact without creating a second authority or changing product truth."
+primary_outcome: "Teacher can launch an exact tenant/course baseline through the W018 Admin flow; G03 retry history fails closed and the default full suite starts reliably without changing product truth."
 runtime_authority: JSON_INTERNAL_ONLY
+postgresql_application_runtime: NOT_ACTIVE
 predecessor:
-  cycle_id: L1PLUS-CYCLE-015-T4-F2-TENANT-SCOPED-REFERENTIAL-INTEGRITY
-  merge_sha: f04e8c0a1ad8a0d8346c768440c006066c887ad8
+  cycle_id: L1PLUS-CYCLE-016-C4-INSTRUCTOR-DEBRIEF-KIT-PRODUCTIZATION
+  merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
 product_prs:
-  - number: 347
-    role: W016_C4_INSTRUCTOR_DEBRIEF_ARTIFACT_EXPORT
-    merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+  - number: 352
+    role: W018_FRESH_TENANT_COURSE_LAUNCH
+    merge_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+support_prs:
+  - number: 353
+    role: W018_R1_G03_G04_CLOSURE_REPAIR
+    candidate_head: 5c32fb722be01761506b330a835cbb7f1ae4c834
+    merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  acceptance_rows: 40
-  pass_rows: 36
-  pass_with_explicit_limits: 4
-  unknown_rows: 0
-  not_mapped_rows: 0
-  focused: PASS_2_FILES_5_TESTS
-  contract: PASS_15_FILES_40_TESTS
-  browser: PASS_1_TEST_ISOLATED_PORTS
-  full: PASS_160_FILES_1029_TESTS
+  focused: PASS_5_FILES_69_TESTS
+  w018_two_tenant: PASS_1_FILE_1_TEST
+  contract: PASS_15_FILES_41_TESTS
+  browser: PASS_1_TEST
+  full: PASS_164_FILES_1049_TESTS
   ci: PASS
   codeql: PASS
+  postgres_replay_ci: PASS_ARTIFACT_POSTGRES_16
+  postgres_artifact_cleanup: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
   hidden_unicode: PASS
   typecheck: PASS
   lint: PASS
   build: PASS
   fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  master_workflow: PASS
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
   codex_review: CODEX_REVIEW_UNAVAILABLE_LOCAL_FALLBACK_COMPLETE
   human_validation: NOT_PERFORMED
 evidence:
-  root: C:/Temp/simwar-w016-c4-20260805T165028
-  candidate_head: 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
-  product_merge: remote/11-product-merge-receipt.json
-  post_merge: D:/codex/fresh-clones/simwar-w016-c4-merge-ac78124bfeba
-  post_merge_receipt: remote/12-post-merge-fresh-clone-receipt.json
-  final_report: closure/15-final-report.md
+  root: C:/Temp/simwar-w018-r1-recovery-20260806T045630Z
+  design_master: 3ba73f15706219e8ad2f93684baae57d47a57c75
+  support_candidate_sha: 5c32fb722be01761506b330a835cbb7f1ae4c834
+  support_manifest_sha256: 471ab72433e91b87c57a7c2f14c208f656f822690fd9d35242343831697cd33f
+  support_merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+  support_merge_parents:
+    - 3ba73f15706219e8ad2f93684baae57d47a57c75
+    - 5c32fb722be01761506b330a835cbb7f1ae4c834
+  fresh_clone: D:/codex/fresh-clones/simwar-w018-r1-post-merge-ca459887
+  fresh_clone_status: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  master_ci_run: 31073510819
+  master_codeql_run: 31073510797
+  postgres_artifact: quality/post-merge-postgres-artifact/postgres-replay-verification.json
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - C4_INSTRUCTOR_DEBRIEF_ARTIFACT_SCOPE
-    - C4_TEACHER_BFF_EXPORT_SCOPE
-    - C4_TEACHER_BROWSER_SCOPE
+    - W018_TENANT_BASELINE_PRODUCT_SCOPE
+    - W018_COURSE_LAUNCH_ADMIN_SCOPE
+    - W018_G03_JSON_IDEMPOTENCY_SCOPE
+    - W018_G04_FULL_SUITE_STARTUP_SCOPE
+    - W018_G06_DISPOSABLE_POSTGRES_VERIFICATION
     - SERIAL_MERGE
     - POST_MERGE_FRESH_CLONE
     - GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+  - candidate_id: CAND-L1P-W018-FRESH-TENANT-COURSE-LAUNCH
     status: CLOSED_AND_CURRENT_WITH_LIMITS
   - candidate_id: CAND-L1P-D3-TEACHER-CONFIRMATION
     status: DEFERRED_UNTIL_SEPARATE_OWNER_DIRECTION
   - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
     status: HIGHER_STAGE_DEFERRED
+  - candidate_id: CAND-L1P-C5-COURSE-REPORT-BUILDER
+    status: RECOMMENDED_NOT_AUTHORIZED
 blocked_candidates: []
 metrics:
   product_pr_count: 1
+  support_product_pr_count: 1
   governance_pr_count: 1
-  corrective_product_pr_count: 0
+  corrective_product_pr_count: 1
   governance_reclosure_count: 0
-  first_pass_exit: true
+  first_pass_exit: false
+  g04_red_repair_count: 1
   readiness_mode: SERIAL_INTEGRATION
   merge_mode: SERIAL
   resource_cost_ratio: NOT_MEASURED
-  default_port_collision_count: 3
-  browser_isolated_port_rerun_count: 1
-  full_suite_anomaly_count: 0
+  full_suite_before_repair: BASELINE_HOOK_TIMEOUT
+  full_suite_after_repair: PASS_164_FILES_1049_TESTS
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
-  postgresql_runtime: NOT_ACTIVE
-  durable_recovery: NOT_PROVEN
+  postgresql_application_runtime: NOT_ACTIVE
+  disposable_postgres_ci: VERIFIED_ONLY
+  durable_transaction_recovery: NOT_PROVEN
   human_validation: NOT_PERFORMED
   issue_111: OPEN_KNOWN_LIMIT
   issue_113: OPEN_KNOWN_LIMIT
   issue_118: OPEN_KNOWN_LIMIT
+  issue_351: OPEN_KNOWN_LIMIT
   codegraph: GRAPH_EVIDENCE_GAP
   dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
   pilot_and_production: NOT_AUTHORIZED
-  cross_process_durable_artifact_recovery: NOT_PROVEN
 invalidation_triggers:
   - product_or_runtime_changed
   - settlement_authority_or_writer_changed
   - replay_or_golden_changed
-  - instructor_artifact_contract_changed
-  - teacher_visibility_or_export_changed
+  - tenant_baseline_contract_or_authority_changed
+  - W018_admin_visibility_changed
+  - G03_idempotency_semantics_changed
+  - G04_test_prerequisite_or_startup_path_changed
   - post_merge_evidence_invalidated
 explicit_non_proofs:
-  - The artifact is not Truth, SettlementResult, Score, Rank, Replay, or final-grade authority.
-  - Human Validation was not performed.
-  - JSON_INTERNAL_ONLY remains the sole active runtime authority.
-  - PostgreSQL, durable recovery, Pilot, Production, billing, external providers and AI final grading are not authorized.
-  - The default browser-port collisions were environment residue; isolated-port browser evidence passed.
+  - W018 is not Human Validation.
+  - JSON_INTERNAL_ONLY remains the sole application runtime authority.
+  - The disposable PostgreSQL service is verification-only and does not activate PostgreSQL runtime.
+  - Durable transaction, crash recovery, cross-process locking, Pilot, Production, billing, external providers and AI final grading are not authorized or proven.
+  - Issue #351 remains open and outside this closure.
 automatic_next_start: false

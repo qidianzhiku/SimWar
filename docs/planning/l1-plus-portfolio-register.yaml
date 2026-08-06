@@ -1,15 +1,15 @@
-portfolio_version: 5
+portfolio_version: 6
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-05T10:08:29Z"
+generated_at: "2026-08-06T05:22:00Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: c6563104d03d85ef2042d2310ca8880fc0083a42
-product_evidence_source_sha: ac78124bfeba4d76fd079199039954b3dabfde97
+assessment_source_anchor_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+product_evidence_source_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
 governance_closure_merge_sha: THIS_CHANGESET
-current_master_at_readback: ac78124bfeba4d76fd079199039954b3dabfde97
+current_master_at_readback: ca4598875b30afe36a4d8be9eb5012e4f598e805
 runtime_authority: JSON_INTERNAL_ONLY
-l1_status: SIMWAR_L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: C4_INSTRUCTOR_DEBRIEF_CLOSED_WITH_EXPLICIT_LIMITS
+l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
+l1_plus_status: W018_R1_CLOSED_AND_CURRENT_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -17,24 +17,32 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+    candidate_id: CAND-L1P-W018-FRESH-TENANT-COURSE-LAUNCH
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_prs: [347]
+    product_prs: [352]
     product_merge_shas:
-      - ac78124bfeba4d76fd079199039954b3dabfde97
-    primary_outcome: "Teacher-safe exact-source instructor debrief artifact can be read and exported deterministically from the official published result without changing Truth or Replay authority."
-  support_code: NONE
+      - 3ba73f15706219e8ad2f93684baae57d47a57c75
+    primary_outcome: "Teacher can launch an exact tenant/course baseline through the W018 Admin flow without changing product truth."
+  support_code:
+    candidate_id: CAND-W018-R1-G03-G04-POST-MERGE-CLOSURE-REPAIR
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    product_pr: 353
+    merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
   docs_discovery: NONE
-  closure: C4_CLOSED_AND_CURRENT_WITH_LIMITS
+  closure: W018_R1_CLOSED_AND_CURRENT_WITH_LIMITS
 closed_capabilities:
-  - capability_id: CAND-L1P-C4-INSTRUCTOR-DEBRIEF-KIT
+  - capability_id: CAND-L1P-W018-FRESH-TENANT-COURSE-LAUNCH
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+  - capability_id: CAND-W018-R1-G03-G04-POST-MERGE-CLOSURE-REPAIR
     status: CLOSED_AND_CURRENT_WITH_LIMITS
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
-    - C4_INSTRUCTOR_DEBRIEF_ARTIFACT_SCOPE
-    - C4_TEACHER_BFF_EXPORT_SCOPE
-    - C4_TEACHER_BROWSER_SCOPE
+    - W018_TENANT_BASELINE_PRODUCT_SCOPE
+    - W018_COURSE_LAUNCH_ADMIN_SCOPE
+    - W018_G03_JSON_IDEMPOTENCY_SCOPE
+    - W018_G04_FULL_SUITE_STARTUP_SCOPE
+    - W018_G06_DISPOSABLE_POSTGRES_VERIFICATION
     - SERIAL_MERGE
     - POST_MERGE_FRESH_CLONE
     - GOVERNANCE_CLOSURE
@@ -45,24 +53,44 @@ candidate_backlog:
     status: HIGHER_STAGE_DEFERRED
   - candidate_id: CAND-L1P-C5-COURSE-REPORT-BUILDER
     status: RECOMMENDED_NOT_AUTHORIZED
+blocked_candidates: []
 evidence:
-  root: C:/Temp/simwar-w016-c4-20260805T165028
-  product_candidate_sha: 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
-  product_merge_sha: ac78124bfeba4d76fd079199039954b3dabfde97
-  product_merge_parents:
-    - c6563104d03d85ef2042d2310ca8880fc0083a42
-    - 700bbe3182c4e73ebe23efc1607b7f23bd0b3f8e
-  fresh_clone: D:/codex/fresh-clones/simwar-w016-c4-merge-ac78124bfeba
+  root: C:/Temp/simwar-w018-r1-recovery-20260806T045630Z
+  product_merge_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+  support_candidate_sha: 5c32fb722be01761506b330a835cbb7f1ae4c834
+  support_merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+  support_manifest_sha256: 471ab72433e91b87c57a7c2f14c208f656f822690fd9d35242343831697cd33f
+  fresh_clone: D:/codex/fresh-clones/simwar-w018-r1-post-merge-ca459887
   fresh_clone_status: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  full_vitest: PASS_160_FILES_1029_TESTS
-  browser: PASS_ISOLATED_PORTS_3200_TO_3203
-  acceptance: PASS_WITH_EXPLICIT_LIMITS_40_ROWS_0_UNKNOWN
+  master_ci_run: 31073510819
+  master_codeql_run: 31073510797
+  postgres_artifact: quality/post-merge-postgres-artifact/postgres-replay-verification.json
+validation:
+  acceptance: PASS_WITH_EXPLICIT_LIMITS
+  focused: PASS_5_FILES_69_TESTS
+  w018_two_tenant: PASS_1_FILE_1_TEST
+  contract: PASS_15_FILES_41_TESTS
+  browser: PASS_1_TEST
+  full_vitest: PASS_164_FILES_1049_TESTS
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  post_merge_fresh_clone: PASS
+  github_quality: PASS
+  github_codeql: PASS
+  github_postgres_replay: PASS
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+  unknown_rows: 0
 known_limits:
   issue_111: OPEN_KNOWN_LIMIT
   issue_113: OPEN_KNOWN_LIMIT
   issue_118: OPEN_KNOWN_LIMIT
+  issue_351: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
-  postgresql_runtime: NOT_ACTIVE
+  postgresql_application_runtime: NOT_ACTIVE
   durable_settlement_recovery: NOT_PROVEN
   human_validation: NOT_PERFORMED
   codegraph: GRAPH_EVIDENCE_GAP
@@ -73,7 +101,9 @@ invalidation_triggers:
   - product_or_runtime_changed
   - settlement_authority_or_writer_changed
   - replay_or_golden_changed
-  - instructor_artifact_contract_changed
-  - teacher_visibility_or_export_changed
+  - tenant_baseline_contract_or_authority_changed
+  - W018_admin_visibility_changed
+  - G03_idempotency_semantics_changed
+  - G04_test_prerequisite_or_startup_path_changed
   - post_merge_evidence_invalidated
 automatic_next_start: false
