@@ -30,6 +30,7 @@ import {
 } from "./course-package-client";
 import { CourseReportBuilder } from "./CourseReportBuilder";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
+import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -640,6 +641,9 @@ export function App() {
           tenantId={session.user.tenant_id}
           token={session.access_token}
         />
+      ) : null}
+      {session?.user.roles.includes("platform_admin") ? (
+        <TenantBaselineWorkbench apiBase={API_BASE} token={session.access_token} />
       ) : null}
       {session ? (
         <TransferResearchWorkbench
