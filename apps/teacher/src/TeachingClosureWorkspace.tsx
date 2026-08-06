@@ -32,6 +32,39 @@ function contextComplete(context: TeachingClosureContext): boolean {
   return Object.values(context).every((value) => value.trim().length > 0);
 }
 
+function downloadText(filename: string, content: string, mimeType: string): void {
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function closureMarkdown(snapshot: TeachingClosureDto): string {
+  const { context, queue_item, student_safe_preview } = snapshot;
+  return [
+    "# Teaching Closure",
+    "",
+    `- Course: ${context.course_id}`,
+    `- Run: ${context.run_id}`,
+    `- Team: ${context.team_id}`,
+    `- Role: ${context.role_key}`,
+    `- Activity: ${context.activity_id}`,
+    `- Confirmation: ${queue_item.confirmation_status}`,
+    `- Claim: ${queue_item.claim_status}`,
+    `- Evidence artifacts: ${queue_item.evidence_count}`,
+    `- Eligible events: ${queue_item.eligible_event_count}`,
+    `- Student-safe outcome: ${student_safe_preview.status}`,
+    "",
+    "## Known Limits",
+    ...snapshot.known_limits.map((limit) => `- ${limit}`),
+    "",
+    "This is a derived teacher-safe projection. It excludes private evidence, Truth, canonical Decision, settlement, score, rank and replay internals."
+  ].join("\n");
+}
+
 export function TeachingClosureWorkspace({
   apiBase,
   availablePackages,
@@ -161,7 +194,7 @@ export function TeachingClosureWorkspace({
                 ["CONFIRMATION", "Claim / confirm"],
                 ["OUTCOME", "Student-safe preview"],
                 ["REPORT", "Course Report"],
-                ["EXPORT", "JSON / Markdown export"]
+                ["EXPORT", "Closure exports"]
               ] as const
             ).map(([value, label]) => (
               <button
@@ -224,7 +257,40 @@ export function TeachingClosureWorkspace({
             />
           ) : null}
           {surface === "EXPORT" ? (
-            <D5ExportWorkbench apiBase={apiBase} tenantId={tenantId} token={token} />
+            <>
+              <article className="w019-safe-preview" aria-label="W019 closure exports">
+                <h3>Exact-context closure exports</h3>
+                <p>
+                  These files are deterministic teacher-safe projections of the loaded W019
+                  context. They do not create an authority record or export private evidence.
+                </p>
+                <div className="d2-actions">
+                  <button
+                    onClick={() =>
+                      downloadText(
+                        `teaching-closure-${context.course_id}-${context.run_id}.json`,
+                        JSON.stringify(snapshot, null, 2),
+                        "application/json"
+                      )
+                    }
+                  >
+                    Download closure JSON
+                  </button>
+                  <button
+                    onClick={() =>
+                      downloadText(
+                        `teaching-closure-${context.course_id}-${context.run_id}.md`,
+                        closureMarkdown(snapshot),
+                        "text/markdown"
+                      )
+                    }
+                  >
+                    Download derived Markdown
+                  </button>
+                </div>
+              </article>
+              <D5ExportWorkbench apiBase={apiBase} tenantId={tenantId} token={token} />
+            </>
           ) : null}
         </>
       ) : null}
