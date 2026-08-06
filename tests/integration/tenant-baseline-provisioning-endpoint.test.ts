@@ -1,4 +1,5 @@
 import { once } from "node:events";
+import { createHash } from "node:crypto";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type {
@@ -16,6 +17,20 @@ interface ErrorPayload {
   code: string;
   message: string;
   request_id: string;
+}
+
+function formalMutableStateDigest(store: SimWarStore): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        parameterApprovals: store.formalParameterSetApprovalRecords,
+        parameterSnapshots: store.formalParameterSetLifecycleSnapshots,
+        scenarioApprovals: store.formalScenarioPackageApprovalRecords,
+        scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots
+      }),
+      "utf8"
+    )
+    .digest("hex");
 }
 
 async function startServer(): Promise<{ baseUrl: string; server: Server }> {
@@ -448,10 +463,45 @@ describe("tenant baseline provisioning endpoint", () => {
         settlementResults: store.settlementResults
       });
       const baseRequest = {
-        local_display_metadata: { label: "Course bootstrap baseline" },
         source_parameter_set: { ...sourceParameter, source_tenant_id: sourceTenant.tenant_id },
         source_scenario_package: { ...sourceScenario, source_tenant_id: sourceTenant.tenant_id }
       };
+      const formalStateBeforeRejectedMetadata = formalMutableStateDigest(store);
+      const formalCountsBeforeRejectedMetadata = {
+        parameterApprovals: store.formalParameterSetApprovalRecords.length,
+        parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+        scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+        scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+      };
+      for (const [key, value] of [
+        ["password", "synthetic-password-only"],
+        ["api_key", "synthetic-api-key-only"],
+        ["access_token", "synthetic-access-token-only"]
+      ]) {
+        const rejectedMetadata = await request<ErrorPayload>(
+          baseUrl,
+          "/api/v1/admin/tenant-baselines/provision",
+          {
+            body: {
+              ...baseRequest,
+              idempotency_key: `rejected-${key}`,
+              local_display_metadata: { [key]: value },
+              target_tenant_id: tenantA.tenant_id
+            },
+            tenantId: "tenant_platform",
+            token: platformToken
+          }
+        );
+        expect(rejectedMetadata.status).toBe(422);
+        expect(rejectedMetadata.body.code).toBe("TENANT_BASELINE-422-001");
+        expect(formalMutableStateDigest(store)).toBe(formalStateBeforeRejectedMetadata);
+        expect({
+          parameterApprovals: store.formalParameterSetApprovalRecords.length,
+          parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+          scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+          scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+        }).toEqual(formalCountsBeforeRejectedMetadata);
+      }
       expect(
         store.formalParameterSetLifecycleSnapshots
           .filter((version) => version.parameter_set_id === "source_parameter")
@@ -624,6 +674,26 @@ describe("tenant baseline provisioning endpoint", () => {
       expect(provisionA.body.data.provenance.source_parameter_set.reference).toEqual(
         sourceParameter
       );
+      expect(provisionA.body.data.provenance).not.toHaveProperty("requested_local_metadata");
+      expect(provisionB.body.data.provenance.provisioning_request_digest).not.toBe(
+        provisionA.body.data.provenance.provisioning_request_digest
+      );
+      expect(
+        store.formalParameterSetLifecycleSnapshots
+          .filter((version) => version.tenant_id === tenantA.tenant_id)
+          .every(
+            (version) =>
+              !Object.hasOwn(version.baseline_provenance ?? {}, "requested_local_metadata")
+          )
+      ).toBe(true);
+      expect(
+        store.formalScenarioPackageLifecycleSnapshots
+          .filter((version) => version.tenant_id === tenantA.tenant_id)
+          .every(
+            (version) =>
+              !Object.hasOwn(version.baseline_provenance ?? {}, "requested_local_metadata")
+          )
+      ).toBe(true);
 
       const snapshotCountAfterFirstProvision = {
         parameter: store.formalParameterSetLifecycleSnapshots.length,
@@ -634,6 +704,9 @@ describe("tenant baseline provisioning endpoint", () => {
       expect(reused.body.data.outcome).toBe("REUSED");
       expect(reused.body.data.parameter_set.reference).toEqual(
         provisionA.body.data.parameter_set.reference
+      );
+      expect(reused.body.data.provenance.provisioning_request_digest).toBe(
+        provisionA.body.data.provenance.provisioning_request_digest
       );
       expect(store.formalParameterSetLifecycleSnapshots).toHaveLength(
         snapshotCountAfterFirstProvision.parameter
@@ -648,7 +721,11 @@ describe("tenant baseline provisioning endpoint", () => {
           body: {
             ...baseRequest,
             idempotency_key: "baseline-tenant-a-v1",
-            local_display_metadata: { label: "Conflicting metadata" },
+            source_parameter_set: {
+              ...sourceParameter,
+              content_digest: "f".repeat(64),
+              source_tenant_id: sourceTenant.tenant_id
+            },
             target_tenant_id: tenantA.tenant_id
           },
           tenantId: "tenant_platform",

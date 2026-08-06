@@ -10,7 +10,6 @@ import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 export interface TenantBaselineProvenance {
   readonly idempotency_key_digest: string;
   readonly provisioning_request_digest: string;
-  readonly requested_local_metadata: Readonly<Record<string, string>>;
   readonly schema_version: "tenant-baseline-provenance.v1";
   readonly source_parameter_set: {
     readonly reference: ParameterSetReference;
@@ -40,7 +39,6 @@ export interface TenantBaselineScenarioPackageSource {
 
 export interface TenantBaselineProvisioningRequest {
   readonly idempotency_key: string;
-  readonly local_display_metadata?: Readonly<Record<string, string>>;
   readonly source_parameter_set: TenantBaselineParameterSetSource;
   readonly source_scenario_package: TenantBaselineScenarioPackageSource;
   readonly target_tenant_id: string;

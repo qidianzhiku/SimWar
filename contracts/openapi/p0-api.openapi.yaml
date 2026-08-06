@@ -3667,9 +3667,6 @@ components:
       required: [idempotency_key, source_parameter_set, source_scenario_package, target_tenant_id]
       properties:
         idempotency_key: { type: string, minLength: 1 }
-        local_display_metadata:
-          type: object
-          additionalProperties: { type: string, minLength: 1 }
         source_parameter_set:
           $ref: "#/components/schemas/TenantBaselineParameterSetSource"
         source_scenario_package:
@@ -3709,16 +3706,12 @@ components:
       required:
         - idempotency_key_digest
         - provisioning_request_digest
-        - requested_local_metadata
         - schema_version
         - source_parameter_set
         - source_scenario_package
       properties:
         idempotency_key_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
         provisioning_request_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
-        requested_local_metadata:
-          type: object
-          additionalProperties: { type: string }
         schema_version: { type: string, enum: [tenant-baseline-provenance.v1] }
         source_parameter_set:
           type: object

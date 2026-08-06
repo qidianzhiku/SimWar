@@ -56,21 +56,6 @@ function isCanonicalTenantId(value: string): boolean {
   return isNonBlankString(value) && value === value.trim();
 }
 
-function assertMetadata(
-  metadata: Readonly<Record<string, string>> | undefined
-): Readonly<Record<string, string>> {
-  const resolved = metadata ?? {};
-  if (
-    Object.entries(resolved).some(
-      ([key, value]) =>
-        !isNonBlankString(key) || typeof value !== "string" || !isNonBlankString(value)
-    )
-  ) {
-    throw new TenantBaselineProvisioningError("REQUEST_INVALID");
-  }
-  return Object.freeze({ ...resolved });
-}
-
 function exactParameterReference(input: TenantBaselineProvisioningRequest) {
   try {
     return createParameterSetReference({
@@ -126,6 +111,7 @@ function sameProvenance(
   return (
     candidate?.idempotency_key_digest === expected.idempotency_key_digest &&
     candidate.provisioning_request_digest === expected.provisioning_request_digest &&
+    candidate.schema_version === expected.schema_version &&
     candidate.source_parameter_set.tenant_id === expected.source_parameter_set.tenant_id &&
     candidate.source_scenario_package.tenant_id === expected.source_scenario_package.tenant_id &&
     sameParameterReference(
@@ -197,7 +183,6 @@ export class TenantBaselineProvisioningService {
       throw new TenantBaselineProvisioningError("REQUEST_INVALID");
     }
 
-    const requestedLocalMetadata = assertMetadata(input.local_display_metadata);
     const sourceParameterReference = exactParameterReference(input);
     const sourceScenarioReference = exactScenarioReference(input);
     if (
@@ -207,8 +192,10 @@ export class TenantBaselineProvisioningService {
     }
 
     const idempotencyKeyDigest = digest(input.idempotency_key);
+    const provenanceSchemaVersion = "tenant-baseline-provenance.v1" as const;
     const requestDigest = digest({
-      local_display_metadata: requestedLocalMetadata,
+      idempotency_key_digest: idempotencyKeyDigest,
+      provenance_schema_version: provenanceSchemaVersion,
       source_parameter_set: {
         reference: sourceParameterReference,
         tenant_id: input.source_parameter_set.source_tenant_id
@@ -222,8 +209,7 @@ export class TenantBaselineProvisioningService {
     const provenance: TenantBaselineProvenance = Object.freeze({
       idempotency_key_digest: idempotencyKeyDigest,
       provisioning_request_digest: requestDigest,
-      requested_local_metadata: requestedLocalMetadata,
-      schema_version: "tenant-baseline-provenance.v1",
+      schema_version: provenanceSchemaVersion,
       source_parameter_set: Object.freeze({
         reference: sourceParameterReference,
         tenant_id: input.source_parameter_set.source_tenant_id

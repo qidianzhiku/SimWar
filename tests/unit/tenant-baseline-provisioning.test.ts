@@ -105,6 +105,75 @@ async function seedApprovedSource() {
 }
 
 describe("TenantBaselineProvisioningService", () => {
+  it("ignores untyped legacy display metadata so it cannot alter formal provenance or reuse", async () => {
+    const { authority, parameter, scenario } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "legacy-metadata-boundary-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    const first = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "legacy_metadata_first" },
+      {
+        ...request,
+        local_display_metadata: { password: "synthetic-password-only" }
+      } as unknown as typeof request
+    );
+    const retried = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "legacy_metadata_retry" },
+      {
+        ...request,
+        local_display_metadata: { access_token: "synthetic-access-token-only" }
+      } as unknown as typeof request
+    );
+
+    expect(first.outcome).toBe("CREATED");
+    expect(retried.outcome).toBe("REUSED");
+    expect(first.provenance).not.toHaveProperty("requested_local_metadata");
+    expect(retried.provenance.provisioning_request_digest).toBe(
+      first.provenance.provisioning_request_digest
+    );
+  });
+
+  it("changes the provisioning digest when structured target identity changes", async () => {
+    const { authority, parameter, scenario } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const source = {
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      }
+    };
+
+    const first = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "structured_digest_first" },
+      { ...source, idempotency_key: "structured-digest-v1", target_tenant_id: "tenant_a" }
+    );
+    const changedTarget = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "structured_digest_changed_target" },
+      { ...source, idempotency_key: "structured-digest-v1", target_tenant_id: "tenant_b" }
+    );
+
+    expect(first.provenance.provisioning_request_digest).not.toBe(
+      changedTarget.provenance.provisioning_request_digest
+    );
+    expect(first.provenance).not.toHaveProperty("requested_local_metadata");
+    expect(changedTarget.provenance).not.toHaveProperty("requested_local_metadata");
+  });
+
   it("rejects non-canonical tenant identifiers before materializing a baseline", async () => {
     const { authority, parameter, scenario, store } = await seedApprovedSource();
     const service = new TenantBaselineProvisioningService(authority);

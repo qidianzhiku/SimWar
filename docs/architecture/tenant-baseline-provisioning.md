@@ -30,8 +30,13 @@ Each target version carries the same immutable
 - source tenant and exact ParameterSet reference;
 - source tenant and exact ScenarioPackage reference;
 - request and idempotency-key digests;
-- requested target-local display metadata; and
 - the `tenant-baseline-provenance.v1` schema marker.
+
+Free-form display metadata is deliberately excluded from the provisioning
+request, provenance, formal lifecycle snapshots, approvals, and content-digest
+inputs. It is not a formal baseline identity or idempotency input. The request
+digest covers only target identity, exact structured source references/source
+tenant identities, the provenance schema version, and the idempotency identity.
 
 The target ScenarioPackage binds the target-local approved ParameterSet, never
 the source tenant's ParameterSet. CoursePackage validation therefore continues
@@ -44,8 +49,8 @@ already bound its exact reference.
 The target asset IDs are deterministic hashes of the target tenant and the
 idempotency-key digest. A retry with the same complete request returns
 `REUSED`; it must find both target assets approved, provenance-identical, and
-bound together. The same idempotency key with different source provenance or
-local metadata returns `TENANT_BASELINE-409-001` and never overwrites an
+bound together. The same idempotency key with different structured source
+provenance returns `TENANT_BASELINE-409-001` and never overwrites an
 approved version.
 
 The source ScenarioPackage and ParameterSet must:

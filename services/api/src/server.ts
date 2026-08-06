@@ -2387,22 +2387,6 @@ function assertOnlyTenantBaselineFields(
   }
 }
 
-function parseTenantBaselineMetadata(value: unknown): Readonly<Record<string, string>> | undefined {
-  if (value === undefined) return undefined;
-  if (!isRecord(value)) throw tenantBaselineRequestError();
-  assertOnlyTenantBaselineFields(value, Object.keys(value));
-  const entries = Object.entries(value);
-  if (
-    entries.some(
-      ([key, item]) =>
-        key.trim().length === 0 || typeof item !== "string" || item.trim().length === 0
-    )
-  ) {
-    throw tenantBaselineRequestError();
-  }
-  return Object.freeze(Object.fromEntries(entries) as Record<string, string>);
-}
-
 function parseTenantBaselineTenantId(value: unknown): string {
   const tenantId = parseFormalParameterSetString(value);
   if (tenantId !== tenantId.trim()) throw tenantBaselineRequestError();
@@ -2413,7 +2397,6 @@ function parseTenantBaselineProvisioningRequest(value: unknown): TenantBaselineP
   if (!isRecord(value)) throw tenantBaselineRequestError();
   assertOnlyTenantBaselineFields(value, [
     "idempotency_key",
-    "local_display_metadata",
     "source_parameter_set",
     "source_scenario_package",
     "target_tenant_id"
@@ -2434,10 +2417,8 @@ function parseTenantBaselineProvisioningRequest(value: unknown): TenantBaselineP
     "tenant_id",
     "version"
   ]);
-  const localDisplayMetadata = parseTenantBaselineMetadata(value.local_display_metadata);
   const request: TenantBaselineProvisioningRequest = {
     idempotency_key: parseFormalParameterSetString(value.idempotency_key),
-    ...(localDisplayMetadata ? { local_display_metadata: localDisplayMetadata } : {}),
     source_parameter_set: {
       content_digest: parseFormalParameterSetString(value.source_parameter_set.content_digest),
       parameter_set_id: parseFormalParameterSetString(value.source_parameter_set.parameter_set_id),

@@ -264,6 +264,7 @@ describe("CoursePackageVersion contract freeze", () => {
       expect(operation?.responses?.[status]).toBeDefined();
     }
     expect(openApi.components.schemas.TenantBaselineProvisioningRequest).toMatchObject({
+      additionalProperties: false,
       properties: {
         source_parameter_set: {
           $ref: "#/components/schemas/TenantBaselineParameterSetSource"
@@ -273,6 +274,15 @@ describe("CoursePackageVersion contract freeze", () => {
         }
       }
     });
+    expect(
+      openApi.components.schemas.TenantBaselineProvisioningRequest.properties
+    ).not.toHaveProperty("local_display_metadata");
+    expect(openApi.components.schemas.TenantBaselineProvenance.required).not.toContain(
+      "requested_local_metadata"
+    );
+    expect(openApi.components.schemas.TenantBaselineProvenance.properties).not.toHaveProperty(
+      "requested_local_metadata"
+    );
     expect(openApi.components.schemas.TenantBaselineProvisioningResult).toMatchObject({
       properties: {
         provenance: { $ref: "#/components/schemas/TenantBaselineProvenance" }
