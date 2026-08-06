@@ -1,0 +1,107 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-017-W018-R1-RECOVERY-CLOSURE
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-06T04:56:30Z"
+closed_at: "2026-08-06T05:22:00Z"
+repository: qidianzhiku/SimWar
+source_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+design_master_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+support_branch: codex/tenant-baseline-partial-materialization-repair-001
+support_head_sha: 5c32fb722be01761506b330a835cbb7f1ae4c834
+support_pr: 353
+support_merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+post_merge_master_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+product_prs:
+  - number: 352
+    role: W018_FRESH_TENANT_COURSE_LAUNCH
+    merge_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+support_prs:
+  - number: 353
+    role: W018_R1_G03_G04_CLOSURE_REPAIR
+    base_sha: 3ba73f15706219e8ad2f93684baae57d47a57c75
+    head_sha: 5c32fb722be01761506b330a835cbb7f1ae4c834
+    merge_sha: ca4598875b30afe36a4d8be9eb5012e4f598e805
+    commit_count: 4
+    changed_file_count: 10
+    changed_file_manifest_sha256: 471ab72433e91b87c57a7c2f14c208f656f822690fd9d35242343831697cd33f
+mainline_candidate: CAND-L1P-W018-FRESH-TENANT-COURSE-LAUNCH
+support_candidate: CAND-W018-R1-G03-G04-POST-MERGE-CLOSURE-REPAIR
+primary_outcome: "W018 exact tenant/course launch remains current; deterministic JSON baseline retries fail closed and default full-suite startup is stable."
+resource_locks:
+  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  released:
+    - W018_TENANT_BASELINE_PRODUCT_SCOPE
+    - W018_COURSE_LAUNCH_ADMIN_SCOPE
+    - W018_G03_JSON_IDEMPOTENCY_SCOPE
+    - W018_G04_FULL_SUITE_STARTUP_SCOPE
+    - W018_G06_DISPOSABLE_POSTGRES_VERIFICATION
+    - SERIAL_MERGE
+    - POST_MERGE_FRESH_CLONE
+    - GOVERNANCE_CLOSURE
+validation:
+  g04_red: BASELINE_DEFAULT_NPM_TEST_FAILED_AT_BEFOREALL_BUILD_API_HOOK
+  g04_red_fingerprint: "Hook timed out in 10000ms at tests/integration/shared-contracts-built-esm-startup.test.ts:86"
+  g04_green: PASS_DEFAULT_NPM_TEST_164_FILES_1049_TESTS
+  focused: PASS_5_FILES_69_TESTS
+  w018_two_tenant: PASS_1_TEST
+  browser: PASS_1_TEST
+  contract: PASS_15_FILES_41_TESTS
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  post_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  post_merge_full: PASS_164_FILES_1049_TESTS
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_codeql: PASS
+  github_postgres_replay: PASS
+  github_postgres_artifact_cleanup: PASS
+  challenge_review_blocking: 0
+  challenge_review_must_fix: 0
+  unknown_rows: 0
+evidence_root: C:/Temp/simwar-w018-r1-recovery-20260806T045630Z
+evidence_refs:
+  current_reality: control/current-reality.json
+  g04_red: tests/00-g04-red-default-npm-test.log
+  support_full: tests/03-support-default-npm-test.log
+  support_contract: tests/04-contract.log
+  post_merge_full: tests/post-merge/11-full-npm-test.log
+  post_merge_postgres_artifact: quality/post-merge-postgres-artifact/postgres-replay-verification.json
+  independent_review: reviews/pr353-luna-review.txt
+  final_report: closure/final-report.md
+gap_delta:
+  closed:
+    - G03 deterministic tenant-baseline partial-materialization bypass
+    - G04 default full-suite API startup hook timeout
+    - G06 disposable Postgres verification route
+  new: []
+  reclassified:
+    - Issue #351 remains open for durable cross-process transaction/recovery
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  postgresql_application_runtime: NOT_ACTIVE
+  durable_transaction_recovery: NOT_PROVEN
+  human_validation: NOT_PERFORMED
+  issue_351: OPEN_KNOWN_LIMIT
+  pilot_production: NOT_AUTHORIZED
+  codegraph: GRAPH_EVIDENCE_GAP
+  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+metrics:
+  product_pr_count: 1
+  support_product_pr_count: 1
+  governance_pr_count: 1
+  corrective_product_pr_count: 1
+  governance_reclosure_count: 0
+  first_pass_exit: false
+  resource_cost_ratio: NOT_MEASURED
+  automatic_next_start: false
+explicit_non_proofs:
+  - Human Validation was not performed.
+  - PostgreSQL was disposable CI verification only and is not application authority.
+  - Durable transaction, crash recovery, cross-process locking, Pilot, Production, billing, external providers and AI final grading are not proven or authorized.
+  - Issue #351 remains open and was not modified.
+recommended_next_candidate: CAND-L1P-D3-TEACHER-CONFIRMATION
+recommended_next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
+automatic_next_start: false
