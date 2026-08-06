@@ -1,0 +1,72 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-019-W019-UNIFIED-TEACHING-CLOSURE
+stage: L1_PLUS
+candidate_id: CAND-L1P-W019-UNIFIED-TEACHING-CLOSURE-JOURNEY
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-06T07:44:42Z"
+closed_at: "2026-08-06T08:25:04Z"
+repository: qidianzhiku/SimWar
+branch: codex/w019-unified-teaching-closure
+design_anchor_sha: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
+source_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+head_sha: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
+merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+product_candidate_sha: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
+product_merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+governance_closure_merge_sha: THIS_CHANGESET
+post_merge_master_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+pr: 355
+primary_outcome: >-
+  One exact Course/Run/Team/Role/Activity context flows through Teacher queue,
+  evidence review, claim, confirmation, Student-safe outcome, Course Report and
+  deterministic JSON/Markdown exports without creating a new authority.
+reused_capabilities:
+  - L1P-VC-05
+  - L1P-VC-06
+  - L1P-D1
+  - L1P-D2
+  - L1P-D3
+  - L1P-D4
+  - L1P-D5
+changed_files: 23
+product_pr: 355
+validation:
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_codeql: PASS
+  github_postgres_replay: PASS
+  fresh_clone_vitest: PASS_167_FILES_1055_TESTS
+  fresh_clone_browser: PASS_76_PASSED_9_SKIPPED_PLUS_ROLE_WORKFLOW
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+evidence_root: C:/Temp/simwar-w019-unified-teaching-closure-20260806T080000Z
+gap_delta:
+  closed: []
+  new: []
+  reclassified:
+    - W019_PRODUCT_JOURNEY_COMPOSITION
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: PARALLEL_READINESS_ONLY
+  file_conflict_rate: NOT_MEASURED
+  join_rework_ratio: ONE_IN_PR_PRODUCT_REWORK_COMMIT
+  owner_touch: ONE_PREAUTHORIZED_WAVE
+  cleanup_residue: ZERO
+  boundary_breach: 0
+  post_merge_escape: 0
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  durable_recovery: NOT_PROVEN
+  human_validation: NOT_PERFORMED
+  issue_351: OPEN_KNOWN_LIMIT
+  postgres_application_runtime: NOT_ACTIVE
+  pilot_production: NOT_AUTHORIZED
+  codegraph: GRAPH_EVIDENCE_GAP
+automatic_next_start: false
+recommended_next_candidate: CAND-L1P-W020-NEXT_MAINLINE
