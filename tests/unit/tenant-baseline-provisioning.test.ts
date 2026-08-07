@@ -1051,4 +1051,98 @@ describe("TenantBaselineProvisioningService", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
   });
+
+  it("maps a null lifecycle entry to a governed conflict", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "null-lifecycle-entry-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "null_lifecycle_create" },
+      request
+    );
+    const targetParameterId = created.parameter_set.reference.parameter_set_id;
+    store.formalParameterSetLifecycleSnapshots.push(null as never);
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "null_lifecycle_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      store.formalParameterSetLifecycleSnapshots.some(
+        (snapshot) =>
+          snapshot?.parameter_set_id === targetParameterId && snapshot.status === "APPROVED"
+      )
+    ).toBe(true);
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects an orphan malformed approval before any materialization write", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "orphan-malformed-approval-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "orphan_malformed_create" },
+      request
+    );
+    const targetParameterId = created.parameter_set.reference.parameter_set_id;
+    store.formalParameterSetLifecycleSnapshots.splice(
+      0,
+      store.formalParameterSetLifecycleSnapshots.length,
+      ...store.formalParameterSetLifecycleSnapshots.filter(
+        (snapshot) => snapshot?.parameter_set_id !== targetParameterId
+      )
+    );
+    store.formalScenarioPackageLifecycleSnapshots.splice(
+      0,
+      store.formalScenarioPackageLifecycleSnapshots.length,
+      ...store.formalScenarioPackageLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot?.scenario_package_id !== created.scenario_package.reference.scenario_package_id
+      )
+    );
+    const approvalIndex = store.formalParameterSetApprovalRecords.findLastIndex(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.parameter_set_reference.parameter_set_id === targetParameterId
+    );
+    expect(approvalIndex).toBeGreaterThanOrEqual(0);
+    store.formalParameterSetApprovalRecords[approvalIndex] = {
+      ...store.formalParameterSetApprovalRecords[approvalIndex]!,
+      parameter_set_reference: undefined as never
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "orphan_malformed_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
 });

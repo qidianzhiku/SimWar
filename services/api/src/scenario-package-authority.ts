@@ -128,6 +128,7 @@ export interface ScenarioPackageRegistryPort extends ScenarioPackageAuthorityRea
     tenantId: string,
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageApprovalRecord[]>;
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[];
   listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
@@ -225,6 +226,7 @@ function isMatchingApprovalRecord(
 
   const approvalReference = record.scenario_package_reference;
   return (
+    approvalReference.tenant_id === tenantId &&
     approvalReference.scenario_package_id === reference.scenario_package_id &&
     approvalReference.tenant_id === reference.tenant_id &&
     approvalReference.version === reference.version &&
@@ -509,6 +511,7 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   private assertVersionAppendable(version: ScenarioPackageVersion): void {
     const history = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === version.tenant_id &&
         candidate.scenario_package_id === version.scenario_package_id &&
         candidate.version === version.version
@@ -526,6 +529,7 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   async assertBindable(tenantId: string, reference: ScenarioPackageReference): Promise<void> {
     const matchingIdentity = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.scenario_package_id === reference.scenario_package_id &&
         candidate.version === reference.version
     );
@@ -574,6 +578,7 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
 
     const exactHistory = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === tenantId &&
         candidate.scenario_package_id === reference.scenario_package_id &&
         candidate.version === reference.version &&
@@ -587,7 +592,7 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     const latestSnapshots = new Map<string, ScenarioPackageVersion>();
 
     for (const candidate of this.snapshots) {
-      if (candidate.tenant_id === tenantId) {
+      if (isRecord(candidate) && candidate.tenant_id === tenantId) {
         latestSnapshots.set(createScenarioPackageVersionIdentity(candidate), candidate);
       }
     }
@@ -613,6 +618,11 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     return this.approvals.filter((record) => isMatchingApprovalRecord(record, tenantId, reference));
   }
 
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+    void tenantId;
+    return this.approvals;
+  }
+
   async listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
@@ -620,9 +630,10 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   ): Promise<ScenarioPackageVersion[]> {
     return this.snapshots.filter(
       (candidate) =>
-        candidate.tenant_id === tenantId &&
-        candidate.scenario_package_id === scenarioPackageId &&
-        (version === undefined || candidate.version === version)
+        !isRecord(candidate) ||
+        (candidate.tenant_id === tenantId &&
+          candidate.scenario_package_id === scenarioPackageId &&
+          (version === undefined || candidate.version === version))
     );
   }
 }
@@ -691,6 +702,10 @@ export class ScenarioPackageCommandService implements ScenarioPackageAuthorityRe
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageApprovalRecord[]> {
     return this.registry.listApprovalRecords(tenantId, reference);
+  }
+
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+    return this.registry.listApprovalRecordsForTenant(tenantId);
   }
 
   async listApprovedForTenant(tenantId: string): Promise<ScenarioPackageAuthorityReadProjection[]> {

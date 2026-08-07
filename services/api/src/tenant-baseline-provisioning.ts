@@ -67,6 +67,66 @@ function isCanonicalTenantId(value: unknown): value is string {
   return isNonBlankString(value) && value === value.trim();
 }
 
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function isStrictParameterApprovalRecord(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      "approval_id",
+      "approved_by",
+      "correlation_id",
+      "parameter_set_reference",
+      "tenant_id"
+    ]) &&
+    isNonBlankString(value.approval_id) &&
+    isNonBlankString(value.approved_by) &&
+    isNonBlankString(value.correlation_id) &&
+    isCanonicalTenantId(value.tenant_id) &&
+    isRecord(value.parameter_set_reference) &&
+    hasExactKeys(value.parameter_set_reference, [
+      "content_digest",
+      "parameter_set_id",
+      "version"
+    ]) &&
+    isSha256Digest(value.parameter_set_reference.content_digest) &&
+    isNonBlankString(value.parameter_set_reference.parameter_set_id) &&
+    isNonBlankString(value.parameter_set_reference.version)
+  );
+}
+
+function isStrictScenarioApprovalRecord(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      "approval_id",
+      "approved_by",
+      "correlation_id",
+      "scenario_package_reference",
+      "tenant_id"
+    ]) &&
+    isNonBlankString(value.approval_id) &&
+    isNonBlankString(value.approved_by) &&
+    isNonBlankString(value.correlation_id) &&
+    isCanonicalTenantId(value.tenant_id) &&
+    isRecord(value.scenario_package_reference) &&
+    hasExactKeys(value.scenario_package_reference, [
+      "content_digest",
+      "scenario_package_id",
+      "tenant_id",
+      "version"
+    ]) &&
+    isSha256Digest(value.scenario_package_reference.content_digest) &&
+    isNonBlankString(value.scenario_package_reference.scenario_package_id) &&
+    isCanonicalTenantId(value.scenario_package_reference.tenant_id) &&
+    isNonBlankString(value.scenario_package_reference.version)
+  );
+}
+
 function exactParameterReference(input: TenantBaselineProvisioningRequest) {
   try {
     return createParameterSetReference({
@@ -107,6 +167,13 @@ function sameParameterReference(left: unknown, right: unknown): boolean {
     return false;
   }
 
+  if (
+    !hasExactKeys(left, ["content_digest", "parameter_set_id", "version"]) ||
+    !hasExactKeys(right, ["content_digest", "parameter_set_id", "version"])
+  ) {
+    return false;
+  }
+
   return (
     left.content_digest === right.content_digest &&
     left.parameter_set_id === right.parameter_set_id &&
@@ -116,6 +183,13 @@ function sameParameterReference(left: unknown, right: unknown): boolean {
 
 function sameScenarioReference(left: unknown, right: unknown): boolean {
   if (!isRecord(left) || !isRecord(right)) {
+    return false;
+  }
+
+  if (
+    !hasExactKeys(left, ["content_digest", "scenario_package_id", "tenant_id", "version"]) ||
+    !hasExactKeys(right, ["content_digest", "scenario_package_id", "tenant_id", "version"])
+  ) {
     return false;
   }
 
@@ -160,6 +234,19 @@ function isSelfConsistentParameterVersion(value: unknown): boolean {
   }
 
   return (
+    hasExactKeys(value, [
+      "baseline_provenance",
+      "compatibility_metadata",
+      "content_digest",
+      "model_version_ref",
+      "parameter_set_id",
+      "parameter_values",
+      "reference",
+      "schema_version",
+      "status",
+      "tenant_id",
+      "version"
+    ]) &&
     isNonBlankString(value.parameter_set_id) &&
     isNonBlankString(value.version) &&
     isSha256Digest(value.content_digest) &&
@@ -177,6 +264,22 @@ function isSelfConsistentScenarioVersion(value: unknown): boolean {
   }
 
   return (
+    hasExactKeys(value, [
+      "artifact_policy",
+      "baseline_provenance",
+      "compatibility_metadata",
+      "content",
+      "content_digest",
+      "metadata",
+      "parameter_set_reference",
+      "plugin_dependencies",
+      "reference",
+      "scenario_package_id",
+      "schema_version",
+      "status",
+      "tenant_id",
+      "version"
+    ]) &&
     isNonBlankString(value.scenario_package_id) &&
     isCanonicalTenantId(value.tenant_id) &&
     isNonBlankString(value.version) &&
@@ -281,20 +384,29 @@ function hasExpectedParameterApproval(
   tenantId: string,
   reference: unknown
 ): boolean {
-  return (
-    records.filter((record) => {
-      if (!isRecord(record)) {
-        return false;
-      }
+  if (records.some((record) => !isStrictParameterApprovalRecord(record))) {
+    return false;
+  }
 
-      return (
-        record.approval_id === approvalId &&
-        record.tenant_id === tenantId &&
-        isNonBlankString(record.approved_by) &&
-        isNonBlankString(record.correlation_id) &&
-        sameParameterReference(record.parameter_set_reference, reference)
-      );
-    }).length === 1
+  const relevant = records.filter((record) => {
+    if (!isRecord(record) || record.tenant_id !== tenantId) {
+      return false;
+    }
+
+    const candidateReference = record.parameter_set_reference;
+    return (
+      isRecord(candidateReference) &&
+      candidateReference.parameter_set_id ===
+        (isRecord(reference) ? reference.parameter_set_id : undefined) &&
+      candidateReference.version === (isRecord(reference) ? reference.version : undefined)
+    );
+  });
+
+  return (
+    relevant.length === 1 &&
+    isRecord(relevant[0]) &&
+    relevant[0].approval_id === approvalId &&
+    sameParameterReference(relevant[0].parameter_set_reference, reference)
   );
 }
 
@@ -304,21 +416,37 @@ function hasExpectedScenarioApproval(
   tenantId: string,
   reference: unknown
 ): boolean {
-  return (
-    records.filter((record) => {
-      if (!isRecord(record)) {
-        return false;
-      }
+  if (records.some((record) => !isStrictScenarioApprovalRecord(record))) {
+    return false;
+  }
 
-      return (
-        record.approval_id === approvalId &&
-        record.tenant_id === tenantId &&
-        isNonBlankString(record.approved_by) &&
-        isNonBlankString(record.correlation_id) &&
-        sameScenarioReference(record.scenario_package_reference, reference)
-      );
-    }).length === 1
+  const relevant = records.filter((record) => {
+    if (!isRecord(record) || record.tenant_id !== tenantId) {
+      return false;
+    }
+
+    const candidateReference = record.scenario_package_reference;
+    return (
+      isRecord(candidateReference) &&
+      candidateReference.scenario_package_id ===
+        (isRecord(reference) ? reference.scenario_package_id : undefined) &&
+      candidateReference.version === (isRecord(reference) ? reference.version : undefined)
+    );
+  });
+
+  return (
+    relevant.length === 1 &&
+    isRecord(relevant[0]) &&
+    relevant[0].approval_id === approvalId &&
+    sameScenarioReference(relevant[0].scenario_package_reference, reference)
   );
+}
+
+function hasMalformedApprovalEvidence(
+  records: readonly unknown[],
+  validate: (record: unknown) => boolean
+): boolean {
+  return records.some((record) => !validate(record));
 }
 
 async function isApprovedPair(
@@ -348,11 +476,8 @@ async function isApprovedPair(
 
   try {
     const [parameterApprovals, scenarioApprovals] = await Promise.all([
-      authority.parameterSets.listApprovalRecords(parameterSet.tenant_id, parameterSet.reference),
-      authority.scenarioPackages.listApprovalRecords(
-        scenarioPackage.tenant_id,
-        scenarioPackage.reference
-      )
+      authority.parameterSets.listApprovalRecordsForTenant(parameterSet.tenant_id),
+      authority.scenarioPackages.listApprovalRecordsForTenant(scenarioPackage.tenant_id)
     ]);
 
     return (
@@ -473,6 +598,19 @@ export class TenantBaselineProvisioningService {
       input.target_tenant_id,
       scenarioPackageId
     );
+    const [targetParameterApprovalEvidence, targetScenarioApprovalEvidence] = await Promise.all([
+      this.authority.parameterSets.listApprovalRecordsForTenant(input.target_tenant_id),
+      this.authority.scenarioPackages.listApprovalRecordsForTenant(input.target_tenant_id)
+    ]);
+    if (
+      hasMalformedApprovalEvidence(
+        targetParameterApprovalEvidence,
+        isStrictParameterApprovalRecord
+      ) ||
+      hasMalformedApprovalEvidence(targetScenarioApprovalEvidence, isStrictScenarioApprovalRecord)
+    ) {
+      throw new TenantBaselineProvisioningError("CONFLICT");
+    }
     const existingParameter = existingParameterHistory.at(-1) ?? null;
     const existingScenario = existingScenarioHistory.at(-1) ?? null;
     if (existingParameter || existingScenario) {

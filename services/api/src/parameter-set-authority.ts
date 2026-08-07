@@ -98,6 +98,7 @@ export interface ParameterSetRegistryPort extends ParameterSetAuthorityReadPort 
     tenantId: string,
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]>;
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[];
   listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
@@ -372,6 +373,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   private assertVersionAppendable(version: ParameterSetVersion): void {
     const history = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === version.tenant_id &&
         candidate.parameter_set_id === version.parameter_set_id &&
         candidate.version === version.version
@@ -389,6 +391,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   async assertBindable(tenantId: string, reference: ParameterSetReference): Promise<void> {
     const matchingIdentity = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.parameter_set_id === reference.parameter_set_id &&
         candidate.version === reference.version
     );
@@ -432,6 +435,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   ): Promise<ParameterSetVersion | null> {
     const exactHistory = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === tenantId &&
         candidate.parameter_set_id === reference.parameter_set_id &&
         candidate.version === reference.version &&
@@ -456,6 +460,11 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     return this.approvals.filter((record) => isMatchingApprovalRecord(record, tenantId, reference));
   }
 
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+    void tenantId;
+    return this.approvals;
+  }
+
   async listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
@@ -463,9 +472,10 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   ): Promise<ParameterSetVersion[]> {
     return this.snapshots.filter(
       (candidate) =>
-        candidate.tenant_id === tenantId &&
-        candidate.parameter_set_id === parameterSetId &&
-        (version === undefined || candidate.version === version)
+        !isRecord(candidate) ||
+        (candidate.tenant_id === tenantId &&
+          candidate.parameter_set_id === parameterSetId &&
+          (version === undefined || candidate.version === version))
     );
   }
 }
@@ -526,6 +536,10 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]> {
     return this.registry.listApprovalRecords(tenantId, reference);
+  }
+
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+    return this.registry.listApprovalRecordsForTenant(tenantId);
   }
 
   async approve(
