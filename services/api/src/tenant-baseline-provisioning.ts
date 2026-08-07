@@ -281,19 +281,21 @@ function hasExpectedParameterApproval(
   tenantId: string,
   reference: unknown
 ): boolean {
-  return records.some((record) => {
-    if (!isRecord(record)) {
-      return false;
-    }
+  return (
+    records.filter((record) => {
+      if (!isRecord(record)) {
+        return false;
+      }
 
-    return (
-      record.approval_id === approvalId &&
-      record.tenant_id === tenantId &&
-      isNonBlankString(record.approved_by) &&
-      isNonBlankString(record.correlation_id) &&
-      sameParameterReference(record.parameter_set_reference, reference)
-    );
-  });
+      return (
+        record.approval_id === approvalId &&
+        record.tenant_id === tenantId &&
+        isNonBlankString(record.approved_by) &&
+        isNonBlankString(record.correlation_id) &&
+        sameParameterReference(record.parameter_set_reference, reference)
+      );
+    }).length === 1
+  );
 }
 
 function hasExpectedScenarioApproval(
@@ -302,19 +304,21 @@ function hasExpectedScenarioApproval(
   tenantId: string,
   reference: unknown
 ): boolean {
-  return records.some((record) => {
-    if (!isRecord(record)) {
-      return false;
-    }
+  return (
+    records.filter((record) => {
+      if (!isRecord(record)) {
+        return false;
+      }
 
-    return (
-      record.approval_id === approvalId &&
-      record.tenant_id === tenantId &&
-      isNonBlankString(record.approved_by) &&
-      isNonBlankString(record.correlation_id) &&
-      sameScenarioReference(record.scenario_package_reference, reference)
-    );
-  });
+      return (
+        record.approval_id === approvalId &&
+        record.tenant_id === tenantId &&
+        isNonBlankString(record.approved_by) &&
+        isNonBlankString(record.correlation_id) &&
+        sameScenarioReference(record.scenario_package_reference, reference)
+      );
+    }).length === 1
+  );
 }
 
 async function isApprovedPair(
