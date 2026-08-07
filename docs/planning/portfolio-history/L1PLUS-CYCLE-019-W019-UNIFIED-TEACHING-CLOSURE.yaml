@@ -13,8 +13,10 @@ head_sha: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
 merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
 product_candidate_sha: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
 product_merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-governance_closure_merge_sha: THIS_CHANGESET
-post_merge_master_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+governance_closure_merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
+post_merge_master_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
+portfolio_reconciliation: RECONCILED
+governance_reconciliation_authorization: OWNER_W019_GOVERNANCE_RECONCILIATION_AFTER_CLOSURE_BUDGET_001
 pr: 355
 primary_outcome: >-
   One exact Course/Run/Team/Role/Activity context flows through Teacher queue,

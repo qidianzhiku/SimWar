@@ -4,11 +4,13 @@ status: CLOSED_AND_CURRENT_WITH_LIMITS
 started_at: "2026-08-06T07:44:42Z"
 closed_at: "2026-08-06T08:25:04Z"
 repository: qidianzhiku/SimWar
-source_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
+source_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
 assessment_source_anchor_sha: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
 product_evidence_source_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-governance_closure_merge_sha: THIS_CHANGESET
-current_master_at_readback: POST_GOVERNANCE_READBACK_REQUIRED
+governance_closure_merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
+current_master_at_readback: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
+portfolio_current_master_lag: RECONCILED
+governance_reconciliation_authorization: OWNER_W019_GOVERNANCE_RECONCILIATION_AFTER_CLOSURE_BUDGET_001
 mainline_candidate: CAND-L1P-W019-UNIFIED-TEACHING-CLOSURE-JOURNEY
 support_candidate: NONE
 docs_discovery_candidate: null
@@ -56,6 +58,10 @@ evidence:
   master_ci_run: 31084581772
   master_codeql_run: 31084581439
   postgres_artifact: quality/postgres-artifact/postgres-replay-verification.json
+  audit_root: C:/Temp/simwar-w019-completion-audit-20260806T090000Z
+  audit_fresh_clone: D:/codex/fresh-clones/simwar-w019-a88-2889c7b
+  audit_fresh_clone_status: PASS_WITH_EXPLICIT_LIMIT
+  audit_manifest_sha256: d930afe16e4101e435911d1c28c02959fea9085c5020af0a0daeb92d995a779c
 resource_locks:
   status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
   released:
@@ -78,10 +84,10 @@ blocked_candidates: []
 metrics:
   product_pr_count: 1
   support_product_pr_count: 0
-  governance_pr_count: 1
+  governance_pr_count: 2
   corrective_product_pr_count: 0
   rework_product_commit_count: 1
-  governance_reclosure_count: 0
+  governance_reclosure_count: 1
   first_pass_exit: false
   browser_regression_repair_commits: 1
   readiness_mode: PARALLEL_READINESS_SERIAL_INTEGRATION
