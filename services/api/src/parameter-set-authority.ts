@@ -144,6 +144,55 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidParameterSetReference(value: unknown): value is ParameterSetReference {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  try {
+    createParameterSetReference({
+      content_digest: value.content_digest as string,
+      parameter_set_id: value.parameter_set_id as string,
+      version: value.version as string
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isMatchingApprovalRecord(
+  record: unknown,
+  tenantId: string,
+  reference: ParameterSetReference
+): record is ParameterSetApprovalRecord {
+  if (
+    !isRecord(record) ||
+    !isNonBlankString(record.approval_id) ||
+    !isNonBlankString(record.approved_by) ||
+    !isNonBlankString(record.correlation_id) ||
+    record.tenant_id !== tenantId ||
+    !isValidParameterSetReference(record.parameter_set_reference)
+  ) {
+    return false;
+  }
+
+  const approvalReference = record.parameter_set_reference;
+  return (
+    approvalReference.parameter_set_id === reference.parameter_set_id &&
+    approvalReference.version === reference.version &&
+    approvalReference.content_digest === reference.content_digest
+  );
+}
+
 function createImmutableVersion(
   input: ParameterSetDraftInput,
   status: ParameterSetVersionStatus
@@ -392,13 +441,11 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     tenantId: string,
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]> {
-    return this.approvals.filter(
-      (record) =>
-        record.tenant_id === tenantId &&
-        record.parameter_set_reference.parameter_set_id === reference.parameter_set_id &&
-        record.parameter_set_reference.version === reference.version &&
-        record.parameter_set_reference.content_digest === reference.content_digest
-    );
+    if (!isValidParameterSetReference(reference)) {
+      return [];
+    }
+
+    return this.approvals.filter((record) => isMatchingApprovalRecord(record, tenantId, reference));
   }
 
   async listLifecycleSnapshots(

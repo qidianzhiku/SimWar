@@ -188,8 +188,55 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function isNonBlankString(value: string): boolean {
-  return value.trim().length > 0;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidScenarioPackageReference(value: unknown): value is ScenarioPackageReference {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  try {
+    createScenarioPackageReference({
+      content_digest: value.content_digest as string,
+      scenario_package_id: value.scenario_package_id as string,
+      tenant_id: value.tenant_id as string,
+      version: value.version as string
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isMatchingApprovalRecord(
+  record: unknown,
+  tenantId: string,
+  reference: ScenarioPackageReference
+): record is ScenarioPackageApprovalRecord {
+  if (
+    !isRecord(record) ||
+    !isNonBlankString(record.approval_id) ||
+    !isNonBlankString(record.approved_by) ||
+    !isNonBlankString(record.correlation_id) ||
+    record.tenant_id !== tenantId ||
+    !isValidScenarioPackageReference(record.scenario_package_reference)
+  ) {
+    return false;
+  }
+
+  const approvalReference = record.scenario_package_reference;
+  return (
+    approvalReference.scenario_package_id === reference.scenario_package_id &&
+    approvalReference.tenant_id === reference.tenant_id &&
+    approvalReference.version === reference.version &&
+    approvalReference.content_digest === reference.content_digest
+  );
 }
 
 function createImmutableVersion(
@@ -549,14 +596,11 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     tenantId: string,
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageApprovalRecord[]> {
-    return this.approvals.filter(
-      (record) =>
-        record.tenant_id === tenantId &&
-        record.scenario_package_reference.scenario_package_id === reference.scenario_package_id &&
-        record.scenario_package_reference.tenant_id === reference.tenant_id &&
-        record.scenario_package_reference.version === reference.version &&
-        record.scenario_package_reference.content_digest === reference.content_digest
-    );
+    if (!isValidScenarioPackageReference(reference)) {
+      return [];
+    }
+
+    return this.approvals.filter((record) => isMatchingApprovalRecord(record, tenantId, reference));
   }
 
   async listLifecycleSnapshots(
