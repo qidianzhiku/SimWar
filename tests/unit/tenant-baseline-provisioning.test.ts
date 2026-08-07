@@ -1072,6 +1072,21 @@ describe("TenantBaselineProvisioningService", () => {
       request
     );
     const targetParameterId = created.parameter_set.reference.parameter_set_id;
+    store.formalParameterSetLifecycleSnapshots.splice(
+      0,
+      store.formalParameterSetLifecycleSnapshots.length,
+      ...store.formalParameterSetLifecycleSnapshots.filter(
+        (snapshot) => snapshot?.parameter_set_id !== targetParameterId
+      )
+    );
+    store.formalScenarioPackageLifecycleSnapshots.splice(
+      0,
+      store.formalScenarioPackageLifecycleSnapshots.length,
+      ...store.formalScenarioPackageLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot?.scenario_package_id !== created.scenario_package.reference.scenario_package_id
+      )
+    );
     store.formalParameterSetLifecycleSnapshots.push(null as never);
     const countsBeforeRetry = formalAuthorityCounts(store);
 
@@ -1083,10 +1098,9 @@ describe("TenantBaselineProvisioningService", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(
       store.formalParameterSetLifecycleSnapshots.some(
-        (snapshot) =>
-          snapshot?.parameter_set_id === targetParameterId && snapshot.status === "APPROVED"
+        (snapshot) => snapshot?.parameter_set_id === targetParameterId
       )
-    ).toBe(true);
+    ).toBe(false);
     expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
   });
 

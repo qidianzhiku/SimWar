@@ -619,8 +619,10 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
   }
 
   listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
-    void tenantId;
-    return this.approvals;
+    return this.approvals.filter(
+      (record) =>
+        !isRecord(record) || !isNonBlankString(record.tenant_id) || record.tenant_id === tenantId
+    );
   }
 
   async listLifecycleSnapshots(
@@ -631,6 +633,10 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     return this.snapshots.filter(
       (candidate) =>
         !isRecord(candidate) ||
+        !isNonBlankString(candidate.tenant_id) ||
+        !isNonBlankString(candidate.scenario_package_id) ||
+        !isNonBlankString(candidate.version) ||
+        !isNonBlankString(candidate.status) ||
         (candidate.tenant_id === tenantId &&
           candidate.scenario_package_id === scenarioPackageId &&
           (version === undefined || candidate.version === version))

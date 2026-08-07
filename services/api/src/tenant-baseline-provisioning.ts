@@ -2,14 +2,22 @@ import { createHash } from "node:crypto";
 import {
   createParameterSetReference,
   createScenarioPackageReference,
+  isExactVersion,
   type TenantBaselineProvisioningRequest,
   type TenantBaselineProvisioningResult,
   type TenantBaselineProvenance
 } from "@simwar/shared-contracts";
 import type { JsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
-import { ParameterSetAuthorityError, type ParameterSetVersion } from "./parameter-set-authority.js";
 import {
+  calculateParameterSetContentDigest,
+  ParameterSetAuthorityError,
+  type ParameterSetDraftInput,
+  type ParameterSetVersion
+} from "./parameter-set-authority.js";
+import {
+  calculateScenarioPackageContentDigest,
   ScenarioPackageAuthorityError,
+  type ScenarioPackageDraftInput,
   type ScenarioPackageVersion
 } from "./scenario-package-authority.js";
 
@@ -95,7 +103,8 @@ function isStrictParameterApprovalRecord(value: unknown): boolean {
     ]) &&
     isSha256Digest(value.parameter_set_reference.content_digest) &&
     isNonBlankString(value.parameter_set_reference.parameter_set_id) &&
-    isNonBlankString(value.parameter_set_reference.version)
+    typeof value.parameter_set_reference.version === "string" &&
+    isExactVersion(value.parameter_set_reference.version)
   );
 }
 
@@ -123,7 +132,8 @@ function isStrictScenarioApprovalRecord(value: unknown): boolean {
     isSha256Digest(value.scenario_package_reference.content_digest) &&
     isNonBlankString(value.scenario_package_reference.scenario_package_id) &&
     isCanonicalTenantId(value.scenario_package_reference.tenant_id) &&
-    isNonBlankString(value.scenario_package_reference.version)
+    typeof value.scenario_package_reference.version === "string" &&
+    isExactVersion(value.scenario_package_reference.version)
   );
 }
 
@@ -206,11 +216,25 @@ function sameProvenance(candidate: unknown, expected: TenantBaselineProvenance):
     return false;
   }
 
+  if (
+    !hasExactKeys(candidate, [
+      "idempotency_key_digest",
+      "provisioning_request_digest",
+      "schema_version",
+      "source_parameter_set",
+      "source_scenario_package"
+    ])
+  ) {
+    return false;
+  }
+
   const sourceParameter = candidate.source_parameter_set;
   const sourceScenario = candidate.source_scenario_package;
   if (
     !isRecord(sourceParameter) ||
     !isRecord(sourceScenario) ||
+    !hasExactKeys(sourceParameter, ["reference", "tenant_id"]) ||
+    !hasExactKeys(sourceScenario, ["reference", "tenant_id"]) ||
     !sourceParameter.reference ||
     !sourceScenario.reference
   ) {
@@ -233,7 +257,7 @@ function isSelfConsistentParameterVersion(value: unknown): boolean {
     return false;
   }
 
-  return (
+  if (
     hasExactKeys(value, [
       "baseline_provenance",
       "compatibility_metadata",
@@ -248,14 +272,26 @@ function isSelfConsistentParameterVersion(value: unknown): boolean {
       "version"
     ]) &&
     isNonBlankString(value.parameter_set_id) &&
-    isNonBlankString(value.version) &&
+    typeof value.version === "string" &&
+    isExactVersion(value.version) &&
     isSha256Digest(value.content_digest) &&
     sameParameterReference(value.reference, {
       content_digest: value.content_digest,
       parameter_set_id: value.parameter_set_id,
       version: value.version
     })
-  );
+  ) {
+    try {
+      return (
+        calculateParameterSetContentDigest(value as unknown as ParameterSetDraftInput) ===
+        value.content_digest
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function isSelfConsistentScenarioVersion(value: unknown): boolean {
@@ -263,7 +299,7 @@ function isSelfConsistentScenarioVersion(value: unknown): boolean {
     return false;
   }
 
-  return (
+  if (
     hasExactKeys(value, [
       "artifact_policy",
       "baseline_provenance",
@@ -282,7 +318,8 @@ function isSelfConsistentScenarioVersion(value: unknown): boolean {
     ]) &&
     isNonBlankString(value.scenario_package_id) &&
     isCanonicalTenantId(value.tenant_id) &&
-    isNonBlankString(value.version) &&
+    typeof value.version === "string" &&
+    isExactVersion(value.version) &&
     isSha256Digest(value.content_digest) &&
     sameScenarioReference(value.reference, {
       content_digest: value.content_digest,
@@ -290,7 +327,18 @@ function isSelfConsistentScenarioVersion(value: unknown): boolean {
       tenant_id: value.tenant_id,
       version: value.version
     })
-  );
+  ) {
+    try {
+      return (
+        calculateScenarioPackageContentDigest(value as unknown as ScenarioPackageDraftInput) ===
+        value.content_digest
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 function hasExactParameterLifecycle(
@@ -388,6 +436,14 @@ function hasExpectedParameterApproval(
     return false;
   }
 
+  const approvalIdMatches = records.filter(
+    (record) =>
+      isRecord(record) && record.tenant_id === tenantId && record.approval_id === approvalId
+  );
+  if (approvalIdMatches.length !== 1) {
+    return false;
+  }
+
   const relevant = records.filter((record) => {
     if (!isRecord(record) || record.tenant_id !== tenantId) {
       return false;
@@ -420,6 +476,14 @@ function hasExpectedScenarioApproval(
     return false;
   }
 
+  const approvalIdMatches = records.filter(
+    (record) =>
+      isRecord(record) && record.tenant_id === tenantId && record.approval_id === approvalId
+  );
+  if (approvalIdMatches.length !== 1) {
+    return false;
+  }
+
   const relevant = records.filter((record) => {
     if (!isRecord(record) || record.tenant_id !== tenantId) {
       return false;
@@ -447,6 +511,13 @@ function hasMalformedApprovalEvidence(
   validate: (record: unknown) => boolean
 ): boolean {
   return records.some((record) => !validate(record));
+}
+
+function hasApprovalId(records: readonly unknown[], approvalId: string, tenantId: string): boolean {
+  return records.some(
+    (record) =>
+      isRecord(record) && record.tenant_id === tenantId && record.approval_id === approvalId
+  );
 }
 
 async function isApprovedPair(
@@ -611,9 +682,24 @@ export class TenantBaselineProvisioningService {
     ) {
       throw new TenantBaselineProvisioningError("CONFLICT");
     }
+    if (
+      (hasApprovalId(
+        targetParameterApprovalEvidence,
+        parameterApprovalId,
+        input.target_tenant_id
+      ) ||
+        hasApprovalId(
+          targetScenarioApprovalEvidence,
+          scenarioApprovalId,
+          input.target_tenant_id
+        )) &&
+      (existingParameterHistory.length !== 4 || existingScenarioHistory.length !== 4)
+    ) {
+      throw new TenantBaselineProvisioningError("CONFLICT");
+    }
     const existingParameter = existingParameterHistory.at(-1) ?? null;
     const existingScenario = existingScenarioHistory.at(-1) ?? null;
-    if (existingParameter || existingScenario) {
+    if (existingParameterHistory.length > 0 || existingScenarioHistory.length > 0) {
       // A deterministic target identity must represent one exact source-version
       // materialization. Looking up every version prevents a legacy partial or
       // mismatched version from being hidden by a later retry.

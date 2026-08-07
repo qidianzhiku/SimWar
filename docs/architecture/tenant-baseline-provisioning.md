@@ -56,8 +56,11 @@ exactly `DRAFT -> VALIDATED -> FROZEN -> APPROVED`; missing, duplicated,
 out-of-order, or extra states are non-verifiable. Every snapshot reference is
 also checked against its owning tenant, artifact identity, version, and content
 digest, and a ScenarioPackage must bind the exact target ParameterSet
-reference. Approval records must have a valid shape and must match the exact
-approved target reference and tenant. An earlier partial, unapproved,
+reference. Approval records must use the exact persisted record/reference key
+shape, must be unique for the target identity, and must match the exact
+approved target reference and tenant. Any malformed approval row (including an
+unknown-field, null, missing-reference, or duplicate row) is invalid evidence
+and fails closed before a write. An earlier partial, unapproved,
 non-verifiable, malformed, mismatched, or different-source version is a stable
 `TENANT_BASELINE-409-001`, never a reason to create or reuse another version
 under the same deterministic identity. The same idempotency key with different
