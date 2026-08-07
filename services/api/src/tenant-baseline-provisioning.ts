@@ -75,6 +75,16 @@ function isCanonicalTenantId(value: unknown): value is string {
   return isNonBlankString(value) && value === value.trim();
 }
 
+function isParameterVersion(value: unknown): value is string {
+  return (
+    isNonBlankString(value) &&
+    value !== "latest" &&
+    value !== "*" &&
+    !value.includes("^") &&
+    !value.includes("~")
+  );
+}
+
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
@@ -103,8 +113,7 @@ function isStrictParameterApprovalRecord(value: unknown): boolean {
     ]) &&
     isSha256Digest(value.parameter_set_reference.content_digest) &&
     isNonBlankString(value.parameter_set_reference.parameter_set_id) &&
-    typeof value.parameter_set_reference.version === "string" &&
-    isExactVersion(value.parameter_set_reference.version)
+    isParameterVersion(value.parameter_set_reference.version)
   );
 }
 
@@ -272,8 +281,7 @@ function isSelfConsistentParameterVersion(value: unknown): boolean {
       "version"
     ]) &&
     isNonBlankString(value.parameter_set_id) &&
-    typeof value.version === "string" &&
-    isExactVersion(value.version) &&
+    isParameterVersion(value.version) &&
     isSha256Digest(value.content_digest) &&
     sameParameterReference(value.reference, {
       content_digest: value.content_digest,
