@@ -47,6 +47,15 @@ function createFormalAuthorityRuntime(store: FormalAuthorityTestStore) {
   );
 }
 
+function formalAuthorityCounts(store: FormalAuthorityTestStore) {
+  return {
+    parameterApprovals: store.formalParameterSetApprovalRecords.length,
+    parameterSnapshots: store.formalParameterSetLifecycleSnapshots.length,
+    scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
+    scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
+  };
+}
+
 const sourceActor = {
   actor_id: "usr_platform",
   capabilities: ["parameter_set:manage", "scenario_package:manage"],
@@ -616,5 +625,389 @@ describe("TenantBaselineProvisioningService", () => {
       scenarioApprovals: store.formalScenarioPackageApprovalRecords.length,
       scenarioSnapshots: store.formalScenarioPackageLifecycleSnapshots.length
     }).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects an approved pair when target lifecycle history is incomplete", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "incomplete-target-history-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "incomplete_target_history_create" },
+      request
+    );
+    expect(created.outcome).toBe("CREATED");
+
+    store.formalParameterSetLifecycleSnapshots.splice(
+      0,
+      store.formalParameterSetLifecycleSnapshots.length,
+      ...store.formalParameterSetLifecycleSnapshots.filter(
+        (snapshot) =>
+          !(
+            snapshot.tenant_id === request.target_tenant_id &&
+            snapshot.parameter_set_id === created.parameter_set.reference.parameter_set_id &&
+            snapshot.status === "VALIDATED"
+          )
+      )
+    );
+    store.formalScenarioPackageLifecycleSnapshots.splice(
+      0,
+      store.formalScenarioPackageLifecycleSnapshots.length,
+      ...store.formalScenarioPackageLifecycleSnapshots.filter(
+        (snapshot) =>
+          !(
+            snapshot.tenant_id === request.target_tenant_id &&
+            snapshot.scenario_package_id ===
+              created.scenario_package.reference.scenario_package_id &&
+            snapshot.status === "FROZEN"
+          )
+      )
+    );
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "incomplete_target_history_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects a target reference whose embedded tenant differs from the owning tenant", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "mismatched-target-reference-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "mismatched_target_reference_create" },
+      request
+    );
+    const targetScenarioIndex = store.formalScenarioPackageLifecycleSnapshots.findLastIndex(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.scenario_package_id === created.scenario_package.reference.scenario_package_id &&
+        snapshot.status === "APPROVED"
+    );
+    expect(targetScenarioIndex).toBeGreaterThanOrEqual(0);
+    const targetScenario = store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex]!;
+    const foreignReference = { ...targetScenario.reference, tenant_id: "tenant_foreign" };
+    store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex] = {
+      ...targetScenario,
+      reference: foreignReference
+    };
+    const approvalIndex = store.formalScenarioPackageApprovalRecords.findLastIndex(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.scenario_package_reference.scenario_package_id ===
+          created.scenario_package.reference.scenario_package_id
+    );
+    expect(approvalIndex).toBeGreaterThanOrEqual(0);
+    const approval = store.formalScenarioPackageApprovalRecords[approvalIndex]!;
+    store.formalScenarioPackageApprovalRecords[approvalIndex] = {
+      ...approval,
+      scenario_package_reference: foreignReference
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "mismatched_target_reference_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("maps a missing target reference to a governed conflict instead of throwing", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "missing-target-reference-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "missing_target_reference_create" },
+      request
+    );
+    const targetScenarioIndex = store.formalScenarioPackageLifecycleSnapshots.findLastIndex(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.scenario_package_id === created.scenario_package.reference.scenario_package_id &&
+        snapshot.status === "APPROVED"
+    );
+    expect(targetScenarioIndex).toBeGreaterThanOrEqual(0);
+    const targetScenario = store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex]!;
+    store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex] = {
+      ...targetScenario,
+      reference: undefined as unknown as typeof targetScenario.reference
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "missing_target_reference_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("maps malformed approval references to a governed conflict instead of throwing", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "malformed-approval-reference-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "malformed_approval_reference_create" },
+      request
+    );
+    const approvalIndex = store.formalScenarioPackageApprovalRecords.findLastIndex(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.scenario_package_reference.scenario_package_id ===
+          created.scenario_package.reference.scenario_package_id
+    );
+    expect(approvalIndex).toBeGreaterThanOrEqual(0);
+    const approval = store.formalScenarioPackageApprovalRecords[approvalIndex]!;
+    store.formalScenarioPackageApprovalRecords[approvalIndex] = {
+      ...approval,
+      scenario_package_reference: undefined as unknown as typeof approval.scenario_package_reference
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "malformed_approval_reference_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("maps malformed ParameterSet approval references to a governed conflict", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "malformed-parameter-approval-reference-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "malformed_parameter_approval_create" },
+      request
+    );
+    const approvalIndex = store.formalParameterSetApprovalRecords.findLastIndex(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.parameter_set_reference.parameter_set_id ===
+          created.parameter_set.reference.parameter_set_id
+    );
+    expect(approvalIndex).toBeGreaterThanOrEqual(0);
+    const approval = store.formalParameterSetApprovalRecords[approvalIndex]!;
+    store.formalParameterSetApprovalRecords[approvalIndex] = {
+      ...approval,
+      parameter_set_reference: undefined as unknown as typeof approval.parameter_set_reference
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "malformed_parameter_approval_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects coordinated target digest corruption instead of reusing foreign identity", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "mismatched-target-digest-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "mismatched_target_digest_create" },
+      request
+    );
+    const foreignParameterReference = {
+      ...created.parameter_set.reference,
+      content_digest: "f".repeat(64)
+    };
+    const targetParameterIndex = store.formalParameterSetLifecycleSnapshots.findLastIndex(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.parameter_set_id === created.parameter_set.reference.parameter_set_id &&
+        snapshot.status === "APPROVED"
+    );
+    expect(targetParameterIndex).toBeGreaterThanOrEqual(0);
+    store.formalParameterSetLifecycleSnapshots[targetParameterIndex] = {
+      ...store.formalParameterSetLifecycleSnapshots[targetParameterIndex]!,
+      reference: foreignParameterReference,
+      content_digest: foreignParameterReference.content_digest
+    };
+    const targetScenarioIndex = store.formalScenarioPackageLifecycleSnapshots.findLastIndex(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.scenario_package_id === created.scenario_package.reference.scenario_package_id &&
+        snapshot.status === "APPROVED"
+    );
+    expect(targetScenarioIndex).toBeGreaterThanOrEqual(0);
+    store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex] = {
+      ...store.formalScenarioPackageLifecycleSnapshots[targetScenarioIndex]!,
+      parameter_set_reference: foreignParameterReference
+    };
+    const parameterApprovalIndex = store.formalParameterSetApprovalRecords.findLastIndex(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.parameter_set_reference.parameter_set_id ===
+          created.parameter_set.reference.parameter_set_id
+    );
+    expect(parameterApprovalIndex).toBeGreaterThanOrEqual(0);
+    store.formalParameterSetApprovalRecords[parameterApprovalIndex] = {
+      ...store.formalParameterSetApprovalRecords[parameterApprovalIndex]!,
+      parameter_set_reference: foreignParameterReference
+    };
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "mismatched_target_digest_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects duplicate approved lifecycle snapshots instead of reusing them", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "duplicate-approved-history-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "duplicate_approved_history_create" },
+      request
+    );
+    const targetParameter = store.formalParameterSetLifecycleSnapshots.findLast(
+      (snapshot) =>
+        snapshot.tenant_id === request.target_tenant_id &&
+        snapshot.parameter_set_id === created.parameter_set.reference.parameter_set_id &&
+        snapshot.status === "APPROVED"
+    );
+    expect(targetParameter).toBeDefined();
+    store.formalParameterSetLifecycleSnapshots.push({ ...targetParameter! });
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "duplicate_approved_history_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
+
+  it("rejects duplicate matching approval evidence instead of reusing it", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "duplicate-approval-evidence-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "duplicate_approval_evidence_create" },
+      request
+    );
+    const approval = store.formalParameterSetApprovalRecords.find(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.parameter_set_reference.parameter_set_id ===
+          created.parameter_set.reference.parameter_set_id
+    );
+    expect(approval).toBeDefined();
+    store.formalParameterSetApprovalRecords.push({ ...approval! });
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "duplicate_approval_evidence_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
   });
 });
