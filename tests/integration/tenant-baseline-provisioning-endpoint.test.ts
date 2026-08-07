@@ -961,4 +961,121 @@ describe("tenant baseline provisioning endpoint", () => {
       await stopServer(server);
     }
   });
+
+  it("returns governed HTTP 409 for incomplete lifecycle and foreign target references", async () => {
+    const store = createP1Store();
+    const { baseUrl, server } = await startServerWithStore(store);
+    try {
+      const platformToken = await login(baseUrl);
+      const sourceTenant = await createTenant(baseUrl, platformToken, "fail-closed-source");
+      const incompleteTenant = await createTenant(baseUrl, platformToken, "fail-closed-history");
+      const malformedTenant = await createTenant(baseUrl, platformToken, "fail-closed-reference");
+      const sourceParameter = await createApprovedParameterSet(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "fail_closed_parameter"
+      );
+      const sourceScenarioDraft = await createScenarioDraft(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "fail_closed_scenario",
+        sourceParameter
+      );
+      const sourceScenario = await approveScenario(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "fail_closed_scenario",
+        sourceScenarioDraft
+      );
+      const baseRequest = {
+        source_parameter_set: {
+          ...sourceParameter,
+          source_tenant_id: sourceTenant.tenant_id
+        },
+        source_scenario_package: {
+          ...sourceScenario,
+          source_tenant_id: sourceTenant.tenant_id
+        }
+      };
+      const provision = async (targetTenantId: string, idempotencyKey: string) =>
+        request<ApiEnvelope<TenantBaselineProvisioningResult>>(
+          baseUrl,
+          "/api/v1/admin/tenant-baselines/provision",
+          {
+            body: {
+              ...baseRequest,
+              idempotency_key: idempotencyKey,
+              target_tenant_id: targetTenantId
+            },
+            tenantId: "tenant_platform",
+            token: platformToken
+          }
+        );
+
+      const incompleteCreated = await provision(
+        incompleteTenant.tenant_id,
+        "fail-closed-history-v1"
+      );
+      expect(incompleteCreated.status).toBe(201);
+      const incompleteParameterId =
+        incompleteCreated.body.data.parameter_set.reference.parameter_set_id;
+      store.formalParameterSetLifecycleSnapshots.splice(
+        0,
+        store.formalParameterSetLifecycleSnapshots.length,
+        ...store.formalParameterSetLifecycleSnapshots.filter(
+          (snapshot) =>
+            !(
+              snapshot.tenant_id === incompleteTenant.tenant_id &&
+              snapshot.parameter_set_id === incompleteParameterId &&
+              snapshot.status === "VALIDATED"
+            )
+        )
+      );
+      const historyStateBeforeRetry = formalMutableStateDigest(store);
+      const incompleteRetry = await provision(incompleteTenant.tenant_id, "fail-closed-history-v1");
+      expect(incompleteRetry.status).toBe(409);
+      expect((incompleteRetry.body as ErrorPayload).code).toBe("TENANT_BASELINE-409-001");
+      expect(formalMutableStateDigest(store)).toBe(historyStateBeforeRetry);
+
+      const malformedCreated = await provision(
+        malformedTenant.tenant_id,
+        "fail-closed-reference-v1"
+      );
+      expect(malformedCreated.status).toBe(201);
+      const scenarioId = malformedCreated.body.data.scenario_package.reference.scenario_package_id;
+      const scenarioIndex = store.formalScenarioPackageLifecycleSnapshots.findLastIndex(
+        (snapshot) =>
+          snapshot.tenant_id === malformedTenant.tenant_id &&
+          snapshot.scenario_package_id === scenarioId &&
+          snapshot.status === "APPROVED"
+      );
+      expect(scenarioIndex).toBeGreaterThanOrEqual(0);
+      const scenarioSnapshot = store.formalScenarioPackageLifecycleSnapshots[scenarioIndex]!;
+      const foreignReference = { ...scenarioSnapshot.reference, tenant_id: "tenant_foreign" };
+      store.formalScenarioPackageLifecycleSnapshots[scenarioIndex] = {
+        ...scenarioSnapshot,
+        reference: foreignReference
+      };
+      const approvalIndex = store.formalScenarioPackageApprovalRecords.findLastIndex(
+        (record) =>
+          record.tenant_id === malformedTenant.tenant_id &&
+          record.scenario_package_reference.scenario_package_id === scenarioId
+      );
+      expect(approvalIndex).toBeGreaterThanOrEqual(0);
+      store.formalScenarioPackageApprovalRecords[approvalIndex] = {
+        ...store.formalScenarioPackageApprovalRecords[approvalIndex]!,
+        scenario_package_reference: foreignReference
+      };
+      const referenceStateBeforeRetry = formalMutableStateDigest(store);
+      const malformedRetry = await provision(malformedTenant.tenant_id, "fail-closed-reference-v1");
+      expect(malformedRetry.status).toBe(409);
+      expect((malformedRetry.body as ErrorPayload).code).toBe("TENANT_BASELINE-409-001");
+      expect(formalMutableStateDigest(store)).toBe(referenceStateBeforeRetry);
+    } finally {
+      await stopServer(server);
+    }
+  });
 });

@@ -50,11 +50,21 @@ The target asset IDs are deterministic hashes of the target tenant and the
 idempotency-key digest. A retry with the same complete request returns
 `REUSED` only when both target assets are approved, provenance-identical,
 bound together, and backed by their exact matching formal approval records.
-The provisioner reads the complete target lifecycle history before deciding:
-an earlier partial, unapproved, non-verifiable, mismatched, or different-source
-version is a stable `TENANT_BASELINE-409-001`, never a reason to create or
-reuse another version under the same deterministic identity. The same
-idempotency key with different structured source provenance therefore returns
+The provisioner reads and verifies the complete target lifecycle history before
+deciding. For each deterministic target identity, the required history is
+exactly `DRAFT -> VALIDATED -> FROZEN -> APPROVED`; missing, duplicated,
+out-of-order, or extra states are non-verifiable. Every snapshot reference is
+also checked against its owning tenant, artifact identity, version, and content
+digest, and a ScenarioPackage must bind the exact target ParameterSet
+reference. Approval records must use the exact persisted record/reference key
+shape, must be unique for the target identity, and must match the exact
+approved target reference and tenant. Any malformed approval row (including an
+unknown-field, null, missing-reference, or duplicate row) is invalid evidence
+and fails closed before a write. An earlier partial, unapproved,
+non-verifiable, malformed, mismatched, or different-source version is a stable
+`TENANT_BASELINE-409-001`, never a reason to create or reuse another version
+under the same deterministic identity. The same idempotency key with different
+structured source provenance therefore returns
 `TENANT_BASELINE-409-001` and never overwrites an approved version.
 
 The source ScenarioPackage and ParameterSet must:

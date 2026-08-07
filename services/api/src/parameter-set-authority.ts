@@ -98,6 +98,7 @@ export interface ParameterSetRegistryPort extends ParameterSetAuthorityReadPort 
     tenantId: string,
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]>;
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[];
   listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
@@ -142,6 +143,59 @@ function deepFreeze<T>(value: T): T {
   }
 
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function isNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidParameterSetReference(value: unknown): value is ParameterSetReference {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  try {
+    createParameterSetReference({
+      content_digest: value.content_digest as string,
+      parameter_set_id: value.parameter_set_id as string,
+      version: value.version as string
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isMatchingApprovalRecord(
+  record: unknown,
+  tenantId: string,
+  reference: ParameterSetReference
+): record is ParameterSetApprovalRecord {
+  if (!isValidParameterSetApprovalRecord(record) || record.tenant_id !== tenantId) {
+    return false;
+  }
+
+  const approvalReference = record.parameter_set_reference;
+  return (
+    approvalReference.parameter_set_id === reference.parameter_set_id &&
+    approvalReference.version === reference.version &&
+    approvalReference.content_digest === reference.content_digest
+  );
+}
+
+function isValidParameterSetApprovalRecord(record: unknown): record is ParameterSetApprovalRecord {
+  return (
+    isRecord(record) &&
+    isNonBlankString(record.approval_id) &&
+    isNonBlankString(record.approved_by) &&
+    isNonBlankString(record.correlation_id) &&
+    isNonBlankString(record.tenant_id) &&
+    isValidParameterSetReference(record.parameter_set_reference)
+  );
 }
 
 function createImmutableVersion(
@@ -319,6 +373,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   private assertVersionAppendable(version: ParameterSetVersion): void {
     const history = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === version.tenant_id &&
         candidate.parameter_set_id === version.parameter_set_id &&
         candidate.version === version.version
@@ -336,6 +391,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   async assertBindable(tenantId: string, reference: ParameterSetReference): Promise<void> {
     const matchingIdentity = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.parameter_set_id === reference.parameter_set_id &&
         candidate.version === reference.version
     );
@@ -379,6 +435,7 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   ): Promise<ParameterSetVersion | null> {
     const exactHistory = this.snapshots.filter(
       (candidate) =>
+        isRecord(candidate) &&
         candidate.tenant_id === tenantId &&
         candidate.parameter_set_id === reference.parameter_set_id &&
         candidate.version === reference.version &&
@@ -392,12 +449,21 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     tenantId: string,
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]> {
+    if (!isValidParameterSetReference(reference)) {
+      return [];
+    }
+
+    if (this.approvals.some((record) => !isValidParameterSetApprovalRecord(record))) {
+      return [];
+    }
+
+    return this.approvals.filter((record) => isMatchingApprovalRecord(record, tenantId, reference));
+  }
+
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
     return this.approvals.filter(
       (record) =>
-        record.tenant_id === tenantId &&
-        record.parameter_set_reference.parameter_set_id === reference.parameter_set_id &&
-        record.parameter_set_reference.version === reference.version &&
-        record.parameter_set_reference.content_digest === reference.content_digest
+        !isRecord(record) || !isNonBlankString(record.tenant_id) || record.tenant_id === tenantId
     );
   }
 
@@ -408,9 +474,14 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
   ): Promise<ParameterSetVersion[]> {
     return this.snapshots.filter(
       (candidate) =>
-        candidate.tenant_id === tenantId &&
-        candidate.parameter_set_id === parameterSetId &&
-        (version === undefined || candidate.version === version)
+        !isRecord(candidate) ||
+        !isNonBlankString(candidate.tenant_id) ||
+        !isNonBlankString(candidate.parameter_set_id) ||
+        !isNonBlankString(candidate.version) ||
+        !isNonBlankString(candidate.status) ||
+        (candidate.tenant_id === tenantId &&
+          candidate.parameter_set_id === parameterSetId &&
+          (version === undefined || candidate.version === version))
     );
   }
 }
@@ -471,6 +542,10 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]> {
     return this.registry.listApprovalRecords(tenantId, reference);
+  }
+
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+    return this.registry.listApprovalRecordsForTenant(tenantId);
   }
 
   async approve(
