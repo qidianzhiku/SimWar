@@ -1010,4 +1010,45 @@ describe("TenantBaselineProvisioningService", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
   });
+
+  it("rejects valid approval evidence mixed with a malformed record", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "mixed-malformed-approval-evidence-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "mixed_malformed_approval_create" },
+      request
+    );
+    const approval = store.formalParameterSetApprovalRecords.find(
+      (record) =>
+        record.tenant_id === request.target_tenant_id &&
+        record.parameter_set_reference.parameter_set_id ===
+          created.parameter_set.reference.parameter_set_id
+    );
+    expect(approval).toBeDefined();
+    store.formalParameterSetApprovalRecords.push({
+      ...approval!,
+      parameter_set_reference: undefined as never
+    });
+    const countsBeforeRetry = formalAuthorityCounts(store);
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "mixed_malformed_approval_retry" },
+        request
+      )
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
+  });
 });

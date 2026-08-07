@@ -174,14 +174,7 @@ function isMatchingApprovalRecord(
   tenantId: string,
   reference: ParameterSetReference
 ): record is ParameterSetApprovalRecord {
-  if (
-    !isRecord(record) ||
-    !isNonBlankString(record.approval_id) ||
-    !isNonBlankString(record.approved_by) ||
-    !isNonBlankString(record.correlation_id) ||
-    record.tenant_id !== tenantId ||
-    !isValidParameterSetReference(record.parameter_set_reference)
-  ) {
+  if (!isValidParameterSetApprovalRecord(record) || record.tenant_id !== tenantId) {
     return false;
   }
 
@@ -190,6 +183,17 @@ function isMatchingApprovalRecord(
     approvalReference.parameter_set_id === reference.parameter_set_id &&
     approvalReference.version === reference.version &&
     approvalReference.content_digest === reference.content_digest
+  );
+}
+
+function isValidParameterSetApprovalRecord(record: unknown): record is ParameterSetApprovalRecord {
+  return (
+    isRecord(record) &&
+    isNonBlankString(record.approval_id) &&
+    isNonBlankString(record.approved_by) &&
+    isNonBlankString(record.correlation_id) &&
+    isNonBlankString(record.tenant_id) &&
+    isValidParameterSetReference(record.parameter_set_reference)
   );
 }
 
@@ -442,6 +446,10 @@ export class InMemoryJsonParameterSetRegistry implements ParameterSetRegistryPor
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]> {
     if (!isValidParameterSetReference(reference)) {
+      return [];
+    }
+
+    if (this.approvals.some((record) => !isValidParameterSetApprovalRecord(record))) {
       return [];
     }
 

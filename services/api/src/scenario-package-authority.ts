@@ -219,14 +219,7 @@ function isMatchingApprovalRecord(
   tenantId: string,
   reference: ScenarioPackageReference
 ): record is ScenarioPackageApprovalRecord {
-  if (
-    !isRecord(record) ||
-    !isNonBlankString(record.approval_id) ||
-    !isNonBlankString(record.approved_by) ||
-    !isNonBlankString(record.correlation_id) ||
-    record.tenant_id !== tenantId ||
-    !isValidScenarioPackageReference(record.scenario_package_reference)
-  ) {
+  if (!isValidScenarioPackageApprovalRecord(record) || record.tenant_id !== tenantId) {
     return false;
   }
 
@@ -236,6 +229,19 @@ function isMatchingApprovalRecord(
     approvalReference.tenant_id === reference.tenant_id &&
     approvalReference.version === reference.version &&
     approvalReference.content_digest === reference.content_digest
+  );
+}
+
+function isValidScenarioPackageApprovalRecord(
+  record: unknown
+): record is ScenarioPackageApprovalRecord {
+  return (
+    isRecord(record) &&
+    isNonBlankString(record.approval_id) &&
+    isNonBlankString(record.approved_by) &&
+    isNonBlankString(record.correlation_id) &&
+    isNonBlankString(record.tenant_id) &&
+    isValidScenarioPackageReference(record.scenario_package_reference)
   );
 }
 
@@ -597,6 +603,10 @@ export class InMemoryJsonScenarioPackageRegistry implements ScenarioPackageRegis
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageApprovalRecord[]> {
     if (!isValidScenarioPackageReference(reference)) {
+      return [];
+    }
+
+    if (this.approvals.some((record) => !isValidScenarioPackageApprovalRecord(record))) {
       return [];
     }
 
