@@ -75,8 +75,10 @@ npm run graph:companion -- --mode postmerge
 Impact, risk, planning reality, and planning gate. `refresh` updates
 Graphify/CodeGraph and the registry. `impact` compares a validated base/head
 pair. `plan` consumes the current registry without re-indexing or mutating the
-registry. `postmerge` refuses a dirty or attached checkout and runs the same
-self-refresh sequence against a fresh detached merge clone.
+registry. Every mode requires a clean worktree so manifests cannot silently
+bind uncommitted source to a commit SHA. `postmerge` additionally refuses an
+attached checkout and runs the same self-refresh sequence against a fresh
+detached merge clone.
 
 The three triggers are Macro Mission Entry, product/runtime/contract
 post-merge, and Macro Planning. There is no resident server. Each trigger is
