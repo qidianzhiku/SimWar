@@ -10,10 +10,10 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -378,7 +378,8 @@ export function classifyFreshness({
 }
 
 function stripAnsi(text) {
-  return text.replace(/\u001b\[[0-9;]*m/gu, "");
+  const ansiSgr = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu");
+  return text.replace(ansiSgr, "");
 }
 
 function parseInteger(label, text) {
@@ -495,9 +496,6 @@ export function buildArchitectureDelta({
   graph = null
 }) {
   const { nodes, edges } = extractGraphShape(graph);
-  const nodesById = new Map(
-    nodes.filter((node) => node && typeof node.id === "string").map((node) => [node.id, node])
-  );
   const filesWithNodes = new Set(nodes.map(nodeFile).filter(Boolean));
   const changed = [...new Set(files.map(normalizePath))].sort();
   const unmapped = changed.filter((file) => !filesWithNodes.has(file));
@@ -1111,10 +1109,6 @@ function codeGraphAffected(repoRoot, files, status) {
 
 function graphifyVersion(tools) {
   return tools?.tools?.find((tool) => tool.tool === "Graphify")?.version || "UNKNOWN";
-}
-
-function codegraphVersion(tools) {
-  return tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN";
 }
 
 function updateRegistry({
