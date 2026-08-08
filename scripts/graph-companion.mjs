@@ -14,7 +14,7 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import { dirname, join, resolve, win32 as win32Path } from "node:path";
+import { basename, dirname, join, resolve, win32 as win32Path } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -335,9 +335,18 @@ function ensureDirectory(path) {
 
 function atomicWrite(path, value) {
   ensureDirectory(dirname(path));
-  const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tempPath, typeof value === "string" ? value : `${canonicalJson(value)}\n`, "utf8");
-  renameSync(tempPath, path);
+  const stagingDir = mkdtempSync(join(dirname(path), ".simwar-graph-companion-tmp-"));
+  const tempPath = join(stagingDir, basename(path));
+  try {
+    writeFileSync(tempPath, typeof value === "string" ? value : `${canonicalJson(value)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600
+    });
+    renameSync(tempPath, path);
+  } finally {
+    rmSync(stagingDir, { recursive: true, force: true });
+  }
 }
 
 function registryPath(graphHome, repository) {
@@ -1057,7 +1066,6 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
   const baseGraphifyDir = join(baseTarget, "graphify");
   const baseGraphPath = join(baseGraphifyDir, "graph.json");
   const baseSourceManifestPath = join(baseTarget, "source-manifest.json");
-  let target = baseTarget;
   let graphifyDir = baseGraphifyDir;
   let graphPath = baseGraphPath;
   let sourceManifestPath = baseSourceManifestPath;
@@ -1071,12 +1079,16 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
     }
     return candidate;
   };
+  const useRepairTarget = () => {
+    const repairTarget = selectRepairTarget();
+    graphifyDir = join(repairTarget, "graphify");
+    graphPath = join(graphifyDir, "graph.json");
+    sourceManifestPath = join(repairTarget, "source-manifest.json");
+    ensureDirectory(graphifyDir);
+  };
   const targetExisted = existsSync(baseTarget);
   if (targetExisted && (!existsSync(baseGraphPath) || !existsSync(baseSourceManifestPath))) {
-    target = selectRepairTarget();
-    graphifyDir = join(target, "graphify");
-    graphPath = join(graphifyDir, "graph.json");
-    sourceManifestPath = join(target, "source-manifest.json");
+    useRepairTarget();
   }
   ensureDirectory(graphifyDir);
   if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
@@ -1085,11 +1097,7 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
       storedManifest?.manifest_digest !== manifest.manifest_digest ||
       storedManifest?.code_digest !== manifest.code_digest
     ) {
-      target = selectRepairTarget();
-      graphifyDir = join(target, "graphify");
-      graphPath = join(graphifyDir, "graph.json");
-      sourceManifestPath = join(target, "source-manifest.json");
-      ensureDirectory(graphifyDir);
+      useRepairTarget();
     }
     if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
       const graph = readGraph(graphPath);
@@ -1108,11 +1116,7 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
     }
   }
   if (existsSync(graphPath) || existsSync(sourceManifestPath)) {
-    target = selectRepairTarget();
-    graphifyDir = join(target, "graphify");
-    graphPath = join(graphifyDir, "graph.json");
-    sourceManifestPath = join(target, "source-manifest.json");
-    ensureDirectory(graphifyDir);
+    useRepairTarget();
   }
   if (!tools?.graphify_available)
     return {
@@ -1468,7 +1472,7 @@ function ensureEvidenceRoot(path) {
     path ||
       join(
         tmpdir(),
-        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "").replace(/Z$/u, "Z")}`
+        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "")}`
       )
   );
 }
