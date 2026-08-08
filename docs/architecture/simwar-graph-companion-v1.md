@@ -86,7 +86,8 @@ self-healing by re-running the entry gate.
 
 Graphify is invoked code-only and without clustering when a rebuild is needed.
 The generated graph is copied to the source-SHA directory; existing historical
-directories are never overwritten. CodeGraph is initialized in a new worktree
+directories are never overwritten; a corrupt or incomplete same-SHA artifact
+is repaired into a distinct manifest-suffixed directory. CodeGraph is initialized in a new worktree
 or synchronized in an existing one. Its status output is normalized into a
 logical digest; an active SQLite/WAL file is never hashed as a stable database
 digest. If CodeGraph cannot run, the receipt explicitly records

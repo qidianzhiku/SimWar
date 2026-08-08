@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -22,6 +23,7 @@ const SCHEMA_VERSION = "GraphCompanionRegistryV1";
 const OUTPUT_SCHEMA_VERSION = "GraphCompanionReceiptV1";
 const GRAPHIFY_COMMAND = process.platform === "win32" ? "graphify.exe" : "graphify";
 const CODEGRAPH_COMMAND = process.platform === "win32" ? "codegraph.cmd" : "codegraph";
+const VALID_MODES = new Set(["entry", "refresh", "impact", "plan", "postmerge"]);
 
 const CLASSIFICATION_RULES = [
   ["WORKFLOW", (file) => file.startsWith(".github/workflows/")],
@@ -108,7 +110,10 @@ const SAFETY_FLOORS = [
     pattern: /student-learning|evidence-provenance|security|projection/u,
     tests: [
       ["tests/unit/student-learning-report-projection.test.ts", "T1"],
-      ["tests/integration/student-learning-report-endpoint.test.ts", "T3"]
+      ["tests/integration/student-learning-report-endpoint.test.ts", "T3"],
+      ["tests/unit/runtime-security-config.test.ts", "T1"],
+      ["tests/unit/r3-security-baseline.test.ts", "T1"],
+      ["tests/integration/runtime-credentials-security.test.ts", "T3"]
     ],
     reason: "projection and security safety floor"
   }
@@ -155,7 +160,8 @@ export function resolveGraphHome({
   homeDir = homedir()
 } = {}) {
   if (env.SIMWAR_GRAPH_HOME?.trim()) return resolve(env.SIMWAR_GRAPH_HOME);
-  if (platform === "win32") return join(homeDir, "AppData", "Local", "SimWar", "graph-companion");
+  if (platform === "win32")
+    return join(env.LOCALAPPDATA || join(homeDir, "AppData", "Local"), "SimWar", "graph-companion");
   return join(env.XDG_DATA_HOME || join(homeDir, ".local", "share"), "SimWar", "graph-companion");
 }
 
@@ -253,10 +259,11 @@ function getRemote(repoRoot) {
 
 function parseRepository(remote) {
   const match = remote.match(/(?:github\.com[:/])([^/]+)\/([^/]+?)(?:\.git)?$/iu);
+  const safeRemote = remote.replace(/(\/\/)[^/@\s]+@/u, "$1<redacted>@");
   return {
     owner: match?.[1] || "local",
     name: match?.[2] || `repo-${sha256(remote).slice(0, 12)}`,
-    remote
+    remote: safeRemote
   };
 }
 
@@ -270,6 +277,23 @@ function readGitFiles(repoRoot) {
 
 export function readRepositoryManifest(repoRoot) {
   return buildSourceManifest({ files: readGitFiles(repoRoot) });
+}
+
+function readRepositoryManifestAtSha(repoRoot, sha) {
+  const raw = git(repoRoot, ["ls-tree", "-r", "--name-only", "-z", sha], {
+    allowFailure: true
+  });
+  if (!raw) return null;
+  const files = [];
+  for (const path of raw.split("\0").filter(Boolean)) {
+    const content = runCommand("git", ["show", `${sha}:${path}`], repoRoot, {
+      allowFailure: true,
+      timeout: 120_000
+    });
+    if (!content.ok) return null;
+    files.push({ path, content: Buffer.from(content.stdout, "utf8") });
+  }
+  return buildSourceManifest({ files });
 }
 
 function readTextManifest(manifestPath) {
@@ -620,7 +644,8 @@ export function buildTestImpact({
   changedFiles: files = [],
   graph = null,
   codeGraphAffected = [],
-  codeGraphStatus = "UNAVAILABLE"
+  codeGraphStatus = "UNAVAILABLE",
+  codeGraphAffectedStatus = "NOT_RUN"
 }) {
   const changed = [...new Set(files.map(normalizePath))].sort();
   const recommendations = [];
@@ -722,8 +747,21 @@ export function buildTestImpact({
         "CODEGRAPH"
       );
   }
+  if (codeGraphAffectedStatus === "DEGRADED") {
+    addRecommendation(
+      recommendations,
+      "npm test",
+      "T4",
+      "CodeGraph affected query failed; conservative full-suite fallback",
+      changed.join(","),
+      ["CodeGraph", "affected"],
+      "HIGH",
+      true,
+      "CONSERVATIVE_FALLBACK"
+    );
+  }
   const matchingFloors = SAFETY_FLOORS.filter((floor) =>
-    changed.some((file) => floor.pattern.test(file))
+    changed.some((file) => isProductDelta(file) && floor.pattern.test(file))
   );
   for (const floor of matchingFloors) {
     for (const [testFile, tier] of floor.tests) {
@@ -771,15 +809,16 @@ export function buildTestImpact({
     ],
     codegraph_status: codeGraphStatus,
     graph_source: graphSource,
-    complete: true
+    complete: codeGraphAffectedStatus !== "DEGRADED"
   };
 }
 
 export function buildRiskDelta({ changedFiles: files = [], graph = null, testImpact = null }) {
   const changed = [...new Set(files.map(normalizePath))].sort();
+  const runtimeChanged = changed.filter(isProductDelta);
   const findings = [];
   const add = (id, level, status, detail) => findings.push({ id, level, status, detail });
-  const has = (pattern) => changed.some((file) => pattern.test(file));
+  const has = (pattern) => runtimeChanged.some((file) => pattern.test(file));
   add(
     "authority-boundary",
     has(/authority|tenant|rbac|parameter-set|scenario-package/u) ? "P1" : "INFO",
@@ -928,13 +967,6 @@ export function evaluatePlanningGate({
   if (codeGraphStatus === "DEGRADED_CODEGRAPH")
     limits.push("CODEGRAPH_DEGRADED_GRAPHIFY_ADJACENCY_FALLBACK");
   if (codeGraphStatus === "DEGRADED_GRAPHIFY") limits.push("GRAPHIFY_HEALTH_UNPROVEN");
-  if (planningReality === "PLANNING_REALITY_MISSING")
-    return {
-      schema_version: OUTPUT_SCHEMA_VERSION,
-      status: "BLOCKED_CURRENT_REALITY",
-      limits: ["PLANNING_INPUT_MISSING"],
-      automatic_next_start: false
-    };
   if (planningReality === "PLANNING_REALITY_DRIFT") limits.push("PLANNING_REALITY_DRIFT");
   if (
     freshness === "STALE_PRODUCT_DELTA" ||
@@ -953,6 +985,13 @@ export function evaluatePlanningGate({
       schema_version: OUTPUT_SCHEMA_VERSION,
       status: "BLOCKED_GRAPH_TOOLING",
       limits: ["CURRENT_REALITY_UNRESOLVED"],
+      automatic_next_start: false
+    };
+  if (planningReality === "PLANNING_REALITY_MISSING")
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_CURRENT_REALITY",
+      limits: ["PLANNING_INPUT_MISSING"],
       automatic_next_start: false
     };
   if (riskLevels.has("P0"))
@@ -990,51 +1029,66 @@ function parseGraphifyCounts(graph) {
 }
 
 function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manifest, tools }) {
-  const target = sourceGraphPath(graphHome, repository, currentSha);
-  const graphifyDir = join(target, "graphify");
-  const graphPath = join(graphifyDir, "graph.json");
+  const baseTarget = sourceGraphPath(graphHome, repository, currentSha);
+  const baseGraphifyDir = join(baseTarget, "graphify");
+  const baseGraphPath = join(baseGraphifyDir, "graph.json");
+  const baseSourceManifestPath = join(baseTarget, "source-manifest.json");
+  let target = baseTarget;
+  let graphifyDir = baseGraphifyDir;
+  let graphPath = baseGraphPath;
+  let sourceManifestPath = baseSourceManifestPath;
+  const selectRepairTarget = () => {
+    const repairBase = `${baseTarget}-${manifest.code_digest.slice(0, 12)}`;
+    let candidate = repairBase;
+    let index = 1;
+    while (existsSync(join(candidate, "graphify", "graph.json")) || existsSync(candidate)) {
+      candidate = `${repairBase}-${index}`;
+      index += 1;
+    }
+    return candidate;
+  };
+  const targetExisted = existsSync(baseTarget);
+  if (targetExisted && (!existsSync(baseGraphPath) || !existsSync(baseSourceManifestPath))) {
+    target = selectRepairTarget();
+    graphifyDir = join(target, "graphify");
+    graphPath = join(graphifyDir, "graph.json");
+    sourceManifestPath = join(target, "source-manifest.json");
+  }
   ensureDirectory(graphifyDir);
-  const sourceManifestPath = join(target, "source-manifest.json");
   if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
     const storedManifest = readTextManifest(sourceManifestPath);
     if (
       storedManifest?.manifest_digest !== manifest.manifest_digest ||
       storedManifest?.code_digest !== manifest.code_digest
     ) {
-      return {
-        status: "STALE_REBUILD_REQUIRED",
-        version: tools?.graphify_version || "UNKNOWN",
-        path: graphPath,
-        logical_digest: "DIGEST_UNAVAILABLE",
-        node_count: 0,
-        edge_count: 0,
-        warnings: ["Existing graph source manifest does not match current source manifest"],
-        reused: false
-      };
+      target = selectRepairTarget();
+      graphifyDir = join(target, "graphify");
+      graphPath = join(graphifyDir, "graph.json");
+      sourceManifestPath = join(target, "source-manifest.json");
+      ensureDirectory(graphifyDir);
     }
-    const graph = readGraph(graphPath);
-    if (!graph) {
-      return {
-        status: "STALE_REBUILD_REQUIRED",
-        version: tools?.graphify_version || "UNKNOWN",
-        path: graphPath,
-        logical_digest: "DIGEST_UNAVAILABLE",
-        node_count: 0,
-        edge_count: 0,
-        warnings: ["Existing graph JSON is unreadable"],
-        reused: false
-      };
+    if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
+      const graph = readGraph(graphPath);
+      if (graph) {
+        const counts = parseGraphifyCounts(graph);
+        return {
+          status: "HEALTHY",
+          version: tools?.graphify_version || "UNKNOWN",
+          path: graphPath,
+          logical_digest: sha256(graph),
+          ...counts,
+          warnings: [],
+          reused: true
+        };
+      }
     }
-    const counts = parseGraphifyCounts(graph);
-    return {
-      status: "HEALTHY",
-      version: tools?.graphify_version || "UNKNOWN",
-      path: graphPath,
-      logical_digest: graph ? sha256(graph) : "DIGEST_UNAVAILABLE",
-      ...counts,
-      warnings: [],
-      reused: true
-    };
+  }
+  if (existsSync(graphPath) || existsSync(sourceManifestPath)) {
+    target = selectRepairTarget();
+    graphifyDir = join(target, "graphify");
+    graphPath = join(graphifyDir, "graph.json");
+    sourceManifestPath = join(target, "source-manifest.json");
+    ensureDirectory(graphifyDir);
   }
   if (!tools?.graphify_available)
     return {
@@ -1186,15 +1240,21 @@ export function parseCodeGraphAffected(output) {
 }
 
 function codeGraphAffected(repoRoot, files, status) {
-  if (status !== "HEALTHY" || files.length === 0) return [];
+  if (status !== "HEALTHY" || files.length === 0)
+    return { files: [], status: "NOT_RUN", warnings: [] };
   const result = runCommand(
     CODEGRAPH_COMMAND,
     ["affected", "--path", repoRoot, "--depth", "2", "--json", ...files],
     repoRoot,
     { timeout: 120_000 }
   );
-  if (!result.ok) return [];
-  return parseCodeGraphAffected(result.stdout);
+  if (!result.ok)
+    return {
+      files: [],
+      status: "DEGRADED",
+      warnings: [result.stderr || result.error || "CodeGraph affected query failed"]
+    };
+  return { files: parseCodeGraphAffected(result.stdout), status: "HEALTHY", warnings: [] };
 }
 
 function graphifyVersion(tools) {
@@ -1214,7 +1274,8 @@ function updateRegistry({
   changed,
   graphSourceSha,
   graphSourceManifest,
-  architectureDelta
+  architectureDelta,
+  planningGateStatus
 }) {
   const currentTreeSha =
     git(repoRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true }) || null;
@@ -1235,6 +1296,8 @@ function updateRegistry({
     `${entry.current_repo_sha || ""}:${entry.graph_source_sha || ""}:${entry.current_code_manifest_digest || ""}`;
   const nextHistory =
     historyKey(history.at(-1) || {}) === historyKey(snapshot) ? history : [...history, snapshot];
+  const freshEnough = ["CURRENT_EXACT_SHA", "CURRENT_CODE_EQUIVALENT"].includes(freshness.state);
+  const planningAllowed = ["PLAN_ALLOWED", "PLAN_ALLOWED_WITH_LIMITS"].includes(planningGateStatus);
   const registry = {
     schema_version: SCHEMA_VERSION,
     repository,
@@ -1271,9 +1334,9 @@ function updateRegistry({
       "automatic_next_start=false"
     ],
     valid_for: {
-      architecture_analysis: graphify.status === "HEALTHY",
-      test_impact: graphify.status === "HEALTHY" || codegraph.status === "HEALTHY",
-      planning: !String(freshness.state).startsWith("BLOCKED")
+      architecture_analysis: freshEnough && graphify.status === "HEALTHY",
+      test_impact: freshEnough && (graphify.status === "HEALTHY" || codegraph.status === "HEALTHY"),
+      planning: freshEnough && planningAllowed
     },
     automatic_next_start: false
   };
@@ -1296,6 +1359,17 @@ function writeReceipt(evidenceRoot, file, value) {
       : value
   );
   return path;
+}
+
+function writeEvidenceDigestManifest(evidenceRoot) {
+  const directory = join(evidenceRoot, "graph-companion");
+  const files = readdirSync(directory)
+    .filter((file) => file.endsWith(".json") || file.endsWith(".md"))
+    .sort();
+  const lines = files.map(
+    (file) => `${sha256(readFileSync(join(directory, file)))}  graph-companion/${file}`
+  );
+  atomicWrite(join(evidenceRoot, "99-digests.sha256"), `${lines.join("\n")}\n`);
 }
 
 function summaryMarkdown({
@@ -1356,6 +1430,7 @@ export function runCompanion({
   targetSha = null,
   currentSha = null
 } = {}) {
+  if (!VALID_MODES.has(mode)) throw new Error(`Unsupported Graph Companion mode: ${mode}`);
   const root = resolve(repoRoot);
   if (mode === "postmerge") {
     const dirty = git(root, ["status", "--porcelain"], { allowFailure: true });
@@ -1480,6 +1555,7 @@ export function runCompanion({
         ""
       ].join("\n")
     );
+    writeEvidenceDigestManifest(blockedEvidence);
     return {
       registry: blockedRegistry,
       tools: blockedTools,
@@ -1498,6 +1574,8 @@ export function runCompanion({
   const current =
     mode === "impact" ? repositoryHead : resolveCurrentSha(root, currentSha || targetSha);
   if (!current) throw new Error("Unable to resolve current source SHA");
+  if (mode !== "impact" && current !== repositoryHead)
+    throw new Error("requested SHA must match the checked-out repository HEAD");
   if (baseSha && !validatedBase) throw new Error(`Unable to resolve base SHA: ${baseSha}`);
   if (targetSha && !validatedTarget) throw new Error(`Unable to resolve target SHA: ${targetSha}`);
   const analysisTarget = mode === "impact" ? validatedTarget || current : current;
@@ -1506,6 +1584,10 @@ export function runCompanion({
   const repository = parseRepository(getRemote(root));
   const existingRegistry = loadRegistry(home, repository);
   const currentManifest = readRepositoryManifest(root);
+  const analysisManifest =
+    mode === "impact" && analysisTarget !== repositoryHead
+      ? readRepositoryManifestAtSha(root, analysisTarget) || currentManifest
+      : currentManifest;
   const tools = discoverTools({ cwd: root });
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
   const graphPath = existingRegistry?.graphify?.path || null;
@@ -1597,19 +1679,25 @@ export function runCompanion({
     sourceAvailable: true
   });
   const delta = buildArchitectureDelta({
-    baseSha: baseSha || sourceForDiff,
+    baseSha: validatedBase || sourceForDiff,
     targetSha: analysisTarget,
     changedFiles: changed,
     graph
   });
+  const codeGraphAffectedResult = codeGraphAffected(root, changed, codegraph.status);
   const impact = buildTestImpact({
     changedFiles: changed,
     graph,
-    codeGraphAffected: codeGraphAffected(root, changed, codegraph.status),
-    codeGraphStatus: codegraph.status
+    codeGraphAffected: codeGraphAffectedResult.files,
+    codeGraphStatus: codegraph.status,
+    codeGraphAffectedStatus: codeGraphAffectedResult.status
   });
   impact.source_sha = validatedBase || sourceForDiff;
   impact.target_sha = analysisTarget;
+  impact.target_manifest_digest = analysisManifest.manifest_digest;
+  impact.target_code_manifest_digest = analysisManifest.code_digest;
+  impact.codegraph_affected_status = codeGraphAffectedResult.status;
+  impact.codegraph_affected_warnings = codeGraphAffectedResult.warnings;
   const risk = buildRiskDelta({ changedFiles: changed, graph, testImpact: impact });
   const planningReality = readPlanningReality({ repoRoot: root, currentSha: current });
   const planningHealth =
@@ -1659,7 +1747,8 @@ export function runCompanion({
           changed,
           graphSourceSha,
           graphSourceManifest,
-          architectureDelta: delta
+          architectureDelta: delta,
+          planningGateStatus: planningGate.status
         });
   const graphState = {
     schema_version: OUTPUT_SCHEMA_VERSION,
@@ -1705,6 +1794,7 @@ export function runCompanion({
       evidenceRoot: evidence
     })
   );
+  writeEvidenceDigestManifest(evidence);
   return {
     registry,
     tools,

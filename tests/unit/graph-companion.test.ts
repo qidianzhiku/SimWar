@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildArchitectureDelta,
+  buildRiskDelta,
   buildSourceManifest,
   buildTestImpact,
   classifyFreshness,
@@ -26,6 +27,13 @@ describe("Graph Companion V1 pure contracts", () => {
         homeDir: "C:\\Users\\Example"
       })
     ).toBe("D:\\graph-cache");
+    expect(
+      resolveGraphHome({
+        env: { LOCALAPPDATA: "E:\\RedirectedLocal" },
+        platform: "win32",
+        homeDir: "C:\\Users\\Example"
+      })
+    ).toBe("E:\\RedirectedLocal\\SimWar\\graph-companion");
   });
 
   it("builds a deterministic code manifest while tracking planning files separately", () => {
@@ -306,6 +314,17 @@ describe("Graph Companion V1 pure contracts", () => {
         codeGraphStatus: "HEALTHY"
       }).status
     ).toBe("BLOCKED_CURRENT_REALITY");
+  });
+
+  it("does not escalate documentation-only settlement mentions to product risk", () => {
+    const risk = buildRiskDelta({
+      changedFiles: ["docs/architecture/settlement-boundary.md"],
+      graph: { nodes: [], edges: [] },
+      testImpact: { recommendations: [] }
+    });
+    expect(risk.findings.find((finding) => finding.id === "truth-settlement-replay")?.level).toBe(
+      "INFO"
+    );
   });
 
   it("keeps path-independent graph homes across isolated worktrees", () => {
