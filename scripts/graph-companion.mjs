@@ -1711,10 +1711,8 @@ export function runCompanion({
     freshnessLimits: finalFreshness.limits,
     architectureDeltaComplete: Boolean(
       delta &&
-      (changed.every((file) => !isProductDelta(file)) ||
-        (delta.confidence === "HIGH" &&
-          Array.isArray(delta.unmapped_changed_files) &&
-          delta.unmapped_changed_files.length === 0))
+      Array.isArray(delta.unmapped_changed_files) &&
+      delta.unmapped_changed_files.filter(isProductDelta).length === 0
     ),
     testImpactComplete: impact.complete,
     riskDeltaComplete: risk.complete,

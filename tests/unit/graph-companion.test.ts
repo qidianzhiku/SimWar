@@ -270,7 +270,7 @@ describe("Graph Companion V1 pure contracts", () => {
     const delta = buildArchitectureDelta({
       baseSha: "a",
       targetSha: "b",
-      changedFiles: ["services/api/src/server.ts", "unknown.bin"],
+      changedFiles: ["services/api/src/server.ts", "services/api/src/unknown.ts"],
       graph: { nodes: [{ id: "server", file: "services/api/src/server.ts" }], edges: [] }
     });
     expect(
