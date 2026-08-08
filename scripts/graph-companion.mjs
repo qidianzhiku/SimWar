@@ -1348,13 +1348,19 @@ export function runCompanion({
   impact.target_sha = analysisTarget;
   const risk = buildRiskDelta({ changedFiles: changed, graph, testImpact: impact });
   const planningReality = readPlanningReality({ repoRoot: root, currentSha: current });
+  const planningHealth =
+    codegraph.status !== "HEALTHY"
+      ? codegraph.status
+      : graphify.status !== "HEALTHY"
+        ? "DEGRADED_GRAPHIFY"
+        : "HEALTHY";
   const planningGate = evaluatePlanningGate({
     freshness: finalFreshness.state,
     architectureDeltaComplete: Boolean(delta),
     testImpactComplete: impact.complete,
     riskDeltaComplete: risk.complete,
     planningReality: planningReality.status,
-    codeGraphStatus: codegraph.status === "HEALTHY" ? "HEALTHY" : codegraph.status
+    codeGraphStatus: planningHealth
   });
   const registry = updateRegistry({
     repoRoot: root,
