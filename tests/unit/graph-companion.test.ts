@@ -255,6 +255,7 @@ describe("Graph Companion V1 pure contracts", () => {
       parseCodeGraphAffected(
         JSON.stringify({
           affectedTests: [
+            null,
             { file: "tests/unit/graph-companion.test.ts" },
             { path: "tests/integration/graph-companion-endpoint.test.ts" }
           ]
@@ -301,6 +302,9 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(gate.limits).toEqual(
       expect.arrayContaining(["GRAPH_SOURCE_SHA_HISTORICAL", "P1_RISK_REVIEW_REQUIRED"])
     );
+    expect(parseCodeGraphAffected("{}" as string)).toBeNull();
+    expect(parseCodeGraphAffected("1" as string)).toBeNull();
+    expect(parseCodeGraphAffected("[{}]" as string)).toBeNull();
   });
 
   it("blocks planning when required planning reality inputs are missing", () => {

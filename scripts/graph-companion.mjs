@@ -257,12 +257,18 @@ function getRemote(repoRoot) {
   );
 }
 
-function parseRepository(remote) {
+function parseRepository(remote, repoRoot = null) {
   const match = remote.match(/(?:github\.com[:/])([^/]+)\/([^/]+?)(?:\.git)?$/iu);
   const safeRemote = remote.replace(/(\/\/)[^/@\s]+@/u, "$1<redacted>@");
+  const localIdentity =
+    remote === "unknown"
+      ? git(repoRoot || process.cwd(), ["rev-parse", "--git-common-dir"], {
+          allowFailure: true
+        }) || remote
+      : remote;
   return {
     owner: match?.[1] || "local",
-    name: match?.[2] || `repo-${sha256(remote).slice(0, 12)}`,
+    name: match?.[2] || `repo-${sha256(localIdentity).slice(0, 12)}`,
     remote: safeRemote
   };
 }
@@ -1216,27 +1222,35 @@ function runCodeGraphIndex({ repoRoot, tools }) {
 }
 
 export function parseCodeGraphAffected(output) {
+  const pathFromEntry = (entry) =>
+    typeof entry === "string"
+      ? entry
+      : entry && typeof entry === "object"
+        ? entry.file || entry.path
+        : null;
+  let parsed;
   try {
-    const parsed = JSON.parse(output);
-    if (Array.isArray(parsed))
-      return parsed
-        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
-        .filter(Boolean);
-    if (Array.isArray(parsed.tests))
-      return parsed.tests
-        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
-        .filter(Boolean);
-    if (Array.isArray(parsed.affectedTests))
-      return parsed.affectedTests
-        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
-        .filter(Boolean);
+    parsed = JSON.parse(output);
+    if (Array.isArray(parsed)) {
+      const paths = parsed.map(pathFromEntry).filter(Boolean);
+      return parsed.length > 0 && paths.length === 0 ? null : paths;
+    }
+    if (Array.isArray(parsed.tests)) {
+      const paths = parsed.tests.map(pathFromEntry).filter(Boolean);
+      return parsed.tests.length > 0 && paths.length === 0 ? null : paths;
+    }
+    if (Array.isArray(parsed.affectedTests)) {
+      const paths = parsed.affectedTests.map(pathFromEntry).filter(Boolean);
+      return parsed.affectedTests.length > 0 && paths.length === 0 ? null : paths;
+    }
   } catch {
-    return output
+    const lines = output
       .split(/\r?\n/u)
       .map((line) => line.trim())
       .filter((line) => line.startsWith("tests/"));
+    return lines.length > 0 ? lines : null;
   }
-  return [];
+  return null;
 }
 
 function codeGraphAffected(repoRoot, files, status) {
@@ -1254,7 +1268,14 @@ function codeGraphAffected(repoRoot, files, status) {
       status: "DEGRADED",
       warnings: [result.stderr || result.error || "CodeGraph affected query failed"]
     };
-  return { files: parseCodeGraphAffected(result.stdout), status: "HEALTHY", warnings: [] };
+  const parsed = parseCodeGraphAffected(result.stdout);
+  if (parsed === null)
+    return {
+      files: [],
+      status: "DEGRADED",
+      warnings: ["CodeGraph affected query returned an unrecognized JSON shape"]
+    };
+  return { files: parsed, status: "HEALTHY", warnings: [] };
 }
 
 function graphifyVersion(tools) {
@@ -1452,7 +1473,7 @@ export function runCompanion({
   if (!repositoryHead) {
     const blockedEvidence = ensureEvidenceRoot(evidenceRoot);
     const blockedHome = resolve(graphHome || resolveGraphHome());
-    const blockedRepository = parseRepository(getRemote(root));
+    const blockedRepository = parseRepository(getRemote(root), root);
     const blockedTools = discoverTools({ cwd: root });
     const blockedFreshness = {
       schema_version: OUTPUT_SCHEMA_VERSION,
@@ -1583,7 +1604,7 @@ export function runCompanion({
   const analysisTarget = mode === "impact" ? validatedTarget || current : current;
   const evidence = ensureEvidenceRoot(evidenceRoot);
   const home = resolve(graphHome || resolveGraphHome());
-  const repository = parseRepository(getRemote(root));
+  const repository = parseRepository(getRemote(root), root);
   const existingRegistry = loadRegistry(home, repository);
   const currentManifest = readRepositoryManifest(root);
   const analysisManifest =
@@ -1700,8 +1721,14 @@ export function runCompanion({
   impact.target_code_manifest_digest = analysisManifest.code_digest;
   impact.codegraph_affected_status = codeGraphAffectedResult.status;
   impact.codegraph_affected_warnings = codeGraphAffectedResult.warnings;
+  impact.graph_source_sha = graphSourceSha;
+  impact.historical_target_uses_current_graph =
+    mode === "impact" && analysisTarget !== repositoryHead;
   const risk = buildRiskDelta({ changedFiles: changed, graph, testImpact: impact });
   const planningReality = readPlanningReality({ repoRoot: root, currentSha: current });
+  const freshnessLimits = [...finalFreshness.limits];
+  if (mode === "impact" && analysisTarget !== repositoryHead)
+    freshnessLimits.push("HISTORICAL_IMPACT_USES_CURRENT_GRAPH_EVIDENCE");
   const planningHealth =
     codegraph.status !== "HEALTHY"
       ? codegraph.status
@@ -1710,7 +1737,7 @@ export function runCompanion({
         : "HEALTHY";
   const planningGate = evaluatePlanningGate({
     freshness: finalFreshness.state,
-    freshnessLimits: finalFreshness.limits,
+    freshnessLimits,
     architectureDeltaComplete: Boolean(
       delta &&
       Array.isArray(delta.unmapped_changed_files) &&
@@ -1772,11 +1799,15 @@ export function runCompanion({
     current_repo_sha: current,
     graph_source_sha: graphSourceSha,
     changed_files: changed,
+    limits: freshnessLimits,
+    planning_gate: planningGate.status,
     automatic_next_start: false
   });
   writeReceipt(evidence, "refresh-receipt.json", refreshReceipt);
   writeReceipt(evidence, "architecture-delta.json", delta);
   writeReceipt(evidence, "test-impact.json", impact);
+  if (mode === "impact" && analysisTarget !== repositoryHead)
+    writeReceipt(evidence, "target-source-manifest.json", analysisManifest);
   writeReceipt(evidence, "risk-delta.json", risk);
   writeReceipt(evidence, "planning-reality.json", planningReality);
   writeReceipt(evidence, "planning-gate.json", planningGate);
