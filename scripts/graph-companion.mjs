@@ -1,0 +1,1465 @@
+#!/usr/bin/env node
+
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { homedir, platform as hostPlatform, tmpdir } from "node:os";
+import { basename, dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_REPO_ROOT = resolve(SCRIPT_ROOT, "..");
+const SCHEMA_VERSION = "GraphCompanionRegistryV1";
+const OUTPUT_SCHEMA_VERSION = "GraphCompanionReceiptV1";
+const GRAPHIFY_COMMAND = process.platform === "win32" ? "graphify.exe" : "graphify";
+const CODEGRAPH_COMMAND = process.platform === "win32" ? "codegraph.cmd" : "codegraph";
+
+const CLASSIFICATION_RULES = [
+  ["WORKFLOW", (file) => file.startsWith(".github/workflows/")],
+  [
+    "CONTRACT",
+    (file) => file.startsWith("contracts/") || file.startsWith("packages/shared-contracts/")
+  ],
+  ["MIGRATION", (file) => file.startsWith("db/migrations/") || file.endsWith(".sql")],
+  [
+    "TEST",
+    (file) => file.startsWith("tests/") || file.endsWith(".spec.ts") || file.endsWith(".test.ts")
+  ],
+  ["PLUGIN", (file) => file.startsWith("plugins/")],
+  ["SCRIPT", (file) => file.startsWith("scripts/")],
+  [
+    "PACKAGE",
+    (file) =>
+      ["package.json", "package-lock.json", "npm-shrinkwrap.json"].includes(file) ||
+      /(^|\/)(tsconfig|vite|eslint|playwright|vitest|knip|Makefile)/u.test(file)
+  ],
+  ["PRODUCT", (file) => file.startsWith("apps/")],
+  ["RUNTIME", (file) => file.startsWith("services/") || file.startsWith("packages/")],
+  ["PLANNING", (file) => file.startsWith("docs/planning/")],
+  ["DOCS", (file) => file.startsWith("docs/") || file.endsWith(".md")]
+];
+
+const SAFETY_FLOORS = [
+  {
+    pattern: /tenant|rbac|permission|auth/u,
+    tests: [
+      ["tests/unit/tenant-baseline-provisioning.test.ts", "T1"],
+      ["tests/integration/tenant-baseline-provisioning-endpoint.test.ts", "T3"],
+      ["tests/integration/p1-auth-rbac.test.ts", "T3"]
+    ],
+    reason: "tenant and authorization safety floor"
+  },
+  {
+    pattern: /parameter-set|parameterset/u,
+    tests: [
+      ["tests/unit/parameter-set-command-service.test.ts", "T1"],
+      ["tests/integration/formal-parameter-set-lifecycle-endpoint.test.ts", "T3"]
+    ],
+    reason: "ParameterSet authority safety floor"
+  },
+  {
+    pattern: /scenario-package|scenariopackage/u,
+    tests: [
+      ["tests/unit/scenario-package-command-service.test.ts", "T1"],
+      ["tests/integration/formal-scenario-package-lifecycle-endpoint.test.ts", "T3"]
+    ],
+    reason: "ScenarioPackage authority safety floor"
+  },
+  {
+    pattern: /truth|settlement|score|rank/u,
+    tests: [
+      ["tests/unit/settlement-idempotency.test.ts", "T1"],
+      ["tests/integration/settlement-write-replay-hash-characterization.test.ts", "T3"]
+    ],
+    reason: "Truth and Settlement safety floor"
+  },
+  {
+    pattern: /replay/u,
+    tests: [
+      ["tests/integration/m1-run-manifest-replay-evidence.test.ts", "T3"],
+      ["tests/integration/settlement-write-replay-hash-characterization.test.ts", "T3"]
+    ],
+    reason: "Replay safety floor"
+  },
+  {
+    pattern: /plugin/u,
+    tests: [["tests/simulation/r7a-eldercare-plugin-conformance.test.ts", "T3"]],
+    reason: "Plugin boundary safety floor"
+  }
+];
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object" && !Buffer.isBuffer(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, canonicalize(entry)])
+    );
+  }
+  if (Buffer.isBuffer(value)) return value.toString("base64");
+  return value;
+}
+
+export function canonicalJson(value) {
+  return JSON.stringify(canonicalize(value));
+}
+
+export function sha256(value) {
+  return createHash("sha256")
+    .update(typeof value === "string" || Buffer.isBuffer(value) ? value : canonicalJson(value))
+    .digest("hex");
+}
+
+function normalizePath(file) {
+  return file.replaceAll("\\", "/").replace(/^\.\//u, "");
+}
+
+export function classifyPath(file) {
+  const normalized = normalizePath(file);
+  for (const [classification, predicate] of CLASSIFICATION_RULES) {
+    if (predicate(normalized)) return classification;
+  }
+  return "DOCS";
+}
+
+export function resolveGraphHome({
+  env = process.env,
+  platform = hostPlatform,
+  homeDir = homedir()
+} = {}) {
+  if (env.SIMWAR_GRAPH_HOME?.trim()) return resolve(env.SIMWAR_GRAPH_HOME);
+  if (platform === "win32") return join(homeDir, "AppData", "Local", "SimWar", "graph-companion");
+  return join(env.XDG_DATA_HOME || join(homeDir, ".local", "share"), "SimWar", "graph-companion");
+}
+
+export function buildSourceManifest({ files }) {
+  const sorted = [...files].sort((left, right) =>
+    normalizePath(left.path).localeCompare(normalizePath(right.path))
+  );
+  const entries = sorted
+    .map((entry) => ({
+      path: normalizePath(entry.path),
+      classification: classifyPath(entry.path),
+      content: entry.content
+    }))
+    .filter((entry) => entry.classification !== "DOCS" && entry.classification !== "PLANNING")
+    .map(({ path, classification, content }) => {
+      const contentSha = sha256(content);
+      return { path, blob_sha: contentSha, content_sha256: contentSha, classification };
+    });
+  const planningFiles = sorted
+    .filter((entry) => classifyPath(entry.path) === "PLANNING")
+    .map((entry) => normalizePath(entry.path));
+  const manifest = {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    entries,
+    planning_files: planningFiles,
+    code_digest: sha256(entries),
+    manifest_digest: sha256({ entries, planning_files: planningFiles })
+  };
+  return manifest;
+}
+
+function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_000 } = {}) {
+  try {
+    const windowsBatch = process.platform === "win32" && command.toLowerCase().endsWith(".cmd");
+    const spawnCommand = windowsBatch ? process.env.ComSpec || "cmd.exe" : command;
+    const spawnArgs = windowsBatch
+      ? [
+          "/d",
+          "/s",
+          "/c",
+          [command, ...args]
+            .map((value) => {
+              const text = String(value);
+              return /[\s"]/.test(text) ? `"${text.replaceAll('"', '\\"')}"` : text;
+            })
+            .join(" ")
+        ]
+      : args;
+    const result = spawnSync(spawnCommand, spawnArgs, {
+      cwd,
+      encoding: "utf8",
+      timeout,
+      windowsHide: true,
+      maxBuffer: 32 * 1024 * 1024
+    });
+    const stdout = result.stdout || "";
+    const stderr = result.stderr || "";
+    if (result.error && !allowFailure) throw result.error;
+    if (result.status !== 0 && !allowFailure) {
+      const error = new Error(`${command} ${args.join(" ")} exited ${result.status}: ${stderr}`);
+      error.stdout = stdout;
+      error.stderr = stderr;
+      throw error;
+    }
+    return {
+      ok: result.status === 0,
+      status: result.status,
+      stdout,
+      stderr,
+      error: result.error?.message || null
+    };
+  } catch (error) {
+    if (!allowFailure) throw error;
+    return {
+      ok: false,
+      status: null,
+      stdout: "",
+      stderr: String(error?.message || error),
+      error: String(error?.message || error)
+    };
+  }
+}
+
+function git(repoRoot, args, { allowFailure = false } = {}) {
+  const result = runCommand("git", args, repoRoot, { allowFailure });
+  if (!result.ok && !allowFailure) throw new Error(result.stderr || `git ${args.join(" ")} failed`);
+  return result.stdout.trim();
+}
+
+function getRemote(repoRoot) {
+  return (
+    git(repoRoot, ["config", "--get", "remote.origin.url"], { allowFailure: true }) || "unknown"
+  );
+}
+
+function parseRepository(remote) {
+  const match = remote.match(/(?:github\.com[:/])([^/]+)\/([^/]+?)(?:\.git)?$/iu);
+  return { owner: match?.[1] || "unknown", name: match?.[2] || basename(process.cwd()), remote };
+}
+
+function readGitFiles(repoRoot) {
+  const raw = git(repoRoot, ["ls-files", "-z"]);
+  return raw
+    .split("\0")
+    .filter(Boolean)
+    .map((path) => ({ path, content: readFileSync(join(repoRoot, path)) }));
+}
+
+export function readRepositoryManifest(repoRoot) {
+  return buildSourceManifest({ files: readGitFiles(repoRoot) });
+}
+
+function readTextManifest(manifestPath) {
+  try {
+    return JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function repositoryKey(repository) {
+  return `${repository.owner}-${repository.name}`.replace(/[^A-Za-z0-9_.-]/gu, "-");
+}
+
+function ensureDirectory(path) {
+  mkdirSync(path, { recursive: true });
+  return path;
+}
+
+function atomicWrite(path, value) {
+  ensureDirectory(dirname(path));
+  const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tempPath, typeof value === "string" ? value : `${canonicalJson(value)}\n`, "utf8");
+  renameSync(tempPath, path);
+}
+
+function registryPath(graphHome, repository) {
+  return join(graphHome, repositoryKey(repository), "registry.json");
+}
+
+function loadRegistry(graphHome, repository) {
+  const path = registryPath(graphHome, repository);
+  return readTextManifest(path);
+}
+
+function graphBasePath(graphHome, repository) {
+  return join(graphHome, repositoryKey(repository));
+}
+
+function sourceGraphPath(graphHome, repository, sha) {
+  return join(graphBasePath(graphHome, repository), "graphs", sha.slice(0, 12));
+}
+
+function changedFiles(repoRoot, baseSha, targetSha) {
+  if (!baseSha || !targetSha || baseSha === targetSha) return [];
+  const output = git(repoRoot, ["diff", "--name-only", `${baseSha}..${targetSha}`], {
+    allowFailure: true
+  });
+  return output.split(/\r?\n/u).map(normalizePath).filter(Boolean).sort();
+}
+
+function isDocsOrExcluded(file) {
+  const normalized = normalizePath(file);
+  return normalized.startsWith("docs/") || normalized.startsWith(".github/ISSUE_TEMPLATE/");
+}
+
+function isProductDelta(file) {
+  const classification = classifyPath(file);
+  return classification !== "DOCS" && classification !== "PLANNING";
+}
+
+export function classifyFreshness({
+  currentRepoSha,
+  graphSourceSha,
+  currentCodeManifestDigest,
+  graphCodeManifestDigest,
+  changedFiles: files = [],
+  graphFound,
+  sourceAvailable
+}) {
+  if (!sourceAvailable || !currentRepoSha)
+    return {
+      state: "BLOCKED_GRAPH_TOOLING",
+      reason: "current source SHA unavailable",
+      limits: ["CURRENT_REALITY_UNRESOLVED"]
+    };
+  if (!graphFound)
+    return {
+      state: "GRAPH_NOT_FOUND",
+      reason: "no source-bound graph registry",
+      limits: ["GRAPH_REBUILD_REQUIRED"]
+    };
+  if (!graphSourceSha)
+    return {
+      state: "STALE_REBUILD_REQUIRED",
+      reason: "graph has no source binding",
+      limits: ["UNBOUND_GRAPH_FORBIDDEN"]
+    };
+  if (graphSourceSha === currentRepoSha) {
+    if (currentCodeManifestDigest && currentCodeManifestDigest === graphCodeManifestDigest) {
+      return {
+        state: "CURRENT_EXACT_SHA",
+        reason: "source SHA and code manifest match",
+        limits: []
+      };
+    }
+    return {
+      state: "STALE_REBUILD_REQUIRED",
+      reason: "source SHA matches but manifest is invalid",
+      limits: ["SOURCE_MANIFEST_MISMATCH"]
+    };
+  }
+  const docsOnly = files.length > 0 && files.every((file) => isDocsOrExcluded(file));
+  if (
+    docsOnly &&
+    currentCodeManifestDigest &&
+    currentCodeManifestDigest === graphCodeManifestDigest
+  ) {
+    return {
+      state: "CURRENT_CODE_EQUIVALENT",
+      reason: "only excluded/docs files changed and code manifests match",
+      limits: ["GRAPH_SOURCE_SHA_HISTORICAL"]
+    };
+  }
+  if (files.some(isProductDelta) || currentCodeManifestDigest !== graphCodeManifestDigest) {
+    return {
+      state: "STALE_PRODUCT_DELTA",
+      reason: "source-code or contract/test/runtime files changed",
+      limits: ["GRAPH_REFRESH_REQUIRED"]
+    };
+  }
+  return {
+    state: "STALE_REBUILD_REQUIRED",
+    reason: "graph freshness cannot be proven",
+    limits: ["INCREMENTAL_SAFETY_UNPROVEN"]
+  };
+}
+
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-9;]*m/gu, "");
+}
+
+function parseInteger(label, text) {
+  const match = stripAnsi(text).match(new RegExp(`^\\s*${label}:\\s*([0-9,]+)`, "imu"));
+  return match ? Number(match[1].replaceAll(",", "")) : null;
+}
+
+export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
+  const graphifyVersion = runCommand(GRAPHIFY_COMMAND, ["--version"], cwd);
+  const graphifyHelp = runCommand(GRAPHIFY_COMMAND, ["--help"], cwd);
+  const codegraphVersion = runCommand(CODEGRAPH_COMMAND, ["--version"], cwd);
+  const codegraphHelp = runCommand(CODEGRAPH_COMMAND, ["--help"], cwd);
+  const graphifyOk = graphifyVersion.ok;
+  const codegraphOk = codegraphVersion.ok;
+  return {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    generated_at: new Date().toISOString(),
+    tools: [
+      {
+        tool: "Graphify",
+        version: stripAnsi(graphifyVersion.stdout).trim() || "UNKNOWN",
+        status: graphifyOk ? "AVAILABLE" : "UNAVAILABLE",
+        capabilities: ["extract", "update", "path", "affected", "query"].filter((name) =>
+          graphifyHelp.stdout.includes(name)
+        ),
+        command: `${GRAPHIFY_COMMAND} --version`,
+        result: graphifyOk ? "PASS" : "UNAVAILABLE",
+        limitation: graphifyOk ? null : graphifyVersion.stderr || graphifyVersion.error
+      },
+      {
+        tool: "CodeGraph",
+        version: stripAnsi(codegraphVersion.stdout).trim() || "UNKNOWN",
+        status: codegraphOk ? "AVAILABLE" : "UNAVAILABLE",
+        capabilities: ["init", "index", "sync", "status", "affected", "explore"].filter((name) =>
+          codegraphHelp.stdout.includes(name)
+        ),
+        command: `${CODEGRAPH_COMMAND} --version`,
+        result: codegraphOk ? "PASS" : "UNAVAILABLE",
+        limitation: codegraphOk ? null : codegraphVersion.stderr || codegraphVersion.error
+      }
+    ],
+    graphify_available: graphifyOk,
+    codegraph_available: codegraphOk,
+    github_workflow:
+      graphifyOk && codegraphOk
+        ? "NOT_REQUIRED_LOCAL_ORCHESTRATION_PROVEN"
+        : "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
+  };
+}
+
+function extractGraphShape(graph) {
+  if (!graph || typeof graph !== "object") return { nodes: [], edges: [] };
+  const nested = graph.graph && typeof graph.graph === "object" ? graph.graph : graph;
+  const nodes = Array.isArray(nested.nodes)
+    ? nested.nodes
+    : Array.isArray(nested.vertices)
+      ? nested.vertices
+      : [];
+  const edges = Array.isArray(nested.edges)
+    ? nested.edges
+    : Array.isArray(nested.links)
+      ? nested.links
+      : [];
+  return { nodes, edges };
+}
+
+function nodeFile(node) {
+  if (!node || typeof node !== "object") return null;
+  for (const field of ["file", "path", "source", "source_file", "file_path", "label"]) {
+    if (
+      typeof node[field] === "string" &&
+      /(?:^|[/\\])[A-Za-z0-9_.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|yaml|yml|sql)$/u.test(node[field])
+    ) {
+      return normalizePath(node[field]);
+    }
+  }
+  return null;
+}
+
+function edgeEndpoint(edge, side) {
+  for (const field of side === "from"
+    ? ["from", "source", "from_id", "source_id"]
+    : ["to", "target", "to_id", "target_id"]) {
+    if (typeof edge?.[field] === "string") return edge[field];
+  }
+  return null;
+}
+
+function edgeRelation(edge) {
+  return String(edge?.relation || edge?.type || edge?.kind || "related");
+}
+
+function graphFileForEndpoint(endpoint, nodesById) {
+  if (!endpoint) return null;
+  if (nodesById.has(endpoint)) return nodeFile(nodesById.get(endpoint));
+  return /(?:^|[/\\])[A-Za-z0-9_.-]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|yaml|yml|sql)$/u.test(endpoint)
+    ? normalizePath(endpoint)
+    : null;
+}
+
+function readGraph(graphPath) {
+  if (!graphPath || !existsSync(graphPath)) return null;
+  try {
+    return JSON.parse(readFileSync(graphPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+export function buildArchitectureDelta({
+  baseSha = null,
+  targetSha,
+  changedFiles: files = [],
+  graph = null
+}) {
+  const { nodes, edges } = extractGraphShape(graph);
+  const nodesById = new Map(
+    nodes.filter((node) => node && typeof node.id === "string").map((node) => [node.id, node])
+  );
+  const filesWithNodes = new Set(nodes.map(nodeFile).filter(Boolean));
+  const changed = [...new Set(files.map(normalizePath))].sort();
+  const unmapped = changed.filter((file) => !filesWithNodes.has(file));
+  const changedNodes = nodes
+    .filter((node) => changed.includes(nodeFile(node)))
+    .map((node) => node.id || node.name || nodeFile(node))
+    .filter(Boolean);
+  const highFanIn = [];
+  const highFanOut = [];
+  const incomingCounts = new Map();
+  const outgoingCounts = new Map();
+  for (const edge of edges) {
+    const from = edgeEndpoint(edge, "from");
+    const to = edgeEndpoint(edge, "to");
+    if (from) outgoingCounts.set(from, (outgoingCounts.get(from) || 0) + 1);
+    if (to) incomingCounts.set(to, (incomingCounts.get(to) || 0) + 1);
+  }
+  for (const node of nodes) {
+    const id = node.id || node.name;
+    if (!id) continue;
+    const incoming = incomingCounts.get(id) || 0;
+    const outgoing = outgoingCounts.get(id) || 0;
+    if (changed.includes(nodeFile(node)) && incoming >= 10) highFanIn.push(id);
+    if (changed.includes(nodeFile(node)) && outgoing >= 10) highFanOut.push(id);
+  }
+  const includes = (pattern) => changed.filter((file) => pattern.test(file));
+  const delta = {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    base_sha: baseSha,
+    target_sha: targetSha,
+    added_files: [],
+    removed_files: [],
+    modified_files: changed,
+    added_nodes: [],
+    removed_nodes: [],
+    changed_nodes: changedNodes,
+    added_edges: [],
+    removed_edges: [],
+    changed_routes: includes(/route|server|bff/u),
+    changed_contracts: includes(/contract|openapi|schema|shared-contracts/u),
+    changed_writers: includes(/command|writer|append|create|persist|repository/u),
+    changed_repository_paths: includes(/repository|adapter|store/u),
+    changed_authority_boundaries: includes(
+      /authority|tenant|rbac|permission|parameter-set|scenario-package/u
+    ),
+    changed_teacher_surface: includes(/teacher/u),
+    changed_student_surface: includes(/student/u),
+    changed_admin_surface: includes(/admin/u),
+    changed_scenario: includes(/scenario/u),
+    changed_parameter_set: includes(/parameter-set|parameterset/u),
+    changed_plugin: includes(/plugin/u),
+    truth_touchpoints: includes(/truth|decision|round|score|rank/u),
+    settlement_touchpoints: includes(/settlement/u),
+    replay_touchpoints: includes(/replay/u),
+    tenant_touchpoints: includes(/tenant|rbac|permission/u),
+    high_fan_in_changed: highFanIn.sort(),
+    high_fan_out_changed: highFanOut.sort(),
+    unmapped_changed_files: unmapped,
+    confidence:
+      graph && nodes.length > 0 && unmapped.length === 0
+        ? "HIGH"
+        : graph && nodes.length > 0
+          ? "PARTIAL"
+          : "LOW"
+  };
+  return delta;
+}
+
+function addRecommendation(
+  recommendations,
+  testFile,
+  tier,
+  reason,
+  impactedNode,
+  dependencyPath,
+  confidence,
+  mandatory,
+  graphSource
+) {
+  const key = `${testFile}|${reason}`;
+  if (recommendations.some((entry) => `${entry.test_file}|${entry.reason}` === key)) return;
+  recommendations.push({
+    test_file: testFile,
+    tier,
+    depth: Math.min(2, Math.max(0, Array.isArray(dependencyPath) ? dependencyPath.length - 1 : 0)),
+    reason,
+    impacted_node: impactedNode,
+    dependency_path: dependencyPath,
+    confidence,
+    mandatory,
+    graph_source: graphSource
+  });
+}
+
+function isConcreteTestFile(file) {
+  return (
+    typeof file === "string" &&
+    /^tests\//u.test(file) &&
+    /(?:\.test|\.spec)\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(file)
+  );
+}
+
+export function buildTestImpact({
+  changedFiles: files = [],
+  graph = null,
+  codeGraphAffected = [],
+  codeGraphStatus = "UNAVAILABLE"
+}) {
+  const changed = [...new Set(files.map(normalizePath))].sort();
+  const recommendations = [];
+  const graphSource = graph ? "GRAPHIFY_ADJACENCY" : "SOURCE_PATH_FALLBACK";
+  const docsOnly = changed.length > 0 && changed.every((file) => isDocsOrExcluded(file));
+  if (changed.length === 0 || docsOnly) {
+    addRecommendation(
+      recommendations,
+      "git diff --check",
+      "T0",
+      "static diff integrity",
+      "changed-files",
+      "git",
+      "HIGH",
+      true,
+      "git"
+    );
+    addRecommendation(
+      recommendations,
+      "npm run check:hidden-unicode",
+      "T0",
+      "hidden Unicode integrity",
+      "changed-files",
+      "script",
+      "HIGH",
+      true,
+      "script"
+    );
+    addRecommendation(
+      recommendations,
+      "npm run format:check",
+      "T0",
+      "format-scoped validation",
+      "changed-files",
+      "prettier",
+      "HIGH",
+      true,
+      "script"
+    );
+  }
+  const { nodes, edges } = extractGraphShape(graph);
+  const nodesById = new Map(
+    nodes.filter((node) => node && typeof node.id === "string").map((node) => [node.id, node])
+  );
+  const adjacency = new Map();
+  for (const edge of edges) {
+    const from = graphFileForEndpoint(edgeEndpoint(edge, "from"), nodesById);
+    const to = graphFileForEndpoint(edgeEndpoint(edge, "to"), nodesById);
+    if (!from || !to) continue;
+    for (const [left, right] of [
+      [from, to],
+      [to, from]
+    ]) {
+      if (!adjacency.has(left)) adjacency.set(left, []);
+      adjacency.get(left).push({ file: right, relation: edgeRelation(edge) });
+    }
+  }
+  const queue = changed.map((file) => ({ file, depth: 0, path: [file] }));
+  const visited = new Set();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || current.depth > 2) continue;
+    const visitKey = `${current.file}|${current.depth}`;
+    if (visited.has(visitKey)) continue;
+    visited.add(visitKey);
+    if (isConcreteTestFile(current.file)) {
+      addRecommendation(
+        recommendations,
+        current.file,
+        current.depth === 0 ? "T1" : "T2",
+        "graph-mapped dependency",
+        changed.join(","),
+        current.path,
+        current.depth === 0 ? "HIGH" : "MEDIUM",
+        false,
+        graphSource
+      );
+    }
+    if (current.depth < 2) {
+      for (const next of adjacency.get(current.file) || [])
+        queue.push({
+          file: next.file,
+          depth: current.depth + 1,
+          path: [...current.path, `${next.relation}:${next.file}`]
+        });
+    }
+  }
+  for (const file of codeGraphAffected.filter((value) => typeof value === "string")) {
+    if (isConcreteTestFile(file))
+      addRecommendation(
+        recommendations,
+        normalizePath(file),
+        "T2",
+        "CodeGraph affected test",
+        changed.join(","),
+        ["CodeGraph", normalizePath(file)],
+        "HIGH",
+        false,
+        "CODEGRAPH"
+      );
+  }
+  const matchingFloors = SAFETY_FLOORS.filter((floor) =>
+    changed.some((file) => floor.pattern.test(file))
+  );
+  for (const floor of matchingFloors) {
+    for (const [testFile, tier] of floor.tests) {
+      addRecommendation(
+        recommendations,
+        testFile,
+        tier,
+        floor.reason,
+        changed.join(","),
+        ["safety-floor", testFile],
+        "HIGH",
+        true,
+        "MANDATORY_SAFETY_FLOOR"
+      );
+    }
+  }
+  if (!docsOnly && changed.length > 0 && recommendations.every((entry) => entry.tier === "T0")) {
+    addRecommendation(
+      recommendations,
+      "npm test",
+      "T4",
+      "conservative full-suite fallback for unmapped source change",
+      changed.join(","),
+      ["missing-edge", "full-suite"],
+      "LOW",
+      true,
+      "CONSERVATIVE_FALLBACK"
+    );
+  }
+  recommendations.sort(
+    (left, right) =>
+      left.test_file.localeCompare(right.test_file) || left.tier.localeCompare(right.tier)
+  );
+  return {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    source_sha: null,
+    target_sha: null,
+    max_depth: 2,
+    changed_files: changed,
+    recommendations,
+    false_negative_controls: [
+      "max traversal depth = 2",
+      "missing edge expands mandatory safety floors",
+      "Graph is evidence and never suppresses repository safety tests"
+    ],
+    codegraph_status: codeGraphStatus,
+    graph_source: graphSource,
+    complete: true
+  };
+}
+
+export function buildRiskDelta({ changedFiles: files = [], graph = null, testImpact = null }) {
+  const changed = [...new Set(files.map(normalizePath))].sort();
+  const findings = [];
+  const add = (id, level, status, detail) => findings.push({ id, level, status, detail });
+  const has = (pattern) => changed.some((file) => pattern.test(file));
+  add(
+    "authority-boundary",
+    has(/authority|tenant|rbac|parameter-set|scenario-package/u) ? "P1" : "INFO",
+    "CHECKED",
+    "authority and tenant path classification"
+  );
+  add(
+    "writer-change",
+    has(/command|writer|append|create|persist|repository|adapter/u) ? "P1" : "INFO",
+    "CHECKED",
+    "writer and persistence path classification"
+  );
+  add(
+    "truth-settlement-replay",
+    has(/truth|settlement|replay|score|rank/u) ? "P0" : "INFO",
+    "CHECKED",
+    "Truth/Settlement/Replay touchpoint classification"
+  );
+  add(
+    "direct-store-bypass",
+    has(/store|repository|adapter/u) ? "P1" : "INFO",
+    "CHECKED",
+    "direct-store boundary requires mandatory guard"
+  );
+  add(
+    "runtime-without-test",
+    testImpact?.recommendations?.length ? "INFO" : "P1",
+    testImpact?.recommendations?.length ? "COVERED" : "OPEN",
+    "changed runtime has test-impact recommendations"
+  );
+  add(
+    "unmapped-code",
+    graph && testImpact?.graph_source === "GRAPHIFY_ADJACENCY" ? "INFO" : "P1",
+    graph ? "CHECKED" : "OPEN",
+    "Graph/source mapping confidence"
+  );
+  add(
+    "high-fan-in",
+    has(/services|packages|contracts/u) ? "P1" : "INFO",
+    "CHECKED",
+    "high fan-in module review required for shared paths"
+  );
+  return {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    changed_files: changed,
+    findings,
+    complete: true,
+    unknowns: graph ? [] : ["GRAPH_UNAVAILABLE_OR_EMPTY"]
+  };
+}
+
+function extractScalarLines(text, keys) {
+  const result = {};
+  for (const key of keys) {
+    const match = text.match(new RegExp(`^\\s*${key}:\\s*["']?([^\\n"']+?)["']?\\s*$`, "imu"));
+    if (match) result[key] = match[1].trim();
+  }
+  return result;
+}
+
+function classifyCommit(message) {
+  const lower = message.toLowerCase();
+  if (/docs?:|governance|closure|reconcile|receipt/u.test(lower)) return "governance";
+  if (/graph|infra|repair|refactor|security|test:/u.test(lower)) return "infrastructure";
+  if (/feat:|product|journey|course|teacher|student|scenario|eldercare/u.test(lower))
+    return "product";
+  return "other";
+}
+
+export function readPlanningReality({ repoRoot, currentSha }) {
+  const planningPaths = [
+    "docs/planning/current-cycle.yaml",
+    "docs/planning/l1-plus-portfolio-register.yaml"
+  ];
+  const documents = planningPaths.map((path) => {
+    const absolute = join(repoRoot, path);
+    const text = existsSync(absolute) ? readFileSync(absolute, "utf8") : "";
+    const scalars = extractScalarLines(text, [
+      "source_sha",
+      "current_master_at_readback",
+      "governance_closure_merge_sha",
+      "mainline_candidate",
+      "primary_outcome",
+      "automatic_next_start"
+    ]);
+    return { path, exists: Boolean(text), scalars };
+  });
+  const referencedShas = documents.flatMap((document) =>
+    Object.values(document.scalars).filter((value) => /^[0-9a-f]{40}$/u.test(value))
+  );
+  const drift = referencedShas.length > 0 && !referencedShas.includes(currentSha);
+  const recent = git(repoRoot, ["log", "-n", "20", "--format=%H%x09%s"], { allowFailure: true })
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((line) => {
+      const [sha, ...message] = line.split("\t");
+      return {
+        sha,
+        message: message.join("\t"),
+        classification: classifyCommit(message.join("\t"))
+      };
+    });
+  const productCount = recent.filter((entry) => entry.classification === "product").length;
+  const infraCount = recent.filter((entry) =>
+    ["infrastructure", "governance"].includes(entry.classification)
+  ).length;
+  const goal =
+    documents
+      .map((document) => document.scalars.primary_outcome || document.scalars.mainline_candidate)
+      .find(Boolean) || "UNKNOWN";
+  const productValueDrift =
+    productCount === 0 &&
+    infraCount >= 3 &&
+    /course|scenario|golden|human/u.test(goal.toLowerCase())
+      ? "WARNING_GENERIC_INFRASTRUCTURE_DRIFT"
+      : "ON_TRACK";
+  return {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    current_master_sha: currentSha,
+    status: drift ? "PLANNING_REALITY_DRIFT" : "CURRENT",
+    referenced_shas: [...new Set(referencedShas)],
+    documents,
+    recent_merges: recent,
+    current_stated_product_goal: goal,
+    product_value_drift: productValueDrift,
+    known_limits: ["planning docs are evidence, not source truth", "automatic_next_start=false"],
+    automatic_next_start: false
+  };
+}
+
+export function evaluatePlanningGate({
+  freshness,
+  architectureDeltaComplete,
+  testImpactComplete,
+  riskDeltaComplete,
+  planningReality,
+  codeGraphStatus
+}) {
+  const limits = [];
+  if (codeGraphStatus === "DEGRADED_CODEGRAPH")
+    limits.push("CODEGRAPH_DEGRADED_GRAPHIFY_ADJACENCY_FALLBACK");
+  if (codeGraphStatus === "DEGRADED_GRAPHIFY") limits.push("GRAPHIFY_HEALTH_UNPROVEN");
+  if (planningReality === "PLANNING_REALITY_DRIFT") limits.push("PLANNING_REALITY_DRIFT");
+  if (
+    freshness === "STALE_PRODUCT_DELTA" ||
+    freshness === "STALE_REBUILD_REQUIRED" ||
+    freshness === "GRAPH_NOT_FOUND"
+  ) {
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: freshness === "GRAPH_NOT_FOUND" ? "BLOCKED_GRAPH_TOOLING" : "BLOCKED_STALE_GRAPH",
+      limits: ["GRAPH_REFRESH_REQUIRED"],
+      automatic_next_start: false
+    };
+  }
+  if (freshness === "BLOCKED_GRAPH_TOOLING")
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_GRAPH_TOOLING",
+      limits: ["CURRENT_REALITY_UNRESOLVED"],
+      automatic_next_start: false
+    };
+  if (!architectureDeltaComplete || !testImpactComplete || !riskDeltaComplete)
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_UNMAPPED_PRODUCT_DELTA",
+      limits: ["REQUIRED_RECEIPT_INCOMPLETE"],
+      automatic_next_start: false
+    };
+  if (limits.length > 0 || freshness === "CURRENT_CODE_EQUIVALENT")
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "PLAN_ALLOWED_WITH_LIMITS",
+      limits,
+      automatic_next_start: false
+    };
+  return {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    status: "PLAN_ALLOWED",
+    limits: [],
+    automatic_next_start: false
+  };
+}
+
+function parseGraphifyCounts(graph) {
+  const { nodes, edges } = extractGraphShape(graph);
+  return { node_count: nodes.length, edge_count: edges.length };
+}
+
+function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manifest, tools }) {
+  const target = sourceGraphPath(graphHome, repository, currentSha);
+  const graphifyDir = join(target, "graphify");
+  const graphPath = join(graphifyDir, "graph.json");
+  ensureDirectory(graphifyDir);
+  const sourceManifestPath = join(target, "source-manifest.json");
+  if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
+    const graph = readGraph(graphPath);
+    const counts = parseGraphifyCounts(graph);
+    return {
+      status: "HEALTHY",
+      version: tools?.graphify_version || "UNKNOWN",
+      path: graphPath,
+      logical_digest: graph ? sha256(graph) : "DIGEST_UNAVAILABLE",
+      ...counts,
+      warnings: [],
+      reused: true
+    };
+  }
+  if (!tools?.graphify_available)
+    return {
+      status: "UNAVAILABLE",
+      version: "UNKNOWN",
+      path: graphPath,
+      logical_digest: "DIGEST_UNAVAILABLE",
+      node_count: 0,
+      edge_count: 0,
+      warnings: ["Graphify CLI unavailable"],
+      reused: false
+    };
+  const staging = mkdtempSync(join(tmpdir(), "simwar-graph-companion-graphify-"));
+  try {
+    const result = runCommand(
+      GRAPHIFY_COMMAND,
+      ["extract", repoRoot, "--code-only", "--no-cluster", "--out", staging],
+      repoRoot,
+      { timeout: 1_800_000 }
+    );
+    const generated = join(staging, "graphify-out", "graph.json");
+    if (!result.ok || !existsSync(generated)) {
+      return {
+        status: "UNAVAILABLE",
+        version: "UNKNOWN",
+        path: graphPath,
+        logical_digest: "DIGEST_UNAVAILABLE",
+        node_count: 0,
+        edge_count: 0,
+        warnings: [result.stderr || result.error || "Graphify extraction produced no graph"],
+        reused: false
+      };
+    }
+    copyFileSync(generated, graphPath);
+    const graph = readGraph(graphPath);
+    const counts = parseGraphifyCounts(graph);
+    atomicWrite(sourceManifestPath, manifest);
+    atomicWrite(join(graphifyDir, "refresh-receipt.json"), {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      source_sha: currentSha,
+      command: `${GRAPHIFY_COMMAND} extract --code-only --no-cluster`,
+      status: "PASS",
+      generated_at: new Date().toISOString()
+    });
+    return {
+      status: "HEALTHY",
+      version: tools?.graphify_version || "UNKNOWN",
+      path: graphPath,
+      logical_digest: graph ? sha256(graph) : "DIGEST_UNAVAILABLE",
+      ...counts,
+      warnings: [],
+      reused: false
+    };
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}
+
+export function parseCodeGraphStatus(text, repoRoot) {
+  const clean = stripAnsi(text).replaceAll(repoRoot, "<repo>").trim();
+  const healthy = /Index is up to date/iu.test(clean);
+  return {
+    status: healthy ? "HEALTHY" : "DEGRADED_CODEGRAPH",
+    path: join(repoRoot, ".codegraph"),
+    logical_digest: clean ? sha256(clean) : "DIGEST_UNAVAILABLE",
+    indexed_files: parseInteger("Files", clean),
+    node_count: parseInteger("Nodes", clean),
+    edge_count: parseInteger("Edges", clean),
+    pending_changes: healthy ? 0 : null,
+    warnings: healthy ? [] : ["CodeGraph status is not up to date"],
+    status_text: clean
+  };
+}
+
+function runCodeGraphIndex({ repoRoot, tools }) {
+  if (!tools?.codegraph_available)
+    return {
+      status: "DEGRADED_CODEGRAPH",
+      path: join(repoRoot, ".codegraph"),
+      logical_digest: "DIGEST_UNAVAILABLE",
+      indexed_files: 0,
+      node_count: 0,
+      edge_count: 0,
+      pending_changes: null,
+      warnings: ["CodeGraph CLI unavailable"]
+    };
+  const initialized = existsSync(join(repoRoot, ".codegraph"));
+  const command = initialized ? ["sync", repoRoot] : ["init", repoRoot];
+  const result = runCommand(CODEGRAPH_COMMAND, command, repoRoot, { timeout: 1_800_000 });
+  const status = runCommand(CODEGRAPH_COMMAND, ["status", repoRoot], repoRoot, {
+    timeout: 120_000
+  });
+  if (!status.ok)
+    return {
+      status: "DEGRADED_CODEGRAPH",
+      path: join(repoRoot, ".codegraph"),
+      logical_digest: "DIGEST_UNAVAILABLE",
+      indexed_files: 0,
+      node_count: 0,
+      edge_count: 0,
+      pending_changes: null,
+      warnings: [status.stderr || status.error || result.stderr || "CodeGraph status unavailable"]
+    };
+  return {
+    ...parseCodeGraphStatus(status.stdout, repoRoot),
+    command: `codegraph ${command[0]}`,
+    command_ok: result.ok
+  };
+}
+
+function codeGraphAffected(repoRoot, files, status) {
+  if (status !== "HEALTHY" || files.length === 0) return [];
+  const result = runCommand(
+    CODEGRAPH_COMMAND,
+    ["affected", "--path", repoRoot, "--json", ...files],
+    repoRoot,
+    { timeout: 120_000 }
+  );
+  if (!result.ok) return [];
+  try {
+    const parsed = JSON.parse(result.stdout);
+    if (Array.isArray(parsed))
+      return parsed
+        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
+        .filter(Boolean);
+    if (Array.isArray(parsed.tests))
+      return parsed.tests
+        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
+        .filter(Boolean);
+  } catch {
+    return result.stdout
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("tests/"));
+  }
+  return [];
+}
+
+function graphifyVersion(tools) {
+  return tools?.tools?.find((tool) => tool.tool === "Graphify")?.version || "UNKNOWN";
+}
+
+function codegraphVersion(tools) {
+  return tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN";
+}
+
+function updateRegistry({
+  repoRoot,
+  graphHome,
+  repository,
+  currentSha,
+  manifest,
+  graphify,
+  codegraph,
+  freshness,
+  changed,
+  graphSourceSha,
+  graphSourceManifest,
+  architectureDelta
+}) {
+  const currentTreeSha =
+    git(repoRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true }) || null;
+  const graphSourceTreeSha = graphSourceSha
+    ? git(repoRoot, ["rev-parse", `${graphSourceSha}^{tree}`], { allowFailure: true }) || null
+    : null;
+  const registry = {
+    schema_version: SCHEMA_VERSION,
+    repository,
+    current_repo_sha: currentSha,
+    graph_source_sha: graphSourceSha,
+    graph_source_tree_sha: graphSourceTreeSha,
+    current_repo_tree_sha: currentTreeSha,
+    graph_source_manifest_digest: graphSourceManifest?.manifest_digest || null,
+    current_source_manifest_digest: manifest.manifest_digest,
+    graph_source_code_manifest_digest: graphSourceManifest?.code_digest || null,
+    current_code_manifest_digest: manifest.code_digest,
+    freshness,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    graphify,
+    codegraph,
+    source_scope: {
+      included: manifest.entries.map((entry) => entry.path),
+      excluded: [
+        "docs/** except planning reality files",
+        ".git/**",
+        "node_modules/**",
+        ".codegraph/**"
+      ]
+    },
+    last_delta: { base_sha: graphSourceSha, target_sha: currentSha, changed_files: changed },
+    architecture_delta: architectureDelta,
+    health: { graphify: graphify.status, codegraph: codegraph.status, source_manifest: "VALID" },
+    known_limits: [
+      "Graph is evidence, not runtime truth",
+      "CodeGraph SQLite/WAL is represented by logical status digest",
+      "Graphify parser coverage may be incomplete",
+      "automatic_next_start=false"
+    ],
+    valid_for: {
+      architecture_analysis: graphify.status === "HEALTHY",
+      test_impact: graphify.status === "HEALTHY" || codegraph.status === "HEALTHY",
+      planning: !String(freshness.state).startsWith("BLOCKED")
+    },
+    automatic_next_start: false
+  };
+  atomicWrite(registryPath(graphHome, repository), registry);
+  return registry;
+}
+
+function readSourceManifestForGraph(graphPath) {
+  return graphPath
+    ? readTextManifest(join(dirname(dirname(graphPath)), "source-manifest.json"))
+    : null;
+}
+
+function writeReceipt(evidenceRoot, file, value) {
+  const path = join(evidenceRoot, "graph-companion", file);
+  atomicWrite(path, value);
+  return path;
+}
+
+function summaryMarkdown({
+  registry,
+  toolHealth,
+  freshness,
+  architectureDelta,
+  testImpact,
+  riskDelta,
+  planningReality,
+  planningGate,
+  evidenceRoot
+}) {
+  return [
+    "# SimWar Graph Companion V1",
+    "",
+    `- Current master SHA: ${registry.current_repo_sha || "UNKNOWN"}`,
+    `- Graph source SHA: ${registry.graph_source_sha || "NONE"}`,
+    `- Freshness: ${freshness.state}`,
+    `- Graphify: ${registry.graphify.status} (${registry.graphify.node_count} nodes / ${registry.graphify.edge_count} edges)`,
+    `- CodeGraph: ${registry.codegraph.status} (${registry.codegraph.indexed_files ?? "UNKNOWN"} files / ${registry.codegraph.node_count ?? "UNKNOWN"} nodes / ${registry.codegraph.edge_count ?? "UNKNOWN"} edges)`,
+    `- Architecture delta: ${architectureDelta.confidence}`,
+    `- Test Impact: ${testImpact.complete ? "PASS" : "FAIL"} (${testImpact.recommendations.length} recommendations)`,
+    `- Risk Delta: ${riskDelta.complete ? "PASS" : "FAIL"}`,
+    `- Planning Reality: ${planningReality.status}`,
+    `- Planning Gate: ${planningGate.status}`,
+    `- Product Value Drift: ${planningReality.product_value_drift}`,
+    `- Tool health: ${toolHealth.github_workflow}`,
+    `- Evidence root: ${evidenceRoot}`,
+    "- Graph authority: evidence only; current Git source remains truth.",
+    "- automatic_next_start: false",
+    ""
+  ].join("\n");
+}
+
+function resolveCurrentSha(repoRoot, requestedSha) {
+  return requestedSha || git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
+}
+
+function ensureEvidenceRoot(path) {
+  return ensureDirectory(
+    path ||
+      join(
+        tmpdir(),
+        `E-SIMWAR-GRAPH-COMPANION-V1-${new Date().toISOString().replace(/[-:.]/gu, "").replace(/Z$/u, "Z")}`
+      )
+  );
+}
+
+export function runCompanion({
+  mode = "entry",
+  repoRoot = DEFAULT_REPO_ROOT,
+  evidenceRoot,
+  graphHome,
+  baseSha = null,
+  targetSha = null,
+  currentSha = null
+} = {}) {
+  const root = resolve(repoRoot);
+  const repositoryHead = resolveCurrentSha(root, null);
+  const current =
+    mode === "impact" ? repositoryHead : resolveCurrentSha(root, currentSha || targetSha);
+  if (!current) throw new Error("Unable to resolve current source SHA");
+  const analysisTarget = mode === "impact" ? targetSha || current : current;
+  const evidence = ensureEvidenceRoot(evidenceRoot);
+  const home = resolve(graphHome || resolveGraphHome());
+  const repository = parseRepository(getRemote(root));
+  const existingRegistry = loadRegistry(home, repository);
+  const currentManifest = readRepositoryManifest(root);
+  const tools = discoverTools({ cwd: root });
+  const existingGraphSource = existingRegistry?.graph_source_sha || null;
+  const graphPath = existingRegistry?.graphify?.path || null;
+  const graphManifest = readSourceManifestForGraph(graphPath);
+  const sourceForDiff = baseSha || existingGraphSource;
+  const changed = changedFiles(root, baseSha || sourceForDiff, analysisTarget);
+  const freshnessBefore = classifyFreshness({
+    currentRepoSha: current,
+    graphSourceSha: existingGraphSource,
+    currentCodeManifestDigest: currentManifest.code_digest,
+    graphCodeManifestDigest:
+      graphManifest?.code_digest || existingRegistry?.graph_source_code_manifest_digest || null,
+    changedFiles: changed,
+    graphFound: Boolean(
+      existingRegistry?.graphify?.path && existsSync(existingRegistry.graphify.path)
+    ),
+    sourceAvailable: true
+  });
+  let graphify = existingRegistry?.graphify || {
+    status: "GRAPH_NOT_FOUND",
+    version: graphifyVersion(tools),
+    path: null,
+    logical_digest: "DIGEST_UNAVAILABLE",
+    node_count: 0,
+    edge_count: 0,
+    warnings: []
+  };
+  let graphSourceSha = existingGraphSource;
+  let graphSourceManifest = graphManifest;
+  let refreshReceipt = {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    status: "NOT_REQUIRED",
+    reason: freshnessBefore.state,
+    source_sha: graphSourceSha,
+    generated_at: new Date().toISOString()
+  };
+  const shouldRefresh =
+    ["entry", "refresh", "postmerge"].includes(mode) &&
+    ["GRAPH_NOT_FOUND", "STALE_PRODUCT_DELTA", "STALE_REBUILD_REQUIRED"].includes(
+      freshnessBefore.state
+    );
+  if (shouldRefresh) {
+    graphify = runGraphifyRefresh({
+      repoRoot: root,
+      repository,
+      graphHome: home,
+      currentSha: current,
+      manifest: currentManifest,
+      tools: {
+        graphify_available: tools.graphify_available,
+        graphify_version: graphifyVersion(tools)
+      }
+    });
+    refreshReceipt = {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: graphify.status === "HEALTHY" ? "PASS" : "BLOCKED_GRAPHIFY",
+      source_sha: current,
+      mode,
+      reused: graphify.reused || false,
+      warnings: graphify.warnings,
+      generated_at: new Date().toISOString()
+    };
+    if (graphify.status === "HEALTHY") {
+      graphSourceSha = current;
+      graphSourceManifest = currentManifest;
+    }
+  }
+  const codegraph = runCodeGraphIndex({ repoRoot: root, tools });
+  const graph = readGraph(graphify.path);
+  const finalFreshness = classifyFreshness({
+    currentRepoSha: current,
+    graphSourceSha,
+    currentCodeManifestDigest: currentManifest.code_digest,
+    graphCodeManifestDigest: graphSourceManifest?.code_digest || null,
+    changedFiles: changed,
+    graphFound: Boolean(graphify.path && existsSync(graphify.path)),
+    sourceAvailable: true
+  });
+  const delta = buildArchitectureDelta({
+    baseSha: baseSha || sourceForDiff,
+    targetSha: analysisTarget,
+    changedFiles: changed,
+    graph
+  });
+  const impact = buildTestImpact({
+    changedFiles: changed,
+    graph,
+    codeGraphAffected: codeGraphAffected(root, changed, codegraph.status),
+    codeGraphStatus: codegraph.status
+  });
+  impact.source_sha = baseSha || sourceForDiff;
+  impact.target_sha = analysisTarget;
+  const risk = buildRiskDelta({ changedFiles: changed, graph, testImpact: impact });
+  const planningReality = readPlanningReality({ repoRoot: root, currentSha: current });
+  const planningGate = evaluatePlanningGate({
+    freshness: finalFreshness.state,
+    architectureDeltaComplete: Boolean(delta),
+    testImpactComplete: impact.complete,
+    riskDeltaComplete: risk.complete,
+    planningReality: planningReality.status,
+    codeGraphStatus: codegraph.status === "HEALTHY" ? "HEALTHY" : codegraph.status
+  });
+  const registry = updateRegistry({
+    repoRoot: root,
+    graphHome: home,
+    repository,
+    currentSha: current,
+    manifest: currentManifest,
+    graphify,
+    codegraph,
+    freshness: finalFreshness,
+    changed,
+    graphSourceSha,
+    graphSourceManifest,
+    architectureDelta: delta
+  });
+  const graphState = {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    repository,
+    registry_path: registryPath(home, repository),
+    graph_home: home,
+    current_repo_sha: current,
+    graph_source_sha: graphSourceSha,
+    graphify,
+    codegraph,
+    freshness: finalFreshness,
+    automatic_next_start: false
+  };
+  writeReceipt(evidence, "graph-state.json", graphState);
+  writeReceipt(evidence, "tool-health.json", tools);
+  writeReceipt(evidence, "source-manifest.json", currentManifest);
+  writeReceipt(evidence, "freshness.json", {
+    schema_version: OUTPUT_SCHEMA_VERSION,
+    before: freshnessBefore,
+    after: finalFreshness,
+    current_repo_sha: current,
+    graph_source_sha: graphSourceSha,
+    changed_files: changed,
+    automatic_next_start: false
+  });
+  writeReceipt(evidence, "refresh-receipt.json", refreshReceipt);
+  writeReceipt(evidence, "architecture-delta.json", delta);
+  writeReceipt(evidence, "test-impact.json", impact);
+  writeReceipt(evidence, "risk-delta.json", risk);
+  writeReceipt(evidence, "planning-reality.json", planningReality);
+  writeReceipt(evidence, "planning-gate.json", planningGate);
+  atomicWrite(
+    join(evidence, "graph-companion", "summary.md"),
+    summaryMarkdown({
+      registry,
+      toolHealth: tools,
+      freshness: finalFreshness,
+      architectureDelta: delta,
+      testImpact: impact,
+      riskDelta: risk,
+      planningReality,
+      planningGate,
+      evidenceRoot: evidence
+    })
+  );
+  return {
+    registry,
+    tools,
+    freshness: finalFreshness,
+    refreshReceipt,
+    architectureDelta: delta,
+    testImpact: impact,
+    riskDelta: risk,
+    planningReality,
+    planningGate,
+    evidenceRoot: evidence
+  };
+}
+
+function parseArgs(argv) {
+  const options = { mode: "entry" };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--mode") options.mode = argv[++index];
+    else if (arg === "--repo") options.repoRoot = argv[++index];
+    else if (arg === "--evidence-root") options.evidenceRoot = argv[++index];
+    else if (arg === "--graph-home") options.graphHome = argv[++index];
+    else if (arg === "--base") options.baseSha = argv[++index];
+    else if (arg === "--target") options.targetSha = argv[++index];
+    else if (arg === "--current-sha") options.currentSha = argv[++index];
+    else if (arg === "--json") options.json = true;
+  }
+  return options;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+  try {
+    const result = runCompanion(parseArgs(process.argv.slice(2)));
+    if (parseArgs(process.argv.slice(2)).json) console.log(JSON.stringify(result, null, 2));
+    else
+      console.log(
+        `Graph Companion ${result.planningGate.status}: ${result.registry.current_repo_sha} (graph ${result.registry.graph_source_sha || "NONE"})`
+      );
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}
