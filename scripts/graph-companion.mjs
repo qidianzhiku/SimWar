@@ -1352,6 +1352,7 @@ function updateRegistry({
       included: manifest.entries.map((entry) => entry.path),
       excluded: [
         "docs/** except planning reality files",
+        ".github/ISSUE_TEMPLATE/**",
         ".git/**",
         "node_modules/**",
         ".codegraph/**"
