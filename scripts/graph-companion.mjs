@@ -1431,6 +1431,8 @@ export function runCompanion({
   currentSha = null
 } = {}) {
   if (!VALID_MODES.has(mode)) throw new Error(`Unsupported Graph Companion mode: ${mode}`);
+  if (mode === "impact" && (!baseSha || !targetSha))
+    throw new Error("impact mode requires both --base and --target SHAs");
   const root = resolve(repoRoot);
   if (mode === "postmerge") {
     const dirty = git(root, ["status", "--porcelain"], { allowFailure: true });
