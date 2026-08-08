@@ -5,7 +5,9 @@ import {
   buildSourceManifest,
   buildTestImpact,
   classifyFreshness,
+  classifyPlanningDocuments,
   classifyPath,
+  codeGraphWorkspacePath,
   evaluatePlanningGate,
   parseCodeGraphAffected,
   parseCodeGraphStatus,
@@ -239,6 +241,31 @@ describe("Graph Companion V1 pure contracts", () => {
     ).toBe(true);
   });
 
+  it("requires the simulation-core safety floor even when graph edges are present", () => {
+    const impact = buildTestImpact({
+      changedFiles: ["services/simulation-core/src/toy-logit-engine.ts"],
+      graph: {
+        nodes: [
+          {
+            id: "engine",
+            file: "services/simulation-core/src/toy-logit-engine.ts"
+          }
+        ],
+        edges: []
+      },
+      codeGraphAffected: [],
+      codeGraphStatus: "HEALTHY"
+    });
+    expect(
+      impact.recommendations.some((item) => item.test_file === "npm test" && item.mandatory)
+    ).toBe(true);
+    expect(
+      impact.recommendations.some(
+        (item) => item.test_file.includes("settlement-write-replay-hash") && item.mandatory
+      )
+    ).toBe(true);
+  });
+
   it("escalates shared contract changes beyond a docs-only tier", () => {
     const impact = buildTestImpact({
       changedFiles: ["packages/shared-contracts/src/index.ts"],
@@ -359,6 +386,65 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(delta.modified_files).toEqual(["services/api/src/server.ts", "unknown.bin"]);
     expect(delta.unmapped_changed_files).toEqual(["unknown.bin"]);
     expect(delta.confidence).toBe("PARTIAL");
+  });
+
+  it("preserves additions and deletions in architecture deltas", () => {
+    const delta = buildArchitectureDelta({
+      baseSha: "a",
+      targetSha: "b",
+      changedFiles: ["services/api/src/new.ts", "services/api/src/removed.ts"],
+      changedFileEntries: [
+        { status: "A", path: "services/api/src/new.ts" },
+        { status: "D", path: "services/api/src/removed.ts" }
+      ],
+      graph: { nodes: [{ id: "new", file: "services/api/src/new.ts" }], edges: [] },
+      priorGraph: { nodes: [{ id: "removed", file: "services/api/src/removed.ts" }], edges: [] }
+    });
+    expect(delta.added_files).toEqual(["services/api/src/new.ts"]);
+    expect(delta.removed_files).toEqual(["services/api/src/removed.ts"]);
+    expect(delta.unmapped_changed_files).toEqual([]);
+  });
+
+  it("blocks a deletion when the prior graph cannot map the removed file", () => {
+    const delta = buildArchitectureDelta({
+      baseSha: "a",
+      targetSha: "b",
+      changedFiles: ["services/api/src/removed.ts"],
+      changedFileEntries: [{ status: "D", path: "services/api/src/removed.ts" }],
+      graph: { nodes: [], edges: [] },
+      priorGraph: { nodes: [], edges: [] }
+    });
+    expect(delta.unmapped_changed_files).toEqual(["services/api/src/removed.ts"]);
+  });
+
+  it("requires every planning document to bind the current SHA independently", () => {
+    const currentSha = "a".repeat(40);
+    const staleSha = "b".repeat(40);
+    const result = classifyPlanningDocuments(
+      [
+        {
+          path: "current-cycle.yaml",
+          exists: true,
+          scalars: {
+            current_master_at_readback: staleSha,
+            governance_closure_merge_sha: currentSha
+          }
+        },
+        { path: "portfolio.yaml", exists: true, scalars: { current_master_at_readback: staleSha } }
+      ],
+      currentSha
+    );
+    expect(result.drift).toBe(true);
+    expect(result.documents.map((document) => document.binding_status)).toEqual(["DRIFT", "DRIFT"]);
+  });
+
+  it("keeps the CodeGraph index workspace outside the source worktree", () => {
+    const workspace = codeGraphWorkspacePath("C:\\graph-home", {
+      owner: "qidianzhiku",
+      name: "SimWar"
+    });
+    expect(workspace.replaceAll("\\", "/")).toContain("C:/graph-home/qidianzhiku-SimWar/");
+    expect(workspace.replaceAll("\\", "/")).not.toContain("/source/.codegraph");
   });
 
   it("blocks planning on an unrefreshed product graph", () => {

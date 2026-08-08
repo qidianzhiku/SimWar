@@ -90,7 +90,7 @@
 
 - `discoverTools() -> tool-health.json` records version/help/capabilities/result/limitation for Graphify and CodeGraph.
 - `runGraphifyRefresh(repoRoot, graphDir) -> {status, version, path, logical_digest, node_count, edge_count, warnings}`.
-- `runCodeGraphIndex(repoRoot) -> {status, version, path, logical_digest, indexed_files, node_count, edge_count, pending_changes, warnings}`.
+- `runCodeGraphIndex(repoRoot) -> {status, version, path, logical_digest, indexed_files, node_count, edge_count, pending_changes, warnings}`; the index path is a stable external worktree under the graph home, never `<repo>/.codegraph`.
 - `refreshGraph({repoRoot, registry, currentSha, graphHome, tools}) -> {registry, freshness, refreshReceipt}`.
 
 - [ ] **Step 1: Extend tests with fake-tool adapter cases**
@@ -103,7 +103,7 @@
 
 - [ ] **Step 3: Implement CLI adapters**
 
-  Invoke `graphify extract <repo> --code-only --no-cluster --out <staging>` only when refresh is needed; copy small metadata/receipts into `graphs/<short-sha>/graphify/` and keep the large graph outside Git. Run `codegraph init` for a missing index or `codegraph sync` for an existing one; parse `codegraph status` text and hash normalized status as a logical digest. Never hash a live SQLite/WAL file as a stable digest.
+  Invoke `graphify extract <repo> --code-only --no-cluster --out <staging>` only when refresh is needed; copy small metadata/receipts into `graphs/<short-sha>/graphify/` and keep the large graph outside Git. Create or reuse a detached CodeGraph worktree under the graph home, then run `codegraph init` or `codegraph sync` there; the source worktree must remain clean. Parse `codegraph status` text and hash normalized status as a logical digest. Never hash a live SQLite/WAL file as a stable digest.
 
 - [ ] **Step 4: Run adapter tests green and record real CLI capability results**
 
@@ -135,7 +135,7 @@
 
 - [ ] **Step 2: Implement file-level graph traversal and safety floors**
 
-  Read Graphify nodes/edges when available; supplement with deterministic import edges from source files. Record depth, reason, confidence, mandatory/recommended, and graph source for each test recommendation. Use CodeGraph `affected --json` when healthy, but merge it with conservative floor tests rather than replacing them.
+  Read Graphify nodes/edges when available; supplement with deterministic import edges from source files. Record depth, reason, confidence, mandatory/recommended, and graph source for each test recommendation. Use CodeGraph `affected --json` when healthy, but merge it with conservative floor tests rather than replacing them. Simulation-core changes always retain full-suite, settlement-idempotency, replay-hash, golden, and plugin-conformance coverage.
 
 - [ ] **Step 3: Implement architecture/risk/planning receipts**
 

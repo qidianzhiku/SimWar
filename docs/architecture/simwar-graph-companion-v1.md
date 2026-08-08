@@ -89,8 +89,10 @@ self-healing by re-running the entry gate.
 Graphify is invoked code-only and without clustering when a rebuild is needed.
 The generated graph is copied to the source-SHA directory; existing historical
 directories are never overwritten; a corrupt or incomplete same-SHA artifact
-is repaired into a distinct manifest-suffixed directory. CodeGraph is initialized in a new worktree
-or synchronized in an existing one. Its status output is normalized into a
+is repaired into a distinct manifest-suffixed directory. CodeGraph is initialized
+in a stable external worktree under the graph home or synchronized in an existing
+one; the source worktree is never used as the index destination and remains clean.
+Its status output is normalized into a
 logical digest; an active SQLite/WAL file is never hashed as a stable database
 digest. If CodeGraph cannot run, the receipt explicitly records
 `DEGRADED_CODEGRAPH` and the companion traverses Graphify adjacency only.
@@ -98,12 +100,14 @@ digest. If CodeGraph cannot run, the receipt explicitly records
 The fallback is deliberately bounded: direct and reverse adjacency, one-hop
 and two-hop traversal, impacted files, and impacted tests. CodeGraph v1.2
 `affectedTests` output is parsed with an explicit depth-two request. It is not a
-new graph database or a CodeGraph replacement. Planning becomes
+new graph database or a CodeGraph replacement. The affected query is executed
+against that same external index worktree, not the source checkout. Planning becomes
 `PLAN_ALLOWED_WITH_LIMITS`, never an unqualified `PLAN_ALLOWED`.
 
 ## Architecture delta and Test Impact
 
-Each run emits `architecture-delta.json` with file/node/edge changes, route,
+Each run emits `architecture-delta.json` with file/node/edge changes, including
+explicit additions and deletions resolved against the prior source graph, route,
 contract, writer, repository, authority, teacher/student/admin, scenario,
 ParameterSet, plugin, Truth/Settlement/Replay, tenant, fan-in/fan-out, and
 unmapped-file fields.
@@ -112,7 +116,10 @@ unmapped-file fields.
 test file/command, T0–T4 tier, reason, impacted node, dependency path,
 confidence, mandatory/recommended, depth, and graph source. Mandatory safety
 floors are retained for Truth, Settlement, Replay, Tenant, RBAC,
-ScenarioPackage, ParameterSet, Plugin, and security projection paths. Missing
+ScenarioPackage, ParameterSet, Plugin, and security projection paths. Any
+`services/simulation-core/**` change additionally requires the full suite,
+settlement idempotency, replay-hash, golden compatibility, and plugin
+conformance checks. Missing
 edges expand the floor; they never suppress tests.
 
 T0 static checks cover diff integrity, hidden Unicode, and formatting. T1 is
@@ -127,7 +134,9 @@ build and browser floors.
 Planning reality reads the current source SHA, Graph Registry,
 `docs/planning/current-cycle.yaml`,
 `docs/planning/l1-plus-portfolio-register.yaml`, recent commit classifications,
-and known limits. A planning document bound to an older SHA is reported as
+and known limits. Every required planning document independently binds
+`current_master_at_readback` (or its explicit source binding) to the current
+SHA. A planning document bound to an older SHA is reported as
 `PLANNING_REALITY_DRIFT`; missing required planning inputs produce
 `BLOCKED_CURRENT_REALITY`. The companion does not create a governance PR to
 silently reconcile either condition.

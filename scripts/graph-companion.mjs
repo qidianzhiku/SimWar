@@ -99,6 +99,18 @@ const SAFETY_FLOORS = [
     reason: "Plugin boundary safety floor"
   },
   {
+    pattern: /(?:^|\/)services\/simulation-core\//u,
+    tests: [
+      ["npm test", "T4"],
+      ["tests/integration/r7a-eldercare-golden-m1-compatibility.test.ts", "T3"],
+      ["tests/integration/r7b-golden-m1-replay-compatibility.test.ts", "T3"],
+      ["tests/simulation/r7a-eldercare-plugin-conformance.test.ts", "T3"],
+      ["tests/unit/settlement-idempotency.test.ts", "T1"],
+      ["tests/integration/settlement-write-replay-hash-characterization.test.ts", "T3"]
+    ],
+    reason: "simulation-core truth and replay safety floor"
+  },
+  {
     pattern: /^apps\/(?:teacher|student|admin)\//u,
     tests: [
       ["npm run build", "T4"],
@@ -209,8 +221,24 @@ export function buildSourceManifest({ files }) {
 
 function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_000 } = {}) {
   try {
+    const allowedCommands = new Set(["git", GRAPHIFY_COMMAND, CODEGRAPH_COMMAND]);
+    if (!allowedCommands.has(command)) throw new Error(`Unsupported command: ${command}`);
+    if (
+      !Array.isArray(args) ||
+      args.some(
+        (value) =>
+          typeof value !== "string" ||
+          [...value].some((character) => {
+            const code = character.charCodeAt(0);
+            return code < 32 || code === 127;
+          }) ||
+          /[;&|<>`]/u.test(value)
+      )
+    ) {
+      throw new Error("Unsafe command argument");
+    }
     const windowsBatch = process.platform === "win32" && command.toLowerCase().endsWith(".cmd");
-    const spawnCommand = windowsBatch ? process.env.ComSpec || "cmd.exe" : command;
+    const spawnCommand = windowsBatch ? "cmd.exe" : command;
     const spawnArgs = windowsBatch
       ? [
           "/d",
@@ -227,6 +255,7 @@ function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_0
     const result = spawnSync(spawnCommand, spawnArgs, {
       cwd,
       encoding: "utf8",
+      shell: false,
       timeout,
       windowsHide: true,
       maxBuffer: 32 * 1024 * 1024
@@ -366,16 +395,32 @@ function sourceGraphPath(graphHome, repository, sha) {
   return join(graphBasePath(graphHome, repository), "graphs", sha.slice(0, 12));
 }
 
-function changedFiles(repoRoot, baseSha, targetSha) {
+function changedFileEntries(repoRoot, baseSha, targetSha) {
   if (!baseSha || !targetSha || baseSha === targetSha) return [];
-  const result = runCommand("git", ["diff", "--name-only", `${baseSha}..${targetSha}`], repoRoot, {
-    allowFailure: true
-  });
+  const result = runCommand(
+    "git",
+    ["diff", "--name-status", `${baseSha}..${targetSha}`],
+    repoRoot,
+    {
+      allowFailure: true
+    }
+  );
   if (!result.ok) {
     throw new Error(result.stderr || result.error || "Unable to compute changed files");
   }
-  const output = result.stdout;
-  return output.split(/\r?\n/u).map(normalizePath).filter(Boolean).sort();
+  const entries = [];
+  for (const line of result.stdout.split(/\r?\n/u).filter(Boolean)) {
+    const [status, firstPath, secondPath] = line.split("\t");
+    if (!status || !firstPath) continue;
+    const kind = status[0];
+    if (kind === "R" && secondPath) {
+      entries.push({ status: "D", path: normalizePath(firstPath) });
+      entries.push({ status: "A", path: normalizePath(secondPath) });
+    } else {
+      entries.push({ status: kind, path: normalizePath(firstPath) });
+    }
+  }
+  return entries.sort((left, right) => left.path.localeCompare(right.path));
 }
 
 function isDocsOrExcluded(file) {
@@ -568,14 +613,33 @@ export function buildArchitectureDelta({
   baseSha = null,
   targetSha,
   changedFiles: files = [],
-  graph = null
+  changedFileEntries: entries = null,
+  graph = null,
+  priorGraph = null
 }) {
   const { nodes, edges } = extractGraphShape(graph);
+  const { nodes: priorNodes } = extractGraphShape(priorGraph);
   const filesWithNodes = new Set(nodes.map(nodeFile).filter(Boolean));
+  const priorFilesWithNodes = new Set(priorNodes.map(nodeFile).filter(Boolean));
   const changed = [...new Set(files.map(normalizePath))].sort();
-  const unmapped = changed.filter((file) => !filesWithNodes.has(file));
+  const entryByPath = new Map(
+    (Array.isArray(entries) ? entries : changed.map((path) => ({ status: "M", path }))).map(
+      (entry) => [normalizePath(entry.path), entry]
+    )
+  );
+  const unmapped = changed.filter((file) =>
+    entryByPath.get(file)?.status === "D"
+      ? !priorFilesWithNodes.has(file)
+      : !filesWithNodes.has(file)
+  );
   const changedNodes = nodes
     .filter((node) => changed.includes(nodeFile(node)))
+    .map((node) => node.id || node.name || nodeFile(node))
+    .filter(Boolean);
+  const removedNodes = priorNodes
+    .filter(
+      (node) => changed.includes(nodeFile(node)) && entryByPath.get(nodeFile(node))?.status === "D"
+    )
     .map((node) => node.id || node.name || nodeFile(node))
     .filter(Boolean);
   const highFanIn = [];
@@ -601,11 +665,11 @@ export function buildArchitectureDelta({
     schema_version: OUTPUT_SCHEMA_VERSION,
     base_sha: baseSha,
     target_sha: targetSha,
-    added_files: [],
-    removed_files: [],
-    modified_files: changed,
+    modified_files: changed.filter((file) => entryByPath.get(file)?.status === "M"),
+    added_files: changed.filter((file) => entryByPath.get(file)?.status === "A"),
+    removed_files: changed.filter((file) => entryByPath.get(file)?.status === "D"),
     added_nodes: [],
-    removed_nodes: [],
+    removed_nodes: removedNodes,
     changed_nodes: changedNodes,
     added_edges: [],
     removed_edges: [],
@@ -912,6 +976,31 @@ function extractScalarLines(text, keys) {
   return result;
 }
 
+export function classifyPlanningDocuments(documents, currentSha) {
+  const normalized = documents.map((document) => {
+    const boundShas = Array.isArray(document.bound_shas)
+      ? document.bound_shas
+      : Object.values(document.scalars || {}).filter((value) => /^[0-9a-f]{40}$/u.test(value));
+    const currentBinding =
+      document.scalars?.current_master_at_readback || document.scalars?.source_sha;
+    return {
+      ...document,
+      bound_shas: boundShas,
+      current_binding_sha: currentBinding || null,
+      binding_status: !document.exists
+        ? "MISSING"
+        : currentBinding === currentSha
+          ? "CURRENT"
+          : "DRIFT"
+    };
+  });
+  return {
+    documents: normalized,
+    missing: normalized.some((document) => document.binding_status === "MISSING"),
+    drift: normalized.some((document) => document.binding_status === "DRIFT")
+  };
+}
+
 function classifyCommit(message) {
   const lower = message.toLowerCase();
   if (/docs?:|governance|closure|reconcile|receipt/u.test(lower)) return "governance";
@@ -939,11 +1028,13 @@ export function readPlanningReality({ repoRoot, currentSha }) {
     ]);
     return { path, exists: Boolean(text), scalars };
   });
-  const referencedShas = documents.flatMap((document) =>
+  const classified = classifyPlanningDocuments(documents, currentSha);
+  const classifiedDocuments = classified.documents;
+  const referencedShas = classifiedDocuments.flatMap((document) =>
     Object.values(document.scalars).filter((value) => /^[0-9a-f]{40}$/u.test(value))
   );
-  const drift = referencedShas.length > 0 && !referencedShas.includes(currentSha);
-  const missing = documents.some((document) => !document.exists);
+  const drift = classified.drift;
+  const missing = classified.missing;
   const recent = git(repoRoot, ["log", "-n", "20", "--format=%H%x09%s"], { allowFailure: true })
     .split(/\r?\n/u)
     .filter(Boolean)
@@ -974,7 +1065,7 @@ export function readPlanningReality({ repoRoot, currentSha }) {
     current_master_sha: currentSha,
     status: missing ? "PLANNING_REALITY_MISSING" : drift ? "PLANNING_REALITY_DRIFT" : "CURRENT",
     referenced_shas: [...new Set(referencedShas)],
-    documents,
+    documents: classifiedDocuments,
     recent_merges: recent,
     current_stated_product_goal: goal,
     product_value_drift: productValueDrift,
@@ -1192,12 +1283,48 @@ export function parseCodeGraphStatus(text, repoRoot) {
   };
 }
 
-function runCodeGraphIndex({ repoRoot, tools }) {
+export function codeGraphWorkspacePath(graphHome, repository) {
+  return join(graphBasePath(graphHome, repository), "codegraph-worktree");
+}
+
+function ensureCodeGraphWorkspace({ repoRoot, graphHome, repository, currentSha }) {
+  const workspace = codeGraphWorkspacePath(graphHome, repository);
+  if (!existsSync(join(workspace, ".git"))) {
+    ensureDirectory(dirname(workspace));
+    const added = runCommand(
+      "git",
+      ["worktree", "add", "--detach", workspace, currentSha],
+      repoRoot,
+      { allowFailure: true, timeout: 120_000 }
+    );
+    if (!added.ok)
+      return {
+        path: null,
+        warning: added.stderr || added.error || "CodeGraph worktree creation failed"
+      };
+  }
+  const checkedOut = git(workspace, ["rev-parse", "HEAD"], { allowFailure: true });
+  if (checkedOut !== currentSha) {
+    const checkout = runCommand("git", ["checkout", "--detach", currentSha], workspace, {
+      allowFailure: true,
+      timeout: 120_000
+    });
+    if (!checkout.ok)
+      return {
+        path: null,
+        warning: checkout.stderr || checkout.error || "CodeGraph worktree checkout failed"
+      };
+  }
+  return { path: workspace, warning: null };
+}
+
+function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha }) {
   if (!tools?.codegraph_available)
     return {
       status: "DEGRADED_CODEGRAPH",
       version: "UNKNOWN",
-      path: join(repoRoot, ".codegraph"),
+      path: null,
+      workspace_root: null,
       logical_digest: "DIGEST_UNAVAILABLE",
       indexed_files: 0,
       node_count: 0,
@@ -1205,17 +1332,33 @@ function runCodeGraphIndex({ repoRoot, tools }) {
       pending_changes: null,
       warnings: ["CodeGraph CLI unavailable"]
     };
-  const initialized = existsSync(join(repoRoot, ".codegraph"));
-  const command = initialized ? ["sync", repoRoot] : ["init", repoRoot];
-  const result = runCommand(CODEGRAPH_COMMAND, command, repoRoot, { timeout: 1_800_000 });
-  const status = runCommand(CODEGRAPH_COMMAND, ["status", repoRoot], repoRoot, {
+  const workspaceResult = ensureCodeGraphWorkspace({ repoRoot, graphHome, repository, currentSha });
+  const indexRoot = workspaceResult.path;
+  if (!indexRoot)
+    return {
+      status: "DEGRADED_CODEGRAPH",
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+      path: null,
+      workspace_root: null,
+      logical_digest: "DIGEST_UNAVAILABLE",
+      indexed_files: 0,
+      node_count: 0,
+      edge_count: 0,
+      pending_changes: null,
+      warnings: [workspaceResult.warning]
+    };
+  const initialized = existsSync(join(indexRoot, ".codegraph"));
+  const command = initialized ? ["sync", indexRoot] : ["init", indexRoot];
+  const result = runCommand(CODEGRAPH_COMMAND, command, indexRoot, { timeout: 1_800_000 });
+  const status = runCommand(CODEGRAPH_COMMAND, ["status", indexRoot], indexRoot, {
     timeout: 120_000
   });
   if (!status.ok)
     return {
       status: "DEGRADED_CODEGRAPH",
       version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
-      path: join(repoRoot, ".codegraph"),
+      path: join(indexRoot, ".codegraph"),
+      workspace_root: indexRoot,
       logical_digest: "DIGEST_UNAVAILABLE",
       indexed_files: 0,
       node_count: 0,
@@ -1226,7 +1369,8 @@ function runCodeGraphIndex({ repoRoot, tools }) {
   if (!result.ok)
     return {
       status: "DEGRADED_CODEGRAPH",
-      path: join(repoRoot, ".codegraph"),
+      path: join(indexRoot, ".codegraph"),
+      workspace_root: indexRoot,
       logical_digest: "DIGEST_UNAVAILABLE",
       indexed_files: 0,
       node_count: 0,
@@ -1236,7 +1380,8 @@ function runCodeGraphIndex({ repoRoot, tools }) {
       warnings: [result.stderr || result.error || "CodeGraph index operation failed"]
     };
   return {
-    ...parseCodeGraphStatus(status.stdout, repoRoot),
+    ...parseCodeGraphStatus(status.stdout, indexRoot),
+    workspace_root: indexRoot,
     command: `codegraph ${command[0]}`,
     command_ok: true,
     version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
@@ -1655,7 +1800,11 @@ export function runCompanion({
   const graphManifest = readSourceManifestForGraph(graphPath);
   const existingGraph = readGraph(graphPath);
   const sourceForDiff = validatedBase || existingGraphSource;
-  const changed = changedFiles(root, validatedBase || sourceForDiff, analysisTarget);
+  const priorGraph = sourceForDiff
+    ? readGraph(join(sourceGraphPath(home, repository, sourceForDiff), "graphify", "graph.json"))
+    : existingGraph;
+  const changeEntries = changedFileEntries(root, validatedBase || sourceForDiff, analysisTarget);
+  const changed = changeEntries.map((entry) => entry.path);
   const freshnessBefore = classifyFreshness({
     currentRepoSha: current,
     graphSourceSha: existingGraphSource,
@@ -1728,7 +1877,13 @@ export function runCompanion({
           version: "UNKNOWN",
           warnings: ["plan mode does not run CodeGraph indexing"]
         }
-      : runCodeGraphIndex({ repoRoot: root, tools });
+      : runCodeGraphIndex({
+          repoRoot: root,
+          tools,
+          graphHome: home,
+          repository,
+          currentSha: current
+        });
   const graph = readGraph(graphify.path);
   const finalFreshness = classifyFreshness({
     currentRepoSha: current,
@@ -1743,9 +1898,15 @@ export function runCompanion({
     baseSha: validatedBase || sourceForDiff,
     targetSha: analysisTarget,
     changedFiles: changed,
-    graph
+    changedFileEntries: changeEntries,
+    graph,
+    priorGraph
   });
-  const codeGraphAffectedResult = codeGraphAffected(root, changed, codegraph.status);
+  const codeGraphAffectedResult = codeGraphAffected(
+    codegraph.workspace_root || root,
+    changed,
+    codegraph.status
+  );
   const impact = buildTestImpact({
     changedFiles: changed,
     graph,
