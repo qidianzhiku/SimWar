@@ -14,15 +14,38 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import { basename, dirname, join, resolve, win32 as win32Path } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  win32 as win32Path
+} from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(SCRIPT_ROOT, "..");
 const SCHEMA_VERSION = "GraphCompanionRegistryV1";
 const OUTPUT_SCHEMA_VERSION = "GraphCompanionReceiptV1";
-const GRAPHIFY_COMMAND = process.platform === "win32" ? "graphify.exe" : "graphify";
-const CODEGRAPH_COMMAND = process.platform === "win32" ? "codegraph.cmd" : "codegraph";
+const GRAPHIFY_COMMAND = "graphify";
+const CODEGRAPH_COMMAND = process.platform === "win32" ? "node" : "codegraph";
+const CODEGRAPH_DISPLAY_COMMAND = process.platform === "win32" ? "codegraph.cmd" : "codegraph";
+const CODEGRAPH_ENTRYPOINT =
+  process.platform === "win32"
+    ? join(
+        homedir(),
+        "AppData",
+        "Local",
+        "codegraph",
+        "current",
+        "lib",
+        "dist",
+        "bin",
+        "codegraph.js"
+      )
+    : null;
 const VALID_MODES = new Set(["entry", "refresh", "impact", "plan", "postmerge"]);
 
 const CLASSIFICATION_RULES = [
@@ -221,7 +244,7 @@ export function buildSourceManifest({ files }) {
 
 function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_000 } = {}) {
   try {
-    const allowedCommands = new Set(["git", GRAPHIFY_COMMAND, CODEGRAPH_COMMAND]);
+    const allowedCommands = new Set(["git", "node", GRAPHIFY_COMMAND, CODEGRAPH_COMMAND]);
     if (!allowedCommands.has(command)) throw new Error(`Unsupported command: ${command}`);
     if (
       !Array.isArray(args) ||
@@ -237,22 +260,7 @@ function runCommand(command, args, cwd, { allowFailure = true, timeout = 1_200_0
     ) {
       throw new Error("Unsafe command argument");
     }
-    const windowsBatch = process.platform === "win32" && command.toLowerCase().endsWith(".cmd");
-    const spawnCommand = windowsBatch ? "cmd.exe" : command;
-    const spawnArgs = windowsBatch
-      ? [
-          "/d",
-          "/s",
-          "/c",
-          [command, ...args]
-            .map((value) => {
-              const text = String(value);
-              return /[\s"]/.test(text) ? `"${text.replaceAll('"', '\\"')}"` : text;
-            })
-            .join(" ")
-        ]
-      : args;
-    const result = spawnSync(spawnCommand, spawnArgs, {
+    const result = spawnSync(command, args, {
       cwd,
       encoding: "utf8",
       shell: false,
@@ -292,6 +300,11 @@ function git(repoRoot, args, { allowFailure = false } = {}) {
   const result = runCommand("git", args, repoRoot, { allowFailure });
   if (!result.ok && !allowFailure) throw new Error(result.stderr || `git ${args.join(" ")} failed`);
   return result.stdout.trim();
+}
+
+function runCodeGraphCommand(args, cwd, options = {}) {
+  const invocation = CODEGRAPH_ENTRYPOINT ? [CODEGRAPH_ENTRYPOINT, ...args] : args;
+  return runCommand(CODEGRAPH_COMMAND, invocation, cwd, options);
 }
 
 function getRemote(repoRoot) {
@@ -513,8 +526,8 @@ function parseInteger(label, text) {
 export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
   const graphifyVersion = runCommand(GRAPHIFY_COMMAND, ["--version"], cwd);
   const graphifyHelp = runCommand(GRAPHIFY_COMMAND, ["--help"], cwd);
-  const codegraphVersion = runCommand(CODEGRAPH_COMMAND, ["--version"], cwd);
-  const codegraphHelp = runCommand(CODEGRAPH_COMMAND, ["--help"], cwd);
+  const codegraphVersion = runCodeGraphCommand(["--version"], cwd);
+  const codegraphHelp = runCodeGraphCommand(["--help"], cwd);
   const graphifyOk = graphifyVersion.ok;
   const codegraphOk = codegraphVersion.ok;
   return {
@@ -539,7 +552,7 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
         capabilities: ["init", "index", "sync", "status", "affected", "explore"].filter((name) =>
           codegraphHelp.stdout.includes(name)
         ),
-        command: `${CODEGRAPH_COMMAND} --version`,
+        command: `${CODEGRAPH_DISPLAY_COMMAND} --version`,
         result: codegraphOk ? "PASS" : "UNAVAILABLE",
         limitation: codegraphOk ? null : codegraphVersion.stderr || codegraphVersion.error
       }
@@ -1349,8 +1362,8 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
     };
   const initialized = existsSync(join(indexRoot, ".codegraph"));
   const command = initialized ? ["sync", indexRoot] : ["init", indexRoot];
-  const result = runCommand(CODEGRAPH_COMMAND, command, indexRoot, { timeout: 1_800_000 });
-  const status = runCommand(CODEGRAPH_COMMAND, ["status", indexRoot], indexRoot, {
+  const result = runCodeGraphCommand(command, indexRoot, { timeout: 1_800_000 });
+  const status = runCodeGraphCommand(["status", indexRoot], indexRoot, {
     timeout: 120_000
   });
   if (!status.ok)
@@ -1382,7 +1395,7 @@ function runCodeGraphIndex({ repoRoot, tools, graphHome, repository, currentSha 
   return {
     ...parseCodeGraphStatus(status.stdout, indexRoot),
     workspace_root: indexRoot,
-    command: `codegraph ${command[0]}`,
+    command: `${CODEGRAPH_DISPLAY_COMMAND} ${command[0]}`,
     command_ok: true,
     version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
   };
@@ -1423,8 +1436,7 @@ export function parseCodeGraphAffected(output) {
 function codeGraphAffected(repoRoot, files, status) {
   if (status !== "HEALTHY" || files.length === 0)
     return { files: [], status: "NOT_RUN", warnings: [] };
-  const result = runCommand(
-    CODEGRAPH_COMMAND,
+  const result = runCodeGraphCommand(
     ["affected", "--path", repoRoot, "--depth", "2", "--json", ...files],
     repoRoot,
     { timeout: 120_000 }
@@ -1622,6 +1634,16 @@ function ensureEvidenceRoot(path) {
   );
 }
 
+export function assertExternalGraphHome(graphHome, repoRoot) {
+  const home = resolve(graphHome);
+  const root = resolve(repoRoot);
+  const relativePath = relative(root, home);
+  const insideSource =
+    relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+  if (insideSource) throw new Error("Graph home must be outside the source worktree");
+  return home;
+}
+
 export function runCompanion({
   mode = "entry",
   repoRoot = DEFAULT_REPO_ROOT,
@@ -1655,7 +1677,7 @@ export function runCompanion({
   }
   if (!repositoryHead) {
     const blockedEvidence = ensureEvidenceRoot(evidenceRoot);
-    const blockedHome = resolve(graphHome || resolveGraphHome());
+    const blockedHome = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
     const blockedRepository = parseRepository(getRemote(root), root);
     const blockedTools = discoverTools({ cwd: root });
     const blockedFreshness = {
@@ -1786,7 +1808,7 @@ export function runCompanion({
   if (targetSha && !validatedTarget) throw new Error(`Unable to resolve target SHA: ${targetSha}`);
   const analysisTarget = mode === "impact" ? validatedTarget || current : current;
   const evidence = ensureEvidenceRoot(evidenceRoot);
-  const home = resolve(graphHome || resolveGraphHome());
+  const home = assertExternalGraphHome(resolve(graphHome || resolveGraphHome()), root);
   const repository = parseRepository(getRemote(root), root);
   const existingRegistry = loadRegistry(home, repository);
   const currentManifest = readRepositoryManifest(root);

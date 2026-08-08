@@ -4,6 +4,7 @@ import {
   buildRiskDelta,
   buildSourceManifest,
   buildTestImpact,
+  assertExternalGraphHome,
   classifyFreshness,
   classifyPlanningDocuments,
   classifyPath,
@@ -445,6 +446,9 @@ describe("Graph Companion V1 pure contracts", () => {
     });
     expect(workspace.replaceAll("\\", "/")).toContain("C:/graph-home/qidianzhiku-SimWar/");
     expect(workspace.replaceAll("\\", "/")).not.toContain("/source/.codegraph");
+    expect(() => assertExternalGraphHome("D:/source/graph-home", "D:/source")).toThrow(
+      "Graph home must be outside the source worktree"
+    );
   });
 
   it("blocks planning on an unrefreshed product graph", () => {
