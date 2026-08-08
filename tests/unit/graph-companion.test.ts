@@ -42,6 +42,7 @@ describe("Graph Companion V1 pure contracts", () => {
       files: [
         { path: "services/api/src/server.ts", content: "export const server = 1;" },
         { path: "docs/planning/current-cycle.yaml", content: "source_sha: old\n" },
+        { path: ".github/ISSUE_TEMPLATE/bug.yml", content: "name: Bug\n" },
         { path: "README.md", content: "docs" }
       ]
     });
@@ -49,6 +50,7 @@ describe("Graph Companion V1 pure contracts", () => {
       files: [
         { path: "README.md", content: "docs" },
         { path: "docs/planning/current-cycle.yaml", content: "source_sha: old\n" },
+        { path: ".github/ISSUE_TEMPLATE/bug.yml", content: "name: Bug\n" },
         { path: "services/api/src/server.ts", content: "export const server = 1;" }
       ]
     });

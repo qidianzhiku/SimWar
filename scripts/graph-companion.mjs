@@ -175,7 +175,12 @@ export function buildSourceManifest({ files }) {
       classification: classifyPath(entry.path),
       content: entry.content
     }))
-    .filter((entry) => entry.classification !== "DOCS" && entry.classification !== "PLANNING")
+    .filter(
+      (entry) =>
+        !isDocsOrExcluded(entry.path) &&
+        entry.classification !== "DOCS" &&
+        entry.classification !== "PLANNING"
+    )
     .map(({ path, classification, content }) => {
       const contentSha = sha256(content);
       return { path, blob_sha: contentSha, content_sha256: contentSha, classification };
