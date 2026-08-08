@@ -5,6 +5,7 @@ import {
   buildSourceManifest,
   buildTestImpact,
   classifyFreshness,
+  classifyPath,
   evaluatePlanningGate,
   parseCodeGraphAffected,
   parseCodeGraphStatus,
@@ -55,6 +56,12 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(first.entries).toHaveLength(1);
     expect(first.planning_files).toEqual(["docs/planning/current-cycle.yaml"]);
     expect(first.entries[0].classification).toBe("RUNTIME");
+  });
+
+  it("treats unknown paths as product-risk inputs rather than documentation", () => {
+    expect(classifyPath("Dockerfile")).toBe("UNKNOWN");
+    expect(classifyPath("docs/architecture/graph-companion.md")).toBe("DOCS");
+    expect(classifyPath(".github/ISSUE_TEMPLATE/bug.yml")).toBe("UNKNOWN");
   });
 
   it("classifies an exact graph source SHA as current", () => {

@@ -151,7 +151,7 @@ export function classifyPath(file) {
   for (const [classification, predicate] of CLASSIFICATION_RULES) {
     if (predicate(normalized)) return classification;
   }
-  return "DOCS";
+  return "UNKNOWN";
 }
 
 export function resolveGraphHome({
@@ -345,9 +345,13 @@ function sourceGraphPath(graphHome, repository, sha) {
 
 function changedFiles(repoRoot, baseSha, targetSha) {
   if (!baseSha || !targetSha || baseSha === targetSha) return [];
-  const output = git(repoRoot, ["diff", "--name-only", `${baseSha}..${targetSha}`], {
+  const result = runCommand("git", ["diff", "--name-only", `${baseSha}..${targetSha}`], repoRoot, {
     allowFailure: true
   });
+  if (!result.ok) {
+    throw new Error(result.stderr || result.error || "Unable to compute changed files");
+  }
+  const output = result.stdout;
   return output.split(/\r?\n/u).map(normalizePath).filter(Boolean).sort();
 }
 
@@ -358,7 +362,7 @@ function isDocsOrExcluded(file) {
 
 function isProductDelta(file) {
   const classification = classifyPath(file);
-  return classification !== "DOCS" && classification !== "PLANNING";
+  return !isDocsOrExcluded(file) && classification !== "DOCS" && classification !== "PLANNING";
 }
 
 export function classifyFreshness({
@@ -1455,8 +1459,11 @@ export function runCompanion({
   if (mode === "impact" && (!baseSha || !targetSha))
     throw new Error("impact mode requires both --base and --target SHAs");
   const root = resolve(repoRoot);
+  const dirty = git(root, ["status", "--porcelain", "--untracked-files=all"], {
+    allowFailure: true
+  });
+  if (dirty) throw new Error("Graph Companion requires a clean worktree");
   if (mode === "postmerge") {
-    const dirty = git(root, ["status", "--porcelain"], { allowFailure: true });
     const symbolicHead = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], {
       allowFailure: true
     });
