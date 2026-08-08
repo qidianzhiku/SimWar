@@ -5,6 +5,7 @@ import {
   buildTestImpact,
   classifyFreshness,
   evaluatePlanningGate,
+  parseCodeGraphAffected,
   parseCodeGraphStatus,
   resolveGraphHome
 } from "../../scripts/graph-companion.mjs";
@@ -239,6 +240,72 @@ describe("Graph Companion V1 pure contracts", () => {
     expect(status.status).toBe("HEALTHY");
     expect(status.pending_changes).toBe(0);
     expect(status.logical_digest).not.toBe("DIGEST_UNAVAILABLE");
+  });
+
+  it("parses CodeGraph v1.2 affectedTests output and preserves test paths", () => {
+    expect(
+      parseCodeGraphAffected(
+        JSON.stringify({
+          affectedTests: [
+            { file: "tests/unit/graph-companion.test.ts" },
+            { path: "tests/integration/graph-companion-endpoint.test.ts" }
+          ]
+        })
+      )
+    ).toEqual([
+      "tests/unit/graph-companion.test.ts",
+      "tests/integration/graph-companion-endpoint.test.ts"
+    ]);
+  });
+
+  it("blocks a partial architecture delta instead of treating it as complete", () => {
+    const delta = buildArchitectureDelta({
+      baseSha: "a",
+      targetSha: "b",
+      changedFiles: ["services/api/src/server.ts", "unknown.bin"],
+      graph: { nodes: [{ id: "server", file: "services/api/src/server.ts" }], edges: [] }
+    });
+    expect(
+      evaluatePlanningGate({
+        freshness: "CURRENT_EXACT_SHA",
+        architectureDeltaComplete:
+          delta.confidence === "HIGH" && delta.unmapped_changed_files.length === 0,
+        testImpactComplete: true,
+        riskDeltaComplete: true,
+        planningReality: "CURRENT",
+        codeGraphStatus: "HEALTHY"
+      }).status
+    ).toBe("BLOCKED_UNMAPPED_PRODUCT_DELTA");
+  });
+
+  it("carries historical-SHA and P1 risk limits into the planning gate", () => {
+    const gate = evaluatePlanningGate({
+      freshness: "CURRENT_CODE_EQUIVALENT",
+      freshnessLimits: ["GRAPH_SOURCE_SHA_HISTORICAL"],
+      architectureDeltaComplete: true,
+      testImpactComplete: true,
+      riskDeltaComplete: true,
+      riskFindings: [{ level: "P1" }],
+      planningReality: "CURRENT",
+      codeGraphStatus: "HEALTHY"
+    });
+    expect(gate.status).toBe("PLAN_ALLOWED_WITH_LIMITS");
+    expect(gate.limits).toEqual(
+      expect.arrayContaining(["GRAPH_SOURCE_SHA_HISTORICAL", "P1_RISK_REVIEW_REQUIRED"])
+    );
+  });
+
+  it("blocks planning when required planning reality inputs are missing", () => {
+    expect(
+      evaluatePlanningGate({
+        freshness: "CURRENT_EXACT_SHA",
+        architectureDeltaComplete: true,
+        testImpactComplete: true,
+        riskDeltaComplete: true,
+        planningReality: "PLANNING_REALITY_MISSING",
+        codeGraphStatus: "HEALTHY"
+      }).status
+    ).toBe("BLOCKED_CURRENT_REALITY");
   });
 
   it("keeps path-independent graph homes across isolated worktrees", () => {

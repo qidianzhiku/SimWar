@@ -13,7 +13,7 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +36,7 @@ const CLASSIFICATION_RULES = [
   ],
   ["PLUGIN", (file) => file.startsWith("plugins/")],
   ["SCRIPT", (file) => file.startsWith("scripts/")],
+  ["DATABASE", (file) => file.startsWith("db/")],
   [
     "PACKAGE",
     (file) =>
@@ -75,7 +76,7 @@ const SAFETY_FLOORS = [
     reason: "ScenarioPackage authority safety floor"
   },
   {
-    pattern: /truth|settlement|score|rank/u,
+    pattern: /truth|settlement|score|rank|decision|round|canonical|state_true/u,
     tests: [
       ["tests/unit/settlement-idempotency.test.ts", "T1"],
       ["tests/integration/settlement-write-replay-hash-characterization.test.ts", "T3"]
@@ -94,6 +95,22 @@ const SAFETY_FLOORS = [
     pattern: /plugin/u,
     tests: [["tests/simulation/r7a-eldercare-plugin-conformance.test.ts", "T3"]],
     reason: "Plugin boundary safety floor"
+  },
+  {
+    pattern: /^apps\/(?:teacher|student|admin)\//u,
+    tests: [
+      ["npm run build", "T4"],
+      ["npm run test:e2e:ui", "T4"]
+    ],
+    reason: "frontend and browser safety floor"
+  },
+  {
+    pattern: /student-learning|evidence-provenance|security|projection/u,
+    tests: [
+      ["tests/unit/student-learning-report-projection.test.ts", "T1"],
+      ["tests/integration/student-learning-report-endpoint.test.ts", "T3"]
+    ],
+    reason: "projection and security safety floor"
   }
 ];
 
@@ -236,7 +253,11 @@ function getRemote(repoRoot) {
 
 function parseRepository(remote) {
   const match = remote.match(/(?:github\.com[:/])([^/]+)\/([^/]+?)(?:\.git)?$/iu);
-  return { owner: match?.[1] || "unknown", name: match?.[2] || basename(process.cwd()), remote };
+  return {
+    owner: match?.[1] || "local",
+    name: match?.[2] || `repo-${sha256(remote).slice(0, 12)}`,
+    remote
+  };
 }
 
 function readGitFiles(repoRoot) {
@@ -423,10 +444,7 @@ export function discoverTools({ cwd = DEFAULT_REPO_ROOT } = {}) {
     ],
     graphify_available: graphifyOk,
     codegraph_available: codegraphOk,
-    github_workflow:
-      graphifyOk && codegraphOk
-        ? "NOT_REQUIRED_LOCAL_ORCHESTRATION_PROVEN"
-        : "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
+    github_workflow: "LOCAL_CODEX_ORCHESTRATION_ONLY_V1"
   };
 }
 
@@ -853,6 +871,7 @@ export function readPlanningReality({ repoRoot, currentSha }) {
     Object.values(document.scalars).filter((value) => /^[0-9a-f]{40}$/u.test(value))
   );
   const drift = referencedShas.length > 0 && !referencedShas.includes(currentSha);
+  const missing = documents.some((document) => !document.exists);
   const recent = git(repoRoot, ["log", "-n", "20", "--format=%H%x09%s"], { allowFailure: true })
     .split(/\r?\n/u)
     .filter(Boolean)
@@ -881,7 +900,7 @@ export function readPlanningReality({ repoRoot, currentSha }) {
   return {
     schema_version: OUTPUT_SCHEMA_VERSION,
     current_master_sha: currentSha,
-    status: drift ? "PLANNING_REALITY_DRIFT" : "CURRENT",
+    status: missing ? "PLANNING_REALITY_MISSING" : drift ? "PLANNING_REALITY_DRIFT" : "CURRENT",
     referenced_shas: [...new Set(referencedShas)],
     documents,
     recent_merges: recent,
@@ -894,16 +913,28 @@ export function readPlanningReality({ repoRoot, currentSha }) {
 
 export function evaluatePlanningGate({
   freshness,
+  freshnessLimits = [],
   architectureDeltaComplete,
   testImpactComplete,
   riskDeltaComplete,
   planningReality,
-  codeGraphStatus
+  codeGraphStatus,
+  riskFindings = []
 }) {
-  const limits = [];
+  const limits = [...new Set(freshnessLimits)];
+  const riskLevels = new Set(riskFindings.map((finding) => finding?.level));
+  if (riskLevels.has("P0")) limits.push("P0_RISK_REVIEW_REQUIRED");
+  else if (riskLevels.has("P1")) limits.push("P1_RISK_REVIEW_REQUIRED");
   if (codeGraphStatus === "DEGRADED_CODEGRAPH")
     limits.push("CODEGRAPH_DEGRADED_GRAPHIFY_ADJACENCY_FALLBACK");
   if (codeGraphStatus === "DEGRADED_GRAPHIFY") limits.push("GRAPHIFY_HEALTH_UNPROVEN");
+  if (planningReality === "PLANNING_REALITY_MISSING")
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_CURRENT_REALITY",
+      limits: ["PLANNING_INPUT_MISSING"],
+      automatic_next_start: false
+    };
   if (planningReality === "PLANNING_REALITY_DRIFT") limits.push("PLANNING_REALITY_DRIFT");
   if (
     freshness === "STALE_PRODUCT_DELTA" ||
@@ -922,6 +953,13 @@ export function evaluatePlanningGate({
       schema_version: OUTPUT_SCHEMA_VERSION,
       status: "BLOCKED_GRAPH_TOOLING",
       limits: ["CURRENT_REALITY_UNRESOLVED"],
+      automatic_next_start: false
+    };
+  if (riskLevels.has("P0"))
+    return {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_HIGH_RISK_DELTA",
+      limits: [...new Set(limits)],
       automatic_next_start: false
     };
   if (!architectureDeltaComplete || !testImpactComplete || !riskDeltaComplete)
@@ -958,7 +996,35 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
   ensureDirectory(graphifyDir);
   const sourceManifestPath = join(target, "source-manifest.json");
   if (existsSync(graphPath) && existsSync(sourceManifestPath)) {
+    const storedManifest = readTextManifest(sourceManifestPath);
+    if (
+      storedManifest?.manifest_digest !== manifest.manifest_digest ||
+      storedManifest?.code_digest !== manifest.code_digest
+    ) {
+      return {
+        status: "STALE_REBUILD_REQUIRED",
+        version: tools?.graphify_version || "UNKNOWN",
+        path: graphPath,
+        logical_digest: "DIGEST_UNAVAILABLE",
+        node_count: 0,
+        edge_count: 0,
+        warnings: ["Existing graph source manifest does not match current source manifest"],
+        reused: false
+      };
+    }
     const graph = readGraph(graphPath);
+    if (!graph) {
+      return {
+        status: "STALE_REBUILD_REQUIRED",
+        version: tools?.graphify_version || "UNKNOWN",
+        path: graphPath,
+        logical_digest: "DIGEST_UNAVAILABLE",
+        node_count: 0,
+        edge_count: 0,
+        warnings: ["Existing graph JSON is unreadable"],
+        reused: false
+      };
+    }
     const counts = parseGraphifyCounts(graph);
     return {
       status: "HEALTHY",
@@ -1011,7 +1077,8 @@ function runGraphifyRefresh({ repoRoot, repository, graphHome, currentSha, manif
       source_sha: currentSha,
       command: `${GRAPHIFY_COMMAND} extract --code-only --no-cluster`,
       status: "PASS",
-      generated_at: new Date().toISOString()
+      generated_at: new Date().toISOString(),
+      automatic_next_start: false
     });
     return {
       status: "HEALTHY",
@@ -1047,6 +1114,7 @@ function runCodeGraphIndex({ repoRoot, tools }) {
   if (!tools?.codegraph_available)
     return {
       status: "DEGRADED_CODEGRAPH",
+      version: "UNKNOWN",
       path: join(repoRoot, ".codegraph"),
       logical_digest: "DIGEST_UNAVAILABLE",
       indexed_files: 0,
@@ -1064,6 +1132,7 @@ function runCodeGraphIndex({ repoRoot, tools }) {
   if (!status.ok)
     return {
       status: "DEGRADED_CODEGRAPH",
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
       path: join(repoRoot, ".codegraph"),
       logical_digest: "DIGEST_UNAVAILABLE",
       indexed_files: 0,
@@ -1072,24 +1141,29 @@ function runCodeGraphIndex({ repoRoot, tools }) {
       pending_changes: null,
       warnings: [status.stderr || status.error || result.stderr || "CodeGraph status unavailable"]
     };
+  if (!result.ok)
+    return {
+      status: "DEGRADED_CODEGRAPH",
+      path: join(repoRoot, ".codegraph"),
+      logical_digest: "DIGEST_UNAVAILABLE",
+      indexed_files: 0,
+      node_count: 0,
+      edge_count: 0,
+      pending_changes: null,
+      version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+      warnings: [result.stderr || result.error || "CodeGraph index operation failed"]
+    };
   return {
     ...parseCodeGraphStatus(status.stdout, repoRoot),
     command: `codegraph ${command[0]}`,
-    command_ok: result.ok
+    command_ok: true,
+    version: tools?.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN"
   };
 }
 
-function codeGraphAffected(repoRoot, files, status) {
-  if (status !== "HEALTHY" || files.length === 0) return [];
-  const result = runCommand(
-    CODEGRAPH_COMMAND,
-    ["affected", "--path", repoRoot, "--json", ...files],
-    repoRoot,
-    { timeout: 120_000 }
-  );
-  if (!result.ok) return [];
+export function parseCodeGraphAffected(output) {
   try {
-    const parsed = JSON.parse(result.stdout);
+    const parsed = JSON.parse(output);
     if (Array.isArray(parsed))
       return parsed
         .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
@@ -1098,13 +1172,29 @@ function codeGraphAffected(repoRoot, files, status) {
       return parsed.tests
         .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
         .filter(Boolean);
+    if (Array.isArray(parsed.affectedTests))
+      return parsed.affectedTests
+        .map((entry) => (typeof entry === "string" ? entry : entry.file || entry.path))
+        .filter(Boolean);
   } catch {
-    return result.stdout
+    return output
       .split(/\r?\n/u)
       .map((line) => line.trim())
       .filter((line) => line.startsWith("tests/"));
   }
   return [];
+}
+
+function codeGraphAffected(repoRoot, files, status) {
+  if (status !== "HEALTHY" || files.length === 0) return [];
+  const result = runCommand(
+    CODEGRAPH_COMMAND,
+    ["affected", "--path", repoRoot, "--depth", "2", "--json", ...files],
+    repoRoot,
+    { timeout: 120_000 }
+  );
+  if (!result.ok) return [];
+  return parseCodeGraphAffected(result.stdout);
 }
 
 function graphifyVersion(tools) {
@@ -1115,6 +1205,7 @@ function updateRegistry({
   repoRoot,
   graphHome,
   repository,
+  existingRegistry,
   currentSha,
   manifest,
   graphify,
@@ -1130,6 +1221,20 @@ function updateRegistry({
   const graphSourceTreeSha = graphSourceSha
     ? git(repoRoot, ["rev-parse", `${graphSourceSha}^{tree}`], { allowFailure: true }) || null
     : null;
+  const now = new Date().toISOString();
+  const snapshot = {
+    current_repo_sha: currentSha,
+    graph_source_sha: graphSourceSha,
+    current_source_manifest_digest: manifest.manifest_digest,
+    current_code_manifest_digest: manifest.code_digest,
+    freshness,
+    updated_at: now
+  };
+  const history = Array.isArray(existingRegistry?.history) ? existingRegistry.history : [];
+  const historyKey = (entry) =>
+    `${entry.current_repo_sha || ""}:${entry.graph_source_sha || ""}:${entry.current_code_manifest_digest || ""}`;
+  const nextHistory =
+    historyKey(history.at(-1) || {}) === historyKey(snapshot) ? history : [...history, snapshot];
   const registry = {
     schema_version: SCHEMA_VERSION,
     repository,
@@ -1142,8 +1247,9 @@ function updateRegistry({
     graph_source_code_manifest_digest: graphSourceManifest?.code_digest || null,
     current_code_manifest_digest: manifest.code_digest,
     freshness,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: existingRegistry?.created_at || now,
+    updated_at: now,
+    history: nextHistory,
     graphify,
     codegraph,
     source_scope: {
@@ -1183,7 +1289,12 @@ function readSourceManifestForGraph(graphPath) {
 
 function writeReceipt(evidenceRoot, file, value) {
   const path = join(evidenceRoot, "graph-companion", file);
-  atomicWrite(path, value);
+  atomicWrite(
+    path,
+    value && typeof value === "object" && !Array.isArray(value)
+      ? { ...value, automatic_next_start: false }
+      : value
+  );
   return path;
 }
 
@@ -1221,7 +1332,9 @@ function summaryMarkdown({
 }
 
 function resolveCurrentSha(repoRoot, requestedSha) {
-  return requestedSha || git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
+  if (requestedSha)
+    return git(repoRoot, ["rev-parse", `${requestedSha}^{commit}`], { allowFailure: true }) || null;
+  return git(repoRoot, ["rev-parse", "HEAD"], { allowFailure: true }) || null;
 }
 
 function ensureEvidenceRoot(path) {
@@ -1244,11 +1357,150 @@ export function runCompanion({
   currentSha = null
 } = {}) {
   const root = resolve(repoRoot);
+  if (mode === "postmerge") {
+    const dirty = git(root, ["status", "--porcelain"], { allowFailure: true });
+    const symbolicHead = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], {
+      allowFailure: true
+    });
+    if (dirty || symbolicHead)
+      throw new Error("postmerge mode requires a clean detached repository");
+  }
   const repositoryHead = resolveCurrentSha(root, null);
+  if (mode === "postmerge" && repositoryHead) {
+    const parents = git(root, ["rev-list", "--parents", "-n", "1", repositoryHead], {
+      allowFailure: true
+    }).split(/\s+/u);
+    if (parents.length < 3) throw new Error("postmerge mode requires a two-parent merge commit");
+  }
+  if (!repositoryHead) {
+    const blockedEvidence = ensureEvidenceRoot(evidenceRoot);
+    const blockedHome = resolve(graphHome || resolveGraphHome());
+    const blockedRepository = parseRepository(getRemote(root));
+    const blockedTools = discoverTools({ cwd: root });
+    const blockedFreshness = {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      state: "BLOCKED_GRAPH_TOOLING",
+      reason: "current repository SHA could not be resolved",
+      limits: ["CURRENT_REALITY_UNRESOLVED"]
+    };
+    const blockedGate = evaluatePlanningGate({
+      freshness: blockedFreshness.state,
+      freshnessLimits: blockedFreshness.limits,
+      architectureDeltaComplete: false,
+      testImpactComplete: false,
+      riskDeltaComplete: false,
+      planningReality: "PLANNING_REALITY_MISSING",
+      codeGraphStatus: "DEGRADED_CODEGRAPH"
+    });
+    const blockedGraphify = {
+      status: "GRAPH_NOT_FOUND",
+      version: graphifyVersion(blockedTools),
+      path: null,
+      logical_digest: "DIGEST_UNAVAILABLE",
+      node_count: 0,
+      edge_count: 0,
+      warnings: ["current repository SHA unavailable"]
+    };
+    const blockedCodegraph = {
+      status: "DEGRADED_CODEGRAPH",
+      version: blockedTools.tools?.find((tool) => tool.tool === "CodeGraph")?.version || "UNKNOWN",
+      path: join(root, ".codegraph"),
+      logical_digest: "DIGEST_UNAVAILABLE",
+      indexed_files: 0,
+      node_count: 0,
+      edge_count: 0,
+      pending_changes: null,
+      warnings: ["current repository SHA unavailable"]
+    };
+    const blockedRegistry = {
+      schema_version: SCHEMA_VERSION,
+      repository: blockedRepository,
+      current_repo_sha: null,
+      graph_source_sha: null,
+      graph_home: blockedHome,
+      graphify: blockedGraphify,
+      codegraph: blockedCodegraph,
+      freshness: blockedFreshness,
+      automatic_next_start: false
+    };
+    writeReceipt(blockedEvidence, "graph-state.json", blockedRegistry);
+    writeReceipt(blockedEvidence, "tool-health.json", blockedTools);
+    writeReceipt(blockedEvidence, "source-manifest.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      entries: [],
+      manifest_digest: null,
+      code_digest: null,
+      planning_files: [],
+      automatic_next_start: false
+    });
+    writeReceipt(blockedEvidence, "freshness.json", {
+      before: blockedFreshness,
+      after: blockedFreshness,
+      current_repo_sha: null,
+      graph_source_sha: null
+    });
+    writeReceipt(blockedEvidence, "refresh-receipt.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "BLOCKED_GRAPH_TOOLING",
+      reason: blockedFreshness.reason
+    });
+    writeReceipt(blockedEvidence, "architecture-delta.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      confidence: "LOW",
+      modified_files: [],
+      unmapped_changed_files: [],
+      automatic_next_start: false
+    });
+    writeReceipt(blockedEvidence, "test-impact.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      max_depth: 2,
+      recommendations: [],
+      complete: false,
+      graph_source: "SOURCE_PATH_FALLBACK"
+    });
+    writeReceipt(blockedEvidence, "risk-delta.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      findings: [],
+      complete: false
+    });
+    writeReceipt(blockedEvidence, "planning-reality.json", {
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      status: "PLANNING_REALITY_MISSING",
+      documents: []
+    });
+    writeReceipt(blockedEvidence, "planning-gate.json", blockedGate);
+    atomicWrite(
+      join(blockedEvidence, "graph-companion", "summary.md"),
+      [
+        "# SimWar Graph Companion V1",
+        "",
+        "- Freshness: BLOCKED_GRAPH_TOOLING",
+        "- Planning Gate: BLOCKED_GRAPH_TOOLING",
+        "- automatic_next_start: false",
+        ""
+      ].join("\n")
+    );
+    return {
+      registry: blockedRegistry,
+      tools: blockedTools,
+      freshness: blockedFreshness,
+      refreshReceipt: { status: "BLOCKED_GRAPH_TOOLING" },
+      architectureDelta: null,
+      testImpact: { complete: false },
+      riskDelta: { complete: false },
+      planningReality: { status: "PLANNING_REALITY_MISSING" },
+      planningGate: blockedGate,
+      evidenceRoot: blockedEvidence
+    };
+  }
+  const validatedBase = baseSha ? resolveCurrentSha(root, baseSha) : null;
+  const validatedTarget = targetSha ? resolveCurrentSha(root, targetSha) : null;
   const current =
     mode === "impact" ? repositoryHead : resolveCurrentSha(root, currentSha || targetSha);
   if (!current) throw new Error("Unable to resolve current source SHA");
-  const analysisTarget = mode === "impact" ? targetSha || current : current;
+  if (baseSha && !validatedBase) throw new Error(`Unable to resolve base SHA: ${baseSha}`);
+  if (targetSha && !validatedTarget) throw new Error(`Unable to resolve target SHA: ${targetSha}`);
+  const analysisTarget = mode === "impact" ? validatedTarget || current : current;
   const evidence = ensureEvidenceRoot(evidenceRoot);
   const home = resolve(graphHome || resolveGraphHome());
   const repository = parseRepository(getRemote(root));
@@ -1258,8 +1510,9 @@ export function runCompanion({
   const existingGraphSource = existingRegistry?.graph_source_sha || null;
   const graphPath = existingRegistry?.graphify?.path || null;
   const graphManifest = readSourceManifestForGraph(graphPath);
-  const sourceForDiff = baseSha || existingGraphSource;
-  const changed = changedFiles(root, baseSha || sourceForDiff, analysisTarget);
+  const existingGraph = readGraph(graphPath);
+  const sourceForDiff = validatedBase || existingGraphSource;
+  const changed = changedFiles(root, validatedBase || sourceForDiff, analysisTarget);
   const freshnessBefore = classifyFreshness({
     currentRepoSha: current,
     graphSourceSha: existingGraphSource,
@@ -1267,9 +1520,7 @@ export function runCompanion({
     graphCodeManifestDigest:
       graphManifest?.code_digest || existingRegistry?.graph_source_code_manifest_digest || null,
     changedFiles: changed,
-    graphFound: Boolean(
-      existingRegistry?.graphify?.path && existsSync(existingRegistry.graphify.path)
-    ),
+    graphFound: Boolean(existingGraph),
     sourceAvailable: true
   });
   let graphify = existingRegistry?.graphify || {
@@ -1321,7 +1572,20 @@ export function runCompanion({
       graphSourceManifest = currentManifest;
     }
   }
-  const codegraph = runCodeGraphIndex({ repoRoot: root, tools });
+  const codegraph =
+    mode === "plan"
+      ? existingRegistry?.codegraph || {
+          status: "DEGRADED_CODEGRAPH",
+          path: join(root, ".codegraph"),
+          logical_digest: "DIGEST_UNAVAILABLE",
+          indexed_files: 0,
+          node_count: 0,
+          edge_count: 0,
+          pending_changes: null,
+          version: "UNKNOWN",
+          warnings: ["plan mode does not run CodeGraph indexing"]
+        }
+      : runCodeGraphIndex({ repoRoot: root, tools });
   const graph = readGraph(graphify.path);
   const finalFreshness = classifyFreshness({
     currentRepoSha: current,
@@ -1329,7 +1593,7 @@ export function runCompanion({
     currentCodeManifestDigest: currentManifest.code_digest,
     graphCodeManifestDigest: graphSourceManifest?.code_digest || null,
     changedFiles: changed,
-    graphFound: Boolean(graphify.path && existsSync(graphify.path)),
+    graphFound: Boolean(graph),
     sourceAvailable: true
   });
   const delta = buildArchitectureDelta({
@@ -1344,7 +1608,7 @@ export function runCompanion({
     codeGraphAffected: codeGraphAffected(root, changed, codegraph.status),
     codeGraphStatus: codegraph.status
   });
-  impact.source_sha = baseSha || sourceForDiff;
+  impact.source_sha = validatedBase || sourceForDiff;
   impact.target_sha = analysisTarget;
   const risk = buildRiskDelta({ changedFiles: changed, graph, testImpact: impact });
   const planningReality = readPlanningReality({ repoRoot: root, currentSha: current });
@@ -1356,26 +1620,47 @@ export function runCompanion({
         : "HEALTHY";
   const planningGate = evaluatePlanningGate({
     freshness: finalFreshness.state,
-    architectureDeltaComplete: Boolean(delta),
+    freshnessLimits: finalFreshness.limits,
+    architectureDeltaComplete: Boolean(
+      delta &&
+      (changed.every((file) => !isProductDelta(file)) ||
+        (delta.confidence === "HIGH" &&
+          Array.isArray(delta.unmapped_changed_files) &&
+          delta.unmapped_changed_files.length === 0))
+    ),
     testImpactComplete: impact.complete,
     riskDeltaComplete: risk.complete,
     planningReality: planningReality.status,
-    codeGraphStatus: planningHealth
+    codeGraphStatus: planningHealth,
+    riskFindings: risk.findings
   });
-  const registry = updateRegistry({
-    repoRoot: root,
-    graphHome: home,
-    repository,
-    currentSha: current,
-    manifest: currentManifest,
-    graphify,
-    codegraph,
-    freshness: finalFreshness,
-    changed,
-    graphSourceSha,
-    graphSourceManifest,
-    architectureDelta: delta
-  });
+  const registry =
+    mode === "plan"
+      ? existingRegistry || {
+          schema_version: SCHEMA_VERSION,
+          repository,
+          current_repo_sha: current,
+          graph_source_sha: graphSourceSha,
+          graphify,
+          codegraph,
+          freshness: finalFreshness,
+          automatic_next_start: false
+        }
+      : updateRegistry({
+          repoRoot: root,
+          graphHome: home,
+          repository,
+          existingRegistry,
+          currentSha: current,
+          manifest: currentManifest,
+          graphify,
+          codegraph,
+          freshness: finalFreshness,
+          changed,
+          graphSourceSha,
+          graphSourceManifest,
+          architectureDelta: delta
+        });
   const graphState = {
     schema_version: OUTPUT_SCHEMA_VERSION,
     repository,

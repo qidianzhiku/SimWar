@@ -95,7 +95,7 @@
 
 - [ ] **Step 1: Extend tests with fake-tool adapter cases**
 
-  Use injected runners (not mocks of the production result) to prove a Graphify code-only extraction creates a source-SHA directory, a CodeGraph-unavailable run produces `DEGRADED_CODEGRAPH`, WAL/unstable DB digests become `DIGEST_UNAVAILABLE`, and old temp paths do not block a rebuild.
+  Use injected runners (not mocks of the production result) to prove a Graphify code-only extraction creates a source-SHA directory, a CodeGraph-unavailable run produces `DEGRADED_CODEGRAPH`, the SQLite/WAL database file is never hashed (only normalized status text may receive a logical digest), and old temp paths do not block a rebuild.
 
 - [ ] **Step 2: Run the adapter tests red**
 

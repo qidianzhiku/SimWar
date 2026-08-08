@@ -38,8 +38,9 @@ SIMWAR_GRAPH_HOME/
     logs/
 ```
 
-Graph directories are append-only. Large graph/index files are external and
-must not be committed to Git. The registry stores the source SHA, tree SHA,
+Graph directories are append-only. Registry history entries are append-only;
+the current pointer may be refreshed without deleting prior source records.
+Large graph/index files are external and must not be committed to Git. The registry stores the source SHA, tree SHA,
 manifest digests, logical graph/index digests, counts, pending changes, scope,
 health, limits, and validity for architecture analysis, test impact, and
 planning.
@@ -71,10 +72,11 @@ npm run graph:companion -- --mode postmerge
 ```
 
 `entry` performs freshness, refresh-if-needed, architecture delta, Test
-Impact, risk, planning reality, and planning gate. `refresh` only updates
-Graphify/CodeGraph and the registry. `impact` compares a base/head pair.
-`plan` consumes the current registry and planning reality. `postmerge` runs the
-same self-refresh sequence against a fresh detached merge clone.
+Impact, risk, planning reality, and planning gate. `refresh` updates
+Graphify/CodeGraph and the registry. `impact` compares a validated base/head
+pair. `plan` consumes the current registry without re-indexing or mutating the
+registry. `postmerge` refuses a dirty or attached checkout and runs the same
+self-refresh sequence against a fresh detached merge clone.
 
 The three triggers are Macro Mission Entry, product/runtime/contract
 post-merge, and Macro Planning. There is no resident server. Each trigger is
@@ -91,8 +93,9 @@ digest. If CodeGraph cannot run, the receipt explicitly records
 `DEGRADED_CODEGRAPH` and the companion traverses Graphify adjacency only.
 
 The fallback is deliberately bounded: direct and reverse adjacency, one-hop
-and two-hop traversal, impacted files, and impacted tests. It is not a new
-graph database or a CodeGraph replacement. Planning becomes
+and two-hop traversal, impacted files, and impacted tests. CodeGraph v1.2
+`affectedTests` output is parsed with an explicit depth-two request. It is not a
+new graph database or a CodeGraph replacement. Planning becomes
 `PLAN_ALLOWED_WITH_LIMITS`, never an unqualified `PLAN_ALLOWED`.
 
 ## Architecture delta and Test Impact
@@ -112,7 +115,9 @@ edges expand the floor; they never suppress tests.
 T0 static checks cover diff integrity, hidden Unicode, and formatting. T1 is
 direct unit coverage, T2 contract/boundary coverage, T3 runtime integration,
 and T4 browser/full-suite coverage for high fan-out, authority, shared
-contract, runtime-provider, Truth/Settlement, or broad frontend changes.
+contract, runtime-provider, Truth/Settlement, decision/round/canonical truth,
+or broad frontend changes. Student/teacher/admin changes receive explicit
+build and browser floors.
 
 ## Planning reality and gate
 
@@ -120,18 +125,19 @@ Planning reality reads the current source SHA, Graph Registry,
 `docs/planning/current-cycle.yaml`,
 `docs/planning/l1-plus-portfolio-register.yaml`, recent commit classifications,
 and known limits. A planning document bound to an older SHA is reported as
-`PLANNING_REALITY_DRIFT`; the companion does not create a governance PR to
-silently reconcile it.
+`PLANNING_REALITY_DRIFT`; missing required planning inputs produce
+`BLOCKED_CURRENT_REALITY`. The companion does not create a governance PR to
+silently reconcile either condition.
 
 The gate states are:
 
 - `PLAN_ALLOWED`: exact/equivalent graph, complete deltas/impact/risk, current
   planning reality, and healthy tooling.
-- `PLAN_ALLOWED_WITH_LIMITS`: degraded CodeGraph/Graphify, equivalent SHA, or
-  explicit planning drift with limits listed.
+- `PLAN_ALLOWED_WITH_LIMITS`: degraded CodeGraph/Graphify, equivalent SHA, P1
+  risk review, or explicit planning drift with limits listed.
 - `BLOCKED_STALE_GRAPH`, `BLOCKED_GRAPH_TOOLING`,
-  `BLOCKED_CURRENT_REALITY`, or `BLOCKED_UNMAPPED_PRODUCT_DELTA` when required
-  evidence is missing.
+  `BLOCKED_CURRENT_REALITY`, `BLOCKED_HIGH_RISK_DELTA`, or
+  `BLOCKED_UNMAPPED_PRODUCT_DELTA` when required evidence is missing.
 
 `PRODUCT_VALUE_DRIFT` is a non-blocking signal (`ON_TRACK`,
 `WARNING_GENERIC_INFRASTRUCTURE_DRIFT`, or `UNKNOWN`) based on simple recent
@@ -155,10 +161,11 @@ committed.
 
 - Graphify parser coverage and inferred edges are not complete runtime proof.
 - Graphify and CodeGraph CLI/MCP capabilities vary by environment.
-- CodeGraph logical digest is unavailable for an active WAL database; status,
-  source SHA, pending changes, and scope remain recorded.
-- GitHub Actions feasibility is recorded as local-only unless deterministic,
-  non-interactive, secret-free runner execution is proven.
+- CodeGraph logical digest is derived from normalized status text only; the
+  active SQLite/WAL database file is never read or hashed. Status, source SHA,
+  pending changes, and scope remain recorded.
+- GitHub Actions feasibility is recorded as `LOCAL_ORCHESTRATION_ONLY`; no
+  workflow is claimed or required by this V1.
 - Graph Companion does not prove runtime behavior, Human Validation, PostgreSQL
   activation, RLS, PITR, Production, or a durable transaction boundary.
 - `automatic_next_start` remains false; the only follow-up recommendation is a
