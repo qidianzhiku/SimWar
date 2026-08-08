@@ -1305,7 +1305,10 @@ function updateRegistry({
   graphSourceSha,
   graphSourceManifest,
   architectureDelta,
-  planningGateStatus
+  planningGateStatus,
+  architectureDeltaComplete,
+  testImpactComplete,
+  riskDeltaComplete
 }) {
   const currentTreeSha =
     git(repoRoot, ["rev-parse", `${currentSha}^{tree}`], { allowFailure: true }) || null;
@@ -1364,9 +1367,18 @@ function updateRegistry({
       "automatic_next_start=false"
     ],
     valid_for: {
-      architecture_analysis: freshEnough && graphify.status === "HEALTHY",
-      test_impact: freshEnough && (graphify.status === "HEALTHY" || codegraph.status === "HEALTHY"),
-      planning: freshEnough && planningAllowed
+      architecture_analysis:
+        freshEnough && graphify.status === "HEALTHY" && architectureDeltaComplete,
+      test_impact:
+        freshEnough &&
+        (graphify.status === "HEALTHY" || codegraph.status === "HEALTHY") &&
+        testImpactComplete,
+      planning:
+        freshEnough &&
+        planningAllowed &&
+        architectureDeltaComplete &&
+        testImpactComplete &&
+        riskDeltaComplete
     },
     automatic_next_start: false
   };
@@ -1747,14 +1759,15 @@ export function runCompanion({
       : graphify.status !== "HEALTHY"
         ? "DEGRADED_GRAPHIFY"
         : "HEALTHY";
+  const architectureDeltaComplete = Boolean(
+    delta &&
+    Array.isArray(delta.unmapped_changed_files) &&
+    delta.unmapped_changed_files.filter(isProductDelta).length === 0
+  );
   const planningGate = evaluatePlanningGate({
     freshness: finalFreshness.state,
     freshnessLimits,
-    architectureDeltaComplete: Boolean(
-      delta &&
-      Array.isArray(delta.unmapped_changed_files) &&
-      delta.unmapped_changed_files.filter(isProductDelta).length === 0
-    ),
+    architectureDeltaComplete,
     testImpactComplete: impact.complete,
     riskDeltaComplete: risk.complete,
     planningReality: planningReality.status,
@@ -1787,7 +1800,10 @@ export function runCompanion({
           graphSourceSha,
           graphSourceManifest,
           architectureDelta: delta,
-          planningGateStatus: planningGate.status
+          planningGateStatus: planningGate.status,
+          architectureDeltaComplete,
+          testImpactComplete: impact.complete,
+          riskDeltaComplete: risk.complete
         });
   const graphState = {
     schema_version: OUTPUT_SCHEMA_VERSION,
