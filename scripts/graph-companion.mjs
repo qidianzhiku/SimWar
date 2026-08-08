@@ -14,7 +14,7 @@ import {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir, platform as hostPlatform, tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, win32 as win32Path } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT_ROOT = dirname(fileURLToPath(import.meta.url));
@@ -159,10 +159,19 @@ export function resolveGraphHome({
   platform = hostPlatform,
   homeDir = homedir()
 } = {}) {
-  if (env.SIMWAR_GRAPH_HOME?.trim()) return resolve(env.SIMWAR_GRAPH_HOME);
+  const pathApi = platform === "win32" ? win32Path : { join, resolve };
+  if (env.SIMWAR_GRAPH_HOME?.trim()) return pathApi.resolve(env.SIMWAR_GRAPH_HOME);
   if (platform === "win32")
-    return join(env.LOCALAPPDATA || join(homeDir, "AppData", "Local"), "SimWar", "graph-companion");
-  return join(env.XDG_DATA_HOME || join(homeDir, ".local", "share"), "SimWar", "graph-companion");
+    return pathApi.join(
+      env.LOCALAPPDATA || pathApi.join(homeDir, "AppData", "Local"),
+      "SimWar",
+      "graph-companion"
+    );
+  return pathApi.join(
+    env.XDG_DATA_HOME || pathApi.join(homeDir, ".local", "share"),
+    "SimWar",
+    "graph-companion"
+  );
 }
 
 export function buildSourceManifest({ files }) {
