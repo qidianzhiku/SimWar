@@ -1,17 +1,17 @@
-portfolio_version: 8
+portfolio_version: 9
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-09T03:20:16Z"
+generated_at: "2026-08-09T09:20:00Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 38064ff5fe780ea9611cfa39b88476c22f1790d8
-product_evidence_source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
-current_master_at_readback: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+assessment_source_anchor_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
+product_evidence_source_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
+current_master_at_readback: db7f688c513c81af2d5b307159db2b7a757fb5a2
 governance_closure_merge_sha: null
-governance_closure_manifest_sha256: 0d5e2c7c374b5511ce16807683ead7dc63f0744e6bed4721071b568da37d7694
+governance_closure_manifest_sha256: null
 portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: W020_CLOSED_AND_CURRENT_WITH_LIMITS
+l1_plus_status: W021_GRAPH_COMPANION_V1_1_STABLE_WITH_EXPLICIT_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -19,20 +19,22 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
-    capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
-    status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_pr: 360
-    product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
-    product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
-    primary_outcome: GOVERNED_AI_ADVISORY_MOCK
-    scope: Student role advisor and Teacher debrief advisor using a deterministic in-repo mock provider with safe projections and audit metadata.
-  support_code:
-    candidate_id: NONE
-    status: NONE
+    candidate_id: CAND-W021-A-ELDERCARE-SHANGHAI-GOLDEN-M1
+    capability_id: W021-ELDERCARE-SHANGHAI-GOLDEN-M1-PLANNING
+    status: PLANNING_REBASED_PENDING_OWNER_IMPLEMENTATION_AUTHORIZATION
     product_pr: NONE
-    merge_sha: NONE
-  docs_discovery: NONE
+    product_candidate_sha: NONE
+    product_merge_sha: NONE
+    primary_outcome: ELDERCARE_SHANGHAI_GOLDEN_M1_PRODUCTIZATION
+    scope: Bind existing synthetic Shanghai eldercare R7A/R7B/R7C assets to the approved tenant Course/Run path and prepare a human-validation-ready evidence package; no implementation or human validation is authorized by W021.
+  support_code:
+    candidate_id: CAND-W021-SUPPORT-GRAPH-COMPANION-SSR
+    status: MERGED_AND_POSTMERGE_VERIFIED
+    product_pr: 362
+    merge_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
+  docs_discovery:
+    candidate_id: CAND-W021-DOCS-GRAPH-VERIFIED-ADVISORY-EVIDENCE
+    status: CLOSED_BY_GRAPH_AND_SOURCE_READBACK
   closure:
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     governance_pr_budget: 1
@@ -40,76 +42,71 @@ closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     runtime_authority: JSON_INTERNAL_ONLY
+  - capability_id: W021-GRAPH-COMPANION-V1_1
+    status: STABLE_CURRENT_EXACT_SHA
+    runtime_authority: EXTERNAL_GRAPH_EVIDENCE_ONLY
 resource_locks:
-  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+  status: RELEASED_AFTER_SUPPORT_AND_GRAPH_VALIDATION
   released:
-    - W020_AGENT_GATEWAY
-    - W020_STUDENT_ROLE_ADVISOR
-    - W020_TEACHER_DEBRIEF_ADVISOR
-    - W020_SHARED_ADVISORY_CONTRACT
-    - W020_SERIAL_MERGE
-    - W020_POST_MERGE_FRESH_CLONE
-    - W020_GRAPH_COMPANION_REFRESH
-    - W020_GOVERNANCE_CLOSURE
+    - W021_GRAPH_COMPANION_SUPPORT
+    - W021_GRAPH_ENTRY_POSTMERGE_PLAN
+    - W021_CODEGRAPH_QUERY_PACK
+    - W021_PRODUCT_VALUE_GATE
+    - W021_PLANNING_REBASE
 candidate_backlog:
-  - candidate_id: W021-CANDIDATE-001-GRAPH-VERIFIED-ADVISORY-EVIDENCE-CLOSURE
-    status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Requires separate owner direction; W021 execution is forbidden in W020.
-  - candidate_id: W021-CANDIDATE-002-FULL-SUITE-BASELINE-ENVIRONMENT-DIAGNOSIS
-    status: ALTERNATIVE_NOT_AUTHORIZED
-    reason: Separate diagnosis only; not W020 product work.
-  - candidate_id: W021-CANDIDATE-003-GOVERNED-EXTERNAL-PROVIDER-ADAPTER
+  - candidate_id: CAND-W021-A-ELDERCARE-SHANGHAI-GOLDEN-M1
+    status: SELECTED_PLANNING_ONLY
+    reason: Highest value and validation proximity; synthetic assets require formal binding and a new owner decision.
+  - candidate_id: CAND-W021-B-L1-HUMAN-INTERNAL-VALIDATION
+    status: ALTERNATIVE_NOT_SELECTED
+    reason: Existing internal-validation package remains NOT_READY and human validation is not performed.
+  - candidate_id: CAND-W021-C-GRAPH-VERIFIED-ADVISORY-EVIDENCE
+    status: CLOSED_BY_SUPPORT_AND_GRAPH_VALIDATION
+    reason: W020 advisory path is graph-verified with deterministic mock and advisory-only boundaries.
+  - candidate_id: CAND-W021-D-GRAPH-COMPANION-FURTHER-HARDENING
+    status: DEFERRED
+    reason: Support and postmerge graph gates are green; no second support PR is authorized.
+  - candidate_id: CAND-W021-E-GOVERNED-EXTERNAL-PROVIDER
     status: DEFERRED_HIGH_RISK
-    reason: Requires external provider, secret, network and authority review.
+    reason: External provider, secret, network and authority policy are out of scope.
+  - candidate_id: CAND-W021-F-POSTGRESQL-DURABILITY
+    status: DEFERRED_HIGH_RISK
+    reason: PostgreSQL, RLS, PITR and durable recovery are out of scope.
 blocked_candidates: []
 evidence:
-  root: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/360
-  product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
-  product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
-  fresh_clone: D:/codex/fresh-clones/simwar-w020-bdbcf32
-  fresh_clone_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
-  fresh_clone_full_suite: INHERITED_BASELINE_LIMIT_171_OF_172_FILES_1077_OF_1077_TESTS
-  fresh_clone_full_suite_failure: tests/unit/graph-companion.test.ts_SYNTAX_ERROR_INVALID_OR_UNEXPECTED_TOKEN
-  graph_postmerge_root: C:/Temp/simwar-w020-postmerge-bdbcf32
-  graphify_status: CURRENT_EXACT_SHA_HEALTHY
-  graphify_digest: a4738fdd139aa24773a193f86340cfa96921a003ee8d82b4dfbccd4d48542c4a
-  codegraph_status: DEGRADED_CODEGRAPH_FALLBACK
-  w021_candidate_package: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z/09-w021-candidate-decision-package.md
+  support_pr_url: https://github.com/qidianzhiku/SimWar/pull/362
+  support_merge_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
+  support_postmerge_graph_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W021-GRAPH-POSTSUPPORT-20260809T084900Z
+  support_plan_graph_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W021-GRAPH-PLAN-20260809T085100Z
+  codegraph_workspace: C:/Users/Marshall/AppData/Local/Temp/SimWar-W021-postsupport-graph-home-20260809T084900Z/qidianzhiku-SimWar/codegraph-worktree
+  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/SimWar-W021-support-postmerge-20260809T084700Z
+  fresh_clone_status: CLEAN_DETACHED
+  w021_evidence_root: C:/Users/Marshall/AppData/Local/Temp/E-SIMWAR-W021-GRAPH-NATIVE-REBASE-20260809T092000Z
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  focused_w020: PASS_3_FILES_8_TESTS
-  contract: PASS_17_FILES_45_TESTS_20_SCHEMA_GROUPS
-  browser: PASS_1_TEST
-  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  fresh_clone_w020: PASS
-  fresh_clone_full_vitest: INHERITED_BASELINE_LIMIT
-  direct_store: PASS_0_NEW_UNAPPROVED
-  hidden_unicode: PASS
-  typecheck: PASS
-  lint: PASS
-  build: PASS
-  github_quality: PASS
-  github_browser_smoke: PASS
-  github_codeql: PASS
+  support_focused: PASS_33_OF_33
+  support_full: PASS_172_FILES_1110_TESTS
+  support_pr_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  support_fresh_clone: PASS_33_OF_33
+  graph_postmerge: CURRENT_EXACT_SHA_HEALTHY
+  codegraph: HEALTHY_EXTERNAL_WORKSPACE
+  product_value_gate: ON_TRACK
+  planning_gate: PLAN_ALLOWED_WITH_LIMITS_PLANNING_REALITY_DRIFT
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
-  unknown_w020_acceptance_rows: 0
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
-  model_provider: DETERMINISTIC_IN_REPO_MOCK_ONLY
+  deterministic_mock_provider: IN_REPO_ONLY
   external_provider: NOT_USED
   human_validation: NOT_PERFORMED
-  student_private_evidence: NOT_AUTHORIZED
+  eldercare_assets: SYNTHETIC_NOT_FORMALLY_BOUND_TO_TENANT_COURSE_RUN
   ai_final_grading: NOT_AUTHORIZED
   postgresql_application_runtime: NOT_ACTIVE
   durable_settlement_recovery: NOT_PROVEN
   cross_process_idempotency: NOT_PROVEN
-  full_suite: INHERITED_GRAPH_COMPANION_SYNTAX_BASELINE_LIMIT
-  codegraph: DEGRADED_CODEGRAPH_FALLBACK
+  planning_reality: DRIFT_REBASED_WITH_EXPLICIT_LIMIT
   pilot_production: NOT_AUTHORIZED
-  w021_authorization: NOT_CREATED
-  dependency_advisories: 2_LOW_7_HIGH_REPORTED_BY_NPM_CI
+  w021_product_implementation: NOT_AUTHORIZED
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
@@ -118,6 +115,5 @@ invalidation_triggers:
   - replay_or_golden_changed
   - student_visibility_changed
   - graph_source_sha_changed
-  - fresh_clone_evidence_invalidated
-  - full_suite_failure_fingerprint_changes
+  - planning_documents_changed
 automatic_next_start: false
