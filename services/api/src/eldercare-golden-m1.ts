@@ -17,6 +17,7 @@ import type {
 import type { CoursePackageVersionDraftInput } from "@simwar/shared-contracts";
 import {
   compileShanghaiEldercareScenarioAsset,
+  validateEldercareScenarioAsset,
   type EldercareScenarioAsset
 } from "@simwar/simulation-core";
 
@@ -53,6 +54,11 @@ const DEFAULT_ARTIFACT_IDS = {
   course_package_id: "course_package_eldercare_shanghai_golden_m1_v1",
   version: "1.0.0"
 } as const;
+
+const FORMAL_PLUGIN_PACKAGE_ID = "plugin_wellness_eldercare_v1" as const;
+const FORMAL_PLUGIN_VERSION = "1.0.0" as const;
+const FORMAL_PARAMETER_MODEL_VERSION = "toy_logit_wellness_v1@0.1.0" as const;
+const EXPECTED_R7A_ASSET_ID = "r7a-shanghai-eldercare-core-scenario-v2" as const;
 
 export interface EldercareGoldenM1ArtifactIds {
   parameter_set_id: string;
@@ -108,6 +114,67 @@ type ResolvedArtifactIds = {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isSha256(value: string): boolean {
+  return /^[a-f0-9]{64}$/.test(value);
+}
+
+function assertNoProtectedParameterFields(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(assertNoProtectedParameterFields);
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const normalizedKey = key.toLowerCase().replace(/[_-]/g, "");
+    if (
+      normalizedKey === "statetrue" ||
+      normalizedKey === "settlementresult" ||
+      normalizedKey === "score" ||
+      normalizedKey === "rank" ||
+      normalizedKey.includes("replay") ||
+      normalizedKey.includes("private")
+    ) {
+      throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+    }
+    assertNoProtectedParameterFields(child);
+  }
+}
+
+function assertAssetIsSafe(
+  asset: EldercareScenarioAsset,
+  provenance: EldercareGoldenM1Provenance | undefined
+): void {
+  const validationErrors = validateEldercareScenarioAsset(asset);
+  if (
+    validationErrors.length > 0 ||
+    asset.asset_id !== EXPECTED_R7A_ASSET_ID ||
+    asset.status_boundary.g0_status !== "EXCEPTION" ||
+    asset.status_boundary.g0_pass !== "NOT_GRANTED" ||
+    asset.status_boundary.l1_status !== "NOT_READY" ||
+    asset.synthetic_data_policy.calibration_status !== "UN_CALIBRATED" ||
+    asset.synthetic_data_policy.geography_scope !== "SHANGHAI_SYNTHETIC_ONLY" ||
+    asset.synthetic_data_policy.real_user_data ||
+    asset.synthetic_data_policy.real_payment_data ||
+    asset.synthetic_data_policy.production_identifier
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+
+  assertNoProtectedParameterFields(asset.parameter_set.parameters);
+
+  const assetHash = provenance?.asset_hash ?? asset.asset_hash;
+  if (
+    !isSha256(assetHash) ||
+    (provenance?.compile_hash !== undefined && !isSha256(provenance.compile_hash))
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
 }
 
 function requireTenant(value: string): string {
@@ -178,6 +245,7 @@ function resolveContext(input: EldercareGoldenM1AdapterInput): ResolvedContext {
   }
 
   const asset = input.asset ?? compileShanghaiEldercareScenarioAsset();
+  assertAssetIsSafe(asset, input.provenance);
   if (
     asset.parameter_set.tenant_id !== sourceTenantId ||
     asset.scenario_package.tenant_id !== sourceTenantId
@@ -186,6 +254,12 @@ function resolveContext(input: EldercareGoldenM1AdapterInput): ResolvedContext {
   }
 
   const artifacts = resolveArtifactIds(input);
+  if (
+    artifacts.plugin_package_id !== FORMAL_PLUGIN_PACKAGE_ID ||
+    artifacts.plugin_version !== FORMAL_PLUGIN_VERSION
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
   const assetHash = input.provenance?.asset_hash ?? asset.asset_hash;
   if (assetHash.trim().length === 0) {
     throw new EldercareGoldenM1AdapterError("TENANT_ID_INVALID");
@@ -230,6 +304,34 @@ function requireBlueprintReference(
     throw new EldercareGoldenM1AdapterError("DEPENDENCY_REFERENCE_REQUIRED");
   }
   return clone(context.course_blueprint_reference);
+}
+
+function assertParameterReference(
+  reference: ParameterSetReference,
+  artifacts: ResolvedArtifactIds
+): void {
+  if (
+    reference.parameter_set_id !== artifacts.parameter_set_id ||
+    reference.version !== artifacts.parameter_set_version ||
+    !isSha256(reference.content_digest)
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+}
+
+function assertScenarioReference(
+  reference: ScenarioPackageReference,
+  artifacts: ResolvedArtifactIds,
+  targetTenantId: string
+): void {
+  if (
+    reference.scenario_package_id !== artifacts.scenario_package_id ||
+    reference.version !== artifacts.scenario_package_version ||
+    !isSha256(reference.content_digest) ||
+    reference.tenant_id !== targetTenantId
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
 }
 
 function assertTargetReferenceTenant(
@@ -290,7 +392,7 @@ export function createEldercareGoldenM1ParameterDraft(
       source_tenant_id: context.source_tenant_id,
       synthetic_data_classification: syntheticClassification()
     },
-    model_version_ref: "eldercare_core_model_v1",
+    model_version_ref: FORMAL_PARAMETER_MODEL_VERSION,
     parameter_set_id: artifacts.parameter_set_id,
     parameter_values,
     schema_version: "parameter-set.v1",
@@ -305,8 +407,9 @@ export function createEldercareGoldenM1ScenarioDraft(
   const context = resolveContext(input);
   const { asset, artifacts } = context;
   const parameterSetReference = requireParameterReference(input);
+  assertParameterReference(parameterSetReference, artifacts);
   if (input.scenario_package_reference) {
-    assertTargetReferenceTenant(input.scenario_package_reference, context.target_tenant_id);
+    assertScenarioReference(input.scenario_package_reference, artifacts, context.target_tenant_id);
   }
   const content: ScenarioPackageJsonValue = {
     asset_id: asset.asset_id,
@@ -450,12 +553,13 @@ export function createEldercareGoldenM1CoursePackageDraft(
   const parameterSetReference = requireParameterReference(input);
   const scenarioPackageReference = requireScenarioReference(input);
   const courseBlueprintReference = requireBlueprintReference(input);
-  assertTargetReferenceTenant(scenarioPackageReference, context.target_tenant_id);
+  assertParameterReference(parameterSetReference, artifacts);
+  assertScenarioReference(scenarioPackageReference, artifacts, context.target_tenant_id);
   assertTargetReferenceTenant(courseBlueprintReference, context.target_tenant_id);
 
   if (
-    parameterSetReference.parameter_set_id !== artifacts.parameter_set_id ||
-    parameterSetReference.version !== artifacts.parameter_set_version ||
+    !isSha256(scenarioPackageReference.content_digest) ||
+    !isSha256(courseBlueprintReference.content_digest) ||
     scenarioPackageReference.scenario_package_id !== artifacts.scenario_package_id ||
     scenarioPackageReference.version !== artifacts.scenario_package_version ||
     courseBlueprintReference.course_blueprint_id !== artifacts.course_blueprint_id ||

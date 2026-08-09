@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  compileShanghaiEldercareScenarioAsset,
+  type EldercareScenarioAsset
+} from "@simwar/simulation-core";
+import {
   createEldercareGoldenM1BlueprintDraft,
   createEldercareGoldenM1CoursePackageDraft,
   createEldercareGoldenM1ParameterDraft,
@@ -94,6 +98,79 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
     ]);
     expect(blueprint.ordered_phases).toHaveLength(6);
     expect(blueprint.activity_plan).toHaveLength(6);
+  });
+
+  it("targets the formal toy-logit runtime model reference", () => {
+    expect(createEldercareGoldenM1ParameterDraft(input()).model_version_ref).toBe(
+      "toy_logit_wellness_v1@0.1.0"
+    );
+  });
+
+  it("rejects dependency references that do not match the resolved artifact identity", () => {
+    expect(() =>
+      createEldercareGoldenM1ScenarioDraft(
+        input({
+          parameter_set_reference: {
+            ...parameterReference(),
+            parameter_set_id: "parameter_other"
+          }
+        })
+      )
+    ).toThrow();
+    expect(() =>
+      createEldercareGoldenM1ScenarioDraft(
+        input({
+          parameter_set_reference: {
+            ...parameterReference(),
+            version: "2.0.0"
+          }
+        })
+      )
+    ).toThrow();
+  });
+
+  it("rejects non-eldercare plugin overrides instead of widening the dependency", () => {
+    expect(() =>
+      createEldercareGoldenM1PluginDraft(
+        input({
+          artifact_ids: {
+            plugin_package_id: "plugin_other",
+            plugin_version: "1.0.0"
+          }
+        })
+      )
+    ).toThrow();
+    expect(() =>
+      createEldercareGoldenM1PluginDraft(
+        input({
+          artifact_ids: {
+            plugin_package_id: "plugin_wellness_eldercare_v1",
+            plugin_version: "2.0.0"
+          }
+        })
+      )
+    ).toThrow();
+  });
+
+  it("fails closed for malformed custom assets and protected parameter payloads", () => {
+    const compiled = compileShanghaiEldercareScenarioAsset();
+    const shortAsset = {
+      ...compiled,
+      rounds: compiled.rounds.slice(0, 5)
+    } as EldercareScenarioAsset;
+    expect(() => createEldercareGoldenM1ParameterDraft(input({ asset: shortAsset }))).toThrow();
+
+    const protectedAsset = {
+      ...compiled,
+      parameter_set: {
+        ...compiled.parameter_set,
+        parameters: {
+          ...compiled.parameter_set.parameters,
+          state_true: "must not enter a draft"
+        }
+      }
+    } as unknown as EldercareScenarioAsset;
+    expect(() => createEldercareGoldenM1ParameterDraft(input({ asset: protectedAsset }))).toThrow();
   });
 
   it("keeps synthetic teaching labels and excludes truth/private fields from every draft", () => {
