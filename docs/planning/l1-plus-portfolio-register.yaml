@@ -1,17 +1,17 @@
-portfolio_version: 7
+portfolio_version: 8
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-07T09:20:25Z"
+generated_at: "2026-08-09T03:20:16Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
-product_evidence_source_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-governance_closure_merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-current_master_at_readback: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-portfolio_current_master_lag: RECONCILED
-governance_reconciliation_authorization: OWNER_W019_GOVERNANCE_RECONCILIATION_AFTER_CLOSURE_BUDGET_001
+assessment_source_anchor_sha: 38064ff5fe780ea9611cfa39b88476c22f1790d8
+product_evidence_source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+current_master_at_readback: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: 0d5e2c7c374b5511ce16807683ead7dc63f0744e6bed4721071b568da37d7694
+portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: W019_CLOSED_AND_CURRENT_WITH_LIMITS
+l1_plus_status: W020_CLOSED_AND_CURRENT_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -19,95 +19,105 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-L1P-W019-UNIFIED-TEACHING-CLOSURE-JOURNEY
+    candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
+    capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_prs: [355]
-    product_merge_shas:
-      - e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-    primary_outcome: "One exact Course/Run/Team/Role/Activity context flows through Teacher queue, evidence review, claim, confirmation, Student-safe outcome, Course Report and deterministic JSON/Markdown exports without creating a new authority."
+    product_pr: 360
+    product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
+    product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+    primary_outcome: GOVERNED_AI_ADVISORY_MOCK
+    scope: Student role advisor and Teacher debrief advisor using a deterministic in-repo mock provider with safe projections and audit metadata.
   support_code:
     candidate_id: NONE
     status: NONE
     product_pr: NONE
     merge_sha: NONE
   docs_discovery: NONE
-  closure: W019_CLOSED_AND_CURRENT_WITH_LIMITS
-closed_capabilities:
-  - capability_id: CAND-L1P-W019-UNIFIED-TEACHING-CLOSURE-JOURNEY
+  closure:
     status: CLOSED_AND_CURRENT_WITH_LIMITS
+    governance_pr_budget: 1
+closed_capabilities:
+  - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    runtime_authority: JSON_INTERNAL_ONLY
 resource_locks:
-  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
   released:
-    - W019_UNIFIED_TEACHING_CLOSURE_SCOPE
-    - W019_CONTEXT_BOUND_BFF_READ_SCOPE
-    - W019_TEACHER_WORKBENCH_SCOPE
-    - W019_SERIAL_INTEGRATION
-    - W019_POST_MERGE_FRESH_CLONE
-    - W019_GOVERNANCE_CLOSURE
-    - SERIAL_MERGE
-    - POST_MERGE_FRESH_CLONE
-    - GOVERNANCE_CLOSURE
+    - W020_AGENT_GATEWAY
+    - W020_STUDENT_ROLE_ADVISOR
+    - W020_TEACHER_DEBRIEF_ADVISOR
+    - W020_SHARED_ADVISORY_CONTRACT
+    - W020_SERIAL_MERGE
+    - W020_POST_MERGE_FRESH_CLONE
+    - W020_GRAPH_COMPANION_REFRESH
+    - W020_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
-    status: HIGHER_STAGE_DEFERRED
-  - candidate_id: CAND-L1P-W020-NEXT_MAINLINE
+  - candidate_id: W021-CANDIDATE-001-GRAPH-VERIFIED-ADVISORY-EVIDENCE-CLOSURE
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: REQUIRES_SEPARATE_OWNER_DIRECTION
+    reason: Requires separate owner direction; W021 execution is forbidden in W020.
+  - candidate_id: W021-CANDIDATE-002-FULL-SUITE-BASELINE-ENVIRONMENT-DIAGNOSIS
+    status: ALTERNATIVE_NOT_AUTHORIZED
+    reason: Separate diagnosis only; not W020 product work.
+  - candidate_id: W021-CANDIDATE-003-GOVERNED-EXTERNAL-PROVIDER-ADAPTER
+    status: DEFERRED_HIGH_RISK
+    reason: Requires external provider, secret, network and authority review.
 blocked_candidates: []
 evidence:
-  root: C:/Temp/simwar-w019-unified-teaching-closure-20260806T080000Z
-  product_merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-  governance_merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-  fresh_clone: D:/codex/fresh-clones/simwar-w019-product-merge-e46b5f9
-  fresh_clone_status: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  audit_root: C:/Temp/simwar-w019-completion-audit-20260806T090000Z
-  audit_fresh_clone: D:/codex/fresh-clones/simwar-w019-a88-2889c7b
-  audit_fresh_clone_status: PASS_WITH_EXPLICIT_LIMIT
-  audit_manifest_sha256: d930afe16e4101e435911d1c28c02959fea9085c5020af0a0daeb92d995a779c
-  master_ci_run: 31084581772
-  master_codeql_run: 31084581439
-  postgres_artifact: quality/postgres-artifact/postgres-replay-verification.json
+  root: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/360
+  product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
+  product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  fresh_clone: D:/codex/fresh-clones/simwar-w020-bdbcf32
+  fresh_clone_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  fresh_clone_full_suite: INHERITED_BASELINE_LIMIT_171_OF_172_FILES_1077_OF_1077_TESTS
+  fresh_clone_full_suite_failure: tests/unit/graph-companion.test.ts_SYNTAX_ERROR_INVALID_OR_UNEXPECTED_TOKEN
+  graph_postmerge_root: C:/Temp/simwar-w020-postmerge-bdbcf32
+  graphify_status: CURRENT_EXACT_SHA_HEALTHY
+  graphify_digest: a4738fdd139aa24773a193f86340cfa96921a003ee8d82b4dfbccd4d48542c4a
+  codegraph_status: DEGRADED_CODEGRAPH_FALLBACK
+  w021_candidate_package: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z/09-w021-candidate-decision-package.md
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  a56_a63_disposable_journey: PASS_WITH_EXPLICIT_LIMIT
-  a78_two_team_integrated: PASS_WITH_EXPLICIT_LIMIT
-  a79_teacher_student_browser: PASS_WITH_EXPLICIT_LIMIT
-  a88_fresh_clone_journey: PASS_WITH_EXPLICIT_LIMIT
-  focused: PASS_W019_CONTRACT_QUERY_ROUTE
-  contract: PASS_16_FILES_44_TESTS_19_SCHEMA_GROUPS
-  browser: PASS_76_TESTS_9_SKIPPED_ROLE_WORKFLOW_PASS
-  full_vitest: PASS_167_FILES_1055_TESTS
+  focused_w020: PASS_3_FILES_8_TESTS
+  contract: PASS_17_FILES_45_TESTS_20_SCHEMA_GROUPS
+  browser: PASS_1_TEST
+  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  fresh_clone_w020: PASS
+  fresh_clone_full_vitest: INHERITED_BASELINE_LIMIT
   direct_store: PASS_0_NEW_UNAPPROVED
   hidden_unicode: PASS
   typecheck: PASS
   lint: PASS
   build: PASS
-  post_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
   github_quality: PASS
+  github_browser_smoke: PASS
   github_codeql: PASS
-  github_postgres_replay: PASS_ARTIFACT_POSTGRES_16
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
-  unknown_rows: 0
+  unknown_w020_acceptance_rows: 0
 known_limits:
-  issue_111: OPEN_KNOWN_LIMIT
-  issue_113: OPEN_KNOWN_LIMIT
-  issue_118: OPEN_KNOWN_LIMIT
-  issue_351: OPEN_KNOWN_LIMIT
   runtime_authority: JSON_INTERNAL_ONLY
+  model_provider: DETERMINISTIC_IN_REPO_MOCK_ONLY
+  external_provider: NOT_USED
+  human_validation: NOT_PERFORMED
+  student_private_evidence: NOT_AUTHORIZED
+  ai_final_grading: NOT_AUTHORIZED
   postgresql_application_runtime: NOT_ACTIVE
   durable_settlement_recovery: NOT_PROVEN
-  human_validation: NOT_PERFORMED
-  codegraph: GRAPH_EVIDENCE_GAP
-  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
+  cross_process_idempotency: NOT_PROVEN
+  full_suite: INHERITED_GRAPH_COMPANION_SYNTAX_BASELINE_LIMIT
+  codegraph: DEGRADED_CODEGRAPH_FALLBACK
   pilot_production: NOT_AUTHORIZED
+  w021_authorization: NOT_CREATED
+  dependency_advisories: 2_LOW_7_HIGH_REPORTED_BY_NPM_CI
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_CHANGE
 invalidation_triggers:
   - product_or_runtime_changed
-  - settlement_authority_or_writer_changed
+  - authority_or_truth_writer_changed
+  - contract_or_openapi_changed
   - replay_or_golden_changed
-  - tenant_baseline_contract_or_authority_changed
-  - W019_teaching_closure_contract_or_projection_changed
-  - D2_D3_D4_C5_D5_authority_changed
-  - post_merge_evidence_invalidated
+  - student_visibility_changed
+  - graph_source_sha_changed
+  - fresh_clone_evidence_invalidated
+  - full_suite_failure_fingerprint_changes
 automatic_next_start: false

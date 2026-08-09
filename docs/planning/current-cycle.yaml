@@ -1,128 +1,140 @@
-cycle_id: L1PLUS-CYCLE-019-W019-UNIFIED-TEACHING-CLOSURE
+cycle_id: L1PLUS-CYCLE-020-W020-GOVERNED-AI-ADVISORY
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-06T07:44:42Z"
-closed_at: "2026-08-06T08:25:04Z"
+started_at: "2026-08-09T02:15:37Z"
+closed_at: "2026-08-09T03:20:16Z"
 repository: qidianzhiku/SimWar
-source_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-assessment_source_anchor_sha: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
-product_evidence_source_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-governance_closure_merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-current_master_at_readback: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
-portfolio_current_master_lag: RECONCILED
-governance_reconciliation_authorization: OWNER_W019_GOVERNANCE_RECONCILIATION_AFTER_CLOSURE_BUDGET_001
-mainline_candidate: CAND-L1P-W019-UNIFIED-TEACHING-CLOSURE-JOURNEY
+source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+assessment_source_anchor_sha: 38064ff5fe780ea9611cfa39b88476c22f1790d8
+product_evidence_source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
+product_pr: 360
+product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: 0d5e2c7c374b5511ce16807683ead7dc63f0744e6bed4721071b568da37d7694
+current_master_at_readback: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
+mainline_candidate: CAND-L1P-E1-GOVERNED-AI-MOCK
 support_candidate: NONE
-docs_discovery_candidate: null
+docs_discovery_candidate: NONE
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: "One exact Course/Run/Team/Role/Activity context flows through Teacher queue, evidence review, claim, confirmation, Student-safe outcome, Course Report and deterministic JSON/Markdown exports without creating a new authority."
+primary_outcome: GOVERNED_AI_ADVISORY_MOCK
 runtime_authority: JSON_INTERNAL_ONLY
 postgresql_application_runtime: NOT_ACTIVE
+human_validation: NOT_PERFORMED
+pilot_production: NOT_AUTHORIZED
 predecessor:
-  cycle_id: L1PLUS-CYCLE-017-W018-R1-RECOVERY-CLOSURE
-  merge_sha: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
-product_prs:
-  - number: 355
-    role: W019_UNIFIED_TEACHING_CLOSURE
-    candidate_head: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
-    merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-support_prs: []
+  cycle_id: L1PLUS-CYCLE-019-W019-UNIFIED-TEACHING-CLOSURE
+  merge_sha: 2889c7b5a92a8bc0a26ed402eb5c7245b570025e
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  focused: PASS_W019_CONTRACT_QUERY_ROUTE
-  contract: PASS_16_FILES_44_TESTS_19_SCHEMA_GROUPS
-  browser: PASS_76_TESTS_9_SKIPPED_ROLE_WORKFLOW_PASS
-  full: PASS_167_FILES_1055_TESTS
-  ci: PASS
-  codeql: PASS
-  postgres_replay_ci: PASS_ARTIFACT_POSTGRES_16
-  postgres_artifact_cleanup: PASS
+  focused_w020: PASS_3_FILES_8_TESTS
+  contract: PASS_17_FILES_45_TESTS_20_SCHEMA_GROUPS
+  browser: PASS_1_TEST
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_codeql: PASS
   direct_store: PASS_0_NEW_UNAPPROVED
   hidden_unicode: PASS
   typecheck: PASS
   lint: PASS
+  prettier_changed_files: PASS
   build: PASS
-  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  master_workflow: PASS
-  challenge_review_blocking: 0
-  challenge_review_must_fix: 0
-  codex_review: CODEX_REVIEW_UNAVAILABLE_LOCAL_FALLBACK_COMPLETE
-  human_validation: NOT_PERFORMED
+  diff_check: PASS
+  fresh_clone_npm_ci: PASS
+  fresh_clone_focused_w020: PASS_3_FILES_8_TESTS
+  fresh_clone_contract: PASS_17_FILES_45_TESTS
+  fresh_clone_browser: PASS_1_TEST
+  fresh_clone_full_vitest: INHERITED_BASELINE_LIMIT_171_OF_172_FILES_1077_OF_1077_TESTS
+  fresh_clone_full_vitest_failure: tests/unit/graph-companion.test.ts_SYNTAX_ERROR_INVALID_OR_UNEXPECTED_TOKEN
+  fresh_clone_full_vitest_w020_scope: NO_W020_FAILURE
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  graphify_postmerge: CURRENT_EXACT_SHA_HEALTHY
+  codegraph_postmerge: DEGRADED_CODEGRAPH_FALLBACK
+  planning_readback: DRIFT_RECONCILED_BY_THIS_CLOSURE
 evidence:
-  root: C:/Temp/simwar-w019-unified-teaching-closure-20260806T080000Z
-  design_master: 7dc6b73c2174fee121c349ee699e39993f3fbf9b
-  product_candidate_sha: 4cdd90026c93ecc6bfd7d6bc87cbd879899c1b7f
-  product_merge_sha: e46b5f9c0f1df0a7cea08fed6dfc1dd9da5d275f
-  fresh_clone: D:/codex/fresh-clones/simwar-w019-product-merge-e46b5f9
-  fresh_clone_status: PASS_CLEAN_DETACHED_AT_MERGE_SHA
-  master_ci_run: 31084581772
-  master_codeql_run: 31084581439
-  postgres_artifact: quality/postgres-artifact/postgres-replay-verification.json
-  audit_root: C:/Temp/simwar-w019-completion-audit-20260806T090000Z
-  audit_fresh_clone: D:/codex/fresh-clones/simwar-w019-a88-2889c7b
-  audit_fresh_clone_status: PASS_WITH_EXPLICIT_LIMIT
-  audit_manifest_sha256: d930afe16e4101e435911d1c28c02959fea9085c5020af0a0daeb92d995a779c
+  root: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/360
+  product_candidate_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
+  product_merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  fresh_clone: D:/codex/fresh-clones/simwar-w020-bdbcf32
+  fresh_clone_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  fresh_clone_status: CLEAN_DETACHED
+  graph_postmerge_root: C:/Temp/simwar-w020-postmerge-bdbcf32
+  graphify_source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  graphify_digest: a4738fdd139aa24773a193f86340cfa96921a003ee8d82b4dfbccd4d48542c4a
+  graphify_nodes: 11109
+  graphify_edges: 20034
+  codegraph_status: DEGRADED_CODEGRAPH
+  codegraph_warning: unable_to_read_tree_for_merge_sha
+  w021_candidate_package: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z/09-w021-candidate-decision-package.md
 resource_locks:
-  status: RELEASED_BY_THIS_GOVERNANCE_CLOSURE
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
   released:
-    - W019_UNIFIED_TEACHING_CLOSURE_SCOPE
-    - W019_CONTEXT_BOUND_BFF_READ_SCOPE
-    - W019_TEACHER_WORKBENCH_SCOPE
-    - W019_SERIAL_INTEGRATION
-    - W019_POST_MERGE_FRESH_CLONE
-    - W019_GOVERNANCE_CLOSURE
-    - SERIAL_MERGE
-    - POST_MERGE_FRESH_CLONE
-    - GOVERNANCE_CLOSURE
+    - W020_AGENT_GATEWAY
+    - W020_STUDENT_ROLE_ADVISOR
+    - W020_TEACHER_DEBRIEF_ADVISOR
+    - W020_SHARED_ADVISORY_CONTRACT
+    - W020_SERIAL_MERGE
+    - W020_POST_MERGE_FRESH_CLONE
+    - W020_GRAPH_COMPANION_REFRESH
+    - W020_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
-    status: HIGHER_STAGE_DEFERRED
-  - candidate_id: CAND-L1P-W020-NEXT_MAINLINE
+  - candidate_id: W021-CANDIDATE-001-GRAPH-VERIFIED-ADVISORY-EVIDENCE-CLOSURE
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: REQUIRES_SEPARATE_OWNER_DIRECTION
+    reason: W020 closure output only; requires separate owner direction
+  - candidate_id: W021-CANDIDATE-002-FULL-SUITE-BASELINE-ENVIRONMENT-DIAGNOSIS
+    status: ALTERNATIVE_NOT_AUTHORIZED
+    reason: inherited graph-companion full-suite anomaly needs separate diagnosis
+  - candidate_id: W021-CANDIDATE-003-GOVERNED-EXTERNAL-PROVIDER-ADAPTER
+    status: DEFERRED_HIGH_RISK
+    reason: external provider, secret, network and new authority policy required
 blocked_candidates: []
 metrics:
   product_pr_count: 1
-  support_product_pr_count: 0
-  governance_pr_count: 2
+  product_commit_count: 3
+  product_rework_commit_count: 2
   corrective_product_pr_count: 0
-  rework_product_commit_count: 1
-  governance_reclosure_count: 1
+  governance_pr_count: 1
+  governance_reclosure_count: 0
   first_pass_exit: false
-  browser_regression_repair_commits: 1
-  readiness_mode: PARALLEL_READINESS_SERIAL_INTEGRATION
-  merge_mode: SERIAL
+  browser_regression_repair: 1
+  review_finding_families_fixed_before_merge: 5
+  changed_file_count: 31
+  fresh_clone_count: 1
   resource_cost_ratio: NOT_MEASURED
-  full_suite_before_repair: PASS_LOCAL_PRODUCT_HEAD
-  full_suite_after_repair: PASS_167_FILES_1055_TESTS
-  browser_before_repair: CI_REGRESSION_11_FAILURES
-  browser_after_repair: PASS_76_TESTS_9_SKIPPED
+  product_value_gain: GOVERNED_ADVISORY_MOCK_STUDENT_AND_TEACHER_SURFACES
+  lead_time: NOT_MEASURED
+  active_engineering_time: NOT_MEASURED
+  planning_drift_reconciled: true
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
-  postgresql_application_runtime: NOT_ACTIVE
-  disposable_postgres_ci: VERIFIED_ONLY
-  durable_transaction_recovery: NOT_PROVEN
+  external_provider: NOT_USED
+  model_provider: DETERMINISTIC_IN_REPO_MOCK_ONLY
   human_validation: NOT_PERFORMED
-  issue_111: OPEN_KNOWN_LIMIT
-  issue_113: OPEN_KNOWN_LIMIT
-  issue_118: OPEN_KNOWN_LIMIT
-  issue_351: OPEN_KNOWN_LIMIT
-  codegraph: GRAPH_EVIDENCE_GAP
-  dependency_advisories: 2_LOW_6_HIGH_PREEXISTING
-  pilot_and_production: NOT_AUTHORIZED
+  student_private_evidence: NOT_AUTHORIZED
+  ai_final_grading: NOT_AUTHORIZED
+  postgresql_application_runtime: NOT_ACTIVE
+  durable_recovery: NOT_PROVEN
+  cross_process_idempotency: NOT_PROVEN
+  full_suite: INHERITED_GRAPH_COMPANION_SYNTAX_BASELINE_LIMIT
+  codegraph: DEGRADED_CODEGRAPH_FALLBACK
+  dependency_advisories: 2_LOW_7_HIGH_REPORTED_BY_NPM_CI
+  pilot_production: NOT_AUTHORIZED
+  w021: NOT_STARTED
 invalidation_triggers:
   - product_or_runtime_changed
-  - settlement_authority_or_writer_changed
+  - authority_or_truth_writer_changed
+  - contract_or_openapi_changed
   - replay_or_golden_changed
-  - tenant_baseline_contract_or_authority_changed
-  - W019_teaching_closure_contract_or_projection_changed
-  - D2_D3_D4_C5_D5_authority_changed
-  - student_safe_visibility_changed
-  - post_merge_evidence_invalidated
+  - student_visibility_changed
+  - graph_source_sha_changed
+  - fresh_clone_evidence_invalidated
+  - full_suite_failure_fingerprint_changes
 explicit_non_proofs:
-  - W018 is not Human Validation.
-  - JSON_INTERNAL_ONLY remains the sole application runtime authority.
-  - The disposable PostgreSQL service is verification-only and does not activate PostgreSQL runtime.
-  - Durable transaction, crash recovery, cross-process locking, Pilot, Production, billing, external providers and AI final grading are not authorized or proven.
-  - Issue #351 remains open and outside this closure.
+  - W020 does not prove Human Validation.
+  - W020 does not activate PostgreSQL or durable recovery.
+  - W020 does not write Truth, SettlementResult, Score, Rank or Replay authority.
+  - W020 does not provide AI final grading.
+  - W020 does not authorize W021, external providers, Pilot or Production.
 automatic_next_start: false
