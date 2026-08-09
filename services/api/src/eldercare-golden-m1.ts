@@ -166,7 +166,23 @@ function assertAssetIsSafe(
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
   }
 
-  assertNoProtectedParameterFields(asset.parameter_set.parameters);
+  if (
+    asset.rounds.some(
+      (round) =>
+        !Number.isInteger(round.round_no) ||
+        round.round_no < 1 ||
+        round.round_no > 6 ||
+        round.title.trim().length === 0 ||
+        round.decision_focus.length === 0 ||
+        round.decision_focus.some((focus) => focus.trim().length === 0) ||
+        round.evidence_boundary !== "SOURCE_ONLY_INFERENCE"
+    )
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+
+  assertNoProtectedParameterFields(asset.parameter_set);
+  assertNoProtectedParameterFields(asset.rounds);
 
   const assetHash = provenance?.asset_hash ?? asset.asset_hash;
   if (
