@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createHash } from "node:crypto";
 import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
-import { registerSettlementPlugin, wellnessPluginV1 } from "@simwar/simulation-core";
+import { resolveSettlementPlugins } from "@simwar/simulation-core";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -31,22 +31,6 @@ const SEED = 20260809;
 const PLUGIN_PACKAGE_ID = "plugin_wellness_eldercare_v1";
 const SOURCE_PARAMETER_ID = "eldercare_shanghai_source_parameter";
 const SOURCE_SCENARIO_ID = "eldercare_shanghai_source_scenario";
-
-function registerEldercareRuntimePlugin(): void {
-  // The formal adapter names the R7-A plugin package while the current JSON
-  // runtime registry ships the equivalent wellness implementation. Keep this
-  // alias in-memory so the HTTP test exercises the formal path without any
-  // production or kernel-state writes.
-  registerSettlementPlugin({
-    ...wellnessPluginV1,
-    manifest: {
-      ...wellnessPluginV1.manifest,
-      adapter_ref: "@simwar/simulation-core/eldercareWellnessPluginV1",
-      plugin_id: PLUGIN_PACKAGE_ID
-    },
-    plugin_id: PLUGIN_PACKAGE_ID
-  });
-}
 
 type ParameterReference = {
   content_digest: string;
@@ -723,7 +707,9 @@ async function completeJourney(
 describe("Shanghai Eldercare Golden M1 HTTP productization", () => {
   it("materializes two fresh tenants through the formal chain and preserves safe deterministic evidence", async () => {
     const store = createP1Store();
-    registerEldercareRuntimePlugin();
+    expect(resolveSettlementPlugins([PLUGIN_PACKAGE_ID]).map((plugin) => plugin.plugin_id)).toEqual(
+      [PLUGIN_PACKAGE_ID]
+    );
     store.tenants.push({
       created_at: "2026-08-09T00:00:00.000Z",
       domain: "r7a-synthetic.simwar.local",

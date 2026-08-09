@@ -13,8 +13,27 @@ import type {
 } from "./types.js";
 import { wellnessPluginV1 } from "./wellness-plugin.js";
 
+export const ELDERCARE_WELLNESS_PLUGIN_ID = "plugin_wellness_eldercare_v1" as const;
+
+/**
+ * R7-A's formal package reuses the active JSON wellness hooks and engine.
+ * Keeping the package identity as a deterministic registry alias lets formal
+ * runtime bindings resolve the adapter's package id without introducing a
+ * second settlement algorithm or changing replay inputs.
+ */
+const eldercareWellnessPluginAlias: SettlementPlugin = {
+  ...wellnessPluginV1,
+  manifest: {
+    ...wellnessPluginV1.manifest,
+    adapter_ref: "@simwar/simulation-core/eldercareWellnessPluginV1",
+    plugin_id: ELDERCARE_WELLNESS_PLUGIN_ID
+  },
+  plugin_id: ELDERCARE_WELLNESS_PLUGIN_ID
+};
+
 const defaultPluginRegistry = new Map<string, SettlementPlugin>([
-  [wellnessPluginV1.plugin_id, wellnessPluginV1]
+  [wellnessPluginV1.plugin_id, wellnessPluginV1],
+  [eldercareWellnessPluginAlias.plugin_id, eldercareWellnessPluginAlias]
 ]);
 
 function latestDecisionForTeam(decisions: Decision[], teamId: string): Decision | undefined {
