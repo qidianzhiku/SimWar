@@ -1159,4 +1159,43 @@ describe("TenantBaselineProvisioningService", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(formalAuthorityCounts(store)).toEqual(countsBeforeRetry);
   });
+
+  it("compensates a newly created baseline when the audit callback fails", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const before = formalAuthorityCounts(store);
+    const request = {
+      idempotency_key: "audit-compensation-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    await expect(
+      service.provision(
+        { actor_id: "usr_platform", correlation_id: "audit_compensation" },
+        request,
+        async () => {
+          throw new Error("audit persistence unavailable");
+        }
+      )
+    ).rejects.toMatchObject({ code: "AUDIT_FAILED" });
+    expect(formalAuthorityCounts(store)).toEqual(before);
+    expect(
+      store.formalParameterSetLifecycleSnapshots.some(
+        (snapshot) => snapshot?.tenant_id === request.target_tenant_id
+      )
+    ).toBe(false);
+    expect(
+      store.formalScenarioPackageLifecycleSnapshots.some(
+        (snapshot) => snapshot?.tenant_id === request.target_tenant_id
+      )
+    ).toBe(false);
+  });
 });

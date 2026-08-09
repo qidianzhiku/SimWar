@@ -28,6 +28,7 @@ export interface TenantBaselineProvisioningActor {
 
 export type TenantBaselineProvisioningFailureCode =
   | "CONFLICT"
+  | "AUDIT_FAILED"
   | "REQUEST_INVALID"
   | "SOURCE_NOT_APPROVED"
   | "SOURCE_NOT_FOUND"
@@ -39,6 +40,10 @@ export class TenantBaselineProvisioningError extends Error {
     this.name = "TenantBaselineProvisioningError";
   }
 }
+
+export type TenantBaselineProvisioningAfterMaterialization = (
+  result: TenantBaselineProvisioningResult
+) => Promise<void>;
 
 function digest(value: unknown): string {
   const canonicalize = (candidate: unknown): string => {
@@ -590,7 +595,8 @@ export class TenantBaselineProvisioningService {
 
   async provision(
     actor: TenantBaselineProvisioningActor,
-    input: TenantBaselineProvisioningRequest
+    input: TenantBaselineProvisioningRequest,
+    afterMaterialization?: TenantBaselineProvisioningAfterMaterialization
   ): Promise<TenantBaselineProvisioningResult> {
     const previous = this.activeProvision;
     let release: (() => void) | undefined;
@@ -599,7 +605,7 @@ export class TenantBaselineProvisioningService {
     });
     await previous;
     try {
-      return await this.provisionExclusively(actor, input);
+      return await this.provisionExclusively(actor, input, afterMaterialization);
     } finally {
       release?.();
     }
@@ -607,7 +613,8 @@ export class TenantBaselineProvisioningService {
 
   private async provisionExclusively(
     actor: TenantBaselineProvisioningActor,
-    input: TenantBaselineProvisioningRequest
+    input: TenantBaselineProvisioningRequest,
+    afterMaterialization?: TenantBaselineProvisioningAfterMaterialization
   ): Promise<TenantBaselineProvisioningResult> {
     if (
       !isNonBlankString(actor.actor_id) ||
@@ -743,7 +750,23 @@ export class TenantBaselineProvisioningService {
           this.authority
         ))
       ) {
-        return this.result(actor, "REUSED", existingParameter, existingScenario, provenance);
+        const reused = this.result(
+          actor,
+          "REUSED",
+          existingParameter,
+          existingScenario,
+          provenance
+        );
+        if (afterMaterialization) {
+          try {
+            await afterMaterialization(reused);
+          } catch {
+            // A reused materialization is already complete. Its audit failure
+            // must be surfaced without deleting the immutable target history.
+            throw new TenantBaselineProvisioningError("AUDIT_FAILED");
+          }
+        }
+        return reused;
       }
       throw new TenantBaselineProvisioningError("CONFLICT");
     }
@@ -812,7 +835,19 @@ export class TenantBaselineProvisioningService {
       const scenarioDraft = await this.authority.scenarioPackages.createDraft(targetActor, {
         artifact_policy: structuredClone(sourceScenario.artifact_policy),
         baseline_provenance: provenance,
-        compatibility_metadata: structuredClone(sourceScenario.compatibility_metadata),
+        compatibility_metadata: {
+          ...structuredClone(sourceScenario.compatibility_metadata),
+          parameter_set_id: parameterApproved.version.reference.parameter_set_id,
+          parameter_set_version: parameterApproved.version.reference.version,
+          ...(sourceScenario.plugin_dependencies[0]
+            ? {
+                plugin_package_id: sourceScenario.plugin_dependencies[0].plugin_package_id,
+                plugin_version: sourceScenario.plugin_dependencies[0].version
+              }
+            : {}),
+          scenario_package_id: scenarioPackageId,
+          scenario_package_version: sourceScenario.version
+        },
         content: structuredClone(sourceScenario.content),
         metadata: structuredClone(sourceScenario.metadata),
         parameter_set_reference: parameterApproved.version.reference,
@@ -835,15 +870,26 @@ export class TenantBaselineProvisioningService {
         scenarioFrozen.reference,
         scenarioApprovalId
       );
-      return this.result(
+      const created = this.result(
         actor,
         "CREATED",
         parameterApproved.version,
         scenarioApproved.version,
         provenance
       );
+      if (afterMaterialization) {
+        try {
+          await afterMaterialization(created);
+        } catch {
+          throw new TenantBaselineProvisioningError("AUDIT_FAILED");
+        }
+      }
+      return created;
     } catch (error) {
       this.authority.removeTenantBaselineMaterialization(materialization);
+      if (error instanceof TenantBaselineProvisioningError && error.code === "AUDIT_FAILED") {
+        throw error;
+      }
       if (isMaterializationConflict(error)) {
         throw new TenantBaselineProvisioningError("CONFLICT");
       }
