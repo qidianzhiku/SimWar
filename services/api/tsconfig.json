@@ -14,6 +14,9 @@
       "path": "../../packages/shared-contracts"
     },
     {
+      "path": "../agent-gateway"
+    },
+    {
       "path": "../simulation-core"
     }
   ]

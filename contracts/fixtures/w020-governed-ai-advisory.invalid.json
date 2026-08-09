@@ -1,0 +1,8 @@
+{
+  "discriminator": "w020_advisory_receipt",
+  "status": "generated",
+  "request_id": "req_w020_invalid",
+  "request_digest": "not-a-digest",
+  "formal_truth_write": true,
+  "unexpected_raw_prompt": "must be rejected"
+}

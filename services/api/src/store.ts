@@ -39,7 +39,8 @@ import type {
   RoleWorkflowEvent,
   D2EvidenceArtifactVersion,
   D2ProvenanceEdge,
-  TeacherConfirmationVersion
+  TeacherConfirmationVersion,
+  W020AdvisoryRecord
 } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
@@ -125,6 +126,7 @@ export interface SimWarStoreSnapshot {
   evidenceArtifacts: D2EvidenceArtifactVersion[];
   evidenceProvenanceEdges: D2ProvenanceEdge[];
   teacherConfirmationVersions: TeacherConfirmationVersion[];
+  governedAdvisoryRecords?: W020AdvisoryRecord[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -780,6 +782,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     evidenceArtifacts: [],
     evidenceProvenanceEdges: [],
     teacherConfirmationVersions: [],
+    governedAdvisoryRecords: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -837,6 +840,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     evidenceArtifacts: store.evidenceArtifacts,
     evidenceProvenanceEdges: store.evidenceProvenanceEdges,
     teacherConfirmationVersions: store.teacherConfirmationVersions,
+    governedAdvisoryRecords: store.governedAdvisoryRecords ?? [],
     counters: store.counters
   };
 }
@@ -889,6 +893,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     evidenceArtifacts: snapshot.evidenceArtifacts ?? [],
     evidenceProvenanceEdges: snapshot.evidenceProvenanceEdges ?? [],
     teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
+    governedAdvisoryRecords: snapshot.governedAdvisoryRecords ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

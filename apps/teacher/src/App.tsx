@@ -59,6 +59,7 @@ import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
+import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1347,6 +1348,17 @@ export function App() {
           disabled={busy}
           roundNo={selectedRound?.round_no}
           runId={selectedRun?.run_id}
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
+      ) : null}
+
+      {isTeacher && session ? (
+        <TeacherDebriefAdvisor
+          apiBase={API_BASE}
+          roundId={selectedRound?.round_id}
+          runId={selectedRun?.run_id}
+          teamId={state?.teams.find((candidate) => candidate.course_id === selectedRun?.course_id)?.team_id}
           tenantId={login.tenantId}
           token={session.access_token}
         />
