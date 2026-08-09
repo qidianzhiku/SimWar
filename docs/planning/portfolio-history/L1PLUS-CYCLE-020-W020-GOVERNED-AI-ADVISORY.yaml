@@ -1,0 +1,88 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-020-W020-GOVERNED-AI-ADVISORY
+stage: L1_PLUS
+candidate_id: CAND-L1P-E1-GOVERNED-AI-MOCK
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-09T02:15:37Z"
+closed_at: "2026-08-09T03:20:16Z"
+repository: qidianzhiku/SimWar
+branch: codex/w020-governed-ai-advisory
+design_anchor_sha: 38064ff5fe780ea9611cfa39b88476c22f1790d8
+source_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+head_sha: 72a6cc9125a0b4724010134e0cbc5ac8939090fc
+merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+post_merge_master_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: 0d5e2c7c374b5511ce16807683ead7dc63f0744e6bed4721071b568da37d7694
+pr: 360
+primary_outcome: GOVERNED_AI_ADVISORY_MOCK
+product_scope:
+  - Agent Gateway
+  - Student Role Advisor
+  - Teacher Debrief Advisor
+  - CoachOutput validation
+  - ModelCallLog audit metadata
+  - safe role and tenant context projection
+changed_files: 31
+product_commit_count: 3
+product_manifest_sha256: 15a412591773241279cfd0f9ecba26fe38e422caca12f0e48ebc544e1f1a240b
+validation:
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_codeql: PASS
+  focused_w020: PASS_3_FILES_8_TESTS
+  contract: PASS_17_FILES_45_TESTS_20_SCHEMA_GROUPS
+  browser: PASS_1_TEST
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  fresh_clone_npm_ci: PASS
+  fresh_clone_w020: PASS
+  fresh_clone_browser: PASS_1_TEST
+  fresh_clone_full_vitest: INHERITED_BASELINE_LIMIT_171_OF_172_FILES_1077_OF_1077_TESTS
+  fresh_clone_full_vitest_failure: tests/unit/graph-companion.test.ts_SYNTAX_ERROR_INVALID_OR_UNEXPECTED_TOKEN
+  fresh_clone_w020_scope: PASS_NO_W020_FAILURE
+  graphify_postmerge: CURRENT_EXACT_SHA_HEALTHY
+  codegraph_postmerge: DEGRADED_CODEGRAPH_FALLBACK
+  planning_drift: RECONCILED
+evidence_root: C:/Temp/simwar-w020-graph-native-governed-ai-20260809T021537Z
+graph_postmerge_root: C:/Temp/simwar-w020-postmerge-bdbcf32
+resource_locks:
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+  released:
+    - W020_AGENT_GATEWAY
+    - W020_STUDENT_ROLE_ADVISOR
+    - W020_TEACHER_DEBRIEF_ADVISOR
+    - W020_SHARED_ADVISORY_CONTRACT
+    - W020_SERIAL_MERGE
+    - W020_POST_MERGE_FRESH_CLONE
+    - W020_GRAPH_COMPANION_REFRESH
+    - W020_GOVERNANCE_CLOSURE
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  deterministic_mock_provider: IN_REPO_ONLY
+  external_provider: NOT_USED
+  human_validation: NOT_PERFORMED
+  ai_final_grading: NOT_AUTHORIZED
+  postgresql_application_runtime: NOT_ACTIVE
+  durable_recovery: NOT_PROVEN
+  cross_process_idempotency: NOT_PROVEN
+  full_suite: INHERITED_GRAPH_COMPANION_SYNTAX_BASELINE_LIMIT
+  codegraph: DEGRADED_CODEGRAPH_FALLBACK
+  pilot_production: NOT_AUTHORIZED
+explicit_non_proofs:
+  - no Truth, SettlementResult, Score, Rank or Replay writer change
+  - no Student private evidence exposure
+  - no external AI provider, secret, network or tool call
+  - no PostgreSQL runtime, migration, durable recovery, Pilot or Production
+  - no Human Validation claim
+recommended_next_candidate: W021-CANDIDATE-001-GRAPH-VERIFIED-ADVISORY-EVIDENCE-CLOSURE
+recommended_next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
+alternative_candidate: W021-CANDIDATE-002-FULL-SUITE-BASELINE-ENVIRONMENT-DIAGNOSIS
+alternative_candidate_status: ALTERNATIVE_NOT_AUTHORIZED
+w021_authorization: NOT_CREATED
+w021_execution: NOT_STARTED
+automatic_next_start: false
