@@ -542,7 +542,7 @@ export function createEldercareGoldenM1BlueprintDraft(
     objectives: [
       "Interpret source-only eldercare demand and capacity signals.",
       "Compare service quality, payer mix and license-boundary trade-offs.",
-      "Practice replay-aware, non-overwriting decision review."
+      "Practice deterministic, non-overwriting decision review."
     ],
     ordered_phases,
     required_product_capabilities: [
