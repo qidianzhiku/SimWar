@@ -26,7 +26,13 @@ const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT
 
 const SOURCE_TENANT_ID = "tenant_r7a_synthetic_browser";
 let sourceTenantId = SOURCE_TENANT_ID;
-const TARGET_TENANT_ID = "tenant_demo";
+let TARGET_TENANT_ID = "tenant_demo";
+let TARGET_ADMIN_USERNAME = "admin";
+let TARGET_ADMIN_PASSWORD = "admin";
+let TARGET_TEACHER_USERNAME = "teacher";
+let TARGET_TEACHER_PASSWORD = "teacher";
+let TARGET_STUDENT_USERNAME = "student";
+let TARGET_STUDENT_PASSWORD = "student";
 const VERSION = "1.0.0";
 const PLUGIN_PACKAGE_ID = "plugin_wellness_eldercare_v1";
 const SOURCE_PARAMETER_ID = "eldercare_shanghai_browser_source_parameter";
@@ -199,6 +205,47 @@ async function ensureSourceTenant(
   expect(created.tenant_id).toBeTruthy();
   sourceTenantId = created.tenant_id;
   return sourceTenantId;
+}
+
+async function createTenant(
+  request: APIRequestContext,
+  platformToken: string,
+  name: string
+): Promise<{ tenant_id: string }> {
+  return checkedApiRequest<{ tenant_id: string }>(
+    request,
+    "/api/v1/admin/tenants",
+    {
+      body: { domain: `${name}.eldercare-golden.browser.test`, name },
+      tenantId: "tenant_platform",
+      token: platformToken
+    },
+    201
+  );
+}
+
+async function createUser(
+  request: APIRequestContext,
+  platformToken: string,
+  input: { tenant_id: string; username: string; password: string; roles: string[] }
+): Promise<{ user_id: string }> {
+  return checkedApiRequest<{ user_id: string }>(
+    request,
+    "/api/v1/admin/users",
+    {
+      body: {
+        display_name: input.username,
+        email: `${input.username}@eldercare-golden.browser.test`,
+        password: input.password,
+        roles: input.roles,
+        tenant_id: input.tenant_id,
+        username: input.username
+      },
+      tenantId: "tenant_platform",
+      token: platformToken
+    },
+    201
+  );
 }
 
 async function createAvailablePlugin(
@@ -454,15 +501,50 @@ async function seedFormalCoursePackage(
   return { baseline, blueprint, coursePackage, packageDraft };
 }
 
-async function createDemoRound(
+async function createFormalCourseRound(
   request: APIRequestContext,
-  teacherToken: string
+  teacherToken: string,
+  studentUserId: string,
+  blueprint: CourseBlueprintReference,
+  scenario: ScenarioPackageReference
 ): Promise<{ runId: string }> {
+  const course = await checkedApiRequest<{ course: { course_id: string } }>(
+    request,
+    "/api/v1/bff/teacher/course-blueprint-courses",
+    {
+      body: {
+        course_blueprint_reference: blueprint,
+        scenario_package_reference: scenario,
+        title: "Shanghai Eldercare Golden M1 Browser Course"
+      },
+      tenantId: TARGET_TENANT_ID,
+      token: teacherToken
+    },
+    201
+  );
+  const courseId = course.course.course_id;
+  await checkedApiRequest(
+    request,
+    `/api/v1/courses/${courseId}/publish`,
+    { body: {}, tenantId: TARGET_TENANT_ID, token: teacherToken },
+    200
+  );
+  const team = await checkedApiRequest<{ team_id: string }>(
+    request,
+    `/api/v1/courses/${courseId}/teams`,
+    {
+      body: { captain_user_id: studentUserId, name: "Shanghai Eldercare Golden M1 Browser Team" },
+      tenantId: TARGET_TENANT_ID,
+      token: teacherToken
+    },
+    201
+  );
+  expect(team.team_id).toBeTruthy();
   const created = await checkedApiRequest<{ run: { run_id: string } }>(
     request,
-    "/api/v1/courses/course_demo/runs",
+    `/api/v1/courses/${courseId}/runs`,
     {
-      body: {},
+      body: { formal_runtime_seed: 20260809 },
       tenantId: TARGET_TENANT_ID,
       token: teacherToken
     },
@@ -480,24 +562,24 @@ async function createDemoRound(
 async function signInAdminPage(page: Page): Promise<void> {
   const login = page.locator('section[aria-label="admin login"]');
   await login.getByLabel("tenant").fill(TARGET_TENANT_ID);
-  await login.getByLabel("username").fill("admin");
-  await login.getByLabel("password").fill("admin");
+  await login.getByLabel("username").fill(TARGET_ADMIN_USERNAME);
+  await login.getByLabel("password").fill(TARGET_ADMIN_PASSWORD);
   await login.getByRole("button", { name: "管理员登录" }).click();
   await expect(page.getByText("signed in")).toBeVisible();
 }
 
 async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("tenant").fill(TARGET_TENANT_ID);
-  await page.getByLabel("username").fill("teacher");
-  await page.getByLabel("password").fill("teacher");
+  await page.getByLabel("username").fill(TARGET_TEACHER_USERNAME);
+  await page.getByLabel("password").fill(TARGET_TEACHER_PASSWORD);
   await page.getByRole("button", { name: "教师登录" }).click();
   await expect(page.getByText("signed in")).toBeVisible();
 }
 
 async function signInStudentPage(page: Page): Promise<void> {
   await page.getByLabel("tenant").fill(TARGET_TENANT_ID);
-  await page.getByLabel("username").fill("student");
-  await page.getByLabel("password").fill("student");
+  await page.getByLabel("username").fill(TARGET_STUDENT_USERNAME);
+  await page.getByLabel("password").fill(TARGET_STUDENT_PASSWORD);
   await page.getByRole("button", { name: "学员登录" }).click();
   await expect(page.getByText("signed in")).toBeVisible();
 }
@@ -512,7 +594,10 @@ function captureBrowserWrites(page: Page): string[] {
   return writes;
 }
 
-test.afterAll(() => {
+// This spec seeds the shared Playwright JSON store. Clean it immediately after
+// the test so later browser specs cannot observe the synthetic package/tenant
+// and become order-dependent when the full browser-smoke suite runs.
+test.afterEach(() => {
   cleanupPlaywrightStore();
 });
 
@@ -523,8 +608,49 @@ test("E4_PARTIAL_ONLY: renders approved Shanghai Eldercare Golden M1 on generic 
   test.info().annotations.push({ type: E4_PARTIAL_ONLY, description: E4_PARTIAL_ONLY_REASON });
 
   const platformToken = await loginApi(request, "tenant_platform", "platform", "platform");
-  const adminToken = await loginApi(request, TARGET_TENANT_ID, "admin", "admin");
-  const teacherToken = await loginApi(request, TARGET_TENANT_ID, "teacher", "teacher");
+  const targetTenant = await createTenant(
+    request,
+    platformToken,
+    `eldercare-browser-target-${Date.now().toString(36)}`
+  );
+  TARGET_TENANT_ID = targetTenant.tenant_id;
+  const suffix = Date.now().toString(36);
+  TARGET_ADMIN_USERNAME = `eldercare-admin-${suffix}`;
+  TARGET_ADMIN_PASSWORD = `admin-${suffix}`;
+  TARGET_TEACHER_USERNAME = `eldercare-teacher-${suffix}`;
+  TARGET_TEACHER_PASSWORD = `teacher-${suffix}`;
+  TARGET_STUDENT_USERNAME = `eldercare-student-${suffix}`;
+  TARGET_STUDENT_PASSWORD = `student-${suffix}`;
+  await createUser(request, platformToken, {
+    tenant_id: TARGET_TENANT_ID,
+    username: TARGET_ADMIN_USERNAME,
+    password: TARGET_ADMIN_PASSWORD,
+    roles: ["tenant_admin"]
+  });
+  const studentUser = await createUser(request, platformToken, {
+    tenant_id: TARGET_TENANT_ID,
+    username: TARGET_STUDENT_USERNAME,
+    password: TARGET_STUDENT_PASSWORD,
+    roles: ["learner", "team_captain"]
+  });
+  await createUser(request, platformToken, {
+    tenant_id: TARGET_TENANT_ID,
+    username: TARGET_TEACHER_USERNAME,
+    password: TARGET_TEACHER_PASSWORD,
+    roles: ["teacher"]
+  });
+  const adminToken = await loginApi(
+    request,
+    TARGET_TENANT_ID,
+    TARGET_ADMIN_USERNAME,
+    TARGET_ADMIN_PASSWORD
+  );
+  const teacherToken = await loginApi(
+    request,
+    TARGET_TENANT_ID,
+    TARGET_TEACHER_USERNAME,
+    TARGET_TEACHER_PASSWORD
+  );
   const seed = await seedFormalCoursePackage(request, platformToken, adminToken);
   expect(seed.packageDraft.title).toBe(
     "Shanghai Eldercare Golden M1 · Synthetic Teaching Baseline"
@@ -533,7 +659,13 @@ test("E4_PARTIAL_ONLY: renders approved Shanghai Eldercare Golden M1 on generic 
     expect(seed.packageDraft.description).toContain(label);
   }
 
-  const demoRound = await createDemoRound(request, teacherToken);
+  const demoRound = await createFormalCourseRound(
+    request,
+    teacherToken,
+    studentUser.user_id,
+    seed.blueprint,
+    seed.baseline.scenario_package.reference
+  );
   const browserWrites = captureBrowserWrites(page);
 
   await page.goto(adminBaseUrl);
