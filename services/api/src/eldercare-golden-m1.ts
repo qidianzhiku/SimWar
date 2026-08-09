@@ -146,6 +146,20 @@ function assertNoProtectedParameterFields(value: unknown): void {
   }
 }
 
+function assertExactReferenceKeys(value: unknown, expectedKeys: readonly string[]): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+
+  const actualKeys = Object.keys(value);
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key) => !expectedKeys.includes(key))
+  ) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+}
+
 function assertAssetIsSafe(
   asset: EldercareScenarioAsset,
   provenance: EldercareGoldenM1Provenance | undefined
@@ -172,17 +186,21 @@ function assertAssetIsSafe(
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
   }
 
+  const roundTitles = new Set<string>();
   if (
-    asset.rounds.some(
-      (round) =>
+    asset.rounds.some((round, index) => {
+      const duplicateTitle = roundTitles.has(round.title);
+      roundTitles.add(round.title);
+      return (
         !Number.isInteger(round.round_no) ||
-        round.round_no < 1 ||
-        round.round_no > 6 ||
+        round.round_no !== index + 1 ||
         round.title.trim().length === 0 ||
+        duplicateTitle ||
         round.decision_focus.length === 0 ||
         round.decision_focus.some((focus) => focus.trim().length === 0) ||
         round.evidence_boundary !== "SOURCE_ONLY_INFERENCE"
-    )
+      );
+    })
   ) {
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
   }
@@ -307,6 +325,11 @@ function requireParameterReference(context: EldercareGoldenM1AdapterInput): Para
   if (!context.parameter_set_reference) {
     throw new EldercareGoldenM1AdapterError("DEPENDENCY_REFERENCE_REQUIRED");
   }
+  assertExactReferenceKeys(context.parameter_set_reference, [
+    "content_digest",
+    "parameter_set_id",
+    "version"
+  ]);
   return clone(context.parameter_set_reference);
 }
 
@@ -316,6 +339,12 @@ function requireScenarioReference(
   if (!context.scenario_package_reference) {
     throw new EldercareGoldenM1AdapterError("DEPENDENCY_REFERENCE_REQUIRED");
   }
+  assertExactReferenceKeys(context.scenario_package_reference, [
+    "content_digest",
+    "scenario_package_id",
+    "tenant_id",
+    "version"
+  ]);
   return clone(context.scenario_package_reference);
 }
 
@@ -325,6 +354,12 @@ function requireBlueprintReference(
   if (!context.course_blueprint_reference) {
     throw new EldercareGoldenM1AdapterError("DEPENDENCY_REFERENCE_REQUIRED");
   }
+  assertExactReferenceKeys(context.course_blueprint_reference, [
+    "content_digest",
+    "course_blueprint_id",
+    "tenant_id",
+    "version"
+  ]);
   return clone(context.course_blueprint_reference);
 }
 
@@ -431,7 +466,8 @@ export function createEldercareGoldenM1ScenarioDraft(
   const parameterSetReference = requireParameterReference(input);
   assertParameterReference(parameterSetReference, artifacts);
   if (input.scenario_package_reference) {
-    assertScenarioReference(input.scenario_package_reference, artifacts, context.target_tenant_id);
+    const scenarioPackageReference = requireScenarioReference(input);
+    assertScenarioReference(scenarioPackageReference, artifacts, context.target_tenant_id);
   }
   const content: ScenarioPackageJsonValue = {
     asset_id: asset.asset_id,

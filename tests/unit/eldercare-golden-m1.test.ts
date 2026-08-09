@@ -3,6 +3,11 @@ import {
   compileShanghaiEldercareScenarioAsset,
   type EldercareScenarioAsset
 } from "@simwar/simulation-core";
+import type {
+  CourseBlueprintReference,
+  ParameterSetReference,
+  ScenarioPackageReference
+} from "@simwar/shared-contracts";
 import {
   createEldercareGoldenM1BlueprintDraft,
   createEldercareGoldenM1CoursePackageDraft,
@@ -222,6 +227,49 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
           parameter_set_reference: parameterReference(),
           scenario_package_reference: scenarioReference(),
           course_blueprint_reference: { ...blueprintReference(), tenant_id: "tenant_other" }
+        })
+      )
+    ).toThrow();
+  });
+
+  it("rejects duplicate round numbers in a custom asset", () => {
+    const compiled = compileShanghaiEldercareScenarioAsset();
+    const duplicateRoundAsset = {
+      ...compiled,
+      rounds: compiled.rounds.map((round, index) =>
+        index === compiled.rounds.length - 1 ? { ...round, round_no: 5 } : round
+      )
+    } as EldercareScenarioAsset;
+
+    expect(() =>
+      createEldercareGoldenM1BlueprintDraft(input({ asset: duplicateRoundAsset }))
+    ).toThrow();
+  });
+
+  it("rejects sensitive extra keys on formal dependency references", () => {
+    expect(() =>
+      createEldercareGoldenM1ScenarioDraft(
+        input({
+          parameter_set_reference: {
+            ...parameterReference(),
+            state_true: "forbidden"
+          } as ParameterSetReference & Record<string, unknown>
+        })
+      )
+    ).toThrow();
+
+    expect(() =>
+      createEldercareGoldenM1CoursePackageDraft(
+        input({
+          parameter_set_reference: parameterReference(),
+          scenario_package_reference: {
+            ...scenarioReference(),
+            private_assumption: "forbidden"
+          } as ScenarioPackageReference & Record<string, unknown>,
+          course_blueprint_reference: {
+            ...blueprintReference(),
+            rank: "forbidden"
+          } as CourseBlueprintReference & Record<string, unknown>
         })
       )
     ).toThrow();
