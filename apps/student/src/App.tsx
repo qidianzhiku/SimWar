@@ -15,6 +15,7 @@ import type {
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
+import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("student");
@@ -320,6 +321,17 @@ export function App() {
           tenantId={login.tenantId}
           token={session.access_token}
           onActiveChange={setRoleWorkflowActive}
+        />
+      ) : null}
+
+      {session ? (
+        <StudentRoleAdvisor
+          apiBase={API_BASE}
+          roundId={latestRound?.round_id}
+          runId={latestRun?.run_id}
+          teamId={team?.team_id}
+          tenantId={login.tenantId}
+          token={session.access_token}
         />
       ) : null}
 

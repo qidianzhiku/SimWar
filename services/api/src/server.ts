@@ -69,7 +69,7 @@ import {
   verifySignedToken
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
-import { createJsonFormalScenarioAuthorityPersistence } from "./json-repository-adapter.js";
+import { createJsonFormalScenarioAuthorityPersistence, createJsonGovernedAdvisoryRepositoryPort } from "./json-repository-adapter.js";
 import { createSettlementBusinessKey } from "./settlement-idempotency.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
@@ -108,6 +108,8 @@ import { TransferResearchDesignCommandService } from "./transfer-research-design
 import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-design-registry.js";
 import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
+import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
+import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GoldenJourneyIntegrationService } from "./golden-journey-integration.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
@@ -284,6 +286,7 @@ interface ApiRuntime {
   roleWorkflow: RoleWorkflowCommandService;
   instructorAssets: InstructorAssetRegistry;
   goldenJourney: GoldenJourneyIntegrationService;
+  governedAdvisory: GovernedAdvisoryService;
   securityConfig: RuntimeSecurityConfig;
   runMutationLocks: Map<string, Promise<void>>;
 }
@@ -506,6 +509,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const transferResearchDesign = new TransferResearchDesignCommandService(
     new InMemoryTransferResearchDesignRegistry()
   );
+  const governedAdvisory = new GovernedAdvisoryService({
+    repository:
+      repositoryProvider.ports.governedAdvisories ?? createJsonGovernedAdvisoryRepositoryPort(store),
+    roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
 
   return {
     courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
@@ -552,6 +560,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       readInstructorAssetCollection(store)
     ),
     goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
+    governedAdvisory,
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -4727,6 +4736,26 @@ async function routeRequest(
     return;
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
+
+  if (url.pathname.startsWith("/api/v1/bff/student/advisors") || url.pathname.startsWith("/api/v1/bff/teacher/advisors")) {
+    if (
+      await handleW020AdvisoryRoute(
+        runtime.governedAdvisory,
+        request,
+        response,
+        url,
+        { requestId: context.requestId, tenantId: context.tenantId, actor: requireActor(context) },
+        {
+          readJson: (incoming) => readJson(incoming),
+          sendJson,
+          createEnvelope: (routeContext, payload) => createEnvelope(routeContext as RequestContext, payload),
+          requireStudent: () => requireD4Student(context),
+          requireTeacher: () => requireD4Teacher(context)
+        }
+      )
+    )
+      return;
+  }
 
   if (
     await handleTeacherConfirmationRoute(

@@ -3289,6 +3289,59 @@ paths:
           }
         "403": { description: Admin scope required }
         "404": { description: D6 study not found }
+  /api/v1/bff/student/advisors/role:
+    post:
+      operationId: W020_STUDENT_ROLE_ADVISOR_POST_V1
+      summary: Generate a deterministic role-scoped advisory projection.
+      description: Student-owned role context only. The route never exposes raw event payload, audit logs, formal truth, settlement, score, rank or replay data.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/W020AdvisoryRequest"
+      responses:
+        "201":
+          description: Generated or reused student role advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Student role or own-team scope denied }
+        "409": { description: Deterministic idempotency conflict }
+  /api/v1/bff/teacher/advisors/debrief:
+    post:
+      operationId: W020_TEACHER_DEBRIEF_ADVISOR_POST_V1
+      summary: Generate a bounded teacher debrief advisory.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+      responses:
+        "201":
+          description: Generated or reused teacher debrief advisory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+        "403": { description: Teacher scope required }
+        "409": { description: Deterministic idempotency conflict }
+  /api/v1/bff/teacher/advisors/audit:
+    get:
+      operationId: W020_TEACHER_ADVISOR_AUDIT_GET_V1
+      summary: Read bounded advisory audit metadata without raw prompts.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Bounded teacher advisory audit metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W020AdvisoryAuditEnvelope" }
+        "403": { description: Teacher or admin scope required }
 
 components:
   securitySchemes:
@@ -3317,6 +3370,43 @@ components:
           $ref: "../schemas/teaching-closure.v1.json"
     D6TransferEvidence:
       $ref: "../schemas/d6-transfer-evidence.v1.json"
+    W020AdvisoryRequest:
+      type: object
+      additionalProperties: false
+      required: [discriminator, surface, run_id, round_id, team_id, idempotency_key]
+      properties:
+        discriminator: { const: w020_advisory_request }
+        surface: { enum: [student_role, teacher_debrief] }
+        run_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        role_key: { enum: [CEO, CFO, CMO, COO] }
+        idempotency_key: { type: string, minLength: 1 }
+    W020AdvisoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          $ref: "../schemas/w020-governed-ai-advisory.v1.json"
+        message: { type: string }
+        request_id: { type: string }
+    W020AdvisoryAuditEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [entries, known_limits]
+          properties:
+            entries: { type: array, items: { type: object } }
+            known_limits: { type: array, items: { type: string } }
+        message: { type: string }
+        request_id: { type: string }
     D6TransferEnvelope:
       type: object
       additionalProperties: false

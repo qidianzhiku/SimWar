@@ -30,7 +30,8 @@ import type {
   SettlementOutcomePersistencePort,
   SimWarRepositoryPorts,
   TeacherConfirmationAppendCommand,
-  TeacherConfirmationRepositoryPort
+  TeacherConfirmationRepositoryPort,
+  GovernedAdvisoryRepositoryPort
 } from "./repository-ports.js";
 import {
   InMemoryJsonParameterSetRegistry,
@@ -105,6 +106,27 @@ export function createJsonTeacherConfirmationRepositoryPort(
           ...previousConfirmations
         );
         store.auditLogs.splice(0, store.auditLogs.length, ...previousAudits);
+        throw error;
+      }
+    }
+  };
+}
+
+export function createJsonGovernedAdvisoryRepositoryPort(
+  store: SimWarStore
+): GovernedAdvisoryRepositoryPort {
+  return {
+    async list(tenantId) {
+      return clone((store.governedAdvisoryRecords ?? []).filter((record) => record.tenant_id === tenantId));
+    },
+    async append(record) {
+      const records = store.governedAdvisoryRecords ?? (store.governedAdvisoryRecords = []);
+      const previous = clone(records);
+      records.push(clone(record));
+      try {
+        store.persist();
+      } catch (error) {
+        records.splice(0, records.length, ...previous);
         throw error;
       }
     }
@@ -1278,6 +1300,7 @@ export function createJsonRepositoryPorts(
 
     roleWorkflow: createJsonRoleWorkflowRepositoryPort(store),
     evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store),
-    teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store)
+    teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store),
+    governedAdvisories: createJsonGovernedAdvisoryRepositoryPort(store)
   };
 }

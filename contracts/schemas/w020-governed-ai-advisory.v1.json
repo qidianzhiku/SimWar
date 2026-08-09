@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/w020-governed-ai-advisory.v1.json",
+  "title": "W020 Governed AI Advisory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["discriminator", "status", "request_id", "request_digest", "context", "coach_output", "model_call_log", "projection", "formal_truth_write", "known_limits"],
+  "properties": {
+    "discriminator": { "const": "w020_advisory_receipt" },
+    "status": { "enum": ["generated", "reused"] },
+    "request_id": { "type": "string", "minLength": 1 },
+    "request_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discriminator", "actor_role", "actor_id_hash", "tenant_id", "course_id", "run_id", "round_id", "team_id", "advisory_scopes", "source_event_ids", "source_event_types", "context_digest", "transformation_version"],
+      "properties": {
+        "discriminator": { "const": "w020_role_safe_context" },
+        "actor_role": { "enum": ["student", "teacher", "admin"] },
+        "actor_id_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+        "advisory_scopes": { "type": "array", "items": { "type": "string" } },
+        "source_event_ids": { "type": "array", "items": { "type": "string" } },
+        "source_event_types": { "type": "array", "items": { "type": "string" } },
+        "context_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "transformation_version": { "const": "w020-role-safe-context-v1" }
+      }
+    },
+    "coach_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coach_output_id", "tenant_id", "run_id", "round_id", "output_type", "advisory_only", "advisory_text", "evidence_refs", "created_at"],
+      "properties": {
+        "coach_output_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO", "risk"] },
+        "output_type": { "enum": ["advisory", "learning_note", "explanation"] },
+        "advisory_only": { "const": true },
+        "advisory_text": { "type": "string", "minLength": 1 },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "model_call_log_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model_call_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_call_log_id", "tenant_id", "provider", "model", "purpose", "status", "advisory_only", "input_hash", "output_hash", "prompt_tokens", "completion_tokens", "cost_usd", "latency_ms", "created_at"],
+      "properties": {
+        "model_call_log_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 },
+        "purpose": { "enum": ["coach_advice", "debrief", "learning_support"] },
+        "status": { "enum": ["succeeded", "failed", "rejected"] },
+        "advisory_only": { "const": true },
+        "input_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "output_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["advisory_only", "surface", "title", "recommendations", "evidence_refs", "known_limits"],
+      "properties": {
+        "advisory_only": { "const": true },
+        "surface": { "enum": ["student_role", "teacher_debrief"] },
+        "title": { "type": "string" },
+        "recommendations": { "type": "array", "items": { "type": "string" } },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "formal_truth_write": { "const": false },
+    "known_limits": { "type": "array", "items": { "type": "string" } }
+  }
+}

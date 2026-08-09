@@ -21,7 +21,8 @@ import type {
   StudentRoleAssignment,
   Team,
   TeamConfirmation,
-  TeacherConfirmationVersion
+  TeacherConfirmationVersion,
+  W020AdvisoryRecord
 } from "@simwar/shared-contracts";
 
 /**
@@ -368,6 +369,12 @@ export interface TeacherConfirmationRepositoryPort {
   append(command: TeacherConfirmationAppendCommand): Promise<void>;
 }
 
+/** W020-only L4 advisory/audit persistence; it cannot write formal truth. */
+export interface GovernedAdvisoryRepositoryPort {
+  list(tenantId: RepositoryId): Promise<W020AdvisoryRecord[]>;
+  append(record: W020AdvisoryRecord): Promise<void>;
+}
+
 /**
  * Command/write path repository contracts for staged migration work.
  *
@@ -498,4 +505,5 @@ export interface SimWarRepositoryPorts {
   roleWorkflow: RoleWorkflowRepositoryPort;
   evidenceProvenance: EvidenceProvenanceRepositoryPort;
   teacherConfirmations?: TeacherConfirmationRepositoryPort;
+  governedAdvisories?: GovernedAdvisoryRepositoryPort;
 }

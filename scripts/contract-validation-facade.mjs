@@ -120,6 +120,12 @@ const c4ContractFiles = [
   "contracts/fixtures/instructor-debrief-artifact.invalid.json"
 ];
 
+const w020ContractFiles = [
+  "contracts/schemas/w020-governed-ai-advisory.v1.json",
+  "contracts/fixtures/w020-governed-ai-advisory.valid.json",
+  "contracts/fixtures/w020-governed-ai-advisory.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -284,6 +290,11 @@ const schemaCases = [
     schema: "contracts/schemas/instructor-debrief-artifact.v1.json",
     valid: ["contracts/fixtures/instructor-debrief-artifact.valid.json"],
     invalid: ["contracts/fixtures/instructor-debrief-artifact.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/w020-governed-ai-advisory.v1.json",
+    valid: ["contracts/fixtures/w020-governed-ai-advisory.valid.json"],
+    invalid: ["contracts/fixtures/w020-governed-ai-advisory.invalid.json"]
   }
 ];
 
@@ -675,6 +686,13 @@ function assertC4OpenApiBindings(openApi) {
   );
 }
 
+function assertW020OpenApiBindings(openApi) {
+  assert(openApi?.paths?.["/api/v1/bff/student/advisors/role"], "Missing W020 student advisor path.");
+  assert(openApi?.paths?.["/api/v1/bff/teacher/advisors/debrief"], "Missing W020 teacher advisor path.");
+  assert(openApi?.paths?.["/api/v1/bff/teacher/advisors/audit"], "Missing W020 teacher audit path.");
+  assert(openApi?.components?.schemas?.W020AdvisoryEnvelope, "Missing W020 advisory envelope schema.");
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -752,7 +770,8 @@ export async function runContractValidation(options = {}) {
     ...d5ContractFiles,
     ...d6ContractFiles,
     ...r3ContractFiles,
-    ...c4ContractFiles
+    ...c4ContractFiles,
+    ...w020ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -766,7 +785,8 @@ export async function runContractValidation(options = {}) {
     ...d5ContractFiles,
     ...d6ContractFiles,
     ...r3ContractFiles,
-    ...c4ContractFiles
+    ...c4ContractFiles,
+    ...w020ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -781,6 +801,7 @@ export async function runContractValidation(options = {}) {
   assertD6OpenApiBindings(openApi);
   assertR3OpenApiBindings(openApi);
   assertC4OpenApiBindings(openApi);
+  assertW020OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();
