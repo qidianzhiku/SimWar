@@ -1001,6 +1001,8 @@ describe("Shanghai Eldercare Golden M1 HTTP productization", () => {
       expect(deterministicResultDigest(journeys[0]!.settlement)).toBe(
         deterministicResultDigest(journeys[1]!.settlement)
       );
+      expect(JSON.stringify(journeys[0]!.studentResult)).not.toContain(tenantB.tenant_id);
+      expect(JSON.stringify(journeys[1]!.studentResult)).not.toContain(tenantA.tenant_id);
       expect(journeys[0]!.settlement.replay_hash).not.toBe(journeys[1]!.settlement.replay_hash);
       expect(JSON.stringify(journeys[0]!.teacherResult)).toContain("replay_evidence");
       expect(JSON.stringify(journeys[1]!.teacherResult)).toContain("replay_evidence");
