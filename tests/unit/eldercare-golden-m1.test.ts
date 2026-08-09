@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compileShanghaiEldercareScenarioAsset,
+  resolveSettlementPlugins,
   type EldercareScenarioAsset
 } from "@simwar/simulation-core";
 import type {
@@ -11,6 +12,7 @@ import type {
 import {
   createEldercareGoldenM1BlueprintDraft,
   createEldercareGoldenM1CoursePackageDraft,
+  calculateEldercareGoldenM1AssetHash,
   createEldercareGoldenM1ParameterDraft,
   createEldercareGoldenM1PluginDraft,
   createEldercareGoldenM1ScenarioDraft,
@@ -97,7 +99,13 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
 
     expect(plugin.plugin_package_id).toBe("plugin_wellness_eldercare_v1");
     expect(plugin.version).toBe("1.0.0");
+    expect(plugin.plugin_manifest).toEqual(
+      resolveSettlementPlugins([plugin.plugin_package_id])[0]?.manifest
+    );
     expect((scenario.content as { rounds: unknown[] }).rounds).toHaveLength(6);
+    expect((scenario.content as { plugin_package_ids: string[] }).plugin_package_ids).toEqual([
+      "plugin_wellness_eldercare_v1"
+    ]);
     expect(scenario.plugin_dependencies).toEqual([
       { plugin_package_id: "plugin_wellness_eldercare_v1", version: "1.0.0" }
     ]);
@@ -106,9 +114,17 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
   });
 
   it("targets the formal toy-logit runtime model reference", () => {
-    expect(createEldercareGoldenM1ParameterDraft(input()).model_version_ref).toBe(
-      "toy_logit_wellness_v1@0.1.0"
-    );
+    const draft = createEldercareGoldenM1ParameterDraft(input());
+    expect(draft.model_version_ref).toBe("toy_logit_wellness_v1@0.1.0");
+    expect(draft.parameter_values).toMatchObject({
+      runtime_parameter_set: {
+        base_capacity: 156,
+        base_market_size: 248,
+        fixed_cost: 310000,
+        model_family: "toy_logit",
+        unit_cost: 6800
+      }
+    });
   });
 
   it("rejects dependency references that do not match the resolved artifact identity", () => {
@@ -259,6 +275,22 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
 
     expect(() =>
       createEldercareGoldenM1BlueprintDraft(input({ asset: duplicateRoundAsset }))
+    ).toThrow();
+  });
+
+  it("rejects custom assets whose payload no longer matches the compiled provenance hash", () => {
+    const compiled = compileShanghaiEldercareScenarioAsset();
+    expect(calculateEldercareGoldenM1AssetHash(compiled)).toBe(compiled.asset_hash);
+    const modifiedAsset = {
+      ...compiled,
+      rounds: compiled.rounds.map((round, index) =>
+        index === 0 ? { ...round, title: `${round.title} (tampered)` } : round
+      )
+    } as EldercareScenarioAsset;
+
+    expect(() => createEldercareGoldenM1ParameterDraft(input({ asset: modifiedAsset }))).toThrow();
+    expect(() =>
+      createEldercareGoldenM1ParameterDraft(input({ provenance: { asset_hash: "f".repeat(64) } }))
     ).toThrow();
   });
 

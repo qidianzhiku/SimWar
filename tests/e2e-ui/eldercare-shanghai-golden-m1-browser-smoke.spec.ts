@@ -11,6 +11,7 @@ import { compileShanghaiEldercareScenarioAsset } from "@simwar/simulation-core";
 import {
   createEldercareGoldenM1BlueprintDraft,
   createEldercareGoldenM1CoursePackageDraft,
+  calculateEldercareGoldenM1AssetHash,
   createEldercareGoldenM1ParameterDraft,
   createEldercareGoldenM1PluginDraft,
   createEldercareGoldenM1ScenarioDraft,
@@ -71,6 +72,7 @@ function adapterInput(overrides: Partial<EldercareGoldenM1AdapterInput> = {}) {
     parameter_set: { ...compiledAsset.parameter_set, tenant_id: sourceTenantId },
     scenario_package: { ...compiledAsset.scenario_package, tenant_id: sourceTenantId }
   };
+  asset.asset_hash = calculateEldercareGoldenM1AssetHash(asset);
   return {
     artifact_ids: {
       parameter_set_id: SOURCE_PARAMETER_ID,
@@ -84,7 +86,7 @@ function adapterInput(overrides: Partial<EldercareGoldenM1AdapterInput> = {}) {
     source_tenant_id: sourceTenantId,
     target_tenant_id: TARGET_TENANT_ID,
     asset,
-    provenance: { asset_hash: compiledAsset.asset_hash },
+    provenance: { asset_hash: asset.asset_hash },
     ...overrides
   } satisfies EldercareGoldenM1AdapterInput;
 }
@@ -289,24 +291,12 @@ async function createApprovedSourceAuthorities(
   input: EldercareGoldenM1AdapterInput
 ): Promise<{ parameter: ParameterSetReference; scenario: ScenarioPackageReference }> {
   const parameterDraft = createEldercareGoldenM1ParameterDraft(input);
-  const parameterValues = parameterDraft.parameter_values as Record<string, unknown>;
-  const runtimeParameterSet = {
-    base_capacity: parameterValues.base_capacity,
-    base_market_size: parameterValues.base_market_size,
-    fixed_cost: parameterValues.fixed_cost,
-    model_family: parameterValues.model_family,
-    unit_cost: parameterValues.unit_cost
-  };
   const parameterCreated = await checkedApiRequest<{ reference: ParameterSetReference }>(
     request,
     "/api/v1/formal-authority/parameter-sets",
     {
       body: {
         ...parameterDraft,
-        parameter_values: {
-          ...parameterValues,
-          runtime_parameter_set: runtimeParameterSet
-        },
         tenant_id: sourceTenantId
       },
       tenantId: sourceTenantId,
@@ -347,20 +337,12 @@ async function createApprovedSourceAuthorities(
     ...input,
     parameter_set_reference: parameter
   });
-  const scenarioContent = scenarioDraft.content as Record<string, unknown>;
   const scenarioCreated = await checkedApiRequest<{ reference: ScenarioPackageReference }>(
     request,
     "/api/v1/formal-authority/scenario-packages",
     {
       body: {
         ...scenarioDraft,
-        content: {
-          ...scenarioContent,
-          runtime_scenario_package: {
-            name: scenarioContent.name,
-            plugin_package_ids: [PLUGIN_PACKAGE_ID]
-          }
-        },
         parameter_set_reference: parameter,
         tenant_id: sourceTenantId
       },

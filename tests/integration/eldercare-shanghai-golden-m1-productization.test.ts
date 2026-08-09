@@ -275,20 +275,8 @@ async function createApprovedSourceAuthorities(
 ): Promise<{ parameter: ParameterReference; scenario: ScenarioReference }> {
   const input = adapterInput(targetTenantId);
   const parameterDraft = createEldercareGoldenM1ParameterDraft(input);
-  const parameterValues = parameterDraft.parameter_values as Record<string, unknown>;
-  const runtimeParameterSet = {
-    base_capacity: parameterValues.base_capacity,
-    base_market_size: parameterValues.base_market_size,
-    fixed_cost: parameterValues.fixed_cost,
-    model_family: parameterValues.model_family,
-    unit_cost: parameterValues.unit_cost
-  };
   const sourceParameterDraft = {
     ...parameterDraft,
-    parameter_values: {
-      ...parameterValues,
-      runtime_parameter_set: runtimeParameterSet
-    },
     tenant_id: SOURCE_TENANT_ID
   };
   const parameterCreated = await request<ApiEnvelope<{ reference: ParameterReference }>>(
@@ -334,16 +322,8 @@ async function createApprovedSourceAuthorities(
     ...input,
     parameter_set_reference: parameter
   });
-  const scenarioContent = scenarioDraft.content as Record<string, unknown>;
   const sourceScenarioDraft = {
     ...scenarioDraft,
-    content: {
-      ...scenarioContent,
-      runtime_scenario_package: {
-        name: scenarioContent.name,
-        plugin_package_ids: [PLUGIN_PACKAGE_ID]
-      }
-    },
     parameter_set_reference: parameter,
     tenant_id: SOURCE_TENANT_ID
   };
@@ -832,20 +812,12 @@ describe("Shanghai Eldercare Golden M1 HTTP productization", () => {
         parameter_set_reference: source.parameter
       });
       const unapprovedDraft = createEldercareGoldenM1ScenarioDraft(unapprovedInput);
-      const unapprovedContent = unapprovedDraft.content as Record<string, unknown>;
       const unapprovedCreated = await request<ApiEnvelope<{ reference: ScenarioReference }>>(
         baseUrl,
         "/api/v1/formal-authority/scenario-packages",
         {
           body: {
             ...unapprovedDraft,
-            content: {
-              ...unapprovedContent,
-              runtime_scenario_package: {
-                name: unapprovedContent.name,
-                plugin_package_ids: [PLUGIN_PACKAGE_ID]
-              }
-            },
             parameter_set_reference: source.parameter,
             scenario_package_id: "eldercare_shanghai_unapproved_scenario",
             tenant_id: SOURCE_TENANT_ID

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   CourseBlueprintReference,
   ParameterSetReference,
@@ -25,15 +26,15 @@ const ELDERCARE_WELLNESS_PLUGIN_MANIFEST: PluginManifest = {
   adapter_ref: "@simwar/simulation-core/eldercareWellnessPluginV1",
   industry: "wellness",
   manifest_version: "1.0.0",
-  name: "R7-A eldercare wellness plugin asset v1",
-  parameter_schema_ref: "contracts/fixtures/r7a-eldercare-core-scenario.valid.json",
-  parameter_schema_version: "eldercare.parameters.v1",
+  name: "康养行业插件 v1",
+  parameter_schema_ref: "contracts/schemas/wellness-parameters.v1.json",
+  parameter_schema_version: "wellness.parameters.v1",
   plugin_id: "plugin_wellness_eldercare_v1",
   settlement_hook_refs: [
-    "segmentDemand:eldercare.segment-demand.v1",
-    "capacityGuardrail:eldercare.capacity-guardrail.v1",
-    "payerMix:eldercare.payer-mix-resilience.v1",
-    "serviceQualityRisk:eldercare.service-quality-risk.v1"
+    "adjustDemand:wellness_eldercare_demand_v1",
+    "adjustOperations:wellness_capacity_guardrail_v1",
+    "adjustFinance:wellness_partnership_discount_v1",
+    "adjustScore:wellness_service_quality_weight_v1"
   ],
   status: "approved",
   supported_hooks: ["adjustDemand", "adjustOperations", "adjustFinance", "adjustScore"],
@@ -114,6 +115,32 @@ type ResolvedArtifactIds = {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
+      .join(",")}}`;
+  }
+
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
+  }
+  return serialized;
+}
+
+export function calculateEldercareGoldenM1AssetHash(asset: EldercareScenarioAsset): string {
+  const assetWithoutHash = Object.fromEntries(
+    Object.entries(asset).filter(([key]) => key !== "asset_hash")
+  );
+  return createHash("sha256").update(stableStringify(assetWithoutHash), "utf8").digest("hex");
 }
 
 function isSha256(value: string): boolean {
@@ -224,9 +251,10 @@ function assertAssetIsSafe(
   assertNoProtectedParameterFields(asset.parameter_set);
   assertNoProtectedParameterFields(asset.rounds);
 
-  const assetHash = provenance?.asset_hash ?? asset.asset_hash;
+  const calculatedAssetHash = calculateEldercareGoldenM1AssetHash(asset);
   if (
-    !isSha256(assetHash) ||
+    asset.asset_hash !== calculatedAssetHash ||
+    (provenance?.asset_hash !== undefined && provenance.asset_hash !== calculatedAssetHash) ||
     (provenance?.compile_hash !== undefined && !isSha256(provenance.compile_hash))
   ) {
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
@@ -316,18 +344,13 @@ function resolveContext(input: EldercareGoldenM1AdapterInput): ResolvedContext {
   ) {
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
   }
-  const assetHash = input.provenance?.asset_hash ?? asset.asset_hash;
-  if (assetHash.trim().length === 0) {
-    throw new EldercareGoldenM1AdapterError("TENANT_ID_INVALID");
-  }
-
   return {
     asset,
     artifacts,
     source_tenant_id: sourceTenantId,
     target_tenant_id: targetTenantId,
     provenance: {
-      asset_hash: assetHash,
+      asset_hash: asset.asset_hash,
       ...(input.provenance?.compile_hash ? { compile_hash: input.provenance.compile_hash } : {})
     }
   };
@@ -445,6 +468,13 @@ export function createEldercareGoldenM1ParameterDraft(
   const context = resolveContext(input);
   const { asset, artifacts } = context;
   const sourceParameters = asset.parameter_set.parameters;
+  const runtime_parameter_set = {
+    base_capacity: asset.parameter_set.base_capacity,
+    base_market_size: asset.parameter_set.base_market_size,
+    fixed_cost: asset.parameter_set.fixed_cost,
+    model_family: asset.parameter_set.model_family,
+    unit_cost: asset.parameter_set.unit_cost
+  };
 
   const parameter_values = {
     base_capacity: asset.parameter_set.base_capacity,
@@ -453,6 +483,7 @@ export function createEldercareGoldenM1ParameterDraft(
     model_family: asset.parameter_set.model_family,
     seed: asset.parameter_set.seed,
     unit_cost: asset.parameter_set.unit_cost,
+    runtime_parameter_set,
     ...(sourceParameters ? { parameters: clone(sourceParameters) } : {})
   } as unknown as ParameterSetJsonValue;
 
@@ -490,6 +521,11 @@ export function createEldercareGoldenM1ScenarioDraft(
     evidence_boundary: "SOURCE_ONLY_INFERENCE",
     geography_scope: asset.synthetic_data_policy.geography_scope,
     name: asset.scenario_package.name,
+    plugin_package_ids: [artifacts.plugin_package_id],
+    runtime_scenario_package: {
+      name: asset.scenario_package.name,
+      plugin_package_ids: [artifacts.plugin_package_id]
+    },
     rounds: roundMetadata(asset) as unknown as readonly ScenarioPackageJsonValue[],
     synthetic_data_classification: [...ELDERCARE_GOLDEN_M1_SYNTHETIC_LABELS],
     version: artifacts.scenario_package_version
