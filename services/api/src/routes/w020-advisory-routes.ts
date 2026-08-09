@@ -17,16 +17,39 @@ export interface W020AdvisoryRouteHelpers {
 }
 
 function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new W020AdvisoryError("W020_INPUT_INVALID");
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
   return value as Record<string, unknown>;
 }
 
 function parseRequest(value: unknown, surface: "student_role" | "teacher_debrief") {
   const body = object(value);
-  const allowed = ["run_id", "round_id", "team_id", "idempotency_key", ...(surface === "student_role" ? ["role_key"] : [])];
-  if (Object.keys(body).some((key) => !allowed.includes(key)) || allowed.some((key) => body[key] === undefined && key !== "role_key")) throw new W020AdvisoryError("W020_INPUT_INVALID");
-  if (!["run_id", "round_id", "team_id", "idempotency_key"].every((key) => typeof body[key] === "string")) throw new W020AdvisoryError("W020_INPUT_INVALID");
-  if (body.role_key !== undefined && !["CEO", "CFO", "CMO", "COO"].includes(String(body.role_key))) throw new W020AdvisoryError("W020_INPUT_INVALID");
+  const allowed = [
+    "discriminator",
+    "surface",
+    "run_id",
+    "round_id",
+    "team_id",
+    "idempotency_key",
+    ...(surface === "student_role" ? ["role_key"] : [])
+  ];
+  if (
+    Object.keys(body).some((key) => !allowed.includes(key)) ||
+    ["discriminator", "surface", "run_id", "round_id", "team_id", "idempotency_key"].some(
+      (key) => body[key] === undefined
+    )
+  )
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
+  if (body.discriminator !== "w020_advisory_request" || body.surface !== surface)
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
+  if (
+    !["run_id", "round_id", "team_id", "idempotency_key"].every(
+      (key) => typeof body[key] === "string"
+    )
+  )
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
+  if (body.role_key !== undefined && !["CEO", "CFO", "CMO", "COO"].includes(String(body.role_key)))
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
   return {
     discriminator: "w020_advisory_request" as const,
     idempotency_key: body.idempotency_key as string,
@@ -34,7 +57,9 @@ function parseRequest(value: unknown, surface: "student_role" | "teacher_debrief
     run_id: body.run_id as string,
     surface,
     team_id: body.team_id as string,
-    ...(body.role_key !== undefined ? { role_key: body.role_key as "CEO" | "CFO" | "CMO" | "COO" } : {})
+    ...(body.role_key !== undefined
+      ? { role_key: body.role_key as "CEO" | "CFO" | "CMO" | "COO" }
+      : {})
   };
 }
 
@@ -51,8 +76,16 @@ function sendError(
   context: W020AdvisoryRouteContext,
   helpers: W020AdvisoryRouteHelpers
 ): void {
-  const mapped = error instanceof W020AdvisoryError ? error : new W020AdvisoryError("W020_INPUT_INVALID");
-  helpers.sendJson(response, errorStatus(mapped), helpers.createEnvelope(context, { code: mapped.code, message: "governed advisory request rejected" }));
+  const mapped =
+    error instanceof W020AdvisoryError ? error : new W020AdvisoryError("W020_INPUT_INVALID");
+  helpers.sendJson(
+    response,
+    errorStatus(mapped),
+    helpers.createEnvelope(context, {
+      code: mapped.code,
+      message: "governed advisory request rejected"
+    })
+  );
 }
 
 export async function handleW020AdvisoryRoute(
@@ -69,18 +102,34 @@ export async function handleW020AdvisoryRoute(
   try {
     if (isStudent) {
       helpers.requireStudent(context);
-      if (request.method !== "POST" || url.pathname !== "/api/v1/bff/student/advisors/role") throw new W020AdvisoryError("W020_FORBIDDEN");
-      const receipt = await service.createStudentRoleAdvisory(context.actor, parseRequest(await helpers.readJson(request), "student_role"), context.requestId);
+      if (request.method !== "POST" || url.pathname !== "/api/v1/bff/student/advisors/role")
+        throw new W020AdvisoryError("W020_FORBIDDEN");
+      const receipt = await service.createStudentRoleAdvisory(
+        context.actor,
+        parseRequest(await helpers.readJson(request), "student_role"),
+        context.requestId
+      );
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));
       return true;
     }
     helpers.requireTeacher(context);
     if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/advisors/audit") {
-      helpers.sendJson(response, 200, helpers.createEnvelope(context, { entries: await service.listTeacherAudit(context.actor), known_limits: ["Audit excludes raw prompt and raw event payload."] }));
+      helpers.sendJson(
+        response,
+        200,
+        helpers.createEnvelope(context, {
+          entries: await service.listTeacherAudit(context.actor),
+          known_limits: ["Audit excludes raw prompt and raw event payload."]
+        })
+      );
       return true;
     }
     if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/advisors/debrief") {
-      const receipt = await service.createTeacherDebriefAdvisory(context.actor, parseRequest(await helpers.readJson(request), "teacher_debrief"), context.requestId);
+      const receipt = await service.createTeacherDebriefAdvisory(
+        context.actor,
+        parseRequest(await helpers.readJson(request), "teacher_debrief"),
+        context.requestId
+      );
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));
       return true;
     }

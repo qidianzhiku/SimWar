@@ -29,10 +29,12 @@ export function StudentRoleAdvisor(props: {
     try {
       const response = await fetch(`${props.apiBase}/api/v1/bff/student/advisors/role`, {
         body: JSON.stringify({
+          discriminator: "w020_advisory_request",
           idempotency_key: `student-advisor-${props.runId}-${props.roundId}-${roleKey}`,
           role_key: roleKey,
           round_id: props.roundId,
           run_id: props.runId,
+          surface: "student_role",
           team_id: props.teamId
         }),
         headers: {
@@ -43,7 +45,8 @@ export function StudentRoleAdvisor(props: {
         method: "POST"
       });
       const envelope = (await response.json()) as { data?: Receipt; message?: string };
-      if (!response.ok || !envelope.data) throw new Error(envelope.message ?? "advisor request failed");
+      if (!response.ok || !envelope.data)
+        throw new Error(envelope.message ?? "advisor request failed");
       setReceipt(envelope.data);
       setPhase("READY");
       setMessage(envelope.data.status === "reused" ? "已复用确定性建议" : "已生成建议");
@@ -62,14 +65,26 @@ export function StudentRoleAdvisor(props: {
         </div>
         <span>advisory_only</span>
       </div>
-      <p className="evidence-note">仅使用当前身份的角色范围和可见工作流元数据，不展示原始事件或正式真值。</p>
+      <p className="evidence-note">
+        仅使用当前身份的角色范围和可见工作流元数据，不展示原始事件或正式真值。
+      </p>
       <label className="field-label">
         <span>Role scope</span>
-        <select aria-label="advisor role" value={roleKey} onChange={(event) => setRoleKey(event.target.value as RoleKey)}>
-          {(["CEO", "CFO", "CMO", "COO"] as RoleKey[]).map((role) => <option key={role}>{role}</option>)}
+        <select
+          aria-label="advisor role"
+          value={roleKey}
+          onChange={(event) => setRoleKey(event.target.value as RoleKey)}
+        >
+          {(["CEO", "CFO", "CMO", "COO"] as RoleKey[]).map((role) => (
+            <option key={role}>{role}</option>
+          ))}
         </select>
       </label>
-      <button className="primary" disabled={phase === "LOADING"} onClick={() => void requestAdvisory()}>
+      <button
+        className="primary"
+        disabled={phase === "LOADING"}
+        onClick={() => void requestAdvisory()}
+      >
         {phase === "LOADING" ? "生成中" : "请求角色建议"}
       </button>
       <p role="status">{message || "等待请求"}</p>
@@ -82,7 +97,11 @@ export function StudentRoleAdvisor(props: {
           <small>Known Limits: {receipt.projection.known_limits.join("; ")}</small>
         </article>
       ) : null}
-      {phase === "ERROR" ? <p className="readiness-message" role="alert">{message}</p> : null}
+      {phase === "ERROR" ? (
+        <p className="readiness-message" role="alert">
+          {message}
+        </p>
+      ) : null}
     </section>
   );
 }

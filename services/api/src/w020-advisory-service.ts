@@ -11,7 +11,10 @@ import {
   type W020AdvisoryRequest,
   type W020RoleKey
 } from "@simwar/shared-contracts";
-import type { GovernedAdvisoryRepositoryPort, RoleWorkflowRepositoryPort } from "./repository-ports.js";
+import type {
+  GovernedAdvisoryRepositoryPort,
+  RoleWorkflowRepositoryPort
+} from "./repository-ports.js";
 
 const KNOWN_LIMITS = [
   "JSON_INTERNAL_ONLY is the active runtime authority.",
@@ -41,11 +44,20 @@ function clone<T>(value: T): T {
 }
 
 function canonicalize(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") return JSON.stringify(value);
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string"
+  )
+    return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
-    return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`).join(",")}}`;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`)
+      .join(",")}}`;
   }
   throw new W020AdvisoryError("W020_INPUT_INVALID");
 }
@@ -55,13 +67,24 @@ function digest(value: unknown): string {
 }
 
 function roleForActor(actor: W020Actor): "student" | "teacher" | "admin" {
-  if (actor.roles.includes("student") || actor.roles.includes("learner") || actor.roles.includes("team_captain")) return "student";
-  if (actor.roles.includes("admin") || actor.roles.includes("tenant_admin") || actor.roles.includes("platform_admin")) return "admin";
+  if (
+    actor.roles.includes("student") ||
+    actor.roles.includes("learner") ||
+    actor.roles.includes("team_captain")
+  )
+    return "student";
+  if (
+    actor.roles.includes("admin") ||
+    actor.roles.includes("tenant_admin") ||
+    actor.roles.includes("platform_admin")
+  )
+    return "admin";
   return "teacher";
 }
 
 function assertId(value: string | undefined): string {
-  if (!value || value.trim() !== value || !/^[A-Za-z0-9._:-]+$/.test(value)) throw new W020AdvisoryError("W020_INPUT_INVALID");
+  if (!value || value.trim() !== value || !/^[A-Za-z0-9._:-]+$/.test(value))
+    throw new W020AdvisoryError("W020_INPUT_INVALID");
   return value;
 }
 
@@ -86,25 +109,41 @@ export interface W020AdvisoryServiceDependencies {
 export class GovernedAdvisoryService {
   private readonly gateway: ReturnType<typeof createDeterministicMockGateway>;
   private readonly now: () => string;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly dependencies: W020AdvisoryServiceDependencies) {
     this.gateway = dependencies.gateway ?? createDeterministicMockGateway();
     this.now = dependencies.now ?? (() => new Date().toISOString());
   }
 
-  async createStudentRoleAdvisory(actor: W020Actor, request: W020AdvisoryRequest, requestId: string): Promise<W020AdvisoryReceipt> {
-    if (request.surface !== "student_role" || roleForActor(actor) !== "student") throw new W020AdvisoryError("W020_FORBIDDEN");
-    if (!actor.team_id || request.team_id !== actor.team_id) throw new W020AdvisoryError("W020_FORBIDDEN");
+  async createStudentRoleAdvisory(
+    actor: W020Actor,
+    request: W020AdvisoryRequest,
+    requestId: string
+  ): Promise<W020AdvisoryReceipt> {
+    if (request.surface !== "student_role" || roleForActor(actor) !== "student")
+      throw new W020AdvisoryError("W020_FORBIDDEN");
+    if (!actor.team_id || request.team_id !== actor.team_id)
+      throw new W020AdvisoryError("W020_FORBIDDEN");
     return this.create(actor, request, requestId, "student");
   }
 
-  async createTeacherDebriefAdvisory(actor: W020Actor, request: W020AdvisoryRequest, requestId: string): Promise<W020AdvisoryReceipt> {
-    if (request.surface !== "teacher_debrief" || !["teacher", "admin"].includes(roleForActor(actor))) throw new W020AdvisoryError("W020_FORBIDDEN");
+  async createTeacherDebriefAdvisory(
+    actor: W020Actor,
+    request: W020AdvisoryRequest,
+    requestId: string
+  ): Promise<W020AdvisoryReceipt> {
+    if (
+      request.surface !== "teacher_debrief" ||
+      !["teacher", "admin"].includes(roleForActor(actor))
+    )
+      throw new W020AdvisoryError("W020_FORBIDDEN");
     return this.create(actor, request, requestId, roleForActor(actor));
   }
 
   async listTeacherAudit(actor: W020Actor): Promise<W020AdvisoryAuditDto[]> {
-    if (!["teacher", "admin"].includes(roleForActor(actor))) throw new W020AdvisoryError("W020_FORBIDDEN");
+    if (!["teacher", "admin"].includes(roleForActor(actor)))
+      throw new W020AdvisoryError("W020_FORBIDDEN");
     const records = await this.dependencies.repository.list(actor.tenant_id);
     return records.map((record) => ({
       context_digest: record.context.context_digest,
@@ -125,7 +164,12 @@ export class GovernedAdvisoryService {
     }));
   }
 
-  private async create(actor: W020Actor, request: W020AdvisoryRequest, requestId: string, actorRole: "student" | "teacher" | "admin"): Promise<W020AdvisoryReceipt> {
+  private async create(
+    actor: W020Actor,
+    request: W020AdvisoryRequest,
+    requestId: string,
+    actorRole: "student" | "teacher" | "admin"
+  ): Promise<W020AdvisoryReceipt> {
     const runId = assertId(request.run_id);
     const roundId = assertId(request.round_id);
     const teamId = assertId(request.team_id);
@@ -136,18 +180,39 @@ export class GovernedAdvisoryService {
       team_id: teamId,
       tenant_id: actor.tenant_id
     });
-    if (!snapshot.course || !snapshot.run || !snapshot.round || !snapshot.team || snapshot.run.tenant_id !== actor.tenant_id || snapshot.team.tenant_id !== actor.tenant_id || snapshot.round.round_id !== roundId) {
+    if (
+      !snapshot.course ||
+      !snapshot.run ||
+      !snapshot.round ||
+      !snapshot.team ||
+      snapshot.run.tenant_id !== actor.tenant_id ||
+      snapshot.team.tenant_id !== actor.tenant_id ||
+      snapshot.team.course_id !== snapshot.run.course_id ||
+      snapshot.round.round_id !== roundId
+    ) {
       throw new W020AdvisoryError("W020_CONTEXT_NOT_FOUND");
     }
-    const assignment = snapshot.assignments.find((candidate) => candidate.status === "active" && (actorRole !== "student" || candidate.user_id === actor.user_id) && (!request.role_key || candidate.role_key === request.role_key));
-    if (actorRole === "student" && (!assignment || assignment.user_id !== actor.user_id)) throw new W020AdvisoryError("W020_FORBIDDEN");
+    const assignment = snapshot.assignments.find(
+      (candidate) =>
+        candidate.status === "active" &&
+        (actorRole !== "student" || candidate.user_id === actor.user_id) &&
+        (!request.role_key || candidate.role_key === request.role_key)
+    );
+    if (actorRole === "student" && (!assignment || assignment.user_id !== actor.user_id))
+      throw new W020AdvisoryError("W020_FORBIDDEN");
     const roleKey = assignment?.role_key ?? request.role_key;
-    const scopes = roleKey ? [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])] : ["debrief"];
+    const scopes = roleKey
+      ? [...(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[roleKey]?.advisory_scopes ?? [])]
+      : ["debrief"];
     if (scopes.length === 0) throw new W020AdvisoryError("W020_FORBIDDEN");
     const safeEvents = snapshot.events
       .filter((event) => !event.round_id || event.round_id === roundId)
       .slice(-50)
-      .map((event) => ({ event_id: event.event_id, event_type: event.event_type, created_at: event.created_at }));
+      .map((event) => ({
+        event_id: event.event_id,
+        event_type: event.event_type,
+        created_at: event.created_at
+      }));
     const context: W020AdvisoryContext = {
       actor_id_hash: digest(actor.user_id),
       actor_role: actorRole,
@@ -173,34 +238,67 @@ export class GovernedAdvisoryService {
       tenant_id: actor.tenant_id,
       transformation_version: "w020-role-safe-context-v1"
     };
-    const requestDigest = digest({ context_digest: context.context_digest, idempotency_key: idempotencyKey, surface: request.surface });
-    const existing = (await this.dependencies.repository.list(actor.tenant_id)).find((record) => record.idempotency_key === idempotencyKey);
-    if (existing) {
-      if (existing.request_digest !== requestDigest) throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
-      return this.receipt(existing, requestId, "reused");
-    }
-    const gatewayInput: AgentGatewayInput = { context, surface: request.surface, ...(roleKey ? { role_key: roleKey as W020RoleKey } : {}) };
-    const generated = this.gateway.generate(gatewayInput);
-    const record: W020AdvisoryRecord = {
-      coach_output: generated.coach_output,
-      context,
-      created_at: this.now(),
-      discriminator: "w020_advisory_record",
+    const requestDigest = digest({
+      context_digest: context.context_digest,
       idempotency_key: idempotencyKey,
-      model_call_log: generated.model_call_log,
-      request_digest: requestDigest,
-      surface: request.surface,
-      tenant_id: actor.tenant_id
-    };
-    try {
-      await this.dependencies.repository.append(record);
-    } catch {
-      throw new W020AdvisoryError("W020_PERSISTENCE_FAILED");
-    }
-    return this.receipt(record, requestId, "generated");
+      surface: request.surface
+    });
+    return this.withWriteLock(async () => {
+      const existing = (await this.dependencies.repository.list(actor.tenant_id)).find(
+        (record) => record.idempotency_key === idempotencyKey
+      );
+      if (existing) {
+        if (existing.request_digest !== requestDigest)
+          throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
+        return this.receipt(existing, requestId, "reused");
+      }
+      const gatewayInput: AgentGatewayInput = {
+        context,
+        surface: request.surface,
+        ...(roleKey ? { role_key: roleKey as W020RoleKey } : {})
+      };
+      const generated = this.gateway.generate(gatewayInput);
+      const createdAt = this.now();
+      const record: W020AdvisoryRecord = {
+        coach_output: generated.coach_output,
+        context,
+        created_at: createdAt,
+        discriminator: "w020_advisory_record",
+        idempotency_key: idempotencyKey,
+        model_call_log: { ...generated.model_call_log, created_at: createdAt },
+        request_digest: requestDigest,
+        surface: request.surface,
+        tenant_id: actor.tenant_id
+      };
+      try {
+        await this.dependencies.repository.append(record);
+      } catch {
+        throw new W020AdvisoryError("W020_PERSISTENCE_FAILED");
+      }
+      return this.receipt(record, requestId, "generated");
+    });
   }
 
-  private receipt(record: W020AdvisoryRecord, requestId: string, status: "generated" | "reused"): W020AdvisoryReceipt {
+  private async withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    let release!: () => void;
+    const turn = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const previous = this.writeQueue;
+    this.writeQueue = previous.then(() => turn);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private receipt(
+    record: W020AdvisoryRecord,
+    requestId: string,
+    status: "generated" | "reused"
+  ): W020AdvisoryReceipt {
     return {
       coach_output: clone(record.coach_output),
       context: clone(record.context),
