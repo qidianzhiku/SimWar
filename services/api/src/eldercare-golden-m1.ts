@@ -161,7 +161,13 @@ function assertAssetIsSafe(
     asset.synthetic_data_policy.geography_scope !== "SHANGHAI_SYNTHETIC_ONLY" ||
     asset.synthetic_data_policy.real_user_data ||
     asset.synthetic_data_policy.real_payment_data ||
-    asset.synthetic_data_policy.production_identifier
+    asset.synthetic_data_policy.production_identifier ||
+    asset.scenario_package.status !== "approved" ||
+    asset.parameter_set.status !== "candidate" ||
+    asset.scenario_package.plugin_package_ids.length !== 1 ||
+    asset.scenario_package.plugin_package_ids[0] !== FORMAL_PLUGIN_PACKAGE_ID ||
+    !asset.parameter_set.parameters ||
+    asset.parameter_set.parameters.schema_version !== "wellness.parameters.v1"
   ) {
     throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
   }
