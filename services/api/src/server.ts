@@ -69,7 +69,10 @@ import {
   verifySignedToken
 } from "./auth.js";
 import { getApiHealthPayload } from "./health.js";
-import { createJsonFormalScenarioAuthorityPersistence, createJsonGovernedAdvisoryRepositoryPort } from "./json-repository-adapter.js";
+import {
+  createJsonFormalScenarioAuthorityPersistence,
+  createJsonGovernedAdvisoryRepositoryPort
+} from "./json-repository-adapter.js";
 import { createSettlementBusinessKey } from "./settlement-idempotency.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
@@ -511,7 +514,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   );
   const governedAdvisory = new GovernedAdvisoryService({
     repository:
-      repositoryProvider.ports.governedAdvisories ?? createJsonGovernedAdvisoryRepositoryPort(store),
+      repositoryProvider.ports.governedAdvisories ??
+      createJsonGovernedAdvisoryRepositoryPort(store),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
 
@@ -2492,6 +2496,12 @@ function tenantBaselineProvisioningHttpError(error: unknown): HttpError {
       return new HttpError(403, "TENANT_BASELINE-403-001", "tenant baseline scope denied");
     case "CONFLICT":
       return new HttpError(409, "TENANT_BASELINE-409-001", "tenant baseline conflict");
+    case "AUDIT_FAILED":
+      return new HttpError(
+        500,
+        "TENANT_BASELINE-500-001",
+        "tenant baseline audit could not be persisted"
+      );
     case "SOURCE_NOT_APPROVED":
       return new HttpError(422, "TENANT_BASELINE-422-001", "source baseline is not approved");
     case "REQUEST_INVALID":
@@ -4737,7 +4747,10 @@ async function routeRequest(
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
 
-  if (url.pathname.startsWith("/api/v1/bff/student/advisors") || url.pathname.startsWith("/api/v1/bff/teacher/advisors")) {
+  if (
+    url.pathname.startsWith("/api/v1/bff/student/advisors") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/advisors")
+  ) {
     if (
       await handleW020AdvisoryRoute(
         runtime.governedAdvisory,
@@ -4748,7 +4761,8 @@ async function routeRequest(
         {
           readJson: (incoming) => readJson(incoming),
           sendJson,
-          createEnvelope: (routeContext, payload) => createEnvelope(routeContext as RequestContext, payload),
+          createEnvelope: (routeContext, payload) =>
+            createEnvelope(routeContext as RequestContext, payload),
           requireStudent: () => requireD4Student(context),
           requireTeacher: () => requireD4Teacher(context)
         }
@@ -5491,18 +5505,20 @@ async function routeRequest(
     const result = await executeTenantBaselineProvisioning(() =>
       runtime.tenantBaselineProvisioning.provision(
         { actor_id: actor.user_id, correlation_id: context.requestId },
-        input
+        input,
+        async (materialized) => {
+          await appendAudit(runtime, {
+            actor,
+            action: "tenant_baseline.provision",
+            after: clonePublic(materialized),
+            requestId: context.requestId,
+            resourceId: materialized.audit_identity,
+            resourceType: "tenant_baseline_provisioning",
+            tenantId: input.target_tenant_id
+          });
+        }
       )
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "tenant_baseline.provision",
-      after: clonePublic(result),
-      requestId: context.requestId,
-      resourceId: result.audit_identity,
-      resourceType: "tenant_baseline_provisioning",
-      tenantId: input.target_tenant_id
-    });
     sendJson(response, result.outcome === "CREATED" ? 201 : 200, createEnvelope(context, result));
     return;
   }

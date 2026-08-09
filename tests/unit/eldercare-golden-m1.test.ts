@@ -176,6 +176,22 @@ describe("Shanghai Eldercare Golden M1 pure adapter", () => {
       }
     } as unknown as EldercareScenarioAsset;
     expect(() => createEldercareGoldenM1ParameterDraft(input({ asset: protectedAsset }))).toThrow();
+
+    for (const protectedKey of ["truth_hash", "settlement_status", "market_share", "cashFlow"]) {
+      const protectedNestedAsset = {
+        ...compiled,
+        parameter_set: {
+          ...compiled.parameter_set,
+          parameters: {
+            ...compiled.parameter_set.parameters,
+            [protectedKey]: "must not enter a formal draft"
+          }
+        }
+      } as unknown as EldercareScenarioAsset;
+      expect(() =>
+        createEldercareGoldenM1ParameterDraft(input({ asset: protectedNestedAsset }))
+      ).toThrow();
+    }
   });
 
   it("keeps synthetic teaching labels and excludes truth/private fields from every draft", () => {

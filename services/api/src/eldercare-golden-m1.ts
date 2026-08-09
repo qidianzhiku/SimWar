@@ -133,12 +133,28 @@ function assertNoProtectedParameterFields(value: unknown): void {
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     const normalizedKey = key.toLowerCase().replace(/[_-]/g, "");
     if (
-      normalizedKey === "statetrue" ||
-      normalizedKey === "settlementresult" ||
-      normalizedKey === "score" ||
-      normalizedKey === "rank" ||
+      [
+        "statetrue",
+        "settlementresult",
+        "score",
+        "rank",
+        "marketshare",
+        "demand",
+        "serveddemand",
+        "cashflow",
+        "profit",
+        "inventory",
+        "capacity",
+        "settlementstatus",
+        "truthhash",
+        "manifesthash",
+        "canonicalevidencedigest",
+        "pluginruntimetrace",
+        "aiformaloutput"
+      ].includes(normalizedKey) ||
       normalizedKey.includes("replay") ||
-      normalizedKey.includes("private")
+      normalizedKey.includes("private") ||
+      normalizedKey.startsWith("official")
     ) {
       throw new EldercareGoldenM1AdapterError("TENANT_SCOPE_MISMATCH");
     }

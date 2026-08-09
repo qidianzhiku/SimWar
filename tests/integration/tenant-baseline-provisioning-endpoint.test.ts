@@ -10,7 +10,8 @@ import type {
   TenantBaselineProvisioningResult,
   User
 } from "../../packages/shared-contracts/src";
-import { createApiServer } from "../../services/api/src/server";
+import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
+import { createApiServer, type CreateApiServerOptions } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 interface ErrorPayload {
@@ -33,14 +34,17 @@ function formalMutableStateDigest(store: SimWarStore): string {
     .digest("hex");
 }
 
-async function startServer(): Promise<{ baseUrl: string; server: Server }> {
-  return startServerWithStore(createP1Store());
+async function startServer(
+  configure?: (store: SimWarStore) => CreateApiServerOptions
+): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+  return startServerWithStore(createP1Store(), configure);
 }
 
 async function startServerWithStore(
-  store: SimWarStore
+  store: SimWarStore,
+  configure?: (store: SimWarStore) => CreateApiServerOptions
 ): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
-  const server = createApiServer(store);
+  const server = createApiServer(store, configure?.(store));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -1074,6 +1078,90 @@ describe("tenant baseline provisioning endpoint", () => {
       expect(malformedRetry.status).toBe(409);
       expect((malformedRetry.body as ErrorPayload).code).toBe("TENANT_BASELINE-409-001");
       expect(formalMutableStateDigest(store)).toBe(referenceStateBeforeRetry);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("compensates formal materialization when the tenant-baseline audit append fails", async () => {
+    let failBaselineAudit = false;
+    const store = createP1Store();
+    const { baseUrl, server } = await startServerWithStore(store, (configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (failBaselineAudit && auditLog.action === "tenant_baseline.provision") {
+                  throw new Error("forced_tenant_baseline_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const platformToken = await login(baseUrl);
+      const sourceTenant = await createTenant(baseUrl, platformToken, "audit-source");
+      const targetTenant = await createTenant(baseUrl, platformToken, "audit-target");
+      const sourceParameter = await createApprovedParameterSet(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "audit_source_parameter"
+      );
+      const sourceScenarioDraft = await createScenarioDraft(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "audit_source_scenario",
+        sourceParameter
+      );
+      const sourceScenario = await approveScenario(
+        baseUrl,
+        platformToken,
+        sourceTenant.tenant_id,
+        "audit_source_scenario",
+        sourceScenarioDraft
+      );
+      const before = formalMutableStateDigest(store);
+      failBaselineAudit = true;
+      const response = await request<ErrorPayload>(
+        baseUrl,
+        "/api/v1/admin/tenant-baselines/provision",
+        {
+          body: {
+            idempotency_key: "audit-failure-baseline-v1",
+            source_parameter_set: {
+              ...sourceParameter,
+              source_tenant_id: sourceTenant.tenant_id
+            },
+            source_scenario_package: {
+              ...sourceScenario,
+              source_tenant_id: sourceTenant.tenant_id
+            },
+            target_tenant_id: targetTenant.tenant_id
+          },
+          tenantId: "tenant_platform",
+          token: platformToken
+        }
+      );
+      expect(response.status).toBe(500);
+      expect(response.body.code).toBe("TENANT_BASELINE-500-001");
+      expect(formalMutableStateDigest(store)).toBe(before);
+      expect(
+        store.auditLogs.some(
+          (entry) =>
+            entry.action === "tenant_baseline.provision" &&
+            entry.tenant_id === targetTenant.tenant_id
+        )
+      ).toBe(false);
     } finally {
       await stopServer(server);
     }

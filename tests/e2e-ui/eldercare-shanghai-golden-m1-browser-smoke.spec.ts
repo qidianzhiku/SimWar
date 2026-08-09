@@ -402,10 +402,7 @@ async function seedFormalCoursePackage(
       body: {
         ...blueprintDraft,
         required_product_capabilities: ["course:create", "decision_submit", "round_publish"],
-        scenario_compatibility_constraints: {
-          synthetic_data_classification:
-            blueprintDraft.scenario_compatibility_constraints.synthetic_data_classification
-        }
+        scenario_compatibility_constraints: blueprintDraft.scenario_compatibility_constraints
       },
       tenantId: TARGET_TENANT_ID,
       token: platformToken

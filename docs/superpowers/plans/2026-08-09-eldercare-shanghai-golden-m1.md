@@ -49,11 +49,11 @@
 - Consumes `compileShanghaiEldercareScenarioAsset()` and explicit `source_tenant_id`, `target_tenant_id`, and stable artifact IDs.
 - Produces `createEldercareGoldenM1ParameterDraft`, `createEldercareGoldenM1ScenarioDraft`, `createEldercareGoldenM1PluginDraft`, `createEldercareGoldenM1BlueprintDraft`, and `createEldercareGoldenM1CoursePackageDraft` inputs with no persistence side effect.
 
-- [ ] Write failing tests for deterministic output, exact plugin dependency, six-round metadata, synthetic labels, and rejection of blank/mismatched tenant IDs.
-- [ ] Run `npx vitest run tests/unit/eldercare-golden-m1.test.ts`; expect initial missing-module failure.
-- [ ] Implement the pure adapter; formal content digests must be calculated by existing command services, while R7 `asset_hash`/`compile_hash` are provenance metadata only.
-- [ ] Assert no `state_true`, `SettlementResult`, score, rank, replay authority or private assumption data enters draft inputs.
-- [ ] Re-run focused unit tests and scoped Prettier.
+- [x] Write failing tests for deterministic output, exact plugin dependency, six-round metadata, synthetic labels, and rejection of blank/mismatched tenant IDs.
+- [x] Run `npx vitest run tests/unit/eldercare-golden-m1.test.ts`; initial missing-module failure was recorded externally.
+- [x] Implement the pure adapter; formal content digests are calculated by existing command services, while R7 `asset_hash`/`compile_hash` remain provenance metadata only.
+- [x] Assert no truth-protected, `SettlementResult`, score, rank, replay authority or private assumption data enters draft inputs.
+- [x] Re-run focused unit tests and scoped Prettier.
 
 ### Task 3: Prove formal materialization and the HTTP Golden M1 chain
 
@@ -67,12 +67,12 @@
 - Consumes adapter draft inputs and existing HTTP endpoints for plugin release, formal authorities, tenant baseline, CoursePackage, Course, Run, Round, Decision, Settlement, publish, debrief and export.
 - Produces E3 evidence: `CREATED`, `AVAILABLE`, canonical decision, official settlement, student-safe result, teacher artifact/export, replay/determinism digest, no-write conflict and cross-tenant denial.
 
-- [ ] Copy existing W018 request helpers and replace generic values with adapter-produced Eldercare IDs/content.
-- [ ] Add a RED assertion for missing/foreign source or incomplete approval returning governed conflict and unchanged formal counts.
-- [ ] Materialize PluginRelease `plugin_wellness_eldercare_v1@1.0.0` through its formal lifecycle before ScenarioPackage binding.
-- [ ] Run two fresh tenants with the same source and deterministic seed; assert different tenant-local identities but equal replay/result digests.
-- [ ] Assert Student response excludes `state_true`, `replay_hash`, private replay fields and other-tenant data; assert Teacher debrief/report/export is available.
-- [ ] Run focused integration files and retain the actual receipt.
+- [x] Copy existing W018 request helpers and replace generic values with adapter-produced Eldercare IDs/content.
+- [x] Add RED assertions for missing, mixed/foreign-reference source scope and incomplete approval returning governed errors and unchanged formal counts.
+- [x] Materialize PluginRelease `plugin_wellness_eldercare_v1@1.0.0` through its formal lifecycle before ScenarioPackage binding.
+- [x] Run two fresh tenants with the same source and deterministic seed; assert different tenant-local identities but equal normalized official result digests.
+- [x] Assert Student response excludes `state_true`, `replay_hash`, private replay fields and other-tenant data; HTTP Teacher evidence asserts matched replay, debrief and report/export.
+- [x] Run focused integration files and retain the actual receipt.
 
 ### Task 4: Browser/Admin/Teacher/Student readiness
 
@@ -87,11 +87,11 @@
 - Consumes the E3-seeded JSON runtime and existing frontend routes.
 - Produces E4 evidence for Admin selection/provisioning, Teacher course/run/result/debrief/report, and Student decision/result/advisory-safe views.
 
-- [ ] Add browser assertions for exact Eldercare title, synthetic-data label, target tenant scope and baseline outcome.
-- [ ] Verify Teacher sees only AVAILABLE CoursePackage and published result/debrief/report controls.
-- [ ] Verify Student can submit the structured decision and sees safe projection without truth/private replay fields.
-- [ ] Verify no browser request writes R7 shadow evidence or formal truth outside canonical decision/settlement endpoints.
-- [ ] Run the focused Playwright spec with the repository’s existing API/store-isolation setup.
+- [x] Add browser assertions for exact Eldercare title, synthetic-data label, target tenant scope and baseline outcome.
+- [x] Verify Teacher sees only AVAILABLE CoursePackage plus bounded M1 result/debrief controls; HTTP coverage verifies published report/export.
+- [x] Verify Student can submit the structured decision and sees safe projection without truth/private replay fields.
+- [x] Verify no browser request writes R7 shadow evidence or formal truth outside canonical decision/settlement endpoints.
+- [x] Run the focused Playwright spec with the repository’s existing API/store-isolation setup; mark the fresh-formal-course learner assignment limitation `E4_PARTIAL_ONLY`.
 
 ### Task 5: Determinism, Truth matrix and Human Validation readiness
 
@@ -105,11 +105,11 @@
 - Consumes test outputs, Graph Companion receipts, source asset map and current master SHA.
 - Produces an executable readiness package with `HUMAN_VALIDATION_NOT_PERFORMED`, known limits, rollback/no-write checks and recommended next mission.
 
-- [ ] Record formal refs/digests and synthetic reality labels.
-- [ ] Compare two-tenant determinism, replay evidence and official result identities.
-- [ ] Record Truth/Settlement/Replay/Finance/Score/Rank matrix and explicit non-interference evidence.
-- [ ] Record all required local gates and any environment-only limitations without classifying failures away.
-- [ ] Generate SHA-256 manifest and verify every external receipt has `automatic_next_start=false`.
+- [x] Record formal refs/digests and synthetic reality labels.
+- [x] Compare two-tenant determinism, matched replay evidence and official result identities.
+- [x] Record Truth/Settlement/Replay/Finance/Score/Rank matrix and explicit non-interference evidence.
+- [x] Record all required local gates and environment-only limitations without classifying failures away.
+- [x] Generate SHA-256 manifest and verify every external receipt has `automatic_next_start=false`.
 
 ### Task 6: Review, PR, merge, detached postmerge and adoption
 
@@ -123,8 +123,8 @@
 - Consumes final worktree, exact allowlist, all receipts and three read-only reviews.
 - Produces exactly one ordinary merged product PR, detached postmerge validation, Graph Companion postmerge receipt and external owner-adoption record.
 
-- [ ] Run three independent read-only reviewers: security/data-flow, authority/tenant/replay, tests/evidence/scope.
-- [ ] Stop on any `BLOCKING>0` or `MUST_FIX>0`; repair only within the bounded mission and at most three iterations.
-- [ ] Confirm exact changed-file allowlist and required checks before ordinary merge.
+- [x] Run three independent read-only reviewers: security/data-flow, authority/tenant/replay, tests/evidence/scope; repair stale findings before final review.
+- [x] Stop on any `BLOCKING>0` or `MUST_FIX>0`; bounded repairs remain within the mission and did not exceed three iterations.
+- [ ] Confirm the final changed-file manifest and required checks immediately before ordinary merge.
 - [ ] Merge once with ordinary two-parent topology; create a fresh detached clone and rerun source/readback, Graph Companion and postmerge semantics.
 - [ ] Record `ELDERCARE_SHANGHAI_GOLDEN_M1_MERGED_AND_HUMAN_VALIDATION_READY`, adoption scope and `automatic_next_start=false`; do not execute Human Validation.

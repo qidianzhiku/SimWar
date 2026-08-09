@@ -436,18 +436,18 @@ async function materializeTargetFormalArtifacts(
     scenario_package_reference: baseline.scenario_package.reference
   });
   const generatedBlueprintDraft = createEldercareGoldenM1BlueprintDraft(input);
-  // CoursePackage validates constraints against the formal ScenarioPackage
-  // compatibility metadata. The baseline copier deliberately preserves the
-  // source metadata while assigning tenant-local IDs, so bind only the shared
-  // synthetic classification emitted by the adapter here.
   const blueprintDraft = {
     ...generatedBlueprintDraft,
-    required_product_capabilities: ["course:create", "decision_submit", "round_publish"],
-    scenario_compatibility_constraints: {
-      synthetic_data_classification:
-        generatedBlueprintDraft.scenario_compatibility_constraints.synthetic_data_classification
-    }
+    required_product_capabilities: ["course:create", "decision_submit", "round_publish"]
   };
+  expect(blueprintDraft.scenario_compatibility_constraints).toMatchObject({
+    parameter_set_id: baseline.parameter_set.reference.parameter_set_id,
+    parameter_set_version: baseline.parameter_set.reference.version,
+    plugin_package_id: PLUGIN_PACKAGE_ID,
+    scenario_package_id: baseline.scenario_package.reference.scenario_package_id,
+    scenario_package_version: baseline.scenario_package.reference.version,
+    synthetic_data_classification: ELDERCARE_GOLDEN_M1_SYNTHETIC_LABELS.join("|")
+  });
   const blueprintCreated = await request<ApiEnvelope<{ reference: BlueprintReference }>>(
     baseUrl,
     "/api/v1/formal-authority/course-blueprints",
@@ -649,7 +649,14 @@ async function completeJourney(
   );
   expect(teacherResult.status, JSON.stringify(teacherResult.body)).toBe(200);
   expect(teacherResult.body.data).toHaveProperty("replay_hash");
-  expect(teacherResult.body.data).toHaveProperty("replay_evidence");
+  expect(teacherResult.body.data.replay_evidence).toMatchObject({
+    evidence_kind: "m1_json_runtime_replay_evidence",
+    replay_result_hash: settlement.body.data.replay_hash,
+    replay_status: "matched"
+  });
+  expect(teacherResult.body.data.replay_evidence.canonical_evidence_digest).toMatch(
+    /^[a-f0-9]{64}$/
+  );
 
   const asset = await request<ApiEnvelope<{ asset_id: string }>>(
     baseUrl,
@@ -990,8 +997,12 @@ describe("Shanghai Eldercare Golden M1 HTTP productization", () => {
       expect(JSON.stringify(journeys[0]!.studentResult)).not.toContain(tenantB.tenant_id);
       expect(JSON.stringify(journeys[1]!.studentResult)).not.toContain(tenantA.tenant_id);
       expect(journeys[0]!.settlement.replay_hash).not.toBe(journeys[1]!.settlement.replay_hash);
-      expect(JSON.stringify(journeys[0]!.teacherResult)).toContain("replay_evidence");
-      expect(JSON.stringify(journeys[1]!.teacherResult)).toContain("replay_evidence");
+      expect(journeys[0]!.teacherResult.replay_evidence).toMatchObject({
+        replay_status: "matched"
+      });
+      expect(journeys[1]!.teacherResult.replay_evidence).toMatchObject({
+        replay_status: "matched"
+      });
 
       const crossTenant = await request<ErrorPayload>(
         baseUrl,

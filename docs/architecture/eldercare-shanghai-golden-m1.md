@@ -62,9 +62,13 @@ legacy `SettlementResult.replay_hash` remains tenant-local because its existing
 inputs include tenant-local parameter/scenario/run identifiers; this is an
 inherited contract seam and is not rewritten by Golden M1.
 
-Conflict paths cover missing, foreign, mixed and unapproved source evidence,
-as well as incomplete approval history. They return governed errors and leave
-formal authority counts/digests unchanged. Student projections exclude
+Conflict paths cover missing, mixed source-scope, foreign embedded-reference
+and unapproved source evidence, as well as incomplete approval history. They
+return governed errors and leave formal authority counts/digests unchanged.
+Tenant-baseline materialization invokes the audit append inside the same
+compensation boundary; an audit persistence failure returns a governed 500 and
+removes the newly-created formal target rather than leaving a partial pair.
+Student projections exclude
 `state_true`, `replay_hash`, private replay fields, source-tenant identifiers
 and other tenant data. Teacher views retain the authorized classroom/debrief
 surface.
