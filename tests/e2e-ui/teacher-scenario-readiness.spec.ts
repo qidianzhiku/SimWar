@@ -36,7 +36,7 @@ async function openScenarioReadinessPanel(page: Page) {
   const runStatus = page.getByRole("region", { name: "M1 run status" });
   await expect(runStatus.getByText("M1 康养教学闭环课程")).toBeVisible();
 
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   await expect(primaryAction).toBeVisible();
   const actionLabel = (await primaryAction.textContent())?.trim();
   await test.info().attach("scenario-readiness-workspace-state.json", {

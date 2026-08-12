@@ -228,7 +228,7 @@ test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit 
   );
   await signIn(page);
   await initialState;
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   if ((await primaryAction.textContent())?.trim() === "创建 Run") {
     await primaryAction.click();
     await expect(page.getByText("run created")).toBeVisible();

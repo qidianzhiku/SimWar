@@ -111,8 +111,8 @@ async function openScenarioReadinessPanel(page: Page) {
     (run) => run.course_id === selectedCourseId
   );
   if (!hasSelectedCourseRun) {
-    const createRun = page.getByRole("button", { exact: true, name: "创建 Run" });
-    await expect(createRun).toBeVisible();
+    const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
+    await expect(primaryAction).toHaveText("创建 Run");
     const createdRun = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/courses/${selectedCourseId}/runs`) &&
@@ -125,7 +125,7 @@ async function openScenarioReadinessPanel(page: Page) {
         response.request().method() === "GET" &&
         response.status() === 200
     );
-    await createRun.click();
+    await primaryAction.click();
     await createdRun;
     await createdState;
     await expect(page.getByText("run created")).toBeVisible();

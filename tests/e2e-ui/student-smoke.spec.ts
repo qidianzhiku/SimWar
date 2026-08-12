@@ -159,7 +159,7 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
 
   const teacherToken = await login(request, "teacher", "teacher");
   const studentToken = await login(request, "student", "student");
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   if ((await primaryAction.textContent())?.trim() === "创建 Run") {
     await primaryAction.click();
     await expect(page.getByText("run created")).toBeVisible();
@@ -207,7 +207,7 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   await expect(page.getByText("result published")).toBeVisible();
   await expect(page.getByText("M1 教学正式结果")).toBeVisible();
   await expect(page.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
-  await expect(page.getByLabel("teacher bff dto surface").getByText("read-only")).toBeVisible();
+  await expect(page.getByLabel("BFF Replay 摘要").getByText("read-only")).toBeVisible();
   await expect(page.getByRole("heading", { name: "课堂复盘材料" })).toBeVisible();
   await expect(page.getByText("Rank 1")).toBeVisible();
 
@@ -223,7 +223,9 @@ test("keeps tenant admin browser scope limited to the current tenant", async ({ 
   await page.goto(adminBaseUrl);
   await signInAdminPage(page);
 
-  await expect(page.getByRole("heading", { name: "SimWar P1 管理后台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "SimWar 管理交付与信任" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "角色导航" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "交付总览" })).toBeVisible();
   await expect(page.getByText("P0 Admin · tenant_admin")).toBeVisible();
   await expect(page.getByText("Demo Business School").first()).toBeVisible();
   await expect(page.getByText("P0 Teacher").first()).toBeVisible();
