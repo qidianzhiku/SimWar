@@ -3,7 +3,18 @@ cycle_id: L1PLUS-CYCLE-022-W022-FRESH-LEARNER-E4-ADMISSION
 stage: L1_PLUS
 candidate_id: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
 status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-12T04:57:42Z"
+closed_at: "2026-08-12T05:08:48Z"
 repository: qidianzhiku/SimWar
+branch: codex/w022-fresh-learner-e4-admission
+source_sha: 675f9f41efe9f4f31a52327c4bc18f53e2998cad
+head_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
+merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
+post_merge_master_sha: 3c97b13363414f44ee443281176136700c4fbf40
+pr: 366
+mainline_candidate: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
+support_candidate: null
+docs_discovery_candidate: null
 product_pr: 366
 product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
 product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
@@ -20,16 +31,21 @@ product_scope:
   - real Chromium machine E4 journey
   - Student visibility boundary preservation
 validation:
-  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
-  github_quality: PASS
-  github_browser_smoke: PASS
-  github_analyze_javascript_typescript: PASS
-  github_codeql: PASS
+  focused:
+    - W022 unit/integration/contract: PASS_3_FILES_12_TESTS
+    - W022 Chromium journey: PASS_1_OF_1
+  affected:
+    - W018/W019/W020/Shanghai/tenant-baseline focused Vitest: PASS_10_FILES_45_TESTS
+    - role-workflow browser: PASS_1_OF_1
+  full:
+    - default Vitest: PASS_177_FILES_1128_TESTS
+    - default Chromium: PASS_79_PASSED_9_SKIPPED
+  ci: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  codeql: PASS
+  browser: PASS_79_PASSED_9_SKIPPED
+  fresh_clone: PASS_CLEAN_DETACHED
   contract: PASS_17_FILES_45_TESTS_21_SCHEMA_GROUPS
-  default_full_vitest: PASS_177_FILES_1128_TESTS
-  browser: PASS_79_9_SKIPPED
-  role_workflow: PASS_1_OF_1
-  fresh_clone_w022: PASS
+  direct_store: PASS_0_NEW_UNAPPROVED
   graph_companion: CURRENT_EXACT_SHA_WITH_LIMITS
   graphify: HEALTHY_11366_NODES_20528_EDGES
   codegraph: DEGRADED_DETACHED_CLONE_FALLBACK
@@ -45,11 +61,37 @@ known_limits:
   ai_final_grading: NOT_AUTHORIZED
   pilot_production: NOT_AUTHORIZED
   dependency_advisories: 2_LOW_7_HIGH_INHERITED
+resource_locks:
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+automatic_next_start: false
+gap_delta:
+  closed:
+    - W022_FRESH_LEARNER_MACHINE_ADMISSION_READINESS
+    - W021_TO_W022_CURRENT_MASTER_PORTFOLIO_RECONCILIATION
+  new:
+    - HUMAN_VALIDATION_REQUIRED_FOR_NEXT_STAGE
+  reclassified:
+    - PR365_REMAINS_OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT
+metrics:
+  value_lead_time_hours: NOT_MEASURED
+  active_engineering_time_hours: NOT_MEASURED
+  blocked_ratio: NOT_MEASURED
+  parallel_overlap: NOT_APPLICABLE
+  file_conflict_rate: NOT_MEASURED
+  join_rework_ratio: 0
+  owner_touch: ONE_PREAUTHORIZED_WAVE
+  cleanup_residue: ZERO
+  boundary_breach: 0
+  post_merge_escape: 0
+  product_pr_count: 1
+  governance_pr_count: 1
+  product_commit_count: 1
+  changed_file_count: 18
+  fresh_clone_count: 1
+  governance_reclosure_count: 0
 explicit_non_proofs:
   - This cycle does not prove Human Validation, teaching effectiveness, Pilot readiness or Production readiness.
   - No Truth, SettlementResult, Score, Rank, Replay, PostgreSQL or external provider authority changed.
   - PR #365 is not merged, not modified and remains quarantined read-only.
   - W023 is not authorized, has no branch, locks, PR or execution.
-resource_locks:
-  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
-automatic_next_start: false
+recommended_next_candidate: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
