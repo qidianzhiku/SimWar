@@ -26,6 +26,21 @@ export const ADMIN_NAVIGATION_ITEMS = [
 
 export type AdminLifecycleAction = "abort" | "reset" | "cleanup";
 
+export const LIFECYCLE_BLOCKED_REASON_LABELS: Readonly<Record<string, string>> = {
+  not_synthetic_json_internal: "运行不是受支持的内部 JSON synthetic 运行",
+  run_not_active: "运行当前不处于活动状态",
+  settlement_or_replay_state_present: "运行已有结算或回放状态",
+  published_state_present: "运行已有已发布结果",
+  run_cleaned: "运行已完成清理"
+};
+
+export function formatLifecycleBlockedReasons(reasons: readonly string[]): string {
+  if (reasons.length === 0) return "服务端未授权此操作";
+  return reasons
+    .map((reason) => LIFECYCLE_BLOCKED_REASON_LABELS[reason] ?? "服务端提供了未识别的限制原因")
+    .join("；");
+}
+
 interface AdminLifecycleOperationButtonProps {
   action: AdminLifecycleAction;
   allowedActions: readonly string[];
@@ -45,13 +60,18 @@ export function AdminLifecycleOperationButton({
   onClick,
   children
 }: AdminLifecycleOperationButtonProps) {
+  const isAuthorized = allowedActions.includes(action);
+  const disabledReasonProps = isAuthorized
+    ? {}
+    : { disabledReason: disabledReason ?? "当前操作未获服务端授权" };
+
   return (
     <AllowedActionButton
       action={action}
       allowedActions={allowedActions}
       disabled={disabled ?? false}
       loading={loading ?? false}
-      disabledReason={disabledReason ?? "当前操作未获服务端授权"}
+      {...disabledReasonProps}
       onClick={onClick}
       variant={action === "abort" ? "risk" : "default"}
       aria-label={action.toUpperCase()}

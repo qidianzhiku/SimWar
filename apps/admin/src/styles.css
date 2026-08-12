@@ -169,10 +169,42 @@ select {
   border: 1px solid #c9d0c8;
   border-radius: 7px;
   box-sizing: border-box;
-  min-height: 38px;
+  min-height: 44px;
   min-width: 0;
   padding: 8px 10px;
   width: 100%;
+}
+
+.admin-access-denied {
+  box-sizing: border-box;
+  display: grid;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 28px;
+}
+
+.admin-access-denied > section[role="alert"] {
+  background: #fff;
+  border: 1px solid #b64a45;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.admin-access-denied > section[role="alert"] h2,
+.admin-access-denied > section[role="alert"] p {
+  margin: 0;
+}
+
+.admin-access-denied > section[role="alert"] p {
+  margin-top: 8px;
+}
+
+.admin-inline-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #254237;
+  font-weight: 600;
 }
 
 button {
@@ -223,6 +255,12 @@ button {
 .authority-projection p {
   flex: 1 1 280px;
   margin: 0;
+}
+
+.technical-compatibility {
+  color: #69737c;
+  font-size: 0.78em;
+  font-weight: 400;
 }
 
 button:disabled {

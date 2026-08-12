@@ -36,7 +36,8 @@ import { AuthorityBadge } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
-  AdminLifecycleOperationButton
+  AdminLifecycleOperationButton,
+  formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -430,12 +431,10 @@ export function App() {
     }
 
     const consequences: Record<SyntheticRunLifecycleOperation, string> = {
-      abort:
-        "Abort blocks submission, lock, settlement, and publication while preserving evidence.",
-      reset:
-        "Reset reopens only an unsettled round lock and preserves decisions, audit, results, and Replay evidence.",
+      abort: "中止会阻止提交、锁轮、结算和发布，同时保留证据。",
+      reset: "重置只会重新打开尚未结算的回合锁定，并保留决策、审计、结果和回放证据。",
       cleanup:
-        "Cleanup seals this synthetic run with an audit tombstone; v1 deletes no persisted artifacts."
+        "清理会用审计墓碑封存此 synthetic 运行；v1 不删除持久化对象。Technical note: deletes no persisted artifacts."
     };
     const confirmed = window.confirm(
       `${operation.toUpperCase()} ${control.run_id}\n${control.tenant_id} / ${control.course_id}\n\n${consequences[operation]}`
@@ -589,6 +588,141 @@ export function App() {
     }
   }
 
+  const lifecycleSurface = isTenantAdmin ? (
+    <section className="lifecycle-surface" aria-label="synthetic run lifecycle controls">
+      <div className="lifecycle-heading">
+        <div>
+          <p className="eyebrow">仅限内部 JSON synthetic 运行</p>
+          <h2>预结算运行控制</h2>
+        </div>
+        <button
+          aria-label="refresh lifecycle controls"
+          disabled={busy || lifecycleStatus === "loading"}
+          onClick={() => void refreshLifecycleControls()}
+          title="Refresh lifecycle controls"
+        >
+          刷新
+        </button>
+      </div>
+
+      <p className="lifecycle-boundary">
+        仅作用于当前认证租户内、未结算且未发布的 synthetic JSON run。所有正式决策、审计、结果、
+        score、rank、truth 与 Replay 证据均保留。
+      </p>
+
+      {lifecycleStatus !== "ready" || lifecycleControls.length === 0 ? (
+        <p
+          className={lifecycleStatus === "error" ? "lifecycle-error" : "lifecycle-status"}
+          role={lifecycleStatus === "error" ? "alert" : undefined}
+        >
+          {lifecycleStatus === "loading"
+            ? "正在读取可控运行..."
+            : lifecycleStatus === "error"
+              ? lifecycleError
+              : "当前租户没有可显示的 synthetic JSON run。"}
+        </p>
+      ) : null}
+
+      <div className="lifecycle-list">
+        {lifecycleControls.map((control) => (
+          <article className="lifecycle-run" key={control.run_id}>
+            <div className="lifecycle-run-title">
+              <div>
+                <strong>{control.run_id}</strong>
+                <span className="identity">
+                  {control.tenant_id} / {control.course_id}
+                </span>
+              </div>
+              <span className="summary-badge">{control.lifecycle_state}</span>
+            </div>
+
+            <p className="lifecycle-facts">
+              预结算 {control.pre_settlement ? "是" : "否"} · 预发布{" "}
+              {control.pre_publication ? "是" : "否"} · 证据冻结{" "}
+              {control.evidence_frozen ? "是" : "否"} · 清理不会删除持久化对象{" "}
+              <span className="technical-compatibility">Cleanup 删除 0 个持久化对象</span>
+            </p>
+
+            {control.blocked_reasons.length > 0 ? (
+              <p className="lifecycle-blocked">
+                操作受限：{formatLifecycleBlockedReasons(control.blocked_reasons)}
+              </p>
+            ) : null}
+
+            <div className="lifecycle-actions" aria-label={`actions for ${control.run_id}`}>
+              {(["abort", "reset", "cleanup"] as const).map((operation) => (
+                <AdminLifecycleOperationButton
+                  action={operation}
+                  allowedActions={control.allowed_operations}
+                  loading={busy}
+                  disabledReason={formatLifecycleBlockedReasons(control.blocked_reasons)}
+                  key={operation}
+                  onClick={() => void applyLifecycleOperation(control, operation)}
+                >
+                  {operation === "abort"
+                    ? "中止运行"
+                    : operation === "reset"
+                      ? "重置锁定"
+                      : "清理运行"}
+                </AdminLifecycleOperationButton>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const loginPanel = (
+    <section className="login-strip" aria-label="admin login">
+      <div className="admin-identity" aria-live="polite">
+        <span className="eyebrow">管理治理</span>
+        <span className="identity">
+          {session
+            ? `${session.user.display_name} · ${session.user.roles.join(" / ")}`
+            : "not signed in"}
+        </span>
+      </div>
+      <input
+        aria-label="tenant"
+        value={login.tenantId}
+        onChange={(event) => updateLogin("tenantId", event.target.value)}
+      />
+      <input
+        aria-label="username"
+        value={login.username}
+        onChange={(event) => updateLogin("username", event.target.value)}
+      />
+      <input
+        aria-label="password"
+        type="password"
+        value={login.password}
+        onChange={(event) => updateLogin("password", event.target.value)}
+      />
+      <button disabled={busy} onClick={() => void signIn()}>
+        管理员登录
+      </button>
+      {DEMO_LOGIN_ENABLED ? (
+        <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
+          演示登录
+        </button>
+      ) : null}
+    </section>
+  );
+
+  if (session && !hasAdminSummaryRole) {
+    return (
+      <main className="admin-access-denied">
+        <h1>管理权限验证</h1>
+        <section role="alert" aria-label="管理权限">
+          <h2>当前角色无管理权限</h2>
+          <p>请使用已获服务端授权的管理员会话访问管理交付与信任工作区。</p>
+        </section>
+        {loginPanel}
+      </main>
+    );
+  }
+
   return (
     <AdminDeliveryTrustWorkspace
       context={
@@ -630,40 +764,7 @@ export function App() {
         session && hasAdminSummaryRole ? <AdminEnvironmentRecoveryLimit /> : null
       }
     >
-      <section className="login-strip" aria-label="admin login">
-        <div className="admin-identity" aria-live="polite">
-          <span className="eyebrow">管理治理</span>
-          <span className="identity">
-            {session
-              ? `${session.user.display_name} · ${session.user.roles.join(" / ")}`
-              : "not signed in"}
-          </span>
-        </div>
-        <input
-          aria-label="tenant"
-          value={login.tenantId}
-          onChange={(event) => updateLogin("tenantId", event.target.value)}
-        />
-        <input
-          aria-label="username"
-          value={login.username}
-          onChange={(event) => updateLogin("username", event.target.value)}
-        />
-        <input
-          aria-label="password"
-          type="password"
-          value={login.password}
-          onChange={(event) => updateLogin("password", event.target.value)}
-        />
-        <button disabled={busy} onClick={() => void signIn()}>
-          管理员登录
-        </button>
-        {DEMO_LOGIN_ENABLED ? (
-          <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
-            演示登录
-          </button>
-        ) : null}
-      </section>
+      {loginPanel}
 
       {(!session || hasAdminSummaryRole) && (
         <section id="admin-audit-receipts" aria-labelledby="admin-audit-receipts-heading">
@@ -705,6 +806,7 @@ export function App() {
             token={session.access_token}
             surface="admin"
           />
+          {lifecycleSurface}
         </section>
       ) : null}
 
@@ -716,7 +818,7 @@ export function App() {
 
         {summaryStatus === "loading" && hasAdminSummaryRole ? (
           <section className="summary-status" aria-live="polite">
-            Loading Admin summary...
+            正在加载管理摘要…
           </section>
         ) : null}
 
@@ -760,14 +862,21 @@ export function App() {
           <section className="summary-panel" aria-label="platform admin authority summary">
             <div className="summary-heading">
               <div>
-                <p className="eyebrow">Explicit platform authority</p>
+                <p className="eyebrow">
+                  平台权限已明确{" "}
+                  <span className="technical-compatibility">Explicit platform authority</span>
+                </p>
                 <h2 aria-label="Platform scope">平台范围</h2>
               </div>
-              <strong className="summary-badge">Read-only summary</strong>
+              <strong className="summary-badge" aria-label="Read-only summary">
+                只读摘要 <span className="technical-compatibility">Read-only summary</span>
+              </strong>
             </div>
             <div className="summary-grid platform-summary-grid">
               <article>
-                <span>Tenant count</span>
+                <span aria-label="Tenant count">
+                  租户数量 <span className="technical-compatibility">Tenant count</span>
+                </span>
                 <strong>{adminSummary.authority.visible_state.tenant_count}</strong>
               </article>
             </div>
@@ -795,92 +904,6 @@ export function App() {
         </section>
       )}
 
-      {isTenantAdmin ? (
-        <section className="lifecycle-surface" aria-label="synthetic run lifecycle controls">
-          <div className="lifecycle-heading">
-            <div>
-              <p className="eyebrow">Synthetic JSON Internal Only</p>
-              <h2>预结算运行控制</h2>
-            </div>
-            <button
-              aria-label="refresh lifecycle controls"
-              disabled={busy || lifecycleStatus === "loading"}
-              onClick={() => void refreshLifecycleControls()}
-              title="Refresh lifecycle controls"
-            >
-              刷新
-            </button>
-          </div>
-
-          <p className="lifecycle-boundary">
-            仅作用于当前认证租户内、未结算且未发布的 synthetic JSON run。所有正式决策、审计、结果、
-            score、rank、truth 与 Replay 证据均保留。
-          </p>
-
-          {lifecycleStatus !== "ready" || lifecycleControls.length === 0 ? (
-            <p
-              className={lifecycleStatus === "error" ? "lifecycle-error" : "lifecycle-status"}
-              role={lifecycleStatus === "error" ? "alert" : undefined}
-            >
-              {lifecycleStatus === "loading"
-                ? "正在读取可控运行..."
-                : lifecycleStatus === "error"
-                  ? lifecycleError
-                  : "当前租户没有可显示的 synthetic JSON run。"}
-            </p>
-          ) : null}
-
-          <div className="lifecycle-list">
-            {lifecycleControls.map((control) => (
-              <article className="lifecycle-run" key={control.run_id}>
-                <div className="lifecycle-run-title">
-                  <div>
-                    <strong>{control.run_id}</strong>
-                    <span className="identity">
-                      {control.tenant_id} / {control.course_id}
-                    </span>
-                  </div>
-                  <span className="summary-badge">{control.lifecycle_state}</span>
-                </div>
-
-                <p className="lifecycle-facts">
-                  预结算 {control.pre_settlement ? "YES" : "NO"} · 预发布{" "}
-                  {control.pre_publication ? "YES" : "NO"} · 证据冻结{" "}
-                  {control.evidence_frozen ? "YES" : "NO"} · Cleanup 删除 0 个持久化对象
-                </p>
-
-                {control.blocked_reasons.length > 0 ? (
-                  <p className="lifecycle-blocked">Blocked: {control.blocked_reasons.join(", ")}</p>
-                ) : null}
-
-                <div className="lifecycle-actions" aria-label={`actions for ${control.run_id}`}>
-                  {(["abort", "reset", "cleanup"] as const).map((operation) => (
-                    <AdminLifecycleOperationButton
-                      action={operation}
-                      allowedActions={control.allowed_operations}
-                      disabled={busy}
-                      disabledReason={
-                        control.blocked_reasons.length > 0
-                          ? control.blocked_reasons.join("；")
-                          : "当前操作未获服务端授权"
-                      }
-                      key={operation}
-                      onClick={() => void applyLifecycleOperation(control, operation)}
-                    >
-                      {operation === "abort"
-                        ? "中止运行"
-                        : operation === "reset"
-                          ? "重置锁定"
-                          : "清理运行"}
-                    </AdminLifecycleOperationButton>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       {session && hasCoursePackageAdminRole ? (
         <section id="admin-assets" aria-labelledby="admin-assets-heading">
           <h2 id="admin-assets-heading">课程、场景与模型资产</h2>
@@ -895,8 +918,8 @@ export function App() {
           >
             <div className="lifecycle-heading">
               <div>
-                <p className="eyebrow">JSON Internal Only</p>
-                <h2>CoursePackageVersion administration</h2>
+                <p className="eyebrow">仅限 JSON 内部快照</p>
+                <h2>课程包版本管理</h2>
               </div>
               <button
                 aria-label="Refresh CoursePackageVersions"
@@ -936,11 +959,11 @@ export function App() {
                 aria-label="CoursePackageVersion export receipt"
               >
                 <div className="panel-title">
-                  <h3>Immutable export ready</h3>
-                  <span>admin-controlled JSON</span>
+                  <h3>不可变导出已就绪</h3>
+                  <span>管理员控制的 JSON</span>
                 </div>
                 <label>
-                  Course package export JSON
+                  课程包导出 JSON
                   <textarea
                     aria-label="course package export payload"
                     readOnly
@@ -948,7 +971,7 @@ export function App() {
                   />
                 </label>
                 <button onClick={() => setCoursePackageImportPayload(coursePackageExportPayload)}>
-                  Use export as import payload
+                  使用导出内容作为导入载荷
                 </button>
               </article>
             ) : null}
@@ -1013,8 +1036,8 @@ export function App() {
             <div className="course-package-forms">
               <article className="panel form-panel">
                 <div className="panel-title">
-                  <h3>Create immutable DRAFT</h3>
-                  <span>server validates all references</span>
+                  <h3>创建不可变草稿</h3>
+                  <span>服务端校验全部引用</span>
                 </div>
                 <label>
                   Course package ID
@@ -1145,11 +1168,11 @@ export function App() {
 
               <article className="panel form-panel">
                 <div className="panel-title">
-                  <h3>Import immutable export</h3>
-                  <span>server verifies digest</span>
+                  <h3>导入不可变导出</h3>
+                  <span>服务端核验摘要</span>
                 </div>
                 <label>
-                  Course package export JSON
+                  课程包导出 JSON
                   <textarea
                     aria-label="course package import payload"
                     value={coursePackageImportPayload}
@@ -1170,127 +1193,122 @@ export function App() {
       ) : null}
 
       {isTenantAdmin && state ? (
-        <section
-          id="admin-users-roles"
-          className="workspace legacy-operations"
-          aria-labelledby="admin-users-roles-heading"
-        >
+        <section id="admin-users-roles" aria-labelledby="admin-users-roles-heading">
           <h2 id="admin-users-roles-heading" className="workspace-section-title">
             用户、角色与范围
           </h2>
-          <article className="panel form-panel">
-            <div className="panel-title">
-              <h2>创建用户</h2>
-              <span>tenant scoped</span>
-            </div>
-            <label>
-              租户
-              <input
-                value={userDraft.tenant_id}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              用户名
-              <input
-                value={userDraft.username}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, username: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              邮箱
-              <input
-                value={userDraft.email}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, email: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              显示名
-              <input
-                value={userDraft.display_name}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, display_name: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              初始密码
-              <input
-                type="password"
-                value={userDraft.password}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, password: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              角色
-              <select
-                value={userDraft.role}
-                onChange={(event) =>
-                  setUserDraft((current) => ({
-                    ...current,
-                    role: event.target.value as ActorRole
-                  }))
-                }
+          <section className="workspace legacy-operations">
+            <article className="panel form-panel">
+              <div className="panel-title">
+                <h2>创建用户</h2>
+                <span>租户范围</span>
+              </div>
+              <label>
+                租户
+                <input
+                  value={userDraft.tenant_id}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                用户名
+                <input
+                  value={userDraft.username}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, username: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                邮箱
+                <input
+                  value={userDraft.email}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, email: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                显示名
+                <input
+                  value={userDraft.display_name}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, display_name: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                初始密码
+                <input
+                  type="password"
+                  value={userDraft.password}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, password: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                角色
+                <select
+                  value={userDraft.role}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({
+                      ...current,
+                      role: event.target.value as ActorRole
+                    }))
+                  }
+                >
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="primary"
+                disabled={busy || !session}
+                onClick={() => void createUser()}
               >
-                {roleOptions.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
+                创建用户
+              </button>
+            </article>
+          </section>
+          <section className="workspace wide legacy-operations">
+            <article className="panel">
+              <div className="panel-title">
+                <h2>租户目录</h2>
+                <span>{state?.tenants.length ?? 0}</span>
+              </div>
+              <div className="table">
+                {(state?.tenants ?? []).map((tenant) => (
+                  <div className="table-row" key={tenant.tenant_id}>
+                    <span>{tenant.name}</span>
+                    <strong>{tenant.domain}</strong>
+                    <small>{tenant.status}</small>
+                  </div>
                 ))}
-              </select>
-            </label>
-            <button
-              className="primary"
-              disabled={busy || !session}
-              onClick={() => void createUser()}
-            >
-              创建用户
-            </button>
-          </article>
-        </section>
-      ) : null}
+              </div>
+            </article>
 
-      {isTenantAdmin && state ? (
-        <section className="workspace wide legacy-operations">
-          <article className="panel">
-            <div className="panel-title">
-              <h2>租户目录</h2>
-              <span>{state?.tenants.length ?? 0}</span>
-            </div>
-            <div className="table">
-              {(state?.tenants ?? []).map((tenant) => (
-                <div className="table-row" key={tenant.tenant_id}>
-                  <span>{tenant.name}</span>
-                  <strong>{tenant.domain}</strong>
-                  <small>{tenant.status}</small>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="panel">
-            <div className="panel-title">
-              <h2>用户目录</h2>
-              <span>{state?.users.length ?? 0}</span>
-            </div>
-            <div className="table">
-              {(state?.users ?? []).map((user) => (
-                <div className="table-row" key={user.user_id}>
-                  <span>{user.display_name}</span>
-                  <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
-                  <small>{user.roles.join(", ")}</small>
-                </div>
-              ))}
-            </div>
-          </article>
+            <article className="panel">
+              <div className="panel-title">
+                <h2>用户目录</h2>
+                <span>{state?.users.length ?? 0}</span>
+              </div>
+              <div className="table">
+                {(state?.users ?? []).map((user) => (
+                  <div className="table-row" key={user.user_id}>
+                    <span>{user.display_name}</span>
+                    <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
+                    <small>{user.roles.join(", ")}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
         </section>
       ) : null}
 

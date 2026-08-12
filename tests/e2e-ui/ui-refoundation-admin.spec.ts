@@ -50,6 +50,50 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
   expect(requests.some((url) => /W025|w025/.test(url))).toBe(false);
   expect(requests.some((url) => url.includes("/internal/v1"))).toBe(false);
 
+  const requiredTargets = [
+    "admin-delivery-overview",
+    "admin-tenants-entitlements",
+    "admin-users-roles",
+    "admin-assets",
+    "admin-security-projection",
+    "admin-audit-receipts",
+    "admin-runtime-support",
+    "admin-known-limits",
+    "admin-environment-recovery"
+  ] as const;
+  for (const target of requiredTargets) {
+    await expect(page.locator(`#${target}`)).toHaveCount(1);
+    await navigation.getByRole("link", { name: labels[requiredTargets.indexOf(target)] }).click();
+    await expect(page).toHaveURL(new RegExp(`#${target}$`));
+  }
+
+  await expect(
+    page.locator("#admin-assets").getByLabel("CoursePackageVersion administration")
+  ).toBeVisible();
+  await expect(
+    page.locator("#admin-runtime-support").getByLabel("synthetic run lifecycle controls")
+  ).toBeVisible();
+  await expect(page.locator("#admin-users-roles").locator(".table")).toHaveCount(2);
+
+  const visibleCopy = await page.locator("body").innerText();
+  for (const englishPhrase of [
+    "Loading Admin summary...",
+    "Synthetic JSON Internal Only",
+    "Blocked:",
+    "JSON Internal Only",
+    "Immutable export ready",
+    "admin-controlled JSON",
+    "Course package export JSON",
+    "Use export as import payload",
+    "Create immutable DRAFT",
+    "server validates all references",
+    "Import immutable export",
+    "server verifies digest",
+    "tenant scoped"
+  ]) {
+    expect(visibleCopy).not.toContain(englishPhrase);
+  }
+
   await navigation.getByRole("link", { name: "权限与安全投影" }).click();
   await expect(page).toHaveURL(/#admin-security-projection$/);
   await expect(page.getByRole("heading", { name: "权限与安全投影" })).toBeVisible();
@@ -58,6 +102,27 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
   if ((await disabledActions.count()) > 0) {
     await expect(disabledActions.first().locator("xpath=..")).toContainText("授权");
   }
+
+  const targetMetrics = await page.evaluate(() => {
+    const link = document.querySelector<HTMLElement>('nav[aria-label="角色导航"] a');
+    const input = document.querySelector<HTMLElement>('section[aria-label="admin login"] input');
+    const action = document.querySelector<HTMLElement>("button");
+    return {
+      actionHeight: action?.getBoundingClientRect().height ?? 0,
+      inputHeight: input?.getBoundingClientRect().height ?? 0,
+      linkHeight: link?.getBoundingClientRect().height ?? 0
+    };
+  });
+  expect(targetMetrics.linkHeight).toBeGreaterThanOrEqual(44);
+  expect(targetMetrics.inputHeight).toBeGreaterThanOrEqual(44);
+  expect(targetMetrics.actionHeight).toBeGreaterThanOrEqual(44);
+
+  await page.keyboard.press("Tab");
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.tagName.toLowerCase()))
+    .toMatch(/a|input|button/);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.getByRole("heading", { name: "权限与安全投影" })).toBeVisible();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
@@ -79,7 +144,11 @@ test("Admin delivery shell remains usable at desktop and tablet widths", async (
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
   );
-  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true
+  );
+  await page.setViewportSize({ width: 1024, height: 768 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true
   );
@@ -87,4 +156,25 @@ test("Admin delivery shell remains usable at desktop and tablet widths", async (
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png"
   });
+});
+
+test("Teacher and Student receive a truthful denial without an Admin shell or navigation landmark", async ({
+  page
+}) => {
+  for (const actor of [
+    { password: "teacher", username: "teacher" },
+    { password: "student", username: "student" }
+  ]) {
+    await page.goto(adminBaseUrl);
+    const login = page.locator('section[aria-label="admin login"]');
+    await login.getByLabel("tenant").fill("tenant_demo");
+    await login.getByLabel("username").fill(actor.username);
+    await login.getByLabel("password").fill(actor.password);
+    await login.getByRole("button", { name: "管理员登录" }).click();
+    await expect(page.getByText("signed in")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "SimWar 管理交付与信任" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "角色导航" })).toHaveCount(0);
+    await expect(page.locator("#admin-delivery-overview")).toHaveCount(0);
+    await expect(page.getByRole("alert", { name: "管理权限" })).toContainText("当前角色无管理权限");
+  }
 });
