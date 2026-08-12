@@ -3301,15 +3301,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/W020AdvisoryRequest"
+              $ref: "#/components/schemas/W020StudentAdvisoryRequest"
       responses:
         "201":
           description: Generated or reused student role advisory
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+              schema: { $ref: "#/components/schemas/W020StudentAdvisoryEnvelope" }
         "403": { description: Student role or own-team scope denied }
         "409": { description: Deterministic idempotency conflict }
+        "404": { description: "Exact run, round, team or role context not found" }
+        "422": { description: Closed request validation failed }
+        "502": { description: Deterministic provider failed or returned a rejected output }
+        "503": { description: Advisory audit persistence failed closed }
   /api/v1/bff/teacher/advisors/debrief:
     post:
       operationId: W020_TEACHER_DEBRIEF_ADVISOR_POST_V1
@@ -3320,15 +3324,19 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/W020AdvisoryRequest" }
+            schema: { $ref: "#/components/schemas/W020TeacherDebriefAdvisoryRequest" }
       responses:
         "201":
           description: Generated or reused teacher debrief advisory
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/W020AdvisoryEnvelope" }
+              schema: { $ref: "#/components/schemas/W020TeacherAdvisoryEnvelope" }
         "403": { description: Teacher scope required }
-        "409": { description: Deterministic idempotency conflict }
+        "404": { description: "Exact run, round, team or role context not found" }
+        "409": { description: W019 source is ineligible or idempotency input conflicts }
+        "422": { description: Closed request validation failed }
+        "502": { description: Deterministic provider failed or returned a rejected output }
+        "503": { description: Advisory audit persistence failed closed }
   /api/v1/bff/teacher/advisors/audit:
     get:
       operationId: W020_TEACHER_ADVISOR_AUDIT_GET_V1
@@ -3370,28 +3378,81 @@ components:
           $ref: "../schemas/teaching-closure.v1.json"
     D6TransferEvidence:
       $ref: "../schemas/d6-transfer-evidence.v1.json"
-    W020AdvisoryRequest:
+    W020ExactIdentifier:
+      type: string
+      pattern: "^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)(?![Dd][Ee][Ff][Aa][Uu][Ll][Tt]$)(?![Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]$)(?![Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd]$)[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    W020StudentAdvisoryRequest:
       type: object
       additionalProperties: false
-      required: [discriminator, surface, run_id, round_id, team_id, idempotency_key]
+      required: [discriminator, surface, run_id, round_id, team_id, role_key, idempotency_key]
       properties:
         discriminator: { const: w020_advisory_request }
-        surface: { enum: [student_role, teacher_debrief] }
-        run_id: { type: string, minLength: 1 }
-        round_id: { type: string, minLength: 1 }
-        team_id: { type: string, minLength: 1 }
+        surface: { const: student_role }
+        run_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        round_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        team_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
         role_key: { enum: [CEO, CFO, CMO, COO] }
-        idempotency_key: { type: string, minLength: 1 }
-    W020AdvisoryEnvelope:
+        idempotency_key: { $ref: "#/components/schemas/W020ExactIdentifier" }
+    W020TeacherDebriefAdvisoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [discriminator, surface, run_id, round_id, team_id, role_key, activity_id, idempotency_key]
+      properties:
+        discriminator: { const: w020_advisory_request }
+        surface: { const: teacher_debrief }
+        run_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        round_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        team_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        role_key: { enum: [CEO, CFO, CMO, COO] }
+        activity_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        idempotency_key: { $ref: "#/components/schemas/W020ExactIdentifier" }
+    W020StudentAdvisoryEnvelope:
       type: object
       additionalProperties: false
       required: [code, data, message, request_id]
       properties:
         code: { type: string }
         data:
-          $ref: "../schemas/w020-governed-ai-advisory.v1.json"
+          allOf:
+            - $ref: "../schemas/w020-governed-ai-advisory.v1.json"
+            - type: object
+              properties:
+                context:
+                  type: object
+                  properties:
+                    actor_role: { const: student }
+                projection:
+                  type: object
+                  properties:
+                    surface: { const: student_role }
         message: { type: string }
         request_id: { type: string }
+    W020TeacherAdvisoryEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          allOf:
+            - $ref: "../schemas/w020-governed-ai-advisory.v1.json"
+            - type: object
+              properties:
+                context:
+                  type: object
+                  properties:
+                    actor_role: { enum: [teacher, admin] }
+                projection:
+                  type: object
+                  properties:
+                    surface: { const: teacher_debrief }
+        message: { type: string }
+        request_id: { type: string }
+    W020AdvisoryEnvelope:
+      oneOf:
+        - $ref: "#/components/schemas/W020StudentAdvisoryEnvelope"
+        - $ref: "#/components/schemas/W020TeacherAdvisoryEnvelope"
     W020AdvisoryAuditEnvelope:
       type: object
       additionalProperties: false
@@ -3403,10 +3464,47 @@ components:
           additionalProperties: false
           required: [entries, known_limits]
           properties:
-            entries: { type: array, items: { type: object } }
+            entries:
+              type: array
+              items: { $ref: "#/components/schemas/W020AdvisoryAuditEntry" }
             known_limits: { type: array, items: { type: string } }
         message: { type: string }
         request_id: { type: string }
+    W020AdvisoryAuditEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - model_call_log_id
+        - tenant_id
+        - provider
+        - model
+        - purpose
+        - status
+        - input_hash
+        - output_hash
+        - prompt_tokens
+        - completion_tokens
+        - cost_usd
+        - latency_ms
+        - created_at
+        - surface
+        - context_digest
+      properties:
+        model_call_log_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        tenant_id: { $ref: "#/components/schemas/W020ExactIdentifier" }
+        provider: { type: string, minLength: 1 }
+        model: { type: string, minLength: 1 }
+        purpose: { enum: [coach_advice, debrief, learning_support] }
+        status: { enum: [succeeded, failed, rejected] }
+        input_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        output_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        prompt_tokens: { type: integer, minimum: 0 }
+        completion_tokens: { type: integer, minimum: 0 }
+        cost_usd: { type: number, minimum: 0 }
+        latency_ms: { type: integer, minimum: 0 }
+        created_at: { type: string, format: date-time }
+        surface: { enum: [student_role, teacher_debrief] }
+        context_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
     D6TransferEnvelope:
       type: object
       additionalProperties: false

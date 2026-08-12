@@ -2,7 +2,32 @@
   "discriminator": "w020_advisory_receipt",
   "status": "generated",
   "request_id": "req_w020_invalid",
-  "request_digest": "not-a-digest",
+  "request_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "context": {
+    "discriminator": "w020_role_safe_context",
+    "actor_role": "student",
+    "actor_id_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tenant_id": "tenant_demo",
+    "course_id": "course_001",
+    "run_id": "run_001",
+    "round_id": "round_001",
+    "team_id": "team_001",
+    "role_key": "CEO",
+    "advisory_scopes": ["strategy"],
+    "source_event_ids": ["event_001"],
+    "source_event_types": ["section_saved"],
+    "context_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "transformation_version": "w020-role-safe-context-v1"
+  },
+  "projection": {
+    "advisory_only": true,
+    "surface": "student_role",
+    "title": "Role advisor",
+    "recommendations": ["Review the visible role scope."],
+    "evidence_refs": ["event_001"],
+    "known_limits": ["Human Validation not performed"]
+  },
   "formal_truth_write": true,
+  "known_limits": ["JSON_INTERNAL_ONLY"],
   "unexpected_raw_prompt": "must be rejected"
 }

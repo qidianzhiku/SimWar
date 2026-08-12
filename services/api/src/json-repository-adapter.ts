@@ -117,16 +117,40 @@ export function createJsonGovernedAdvisoryRepositoryPort(
 ): GovernedAdvisoryRepositoryPort {
   return {
     async list(tenantId) {
-      return clone((store.governedAdvisoryRecords ?? []).filter((record) => record.tenant_id === tenantId));
+      return clone(
+        (store.governedAdvisoryRecords ?? []).filter((record) => record.tenant_id === tenantId)
+      );
     },
-    async append(record) {
+    async listAudit(tenantId) {
+      return clone(
+        (store.governedAdvisoryAuditRecords ?? []).filter((record) => record.tenant_id === tenantId)
+      );
+    },
+    async appendSuccess(command) {
       const records = store.governedAdvisoryRecords ?? (store.governedAdvisoryRecords = []);
-      const previous = clone(records);
-      records.push(clone(record));
+      const audits =
+        store.governedAdvisoryAuditRecords ?? (store.governedAdvisoryAuditRecords = []);
+      const previousRecords = clone(records);
+      const previousAudits = clone(audits);
+      records.push(clone(command.record));
+      audits.push(clone(command.audit));
       try {
         store.persist();
       } catch (error) {
-        records.splice(0, records.length, ...previous);
+        records.splice(0, records.length, ...previousRecords);
+        audits.splice(0, audits.length, ...previousAudits);
+        throw error;
+      }
+    },
+    async appendAudit(audit) {
+      const audits =
+        store.governedAdvisoryAuditRecords ?? (store.governedAdvisoryAuditRecords = []);
+      const previousAudits = clone(audits);
+      audits.push(clone(audit));
+      try {
+        store.persist();
+      } catch (error) {
+        audits.splice(0, audits.length, ...previousAudits);
         throw error;
       }
     }

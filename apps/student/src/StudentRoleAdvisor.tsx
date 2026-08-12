@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  isW020AdvisoryReceipt,
+  type W020AdvisoryReceipt,
+  type W020RoleKey,
+  type W020StudentRoleAdvisoryRequest
+} from "@simwar/shared-contracts";
 
-type RoleKey = "CEO" | "CFO" | "CMO" | "COO";
-type Receipt = {
-  projection: { title: string; recommendations: string[]; known_limits: string[] };
-  status: "generated" | "reused";
-  context: { role_key?: RoleKey; context_digest: string; source_event_ids: string[] };
-};
+type Phase = "IDLE" | "LOADING" | "SUCCESS" | "CONFLICT" | "FORBIDDEN" | "FAILED";
+
+class AdvisoryRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+function isRetryPhase(phase: Phase): boolean {
+  return phase === "CONFLICT" || phase === "FORBIDDEN" || phase === "FAILED";
+}
 
 export function StudentRoleAdvisor(props: {
   apiBase: string;
@@ -15,28 +29,40 @@ export function StudentRoleAdvisor(props: {
   roundId?: string | undefined;
   teamId?: string | undefined;
 }) {
-  const [roleKey, setRoleKey] = useState<RoleKey>("CEO");
-  const [phase, setPhase] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">("IDLE");
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [roleKey, setRoleKey] = useState<W020RoleKey>("CEO");
+  const [phase, setPhase] = useState<Phase>("IDLE");
+  const [receipt, setReceipt] = useState<W020AdvisoryReceipt | null>(null);
   const [message, setMessage] = useState("");
+  const requestSequence = useRef(0);
+
+  useEffect(() => {
+    requestSequence.current += 1;
+    setPhase("IDLE");
+    setReceipt(null);
+    setMessage("");
+  }, [props.apiBase, props.roundId, props.runId, props.teamId, props.tenantId, props.token]);
 
   async function requestAdvisory(): Promise<void> {
+    const requestId = ++requestSequence.current;
     if (!props.runId || !props.roundId || !props.teamId) {
-      setMessage("等待受控 Run / Round / Team 上下文");
+      setPhase("FAILED");
+      setMessage("FAILED · 等待受控 Run / Round / Team 上下文");
       return;
     }
+    const request: W020StudentRoleAdvisoryRequest = {
+      discriminator: "w020_advisory_request",
+      idempotency_key: `student-advisor-${props.runId}-${props.roundId}-${props.teamId}-${roleKey}`,
+      role_key: roleKey,
+      round_id: props.roundId,
+      run_id: props.runId,
+      surface: "student_role",
+      team_id: props.teamId
+    };
     setPhase("LOADING");
+    setMessage("LOADING · 正在生成角色建议");
     try {
       const response = await fetch(`${props.apiBase}/api/v1/bff/student/advisors/role`, {
-        body: JSON.stringify({
-          discriminator: "w020_advisory_request",
-          idempotency_key: `student-advisor-${props.runId}-${props.roundId}-${roleKey}`,
-          role_key: roleKey,
-          round_id: props.roundId,
-          run_id: props.runId,
-          surface: "student_role",
-          team_id: props.teamId
-        }),
+        body: JSON.stringify(request),
         headers: {
           authorization: `Bearer ${props.token}`,
           "content-type": "application/json",
@@ -44,15 +70,34 @@ export function StudentRoleAdvisor(props: {
         },
         method: "POST"
       });
-      const envelope = (await response.json()) as { data?: Receipt; message?: string };
-      if (!response.ok || !envelope.data)
-        throw new Error(envelope.message ?? "advisor request failed");
+      const envelope = (await response.json()) as { data?: unknown; message?: string };
+      if (requestId !== requestSequence.current) return;
+      if (!response.ok)
+        throw new AdvisoryRequestError(
+          response.status,
+          envelope.message ?? "advisor request failed"
+        );
+      if (
+        !isW020AdvisoryReceipt(envelope.data) ||
+        envelope.data.projection.surface !== "student_role"
+      )
+        throw new AdvisoryRequestError(502, "W020_OUTPUT_REJECTED");
       setReceipt(envelope.data);
-      setPhase("READY");
-      setMessage(envelope.data.status === "reused" ? "已复用确定性建议" : "已生成建议");
+      setPhase("SUCCESS");
+      setMessage(
+        envelope.data.status === "reused"
+          ? "SUCCESS · 已复用确定性建议"
+          : "SUCCESS · 已生成确定性建议"
+      );
     } catch (error) {
-      setPhase("ERROR");
-      setMessage(error instanceof Error ? error.message : "advisor request failed");
+      if (requestId !== requestSequence.current) return;
+      setReceipt(null);
+      const status = error instanceof AdvisoryRequestError ? error.status : 0;
+      const nextPhase = status === 409 ? "CONFLICT" : status === 403 ? "FORBIDDEN" : "FAILED";
+      setPhase(nextPhase);
+      setMessage(
+        `${nextPhase} · ${error instanceof Error ? error.message : "advisor request failed"}`
+      );
     }
   }
 
@@ -66,16 +111,22 @@ export function StudentRoleAdvisor(props: {
         <span>advisory_only</span>
       </div>
       <p className="evidence-note">
-        仅使用当前身份的角色范围和可见工作流元数据，不展示原始事件或正式真值。
+        Deterministic Mock · Advisory Only · 仅使用当前身份的角色范围和可见工作流元数据。
       </p>
       <label className="field-label">
         <span>Role scope</span>
         <select
           aria-label="advisor role"
           value={roleKey}
-          onChange={(event) => setRoleKey(event.target.value as RoleKey)}
+          onChange={(event) => {
+            requestSequence.current += 1;
+            setRoleKey(event.target.value as W020RoleKey);
+            setPhase("IDLE");
+            setReceipt(null);
+            setMessage("");
+          }}
         >
-          {(["CEO", "CFO", "CMO", "COO"] as RoleKey[]).map((role) => (
+          {(["CEO", "CFO", "CMO", "COO"] as W020RoleKey[]).map((role) => (
             <option key={role}>{role}</option>
           ))}
         </select>
@@ -85,10 +136,10 @@ export function StudentRoleAdvisor(props: {
         disabled={phase === "LOADING"}
         onClick={() => void requestAdvisory()}
       >
-        {phase === "LOADING" ? "生成中" : "请求角色建议"}
+        {phase === "LOADING" ? "生成中" : isRetryPhase(phase) ? "重试角色建议" : "请求角色建议"}
       </button>
-      <p role="status">{message || "等待请求"}</p>
-      {phase === "READY" && receipt ? (
+      <p role="status">{message || "IDLE · 等待请求"}</p>
+      {phase === "SUCCESS" && receipt ? (
         <article className="candidate-preview" aria-label="student advisory receipt">
           <strong>{receipt.projection.title}</strong>
           <p>{receipt.projection.recommendations[0]}</p>
@@ -97,7 +148,7 @@ export function StudentRoleAdvisor(props: {
           <small>Known Limits: {receipt.projection.known_limits.join("; ")}</small>
         </article>
       ) : null}
-      {phase === "ERROR" ? (
+      {isRetryPhase(phase) ? (
         <p className="readiness-message" role="alert">
           {message}
         </p>

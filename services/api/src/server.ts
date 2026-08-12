@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { GovernedAgentGateway } from "@simwar/agent-gateway";
 import { fileURLToPath } from "node:url";
 import type {
   ActorRole,
@@ -300,6 +301,7 @@ export interface CreateApiServerOptions {
   formalScenarioPackageCatalog?: ScenarioPackageAuthorityReadFacade;
   repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
+  governedAdvisoryGateway?: GovernedAgentGateway;
 }
 
 type DecisionSubmitBody = Partial<M1DecisionSubmitRequest>;
@@ -513,10 +515,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     new InMemoryTransferResearchDesignRegistry()
   );
   const governedAdvisory = new GovernedAdvisoryService({
+    ...(options.governedAdvisoryGateway ? { gateway: options.governedAdvisoryGateway } : {}),
     repository:
       repositoryProvider.ports.governedAdvisories ??
       createJsonGovernedAdvisoryRepositoryPort(store),
-    roleWorkflow: repositoryProvider.ports.roleWorkflow
+    roleWorkflow: repositoryProvider.ports.roleWorkflow,
+    teachingClosure
   });
 
   return {

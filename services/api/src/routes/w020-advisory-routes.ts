@@ -1,5 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { CurrentUser } from "@simwar/shared-contracts";
+import {
+  isW020AdvisoryRequest,
+  type CurrentUser,
+  type W020AdvisoryRequest
+} from "@simwar/shared-contracts";
 import { GovernedAdvisoryService, W020AdvisoryError } from "../w020-advisory-service.js";
 
 export interface W020AdvisoryRouteContext {
@@ -16,57 +20,22 @@ export interface W020AdvisoryRouteHelpers {
   requireTeacher(context: W020AdvisoryRouteContext): void;
 }
 
-function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
+function parseRequest(
+  value: unknown,
+  surface: "student_role" | "teacher_debrief"
+): W020AdvisoryRequest {
+  if (!isW020AdvisoryRequest(value) || value.surface !== surface)
     throw new W020AdvisoryError("W020_INPUT_INVALID");
-  return value as Record<string, unknown>;
-}
-
-function parseRequest(value: unknown, surface: "student_role" | "teacher_debrief") {
-  const body = object(value);
-  const allowed = [
-    "discriminator",
-    "surface",
-    "run_id",
-    "round_id",
-    "team_id",
-    "idempotency_key",
-    ...(surface === "student_role" ? ["role_key"] : [])
-  ];
-  if (
-    Object.keys(body).some((key) => !allowed.includes(key)) ||
-    ["discriminator", "surface", "run_id", "round_id", "team_id", "idempotency_key"].some(
-      (key) => body[key] === undefined
-    )
-  )
-    throw new W020AdvisoryError("W020_INPUT_INVALID");
-  if (body.discriminator !== "w020_advisory_request" || body.surface !== surface)
-    throw new W020AdvisoryError("W020_INPUT_INVALID");
-  if (
-    !["run_id", "round_id", "team_id", "idempotency_key"].every(
-      (key) => typeof body[key] === "string"
-    )
-  )
-    throw new W020AdvisoryError("W020_INPUT_INVALID");
-  if (body.role_key !== undefined && !["CEO", "CFO", "CMO", "COO"].includes(String(body.role_key)))
-    throw new W020AdvisoryError("W020_INPUT_INVALID");
-  return {
-    discriminator: "w020_advisory_request" as const,
-    idempotency_key: body.idempotency_key as string,
-    round_id: body.round_id as string,
-    run_id: body.run_id as string,
-    surface,
-    team_id: body.team_id as string,
-    ...(body.role_key !== undefined
-      ? { role_key: body.role_key as "CEO" | "CFO" | "CMO" | "COO" }
-      : {})
-  };
+  return value;
 }
 
 function errorStatus(error: W020AdvisoryError): number {
   if (error.code === "W020_FORBIDDEN") return 403;
   if (error.code === "W020_CONTEXT_NOT_FOUND") return 404;
+  if (error.code === "W020_SOURCE_NOT_ELIGIBLE") return 409;
   if (error.code === "W020_DUPLICATE_CONFLICT") return 409;
+  if (error.code === "W020_PROVIDER_FAILED" || error.code === "W020_OUTPUT_REJECTED") return 502;
+  if (error.code === "W020_PERSISTENCE_FAILED") return 503;
   return 422;
 }
 
@@ -101,7 +70,11 @@ export async function handleW020AdvisoryRoute(
   if (!isStudent && !isTeacher) return false;
   try {
     if (isStudent) {
-      helpers.requireStudent(context);
+      try {
+        helpers.requireStudent(context);
+      } catch {
+        throw new W020AdvisoryError("W020_FORBIDDEN");
+      }
       if (request.method !== "POST" || url.pathname !== "/api/v1/bff/student/advisors/role")
         throw new W020AdvisoryError("W020_FORBIDDEN");
       const receipt = await service.createStudentRoleAdvisory(
@@ -112,7 +85,11 @@ export async function handleW020AdvisoryRoute(
       helpers.sendJson(response, 201, helpers.createEnvelope(context, receipt));
       return true;
     }
-    helpers.requireTeacher(context);
+    try {
+      helpers.requireTeacher(context);
+    } catch {
+      throw new W020AdvisoryError("W020_FORBIDDEN");
+    }
     if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/advisors/audit") {
       helpers.sendJson(
         response,

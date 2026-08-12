@@ -22,6 +22,7 @@ import type {
   Team,
   TeamConfirmation,
   TeacherConfirmationVersion,
+  W020AdvisoryAuditRecord,
   W020AdvisoryRecord
 } from "@simwar/shared-contracts";
 
@@ -372,7 +373,12 @@ export interface TeacherConfirmationRepositoryPort {
 /** W020-only L4 advisory/audit persistence; it cannot write formal truth. */
 export interface GovernedAdvisoryRepositoryPort {
   list(tenantId: RepositoryId): Promise<W020AdvisoryRecord[]>;
-  append(record: W020AdvisoryRecord): Promise<void>;
+  listAudit(tenantId: RepositoryId): Promise<W020AdvisoryAuditRecord[]>;
+  appendSuccess(command: {
+    record: W020AdvisoryRecord;
+    audit: W020AdvisoryAuditRecord;
+  }): Promise<void>;
+  appendAudit(audit: W020AdvisoryAuditRecord): Promise<void>;
 }
 
 /**
