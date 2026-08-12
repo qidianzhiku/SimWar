@@ -158,6 +158,7 @@ function buildMergedPayload(sections: RoleDecisionSection[]): DecisionPayload {
 export class RoleWorkflowCommandService {
   private readonly createId: (kind: string) => string;
   private readonly now: () => string;
+  private readonly mergeLocks = new Map<string, Promise<void>>();
 
   constructor(
     private readonly repository: RoleWorkflowRepositoryPort,
@@ -169,9 +170,12 @@ export class RoleWorkflowCommandService {
     this.now = dependencies.now ?? (() => new Date().toISOString());
   }
 
-  assignRole(actor: RoleWorkflowActor, input: AssignRoleInput): StudentRoleAssignment {
+  async assignRole(
+    actor: RoleWorkflowActor,
+    input: AssignRoleInput
+  ): Promise<StudentRoleAssignment> {
     this.requireTeacher(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertScope(snapshot, input.course_id);
     const member = snapshot.team!.members.find((candidate) => candidate.user_id === input.user_id);
     if (!member || member.role_slot !== input.role_key) {
@@ -206,7 +210,7 @@ export class RoleWorkflowCommandService {
       tenant_id: actor.tenant_id,
       user_id: input.user_id
     };
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       assignment,
       event: this.createEvent(actor, input, "role_assigned", assignment.assignment_id),
       kind: "append_assignment"
@@ -214,12 +218,12 @@ export class RoleWorkflowCommandService {
     return clone(assignment);
   }
 
-  getStudentWorkspace(
+  async getStudentWorkspace(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
-  ): StudentRoleWorkflowWorkspaceDTO {
+  ): Promise<StudentRoleWorkflowWorkspaceDTO> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const permissions = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
@@ -284,12 +288,12 @@ export class RoleWorkflowCommandService {
     };
   }
 
-  getTeacherWorkspace(
+  async getTeacherWorkspace(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
-  ): TeacherRoleWorkflowWorkspaceDTO {
+  ): Promise<TeacherRoleWorkflowWorkspaceDTO> {
     this.requireTeacher(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const activeAssignments = snapshot.assignments.filter(
       (assignment) => assignment.status === "active"
@@ -319,9 +323,12 @@ export class RoleWorkflowCommandService {
     };
   }
 
-  saveSection(actor: RoleWorkflowActor, input: SaveSectionInput): RoleDecisionSection {
+  async saveSection(
+    actor: RoleWorkflowActor,
+    input: SaveSectionInput
+  ): Promise<RoleDecisionSection> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
@@ -351,7 +358,7 @@ export class RoleWorkflowCommandService {
       updated_at: timestamp,
       version: (current?.version ?? 0) + 1
     };
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       event: this.createEvent(actor, input, "section_saved", section.section_id),
       kind: "append_section",
       section
@@ -359,9 +366,12 @@ export class RoleWorkflowCommandService {
     return clone(section);
   }
 
-  markSectionReady(actor: RoleWorkflowActor, input: MarkSectionReadyInput): RoleDecisionSection {
+  async markSectionReady(
+    actor: RoleWorkflowActor,
+    input: MarkSectionReadyInput
+  ): Promise<RoleDecisionSection> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const current = this.latestSection(snapshot, assignment);
@@ -377,7 +387,7 @@ export class RoleWorkflowCommandService {
       updated_at: this.now(),
       version: current.version + 1
     };
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       event: this.createEvent(actor, input, "section_ready", ready.section_id),
       kind: "append_section",
       section: ready
@@ -385,12 +395,32 @@ export class RoleWorkflowCommandService {
     return clone(ready);
   }
 
-  createMergeCommit(
+  async createMergeCommit(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
-  ): StudentRoleWorkflowMergeDTO {
+  ): Promise<StudentRoleWorkflowMergeDTO> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    const previous = this.mergeLocks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.mergeLocks.set(key, current);
+    await previous;
+    try {
+      return await this.createMergeCommitUnsafe(actor, input);
+    } finally {
+      release();
+      if (this.mergeLocks.get(key) === current) this.mergeLocks.delete(key);
+    }
+  }
+
+  private async createMergeCommitUnsafe(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentRoleWorkflowMergeDTO> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     if (!DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit) {
@@ -429,7 +459,7 @@ export class RoleWorkflowCommandService {
       team_id: input.team_id,
       tenant_id: actor.tenant_id
     };
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       event: this.createEvent(actor, input, "merge_created", mergeCommit.merge_commit_id),
       kind: "append_merge",
       merge_commit: mergeCommit
@@ -437,9 +467,12 @@ export class RoleWorkflowCommandService {
     return toStudentMergeDto(mergeCommit);
   }
 
-  confirmTeamDecision(actor: RoleWorkflowActor, input: ConfirmTeamDecisionInput): TeamConfirmation {
+  async confirmTeamDecision(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<TeamConfirmation> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
@@ -493,7 +526,7 @@ export class RoleWorkflowCommandService {
             .map((candidate) => candidate.version)
         ) + 1
     };
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       confirmation,
       decision,
       event: this.createEvent(actor, input, "team_confirmed", confirmation.team_confirmation_id),
@@ -502,9 +535,12 @@ export class RoleWorkflowCommandService {
     return clone(confirmation);
   }
 
-  assertDirectDecisionSubmissionAllowed(actor: RoleWorkflowActor, input: RoundWorkflowScope): void {
+  async assertDirectDecisionSubmissionAllowed(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<void> {
     this.requireStudent(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     if (
       snapshot.assignments.length > 0 ||
@@ -515,12 +551,12 @@ export class RoleWorkflowCommandService {
     }
   }
 
-  resetWorkflow(
+  async resetWorkflow(
     actor: RoleWorkflowActor,
     input: RoundWorkflowScope
-  ): { deactivated_assignments: number } {
+  ): Promise<{ deactivated_assignments: number }> {
     this.requireTeacher(actor);
-    const snapshot = this.read(actor, input);
+    const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
     if (snapshot.confirmations.length > 0) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMED_IMMUTABLE");
@@ -528,7 +564,7 @@ export class RoleWorkflowCommandService {
     const activeIds = snapshot.assignments
       .filter((assignment) => assignment.status === "active")
       .map((assignment) => assignment.assignment_id);
-    this.repository.commitRoleWorkflow({
+    await this.repository.commitRoleWorkflow({
       assignment_ids: activeIds,
       event: this.createEvent(actor, input, "workflow_reset", this.createId("workflow_reset")),
       kind: "reset"
@@ -539,7 +575,7 @@ export class RoleWorkflowCommandService {
   private read(
     actor: RoleWorkflowActor,
     input: WorkflowScope & { round_id?: string }
-  ): RoleWorkflowRepositorySnapshot {
+  ): Promise<RoleWorkflowRepositorySnapshot> {
     const query: RoleWorkflowRepositoryQuery = {
       run_id: input.run_id,
       team_id: input.team_id,

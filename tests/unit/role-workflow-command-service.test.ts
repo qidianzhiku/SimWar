@@ -102,14 +102,14 @@ describe("RoleWorkflowCommandService", () => {
     });
   });
 
-  function assignAllRoles(): void {
+  async function assignAllRoles(): Promise<void> {
     for (const [actor, role_key] of [
       [studentCeo, "CEO"],
       [studentCfo, "CFO"],
       [studentCmo, "CMO"],
       [studentCoo, "COO"]
     ] as const) {
-      service.assignRole(teacher, {
+      await service.assignRole(teacher, {
         course_id: "course_c3",
         role_key,
         run_id: "run_c3",
@@ -119,7 +119,7 @@ describe("RoleWorkflowCommandService", () => {
     }
   }
 
-  function saveAndReadyAllSections(): void {
+  async function saveAndReadyAllSections(): Promise<void> {
     const payloads = new Map<RoleWorkflowActor, object>([
       [studentCeo, { strategy_statement: "Grow with discipline." }],
       [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
@@ -127,14 +127,14 @@ describe("RoleWorkflowCommandService", () => {
       [studentCoo, { capacity_plan: "expand" }]
     ]);
     for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
-      service.saveSection(actor, {
+      await service.saveSection(actor, {
         expected_version: 0,
         payload: payloads.get(actor)!,
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       });
-      service.markSectionReady(actor, {
+      await service.markSectionReady(actor, {
         expected_version: 1,
         round_id: "round_c3_1",
         run_id: "run_c3",
@@ -143,8 +143,8 @@ describe("RoleWorkflowCommandService", () => {
     }
   }
 
-  it("assigns an exact approved role template and resolves only the student's safe context", () => {
-    const assignment = service.assignRole(teacher, {
+  it("assigns an exact approved role template and resolves only the student's safe context", async () => {
+    const assignment = await service.assignRole(teacher, {
       course_id: "course_c3",
       role_key: "CEO",
       run_id: "run_c3",
@@ -155,7 +155,7 @@ describe("RoleWorkflowCommandService", () => {
     expect(assignment.role_template_id).toBe("role_template_ceo_v1");
     expect(assignment.source).toBe("teacher_assigned");
 
-    const workspace = service.getStudentWorkspace(studentCeo, {
+    const workspace = await service.getStudentWorkspace(studentCeo, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
@@ -170,7 +170,7 @@ describe("RoleWorkflowCommandService", () => {
     expect(workspace.assignment).not.toHaveProperty("assigned_by");
   });
 
-  it("rejects every nonviable team topology before activation and keeps direct Decision available", () => {
+  it("rejects every nonviable team topology before activation and keeps direct Decision available", async () => {
     const cases: Array<{
       configure: (candidateStore: SimWarStore) => void;
       name: string;
@@ -222,31 +222,30 @@ describe("RoleWorkflowCommandService", () => {
         }
       );
 
-      expect(
-        () =>
-          candidateService.assignRole(teacher, {
-            course_id: "course_c3",
-            role_key: "CEO",
-            run_id: "run_c3",
-            team_id: "team_c3",
-            user_id: studentCeo.actor_id
-          }),
+      await expect(
+        candidateService.assignRole(teacher, {
+          course_id: "course_c3",
+          role_key: "CEO",
+          run_id: "run_c3",
+          team_id: "team_c3",
+          user_id: studentCeo.actor_id
+        }),
         testCase.name
-      ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TEAM_INCOMPLETE" }));
+      ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TEAM_INCOMPLETE" }));
 
       expect(candidateStore.studentRoleAssignments, testCase.name).toEqual([]);
       expect(candidateStore.roleWorkflowEvents, testCase.name).toEqual([]);
-      expect(() =>
+      await expect(
         candidateService.assertDirectDecisionSubmissionAllowed(studentCeo, {
           round_id: "round_c3_1",
           run_id: "run_c3",
           team_id: "team_c3"
         })
-      ).not.toThrow();
+      ).resolves.not.toThrow();
     }
   });
 
-  it("rejects duplicate active assignments and cross-tenant assignment attempts", () => {
+  it("rejects duplicate active assignments and cross-tenant assignment attempts", async () => {
     const input = {
       course_id: "course_c3",
       role_key: "CEO" as const,
@@ -254,30 +253,30 @@ describe("RoleWorkflowCommandService", () => {
       team_id: "team_c3",
       user_id: studentCeo.actor_id
     };
-    service.assignRole(teacher, input);
+    await service.assignRole(teacher, input);
 
-    expect(() => service.assignRole(teacher, input)).toThrowError(
+    await expect(service.assignRole(teacher, input)).rejects.toThrowError(
       expect.objectContaining({ code: "ROLE_WORKFLOW_ASSIGNMENT_EXISTS" })
     );
-    expect(() => service.assignRole({ ...teacher, tenant_id: "tenant_other" }, input)).toThrowError(
-      expect.objectContaining({ code: "ROLE_WORKFLOW_TENANT_DENIED" })
-    );
+    await expect(
+      service.assignRole({ ...teacher, tenant_id: "tenant_other" }, input)
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TENANT_DENIED" }));
 
     store.teams[0]!.members.push({
       display_name: "Alternate CEO",
       role_slot: "CEO",
       user_id: "student_ceo_alternate"
     });
-    expect(() =>
+    await expect(
       service.assignRole(teacher, {
         ...input,
         user_id: "student_ceo_alternate"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_ASSIGNMENT_EXISTS" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_ASSIGNMENT_EXISTS" }));
   });
 
-  it("persists only role-owned draft fields and rejects stale updates", () => {
-    service.assignRole(teacher, {
+  it("persists only role-owned draft fields and rejects stale updates", async () => {
+    await service.assignRole(teacher, {
       course_id: "course_c3",
       role_key: "CFO",
       run_id: "run_c3",
@@ -285,7 +284,7 @@ describe("RoleWorkflowCommandService", () => {
       user_id: studentCfo.actor_id
     });
 
-    const created = service.saveSection(studentCfo, {
+    const created = await service.saveSection(studentCfo, {
       expected_version: 0,
       payload: { cash_buffer_target: 0.2, service_quality_budget: 125000 },
       round_id: "round_c3_1",
@@ -294,7 +293,7 @@ describe("RoleWorkflowCommandService", () => {
     });
     expect(created.version).toBe(1);
 
-    expect(() =>
+    await expect(
       service.saveSection(studentCfo, {
         expected_version: 0,
         payload: { cash_buffer_target: 0.3 },
@@ -302,9 +301,9 @@ describe("RoleWorkflowCommandService", () => {
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_STALE_SECTION" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_STALE_SECTION" }));
 
-    expect(() =>
+    await expect(
       service.saveSection(studentCfo, {
         expected_version: 1,
         payload: { marketing_budget: 999999 },
@@ -312,11 +311,11 @@ describe("RoleWorkflowCommandService", () => {
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_FIELD_DENIED" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_FIELD_DENIED" }));
   });
 
-  it("denies students access to another member's role workspace", () => {
-    service.assignRole(teacher, {
+  it("denies students access to another member's role workspace", async () => {
+    await service.assignRole(teacher, {
       course_id: "course_c3",
       role_key: "CEO",
       run_id: "run_c3",
@@ -326,7 +325,7 @@ describe("RoleWorkflowCommandService", () => {
 
     let failure: unknown;
     try {
-      service.getStudentWorkspace(studentCfo, {
+      await service.getStudentWorkspace(studentCfo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
@@ -339,33 +338,33 @@ describe("RoleWorkflowCommandService", () => {
     expect(failure).toMatchObject({ code: "ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND" });
   });
 
-  it("requires every assigned role to be ready before creating one validated merge commit", () => {
-    assignAllRoles();
-    service.saveSection(studentCeo, {
+  it("requires every assigned role to be ready before creating one validated merge commit", async () => {
+    await assignAllRoles();
+    await service.saveSection(studentCeo, {
       expected_version: 0,
       payload: { strategy_statement: "Not enough sections." },
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
-    service.markSectionReady(studentCeo, {
+    await service.markSectionReady(studentCeo, {
       expected_version: 1,
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
 
-    expect(() =>
+    await expect(
       service.createMergeCommit(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_SECTIONS_NOT_READY" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_SECTIONS_NOT_READY" }));
   });
 
-  it("rejects conflicting values when two roles own the same merge field", () => {
-    assignAllRoles();
+  it("rejects conflicting values when two roles own the same merge field", async () => {
+    await assignAllRoles();
     const payloads = new Map<RoleWorkflowActor, object>([
       [studentCeo, { strategy_statement: "One plan." }],
       [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
@@ -373,14 +372,14 @@ describe("RoleWorkflowCommandService", () => {
       [studentCoo, { capacity_plan: "expand", service_quality_budget: 130000 }]
     ]);
     for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
-      service.saveSection(actor, {
+      await service.saveSection(actor, {
         expected_version: 0,
         payload: payloads.get(actor)!,
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       });
-      service.markSectionReady(actor, {
+      await service.markSectionReady(actor, {
         expected_version: 1,
         round_id: "round_c3_1",
         run_id: "run_c3",
@@ -388,17 +387,17 @@ describe("RoleWorkflowCommandService", () => {
       });
     }
 
-    expect(() =>
+    await expect(
       service.createMergeCommit(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_MERGE_CONFLICT" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_MERGE_CONFLICT" }));
     expect(store.decisionMergeCommits).toEqual([]);
   });
 
-  it("merges ready role sections and confirms exactly one canonical decision idempotently", () => {
+  it("merges ready role sections and confirms exactly one canonical decision idempotently", async () => {
     store.decisions.push({
       decision_id: "decision_historical",
       payload: {
@@ -421,15 +420,15 @@ describe("RoleWorkflowCommandService", () => {
     });
     const historicalDecision = structuredClone(store.decisions[0]);
     const settlementBefore = structuredClone(store.settlementResults);
-    assignAllRoles();
-    saveAndReadyAllSections();
+    await assignAllRoles();
+    await saveAndReadyAllSections();
 
-    const firstMerge = service.createMergeCommit(studentCeo, {
+    const firstMerge = await service.createMergeCommit(studentCeo, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
-    const repeatedMerge = service.createMergeCommit(studentCeo, {
+    const repeatedMerge = await service.createMergeCommit(studentCeo, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
@@ -444,27 +443,31 @@ describe("RoleWorkflowCommandService", () => {
       strategy_statement: "Grow with discipline."
     });
     expect(
-      service.getStudentWorkspace(studentCfo, {
-        round_id: "round_c3_1",
-        run_id: "run_c3",
-        team_id: "team_c3"
-      }).merge_candidate
+      (
+        await service.getStudentWorkspace(studentCfo, {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        })
+      ).merge_candidate
     ).toBeUndefined();
     expect(
-      service.getStudentWorkspace(studentCeo, {
-        round_id: "round_c3_1",
-        run_id: "run_c3",
-        team_id: "team_c3"
-      }).merge_candidate?.merge_commit_id
+      (
+        await service.getStudentWorkspace(studentCeo, {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        })
+      ).merge_candidate?.merge_commit_id
     ).toBe(firstMerge.merge_commit_id);
 
-    const firstConfirmation = service.confirmTeamDecision(studentCeo, {
+    const firstConfirmation = await service.confirmTeamDecision(studentCeo, {
       merge_commit_id: firstMerge.merge_commit_id,
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
-    const repeatedConfirmation = service.confirmTeamDecision(studentCeo, {
+    const repeatedConfirmation = await service.confirmTeamDecision(studentCeo, {
       merge_commit_id: firstMerge.merge_commit_id,
       round_id: "round_c3_1",
       run_id: "run_c3",
@@ -485,49 +488,49 @@ describe("RoleWorkflowCommandService", () => {
     expect(store.settlementResults).toEqual(settlementBefore);
   });
 
-  it("rejects a stale merge after reset creates a new assignment generation", () => {
-    assignAllRoles();
-    saveAndReadyAllSections();
-    const staleMerge = service.createMergeCommit(studentCeo, {
+  it("rejects a stale merge after reset creates a new assignment generation", async () => {
+    await assignAllRoles();
+    await saveAndReadyAllSections();
+    const staleMerge = await service.createMergeCommit(studentCeo, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
-    service.resetWorkflow(teacher, {
+    await service.resetWorkflow(teacher, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
-    assignAllRoles();
+    await assignAllRoles();
 
     expect(
-      service.getStudentWorkspace(studentCeo, {
+      await service.getStudentWorkspace(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       }).merge_candidate
     ).toBeUndefined();
-    expect(() =>
+    await expect(
       service.confirmTeamDecision(studentCeo, {
         merge_commit_id: staleMerge.merge_commit_id,
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_STALE_MERGE" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_STALE_MERGE" }));
     expect(store.teamConfirmations).toEqual([]);
     expect(store.decisions).toEqual([]);
   });
 
-  it("disables the direct Decision writer while an active role workflow exists", () => {
-    expect(() =>
+  it("disables the direct Decision writer while an active role workflow exists", async () => {
+    await expect(
       service.assertDirectDecisionSubmissionAllowed(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).not.toThrow();
-    service.assignRole(teacher, {
+    ).resolves.not.toThrow();
+    await service.assignRole(teacher, {
       course_id: "course_c3",
       role_key: "CEO",
       run_id: "run_c3",
@@ -535,35 +538,39 @@ describe("RoleWorkflowCommandService", () => {
       user_id: studentCeo.actor_id
     });
 
-    expect(() =>
+    await expect(
       service.assertDirectDecisionSubmissionAllowed(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" }));
+    ).rejects.toThrowError(
+      expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" })
+    );
 
-    service.resetWorkflow(teacher, {
+    await service.resetWorkflow(teacher, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
     });
 
-    expect(() =>
+    await expect(
       service.assertDirectDecisionSubmissionAllowed(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" }));
+    ).rejects.toThrowError(
+      expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" })
+    );
   });
 
-  it("compensates all in-memory workflow writes when JSON persistence fails", () => {
+  it("compensates all in-memory workflow writes when JSON persistence fails", async () => {
     store.persist = () => {
       throw new Error("disk unavailable");
     };
 
-    expect(() =>
+    await expect(
       service.assignRole(teacher, {
         course_id: "course_c3",
         role_key: "CEO",
@@ -571,15 +578,15 @@ describe("RoleWorkflowCommandService", () => {
         team_id: "team_c3",
         user_id: studentCeo.actor_id
       })
-    ).toThrow("disk unavailable");
+    ).rejects.toThrow("disk unavailable");
     expect(store.studentRoleAssignments).toEqual([]);
     expect(store.roleWorkflowEvents).toEqual([]);
   });
 
-  it("compensates confirmation, canonical Decision, and audit event together", () => {
-    assignAllRoles();
-    saveAndReadyAllSections();
-    const merge = service.createMergeCommit(studentCeo, {
+  it("compensates confirmation, canonical Decision, and audit event together", async () => {
+    await assignAllRoles();
+    await saveAndReadyAllSections();
+    const merge = await service.createMergeCommit(studentCeo, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
@@ -589,38 +596,34 @@ describe("RoleWorkflowCommandService", () => {
       throw new Error("disk unavailable");
     };
 
-    expect(() =>
+    await expect(
       service.confirmTeamDecision(studentCeo, {
         merge_commit_id: merge.merge_commit_id,
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrow("disk unavailable");
+    ).rejects.toThrow("disk unavailable");
     expect(store.teamConfirmations).toEqual([]);
     expect(store.decisions).toEqual([]);
     expect(store.roleWorkflowEvents).toHaveLength(eventCount);
   });
 
   it("serializes duplicate merge attempts and preserves append-only workflow history", async () => {
-    assignAllRoles();
-    saveAndReadyAllSections();
+    await assignAllRoles();
+    await saveAndReadyAllSections();
 
     const [left, right] = await Promise.all([
-      Promise.resolve(
-        service.createMergeCommit(studentCeo, {
-          round_id: "round_c3_1",
-          run_id: "run_c3",
-          team_id: "team_c3"
-        })
-      ),
-      Promise.resolve(
-        service.createMergeCommit(studentCeo, {
-          round_id: "round_c3_1",
-          run_id: "run_c3",
-          team_id: "team_c3"
-        })
-      )
+      service.createMergeCommit(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      }),
+      service.createMergeCommit(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
     ]);
 
     expect(left.merge_commit_id).toBe(right.merge_commit_id);
@@ -642,9 +645,9 @@ describe("RoleWorkflowCommandService", () => {
     ]);
   });
 
-  it("allows only the teacher to reset active workflow state while retaining audit history", () => {
-    assignAllRoles();
-    service.saveSection(studentCeo, {
+  it("allows only the teacher to reset active workflow state while retaining audit history", async () => {
+    await assignAllRoles();
+    await service.saveSection(studentCeo, {
       expected_version: 0,
       payload: { strategy_statement: "Reset me." },
       round_id: "round_c3_1",
@@ -652,15 +655,15 @@ describe("RoleWorkflowCommandService", () => {
       team_id: "team_c3"
     });
 
-    expect(() =>
+    await expect(
       service.resetWorkflow(studentCeo, {
         round_id: "round_c3_1",
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TEACHER_REQUIRED" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_TEACHER_REQUIRED" }));
 
-    const reset = service.resetWorkflow(teacher, {
+    const reset = await service.resetWorkflow(teacher, {
       round_id: "round_c3_1",
       run_id: "run_c3",
       team_id: "team_c3"
