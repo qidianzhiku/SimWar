@@ -1,0 +1,16 @@
+{
+  "schema_version": "fresh-learner-admission.v1",
+  "tenant_id": "tenant_w022",
+  "course_id": "course_shanghai",
+  "run_id": "run_shanghai",
+  "team_count": 1,
+  "fresh_learner_count": 3,
+  "required_roster_count": 4,
+  "assigned_roster_count": 2,
+  "auth_ready": false,
+  "teacher_ready": true,
+  "admission_status": "BLOCKED",
+  "teams": [],
+  "known_limits": ["JSON_INTERNAL_ONLY"],
+  "password_hash": "must-not-cross-projection"
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/fresh-learner-admission.v1.json",
+  "title": "Fresh learner E4 admission readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tenant_id",
+    "course_id",
+    "run_id",
+    "team_count",
+    "fresh_learner_count",
+    "required_roster_count",
+    "assigned_roster_count",
+    "auth_ready",
+    "teacher_ready",
+    "admission_status",
+    "teams",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "fresh-learner-admission.v1" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "course_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "team_count": { "type": "integer", "minimum": 0 },
+    "fresh_learner_count": { "type": "integer", "minimum": 0 },
+    "required_roster_count": { "type": "integer", "minimum": 0 },
+    "assigned_roster_count": { "type": "integer", "minimum": 0 },
+    "auth_ready": { "type": "boolean" },
+    "teacher_ready": { "type": "boolean" },
+    "admission_status": {
+      "enum": ["BLOCKED", "READY_FOR_MACHINE_E4", "READY_FOR_HUMAN_INTERNAL_VALIDATION_WITH_LIMITS"]
+    },
+    "teams": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/team" }
+    },
+    "known_limits": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "role": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "team_id",
+        "team_name",
+        "captain_user_id",
+        "member_count",
+        "required_member_count",
+        "assigned_role_count",
+        "auth_ready_member_count",
+        "auth_ready",
+        "missing_roles",
+        "duplicate_roles",
+        "invalid_memberships",
+        "assigned_roles",
+        "ready"
+      ],
+      "properties": {
+        "team_id": { "type": "string", "minLength": 1 },
+        "team_name": { "type": "string", "minLength": 1 },
+        "captain_user_id": { "type": "string", "minLength": 1 },
+        "member_count": { "type": "integer", "minimum": 0 },
+        "required_member_count": { "const": 4 },
+        "assigned_role_count": { "type": "integer", "minimum": 0 },
+        "auth_ready_member_count": { "type": "integer", "minimum": 0 },
+        "auth_ready": { "type": "boolean" },
+        "missing_roles": { "type": "array", "items": { "$ref": "#/$defs/role" } },
+        "duplicate_roles": { "type": "array", "items": { "$ref": "#/$defs/role" } },
+        "invalid_memberships": { "type": "array", "items": { "type": "string" } },
+        "assigned_roles": { "type": "array", "items": { "$ref": "#/$defs/role" } },
+        "ready": { "type": "boolean" }
+      }
+    }
+  }
+}

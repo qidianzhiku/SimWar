@@ -117,7 +117,9 @@ export function createJsonGovernedAdvisoryRepositoryPort(
 ): GovernedAdvisoryRepositoryPort {
   return {
     async list(tenantId) {
-      return clone((store.governedAdvisoryRecords ?? []).filter((record) => record.tenant_id === tenantId));
+      return clone(
+        (store.governedAdvisoryRecords ?? []).filter((record) => record.tenant_id === tenantId)
+      );
     },
     async append(record) {
       const records = store.governedAdvisoryRecords ?? (store.governedAdvisoryRecords = []);
@@ -933,6 +935,49 @@ export function createJsonRepositoryPorts(
 
         captain.team_id = team.team_id;
         store.persist();
+      },
+
+      async addMemberToTeam(tenantId, teamId, member): Promise<Team> {
+        const team = store.teams.find(
+          (candidate) => candidate.tenant_id === tenantId && candidate.team_id === teamId
+        );
+        if (!team) throw new Error("team_not_found");
+        const user = store.users.find(
+          (candidate) => candidate.tenant_id === tenantId && candidate.user_id === member.user_id
+        );
+        if (!user) throw new Error("team_member_not_found");
+        if (team.members.some((candidate) => candidate.user_id === member.user_id)) {
+          throw new Error("team_member_duplicate");
+        }
+        if (
+          store.teams.some(
+            (candidate) =>
+              candidate.tenant_id === tenantId &&
+              candidate.team_id !== teamId &&
+              candidate.members.some((candidate) => candidate.user_id === member.user_id)
+          )
+        ) {
+          throw new Error("team_member_already_enrolled");
+        }
+        if (team.members.some((candidate) => candidate.role_slot === member.role_slot)) {
+          throw new Error("team_role_slot_duplicate");
+        }
+        const previousTeamMembers = [...team.members];
+        const previousUserTeamId = user.team_id;
+        team.members = [...team.members, clone(member)];
+        user.team_id = teamId;
+        try {
+          store.persist();
+        } catch (error) {
+          team.members = previousTeamMembers;
+          if (previousUserTeamId === undefined) {
+            delete user.team_id;
+          } else {
+            user.team_id = previousUserTeamId;
+          }
+          throw error;
+        }
+        return clone(team);
       }
     },
 
