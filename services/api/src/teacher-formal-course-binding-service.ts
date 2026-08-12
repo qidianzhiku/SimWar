@@ -10,7 +10,10 @@ import {
   createFormalCourseAuthorityBinding,
   type FormalCourseAuthorityBinding
 } from "./formal-course-authority-binding.js";
-import { FormalCourseAuthorityBindingStore } from "./formal-course-authority-binding-store.js";
+import type {
+  FormalCourseAuthorityBindingPort,
+  PendingFormalCourseAuthorityBinding
+} from "./formal-course-authority-binding-store.js";
 import type { FormalRunBindingAuthorityPorts } from "./formal-run-runtime-binding.js";
 import { getActiveJsonRuntimeEngineProfile } from "./formal-runtime-input-resolver.js";
 
@@ -41,11 +44,7 @@ export interface CreateTeacherFormalCourseInput extends TeacherFormalCourseBindi
   beforeCommit?: () => Promise<void>;
   course: Course;
   persistence: TeacherFormalCoursePersistence;
-  bindingStore: Pick<FormalCourseAuthorityBindingStore, "append"> &
-    Partial<Pick<
-      FormalCourseAuthorityBindingStore,
-      "appendPending" | "commitPending" | "removeUncommitted"
-    >>;
+  bindingStore: FormalCourseAuthorityBindingPort;
 }
 
 function clone<T>(value: T): T {
@@ -173,7 +172,7 @@ export async function createTeacherFormalCourse(input: CreateTeacherFormalCourse
   });
 
   let coursePersisted = false;
-  let pendingBinding: ReturnType<FormalCourseAuthorityBindingStore["appendPending"]> | undefined;
+  let pendingBinding: PendingFormalCourseAuthorityBinding | undefined;
   try {
     await input.persistence.saveCourse(input.course);
     coursePersisted = true;
@@ -185,18 +184,18 @@ export async function createTeacherFormalCourse(input: CreateTeacherFormalCourse
       ) {
         throw new Error("formal_course_authority_binding_transaction_required");
       }
-      pendingBinding = input.bindingStore.appendPending(binding);
+      pendingBinding = await input.bindingStore.appendPending(binding);
       await input.beforeCommit();
-      input.bindingStore.commitPending(pendingBinding);
+      await input.bindingStore.commitPending(pendingBinding);
     } else {
-      input.bindingStore.append(binding);
+      await input.bindingStore.append(binding);
     }
     return deepFreeze({ binding, summary: createSummary(binding) });
   } catch (error) {
     let compensationError: unknown;
     if (pendingBinding) {
       try {
-        input.bindingStore.removeUncommitted!(pendingBinding);
+        await input.bindingStore.removeUncommitted(pendingBinding);
       } catch (rollbackError) {
         compensationError = rollbackError;
       }

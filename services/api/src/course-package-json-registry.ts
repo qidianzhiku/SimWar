@@ -20,6 +20,23 @@ export interface CoursePackageJsonRegistryDependencies {
   persist?: (snapshots: readonly CoursePackageVersion[]) => void;
 }
 
+export interface CoursePackageRegistryPort {
+  currentTime(): string;
+  append(snapshot: CoursePackageVersion): Promise<void>;
+  captureAuditCheckpointForCompensation(): CoursePackageVersion[];
+  restoreAuditCheckpointAfterFailure(checkpoint: readonly CoursePackageVersion[]): void;
+  getByReference(
+    tenantId: string,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion | null>;
+  listForTenant(tenantId: string): Promise<CoursePackageVersion[]>;
+  listLifecycleSnapshots(
+    tenantId: string,
+    coursePackageId: string,
+    version: string
+  ): Promise<CoursePackageVersion[]>;
+}
+
 function canonicalize(value: unknown): string {
   if (value === null || typeof value === "boolean" || typeof value === "number") {
     return JSON.stringify(value);
@@ -233,7 +250,7 @@ export function createCoursePackageLifecycleSnapshot(
 }
 
 /** Private JSON registry for C5 only. It stores no Course, Run, truth, or replay record. */
-export class CoursePackageJsonRegistry {
+export class CoursePackageJsonRegistry implements CoursePackageRegistryPort {
   private readonly now: () => string;
   private readonly persist: (snapshots: readonly CoursePackageVersion[]) => void;
   private readonly snapshots: CoursePackageVersion[];

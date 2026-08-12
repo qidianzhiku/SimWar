@@ -8,7 +8,7 @@ import type {
 } from "@simwar/shared-contracts";
 import type { CourseBlueprintVersion } from "./course-blueprint-authority.js";
 import {
-  CoursePackageJsonRegistry,
+  type CoursePackageRegistryPort,
   CoursePackageRegistryError,
   assertValidCoursePackageVersion,
   createCoursePackageDraftVersion,
@@ -87,7 +87,7 @@ function cloneDraft(version: CoursePackageVersion): CoursePackageVersionDraftInp
 
 export class CoursePackageCommandService {
   constructor(
-    private readonly registry: CoursePackageJsonRegistry,
+    private readonly registry: CoursePackageRegistryPort,
     private readonly sources: CoursePackageSourceReadPorts
   ) {}
 

@@ -95,6 +95,11 @@ export interface ValidationEnvironmentLaunchStepExecutor {
 }
 
 export interface ValidationEnvironmentLaunchLedger {
+  withBusinessKeyLock?<T>(
+    tenantId: string,
+    businessKeyDigest: string,
+    callback: () => Promise<T>
+  ): Promise<T>;
   acquire(input: {
     tenant_id: string;
     business_key_digest: string;
@@ -303,107 +308,115 @@ export class ValidationEnvironmentLaunchService {
   ): Promise<ValidationEnvironmentLaunch> {
     const identity = calculateLaunchIdentity(input);
     const launchId = `vlaunch_${identity.business_key_digest.slice(0, 24)}`;
-    let launch = await this.ledger.acquire({
-      tenant_id: input.target_tenant_id,
-      ...identity,
-      launch_id: launchId,
-      initial: initialLaunch(
-        input,
-        identity.business_key_digest,
-        identity.request_fingerprint,
-        launchId
-      )
-    });
-    ensureHistory(launch);
-    if (launch.version === 0 && launch.status === "REQUESTED") {
-      await executor.afterStep?.("DURABLE_ROW", clone(launch));
-    }
-    if (launch.request_fingerprint !== identity.request_fingerprint)
-      throw new ValidationEnvironmentLaunchError(
-        "W025_LAUNCH_CONFLICT",
-        "conflicting launch retry"
-      );
-    if (launch.status === "CONFLICT")
-      throw new ValidationEnvironmentLaunchError("W025_LAUNCH_CONFLICT");
-    if (launch.status === "ABORTED")
-      throw new ValidationEnvironmentLaunchError("W025_LAUNCH_ABORTED");
-    if (launch.status === "READY") return clone(launch);
+    const run = async (): Promise<ValidationEnvironmentLaunch> => {
+      let launch = await this.ledger.acquire({
+        tenant_id: input.target_tenant_id,
+        ...identity,
+        launch_id: launchId,
+        initial: initialLaunch(
+          input,
+          identity.business_key_digest,
+          identity.request_fingerprint,
+          launchId
+        )
+      });
+      ensureHistory(launch);
+      if (launch.version === 0 && launch.status === "REQUESTED") {
+        await executor.afterStep?.("DURABLE_ROW", clone(launch));
+      }
+      if (launch.request_fingerprint !== identity.request_fingerprint)
+        throw new ValidationEnvironmentLaunchError(
+          "W025_LAUNCH_CONFLICT",
+          "conflicting launch retry"
+        );
+      if (launch.status === "CONFLICT")
+        throw new ValidationEnvironmentLaunchError("W025_LAUNCH_CONFLICT");
+      if (launch.status === "ABORTED")
+        throw new ValidationEnvironmentLaunchError("W025_LAUNCH_ABORTED");
+      if (launch.status === "READY") return clone(launch);
 
-    const advance = async (
-      status: ValidationEnvironmentLaunch["status"],
-      update: Partial<ValidationEnvironmentLaunch>,
-      hook: W025LaunchHook
-    ) => {
-      const next: ValidationEnvironmentLaunch = {
-        ...launch,
-        ...update,
-        status,
-        version: launch.version + 1,
-        updated_at: new Date().toISOString(),
-        last_error: undefined
+      const advance = async (
+        status: ValidationEnvironmentLaunch["status"],
+        update: Partial<ValidationEnvironmentLaunch>,
+        hook: W025LaunchHook
+      ) => {
+        const next: ValidationEnvironmentLaunch = {
+          ...launch,
+          ...update,
+          status,
+          version: launch.version + 1,
+          updated_at: new Date().toISOString(),
+          last_error: undefined
+        };
+        launch = await this.ledger.save(next, launch.version);
+        await executor.afterStep?.(hook, clone(launch));
       };
-      launch = await this.ledger.save(next, launch.version);
-      await executor.afterStep?.(hook, clone(launch));
-    };
 
-    if (launch.status === "REQUESTED") {
-      const result = await executor.prepareBaseline(input, launch);
-      await advance(
-        "BASELINE_READY",
-        {
-          step_receipts: {
-            ...launch.step_receipts,
-            baseline: receipt("baseline materialized", result)
-          }
-        },
-        "BASELINE_READY"
-      );
-    }
-    if (launch.status === "BASELINE_READY") {
-      const result = await executor.prepareCourseRun(input, launch);
-      await advance(
-        "COURSE_RUN_READY",
-        {
-          course_id: result.course_id,
-          run_id: result.run_id,
-          round_id: result.round_id,
-          step_receipts: {
-            ...launch.step_receipts,
-            course_run: receipt("course and run ready", result)
-          }
-        },
-        "COURSE_RUN_READY"
-      );
-    }
-    if (launch.status === "COURSE_RUN_READY") {
-      const result = await executor.prepareCohort(input, launch);
-      await advance(
-        "COHORT_READY",
-        {
-          team_ids: [...result.team_ids],
-          step_receipts: { ...launch.step_receipts, cohort: receipt("fresh cohort ready", result) }
-        },
-        "COHORT_READY"
-      );
-    }
-    if (launch.status === "COHORT_READY") {
-      const result = await executor.prepareSession(input, launch);
-      await advance(
-        "SESSION_PREFLIGHT_READY",
-        {
-          session_id: result.session_id,
-          step_receipts: {
-            ...launch.step_receipts,
-            session: receipt("validation preflight ready", result)
-          }
-        },
-        "SESSION_PREFLIGHT_READY"
-      );
-    }
-    if (launch.status === "SESSION_PREFLIGHT_READY") {
-      await advance("READY", {}, "READY");
-    }
-    return clone(launch);
+      if (launch.status === "REQUESTED") {
+        const result = await executor.prepareBaseline(input, launch);
+        await advance(
+          "BASELINE_READY",
+          {
+            step_receipts: {
+              ...launch.step_receipts,
+              baseline: receipt("baseline materialized", result)
+            }
+          },
+          "BASELINE_READY"
+        );
+      }
+      if (launch.status === "BASELINE_READY") {
+        const result = await executor.prepareCourseRun(input, launch);
+        await advance(
+          "COURSE_RUN_READY",
+          {
+            course_id: result.course_id,
+            run_id: result.run_id,
+            round_id: result.round_id,
+            step_receipts: {
+              ...launch.step_receipts,
+              course_run: receipt("course and run ready", result)
+            }
+          },
+          "COURSE_RUN_READY"
+        );
+      }
+      if (launch.status === "COURSE_RUN_READY") {
+        const result = await executor.prepareCohort(input, launch);
+        await advance(
+          "COHORT_READY",
+          {
+            team_ids: [...result.team_ids],
+            step_receipts: {
+              ...launch.step_receipts,
+              cohort: receipt("fresh cohort ready", result)
+            }
+          },
+          "COHORT_READY"
+        );
+      }
+      if (launch.status === "COHORT_READY") {
+        const result = await executor.prepareSession(input, launch);
+        await advance(
+          "SESSION_PREFLIGHT_READY",
+          {
+            session_id: result.session_id,
+            step_receipts: {
+              ...launch.step_receipts,
+              session: receipt("validation preflight ready", result)
+            }
+          },
+          "SESSION_PREFLIGHT_READY"
+        );
+      }
+      if (launch.status === "SESSION_PREFLIGHT_READY") {
+        await advance("READY", {}, "READY");
+      }
+      return clone(launch);
+    };
+    return this.ledger.withBusinessKeyLock
+      ? this.ledger.withBusinessKeyLock(input.target_tenant_id, identity.business_key_digest, run)
+      : run();
   }
 }
 
@@ -457,6 +470,11 @@ export interface PostgresLaunchTransactionExecutor {
 export function createPostgresValidationEnvironmentLaunchLedger(options: {
   queryExecutor: PostgresLaunchQueryExecutor;
   transactionExecutor: PostgresLaunchTransactionExecutor;
+  withBusinessKeyLock<T>(
+    tenantId: string,
+    businessKeyDigest: string,
+    callback: () => Promise<T>
+  ): Promise<T>;
 }): ValidationEnvironmentLaunchLedger {
   const parse = (row: unknown): ValidationEnvironmentLaunch => {
     const payload = (row as { payload?: unknown }).payload;
@@ -465,11 +483,9 @@ export function createPostgresValidationEnvironmentLaunchLedger(options: {
     return payload;
   };
   return {
+    withBusinessKeyLock: options.withBusinessKeyLock,
     async acquire(input) {
       return options.transactionExecutor(async (execute) => {
-        await execute("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-          `${input.tenant_id}:${input.business_key_digest}`
-        ]);
         const existing = await execute(
           "SELECT payload FROM w025_validation_environment_launches WHERE tenant_id = $1 AND business_key_digest = $2 FOR UPDATE",
           [input.tenant_id, input.business_key_digest]

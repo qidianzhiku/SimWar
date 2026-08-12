@@ -6,20 +6,24 @@ import type {
   Team,
   ValidationSessionParticipant
 } from "@simwar/shared-contracts";
+import type { ValidationEnvironmentLaunch } from "@simwar/shared-contracts";
 import { getActiveJsonRuntimeEngineProfile } from "./formal-runtime-input-resolver.js";
 import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import { createFormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
 import { createTeacherCourseFromBlueprint } from "./teacher-course-blueprint-service.js";
 import type { CourseBlueprintCommandService } from "./course-blueprint-authority.js";
-import type { CourseBlueprintBindingStore } from "./course-blueprint-binding-store.js";
-import type { FormalCourseAuthorityBindingStore } from "./formal-course-authority-binding-store.js";
-import type { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
+import type { CourseBlueprintBindingPort } from "./course-blueprint-binding-store.js";
+import type { FormalCourseAuthorityBindingPort } from "./formal-course-authority-binding-store.js";
+import type { FormalRunRuntimeBindingPort } from "./formal-run-runtime-binding-store.js";
 import type { FormalRunBindingAuthorityPorts } from "./formal-run-runtime-binding.js";
 import type { RepositoryProvider } from "./repository-provider.js";
 import type { RoleWorkflowCommandService } from "./role-workflow.js";
 import type { TenantBaselineProvisioningService } from "./tenant-baseline-provisioning.js";
 import type { ValidationSessionControlPlane } from "./validation-session-control-plane.js";
-import type { ValidationEnvironmentLaunchStepExecutor } from "./validation-environment-launch.js";
+import type {
+  ValidationEnvironmentLaunchStepExecutor,
+  W025LaunchHook
+} from "./validation-environment-launch.js";
 import { digest } from "./validation-environment-launch.js";
 import type { CoursePackageQueryService } from "./course-package-query-service.js";
 
@@ -30,9 +34,9 @@ export interface W025LaunchExecutorDependencies {
   readonly formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
   readonly formalCourseBlueprints: CourseBlueprintCommandService;
   readonly coursePackageQueries: CoursePackageQueryService;
-  readonly courseBlueprintBindingStore: CourseBlueprintBindingStore;
-  readonly formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingStore;
-  readonly formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
+  readonly courseBlueprintBindingStore: CourseBlueprintBindingPort;
+  readonly formalCourseAuthorityBindingStore: FormalCourseAuthorityBindingPort;
+  readonly formalRunRuntimeBindingStore: FormalRunRuntimeBindingPort;
   readonly tenantBaselineProvisioning: TenantBaselineProvisioningService;
   readonly roleWorkflow: RoleWorkflowCommandService;
   readonly validationSessions: ValidationSessionControlPlane;
@@ -41,6 +45,9 @@ export interface W025LaunchExecutorDependencies {
     user_id: string;
     display_name: string;
   }) => Promise<void>;
+  readonly afterStep?:
+    | ((hook: W025LaunchHook, launch: ValidationEnvironmentLaunch) => Promise<void>)
+    | undefined;
 }
 
 function sameRef(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
@@ -56,6 +63,9 @@ export function createW025LaunchExecutor(
 ): ValidationEnvironmentLaunchStepExecutor {
   const { actor } = dependencies;
   return {
+    async afterStep(hook, launch) {
+      await dependencies.afterStep?.(hook, launch);
+    },
     async prepareBaseline(input, launch) {
       const parameter = await dependencies.formalRunBindingAuthorities.parameterSets.getByReference(
         input.source_parameter_set.tenant_id,
@@ -164,7 +174,7 @@ export function createW025LaunchExecutor(
         await dependencies.repositoryProvider.facade.courses.saveCourse(course);
       }
 
-      let binding = dependencies.formalCourseAuthorityBindingStore.getForCourse(
+      let binding = await dependencies.formalCourseAuthorityBindingStore.getForCourse(
         input.target_tenant_id,
         courseId
       );
@@ -178,7 +188,7 @@ export function createW025LaunchExecutor(
           scenario_package_reference: coursePackage.scenario_package_reference,
           tenant_id: input.target_tenant_id
         });
-        dependencies.formalCourseAuthorityBindingStore.append(binding);
+        await dependencies.formalCourseAuthorityBindingStore.append(binding);
       }
 
       let run = await dependencies.repositoryProvider.facade.runs.getRun(

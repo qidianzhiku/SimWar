@@ -6,7 +6,7 @@ import type {
   CoursePackageVersionTeacherListDto
 } from "@simwar/shared-contracts";
 import {
-  CoursePackageJsonRegistry,
+  type CoursePackageRegistryPort,
   createCoursePackageVersionReference
 } from "./course-package-json-registry.js";
 
@@ -24,7 +24,7 @@ export function toTeacherCoursePackageVersionDto(
 }
 
 export class CoursePackageQueryService {
-  constructor(private readonly registry: CoursePackageJsonRegistry) {}
+  constructor(private readonly registry: CoursePackageRegistryPort) {}
 
   async listAdmin(tenantId: string): Promise<CoursePackageVersionAdminListDto> {
     return { course_package_versions: await this.registry.listForTenant(tenantId) };

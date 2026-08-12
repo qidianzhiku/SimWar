@@ -19,6 +19,19 @@ export interface PendingFormalCourseAuthorityBinding {
   readonly token: symbol;
 }
 
+export interface FormalCourseAuthorityBindingPort {
+  append(binding: FormalCourseAuthorityBinding): void | Promise<void>;
+  appendPending(
+    binding: FormalCourseAuthorityBinding
+  ): PendingFormalCourseAuthorityBinding | Promise<PendingFormalCourseAuthorityBinding>;
+  commitPending(pending: PendingFormalCourseAuthorityBinding): void | Promise<void>;
+  removeUncommitted(pending: PendingFormalCourseAuthorityBinding): void | Promise<void>;
+  getForCourse(
+    tenantId: string,
+    courseId: string
+  ): FormalCourseAuthorityBinding | null | Promise<FormalCourseAuthorityBinding | null>;
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -36,7 +49,7 @@ function deepFreeze<T>(value: T): T {
  * Public Course records stay ID-only so a legacy course cannot be mistaken
  * for a formal exact-reference configuration.
  */
-export class FormalCourseAuthorityBindingStore {
+export class FormalCourseAuthorityBindingStore implements FormalCourseAuthorityBindingPort {
   private readonly pending = new Map<symbol, { course_id: string; tenant_id: string }>();
 
   constructor(private readonly store: SimWarStore) {}

@@ -886,7 +886,7 @@ export class TenantBaselineProvisioningService {
       }
       return created;
     } catch (error) {
-      this.authority.removeTenantBaselineMaterialization(materialization);
+      await this.authority.removeTenantBaselineMaterialization(materialization);
       if (error instanceof TenantBaselineProvisioningError && error.code === "AUDIT_FAILED") {
         throw error;
       }

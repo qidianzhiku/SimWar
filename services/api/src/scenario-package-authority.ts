@@ -128,7 +128,7 @@ export interface ScenarioPackageRegistryPort extends ScenarioPackageAuthorityRea
     tenantId: string,
     reference: ScenarioPackageReference
   ): Promise<ScenarioPackageApprovalRecord[]>;
-  listApprovalRecordsForTenant(tenantId: string): readonly unknown[];
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] | Promise<readonly unknown[]>;
   listLifecycleSnapshots(
     tenantId: string,
     scenarioPackageId: string,
@@ -710,7 +710,7 @@ export class ScenarioPackageCommandService implements ScenarioPackageAuthorityRe
     return this.registry.listApprovalRecords(tenantId, reference);
   }
 
-  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+  async listApprovalRecordsForTenant(tenantId: string): Promise<readonly unknown[]> {
     return this.registry.listApprovalRecordsForTenant(tenantId);
   }
 

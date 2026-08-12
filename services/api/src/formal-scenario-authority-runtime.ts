@@ -14,7 +14,9 @@ export interface JsonFormalScenarioAuthorityRuntime {
   catalog: ScenarioPackageAuthorityReadFacade;
   parameterSets: ParameterSetCommandService;
   pluginReleases: PluginReleaseCommandService;
-  removeTenantBaselineMaterialization(materialization: JsonTenantBaselineMaterialization): void;
+  removeTenantBaselineMaterialization(
+    materialization: JsonTenantBaselineMaterialization
+  ): void | Promise<void>;
   scenarioPackages: ScenarioPackageCommandService;
 }
 

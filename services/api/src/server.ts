@@ -77,12 +77,15 @@ import {
 import { getApiHealthPayload } from "./health.js";
 import {
   createJsonFormalScenarioAuthorityPersistence,
-  createJsonGovernedAdvisoryRepositoryPort
+  createJsonGovernedAdvisoryRepositoryPort,
+  type JsonFormalScenarioAuthorityPersistence
 } from "./json-repository-adapter.js";
 import { createSettlementBusinessKey } from "./settlement-idempotency.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import { createPostgresRuntime, resolveRepositoryMode } from "./postgres-runtime.js";
+import type { CoursePackageRegistryPort } from "./course-package-json-registry.js";
+import type { PostgresW025BindingPorts } from "./postgres-formal-authority-persistence.js";
 import {
   RoleWorkflowCommandService,
   RoleWorkflowError,
@@ -215,7 +218,8 @@ import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import {
   ValidationEnvironmentLaunchService,
   type ValidationEnvironmentLaunchLedger,
-  type ValidationEnvironmentLaunchStepExecutor
+  type ValidationEnvironmentLaunchStepExecutor,
+  type W025LaunchHook
 } from "./validation-environment-launch.js";
 import {
   createTeacherFormalCourse,
@@ -321,6 +325,9 @@ export interface CreateApiServerOptions {
   env?: RuntimeSecurityConfigEnv;
   formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
   formalScenarioPackageCatalog?: ScenarioPackageAuthorityReadFacade;
+  formalAuthorityPersistence?: JsonFormalScenarioAuthorityPersistence;
+  coursePackageRegistry?: CoursePackageRegistryPort;
+  validationEnvironmentLaunchBindings?: PostgresW025BindingPorts;
   repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
   validationEnvironmentLaunchLedger?: ValidationEnvironmentLaunchLedger;
@@ -329,6 +336,7 @@ export interface CreateApiServerOptions {
     user_id: string;
     display_name: string;
   }) => Promise<void>;
+  validationEnvironmentLaunchAfterStep?: ((hook: W025LaunchHook) => Promise<void>) | undefined;
 }
 
 type DecisionSubmitBody = Partial<M1DecisionSubmitRequest>;
@@ -435,7 +443,8 @@ function createRuntimeRepositoryProvider(
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
-  const formalAuthorityPersistence = createJsonFormalScenarioAuthorityPersistence(store);
+  const formalAuthorityPersistence =
+    options.formalAuthorityPersistence ?? createJsonFormalScenarioAuthorityPersistence(store);
   const formalAuthorityRuntime = createJsonFormalScenarioAuthorityRuntime(
     formalAuthorityPersistence
   );
@@ -451,12 +460,14 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const formalCourseBlueprints = new CourseBlueprintCommandService(
     formalAuthorityPersistence.createCourseBlueprintRegistry()
   );
-  const coursePackageRegistry = new CoursePackageJsonRegistry(
-    {
-      persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots)
-    },
-    readCoursePackageLifecycleSnapshots(store)
-  );
+  const coursePackageRegistry =
+    options.coursePackageRegistry ??
+    new CoursePackageJsonRegistry(
+      {
+        persist: (snapshots) => persistCoursePackageLifecycleSnapshots(store, snapshots)
+      },
+      readCoursePackageLifecycleSnapshots(store)
+    );
   const coursePackageCommands = new CoursePackageCommandService(coursePackageRegistry, {
     courseBlueprints: formalCourseBlueprints,
     parameterSets: formalAuthorityRuntime.parameterSets,
@@ -617,20 +628,29 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           validationEnvironmentLaunchExecutorFactory: async (context: RequestContext) => {
             const { createW025LaunchExecutor } = await import("./w025-launch-executor.js");
             return createW025LaunchExecutor({
-              actor: context.actor ?? (() => {
-                throw new Error("W025_ACTOR_REQUIRED");
-              })(),
+              actor:
+                context.actor ??
+                (() => {
+                  throw new Error("W025_ACTOR_REQUIRED");
+                })(),
               requestId: context.requestId,
               repositoryProvider,
               formalRunBindingAuthorities,
               formalCourseBlueprints,
               coursePackageQueries,
-              courseBlueprintBindingStore,
-              formalCourseAuthorityBindingStore,
-              formalRunRuntimeBindingStore,
+              courseBlueprintBindingStore:
+                options.validationEnvironmentLaunchBindings?.courseBlueprintBindingStore ??
+                courseBlueprintBindingStore,
+              formalCourseAuthorityBindingStore:
+                options.validationEnvironmentLaunchBindings?.formalCourseAuthorityBindingStore ??
+                formalCourseAuthorityBindingStore,
+              formalRunRuntimeBindingStore:
+                options.validationEnvironmentLaunchBindings?.formalRunRuntimeBindingStore ??
+                formalRunRuntimeBindingStore,
               tenantBaselineProvisioning,
               roleWorkflow,
               validationSessions,
+              afterStep: options.validationEnvironmentLaunchAfterStep,
               ensureUser:
                 options.validationEnvironmentLaunchEnsureUser ??
                 (async () => {
@@ -4843,34 +4863,34 @@ async function routeRequest(
     const w025Context = createContext(runtime, request);
     if (
       await handleValidationEnvironmentLaunchRoute(
-      runtime.validationEnvironmentLaunch,
-      runtime.validationEnvironmentLaunchExecutorFactory
-        ? (context) =>
-            runtime.validationEnvironmentLaunchExecutorFactory!(context as RequestContext)
-        : undefined,
-      request,
-      response,
-      url,
-      {
-        requestId: w025Context.requestId,
-        tenantId: w025Context.tenantId,
-        actor:
-          w025Context.actor ??
-          (() => {
-            throw new HttpError(401, "AUTH-401-001", "authentication required");
-          })()
-      },
-      {
-        readJson,
-        sendJson,
-        createEnvelope,
-        requireTeacher: (context) => {
-          const actor = requirePermission(w025Context, "course:create");
-          if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
-            throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+        runtime.validationEnvironmentLaunch,
+        runtime.validationEnvironmentLaunchExecutorFactory
+          ? (context) =>
+              runtime.validationEnvironmentLaunchExecutorFactory!(context as RequestContext)
+          : undefined,
+        request,
+        response,
+        url,
+        {
+          requestId: w025Context.requestId,
+          tenantId: w025Context.tenantId,
+          actor:
+            w025Context.actor ??
+            (() => {
+              throw new HttpError(401, "AUTH-401-001", "authentication required");
+            })()
+        },
+        {
+          readJson,
+          sendJson,
+          createEnvelope,
+          requireTeacher: (context) => {
+            const actor = requirePermission(w025Context, "course:create");
+            if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+              throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+            }
           }
         }
-      }
       )
     ) {
       return;
@@ -7620,6 +7640,19 @@ if (isMainModule) {
   const startMain = async () => {
     const port = Number.parseInt(process.env.API_PORT ?? "", 10) || DEFAULT_PORT;
     const host = resolveApiHost();
+    const configuredW025CrashHook = process.env.SIMWAR_W025_CRASH_AFTER?.trim();
+    const w025CrashHook =
+      configuredW025CrashHook &&
+      [
+        "DURABLE_ROW",
+        "BASELINE_READY",
+        "COURSE_RUN_READY",
+        "COHORT_READY",
+        "SESSION_PREFLIGHT_READY",
+        "READY"
+      ].includes(configuredW025CrashHook)
+        ? (configuredW025CrashHook as W025LaunchHook)
+        : undefined;
     const postgresRuntime =
       resolveRepositoryMode() === "postgres" ? createPostgresRuntime() : undefined;
     if (postgresRuntime) await postgresRuntime.start();
@@ -7628,8 +7661,17 @@ if (isMainModule) {
       postgresRuntime
         ? {
             repositoryProvider: postgresRuntime.provider,
+            formalAuthorityPersistence: postgresRuntime.formalAuthorityPersistence,
+            coursePackageRegistry: postgresRuntime.formalAuthorityPersistence.coursePackageRegistry,
+            validationEnvironmentLaunchBindings:
+              postgresRuntime.validationEnvironmentLaunchBindings,
             validationEnvironmentLaunchLedger: postgresRuntime.validationEnvironmentLaunchLedger,
-            validationEnvironmentLaunchEnsureUser: postgresRuntime.ensureValidationUser
+            validationEnvironmentLaunchEnsureUser: postgresRuntime.ensureValidationUser,
+            validationEnvironmentLaunchAfterStep: w025CrashHook
+              ? async (hook) => {
+                  if (hook === w025CrashHook) process.exit(91);
+                }
+              : undefined
           }
         : {}
     );

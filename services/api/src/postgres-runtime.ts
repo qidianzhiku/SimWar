@@ -10,6 +10,15 @@ import {
   createPostgresValidationEnvironmentLaunchLedger,
   type ValidationEnvironmentLaunchLedger
 } from "./validation-environment-launch.js";
+import {
+  createPostgresFormalAuthorityPersistence,
+  type PostgresFormalAuthorityPersistence,
+  type PostgresW025BindingPorts
+} from "./postgres-formal-authority-persistence.js";
+import type {
+  PostgresQueryExecutor,
+  PostgresTransactionExecutor
+} from "./postgres-repository-adapter.js";
 
 export type RepositoryRuntimeMode = "json" | "postgres";
 
@@ -37,6 +46,8 @@ export interface PostgresRuntime {
   readonly provider: RepositoryProvider;
   readonly pool: Pool;
   readonly validationEnvironmentLaunchLedger: ValidationEnvironmentLaunchLedger;
+  readonly formalAuthorityPersistence: PostgresFormalAuthorityPersistence;
+  readonly validationEnvironmentLaunchBindings: PostgresW025BindingPorts;
   ensureValidationUser(input: {
     tenant_id: string;
     user_id: string;
@@ -130,22 +141,30 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
     }
   });
 
-  const queryExecutor = async (sql: string, params?: readonly unknown[]) => {
+  const queryExecutor = (async (sql: string, params?: readonly unknown[]) => {
     const result = await pool.query(sql, params as unknown[] | undefined);
-    return { rowCount: result.rowCount ?? 0, rows: result.rows as unknown[] };
-  };
-  const transactionExecutor = async <T>(
-    callback: (execute: (sql: string, params?: readonly unknown[]) => Promise<{
-      rowCount: number;
-      rows: unknown[];
-    }>) => Promise<T>
+    return { rowCount: result.rowCount ?? 0, rows: result.rows as Record<string, unknown>[] };
+  }) as PostgresQueryExecutor;
+  const transactionExecutor = (async <T>(
+    callback: (
+      execute: (
+        sql: string,
+        params?: readonly unknown[]
+      ) => Promise<{
+        rowCount: number;
+        rows: Record<string, unknown>[];
+      }>
+    ) => Promise<T>
   ): Promise<T> => {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const result = await callback(async (sql, params) => {
         const response = await client.query(sql, params as unknown[] | undefined);
-        return { rowCount: response.rowCount ?? 0, rows: response.rows as unknown[] };
+        return {
+          rowCount: response.rowCount ?? 0,
+          rows: response.rows as Record<string, unknown>[]
+        };
       });
       await client.query("COMMIT");
       return result;
@@ -155,8 +174,30 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
     } finally {
       client.release();
     }
+  }) as PostgresTransactionExecutor;
+  const withBusinessKeyLock = async <T>(
+    tenantId: string,
+    businessKeyDigest: string,
+    callback: () => Promise<T>
+  ): Promise<T> => {
+    const client = await pool.connect();
+    const lockKey = `${tenantId}:${businessKeyDigest}`;
+    try {
+      await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [lockKey]);
+      return await callback();
+    } finally {
+      await client
+        .query("SELECT pg_advisory_unlock(hashtextextended($1, 0))", [lockKey])
+        .catch(() => undefined);
+      client.release();
+    }
   };
   const validationEnvironmentLaunchLedger = createPostgresValidationEnvironmentLaunchLedger({
+    queryExecutor,
+    transactionExecutor,
+    withBusinessKeyLock
+  });
+  const formalAuthorityPersistence = createPostgresFormalAuthorityPersistence({
     queryExecutor,
     transactionExecutor
   });
@@ -180,11 +221,7 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
          payload = EXCLUDED.payload,
          updated_at = now()
        WHERE users.tenant_id = EXCLUDED.tenant_id`,
-      [
-        input.user_id,
-        input.tenant_id,
-        JSON.stringify(payload)
-      ]
+      [input.user_id, input.tenant_id, JSON.stringify(payload)]
     );
     await pool.query(
       `INSERT INTO w024_runtime_records
@@ -201,6 +238,8 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
     provider,
     pool,
     validationEnvironmentLaunchLedger,
+    formalAuthorityPersistence,
+    validationEnvironmentLaunchBindings: formalAuthorityPersistence.w025Bindings,
     ensureValidationUser,
     async start() {
       if (!databaseUrl && !options.pool) {
