@@ -1,125 +1,125 @@
-cycle_id: L1PLUS-CYCLE-021-W021-GRAPH-NATIVE-REBASE
+cycle_id: L1PLUS-CYCLE-022-W022-FRESH-LEARNER-E4-ADMISSION
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-09T08:38:00Z"
-closed_at: "2026-08-09T09:20:00Z"
+started_at: "2026-08-12T04:57:42Z"
+closed_at: "2026-08-12T05:08:48Z"
 repository: qidianzhiku/SimWar
-source_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
-assessment_source_anchor_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
-product_evidence_source_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
-product_candidate_sha: null
-product_pr: null
-product_merge_sha: null
+source_sha: 3c97b13363414f44ee443281176136700c4fbf40
+assessment_source_anchor_sha: 3c97b13363414f44ee443281176136700c4fbf40
+product_evidence_source_sha: 3c97b13363414f44ee443281176136700c4fbf40
+product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
+product_pr: 366
+product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
 governance_closure_merge_sha: null
 governance_closure_manifest_sha256: null
-current_master_at_readback: db7f688c513c81af2d5b307159db2b7a757fb5a2
+current_master_at_readback: 3c97b13363414f44ee443281176136700c4fbf40
 portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
-mainline_candidate: CAND-W021-A-ELDERCARE-SHANGHAI-GOLDEN-M1
-support_candidate: CAND-W021-SUPPORT-GRAPH-COMPANION-SSR
-docs_discovery_candidate: CAND-W021-DOCS-GRAPH-VERIFIED-ADVISORY-EVIDENCE
-mainline_status: REBASED_PENDING_SEPARATE_OWNER_IMPLEMENTATION_AUTHORIZATION
-primary_outcome: GRAPH_COMPANION_V1_1_STABLE_AND_W021_PRODUCT_MAINLINE_REBASED
+mainline_candidate: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
+support_candidate: NONE
+docs_discovery_candidate: NONE
+mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
+primary_outcome: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY_WITH_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
 postgresql_application_runtime: NOT_ACTIVE
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 predecessor:
-  cycle_id: L1PLUS-CYCLE-020-W020-GOVERNED-AI-ADVISORY
-  merge_sha: bdbcf32e5d911988459caf2cdceb3ac773a3db1a
+  cycle_id: L1PLUS-CYCLE-021-W021-GRAPH-NATIVE-REBASE
+  merge_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
+  completed_product_baseline: 675f9f41efe9f4f31a52327c4bc18f53e2998cad
 validation:
   acceptance: PASS_WITH_EXPLICIT_LIMITS
-  support_red: REPRODUCED_FRESH_CLONE_GRAPH_COMPANION_SSR_SYNTAX_ERROR
-  support_green: PASS_FOCUSED_33_OF_33
-  support_full: PASS_172_FILES_1110_TESTS
-  support_security_audit: PASS_CRITICAL_THRESHOLD_2_LOW_7_HIGH_EXISTING
-  support_pr: 362
-  support_merge_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
-  support_postmerge_fresh_clone: PASS_CLEAN_DETACHED_33_OF_33
-  graph_postmerge: CURRENT_EXACT_SHA_HEALTHY
-  graph_plan: PLAN_ALLOWED_WITH_LIMITS_PLANNING_REALITY_DRIFT
-  graphify_nodes: 11109
-  graphify_edges: 19079
-  codegraph_postmerge: HEALTHY_EXTERNAL_WORKSPACE
-  codegraph_files: 444
-  codegraph_nodes: 7034
-  codegraph_edges: 28644
-  codegraph_pending: 0
-  codegraph_queries: PASS_D1_D5_SOURCE_READBACK_REQUIRED
-  product_value_gate: ON_TRACK
-  planning_readback: DRIFT_REBASED_TO_CURRENT_MASTER
   challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_analyze_javascript_typescript: PASS
+  github_codeql: PASS
+  focused_w022: PASS_3_VITEST_FILES_12_TESTS_PLUS_CHROMIUM_1_OF_1
+  contract: PASS_17_FILES_45_TESTS_21_SCHEMA_GROUPS
+  browser: PASS_79_9_SKIPPED
+  role_workflow: PASS_1_OF_1
+  direct_store: PASS_0_NEW_UNAPPROVED
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  security_audit: PASS_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
+  fresh_clone_npm_ci: PASS
+  fresh_clone_default_full_vitest: PASS_177_FILES_1128_TESTS
+  fresh_clone_graph_companion: CURRENT_EXACT_SHA_WITH_LIMITS
+  graphify_postmerge: HEALTHY_11366_NODES_20528_EDGES
+  codegraph_postmerge: DEGRADED_DETACHED_CLONE_FALLBACK
+  planning_reality: DRIFT_EXPLICITLY_RECORDED
+evidence_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T
+graph_postmerge_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T/graph/postmerge-companion
 resource_locks:
-  status: RELEASED_AFTER_SUPPORT_AND_GRAPH_VALIDATION
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
   released:
-    - W021_GRAPH_COMPANION_SUPPORT
-    - W021_GRAPH_ENTRY_POSTMERGE_PLAN
-    - W021_CODEGRAPH_QUERY_PACK
-    - W021_PRODUCT_VALUE_GATE
-    - W021_PLANNING_REBASE
+    - W022_FRESH_LEARNER_ADMISSION
+    - W022_TEAM_MEMBERSHIP_AND_ROLE_ASSIGNMENT
+    - W022_TEACHER_ADMISSION_BFF
+    - W022_TEACHER_WORKBENCH
+    - W022_STUDENT_VISIBILITY
+    - W022_SERIAL_MERGE
+    - W022_POST_MERGE_FRESH_CLONE
+    - W022_GRAPH_COMPANION
+    - W022_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-W021-A-ELDERCARE-SHANGHAI-GOLDEN-M1
-    status: SELECTED_PLANNING_ONLY
-    reason: Highest product and human-validation proximity; assets are synthetic and require formal tenant/course binding before implementation authorization.
-  - candidate_id: CAND-W021-B-L1-HUMAN-INTERNAL-VALIDATION
-    status: ALTERNATIVE_NOT_SELECTED
-    reason: Readiness package remains NOT_READY and explicitly requires independent evidence review and human validation.
-  - candidate_id: CAND-W021-C-GRAPH-VERIFIED-ADVISORY-EVIDENCE
-    status: CLOSED_BY_SUPPORT_AND_GRAPH_VALIDATION
-    reason: W020 advisory path is graph-verified and remains JSON mock advisory-only.
-  - candidate_id: CAND-W021-D-GRAPH-COMPANION-FURTHER-HARDENING
-    status: DEFERRED
-    reason: V1.1 support gate is green; no additional runtime hardening is authorized in this cycle.
-  - candidate_id: CAND-W021-E-GOVERNED-EXTERNAL-PROVIDER
+  - candidate_id: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+    status: RECOMMENDED_NOT_AUTHORIZED
+    reason: Machine admission is ready with limits; requires a new Owner decision, an independent teacher, learner roles, moderator, observer and recorder, and a new real session ID.
+  - candidate_id: CAND-W023-B-ADDITIONAL-PRODUCT-HARDENING
+    status: NOT_AUTHORIZED
+    reason: No current W022 product-code blocker remains; only a new evidence-backed blocker may justify a separate remediation mission.
+  - candidate_id: CAND-W023-C-DURABILITY-POSTGRESQL
     status: DEFERRED_HIGH_RISK
-    reason: external provider, secret, network and new authority policy required.
-  - candidate_id: CAND-W021-F-POSTGRESQL-DURABILITY
-    status: DEFERRED_HIGH_RISK
-    reason: PostgreSQL, RLS, PITR and durable recovery are explicitly out of scope.
+    reason: PostgreSQL runtime, migration, RLS, durable recovery and cross-process guarantees remain outside this cycle.
 blocked_candidates: []
 metrics:
-  product_pr_count: 0
-  support_pr_count: 1
-  product_commit_count: 0
+  product_pr_count: 1
+  governance_pr_count: 1
+  product_commit_count: 1
   product_rework_commit_count: 0
   corrective_product_pr_count: 0
-  governance_pr_count: 1
   governance_reclosure_count: 0
-  first_pass_exit: false
+  first_pass_exit: true
   browser_regression_repair: 0
-  review_finding_families_fixed_before_merge: 1
-  changed_file_count: 0
-  fresh_clone_count: 2
+  challenge_blocking_findings: 0
+  challenge_must_fix_findings: 0
+  changed_file_count: 18
+  fresh_clone_count: 1
   resource_cost_ratio: NOT_MEASURED
-  product_value_gain: GRAPH_VERIFIED_W021_ELDERCARE_MAINLINE_REBASE
+  product_value_gain: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY
   lead_time: NOT_MEASURED
   active_engineering_time: NOT_MEASURED
+  validation_time: NOT_MEASURED
+  readiness_overlap: NOT_APPLICABLE
+  automatic_next_start: false
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
-  external_provider: NOT_USED
-  model_provider: DETERMINISTIC_IN_REPO_MOCK_ONLY
   human_validation: NOT_PERFORMED
-  eldercare_assets: SYNTHETIC_TEACHING_ASSETS_NOT_FORMAL_PRODUCT_BINDING
-  ai_final_grading: NOT_AUTHORIZED
-  postgresql_application_runtime: NOT_ACTIVE
+  fresh_learner_e4: MACHINE_ADMISSION_READY_WITH_LIMITS
+  postgres_application_runtime: NOT_ACTIVE
   durable_recovery: NOT_PROVEN
   cross_process_idempotency: NOT_PROVEN
-  codegraph: HEALTHY_EXTERNAL_WORKSPACE_CURRENT_SHA
-  planning_reality: DRIFT_REBASED_WITH_EXPLICIT_LIMIT
-  dependency_advisories: 2_LOW_7_HIGH_REPORTED_BY_NPM_CI
+  pr_365: OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT_UNCHANGED
+  graph_companion: CURRENT_EXACT_SHA_WITH_CODEGRAPH_DEGRADED_FALLBACK
+  planning_reality: DRIFT_RECORDED_AND_RECONCILED_IN_THIS_CLOSURE
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
   pilot_production: NOT_AUTHORIZED
-  w021_product_implementation: NOT_AUTHORIZED
+explicit_non_proofs:
+  - Machine admission does not prove Human Validation, teaching effectiveness or Pilot readiness.
+  - W022 does not write Truth, SettlementResult, Score, Rank, Replay authority or final grade.
+  - W022 does not activate PostgreSQL, migration, RLS, durable recovery or external providers.
+  - PR #365 remains open and read-only; no PR #365 evidence was used as a merged capability.
+  - No W023 branch, lock, PR or execution is authorized by this closure.
 invalidation_triggers:
   - product_or_runtime_changed
   - authority_or_truth_writer_changed
   - contract_or_openapi_changed
   - replay_or_golden_changed
   - student_visibility_changed
-  - graph_source_sha_changed
   - fresh_clone_evidence_invalidated
+  - graph_source_sha_changed
   - planning_documents_changed
-explicit_non_proofs:
-  - Graph Companion and CodeGraph evidence do not prove runtime behavior or Human Validation.
-  - Eldercare assets remain synthetic teaching assets and are not formally bound to a tenant Course/Run.
-  - W020 advisory remains deterministic mock, advisory-only, and does not write Truth, SettlementResult, Score, Rank or Replay authority.
-  - This planning rebase does not authorize Eldercare implementation, Human Validation execution, external providers, PostgreSQL, Pilot or Production.
 automatic_next_start: false

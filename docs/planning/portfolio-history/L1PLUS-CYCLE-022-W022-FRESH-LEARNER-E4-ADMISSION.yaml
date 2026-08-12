@@ -1,0 +1,55 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-022-W022-FRESH-LEARNER-E4-ADMISSION
+stage: L1_PLUS
+candidate_id: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+product_pr: 366
+product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
+product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
+product_manifest_sha256: 866662baf0701f344013d1b21e645b366125c88c0500fc954988f4971626984f
+current_master_at_readback: 3c97b13363414f44ee443281176136700c4fbf40
+governance_closure_merge_sha: null
+primary_outcome: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY_WITH_LIMITS
+product_scope:
+  - fresh learner identity and authentication
+  - exact Course and Run selection
+  - two-team membership and CEO/CFO/CMO/COO role readiness
+  - teacher-safe admission BFF projection
+  - teacher admission workbench
+  - real Chromium machine E4 journey
+  - Student visibility boundary preservation
+validation:
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  github_quality: PASS
+  github_browser_smoke: PASS
+  github_analyze_javascript_typescript: PASS
+  github_codeql: PASS
+  contract: PASS_17_FILES_45_TESTS_21_SCHEMA_GROUPS
+  default_full_vitest: PASS_177_FILES_1128_TESTS
+  browser: PASS_79_9_SKIPPED
+  role_workflow: PASS_1_OF_1
+  fresh_clone_w022: PASS
+  graph_companion: CURRENT_EXACT_SHA_WITH_LIMITS
+  graphify: HEALTHY_11366_NODES_20528_EDGES
+  codegraph: DEGRADED_DETACHED_CLONE_FALLBACK
+  planning_reality: DRIFT_RECONCILED_WITH_EXPLICIT_LIMIT
+evidence_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T
+fresh_clone: D:/codex/fresh-clones/simwar-w022-postmerge-3c97b13
+pr_365: OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT_UNCHANGED
+known_limits:
+  runtime_authority: JSON_INTERNAL_ONLY
+  human_validation: NOT_PERFORMED
+  postgres_application_runtime: NOT_ACTIVE
+  durable_recovery: NOT_PROVEN
+  ai_final_grading: NOT_AUTHORIZED
+  pilot_production: NOT_AUTHORIZED
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED
+explicit_non_proofs:
+  - This cycle does not prove Human Validation, teaching effectiveness, Pilot readiness or Production readiness.
+  - No Truth, SettlementResult, Score, Rank, Replay, PostgreSQL or external provider authority changed.
+  - PR #365 is not merged, not modified and remains quarantined read-only.
+  - W023 is not authorized, has no branch, locks, PR or execution.
+resource_locks:
+  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+automatic_next_start: false
