@@ -13,7 +13,12 @@ import {
   type D2ProvenanceEdge,
   type D2SourceEventDto
 } from "@simwar/shared-contracts";
-import type { AuditLog, LearningGoalVersion, RubricVersion, RoleWorkflowEvent } from "@simwar/shared-contracts";
+import type {
+  AuditLog,
+  LearningGoalVersion,
+  RubricVersion,
+  RoleWorkflowEvent
+} from "@simwar/shared-contracts";
 import type {
   EvidenceProvenanceRepositoryPort,
   RoleWorkflowRepositoryPort
@@ -29,18 +34,40 @@ const TRANSFORMATION_RULE_VERSION = "1.0.0";
 const TRANSFORMATION_RULE_DIGEST = createHash("sha256")
   .update("simwar:d2:role-workflow-event-to-evidence:v1")
   .digest("hex");
-const RESERVED_REFERENCE_TOKEN = /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
+const RESERVED_REFERENCE_TOKEN =
+  /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
 
 export interface D2CoursePackageLookup {
   getByReference(
     tenantId: string,
-    reference: { course_package_id: string; tenant_id: string; version: string; content_digest: string }
-  ): Promise<{ status: string; content_digest: string; tenant_id: string; version: string; course_package_id: string } | null>;
+    reference: {
+      course_package_id: string;
+      tenant_id: string;
+      version: string;
+      content_digest: string;
+    }
+  ): Promise<{
+    status: string;
+    content_digest: string;
+    tenant_id: string;
+    version: string;
+    course_package_id: string;
+  } | null>;
 }
 
 export interface D2LearningDesignLookup {
-  getGoal(reference: { goal_id: string; tenant_id: string; version: string; content_digest: string }): Promise<LearningGoalVersion | null>;
-  getRubric(reference: { rubric_id: string; tenant_id: string; version: string; content_digest: string }): Promise<RubricVersion | null>;
+  getGoal(reference: {
+    goal_id: string;
+    tenant_id: string;
+    version: string;
+    content_digest: string;
+  }): Promise<LearningGoalVersion | null>;
+  getRubric(reference: {
+    rubric_id: string;
+    tenant_id: string;
+    version: string;
+    content_digest: string;
+  }): Promise<RubricVersion | null>;
 }
 
 export interface D2EvidenceDependencies {
@@ -64,12 +91,16 @@ function clone<T>(value: T): T {
 }
 
 function canonicalize(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "number") return JSON.stringify(value);
+  if (value === null || typeof value === "boolean" || typeof value === "number")
+    return JSON.stringify(value);
   if (typeof value === "string") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
-    return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`).join(",")}}`;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`)
+      .join(",")}}`;
   }
   throw new D2EvidenceError("D2_EVIDENCE_INPUT_INVALID");
 }
@@ -100,7 +131,8 @@ function exactRef(
   identity(tenantId, "tenant_id");
   identity(resourceId, "resource_id");
   identity(version, "version");
-  if (!/^[a-f0-9]{64}$/.test(contentDigest)) throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
+  if (!/^[a-f0-9]{64}$/.test(contentDigest))
+    throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
   return {
     content_digest: contentDigest,
     discriminator: "exact_ref",
@@ -120,26 +152,34 @@ function eventRef(event: RoleWorkflowEvent): D2ExactRef {
 }
 
 function coursePackageRef(reference: D2EvidenceCaptureInput["course_package_ref"]): D2ExactRef {
-  if (reference.resource_type !== "course_package_version") throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
+  if (reference.resource_type !== "course_package_version")
+    throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
   return reference;
 }
 
 function goalRef(reference: D2EvidenceCaptureInput["learning_goal_ref"]): D2ExactRef {
-  if (reference.resource_type !== "learning_goal_version") throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
+  if (reference.resource_type !== "learning_goal_version")
+    throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
   return reference;
 }
 
 function rubricRef(reference: D2EvidenceCaptureInput["rubric_ref"]): D2ExactRef {
-  if (reference.resource_type !== "rubric_version") throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
+  if (reference.resource_type !== "rubric_version")
+    throw new D2EvidenceError("D2_EVIDENCE_REFERENCE_INVALID");
   return reference;
 }
 
-function roleIsAssigned(snapshot: ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>, roleKey: string): boolean {
-  return snapshot.assignments.some((assignment) => assignment.role_key === roleKey && assignment.status === "active");
+function roleIsAssigned(
+  snapshot: Awaited<ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>>,
+  roleKey: string
+): boolean {
+  return snapshot.assignments.some(
+    (assignment) => assignment.role_key === roleKey && assignment.status === "active"
+  );
 }
 
 function eventMatchesRole(
-  snapshot: ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>,
+  snapshot: Awaited<ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>>,
   event: RoleWorkflowEvent,
   roleKey: string
 ): boolean {
@@ -162,21 +202,25 @@ export class EvidenceCaptureCommandService {
 
   async listTeacherEvidence(tenantId: string, query: D2EvidenceQuery): Promise<D2EvidenceListDto> {
     this.assertQuery(tenantId, query);
-    const snapshot = this.dependencies.roleWorkflow.readRoleWorkflow({
+    const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
       run_id: query.run_id,
       team_id: query.team_id,
       tenant_id: tenantId
     });
     this.assertScope(snapshot, tenantId, query);
     const events = snapshot.events
-      .filter((event) => D2_ELIGIBLE_EVENT_TYPES.includes(event.event_type as (typeof D2_ELIGIBLE_EVENT_TYPES)[number]))
+      .filter((event) =>
+        D2_ELIGIBLE_EVENT_TYPES.includes(
+          event.event_type as (typeof D2_ELIGIBLE_EVENT_TYPES)[number]
+        )
+      )
       .filter((event) => eventMatchesRole(snapshot, event, query.role_key))
       .map((event) => this.toSourceEvent(event, snapshot.course!.course_id, query));
     const artifacts = (await this.dependencies.repository.listEvidenceArtifacts(tenantId)).filter(
       (artifact) => this.matchesContext(artifact, query)
     );
-    const edges = (await this.dependencies.repository.listProvenanceEdges(tenantId)).filter((edge) =>
-      artifacts.some((artifact) => sameRef(edge.source_ref, artifact.artifact_ref))
+    const edges = (await this.dependencies.repository.listProvenanceEdges(tenantId)).filter(
+      (edge) => artifacts.some((artifact) => sameRef(edge.source_ref, artifact.artifact_ref))
     );
     return {
       artifacts,
@@ -194,17 +238,26 @@ export class EvidenceCaptureCommandService {
   ): Promise<D2CaptureReceipt> {
     this.assertQuery(actor.tenant_id, input);
     identity(actor.actor_id, "actor_id");
-    const snapshot = this.dependencies.roleWorkflow.readRoleWorkflow({
+    const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
       run_id: input.run_id,
       team_id: input.team_id,
       tenant_id: actor.tenant_id
     });
     this.assertScope(snapshot, actor.tenant_id, input);
     const event = snapshot.events.find((candidate) => candidate.event_id === input.source_event_id);
-    if (!event || !D2_ELIGIBLE_EVENT_TYPES.includes(event.event_type as (typeof D2_ELIGIBLE_EVENT_TYPES)[number])) {
+    if (
+      !event ||
+      !D2_ELIGIBLE_EVENT_TYPES.includes(
+        event.event_type as (typeof D2_ELIGIBLE_EVENT_TYPES)[number]
+      )
+    ) {
       throw new D2EvidenceError("D2_EVIDENCE_EVENT_NOT_ELIGIBLE");
     }
-    if (event.tenant_id !== actor.tenant_id || event.run_id !== input.run_id || event.team_id !== input.team_id) {
+    if (
+      event.tenant_id !== actor.tenant_id ||
+      event.run_id !== input.run_id ||
+      event.team_id !== input.team_id
+    ) {
       throw new D2EvidenceError("D2_EVIDENCE_SCOPE_VIOLATION");
     }
     if (!eventMatchesRole(snapshot, event, input.role_key)) {
@@ -219,7 +272,11 @@ export class EvidenceCaptureCommandService {
       tenant_id: packageRef.tenant_id,
       version: packageRef.version
     });
-    if (!coursePackage || coursePackage.status !== "AVAILABLE" || coursePackage.content_digest !== packageRef.content_digest) {
+    if (
+      !coursePackage ||
+      coursePackage.status !== "AVAILABLE" ||
+      coursePackage.content_digest !== packageRef.content_digest
+    ) {
       throw new D2EvidenceError("D2_EVIDENCE_COURSE_PACKAGE_NOT_AVAILABLE");
     }
     if (
@@ -264,20 +321,27 @@ export class EvidenceCaptureCommandService {
       source_event_ref: sourceRef,
       transformation_rule_ref: transformationRef
     });
-    const existing = (await this.dependencies.repository.listEvidenceArtifacts(actor.tenant_id)).find(
-      (candidate) => candidate.idempotency_key === idempotencyKey
-    );
+    const existing = (
+      await this.dependencies.repository.listEvidenceArtifacts(actor.tenant_id)
+    ).find((candidate) => candidate.idempotency_key === idempotencyKey);
     if (existing) {
-      if (existing.artifact_digest !== artifactDigest) throw new D2EvidenceError("D2_EVIDENCE_DUPLICATE_CONFLICT");
-      const edges = (await this.dependencies.repository.listProvenanceEdges(actor.tenant_id)).filter((edge) =>
-        sameRef(edge.source_ref, existing.artifact_ref)
-      );
+      if (existing.artifact_digest !== artifactDigest)
+        throw new D2EvidenceError("D2_EVIDENCE_DUPLICATE_CONFLICT");
+      const edges = (
+        await this.dependencies.repository.listProvenanceEdges(actor.tenant_id)
+      ).filter((edge) => sameRef(edge.source_ref, existing.artifact_ref));
       return this.receipt(existing, edges, "reused", requestId);
     }
     const artifact: D2EvidenceArtifactVersion = {
       artifact_digest: artifactDigest,
       artifact_kind: "observation",
-      artifact_ref: exactRef(actor.tenant_id, "evidence_artifact", `artifact_${idempotencyKey.slice(0, 24)}`, "1.0.0", artifactDigest),
+      artifact_ref: exactRef(
+        actor.tenant_id,
+        "evidence_artifact",
+        `artifact_${idempotencyKey.slice(0, 24)}`,
+        "1.0.0",
+        artifactDigest
+      ),
       captured_at: this.now(),
       captured_by: actor.actor_id,
       context,
@@ -292,11 +356,27 @@ export class EvidenceCaptureCommandService {
       transformation_rule_ref: transformationRef,
       visibility: "teacher_only"
     };
-    if (!isD2EvidenceArtifactVersion(artifact)) throw new D2EvidenceError("D2_EVIDENCE_OUTPUT_INVALID");
+    if (!isD2EvidenceArtifactVersion(artifact))
+      throw new D2EvidenceError("D2_EVIDENCE_OUTPUT_INVALID");
     const provenanceEdges: D2ProvenanceEdge[] = [
-      { discriminator: "d2_provenance_edge", relation: "derived_from", source_ref: artifact.artifact_ref, target_ref: sourceRef },
-      { discriminator: "d2_provenance_edge", relation: "supported_by", source_ref: artifact.artifact_ref, target_ref: input.learning_goal_ref },
-      { discriminator: "d2_provenance_edge", relation: "supported_by", source_ref: artifact.artifact_ref, target_ref: input.rubric_ref }
+      {
+        discriminator: "d2_provenance_edge",
+        relation: "derived_from",
+        source_ref: artifact.artifact_ref,
+        target_ref: sourceRef
+      },
+      {
+        discriminator: "d2_provenance_edge",
+        relation: "supported_by",
+        source_ref: artifact.artifact_ref,
+        target_ref: input.learning_goal_ref
+      },
+      {
+        discriminator: "d2_provenance_edge",
+        relation: "supported_by",
+        source_ref: artifact.artifact_ref,
+        target_ref: input.rubric_ref
+      }
     ];
     const auditLog: AuditLog = {
       action: "evidence_artifact.capture",
@@ -308,9 +388,17 @@ export class EvidenceCaptureCommandService {
       resource_type: "evidence_artifact",
       request_id: requestId,
       tenant_id: actor.tenant_id,
-      after: { artifact_ref: artifact.artifact_ref, artifact_digest: artifact.artifact_digest, visibility: artifact.visibility }
+      after: {
+        artifact_ref: artifact.artifact_ref,
+        artifact_digest: artifact.artifact_digest,
+        visibility: artifact.visibility
+      }
     };
-    await this.dependencies.repository.appendEvidenceCapture({ artifact, provenance_edges: provenanceEdges, audit_log: auditLog });
+    await this.dependencies.repository.appendEvidenceCapture({
+      artifact,
+      provenance_edges: provenanceEdges,
+      audit_log: auditLog
+    });
     return this.receipt(artifact, provenanceEdges, "generated", requestId);
   }
 
@@ -329,13 +417,22 @@ export class EvidenceCaptureCommandService {
     };
   }
 
-  private toSourceEvent(event: RoleWorkflowEvent, courseId: string, query: D2EvidenceQuery): D2SourceEventDto {
+  private toSourceEvent(
+    event: RoleWorkflowEvent,
+    courseId: string,
+    query: D2EvidenceQuery
+  ): D2SourceEventDto {
     return {
       created_at: event.created_at,
       event_id: event.event_id,
       event_type: event.event_type as D2SourceEventDto["event_type"],
       eligibility: "eligible",
-      scope: { course_id: courseId, role_key: query.role_key, run_id: event.run_id, team_id: event.team_id },
+      scope: {
+        course_id: courseId,
+        role_key: query.role_key,
+        run_id: event.run_id,
+        team_id: event.team_id
+      },
       source_event_ref: eventRef(event)
     };
   }
@@ -351,7 +448,14 @@ export class EvidenceCaptureCommandService {
   }
 
   private assertQuery(tenantId: string, query: D2EvidenceQuery | D2EvidenceCaptureInput): void {
-    [tenantId, query.course_id, query.run_id, query.team_id, query.role_key, query.activity_id].forEach((value) => identity(value, "scope"));
+    [
+      tenantId,
+      query.course_id,
+      query.run_id,
+      query.team_id,
+      query.role_key,
+      query.activity_id
+    ].forEach((value) => identity(value, "scope"));
     if ("source_event_id" in query) identity(query.source_event_id, "source_event_id");
     if ("course_package_ref" in query) {
       if (
@@ -371,32 +475,58 @@ export class EvidenceCaptureCommandService {
     }
   }
 
-  private assertScope(snapshot: ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>, tenantId: string, query: D2EvidenceQuery): void {
-    if (!snapshot.course || !snapshot.run || !snapshot.team || snapshot.course.course_id !== query.course_id || snapshot.run.course_id !== query.course_id || snapshot.team.course_id !== query.course_id || snapshot.run.tenant_id !== tenantId || snapshot.team.tenant_id !== tenantId) {
+  private assertScope(
+    snapshot: Awaited<ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>>,
+    tenantId: string,
+    query: D2EvidenceQuery
+  ): void {
+    if (
+      !snapshot.course ||
+      !snapshot.run ||
+      !snapshot.team ||
+      snapshot.course.course_id !== query.course_id ||
+      snapshot.run.course_id !== query.course_id ||
+      snapshot.team.course_id !== query.course_id ||
+      snapshot.run.tenant_id !== tenantId ||
+      snapshot.team.tenant_id !== tenantId
+    ) {
       throw new D2EvidenceError("D2_EVIDENCE_SCOPE_VIOLATION");
     }
-    if (!roleIsAssigned(snapshot, query.role_key)) throw new D2EvidenceError("D2_EVIDENCE_ROLE_SCOPE_VIOLATION");
+    if (!roleIsAssigned(snapshot, query.role_key))
+      throw new D2EvidenceError("D2_EVIDENCE_ROLE_SCOPE_VIOLATION");
   }
 
-  private async requirePublishedGoal(tenantId: string, reference: D2ExactRef): Promise<LearningGoalVersion> {
+  private async requirePublishedGoal(
+    tenantId: string,
+    reference: D2ExactRef
+  ): Promise<LearningGoalVersion> {
     const goal = await this.dependencies.learningDesign.getGoal({
       content_digest: reference.content_digest,
       goal_id: reference.resource_id,
       tenant_id: tenantId,
       version: reference.version
     });
-    if (!goal || goal.status !== "PUBLISHED" || goal.content_digest !== reference.content_digest) throw new D2EvidenceError("D2_EVIDENCE_LEARNING_GOAL_NOT_PUBLISHED");
+    if (!goal || goal.status !== "PUBLISHED" || goal.content_digest !== reference.content_digest)
+      throw new D2EvidenceError("D2_EVIDENCE_LEARNING_GOAL_NOT_PUBLISHED");
     return goal;
   }
 
-  private async requirePublishedRubric(tenantId: string, reference: D2ExactRef): Promise<RubricVersion> {
+  private async requirePublishedRubric(
+    tenantId: string,
+    reference: D2ExactRef
+  ): Promise<RubricVersion> {
     const rubric = await this.dependencies.learningDesign.getRubric({
       content_digest: reference.content_digest,
       rubric_id: reference.resource_id,
       tenant_id: tenantId,
       version: reference.version
     });
-    if (!rubric || rubric.status !== "PUBLISHED" || rubric.content_digest !== reference.content_digest) throw new D2EvidenceError("D2_EVIDENCE_RUBRIC_NOT_PUBLISHED");
+    if (
+      !rubric ||
+      rubric.status !== "PUBLISHED" ||
+      rubric.content_digest !== reference.content_digest
+    )
+      throw new D2EvidenceError("D2_EVIDENCE_RUBRIC_NOT_PUBLISHED");
     return rubric;
   }
 }

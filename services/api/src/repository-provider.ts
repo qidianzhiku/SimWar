@@ -3,6 +3,14 @@ import type { KnownLimitSemanticId } from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
 import { createRepositoryFacade, type RepositoryFacade } from "./repository-facade.js";
 import { nextId, type SimWarStore } from "./store.js";
+import { randomUUID } from "node:crypto";
+import type { Pool } from "pg";
+import {
+  createPostgresRepositoryAdapter,
+  createPostgresRepositoryPorts,
+  type PostgresQueryExecutor,
+  type PostgresTransactionExecutor
+} from "./postgres-repository-adapter.js";
 
 /**
  * Repository provider for API service composition.
@@ -14,7 +22,7 @@ import { nextId, type SimWarStore } from "./store.js";
  *   settlement logic, replay hashing, or canonical decision behavior.
  */
 
-export type RepositoryProviderMode = "custom" | "json";
+export type RepositoryProviderMode = "custom" | "json" | "postgres";
 
 export interface RepositoryProviderCapabilities {
   knownLimits: readonly KnownLimitSemanticId[];
@@ -43,6 +51,11 @@ export interface RepositoryProviderOptions {
 
 export interface JsonRepositoryProviderOptions {
   store: SimWarStore;
+}
+
+export interface PostgresRepositoryProviderOptions {
+  pool: Pool;
+  transactionExecutor: PostgresTransactionExecutor;
 }
 
 function createMissingRepositoryIdGenerator(mode: RepositoryProviderMode): RepositoryIdGenerator {
@@ -96,6 +109,40 @@ export function createJsonRepositoryProvider(
       createDecisionId: () => nextId(store, "decision", "decision"),
       createSettlementResultId: () => nextId(store, "result", "result"),
       createAuditLogId: () => nextId(store, "audit", "audit")
+    }
+  });
+}
+
+/**
+ * Compose the explicit PostgreSQL provider. This factory intentionally has no
+ * JSON store parameter: selecting this provider cannot create a JSON shadow
+ * writer or silently fall back when the database is unavailable.
+ */
+export function createPostgresRepositoryProvider(
+  options: PostgresRepositoryProviderOptions
+): RepositoryProvider {
+  const queryExecutor: PostgresQueryExecutor = async (sql, params) => {
+    const result = await options.pool.query(sql, params as unknown[] | undefined);
+    return { rowCount: result.rowCount ?? 0, rows: result.rows };
+  };
+  const adapter = createPostgresRepositoryAdapter({
+    applicationName: "simwar-w024-bounded-course-run",
+    queryExecutor,
+    transactionExecutor: options.transactionExecutor
+  });
+  const ports = createPostgresRepositoryPorts({
+    adapter,
+    transactionExecutor: options.transactionExecutor
+  });
+
+  return createRepositoryProvider({
+    mode: "postgres",
+    ports,
+    capabilities: { knownLimits: [] },
+    idGenerator: {
+      createDecisionId: () => `decision_${randomUUID()}`,
+      createSettlementResultId: () => `settlement_${randomUUID()}`,
+      createAuditLogId: () => `audit_${randomUUID()}`
     }
   });
 }

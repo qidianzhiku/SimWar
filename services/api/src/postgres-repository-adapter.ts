@@ -1,10 +1,9 @@
 /**
- * Dependency-free Postgres repository adapter skeleton.
+ * PostgreSQL repository adapter for the explicitly selected W024 runtime.
  *
- * This module only defines the future adapter construction boundary. It does
- * not import a database driver, implement SimWarRepositoryPorts, register with
- * the repository provider, connect to runtime, or change JSON adapter behavior.
- * Query helpers delegate only to the injected PostgresQueryExecutor.
+ * The adapter implements the repository ports without changing the JSON
+ * provider or becoming active unless the runtime mode is explicitly set to
+ * `postgres`. Query helpers delegate only to the injected query executor.
  */
 
 import { randomUUID } from "node:crypto";
@@ -13,22 +12,47 @@ import type {
   Course,
   CourseStatus,
   Decision,
+  DecisionMergeCommit,
+  D2EvidenceArtifactVersion,
+  D2ProvenanceEdge,
+  DomainEvent,
+  ParameterSet,
   ReplayDiffReport,
   ReplayInputManifest,
   ReplayReport,
   ReplayRun,
   Round,
+  RoleDecisionSection,
+  RoleWorkflowEvent,
   Run,
+  ScenarioPackage,
   SettlementResult,
-  StateSnapshot
+  StateSnapshot,
+  StudentRoleAssignment,
+  Team,
+  TeamConfirmation,
+  TeacherConfirmationVersion,
+  W020AdvisoryRecord,
+  ValidationSessionRecord
 } from "@simwar/shared-contracts";
 import type {
+  EvidenceProvenanceCaptureCommand,
+  EvidenceProvenanceRepositoryPort,
+  GovernedAdvisoryRepositoryPort,
+  RoleWorkflowCommitCommand,
+  RoleWorkflowRepositoryPort,
+  RoleWorkflowRepositoryQuery,
+  RoleWorkflowRepositorySnapshot,
   RepositoryCourseReadModel,
   RepositoryId,
   RepositorySnapshotQuery,
   SettlementOutcomeCommitResult,
   SettlementOutcomePersistencePort,
-  SettlementWriteRepositoryPorts
+  SettlementWriteRepositoryPorts,
+  SimWarRepositoryPorts,
+  TeacherConfirmationAppendCommand,
+  TeacherConfirmationRepositoryPort,
+  ValidationSessionRepositoryPort
 } from "./repository-ports.js";
 import {
   createSettlementWriteRepositoryFacade,
@@ -1336,4 +1360,599 @@ export function createPostgresRepositoryAdapter(
   options: PostgresRepositoryAdapterOptions
 ): PostgresRepositoryAdapter {
   return new PostgresRepositoryAdapter(options);
+}
+
+type RuntimeRecordRow = {
+  tenant_id: string;
+  record_id: string;
+  record_type: string;
+  course_id?: string | null;
+  run_id?: string | null;
+  round_id?: string | null;
+  team_id?: string | null;
+  payload: Record<string, unknown>;
+};
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function payloadId(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+  fallback: string
+): string {
+  for (const key of keys) {
+    const candidate = stringValue(value[key]);
+    if (candidate) return candidate;
+  }
+  return fallback;
+}
+
+function scopeOf(
+  value: Record<string, unknown>
+): Pick<RuntimeRecordRow, "course_id" | "run_id" | "round_id" | "team_id"> {
+  return {
+    ...(stringValue(value.course_id) ? { course_id: value.course_id as string } : {}),
+    ...(stringValue(value.run_id) ? { run_id: value.run_id as string } : {}),
+    ...(stringValue(value.round_id) ? { round_id: value.round_id as string } : {}),
+    ...(stringValue(value.team_id) ? { team_id: value.team_id as string } : {})
+  };
+}
+
+async function saveRuntimeRecord(
+  adapter: PostgresRepositoryAdapter,
+  recordType: string,
+  recordId: string,
+  value: Record<string, unknown>,
+  tenantId: string,
+  executor: PostgresQueryExecutor = adapter.queryExecutor
+): Promise<void> {
+  const scope = scopeOf(value);
+  await executor(
+    `INSERT INTO w024_runtime_records
+       (tenant_id, record_type, record_id, course_id, run_id, round_id, team_id, payload, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, now())
+     ON CONFLICT (tenant_id, record_type, record_id)
+     DO UPDATE SET course_id = EXCLUDED.course_id, run_id = EXCLUDED.run_id,
+       round_id = EXCLUDED.round_id, team_id = EXCLUDED.team_id,
+       payload = EXCLUDED.payload, updated_at = now()`,
+    [
+      tenantId,
+      recordType,
+      recordId,
+      scope.course_id ?? null,
+      scope.run_id ?? null,
+      scope.round_id ?? null,
+      scope.team_id ?? null,
+      JSON.stringify(value)
+    ]
+  );
+}
+
+async function listRuntimeRecords(
+  adapter: PostgresRepositoryAdapter,
+  recordType: string,
+  tenantId: string,
+  filters: Partial<
+    Pick<RuntimeRecordRow, "record_id" | "course_id" | "run_id" | "round_id" | "team_id">
+  > = {}
+): Promise<RuntimeRecordRow[]> {
+  const conditions = ["tenant_id = $1", "record_type = $2"];
+  const params: unknown[] = [tenantId, recordType];
+  for (const field of ["record_id", "course_id", "run_id", "round_id", "team_id"] as const) {
+    const value = filters[field];
+    if (value !== undefined) {
+      params.push(value);
+      conditions.push(`${field} = $${params.length}`);
+    }
+  }
+  return [
+    ...(await adapter.queryRows<RuntimeRecordRow>(
+      `SELECT tenant_id, record_type, record_id, course_id, run_id, round_id, team_id, payload
+       FROM w024_runtime_records WHERE ${conditions.join(" AND ")}
+       ORDER BY record_id ASC`,
+      params
+    ))
+  ];
+}
+
+async function saveCourseWithExecutor(
+  adapter: PostgresRepositoryAdapter,
+  course: Course,
+  executor: PostgresQueryExecutor = adapter.queryExecutor
+): Promise<void> {
+  await executor(
+    `INSERT INTO courses (id, course_id, tenant_id, status, payload, updated_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, now())
+     ON CONFLICT (tenant_id, course_id) DO UPDATE SET status = EXCLUDED.status,
+       payload = EXCLUDED.payload, updated_at = now()`,
+    [course.course_id, course.course_id, course.tenant_id, course.status, JSON.stringify(course)]
+  );
+}
+
+async function saveRunWithExecutor(
+  adapter: PostgresRepositoryAdapter,
+  run: Run,
+  executor: PostgresQueryExecutor = adapter.queryExecutor
+): Promise<void> {
+  await executor(
+    `INSERT INTO simulation_runs
+       (id, run_id, tenant_id, course_id, scenario_package_id, parameter_set_id, seed, status, payload, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now())
+     ON CONFLICT (tenant_id, run_id) DO UPDATE SET course_id = EXCLUDED.course_id,
+       scenario_package_id = EXCLUDED.scenario_package_id, parameter_set_id = EXCLUDED.parameter_set_id,
+       seed = EXCLUDED.seed, status = EXCLUDED.status, payload = EXCLUDED.payload, updated_at = now()`,
+    [
+      run.run_id,
+      run.run_id,
+      run.tenant_id,
+      run.course_id,
+      run.scenario_package_id,
+      run.parameter_set_id,
+      run.seed,
+      run.status,
+      JSON.stringify(run)
+    ]
+  );
+}
+
+function roleRecordId(kind: string, value: Record<string, unknown>): string {
+  const keysByKind: Record<string, readonly string[]> = {
+    assignment: ["assignment_id"],
+    confirmation: ["team_confirmation_id"],
+    decision: ["decision_id"],
+    event: ["event_id"],
+    merge: ["merge_commit_id"],
+    section: ["section_id"]
+  };
+  return payloadId(
+    value,
+    keysByKind[kind] ?? [
+      "user_id",
+      "session_id",
+      "scenario_package_id",
+      "parameter_set_id",
+      "team_id",
+      "course_id"
+    ],
+    `${kind}:${randomUUID()}`
+  );
+}
+
+async function appendRoleRecord(
+  adapter: PostgresRepositoryAdapter,
+  command: RoleWorkflowCommitCommand,
+  executor: PostgresQueryExecutor
+): Promise<void> {
+  const records: Array<{ type: string; value: Record<string, unknown> }> = [];
+  if (command.kind === "append_assignment")
+    records.push({
+      type: "assignment",
+      value: command.assignment as unknown as Record<string, unknown>
+    });
+  if (command.kind === "append_section")
+    records.push({ type: "section", value: command.section as unknown as Record<string, unknown> });
+  if (command.kind === "append_merge")
+    records.push({
+      type: "merge",
+      value: command.merge_commit as unknown as Record<string, unknown>
+    });
+  if (command.kind === "append_confirmation") {
+    records.push({
+      type: "confirmation",
+      value: command.confirmation as unknown as Record<string, unknown>
+    });
+    await saveDecisionWithExecutor(adapter, command.decision, executor);
+    records.push({
+      type: "decision",
+      value: command.decision as unknown as Record<string, unknown>
+    });
+  }
+  for (const record of records) {
+    const value = record.value;
+    await executor(
+      `INSERT INTO w024_role_workflow_records
+         (record_id, tenant_id, run_id, team_id, round_id, record_type, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+       ON CONFLICT (record_id) DO UPDATE SET payload = EXCLUDED.payload`,
+      [
+        roleRecordId(record.type, value),
+        value.tenant_id,
+        value.run_id,
+        value.team_id,
+        value.round_id ?? null,
+        record.type,
+        JSON.stringify(value)
+      ]
+    );
+  }
+  const event = command.event;
+  await executor(
+    `INSERT INTO w024_role_workflow_records
+       (record_id, tenant_id, run_id, team_id, round_id, record_type, payload)
+     VALUES ($1, $2, $3, $4, $5, 'event', $6::jsonb)
+     ON CONFLICT (record_id) DO UPDATE SET payload = EXCLUDED.payload`,
+    [
+      event.event_id,
+      event.tenant_id,
+      event.run_id,
+      event.team_id,
+      event.round_id ?? null,
+      JSON.stringify(event)
+    ]
+  );
+  if (command.kind === "reset") {
+    await executor(
+      `UPDATE w024_role_workflow_records SET payload = jsonb_set(payload, '{status}', '"inactive"'::jsonb, true)
+       WHERE tenant_id = $1 AND run_id = $2 AND team_id = $3 AND record_type = 'assignment'
+         AND record_id = ANY($4::text[])`,
+      [event.tenant_id, event.run_id, event.team_id, command.assignment_ids]
+    );
+  }
+}
+
+async function saveDecisionWithExecutor(
+  adapter: PostgresRepositoryAdapter,
+  decision: Decision,
+  executor: PostgresQueryExecutor
+): Promise<void> {
+  await executor(
+    `INSERT INTO decisions
+       (id, decision_id, tenant_id, run_id, round_id, round_no, team_id, version, status,
+        canonical_source, merge_commit_id, team_confirmation_id, submitted_by, payload, validation_report, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, now())
+     ON CONFLICT (tenant_id, decision_id) DO UPDATE SET status = EXCLUDED.status,
+       payload = EXCLUDED.payload, validation_report = EXCLUDED.validation_report,
+       merge_commit_id = EXCLUDED.merge_commit_id, team_confirmation_id = EXCLUDED.team_confirmation_id,
+       updated_at = now()`,
+    [
+      toDecisionRowId(decision.tenant_id, decision.decision_id),
+      decision.decision_id,
+      decision.tenant_id,
+      decision.run_id,
+      decision.round_id,
+      decision.round_no,
+      decision.team_id,
+      decision.version,
+      decision.status,
+      decision.canonical_source ?? null,
+      decision.merge_commit_id ?? null,
+      decision.team_confirmation_id ?? null,
+      decision.submitted_by,
+      JSON.stringify(decision.payload),
+      JSON.stringify(decision.validation_report)
+    ]
+  );
+}
+
+export interface PostgresRepositoryPortsOptions {
+  adapter: PostgresRepositoryAdapter;
+  transactionExecutor: PostgresTransactionExecutor;
+}
+
+export function createPostgresRepositoryPorts(
+  options: PostgresRepositoryPortsOptions
+): SimWarRepositoryPorts {
+  const { adapter, transactionExecutor } = options;
+  const saveRecord = (type: string, value: Record<string, unknown>, tenantId: string) =>
+    saveRuntimeRecord(adapter, type, roleRecordId(type, value), value, tenantId);
+  const listPayloads = async <T>(type: string, tenantId: string, filters = {}) =>
+    (await listRuntimeRecords(adapter, type, tenantId, filters)).map((row) => row.payload as T);
+
+  const roleWorkflow: RoleWorkflowRepositoryPort = {
+    async readRoleWorkflow(
+      query: RoleWorkflowRepositoryQuery
+    ): Promise<RoleWorkflowRepositorySnapshot> {
+      const [run, teamRows, roleRows] = await Promise.all([
+        adapter.runs.getRun(query.tenant_id, query.run_id),
+        listRuntimeRecords(adapter, "team", query.tenant_id, { record_id: query.team_id }),
+        adapter.queryRows<{ payload: Record<string, unknown>; record_type: string }>(
+          `SELECT record_type, payload FROM w024_role_workflow_records
+           WHERE tenant_id = $1 AND run_id = $2 AND team_id = $3
+             AND ($4::text IS NULL OR round_id IS NULL OR round_id = $4)
+           ORDER BY append_sequence ASC`,
+          [query.tenant_id, query.run_id, query.team_id, query.round_id ?? null]
+        )
+      ]);
+      const round = query.round_id
+        ? await adapter.rounds.getRound(query.tenant_id, query.round_id)
+        : null;
+      const course = run ? await adapter.courses.getCourse(query.tenant_id, run.course_id) : null;
+      const assignments = roleRows
+        .filter(
+          (row) =>
+            row.record_type === "assignment" &&
+            row.payload.role_key !== undefined &&
+            row.payload.assignment_id !== undefined
+        )
+        .map((row) => row.payload as unknown as StudentRoleAssignment);
+      const sections = roleRows
+        .filter((row) => row.record_type === "section" && row.payload.section_id !== undefined)
+        .map((row) => row.payload as unknown as RoleDecisionSection);
+      const merge_commits = roleRows
+        .filter((row) => row.record_type === "merge" && row.payload.merge_commit_id !== undefined)
+        .map((row) => row.payload as unknown as DecisionMergeCommit);
+      const confirmations = roleRows
+        .filter(
+          (row) =>
+            row.record_type === "confirmation" && row.payload.team_confirmation_id !== undefined
+        )
+        .map((row) => row.payload as unknown as TeamConfirmation);
+      const events = roleRows
+        .filter((row) => row.record_type === "event" && row.payload.event_id !== undefined)
+        .map((row) => row.payload as unknown as RoleWorkflowEvent);
+      const decisions = await adapter.decisions.listDecisionsForRound(
+        query.tenant_id,
+        query.run_id,
+        query.round_id ?? ""
+      );
+      return {
+        assignments,
+        confirmations,
+        course,
+        decisions,
+        events,
+        merge_commits,
+        round,
+        run,
+        sections,
+        team: (teamRows[0]?.payload as unknown as Team | undefined) ?? null
+      };
+    },
+    async commitRoleWorkflow(command: RoleWorkflowCommitCommand): Promise<void> {
+      await transactionExecutor((executor) => appendRoleRecord(adapter, command, executor));
+    }
+  } as unknown as RoleWorkflowRepositoryPort;
+
+  const identity = {
+    async getTenant(tenantId: string) {
+      const rows = await listPayloads<{ tenant_id: string; status?: string }>("tenant", tenantId);
+      return rows[0] ?? null;
+    },
+    async getUser(tenantId: string, userId: string) {
+      const rows = await listRuntimeRecords(adapter, "user", tenantId, { record_id: userId });
+      const user = rows[0]?.payload;
+      return user ? (user as { tenant_id: string; user_id: string; status?: string }) : null;
+    }
+  };
+
+  const teams = {
+    async getTeam(tenantId: string, teamId: string) {
+      const rows = await listRuntimeRecords(adapter, "team", tenantId, { record_id: teamId });
+      return (rows[0]?.payload as unknown as Team | undefined) ?? null;
+    },
+    async listTeamsForRun(tenantId: string, runId: string) {
+      const run = await adapter.runs.getRun(tenantId, runId);
+      if (!run) return [];
+      const candidates = await listPayloads<Team>("team", tenantId, {
+        course_id: run.course_id
+      });
+      return candidates;
+    },
+    async getTeamForUser(tenantId: string, runId: string, userId: string) {
+      const run = await adapter.runs.getRun(tenantId, runId);
+      if (!run) return null;
+      const candidates = await listPayloads<Team>("team", tenantId, {
+        course_id: run.course_id
+      });
+      return (
+        candidates.find((team) => team.members.some((member) => member.user_id === userId)) ?? null
+      );
+    },
+    async createTeamWithCaptain(team: Team) {
+      await saveRecord("team", team as unknown as Record<string, unknown>, team.tenant_id);
+    },
+    async addMemberToTeam(tenantId: string, teamId: string, member: Team["members"][number]) {
+      const team = await teams.getTeam(tenantId, teamId);
+      if (!team) throw new Error("team_not_found");
+      const updated = { ...team, members: [...team.members, member] };
+      await saveRecord("team", updated as unknown as Record<string, unknown>, tenantId);
+      return updated;
+    }
+  };
+
+  const genericPort = <T>(type: string) => ({
+    async get(tenantId: string, id: string) {
+      const rows = await listRuntimeRecords(adapter, type, tenantId, { record_id: id });
+      return (rows[0]?.payload as T | undefined) ?? null;
+    },
+    async list(tenantId: string) {
+      return listPayloads<T>(type, tenantId);
+    }
+  });
+
+  const evidenceProvenance: EvidenceProvenanceRepositoryPort = {
+    listEvidenceArtifacts: (tenantId) =>
+      listPayloads<D2EvidenceArtifactVersion>("evidence_artifact", tenantId),
+    listProvenanceEdges: (tenantId) => listPayloads<D2ProvenanceEdge>("provenance_edge", tenantId),
+    async appendEvidenceCapture(command: EvidenceProvenanceCaptureCommand) {
+      await transactionExecutor(async (executor) => {
+        await saveRuntimeRecord(
+          adapter,
+          "evidence_artifact",
+          payloadId(
+            command.artifact as unknown as Record<string, unknown>,
+            ["artifact_id", "resource_id"],
+            "artifact"
+          ),
+          command.artifact as unknown as Record<string, unknown>,
+          command.artifact.artifact_ref.tenant_id,
+          executor
+        );
+        for (const edge of command.provenance_edges) {
+          await saveRuntimeRecord(
+            adapter,
+            "provenance_edge",
+            `${edge.source_ref.resource_id}:${edge.target_ref.resource_id}`,
+            edge as unknown as Record<string, unknown>,
+            command.audit_log.tenant_id,
+            executor
+          );
+        }
+        await executor(
+          "INSERT INTO audit_logs (id, audit_id, tenant_id, actor_id, actor_role, action, resource_type, resource_id, request_id, created_at, payload) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)",
+          [
+            toAuditLogRowId(),
+            command.audit_log.audit_id,
+            command.audit_log.tenant_id,
+            command.audit_log.actor_id,
+            command.audit_log.actor_role,
+            command.audit_log.action,
+            command.audit_log.resource_type,
+            command.audit_log.resource_id,
+            command.audit_log.request_id,
+            command.audit_log.created_at,
+            JSON.stringify(command.audit_log)
+          ]
+        );
+      });
+    }
+  };
+
+  const teacherConfirmations: TeacherConfirmationRepositoryPort = {
+    list: (tenantId) => listPayloads<TeacherConfirmationVersion>("teacher_confirmation", tenantId),
+    append: async (command: TeacherConfirmationAppendCommand) => {
+      await transactionExecutor(async (executor) => {
+        const value = command.confirmation as unknown as Record<string, unknown>;
+        await saveRuntimeRecord(
+          adapter,
+          "teacher_confirmation",
+          payloadId(value, ["confirmation_id", "resource_id"], "confirmation"),
+          value,
+          command.audit_log.tenant_id,
+          executor
+        );
+        await executor(
+          "INSERT INTO audit_logs (id, audit_id, tenant_id, actor_id, actor_role, action, resource_type, resource_id, request_id, created_at, payload) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)",
+          [
+            toAuditLogRowId(),
+            command.audit_log.audit_id,
+            command.audit_log.tenant_id,
+            command.audit_log.actor_id,
+            command.audit_log.actor_role,
+            command.audit_log.action,
+            command.audit_log.resource_type,
+            command.audit_log.resource_id,
+            command.audit_log.request_id,
+            command.audit_log.created_at,
+            JSON.stringify(command.audit_log)
+          ]
+        );
+      });
+    }
+  };
+
+  const governedAdvisories: GovernedAdvisoryRepositoryPort = {
+    list: (tenantId) => listPayloads<W020AdvisoryRecord>("governed_advisory", tenantId),
+    append: (record) =>
+      saveRecord(
+        "governed_advisory",
+        record as unknown as Record<string, unknown>,
+        record.tenant_id
+      )
+  };
+
+  const validationSessions: ValidationSessionRepositoryPort = {
+    list: (tenantId) => listPayloads<ValidationSessionRecord>("validation_session", tenantId),
+    get: async (tenantId, sessionId) =>
+      genericPort<ValidationSessionRecord>("validation_session").get(tenantId, sessionId),
+    save: (session) =>
+      saveRecord(
+        "validation_session",
+        session as unknown as Record<string, unknown>,
+        session.tenant_id
+      )
+  };
+
+  return {
+    identity,
+    sessions: {
+      getSession: async (tenantId: string, sessionId: string) =>
+        genericPort<{ tenant_id: string; session_id: string; user_id: string }>("session").get(
+          tenantId,
+          sessionId
+        ),
+      listActiveSessionsByUser: async (tenantId: string, userId: string) =>
+        (
+          await listPayloads<{ tenant_id: string; session_id: string; user_id: string }>(
+            "session",
+            tenantId
+          )
+        ).filter((session) => session.user_id === userId)
+    },
+    courses: {
+      getCourse: adapter.courses.getCourse,
+      listCoursesForTenant: adapter.courses.listCoursesForTenant,
+      listCoursesForUser: adapter.courses.listCoursesForUser,
+      saveCourse: (course: Course) => saveCourseWithExecutor(adapter, course),
+      deleteCourse: (tenantId: string, courseId: string) =>
+        adapter
+          .execute("DELETE FROM courses WHERE tenant_id = $1 AND course_id = $2", [
+            tenantId,
+            courseId
+          ])
+          .then(() => undefined)
+    },
+    teams,
+    runs: {
+      getRun: adapter.runs.getRun,
+      listRunsForCourse: adapter.runs.listRunsForCourse,
+      saveRun: (run: Run) => saveRunWithExecutor(adapter, run),
+      deleteRun: (tenantId: string, runId: string) =>
+        adapter
+          .execute("DELETE FROM simulation_runs WHERE tenant_id = $1 AND run_id = $2", [
+            tenantId,
+            runId
+          ])
+          .then(() => undefined)
+    },
+    scenarios: {
+      getScenarioPackage: (tenantId: string, id: string) =>
+        genericPort<ScenarioPackage>("scenario").get(tenantId, id),
+      listScenarioPackagesForTenant: (tenantId: string) =>
+        genericPort<ScenarioPackage>("scenario").list(tenantId)
+    },
+    parameterSets: {
+      getParameterSet: (tenantId: string, id: string) =>
+        genericPort<ParameterSet>("parameter_set").get(tenantId, id)
+    },
+    rounds: {
+      getRound: adapter.rounds.getRound,
+      listRoundsForRun: adapter.rounds.listRoundsForRun,
+      saveRound: adapter.rounds.saveRound,
+      deleteRound: (tenantId: string, roundId: string) =>
+        adapter
+          .execute("DELETE FROM simulation_rounds WHERE tenant_id = $1 AND round_id = $2", [
+            tenantId,
+            roundId
+          ])
+          .then(() => undefined),
+      markRoundSettled: adapter.rounds.markRoundSettled
+    },
+    decisions: adapter.decisions,
+    settlements: adapter.settlements,
+    settlementOutcome: createPostgresSettlementOutcomePersistencePort({
+      ...adapter.options,
+      transactionExecutor
+    }),
+    domainEvents: {
+      appendDomainEvent: (event: DomainEvent) =>
+        saveRecord("domain_event", event as unknown as Record<string, unknown>, event.tenant_id),
+      listDomainEvents: async (query) =>
+        (
+          await listPayloads<DomainEvent>("domain_event", query.tenant_id, {
+            ...(query.aggregate_id ? { record_id: query.aggregate_id } : {})
+          })
+        ).filter((event) => !query.aggregate_type || event.aggregate_type === query.aggregate_type)
+    },
+    stateSnapshots: adapter.stateSnapshots,
+    auditLogs: adapter.auditLogs as unknown as SimWarRepositoryPorts["auditLogs"],
+    replay: adapter.replay,
+    roleWorkflow,
+    evidenceProvenance,
+    teacherConfirmations,
+    governedAdvisories,
+    validationSessions
+  };
 }

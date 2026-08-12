@@ -345,8 +345,8 @@ export type RoleWorkflowCommitCommand =
     };
 
 export interface RoleWorkflowRepositoryPort {
-  readRoleWorkflow(query: RoleWorkflowRepositoryQuery): RoleWorkflowRepositorySnapshot;
-  commitRoleWorkflow(command: RoleWorkflowCommitCommand): void;
+  readRoleWorkflow(query: RoleWorkflowRepositoryQuery): Promise<RoleWorkflowRepositorySnapshot>;
+  commitRoleWorkflow(command: RoleWorkflowCommitCommand): Promise<void>;
 }
 
 export interface EvidenceProvenanceCaptureCommand {

@@ -460,11 +460,13 @@ export class ValidationSessionControlPlane {
               return { user_id: member.user_id, status: user?.status };
             })
           ),
-          assignments: this.provider.ports.roleWorkflow.readRoleWorkflow({
-            tenant_id: tenantId,
-            run_id: session.run_id,
-            team_id: team.team_id
-          }).assignments
+          assignments: (
+            await this.provider.ports.roleWorkflow.readRoleWorkflow({
+              tenant_id: tenantId,
+              run_id: session.run_id,
+              team_id: team.team_id
+            })
+          ).assignments
         }))
       )
     });

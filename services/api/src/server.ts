@@ -82,6 +82,7 @@ import {
 import { createSettlementBusinessKey } from "./settlement-idempotency.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
+import { createPostgresRuntime, resolveRepositoryMode } from "./postgres-runtime.js";
 import {
   RoleWorkflowCommandService,
   RoleWorkflowError,
@@ -385,7 +386,9 @@ class HttpError extends Error {
 }
 
 const defaultStore = createP1Store({
-  persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json"
+  ...(resolveRepositoryMode() === "postgres"
+    ? {}
+    : { persistenceFile: process.env.SIMWAR_STORE_FILE ?? "tmp/simwar-store.json" })
 });
 const sharedRuntimeEnvironments = new Set<RuntimeEnvironment>(["production", "staging"]);
 const seededDemoUserIds = new Set([
@@ -408,7 +411,11 @@ function createRuntimeRepositoryProvider(
   store: SimWarStore,
   options: Pick<CreateApiServerOptions, "repositoryProvider"> = {}
 ): RepositoryProvider {
-  return options.repositoryProvider ?? createJsonRepositoryProvider({ store });
+  if (options.repositoryProvider) return options.repositoryProvider;
+  if (resolveRepositoryMode() === "postgres") {
+    throw new Error("postgres_runtime_provider_required");
+  }
+  return createJsonRepositoryProvider({ store });
 }
 
 function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = {}): ApiRuntime {
@@ -737,7 +744,7 @@ async function submitDecision(
     throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
   }
 
-  executeRoleWorkflow(() =>
+  await executeRoleWorkflow(() =>
     runtime.roleWorkflow.assertDirectDecisionSubmissionAllowed(
       roleWorkflowActor(context, "student"),
       {
@@ -3518,9 +3525,9 @@ function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
   return new HttpError(statusCode, error.code, error.message);
 }
 
-function executeRoleWorkflow<T>(command: () => T): T {
+async function executeRoleWorkflow<T>(command: () => T | Promise<T>): Promise<T> {
   try {
-    return command();
+    return await command();
   } catch (error) {
     if (error instanceof RoleWorkflowError) throw roleWorkflowHttpError(error);
     throw error;
@@ -4535,11 +4542,11 @@ async function executeLockedRoleWorkflow<T>(
   runtime: ApiRuntime,
   tenantId: string,
   runId: string,
-  command: () => T
+  command: () => T | Promise<T>
 ): Promise<T> {
   const release = await acquireRunMutationLock(runtime, runMutationBusinessKey(tenantId, runId));
   try {
-    return executeRoleWorkflow(command);
+    return await executeRoleWorkflow(command);
   } finally {
     release();
   }
@@ -4559,67 +4566,204 @@ async function handleW023ValidationSessionRoute(
   }
   const root = "/api/v1/bff/teacher/validation-sessions";
   if (request.method === "GET" && url.pathname === root) {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.list(actor, context.tenantId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, await runtime.validationSessions.list(actor, context.tenantId))
+    );
     return true;
   }
   if (request.method === "POST" && url.pathname === root) {
     const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
-    sendJson(response, 201, createEnvelope(context, await runtime.validationSessions.create(actor, context.tenantId, {
-      source_product_merge_sha: String(body.source_product_merge_sha ?? ""),
-      course_id: String(body.course_id ?? ""),
-      run_id: String(body.run_id ?? ""),
-      machine_admission_reference: String(body.machine_admission_reference ?? ""),
-      machine_admission_digest: String(body.machine_admission_digest ?? ""),
-      idempotency_key: String(body.idempotency_key ?? context.requestId)
-    }, context.requestId)));
+    sendJson(
+      response,
+      201,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.create(
+          actor,
+          context.tenantId,
+          {
+            source_product_merge_sha: String(body.source_product_merge_sha ?? ""),
+            course_id: String(body.course_id ?? ""),
+            run_id: String(body.run_id ?? ""),
+            machine_admission_reference: String(body.machine_admission_reference ?? ""),
+            machine_admission_digest: String(body.machine_admission_digest ?? ""),
+            idempotency_key: String(body.idempotency_key ?? context.requestId)
+          },
+          context.requestId
+        )
+      )
+    );
     return true;
   }
-  const match = url.pathname.match(/^\/api\/v1\/bff\/teacher\/validation-sessions\/([^/]+)(?:\/(roster|preflight|start|observations|incidents|abort|cleanup|close|evidence))?$/);
+  const match = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/validation-sessions\/([^/]+)(?:\/(roster|preflight|start|observations|incidents|abort|cleanup|close|evidence))?$/
+  );
   if (!match) throw new HttpError(404, "ROUTE-404-001", "not found");
   const sessionId = match[1] ?? "";
   const action = match[2];
   if (request.method === "GET" && !action) {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.get(actor, context.tenantId, sessionId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.get(actor, context.tenantId, sessionId)
+      )
+    );
     return true;
   }
   if (request.method !== "POST") throw new HttpError(405, "ROUTE-405-001", "method not allowed");
   if (action === "roster") {
-    const body = await readJson<{ participants?: ValidationSessionParticipant[] }>(request, { requiredObject: true });
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.setRoster(actor, context.tenantId, sessionId, body.participants ?? [], context.requestId)));
+    const body = await readJson<{ participants?: ValidationSessionParticipant[] }>(request, {
+      requiredObject: true
+    });
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.setRoster(
+          actor,
+          context.tenantId,
+          sessionId,
+          body.participants ?? [],
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "preflight") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.preflight(actor, context.tenantId, sessionId, context.requestId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.preflight(
+          actor,
+          context.tenantId,
+          sessionId,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "start") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.start(actor, context.tenantId, sessionId, context.requestId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.start(
+          actor,
+          context.tenantId,
+          sessionId,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "observations") {
-    const body = await readJson<Omit<ValidationSessionObservation, "session_id" | "observation_id" | "captured_at">>(request, { requiredObject: true });
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.appendObservation(actor, context.tenantId, sessionId, body, context.requestId)));
+    const body = await readJson<
+      Omit<ValidationSessionObservation, "session_id" | "observation_id" | "captured_at">
+    >(request, { requiredObject: true });
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.appendObservation(
+          actor,
+          context.tenantId,
+          sessionId,
+          body,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "incidents") {
-    const body = await readJson<Omit<ValidationSessionIncident, "session_id" | "incident_id" | "created_at">>(request, { requiredObject: true });
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.appendIncident(actor, context.tenantId, sessionId, body, context.requestId)));
+    const body = await readJson<
+      Omit<ValidationSessionIncident, "session_id" | "incident_id" | "created_at">
+    >(request, { requiredObject: true });
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.appendIncident(
+          actor,
+          context.tenantId,
+          sessionId,
+          body,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "abort") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.abort(actor, context.tenantId, sessionId, context.requestId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.abort(
+          actor,
+          context.tenantId,
+          sessionId,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "cleanup") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.cleanup(actor, context.tenantId, sessionId, context.requestId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.cleanup(
+          actor,
+          context.tenantId,
+          sessionId,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "close") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.close(actor, context.tenantId, sessionId, context.requestId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.close(
+          actor,
+          context.tenantId,
+          sessionId,
+          context.requestId
+        )
+      )
+    );
     return true;
   }
   if (action === "evidence") {
-    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.get(actor, context.tenantId, sessionId)));
+    sendJson(
+      response,
+      200,
+      createEnvelope(
+        context,
+        await runtime.validationSessions.get(actor, context.tenantId, sessionId)
+      )
+    );
     return true;
   }
   throw new HttpError(404, "ROUTE-404-001", "not found");
@@ -5371,7 +5515,15 @@ async function routeRequest(
     request.method === "GET" &&
     (url.pathname === "/healthz" || url.pathname === "/api/v1/health")
   ) {
-    sendJson(response, 200, createEnvelope(context, getApiHealthPayload()));
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, {
+        ...getApiHealthPayload(),
+        known_limits: runtime.repositoryProvider.capabilities?.knownLimits ?? [],
+        repository_mode: runtime.repositoryProvider.mode
+      })
+    );
     return;
   }
 
@@ -5438,7 +5590,7 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/role-workflows") {
     const actor = roleWorkflowActor(context, "teacher");
-    const data = executeRoleWorkflow(() =>
+    const data = await executeRoleWorkflow(() =>
       runtime.roleWorkflow.getTeacherWorkspace(actor, roleWorkflowScopeFromUrl(url))
     );
     sendJson(response, 200, createEnvelope(context, data));
@@ -5485,7 +5637,7 @@ async function routeRequest(
             return { status: user?.status, user_id: member.user_id };
           })
         );
-        const workflow = runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
+        const workflow = await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
           run_id: run.run_id,
           team_id: team.team_id,
           tenant_id: context.tenantId
@@ -5542,7 +5694,7 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/student/role-workspace") {
     const actor = roleWorkflowActor(context, "student");
-    const data = executeRoleWorkflow(() =>
+    const data = await executeRoleWorkflow(() =>
       runtime.roleWorkflow.getStudentWorkspace(actor, roleWorkflowScopeFromUrl(url))
     );
     sendJson(response, 200, createEnvelope(context, data));
@@ -5615,21 +5767,26 @@ async function routeRequest(
     assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
     const scope = roleWorkflowScopeFromBody(body);
     const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
-    const result = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () => {
-      const before = runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
-        ...scope,
-        tenant_id: context.tenantId
-      });
-      return {
-        data: runtime.roleWorkflow.confirmTeamDecision(actor, {
+    const result = await executeLockedRoleWorkflow(
+      runtime,
+      context.tenantId,
+      scope.run_id,
+      async () => {
+        const before = await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
           ...scope,
-          merge_commit_id: mergeCommitId
-        }),
-        wasExisting: before.confirmations.some(
-          (candidate) => candidate.merge_commit_id === mergeCommitId
-        )
-      };
-    });
+          tenant_id: context.tenantId
+        });
+        return {
+          data: await runtime.roleWorkflow.confirmTeamDecision(actor, {
+            ...scope,
+            merge_commit_id: mergeCommitId
+          }),
+          wasExisting: before.confirmations.some(
+            (candidate) => candidate.merge_commit_id === mergeCommitId
+          )
+        };
+      }
+    );
     sendJson(response, result.wasExisting ? 200 : 201, createEnvelope(context, result.data));
     return;
   }
@@ -6397,26 +6554,27 @@ async function routeRequest(
     const run = await getRunForRead(runtime, context, runId ?? "");
     const course = await getCourseForActorRead(runtime, context, run.course_id);
     const round = await getRoundForRead(runtime, context, run.run_id, Number(roundNoRaw));
-    const teams = store.teams.filter(
-      (team) => team.tenant_id === context.tenantId && team.course_id === course.course_id
-    );
-    const decisions = store.decisions.filter(
-      (decision) =>
-        decision.tenant_id === context.tenantId &&
-        decision.run_id === run.run_id &&
-        decision.round_no === round.round_no
-    );
+    const [teams, decisions, auditLogs, scenario, parameterSet] = await Promise.all([
+      runtime.repositoryProvider.facade.teams.listTeamsForRun(context.tenantId, run.run_id),
+      runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+        context.tenantId,
+        run.run_id,
+        round.round_id
+      ),
+      runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+        scope: "tenant",
+        tenant_id: context.tenantId
+      }),
+      runtime.repositoryProvider.facade.scenarios.getScenarioPackage(
+        context.tenantId,
+        course.scenario_package_id
+      ),
+      runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+        context.tenantId,
+        course.parameter_set_id
+      )
+    ]);
     const resultView = await createPublicResultView(runtime, context, run.run_id, round.round_no);
-    const scenario = store.scenarios.find(
-      (candidate) =>
-        candidate.tenant_id === context.tenantId &&
-        candidate.scenario_package_id === course.scenario_package_id
-    );
-    const parameterSet = store.parameterSets.find(
-      (candidate) =>
-        candidate.tenant_id === context.tenantId &&
-        candidate.parameter_set_id === course.parameter_set_id
-    );
 
     sendJson(
       response,
@@ -6425,7 +6583,7 @@ async function routeRequest(
         context,
         createTeacherBffWorkspaceDto({
           actor,
-          auditLogs: store.auditLogs.filter((log) => log.tenant_id === context.tenantId),
+          auditLogs,
           course,
           decisions,
           resultView,
@@ -6456,15 +6614,12 @@ async function routeRequest(
     const run = await getRunForRead(runtime, context, runId ?? "");
     const course = await getCourseForActorRead(runtime, context, run.course_id);
     const round = await getRoundForRead(runtime, context, run.run_id, Number(roundNoRaw));
-    const team = store.teams.find(
-      (candidate) =>
-        candidate.tenant_id === context.tenantId &&
-        candidate.course_id === course.course_id &&
-        candidate.team_id === actor.team_id &&
-        isActorMemberOfTeam(actor, candidate)
+    const team = await runtime.repositoryProvider.facade.teams.getTeam(
+      context.tenantId,
+      actor.team_id
     );
 
-    if (!team) {
+    if (!team || team.course_id !== course.course_id || !isActorMemberOfTeam(actor, team)) {
       throw new HttpError(404, "TEAM-404-001", "team not found");
     }
 
@@ -6959,11 +7114,17 @@ async function routeRequest(
         throw new HttpError(422, "RUN-422-002", "formal runtime binding is invalid");
       }
     } else {
-      const parameterSet = store.parameterSets.find(
-        (candidate) =>
-          candidate.parameter_set_id === course.parameter_set_id &&
-          candidate.tenant_id === context.tenantId
-      );
+      const parameterSet =
+        runtime.repositoryProvider.mode === "postgres"
+          ? await runtime.repositoryProvider.facade.parameterSets.getParameterSet(
+              context.tenantId,
+              course.parameter_set_id
+            )
+          : store.parameterSets.find(
+              (candidate) =>
+                candidate.parameter_set_id === course.parameter_set_id &&
+                candidate.tenant_id === context.tenantId
+            );
       if (!parameterSet || parameterSet.status !== "approved") {
         throw new HttpError(422, "RUN-422-001", "approved parameter set is required");
       }
@@ -6986,8 +7147,8 @@ async function routeRequest(
       };
     }
     if (!formalBindingPersisted) {
-      store.runs.push(run);
-      store.rounds.push(round);
+      await runtime.repositoryProvider.facade.runs.saveRun(run);
+      await runtime.repositoryProvider.facade.rounds.saveRound(round);
     }
     await appendAudit(runtime, {
       actor,
@@ -7333,7 +7494,11 @@ export function createApiServer(
       }
 
       if (error instanceof ValidationSessionControlPlaneError) {
-        sendError(response, fallbackContext, new HttpError(error.statusCode, error.code, error.message));
+        sendError(
+          response,
+          fallbackContext,
+          new HttpError(error.statusCode, error.code, error.message)
+        );
         return;
       }
 
@@ -7359,13 +7524,31 @@ export function createApiServer(
 const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
-  const port = Number.parseInt(process.env.API_PORT ?? "", 10) || DEFAULT_PORT;
-  const host = resolveApiHost();
-  const server = createApiServer();
-
-  server.listen(host ? { host, port } : { port }, () => {
-    console.log(`SimWar API listening on http://${host ?? "system-default"}:${port}`);
-    console.log(`SimWar API store: ${defaultStore.persistenceFile ?? "memory"}`);
-    console.log(`Platform admin: tenant=${PLATFORM_TENANT_ID} username=platform`);
+  const startMain = async () => {
+    const port = Number.parseInt(process.env.API_PORT ?? "", 10) || DEFAULT_PORT;
+    const host = resolveApiHost();
+    const postgresRuntime =
+      resolveRepositoryMode() === "postgres" ? createPostgresRuntime() : undefined;
+    if (postgresRuntime) await postgresRuntime.start();
+    const server = createApiServer(
+      defaultStore,
+      postgresRuntime ? { repositoryProvider: postgresRuntime.provider } : {}
+    );
+    const shutdown = () => {
+      server.close(() => {
+        void postgresRuntime?.close();
+      });
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+    server.listen(host ? { host, port } : { port }, () => {
+      console.log(`SimWar API listening on http://${host ?? "system-default"}:${port}`);
+      console.log(`SimWar API repository mode: ${postgresRuntime ? "postgres" : "json"}`);
+      console.log(`Platform admin: tenant=${PLATFORM_TENANT_ID} username=platform`);
+    });
+  };
+  void startMain().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
   });
 }

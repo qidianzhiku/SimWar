@@ -174,7 +174,7 @@ export class GovernedAdvisoryService {
     const roundId = assertId(request.round_id);
     const teamId = assertId(request.team_id);
     const idempotencyKey = assertId(request.idempotency_key);
-    const snapshot = this.dependencies.roleWorkflow.readRoleWorkflow({
+    const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
       round_id: roundId,
       run_id: runId,
       team_id: teamId,

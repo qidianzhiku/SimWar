@@ -631,7 +631,7 @@ function roundForSettlementResult(result: SettlementResult, overrides: Partial<R
 
 async function resetSettlementOutcomeTables(): Promise<void> {
   await requiredClient().query(
-    "TRUNCATE course_memberships, replay_records, decisions, settlement_results, simulation_rounds, simulation_runs, courses, users"
+    "TRUNCATE w024_role_workflow_records, w024_runtime_records, course_memberships, replay_records, decisions, settlement_results, simulation_rounds, simulation_runs, courses, users"
   );
 }
 

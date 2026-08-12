@@ -34,7 +34,10 @@ import type {
   GovernedAdvisoryRepositoryPort
 } from "./repository-ports.js";
 import type { ValidationSessionRepositoryPort } from "./repository-ports.js";
-import { assertValidationSessionRecord, type ValidationSessionRecord } from "@simwar/shared-contracts";
+import {
+  assertValidationSessionRecord,
+  type ValidationSessionRecord
+} from "@simwar/shared-contracts";
 import {
   InMemoryJsonParameterSetRegistry,
   type InMemoryJsonParameterSetRegistryOptions
@@ -160,7 +163,7 @@ export function createJsonRoleWorkflowRepositoryPort(
   store: SimWarStore
 ): RoleWorkflowRepositoryPort {
   return {
-    readRoleWorkflow(query) {
+    async readRoleWorkflow(query) {
       const run =
         store.runs.find(
           (candidate) =>
@@ -210,7 +213,7 @@ export function createJsonRoleWorkflowRepositoryPort(
       });
     },
 
-    commitRoleWorkflow(command: RoleWorkflowCommitCommand): void {
+    async commitRoleWorkflow(command: RoleWorkflowCommitCommand): Promise<void> {
       const previous = {
         assignments: clone(store.studentRoleAssignments),
         confirmations: clone(store.teamConfirmations),
