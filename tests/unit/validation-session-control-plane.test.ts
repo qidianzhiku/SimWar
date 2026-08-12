@@ -34,14 +34,39 @@ function plane() {
     seed: 1,
     status: "active"
   });
+  const roles = ["CEO", "CFO", "CMO", "COO"] as const;
+  const members = roles.map((role, index) => ({
+    user_id: ["usr_student", "usr_default_cfo", "usr_default_cmo", "usr_default_coo"][index]!,
+    display_name: `P0 ${role}`,
+    role_slot: role
+  }));
+  store.teams[0]!.members = members;
   store.teams.push({
     team_id: "team_beta",
     tenant_id: "tenant_demo",
     course_id: "course_demo",
     name: "Beta synthetic team",
-    captain_user_id: "usr_default_cfo",
-    members: [{ user_id: "usr_default_cfo", display_name: "P0 CFO", role_slot: "CEO" }]
+    captain_user_id: "usr_student",
+    members
   });
+  for (const team of store.teams) {
+    for (const member of team.members) {
+      store.studentRoleAssignments.push({
+        assignment_id: `assignment_${team.team_id}_${member.role_slot}`,
+        tenant_id: team.tenant_id,
+        course_id: team.course_id,
+        run_id: "run_demo",
+        team_id: team.team_id,
+        user_id: member.user_id,
+        role_key: member.role_slot,
+        role_template_id: `template_${member.role_slot}`,
+        status: "active",
+        source: "seeded_default",
+        assigned_by: "usr_teacher",
+        assigned_at: "2026-08-12T00:00:00.000Z"
+      });
+    }
+  }
   return new ValidationSessionControlPlane(createJsonRepositoryProvider({ store }));
 }
 
@@ -54,7 +79,76 @@ describe("W023 ValidationSession control plane", () => {
     await expect(
       control.create(actor, actor.tenant_id, { ...input, run_id: "other-run" }, "req-3")
     ).rejects.toMatchObject({ code: "W023_SESSION-409-001" });
+    await expect(
+      control.create(
+        actor,
+        actor.tenant_id,
+        { ...input, machine_admission_reference: "different-admission" },
+        "req-4"
+      )
+    ).rejects.toMatchObject({ code: "W023_SESSION-409-001" });
     expect(first.execution_mode).toBe("SYNTHETIC_REHEARSAL");
+  });
+
+  it("rechecks authoritative W022 admission readiness before PREFLIGHT_READY", async () => {
+    const store = createP1Store();
+    store.runs.push({
+      run_id: "run_incomplete",
+      tenant_id: "tenant_demo",
+      course_id: "course_demo",
+      scenario_package_id: "scenario_eldercare_demo",
+      parameter_set_id: "param_toy_approved_1",
+      seed: 1,
+      status: "active"
+    });
+    store.teams.push({
+      team_id: "team_incomplete",
+      tenant_id: "tenant_demo",
+      course_id: "course_demo",
+      name: "Incomplete synthetic team",
+      captain_user_id: "usr_student",
+      members: [{ user_id: "usr_student", display_name: "P0 Student", role_slot: "CEO" }]
+    });
+    const control = new ValidationSessionControlPlane(createJsonRepositoryProvider({ store }));
+    const session = await control.create(
+      actor,
+      actor.tenant_id,
+      { ...input, run_id: "run_incomplete" },
+      "req-incomplete-1"
+    );
+    await control.setRoster(
+      actor,
+      actor.tenant_id,
+      session.session_id,
+      [
+        {
+          participant_id: "teacher",
+          session_duty: "TEACHER",
+          participant_kind: "SYNTHETIC",
+          product_user_id: "usr_teacher"
+        },
+        {
+          participant_id: "learner",
+          session_duty: "LEARNER",
+          participant_kind: "SYNTHETIC",
+          product_user_id: "usr_student",
+          team_id: "team_incomplete",
+          role_key: "CEO"
+        },
+        { participant_id: "moderator", session_duty: "MODERATOR", participant_kind: "SYNTHETIC" },
+        { participant_id: "observer", session_duty: "OBSERVER", participant_kind: "SYNTHETIC" },
+        { participant_id: "recorder", session_duty: "RECORDER", participant_kind: "SYNTHETIC" }
+      ],
+      "req-incomplete-2"
+    );
+    const preflight = await control.preflight(
+      actor,
+      actor.tenant_id,
+      session.session_id,
+      "req-incomplete-3"
+    );
+    expect(preflight.preflight?.status).toBe("BLOCKED");
+    expect(preflight.preflight?.reasons).toContain("W022_ADMISSION_NOT_READY");
   });
 
   it("requires all duties, preflight, and freezes roster at LIVE", async () => {
@@ -122,6 +216,23 @@ describe("W023 ValidationSession control plane", () => {
     );
     await control.preflight(actor, actor.tenant_id, session.session_id, "req-3");
     await control.start(actor, actor.tenant_id, session.session_id, "req-4");
+    await expect(
+      control.appendObservation(
+        actor,
+        actor.tenant_id,
+        session.session_id,
+        {
+          participant_id: "observer",
+          session_duty: "OBSERVER",
+          phase: "LIVE",
+          category: "flow",
+          narrative: "bounded synthetic observation",
+          evidence_refs: [],
+          unexpected: true
+        } as never,
+        "req-4b"
+      )
+    ).rejects.toMatchObject({ code: "W023_OBSERVATION-422-001" });
     await control.appendObservation(
       actor,
       actor.tenant_id,
@@ -149,6 +260,22 @@ describe("W023 ValidationSession control plane", () => {
       },
       "req-5b"
     );
+    await expect(
+      control.appendIncident(
+        actor,
+        actor.tenant_id,
+        session.session_id,
+        {
+          severity: "LOW",
+          phase: "LIVE",
+          description: "bounded synthetic incident",
+          evidence_refs: [],
+          resolution_state: "RESOLVED",
+          unexpected: true
+        } as never,
+        "req-5c"
+      )
+    ).rejects.toMatchObject({ code: "W023_INCIDENT-422-001" });
     await expect(
       control.appendObservation(
         actor,

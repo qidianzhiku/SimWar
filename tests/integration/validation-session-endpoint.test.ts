@@ -20,9 +20,32 @@ async function boot() {
     tenant_id: "tenant_demo",
     course_id: "course_demo",
     name: "W023 Beta synthetic team",
-    captain_user_id: "usr_default_cfo",
-    members: [{ user_id: "usr_default_cfo", display_name: "P0 CFO", role_slot: "CEO" }]
+    captain_user_id: "usr_student",
+    members: [
+      { user_id: "usr_student", display_name: "P0 Student", role_slot: "CEO" },
+      { user_id: "usr_default_cfo", display_name: "P0 CFO", role_slot: "CFO" },
+      { user_id: "usr_default_cmo", display_name: "P0 CMO", role_slot: "CMO" },
+      { user_id: "usr_default_coo", display_name: "P0 COO", role_slot: "COO" }
+    ]
   });
+  for (const team of store.teams.filter((candidate) => candidate.course_id === "course_demo")) {
+    for (const member of team.members.filter((candidate) => candidate.role_slot !== "risk")) {
+      store.studentRoleAssignments.push({
+        assignment_id: `assignment_${team.team_id}_${member.role_slot}`,
+        tenant_id: team.tenant_id,
+        course_id: team.course_id,
+        run_id: "run_w023",
+        team_id: team.team_id,
+        user_id: member.user_id,
+        role_key: member.role_slot,
+        role_template_id: `template_${member.role_slot}`,
+        status: "active",
+        source: "seeded_default",
+        assigned_by: "usr_teacher",
+        assigned_at: "2026-08-12T00:00:00.000Z"
+      });
+    }
+  }
   const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");

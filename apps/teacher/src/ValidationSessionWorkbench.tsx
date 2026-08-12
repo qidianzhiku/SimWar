@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ApiEnvelope, ValidationSessionRecord } from "@simwar/shared-contracts";
+import type { ApiEnvelope, Team, ValidationSessionRecord } from "@simwar/shared-contracts";
 
 type Props = {
   apiBase: string;
@@ -7,6 +7,8 @@ type Props = {
   runId?: string | null;
   tenantId: string;
   token: string;
+  teacherUserId: string;
+  teams: Team[];
 };
 
 async function request<T>(
@@ -32,7 +34,15 @@ async function request<T>(
   return envelope.data;
 }
 
-export function ValidationSessionWorkbench({ apiBase, courseId, runId, tenantId, token }: Props) {
+export function ValidationSessionWorkbench({
+  apiBase,
+  courseId,
+  runId,
+  tenantId,
+  token,
+  teacherUserId,
+  teams
+}: Props) {
   const [session, setSession] = useState<ValidationSessionRecord | null>(null);
   const [phase, setPhase] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -74,6 +84,18 @@ export function ValidationSessionWorkbench({ apiBase, courseId, runId, tenantId,
 
   function roster(): void {
     if (!session) return;
+    const learnerParticipants = teams.flatMap((team) =>
+      team.members
+        .filter((member) => member.role_slot !== "risk")
+        .map((member) => ({
+          participant_id: `learner-${team.team_id}-${member.user_id}`,
+          session_duty: "LEARNER" as const,
+          participant_kind: "SYNTHETIC" as const,
+          product_user_id: member.user_id,
+          team_id: team.team_id,
+          role_key: member.role_slot
+        }))
+    );
     void run(() =>
       request(
         apiBase,
@@ -87,16 +109,9 @@ export function ValidationSessionWorkbench({ apiBase, courseId, runId, tenantId,
               participant_id: "teacher-synthetic",
               session_duty: "TEACHER",
               participant_kind: "SYNTHETIC",
-              product_user_id: "usr_teacher"
+              product_user_id: teacherUserId
             },
-            {
-              participant_id: "learner-synthetic",
-              session_duty: "LEARNER",
-              participant_kind: "SYNTHETIC",
-              product_user_id: "usr_student",
-              team_id: "team_alpha",
-              role_key: "CEO"
-            },
+            ...learnerParticipants,
             {
               participant_id: "moderator-synthetic",
               session_duty: "MODERATOR",
@@ -188,7 +203,9 @@ export function ValidationSessionWorkbench({ apiBase, courseId, runId, tenantId,
           </label>
           <button
             className="primary"
-            disabled={!courseId || !runId || phase === "loading" || !/^[a-f0-9]{64}$/.test(admissionDigest)}
+            disabled={
+              !courseId || !runId || phase === "loading" || !/^[a-f0-9]{64}$/.test(admissionDigest)
+            }
             onClick={create}
           >
             Create synthetic session

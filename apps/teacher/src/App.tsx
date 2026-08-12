@@ -1098,6 +1098,12 @@ export function App() {
           runId={selectedRun?.run_id ?? selectedRunId}
           tenantId={login.tenantId}
           token={session.access_token}
+          teacherUserId={session.user.user_id}
+          teams={
+            state?.teams.filter(
+              (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
+            ) ?? []
+          }
         />
       ) : null}
 

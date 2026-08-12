@@ -18,6 +18,7 @@ import {
   type ValidationSessionEvidenceBundle
 } from "@simwar/shared-contracts";
 import type { RepositoryProvider } from "./repository-provider.js";
+import { buildFreshLearnerAdmissionReadiness } from "./fresh-learner-admission.js";
 
 const SHA = /^[a-f0-9]{40}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -104,6 +105,84 @@ function assertNoForbidden(value: unknown): void {
   if (FORBIDDEN.some((marker) => serialized.includes(marker.toLowerCase()))) {
     reject(422, "W023_PRIVACY-422-001", "private or formal truth payload is not allowed");
   }
+}
+
+function assertRecordShape(
+  value: unknown,
+  allowed: readonly string[],
+  required: readonly string[],
+  code: string
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    reject(422, code, "evidence input must be an object");
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => !allowed.includes(key)))
+    reject(422, code, "evidence input contains an unexpected field");
+  if (required.some((key) => record[key] === undefined))
+    reject(422, code, "evidence input is missing a required field");
+  return record;
+}
+
+function assertText(value: unknown, field: string, maxLength: number, code: string): string {
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > maxLength)
+    reject(422, code, `${field} is invalid`);
+  return value;
+}
+
+function assertEvidenceRefs(value: unknown, code: string): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((reference) => typeof reference !== "string" || !ID.test(reference))
+  )
+    reject(422, code, "evidence_refs is invalid");
+  return clone(value) as string[];
+}
+
+function validateObservationInput(
+  input: unknown
+): Omit<ValidationSessionObservation, "session_id" | "observation_id" | "captured_at"> {
+  const record = assertRecordShape(
+    input,
+    ["participant_id", "session_duty", "phase", "category", "narrative", "evidence_refs"],
+    ["participant_id", "session_duty", "phase", "category", "narrative", "evidence_refs"],
+    "W023_OBSERVATION-422-001"
+  );
+  const sessionDuty = record.session_duty;
+  if (!VALIDATION_SESSION_DUTIES.includes(sessionDuty as ValidationSessionDuty))
+    reject(422, "W023_OBSERVATION-422-001", "session_duty is invalid");
+  return {
+    participant_id: assertId(record.participant_id, "participant_id"),
+    session_duty: sessionDuty as ValidationSessionDuty,
+    phase: assertText(record.phase, "phase", 128, "W023_OBSERVATION-422-001"),
+    category: assertText(record.category, "category", 128, "W023_OBSERVATION-422-001"),
+    narrative: assertText(record.narrative, "narrative", 1000, "W023_OBSERVATION-422-001"),
+    evidence_refs: assertEvidenceRefs(record.evidence_refs, "W023_OBSERVATION-422-001")
+  };
+}
+
+function validateIncidentInput(
+  input: unknown
+): Omit<ValidationSessionIncident, "session_id" | "incident_id" | "created_at"> {
+  const record = assertRecordShape(
+    input,
+    ["severity", "phase", "description", "evidence_refs", "resolution_state", "resolved_at"],
+    ["severity", "phase", "description", "evidence_refs", "resolution_state"],
+    "W023_INCIDENT-422-001"
+  );
+  if (!(["LOW", "MEDIUM", "HIGH"] as const).includes(record.severity as "LOW" | "MEDIUM" | "HIGH"))
+    reject(422, "W023_INCIDENT-422-001", "severity is invalid");
+  if (!(["OPEN", "RESOLVED"] as const).includes(record.resolution_state as "OPEN" | "RESOLVED"))
+    reject(422, "W023_INCIDENT-422-001", "resolution_state is invalid");
+  const resolvedAt = record.resolved_at;
+  if (resolvedAt !== undefined) assertText(resolvedAt, "resolved_at", 64, "W023_INCIDENT-422-001");
+  return {
+    severity: record.severity as ValidationSessionIncident["severity"],
+    phase: assertText(record.phase, "phase", 128, "W023_INCIDENT-422-001"),
+    description: assertText(record.description, "description", 1000, "W023_INCIDENT-422-001"),
+    evidence_refs: assertEvidenceRefs(record.evidence_refs, "W023_INCIDENT-422-001"),
+    resolution_state: record.resolution_state as ValidationSessionIncident["resolution_state"],
+    ...(resolvedAt === undefined ? {} : { resolved_at: resolvedAt as string })
+  };
 }
 
 function now(): string {
@@ -205,7 +284,9 @@ export class ValidationSessionControlPlane {
       if (
         existing.course_id !== courseId ||
         existing.run_id !== runId ||
-        existing.source_product_merge_sha !== input.source_product_merge_sha
+        existing.source_product_merge_sha !== input.source_product_merge_sha ||
+        existing.machine_admission_reference !== machineRef ||
+        existing.machine_admission_digest !== admissionDigest
       )
         reject(409, "W023_SESSION-409-001", "conflicting create retry");
       return existing;
@@ -362,6 +443,33 @@ export class ValidationSessionControlPlane {
     )
       reasons.push("LEARNER_ROSTER_MISSING");
     if (teams.length < 2) reasons.push("FRESH_COHORT_NOT_PRESENT");
+    const admission = buildFreshLearnerAdmissionReadiness({
+      tenant_id: tenantId,
+      course_id: session.course_id,
+      run_id: session.run_id,
+      teacher_ready: session.participants.some(
+        (participant) =>
+          participant.session_duty === "TEACHER" && participant.product_user_id === actor.user_id
+      ),
+      teams: await Promise.all(
+        teams.map(async (team) => ({
+          team,
+          users: await Promise.all(
+            team.members.map(async (member) => {
+              const user = await this.provider.facade.identity.getUser(tenantId, member.user_id);
+              return { user_id: member.user_id, status: user?.status };
+            })
+          ),
+          assignments: this.provider.ports.roleWorkflow.readRoleWorkflow({
+            tenant_id: tenantId,
+            run_id: session.run_id,
+            team_id: team.team_id
+          }).assignments
+        }))
+      )
+    });
+    if (admission.admission_status !== "READY_FOR_MACHINE_E4")
+      reasons.push("W022_ADMISSION_NOT_READY");
     const ready = reasons.length === 0;
     const preflight: ValidationSessionPreflight = {
       evaluated_at: now(),
@@ -421,21 +529,22 @@ export class ValidationSessionControlPlane {
     const session = await this.get(actor, tenantId, sessionId);
     if (session.status !== "LIVE")
       reject(409, "W023_OBSERVATION-409-001", "observations require LIVE session");
+    const validatedInput = validateObservationInput(input);
     if (
       !session.participants.some(
         (participant) =>
-          participant.participant_id === input.participant_id &&
-          participant.session_duty === input.session_duty
+          participant.participant_id === validatedInput.participant_id &&
+          participant.session_duty === validatedInput.session_duty
       )
     )
       reject(403, "W023_OBSERVATION-403-001", "participant is not on the session roster");
     assertNoForbidden(input);
     const observation: ValidationSessionObservation = {
-      ...input,
+      ...validatedInput,
       session_id: sessionId,
       observation_id: `observation_${randomUUID().replaceAll("-", "")}`,
       captured_at: now(),
-      evidence_refs: clone(input.evidence_refs ?? [])
+      evidence_refs: clone(validatedInput.evidence_refs)
     };
     session.observations.push(observation);
     await this.provider.facade.validationSessions.save(session);
@@ -462,12 +571,13 @@ export class ValidationSessionControlPlane {
     if (session.status !== "LIVE")
       reject(409, "W023_INCIDENT-409-001", "incidents require LIVE session");
     assertNoForbidden(input);
+    const validatedInput = validateIncidentInput(input);
     const incident: ValidationSessionIncident = {
-      ...input,
+      ...validatedInput,
       session_id: sessionId,
       incident_id: `incident_${randomUUID().replaceAll("-", "")}`,
       created_at: now(),
-      evidence_refs: clone(input.evidence_refs ?? [])
+      evidence_refs: clone(validatedInput.evidence_refs)
     };
     session.incidents.push(incident);
     await this.provider.facade.validationSessions.save(session);
