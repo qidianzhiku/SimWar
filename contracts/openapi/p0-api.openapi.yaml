@@ -4025,8 +4025,10 @@ components:
           properties:
             tenant_id: { type: string, minLength: 1 }
             reference: { $ref: "#/components/schemas/FormalScenarioPackageReferenceInput" }
-        course_blueprint_reference: { $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput" }
-        course_package_reference: { $ref: "#/components/schemas/CoursePackageVersionReferenceInput" }
+        course_blueprint_reference:
+          { $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput" }
+        course_package_reference:
+          { $ref: "#/components/schemas/CoursePackageVersionReferenceInput" }
         course_title: { type: string, minLength: 1 }
         source_product_merge_sha: { type: string, pattern: "^[a-f0-9]{40}$" }
         cohort_template_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
@@ -4063,14 +4065,37 @@ components:
     ValidationEnvironmentLaunchRecord:
       type: object
       additionalProperties: true
-      required: [schema_version, launch_id, tenant_id, business_key_digest, request_fingerprint, status, version]
+      required:
+        [
+          schema_version,
+          launch_id,
+          tenant_id,
+          business_key_digest,
+          request_fingerprint,
+          status,
+          version
+        ]
       properties:
         schema_version: { type: string, enum: [validation-environment-launch.v1] }
         launch_id: { type: string, minLength: 1 }
         tenant_id: { type: string, minLength: 1 }
         business_key_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
         request_fingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
-        status: { type: string, enum: [REQUESTED, BASELINE_READY, COURSE_RUN_READY, COHORT_READY, SESSION_PREFLIGHT_READY, READY, CONFLICT, ABORTED] }
+        status:
+          {
+            type: string,
+            enum:
+              [
+                REQUESTED,
+                BASELINE_READY,
+                COURSE_RUN_READY,
+                COHORT_READY,
+                SESSION_PREFLIGHT_READY,
+                READY,
+                CONFLICT,
+                ABORTED
+              ]
+          }
         version: { type: integer, minimum: 0 }
     ValidationEnvironmentLaunchEnvelope:
       type: object

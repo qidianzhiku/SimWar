@@ -196,8 +196,8 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/student/golden-journey/receipts",
   "/api/v1/bff/teacher/instructor-debrief-artifact",
   "/api/v1/bff/teacher/instructor-debrief-artifact/export",
-  "/api/v1/bff/teacher/fresh-learner-admission"
-  ,"/api/v1/bff/teacher/validation-sessions"
+  "/api/v1/bff/teacher/fresh-learner-admission",
+  "/api/v1/bff/teacher/validation-sessions"
 ];
 
 const schemaCases = [
