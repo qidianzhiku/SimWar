@@ -184,6 +184,63 @@ body {
   color: #53616b;
 }
 
+.w023-session-workbench {
+  border-left: 4px solid #145c50;
+}
+
+.w023-session-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 14px 0;
+}
+
+.w023-session-grid label,
+.w023-session-workbench > label {
+  color: #53616b;
+  display: grid;
+  font-size: 12px;
+  gap: 5px;
+}
+
+.w023-session-grid input,
+.w023-session-workbench > label input {
+  border: 1px solid #c4cdd2;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 9px;
+  width: 100%;
+}
+
+.w023-session-context,
+.w023-session-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.w023-session-context span,
+.w023-preflight {
+  color: #53616b;
+  font-size: 13px;
+}
+
+.w023-evidence-receipt {
+  border-top: 1px solid #d8dfe2;
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.w023-evidence-receipt code,
+.w023-evidence-receipt pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 *,
 *::before,
 *::after {

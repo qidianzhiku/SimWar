@@ -42,6 +42,7 @@ import type {
   TeacherConfirmationVersion,
   W020AdvisoryRecord
 } from "@simwar/shared-contracts";
+import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
 import {
@@ -127,6 +128,7 @@ export interface SimWarStoreSnapshot {
   evidenceProvenanceEdges: D2ProvenanceEdge[];
   teacherConfirmationVersions: TeacherConfirmationVersion[];
   governedAdvisoryRecords?: W020AdvisoryRecord[];
+  validationSessions: ValidationSessionRecord[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -783,6 +785,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     evidenceProvenanceEdges: [],
     teacherConfirmationVersions: [],
     governedAdvisoryRecords: [],
+    validationSessions: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -841,6 +844,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     evidenceProvenanceEdges: store.evidenceProvenanceEdges,
     teacherConfirmationVersions: store.teacherConfirmationVersions,
     governedAdvisoryRecords: store.governedAdvisoryRecords ?? [],
+    validationSessions: store.validationSessions,
     counters: store.counters
   };
 }
@@ -894,6 +898,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     evidenceProvenanceEdges: snapshot.evidenceProvenanceEdges ?? [],
     teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
     governedAdvisoryRecords: snapshot.governedAdvisoryRecords ?? [],
+    validationSessions: snapshot.validationSessions ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

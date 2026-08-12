@@ -33,6 +33,7 @@ import type {
   SettlementWriteRepositoryPorts,
   SimWarRepositoryPorts
 } from "./repository-ports.js";
+import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 import { createJsonRepositoryPorts } from "./json-repository-adapter.js";
 import type { SimWarStore } from "./store.js";
 
@@ -170,6 +171,12 @@ export interface RepositoryFacade {
       tenantId: string,
       replayDiffReportId: string
     ): Promise<ReplayDiffReport | null>;
+  };
+
+  validationSessions: {
+    list(tenantId: string): Promise<ValidationSessionRecord[]>;
+    get(tenantId: string, sessionId: string): Promise<ValidationSessionRecord | null>;
+    save(session: ValidationSessionRecord): Promise<void>;
   };
 }
 
@@ -309,6 +316,17 @@ export function createScenarioPackageAuthorityReadFacade(
  */
 export function createRepositoryFacade(options: RepositoryFacadeOptions): RepositoryFacade {
   const { ports } = options;
+  const validationSessions = ports.validationSessions ?? {
+    list: async () => {
+      throw new Error("validation_session_repository_missing");
+    },
+    get: async () => {
+      throw new Error("validation_session_repository_missing");
+    },
+    save: async () => {
+      throw new Error("validation_session_repository_missing");
+    }
+  };
 
   return {
     identity: {
@@ -419,6 +437,12 @@ export function createRepositoryFacade(options: RepositoryFacadeOptions): Reposi
       saveReplayDiffReport: (report) => ports.replay.saveReplayDiffReport(report),
       getReplayDiffReport: (tenantId, replayDiffReportId) =>
         ports.replay.getReplayDiffReport(tenantId, replayDiffReportId)
+    },
+
+    validationSessions: {
+      list: (tenantId) => validationSessions.list(tenantId),
+      get: (tenantId, sessionId) => validationSessions.get(tenantId, sessionId),
+      save: (session) => validationSessions.save(session)
     }
   };
 }

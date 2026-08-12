@@ -33,6 +33,8 @@ import type {
   TeacherConfirmationRepositoryPort,
   GovernedAdvisoryRepositoryPort
 } from "./repository-ports.js";
+import type { ValidationSessionRepositoryPort } from "./repository-ports.js";
+import { assertValidationSessionRecord, type ValidationSessionRecord } from "@simwar/shared-contracts";
 import {
   InMemoryJsonParameterSetRegistry,
   type InMemoryJsonParameterSetRegistryOptions
@@ -1346,6 +1348,40 @@ export function createJsonRepositoryPorts(
     roleWorkflow: createJsonRoleWorkflowRepositoryPort(store),
     evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store),
     teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store),
-    governedAdvisories: createJsonGovernedAdvisoryRepositoryPort(store)
+    governedAdvisories: createJsonGovernedAdvisoryRepositoryPort(store),
+    validationSessions: createJsonValidationSessionRepositoryPort(store)
+  };
+}
+
+export function createJsonValidationSessionRepositoryPort(
+  store: SimWarStore
+): ValidationSessionRepositoryPort {
+  return {
+    async list(tenantId) {
+      return clone(store.validationSessions.filter((session) => session.tenant_id === tenantId));
+    },
+    async get(tenantId, sessionId) {
+      const session = store.validationSessions.find(
+        (candidate) => candidate.tenant_id === tenantId && candidate.session_id === sessionId
+      );
+      return session ? clone(session) : null;
+    },
+    async save(session: ValidationSessionRecord) {
+      assertValidationSessionRecord(session);
+      const index = store.validationSessions.findIndex(
+        (candidate) =>
+          candidate.tenant_id === session.tenant_id && candidate.session_id === session.session_id
+      );
+      const previous = index >= 0 ? store.validationSessions[index] : undefined;
+      if (index >= 0) store.validationSessions[index] = clone(session);
+      else store.validationSessions.push(clone(session));
+      try {
+        store.persist();
+      } catch (error) {
+        if (index >= 0) store.validationSessions[index] = previous!;
+        else store.validationSessions.pop();
+        throw error;
+      }
+    }
   };
 }

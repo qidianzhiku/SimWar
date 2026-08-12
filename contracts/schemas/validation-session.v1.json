@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/validation-session.v1.json",
+  "title": "W023 ValidationSession",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "execution_mode",
+    "source_product_merge_sha",
+    "tenant_id",
+    "course_id",
+    "run_id",
+    "machine_admission_reference",
+    "machine_admission_digest",
+    "idempotency_key",
+    "status",
+    "created_by",
+    "created_at",
+    "participants",
+    "transitions",
+    "observations",
+    "incidents"
+  ],
+  "properties": {
+    "schema_version": { "const": "validation-session.v1" },
+    "session_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "execution_mode": { "const": "SYNTHETIC_REHEARSAL" },
+    "source_product_merge_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "course_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "machine_admission_reference": { "type": "string", "minLength": 1 },
+    "machine_admission_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "idempotency_key": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "status": { "enum": ["DRAFT", "PREFLIGHT_READY", "LIVE", "CLOSED", "ABORTED"] },
+    "created_by": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "closed_at": { "type": "string", "format": "date-time" },
+    "aborted_at": { "type": "string", "format": "date-time" },
+    "participants": { "type": "array", "items": { "$ref": "#/$defs/participant" } },
+    "preflight": { "$ref": "#/$defs/preflight" },
+    "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } },
+    "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+    "incidents": { "type": "array", "items": { "$ref": "#/$defs/incident" } },
+    "cleanup_receipt": { "$ref": "#/$defs/cleanup" },
+    "evidence_bundle": { "type": "object", "additionalProperties": true }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["participant_id", "session_duty", "participant_kind"],
+      "properties": {
+        "participant_id": { "$ref": "#/$defs/id" },
+        "session_duty": { "enum": ["TEACHER", "LEARNER", "MODERATOR", "OBSERVER", "RECORDER"] },
+        "participant_kind": { "enum": ["SYNTHETIC", "EXTERNAL_SESSION_ONLY"] },
+        "product_user_id": { "$ref": "#/$defs/id" },
+        "team_id": { "$ref": "#/$defs/id" },
+        "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "from", "to", "actor_id", "request_id"],
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "from": { "type": ["string", "null"] },
+        "to": { "enum": ["DRAFT", "PREFLIGHT_READY", "LIVE", "CLOSED", "ABORTED"] },
+        "actor_id": { "$ref": "#/$defs/id" },
+        "request_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluated_at",
+        "status",
+        "reasons",
+        "source_product_merge_sha",
+        "exact_context",
+        "w022_admission_status",
+        "cleanup_ready"
+      ],
+      "properties": {
+        "evaluated_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["BLOCKED", "PREFLIGHT_READY"] },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "source_product_merge_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "exact_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tenant_id", "course_id", "run_id"],
+          "properties": {
+            "tenant_id": { "type": "string" },
+            "course_id": { "type": "string" },
+            "run_id": { "type": "string" }
+          }
+        },
+        "w022_admission_status": { "enum": ["READY_FOR_MACHINE_E4", "BLOCKED", "NOT_RECHECKED"] },
+        "cleanup_ready": { "type": "boolean" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "session_id",
+        "participant_id",
+        "session_duty",
+        "captured_at",
+        "phase",
+        "category",
+        "narrative",
+        "evidence_refs"
+      ],
+      "properties": {
+        "observation_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "participant_id": { "$ref": "#/$defs/id" },
+        "session_duty": { "enum": ["TEACHER", "LEARNER", "MODERATOR", "OBSERVER", "RECORDER"] },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "phase": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "narrative": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      }
+    },
+    "incident": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_id",
+        "session_id",
+        "severity",
+        "phase",
+        "description",
+        "evidence_refs",
+        "resolution_state",
+        "created_at"
+      ],
+      "properties": {
+        "incident_id": { "$ref": "#/$defs/id" },
+        "session_id": { "$ref": "#/$defs/id" },
+        "severity": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "phase": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "resolution_state": { "enum": ["OPEN", "RESOLVED"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "resolved_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cleanup_id", "status", "at"],
+      "properties": {
+        "cleanup_id": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["READY", "COMPLETED"] },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
