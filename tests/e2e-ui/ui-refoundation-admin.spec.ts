@@ -107,15 +107,18 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
     const link = document.querySelector<HTMLElement>('nav[aria-label="角色导航"] a');
     const input = document.querySelector<HTMLElement>('section[aria-label="admin login"] input');
     const action = document.querySelector<HTMLElement>("button");
+    const userCreate = document.querySelector<HTMLElement>("#admin-users-roles button.primary");
     return {
       actionHeight: action?.getBoundingClientRect().height ?? 0,
       inputHeight: input?.getBoundingClientRect().height ?? 0,
-      linkHeight: link?.getBoundingClientRect().height ?? 0
+      linkHeight: link?.getBoundingClientRect().height ?? 0,
+      userCreateHeight: userCreate?.getBoundingClientRect().height ?? 0
     };
   });
   expect(targetMetrics.linkHeight).toBeGreaterThanOrEqual(44);
   expect(targetMetrics.inputHeight).toBeGreaterThanOrEqual(44);
   expect(targetMetrics.actionHeight).toBeGreaterThanOrEqual(44);
+  expect(targetMetrics.userCreateHeight).toBeGreaterThanOrEqual(44);
 
   await page.keyboard.press("Tab");
   await expect
@@ -176,5 +179,71 @@ test("Teacher and Student receive a truthful denial without an Admin shell or na
     await expect(page.getByRole("navigation", { name: "角色导航" })).toHaveCount(0);
     await expect(page.locator("#admin-delivery-overview")).toHaveCount(0);
     await expect(page.getByRole("alert", { name: "管理权限" })).toContainText("当前角色无管理权限");
+  }
+});
+
+test("Admin CoursePackage surface uses Chinese visible copy while retaining only evidenced compatibility contracts", async ({
+  page
+}) => {
+  await page.route("**/api/v1/admin/course-package-versions", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "OK",
+        data: { course_package_versions: [] },
+        message: "success",
+        request_id: "req_ui_refoundation_course_package_copy"
+      })
+    });
+  });
+
+  await page.goto(adminBaseUrl);
+  await signInAdmin(page);
+
+  const panel = page.getByLabel("CoursePackageVersion administration");
+  await expect(
+    panel.getByText("当前仅展示服务端拥有的不可变教学与配置快照。", { exact: false })
+  ).toBeVisible();
+  await expect(panel.getByText("当前没有可用的课程包版本。", { exact: false })).toBeVisible();
+  for (const label of [
+    "课程包 ID",
+    "版本",
+    "标题",
+    "描述",
+    "源租户 ID",
+    "课程蓝图 ID",
+    "课程蓝图版本",
+    "课程蓝图摘要",
+    "场景包 ID",
+    "场景包版本",
+    "场景包摘要",
+    "参数集 ID",
+    "参数集版本",
+    "参数集摘要"
+  ]) {
+    await expect(panel.getByText(label, { exact: true })).toBeVisible();
+  }
+  await expect(panel.getByRole("button", { name: "创建 CoursePackageVersion 草稿" })).toBeVisible();
+  await expect(panel.getByText("导入 CoursePackageVersion", { exact: true })).toBeVisible();
+
+  const visibleCopy = await panel.innerText();
+  for (const englishPhrase of [
+    "Server-owned immutable teaching/configuration snapshots only.",
+    "This surface never evaluates dependency compatibility",
+    "computes digests",
+    "or changes a Course, Run",
+    "Course package ID",
+    "Source tenant ID",
+    "CourseBlueprint ID",
+    "CourseBlueprint version",
+    "CourseBlueprint digest",
+    "ScenarioPackage ID",
+    "ScenarioPackage version",
+    "ScenarioPackage digest",
+    "ParameterSet ID",
+    "ParameterSet version",
+    "ParameterSet digest"
+  ]) {
+    expect(visibleCopy).not.toContain(englishPhrase);
   }
 });

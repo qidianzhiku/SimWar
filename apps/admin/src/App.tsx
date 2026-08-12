@@ -930,14 +930,14 @@ export function App() {
               </button>
             </div>
             <p className="lifecycle-boundary">
-              Server-owned immutable teaching/configuration snapshots only. This surface never
-              evaluates dependency compatibility, computes digests, or changes a Course, Run,
-              ParameterSet, settlement, score, rank, replay, or truth field.
+              当前仅展示服务端拥有的不可变教学与配置快照。此处不会评估依赖兼容性、计算摘要，也不会修改
+              课程、运行、参数集、结算、评分、排名、回放或真值字段。
             </p>
 
             {coursePackageList.phase === "LOADING" ? (
               <p className="lifecycle-status" role="status">
-                Loading CoursePackageVersions
+                正在加载课程包版本…
+                <span className="technical-compatibility">Loading CoursePackageVersions</span>
               </p>
             ) : null}
             {coursePackageList.phase === "ERROR" ? (
@@ -976,7 +976,12 @@ export function App() {
               </article>
             ) : null}
             {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
-              <p className="lifecycle-status">No CoursePackageVersions are available.</p>
+              <p className="lifecycle-status">
+                当前没有可用的课程包版本。
+                <span className="technical-compatibility">
+                  No CoursePackageVersions are available.
+                </span>
+              </p>
             ) : null}
             {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
               <div className="course-package-list">
@@ -1040,28 +1045,28 @@ export function App() {
                   <span>服务端校验全部引用</span>
                 </div>
                 <label>
-                  Course package ID
+                  课程包 ID
                   <input
                     value={coursePackageDraft.packageId}
                     onChange={(event) => updateCoursePackageDraft("packageId", event.target.value)}
                   />
                 </label>
                 <label>
-                  Version
+                  版本
                   <input
                     value={coursePackageDraft.version}
                     onChange={(event) => updateCoursePackageDraft("version", event.target.value)}
                   />
                 </label>
                 <label>
-                  Title
+                  标题
                   <input
                     value={coursePackageDraft.title}
                     onChange={(event) => updateCoursePackageDraft("title", event.target.value)}
                   />
                 </label>
                 <label>
-                  Description
+                  描述
                   <input
                     value={coursePackageDraft.description}
                     onChange={(event) =>
@@ -1070,7 +1075,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  Source tenant ID
+                  源租户 ID
                   <input
                     value={coursePackageDraft.sourceTenantId}
                     onChange={(event) =>
@@ -1079,7 +1084,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  CourseBlueprint ID
+                  课程蓝图 ID
                   <input
                     value={coursePackageDraft.blueprintId}
                     onChange={(event) =>
@@ -1088,7 +1093,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  CourseBlueprint version
+                  课程蓝图版本
                   <input
                     value={coursePackageDraft.blueprintVersion}
                     onChange={(event) =>
@@ -1097,7 +1102,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  CourseBlueprint digest
+                  课程蓝图摘要
                   <input
                     value={coursePackageDraft.blueprintDigest}
                     onChange={(event) =>
@@ -1106,14 +1111,14 @@ export function App() {
                   />
                 </label>
                 <label>
-                  ScenarioPackage ID
+                  场景包 ID
                   <input
                     value={coursePackageDraft.scenarioId}
                     onChange={(event) => updateCoursePackageDraft("scenarioId", event.target.value)}
                   />
                 </label>
                 <label>
-                  ScenarioPackage version
+                  场景包版本
                   <input
                     value={coursePackageDraft.scenarioVersion}
                     onChange={(event) =>
@@ -1122,7 +1127,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  ScenarioPackage digest
+                  场景包摘要
                   <input
                     value={coursePackageDraft.scenarioDigest}
                     onChange={(event) =>
@@ -1131,7 +1136,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  ParameterSet ID
+                  参数集 ID
                   <input
                     value={coursePackageDraft.parameterId}
                     onChange={(event) =>
@@ -1140,7 +1145,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  ParameterSet version
+                  参数集版本
                   <input
                     value={coursePackageDraft.parameterVersion}
                     onChange={(event) =>
@@ -1149,7 +1154,7 @@ export function App() {
                   />
                 </label>
                 <label>
-                  ParameterSet digest
+                  参数集摘要
                   <input
                     value={coursePackageDraft.parameterDigest}
                     onChange={(event) =>
@@ -1158,7 +1163,7 @@ export function App() {
                   />
                 </label>
                 <button
-                  aria-label="Create CoursePackageVersion DRAFT"
+                  aria-label="创建 CoursePackageVersion 草稿"
                   disabled={busy}
                   onClick={() => void createCoursePackageDraft()}
                 >

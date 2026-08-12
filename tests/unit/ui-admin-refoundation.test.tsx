@@ -108,36 +108,6 @@ describe("Admin Delivery & Trust workspace", () => {
     fetchSpy.mockRestore();
   });
 
-  it("keeps legacy Admin workbench landmarks reachable from the required locations", () => {
-    const legacy = [
-      ["admin-delivery-overview", "交付总览"],
-      ["admin-tenants-entitlements", "租户与权益"],
-      ["admin-users-roles", "用户、角色与范围"],
-      ["admin-assets", "课程、场景与模型资产"],
-      ["admin-security-projection", "权限与安全投影"],
-      ["admin-audit-receipts", "审计与回执"],
-      ["admin-runtime-support", "运行与支持"],
-      ["admin-known-limits", "已知限制与信任边界"],
-      ["admin-environment-recovery", "环境启动与恢复"]
-    ] as const;
-
-    const markup = renderToStaticMarkup(
-      <AdminDeliveryTrustWorkspace context={{ tenant: "tenant_demo", role: "租户管理员" }}>
-        {legacy.map(([id, label]) => (
-          <section id={id} key={id} aria-label={label}>
-            <h2>{label}</h2>
-          </section>
-        ))}
-      </AdminDeliveryTrustWorkspace>
-    );
-
-    for (const [id, label] of legacy) {
-      expect(markup).toContain(`id="${id}"`);
-      expect(markup).toContain(label);
-      expect(markup).toContain(`href="#${id}"`);
-    }
-  });
-
   it("gives navigation and primary actions keyboard-sized, named targets", () => {
     const markup = renderToStaticMarkup(
       <AdminDeliveryTrustWorkspace
