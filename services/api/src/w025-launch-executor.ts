@@ -105,6 +105,20 @@ export function createW025LaunchExecutor(
             tenant_id: input.source_scenario_package.tenant_id,
             version: scenarioRecord.version
           }
+        },
+        async (materialized) => {
+          await dependencies.repositoryProvider.facade.auditLogs.appendAuditLog({
+            audit_id: dependencies.repositoryProvider.idGenerator.createAuditLogId(),
+            tenant_id: input.target_tenant_id,
+            actor_id: actor.user_id,
+            actor_role: actor.roles[0] ?? "learner",
+            action: "tenant_baseline.provision",
+            resource_type: "tenant_baseline_provisioning",
+            resource_id: materialized.audit_identity,
+            request_id: dependencies.requestId,
+            created_at: new Date().toISOString(),
+            after: JSON.parse(JSON.stringify(materialized)) as Record<string, unknown>
+          });
         }
       );
       return {

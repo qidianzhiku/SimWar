@@ -183,6 +183,7 @@ function validateInput(input: ValidationEnvironmentLaunchInput): void {
     !nonBlank(input.course_title) ||
     !/^[a-f0-9]{40}$/.test(input.source_product_merge_sha) ||
     !sha(input.cohort_template_digest) ||
+    digest(input.cohort_template) !== input.cohort_template_digest ||
     !Number.isSafeInteger(input.seed) ||
     input.source_parameter_set.tenant_id === input.target_tenant_id ||
     input.source_scenario_package.tenant_id === input.target_tenant_id ||

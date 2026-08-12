@@ -4,10 +4,38 @@ import {
   ValidationEnvironmentLaunchError,
   ValidationEnvironmentLaunchService,
   calculateLaunchIdentity,
-  createTestLaunchStepExecutor
+  createTestLaunchStepExecutor,
+  digest as calculateDigest
 } from "../../services/api/src/validation-environment-launch";
 
 const digest = "a".repeat(64);
+function createCohortTemplate() {
+  return {
+    teacher_user_id: "usr_teacher",
+    teams: [
+      {
+        team_key: "a",
+        name: "Team A",
+        members: [
+          { user_id: "a-ceo", display_name: "A CEO", role_slot: "CEO" as const },
+          { user_id: "a-cfo", display_name: "A CFO", role_slot: "CFO" as const },
+          { user_id: "a-cmo", display_name: "A CMO", role_slot: "CMO" as const },
+          { user_id: "a-coo", display_name: "A COO", role_slot: "COO" as const }
+        ]
+      },
+      {
+        team_key: "b",
+        name: "Team B",
+        members: [
+          { user_id: "b-ceo", display_name: "B CEO", role_slot: "CEO" as const },
+          { user_id: "b-cfo", display_name: "B CFO", role_slot: "CFO" as const },
+          { user_id: "b-cmo", display_name: "B CMO", role_slot: "CMO" as const },
+          { user_id: "b-coo", display_name: "B COO", role_slot: "COO" as const }
+        ]
+      }
+    ]
+  } as const;
+}
 const input = (overrides: Record<string, unknown> = {}) =>
   ({
     target_tenant_id: "tenant-w025",
@@ -40,32 +68,8 @@ const input = (overrides: Record<string, unknown> = {}) =>
     },
     course_title: "W025 durable validation",
     source_product_merge_sha: "b".repeat(40),
-    cohort_template_digest: digest,
-    cohort_template: {
-      teacher_user_id: "usr_teacher",
-      teams: [
-        {
-          team_key: "a",
-          name: "Team A",
-          members: [
-            { user_id: "a-ceo", display_name: "A CEO", role_slot: "CEO" },
-            { user_id: "a-cfo", display_name: "A CFO", role_slot: "CFO" },
-            { user_id: "a-cmo", display_name: "A CMO", role_slot: "CMO" },
-            { user_id: "a-coo", display_name: "A COO", role_slot: "COO" }
-          ]
-        },
-        {
-          team_key: "b",
-          name: "Team B",
-          members: [
-            { user_id: "b-ceo", display_name: "B CEO", role_slot: "CEO" },
-            { user_id: "b-cfo", display_name: "B CFO", role_slot: "CFO" },
-            { user_id: "b-cmo", display_name: "B CMO", role_slot: "CMO" },
-            { user_id: "b-coo", display_name: "B COO", role_slot: "COO" }
-          ]
-        }
-      ]
-    },
+    cohort_template_digest: calculateDigest(createCohortTemplate()),
+    cohort_template: createCohortTemplate(),
     seed: 25,
     ...overrides
   }) as never;
@@ -129,6 +133,12 @@ describe("W025 durable validation environment launch", () => {
     await expect(service.start(right, createTestLaunchStepExecutor({}))).rejects.toMatchObject({
       code: "W025_LAUNCH_CONFLICT"
     });
+  });
+
+  it("rejects a cohort template digest that is not its canonical content digest", () => {
+    expect(() => calculateLaunchIdentity(input({ cohort_template_digest: digest }))).toThrow(
+      "W025_INPUT_INVALID"
+    );
   });
 
   it("resumes each durable step exactly once after a C1-C5 style interruption", async () => {

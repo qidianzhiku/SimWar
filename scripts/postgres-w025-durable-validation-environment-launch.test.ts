@@ -14,7 +14,10 @@ import type {
   ScenarioPackageReference
 } from "@simwar/shared-contracts";
 import { createPostgresRuntime } from "../services/api/src/postgres-runtime.js";
-import { calculateLaunchIdentity } from "../services/api/src/validation-environment-launch.js";
+import {
+  calculateLaunchIdentity,
+  digest as calculateDigest
+} from "../services/api/src/validation-environment-launch.js";
 
 const databaseUrl = process.env.SIMWAR_TEST_DATABASE_URL?.trim();
 
@@ -22,7 +25,6 @@ if (!databaseUrl) {
   throw new Error("SIMWAR_TEST_DATABASE_URL is required for W025 durable launch validation");
 }
 
-const digest = "a".repeat(64);
 const sourceProductMergeSha = "b".repeat(40);
 
 interface SeededAuthorityBundle {
@@ -180,6 +182,31 @@ function createInput(
   courseTitle = "W025 durable launch",
   targetTenantId = target.tenantId
 ) {
+  const cohortTemplate = {
+    teacher_user_id: "w025-teacher",
+    teams: [
+      {
+        team_key: "a",
+        name: "W025 Team A",
+        members: [
+          { user_id: `w025-${launchKey}-a-ceo`, display_name: "A CEO", role_slot: "CEO" },
+          { user_id: `w025-${launchKey}-a-cfo`, display_name: "A CFO", role_slot: "CFO" },
+          { user_id: `w025-${launchKey}-a-cmo`, display_name: "A CMO", role_slot: "CMO" },
+          { user_id: `w025-${launchKey}-a-coo`, display_name: "A COO", role_slot: "COO" }
+        ]
+      },
+      {
+        team_key: "b",
+        name: "W025 Team B",
+        members: [
+          { user_id: `w025-${launchKey}-b-ceo`, display_name: "B CEO", role_slot: "CEO" },
+          { user_id: `w025-${launchKey}-b-cfo`, display_name: "B CFO", role_slot: "CFO" },
+          { user_id: `w025-${launchKey}-b-cmo`, display_name: "B CMO", role_slot: "CMO" },
+          { user_id: `w025-${launchKey}-b-coo`, display_name: "B COO", role_slot: "COO" }
+        ]
+      }
+    ]
+  };
   return {
     target_tenant_id: targetTenantId,
     launch_key: launchKey,
@@ -196,32 +223,8 @@ function createInput(
     course_package_reference: target.coursePackageReference!,
     course_title: courseTitle,
     source_product_merge_sha: sourceProductMergeSha,
-    cohort_template_digest: digest,
-    cohort_template: {
-      teacher_user_id: "w025-teacher",
-      teams: [
-        {
-          team_key: "a",
-          name: "W025 Team A",
-          members: [
-            { user_id: `w025-${launchKey}-a-ceo`, display_name: "A CEO", role_slot: "CEO" },
-            { user_id: `w025-${launchKey}-a-cfo`, display_name: "A CFO", role_slot: "CFO" },
-            { user_id: `w025-${launchKey}-a-cmo`, display_name: "A CMO", role_slot: "CMO" },
-            { user_id: `w025-${launchKey}-a-coo`, display_name: "A COO", role_slot: "COO" }
-          ]
-        },
-        {
-          team_key: "b",
-          name: "W025 Team B",
-          members: [
-            { user_id: `w025-${launchKey}-b-ceo`, display_name: "B CEO", role_slot: "CEO" },
-            { user_id: `w025-${launchKey}-b-cfo`, display_name: "B CFO", role_slot: "CFO" },
-            { user_id: `w025-${launchKey}-b-cmo`, display_name: "B CMO", role_slot: "CMO" },
-            { user_id: `w025-${launchKey}-b-coo`, display_name: "B COO", role_slot: "COO" }
-          ]
-        }
-      ]
-    },
+    cohort_template_digest: calculateDigest(cohortTemplate),
+    cohort_template: cohortTemplate,
     seed: 25025
   };
 }
@@ -285,7 +288,11 @@ async function stopApiProcess(processInfo: ApiProcessResult): Promise<number | n
   return waitForExit(processInfo.child);
 }
 
-async function requestApiLaunch(port: number, input: unknown): Promise<Response> {
+async function requestApiLaunch(
+  port: number,
+  input: unknown,
+  includeCreatedBy = false
+): Promise<Response> {
   const login = await fetch(`http://127.0.0.1:${port}/api/v1/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-tenant-id": "tenant_demo" },
@@ -295,6 +302,8 @@ async function requestApiLaunch(port: number, input: unknown): Promise<Response>
   const loginBody = (await login.json()) as { data?: { access_token?: string } };
   const token = loginBody.data?.access_token;
   if (!token) throw new Error("API teacher login did not return a token");
+  const requestBody = { ...(input as Record<string, unknown>) };
+  delete requestBody.created_by;
   return fetch(`http://127.0.0.1:${port}/api/v1/admin/validation-environment-launches`, {
     method: "POST",
     headers: {
@@ -303,7 +312,7 @@ async function requestApiLaunch(port: number, input: unknown): Promise<Response>
       "x-request-id": `w025-api-${Date.now()}`,
       "x-tenant-id": "tenant_demo"
     },
-    body: JSON.stringify(input)
+    body: JSON.stringify(includeCreatedBy ? input : requestBody)
   });
 }
 
@@ -358,11 +367,21 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
           const responseText = await response.text();
           expect(response.status, responseText).toBe(201);
           const body = JSON.parse(responseText) as {
-            data?: { status?: string; version?: number; launch_id?: string };
+            data?: { status?: string; version?: number; launch_id?: string; created_by?: string };
           };
           expect(body.data?.status).toBe("READY");
           expect(body.data?.version).toBe(5);
           expect(body.data?.launch_id).toMatch(/^vlaunch_/);
+          expect(body.data?.created_by).toBe("usr_teacher");
+          if (index === 0) {
+            const spoofed = await requestApiLaunch(
+              resumed.port,
+              { ...input, created_by: "attacker" },
+              true
+            );
+            expect(spoofed.status).toBe(422);
+            expect(await spoofed.text()).toContain("W025_INPUT_INVALID");
+          }
         } finally {
           await stopApiProcess(resumed);
         }
@@ -377,6 +396,18 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
         } finally {
           await pool.end();
         }
+        const auditLogs = await runtime.provider.facade.auditLogs.listAuditLogs({
+          scope: "tenant",
+          tenant_id: "tenant_demo",
+          action: "tenant_baseline.provision",
+          limit: 100
+        });
+        expect(
+          auditLogs.some(
+            (log) =>
+              log.actor_id === "usr_teacher" && log.resource_type === "tenant_baseline_provisioning"
+          )
+        ).toBe(true);
       }
     } finally {
       await runtime.close();

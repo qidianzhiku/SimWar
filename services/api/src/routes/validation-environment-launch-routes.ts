@@ -34,7 +34,13 @@ function parseInput(
   if (body.target_tenant_id !== context.tenantId) {
     throw new ValidationEnvironmentLaunchError("W025_INPUT_INVALID", "tenant scope mismatch");
   }
-  return body as unknown as ValidationEnvironmentLaunchInput;
+  if (Object.hasOwn(body, "created_by")) {
+    throw new ValidationEnvironmentLaunchError("W025_INPUT_INVALID", "created_by is actor-bound");
+  }
+  return {
+    ...body,
+    created_by: context.actor.user_id
+  } as unknown as ValidationEnvironmentLaunchInput;
 }
 
 function status(error: ValidationEnvironmentLaunchError): number {

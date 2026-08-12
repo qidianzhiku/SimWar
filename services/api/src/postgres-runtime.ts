@@ -37,6 +37,7 @@ export function resolveRepositoryMode(
 export interface PostgresRuntimeOptions {
   databaseUrl?: string;
   pool?: Pool;
+  lockPool?: Pool;
   migrationsDir?: string;
   poolConfig?: Omit<PoolConfig, "connectionString">;
 }
@@ -118,6 +119,18 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
       max: 10,
       ...options.poolConfig
     });
+  const lockPool =
+    options.lockPool ??
+    (databaseUrl
+      ? new PgPool({
+          ...(databaseUrl ? { connectionString: databaseUrl } : {}),
+          application_name: "simwar-w025-business-key-locks",
+          connectionTimeoutMillis: 5000,
+          ...options.poolConfig,
+          max: 1
+        })
+      : pool);
+  const ownsLockPool = lockPool !== pool;
   let started = false;
 
   const provider = createPostgresRepositoryProvider({
@@ -156,7 +169,7 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
       }>
     ) => Promise<T>
   ): Promise<T> => {
-    const client = await pool.connect();
+    const client = await lockPool.connect();
     try {
       await client.query("BEGIN");
       const result = await callback(async (sql, params) => {
@@ -264,8 +277,12 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
       await pool.query("SELECT 1");
     },
     async close() {
-      await pool.end();
-      started = false;
+      try {
+        await pool.end();
+      } finally {
+        if (ownsLockPool) await lockPool.end();
+        started = false;
+      }
     }
   };
 }
