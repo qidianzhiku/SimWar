@@ -1,0 +1,22 @@
+{
+  "name": "@simwar/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./src/tokens.css",
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev:lab": "vite lab --host 127.0.0.1 --port 3004",
+    "verify:lab": "node ../../scripts/verify-ui-lab-build.mjs",
+    "build:lab": "vite build lab --outDir ../dist/lab --base ./ --emptyOutDir && npm run verify:lab"
+  }
+}
