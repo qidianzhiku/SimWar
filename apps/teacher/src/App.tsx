@@ -61,6 +61,7 @@ import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
+import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1087,6 +1088,22 @@ export function App() {
           runId={selectedRun?.run_id ?? selectedRunId}
           tenantId={login.tenantId}
           token={session.access_token}
+        />
+      ) : null}
+
+      {isTeacher && session ? (
+        <ValidationSessionWorkbench
+          apiBase={API_BASE}
+          courseId={selectedRun?.course_id ?? selectedCourseId}
+          runId={selectedRun?.run_id ?? selectedRunId}
+          tenantId={login.tenantId}
+          token={session.access_token}
+          teacherUserId={session.user.user_id}
+          teams={
+            state?.teams.filter(
+              (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
+            ) ?? []
+          }
         />
       ) : null}
 

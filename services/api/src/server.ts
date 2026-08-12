@@ -50,6 +50,11 @@ import type {
   TenantBaselineProvisioningRequest,
   User
 } from "@simwar/shared-contracts";
+import type {
+  ValidationSessionIncident,
+  ValidationSessionObservation,
+  ValidationSessionParticipant
+} from "@simwar/shared-contracts";
 import {
   M1_CLASSROOM_DEBRIEF_PROMPTS,
   M1_JSON_RUNTIME_BOUNDARY,
@@ -116,6 +121,10 @@ import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { buildFreshLearnerAdmissionReadiness } from "./fresh-learner-admission.js";
 import { GoldenJourneyIntegrationService } from "./golden-journey-integration.js";
+import {
+  ValidationSessionControlPlane,
+  ValidationSessionControlPlaneError
+} from "./validation-session-control-plane.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
   createFormalCourseAuthorityBinding,
@@ -292,6 +301,7 @@ interface ApiRuntime {
   instructorAssets: InstructorAssetRegistry;
   goldenJourney: GoldenJourneyIntegrationService;
   governedAdvisory: GovernedAdvisoryService;
+  validationSessions: ValidationSessionControlPlane;
   securityConfig: RuntimeSecurityConfig;
   runMutationLocks: Map<string, Promise<void>>;
 }
@@ -567,6 +577,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     ),
     goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
     governedAdvisory,
+    validationSessions: new ValidationSessionControlPlane(repositoryProvider),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -4534,6 +4545,86 @@ async function executeLockedRoleWorkflow<T>(
   }
 }
 
+async function handleW023ValidationSessionRoute(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  context: RequestContext
+): Promise<boolean> {
+  if (!url.pathname.startsWith("/api/v1/bff/teacher/validation-sessions")) return false;
+  const actor = requirePermission(context, "course:read");
+  if (!actorHasAnyRole(actor, ["teacher", "tenant_admin"])) {
+    throw new HttpError(403, "W023_AUTHZ-403-001", "teacher session-control authority required");
+  }
+  const root = "/api/v1/bff/teacher/validation-sessions";
+  if (request.method === "GET" && url.pathname === root) {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.list(actor, context.tenantId)));
+    return true;
+  }
+  if (request.method === "POST" && url.pathname === root) {
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    sendJson(response, 201, createEnvelope(context, await runtime.validationSessions.create(actor, context.tenantId, {
+      source_product_merge_sha: String(body.source_product_merge_sha ?? ""),
+      course_id: String(body.course_id ?? ""),
+      run_id: String(body.run_id ?? ""),
+      machine_admission_reference: String(body.machine_admission_reference ?? ""),
+      machine_admission_digest: String(body.machine_admission_digest ?? ""),
+      idempotency_key: String(body.idempotency_key ?? context.requestId)
+    }, context.requestId)));
+    return true;
+  }
+  const match = url.pathname.match(/^\/api\/v1\/bff\/teacher\/validation-sessions\/([^/]+)(?:\/(roster|preflight|start|observations|incidents|abort|cleanup|close|evidence))?$/);
+  if (!match) throw new HttpError(404, "ROUTE-404-001", "not found");
+  const sessionId = match[1] ?? "";
+  const action = match[2];
+  if (request.method === "GET" && !action) {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.get(actor, context.tenantId, sessionId)));
+    return true;
+  }
+  if (request.method !== "POST") throw new HttpError(405, "ROUTE-405-001", "method not allowed");
+  if (action === "roster") {
+    const body = await readJson<{ participants?: ValidationSessionParticipant[] }>(request, { requiredObject: true });
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.setRoster(actor, context.tenantId, sessionId, body.participants ?? [], context.requestId)));
+    return true;
+  }
+  if (action === "preflight") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.preflight(actor, context.tenantId, sessionId, context.requestId)));
+    return true;
+  }
+  if (action === "start") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.start(actor, context.tenantId, sessionId, context.requestId)));
+    return true;
+  }
+  if (action === "observations") {
+    const body = await readJson<Omit<ValidationSessionObservation, "session_id" | "observation_id" | "captured_at">>(request, { requiredObject: true });
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.appendObservation(actor, context.tenantId, sessionId, body, context.requestId)));
+    return true;
+  }
+  if (action === "incidents") {
+    const body = await readJson<Omit<ValidationSessionIncident, "session_id" | "incident_id" | "created_at">>(request, { requiredObject: true });
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.appendIncident(actor, context.tenantId, sessionId, body, context.requestId)));
+    return true;
+  }
+  if (action === "abort") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.abort(actor, context.tenantId, sessionId, context.requestId)));
+    return true;
+  }
+  if (action === "cleanup") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.cleanup(actor, context.tenantId, sessionId, context.requestId)));
+    return true;
+  }
+  if (action === "close") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.close(actor, context.tenantId, sessionId, context.requestId)));
+    return true;
+  }
+  if (action === "evidence") {
+    sendJson(response, 200, createEnvelope(context, await runtime.validationSessions.get(actor, context.tenantId, sessionId)));
+    return true;
+  }
+  throw new HttpError(404, "ROUTE-404-001", "not found");
+}
+
 async function routeRequest(
   runtime: ApiRuntime,
   request: IncomingMessage,
@@ -4650,6 +4741,8 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (await handleW023ValidationSessionRoute(runtime, request, response, url, context)) return;
 
   if (isStudentLearningReportRoute(request.method, url)) {
     await handleStudentLearningReportRoute(
@@ -7236,6 +7329,11 @@ export function createApiServer(
           fallbackContext,
           new HttpError(error.statusCode, error.code, error.message)
         );
+        return;
+      }
+
+      if (error instanceof ValidationSessionControlPlaneError) {
+        sendError(response, fallbackContext, new HttpError(error.statusCode, error.code, error.message));
         return;
       }
 

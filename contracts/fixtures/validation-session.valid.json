@@ -1,0 +1,27 @@
+{
+  "schema_version": "validation-session.v1",
+  "session_id": "vsession_demo",
+  "execution_mode": "SYNTHETIC_REHEARSAL",
+  "source_product_merge_sha": "31b8c5f5cd3ab0426bb02bc75495b8552e497c48",
+  "tenant_id": "tenant_demo",
+  "course_id": "course_demo",
+  "run_id": "run_demo",
+  "machine_admission_reference": "w022-admission-demo",
+  "machine_admission_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "idempotency_key": "w023-create-demo",
+  "status": "DRAFT",
+  "created_by": "usr_teacher",
+  "created_at": "2026-08-12T06:31:25.000Z",
+  "participants": [],
+  "transitions": [
+    {
+      "at": "2026-08-12T06:31:25.000Z",
+      "from": null,
+      "to": "DRAFT",
+      "actor_id": "usr_teacher",
+      "request_id": "req_w023"
+    }
+  ],
+  "observations": [],
+  "incidents": []
+}

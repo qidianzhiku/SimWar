@@ -25,6 +25,7 @@ import type {
   TeacherConfirmationVersion,
   W020AdvisoryRecord
 } from "@simwar/shared-contracts";
+import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 
 /**
  * Repository port boundary for the API service.
@@ -378,6 +379,13 @@ export interface GovernedAdvisoryRepositoryPort {
   append(record: W020AdvisoryRecord): Promise<void>;
 }
 
+/** W023-only L4 session/evidence persistence; it cannot write formal truth. */
+export interface ValidationSessionRepositoryPort {
+  list(tenantId: RepositoryId): Promise<ValidationSessionRecord[]>;
+  get(tenantId: RepositoryId, sessionId: RepositoryId): Promise<ValidationSessionRecord | null>;
+  save(session: ValidationSessionRecord): Promise<void>;
+}
+
 /**
  * Command/write path repository contracts for staged migration work.
  *
@@ -509,4 +517,5 @@ export interface SimWarRepositoryPorts {
   evidenceProvenance: EvidenceProvenanceRepositoryPort;
   teacherConfirmations?: TeacherConfirmationRepositoryPort;
   governedAdvisories?: GovernedAdvisoryRepositoryPort;
+  validationSessions?: ValidationSessionRepositoryPort;
 }

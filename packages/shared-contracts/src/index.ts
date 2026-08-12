@@ -1597,3 +1597,4 @@ export * from "./course-package-version.js";
 export * from "./course-report.js";
 export * from "./tenant-baseline-provisioning.js";
 export * from "./w020-governed-ai-advisory.js";
+export * from "./validation-session.js";
