@@ -1,17 +1,17 @@
-portfolio_version: 10
+portfolio_version: 11
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-12T05:08:48Z"
+generated_at: "2026-08-12T07:58:27Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 3c97b13363414f44ee443281176136700c4fbf40
-product_evidence_source_sha: 3c97b13363414f44ee443281176136700c4fbf40
-current_master_at_readback: 3c97b13363414f44ee443281176136700c4fbf40
+assessment_source_anchor_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+product_evidence_source_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+current_master_at_readback: 1387c9c726bcc6917d8668484f85210bd8cb4471
 governance_closure_merge_sha: null
-governance_closure_manifest_sha256: null
+governance_closure_manifest_sha256: c9d016d1e1db739f5b6eed4d70c5d7d4b5c80ff352ade0e88489ea9ce8e92fcc
 portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
 runtime_authority: JSON_INTERNAL_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: W022_FRESH_LEARNER_E4_MACHINE_ADMISSION_READY_WITH_LIMITS
+l1_plus_status: W023_HUMAN_VALIDATION_SESSION_CONTROL_PLANE_READY_WITH_SYNTHETIC_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -19,14 +19,14 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
-    capability_id: W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
+    candidate_id: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+    capability_id: W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
     status: CLOSED_AND_CURRENT_WITH_LIMITS
-    product_pr: 366
-    product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
-    product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
-    primary_outcome: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY_WITH_LIMITS
-    scope: Fresh learner identity, exact Course/Run, two-team membership, CEO/CFO/CMO/COO role readiness, teacher-safe admission projection and machine E4 evidence; no Human Validation.
+    product_pr: 368
+    product_candidate_sha: 29616d9ca7163d2517c895098ec973d493c6685b
+    product_merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+    primary_outcome: HUMAN_VALIDATION_SESSION_CONTROL_PLANE_READY_WITH_SYNTHETIC_LIMITS
+    scope: L4 synthetic session control plane, exact W022 context binding, roster, preflight, bounded evidence, abort/reset/cleanup and teacher-safe operations; no actual Human Validation.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -48,60 +48,66 @@ closed_capabilities:
   - capability_id: W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
     status: CLOSED_AND_CURRENT_WITH_LIMITS
     runtime_authority: JSON_INTERNAL_ONLY
+  - capability_id: W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    runtime_authority: JSON_INTERNAL_ONLY
 resource_locks:
-  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+  status: RELEASED_AFTER_PRODUCT_POSTMERGE_AND_GOVERNANCE_READBACK
   released:
-    - W022_FRESH_LEARNER_ADMISSION
-    - W022_TEAM_MEMBERSHIP_AND_ROLE_ASSIGNMENT
-    - W022_TEACHER_ADMISSION_BFF
-    - W022_TEACHER_WORKBENCH
-    - W022_STUDENT_VISIBILITY
-    - W022_SERIAL_MERGE
-    - W022_POST_MERGE_FRESH_CLONE
-    - W022_GRAPH_COMPANION
-    - W022_GOVERNANCE_CLOSURE
+    - W023_VALIDATION_SESSION_CONTROL_PLANE
+    - W023_SYNTHETIC_REHEARSAL
+    - W023_ABORT_RESET_CLEANUP
+    - W023_EVIDENCE_BUNDLE
+    - W023_SERIAL_MERGE
+    - W023_POST_MERGE_FRESH_CLONE
+    - W023_GRAPH_COMPANION
+    - W023_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+  - candidate_id: CAND-W024-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Machine admission is ready with explicit limits; requires independent real teacher and a new human-session authorization.
-  - candidate_id: CAND-W023-B-ADDITIONAL-PRODUCT-HARDENING
+    reason: Requires real independent Teacher, real learner roles, moderator, observer, recorder, new real session_id and separate Owner/session authorization.
+  - candidate_id: CAND-W024-B-ADDITIONAL-PRODUCT-HARDENING
     status: NOT_AUTHORIZED
-    reason: No current W022 product-code blocker remains.
-  - candidate_id: CAND-W023-C-DURABILITY-POSTGRESQL
+    reason: No current W023 product-code blocker remains.
+  - candidate_id: CAND-W024-C-DURABILITY-POSTGRESQL
     status: DEFERRED_HIGH_RISK
     reason: PostgreSQL runtime, migration, RLS and durable recovery are not authorized or proven.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/366
-  product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
-  product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
-  product_manifest_sha256: 866662baf0701f344013d1b21e645b366125c88c0500fc954988f4971626984f
-  w022_evidence_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T
-  fresh_clone: D:/codex/fresh-clones/simwar-w022-postmerge-3c97b13
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/368
+  product_candidate_sha: 29616d9ca7163d2517c895098ec973d493c6685b
+  product_merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+  product_manifest_sha256: f2cc16467637bfa0741cec942ebd70c39ab85d26672343b863d61d1ab625191f
+  w023_evidence_root: C:/Temp/simwar-w023-human-validation-session-control-plane-20260812T063125Z
+  fresh_clone: D:/codex/fresh-clones/simwar-w023-postmerge-1387c9c
   fresh_clone_status: CLEAN_DETACHED
-  graph_postmerge_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T/graph/postmerge-companion
-  pr_365_status: OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT_UNCHANGED
+  fresh_clone_default_vitest: PASS_180_FILES_1136_TESTS
+  graph_postmerge_status: CURRENT_WITH_LIMITS
+  pr_365_status: OPEN_QUARANTINED_READ_ONLY_UNCHANGED
 validation:
-  acceptance: PASS_WITH_EXPLICIT_LIMITS
-  machine_admission: READY_FOR_HUMAN_INTERNAL_VALIDATION_WITH_LIMITS
+  acceptance: PASS_WITH_EXPLICIT_LIMITS_75_ROWS_0_FAIL_0_UNKNOWN
+  synthetic_session_control_plane: PASS
   challenge_review_blocking: 0
   challenge_review_must_fix: 0
   github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  focused_w022: PASS
-  contract: PASS_17_FILES_45_TESTS_21_SCHEMA_GROUPS
-  browser: PASS_79_9_SKIPPED
-  role_workflow: PASS_1_OF_1
-  fresh_clone_full_vitest: PASS_177_FILES_1128_TESTS
-  fresh_clone_graph: CURRENT_EXACT_SHA_WITH_LIMITS
-  planning_gate: PLAN_ALLOWED_WITH_LIMITS_PLANNING_REALITY_DRIFT
+  focused_w023: PASS
+  contract: PASS_19_FILES_47_TESTS
+  browser: PASS_1_OF_1
+  fresh_clone_full_vitest: PASS_180_FILES_1136_TESTS
+  fresh_clone_graph: CURRENT_WITH_LIMITS
+  human_validation: NOT_PERFORMED
+  teaching_effectiveness: NOT_PROVEN
+  planning_gate: CURRENT_AFTER_W023_RECONCILIATION
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: NOT_PERFORMED
+  real_human_attestation: NOT_PROVEN
+  teaching_effectiveness: NOT_PROVEN
   postgres_application_runtime: NOT_ACTIVE
   durable_settlement_recovery: NOT_PROVEN
-  pr_365: OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT
-  graph_codegraph: DEGRADED_DETACHED_CLONE_FALLBACK
-  planning_reality: DRIFT_RECONCILED_WITH_EXPLICIT_LIMIT
+  pr_365: OPEN_QUARANTINED_READ_ONLY_UNCHANGED
+  graph_codegraph: BASE_ENTRY_AVAILABLE_POSTMERGE_INDEX_LIMITED
+  graphify: CURRENT_WITH_LIMITS
   dependency_advisories: 2_LOW_7_HIGH_INHERITED
   pilot_production: NOT_AUTHORIZED
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_CHANGE
@@ -111,7 +117,7 @@ invalidation_triggers:
   - contract_or_openapi_changed
   - replay_or_golden_changed
   - student_visibility_changed
-  - graph_source_sha_changed
   - fresh_clone_evidence_invalidated
-  - planning_documents_changed
+  - graph_source_sha_changed
+  - governance_readback_changed
 automatic_next_start: false

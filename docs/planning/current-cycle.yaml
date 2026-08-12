@@ -1,95 +1,94 @@
-cycle_id: L1PLUS-CYCLE-022-W022-FRESH-LEARNER-E4-ADMISSION
+cycle_id: L1PLUS-CYCLE-023-W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-12T04:57:42Z"
-closed_at: "2026-08-12T05:08:48Z"
+started_at: "2026-08-12T06:31:25Z"
+closed_at: "2026-08-12T07:58:27Z"
 repository: qidianzhiku/SimWar
-source_sha: 3c97b13363414f44ee443281176136700c4fbf40
-assessment_source_anchor_sha: 3c97b13363414f44ee443281176136700c4fbf40
-product_evidence_source_sha: 3c97b13363414f44ee443281176136700c4fbf40
-product_candidate_sha: 0f5c4fd3e1e661277cd17271854f2e4d8c156545
-product_pr: 366
-product_merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
+source_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+assessment_source_anchor_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+product_evidence_source_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+product_candidate_sha: 29616d9ca7163d2517c895098ec973d493c6685b
+product_pr: 368
+product_merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
 governance_closure_merge_sha: null
-governance_closure_manifest_sha256: null
-current_master_at_readback: 3c97b13363414f44ee443281176136700c4fbf40
+governance_closure_manifest_sha256: c9d016d1e1db739f5b6eed4d70c5d7d4b5c80ff352ade0e88489ea9ce8e92fcc
+current_master_at_readback: 1387c9c726bcc6917d8668484f85210bd8cb4471
 portfolio_current_master_lag: RECONCILED_IN_THIS_CLOSURE
-mainline_candidate: CAND-W022-FRESH-LEARNER-E4-INTERNAL-VALIDATION-ADMISSION
+mainline_candidate: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
 support_candidate: NONE
 docs_discovery_candidate: NONE
 mainline_status: CLOSED_AND_CURRENT_WITH_LIMITS
-primary_outcome: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY_WITH_LIMITS
+primary_outcome: HUMAN_VALIDATION_SESSION_CONTROL_PLANE_READY_WITH_SYNTHETIC_LIMITS
 runtime_authority: JSON_INTERNAL_ONLY
 postgresql_application_runtime: NOT_ACTIVE
 human_validation: NOT_PERFORMED
+teaching_effectiveness: NOT_PROVEN
 pilot_production: NOT_AUTHORIZED
 predecessor:
-  cycle_id: L1PLUS-CYCLE-021-W021-GRAPH-NATIVE-REBASE
-  merge_sha: db7f688c513c81af2d5b307159db2b7a757fb5a2
-  completed_product_baseline: 675f9f41efe9f4f31a52327c4bc18f53e2998cad
+  cycle_id: L1PLUS-CYCLE-022-W022-FRESH-LEARNER-E4-ADMISSION
+  merge_sha: 3c97b13363414f44ee443281176136700c4fbf40
+  completed_product_baseline: 3c97b13363414f44ee443281176136700c4fbf40
 validation:
-  acceptance: PASS_WITH_EXPLICIT_LIMITS
-  challenge_review: PASS_BLOCKING_0_MUST_FIX_0
+  acceptance: PASS_WITH_EXPLICIT_LIMITS_75_ROWS_0_FAIL_0_UNKNOWN
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0_UNKNOWN_0
   github_quality: PASS
   github_browser_smoke: PASS
   github_analyze_javascript_typescript: PASS
   github_codeql: PASS
-  focused_w022: PASS_3_VITEST_FILES_12_TESTS_PLUS_CHROMIUM_1_OF_1
-  contract: PASS_17_FILES_45_TESTS_21_SCHEMA_GROUPS
-  browser: PASS_79_9_SKIPPED
-  role_workflow: PASS_1_OF_1
+  focused_w023: PASS_3_FILES_8_TESTS
+  contract: PASS_19_FILES_47_TESTS
+  browser: PASS_W023_1_OF_1
   direct_store: PASS_0_NEW_UNAPPROVED
   hidden_unicode: PASS
   typecheck: PASS
   lint: PASS
   build: PASS
-  security_audit: PASS_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
+  security_audit: PASS_NO_CRITICAL_9_INHERITED_ADVISORIES
   fresh_clone_npm_ci: PASS
-  fresh_clone_default_full_vitest: PASS_177_FILES_1128_TESTS
+  fresh_clone_default_full_vitest: PASS_180_FILES_1136_TESTS
   fresh_clone_graph_companion: CURRENT_EXACT_SHA_WITH_LIMITS
-  graphify_postmerge: HEALTHY_11366_NODES_20528_EDGES
-  codegraph_postmerge: DEGRADED_DETACHED_CLONE_FALLBACK
-  planning_reality: DRIFT_EXPLICITLY_RECORDED
-evidence_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T
-graph_postmerge_root: C:/Temp/simwar-w022-fresh-learner-e4-20260812T/graph/postmerge-companion
+  graphify: CURRENT_WITH_LIMITS
+  codegraph: BASE_ENTRY_AVAILABLE_CURRENT_POSTMERGE_INDEX_LIMITED
+  planning_reality: CURRENT_AFTER_W023_RECONCILIATION
+evidence_root: C:/Temp/simwar-w023-human-validation-session-control-plane-20260812T063125Z
+fresh_clone: D:/codex/fresh-clones/simwar-w023-postmerge-1387c9c
 resource_locks:
-  status: RELEASED_AFTER_PRODUCT_AND_FRESH_VALIDATION
+  status: RELEASED_AFTER_PRODUCT_POSTMERGE_AND_GOVERNANCE_READBACK
   released:
-    - W022_FRESH_LEARNER_ADMISSION
-    - W022_TEAM_MEMBERSHIP_AND_ROLE_ASSIGNMENT
-    - W022_TEACHER_ADMISSION_BFF
-    - W022_TEACHER_WORKBENCH
-    - W022_STUDENT_VISIBILITY
-    - W022_SERIAL_MERGE
-    - W022_POST_MERGE_FRESH_CLONE
-    - W022_GRAPH_COMPANION
-    - W022_GOVERNANCE_CLOSURE
+    - W023_VALIDATION_SESSION_CONTROL_PLANE
+    - W023_SYNTHETIC_REHEARSAL
+    - W023_ABORT_RESET_CLEANUP
+    - W023_EVIDENCE_BUNDLE
+    - W023_SERIAL_MERGE
+    - W023_POST_MERGE_FRESH_CLONE
+    - W023_GRAPH_COMPANION
+    - W023_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+  - candidate_id: CAND-W024-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Machine admission is ready with limits; requires a new Owner decision, an independent teacher, learner roles, moderator, observer and recorder, and a new real session ID.
-  - candidate_id: CAND-W023-B-ADDITIONAL-PRODUCT-HARDENING
+    reason: Requires a real independent teacher, real learner roles, moderator, observer, recorder, a new real session_id and separate Owner/session authorization.
+  - candidate_id: CAND-W024-B-ADDITIONAL-PRODUCT-HARDENING
     status: NOT_AUTHORIZED
-    reason: No current W022 product-code blocker remains; only a new evidence-backed blocker may justify a separate remediation mission.
-  - candidate_id: CAND-W023-C-DURABILITY-POSTGRESQL
+    reason: No current W023 product-code blocker remains; a new evidence-backed blocker would require a separate mission.
+  - candidate_id: CAND-W024-C-DURABILITY-POSTGRESQL
     status: DEFERRED_HIGH_RISK
     reason: PostgreSQL runtime, migration, RLS, durable recovery and cross-process guarantees remain outside this cycle.
 blocked_candidates: []
 metrics:
   product_pr_count: 1
   governance_pr_count: 1
-  product_commit_count: 1
-  product_rework_commit_count: 0
+  product_commit_count: 2
+  product_rework_commit_count: 1
   corrective_product_pr_count: 0
   governance_reclosure_count: 0
-  first_pass_exit: true
+  first_pass_exit: false
   browser_regression_repair: 0
   challenge_blocking_findings: 0
   challenge_must_fix_findings: 0
-  changed_file_count: 18
+  changed_file_count: 22
   fresh_clone_count: 1
   resource_cost_ratio: NOT_MEASURED
-  product_value_gain: FRESH_LEARNER_E4_MACHINE_ADMISSION_READY
+  product_value_gain: SYNTHETIC_VALIDATION_SESSION_CONTROL_PLANE
   lead_time: NOT_MEASURED
   active_engineering_time: NOT_MEASURED
   validation_time: NOT_MEASURED
@@ -98,21 +97,23 @@ metrics:
 known_limits:
   runtime_authority: JSON_INTERNAL_ONLY
   human_validation: NOT_PERFORMED
-  fresh_learner_e4: MACHINE_ADMISSION_READY_WITH_LIMITS
+  real_human_attestation: NOT_PROVEN
+  teaching_effectiveness: NOT_PROVEN
+  synthetic_rehearsal_only: true
   postgres_application_runtime: NOT_ACTIVE
   durable_recovery: NOT_PROVEN
-  cross_process_idempotency: NOT_PROVEN
-  pr_365: OPEN_QUARANTINED_EVIDENCE_INSUFFICIENT_UNCHANGED
-  graph_companion: CURRENT_EXACT_SHA_WITH_CODEGRAPH_DEGRADED_FALLBACK
-  planning_reality: DRIFT_RECORDED_AND_RECONCILED_IN_THIS_CLOSURE
+  pr_365: OPEN_QUARANTINED_READ_ONLY_UNCHANGED
+  graph: CURRENT_WITH_LIMITS
+  graph_limitations: CODEGRAPH_BASE_ENTRY_ONLY_GRAPHIFY_JSON_SQL_LIMITS_AND_POSTMERGE_COMPANION_NO_TEXT_RECEIPT
   dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - Machine admission does not prove Human Validation, teaching effectiveness or Pilot readiness.
-  - W022 does not write Truth, SettlementResult, Score, Rank, Replay authority or final grade.
-  - W022 does not activate PostgreSQL, migration, RLS, durable recovery or external providers.
-  - PR #365 remains open and read-only; no PR #365 evidence was used as a merged capability.
-  - No W023 branch, lock, PR or execution is authorized by this closure.
+  - Automated synthetic rehearsal does not prove Human Validation, teaching effectiveness, real-human attestation, Pilot readiness or Production readiness.
+  - W023 does not write Truth, SettlementResult, Score, Rank, Replay authority or final grade.
+  - W023 does not activate PostgreSQL, migration, RLS, durable recovery or external providers.
+  - Session duties are not platform RBAC grants and Student visibility remains bounded.
+  - PR #365 remains open, quarantined, read-only and unchanged.
+  - W024 is a recommended candidate only; no W024 branch, lock, PR or execution was started.
 invalidation_triggers:
   - product_or_runtime_changed
   - authority_or_truth_writer_changed
@@ -121,5 +122,5 @@ invalidation_triggers:
   - student_visibility_changed
   - fresh_clone_evidence_invalidated
   - graph_source_sha_changed
-  - planning_documents_changed
+  - governance_readback_changed
 automatic_next_start: false
