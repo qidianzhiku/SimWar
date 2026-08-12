@@ -60,6 +60,7 @@ import { TransferResearchWorkbench } from "./features/transfer-research-workbenc
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
+import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -1325,6 +1326,21 @@ export function App() {
             </article>
           ) : null}
         </section>
+      ) : null}
+
+      {isTeacher && session ? (
+        <FreshLearnerAdmissionPanel
+          apiBase={API_BASE}
+          courseId={selectedRun?.course_id}
+          runId={selectedRun?.run_id}
+          teamIds={
+            state?.teams
+              .filter((candidate) => candidate.course_id === selectedRun?.course_id)
+              .map((candidate) => candidate.team_id) ?? []
+          }
+          tenantId={login.tenantId}
+          token={session.access_token}
+        />
       ) : null}
 
       {session ? (

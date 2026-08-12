@@ -400,6 +400,61 @@ paths:
       responses:
         "201":
           description: Team created
+  /api/v1/courses/{courseId}/teams/{teamId}/members:
+    post:
+      operationId: COURSE_TEAM_MEMBER_ADD_V1
+      summary: Add one tenant-local learner to an existing course team.
+      description: Adds a member through the existing team authority. It does not assign a RoleWorkflow assignment, write truth, or create a student route.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: teamId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberEnrollmentInput"
+      responses:
+        "201": { description: Team with the enrolled member }
+        "403": { description: Team authority required }
+        "409": { description: "Duplicate member, role slot, or cross-team enrollment" }
+  /api/v1/bff/teacher/fresh-learner-admission:
+    get:
+      operationId: FRESH_LEARNER_ADMISSION_READINESS_GET_V1
+      summary: Read teacher-safe fresh learner E4 admission readiness.
+      description: Read-only projection over exact Course, Run, Team membership, Identity status, and existing RoleWorkflow assignments. It never exposes passwords, raw private payloads, truth fields, settlement, replay, or Student-only data.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: team_ids
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Teacher-safe admission readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreshLearnerAdmissionEnvelope"
+        "403": { description: Teacher or tenant-admin scope required }
+        "404": { description: "Course, run, or selected team not found" }
   /api/v1/courses/{courseId}/runs:
     post:
       summary: Create a run and first draft round.
@@ -3407,6 +3462,23 @@ components:
             known_limits: { type: array, items: { type: string } }
         message: { type: string }
         request_id: { type: string }
+    TeamMemberEnrollmentInput:
+      type: object
+      additionalProperties: false
+      required: [user_id, role_slot]
+      properties:
+        user_id: { type: string, minLength: 1 }
+        role_slot: { enum: [CEO, CFO, CMO, COO] }
+    FreshLearnerAdmissionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data:
+          $ref: "../schemas/fresh-learner-admission.v1.json"
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     D6TransferEnvelope:
       type: object
       additionalProperties: false

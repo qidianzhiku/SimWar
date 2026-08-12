@@ -126,6 +126,12 @@ const w020ContractFiles = [
   "contracts/fixtures/w020-governed-ai-advisory.invalid.json"
 ];
 
+const w022ContractFiles = [
+  "contracts/schemas/fresh-learner-admission.v1.json",
+  "contracts/fixtures/fresh-learner-admission.valid.json",
+  "contracts/fixtures/fresh-learner-admission.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -135,6 +141,7 @@ const requiredOpenApiPaths = [
   "/api/v1/rbac/roles",
   "/api/v1/rbac/permissions",
   "/api/v1/courses/{courseId}/runs",
+  "/api/v1/courses/{courseId}/teams/{teamId}/members",
   "/api/v1/runs/{runId}/rounds/{roundNo}/decisions",
   "/internal/v1/runs/{runId}/rounds/{roundNo}/settle",
   "/api/v1/runs/{runId}/rounds/{roundNo}/results",
@@ -175,7 +182,8 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/student/golden-journey/allowed-actions",
   "/api/v1/bff/student/golden-journey/receipts",
   "/api/v1/bff/teacher/instructor-debrief-artifact",
-  "/api/v1/bff/teacher/instructor-debrief-artifact/export"
+  "/api/v1/bff/teacher/instructor-debrief-artifact/export",
+  "/api/v1/bff/teacher/fresh-learner-admission"
 ];
 
 const schemaCases = [
@@ -295,6 +303,11 @@ const schemaCases = [
     schema: "contracts/schemas/w020-governed-ai-advisory.v1.json",
     valid: ["contracts/fixtures/w020-governed-ai-advisory.valid.json"],
     invalid: ["contracts/fixtures/w020-governed-ai-advisory.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/fresh-learner-admission.v1.json",
+    valid: ["contracts/fixtures/fresh-learner-admission.valid.json"],
+    invalid: ["contracts/fixtures/fresh-learner-admission.invalid.json"]
   }
 ];
 
@@ -687,10 +700,38 @@ function assertC4OpenApiBindings(openApi) {
 }
 
 function assertW020OpenApiBindings(openApi) {
-  assert(openApi?.paths?.["/api/v1/bff/student/advisors/role"], "Missing W020 student advisor path.");
-  assert(openApi?.paths?.["/api/v1/bff/teacher/advisors/debrief"], "Missing W020 teacher advisor path.");
-  assert(openApi?.paths?.["/api/v1/bff/teacher/advisors/audit"], "Missing W020 teacher audit path.");
-  assert(openApi?.components?.schemas?.W020AdvisoryEnvelope, "Missing W020 advisory envelope schema.");
+  assert(
+    openApi?.paths?.["/api/v1/bff/student/advisors/role"],
+    "Missing W020 student advisor path."
+  );
+  assert(
+    openApi?.paths?.["/api/v1/bff/teacher/advisors/debrief"],
+    "Missing W020 teacher advisor path."
+  );
+  assert(
+    openApi?.paths?.["/api/v1/bff/teacher/advisors/audit"],
+    "Missing W020 teacher audit path."
+  );
+  assert(
+    openApi?.components?.schemas?.W020AdvisoryEnvelope,
+    "Missing W020 advisory envelope schema."
+  );
+}
+
+function assertW022OpenApiBindings(openApi) {
+  assert(
+    openApi?.paths?.["/api/v1/bff/teacher/fresh-learner-admission"],
+    "Missing W022 fresh learner admission path."
+  );
+  assert(
+    openApi?.components?.schemas?.FreshLearnerAdmissionEnvelope,
+    "Missing W022 fresh learner admission envelope schema."
+  );
+  assert(
+    openApi?.paths?.["/api/v1/bff/teacher/fresh-learner-admission"]?.get?.responses?.["200"]
+      ?.content?.["application/json"]?.schema?.$ref === schemaRef("FreshLearnerAdmissionEnvelope"),
+    "W022 admission path must reference FreshLearnerAdmissionEnvelope."
+  );
 }
 
 function formatAjvErrors(validate) {
@@ -771,7 +812,8 @@ export async function runContractValidation(options = {}) {
     ...d6ContractFiles,
     ...r3ContractFiles,
     ...c4ContractFiles,
-    ...w020ContractFiles
+    ...w020ContractFiles,
+    ...w022ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -786,7 +828,8 @@ export async function runContractValidation(options = {}) {
     ...d6ContractFiles,
     ...r3ContractFiles,
     ...c4ContractFiles,
-    ...w020ContractFiles
+    ...w020ContractFiles,
+    ...w022ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -802,6 +845,7 @@ export async function runContractValidation(options = {}) {
   assertR3OpenApiBindings(openApi);
   assertC4OpenApiBindings(openApi);
   assertW020OpenApiBindings(openApi);
+  assertW022OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

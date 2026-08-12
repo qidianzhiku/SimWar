@@ -20,6 +20,7 @@ import type {
   StateSnapshot,
   StudentRoleAssignment,
   Team,
+  TeamMember,
   TeamConfirmation,
   TeacherConfirmationVersion,
   W020AdvisoryRecord
@@ -125,6 +126,8 @@ export interface TeamRepositoryPort {
   ): Promise<Team | null>;
 
   createTeamWithCaptain(team: Team): Promise<void>;
+
+  addMemberToTeam(tenantId: RepositoryId, teamId: RepositoryId, member: TeamMember): Promise<Team>;
 }
 
 export interface RunRepositoryPort {

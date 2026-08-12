@@ -46,6 +46,7 @@ import type {
   TeacherFormalScenarioPackageCatalogDto,
   Team,
   Tenant,
+  TeamMember,
   TenantBaselineProvisioningRequest,
   User
 } from "@simwar/shared-contracts";
@@ -113,6 +114,7 @@ import { handleTransferResearchDesignRoute } from "./routes/transfer-research-de
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
+import { buildFreshLearnerAdmissionReadiness } from "./fresh-learner-admission.js";
 import { GoldenJourneyIntegrationService } from "./golden-journey-integration.js";
 import { createJsonFormalScenarioAuthorityRuntime } from "./formal-scenario-authority-runtime.js";
 import {
@@ -5350,6 +5352,65 @@ async function routeRequest(
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/fresh-learner-admission") {
+    const actor = requirePermission(context, "course:read");
+    if (!actor.roles.includes("teacher") && !actor.roles.includes("tenant_admin")) {
+      throw new HttpError(403, "ADMISSION-403-001", "teacher admission readiness required");
+    }
+    const courseId = url.searchParams.get("course_id")?.trim();
+    const runId = url.searchParams.get("run_id")?.trim();
+    const requestedTeamIds = (url.searchParams.get("team_ids") ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!courseId || !runId) {
+      throw new HttpError(422, "ADMISSION-422-001", "course_id and run_id are required");
+    }
+    const course = await getCourseForRead(runtime, context, courseId);
+    const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+    if (!run || run.course_id !== course.course_id) {
+      throw new HttpError(404, "ADMISSION-404-001", "course or run not found");
+    }
+    const allTeams = await runtime.repositoryProvider.facade.teams.listTeamsForRun(
+      context.tenantId,
+      run.run_id
+    );
+    const teams = requestedTeamIds.length
+      ? allTeams.filter((team) => requestedTeamIds.includes(team.team_id))
+      : allTeams;
+    if (requestedTeamIds.length && teams.length !== requestedTeamIds.length) {
+      throw new HttpError(404, "ADMISSION-404-002", "requested team is not in the course run");
+    }
+    const teamInputs = await Promise.all(
+      teams.map(async (team) => {
+        const users = await Promise.all(
+          team.members.map(async (member) => {
+            const user = await runtime.repositoryProvider.facade.identity.getUser(
+              context.tenantId,
+              member.user_id
+            );
+            return { status: user?.status, user_id: member.user_id };
+          })
+        );
+        const workflow = runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
+          run_id: run.run_id,
+          team_id: team.team_id,
+          tenant_id: context.tenantId
+        });
+        return { assignments: workflow.assignments, team, users };
+      })
+    );
+    const data = buildFreshLearnerAdmissionReadiness({
+      course_id: course.course_id,
+      run_id: run.run_id,
+      teacher_ready: true,
+      teams: teamInputs,
+      tenant_id: context.tenantId
+    });
+    sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
   if (
     request.method === "PUT" &&
     url.pathname === "/api/v1/bff/teacher/role-workflows/assignments"
@@ -6643,6 +6704,68 @@ async function routeRequest(
       after: clonePublic(team)
     });
     sendJson(response, 201, createEnvelope(context, team));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/courses\/[^/]+\/teams\/[^/]+\/members$/.test(url.pathname)
+  ) {
+    const actor = requirePermission(context, "team:create");
+    const [, courseId, teamId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/courses\/([^/]+)\/teams\/([^/]+)\/members$/
+    );
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
+    const team = await runtime.repositoryProvider.facade.teams.getTeam(
+      context.tenantId,
+      teamId ?? ""
+    );
+    if (!team || team.course_id !== course.course_id) {
+      throw new HttpError(404, "TEAM-MEMBER-404-001", "team not found for course");
+    }
+    const body = await readJson<Record<string, unknown>>(request);
+    assertNoTruthProtectedFields(body);
+    const userId = typeof body.user_id === "string" ? body.user_id.trim() : "";
+    const roleSlot = typeof body.role_slot === "string" ? body.role_slot.trim() : "";
+    if (!userId || !["CEO", "CFO", "CMO", "COO"].includes(roleSlot)) {
+      throw new HttpError(422, "TEAM-MEMBER-422-001", "user_id and role_slot are required");
+    }
+    const user = await runtime.repositoryProvider.facade.identity.getUser(context.tenantId, userId);
+    if (!user) {
+      throw new HttpError(404, "TEAM-MEMBER-404-002", "team member not found");
+    }
+    try {
+      const member: TeamMember = {
+        display_name: userId,
+        role_slot: roleSlot as TeamMember["role_slot"],
+        user_id: userId
+      };
+      const updatedTeam = await runtime.repositoryProvider.facade.teams.addMemberToTeam(
+        context.tenantId,
+        team.team_id,
+        member
+      );
+      await appendAudit(runtime, {
+        actor,
+        action: "team.member.add",
+        resourceType: "team",
+        resourceId: team.team_id,
+        requestId: context.requestId,
+        after: { course_id: course.course_id, role_slot: roleSlot, user_id: userId }
+      });
+      sendJson(response, 201, createEnvelope(context, updatedTeam));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "team_member_write_failed";
+      if (
+        code === "team_member_duplicate" ||
+        code === "team_member_already_enrolled" ||
+        code === "team_role_slot_duplicate"
+      ) {
+        throw new HttpError(409, "TEAM-MEMBER-409-001", code);
+      }
+      throw error;
+    }
     return;
   }
 

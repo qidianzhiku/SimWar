@@ -1,0 +1,46 @@
+{
+  "schema_version": "fresh-learner-admission.v1",
+  "tenant_id": "tenant_w022",
+  "course_id": "course_shanghai",
+  "run_id": "run_shanghai",
+  "team_count": 2,
+  "fresh_learner_count": 8,
+  "required_roster_count": 8,
+  "assigned_roster_count": 8,
+  "auth_ready": true,
+  "teacher_ready": true,
+  "admission_status": "READY_FOR_MACHINE_E4",
+  "teams": [
+    {
+      "team_id": "team_a",
+      "team_name": "Shanghai A",
+      "captain_user_id": "learner_a_ceo",
+      "member_count": 4,
+      "required_member_count": 4,
+      "assigned_role_count": 4,
+      "auth_ready_member_count": 4,
+      "auth_ready": true,
+      "missing_roles": [],
+      "duplicate_roles": [],
+      "invalid_memberships": [],
+      "assigned_roles": ["CEO", "CFO", "CMO", "COO"],
+      "ready": true
+    },
+    {
+      "team_id": "team_b",
+      "team_name": "Shanghai B",
+      "captain_user_id": "learner_b_ceo",
+      "member_count": 4,
+      "required_member_count": 4,
+      "assigned_role_count": 4,
+      "auth_ready_member_count": 4,
+      "auth_ready": true,
+      "missing_roles": [],
+      "duplicate_roles": [],
+      "invalid_memberships": [],
+      "assigned_roles": ["CEO", "CFO", "CMO", "COO"],
+      "ready": true
+    }
+  ],
+  "known_limits": ["JSON_INTERNAL_ONLY", "HUMAN_VALIDATION_NOT_PERFORMED"]
+}
