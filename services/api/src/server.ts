@@ -119,6 +119,7 @@ import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-desi
 import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
+import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { buildFreshLearnerAdmissionReadiness } from "./fresh-learner-admission.js";
 import { GoldenJourneyIntegrationService } from "./golden-journey-integration.js";
@@ -212,6 +213,11 @@ import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
 import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import {
+  ValidationEnvironmentLaunchService,
+  type ValidationEnvironmentLaunchLedger,
+  type ValidationEnvironmentLaunchStepExecutor
+} from "./validation-environment-launch.js";
+import {
   createTeacherFormalCourse,
   resolveTeacherFormalCourseBindingPreview,
   TeacherFormalCourseBindingError
@@ -303,6 +309,10 @@ interface ApiRuntime {
   goldenJourney: GoldenJourneyIntegrationService;
   governedAdvisory: GovernedAdvisoryService;
   validationSessions: ValidationSessionControlPlane;
+  validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
+  validationEnvironmentLaunchExecutorFactory?: (
+    context: RequestContext
+  ) => ValidationEnvironmentLaunchStepExecutor | Promise<ValidationEnvironmentLaunchStepExecutor>;
   securityConfig: RuntimeSecurityConfig;
   runMutationLocks: Map<string, Promise<void>>;
 }
@@ -313,6 +323,12 @@ export interface CreateApiServerOptions {
   formalScenarioPackageCatalog?: ScenarioPackageAuthorityReadFacade;
   repositoryProvider?: RepositoryProvider;
   securityConfig?: RuntimeSecurityConfig;
+  validationEnvironmentLaunchLedger?: ValidationEnvironmentLaunchLedger;
+  validationEnvironmentLaunchEnsureUser?: (input: {
+    tenant_id: string;
+    user_id: string;
+    display_name: string;
+  }) => Promise<void>;
 }
 
 type DecisionSubmitBody = Partial<M1DecisionSubmitRequest>;
@@ -538,12 +554,22 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
 
+  const roleWorkflow = new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow);
+  const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
+  const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
+  const formalCourseAuthorityBindingStore = new FormalCourseAuthorityBindingStore(store);
+  const formalRunRuntimeBindingStore = new FormalRunRuntimeBindingStore(store);
+  const coursePackageQueries = new CoursePackageQueryService(coursePackageRegistry);
+  const validationEnvironmentLaunch = options.validationEnvironmentLaunchLedger
+    ? new ValidationEnvironmentLaunchService(options.validationEnvironmentLaunchLedger)
+    : undefined;
+
   return {
-    courseBlueprintBindingStore: new CourseBlueprintBindingStore(store),
-    formalCourseAuthorityBindingStore: new FormalCourseAuthorityBindingStore(store),
+    courseBlueprintBindingStore,
+    formalCourseAuthorityBindingStore,
     formalCourseBlueprints,
     coursePackageCommands,
-    coursePackageQueries: new CoursePackageQueryService(coursePackageRegistry),
+    coursePackageQueries,
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
     evidenceCapture,
@@ -564,12 +590,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalScenarioPackages: formalAuthorityRuntime.scenarioPackages,
     tenantBaselineProvisioning,
     formalRunBindingAuthorities,
-    formalRunRuntimeBindingStore: new FormalRunRuntimeBindingStore(store),
+    formalRunRuntimeBindingStore,
     createCourseId: () => nextId(store, "course", "course"),
     formalScenarioPackageCatalog,
     store,
     repositoryProvider,
-    roleWorkflow: new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow),
+    roleWorkflow,
     instructorAssets: new InstructorAssetRegistry(
       {
         captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
@@ -584,7 +610,36 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     ),
     goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
     governedAdvisory,
-    validationSessions: new ValidationSessionControlPlane(repositoryProvider),
+    validationSessions,
+    ...(validationEnvironmentLaunch
+      ? {
+          validationEnvironmentLaunch,
+          validationEnvironmentLaunchExecutorFactory: async (context: RequestContext) => {
+            const { createW025LaunchExecutor } = await import("./w025-launch-executor.js");
+            return createW025LaunchExecutor({
+              actor: context.actor ?? (() => {
+                throw new Error("W025_ACTOR_REQUIRED");
+              })(),
+              requestId: context.requestId,
+              repositoryProvider,
+              formalRunBindingAuthorities,
+              formalCourseBlueprints,
+              coursePackageQueries,
+              courseBlueprintBindingStore,
+              formalCourseAuthorityBindingStore,
+              formalRunRuntimeBindingStore,
+              tenantBaselineProvisioning,
+              roleWorkflow,
+              validationSessions,
+              ensureUser:
+                options.validationEnvironmentLaunchEnsureUser ??
+                (async () => {
+                  throw new Error("W025_POSTGRES_IDENTITY_WRITER_REQUIRED");
+                })
+            });
+          }
+        }
+      : {}),
     securityConfig: options.securityConfig
       ? validateRuntimeSecurityConfig(options.securityConfig)
       : resolveRuntimeSecurityConfig(options.env ?? process.env),
@@ -4784,6 +4839,44 @@ async function routeRequest(
   const url = new URL(request.url ?? "/", "http://localhost");
   const courseReportRoute = isCourseReportRoute(request.method, url);
 
+  if (url.pathname.startsWith("/api/v1/admin/validation-environment-launches")) {
+    const w025Context = createContext(runtime, request);
+    if (
+      await handleValidationEnvironmentLaunchRoute(
+      runtime.validationEnvironmentLaunch,
+      runtime.validationEnvironmentLaunchExecutorFactory
+        ? (context) =>
+            runtime.validationEnvironmentLaunchExecutorFactory!(context as RequestContext)
+        : undefined,
+      request,
+      response,
+      url,
+      {
+        requestId: w025Context.requestId,
+        tenantId: w025Context.tenantId,
+        actor:
+          w025Context.actor ??
+          (() => {
+            throw new HttpError(401, "AUTH-401-001", "authentication required");
+          })()
+      },
+      {
+        readJson,
+        sendJson,
+        createEnvelope,
+        requireTeacher: (context) => {
+          const actor = requirePermission(w025Context, "course:create");
+          if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+            throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+          }
+        }
+      }
+      )
+    ) {
+      return;
+    }
+  }
+
   if (
     request.method === "GET" &&
     url.pathname === "/api/v1/bff/teacher/formal-scenario-package-catalog"
@@ -7532,7 +7625,13 @@ if (isMainModule) {
     if (postgresRuntime) await postgresRuntime.start();
     const server = createApiServer(
       defaultStore,
-      postgresRuntime ? { repositoryProvider: postgresRuntime.provider } : {}
+      postgresRuntime
+        ? {
+            repositoryProvider: postgresRuntime.provider,
+            validationEnvironmentLaunchLedger: postgresRuntime.validationEnvironmentLaunchLedger,
+            validationEnvironmentLaunchEnsureUser: postgresRuntime.ensureValidationUser
+          }
+        : {}
     );
     const shutdown = () => {
       server.close(() => {

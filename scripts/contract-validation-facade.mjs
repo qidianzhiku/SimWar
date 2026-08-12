@@ -138,12 +138,19 @@ const w023ContractFiles = [
   "contracts/fixtures/validation-session.invalid.json"
 ];
 
+const w025ContractFiles = [
+  "contracts/schemas/validation-environment-launch.v1.json",
+  "contracts/fixtures/validation-environment-launch.valid.json",
+  "contracts/fixtures/validation-environment-launch.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
   "/api/v1/auth/me",
   "/api/v1/admin/tenants",
   "/api/v1/admin/users",
+  "/api/v1/admin/validation-environment-launches",
   "/api/v1/rbac/roles",
   "/api/v1/rbac/permissions",
   "/api/v1/courses/{courseId}/runs",
@@ -320,6 +327,11 @@ const schemaCases = [
     schema: "contracts/schemas/fresh-learner-admission.v1.json",
     valid: ["contracts/fixtures/fresh-learner-admission.valid.json"],
     invalid: ["contracts/fixtures/fresh-learner-admission.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/validation-environment-launch.v1.json",
+    valid: ["contracts/fixtures/validation-environment-launch.valid.json"],
+    invalid: ["contracts/fixtures/validation-environment-launch.invalid.json"]
   }
 ];
 
@@ -835,7 +847,8 @@ export async function runContractValidation(options = {}) {
     ...c4ContractFiles,
     ...w020ContractFiles,
     ...w022ContractFiles,
-    ...w023ContractFiles
+    ...w023ContractFiles,
+    ...w025ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -852,7 +865,8 @@ export async function runContractValidation(options = {}) {
     ...c4ContractFiles,
     ...w020ContractFiles,
     ...w022ContractFiles,
-    ...w023ContractFiles
+    ...w023ContractFiles,
+    ...w025ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

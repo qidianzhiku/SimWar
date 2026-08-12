@@ -295,6 +295,8 @@ export interface Round {
   replay_hash?: string;
 }
 
+export * from "./validation-environment-launch.js";
+
 export interface DecisionPayload {
   pricing: {
     base_price: number;

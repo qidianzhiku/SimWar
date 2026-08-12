@@ -74,6 +74,46 @@ paths:
             description: Deterministic target identity exists with conflicting or partial materialization
           }
         "422": { description: "Malformed, noncanonical, or unapproved source request" }
+  /api/v1/admin/validation-environment-launches:
+    post:
+      operationId: ADMIN_VALIDATION_ENVIRONMENT_LAUNCH_CREATE_V1
+      summary: Start or resume one durable Postgres-backed bounded validation environment launch.
+      description: Requires explicit Postgres repository mode. The launch orchestrates existing baseline, Course, Run, cohort, role and validation-session authorities; it never creates a second truth, settlement, replay or Student authority.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidationEnvironmentLaunchStartRequest"
+      responses:
+        "201":
+          description: Durable launch reached its current state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationEnvironmentLaunchEnvelope" }
+        "409": { description: Conflicting retry or stale durable history }
+        "422": { description: Invalid exact reference or cohort template }
+        "503": { description: Postgres runtime is required }
+  /api/v1/admin/validation-environment-launches/{launchId}:
+    get:
+      operationId: ADMIN_VALIDATION_ENVIRONMENT_LAUNCH_GET_V1
+      summary: Read one tenant-scoped durable validation environment launch.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: launchId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Durable launch record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationEnvironmentLaunchEnvelope" }
+        "404": { description: Launch not found }
   /api/v1/admin/course-package-versions:
     get:
       operationId: ADMIN_COURSE_PACKAGE_VERSION_LIST_V1
@@ -3953,6 +3993,94 @@ components:
           minLength: 1
           description: Optional redundant source tenant identifier. When present, it must equal source_tenant_id.
         version: { type: string, minLength: 1 }
+    ValidationEnvironmentLaunchStartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - target_tenant_id
+        - launch_key
+        - source_parameter_set
+        - source_scenario_package
+        - course_blueprint_reference
+        - course_package_reference
+        - course_title
+        - source_product_merge_sha
+        - cohort_template_digest
+        - cohort_template
+        - seed
+      properties:
+        target_tenant_id: { type: string, minLength: 1 }
+        launch_key: { type: string, minLength: 1 }
+        source_parameter_set:
+          type: object
+          additionalProperties: false
+          required: [tenant_id, reference]
+          properties:
+            tenant_id: { type: string, minLength: 1 }
+            reference: { $ref: "#/components/schemas/TenantBaselineParameterSetReference" }
+        source_scenario_package:
+          type: object
+          additionalProperties: false
+          required: [tenant_id, reference]
+          properties:
+            tenant_id: { type: string, minLength: 1 }
+            reference: { $ref: "#/components/schemas/FormalScenarioPackageReferenceInput" }
+        course_blueprint_reference: { $ref: "#/components/schemas/FormalCourseBlueprintReferenceInput" }
+        course_package_reference: { $ref: "#/components/schemas/CoursePackageVersionReferenceInput" }
+        course_title: { type: string, minLength: 1 }
+        source_product_merge_sha: { type: string, pattern: "^[a-f0-9]{40}$" }
+        cohort_template_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        cohort_template:
+          type: object
+          additionalProperties: false
+          required: [teacher_user_id, teams]
+          properties:
+            teacher_user_id: { type: string, minLength: 1 }
+            teams:
+              type: array
+              minItems: 2
+              maxItems: 2
+              items:
+                type: object
+                additionalProperties: false
+                required: [team_key, name, members]
+                properties:
+                  team_key: { type: string, minLength: 1 }
+                  name: { type: string, minLength: 1 }
+                  members:
+                    type: array
+                    minItems: 4
+                    maxItems: 4
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [user_id, display_name, role_slot]
+                      properties:
+                        user_id: { type: string, minLength: 1 }
+                        display_name: { type: string, minLength: 1 }
+                        role_slot: { type: string, enum: [CEO, CFO, CMO, COO] }
+        seed: { type: integer, minimum: 0 }
+    ValidationEnvironmentLaunchRecord:
+      type: object
+      additionalProperties: true
+      required: [schema_version, launch_id, tenant_id, business_key_digest, request_fingerprint, status, version]
+      properties:
+        schema_version: { type: string, enum: [validation-environment-launch.v1] }
+        launch_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        business_key_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        request_fingerprint: { type: string, pattern: "^[a-f0-9]{64}$" }
+        status: { type: string, enum: [REQUESTED, BASELINE_READY, COURSE_RUN_READY, COHORT_READY, SESSION_PREFLIGHT_READY, READY, CONFLICT, ABORTED] }
+        version: { type: integer, minimum: 0 }
+    ValidationEnvironmentLaunchEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/ValidationEnvironmentLaunchRecord" }
+        message: { type: string }
+        request_id: { type: string }
     TenantBaselineProvisioningRequest:
       type: object
       additionalProperties: false
