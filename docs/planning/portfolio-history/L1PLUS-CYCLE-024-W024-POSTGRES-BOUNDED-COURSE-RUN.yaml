@@ -1,0 +1,68 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-024-W024-POSTGRES-BOUNDED-COURSE-RUN
+stage: L1_PLUS
+candidate_id: CAND-W024-C-BOUNDED-COURSE-RUN-POSTGRES
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+branch: codex/w024-postgres-durable-course-runtime
+head_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
+source_sha: 24e3baf0c21a0aad7ee6a945ee2441e3e4873d07
+merge_sha: a66c207bf23027d0245892879ec18b7920082113
+post_merge_master_sha: a66c207bf23027d0245892879ec18b7920082113
+pr: 370
+product_candidate_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
+product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
+product_manifest_sha256: c67a11d6d0357994947da3c443b39f3bdde0c2a43257e099193238730ed46078
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: bcef52ef2f1d0cada44b8e37db354174ea9a0546e099d33c708adb83cd1d333d
+primary_outcome: BOUNDED_COURSE_RUN_POSTGRES_RUNTIME_CUTOVER_VERIFIED
+product_scope:
+  - explicit SIMWAR_REPOSITORY_MODE=postgres for bounded Course/Run runtime
+  - PostgreSQL migration 0006 with migrations 0001 through 0005 byte-identical
+  - durable role workflow, canonical decision, settlement and replay persistence
+  - restart before settlement and restart after settlement
+  - exact retry reuse and conflicting retry fail closed
+  - tenant isolation and disposable database cleanup
+runtime_mode:
+  json_default: true
+  explicit_postgres: true
+  postgres_sole_authority_for_bounded_course_run: true
+  silent_json_fallback: false
+  rls: NOT_AUTHORIZED
+validation:
+  acceptance_matrix: PASS_149_ROWS_0_NOT_MAPPED
+  postgres_durable_journey: PASS
+  postgres_replay: PASS_20_OF_20
+  contract: PASS_19_FILES_47_TESTS
+  default_full_vitest: PASS_184_FILES_1146_TESTS
+  browser: PASS_80_9_SKIPPED
+  role_workflow_browser: PASS_1
+  direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
+  fresh_clone: PASS_CLEAN_DETACHED
+  graph_companion: PLAN_ALLOWED_WITH_LIMITS
+evidence_root: C:/Temp/simwar-w024-postgres-durable-course-runtime-20260812T091327Z
+fresh_clone: C:/Temp/simwar-w024-fresh-a66c207-20260812T1030Z
+fresh_clone_receipt: 15-fresh-clone-postmerge-w024-durable-course-runtime-report.json
+merge_receipt: 14-product-merge-readback.json
+human_validation: NOT_PERFORMED
+teaching_effectiveness: NOT_PROVEN
+resource_locks:
+  status: RELEASED_AFTER_POSTMERGE_AND_GOVERNANCE_READBACK
+explicit_non_proofs:
+  - No general PostgreSQL application runtime, RLS, Pilot, Production or W025 is authorized.
+  - Durable recovery beyond the verified Course/Run restart journey is not proven.
+  - Human Validation and teaching effectiveness are not performed or proven.
+  - No Truth, SettlementResult, Score, Rank, Replay hash or Student visibility semantics changed.
+known_limits:
+  runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_COURSE_RUN
+  postgres_general_runtime: NOT_AUTHORIZED
+  durable_recovery: NOT_PROVEN_BEYOND_VERIFIED_JOURNEY
+  codegraph: DEGRADED_REMOTE_INDEX_CANDIDATE_UNAVAILABLE
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED
+pilot_production: NOT_AUTHORIZED
+automatic_next_start: false
