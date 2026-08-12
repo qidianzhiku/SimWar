@@ -388,7 +388,9 @@ test("Teacher ignores an earlier CoursePackageVersion response after a later ses
   await login.getByLabel("tenant").fill("tenant_other");
   await login.getByLabel("tenant").fill("tenant_demo");
   await login.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
   await expect(page.getByText("Current teacher package")).toBeVisible();
 
   releaseOldResponse?.();

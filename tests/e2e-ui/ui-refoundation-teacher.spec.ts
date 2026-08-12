@@ -39,6 +39,69 @@ const state = {
   audit_logs: []
 };
 
+const raceState = {
+  ...state,
+  runs: [
+    { ...state.runs[0], run_id: "run_new" },
+    { ...state.runs[0], run_id: "run_old" }
+  ],
+  rounds: [
+    { ...state.rounds[0], round_id: "round_old", run_id: "run_old", status: "draft" },
+    { ...state.rounds[0], round_id: "round_new", run_id: "run_new", status: "draft" }
+  ]
+};
+
+const teacherResult = {
+  state_est: {
+    explanation: "结果解释",
+    next_round_risk: "balanced",
+    recommended_focus: "下一轮聚焦现金缓冲"
+  },
+  state_obs: {
+    demand_band: "medium",
+    profit_band: "healthy",
+    rank: 1,
+    revenue: 120,
+    score: 88,
+    served_demand: 20
+  },
+  state_true: {
+    cash_flow: 999999,
+    cost: 2,
+    demand: 20,
+    market_share: 0.5,
+    profit: 118,
+    rank: 1,
+    revenue: 120,
+    score: 88,
+    served_demand: 20,
+    settlement_status: "settled",
+    internal_marker: "PRIVATE_TRUTH_SENTINEL"
+  },
+  team_id: "team_alpha",
+  team_name: "示例队伍"
+};
+
+const blockedReadiness = {
+  calibration_status: "DRAFT_REGISTER_ONLY",
+  compatibility_status: "INCOMPATIBLE",
+  course_id: "course_demo",
+  eligible: false,
+  evidence_freshness: { collected_at: null, expires_at: null, is_expired: false },
+  explicit_non_proofs: ["不会激活运行时"],
+  license_status: "UNVERIFIED",
+  no_go_reasons: ["SCENARIO_PACKAGE_NOT_PUBLISHED"],
+  operation_id: "R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1",
+  parameter_set_id: "parameter_demo",
+  provenance_status: "MISSING",
+  qa_status: "DRAFT_REVIEW_REQUIRED",
+  readiness_status: "BLOCKED",
+  run_id: "run_teacher_test",
+  runtime_adapter_status: "NOT_REGISTERED",
+  scenario_package_id: "scenario_demo",
+  tenant_id: "tenant_demo"
+};
+
 function teacherSession(roles: string[]) {
   return {
     access_token: roles.includes("teacher") ? "teacher-ui-token" : "student-ui-token",
@@ -52,7 +115,12 @@ function teacherSession(roles: string[]) {
   };
 }
 
-function teacherWorkspace(allowedActions: string[]) {
+function teacherWorkspace(
+  allowedActions: string[],
+  runId = "run_teacher_test",
+  roundId = "round_teacher_test",
+  resultRows: readonly unknown[] = []
+) {
   const evidence = "RUNTIME_ENTRYPOINT_EVIDENCE";
   const shared = {
     actor_role: "teacher",
@@ -62,7 +130,7 @@ function teacherWorkspace(allowedActions: string[]) {
     explicit_non_proof: [],
     evidence_label: evidence,
     redacted_fields: [],
-    run_id: "run_teacher_test",
+    run_id: runId,
     source_runtime_path: ["/api/v1/bff/teacher"],
     tenant_id: "tenant_demo"
   };
@@ -79,7 +147,7 @@ function teacherWorkspace(allowedActions: string[]) {
     },
     round_control: {
       ...shared,
-      round_id: "round_teacher_test",
+      round_id: roundId,
       round_no: 1,
       status: "draft",
       visible_state: { decision_count: 0, settlement_available: false, team_count: 1 }
@@ -90,11 +158,14 @@ function teacherWorkspace(allowedActions: string[]) {
     },
     teacher_replay_summary: {
       ...shared,
-      authorized_result_snapshot: [],
+      authorized_result_snapshot: resultRows,
       formal_truth_write_allowed: false,
-      round_id: "round_teacher_test",
+      round_id: roundId,
       round_no: 1,
-      visible_state: { result_count: 0, runtime_boundary: "current_json_active_runtime" }
+      visible_state: {
+        result_count: resultRows.length,
+        runtime_boundary: "current_json_active_runtime"
+      }
     },
     team_monitor: {
       ...shared,
@@ -107,10 +178,20 @@ function teacherWorkspace(allowedActions: string[]) {
 async function mockTeacherApi(
   page: Page,
   roles: string[],
-  options: { workspaceUnavailable?: boolean } = {}
+  options: {
+    coursePackages?: readonly unknown[];
+    resultRows?: readonly unknown[];
+    scenarioReadinessResponse?: unknown;
+    stateData?: typeof state;
+    workspaceAllowedActionsByRun?: Record<string, readonly string[]>;
+    workspaceDeferredRuns?: readonly string[];
+    workspaceUnavailable?: boolean;
+  } = {}
 ) {
   let allowedActions: string[] = [];
   let startRequests = 0;
+  const deferredWorkspaceResolvers = new Map<string, () => void>();
+  const workspaceRequests = new Set<string>();
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -124,7 +205,9 @@ async function mockTeacherApi(
       return;
     }
     if (path === "/api/v1/demo-state") {
-      await route.fulfill({ json: { code: "OK", data: state, message: "success" } });
+      await route.fulfill({
+        json: { code: "OK", data: options.stateData ?? state, message: "success" }
+      });
       return;
     }
     if (path.endsWith("/workspace")) {
@@ -135,8 +218,20 @@ async function mockTeacherApi(
         });
         return;
       }
+      const runId = path.match(/\/runs\/([^/]+)\/rounds\//)?.[1] ?? "run_teacher_test";
+      workspaceRequests.add(runId);
+      if (options.workspaceDeferredRuns?.includes(runId)) {
+        await new Promise<void>((resolve) => deferredWorkspaceResolvers.set(runId, resolve));
+      }
+      const runRoundId =
+        runId === "run_teacher_test" ? "round_teacher_test" : `round_${runId.slice(4)}`;
+      const runAllowedActions = options.workspaceAllowedActionsByRun?.[runId] ?? allowedActions;
       await route.fulfill({
-        json: { code: "OK", data: teacherWorkspace(allowedActions), message: "success" }
+        json: {
+          code: "OK",
+          data: teacherWorkspace([...runAllowedActions], runId, runRoundId, options.resultRows),
+          message: "success"
+        }
       });
       return;
     }
@@ -175,12 +270,27 @@ async function mockTeacherApi(
     }
     if (path.includes("course-package-versions")) {
       await route.fulfill({
-        json: { code: "OK", data: { course_package_versions: [] }, message: "success" }
+        json: {
+          code: "OK",
+          data: { course_package_versions: options.coursePackages ?? [] },
+          message: "success"
+        }
       });
       return;
     }
     if (path.includes("scenario-package-candidates")) {
       await route.fulfill({ json: { candidates: [] } });
+      return;
+    }
+    if (path.includes("scenario-selection-readiness")) {
+      if (options.scenarioReadinessResponse !== undefined) {
+        await route.fulfill({ json: options.scenarioReadinessResponse });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { error: { message: "Teacher scope denied" } }
+        });
+      }
       return;
     }
     if (path.includes("formal-scenario-package-catalog")) {
@@ -201,7 +311,9 @@ async function mockTeacherApi(
     allowStart: () => {
       allowedActions = ["round:start"];
     },
-    getStartRequests: () => startRequests
+    getStartRequests: () => startRequests,
+    hasWorkspaceRequest: (runId: string) => workspaceRequests.has(runId),
+    releaseWorkspace: (runId: string) => deferredWorkspaceResolvers.get(runId)?.()
   };
 }
 
@@ -346,12 +458,13 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
     "Scenario Candidates",
     "Known limits",
     "Non-overwrite",
-    "state_true"
+    "state_true",
+    "PRIVATE_TRUTH_SENTINEL"
   ]) {
     expect(structuralCopy).not.toContain(forbiddenEnglishHeading);
   }
   await expect(page.locator("#teacher-results")).not.toContainText("state_true");
-  await expect(page.locator("#teacher-results")).not.toContainText("利润");
+  await expect(page.locator("#teacher-results")).not.toContainText("PRIVATE_TRUTH_SENTINEL");
 
   const primary = page.getByRole("button", { name: "开启回合" });
   await expect(primary).toBeDisabled();
@@ -440,6 +553,114 @@ test("Teacher keeps the command disabled when the BFF workspace is unavailable",
   await expect(unavailableReason.first()).toBeVisible();
   await expect(page.locator('[data-authority="unknown"]')).toBeVisible();
   await expect(page.locator('main > .sw-state-panel[data-state="error"]')).toHaveCount(1);
+  await expect.poll(api.getStartRequests).toBe(0);
+});
+
+test("Teacher ignores a stale workspace response after switching runs", async ({ page }) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    stateData: raceState,
+    workspaceAllowedActionsByRun: {
+      run_old: ["round:start"],
+      run_new: []
+    },
+    workspaceDeferredRuns: ["run_old"]
+  });
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher");
+  const runSelector = page.getByLabel("run selector");
+  await expect(runSelector).toHaveValue("run_old");
+  await expect.poll(() => api.hasWorkspaceRequest("run_old")).toBe(true);
+
+  await runSelector.selectOption("run_new");
+  await expect(runSelector).toHaveValue("run_new");
+  await expect(page.getByRole("button", { name: "开启回合" })).toBeDisabled();
+
+  api.releaseWorkspace("run_old");
+  await expect(runSelector).toHaveValue("run_new");
+  await expect(page.getByRole("button", { name: "开启回合" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "开启回合" })).toHaveCount(1);
+  await expect(page.getByLabel("run selector")).toHaveValue("run_new");
+  await page.getByRole("button", { name: "开启回合" }).evaluate((button) => {
+    button.removeAttribute("disabled");
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await expect.poll(api.getStartRequests).toBe(0);
+});
+
+test("Teacher exposes Chinese clone/readiness copy and native 44px form targets", async ({
+  page
+}) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    coursePackages: [
+      {
+        course_blueprint_reference: {
+          content_digest: "b".repeat(64),
+          course_blueprint_id: "blueprint_demo",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        course_package_reference: {
+          content_digest: "a".repeat(64),
+          course_package_id: "course_package_demo",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        description: "教学包说明",
+        parameter_set_reference: {
+          content_digest: "c".repeat(64),
+          parameter_set_id: "parameter_demo",
+          version: "1.0.0"
+        },
+        scenario_package_reference: {
+          content_digest: "d".repeat(64),
+          scenario_package_id: "scenario_demo",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        },
+        title: "示例课程包"
+      }
+    ],
+    resultRows: [teacherResult],
+    scenarioReadinessResponse: blockedReadiness
+  });
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher");
+
+  const primary = page.getByRole("button", { name: "开启回合" });
+  const secondary = page.getByRole("button", { name: "Refresh CoursePackageVersions" });
+  const runSelector = page.getByLabel("run selector");
+  const nativeHeights = await page
+    .locator(".primary, .secondary, .run-selector select")
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+  expect(nativeHeights.length).toBeGreaterThan(2);
+  expect(nativeHeights.every((height) => height >= 44)).toBe(true);
+  await expect(primary).toBeVisible();
+  await expect(secondary).toBeVisible();
+  await expect(runSelector).toBeVisible();
+
+  const packagePanel = page.getByLabel("Teacher CoursePackageVersion catalog");
+  await expect(packagePanel.getByText("示例课程包")).toBeVisible();
+  await packagePanel.getByRole("button", { name: /Clone course_package_demo/ }).click();
+  const cloneForm = packagePanel.getByLabel("Teacher CoursePackageVersion clone");
+  await expect(cloneForm).toContainText("创建课程包新版本");
+  const cloneHeights = await cloneForm
+    .locator("input, button")
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+  expect(cloneHeights.every((height) => height >= 44)).toBe(true);
+
+  await page.getByLabel("scenario package id").fill("scenario_demo");
+  await page.getByLabel("parameter set id").fill("parameter_demo");
+  await page.getByRole("button", { name: "Check readiness" }).click();
+  const readinessResult = page.locator(".readiness-result");
+  await expect(readinessResult.getByText("不可开课", { exact: true })).toBeVisible();
+  await expect(readinessResult.getByText("待质量复核", { exact: true })).toBeVisible();
+  await expect(page.getByText("服务端状态已记录", { exact: true })).toHaveCount(0);
+
+  const results = page.locator("#teacher-results");
+  await expect(results).toContainText("88");
+  await expect(results).toContainText("下一轮聚焦现金缓冲");
+  await expect(results).not.toContainText("state_true");
+  await expect(results).not.toContainText("PRIVATE_TRUTH_SENTINEL");
   await expect.poll(api.getStartRequests).toBe(0);
 });
 

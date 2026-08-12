@@ -93,32 +93,37 @@ type ScenarioReadinessForm = {
 type ScenarioReadinessState =
   | { phase: "IDLE" }
   | { phase: "LOADING" }
-  | { phase: "INVALID_REQUEST"; message: string }
+  | { phase: "INVALID_REQUEST"; message: string; compatibilityMessage?: string }
   | {
       phase: "UNAUTHENTICATED" | "UNAUTHORIZED" | "NOT_FOUND_OR_OUT_OF_SCOPE" | "INTERNAL_ERROR";
       message: string;
+      compatibilityMessage?: string;
     }
   | { phase: "READY" | "BLOCKED"; response: ScenarioReadinessResponse };
 
 type ScenarioCandidatesState =
   | { phase: "IDLE" | "LOADING" }
-  | { phase: "ERROR"; message: string }
+  | { phase: "ERROR"; message: string; compatibilityMessage?: string }
   | { phase: "READY"; response: R7TeacherScenarioPackageCandidatesDto };
 
 type FormalScenarioCatalogState =
   | { phase: "IDLE" | "LOADING" }
-  | { phase: "ERROR"; message: string }
+  | { phase: "ERROR"; message: string; compatibilityMessage?: string }
   | { phase: "READY"; response: TeacherFormalScenarioPackageCatalogDto };
 
 type CourseBlueprintCatalogState =
   | { phase: "IDLE" | "LOADING" }
-  | { phase: "ERROR"; message: string }
+  | { phase: "ERROR"; message: string; compatibilityMessage?: string }
   | { phase: "READY"; response: TeacherCourseBlueprintCatalogDto };
 
 type TeacherCoursePackageListState =
   | { phase: "IDLE" | "LOADING" }
   | { packages: readonly CoursePackageVersionTeacherDto[]; phase: "READY" }
-  | { phase: "ERROR"; surfaceState: TeacherCoursePackageSurfaceState };
+  | {
+      message: string;
+      phase: "ERROR";
+      surfaceState: TeacherCoursePackageSurfaceState;
+    };
 
 type TeacherCoursePackageCloneForm = {
   coursePackageId: string;
@@ -167,15 +172,150 @@ const EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM: TeacherCoursePackageCloneForm = {
   version: ""
 };
 
-function teacherCoursePackageStatusLabel(state: TeacherCoursePackageSurfaceState): string {
-  return state === "PERMISSION_DENIED" ? "服务端拒绝访问" : "未知 CoursePackageVersion 状态";
-}
-
 function TechnicalCompatibilityLabel({ children }: { children: ReactNode }) {
   return (
     <span className="technical-compatibility" aria-label="技术兼容标签">
       {children}
     </span>
+  );
+}
+
+export interface TeacherWorkspaceRequestIdentity {
+  epoch: number;
+  sessionId: string;
+  tenantId: string;
+  runId: string;
+  roundId: string;
+}
+
+export function isTeacherWorkspaceRequestCurrent(
+  request: TeacherWorkspaceRequestIdentity,
+  current: TeacherWorkspaceRequestIdentity
+): boolean {
+  return (
+    request.epoch === current.epoch &&
+    request.sessionId === current.sessionId &&
+    request.tenantId === current.tenantId &&
+    request.runId === current.runId &&
+    request.roundId === current.roundId
+  );
+}
+
+function getTeacherErrorStatus(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("status" in error)) {
+    return null;
+  }
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" ? status : null;
+}
+
+export function getTeacherScenarioPhaseLabel(phase: string): string {
+  switch (phase) {
+    case "IDLE":
+      return "待检查";
+    case "LOADING":
+      return "加载中";
+    case "READY":
+      return "已就绪";
+    case "BLOCKED":
+      return "不可开课";
+    case "UNAUTHENTICATED":
+      return "需要登录";
+    case "UNAUTHORIZED":
+      return "未获授权";
+    case "NOT_FOUND_OR_OUT_OF_SCOPE":
+      return "不可用或超出范围";
+    case "INVALID_REQUEST":
+      return "请求待修正";
+    case "INTERNAL_ERROR":
+      return "加载失败";
+    default:
+      return "状态处理中";
+  }
+}
+
+export function getTeacherScenarioStatusLabel(status: string): string {
+  switch (status) {
+    case "READY":
+      return "已就绪";
+    case "BLOCKED":
+      return "不可开课";
+    case "DRAFT_REVIEW_REQUIRED":
+      return "待质量复核";
+    case "INCOMPATIBLE":
+      return "不兼容";
+    case "MISSING":
+      return "缺少来源";
+    case "UNVERIFIED":
+      return "待核验";
+    case "DRAFT_REGISTER_ONLY":
+      return "仅草稿登记";
+    case "NOT_REGISTERED":
+      return "未注册";
+    default:
+      return "服务端状态已记录";
+  }
+}
+
+export function getTeacherScenarioErrorMessage(error: unknown): string {
+  switch (getTeacherErrorStatus(error)) {
+    case 401:
+      return "请先登录后检查场景就绪状态";
+    case 403:
+      return "当前教师会话未获场景检查授权";
+    case 404:
+      return "场景就绪信息不可用或超出范围";
+    case 409:
+      return "当前回合条件阻断了场景就绪检查";
+    case 503:
+      return "场景就绪服务暂不可用";
+    default:
+      return "场景就绪信息暂时无法加载，请稍后重试";
+  }
+}
+
+function getTeacherScenarioValidationMessage(input: ScenarioReadinessForm): string {
+  if (!input.scenarioPackageId.trim()) {
+    return "请输入场景包 ID";
+  }
+  if (!input.parameterSetId.trim()) {
+    return "请输入参数集 ID";
+  }
+  return "请求待修正";
+}
+
+export function getTeacherCoursePackageErrorMessage(error: unknown): string {
+  switch (getTeacherErrorStatus(error)) {
+    case 401:
+      return "请先登录后管理课程包";
+    case 403:
+      return "当前教师会话未获课程包权限";
+    case 404:
+      return "课程包版本不存在或超出范围";
+    case 409:
+      return "课程包版本冲突，未创建新版本";
+    case 503:
+      return "课程包服务暂不可用";
+    default:
+      return "课程包服务暂时无法完成请求";
+  }
+}
+
+function TeacherStatusText({ value }: { value: string }) {
+  return (
+    <>
+      <span className="teacher-visible-status">{getTeacherScenarioStatusLabel(value)}</span>{" "}
+      <TechnicalCompatibilityLabel>{value}</TechnicalCompatibilityLabel>
+    </>
+  );
+}
+
+function TeacherPhaseText({ value }: { value: string }) {
+  return (
+    <>
+      <span className="teacher-visible-status">{getTeacherScenarioPhaseLabel(value)}</span>{" "}
+      <TechnicalCompatibilityLabel>{value}</TechnicalCompatibilityLabel>
+    </>
   );
 }
 
@@ -337,12 +477,21 @@ export function App() {
     useState<TeacherCoursePackageCloneForm>(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
   const [teacherCoursePackageCloneReceipt, setTeacherCoursePackageCloneReceipt] =
     useState<CoursePackageVersionTeacherDto | null>(null);
-  const [teacherCoursePackageCloneError, setTeacherCoursePackageCloneError] =
-    useState<TeacherCoursePackageSurfaceState | null>(null);
+  const [teacherCoursePackageCloneError, setTeacherCoursePackageCloneError] = useState<
+    string | null
+  >(null);
   const readinessRequestSequence = useRef(0);
   const candidateRequestSequence = useRef(0);
   const formalCatalogRequestSequence = useRef(0);
   const coursePackageSessionEpoch = useRef(0);
+  const workspaceRequestEpoch = useRef(0);
+  const workspaceRequestIdentityRef = useRef<TeacherWorkspaceRequestIdentity>({
+    epoch: 0,
+    sessionId: "",
+    tenantId: "",
+    runId: "",
+    roundId: ""
+  });
   const selectedRunIdRef = useRef<string | null>(null);
   const selectedCourseIdRef = useRef<string | null>(null);
 
@@ -394,7 +543,22 @@ export function App() {
         return;
       }
 
+      const requestEpoch = workspaceRequestEpoch.current + 1;
+      workspaceRequestEpoch.current = requestEpoch;
       const auth = { token: session.access_token, tenantId: login.tenantId };
+      const requestedRunId =
+        preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
+      const requestIdentity: TeacherWorkspaceRequestIdentity = {
+        epoch: requestEpoch,
+        sessionId: session.user.user_id,
+        tenantId: login.tenantId,
+        runId: requestedRunId,
+        roundId: ""
+      };
+      workspaceRequestIdentityRef.current = requestIdentity;
+      setWorkspace(null);
+      setWorkspaceLoadState("loading");
+
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
       const nextCourseId = selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
       const nextRun = selectVisibleRun(
@@ -405,6 +569,20 @@ export function App() {
       const nextRound = nextRun
         ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
         : undefined;
+      const resolvedIdentity: TeacherWorkspaceRequestIdentity = {
+        ...requestIdentity,
+        runId: nextRun?.run_id ?? "",
+        roundId: nextRound?.round_id ?? ""
+      };
+      if (
+        !isTeacherWorkspaceRequestCurrent(requestIdentity, {
+          ...workspaceRequestIdentityRef.current,
+          epoch: workspaceRequestEpoch.current
+        })
+      ) {
+        return;
+      }
+      workspaceRequestIdentityRef.current = resolvedIdentity;
 
       setState(nextState);
       selectedCourseIdRef.current = nextCourseId;
@@ -424,9 +602,25 @@ export function App() {
           `/api/v1/bff/teacher/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/workspace`,
           auth
         );
+        if (
+          !isTeacherWorkspaceRequestCurrent(resolvedIdentity, {
+            ...workspaceRequestIdentityRef.current,
+            epoch: workspaceRequestEpoch.current
+          })
+        ) {
+          return;
+        }
         setWorkspace(nextWorkspace);
         setWorkspaceLoadState("ready");
       } catch (error) {
+        if (
+          !isTeacherWorkspaceRequestCurrent(resolvedIdentity, {
+            ...workspaceRequestIdentityRef.current,
+            epoch: workspaceRequestEpoch.current
+          })
+        ) {
+          return;
+        }
         setWorkspaceLoadState("error");
         throw error;
       }
@@ -452,12 +646,14 @@ export function App() {
       if (sessionEpoch !== coursePackageSessionEpoch.current) return;
       setCoursePackageList({
         phase: "ERROR",
-        surfaceState: getTeacherCoursePackageSurfaceState(error)
+        surfaceState: getTeacherCoursePackageSurfaceState(error),
+        message: getTeacherCoursePackageErrorMessage(error)
       });
     }
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
+    workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
@@ -502,7 +698,11 @@ export function App() {
   async function checkScenarioReadiness(): Promise<void> {
     const validationMessage = validateScenarioReadinessInput(scenarioReadinessForm);
     if (validationMessage) {
-      setScenarioReadiness({ phase: "INVALID_REQUEST", message: validationMessage });
+      setScenarioReadiness({
+        compatibilityMessage: validationMessage,
+        message: getTeacherScenarioValidationMessage(scenarioReadinessForm),
+        phase: "INVALID_REQUEST"
+      });
       return;
     }
     if (!session || !selectedRun) {
@@ -537,7 +737,8 @@ export function App() {
         return;
       }
 
-      const message = getScenarioReadinessErrorMessage(error);
+      const message = getTeacherScenarioErrorMessage(error);
+      const compatibilityMessage = getScenarioReadinessErrorMessage(error);
       if (error instanceof ScenarioReadinessRequestError) {
         const { status } = error;
         setScenarioReadiness({
@@ -549,15 +750,17 @@ export function App() {
                 : status === 404
                   ? "NOT_FOUND_OR_OUT_OF_SCOPE"
                   : "INTERNAL_ERROR",
-          message
+          message,
+          compatibilityMessage
         });
         return;
       }
-      setScenarioReadiness({ phase: "INTERNAL_ERROR", message });
+      setScenarioReadiness({ phase: "INTERNAL_ERROR", message, compatibilityMessage });
     }
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
     setBusy(true);
     setSession(null);
@@ -629,7 +832,7 @@ export function App() {
       setTeacherCoursePackageCloneSource(null);
       setTeacherCoursePackageCloneForm(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
     } catch (error) {
-      setTeacherCoursePackageCloneError(getTeacherCoursePackageSurfaceState(error));
+      setTeacherCoursePackageCloneError(getTeacherCoursePackageErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -662,7 +865,8 @@ export function App() {
         if (candidateRequestSequence.current === requestSequence) {
           setScenarioCandidates({
             phase: "ERROR",
-            message: getScenarioCandidatesErrorMessage(error)
+            compatibilityMessage: getScenarioCandidatesErrorMessage(error),
+            message: getTeacherScenarioErrorMessage(error)
           });
         }
       });
@@ -693,7 +897,8 @@ export function App() {
         if (formalCatalogRequestSequence.current === requestSequence) {
           setFormalScenarioCatalog({
             phase: "ERROR",
-            message: getTeacherFormalScenarioPackageCatalogErrorMessage(error)
+            compatibilityMessage: getTeacherFormalScenarioPackageCatalogErrorMessage(error),
+            message: getTeacherScenarioErrorMessage(error)
           });
         }
       });
@@ -712,7 +917,8 @@ export function App() {
       .catch((error: unknown) =>
         setCourseBlueprintCatalog({
           phase: "ERROR",
-          message: getTeacherFormalCourseBindingErrorMessage(error)
+          compatibilityMessage: getTeacherFormalCourseBindingErrorMessage(error),
+          message: getTeacherScenarioErrorMessage(error)
         })
       );
   }, [session]);
@@ -1177,6 +1383,9 @@ export function App() {
             </span>
             <p className="notice" aria-label="教师操作通知" role="status">
               {noticeLabel}
+              {noticeLabel !== notice ? (
+                <TechnicalCompatibilityLabel>{notice}</TechnicalCompatibilityLabel>
+              ) : null}
             </p>
           </div>
           <div className="run-toolbar">
@@ -1402,7 +1611,10 @@ export function App() {
             ) : null}
             {coursePackageList.phase === "ERROR" ? (
               <p className="readiness-message" role="alert">
-                {teacherCoursePackageStatusLabel(coursePackageList.surfaceState)}
+                {coursePackageList.message}{" "}
+                <TechnicalCompatibilityLabel>
+                  {coursePackageList.surfaceState}
+                </TechnicalCompatibilityLabel>
               </p>
             ) : null}
             {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
@@ -1449,8 +1661,8 @@ export function App() {
                       onClick={() => beginTeacherCoursePackageClone(coursePackage)}
                     >
                       <span aria-hidden="true">
-                        克隆 {coursePackage.course_package_reference.course_package_id} 为新的
-                        Course Package version
+                        克隆 {coursePackage.course_package_reference.course_package_id}{" "}
+                        为新课程包版本
                       </span>
                     </button>
                   </article>
@@ -1463,19 +1675,19 @@ export function App() {
                 aria-label="Teacher CoursePackageVersion clone"
               >
                 <span>
-                  克隆新的 Course Package version{" "}
+                  创建课程包新版本{" "}
                   <TechnicalCompatibilityLabel>
                     Clone a new Course Package version
                   </TechnicalCompatibilityLabel>
                 </span>
                 <strong>
-                  Source{" "}
-                  {teacherCoursePackageCloneSource.course_package_reference.course_package_id} /{" "}
-                  {teacherCoursePackageCloneSource.course_package_reference.version}
+                  来源 {teacherCoursePackageCloneSource.course_package_reference.course_package_id}{" "}
+                  / {teacherCoursePackageCloneSource.course_package_reference.version}
                 </strong>
                 <small>租户与操作者由服务端推导，并创建 DRAFT 生命周期记录。</small>
                 <label>
-                  new Course Package ID
+                  课程包 ID{" "}
+                  <TechnicalCompatibilityLabel>new Course Package ID</TechnicalCompatibilityLabel>
                   <input
                     aria-label="new Course Package ID"
                     value={teacherCoursePackageCloneForm.coursePackageId}
@@ -1485,7 +1697,10 @@ export function App() {
                   />
                 </label>
                 <label>
-                  new Course Package version
+                  课程包版本{" "}
+                  <TechnicalCompatibilityLabel>
+                    new Course Package version
+                  </TechnicalCompatibilityLabel>
                   <input
                     aria-label="new Course Package version"
                     value={teacherCoursePackageCloneForm.version}
@@ -1495,7 +1710,10 @@ export function App() {
                   />
                 </label>
                 <label>
-                  new Course Package title
+                  课程包标题{" "}
+                  <TechnicalCompatibilityLabel>
+                    new Course Package title
+                  </TechnicalCompatibilityLabel>
                   <input
                     aria-label="new Course Package title"
                     value={teacherCoursePackageCloneForm.title}
@@ -1505,7 +1723,10 @@ export function App() {
                   />
                 </label>
                 <label>
-                  new Course Package description
+                  课程包描述{" "}
+                  <TechnicalCompatibilityLabel>
+                    new Course Package description
+                  </TechnicalCompatibilityLabel>
                   <input
                     aria-label="new Course Package description"
                     value={teacherCoursePackageCloneForm.description}
@@ -1519,13 +1740,13 @@ export function App() {
                   disabled={busy}
                   onClick={() => void cloneTeacherCoursePackageVersion()}
                 >
-                  克隆 Course Package version
+                  克隆课程包版本
                 </button>
               </section>
             ) : null}
             {teacherCoursePackageCloneError ? (
               <p className="readiness-message" role="alert">
-                {teacherCoursePackageStatusLabel(teacherCoursePackageCloneError)}
+                {teacherCoursePackageCloneError}
               </p>
             ) : null}
             {teacherCoursePackageCloneReceipt ? (
@@ -1533,7 +1754,12 @@ export function App() {
                 className="candidate-preview"
                 aria-label="Teacher CoursePackageVersion clone receipt"
               >
-                <span>新的 Course Package version 回执</span>
+                <span>
+                  新课程包版本回执{" "}
+                  <TechnicalCompatibilityLabel>
+                    Course Package version receipt
+                  </TechnicalCompatibilityLabel>
+                </span>
                 <strong>
                   {teacherCoursePackageCloneReceipt.course_package_reference.course_package_id} /{" "}
                   {teacherCoursePackageCloneReceipt.course_package_reference.version}
@@ -1740,13 +1966,13 @@ export function App() {
                     场景就绪检查{" "}
                     <TechnicalCompatibilityLabel>Scenario Readiness</TechnicalCompatibilityLabel>
                   </h2>
-                  <span>{scenarioReadiness.phase}</span>
+                  <TeacherPhaseText value={scenarioReadiness.phase} />
                 </div>
                 <p className="evidence-note">当前 Run：{selectedRun?.run_id ?? "未选择"}</p>
                 <section className="candidate-surface" aria-label="scenario package candidates">
                   <div className="candidate-heading">
                     <h3>ScenarioPackage 候选</h3>
-                    <span>{scenarioCandidates.phase}</span>
+                    <TeacherPhaseText value={scenarioCandidates.phase} />
                   </div>
                   {scenarioCandidates.phase === "LOADING" ? (
                     <p className="evidence-note" role="status">
@@ -1758,7 +1984,12 @@ export function App() {
                   ) : null}
                   {scenarioCandidates.phase === "ERROR" ? (
                     <p className="readiness-message" role="status">
-                      {scenarioCandidates.message}
+                      {scenarioCandidates.message}{" "}
+                      {scenarioCandidates.compatibilityMessage ? (
+                        <TechnicalCompatibilityLabel>
+                          {scenarioCandidates.compatibilityMessage}
+                        </TechnicalCompatibilityLabel>
+                      ) : null}
                     </p>
                   ) : null}
                   {scenarioCandidates.phase === "READY" ? (
@@ -1828,13 +2059,20 @@ export function App() {
                 <section className="candidate-surface" aria-label="formal CourseBlueprint catalog">
                   <div className="candidate-heading">
                     <h3>正式 CourseBlueprint 目录</h3>
-                    <span>{courseBlueprintCatalog.phase}</span>
+                    <TeacherPhaseText value={courseBlueprintCatalog.phase} />
                   </div>
                   {courseBlueprintCatalog.phase === "LOADING" ? (
                     <p className="evidence-note">正在加载已批准的 CourseBlueprint</p>
                   ) : null}
                   {courseBlueprintCatalog.phase === "ERROR" ? (
-                    <p className="readiness-message">{courseBlueprintCatalog.message}</p>
+                    <p className="readiness-message">
+                      {courseBlueprintCatalog.message}{" "}
+                      {courseBlueprintCatalog.compatibilityMessage ? (
+                        <TechnicalCompatibilityLabel>
+                          {courseBlueprintCatalog.compatibilityMessage}
+                        </TechnicalCompatibilityLabel>
+                      ) : null}
+                    </p>
                   ) : null}
                   {courseBlueprintCatalog.phase === "READY" ? (
                     <>
@@ -1847,7 +2085,9 @@ export function App() {
                               className="candidate-card"
                               key={blueprint.course_blueprint_reference.content_digest}
                             >
-                              <span>{blueprint.status}</span>
+                              <span>
+                                <TeacherStatusText value={blueprint.status} />
+                              </span>
                               <strong>{blueprint.title}</strong>
                               <small>
                                 {blueprint.course_blueprint_reference.version} /{" "}
@@ -1869,11 +2109,26 @@ export function App() {
                           className="candidate-preview"
                           aria-label="CourseBlueprint local selection"
                         >
-                          <span>LOCAL_SELECTION_ONLY</span>
+                          <span>
+                            本地选择，仅供预览{" "}
+                            <TechnicalCompatibilityLabel>
+                              LOCAL_SELECTION_ONLY
+                            </TechnicalCompatibilityLabel>
+                          </span>
                           <strong>{selectedCourseBlueprint.title}</strong>
-                          <small>NO_COURSE_WRITE_YET</small>
+                          <small>
+                            尚未写入课程{" "}
+                            <TechnicalCompatibilityLabel>
+                              NO_COURSE_WRITE_YET
+                            </TechnicalCompatibilityLabel>
+                          </small>
                           {courseBlueprintReadiness ? (
-                            <small>Exact server-side readiness: READY</small>
+                            <small>
+                              服务端精确就绪：已就绪{" "}
+                              <TechnicalCompatibilityLabel>
+                                Exact server-side readiness: READY
+                              </TechnicalCompatibilityLabel>
+                            </small>
                           ) : null}
                         </article>
                       ) : null}
@@ -1883,7 +2138,7 @@ export function App() {
                 <section className="candidate-surface" aria-label="formal ScenarioPackage catalog">
                   <div className="candidate-heading">
                     <h3>正式 ScenarioPackage 目录</h3>
-                    <span>{formalScenarioCatalog.phase}</span>
+                    <TeacherPhaseText value={formalScenarioCatalog.phase} />
                   </div>
                   {formalScenarioCatalog.phase === "LOADING" ? (
                     <p className="evidence-note" role="status">
@@ -1892,7 +2147,12 @@ export function App() {
                   ) : null}
                   {formalScenarioCatalog.phase === "ERROR" ? (
                     <p className="readiness-message" role="status">
-                      {formalScenarioCatalog.message}
+                      {formalScenarioCatalog.message}{" "}
+                      {formalScenarioCatalog.compatibilityMessage ? (
+                        <TechnicalCompatibilityLabel>
+                          {formalScenarioCatalog.compatibilityMessage}
+                        </TechnicalCompatibilityLabel>
+                      ) : null}
                     </p>
                   ) : null}
                   {formalScenarioCatalog.phase === "READY" ? (
@@ -1906,7 +2166,9 @@ export function App() {
                               className="candidate-card"
                               key={candidate.scenario_package_reference.content_digest}
                             >
-                              <span>{candidate.status}</span>
+                              <span>
+                                <TeacherStatusText value={candidate.status} />
+                              </span>
                               <strong>
                                 {candidate.scenario_package_reference.scenario_package_id}
                               </strong>
@@ -2056,52 +2318,86 @@ export function App() {
                 scenarioReadiness.phase === "NOT_FOUND_OR_OUT_OF_SCOPE" ||
                 scenarioReadiness.phase === "INTERNAL_ERROR" ? (
                   <p className="readiness-message" role="status">
-                    {scenarioReadiness.message}
+                    {scenarioReadiness.message}{" "}
+                    {scenarioReadiness.compatibilityMessage ? (
+                      <TechnicalCompatibilityLabel>
+                        {scenarioReadiness.compatibilityMessage}
+                      </TechnicalCompatibilityLabel>
+                    ) : null}
                   </p>
                 ) : null}
                 {scenarioReadiness.phase === "READY" || scenarioReadiness.phase === "BLOCKED" ? (
                   <div className="readiness-result">
-                    <strong>{scenarioReadiness.response.readiness_status}</strong>
+                    <strong>
+                      <TeacherStatusText value={scenarioReadiness.response.readiness_status} />
+                    </strong>
                     <div className="status-grid">
                       <div>
                         <span>兼容性</span>
-                        <strong>{scenarioReadiness.response.compatibility_status}</strong>
+                        <strong>
+                          <TeacherStatusText
+                            value={scenarioReadiness.response.compatibility_status}
+                          />
+                        </strong>
                       </div>
                       <div>
                         <span>来源</span>
-                        <strong>{scenarioReadiness.response.provenance_status}</strong>
+                        <strong>
+                          <TeacherStatusText value={scenarioReadiness.response.provenance_status} />
+                        </strong>
                       </div>
                       <div>
                         <span>质量验证（QA）</span>
-                        <strong>{scenarioReadiness.response.qa_status}</strong>
+                        <strong>
+                          <TeacherStatusText value={scenarioReadiness.response.qa_status} />
+                        </strong>
                       </div>
                       <div>
                         <span>许可证</span>
-                        <strong>{scenarioReadiness.response.license_status}</strong>
+                        <strong>
+                          <TeacherStatusText value={scenarioReadiness.response.license_status} />
+                        </strong>
                       </div>
                       <div>
                         <span>校准</span>
-                        <strong>{scenarioReadiness.response.calibration_status}</strong>
+                        <strong>
+                          <TeacherStatusText
+                            value={scenarioReadiness.response.calibration_status}
+                          />
+                        </strong>
                       </div>
                       <div>
                         <span>运行时适配器</span>
-                        <strong>{scenarioReadiness.response.runtime_adapter_status}</strong>
+                        <strong>
+                          <TeacherStatusText
+                            value={scenarioReadiness.response.runtime_adapter_status}
+                          />
+                        </strong>
                       </div>
                     </div>
                     <p className="evidence-note">
                       证据新鲜度：{" "}
-                      {scenarioReadiness.response.evidence_freshness.collected_at ?? "unavailable"}
+                      {scenarioReadiness.response.evidence_freshness.collected_at ?? "暂不可用"}{" "}
+                      {!scenarioReadiness.response.evidence_freshness.collected_at ? (
+                        <TechnicalCompatibilityLabel>unavailable</TechnicalCompatibilityLabel>
+                      ) : null}
                     </p>
                     {scenarioReadiness.response.no_go_reasons.length > 0 ? (
                       <ul className="tag-list">
                         {scenarioReadiness.response.no_go_reasons.map((reason) => (
-                          <li key={reason}>{reason}</li>
+                          <li key={reason}>
+                            阻断条件{" "}
+                            <TechnicalCompatibilityLabel>{reason}</TechnicalCompatibilityLabel>
+                          </li>
                         ))}
                       </ul>
                     ) : null}
                     <ul className="tag-list">
                       {scenarioReadiness.response.explicit_non_proofs.map((item) => (
-                        <li key={item}>{item}</li>
+                        <li key={item}>
+                          服务端限制{" "}
+                          <TechnicalCompatibilityLabel>{item}</TechnicalCompatibilityLabel>
+                        </li>
                       ))}
                     </ul>
                   </div>

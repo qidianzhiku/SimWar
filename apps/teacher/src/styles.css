@@ -402,7 +402,7 @@ h3 {
   border-radius: 7px;
   color: #fff;
   cursor: pointer;
-  min-height: 42px;
+  min-height: var(--sw-space-48);
   padding: 0 16px;
 }
 
@@ -438,7 +438,7 @@ h3 {
   border: 1px solid #c8d1d5;
   border-radius: 7px;
   color: #17202a;
-  min-height: 42px;
+  min-height: var(--sw-space-48);
   min-width: 180px;
   max-width: 100%;
   padding: 0 10px;
@@ -457,7 +457,7 @@ h3 {
   border-radius: 7px;
   color: #145c50;
   cursor: pointer;
-  min-height: 42px;
+  min-height: var(--sw-space-48);
   padding: 0 16px;
 }
 
@@ -543,6 +543,7 @@ h3 {
   border: 1px solid #cad3de;
   border-radius: 4px;
   font: inherit;
+  min-height: var(--sw-space-48);
   padding: 8px 10px;
 }
 
@@ -627,6 +628,13 @@ h3 {
 .candidate-preview {
   background: #fff8e7;
   border-color: #d8b96f;
+}
+
+.candidate-preview input,
+.candidate-preview textarea,
+.candidate-preview select,
+.candidate-preview button {
+  min-height: var(--sw-space-48);
 }
 
 .candidate-preview p {

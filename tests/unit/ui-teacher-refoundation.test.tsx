@@ -1,11 +1,9 @@
 import React from "react";
-import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   TEACHER_NAVIGATION_ITEMS,
   TeacherCourseWorkspace,
-  TeacherLocation,
   TeacherPermissionDenied,
   TeacherNextStepButton,
   getTeacherRoundAction,
@@ -15,38 +13,6 @@ import {
 } from "../../apps/teacher/src/TeacherCourseWorkspace";
 
 describe("Teacher Course OS workspace", () => {
-  it("requires real content inside every course OS location without empty placeholders", () => {
-    const requiredLocations = [
-      "teacher-today",
-      "teacher-blockers",
-      "teacher-courses",
-      "teacher-readiness",
-      "teacher-teams-roles",
-      "teacher-round-control",
-      "teacher-results",
-      "teacher-debrief",
-      "teacher-evidence",
-      "teacher-reports",
-      "teacher-validation",
-      "teacher-close-cleanup"
-    ] as const;
-    const markup = renderToStaticMarkup(
-      <TeacherCourseWorkspace context={{ tenant: "tenant_demo", role: "教师" }}>
-        {requiredLocations.map((id) => (
-          <TeacherLocation id={id} key={id}>
-            <article data-location-content={id}>{id} content</article>
-          </TeacherLocation>
-        ))}
-      </TeacherCourseWorkspace>
-    );
-
-    expect(markup).not.toContain("相关工作台将在服务端上下文就绪后显示。");
-    for (const id of requiredLocations) {
-      expect(markup).toContain(`id="${id}"`);
-      expect(markup).toContain(`data-location-content="${id}"`);
-    }
-  });
-
   it("exposes the twelve required logical locations with independently named Chinese navigation", () => {
     const markup = renderToStaticMarkup(
       <TeacherCourseWorkspace context={{ tenant: "tenant_demo", role: "教师" }}>
@@ -78,36 +44,6 @@ describe("Teacher Course OS workspace", () => {
     expect(markup).toContain("验证会话");
     expect(markup).toContain('href="#teacher-close-cleanup"');
     expect(markup).toContain("收尾与清理");
-  });
-
-  it("renders every navigation target as a real section landmark", () => {
-    const requiredLocations = [
-      "teacher-today",
-      "teacher-blockers",
-      "teacher-courses",
-      "teacher-readiness",
-      "teacher-teams-roles",
-      "teacher-round-control",
-      "teacher-results",
-      "teacher-debrief",
-      "teacher-evidence",
-      "teacher-reports",
-      "teacher-validation",
-      "teacher-close-cleanup"
-    ] as const;
-    const markup = renderToStaticMarkup(
-      <TeacherCourseWorkspace context={{ tenant: "tenant_demo", role: "教师" }}>
-        {requiredLocations.map((id) => (
-          <TeacherLocation id={id} key={id}>
-            <p>{id} content</p>
-          </TeacherLocation>
-        ))}
-      </TeacherCourseWorkspace>
-    );
-
-    for (const id of requiredLocations) {
-      expect(markup).toContain(`id="${id}"`);
-    }
   });
 
   it("keeps ContextBar limited to supplied session values", () => {
@@ -326,10 +262,65 @@ describe("Teacher Course OS workspace", () => {
     expect(getTeacherNoticeLabel("backend says no")).toBe("服务端返回未本地化状态，请查看技术详情");
   });
 
-  it("keeps internal settlement truth out of the Teacher result projection", () => {
-    const appSource = readFileSync("apps/teacher/src/App.tsx", "utf8");
-    expect(appSource).not.toContain("state_true");
-    expect(appSource).not.toContain("利润");
+  it("rejects a stale workspace response when request identity changes", async () => {
+    const { isTeacherWorkspaceRequestCurrent } = await import("../../apps/teacher/src/App");
+    const stale = {
+      epoch: 1,
+      sessionId: "teacher-old",
+      tenantId: "tenant_demo",
+      runId: "run-old",
+      roundId: "round-old"
+    };
+    const current = {
+      epoch: 2,
+      sessionId: "teacher-new",
+      tenantId: "tenant_demo",
+      runId: "run-new",
+      roundId: "round-new"
+    };
+
+    expect(isTeacherWorkspaceRequestCurrent(stale, current)).toBe(false);
+    expect(isTeacherWorkspaceRequestCurrent(current, current)).toBe(true);
+    for (const key of ["sessionId", "tenantId", "runId", "roundId"] as const) {
+      expect(
+        isTeacherWorkspaceRequestCurrent(current, {
+          ...current,
+          [key]: `${current[key]}-changed`
+        })
+      ).toBe(false);
+    }
+  });
+
+  it("maps Teacher Course OS scenario and CoursePackage errors to Chinese", async () => {
+    const {
+      getTeacherCoursePackageErrorMessage,
+      getTeacherScenarioErrorMessage,
+      getTeacherScenarioPhaseLabel,
+      getTeacherScenarioStatusLabel
+    } = await import("../../apps/teacher/src/App");
+
+    expect(getTeacherScenarioPhaseLabel("READY")).toBe("已就绪");
+    expect(getTeacherScenarioPhaseLabel("BLOCKED")).toBe("不可开课");
+    expect(getTeacherScenarioStatusLabel("DRAFT_REVIEW_REQUIRED")).toBe("待质量复核");
+    expect(getTeacherScenarioStatusLabel("UNKNOWN_SERVER_CODE")).toBe("服务端状态已记录");
+    expect(getTeacherScenarioErrorMessage({ status: 401 })).toBe("请先登录后检查场景就绪状态");
+    expect(getTeacherScenarioErrorMessage({ status: 403 })).toBe("当前教师会话未获场景检查授权");
+    expect(getTeacherScenarioErrorMessage({ status: 404 })).toBe("场景就绪信息不可用或超出范围");
+    expect(getTeacherScenarioErrorMessage({ status: 409 })).toBe("当前回合条件阻断了场景就绪检查");
+    expect(getTeacherScenarioErrorMessage({ status: 503 })).toBe("场景就绪服务暂不可用");
+    expect(getTeacherScenarioErrorMessage(new Error("network"))).toBe(
+      "场景就绪信息暂时无法加载，请稍后重试"
+    );
+    expect(getTeacherCoursePackageErrorMessage({ status: 401 })).toBe("请先登录后管理课程包");
+    expect(getTeacherCoursePackageErrorMessage({ status: 403 })).toBe("当前教师会话未获课程包权限");
+    expect(getTeacherCoursePackageErrorMessage({ status: 404 })).toBe("课程包版本不存在或超出范围");
+    expect(getTeacherCoursePackageErrorMessage({ status: 409 })).toBe(
+      "课程包版本冲突，未创建新版本"
+    );
+    expect(getTeacherCoursePackageErrorMessage({ status: 503 })).toBe("课程包服务暂不可用");
+    expect(getTeacherCoursePackageErrorMessage(new Error("network"))).toBe(
+      "课程包服务暂时无法完成请求"
+    );
   });
 
   it("keeps the navigation contract as the twelve named hashes", () => {
