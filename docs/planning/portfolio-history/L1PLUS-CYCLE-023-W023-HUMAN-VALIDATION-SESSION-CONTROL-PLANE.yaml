@@ -1,0 +1,67 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-023-W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
+stage: L1_PLUS
+candidate_id: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+started_at: "2026-08-12T06:31:25Z"
+closed_at: "2026-08-12T07:58:27Z"
+repository: qidianzhiku/SimWar
+branch: codex/w023-human-validation-session-control-plane
+head_sha: 29616d9ca7163d2517c895098ec973d493c6685b
+source_sha: 31b8c5f5cd3ab0426bb02bc75495b8552e497c48
+merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+post_merge_master_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+pr: 368
+mainline_candidate: CAND-W023-A-HUMAN-INTERNAL-VALIDATION
+support_candidate: null
+docs_discovery_candidate: null
+product_pr: 368
+product_candidate_sha: 29616d9ca7163d2517c895098ec973d493c6685b
+product_merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
+product_manifest_sha256: f2cc16467637bfa0741cec942ebd70c39ab85d26672343b863d61d1ab625191f
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: c9d016d1e1db739f5b6eed4d70c5d7d4b5c80ff352ade0e88489ea9ce8e92fcc
+current_master_at_readback: 1387c9c726bcc6917d8668484f85210bd8cb4471
+primary_outcome: HUMAN_VALIDATION_SESSION_CONTROL_PLANE_READY_WITH_SYNTHETIC_LIMITS
+product_scope:
+  - synthetic ValidationSession lifecycle and exact context binding
+  - Teacher/Learner/Moderator/Observer/Recorder session duties without RBAC grants
+  - W022 readiness preflight and synthetic LIVE rehearsal
+  - bounded observation, incident, audit, canonical bundle and Markdown report
+  - deterministic digest, idempotency, abort/reset/cleanup and teacher-safe projection
+validation:
+  acceptance: PASS_WITH_EXPLICIT_LIMITS_75_ROWS_0_FAIL_0_UNKNOWN
+  focused: PASS_3_FILES_8_TESTS
+  contract: PASS_19_FILES_47_TESTS
+  browser: PASS_W023_1_OF_1
+  full: PASS_FRESH_CLONE_180_FILES_1136_TESTS
+  ci: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  codeql: PASS
+  direct_store: PASS_NEW_UNAPPROVED_0
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  security_audit: PASS_NO_CRITICAL_9_INHERITED_ADVISORIES
+  challenge_review: PASS_BLOCKING_0_MUST_FIX_0_UNKNOWN_0
+  graph: CURRENT_WITH_LIMITS
+  fresh_clone: PASS_CLEAN_DETACHED
+evidence_root: C:/Temp/simwar-w023-human-validation-session-control-plane-20260812T063125Z
+fresh_clone: D:/codex/fresh-clones/simwar-w023-postmerge-1387c9c
+human_validation: NOT_PERFORMED
+teaching_effectiveness: NOT_PROVEN
+real_human_attestation: NOT_PROVEN
+runtime_authority: JSON_INTERNAL_ONLY
+postgres_application_runtime: NOT_ACTIVE
+pr_365: OPEN_QUARANTINED_READ_ONLY_UNCHANGED
+resource_locks:
+  status: RELEASED_AFTER_PRODUCT_POSTMERGE_AND_GOVERNANCE_READBACK
+explicit_non_proofs:
+  - Synthetic evidence is not Human Validation and does not prove teaching effectiveness.
+  - W023 does not write Truth, SettlementResult, Score, Rank or Replay authority.
+  - W023 does not activate PostgreSQL, durable recovery, Pilot, Production or external providers.
+  - PR #365 was not mutated and remains quarantined/read-only.
+recommended_next_candidate: CAND-W024-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
+next_candidate_status: RECOMMENDED_NOT_AUTHORIZED
+next_candidate_dependency: real independent Teacher, learner roles, moderator, observer, recorder, new real session_id and separate Owner/session authorization
+automatic_next_start: false
