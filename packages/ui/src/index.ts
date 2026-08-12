@@ -11,5 +11,7 @@ export { KnownLimitBanner } from "./components/KnownLimitBanner.js";
 export type { KnownLimitBannerProps } from "./components/KnownLimitBanner.js";
 export { ReceiptPanel } from "./components/ReceiptPanel.js";
 export type { Receipt, ReceiptPanelProps } from "./components/ReceiptPanel.js";
+export { RoleNavigation } from "./components/RoleNavigation.js";
+export type { RoleNavigationItem, RoleNavigationProps } from "./components/RoleNavigation.js";
 export { StatePanel } from "./components/StatePanel.js";
 export type { StatePanelProps, StateStatus } from "./components/StatePanel.js";
