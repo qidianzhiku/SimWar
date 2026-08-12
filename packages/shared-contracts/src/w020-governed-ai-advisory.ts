@@ -173,9 +173,19 @@ const W020_MODEL_CALL_STATUSES = new Set<ModelCallLog["status"]>([
   "failed",
   "rejected"
 ]);
-const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
-const INEXACT_IDENTIFIER_TOKENS = new Set(["latest", "default", "fallback", "unresolved"]);
+const INEXACT_IDENTIFIER_TOKENS = new Set([
+  "any",
+  "current",
+  "default",
+  "fallback",
+  "latest",
+  "next",
+  "unresolved"
+]);
+const INEXACT_IDENTIFIER_SEGMENT_PATTERN =
+  /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -203,7 +213,8 @@ function isIdentifier(value: unknown): value is string {
   return (
     typeof value === "string" &&
     IDENTIFIER_PATTERN.test(value) &&
-    !INEXACT_IDENTIFIER_TOKENS.has(value.toLowerCase())
+    !INEXACT_IDENTIFIER_TOKENS.has(value.toLowerCase()) &&
+    !INEXACT_IDENTIFIER_SEGMENT_PATTERN.test(value)
   );
 }
 

@@ -862,6 +862,19 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
   instructorAssets.forEach(assertValidInstructorAsset);
   const coursePackageLifecycleSnapshots = snapshot.coursePackageLifecycleSnapshots ?? [];
   assertValidCoursePackageLifecycleSnapshots(coursePackageLifecycleSnapshots);
+  const governedAdvisoryRecords = snapshot.governedAdvisoryRecords ?? [];
+  const governedAdvisoryAuditRecords =
+    snapshot.governedAdvisoryAuditRecords ??
+    governedAdvisoryRecords.map((record) => ({
+      context_digest: record.context.context_digest,
+      created_at: record.created_at,
+      discriminator: "w020_advisory_audit_record" as const,
+      idempotency_key: record.idempotency_key,
+      model_call_log: structuredClone(record.model_call_log),
+      request_digest: record.request_digest,
+      surface: record.surface,
+      tenant_id: record.tenant_id
+    }));
 
   return {
     ...seed,
@@ -897,8 +910,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     evidenceArtifacts: snapshot.evidenceArtifacts ?? [],
     evidenceProvenanceEdges: snapshot.evidenceProvenanceEdges ?? [],
     teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
-    governedAdvisoryRecords: snapshot.governedAdvisoryRecords ?? [],
-    governedAdvisoryAuditRecords: snapshot.governedAdvisoryAuditRecords ?? [],
+    governedAdvisoryRecords,
+    governedAdvisoryAuditRecords,
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

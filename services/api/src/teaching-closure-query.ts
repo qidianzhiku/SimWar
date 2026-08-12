@@ -26,11 +26,16 @@ export class TeachingClosureQueryError extends Error {
   }
 }
 
+type ClosureComparableContext =
+  Pick<TeachingClosureContext, "course_id" | "run_id" | "team_id" | "role_key"> &
+  Partial<Pick<TeachingClosureContext, "activity_id">>;
+
 function sameContext(
-  left: Pick<TeachingClosureContext, "course_id" | "run_id" | "team_id" | "role_key">,
-  right: Pick<TeachingClosureContext, "course_id" | "run_id" | "team_id" | "role_key">
+  left: ClosureComparableContext,
+  right: ClosureComparableContext
 ): boolean {
   return (
+    (left.activity_id === undefined || left.activity_id === right.activity_id) &&
     left.course_id === right.course_id &&
     left.role_key === right.role_key &&
     left.run_id === right.run_id &&

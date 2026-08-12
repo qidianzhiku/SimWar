@@ -763,6 +763,34 @@ describe("JSON store snapshot persistence", () => {
     expect(readSnapshot(snapshotPath).snapshot_version).toBeUndefined();
   });
 
+  it("reconstructs legacy W020 audit history from advisory records", () => {
+    const snapshotPath = createSnapshotPath();
+    const legacySnapshot = createLegacySnapshot();
+    const record = {
+      context: { context_digest: "context-digest-legacy" },
+      created_at: "2026-08-12T01:00:00.000Z",
+      discriminator: "w020_advisory_record",
+      idempotency_key: "idem_legacy_audit",
+      model_call_log: { model_call_log_id: "model_call_legacy" },
+      request_digest: "request-digest-legacy",
+      surface: "student_role",
+      tenant_id: "tenant_demo"
+    };
+    delete legacySnapshot.governedAdvisoryAuditRecords;
+    legacySnapshot.governedAdvisoryRecords = [record];
+    writeSnapshot(snapshotPath, legacySnapshot);
+
+    const store = createP1Store({ persistenceFile: snapshotPath });
+
+    expect(store.governedAdvisoryAuditRecords).toHaveLength(1);
+    expect(store.governedAdvisoryAuditRecords?.[0]).toMatchObject({
+      context_digest: "context-digest-legacy",
+      idempotency_key: "idem_legacy_audit",
+      model_call_log: { model_call_log_id: "model_call_legacy" },
+      tenant_id: "tenant_demo"
+    });
+  });
+
   it("loads a structurally valid snapshot containing every persisted collection", () => {
     const snapshotPath = createSnapshotPath();
     const snapshot = cloneLegacySnapshot();

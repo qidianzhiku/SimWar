@@ -353,6 +353,45 @@ describe("W020 governed advisory service", () => {
     expect(JSON.stringify(audits[0])).not.toContain("advisory_text");
   });
 
+  it("does not append a second audit for a repeated failed idempotency key", async () => {
+    const records: W020AdvisoryRecord[] = [];
+    const audits: W020AdvisoryAuditRecord[] = [];
+    let providerCalls = 0;
+    const provider: AgentProviderPort = {
+      model: "throwing-model",
+      provider: "throwing-provider",
+      generate: () => {
+        providerCalls += 1;
+        throw new Error("provider unavailable");
+      }
+    };
+    const instance = new GovernedAdvisoryService({
+      gateway: createGovernedAgentGateway(provider),
+      repository: repository(records, audits),
+      roleWorkflow: { readRoleWorkflow: () => snapshot, commitRoleWorkflow: () => undefined }
+    });
+    const request = {
+      discriminator: "w020_advisory_request" as const,
+      surface: "student_role" as const,
+      run_id: "run_001",
+      round_id: "round_001",
+      team_id: "team_001",
+      role_key: "CEO" as const,
+      idempotency_key: "idem_failed_retry_001"
+    };
+
+    await expect(
+      instance.createStudentRoleAdvisory(actor, request, "req_failed_1")
+    ).rejects.toMatchObject({ code: "W020_PROVIDER_FAILED" });
+    await expect(
+      instance.createStudentRoleAdvisory(actor, request, "req_failed_2")
+    ).rejects.toMatchObject({ code: "W020_PROVIDER_FAILED" });
+
+    expect(providerCalls).toBe(1);
+    expect(records).toHaveLength(0);
+    expect(audits).toHaveLength(1);
+  });
+
   it("persists a bounded rejected audit and no advisory for invalid provider output", async () => {
     const records: W020AdvisoryRecord[] = [];
     const audits: W020AdvisoryAuditRecord[] = [];
@@ -497,6 +536,16 @@ describe("W020 governed advisory service", () => {
       service().createTeacherDebriefAdvisory(unknownActor, teacherRequest, "req_unknown_role")
     ).rejects.toMatchObject({ code: "W020_FORBIDDEN" });
   });
+
+  it.each(["run..001", "run_current_2026"])(
+    "rejects non-segmented identifier syntax before reading runtime context: %s",
+    async (runId) => {
+      const request = { ...teacherRequest, run_id: runId };
+      await expect(
+        service().createTeacherDebriefAdvisory(teacher, request, "req_invalid_identifier")
+      ).rejects.toMatchObject({ code: "W020_INPUT_INVALID" });
+    }
+  );
   it("rejects teacher advice when the exact W019 TeachingClosure source is not eligible", async () => {
     const instance = new GovernedAdvisoryService({
       repository: {

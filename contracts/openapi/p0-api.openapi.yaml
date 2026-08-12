@@ -3380,7 +3380,7 @@ components:
       $ref: "../schemas/d6-transfer-evidence.v1.json"
     W020ExactIdentifier:
       type: string
-      pattern: "^(?![Ll][Aa][Tt][Ee][Ss][Tt]$)(?![Dd][Ee][Ff][Aa][Uu][Ll][Tt]$)(?![Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]$)(?![Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd]$)[A-Za-z0-9][A-Za-z0-9._:-]*$"
+      pattern: "^(?!.*(?:^|[._:-])(?:[Aa][Nn][Yy]|[Cc][Uu][Rr][Rr][Ee][Nn][Tt]|[Dd][Ee][Ff][Aa][Uu][Ll][Tt]|[Ff][Aa][Ll][Ll][Bb][Aa][Cc][Kk]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Nn][Ee][Xx][Tt]|[Uu][Nn][Rr][Ee][Ss][Oo][Ll][Vv][Ee][Dd])(?:$|[._:-]))[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$"
     W020StudentAdvisoryRequest:
       type: object
       additionalProperties: false

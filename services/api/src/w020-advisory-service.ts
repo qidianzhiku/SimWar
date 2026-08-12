@@ -403,6 +403,21 @@ export class GovernedAdvisoryService {
           throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
         return this.receipt(existing, requestId, "reused");
       }
+      const existingAudit = (await this.dependencies.repository.listAudit(actor.tenant_id)).find(
+        (audit) => audit.idempotency_key === idempotencyKey
+      );
+      if (existingAudit) {
+        if (existingAudit.request_digest !== requestDigest) {
+          throw new W020AdvisoryError("W020_DUPLICATE_CONFLICT");
+        }
+        if (existingAudit.model_call_log.status === "failed") {
+          throw new W020AdvisoryError("W020_PROVIDER_FAILED");
+        }
+        if (existingAudit.model_call_log.status === "rejected") {
+          throw new W020AdvisoryError("W020_OUTPUT_REJECTED");
+        }
+        throw new W020AdvisoryError("W020_PERSISTENCE_FAILED");
+      }
       const gatewayInput: AgentGatewayInput = {
         context,
         surface: request.surface,

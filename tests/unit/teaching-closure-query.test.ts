@@ -66,4 +66,60 @@ describe("W019 teaching closure query", () => {
       )
     ).rejects.toMatchObject({ code: "W019_CONTEXT_INVALID" });
   });
+
+  it("does not select a confirmation from a different activity", async () => {
+    const instance = new TeachingClosureQueryService({
+      courseReports: { query: vi.fn(async () => ({ rows: [] })) } as never,
+      evidence: {
+        listTeacherEvidence: vi.fn(async () => ({
+          artifacts: [],
+          eligible_events: [],
+          known_limits: ["limit"],
+          provenance_edges: [],
+          runtime_authority: "JSON_INTERNAL_ONLY"
+        }))
+      } as never,
+      confirmations: {
+        listTeacher: vi.fn(async () => ({
+          confirmations: [
+            {
+              confirmation_ref: { version: "2.0.0" },
+              context: { ...context, activity_id: "activity_other" },
+              criterion_decisions: Array.from({ length: 9 }, () => ({ decision: "met" })),
+              evidence_refs: Array.from({ length: 9 }, (_, index) => `evidence_${index}`),
+              status: "CONFIRMED"
+            },
+            {
+              confirmation_ref: { version: "1.0.0" },
+              context,
+              criterion_decisions: [{ decision: "met" }],
+              evidence_refs: ["evidence_001"],
+              status: "CONFIRMED"
+            }
+          ],
+          known_limits: ["limit"],
+          runtime_authority: "JSON_INTERNAL_ONLY"
+        }))
+      } as never,
+      studentReports: {
+        listPreview: vi.fn(async () => ({
+          known_limits: ["limit"],
+          reports: [],
+          report_schema_version: "student-learning-report.v1",
+          runtime_authority: "JSON_INTERNAL_ONLY",
+          scope: "tenant_preview"
+        }))
+      } as never,
+      claims: { findByContext: vi.fn(() => undefined) } as never
+    });
+
+    const result = await instance.get(
+      { actor_id: "teacher_001", tenant_id: "tenant_001" },
+      context
+    );
+
+    expect(result.queue_item.confirmation_status).toBe("CONFIRMED");
+    expect(result.student_safe_preview.criterion_count).toBe(1);
+    expect(result.student_safe_preview.evidence_count).toBe(1);
+  });
 });

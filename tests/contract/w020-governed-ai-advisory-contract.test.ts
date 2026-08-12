@@ -55,6 +55,27 @@ describe("W020 governed AI advisory contract", () => {
     expect(isW020AdvisoryReceipt(runtimeOnlyInvalid)).toBe(false);
   });
 
+  it.each(["run..001", "run_current_2026"])(
+    "keeps schema and runtime identifier grammar aligned: %s",
+    (runId) => {
+      const schema = JSON.parse(
+        readFileSync(resolve("contracts/schemas/w020-governed-ai-advisory.v1.json"), "utf8")
+      );
+      const openApi = readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8");
+      const valid = JSON.parse(
+        readFileSync(resolve("contracts/fixtures/w020-governed-ai-advisory.valid.json"), "utf8")
+      );
+      const candidate = structuredClone(valid);
+      candidate.context.run_id = runId;
+      const ajv = new Ajv2020({ strict: true, validateFormats: false });
+      const validate = ajv.compile(schema);
+
+      expect(openApi).toContain(schema.$defs.identifier.pattern);
+      expect(validate(candidate)).toBe(false);
+      expect(isW020AdvisoryReceipt(candidate)).toBe(false);
+    }
+  );
+
   it("validates the exact W019-safe teacher debrief projection and rejects missing safe source", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/w020-governed-ai-advisory.v1.json"), "utf8")
