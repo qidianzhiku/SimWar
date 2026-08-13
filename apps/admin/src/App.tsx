@@ -419,6 +419,7 @@ export function App() {
     adminRequestEpoch.current = epoch;
     const requestIdentity = buildAdminRequestIdentity(epoch, nextLogin, null);
     adminRequestIdentityRef.current = requestIdentity;
+    let completionIdentity = requestIdentity;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -443,6 +444,7 @@ export function App() {
       if (!isCurrentAdminContext(requestIdentity)) return;
       const authenticatedIdentity = buildAdminRequestIdentity(epoch, nextLogin, nextSession);
       adminRequestIdentityRef.current = authenticatedIdentity;
+      completionIdentity = authenticatedIdentity;
       setLogin(nextLogin);
       setSession(nextSession);
       setNotice("已登录");
@@ -451,7 +453,7 @@ export function App() {
         setNotice(getAdminVisibleErrorMessage(error, "登录失败，请稍后重试。"));
       }
     } finally {
-      if (isCurrentAdminContext(requestIdentity)) {
+      if (isCurrentAdminContext(completionIdentity)) {
         setBusy(false);
       }
     }
