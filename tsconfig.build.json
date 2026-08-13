@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/ui" },
     { "path": "./packages/shared-contracts" },
     { "path": "./services/agent-gateway" },
     { "path": "./services/simulation-core" },

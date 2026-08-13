@@ -1,0 +1,109 @@
+:root {
+  /* Figma WEB primitives: the source values for all semantic roles. */
+  --sw-primitive-color-editorial-crimson: #a51c30;
+  --sw-primitive-color-authority-navy: #162334;
+  --sw-primitive-color-learning-teal: #287c7a;
+  --sw-primitive-color-decision-gold: #c6923b;
+  --sw-primitive-color-official-risk: #b64a45;
+  --sw-primitive-color-ink: #171717;
+  --sw-primitive-color-secondary-gray: #65727d;
+  --sw-primitive-color-warm-paper: #f7f4ee;
+  --sw-primitive-color-surface: #ffffff;
+  --sw-primitive-color-border-subtle: #d7d0c5;
+  --sw-primitive-color-focus-ring: #162334;
+  --sw-primitive-color-overlay-scrim: rgb(22 35 52 / 32%);
+
+  --sw-color-brand-editorial-crimson: var(--sw-primitive-color-editorial-crimson);
+  --sw-color-authority-navy: var(--sw-primitive-color-authority-navy);
+  --sw-color-learning-teal: var(--sw-primitive-color-learning-teal);
+  --sw-color-decision-gold: var(--sw-primitive-color-decision-gold);
+  --sw-color-official-risk: var(--sw-primitive-color-official-risk);
+  --sw-color-text-primary: var(--sw-primitive-color-ink);
+  --sw-color-text-secondary: var(--sw-primitive-color-secondary-gray);
+  --sw-color-text-inverse: var(--sw-primitive-color-surface);
+  --sw-color-text-brand: var(--sw-primitive-color-editorial-crimson);
+  --sw-color-text-authority: var(--sw-primitive-color-authority-navy);
+  --sw-color-text-learning: var(--sw-primitive-color-learning-teal);
+  --sw-color-text-decision: var(--sw-primitive-color-decision-gold);
+  --sw-color-text-risk: var(--sw-primitive-color-official-risk);
+  --sw-color-bg-canvas: var(--sw-primitive-color-warm-paper);
+  --sw-color-bg-surface: var(--sw-primitive-color-surface);
+  /* Presentation-only disabled surface; it never grants or removes authority. */
+  --sw-color-bg-disabled: color-mix(
+    in srgb,
+    var(--sw-primitive-color-secondary-gray) 12%,
+    var(--sw-primitive-color-warm-paper)
+  );
+  --sw-color-bg-authority-subtle: color-mix(
+    in srgb,
+    var(--sw-primitive-color-authority-navy) 8%,
+    var(--sw-primitive-color-surface)
+  );
+  --sw-color-bg-learning-subtle: color-mix(
+    in srgb,
+    var(--sw-primitive-color-learning-teal) 8%,
+    var(--sw-primitive-color-surface)
+  );
+  --sw-color-bg-decision-subtle: color-mix(
+    in srgb,
+    var(--sw-primitive-color-decision-gold) 12%,
+    var(--sw-primitive-color-surface)
+  );
+  --sw-color-bg-risk-subtle: color-mix(
+    in srgb,
+    var(--sw-primitive-color-official-risk) 8%,
+    var(--sw-primitive-color-surface)
+  );
+  --sw-color-bg-brand-subtle: color-mix(
+    in srgb,
+    var(--sw-primitive-color-editorial-crimson) 8%,
+    var(--sw-primitive-color-surface)
+  );
+  --sw-color-action-primary: var(--sw-primitive-color-authority-navy);
+  --sw-color-action-brand: var(--sw-primitive-color-editorial-crimson);
+  --sw-color-action-risk: var(--sw-primitive-color-official-risk);
+  --sw-color-border-default: var(--sw-primitive-color-border-subtle);
+  --sw-color-border-strong: var(--sw-primitive-color-authority-navy);
+  --sw-color-border-focus: var(--sw-primitive-color-focus-ring);
+  --sw-color-overlay-scrim: var(--sw-primitive-color-overlay-scrim);
+
+  --sw-font-ui:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC",
+    "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  --sw-font-editorial: "Songti SC", STSong, "Noto Serif CJK SC", serif;
+  --sw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --sw-type-size-display: 36px;
+  --sw-type-size-h1: 30px;
+  --sw-type-size-h2: 24px;
+  --sw-type-size-h3: 18px;
+  --sw-type-size-body: 16px;
+  --sw-type-size-body-small: 14px;
+  --sw-type-size-caption: 12px;
+  --sw-type-size-metric: 28px;
+  --sw-type-line-height-tight: 1.2;
+  --sw-type-line-height-normal: 1.5;
+  --sw-type-line-height-relaxed: 1.7;
+  --sw-type-weight-regular: 400;
+  --sw-type-weight-medium: 500;
+  --sw-type-weight-semibold: 600;
+  --sw-type-weight-bold: 700;
+
+  --sw-space-4: 4px;
+  --sw-space-8: 8px;
+  --sw-space-12: 12px;
+  --sw-space-16: 16px;
+  --sw-space-24: 24px;
+  --sw-space-32: 32px;
+  --sw-space-48: 48px;
+
+  --sw-radius-4: 4px;
+  --sw-radius-8: 8px;
+  --sw-radius-12: 12px;
+
+  --sw-motion-120: 120ms;
+  --sw-motion-180: 180ms;
+  --sw-motion-240: 240ms;
+  --sw-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --sw-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
