@@ -4,6 +4,7 @@ import type {
   TransferResearchDesignInput,
   TransferResearchDesignListDto
 } from "@simwar/shared-contracts";
+import { WorkbenchFrame } from "@simwar/ui";
 import {
   freezeTransferResearchDesign,
   loadTransferResearchDesigns,
@@ -230,36 +231,36 @@ export function TransferResearchWorkbench({
   };
 
   return (
-    <section
+    <WorkbenchFrame
       className="candidate-surface d6-transfer-workbench"
-      aria-label={`${surface} D6 transfer research design workbench`}
+      ariaLabel={`${surface} D6 transfer research design workbench`}
+      eyebrow="L1+ Program D · D6"
+      title="Transfer Research Design"
+      badge="synthetic-only"
+      boundary="Exact D1-D5 references, descriptive evidence design, and provenance preview. Real participant data, causal claims, HR outputs, Score, Rank, Settlement, Truth, and Student routes are unavailable."
+      headingClassName="panel-title"
+      boundaryClassName="d6-boundary"
+      state={
+        <>
+          {phase === "LOADING" ? (
+            <p aria-live="polite">Loading frozen research designs...</p>
+          ) : null}
+          {phase === "EMPTY" ? (
+            <p className="d6-empty">No frozen D6 design exists yet. Create a synthetic preview.</p>
+          ) : null}
+          {phase === "ERROR" ? (
+            <p className="d6-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
+            <p className="d6-error" role="status">
+              State: {phase}
+            </p>
+          ) : null}
+        </>
+      }
     >
-      <div className="panel-title">
-        <div>
-          <p className="eyebrow">L1+ Program D · D6</p>
-          <h2>Transfer Research Design</h2>
-        </div>
-        <span>synthetic-only</span>
-      </div>
-      <p className="d6-boundary">
-        Exact D1-D5 references, descriptive evidence design, and provenance preview. Real
-        participant data, causal claims, HR outputs, Score, Rank, Settlement, Truth, and Student
-        routes are unavailable.
-      </p>
-      {phase === "LOADING" ? <p aria-live="polite">Loading frozen research designs...</p> : null}
-      {phase === "EMPTY" ? (
-        <p className="d6-empty">No frozen D6 design exists yet. Create a synthetic preview.</p>
-      ) : null}
-      {phase === "ERROR" ? (
-        <p className="d6-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
-        <p className="d6-error" role="status">
-          State: {phase}
-        </p>
-      ) : null}
       <div className="d6-form-grid">
         {(
           [
@@ -378,6 +379,6 @@ export function TransferResearchWorkbench({
         Known Limits: synthetic-only · causal disabled · JSON_INTERNAL_ONLY · Human Validation not
         performed · Issue #111 open
       </p>
-    </section>
+    </WorkbenchFrame>
   );
 }

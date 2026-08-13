@@ -36,7 +36,13 @@ async function signIn(page: Page, surface: "admin" | "teacher"): Promise<void> {
   await login
     .getByRole("button", { name: surface === "admin" ? "管理员登录" : "教师登录" })
     .click();
-  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  if (surface === "admin") {
+    await expect(page.getByRole("banner").getByText("signed in", { exact: true })).toBeVisible();
+    return;
+  }
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 test.afterEach(() => {

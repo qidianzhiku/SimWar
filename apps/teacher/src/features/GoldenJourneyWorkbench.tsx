@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApiEnvelope, GoldenJourneyStatusDto } from "@simwar/shared-contracts";
+import { WorkbenchFrame } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
@@ -78,19 +79,16 @@ export function GoldenJourneyWorkbench(props: Props) {
   const retry = () => requestStatus();
 
   return (
-    <section
+    <WorkbenchFrame
       className="golden-journey-workbench"
-      aria-label="R3 Golden Teaching Journey"
-      data-testid="teacher-golden-journey"
-    >
-      <div className="golden-journey-header">
-        <div>
-          <p className="eyebrow">Wave 011 · R3</p>
-          <h2>Golden Teaching Journey</h2>
-          <p className="golden-journey-subtitle">
-            Exact references, receipts and allowed actions across the teaching chain.
-          </p>
-        </div>
+      ariaLabel="R3 Golden Teaching Journey"
+      testId="teacher-golden-journey"
+      eyebrow="Wave 011 · R3"
+      title="Golden Teaching Journey"
+      boundaryClassName="golden-journey-subtitle"
+      boundary="Exact references, receipts and allowed actions across the teaching chain."
+      headingClassName="golden-journey-header"
+      headerActions={
         <button
           className="secondary"
           type="button"
@@ -99,14 +97,19 @@ export function GoldenJourneyWorkbench(props: Props) {
         >
           Refresh
         </button>
-      </div>
-      {state.phase === "LOADING" ? <p role="status">Loading journey context…</p> : null}
-      {state.phase === "ERROR" ? (
-        <p className="golden-journey-error" role="alert">
-          {state.message}
-        </p>
-      ) : null}
-      {state.phase === "EMPTY" ? <p className="golden-journey-empty">{state.message}</p> : null}
+      }
+      state={
+        <>
+          {state.phase === "LOADING" ? <p role="status">Loading journey context…</p> : null}
+          {state.phase === "ERROR" ? (
+            <p className="golden-journey-error" role="alert">
+              {state.message}
+            </p>
+          ) : null}
+          {state.phase === "EMPTY" ? <p className="golden-journey-empty">{state.message}</p> : null}
+        </>
+      }
+    >
       {state.phase === "READY" ? (
         <>
           <nav className="golden-journey-nav" aria-label="Golden Journey slices">
@@ -168,6 +171,6 @@ export function GoldenJourneyWorkbench(props: Props) {
           </details>
         </>
       ) : null}
-    </section>
+    </WorkbenchFrame>
   );
 }
