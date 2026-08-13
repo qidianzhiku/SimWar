@@ -278,6 +278,7 @@ async function mockTeacherApi(
   const readinessRequests = new Set<string>();
   const coursePackageRequests = new Set<string>();
   const formalRequests: Array<{ path: string; token: string }> = [];
+  const formalCompletedRequests = new Map<string, number>();
   const completedLoginResponses = new Set<string>();
   const completedDemoResponses = new Set<string>();
   const workspaceRequests = new Set<string>();
@@ -296,6 +297,11 @@ async function mockTeacherApi(
       resolvers.push(resolve);
       deferredFormalResolvers.set(key, resolvers);
     });
+  }
+
+  function markFormalCompleted(path: string, token: string): void {
+    const key = `${path}:${token}`;
+    formalCompletedRequests.set(key, (formalCompletedRequests.get(key) ?? 0) + 1);
   }
 
   await page.route("**/api/v1/**", async (route) => {
@@ -431,6 +437,7 @@ async function mockTeacherApi(
             message: "success"
           }
         });
+        markFormalCompleted("course-package-clone", token);
         return;
       }
       coursePackageRequests.add(token);
@@ -481,6 +488,7 @@ async function mockTeacherApi(
         json: options.formalScenarioCatalogByToken?.[token] ??
           options.formalScenarioCatalogResponse ?? { candidates: [], explicit_non_proofs: [] }
       });
+      markFormalCompleted("formal-scenario-package-catalog", token);
       return;
     }
     if (path.endsWith("/course-blueprints")) {
@@ -497,6 +505,7 @@ async function mockTeacherApi(
             options.courseBlueprintCatalogResponse ?? { candidates: [] }
         }
       });
+      markFormalCompleted("course-blueprint-catalog", token);
       return;
     }
     if (path.includes("formal-course-bindings/preview")) {
@@ -517,11 +526,13 @@ async function mockTeacherApi(
               options.formalBindingPreviewByToken?.[token] ?? options.formalBindingPreviewResponse
           }
         });
+        markFormalCompleted("formal-course-bindings/preview", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("formal-course-bindings/preview", token);
       }
       return;
     }
@@ -541,11 +552,13 @@ async function mockTeacherApi(
               options.courseBlueprintReadinessResponse
           }
         });
+        markFormalCompleted("course-blueprints/readiness", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("course-blueprints/readiness", token);
       }
       return;
     }
@@ -563,11 +576,13 @@ async function mockTeacherApi(
             data: options.formalCourseCreateByToken?.[token] ?? options.formalCourseCreateResponse
           }
         });
+        markFormalCompleted("formal-course-create", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("formal-course-create", token);
       }
       return;
     }
@@ -585,11 +600,13 @@ async function mockTeacherApi(
             data: options.formalCourseCreateByToken?.[token] ?? options.formalCourseCreateResponse
           }
         });
+        markFormalCompleted("course-blueprint-course-create", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("course-blueprint-course-create", token);
       }
       return;
     }
@@ -605,11 +622,13 @@ async function mockTeacherApi(
         await route.fulfill({
           json: { data: options.formalCoursePublishResponse }
         });
+        markFormalCompleted("formal-course-publish", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("formal-course-publish", token);
       }
       return;
     }
@@ -623,11 +642,13 @@ async function mockTeacherApi(
             data: options.formalRunCreateByToken?.[token] ?? options.formalRunCreateResponse
           }
         });
+        markFormalCompleted("formal-run-create", token);
       } else {
         await route.fulfill({
           status: 403,
           json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
         });
+        markFormalCompleted("formal-run-create", token);
       }
       return;
     }
@@ -664,11 +685,10 @@ async function mockTeacherApi(
       const key = `${path}:${token}`;
       deferredFormalResolvers.get(key)?.shift()?.();
     },
-    releaseAllFormal: (path: string, token: string) => {
-      const key = `${path}:${token}`;
-      const resolvers = deferredFormalResolvers.get(key) ?? [];
-      while (resolvers.length > 0) resolvers.shift()?.();
-    }
+    getFormalPendingCount: (path: string, token: string) =>
+      (deferredFormalResolvers.get(`${path}:${token}`) ?? []).length,
+    getFormalCompletedCount: (path: string, token: string) =>
+      formalCompletedRequests.get(`${path}:${token}`) ?? 0
   };
 }
 
@@ -1145,9 +1165,9 @@ test("Teacher exposes Chinese clone/readiness copy and native 44px form targets"
   await expect.poll(api.getStartRequests).toBe(0);
 });
 
-test("Teacher drops old formal catalogs, clone receipt, and formal action responses after re-login", async ({
-  page
-}) => {
+function formalStaleFixture() {
+  const oldToken = "teacher-old-ui-token";
+  const newToken = "teacher-new-ui-token";
   const oldFormalScenario = {
     ...copyFormalScenario,
     scenario_package_reference: {
@@ -1223,30 +1243,165 @@ test("Teacher drops old formal catalogs, clone receipt, and formal action respon
     },
     title: "旧会话克隆回执"
   };
+  return {
+    newBlueprint,
+    newFormalScenario,
+    newPackage,
+    newToken,
+    oldBindingPreview,
+    oldBlueprint,
+    oldCloneReceipt,
+    oldCreateResponse,
+    oldFormalScenario,
+    oldPackage,
+    oldReadiness,
+    oldRunResponse,
+    oldToken
+  };
+}
+
+type FormalActionPath =
+  | "course-blueprint-course-create"
+  | "course-package-clone"
+  | "formal-course-bindings/preview"
+  | "formal-course-publish"
+  | "formal-run-create";
+
+type TeacherMockApi = Awaited<ReturnType<typeof mockTeacherApi>>;
+
+async function expectFormalPending(
+  api: TeacherMockApi,
+  path: FormalActionPath,
+  token: string
+): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        api
+          .getFormalRequests()
+          .filter(
+            ({ path: requestedPath, token: requestedToken }) =>
+              requestedPath === path && requestedToken === token
+          ).length
+    )
+    .toBe(1);
+  await expect.poll(() => api.getFormalPendingCount(path, token)).toBe(1);
+  expect(api.getFormalCompletedCount(path, token)).toBe(0);
+}
+
+async function releaseFormal(
+  api: TeacherMockApi,
+  path: FormalActionPath,
+  token: string
+): Promise<void> {
+  api.releaseFormal(path, token);
+  await expect.poll(() => api.getFormalPendingCount(path, token)).toBe(0);
+  await expect.poll(() => api.getFormalCompletedCount(path, token)).toBe(1);
+}
+
+async function setupFormalAction(page: Page, deferredPath: FormalActionPath) {
+  const fixture = formalStaleFixture();
   const api = await mockTeacherApi(page, ["teacher"], {
     coursePackagesByToken: {
-      "teacher-old-ui-token": [oldPackage],
-      "teacher-new-ui-token": [newPackage]
+      [fixture.oldToken]: [fixture.oldPackage],
+      [fixture.newToken]: [fixture.newPackage]
     },
-    cloneDeferredTokens: ["teacher-old-ui-token"],
-    cloneReceiptByToken: { "teacher-old-ui-token": oldCloneReceipt },
-    courseBlueprintCatalogResponse: { candidates: [oldBlueprint] },
+    courseBlueprintCatalogResponse: { candidates: [fixture.oldBlueprint] },
     courseBlueprintCatalogByToken: {
-      "teacher-new-ui-token": { candidates: [newBlueprint] }
+      [fixture.newToken]: { candidates: [fixture.newBlueprint] }
     },
-    courseBlueprintCatalogDeferredTokens: ["teacher-old-ui-token"],
-    courseBlueprintReadinessResponse: oldReadiness,
-    formalScenarioCatalogResponse: { candidates: [oldFormalScenario], explicit_non_proofs: [] },
+    courseBlueprintReadinessResponse: fixture.oldReadiness,
+    formalScenarioCatalogResponse: {
+      candidates: [fixture.oldFormalScenario],
+      explicit_non_proofs: []
+    },
     formalScenarioCatalogByToken: {
-      "teacher-new-ui-token": { candidates: [newFormalScenario], explicit_non_proofs: [] }
+      [fixture.newToken]: { candidates: [fixture.newFormalScenario], explicit_non_proofs: [] }
     },
-    formalScenarioCatalogDeferredTokens: ["teacher-old-ui-token"],
-    formalBindingPreviewResponse: oldBindingPreview,
-    formalCourseCreateResponse: oldCreateResponse,
+    formalBindingPreviewResponse: fixture.oldBindingPreview,
+    formalBindingPreviewDeferredTokens:
+      deferredPath === "formal-course-bindings/preview" ? [fixture.oldToken] : undefined,
+    formalCourseCreateResponse: fixture.oldCreateResponse,
+    formalCourseCreateDeferredTokens:
+      deferredPath === "course-blueprint-course-create" ? [fixture.oldToken] : undefined,
     formalCoursePublishResponse: {},
-    formalRunCreateResponse: oldRunResponse,
+    formalCoursePublishDeferredTokens:
+      deferredPath === "formal-course-publish" ? [fixture.oldToken] : undefined,
+    formalRunCreateResponse: fixture.oldRunResponse,
+    formalRunCreateDeferredTokens:
+      deferredPath === "formal-run-create" ? [fixture.oldToken] : undefined,
+    cloneDeferredTokens: deferredPath === "course-package-clone" ? [fixture.oldToken] : undefined,
+    cloneReceiptByToken: { [fixture.oldToken]: fixture.oldCloneReceipt },
     stateData: state
   });
+  return { api, ...fixture };
+}
+
+async function switchToNewFormalSession(page: Page): Promise<void> {
+  await page.getByLabel("tenant").fill("tenant_demo");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByText("scenario_new", { exact: true })).toBeVisible();
+  await expect(page.getByText("新会话蓝图", { exact: true })).toBeVisible();
+  await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("旧会话蓝图", { exact: true })).toHaveCount(0);
+}
+
+test("Teacher drops old formal catalogs and clone receipt after re-login", async ({ page }) => {
+  const {
+    newBlueprint,
+    newFormalScenario,
+    newPackage,
+    newToken,
+    oldBlueprint,
+    oldCloneReceipt,
+    oldFormalScenario,
+    oldPackage,
+    oldToken
+  } = formalStaleFixture();
+  const api = await mockTeacherApi(page, ["teacher"], {
+    coursePackagesByToken: {
+      [oldToken]: [oldPackage],
+      [newToken]: [newPackage]
+    },
+    cloneDeferredTokens: [oldToken],
+    cloneReceiptByToken: { [oldToken]: oldCloneReceipt },
+    courseBlueprintCatalogResponse: { candidates: [oldBlueprint] },
+    courseBlueprintCatalogByToken: {
+      [newToken]: { candidates: [newBlueprint] }
+    },
+    courseBlueprintCatalogDeferredTokens: [oldToken],
+    formalScenarioCatalogResponse: { candidates: [oldFormalScenario], explicit_non_proofs: [] },
+    formalScenarioCatalogByToken: {
+      [newToken]: { candidates: [newFormalScenario], explicit_non_proofs: [] }
+    },
+    formalScenarioCatalogDeferredTokens: [oldToken],
+    stateData: state
+  });
+
+  const expectOldFormalPending = async (path: string): Promise<void> => {
+    await expect
+      .poll(
+        () =>
+          api
+            .getFormalRequests()
+            .filter(
+              ({ path: requestedPath, token }) => requestedPath === path && token === oldToken
+            ).length
+      )
+      .toBe(1);
+    await expect.poll(() => api.getFormalPendingCount(path, oldToken)).toBe(1);
+    expect(api.getFormalCompletedCount(path, oldToken)).toBe(0);
+  };
+  const releaseOldFormal = async (path: string): Promise<void> => {
+    api.releaseFormal(path, oldToken);
+    await expect.poll(() => api.getFormalPendingCount(path, oldToken)).toBe(0);
+    await expect.poll(() => api.getFormalCompletedCount(path, oldToken)).toBe(1);
+  };
+
   await page.goto(teacherBaseUrl);
   await signIn(page, "teacher-old");
   await expect
@@ -1256,58 +1411,18 @@ test("Teacher drops old formal catalogs, clone receipt, and formal action respon
           .getFormalRequests()
           .filter(
             ({ token, path }) =>
-              token === "teacher-old-ui-token" &&
+              token === oldToken &&
               (path === "formal-scenario-package-catalog" || path === "course-blueprint-catalog")
           ).length
     )
     .toBe(2);
-  api.releaseAllFormal("formal-scenario-package-catalog", "teacher-old-ui-token");
-  api.releaseAllFormal("course-blueprint-catalog", "teacher-old-ui-token");
+  await expectOldFormalPending("formal-scenario-package-catalog");
+  await expectOldFormalPending("course-blueprint-catalog");
+  await releaseOldFormal("formal-scenario-package-catalog");
+  await releaseOldFormal("course-blueprint-catalog");
   await expect(page.getByText("scenario_old", { exact: true })).toBeVisible();
   await expect(page.getByText("旧会话蓝图", { exact: true })).toBeVisible();
 
-  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
-  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
-  await expect(formalPanel).toContainText("已选择正式课程");
-  const blueprintPanel = page.getByLabel("formal CourseBlueprint catalog");
-  await blueprintPanel.getByRole("button", { name: "Select locally" }).click();
-  await expect(formalPanel.getByRole("button", { name: "Create formal Course" })).toBeVisible();
-  await formalPanel.getByRole("button", { name: "Create formal Course" }).click();
-  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已创建");
-  await formalPanel.getByRole("button", { name: "Publish formal Course" }).click();
-  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已发布");
-  await formalPanel.getByLabel("explicit Run seed").fill("7");
-  await formalPanel.getByRole("button", { name: "Create formal Run" }).click();
-  await expect(page.getByLabel("教师操作通知")).toContainText("正式运行批次已创建");
-
-  const oldFormalPaths = api
-    .getFormalRequests()
-    .filter(({ token }) => token === "teacher-old-ui-token")
-    .map(({ path }) => path);
-  for (const path of [
-    "formal-scenario-package-catalog",
-    "course-blueprint-catalog",
-    "formal-course-bindings/preview",
-    "course-blueprint-course-create",
-    "formal-course-publish",
-    "formal-run-create"
-  ]) {
-    expect(oldFormalPaths).toContain(path);
-  }
-
-  await signIn(page, "teacher-old");
-  await expect
-    .poll(
-      () =>
-        api
-          .getFormalRequests()
-          .filter(
-            ({ token, path }) =>
-              token === "teacher-old-ui-token" &&
-              (path === "formal-scenario-package-catalog" || path === "course-blueprint-catalog")
-          ).length
-    )
-    .toBe(4);
   const packagePanel = page.getByLabel("Teacher CoursePackageVersion catalog");
   const oldPackageCard = packagePanel
     .locator("article.candidate-card")
@@ -1320,16 +1435,7 @@ test("Teacher drops old formal catalogs, clone receipt, and formal action respon
   await cloneForm.getByLabel("new Course Package title").fill("旧会话克隆回执");
   await cloneForm.getByLabel("new Course Package description").fill("旧会话克隆回执");
   await cloneForm.getByRole("button", { name: "Clone Course Package version" }).click();
-  await expect
-    .poll(
-      () =>
-        api
-          .getFormalRequests()
-          .filter(
-            ({ path, token }) => path === "course-package-clone" && token === "teacher-old-ui-token"
-          ).length
-    )
-    .toBe(1);
+  await expectOldFormalPending("course-package-clone");
 
   await page.getByLabel("tenant").fill("tenant_demo");
   await page.getByLabel("username").fill("teacher-new");
@@ -1342,18 +1448,118 @@ test("Teacher drops old formal catalogs, clone receipt, and formal action respon
   await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
   await expect(page.getByText("旧会话蓝图", { exact: true })).toHaveCount(0);
 
-  api.releaseAllFormal("formal-scenario-package-catalog", "teacher-old-ui-token");
-  api.releaseAllFormal("course-blueprint-catalog", "teacher-old-ui-token");
-  api.releaseAllFormal("formal-course-bindings/preview", "teacher-old-ui-token");
-  api.releaseAllFormal("course-blueprint-course-create", "teacher-old-ui-token");
-  api.releaseAllFormal("formal-course-publish", "teacher-old-ui-token");
-  api.releaseAllFormal("formal-run-create", "teacher-old-ui-token");
-  api.releaseAllFormal("course-package-clone", "teacher-old-ui-token");
+  await releaseOldFormal("course-package-clone");
   await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
   await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
   await expect(page.getByLabel("Teacher CoursePackageVersion clone receipt")).toHaveCount(0);
   await expect(page.getByText("旧会话克隆回执", { exact: true })).toHaveCount(0);
+});
+
+test("Teacher drops an old formal binding preview after re-login", async ({ page }) => {
+  const setup = await setupFormalAction(page, "formal-course-bindings/preview");
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  const prepareFormalButton = formalPanel.getByRole("button", { name: "Prepare formal Course" });
+  await expect(prepareFormalButton).toHaveCount(1);
+  await prepareFormalButton.click();
+  await expectFormalPending(setup.api, "formal-course-bindings/preview", setup.oldToken);
+
+  await switchToNewFormalSession(page);
+  await releaseFormal(setup.api, "formal-course-bindings/preview", setup.oldToken);
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("正式课程绑定预览");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText(
+    "formal Course binding preview ready"
+  );
+  await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
+});
+
+test("Teacher drops an old formal Course create after re-login", async ({ page }) => {
+  const setup = await setupFormalAction(page, "course-blueprint-course-create");
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  await expect(formalPanel).toContainText("引擎：");
+  await page
+    .getByLabel("formal CourseBlueprint catalog")
+    .getByRole("button", { name: "Select locally" })
+    .click();
+  const createButton = formalPanel.getByRole("button", { name: "Create formal Course" });
+  await expect(createButton).toHaveCount(1);
+  await expect(createButton).toBeVisible();
+  await createButton.click();
+  await expectFormalPending(setup.api, "course-blueprint-course-create", setup.oldToken);
+
+  await switchToNewFormalSession(page);
+  await releaseFormal(setup.api, "course-blueprint-course-create", setup.oldToken);
   await expect(page.getByText("formal_course_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("正式课程已创建");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("formal Course created");
+});
+
+test("Teacher drops an old formal Course publish after re-login", async ({ page }) => {
+  const setup = await setupFormalAction(page, "formal-course-publish");
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  await expect(formalPanel).toContainText("引擎：");
+  await page
+    .getByLabel("formal CourseBlueprint catalog")
+    .getByRole("button", { name: "Select locally" })
+    .click();
+  const createButton = formalPanel.getByRole("button", { name: "Create formal Course" });
+  await expect(createButton).toBeVisible();
+  await createButton.click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已创建");
+  const publishButton = formalPanel.getByRole("button", { name: "Publish formal Course" });
+  await expect(publishButton).toHaveCount(1);
+  await publishButton.click();
+  await expectFormalPending(setup.api, "formal-course-publish", setup.oldToken);
+
+  await switchToNewFormalSession(page);
+  await releaseFormal(setup.api, "formal-course-publish", setup.oldToken);
+  await expect(page.getByText("formal_course_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("正式课程已发布");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("formal Course published");
+});
+
+test("Teacher drops an old formal Run create after re-login", async ({ page }) => {
+  const setup = await setupFormalAction(page, "formal-run-create");
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  await expect(formalPanel).toContainText("引擎：");
+  await page
+    .getByLabel("formal CourseBlueprint catalog")
+    .getByRole("button", { name: "Select locally" })
+    .click();
+  const createButton = formalPanel.getByRole("button", { name: "Create formal Course" });
+  await expect(createButton).toBeVisible();
+  await createButton.click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已创建");
+  const publishButton = formalPanel.getByRole("button", { name: "Publish formal Course" });
+  await expect(publishButton).toHaveCount(1);
+  await publishButton.click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已发布");
+  await formalPanel.getByLabel("explicit Run seed").fill("7");
+  const runButton = formalPanel.getByRole("button", { name: "Create formal Run" });
+  await expect(runButton).toHaveCount(1);
+  await runButton.click();
+  await expectFormalPending(setup.api, "formal-run-create", setup.oldToken);
+
+  await switchToNewFormalSession(page);
+  await releaseFormal(setup.api, "formal-run-create", setup.oldToken);
+  await expect(page.getByText("formal_run_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("正式运行批次已创建");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("formal Run created");
 });
 
 test("non-Teacher sessions receive a truthful permission-denied surface", async ({ page }) => {

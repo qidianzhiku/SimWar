@@ -107,9 +107,20 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
   await expect(page).toHaveURL(/#admin-security-projection$/);
   await expect(page.getByRole("heading", { name: "权限与安全投影" })).toBeVisible();
 
-  const disabledActions = page.locator(".sw-allowed-action:disabled");
-  if ((await disabledActions.count()) > 0) {
-    await expect(disabledActions.first().locator("xpath=..")).toContainText("授权");
+  const lifecycleRun = page.locator("#admin-runtime-support .lifecycle-run");
+  const lifecycleRunCount = await lifecycleRun.count();
+  if (lifecycleRunCount === 0) {
+    const lifecycleEmptyState = page.locator(
+      '#admin-runtime-support .lifecycle-status:has-text("没有可显示")'
+    );
+    await expect(lifecycleEmptyState).toHaveCount(1);
+  } else {
+    await expect(lifecycleRun).toHaveCount(1);
+    const disabledLifecycleAbort = lifecycleRun.locator(
+      '.lifecycle-actions button.sw-allowed-action[data-action="abort"]:disabled'
+    );
+    await expect(disabledLifecycleAbort).toHaveCount(1);
+    await expect(disabledLifecycleAbort.locator("xpath=..")).toContainText("授权");
   }
 
   const targetMetrics = await page.evaluate(() => {
