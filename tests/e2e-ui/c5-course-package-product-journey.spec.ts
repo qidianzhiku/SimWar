@@ -84,7 +84,9 @@ async function signInTeacher(page: Page): Promise<void> {
   await login.getByLabel("username").fill("teacher");
   await login.getByLabel("password").fill("teacher");
   await login.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 test.afterEach(() => {

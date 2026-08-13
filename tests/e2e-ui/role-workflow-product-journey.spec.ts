@@ -14,7 +14,13 @@ async function signIn(page: Page, app: "student" | "teacher", username: string):
   await page.getByLabel("username").fill(username);
   await page.getByLabel("password").fill(username);
   await page.getByRole("button", { name: app === "teacher" ? "教师登录" : "学员登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (app === "teacher") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
 }
 
 async function installRoleWorkflowBrowserFixture(page: Page): Promise<void> {
@@ -269,12 +275,16 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     .toBe(true);
   if (await createRun.isVisible()) {
     await createRun.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   }
   const teamSelector = teacherWorkflow.getByLabel("角色流程队伍");
   if (!(await teamSelector.isVisible())) {
     await page.getByRole("button", { name: "开启回合" }).click();
-    await expect(page.getByText("round opened")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("round opened");
   }
   await expect(teacherWorkflow.getByRole("heading", { name: "角色协作进度" })).toBeVisible();
   await teamSelector.selectOption(fixtureTeamId);
@@ -356,7 +366,9 @@ test("Role workflow stays within the mobile Teacher and Student viewports", asyn
     .toBe(true);
   if (await createRun.isVisible()) {
     await createRun.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   }
   const teacherWorkflow = page.getByLabel("Role workflow monitor");
   const teamSelector = teacherWorkflow.getByLabel("角色流程队伍");
@@ -364,7 +376,9 @@ test("Role workflow stays within the mobile Teacher and Student viewports", asyn
   if (!(await teamSelector.isVisible())) {
     await expect(openRound).toBeVisible();
     await openRound.click();
-    await expect(page.getByText("round opened")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("round opened");
   }
 
   await expect(teamSelector).toBeVisible();

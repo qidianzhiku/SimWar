@@ -76,7 +76,9 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 async function signInAdminPage(page: Page): Promise<void> {
@@ -162,7 +164,9 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   if ((await primaryAction.textContent())?.trim() === "创建 Run") {
     await primaryAction.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   } else {
     const seededRun = await apiPost<{ run: Run }>(
       request,
@@ -176,7 +180,9 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   }
 
   await page.getByRole("button", { name: "开启回合" }).click();
-  await expect(page.getByText("round opened")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round opened");
 
   const demoState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);
   const runId = demoState.data.runs.at(-1)?.run_id;
@@ -198,13 +204,19 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   await signInTeacherPage(page);
   await expect(page.getByRole("button", { name: "锁定回合" })).toBeVisible();
   await page.getByRole("button", { name: "锁定回合" }).click();
-  await expect(page.getByText("round locked")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round locked");
 
   await page.getByRole("button", { name: "请求结算" }).click();
-  await expect(page.getByText("settlement completed")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("settlement completed");
 
   await page.getByRole("button", { name: "发布结果" }).click();
-  await expect(page.getByText("result published")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("result published");
   await expect(page.getByText("M1 教学正式结果")).toBeVisible();
   await expect(page.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
   await expect(page.getByLabel("BFF Replay 摘要").getByText("read-only")).toBeVisible();

@@ -37,7 +37,13 @@ async function signIn(page: Page, buttonName: "教师登录" | "学员登录", u
   await page.getByLabel("username").fill(username);
   await page.getByLabel("password").fill(username);
   await page.getByRole("button", { name: buttonName }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (buttonName === "教师登录") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
 }
 
 async function openScenarioReadinessPanel(page: Page) {

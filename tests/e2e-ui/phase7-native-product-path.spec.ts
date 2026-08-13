@@ -850,7 +850,13 @@ async function signIn(
   await scope.getByLabel("username").fill(credentials.username);
   await scope.getByLabel("password").fill(credentials.password);
   await scope.getByRole("button", { name: role }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (role === "教师登录") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
 }
 
 async function createStudentBThroughAdminUi(page: Page, credentials: Credentials): Promise<string> {
@@ -1361,7 +1367,9 @@ test("@phase7-product executes the serial two-Run product path only under its ex
       }>;
       runAId = created.data.run.run_id;
       expect(runAId).toMatch(/^run_/);
-      await expect(teacherPage.getByText("run created")).toBeVisible();
+      await expect(
+        teacherPage.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+      ).toContainText("run created");
       await expect(teacherPage.getByLabel("run selector")).toHaveValue(runAId);
       businessAttemptCount += 1;
       expect(businessAttemptCount).toBe(1);
@@ -1375,7 +1383,11 @@ test("@phase7-product executes the serial two-Run product path only under its ex
       });
 
       await teacherPage.getByRole("button", { name: "开启回合" }).click();
-      await expect(teacherPage.getByText("round opened")).toBeVisible();
+      await expect(
+        teacherPage
+          .getByRole("status", { name: "教师操作通知" })
+          .getByLabel("技术兼容标签")
+      ).toContainText("round opened");
     });
 
     await test.step("two Student product surfaces submit their assigned team decisions", async () => {
@@ -1395,7 +1407,9 @@ test("@phase7-product executes the serial two-Run product path only under its ex
       await signIn(teacherPage, "教师登录", teacherCredentials);
       await expect(teacherPage.getByLabel("run selector")).toHaveValue(runAId);
       await teacherPage.getByRole("button", { name: "锁定回合" }).click();
-      await expect(teacherPage.getByText("round locked")).toBeVisible();
+      await expect(
+        teacherPage.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+      ).toContainText("round locked");
 
       const settlementResponsePromise = teacherPage.waitForResponse(
         (response) =>
@@ -1410,10 +1424,16 @@ test("@phase7-product executes the serial two-Run product path only under its ex
       expect(settlementResponse.status()).toBe(200);
       expect(settlementAttemptCount).toBe(1);
       expect(settlementOutcome).toBe("committed");
-      await expect(teacherPage.getByText("settlement completed")).toBeVisible();
+      await expect(
+        teacherPage
+          .getByRole("status", { name: "教师操作通知" })
+          .getByLabel("技术兼容标签")
+      ).toContainText("settlement completed");
 
       await teacherPage.getByRole("button", { name: "发布结果" }).click();
-      await expect(teacherPage.getByText("result published")).toBeVisible();
+      await expect(
+        teacherPage.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+      ).toContainText("result published");
       await expect(teacherPage.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
     });
 
@@ -1710,7 +1730,9 @@ test("@phase7-product executes the serial two-Run product path only under its ex
         round: P0DemoState["rounds"][number];
         run: P0DemoState["runs"][number];
       }>;
-      await expect(teacherPage.getByText("run created")).toBeVisible();
+      await expect(
+        teacherPage.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+      ).toContainText("run created");
       runBId = await teacherPage.getByLabel("run selector").inputValue();
       expect(runBId).toBe(created.data.run.run_id);
       expect(runBId).toMatch(/^run_/);
