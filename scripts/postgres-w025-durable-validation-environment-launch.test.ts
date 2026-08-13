@@ -414,7 +414,7 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
     }
   });
 
-  it("serializes identical requests and rejects a changed fingerprint", async () => {
+  it("serializes ten identical requests and rejects a changed fingerprint", async () => {
     const runtime = createPostgresRuntime({ databaseUrl });
     await runtime.start();
     const runSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -442,16 +442,36 @@ describe("W025 PostgreSQL durable launch C1-C5 process recovery", () => {
       const second = startApiProcess(32_001);
       try {
         await Promise.all([waitForApi(first), waitForApi(second)]);
-        const [firstResponse, secondResponse] = await Promise.all([
-          requestApiLaunch(first.port, input),
-          requestApiLaunch(second.port, input)
-        ]);
-        const firstBody = await firstResponse.text();
-        const secondBody = await secondResponse.text();
-        expect(firstResponse.status, `${firstBody}\nfirst stderr: ${first.stderr.value}`).toBe(201);
-        expect(secondResponse.status, `${secondBody}\nsecond stderr: ${second.stderr.value}`).toBe(
-          201
+        const responses = await Promise.all(
+          Array.from({ length: 10 }, (_, index) =>
+            requestApiLaunch(index % 2 === 0 ? first.port : second.port, input)
+          )
         );
+        const responseBodies = await Promise.all(responses.map((response) => response.text()));
+        for (const [index, response] of responses.entries()) {
+          expect(
+            response.status,
+            `${responseBodies[index]}\nfirst stderr: ${first.stderr.value}\nsecond stderr: ${second.stderr.value}`
+          ).toBe(201);
+        }
+        const launchIds = responseBodies.map(
+          (body) => (JSON.parse(body) as { data: { launch_id: string } }).data.launch_id
+        );
+        expect(new Set(launchIds)).toHaveLength(1);
+
+        const launchRows = await runtime.pool.query(
+          `SELECT launch_id, status, version
+             FROM w025_validation_environment_launches
+            WHERE tenant_id = $1 AND business_key_digest = $2`,
+          [input.target_tenant_id, calculateLaunchIdentity(input).business_key_digest]
+        );
+        expect(launchRows.rows).toEqual([
+          {
+            launch_id: launchIds[0],
+            status: "READY",
+            version: "5"
+          }
+        ]);
         const conflict = createInput(
           `concurrency-${runSuffix}`,
           source,

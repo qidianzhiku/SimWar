@@ -127,7 +127,7 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
           application_name: "simwar-w025-business-key-locks",
           connectionTimeoutMillis: 5000,
           ...options.poolConfig,
-          max: 1
+          max: options.poolConfig?.max ?? 10
         })
       : pool);
   const ownsLockPool = lockPool !== pool;
@@ -169,7 +169,7 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
       }>
     ) => Promise<T>
   ): Promise<T> => {
-    const client = await lockPool.connect();
+    const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const result = await callback(async (sql, params) => {
@@ -193,7 +193,7 @@ export function createPostgresRuntime(options: PostgresRuntimeOptions = {}): Pos
     businessKeyDigest: string,
     callback: () => Promise<T>
   ): Promise<T> => {
-    const client = await pool.connect();
+    const client = await lockPool.connect();
     const lockKey = `${tenantId}:${businessKeyDigest}`;
     try {
       await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [lockKey]);
