@@ -645,6 +645,7 @@ describe("Product PR4 integration contracts", () => {
     expect(packageJson.scripts["test:e2e:ui"]).toContain("npm run build -w @simwar/ui");
     expect(packageJson.scripts["test:e2e:ui"]).toContain("playwright test");
     expect(packageJson.scripts["test:e2e:ui:core"]).toContain("playwright test");
+    expect(packageJson.scripts["test:unit:pr4"]).toContain("npm run build -w @simwar/ui");
     expect(packageJson.scripts["test:e2e:ui:pr4"]).toContain("playwright.pr4.config.ts");
     expect(configSource).toContain("testIgnore: /pr4-.*\\.spec\\.ts/");
     expect(configSource).not.toContain("PR4_CONFIG_LAB");
