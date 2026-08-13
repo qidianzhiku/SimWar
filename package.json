@@ -20,7 +20,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b tsconfig.build.json",
     "test": "npm run build:test-prerequisites && npm run build -w @simwar/ui && vitest run",
-    "test:e2e:ui": "npm run build:test-prerequisites && playwright test && playwright test --config playwright.role-workflow.config.ts",
+    "test:e2e:ui": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test && playwright test --config playwright.role-workflow.config.ts",
     "test:postgres-replay": "vitest run --config scripts/postgres-replay-verification.test.ts scripts/postgres-replay-verification.test.ts",
     "test:w024-postgres": "npm run build:test-prerequisites && vitest run --config scripts/postgres-w024-durable-course-runtime.config.ts scripts/postgres-w024-durable-course-runtime.test.ts",
     "test:w025-postgres": "npm run build:test-prerequisites && vitest run --config scripts/postgres-w025-durable-validation-environment-launch.config.ts scripts/postgres-w025-durable-validation-environment-launch.test.ts",

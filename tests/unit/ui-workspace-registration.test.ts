@@ -48,4 +48,17 @@ describe("root UI workspace registration", () => {
     expect(test.indexOf(uiBuild)).toBeGreaterThan(test.indexOf("build:test-prerequisites"));
     expect(test).toContain("vitest run");
   });
+
+  it("builds the UI package after API prerequisites and before Playwright", () => {
+    const e2e = packageJson.scripts?.["test:e2e:ui"] ?? "";
+    const prerequisites = "npm run build:test-prerequisites";
+    const uiBuild = "npm run build -w @simwar/ui";
+    const playwright = "playwright test";
+
+    expect(e2e).toContain(prerequisites);
+    expect(e2e).toContain(uiBuild);
+    expect(e2e).toContain(playwright);
+    expect(e2e.indexOf(uiBuild)).toBeGreaterThan(e2e.indexOf(prerequisites));
+    expect(e2e.indexOf(playwright)).toBeGreaterThan(e2e.indexOf(uiBuild));
+  });
 });
