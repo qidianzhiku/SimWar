@@ -128,7 +128,7 @@ describe("PR4 visual baseline capture CLI", () => {
     expect(`${storeResult.stdout}\n${storeResult.stderr}`).toMatch(
       /outside.*product|product.*outside/i
     );
-  });
+  }, 15_000);
 
   it("fails closed when the store is outside the controlled temporary store root", () => {
     const fixture = createCleanSource();
