@@ -1,42 +1,59 @@
-cycle_id: L1PLUS-CYCLE-024-W024-POSTGRES-BOUNDED-COURSE-RUN
+cycle_id: L1PLUS-CYCLE-025-W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
 stage: L1_PLUS
 status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-12T09:13:27Z"
-closed_at: "2026-08-12T10:30:04Z"
+started_at: "2026-08-12T11:46:21Z"
+closed_at: "2026-08-13T01:02:48Z"
 repository: qidianzhiku/SimWar
-source_sha: a66c207bf23027d0245892879ec18b7920082113
-assessment_source_anchor_sha: a66c207bf23027d0245892879ec18b7920082113
-product_evidence_source_sha: a66c207bf23027d0245892879ec18b7920082113
-product_candidate_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
-product_pr: 370
-product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
+source_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+assessment_source_anchor_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+product_evidence_source_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+post_merge_validation_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+product_candidate_sha: a24dad3f8d3aca905fafb0a42f05b2309e16e02f
+product_pr: 372
+product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
 governance_closure_merge_sha: null
-current_master_at_readback: a66c207bf23027d0245892879ec18b7920082113
-runtime_authority: JSON_INTERNAL_ONLY_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_COURSE_RUN
-postgresql_application_runtime: BOUNDED_COURSE_RUN_ONLY
-postgresql_runtime_fallback: FORBIDDEN
+current_master_at_readback: 93883f47af9d1ee8892eeabf40f78240c186589a
+runtime_authority: JSON_INTERNAL_ONLY_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_W024_W025
+postgresql_application_runtime: BOUNDED_W024_COURSE_RUN_AND_W025_LAUNCH_ONLY
+postgresql_runtime_fallback: FORBIDDEN_IN_EXPLICIT_POSTGRES_MODE
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 automatic_next_start: false
 predecessor:
-  cycle_id: L1PLUS-CYCLE-023-W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
-  merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
-  completed_product_baseline: 1387c9c726bcc6917d8668484f85210bd8cb4471
-primary_outcome: BOUNDED_COURSE_RUN_POSTGRES_RUNTIME_CUTOVER_VERIFIED
+  cycle_id: L1PLUS-CYCLE-024-W024-POSTGRES-BOUNDED-COURSE-RUN
+  product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
+  governance_merge_sha: bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37
+primary_outcome: DURABLE_VALIDATION_ENVIRONMENT_LAUNCH_VERIFIED
+launch_status: READY_FOR_HUMAN_INTERNAL_VALIDATION_WITH_LIMITS
 scope:
-  - explicit SIMWAR_REPOSITORY_MODE=postgres for bounded Course/Run runtime
-  - PostgreSQL migrations 0001 through 0006 with 0001-0005 byte identity preserved
-  - durable role workflow, canonical decision, settlement and replay persistence
-  - API stop/restart before and after settlement
+  - durable ValidationEnvironmentLaunch ledger with tenant_id plus launch_key_digest identity
+  - canonical exact-source request fingerprint and deterministic conflict semantics
+  - REQUESTED through READY resumable saga using existing formal command services
+  - exact ParameterSet, ScenarioPackage, CourseBlueprint and CoursePackage inputs
+  - fresh learner cohort, teams, memberships, role roster and ValidationSession preflight
+  - real PostgreSQL C1-C5 API stop and restart recovery
+  - two-process ten-request identical concurrency convergence
   - exact retry reuse and conflicting retry fail closed
-  - tenant isolation and clean disposable database lifecycle
+  - external source-bound Graphify and CodeGraph evidence
 validation:
-  acceptance: PASS_149_ROWS_0_NOT_MAPPED
-  postgres_runtime: PASS_W024_DURABLE_JOURNEY
+  frozen_acceptance: PASS_100_ROWS_FAIL_0_UNKNOWN_0_NOT_MAPPED_0
+  durable_validation_environment_launch: PASS
+  launch_ready: READY_FOR_HUMAN_INTERNAL_VALIDATION_WITH_LIMITS
+  crash_c1: PASS
+  crash_c2: PASS
+  crash_c3: PASS
+  crash_c4: PASS
+  crash_c5: PASS
+  concurrent_identical: REUSE_OR_RESUME_ONE_READY_IDENTITY
+  conflicting_request: FAIL_CLOSED_W025_LAUNCH_CONFLICT
+  duplicate_environment: 0
+  second_formal_authority: 0
+  w025_postgres: PASS_1_FILE_2_TESTS
+  w024_postgres_regression: PASS_1_FILE_1_TEST
   postgres_replay: PASS_20_OF_20
-  contract: PASS_19_FILES_47_TESTS
-  default_full_vitest: PASS_184_FILES_1146_TESTS
-  browser: PASS_80_PASSED_9_SKIPPED
+  contract: PASS_20_FILES_48_TESTS
+  default_full_vitest: PASS_186_FILES_1155_TESTS
+  browser: PASS_80_PASSED_9_REPOSITORY_DEFINED_SKIPS
   role_workflow_browser: PASS_1
   direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0
   hidden_unicode: PASS
@@ -44,57 +61,71 @@ validation:
   lint: PASS
   build: PASS
   security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  graph_companion_postmerge: PLAN_ALLOWED_WITH_LIMITS
-  graphify: CURRENT_HEALTHY_AT_PRODUCT_CANDIDATE
-  codegraph: DEGRADED_REMOTE_INDEX_CANDIDATE_UNAVAILABLE
+  github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  independent_review: PASS_BLOCKING_0_MUST_FIX_0_UNKNOWN_0
   fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  graph_companion_postmerge: PLAN_ALLOWED_WITH_LIMITS_PLANNING_REALITY_DRIFT
+  graphify: CURRENT_EXACT_SHA_HEALTHY_12118_NODES_22040_EDGES
+  codegraph: CURRENT_EXACT_SHA_HEALTHY_482_FILES_7761_NODES_31428_EDGES
 evidence:
-  evidence_root: C:/Temp/simwar-w024-postgres-durable-course-runtime-20260812T091327Z
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/370
-  product_candidate_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
-  product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
-  product_manifest_sha256: c67a11d6d0357994947da3c443b39f3bdde0c2a43257e099193238730ed46078
-  fresh_clone: C:/Temp/simwar-w024-fresh-a66c207-20260812T1030Z
-  fresh_clone_postmerge_receipt: 15-fresh-clone-postmerge-w024-durable-course-runtime-report.json
-  merge_readback_receipt: 14-product-merge-readback.json
-  graph_readback: PLAN_ALLOWED_WITH_LIMITS
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/372
+  product_candidate_sha: a24dad3f8d3aca905fafb0a42f05b2309e16e02f
+  product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+  product_manifest_sha256: 23cce9f764805cbca6f7a33477bb234d7afc03441bde431da907b304a525efb3
+  evidence_root: C:/Temp/simwar-w025-postmerge-20260813T003312Z
+  evidence_manifest_sha256: 4cf064a42fd2e460db5b0758cd4894c1dcfbaadf89c7123158dae4e0d7eb50b9
+  fresh_clone: D:/codex/fresh-clones/simwar-w025-postmerge-93883f4-20260813T0833
+  graph_postmerge_root: C:/Temp/simwar-w025-governance-preparation-20260813T085415Z/graph-postmerge
+  graph_postmerge_manifest_sha256: e398f8fee5cf9495f2294c02f8fd9f57d708b7eb0249e56202a5767952f8a253
+  merge_receipt: 03-ordinary-merge-receipt.json
+  postmerge_validation_receipt: 06-postmerge-validation-matrix.json
+  boundary_readback_receipt: 07-boundary-and-readback-receipt.json
+  issue_351: https://github.com/qidianzhiku/SimWar/issues/351
 resource_locks:
   status: RELEASED_AFTER_POSTMERGE_AND_GOVERNANCE_READBACK
   released:
-    - W024_BOUNDED_COURSE_RUN_POSTGRES_RUNTIME
-    - W024_POSTGRES_MIGRATIONS
-    - W024_RESTART_AND_REPLAY_VALIDATION
-    - W024_SERIAL_MERGE
-    - W024_POST_MERGE_FRESH_CLONE
-    - W024_GOVERNANCE_CLOSURE
+    - W025_DURABLE_VALIDATION_ENVIRONMENT_LAUNCH
+    - W025_LAUNCH_LEDGER
+    - W025_POSTGRES_MIGRATION_0007
+    - W025_CRASH_RESTART_VALIDATION
+    - W025_CONCURRENCY_VALIDATION
+    - W025_GRAPH_EVIDENCE
+    - W025_SERIAL_MERGE
+    - W025_POST_MERGE_FRESH_CLONE
+    - W025_GOVERNANCE_CLOSURE
 candidate_backlog:
-  - candidate_id: CAND-W024-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
+  - candidate_id: CAND-W025-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Requires a separate real independent teacher session and Owner/session authorization.
-  - candidate_id: CAND-W025-NEXT-MISSION
-    status: NOT_AUTHORIZED
-    reason: W025 is explicitly not authorized and automatic successor start is false.
+    reason: Requires a real independent teacher session, participants and separate Owner/session authorization.
+  - candidate_id: CAND-W026-NEXT-MISSION
+    status: NOT_AUTHORIZED_NOT_STARTED
+    reason: W026 is outside W025 and automatic successor start is false.
 known_limits:
-  runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_COURSE_RUN
-  postgres_application_runtime: NOT_GENERAL_ACTIVE_BOUNDED_ONLY
+  runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_W024_W025
+  postgres_general_runtime: NOT_AUTHORIZED
   rls: NOT_AUTHORIZED
-  durable_recovery: NOT_PROVEN_BEYOND_VERIFIED_RESTART_JOURNEY
+  durable_recovery: PROVEN_ONLY_FOR_BOUNDED_W024_W025_JOURNEYS
+  course_package_compensation: GENERAL_ROLLBACK_NOT_PROVEN_REGISTRY_LIMIT_RECORDED
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
-  codegraph: DEGRADED_REMOTE_INDEX_CANNOT_READ_CANDIDATE
-  graph_companion: PLAN_ALLOWED_WITH_LIMITS_BEFORE_GOVERNANCE_READBACK
+  direct_store_guard: ALIAS_AND_INDIRECT_ACCESS_NOT_FULLY_STATICALLY_DETECTED
+  graphify: PARSER_COVERAGE_MAY_BE_INCOMPLETE
+  codegraph: GRAPH_EVIDENCE_ONLY_NOT_RUNTIME_TRUTH
   dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
+  issue_351: OPEN_NOT_A_W025_SUCCESS_DEPENDENCY
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - This cycle does not authorize RLS, general PostgreSQL runtime, migration beyond 0006, Pilot or Production.
-  - Restart and replay evidence is bounded to the verified Course/Run journey; durable recovery beyond it is not proven.
-  - Human Validation and teaching effectiveness remain unperformed and unproven.
-  - W025 is not authorized and no successor starts automatically.
+  - W025 does not prove Human Validation, teaching effectiveness, Pilot or Production readiness.
+  - W025 does not authorize general PostgreSQL application runtime, RLS or durable recovery beyond the verified W024/W025 journeys.
+  - W025 does not change Truth, canonical Decision, SettlementResult, Score, Rank, Replay hash or Student visibility semantics.
+  - W025 does not authorize W026, external providers, billing or real customer data.
 invalidation_triggers:
   - product_or_runtime_changed
   - authority_or_truth_writer_changed
   - settlement_or_replay_hash_semantics_changed
   - student_visibility_changed
-  - fresh_clone_evidence_invalidated
+  - launch_identity_or_saga_semantics_changed
+  - postmerge_fresh_clone_evidence_invalidated
+  - graph_source_binding_invalidated
   - governance_readback_changed
-governance_closure_manifest_sha256: bcef52ef2f1d0cada44b8e37db354174ea9a0546e099d33c708adb83cd1d333d
+governance_closure_manifest_sha256: 48d392982759500099755b388b6922543fdedb19a7e08cb40b5a74e276ca9806

@@ -1,0 +1,134 @@
+schema_version: 1
+cycle_id: L1PLUS-CYCLE-025-W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
+stage: L1_PLUS
+candidate_id: CAND-W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
+status: CLOSED_AND_CURRENT_WITH_LIMITS
+repository: qidianzhiku/SimWar
+branch: codex/w025-durable-validation-environment-launch
+source_sha: bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37
+head_sha: a24dad3f8d3aca905fafb0a42f05b2309e16e02f
+merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+post_merge_master_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+post_merge_validation_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+pr: 372
+product_candidate_sha: a24dad3f8d3aca905fafb0a42f05b2309e16e02f
+product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+product_commit_count: 6
+product_changed_file_count: 36
+product_manifest_sha256: 23cce9f764805cbca6f7a33477bb234d7afc03441bde431da907b304a525efb3
+governance_closure_merge_sha: null
+governance_closure_manifest_sha256: 48d392982759500099755b388b6922543fdedb19a7e08cb40b5a74e276ca9806
+primary_outcome: DURABLE_VALIDATION_ENVIRONMENT_LAUNCH_VERIFIED
+launch_status: READY_FOR_HUMAN_INTERNAL_VALIDATION_WITH_LIMITS
+product_scope:
+  - immutable durable launch identity scoped by tenant_id and launch_key_digest
+  - canonical exact-input fingerprint with deterministic reuse or conflict
+  - resumable REQUESTED to READY saga through existing formal authority writers
+  - exact baseline, Course/Run, cohort/roles and ValidationSession preflight
+  - C1-C5 process-stop and restart recovery using real disposable PostgreSQL
+  - two-process same-key concurrency convergence and bounded advisory-lock isolation
+  - exact retry reuse and conflicting retry fail closed
+  - source-bound external graph evidence with no source-worktree index
+authority:
+  launch_ledger_writer: W025_VALIDATION_ENVIRONMENT_LAUNCH_LEDGER
+  formal_object_writers: EXISTING_COMMAND_SERVICES_ONLY
+  truth_settlement_writer: SIMULATION_CORE_UNCHANGED
+  second_formal_authority: 0
+  runtime_default: JSON_INTERNAL_ONLY
+  explicit_postgres: BOUNDED_W024_W025_ONLY
+  silent_json_fallback: false
+  rls: NOT_AUTHORIZED
+durability:
+  business_identity: tenant_id_PLUS_launch_key_digest
+  request_fingerprint: CANONICAL_EXACT_SOURCE_COURSE_COHORT_INPUTS
+  lifecycle: REQUESTED_BASELINE_READY_COURSE_RUN_READY_COHORT_READY_SESSION_PREFLIGHT_READY_READY
+  crash_c1: PASS
+  crash_c2: PASS
+  crash_c3: PASS
+  crash_c4: PASS
+  crash_c5: PASS
+  concurrent_identical: PASS_ONE_LAUNCH_ONE_READY_VERSION_5
+  conflicting_request: PASS_FAIL_CLOSED_W025_LAUNCH_CONFLICT
+  duplicate_environment: 0
+validation:
+  frozen_acceptance: PASS_100_ROWS_FAIL_0_UNKNOWN_0_NOT_MAPPED_0
+  w025_postgres: PASS_1_FILE_2_TESTS
+  w024_postgres_regression: PASS_1_FILE_1_TEST
+  postgres_replay: PASS_20_OF_20
+  focused: PASS_3_FILES_34_TESTS
+  contract: PASS_20_FILES_48_TESTS
+  default_full_vitest: PASS_186_FILES_1155_TESTS
+  browser: PASS_80_9_REPOSITORY_DEFINED_SKIPS_PLUS_ROLE_WORKFLOW_1
+  direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0
+  hidden_unicode: PASS
+  typecheck: PASS
+  lint: PASS
+  build: PASS
+  security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
+  github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  independent_review: PASS_BLOCKING_0_MUST_FIX_0_UNKNOWN_0
+  fresh_clone: PASS_CLEAN_DETACHED
+  disposable_postgres_cleanup: PASS_ZERO_RESIDUE
+graph_roi:
+  source_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+  freshness: CURRENT_EXACT_SHA
+  graphify_candidate: PASS_12116_NODES_22026_EDGES
+  graphify_postmerge: HEALTHY_12118_NODES_22040_EDGES
+  graphify_material_contributions: 1
+  graphify_limit: JSON_ZERO_NODE_AND_SQL_PARSER_COVERAGE_RECORDED
+  codegraph_candidate: PASS_482_FILES_7756_NODES_31422_EDGES
+  codegraph_postmerge: HEALTHY_482_FILES_7761_NODES_31428_EDGES
+  codegraph_material_contributions: 1
+  codegraph_limit: COVERING_TEST_EDGE_LIMIT_COMPENSATED_BY_SOURCE_AND_FULL_TESTS
+  graph_no_material_contribution_calls: 0
+  graph_false_positives: RECORDED_NOT_COERCED_TO_ZERO
+  graph_false_negatives: NOT_INDEPENDENTLY_QUANTIFIED
+  graph_missed_required_test_after_reconciliation: 0
+  source_worktree_codegraph_index: ABSENT
+  planning_gate: PLAN_ALLOWED_WITH_LIMITS_PLANNING_REALITY_DRIFT_BEFORE_CLOSURE
+evidence_root: C:/Temp/simwar-w025-postmerge-20260813T003312Z
+evidence_manifest_sha256: 4cf064a42fd2e460db5b0758cd4894c1dcfbaadf89c7123158dae4e0d7eb50b9
+fresh_clone: D:/codex/fresh-clones/simwar-w025-postmerge-93883f4-20260813T0833
+fresh_clone_receipt: 04-fresh-clone-receipt.json
+merge_receipt: 03-ordinary-merge-receipt.json
+validation_receipt: 06-postmerge-validation-matrix.json
+boundary_receipt: 07-boundary-and-readback-receipt.json
+graph_postmerge_root: C:/Temp/simwar-w025-governance-preparation-20260813T085415Z/graph-postmerge
+graph_postmerge_manifest_sha256: e398f8fee5cf9495f2294c02f8fd9f57d708b7eb0249e56202a5767952f8a253
+issue_351:
+  state: OPEN
+  success_dependency: false
+  closure_action: FACTUAL_PROGRESS_COMMENT_ONLY
+human_validation: NOT_PERFORMED
+teaching_effectiveness: NOT_PROVEN
+resource_locks:
+  status: RELEASED_AFTER_POSTMERGE_AND_GOVERNANCE_READBACK
+  released:
+    - W025_DURABLE_VALIDATION_ENVIRONMENT_LAUNCH
+    - W025_LAUNCH_LEDGER
+    - W025_POSTGRES_MIGRATION_0007
+    - W025_CRASH_RESTART_VALIDATION
+    - W025_CONCURRENCY_VALIDATION
+    - W025_GRAPH_EVIDENCE
+    - W025_SERIAL_MERGE
+    - W025_POST_MERGE_FRESH_CLONE
+    - W025_GOVERNANCE_CLOSURE
+explicit_non_proofs:
+  - No Human Validation, teaching effectiveness, Pilot or Production is proven.
+  - General PostgreSQL runtime, RLS and durable recovery outside verified W024/W025 journeys are not authorized or proven.
+  - No Truth, canonical Decision, SettlementResult, Score, Rank, Replay hash or Student visibility semantic changed.
+  - W026, external providers, billing and real customer data remain unauthorized.
+known_limits:
+  runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_W024_W025
+  postgres_general_runtime: NOT_AUTHORIZED
+  durable_recovery: PROVEN_ONLY_FOR_BOUNDED_W024_W025_JOURNEYS
+  course_package_compensation: GENERAL_ROLLBACK_NOT_PROVEN_REGISTRY_LIMIT_RECORDED
+  direct_store_guard: ALIAS_AND_INDIRECT_ACCESS_NOT_FULLY_STATICALLY_DETECTED
+  graphify: PARSER_COVERAGE_MAY_BE_INCOMPLETE
+  codegraph: EVIDENCE_ONLY_NOT_RUNTIME_TRUTH
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED
+pilot_production: NOT_AUTHORIZED
+governance_pr_count: 1
+governance_reclosure_count: 0
+w026: NOT_STARTED_NOT_AUTHORIZED
+automatic_next_start: false
