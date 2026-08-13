@@ -316,6 +316,7 @@ describe("Teacher Course OS workspace", () => {
   it("rejects stale Teacher session actions when run, action, or epoch changes", async () => {
     const { isTeacherSessionRequestCurrent } = await import("../../apps/teacher/src/App");
     const current = {
+      actionRequestId: 2,
       accessToken: "teacher-new-token",
       action: "round:start",
       epoch: 3,
@@ -328,6 +329,7 @@ describe("Teacher Course OS workspace", () => {
     expect(
       isTeacherSessionRequestCurrent(
         {
+          actionRequestId: 1,
           accessToken: "teacher-old-token",
           action: "round:start",
           epoch: 2,
@@ -341,6 +343,7 @@ describe("Teacher Course OS workspace", () => {
     ).toBe(false);
     expect(isTeacherSessionRequestCurrent(current, current)).toBe(true);
     for (const key of [
+      "actionRequestId",
       "accessToken",
       "action",
       "epoch",
@@ -352,7 +355,10 @@ describe("Teacher Course OS workspace", () => {
       expect(
         isTeacherSessionRequestCurrent(current, {
           ...current,
-          [key]: key === "epoch" ? current.epoch + 1 : `${current[key]}-changed`
+          [key]:
+            key === "epoch" || key === "actionRequestId"
+              ? current[key] + 1
+              : `${current[key]}-changed`
         })
       ).toBe(false);
     }
@@ -389,6 +395,44 @@ describe("Teacher Course OS workspace", () => {
     expect(getTeacherCoursePackageErrorMessage(new Error("network"))).toBe(
       "课程包服务暂时无法完成请求"
     );
+  });
+
+  it("rejects overlapping identical Teacher actions by monotonic request identity", async () => {
+    const { isTeacherSessionRequestCurrent } = await import("../../apps/teacher/src/App");
+    const current = {
+      accessToken: "token",
+      action: "round:start",
+      epoch: 2,
+      roundId: "round-1",
+      runId: "run-1",
+      sessionId: "teacher-1",
+      tenantId: "tenant-1"
+    };
+    expect(
+      isTeacherSessionRequestCurrent(
+        { ...current, actionRequestId: 1 } as never,
+        { ...current, actionRequestId: 2 } as never
+      )
+    ).toBe(false);
+  });
+
+  it("renders the Teacher D5 adapter with Chinese boundary and safe upstream-error mapping", async () => {
+    const { D5ExportWorkbench, getTeacherD5ErrorMessage } =
+      await import("../../apps/teacher/src/D5ExportWorkbench");
+    const markup = renderToStaticMarkup(
+      <D5ExportWorkbench apiBase="http://api.test" tenantId="tenant_demo" token="token_demo" />
+    );
+    expect(markup).toContain("教师安全导出");
+    expect(markup).not.toContain("Teacher-safe export only");
+    expect(getTeacherD5ErrorMessage(new Error("AUTH-403: English upstream failure"), "load")).toBe(
+      "当前教师会话无权加载 D5 导出数据。"
+    );
+    expect(
+      getTeacherD5ErrorMessage(new Error("AUTH-403: English upstream failure"), "operation")
+    ).toBe("当前教师会话无权执行 D5 导出操作。");
+    expect(
+      getTeacherD5ErrorMessage(new Error("English upstream failure"), "operation")
+    ).not.toContain("English upstream failure");
   });
 
   it("keeps the navigation contract as the twelve named hashes", () => {

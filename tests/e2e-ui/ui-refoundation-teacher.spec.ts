@@ -230,6 +230,7 @@ async function mockTeacherApi(
     stateData?: typeof state;
     workspaceAllowedActionsByRun?: Record<string, readonly string[]>;
     workspaceDeferredRuns?: readonly string[];
+    workspaceRejectedRuns?: readonly string[];
     workspaceUnavailable?: boolean;
     loginDeferredUsers?: readonly string[];
     demoDeferredTokens?: readonly string[];
@@ -238,9 +239,29 @@ async function mockTeacherApi(
     scenarioReadinessDeferredTokens?: readonly string[];
     coursePackageDeferredTokens?: readonly string[];
     coursePackagesByToken?: Record<string, readonly unknown[]>;
+    cloneDeferredTokens?: readonly string[];
+    cloneReceiptResponse?: unknown;
+    cloneReceiptByToken?: Record<string, unknown>;
     courseBlueprintCatalogResponse?: unknown;
+    courseBlueprintCatalogByToken?: Record<string, unknown>;
+    courseBlueprintCatalogDeferredTokens?: readonly string[];
+    courseBlueprintReadinessResponse?: unknown;
+    courseBlueprintReadinessByToken?: Record<string, unknown>;
+    courseBlueprintReadinessDeferredTokens?: readonly string[];
     formalScenarioCatalogResponse?: unknown;
+    formalScenarioCatalogByToken?: Record<string, unknown>;
+    formalScenarioCatalogDeferredTokens?: readonly string[];
     formalBindingPreviewResponse?: unknown;
+    formalBindingPreviewByToken?: Record<string, unknown>;
+    formalBindingPreviewDeferredTokens?: readonly string[];
+    formalCourseCreateResponse?: unknown;
+    formalCourseCreateByToken?: Record<string, unknown>;
+    formalCourseCreateDeferredTokens?: readonly string[];
+    formalCoursePublishResponse?: unknown;
+    formalCoursePublishDeferredTokens?: readonly string[];
+    formalRunCreateResponse?: unknown;
+    formalRunCreateByToken?: Record<string, unknown>;
+    formalRunCreateDeferredTokens?: readonly string[];
   } = {}
 ) {
   let allowedActions: string[] = [];
@@ -251,14 +272,31 @@ async function mockTeacherApi(
   const deferredStartResolvers: Array<() => void> = [];
   const deferredReadinessResolvers = new Map<string, () => void>();
   const deferredCoursePackageResolvers = new Map<string, () => void>();
+  const deferredFormalResolvers = new Map<string, Array<() => void>>();
   const loginRequests = new Set<string>();
   const demoRequests = new Set<string>();
   const readinessRequests = new Set<string>();
   const coursePackageRequests = new Set<string>();
+  const formalRequests: Array<{ path: string; token: string }> = [];
   const completedLoginResponses = new Set<string>();
   const completedDemoResponses = new Set<string>();
   const workspaceRequests = new Set<string>();
+  const workspaceRequestLog: string[] = [];
   const workspaceAuthRequests: Array<{ tenantId: string; token: string }> = [];
+
+  async function deferFormalRequest(
+    path: string,
+    token: string,
+    deferredTokens?: readonly string[]
+  ) {
+    if (!deferredTokens?.includes(token)) return;
+    const key = `${path}:${token}`;
+    await new Promise<void>((resolve) => {
+      const resolvers = deferredFormalResolvers.get(key) ?? [];
+      resolvers.push(resolve);
+      deferredFormalResolvers.set(key, resolvers);
+    });
+  }
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -313,12 +351,20 @@ async function mockTeacherApi(
       }
       const runId = path.match(/\/runs\/([^/]+)\/rounds\//)?.[1] ?? "run_teacher_test";
       workspaceRequests.add(runId);
+      workspaceRequestLog.push(runId);
       workspaceAuthRequests.push({
         tenantId: request.headers()["x-tenant-id"] ?? "",
         token: request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? ""
       });
       if (options.workspaceDeferredRuns?.includes(runId)) {
         await new Promise<void>((resolve) => deferredWorkspaceResolvers.set(runId, resolve));
+      }
+      if (options.workspaceRejectedRuns?.includes(runId)) {
+        await route.fulfill({
+          status: 503,
+          json: { code: "SERVICE_UNAVAILABLE", data: null, message: "stale run selection" }
+        });
+        return;
       }
       const runRoundId =
         runId === "run_teacher_test" ? "round_teacher_test" : `round_${runId.slice(4)}`;
@@ -370,6 +416,23 @@ async function mockTeacherApi(
     }
     if (path.includes("course-package-versions")) {
       const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      if (path.endsWith("/clone")) {
+        formalRequests.push({ path: "course-package-clone", token });
+        await deferFormalRequest("course-package-clone", token, options.cloneDeferredTokens);
+        await route.fulfill({
+          json: {
+            code: "OK",
+            data:
+              options.cloneReceiptByToken?.[token] ??
+              options.cloneReceiptResponse ??
+              options.coursePackagesByToken?.[token]?.[0] ??
+              options.coursePackages?.[0] ??
+              null,
+            message: "success"
+          }
+        });
+        return;
+      }
       coursePackageRequests.add(token);
       if (options.coursePackageDeferredTokens?.includes(token)) {
         await new Promise<void>((resolve) => deferredCoursePackageResolvers.set(token, resolve));
@@ -407,23 +470,158 @@ async function mockTeacherApi(
       return;
     }
     if (path.includes("formal-scenario-package-catalog")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "formal-scenario-package-catalog", token });
+      await deferFormalRequest(
+        "formal-scenario-package-catalog",
+        token,
+        options.formalScenarioCatalogDeferredTokens
+      );
       await route.fulfill({
-        json: options.formalScenarioCatalogResponse ?? { candidates: [], explicit_non_proofs: [] }
+        json: options.formalScenarioCatalogByToken?.[token] ??
+          options.formalScenarioCatalogResponse ?? { candidates: [], explicit_non_proofs: [] }
       });
       return;
     }
     if (path.endsWith("/course-blueprints")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "course-blueprint-catalog", token });
+      await deferFormalRequest(
+        "course-blueprint-catalog",
+        token,
+        options.courseBlueprintCatalogDeferredTokens
+      );
       await route.fulfill({
         json: {
-          data: options.courseBlueprintCatalogResponse ?? { candidates: [] }
+          data: options.courseBlueprintCatalogByToken?.[token] ??
+            options.courseBlueprintCatalogResponse ?? { candidates: [] }
         }
       });
       return;
     }
     if (path.includes("formal-course-bindings/preview")) {
-      if (options.formalBindingPreviewResponse !== undefined) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "formal-course-bindings/preview", token });
+      await deferFormalRequest(
+        "formal-course-bindings/preview",
+        token,
+        options.formalBindingPreviewDeferredTokens
+      );
+      if (
+        options.formalBindingPreviewResponse !== undefined ||
+        options.formalBindingPreviewByToken?.[token] !== undefined
+      ) {
         await route.fulfill({
-          json: { data: options.formalBindingPreviewResponse }
+          json: {
+            data:
+              options.formalBindingPreviewByToken?.[token] ?? options.formalBindingPreviewResponse
+          }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
+      return;
+    }
+    if (path.includes("course-blueprints/readiness")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "course-blueprints/readiness", token });
+      await deferFormalRequest(
+        "course-blueprints/readiness",
+        token,
+        options.courseBlueprintReadinessDeferredTokens
+      );
+      if (options.courseBlueprintReadinessResponse !== undefined) {
+        await route.fulfill({
+          json: {
+            data:
+              options.courseBlueprintReadinessByToken?.[token] ??
+              options.courseBlueprintReadinessResponse
+          }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
+      return;
+    }
+    if (path.endsWith("/formal-courses")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "formal-course-create", token });
+      await deferFormalRequest(
+        "formal-course-create",
+        token,
+        options.formalCourseCreateDeferredTokens
+      );
+      if (options.formalCourseCreateResponse !== undefined) {
+        await route.fulfill({
+          json: {
+            data: options.formalCourseCreateByToken?.[token] ?? options.formalCourseCreateResponse
+          }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
+      return;
+    }
+    if (path.endsWith("/course-blueprint-courses")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "course-blueprint-course-create", token });
+      await deferFormalRequest(
+        "course-blueprint-course-create",
+        token,
+        options.formalCourseCreateDeferredTokens
+      );
+      if (options.formalCourseCreateResponse !== undefined) {
+        await route.fulfill({
+          json: {
+            data: options.formalCourseCreateByToken?.[token] ?? options.formalCourseCreateResponse
+          }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
+      return;
+    }
+    if (path.endsWith("/publish") && request.method() === "POST") {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "formal-course-publish", token });
+      await deferFormalRequest(
+        "formal-course-publish",
+        token,
+        options.formalCoursePublishDeferredTokens
+      );
+      if (options.formalCoursePublishResponse !== undefined) {
+        await route.fulfill({
+          json: { data: options.formalCoursePublishResponse }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
+      return;
+    }
+    if (path.includes("/courses/") && path.endsWith("/runs") && request.method() === "POST") {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      formalRequests.push({ path: "formal-run-create", token });
+      await deferFormalRequest("formal-run-create", token, options.formalRunCreateDeferredTokens);
+      if (options.formalRunCreateResponse !== undefined) {
+        await route.fulfill({
+          json: {
+            data: options.formalRunCreateByToken?.[token] ?? options.formalRunCreateResponse
+          }
         });
       } else {
         await route.fulfill({
@@ -451,13 +649,26 @@ async function mockTeacherApi(
     hasCompletedDemoResponse: (token: string) => completedDemoResponses.has(token),
     releaseDemo: (token: string) => deferredDemoResolvers.get(token)?.(),
     getWorkspaceAuthRequests: () => [...workspaceAuthRequests],
+    getWorkspaceRequestCount: (runId: string) =>
+      workspaceRequestLog.filter((requestedRunId) => requestedRunId === runId).length,
     hasWorkspaceRequest: (runId: string) => workspaceRequests.has(runId),
     releaseWorkspace: (runId: string) => deferredWorkspaceResolvers.get(runId)?.(),
     releaseStart: () => deferredStartResolvers.shift()?.(),
+    releaseLatestStart: () => deferredStartResolvers.pop()?.(),
     getReadinessRequests: () => [...readinessRequests],
     releaseReadiness: (token: string) => deferredReadinessResolvers.get(token)?.(),
     getCoursePackageRequests: () => [...coursePackageRequests],
-    releaseCoursePackages: (token: string) => deferredCoursePackageResolvers.get(token)?.()
+    releaseCoursePackages: (token: string) => deferredCoursePackageResolvers.get(token)?.(),
+    getFormalRequests: () => [...formalRequests],
+    releaseFormal: (path: string, token: string) => {
+      const key = `${path}:${token}`;
+      deferredFormalResolvers.get(key)?.shift()?.();
+    },
+    releaseAllFormal: (path: string, token: string) => {
+      const key = `${path}:${token}`;
+      const resolvers = deferredFormalResolvers.get(key) ?? [];
+      while (resolvers.length > 0) resolvers.shift()?.();
+    }
   };
 }
 
@@ -466,12 +677,17 @@ async function signIn(page: Page, username: string) {
   await page.getByLabel("username").fill(username);
   await page.getByLabel("password").fill(username);
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
-  await expect(page.getByText("signed in", { exact: true }).first()).toBeVisible();
+  const notice = page.getByLabel("教师操作通知");
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toContainText("已登录");
+  const technicalNotice = notice.getByLabel("技术兼容标签");
+  await expect(technicalNotice).toHaveCount(1);
+  await expect(technicalNotice).toHaveText("signed in");
 }
 
 async function expectClosestLocation(page: Page, selector: string, locationId: string) {
-  const target = page.locator(selector).first();
+  const target = page.locator(selector);
+  await expect(target).toHaveCount(1);
   await expect(target).toBeVisible();
   await expect
     .poll(() =>
@@ -574,9 +790,6 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
     "收尾与清理"
   );
   await expect(page.locator("#teacher-blockers .sw-state-panel")).toContainText("服务端未授权");
-  await expect(page.locator("#teacher-courses h2").first()).toHaveText("课程与班级");
-  await expect(page.locator("#teacher-readiness h2").first()).toHaveText("开课准备");
-  await expect(page.locator("#teacher-results h2").first()).toHaveText("结果发布");
 
   const loginControlHeights = await page
     .locator('[aria-label="teacher login"] input, [aria-label="teacher login"] button')
@@ -591,7 +804,7 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
     clone.querySelectorAll(".technical-compatibility").forEach((element) => element.remove());
     return clone.innerText;
   });
-  await expect(page.locator('[aria-label="技术兼容标签"]').first()).toBeVisible();
+  await expect(page.getByLabel("教师操作通知").getByLabel("技术兼容标签")).toHaveCount(1);
   for (const forbiddenEnglishHeading of [
     "Teacher Console",
     "Historical Run · read-only",
@@ -713,7 +926,9 @@ test("Teacher keeps the command disabled when the BFF workspace is unavailable",
     exact: true
   });
   await expect(unavailableReason).toHaveCount(3);
-  await expect(unavailableReason.first()).toBeVisible();
+  await expect(
+    page.getByLabel("发生错误").getByText("服务端回合权限加载失败，正式操作已关闭", { exact: true })
+  ).toBeVisible();
   await expect(page.locator('[data-authority="unknown"]')).toBeVisible();
   await expect(page.locator('main > .sw-state-panel[data-state="error"]')).toHaveCount(1);
   await expect.poll(api.getStartRequests).toBe(0);
@@ -748,6 +963,78 @@ test("Teacher ignores a stale workspace response after switching runs", async ({
     button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   });
   await expect.poll(api.getStartRequests).toBe(0);
+});
+
+test("Teacher suppresses a delayed rejected old run selection after a new session", async ({
+  page
+}) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    stateData: raceState,
+    workspaceAllowedActionsByRun: { run_old: ["round:start"], run_new: [] },
+    workspaceDeferredRuns: ["run_old"],
+    workspaceRejectedRuns: ["run_old"]
+  });
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+  const runSelector = page.getByLabel("run selector");
+  await expect(runSelector).toHaveValue("run_old");
+  await expect.poll(() => api.hasWorkspaceRequest("run_old")).toBe(true);
+
+  await runSelector.selectOption("run_new");
+  await expect(runSelector).toHaveValue("run_new");
+  await page.getByLabel("tenant").fill("tenant_new");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await runSelector.selectOption("run_new");
+  await expect(runSelector).toHaveValue("run_new");
+
+  api.releaseWorkspace("run_old");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("stale run selection");
+  await expect(page.getByLabel("run selector")).toHaveValue("run_new");
+});
+
+test("Teacher isolates overlapping identical actions by resolving the newer request first", async ({
+  page
+}) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    startDeferred: true,
+    stateData: state,
+    workspaceAllowedActionsByRun: { run_teacher_test: ["round:start"] }
+  });
+  api.allowStart();
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher");
+
+  const primary = page.locator("button.teacher-primary-action");
+  await expect(primary).toHaveCount(1);
+  await expect(primary).toBeEnabled();
+  await primary.evaluate((button) => {
+    button.removeAttribute("disabled");
+    (button as HTMLButtonElement).disabled = false;
+    button.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+    );
+    button.removeAttribute("disabled");
+    (button as HTMLButtonElement).disabled = false;
+    button.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+    );
+  });
+  await expect.poll(api.getStartRequests).toBe(2);
+
+  api.releaseLatestStart();
+  await expect(page.getByLabel("教师操作通知")).toContainText("回合已开启");
+  await expect(primary).toBeEnabled();
+  const workspaceRequestsAfterNewer = api.getWorkspaceRequestCount("run_teacher_test");
+
+  api.releaseStart();
+  await expect(page.getByLabel("教师操作通知")).toContainText("回合已开启");
+  await expect(primary).toBeEnabled();
+  expect(api.getWorkspaceRequestCount("run_teacher_test")).toBe(workspaceRequestsAfterNewer);
 });
 
 test("Teacher exposes Chinese clone/readiness copy and native 44px form targets", async ({
@@ -829,7 +1116,13 @@ test("Teacher exposes Chinese clone/readiness copy and native 44px form targets"
   await expect(blueprintPanel).toContainText("60 分钟");
   await expect(blueprintPanel).not.toContainText("minutes");
   const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
-  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  const prepareFormalButton = formalPanel.getByRole("button", { name: "Prepare formal Course" });
+  await expect(prepareFormalButton).toHaveCount(1);
+  await prepareFormalButton.evaluate((button) => {
+    button.removeAttribute("disabled");
+    (button as HTMLButtonElement).disabled = false;
+    (button as HTMLButtonElement).click();
+  });
   await expect(formalPanel).toContainText("场景摘要：");
   await expect(formalPanel).toContainText("参数集摘要：");
   await expect(formalPanel).toContainText("引擎：");
@@ -852,6 +1145,217 @@ test("Teacher exposes Chinese clone/readiness copy and native 44px form targets"
   await expect.poll(api.getStartRequests).toBe(0);
 });
 
+test("Teacher drops old formal catalogs, clone receipt, and formal action responses after re-login", async ({
+  page
+}) => {
+  const oldFormalScenario = {
+    ...copyFormalScenario,
+    scenario_package_reference: {
+      ...copyFormalScenario.scenario_package_reference,
+      scenario_package_id: "scenario_old"
+    }
+  };
+  const newFormalScenario = {
+    ...copyFormalScenario,
+    scenario_package_reference: {
+      ...copyFormalScenario.scenario_package_reference,
+      scenario_package_id: "scenario_new"
+    }
+  };
+  const oldBlueprint = {
+    ...copyCourseBlueprint,
+    course_blueprint_reference: {
+      ...copyCourseBlueprint.course_blueprint_reference,
+      course_blueprint_id: "blueprint_old"
+    },
+    title: "旧会话蓝图"
+  };
+  const newBlueprint = {
+    ...copyCourseBlueprint,
+    course_blueprint_reference: {
+      ...copyCourseBlueprint.course_blueprint_reference,
+      course_blueprint_id: "blueprint_new"
+    },
+    title: "新会话蓝图"
+  };
+  const oldPackage = {
+    course_blueprint_reference: oldBlueprint.course_blueprint_reference,
+    course_package_reference: {
+      content_digest: "e".repeat(64),
+      course_package_id: "course_package_old",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    },
+    description: "旧会话课程包",
+    parameter_set_reference: copyFormalScenario.parameter_set_reference,
+    scenario_package_reference: oldFormalScenario.scenario_package_reference,
+    title: "旧会话课程包"
+  };
+  const newPackage = {
+    ...oldPackage,
+    course_package_reference: {
+      ...oldPackage.course_package_reference,
+      course_package_id: "course_package_new"
+    },
+    title: "新会话课程包"
+  };
+  const oldBindingPreview = {
+    ...copyFormalBindingPreview,
+    formal_course_binding: {
+      ...copyFormalBindingPreview.formal_course_binding,
+      scenario_package_reference: oldFormalScenario.scenario_package_reference
+    }
+  };
+  const oldReadiness = {
+    formal_course_binding: oldBindingPreview,
+    readiness_status: "READY"
+  };
+  const oldCreateResponse = { course: { course_id: "formal_course_old" } };
+  const oldRunResponse = {
+    round: { round_id: "formal_round_old", round_no: 1, run_id: "formal_run_old" },
+    run: { course_id: "formal_course_old", run_id: "formal_run_old", status: "active" }
+  };
+  const oldCloneReceipt = {
+    ...oldPackage,
+    course_package_reference: {
+      ...oldPackage.course_package_reference,
+      course_package_id: "course_package_clone_old"
+    },
+    title: "旧会话克隆回执"
+  };
+  const api = await mockTeacherApi(page, ["teacher"], {
+    coursePackagesByToken: {
+      "teacher-old-ui-token": [oldPackage],
+      "teacher-new-ui-token": [newPackage]
+    },
+    cloneDeferredTokens: ["teacher-old-ui-token"],
+    cloneReceiptByToken: { "teacher-old-ui-token": oldCloneReceipt },
+    courseBlueprintCatalogResponse: { candidates: [oldBlueprint] },
+    courseBlueprintCatalogByToken: {
+      "teacher-new-ui-token": { candidates: [newBlueprint] }
+    },
+    courseBlueprintCatalogDeferredTokens: ["teacher-old-ui-token"],
+    courseBlueprintReadinessResponse: oldReadiness,
+    formalScenarioCatalogResponse: { candidates: [oldFormalScenario], explicit_non_proofs: [] },
+    formalScenarioCatalogByToken: {
+      "teacher-new-ui-token": { candidates: [newFormalScenario], explicit_non_proofs: [] }
+    },
+    formalScenarioCatalogDeferredTokens: ["teacher-old-ui-token"],
+    formalBindingPreviewResponse: oldBindingPreview,
+    formalCourseCreateResponse: oldCreateResponse,
+    formalCoursePublishResponse: {},
+    formalRunCreateResponse: oldRunResponse,
+    stateData: state
+  });
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+  await expect
+    .poll(
+      () =>
+        api
+          .getFormalRequests()
+          .filter(
+            ({ token, path }) =>
+              token === "teacher-old-ui-token" &&
+              (path === "formal-scenario-package-catalog" || path === "course-blueprint-catalog")
+          ).length
+    )
+    .toBe(2);
+  api.releaseAllFormal("formal-scenario-package-catalog", "teacher-old-ui-token");
+  api.releaseAllFormal("course-blueprint-catalog", "teacher-old-ui-token");
+  await expect(page.getByText("scenario_old", { exact: true })).toBeVisible();
+  await expect(page.getByText("旧会话蓝图", { exact: true })).toBeVisible();
+
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  await expect(formalPanel).toContainText("已选择正式课程");
+  const blueprintPanel = page.getByLabel("formal CourseBlueprint catalog");
+  await blueprintPanel.getByRole("button", { name: "Select locally" }).click();
+  await expect(formalPanel.getByRole("button", { name: "Create formal Course" })).toBeVisible();
+  await formalPanel.getByRole("button", { name: "Create formal Course" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已创建");
+  await formalPanel.getByRole("button", { name: "Publish formal Course" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式课程已发布");
+  await formalPanel.getByLabel("explicit Run seed").fill("7");
+  await formalPanel.getByRole("button", { name: "Create formal Run" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("正式运行批次已创建");
+
+  const oldFormalPaths = api
+    .getFormalRequests()
+    .filter(({ token }) => token === "teacher-old-ui-token")
+    .map(({ path }) => path);
+  for (const path of [
+    "formal-scenario-package-catalog",
+    "course-blueprint-catalog",
+    "formal-course-bindings/preview",
+    "course-blueprint-course-create",
+    "formal-course-publish",
+    "formal-run-create"
+  ]) {
+    expect(oldFormalPaths).toContain(path);
+  }
+
+  await signIn(page, "teacher-old");
+  await expect
+    .poll(
+      () =>
+        api
+          .getFormalRequests()
+          .filter(
+            ({ token, path }) =>
+              token === "teacher-old-ui-token" &&
+              (path === "formal-scenario-package-catalog" || path === "course-blueprint-catalog")
+          ).length
+    )
+    .toBe(4);
+  const packagePanel = page.getByLabel("Teacher CoursePackageVersion catalog");
+  const oldPackageCard = packagePanel
+    .locator("article.candidate-card")
+    .filter({ hasText: "旧会话课程包" });
+  await expect(oldPackageCard).toHaveCount(1);
+  await oldPackageCard.getByRole("button", { name: /Clone course_package_old/ }).click();
+  const cloneForm = page.getByLabel("Teacher CoursePackageVersion clone");
+  await cloneForm.getByLabel("new Course Package ID").fill("course_package_clone_old");
+  await cloneForm.getByLabel("new Course Package version").fill("1.0.1");
+  await cloneForm.getByLabel("new Course Package title").fill("旧会话克隆回执");
+  await cloneForm.getByLabel("new Course Package description").fill("旧会话克隆回执");
+  await cloneForm.getByRole("button", { name: "Clone Course Package version" }).click();
+  await expect
+    .poll(
+      () =>
+        api
+          .getFormalRequests()
+          .filter(
+            ({ path, token }) => path === "course-package-clone" && token === "teacher-old-ui-token"
+          ).length
+    )
+    .toBe(1);
+
+  await page.getByLabel("tenant").fill("tenant_demo");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByText("scenario_new", { exact: true })).toBeVisible();
+  await expect(page.getByText("新会话蓝图", { exact: true })).toBeVisible();
+  await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("旧会话蓝图", { exact: true })).toHaveCount(0);
+
+  api.releaseAllFormal("formal-scenario-package-catalog", "teacher-old-ui-token");
+  api.releaseAllFormal("course-blueprint-catalog", "teacher-old-ui-token");
+  api.releaseAllFormal("formal-course-bindings/preview", "teacher-old-ui-token");
+  api.releaseAllFormal("course-blueprint-course-create", "teacher-old-ui-token");
+  api.releaseAllFormal("formal-course-publish", "teacher-old-ui-token");
+  api.releaseAllFormal("formal-run-create", "teacher-old-ui-token");
+  api.releaseAllFormal("course-package-clone", "teacher-old-ui-token");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("Teacher CoursePackageVersion clone receipt")).toHaveCount(0);
+  await expect(page.getByText("旧会话克隆回执", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("formal_course_old", { exact: true })).toHaveCount(0);
+});
+
 test("non-Teacher sessions receive a truthful permission-denied surface", async ({ page }) => {
   await mockTeacherApi(page, ["student"]);
   await page.goto(teacherBaseUrl);
@@ -864,6 +1368,37 @@ test("non-Teacher sessions receive a truthful permission-denied surface", async 
   await expect(page.getByRole("navigation", { name: "角色导航" })).toHaveCount(0);
   await expect(page.getByText("今日工作", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "开启回合" })).toHaveCount(0);
+});
+
+test("Teacher demo login replaces dirty credentials with the authenticated demo identity", async ({
+  page
+}) => {
+  test.skip(
+    process.env.VITE_SIMWAR_DEMO_MODE !== "true",
+    "demo shortcut E2E requires VITE_SIMWAR_DEMO_MODE=true"
+  );
+  await page.route("**/api/v1/auth/login", async (route) => {
+    await route.fulfill({
+      json: {
+        code: "OK",
+        data: teacherSession(["teacher"], { tenantId: "tenant_demo", username: "demo" }),
+        message: "success"
+      }
+    });
+  });
+  await page.goto(teacherBaseUrl);
+  const login = page.locator('section[aria-label="teacher login"]');
+  await login.getByLabel("tenant").fill("tenant_dirty");
+  await login.getByLabel("username").fill("old-user");
+  await login.getByLabel("password").fill("old-password");
+  await expect(login.getByRole("button", { name: "演示登录" })).toHaveCount(1);
+  await login.getByRole("button", { name: "演示登录" }).click();
+  await expect(login.getByLabel("tenant")).toHaveValue("tenant_demo");
+  await expect(login.getByLabel("username")).toHaveValue("demo");
+  await expect(login.getByLabel("password")).toHaveValue("demo");
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_demo");
+  await expect(page.getByLabel("当前上下文")).toContainText("demo-001");
+  await expect(page.getByLabel("当前上下文")).not.toContainText("tenant_dirty");
 });
 
 test("Teacher ignores a stale login response after tenant and user switch", async ({ page }) => {

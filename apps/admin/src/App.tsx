@@ -443,6 +443,7 @@ export function App() {
       if (!isCurrentAdminContext(requestIdentity)) return;
       const authenticatedIdentity = buildAdminRequestIdentity(epoch, nextLogin, nextSession);
       adminRequestIdentityRef.current = authenticatedIdentity;
+      setLogin(nextLogin);
       setSession(nextSession);
       setNotice("已登录");
     } catch (error) {
@@ -568,6 +569,10 @@ export function App() {
       `${operation.toUpperCase()} ${control.run_id}\n${control.tenant_id} / ${control.course_id}\n\n${consequences[operation]}`
     );
     if (!confirmed) {
+      return;
+    }
+
+    if (!isCurrentAdminContext(requestIdentity)) {
       return;
     }
 

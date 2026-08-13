@@ -256,6 +256,46 @@ test("Unauthenticated Admin navigation is empty-state, unknown-authority, and ta
   await expect(page.locator('a[href="#admin-audit-events"]')).toHaveCount(0);
 });
 
+test("Admin demo login replaces dirty credentials with the authenticated demo identity", async ({
+  page
+}) => {
+  test.skip(
+    process.env.VITE_SIMWAR_DEMO_MODE !== "true",
+    "demo shortcut E2E requires VITE_SIMWAR_DEMO_MODE=true"
+  );
+  await page.route("**/api/v1/auth/login", async (route) => {
+    await route.fulfill({
+      json: {
+        code: "OK",
+        data: {
+          access_token: "demo-ui-token",
+          expires_at: "2099-01-01T00:00:00.000Z",
+          user: {
+            display_name: "演示管理员",
+            roles: ["tenant_admin"],
+            tenant_id: "tenant_demo",
+            user_id: "demo-001"
+          }
+        },
+        message: "success"
+      }
+    });
+  });
+  await page.goto(adminBaseUrl);
+  const login = page.locator('section[aria-label="admin login"]');
+  await login.getByLabel("tenant").fill("tenant_dirty");
+  await login.getByLabel("username").fill("old-user");
+  await login.getByLabel("password").fill("old-password");
+  await expect(login.getByRole("button", { name: "演示登录" })).toHaveCount(1);
+  await login.getByRole("button", { name: "演示登录" }).click();
+  await expect(login.getByLabel("tenant")).toHaveValue("tenant_demo");
+  await expect(login.getByLabel("username")).toHaveValue("demo");
+  await expect(login.getByLabel("password")).toHaveValue("demo");
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_demo");
+  await expect(page.getByLabel("当前上下文")).not.toContainText("tenant_dirty");
+  await expect(login).toContainText("演示管理员");
+});
+
 test("Admin CoursePackage surface uses Chinese visible copy while retaining only evidenced compatibility contracts", async ({
   page
 }) => {

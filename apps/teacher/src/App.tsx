@@ -195,6 +195,7 @@ export interface TeacherLoginRequestIdentity {
 }
 
 export interface TeacherSessionRequestIdentity {
+  actionRequestId: number;
   epoch: number;
   sessionId: string;
   tenantId: string;
@@ -209,6 +210,7 @@ export function isTeacherSessionRequestCurrent(
   current: TeacherSessionRequestIdentity
 ): boolean {
   return (
+    request.actionRequestId === current.actionRequestId &&
     request.epoch === current.epoch &&
     request.sessionId === current.sessionId &&
     request.tenantId === current.tenantId &&
@@ -533,7 +535,10 @@ export function App() {
   const workspaceRequestEpoch = useRef(0);
   const loginRequestEpoch = useRef(0);
   const teacherContextEpoch = useRef(0);
+  const teacherActionRequestSequence = useRef(0);
+  const currentTeacherActionRequestRef = useRef(0);
   const teacherSessionIdentityRef = useRef<TeacherSessionRequestIdentity>({
+    actionRequestId: 0,
     accessToken: "",
     action: "context",
     epoch: 0,
@@ -562,9 +567,11 @@ export function App() {
     nextSession: AuthSession | null,
     tenantId: string,
     runId = teacherSessionIdentityRef.current.runId,
-    roundId = teacherSessionIdentityRef.current.roundId
+    roundId = teacherSessionIdentityRef.current.roundId,
+    actionRequestId = currentTeacherActionRequestRef.current
   ): TeacherSessionRequestIdentity {
     return {
+      actionRequestId,
       accessToken: nextSession?.access_token ?? "",
       action,
       epoch: teacherContextEpoch.current,
@@ -578,6 +585,7 @@ export function App() {
   function isCurrentTeacherContext(identity: TeacherSessionRequestIdentity): boolean {
     const current = teacherSessionIdentityRef.current;
     return (
+      identity.actionRequestId === currentTeacherActionRequestRef.current &&
       identity.epoch === current.epoch &&
       identity.sessionId === current.sessionId &&
       identity.tenantId === current.tenantId &&
@@ -585,6 +593,27 @@ export function App() {
       identity.runId === current.runId &&
       identity.roundId === current.roundId
     );
+  }
+
+  function beginTeacherActionIdentity(
+    action: string,
+    nextSession: AuthSession,
+    tenantId: string,
+    runId = teacherSessionIdentityRef.current.runId,
+    roundId = teacherSessionIdentityRef.current.roundId
+  ): TeacherSessionRequestIdentity {
+    const actionRequestId = ++teacherActionRequestSequence.current;
+    currentTeacherActionRequestRef.current = actionRequestId;
+    const identity = buildTeacherSessionIdentity(
+      action,
+      nextSession,
+      tenantId,
+      runId,
+      roundId,
+      actionRequestId
+    );
+    teacherSessionIdentityRef.current = identity;
+    return identity;
   }
 
   function isCurrentTeacherSessionContext(identity: TeacherSessionRequestIdentity): boolean {
@@ -603,11 +632,15 @@ export function App() {
     nextSession: AuthSession | null = session
   ): void {
     teacherContextEpoch.current += 1;
+    const actionRequestId = ++teacherActionRequestSequence.current;
+    currentTeacherActionRequestRef.current = actionRequestId;
     teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
       "context",
       nextSession,
       nextLogin.tenantId,
-      nextRunId
+      nextRunId,
+      "",
+      actionRequestId
     );
   }
 
@@ -879,7 +912,7 @@ export function App() {
 
     const requestSequence = readinessRequestSequence.current + 1;
     readinessRequestSequence.current = requestSequence;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "scenario-readiness",
       session,
       login.tenantId,
@@ -939,7 +972,7 @@ export function App() {
   async function signIn(nextLogin = login): Promise<void> {
     workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
-    teacherContextEpoch.current += 1;
+    invalidateTeacherContext(nextLogin, "", null);
     const requestIdentity: TeacherLoginRequestIdentity = {
       epoch: loginRequestEpoch.current + 1,
       tenantId: nextLogin.tenantId.trim(),
@@ -947,11 +980,6 @@ export function App() {
     };
     loginRequestEpoch.current = requestIdentity.epoch;
     loginRequestIdentityRef.current = requestIdentity;
-    teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
-      "login",
-      null,
-      nextLogin.tenantId
-    );
     setBusy(true);
     setSession(null);
     setState(null);
@@ -976,12 +1004,15 @@ export function App() {
       ) {
         return;
       }
+      setLogin(nextLogin);
       setSession(nextSession);
       teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
         "context",
         nextSession,
         nextLogin.tenantId,
-        selectedRunIdRef.current ?? ""
+        selectedRunIdRef.current ?? "",
+        teacherSessionIdentityRef.current.roundId,
+        currentTeacherActionRequestRef.current
       );
       setNotice("signed in");
     } catch (error) {
@@ -1035,7 +1066,7 @@ export function App() {
 
   async function cloneTeacherCoursePackageVersion(): Promise<void> {
     if (!session || !teacherCoursePackageCloneSource) return;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-package-clone",
       session,
       login.tenantId,
@@ -1194,7 +1225,7 @@ export function App() {
     candidate: TeacherFormalScenarioPackageCatalogCandidateDto
   ): Promise<void> {
     if (!session) return;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "formal-course-binding-preview",
       session,
       login.tenantId
@@ -1236,7 +1267,7 @@ export function App() {
       setNotice("an approved CourseBlueprint and exact binding readiness are required");
       return;
     }
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "formal-course-create",
       session,
       login.tenantId
@@ -1274,7 +1305,7 @@ export function App() {
     setCourseBlueprintReadiness(null);
     setNotice("LOCAL_SELECTION_ONLY - no Course write yet");
     if (!session || !formalDraftCandidate) return;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-blueprint-readiness",
       session,
       login.tenantId
@@ -1308,7 +1339,7 @@ export function App() {
     blueprint: TeacherCourseBlueprintCatalogDto["candidates"][number]
   ): Promise<void> {
     if (!session) return;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-blueprint-studio-preview",
       session,
       login.tenantId
@@ -1352,7 +1383,7 @@ export function App() {
 
   async function saveCourseBlueprintStudioDraft(): Promise<void> {
     if (!session || !courseBlueprintStudioSource || !courseBlueprintStudioForm) return;
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-blueprint-studio-draft",
       session,
       login.tenantId
@@ -1393,7 +1424,7 @@ export function App() {
     if (!session || !courseBlueprintStudioPreview || courseBlueprintStudioStatus !== "DRAFT") {
       return;
     }
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-blueprint-studio-submit",
       session,
       login.tenantId
@@ -1426,7 +1457,7 @@ export function App() {
       setNotice("a formal Course is required before publication");
       return;
     }
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "formal-course-publish",
       session,
       login.tenantId
@@ -1458,7 +1489,7 @@ export function App() {
       setNotice("an explicit non-negative Run seed is required");
       return;
     }
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "formal-run-create",
       session,
       login.tenantId
@@ -1505,7 +1536,7 @@ export function App() {
 
     const requestIdentity =
       requestIdentityOverride ??
-      buildTeacherSessionIdentity("course-run-create", session, login.tenantId);
+      beginTeacherActionIdentity("course-run-create", session, login.tenantId);
     if (!isCurrentTeacherContext(requestIdentity)) return;
     const auth = { token: session.access_token, tenantId: login.tenantId };
     const created = await apiRequest<{ run: Run; round: Round }>(
@@ -1526,7 +1557,7 @@ export function App() {
       return;
     }
 
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       "course-run-create-next",
       session,
       login.tenantId,
@@ -1570,7 +1601,7 @@ export function App() {
       return;
     }
 
-    const requestIdentity = buildTeacherSessionIdentity(
+    const requestIdentity = beginTeacherActionIdentity(
       requiredAction ?? (selectedRun ? "run-refresh" : "run-create"),
       session,
       login.tenantId,
@@ -1793,8 +1824,30 @@ export function App() {
                   aria-label="run selector"
                   disabled={busy || !session}
                   onChange={(event) => {
-                    void refresh(event.target.value).catch((error: unknown) => {
-                      setNotice(error instanceof Error ? error.message : "run selection failed");
+                    const requestedRunId = event.target.value;
+                    const refreshPromise = refresh(requestedRunId);
+                    // `refresh(value)` installs the selection identity before its first await.
+                    // Capture that exact identity so a later session/run cannot surface its
+                    // rejection in the current shell.
+                    const selectionIdentity = workspaceRequestIdentityRef.current;
+                    const selectionContextIdentity = teacherSessionIdentityRef.current;
+                    void refreshPromise.catch((error: unknown) => {
+                      const currentWorkspace = workspaceRequestIdentityRef.current;
+                      const sameSelection =
+                        currentWorkspace.epoch === selectionIdentity.epoch &&
+                        currentWorkspace.sessionId === selectionIdentity.sessionId &&
+                        currentWorkspace.tenantId === selectionIdentity.tenantId &&
+                        currentWorkspace.runId === requestedRunId;
+                      if (
+                        sameSelection &&
+                        isCurrentTeacherSessionContext(selectionContextIdentity)
+                      ) {
+                        setNotice(
+                          getTeacherNoticeLabel(
+                            error instanceof Error ? error.message : "run selection failed"
+                          )
+                        );
+                      }
                     });
                   }}
                   value={selectedRun?.run_id ?? ""}

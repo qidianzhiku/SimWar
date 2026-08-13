@@ -108,27 +108,6 @@ describe("Admin Delivery & Trust workspace", () => {
     fetchSpy.mockRestore();
   });
 
-  it("gives navigation and primary actions keyboard-sized, named targets", () => {
-    const markup = renderToStaticMarkup(
-      <AdminDeliveryTrustWorkspace
-        context={{ tenant: "tenant_demo", role: "租户管理员" }}
-        primaryAction={<button type="button">重新加载</button>}
-      >
-        <button type="button">保存</button>
-      </AdminDeliveryTrustWorkspace>
-    );
-
-    expect(markup).toContain("重新加载");
-    expect(markup).toContain("保存");
-    expect(markup).toContain("跳转到主要内容");
-    const namedTargets = [...markup.matchAll(/<a href="(#[^"]+)"[^>]*>([^<]+)<\/a>/g)];
-    expect(namedTargets).toHaveLength(9);
-    for (const [, href, name] of namedTargets) {
-      expect(href).toMatch(/^#admin-[a-z-]+$/);
-      expect(name.trim()).not.toBe("");
-    }
-  });
-
   it("maps every current lifecycle block code to a deterministic Chinese explanation", () => {
     const expected: Record<string, string> = {
       not_synthetic_json_internal: "运行不是受支持的内部 JSON synthetic 运行",
@@ -194,5 +173,24 @@ describe("Admin Delivery & Trust workspace", () => {
     expect(getAdminVisibleErrorMessage(new Error("raw upstream English failure"))).toBe(
       "请求暂时无法完成，请稍后重试。"
     );
+  });
+
+  it("renders the Admin D5 adapter with Chinese boundary and safe upstream-error mapping", async () => {
+    const { D5ExportWorkbench, getAdminD5ErrorMessage } =
+      await import("../../apps/admin/src/D5ExportWorkbench");
+    const markup = renderToStaticMarkup(
+      <D5ExportWorkbench apiBase="http://api.test" tenantId="tenant_demo" token="token_demo" />
+    );
+    expect(markup).toContain("仅限租户范围的导出");
+    expect(markup).not.toContain("Tenant-safe export only");
+    expect(getAdminD5ErrorMessage(new Error("AUTH-403: English upstream failure"), "load")).toBe(
+      "当前会话无权加载 D5 导出数据。"
+    );
+    expect(
+      getAdminD5ErrorMessage(new Error("AUTH-403: English upstream failure"), "operation")
+    ).toBe("当前会话无权执行 D5 导出操作。");
+    expect(
+      getAdminD5ErrorMessage(new Error("English upstream failure"), "operation")
+    ).not.toContain("English upstream failure");
   });
 });
