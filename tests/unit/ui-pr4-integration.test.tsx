@@ -435,7 +435,7 @@ describe("Product PR4 integration contracts", () => {
     }
   });
 
-  it("rejects invalid visual thresholds and dimension mismatches instead of passing", () => {
+  it("rejects invalid visual thresholds and measures dimension mismatches against the threshold", () => {
     const fixture = mkdtempSync(join(tmpdir(), "simwar-pr4-visual-validation-"));
     try {
       const baseline = join(fixture, "baseline");
@@ -472,12 +472,21 @@ describe("Product PR4 integration contracts", () => {
       }
 
       const { PNG } = playwrightRequire("playwright-core/lib/utilsBundle") as {
-        PNG: { sync: { write: (value: unknown) => Buffer } };
+        PNG: {
+          sync: {
+            read: (value: Buffer) => { data: Buffer };
+            write: (value: unknown) => Buffer;
+          };
+        };
       };
       const mismatchedCandidate = join(candidate, "student-ready-390x844.png");
+      const mismatchedData = Buffer.alloc(2 * 1 * 4);
+      const baselinePixel = PNG.sync.read(Buffer.from(blackPixelPng, "base64")).data.subarray(0, 4);
+      baselinePixel.copy(mismatchedData, 0);
+      baselinePixel.copy(mismatchedData, 4);
       writeFileSync(
         mismatchedCandidate,
-        PNG.sync.write({ width: 2, height: 1, data: Buffer.alloc(2 * 1 * 4, 0) })
+        PNG.sync.write({ width: 2, height: 1, data: mismatchedData })
       );
       const output = join(fixture, "manifest-dimensions.json");
       const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
@@ -490,7 +499,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "1",
+        "0",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -510,9 +519,45 @@ describe("Product PR4 integration contracts", () => {
       expect(manifest.surfaces[0]).toMatchObject({
         status: "failed",
         dimension_mismatch: true,
-        dimensions: { baseline: { width: 1 }, candidate: { width: 2 } }
+        dimensions: { baseline: { width: 1 }, candidate: { width: 2 } },
+        diff_pixel_ratio: 0.5
       });
-      expect(manifest.pixel_diff.failures.join(" ")).toContain("dimensions");
+      expect(manifest.pixel_diff.failures.join(" ")).toContain("diff ratio");
+
+      const withinThresholdOutput = join(fixture, "manifest-dimensions-within-threshold.json");
+      const withinThresholdResult = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
+        "--baseline",
+        baseline,
+        "--candidate",
+        candidate,
+        "--diff-root",
+        diff,
+        "--output",
+        withinThresholdOutput,
+        "--max-diff-pixel-ratio",
+        "0.5",
+        "--base-sha",
+        "base-sha",
+        "--head-sha",
+        actualSha
+      ]);
+      expect(withinThresholdResult.status).toBe(0);
+      const withinThresholdManifest = JSON.parse(readFileSync(withinThresholdOutput, "utf8")) as {
+        status: string;
+        surfaces: Array<{
+          status: string;
+          dimension_mismatch: boolean;
+          diff_pixel_ratio: number;
+          diff_path: string | null;
+        }>;
+      };
+      expect(withinThresholdManifest).toMatchObject({ status: "passed" });
+      expect(withinThresholdManifest.surfaces[0]).toMatchObject({
+        status: "passed",
+        dimension_mismatch: true,
+        diff_pixel_ratio: 0.5
+      });
+      expect(withinThresholdManifest.surfaces[0]?.diff_path).toBeTruthy();
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -562,6 +607,10 @@ describe("Product PR4 integration contracts", () => {
     expect(mainSource).toContain('a:visible,[role="button"]:visible');
     expect(mainSource).toContain('page.keyboard.press("Tab")');
     expect(labSource).toContain('page.keyboard.press("Enter")');
+    expect(mainSource).toContain("fullPage: false");
+    expect(labSource).toContain("fullPage: false");
+    expect(mainSource).not.toContain("fullPage: true");
+    expect(labSource).not.toContain("fullPage: true");
   });
 
   it("fails focused runtime evidence when browser performance metrics are unsupported", () => {

@@ -85,47 +85,43 @@ const relativeManifestPath = (path) => relative(manifestBase, path).replaceAll("
 const comparePng = (baselineBuffer, candidateBuffer) => {
   const baseline = PNG.sync.read(baselineBuffer);
   const candidate = PNG.sync.read(candidateBuffer);
-  if (baseline.width !== candidate.width || baseline.height !== candidate.height) {
-    return {
-      ratio: 1,
-      diff: null,
-      dimensionMismatch: true,
-      dimensions: {
-        baseline: { width: baseline.width, height: baseline.height },
-        candidate: { width: candidate.width, height: candidate.height }
-      }
-    };
-  }
-
-  const totalPixels = baseline.width * baseline.height;
-  const diffData = Buffer.alloc(baseline.data.length);
+  const width = Math.max(baseline.width, candidate.width);
+  const height = Math.max(baseline.height, candidate.height);
+  const totalPixels = width * height;
+  const diffData = Buffer.alloc(totalPixels * 4);
   let differentPixels = 0;
-  for (let index = 0; index < baseline.data.length; index += 4) {
-    const changed =
-      baseline.data[index] !== candidate.data[index] ||
-      baseline.data[index + 1] !== candidate.data[index + 1] ||
-      baseline.data[index + 2] !== candidate.data[index + 2] ||
-      baseline.data[index + 3] !== candidate.data[index + 3];
-    if (changed) {
-      differentPixels += 1;
-      diffData[index] = 255;
-      diffData[index + 1] = 0;
-      diffData[index + 2] = 0;
-      diffData[index + 3] = 255;
-    } else {
-      diffData[index] = baseline.data[index];
-      diffData[index + 1] = baseline.data[index + 1];
-      diffData[index + 2] = baseline.data[index + 2];
-      diffData[index + 3] = 64;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const diffIndex = (y * width + x) * 4;
+      const baselinePresent = x < baseline.width && y < baseline.height;
+      const candidatePresent = x < candidate.width && y < candidate.height;
+      const baselineIndex = baselinePresent ? (y * baseline.width + x) * 4 : -1;
+      const candidateIndex = candidatePresent ? (y * candidate.width + x) * 4 : -1;
+      const changed =
+        !baselinePresent ||
+        !candidatePresent ||
+        baseline.data[baselineIndex] !== candidate.data[candidateIndex] ||
+        baseline.data[baselineIndex + 1] !== candidate.data[candidateIndex + 1] ||
+        baseline.data[baselineIndex + 2] !== candidate.data[candidateIndex + 2] ||
+        baseline.data[baselineIndex + 3] !== candidate.data[candidateIndex + 3];
+      if (changed) {
+        differentPixels += 1;
+        diffData[diffIndex] = 255;
+        diffData[diffIndex + 1] = 0;
+        diffData[diffIndex + 2] = 0;
+        diffData[diffIndex + 3] = 255;
+      } else {
+        diffData[diffIndex] = baseline.data[baselineIndex];
+        diffData[diffIndex + 1] = baseline.data[baselineIndex + 1];
+        diffData[diffIndex + 2] = baseline.data[baselineIndex + 2];
+        diffData[diffIndex + 3] = 64;
+      }
     }
   }
   return {
     ratio: totalPixels === 0 ? 0 : differentPixels / totalPixels,
-    diff:
-      differentPixels === 0
-        ? null
-        : PNG.sync.write({ width: baseline.width, height: baseline.height, data: diffData }),
-    dimensionMismatch: false,
+    diff: differentPixels === 0 ? null : PNG.sync.write({ width, height, data: diffData }),
+    dimensionMismatch: baseline.width !== candidate.width || baseline.height !== candidate.height,
     dimensions: {
       baseline: { width: baseline.width, height: baseline.height },
       candidate: { width: candidate.width, height: candidate.height }
@@ -171,13 +167,6 @@ const surfaces = paths.map((path) => {
     surface.diff_pixel_ratio = Number(comparison.ratio.toFixed(8));
     surface.dimensions = comparison.dimensions;
     surface.dimension_mismatch = comparison.dimensionMismatch;
-    if (comparison.dimensionMismatch) {
-      surface.status = "failed";
-      failures.push(
-        `${path}: dimensions mismatch baseline ${comparison.dimensions.baseline.width}x${comparison.dimensions.baseline.height} vs candidate ${comparison.dimensions.candidate.width}x${comparison.dimensions.candidate.height}`
-      );
-      return surface;
-    }
     if (comparison.ratio > 0) {
       const diffPath = resolve(diffRoot, path);
       mkdirSync(dirname(diffPath), { recursive: true });

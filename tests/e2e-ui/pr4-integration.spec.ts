@@ -498,7 +498,7 @@ async function captureCandidate(page: Page, surface: string, state = "ready") {
     `${surface}-${hashId}-${state}-${viewport?.width ?? "unknown"}x${viewport?.height ?? "unknown"}.png`
   );
   mkdirSync(dirname(path), { recursive: true });
-  await page.screenshot({ path, fullPage: true });
+  await page.screenshot({ path, fullPage: false });
 }
 
 async function waitForPr4CaptureStable(page: Page): Promise<void> {

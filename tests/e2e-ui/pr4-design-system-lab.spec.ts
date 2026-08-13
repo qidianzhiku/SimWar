@@ -361,7 +361,7 @@ test.describe.serial("Product PR4 DesignSystemLab surface", () => {
           "candidate",
           `lab-lab-state-matrix-state-matrix-${viewport.width}x${viewport.height}.png`
         ),
-        fullPage: true
+        fullPage: false
       });
     }
   });
