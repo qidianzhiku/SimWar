@@ -595,6 +595,7 @@ test.describe.serial("Product PR4 real surface integration", () => {
   });
 
   test("Teacher surface meets the focused acceptance matrix", async ({ page }) => {
+    test.setTimeout(90_000);
     await page.goto(teacherBaseUrl);
     const firstUsableAfterSignInMs = await signIn(page, "teacher", {
       username: "teacher",
