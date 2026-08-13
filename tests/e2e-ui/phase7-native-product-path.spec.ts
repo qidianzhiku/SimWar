@@ -1393,13 +1393,13 @@ test("@phase7-product executes the serial two-Run product path only under its ex
     await test.step("two Student product surfaces submit their assigned team decisions", async () => {
       await studentAPage.goto(studentBaseUrl);
       await signIn(studentAPage, "学员登录", studentACredentials);
-      await studentAPage.getByRole("button", { name: "提交决策" }).click();
-      await expect(studentAPage.getByText("decision submitted")).toBeVisible();
+      await studentAPage.getByRole("button", { name: "提交正式决策" }).click();
+      await expect(studentAPage.getByText("正式决策已提交", { exact: true })).toBeVisible();
 
       await studentBPage.goto(studentBaseUrl);
       await signIn(studentBPage, "学员登录", studentBCredentials);
-      await studentBPage.getByRole("button", { name: "提交决策" }).click();
-      await expect(studentBPage.getByText("decision submitted")).toBeVisible();
+      await studentBPage.getByRole("button", { name: "提交正式决策" }).click();
+      await expect(studentBPage.getByText("正式决策已提交", { exact: true })).toBeVisible();
     });
 
     await test.step("Teacher locks, settles, and publishes Run A once", async () => {
