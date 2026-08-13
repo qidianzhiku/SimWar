@@ -176,8 +176,14 @@ test("Teacher and Student frontends consume BFF DTOs without exposing protected 
   await expect(page.getByRole("heading", { name: "BFF 发布结果" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "三段式反馈" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Learning Report" })).toBeVisible();
-  const studentBffSurface = page.getByLabel("student bff dto surface");
-  await expect(studentBffSurface.getByText("STUDENT_PROJECTION_EVIDENCE").first()).toBeVisible();
+  const studentBffSurface = page.getByRole("region", { name: "信息与证据补充" });
+  const studentEvidenceLabels = studentBffSurface.getByText("STUDENT_PROJECTION_EVIDENCE", {
+    exact: true
+  });
+  await expect(studentEvidenceLabels).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) {
+    await expect(studentEvidenceLabels.nth(index)).toBeVisible();
+  }
   await expect(studentBffSurface.getByText("advisory_only: true")).toBeVisible();
 
   const studentText = await page.locator("body").innerText();

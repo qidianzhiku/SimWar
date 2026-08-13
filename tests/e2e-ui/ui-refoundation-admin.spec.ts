@@ -34,7 +34,8 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
     "审计与回执",
     "运行与支持",
     "已知限制与信任边界",
-    "环境启动与恢复"
+    "环境启动与恢复",
+    "企业课程工厂与 Sponsor 投影"
   ];
   const navigation = page.getByRole("navigation", { name: "角色导航" });
   for (const label of labels) {
@@ -59,7 +60,8 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
     "admin-audit-receipts",
     "admin-runtime-support",
     "admin-known-limits",
-    "admin-environment-recovery"
+    "admin-environment-recovery",
+    "admin-enterprise-course-factory"
   ] as const;
   for (const target of requiredTargets) {
     await expect(page.locator(`#${target}`)).toHaveCount(1);
@@ -73,7 +75,7 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
       return { href, targetExists: Boolean(target) };
     })
   );
-  expect(renderedNavigationTargets.length).toBe(9);
+  expect(renderedNavigationTargets.length).toBe(10);
   expect(renderedNavigationTargets.every(({ targetExists }) => targetExists)).toBe(true);
 
   await expect(
@@ -176,9 +178,21 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.getByRole("heading", { name: "权限与安全投影" })).toBeVisible();
 
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true
-  );
+  const overflowProbe = await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= window.innerWidth,
+    offenders: [...document.body.querySelectorAll<HTMLElement>("*")]
+      .map((element) => ({
+        className: element.className,
+        right: element.getBoundingClientRect().right,
+        tagName: element.tagName,
+        text: element.textContent?.trim().slice(0, 80) ?? ""
+      }))
+      .filter(({ right }) => right > window.innerWidth + 1)
+      .slice(0, 12),
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth
+  }));
+  expect(overflowProbe.fits, JSON.stringify(overflowProbe)).toBe(true);
   await testInfo.attach("admin-delivery-trust-mobile", {
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png"
@@ -244,7 +258,7 @@ test("Platform Admin navigation omits tenant-only locations and exposes only rea
 
   const navigation = page.getByRole("navigation", { name: "角色导航" });
   await expect(navigation.getByRole("link", { name: "用户、角色与范围" })).toHaveCount(0);
-  await expect(navigation.getByRole("link")).toHaveCount(8);
+  await expect(navigation.getByRole("link")).toHaveCount(9);
   const renderedTargets = await navigation.locator("a").evaluateAll((links) =>
     links.map((link) => {
       const href = link.getAttribute("href") ?? "";

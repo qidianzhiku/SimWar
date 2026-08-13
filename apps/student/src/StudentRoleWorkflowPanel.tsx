@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   DecisionPayload,
@@ -10,6 +10,58 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
+const roleWorkflowStatusLabels: Record<string, string> = {
+  draft: "草稿",
+  ready: "已就绪",
+  pending: "待确认",
+  validated: "已校验",
+  confirmed: "已确认",
+  active: "进行中",
+  submitted: "已提交",
+  rejected: "已驳回",
+  merged: "已合并"
+};
+
+export function roleWorkflowStatusCopy(status: string): {
+  primary: string;
+  compatibility: string;
+} {
+  return {
+    primary: roleWorkflowStatusLabels[status.toLowerCase()] ?? "服务端状态",
+    compatibility: status
+  };
+}
+
+export function getRoleWorkflowNoticeCopy(value: string): {
+  primary: string;
+  compatibility?: string;
+} {
+  if (value.includes("ROLE_WORKFLOW_STALE_SECTION")) {
+    return { primary: "角色草稿已被更新，请刷新后重试。", compatibility: value };
+  }
+  if (value.includes("ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND")) {
+    return { primary: "当前运行尚未分配角色工作区。", compatibility: value };
+  }
+  if (/^[A-Z][A-Z0-9_-]+(?:-\d+)*:/.test(value) || /\b(failed|error|denied)\b/i.test(value)) {
+    return { primary: "角色工作区请求失败，请刷新后重试。", compatibility: value };
+  }
+  return { primary: value };
+}
+
+export function isCurrentRoleWorkflowRequest(
+  requestId: number,
+  currentId: number,
+  aborted = false
+): boolean {
+  return !aborted && requestId === currentId;
+}
+
+export function canReadStudentRoleWorkspace(
+  workspace: Pick<StudentRoleWorkflowWorkspaceDTO, "context"> | null
+): boolean {
+  return workspace?.context?.permissions?.can_read_role_workspace === true;
+}
+
 interface StudentRoleWorkflowPanelProps {
   active: boolean;
   roundId: string | undefined;
@@ -17,7 +69,7 @@ interface StudentRoleWorkflowPanelProps {
   teamId: string | undefined;
   tenantId: string;
   token: string | undefined;
-  onActiveChange?: (active: boolean) => void;
+  onAvailabilityChange?: (availability: "checking" | "active" | "inactive" | "error") => void;
 }
 
 const initialDraft: DecisionPayload = {
@@ -32,7 +84,7 @@ const initialDraft: DecisionPayload = {
 async function roleWorkflowRequest<T>(
   path: string,
   props: Pick<StudentRoleWorkflowPanelProps, "tenantId" | "token">,
-  options: { body?: unknown; method?: string } = {}
+  options: { body?: unknown; method?: string; signal?: AbortSignal } = {}
 ): Promise<T> {
   const init: RequestInit = {
     headers: {
@@ -40,7 +92,8 @@ async function roleWorkflowRequest<T>(
       "x-tenant-id": props.tenantId,
       ...(props.token ? { authorization: `Bearer ${props.token}` } : {})
     },
-    method: options.method ?? "GET"
+    method: options.method ?? "GET",
+    ...(options.signal ? { signal: options.signal } : {})
   };
   if (options.body !== undefined) init.body = JSON.stringify(options.body);
   const response = await fetch(`${API_BASE}${path}`, init);
@@ -52,49 +105,124 @@ async function roleWorkflowRequest<T>(
 export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const [workspace, setWorkspace] = useState<StudentRoleWorkflowWorkspaceDTO | null>(null);
   const [draft, setDraft] = useState<DecisionPayload>(initialDraft);
-  const [notice, setNotice] = useState("waiting for assignment");
+  const [notice, setNotice] = useState("等待角色分配");
   const [busy, setBusy] = useState(false);
+  const [availability, setAvailability] = useState<"checking" | "active" | "inactive" | "error">(
+    "checking"
+  );
+  const requestIdentity = useRef(0);
+  const requestController = useRef<AbortController | null>(null);
+  const actionIdentity = useRef(0);
+  const actionController = useRef<AbortController | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!props.active || !props.token || !props.runId || !props.roundId || !props.teamId) {
-      setWorkspace(null);
-      return;
-    }
-    try {
-      const next = await roleWorkflowRequest<StudentRoleWorkflowWorkspaceDTO>(
-        `/api/v1/bff/student/role-workspace?run_id=${encodeURIComponent(
-          props.runId
-        )}&round_id=${encodeURIComponent(props.roundId)}&team_id=${encodeURIComponent(
-          props.teamId
-        )}`,
-        props
-      );
-      setWorkspace(next);
-      setDraft((current) => ({
-        ...current,
-        ...next.section?.payload,
-        pricing: next.section?.payload.pricing ?? current.pricing
-      }));
-      setNotice("current");
-    } catch (error) {
-      setWorkspace(null);
-      setNotice(error instanceof Error ? error.message : "role workspace unavailable");
-    }
-  }, [props.active, props.roundId, props.runId, props.teamId, props.tenantId, props.token]);
+  function beginRefresh(): { requestId: number; controller: AbortController } {
+    const requestId = ++requestIdentity.current;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
+    return { requestId, controller };
+  }
+
+  function beginAction(): { requestId: number; controller: AbortController } {
+    const requestId = ++actionIdentity.current;
+    actionController.current?.abort();
+    const controller = new AbortController();
+    actionController.current = controller;
+    return { requestId, controller };
+  }
+
+  const refresh = useCallback(
+    async (preserveAction = false) => {
+      const { requestId, controller } = beginRefresh();
+      if (!preserveAction) {
+        actionIdentity.current += 1;
+        actionController.current?.abort();
+        setBusy(false);
+      }
+      setAvailability("checking");
+      if (!props.active || !props.token || !props.runId || !props.roundId || !props.teamId) {
+        if (requestId === requestIdentity.current) {
+          setWorkspace(null);
+          setAvailability("inactive");
+        }
+        return;
+      }
+      try {
+        const next = await roleWorkflowRequest<StudentRoleWorkflowWorkspaceDTO>(
+          `/api/v1/bff/student/role-workspace?run_id=${encodeURIComponent(
+            props.runId
+          )}&round_id=${encodeURIComponent(props.roundId)}&team_id=${encodeURIComponent(
+            props.teamId
+          )}`,
+          props,
+          { signal: controller.signal }
+        );
+        if (
+          !isCurrentRoleWorkflowRequest(
+            requestId,
+            requestIdentity.current,
+            controller.signal.aborted
+          )
+        )
+          return;
+        if (!canReadStudentRoleWorkspace(next)) {
+          setWorkspace(null);
+          setAvailability("error");
+          setNotice("当前服务端权限不允许读取角色工作区");
+          return;
+        }
+        setWorkspace(next);
+        setAvailability("active");
+        setDraft((current) => ({
+          ...current,
+          ...next.section?.payload,
+          pricing: next.section?.payload.pricing ?? current.pricing
+        }));
+        setNotice("当前角色工作区已就绪");
+      } catch (error) {
+        if (
+          !isCurrentRoleWorkflowRequest(
+            requestId,
+            requestIdentity.current,
+            controller.signal.aborted
+          )
+        )
+          return;
+        setWorkspace(null);
+        const message = error instanceof Error ? error.message : "角色工作区暂不可用";
+        setAvailability(
+          message.includes("ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND") ? "inactive" : "error"
+        );
+        setNotice(message);
+      }
+    },
+    [props.active, props.roundId, props.runId, props.teamId, props.tenantId, props.token]
+  );
 
   useEffect(() => {
-    void refresh();
+    const pendingRefresh = refresh();
+    return () => {
+      requestIdentity.current += 1;
+      requestController.current?.abort();
+      actionIdentity.current += 1;
+      actionController.current?.abort();
+      void pendingRefresh;
+    };
   }, [refresh]);
 
   useEffect(() => {
-    props.onActiveChange?.(Boolean(workspace));
-  }, [props.onActiveChange, workspace]);
+    props.onAvailabilityChange?.(availability);
+  }, [availability, props.onAvailabilityChange]);
 
   useEffect(
     () => () => {
-      props.onActiveChange?.(false);
+      requestIdentity.current += 1;
+      requestController.current?.abort();
+      actionIdentity.current += 1;
+      actionController.current?.abort();
+      props.onAvailabilityChange?.("checking");
     },
-    [props.onActiveChange]
+    [props.onAvailabilityChange]
   );
 
   function scope() {
@@ -120,50 +248,90 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     success: string,
     method = "POST"
   ): Promise<T | undefined> {
+    const { requestId, controller } = beginAction();
     setBusy(true);
     try {
-      const result = await roleWorkflowRequest<T>(path, props, { body, method });
+      const result = await roleWorkflowRequest<T>(path, props, {
+        body,
+        method,
+        signal: controller.signal
+      });
+      if (
+        !isCurrentRoleWorkflowRequest(requestId, actionIdentity.current, controller.signal.aborted)
+      )
+        return undefined;
       setNotice(success);
-      await refresh();
+      await refresh(true);
       return result;
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "role workflow action failed");
+      if (
+        !isCurrentRoleWorkflowRequest(requestId, actionIdentity.current, controller.signal.aborted)
+      )
+        return undefined;
+      setNotice(error instanceof Error ? error.message : "角色工作区操作失败");
       return undefined;
     } finally {
-      setBusy(false);
+      if (requestId === actionIdentity.current) setBusy(false);
     }
   }
 
   const fields = workspace?.context.permissions.editable_fields ?? [];
   const sectionStatus = workspace?.section
-    ? `${workspace.section.status} · v${workspace.section.version}`
-    : "draft · v0";
+    ? {
+        ...roleWorkflowStatusCopy(workspace.section.status),
+        compatibility: `${workspace.section.status} · v${workspace.section.version}`,
+        primary: `${roleWorkflowStatusCopy(workspace.section.status).primary} · v${workspace.section.version}`
+      }
+    : {
+        primary: "草稿 · v0",
+        compatibility: "draft · v0"
+      };
+  const confirmationStatus = roleWorkflowStatusCopy(workspace?.confirmation?.status ?? "pending");
+  const mergeStatus = workspace?.merge_candidate
+    ? roleWorkflowStatusCopy(workspace.merge_candidate.status)
+    : null;
+  const noticeCopy = getRoleWorkflowNoticeCopy(notice);
+  const fieldsLocked =
+    busy ||
+    workspace?.section?.status === "ready" ||
+    !workspace?.context.permissions.can_save_section;
 
   return (
     <section className="role-workflow-panel" aria-label="Student role workflow">
       <div className="panel-title">
         <div>
-          <p className="eyebrow">C3 Role Workflow</p>
+          <p className="eyebrow">角色决策链</p>
           <h2>角色工作区</h2>
         </div>
-        <span>{notice}</span>
+        <span role="status">
+          {noticeCopy.primary}{" "}
+          {noticeCopy.compatibility ? (
+            <span className="compatibility-copy">{noticeCopy.compatibility}</span>
+          ) : null}
+        </span>
       </div>
       {!workspace ? (
-        <p className="muted">等待教师分配当前 Run 的角色。</p>
+        <p className="muted">等待服务端分配当前运行的角色。</p>
       ) : (
         <>
           <div className="role-workflow-summary">
             <div>
-              <span>Role</span>
+              <span>角色</span>
               <strong>{workspace.context.role_key}</strong>
             </div>
             <div>
-              <span>Section</span>
-              <strong>{sectionStatus}</strong>
+              <span>角色草稿</span>
+              <strong>
+                {sectionStatus.primary}{" "}
+                <span className="compatibility-copy">{sectionStatus.compatibility}</span>
+              </strong>
             </div>
             <div>
-              <span>Team decision</span>
-              <strong>{workspace.confirmation?.status ?? "pending"}</strong>
+              <span>团队决策</span>
+              <strong>
+                {confirmationStatus.primary}{" "}
+                <span className="compatibility-copy">{confirmationStatus.compatibility}</span>
+              </strong>
             </div>
           </div>
           <div className="role-workflow-fields">
@@ -172,7 +340,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 策略说明
                 <textarea
                   aria-label="策略说明"
-                  disabled={busy || workspace.section?.status === "ready"}
+                  disabled={fieldsLocked}
                   value={draft.strategy_statement}
                   onChange={(event) =>
                     setDraft((current) => ({
@@ -188,6 +356,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 定价
                 <input
                   aria-label="角色定价"
+                  disabled={fieldsLocked}
                   min="1"
                   type="number"
                   value={draft.pricing.base_price}
@@ -205,6 +374,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 营销预算
                 <input
                   aria-label="角色营销预算"
+                  disabled={fieldsLocked}
                   min="0"
                   type="number"
                   value={draft.marketing_budget}
@@ -222,6 +392,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 服务质量预算
                 <input
                   aria-label="角色服务质量预算"
+                  disabled={fieldsLocked}
                   min="0"
                   type="number"
                   value={draft.service_quality_budget}
@@ -239,6 +410,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 产能计划
                 <select
                   aria-label="角色产能计划"
+                  disabled={fieldsLocked}
                   value={draft.capacity_plan}
                   onChange={(event) =>
                     setDraft((current) => ({
@@ -258,6 +430,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 现金缓冲
                 <input
                   aria-label="角色现金缓冲"
+                  disabled={fieldsLocked}
                   min="0"
                   step="0.01"
                   type="number"
@@ -274,7 +447,11 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
           </div>
           <div className="role-workflow-actions">
             <button
-              disabled={busy || workspace.section?.status === "ready"}
+              disabled={
+                busy ||
+                workspace.section?.status === "ready" ||
+                !workspace.context.permissions.can_save_section
+              }
               onClick={() =>
                 void mutate<RoleDecisionSection>(
                   "/api/v1/bff/student/role-workspace/section",
@@ -283,7 +460,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                     expected_version: workspace.section?.version ?? 0,
                     payload: editablePayload()
                   },
-                  "role draft saved",
+                  "角色草稿已保存",
                   "PUT"
                 )
               }
@@ -291,7 +468,12 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
               保存角色草稿
             </button>
             <button
-              disabled={busy || !workspace.section || workspace.section.status === "ready"}
+              disabled={
+                busy ||
+                !workspace.section ||
+                workspace.section.status === "ready" ||
+                !workspace.context.permissions.can_mark_ready
+              }
               onClick={() =>
                 void mutate<RoleDecisionSection>(
                   "/api/v1/bff/student/role-workspace/ready",
@@ -299,7 +481,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                     ...scope(),
                     expected_version: workspace.section?.version
                   },
-                  "role draft ready"
+                  "角色草稿已提交"
                 )
               }
             >
@@ -312,14 +494,15 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                   void mutate<StudentRoleWorkflowMergeDTO>(
                     "/api/v1/bff/student/role-workspace/merge",
                     scope(),
-                    "merge validated"
+                    "团队合并已校验"
                   )
                 }
               >
                 创建团队合并
               </button>
             ) : null}
-            {workspace.context.permissions.can_submit_canonical_decision ? (
+            {workspace.context.permissions.can_confirm_team_decision &&
+            workspace.context.permissions.can_submit_canonical_decision ? (
               <button
                 className="primary"
                 disabled={busy || !workspace.merge_candidate || Boolean(workspace.confirmation)}
@@ -330,7 +513,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                       ...scope(),
                       merge_commit_id: workspace.merge_candidate?.merge_commit_id
                     },
-                    "team decision confirmed"
+                    "团队决策已确认"
                   )
                 }
               >
@@ -339,7 +522,15 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
             ) : null}
           </div>
           <p className="evidence-note">
-            {workspace.merge_candidate?.status ?? "merge pending"} · private peer drafts hidden
+            {mergeStatus ? (
+              <>
+                {mergeStatus.primary}{" "}
+                <span className="compatibility-copy">{mergeStatus.compatibility}</span>
+              </>
+            ) : (
+              "等待团队合并"
+            )}{" "}
+            · 队友私有草稿不会显示
           </p>
         </>
       )}

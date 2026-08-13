@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
@@ -7,15 +7,27 @@ import {
 import type {
   ApiEnvelope,
   AuthSession,
+  ActorRole,
   Decision,
   DecisionPayload,
   P0DemoState,
+  DecisionPayloadFieldPath,
   StudentBffCockpitDTO
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
+import {
+  AllowedActionButton,
+  AppShell,
+  AuthorityBadge,
+  ContextBar,
+  KnownLimitBanner,
+  RoleNavigation,
+  StatePanel,
+  WorkbenchFrame
+} from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("student");
@@ -41,8 +53,150 @@ const DEMO_LOGIN_ENABLED =
   import.meta.env.VITE_SIMWAR_DEMO_MODE === "true" &&
   Boolean(DEMO_LOGIN.tenantId && DEMO_LOGIN.username && DEMO_LOGIN.password);
 
+export const STUDENT_NAVIGATION_ITEMS = [
+  { id: "student-role-mission", label: "角色任务" },
+  { id: "student-cockpit", label: "经营驾驶舱" },
+  { id: "student-evidence", label: "信息与证据" },
+  { id: "student-private-draft", label: "个人草稿" },
+  { id: "student-collaboration", label: "团队协作" },
+  { id: "student-divergence", label: "分歧冲突" },
+  { id: "student-confirmation", label: "团队确认" },
+  { id: "student-submission", label: "最终提交" },
+  { id: "student-results", label: "结果与因果链" },
+  { id: "student-debrief", label: "复盘" },
+  { id: "student-learning-report", label: "学习报告" },
+  { id: "student-learning-path", label: "学习路径" }
+] as const;
+
+export function isStudentSessionAllowed(roles: readonly ActorRole[]): boolean {
+  return roles.some((role) => role === "learner" || role === "team_captain" || role === "student");
+}
+
+export function isCurrentStudentRequest(requestId: number, currentId: number): boolean {
+  return requestId === currentId;
+}
+
+export function isStudentFieldEditable(
+  cockpit: StudentBffCockpitDTO | null,
+  field: string
+): boolean {
+  return (
+    cockpit !== null &&
+    cockpit.decision_form.editable_fields.includes(field as DecisionPayloadFieldPath)
+  );
+}
+
+export function getStudentAuthority(
+  hasStudentSession: boolean,
+  cockpit: StudentBffCockpitDTO | null
+): "official" | "unknown" {
+  return hasStudentSession &&
+    cockpit?.student_cockpit?.evidence_label === "STUDENT_PROJECTION_EVIDENCE" &&
+    cockpit.decision_form?.decision_schema_version === "m1-decision-form.v1"
+    ? "official"
+    : "unknown";
+}
+
+export type StudentRoleWorkflowAvailability = "checking" | "active" | "inactive" | "error";
+
+export function isLegacyStudentSubmitAllowed(
+  roleWorkflowAvailability: StudentRoleWorkflowAvailability,
+  serverAllowsSubmit: boolean
+): boolean {
+  return roleWorkflowAvailability === "inactive" && serverAllowsSubmit;
+}
+
+export function getStudentNoticeCopy(value: string): {
+  primary: string;
+  compatibility?: string;
+} {
+  if (value.includes("AUTH-401-002") || /invalid credentials/i.test(value)) {
+    return { primary: "登录失败，请检查租户、用户名和密码。", compatibility: value };
+  }
+  if (/^[A-Z][A-Z0-9_-]+(?:-\d+)*:/.test(value) || /\b(failed|error|denied)\b/i.test(value)) {
+    return { primary: "服务端请求失败，请检查当前上下文后重试。", compatibility: value };
+  }
+  return { primary: value };
+}
+
 function toStudentSafeCopy(value: string): string {
   return value.replaceAll("state_true", "正式真值字段");
+}
+
+const studentStatusLabels: Record<string, string> = {
+  open: "开放",
+  closed: "已关闭",
+  draft: "草稿",
+  pending: "待处理",
+  published: "已发布",
+  ready: "已就绪",
+  confirmed: "已确认",
+  active: "进行中"
+};
+
+function studentStatusCopy(value: string | undefined, fallback: string): ReactNode {
+  if (!value) return fallback;
+  return (
+    <>
+      {studentStatusLabels[value.toLowerCase()] ?? "服务端状态"}{" "}
+      <span className="compatibility-copy">{value}</span>
+    </>
+  );
+}
+
+/**
+ * The legacy demo-state route is retained only as a bootstrap source because
+ * no student bootstrap BFF exists yet. Keep the in-memory projection bounded
+ * to the authenticated learner's current run, round, team, and decision.
+ */
+export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
+  const ownTeam = source.teams.find(
+    (candidate) => candidate.team_id === source.current_user.team_id
+  );
+  const ownTeamId = ownTeam?.team_id;
+  const learnerOwnedRunIds = new Set(
+    source.decisions
+      .filter((decision) => decision.team_id === ownTeamId)
+      .map((decision) => decision.run_id)
+  );
+  if (source.latest_result?.results.some((result) => result.team_id === ownTeamId)) {
+    learnerOwnedRunIds.add(source.latest_result.run_id);
+  }
+  const latestRun = ownTeam
+    ? source.runs
+        .slice()
+        .reverse()
+        .find((run) => run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
+    : undefined;
+  const latestRound = latestRun
+    ? source.rounds
+        .filter((round) => round.run_id === latestRun.run_id)
+        .sort((left, right) => left.round_no - right.round_no)
+        .at(-1)
+    : undefined;
+  const { tenants, users, roles, permissions, latest_result, audit_logs, ...safeSource } = source;
+  void tenants;
+  void users;
+  void roles;
+  void permissions;
+  void latest_result;
+  void audit_logs;
+  return {
+    ...safeSource,
+    courses: source.courses.filter(
+      (course) => course.course_id === (latestRun?.course_id ?? ownTeam?.course_id)
+    ),
+    teams: ownTeam ? [ownTeam] : [],
+    runs: latestRun ? [latestRun] : [],
+    rounds: latestRound ? [latestRound] : [],
+    decisions: source.decisions.filter(
+      (candidate) =>
+        candidate.team_id === ownTeamId &&
+        candidate.run_id === latestRun?.run_id &&
+        candidate.round_no === latestRound?.round_no
+    ),
+    audit_logs: []
+  };
 }
 
 const defaultDecision: DecisionPayload = {
@@ -56,7 +210,13 @@ const defaultDecision: DecisionPayload = {
 
 async function apiRequest<TData>(
   path: string,
-  options: { method?: string; token?: string; tenantId?: string; body?: unknown } = {}
+  options: {
+    method?: string;
+    token?: string;
+    tenantId?: string;
+    body?: unknown;
+    signal?: AbortSignal;
+  } = {}
 ): Promise<TData> {
   const headers: Record<string, string> = {
     "content-type": "application/json"
@@ -73,7 +233,8 @@ async function apiRequest<TData>(
 
   const init: RequestInit = {
     method: options.method ?? "GET",
-    headers
+    headers,
+    ...(options.signal ? { signal: options.signal } : {})
   };
 
   if (options.body) {
@@ -97,8 +258,23 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("ready");
-  const [roleWorkflowActive, setRoleWorkflowActive] = useState(false);
+  const [notice, setNotice] = useState("等待服务端状态");
+  const [workspacePhase, setWorkspacePhase] = useState<
+    "idle" | "loading" | "empty" | "ready" | "error"
+  >("idle");
+  const [roleWorkflowAvailability, setRoleWorkflowAvailability] =
+    useState<StudentRoleWorkflowAvailability>("checking");
+  const refreshIdentity = useRef(0);
+  const refreshController = useRef<AbortController | null>(null);
+  const authIdentity = useRef(0);
+  const authController = useRef<AbortController | null>(null);
+  const decisionIdentity = useRef(0);
+  const decisionController = useRef<AbortController | null>(null);
+
+  function invalidateDecisionRequest(): void {
+    decisionIdentity.current += 1;
+    decisionController.current?.abort();
+  }
 
   const latestRun = state?.runs.at(-1);
   const latestRound = latestRun
@@ -122,46 +298,88 @@ export function App() {
     );
   }, [latestRun, latestRound, team, state]);
 
+  const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
+
   const refresh = useCallback(async () => {
-    if (!session) {
+    const requestId = ++refreshIdentity.current;
+    refreshController.current?.abort();
+    const controller = new AbortController();
+    refreshController.current = controller;
+    if (!session || !isStudentSession) {
       return;
     }
+    setState(null);
+    setCockpit(null);
+    setWorkspacePhase("loading");
+    setRoleWorkflowAvailability("checking");
 
-    const auth = { token: session.access_token, tenantId: login.tenantId };
-    const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
-    const nextRun = nextState.runs.at(-1);
-    const nextRound = nextRun
-      ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
-      : undefined;
+    try {
+      const auth = {
+        token: session.access_token,
+        tenantId: login.tenantId,
+        signal: controller.signal
+      };
+      const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+      if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+      const studentState = projectStudentBootstrapState(nextState);
+      const nextRun = studentState.runs.at(-1);
+      const nextRound = nextRun
+        ? studentState.rounds.find((round) => round.run_id === nextRun.run_id)
+        : undefined;
 
-    setState(nextState);
+      setState(studentState);
 
-    if (!nextRun || !nextRound) {
-      setCockpit(null);
-      return;
-    }
+      if (!nextRun || !nextRound) {
+        setCockpit(null);
+        setWorkspacePhase("empty");
+        return;
+      }
 
-    setCockpit(
-      await apiRequest<StudentBffCockpitDTO>(
+      const nextCockpit = await apiRequest<StudentBffCockpitDTO>(
         `/api/v1/bff/student/runs/${nextRun.run_id}/rounds/${nextRound.round_no}/cockpit`,
         auth
-      )
-    );
-  }, [login.tenantId, session]);
+      );
+      if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+      setCockpit(nextCockpit);
+      setWorkspacePhase("ready");
+    } catch (error) {
+      if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
+        return;
+      setWorkspacePhase("error");
+      throw error;
+    }
+  }, [isStudentSession, login.tenantId, session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
+    authIdentity.current += 1;
+    refreshIdentity.current += 1;
+    authController.current?.abort();
+    refreshController.current?.abort();
+    invalidateDecisionRequest();
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
     setCockpit(null);
-    setNotice("context changed");
+    setWorkspacePhase("idle");
+    setRoleWorkflowAvailability("checking");
+    setDecision(defaultDecision);
+    setBusy(false);
+    setNotice("登录上下文已更改 · context changed");
   }
 
   async function signIn(nextLogin = login): Promise<void> {
+    const requestId = ++authIdentity.current;
+    authController.current?.abort();
+    invalidateDecisionRequest();
+    const controller = new AbortController();
+    authController.current = controller;
     setBusy(true);
     setSession(null);
     setState(null);
     setCockpit(null);
+    setWorkspacePhase("idle");
+    setRoleWorkflowAvailability("checking");
+    setDecision(defaultDecision);
     try {
       const nextSession = await apiRequest<AuthSession>("/api/v1/auth/login", {
         method: "POST",
@@ -169,501 +387,797 @@ export function App() {
         body: {
           username: nextLogin.username,
           password: nextLogin.password
-        }
+        },
+        signal: controller.signal
       });
+      if (requestId !== authIdentity.current) return;
+      setLogin(nextLogin);
       setSession(nextSession);
-      setNotice("signed in");
+      setNotice(
+        isStudentSessionAllowed(nextSession.user.roles) ? "已登录" : "当前账号无学员工作区权限"
+      );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "login failed");
+      if (controller.signal.aborted || requestId !== authIdentity.current) return;
+      setNotice(error instanceof Error ? error.message : "登录失败");
     } finally {
-      setBusy(false);
+      if (requestId === authIdentity.current) setBusy(false);
     }
   }
 
   useEffect(() => {
-    refresh().catch((error: unknown) => {
-      setNotice(error instanceof Error ? error.message : "load failed");
+    const request = refresh();
+    const requestId = refreshIdentity.current;
+    request.catch((error: unknown) => {
+      if (requestId !== refreshIdentity.current) return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setNotice(error instanceof Error ? error.message : "加载失败");
     });
+    return () => {
+      refreshController.current?.abort();
+      refreshIdentity.current += 1;
+    };
   }, [refresh]);
 
   async function submitDecision(): Promise<void> {
-    if (!session || !latestRun || !latestRound || !team) {
-      setNotice("waiting for round");
+    const allowedActions = cockpit?.decision_form.allowed_actions ?? [];
+    if (
+      !session ||
+      !isStudentSession ||
+      !latestRun ||
+      !latestRound ||
+      !team ||
+      !isLegacyStudentSubmitAllowed(
+        roleWorkflowAvailability,
+        allowedActions.includes("decision:submit")
+      )
+    ) {
+      setNotice("当前回合尚未授予正式提交权限");
       return;
     }
 
+    const requestId = ++decisionIdentity.current;
+    decisionController.current?.abort();
+    const controller = new AbortController();
+    decisionController.current = controller;
+    const target = {
+      token: session.access_token,
+      tenantId: login.tenantId,
+      runId: latestRun.run_id,
+      roundNo: latestRound.round_no,
+      teamId: team.team_id
+    };
     setBusy(true);
     try {
       await apiRequest<Decision>(
-        `/api/v1/runs/${latestRun.run_id}/rounds/${latestRound.round_no}/decisions`,
+        `/api/v1/runs/${target.runId}/rounds/${target.roundNo}/decisions`,
         {
           method: "POST",
-          token: session.access_token,
-          tenantId: login.tenantId,
+          token: target.token,
+          tenantId: target.tenantId,
+          signal: controller.signal,
           body: {
-            team_id: team.team_id,
+            team_id: target.teamId,
             decision_payload: decision
           }
         }
       );
-      setNotice("decision submitted");
-      await refresh();
+      if (requestId !== decisionIdentity.current) return;
+      setNotice("正式决策已提交");
+      try {
+        await refresh();
+      } catch {
+        if (requestId === decisionIdentity.current) {
+          setNotice("正式决策已提交；最新工作区刷新失败，请重新加载。");
+        }
+      }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "submit failed");
+      if (controller.signal.aborted || requestId !== decisionIdentity.current) return;
+      setNotice(error instanceof Error ? error.message : "提交失败");
     } finally {
-      setBusy(false);
+      if (requestId === decisionIdentity.current) setBusy(false);
     }
   }
 
-  const canSubmit = Boolean(
-    latestRound?.status === "open" && team && session && !roleWorkflowActive
+  const serverAllowsLegacySubmit = Boolean(
+    latestRound?.status === "open" &&
+    team &&
+    session &&
+    isStudentSession &&
+    cockpit?.decision_form.allowed_actions.includes("decision:submit")
   );
-  const cards = [
-    ["身份", session?.user.display_name ?? "anonymous"],
-    ["课程", state?.courses[0]?.title ?? "loading"],
-    ["队伍", cockpit?.student_cockpit.visible_state.team_name ?? team?.name ?? "not assigned"],
+  const canSubmit = isLegacyStudentSubmitAllowed(
+    roleWorkflowAvailability,
+    serverAllowsLegacySubmit
+  );
+  const roleWorkflowActive = roleWorkflowAvailability === "active";
+  const isEditable = (field: string): boolean =>
+    latestRound?.status === "open" && isStudentFieldEditable(cockpit, field);
+  const cards: Array<[string, ReactNode]> = [
+    ["身份", session?.user.display_name ?? "未登录"],
+    ["课程", state?.courses[0]?.title ?? "等待课程"],
+    ["队伍", cockpit?.student_cockpit.visible_state.team_name ?? team?.name ?? "尚未分配队伍"],
     [
       "回合",
-      cockpit?.student_cockpit.visible_state.round_status ?? latestRound?.status ?? "not created"
+      studentStatusCopy(
+        cockpit?.student_cockpit.visible_state.round_status ?? latestRound?.status,
+        "尚未创建回合"
+      )
     ],
-    ["决策", submittedDecision ? `v${submittedDecision.version}` : "draft"],
-    ["BFF", cockpit?.student_cockpit.evidence_label ?? "pending"]
+    ["决策", submittedDecision ? `v${submittedDecision.version}` : "草稿"],
+    ["BFF", studentStatusCopy(cockpit?.student_cockpit.evidence_label, "等待服务端投影")]
   ];
+  const hasStudentSurface = Boolean(session && isStudentSession);
+  const activeSession = session && isStudentSession ? session : null;
+  const visibleNavigationItems = hasStudentSurface
+    ? STUDENT_NAVIGATION_ITEMS
+    : [STUDENT_NAVIGATION_ITEMS[0]];
+  const studentContext = {
+    tenant: hasStudentSurface ? login.tenantId : undefined,
+    course: hasStudentSurface ? state?.courses[0]?.title : undefined,
+    session: hasStudentSurface ? session?.user.display_name : undefined,
+    run: hasStudentSurface ? latestRun?.run_id : undefined,
+    round: hasStudentSurface ? latestRound?.round_no : undefined,
+    team: hasStudentSurface ? cockpit?.student_cockpit.visible_state.team_name : undefined,
+    role: hasStudentSurface ? "学员" : undefined,
+    mode: "JSON_INTERNAL_ONLY"
+  };
+  const noticeCopy = getStudentNoticeCopy(notice);
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Student Cockpit</p>
-          <h1>SimWar M1 学员驾驶舱</h1>
-          <span className="official-label">{resultLabel}</span>
-          <span className="identity">
-            {session ? `${session.user.roles.join(" / ")} · ${login.tenantId}` : "not signed in"}
-          </span>
-        </div>
-        <span className="badge">JSON active runtime</span>
-      </header>
-
-      <section className="login-strip" aria-label="student login">
-        <input
-          aria-label="tenant"
-          value={login.tenantId}
-          onChange={(event) => updateLogin("tenantId", event.target.value)}
-        />
-        <input
-          aria-label="username"
-          value={login.username}
-          onChange={(event) => updateLogin("username", event.target.value)}
-        />
-        <input
-          aria-label="password"
-          type="password"
-          value={login.password}
-          onChange={(event) => updateLogin("password", event.target.value)}
-        />
-        <button disabled={busy} onClick={() => void signIn()}>
-          学员登录
-        </button>
-        {DEMO_LOGIN_ENABLED ? (
-          <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
-            演示登录
-          </button>
-        ) : null}
-      </section>
-
-      {session ? (
-        <GoldenJourneyWorkbench
-          courseId={latestRun?.course_id}
-          runId={latestRun?.run_id}
-          teamId={team?.team_id}
-          tenantId={login.tenantId}
-          token={session.access_token}
-        />
-      ) : null}
-
-      {session ? (
-        <section className="known-limits-disclosure" aria-label="known limits product disclosure">
-          <p className="eyebrow">Internal Use Boundary</p>
-          <h2>已知限制与内部使用说明</h2>
-          <p>{knownLimits.summary}</p>
-          <details>
-            <summary>查看完整限制</summary>
-            <p className="policy-version">Policy {knownLimits.policy_version}</p>
-            <ul>
-              {knownLimits.items.map((item) => (
-                <li key={item.semantic_id}>
-                  <strong>
-                    {item.semantic_id} · {item.title}
-                  </strong>
-                  <span>{item.role_note ?? item.description}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
+    <AppShell
+      workspaceTitle="SimWar M1 学员执行环境"
+      navigation={<RoleNavigation items={visibleNavigationItems} />}
+      banner={<ContextBar context={studentContext} />}
+      primaryAction={
+        <>
+          <AuthorityBadge authority={getStudentAuthority(hasStudentSurface, cockpit)} />
+          <span>{myResult ? "服务端正式结果" : "学员工作区权限"}</span>{" "}
+          {myResult ? <span className="compatibility-copy">{resultLabel}</span> : null}
+        </>
+      }
+    >
+      <div className="student-shell-content">
+        <section id="student-role-mission" className="student-location" aria-label="角色任务">
+          <WorkbenchFrame
+            ariaLabel="角色任务"
+            eyebrow="当前任务"
+            title="先确认角色边界，再开始协作"
+            badge={<AuthorityBadge authority="unknown" />}
+            boundary="工作区只消费当前学员的服务端投影；没有服务端上下文时不会推断队伍或权限。"
+          >
+            <h2 className="compatibility-heading">SimWar M1 学员驾驶舱</h2>
+            <section className="login-strip" aria-label="student login">
+              <label>
+                租户
+                <input
+                  aria-label="tenant"
+                  value={login.tenantId}
+                  onChange={(event) => updateLogin("tenantId", event.target.value)}
+                />
+              </label>
+              <label>
+                用户名
+                <input
+                  aria-label="username"
+                  value={login.username}
+                  onChange={(event) => updateLogin("username", event.target.value)}
+                />
+              </label>
+              <label>
+                密码
+                <input
+                  aria-label="password"
+                  type="password"
+                  value={login.password}
+                  onChange={(event) => updateLogin("password", event.target.value)}
+                />
+              </label>
+              <button disabled={busy} onClick={() => void signIn()}>
+                学员登录
+              </button>
+              {DEMO_LOGIN_ENABLED ? (
+                <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
+                  演示登录
+                </button>
+              ) : null}
+            </section>
+            {!session ? (
+              <StatePanel
+                status="unknown"
+                message={
+                  <>
+                    {notice.startsWith("登录上下文已更改")
+                      ? "登录上下文已更改，请重新登录。"
+                      : noticeCopy.compatibility
+                        ? noticeCopy.primary
+                        : "请登录后查看当前学员工作区。"}{" "}
+                    <span className="compatibility-copy">
+                      not signed in ·{" "}
+                      {notice.startsWith("登录上下文已更改")
+                        ? "context changed"
+                        : (noticeCopy.compatibility ?? "ready")}
+                    </span>
+                  </>
+                }
+              />
+            ) : !isStudentSession ? (
+              <StatePanel status="permission-denied" message="当前账号没有学员工作区权限。" />
+            ) : (
+              <>
+                <p className="student-task-summary">
+                  学员工作区 · {activeSession?.user.display_name} · {login.tenantId} ·{" "}
+                  <span className="compatibility-copy">
+                    {activeSession?.user.roles.join(" / ")} · {login.tenantId} · signed in
+                  </span>
+                </p>
+                {workspacePhase === "error" ? (
+                  <StatePanel
+                    status="error"
+                    message="学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+                    recoveryAction="重新加载学员工作区"
+                    onRecover={() => void refresh().catch(() => undefined)}
+                  />
+                ) : null}
+              </>
+            )}
+          </WorkbenchFrame>
         </section>
-      ) : null}
 
-      <section className="board" aria-label="learner status">
-        {cards.map(([name, value]) => (
-          <article className="row" key={name}>
-            <span>{name}</span>
-            <strong>{value}</strong>
-          </article>
-        ))}
-      </section>
-
-      {session ? (
-        <StudentRoleWorkflowPanel
-          active={latestRound?.status === "open"}
-          roundId={latestRound?.round_id}
-          runId={latestRun?.run_id}
-          teamId={team?.team_id}
-          tenantId={login.tenantId}
-          token={session.access_token}
-          onActiveChange={setRoleWorkflowActive}
-        />
-      ) : null}
-
-      {session ? (
-        <StudentRoleAdvisor
-          apiBase={API_BASE}
-          roundId={latestRound?.round_id}
-          runId={latestRun?.run_id}
-          teamId={team?.team_id}
-          tenantId={login.tenantId}
-          token={session.access_token}
-        />
-      ) : null}
-
-      {session ? (
-        <StudentLearningReportPanel tenantId={login.tenantId} token={session.access_token} />
-      ) : null}
-
-      <section className="learner-guide" aria-label="M1 learner onboarding">
-        <article className="panel guide-panel">
-          <div className="panel-title">
-            <h2>学员试讲导入</h2>
-            <span>{learnerKit.title}</span>
-          </div>
-          <p>{learnerKit.roleBriefing}</p>
-          <ul>
-            {learnerKit.decisionRules.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="panel guide-panel">
-          <div className="panel-title">
-            <h2>提交前检查</h2>
-            <span>Team decision</span>
-          </div>
-          <ul>
-            {learnerKit.submissionChecklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="panel guide-panel">
-          <div className="panel-title">
-            <h2>反馈怎么读</h2>
-            <span>safe result view</span>
-          </div>
-          <ul>
-            {learnerKit.resultReadingGuide.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <p className="visibility-note">{toStudentSafeCopy(learnerKit.visibilityBoundary)}</p>
-        </article>
-      </section>
-
-      {cockpit ? (
-        <section className="bff-surface" aria-label="student bff dto surface">
-          <article className="panel bff-panel">
-            <div className="panel-title">
-              <h2>BFF 学员驾驶舱</h2>
-              <span>{cockpit.student_cockpit.evidence_label}</span>
-            </div>
-            <div className="status-grid">
-              <div>
-                <span>Team</span>
-                <strong>{cockpit.student_cockpit.visible_state.team_name}</strong>
-              </div>
-              <div>
-                <span>Round</span>
-                <strong>{cockpit.student_cockpit.visible_state.round_status}</strong>
-              </div>
-              <div>
-                <span>Tenant</span>
-                <strong>{cockpit.student_cockpit.tenant_id}</strong>
-              </div>
-            </div>
-            <p className="evidence-note">
-              Protected fields hidden: {cockpit.student_cockpit.forbidden_fields.length}
+        {hasStudentSurface ? (
+          <section className="known-limits-disclosure" aria-label="known limits product disclosure">
+            <p className="eyebrow">
+              内部使用边界 <span className="compatibility-copy">Internal Use Boundary</span>
             </p>
-          </article>
+            <h2>已知限制与内部使用说明</h2>
+            <p>{knownLimits.summary}</p>
+            <KnownLimitBanner
+              limitation="当前运行时仍为 JSON_INTERNAL_ONLY。"
+              unaffected="学员安全 BFF 投影、角色草稿与确认链保持原有服务端边界。"
+              notProven="尚未证明持久化恢复、生产部署或跨租户可见性。"
+              scope="范围：当前学员、本租户、本队伍。"
+            />
+            <details>
+              <summary>查看完整限制</summary>
+              <p className="policy-version">Policy {knownLimits.policy_version}</p>
+              <ul>
+                {knownLimits.items.map((item) => (
+                  <li key={item.semantic_id}>
+                    <strong>
+                      {item.semantic_id} · {item.title}
+                    </strong>
+                    <span>{item.role_note ?? item.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </section>
+        ) : null}
 
-          <article className="panel bff-panel">
-            <div className="panel-title">
-              <h2>BFF 决策表单</h2>
-              <span>{cockpit.decision_form.evidence_label}</span>
-            </div>
-            <div className="status-grid">
-              <div>
-                <span>Schema</span>
-                <strong>{cockpit.decision_form.decision_schema_version}</strong>
-              </div>
-              <div>
-                <span>Editable</span>
-                <strong>{cockpit.decision_form.editable_fields.length}</strong>
-              </div>
-              <div>
-                <span>Actions</span>
-                <strong>{cockpit.decision_form.allowed_actions.length}</strong>
-              </div>
-            </div>
-            <ul className="tag-list">
-              {cockpit.decision_form.editable_fields.map((field) => (
-                <li key={field}>{field}</li>
-              ))}
-            </ul>
-          </article>
+        {hasStudentSurface ? (
+          <section id="student-cockpit" className="student-location" aria-label="经营驾驶舱">
+            <WorkbenchFrame
+              ariaLabel="经营驾驶舱"
+              eyebrow="服务端投影"
+              title="当前经营上下文"
+              badge={<AuthorityBadge authority="unknown" />}
+              boundary="排名、分数与回合状态仅作为服务端投影显示，客户端不计算正式指标。"
+            >
+              <section className="board" aria-label="learner status">
+                {cards.map(([name, value]) => (
+                  <article className="row" key={name}>
+                    <span>{name}</span>
+                    <strong>{value}</strong>
+                  </article>
+                ))}
+              </section>
+            </WorkbenchFrame>
+          </section>
+        ) : null}
 
-          <article className="panel bff-panel">
-            <div className="panel-title">
-              <h2>BFF 发布结果</h2>
-              <span>{cockpit.published_result.evidence_label}</span>
-            </div>
-            {myResult ? (
+        {hasStudentSurface ? (
+          <section id="student-evidence" className="student-location" aria-label="信息与证据">
+            <GoldenJourneyWorkbench
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section id="student-private-draft" className="student-location" aria-label="个人草稿">
+            <StudentRoleWorkflowPanel
+              active={latestRound?.status === "open"}
+              roundId={latestRound?.round_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token}
+              onAvailabilityChange={setRoleWorkflowAvailability}
+            />
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <>
+            <section id="student-collaboration" className="student-location" aria-label="团队协作">
+              <WorkbenchFrame
+                ariaLabel="团队协作"
+                eyebrow="协作"
+                title="团队协作状态"
+                badge={<AuthorityBadge authority="draft" />}
+                boundary="仅显示当前队伍允许学员看到的协作状态，不展示其他成员的私有草稿。"
+              >
+                <StatePanel
+                  status={roleWorkflowActive ? "ready" : "unknown"}
+                  message={
+                    roleWorkflowActive
+                      ? "角色工作区已由服务端开放。"
+                      : "等待服务端返回当前队伍的角色协作上下文。"
+                  }
+                />
+              </WorkbenchFrame>
+            </section>
+            <section id="student-divergence" className="student-location" aria-label="分歧冲突">
+              <WorkbenchFrame
+                ariaLabel="分歧冲突"
+                eyebrow="冲突处理"
+                title="分歧与冲突"
+                badge={<AuthorityBadge authority="unknown" />}
+                boundary="当前 Student BFF 未提供对手或队友私有差异；没有服务端冲突证据时保持未知。"
+              >
+                <StatePanel status="unknown" message="尚无服务端冲突投影；不会在客户端猜测差异。" />
+                <KnownLimitBanner
+                  limitation="当前 BFF 没有返回跨成员私有差异。"
+                  unaffected="当前队伍的角色草稿和服务端确认链不受影响。"
+                  notProven="尚未证明跨队伍协作或对手策略可见性。"
+                  scope="范围：本学员、本租户、本回合。"
+                />
+              </WorkbenchFrame>
+            </section>
+            <section id="student-confirmation" className="student-location" aria-label="团队确认">
+              <WorkbenchFrame
+                ariaLabel="团队确认"
+                eyebrow="团队决策链"
+                title="团队确认"
+                badge={<AuthorityBadge authority="draft" />}
+                boundary="正式 Decision 只能由服务端允许的合并与确认链生成。"
+              >
+                <StatePanel
+                  status={roleWorkflowActive ? "partial" : "unknown"}
+                  message={
+                    roleWorkflowActive
+                      ? "请在角色工作区完成服务端校验后的团队确认。"
+                      : "当前没有可确认的服务端团队上下文。"
+                  }
+                />
+              </WorkbenchFrame>
+            </section>
+          </>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section className="workspace">
+            <article
+              id="student-submission"
+              className="panel form-panel student-location"
+              aria-label="最终提交"
+            >
+              <div className="panel-title">
+                <h2>结构化决策</h2>
+                <span role="status">
+                  {noticeCopy.primary}{" "}
+                  {noticeCopy.compatibility ? (
+                    <span className="compatibility-copy">{noticeCopy.compatibility}</span>
+                  ) : null}
+                </span>
+              </div>
+              <label>
+                定价
+                <input
+                  min="6000"
+                  max="30000"
+                  type="number"
+                  disabled={busy || !isEditable("pricing.base_price")}
+                  value={decision.pricing.base_price}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      pricing: { base_price: Number(event.target.value) }
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                营销预算
+                <input
+                  min="0"
+                  max="1000000"
+                  type="number"
+                  disabled={busy || !isEditable("marketing_budget")}
+                  value={decision.marketing_budget}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      marketing_budget: Number(event.target.value)
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                服务质量预算
+                <input
+                  min="0"
+                  max="1000000"
+                  type="number"
+                  disabled={busy || !isEditable("service_quality_budget")}
+                  value={decision.service_quality_budget}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      service_quality_budget: Number(event.target.value)
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                产能计划
+                <select
+                  disabled={busy || !isEditable("capacity_plan")}
+                  value={decision.capacity_plan}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      capacity_plan: event.target.value as DecisionPayload["capacity_plan"]
+                    }))
+                  }
+                >
+                  <option value="contract">收缩</option>
+                  <option value="hold">保持</option>
+                  <option value="expand">扩张</option>
+                </select>
+              </label>
+              <label>
+                现金缓冲
+                <input
+                  max="0.6"
+                  min="0"
+                  step="0.01"
+                  type="number"
+                  disabled={busy || !isEditable("cash_buffer_target")}
+                  value={decision.cash_buffer_target}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      cash_buffer_target: Number(event.target.value)
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                策略说明
+                <textarea
+                  disabled={busy || !isEditable("strategy_statement")}
+                  value={decision.strategy_statement}
+                  onChange={(event) =>
+                    setDecision((current) => ({
+                      ...current,
+                      strategy_statement: event.target.value
+                    }))
+                  }
+                />
+              </label>
+              <AllowedActionButton
+                className="primary"
+                action="decision:submit"
+                allowedActions={cockpit?.decision_form.allowed_actions ?? []}
+                disabled={!canSubmit}
+                loading={busy}
+                disabledReason={
+                  roleWorkflowActive
+                    ? "角色协作已启用，请完成团队确认后再提交。"
+                    : roleWorkflowAvailability === "checking"
+                      ? "正在核验服务端角色协作状态，正式提交暂时关闭。"
+                      : roleWorkflowAvailability === "error"
+                        ? "角色协作状态加载失败，正式提交已关闭。"
+                        : "当前回合尚未授予正式提交权限。"
+                }
+                onClick={() => void submitDecision()}
+              >
+                提交正式决策
+              </AllowedActionButton>
+              {roleWorkflowActive ? (
+                <p className="evidence-note">
+                  当前 Run 已启用角色协作，正式 Decision 仅由团队确认生成。
+                </p>
+              ) : null}
+            </article>
+
+            <article
+              id="student-results"
+              className="panel feedback student-location"
+              aria-label="结果与因果链"
+            >
+              <div className="panel-title">
+                <h2>M1 安全结果反馈</h2>
+                <span>
+                  {myResult ? "结果已发布" : "等待结果"}{" "}
+                  <span className="compatibility-copy">{myResult ? "published" : "pending"}</span>
+                </span>
+              </div>
+              {myResult ? (
+                <>
+                  <div className="feedback-block runtime-note">
+                    <span>结果边界</span>
+                    <strong>
+                      服务端正式结果 <span className="compatibility-copy">{resultLabel}</span>
+                    </strong>
+                    <p>学员视图只展示可见结果与反馈，不暴露正式真值字段。</p>
+                  </div>
+                  <div className="feedback-block">
+                    <span>发生了什么</span>
+                    <strong>
+                      排名 {myResult.state_obs.rank} / 分数 {myResult.state_obs.score}
+                    </strong>
+                    <p>
+                      服务需求 {myResult.state_obs.served_demand}，利润状态{" "}
+                      {myResult.state_obs.profit_band}。
+                    </p>
+                  </div>
+                  <div className="feedback-block">
+                    <span>为什么发生</span>
+                    <p>{myResult.state_est.explanation}</p>
+                  </div>
+                  <div className="feedback-block">
+                    <span>下一步风险</span>
+                    <strong>{myResult.state_est.next_round_risk}</strong>
+                    <p>建议关注 {myResult.state_est.recommended_focus}。</p>
+                  </div>
+                  <p className="runtime-limits">
+                    当前边界：{publishedResult?.explicit_non_proof.join(" / ")}
+                  </p>
+                </>
+              ) : (
+                <p className="muted">结果发布后显示可见反馈。</p>
+              )}
+            </article>
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section id="student-debrief" className="student-location" aria-label="复盘">
+            <WorkbenchFrame
+              ariaLabel="复盘"
+              eyebrow="反馈"
+              title="复盘与建议"
+              badge={<AuthorityBadge authority="advisory" />}
+              boundary="建议内容仅供学习复盘，不能写入正式决策或结算真值。"
+            >
+              <StudentRoleAdvisor
+                apiBase={API_BASE}
+                roundId={latestRound?.round_id}
+                runId={latestRun?.run_id}
+                teamId={team?.team_id}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
+            </WorkbenchFrame>
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section id="student-learning-report" className="student-location" aria-label="学习报告">
+            <StudentLearningReportPanel
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section
+            id="student-learning-path"
+            className="learner-guide student-location"
+            aria-label="学习路径"
+          >
+            <article className="panel guide-panel">
+              <div className="panel-title">
+                <h2>学员试讲导入</h2>
+                <span>{learnerKit.title}</span>
+              </div>
+              <p>{learnerKit.roleBriefing}</p>
+              <ul>
+                {learnerKit.decisionRules.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="panel guide-panel">
+              <div className="panel-title">
+                <h2>提交前检查</h2>
+                <span>团队决策</span>
+              </div>
+              <ul>
+                {learnerKit.submissionChecklist.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+
+            <article className="panel guide-panel">
+              <div className="panel-title">
+                <h2>反馈怎么读</h2>
+                <span>安全结果视图</span>
+              </div>
+              <ul>
+                {learnerKit.resultReadingGuide.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <p className="visibility-note">{toStudentSafeCopy(learnerKit.visibilityBoundary)}</p>
+            </article>
+          </section>
+        ) : null}
+
+        {hasStudentSurface && cockpit ? (
+          <section
+            className="bff-surface"
+            aria-label="信息与证据补充"
+            data-logical-location="student-evidence"
+          >
+            <article className="panel bff-panel">
+              <div className="panel-title">
+                <h2>BFF 学员驾驶舱</h2>
+                <span>{cockpit.student_cockpit.evidence_label}</span>
+              </div>
               <div className="status-grid">
                 <div>
-                  <span>Rank</span>
-                  <strong>{myResult.state_obs.rank}</strong>
+                  <span>队伍</span>
+                  <strong>{cockpit.student_cockpit.visible_state.team_name}</strong>
                 </div>
                 <div>
-                  <span>Score</span>
-                  <strong>{myResult.state_obs.score}</strong>
-                </div>
-                <div>
-                  <span>Band</span>
-                  <strong>{myResult.state_obs.profit_band}</strong>
-                </div>
-              </div>
-            ) : (
-              <p className="muted">结果发布后显示可见反馈。</p>
-            )}
-            <p className="evidence-note">{cockpit.published_result.result_label}</p>
-          </article>
-
-          <article className="panel bff-panel">
-            <div className="panel-title">
-              <h2>三段式反馈</h2>
-              <span>{cockpit.three_part_feedback.evidence_label}</span>
-            </div>
-            {cockpit.three_part_feedback.feedback.what_happened ? (
-              <div className="feedback-stack">
-                <div>
-                  <span>What happened</span>
+                  <span>回合</span>
                   <strong>
-                    Rank {cockpit.three_part_feedback.feedback.what_happened.rank} / Score{" "}
-                    {cockpit.three_part_feedback.feedback.what_happened.score}
+                    {studentStatusCopy(
+                      cockpit.student_cockpit.visible_state.round_status,
+                      "未知状态"
+                    )}
                   </strong>
                 </div>
                 <div>
-                  <span>Why it happened</span>
-                  <p>{cockpit.three_part_feedback.feedback.why_it_happened}</p>
+                  <span>租户</span>
+                  <strong>{cockpit.student_cockpit.tenant_id}</strong>
+                </div>
+              </div>
+              <p className="evidence-note">
+                受保护字段已隐藏：{cockpit.student_cockpit.forbidden_fields.length}
+              </p>
+            </article>
+
+            <article className="panel bff-panel">
+              <div className="panel-title">
+                <h2>BFF 决策表单</h2>
+                <span>{cockpit.decision_form.evidence_label}</span>
+              </div>
+              <div className="status-grid">
+                <div>
+                  <span>契约版本</span>
+                  <strong>{cockpit.decision_form.decision_schema_version}</strong>
                 </div>
                 <div>
-                  <span>Next step risk</span>
-                  <strong>{cockpit.three_part_feedback.feedback.next_step_risk}</strong>
+                  <span>可编辑字段</span>
+                  <strong>{cockpit.decision_form.editable_fields.length}</strong>
+                </div>
+                <div>
+                  <span>允许动作</span>
+                  <strong>{cockpit.decision_form.allowed_actions.length}</strong>
                 </div>
               </div>
-            ) : (
-              <p className="muted">等待发布后的三段式反馈。</p>
-            )}
-          </article>
+              <ul className="tag-list">
+                {cockpit.decision_form.editable_fields.map((field) => (
+                  <li key={field}>{field}</li>
+                ))}
+              </ul>
+            </article>
 
-          <article className="panel bff-panel">
-            <div className="panel-title">
-              <h2>Learning Report</h2>
-              <span>{cockpit.learning_report.evidence_label}</span>
-            </div>
-            <div className="status-grid">
-              <div>
-                <span>Advisory</span>
-                <strong>advisory_only: true</strong>
+            <article className="panel bff-panel">
+              <div className="panel-title">
+                <h2>BFF 发布结果</h2>
+                <span>{cockpit.published_result.evidence_label}</span>
               </div>
-              <div>
-                <span>Formal grade</span>
-                <strong>
-                  {cockpit.learning_report.learning_evidence.formal_grade ? "yes" : "no"}
-                </strong>
-              </div>
-              <div>
-                <span>Prompts</span>
-                <strong>{cockpit.learning_report.learning_evidence.prompts.length}</strong>
-              </div>
-            </div>
-            <ul className="compact-list">
-              {cockpit.learning_report.learning_evidence.prompts.map((prompt) => (
-                <li key={prompt}>{toStudentSafeCopy(prompt)}</li>
-              ))}
-            </ul>
-          </article>
-        </section>
-      ) : null}
-
-      <section className="workspace">
-        <article className="panel form-panel">
-          <div className="panel-title">
-            <h2>结构化决策</h2>
-            <span>{notice}</span>
-          </div>
-          <label>
-            定价
-            <input
-              min="6000"
-              max="30000"
-              type="number"
-              value={decision.pricing.base_price}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  pricing: { base_price: Number(event.target.value) }
-                }))
-              }
-            />
-          </label>
-          <label>
-            营销预算
-            <input
-              min="0"
-              max="1000000"
-              type="number"
-              value={decision.marketing_budget}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  marketing_budget: Number(event.target.value)
-                }))
-              }
-            />
-          </label>
-          <label>
-            服务质量预算
-            <input
-              min="0"
-              max="1000000"
-              type="number"
-              value={decision.service_quality_budget}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  service_quality_budget: Number(event.target.value)
-                }))
-              }
-            />
-          </label>
-          <label>
-            产能计划
-            <select
-              value={decision.capacity_plan}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  capacity_plan: event.target.value as DecisionPayload["capacity_plan"]
-                }))
-              }
-            >
-              <option value="contract">收缩</option>
-              <option value="hold">保持</option>
-              <option value="expand">扩张</option>
-            </select>
-          </label>
-          <label>
-            现金缓冲
-            <input
-              max="0.6"
-              min="0"
-              step="0.01"
-              type="number"
-              value={decision.cash_buffer_target}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  cash_buffer_target: Number(event.target.value)
-                }))
-              }
-            />
-          </label>
-          <label>
-            策略说明
-            <textarea
-              value={decision.strategy_statement}
-              onChange={(event) =>
-                setDecision((current) => ({
-                  ...current,
-                  strategy_statement: event.target.value
-                }))
-              }
-            />
-          </label>
-          <button
-            className="primary"
-            disabled={!canSubmit || busy}
-            onClick={() => void submitDecision()}
-          >
-            {busy ? "提交中" : "提交决策"}
-          </button>
-          {roleWorkflowActive ? (
-            <p className="evidence-note">
-              当前 Run 已启用角色协作，正式 Decision 仅由团队确认生成。
-            </p>
-          ) : null}
-        </article>
-
-        <article className="panel feedback">
-          <div className="panel-title">
-            <h2>M1 安全结果反馈</h2>
-            <span>{myResult ? "published" : "pending"}</span>
-          </div>
-          {myResult ? (
-            <>
-              <div className="feedback-block runtime-note">
-                <span>结果边界</span>
-                <strong>{resultLabel}</strong>
-                <p>学员视图只展示可见结果与反馈，不暴露正式真值字段。</p>
-              </div>
-              <div className="feedback-block">
-                <span>发生了什么</span>
-                <strong>
-                  Rank {myResult.state_obs.rank} / Score {myResult.state_obs.score}
-                </strong>
-                <p>
-                  服务需求 {myResult.state_obs.served_demand}，利润状态{" "}
-                  {myResult.state_obs.profit_band}。
+              {myResult ? (
+                <div className="status-grid">
+                  <div>
+                    <span>排名（服务端投影）</span>
+                    <strong>{myResult.state_obs.rank}</strong>
+                  </div>
+                  <div>
+                    <span>分数（服务端投影）</span>
+                    <strong>{myResult.state_obs.score}</strong>
+                  </div>
+                  <div>
+                    <span>利润区间</span>
+                    <strong>{myResult.state_obs.profit_band}</strong>
+                  </div>
+                </div>
+              ) : (
+                <p className="muted">结果发布后显示可见反馈。</p>
+              )}
+              {myResult ? (
+                <p className="evidence-note">
+                  服务端结果标签：{" "}
+                  <span className="compatibility-copy">
+                    {cockpit.published_result.result_label}
+                  </span>
                 </p>
+              ) : null}
+            </article>
+
+            <article className="panel bff-panel">
+              <div className="panel-title">
+                <h2>三段式反馈</h2>
+                <span>{cockpit.three_part_feedback.evidence_label}</span>
               </div>
-              <div className="feedback-block">
-                <span>为什么发生</span>
-                <p>{myResult.state_est.explanation}</p>
+              {cockpit.three_part_feedback.feedback.what_happened ? (
+                <div className="feedback-stack">
+                  <div>
+                    <span>发生了什么</span>
+                    <strong>
+                      排名 {cockpit.three_part_feedback.feedback.what_happened.rank} / 分数{" "}
+                      {cockpit.three_part_feedback.feedback.what_happened.score}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>为什么发生</span>
+                    <p>{cockpit.three_part_feedback.feedback.why_it_happened}</p>
+                  </div>
+                  <div>
+                    <span>下一步风险</span>
+                    <strong>{cockpit.three_part_feedback.feedback.next_step_risk}</strong>
+                  </div>
+                </div>
+              ) : (
+                <p className="muted">等待发布后的三段式反馈。</p>
+              )}
+            </article>
+
+            <article className="panel bff-panel">
+              <div className="panel-title">
+                <h2>
+                  学习报告 <span className="compatibility-copy">Learning Report</span>
+                </h2>
+                <span>{cockpit.learning_report.evidence_label}</span>
               </div>
-              <div className="feedback-block">
-                <span>下一步风险</span>
-                <strong>{myResult.state_est.next_round_risk}</strong>
-                <p>建议关注 {myResult.state_est.recommended_focus}。</p>
+              <div className="status-grid">
+                <div>
+                  <span>建议范围</span>
+                  <strong>
+                    仅建议：是 <span className="compatibility-copy">advisory_only: true</span>
+                  </strong>
+                </div>
+                <div>
+                  <span>正式评分</span>
+                  <strong>
+                    {cockpit.learning_report.learning_evidence.formal_grade ? "是" : "否"}
+                  </strong>
+                </div>
+                <div>
+                  <span>学习提示</span>
+                  <strong>{cockpit.learning_report.learning_evidence.prompts.length}</strong>
+                </div>
               </div>
-              <p className="runtime-limits">
-                当前边界：{publishedResult?.explicit_non_proof.join(" / ")}
-              </p>
-            </>
-          ) : (
-            <p className="muted">结果发布后显示可见反馈。</p>
-          )}
-        </article>
-      </section>
-    </main>
+              <ul className="compact-list">
+                {cockpit.learning_report.learning_evidence.prompts.map((prompt) => (
+                  <li key={prompt}>{toStudentSafeCopy(prompt)}</li>
+                ))}
+              </ul>
+            </article>
+          </section>
+        ) : null}
+      </div>
+    </AppShell>
   );
 }

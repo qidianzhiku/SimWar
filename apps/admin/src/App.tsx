@@ -40,6 +40,7 @@ import {
   ADMIN_NAVIGATION_ITEMS,
   formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
+import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorkspace";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -1374,6 +1375,12 @@ export function App() {
             </div>
           </section>
         </section>
+      ) : null}
+
+      {session && hasAdminSummaryRole ? (
+        <EnterpriseCourseFactoryWorkspace
+          scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
+        />
       ) : null}
 
       {isTenantAdmin && state ? (

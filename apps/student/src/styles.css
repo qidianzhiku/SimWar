@@ -15,6 +15,88 @@ body {
   margin: 0;
 }
 
+.student-shell-content {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.student-location {
+  min-width: 0;
+  scroll-margin-top: 16px;
+}
+
+.student-location > .sw-workbench-frame {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.student-task-summary {
+  margin: 0;
+  color: #344451;
+  font-weight: 600;
+}
+
+.compatibility-copy {
+  color: #5b6a75;
+  font-size: 0.85em;
+}
+
+.compatibility-heading {
+  color: #5b6a75;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.student-shell-content .login-strip {
+  margin-top: 0;
+}
+
+.student-shell-content .login-strip label {
+  gap: 6px;
+}
+
+.student-shell-content .login-strip button {
+  min-height: 44px;
+}
+
+.student-shell-content .known-limits-disclosure {
+  margin: 0;
+}
+
+.student-shell-content .workspace {
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .student-shell-content {
+    gap: 18px;
+  }
+
+  .bff-surface {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .student-shell-content .login-strip,
+  .student-shell-content .workspace,
+  .student-shell-content .learner-guide,
+  .student-shell-content .bff-surface {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-shell-content .login-strip {
+    align-items: stretch;
+  }
+
+  .student-shell-content .login-strip button {
+    width: 100%;
+  }
+}
+
 .golden-journey-workbench {
   background: #fff;
   border: 1px solid #c8d7dc;
@@ -199,7 +281,7 @@ h2 {
   border-radius: 7px;
   color: #1f6472;
   cursor: pointer;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 14px;
 }
 
@@ -541,7 +623,7 @@ textarea {
   border: 1px solid #ccd7dc;
   border-radius: 7px;
   box-sizing: border-box;
-  min-height: 38px;
+  min-height: 44px;
   padding: 8px 10px;
   width: 100%;
 }
@@ -557,7 +639,7 @@ textarea {
   border-radius: 7px;
   color: #fff;
   cursor: pointer;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 16px;
 }
 
@@ -695,7 +777,7 @@ textarea {
 }
 
 .role-workflow-actions button {
-  min-height: 40px;
+  min-height: 44px;
 }
 
 @media (max-width: 780px) {
