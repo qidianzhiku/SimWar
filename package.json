@@ -22,7 +22,7 @@
     "test": "npm run build:test-prerequisites && npm run build -w @simwar/ui && vitest run",
     "test:e2e:ui": "npm run test:e2e:ui:core",
     "test:e2e:ui:core": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test && playwright test --config playwright.role-workflow.config.ts",
-    "test:unit:pr4": "vitest run tests/unit/ui-pr4-integration.test.tsx tests/unit/ui-student-refoundation.test.tsx",
+    "test:unit:pr4": "vitest run tests/unit/ui-pr4-integration.test.tsx tests/unit/ui-student-refoundation.test.tsx tests/unit/ui-refoundation-coverage-matrix.test.ts",
     "test:e2e:ui:pr4": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.pr4.config.ts",
     "check:pr4:head": "node scripts/check-pr4-exact-head.mjs",
     "measure:frontend:budgets": "node scripts/measure-frontend-budgets.mjs",

@@ -127,7 +127,7 @@ SimWar 有 student、teacher、admin 三端，浏览器端到端测试是必要�
 
 PR4 当前已落地的前端集成门禁（使用 npm workspace 命令）包括：
 
-- `npm run test:unit:pr4`：Admin/Teacher manifest、Student hash/refresh 回归和 PR4 工具脚本单元测试。
+- `npm run test:unit:pr4`：Admin/Teacher manifest、Student hash/refresh 回归、PR4 工具脚本，以及 UI route/state CSV 矩形和 34 个当前逻辑 hash 目的地的 browser-evidence 绑定测试。
 - `npm run test:e2e:ui` / `npm run test:e2e:ui:core`：当前非 PR4 的 Admin、Teacher、Student 和既有 role-workflow 浏览器套件；默认配置显式忽略 `pr4-*.spec.ts`，不要求 PR4 外部证据环境。
 - `npm run test:e2e:ui:pr4`：focused PR4 真浏览器套件，覆盖 Admin、Enterprise（现有 Admin 只读投影）、Teacher、Student 和 `@simwar/ui` DesignSystemLab（port 3004）；要求绝对且仓库外的 `PR4_EVIDENCE_ROOT` 与受控临时 `SIMWAR_PLAYWRIGHT_STORE_FILE`。
 - `npm run measure:frontend:budgets -- --base-sha <BASE> --head-sha <HEAD>`：读取三端 built dist，输出带 BASE/HEAD/actual SHA provenance 的 raw/gzip 预算报告。
