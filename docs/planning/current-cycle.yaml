@@ -1,100 +1,106 @@
-cycle_id: L1PLUS-CYCLE-024-W024-POSTGRES-BOUNDED-COURSE-RUN
+cycle_id: UI-FRONTEND-EXPERIENCE-REFOUNDATION-20260814
 stage: L1_PLUS
-status: CLOSED_AND_CURRENT_WITH_LIMITS
-started_at: "2026-08-12T09:13:27Z"
-closed_at: "2026-08-12T10:30:04Z"
+status: GOVERNANCE_CLOSURE_PENDING_WITH_DECLARED_LIMITS
+started_at: "2026-08-13T00:48:00Z"
+product_closed_at: "2026-08-13T18:56:00Z"
+governance_updated_at: "2026-08-13T19:20:00Z"
 repository: qidianzhiku/SimWar
-source_sha: a66c207bf23027d0245892879ec18b7920082113
-assessment_source_anchor_sha: a66c207bf23027d0245892879ec18b7920082113
-product_evidence_source_sha: a66c207bf23027d0245892879ec18b7920082113
-product_candidate_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
-product_pr: 370
-product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
+source_sha: 59bad25e093f99d81256511060194be865f057d7
+assessment_source_anchor_sha: 59bad25e093f99d81256511060194be865f057d7
+product_evidence_source_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
+product_candidate_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
+product_prs:
+  - 373
+  - 375
+  - 376
+  - 377
+product_merge_sha: 59bad25e093f99d81256511060194be865f057d7
+governance_pr: 378
 governance_closure_merge_sha: null
-current_master_at_readback: a66c207bf23027d0245892879ec18b7920082113
-runtime_authority: JSON_INTERNAL_ONLY_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_COURSE_RUN
-postgresql_application_runtime: BOUNDED_COURSE_RUN_ONLY
-postgresql_runtime_fallback: FORBIDDEN
+governance_closure_readback: PENDING_UNTIL_PR_378_MERGES
+current_master_at_readback: 59bad25e093f99d81256511060194be865f057d7
+runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 automatic_next_start: false
 predecessor:
-  cycle_id: L1PLUS-CYCLE-023-W023-HUMAN-VALIDATION-SESSION-CONTROL-PLANE
-  merge_sha: 1387c9c726bcc6917d8668484f85210bd8cb4471
-  completed_product_baseline: 1387c9c726bcc6917d8668484f85210bd8cb4471
-primary_outcome: BOUNDED_COURSE_RUN_POSTGRES_RUNTIME_CUTOVER_VERIFIED
+  cycle_id: L1PLUS-CYCLE-025-W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
+  product_pr: 372
+  merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+  completed_product_baseline: 93883f47af9d1ee8892eeabf40f78240c186589a
+primary_outcome: SIMWAR_FRONTEND_EXPERIENCE_REFOUNDATION_COMPLETE_WITH_LIMITS
 scope:
-  - explicit SIMWAR_REPOSITORY_MODE=postgres for bounded Course/Run runtime
-  - PostgreSQL migrations 0001 through 0006 with 0001-0005 byte identity preserved
-  - durable role workflow, canonical decision, settlement and replay persistence
-  - API stop/restart before and after settlement
-  - exact retry reuse and conflicting retry fail closed
-  - tenant isolation and clean disposable database lifecycle
+  - shared frontend shell, navigation, authority, state, action, and workbench primitives
+  - Admin, Teacher, Student, and Enterprise read-only logical projection experience refoundation
+  - DesignSystemLab, accessibility, responsive, visual-regression, performance, and exact-SHA gates
+  - no settlement, canonical decision, replay hash, permission, tenant, Student visibility, or database authority change
 validation:
-  acceptance: PASS_149_ROWS_0_NOT_MAPPED
-  postgres_runtime: PASS_W024_DURABLE_JOURNEY
-  postgres_replay: PASS_20_OF_20
-  contract: PASS_19_FILES_47_TESTS
-  default_full_vitest: PASS_184_FILES_1146_TESTS
-  browser: PASS_80_PASSED_9_SKIPPED
-  role_workflow_browser: PASS_1
-  direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0
-  hidden_unicode: PASS
-  typecheck: PASS
-  lint: PASS
-  build: PASS
-  security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  graph_companion_postmerge: PLAN_ALLOWED_WITH_LIMITS
-  graphify: CURRENT_HEALTHY_AT_PRODUCT_CANDIDATE
-  codegraph: DEGRADED_REMOTE_INDEX_CANDIDATE_UNAVAILABLE
-  fresh_clone: PASS_CLEAN_DETACHED_AT_MERGE_SHA
+  github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  fresh_clone_source: PASS_CLEAN_DETACHED_AT_59BAD25
+  fresh_clone_install: PASS_NPM_CI
+  fresh_clone_hidden_unicode: PASS
+  fresh_clone_direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0_AMBIGUOUS_0
+  fresh_clone_lint: PASS
+  fresh_clone_typecheck: PASS
+  fresh_clone_build: PASS
+  fresh_clone_pr4_unit: PASS_4_FILES_49_TESTS
+  fresh_clone_contract: PASS_20_FILES_48_TESTS
+  fresh_clone_default_vitest: PASS_WITH_LOCAL_TIMEOUT_LIMIT_198_FILES_1273_TESTS
+  fresh_clone_browser: PASS_WITH_BOUNDED_RETRY_108_PRIMARY_3_RETRY_11_SKIPPED
+  fresh_clone_role_workflow_browser: PASS_1
+  fresh_clone_pr4_browser: PASS_4_AFTER_COLD_START_RETRY
+  fresh_clone_visual: PASS_20_OF_20_ZERO_FAILURES
+  fresh_clone_runtime: PASS_12_PRODUCT_4_LAB_WITHIN_BUDGET
+  postgres_replay: PASS_REMOTE_20_OF_20_LOCAL_URL_NOT_CONFIGURED
+  security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH
+  repository_format: KNOWN_LIMIT_52_EXISTING_FILES
+  codegraph: UNAVAILABLE_NO_DOT_CODEGRAPH
 evidence:
-  evidence_root: C:/Temp/simwar-w024-postgres-durable-course-runtime-20260812T091327Z
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/370
-  product_candidate_sha: eaa0842801e079b05d4eaf677ebe30a687164c08
-  product_merge_sha: a66c207bf23027d0245892879ec18b7920082113
-  product_manifest_sha256: c67a11d6d0357994947da3c443b39f3bdde0c2a43257e099193238730ed46078
-  fresh_clone: C:/Temp/simwar-w024-fresh-a66c207-20260812T1030Z
-  fresh_clone_postmerge_receipt: 15-fresh-clone-postmerge-w024-durable-course-runtime-report.json
-  merge_readback_receipt: 14-product-merge-readback.json
-  graph_readback: PLAN_ALLOWED_WITH_LIMITS
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/377
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/378
+  product_candidate_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
+  product_merge_sha: 59bad25e093f99d81256511060194be865f057d7
+  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/SimWar-ui-fresh-20260814T015724
+  fresh_clone_evidence_root: C:/Users/Marshall/AppData/Local/Temp/simwar-ui-fresh-evidence-59bad25
+  visual_manifest_sha256: f3c19d71d83895cc954a733b4a3a7a1c36882c71084cd24a85d4db1e88f55951
+  base_capture_receipt_sha256: ab2ed4f35a32506d9e83c7cbb0bf8d106c05a44f95c51f8f188dccd4aaf8a1aa
+  remote_product_run: 31727399201
 resource_locks:
-  status: RELEASED_AFTER_POSTMERGE_AND_GOVERNANCE_READBACK
+  status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
   released:
-    - W024_BOUNDED_COURSE_RUN_POSTGRES_RUNTIME
-    - W024_POSTGRES_MIGRATIONS
-    - W024_RESTART_AND_REPLAY_VALIDATION
-    - W024_SERIAL_MERGE
-    - W024_POST_MERGE_FRESH_CLONE
-    - W024_GOVERNANCE_CLOSURE
+    - UI_PR1_FOUNDATION
+    - UI_PR2_ADMIN_TEACHER
+    - UI_PR3_STUDENT_ENTERPRISE
+    - UI_PR4_INTEGRATION_GATES
+    - UI_PRODUCT_SERIAL_BROWSER
+  pending:
+    - UI_GOVERNANCE_CLOSURE_PR_378
 candidate_backlog:
-  - candidate_id: CAND-W024-A-ACTUAL-HUMAN-INTERNAL-VALIDATION
+  - candidate_id: CAND-UI-A-HUMAN-USABILITY-VALIDATION
     status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Requires a separate real independent teacher session and Owner/session authorization.
-  - candidate_id: CAND-W025-NEXT-MISSION
+    reason: Requires separate human participants, session authority, and consent.
+  - candidate_id: CAND-UI-NEXT-MISSION
     status: NOT_AUTHORIZED
-    reason: W025 is explicitly not authorized and automatic successor start is false.
+    reason: This closure forbids automatic successor start.
 known_limits:
-  runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_COURSE_RUN
-  postgres_application_runtime: NOT_GENERAL_ACTIVE_BOUNDED_ONLY
-  rls: NOT_AUTHORIZED
-  durable_recovery: NOT_PROVEN_BEYOND_VERIFIED_RESTART_JOURNEY
+  figma: CODE_FIRST_FALLBACK_STARTER_PLAN_LIMIT
+  enterprise: ADMIN_READ_ONLY_LOGICAL_PROJECTION_NO_INDEPENDENT_APP_OR_AUTHORITY
+  state_matrix: CLASSIFICATION_COMPLETE_NOT_UNIVERSAL_RUNTIME_OBSERVATION
+  teacher_advisory_aria: ISSUE_365_W020_OWNED_EXACT_NODE_EXCLUSION
+  local_default_vitest: WINDOWS_5_SECOND_TIMEOUT_FLAKE_REMOTE_DEFAULT_CI_GREEN
+  local_postgres_replay: SIMWAR_TEST_DATABASE_URL_NOT_CONFIGURED_REMOTE_20_OF_20
+  repository_format: 52_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
-  teaching_effectiveness: NOT_PROVEN
-  codegraph: DEGRADED_REMOTE_INDEX_CANNOT_READ_CANDIDATE
-  graph_companion: PLAN_ALLOWED_WITH_LIMITS_BEFORE_GOVERNANCE_READBACK
-  dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - This cycle does not authorize RLS, general PostgreSQL runtime, migration beyond 0006, Pilot or Production.
-  - Restart and replay evidence is bounded to the verified Course/Run journey; durable recovery beyond it is not proven.
-  - Human Validation and teaching effectiveness remain unperformed and unproven.
-  - W025 is not authorized and no successor starts automatically.
+  - This cycle does not authorize production deployment, a pilot, paid Figma work, or human validation.
+  - Route and state classification does not prove every applicable state cell was observed in a browser.
+  - No Enterprise app, BFF, route, authority, command, or writer was created.
+  - No successor starts automatically.
 invalidation_triggers:
-  - product_or_runtime_changed
-  - authority_or_truth_writer_changed
-  - settlement_or_replay_hash_semantics_changed
-  - student_visibility_changed
-  - fresh_clone_evidence_invalidated
-  - governance_readback_changed
-governance_closure_manifest_sha256: bcef52ef2f1d0cada44b8e37db354174ea9a0546e099d33c708adb83cd1d333d
+  - product_or_frontend_runtime_changed
+  - authority_truth_writer_or_student_visibility_changed
+  - settlement_canonical_decision_or_replay_hash_semantics_changed
+  - visual_threshold_or_baseline_contract_changed
+  - governance_merge_readback_changed
