@@ -64,6 +64,7 @@ function blockingAxeViolations(results: Awaited<ReturnType<AxeBuilder["analyze"]
 async function waitForLabSettled(page: Page, viewport: { width: number; height: number }) {
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready;
+    window.scrollTo({ left: 0, top: 0, behavior: "auto" });
   });
   const loadingCount = await page.locator('[data-state="loading"]:visible').count();
   if (loadingCount > 0) {

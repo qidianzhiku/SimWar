@@ -611,6 +611,8 @@ describe("Product PR4 integration contracts", () => {
     expect(labSource).toContain("fullPage: false");
     expect(mainSource).not.toContain("fullPage: true");
     expect(labSource).not.toContain("fullPage: true");
+    expect(mainSource).toContain('window.scrollTo({ left: 0, top: 0, behavior: "auto" })');
+    expect(labSource).toContain('window.scrollTo({ left: 0, top: 0, behavior: "auto" })');
   });
 
   it("fails focused runtime evidence when browser performance metrics are unsupported", () => {
