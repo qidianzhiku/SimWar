@@ -13,7 +13,7 @@ jobs:
       EXPECTED_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PR4_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
       PR4_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PR4_EVIDENCE_ROOT: ${{ runner.temp }}/simwar-pr4-quality
+      PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-quality-${{ github.run_id }}
     services:
       postgres:
         image: postgres:16
@@ -192,7 +192,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pr4-quality-evidence
-          path: ${{ runner.temp }}/simwar-pr4-quality
+          path: ${{ env.PR4_EVIDENCE_ROOT }}
           if-no-files-found: ignore
           retention-days: 14
   browser-smoke:
@@ -201,7 +201,7 @@ jobs:
       EXPECTED_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PR4_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
       PR4_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PR4_EVIDENCE_ROOT: ${{ runner.temp }}/simwar-pr4-browser
+      PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-browser-${{ github.run_id }}
       SIMWAR_PLAYWRIGHT_STORE_FILE: /tmp/simwar-playwright/pr4-${{ github.run_id }}/playwright-store.json
     steps:
       - uses: actions/checkout@v4
@@ -266,6 +266,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-pr4-integration
-          path: ${{ runner.temp }}/simwar-pr4-browser
+          path: ${{ env.PR4_EVIDENCE_ROOT }}
           if-no-files-found: ignore
           retention-days: 14

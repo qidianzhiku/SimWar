@@ -655,6 +655,10 @@ describe("Product PR4 integration contracts", () => {
     expect(ciSource).toContain('status === "failed"');
     expect(ciSource).toContain('status === "not_ready"');
     expect(ciSource.match(/--role-threshold student=0\.065/g)).toHaveLength(2);
+    expect(ciSource).not.toContain("PR4_EVIDENCE_ROOT: ${{ runner.temp }}");
+    expect(ciSource).toContain("PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-quality-${{ github.run_id }}");
+    expect(ciSource).toContain("PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-browser-${{ github.run_id }}");
+    expect(ciSource.match(/path: \$\{\{ env\.PR4_EVIDENCE_ROOT \}\}/g)).toHaveLength(2);
     expect(ciSource.indexOf('mkdir -p "$PR4_EVIDENCE_ROOT"')).toBeGreaterThan(-1);
     expect(ciSource.indexOf('mkdir -p "$PR4_EVIDENCE_ROOT"')).toBeLessThan(
       ciSource.indexOf("Measure PR4 frontend bundle budgets")
