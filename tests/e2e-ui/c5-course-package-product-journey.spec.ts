@@ -383,6 +383,7 @@ test("Teacher ignores an earlier CoursePackageVersion response after a later ses
 
   await page.goto(teacherBaseUrl);
   await signInTeacher(page);
+  await expect.poll(() => listCalls).toBe(1);
   const login = page.getByLabel("teacher login");
   await login.getByLabel("tenant").fill("tenant_other");
   await login.getByLabel("tenant").fill("tenant_demo");
