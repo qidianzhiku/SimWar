@@ -58,10 +58,10 @@ async function signIn(
 ) {
   const label =
     surface === "admin" ? "管理员登录" : surface === "teacher" ? "教师登录" : "学员登录";
-  await page.evaluate(() => performance.mark("pr4-sign-in-start"));
   await page.getByLabel("tenant").fill("tenant_demo");
   await page.getByLabel("username").fill(credentials.username);
   await page.getByLabel("password").fill(credentials.password);
+  await page.evaluate(() => performance.mark("pr4-sign-in-start"));
   await page.getByRole("button", { name: label }).click();
   await expect(
     page.getByLabel(surface === "student" ? "learner status" : "当前权限边界")
