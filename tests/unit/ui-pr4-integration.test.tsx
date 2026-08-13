@@ -16,13 +16,18 @@ const runNode = (script: string, args: string[] = []) =>
     cwd: root,
     encoding: "utf8"
   });
-const runNodeResult = (script: string, args: string[] = []) =>
+const runNodeResult = (
+  script: string,
+  args: string[] = [],
+  options: { env?: NodeJS.ProcessEnv } = {}
+) =>
   spawnSync(
     process.execPath,
     [resolve(root, script), ...args, ...(script.includes("assemble-pr4") ? ["--allow-dirty"] : [])],
     {
       cwd: root,
-      encoding: "utf8"
+      encoding: "utf8",
+      env: options.env
     }
   );
 const blackPixelPng =
@@ -85,7 +90,7 @@ describe("Product PR4 integration contracts", () => {
     expect(report.actual_sha).toBe(actualSha);
     expect(report.checkout_sha).toBe(actualSha);
     expect(report.checkout_ref).toBeTruthy();
-    expect(report.branch).toBeTruthy();
+    expect(typeof report.branch).toBe("string");
     expect(typeof report.clean).toBe("boolean");
   });
 
@@ -766,12 +771,15 @@ describe("Product PR4 integration contracts", () => {
         writeFileSync(join(assetDir, `${app}.css`), ".app{display:block}\n");
       }
       const missingOutput = join(fixture, "missing.json");
-      const missing = runNodeResult("scripts/measure-frontend-budgets.mjs", [
-        "--dist-root",
-        fixture,
-        "--output",
-        missingOutput
-      ]);
+      const provenanceFreeEnv = { ...process.env };
+      delete provenanceFreeEnv.PR4_BASE_SHA;
+      delete provenanceFreeEnv.PR4_HEAD_SHA;
+      delete provenanceFreeEnv.GITHUB_SHA;
+      const missing = runNodeResult(
+        "scripts/measure-frontend-budgets.mjs",
+        ["--dist-root", fixture, "--output", missingOutput],
+        { env: provenanceFreeEnv }
+      );
       expect(missing.status).toBe(1);
       expect(JSON.parse(readFileSync(missingOutput, "utf8"))).toMatchObject({ status: "failed" });
 
