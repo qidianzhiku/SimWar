@@ -175,6 +175,10 @@ body {
   color: #a52929;
 }
 
+.golden-journey-header button {
+  min-height: 44px;
+}
+
 @media (max-width: 640px) {
   .golden-journey-workbench {
     padding: 14px;

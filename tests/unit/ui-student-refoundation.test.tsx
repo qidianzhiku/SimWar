@@ -257,6 +257,250 @@ describe("Student executive workspace refoundation", () => {
     fetchMock.mockRestore();
   });
 
+  it("preserves an edited legacy draft when a committed decision refresh fails in the same context", async () => {
+    const session = {
+      access_token: "student-token",
+      session_id: "session-a",
+      user: {
+        display_name: "Student A",
+        roles: ["learner"],
+        tenant_id: "tenant-a",
+        user_id: "student-a"
+      }
+    };
+    const state = {
+      current_user: {
+        user_id: "student-a",
+        tenant_id: "tenant-a",
+        display_name: "Student A",
+        roles: ["learner"],
+        team_id: "team-a"
+      },
+      courses: [
+        {
+          course_id: "course-a",
+          tenant_id: "tenant-a",
+          title: "Course A",
+          status: "published",
+          scenario_package_id: "scenario-a",
+          parameter_set_id: "parameter-a",
+          created_by: "teacher-a"
+        }
+      ],
+      teams: [
+        {
+          team_id: "team-a",
+          tenant_id: "tenant-a",
+          course_id: "course-a",
+          name: "Team A",
+          captain_user_id: "student-a",
+          members: []
+        }
+      ],
+      runs: [
+        {
+          run_id: "run-a",
+          tenant_id: "tenant-a",
+          course_id: "course-a",
+          scenario_package_id: "scenario-a",
+          parameter_set_id: "parameter-a",
+          seed: 1,
+          status: "active"
+        }
+      ],
+      rounds: [
+        {
+          round_id: "round-a",
+          tenant_id: "tenant-a",
+          run_id: "run-a",
+          round_no: 1,
+          status: "open"
+        }
+      ],
+      decisions: [],
+      audit_logs: []
+    } as unknown as P0DemoState;
+    const cockpit = {
+      student_cockpit: {
+        actor_role: "student",
+        advisory_slots: [],
+        allowed_actions: ["decision:submit"],
+        course_id: "course-a",
+        explicit_non_proof: [],
+        forbidden_fields: ["state_true"],
+        round_id: "round-a",
+        round_no: 1,
+        run_id: "run-a",
+        source_runtime_path: ["student_bff"],
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        evidence_label: "STUDENT_PROJECTION_EVIDENCE",
+        visible_state: { course_status: "published", round_status: "open", team_name: "Team A" }
+      },
+      decision_form: {
+        actor_role: "student",
+        advisory_slots: [],
+        allowed_actions: ["decision:submit"],
+        course_id: "course-a",
+        explicit_non_proof: [],
+        forbidden_fields: [],
+        round_id: "round-a",
+        round_no: 1,
+        run_id: "run-a",
+        source_runtime_path: ["student_bff"],
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        evidence_label: "STUDENT_PROJECTION_EVIDENCE",
+        decision_schema_version: "m1-decision-form.v1",
+        editable_fields: [
+          "pricing.base_price",
+          "marketing_budget",
+          "service_quality_budget",
+          "capacity_plan",
+          "cash_buffer_target",
+          "strategy_statement"
+        ]
+      },
+      published_result: {
+        actor_role: "student",
+        advisory_slots: [],
+        allowed_actions: [],
+        course_id: "course-a",
+        explicit_non_proof: [],
+        forbidden_fields: [],
+        round_id: "round-a",
+        round_no: 1,
+        run_id: "run-a",
+        source_runtime_path: ["student_bff"],
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        evidence_label: "STUDENT_PROJECTION_EVIDENCE",
+        result_label: "M1 official result"
+      },
+      three_part_feedback: {
+        actor_role: "student",
+        advisory_slots: [],
+        allowed_actions: [],
+        course_id: "course-a",
+        explicit_non_proof: [],
+        forbidden_fields: [],
+        round_id: "round-a",
+        round_no: 1,
+        run_id: "run-a",
+        source_runtime_path: ["student_bff"],
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        evidence_label: "STUDENT_PROJECTION_EVIDENCE",
+        feedback: {}
+      },
+      learning_report: {
+        actor_role: "student",
+        advisory_slots: [],
+        allowed_actions: [],
+        course_id: "course-a",
+        explicit_non_proof: [],
+        forbidden_fields: [],
+        round_id: "round-a",
+        round_no: 1,
+        run_id: "run-a",
+        source_runtime_path: ["student_bff"],
+        team_id: "team-a",
+        tenant_id: "tenant-a",
+        evidence_label: "STUDENT_PROJECTION_EVIDENCE",
+        learning_evidence: { advisory_only: true, formal_grade: false, prompts: [] }
+      }
+    } as never;
+    const response = (ok: boolean, data: unknown): Response =>
+      ({
+        ok,
+        json: async () =>
+          ok
+            ? { data }
+            : { code: "STUDENT_BFF_UNAVAILABLE", message: "failed current-context refresh" }
+      }) as Response;
+    let demoStateRequests = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/api/v1/auth/login")) return response(true, session);
+      if (url.includes("/api/v1/demo-state")) {
+        demoStateRequests += 1;
+        return demoStateRequests === 1 ? response(true, state) : response(false, null);
+      }
+      if (url.includes("/api/v1/bff/student/runs/")) return response(true, cockpit);
+      if (url.includes("/api/v1/bff/student/role-workspace")) {
+        return {
+          ok: false,
+          json: async () => ({
+            code: "ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND",
+            message: "ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND: legacy decision path"
+          })
+        } as Response;
+      }
+      if (url.includes("/api/v1/runs/") && init?.method === "POST") {
+        return response(true, { decision_id: "decision-a" });
+      }
+      return response(false, null);
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(<App />));
+
+    const setInputValue = (label: string, value: string) => {
+      const input = [...container.querySelectorAll("input")].find(
+        (candidate) => candidate.getAttribute("aria-label") === label
+      );
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(input, value);
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    await act(async () => {
+      setInputValue("tenant", "tenant-a");
+      setInputValue("username", "student-a");
+      setInputValue("password", "password-a");
+    });
+    const loginButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("学员登录")
+    );
+    await act(async () => {
+      loginButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(demoStateRequests).toBe(1);
+        expect(container.querySelector("#student-submission")).not.toBeNull();
+      });
+    });
+
+    const pricing = container.querySelector<HTMLInputElement>("#student-submission input");
+    expect(pricing).not.toBeNull();
+    const pricingSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    pricingSetter?.call(pricing, "17000");
+    pricing?.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(pricing?.value).toBe("17000");
+
+    const submitButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("提交正式决策")
+    );
+    expect(submitButton).toBeDefined();
+    await act(async () => {
+      await vi.waitFor(() => expect(submitButton?.disabled).toBe(false));
+      submitButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(container.textContent).toContain("正式决策已提交；最新工作区刷新失败，请重新加载。")
+      );
+    });
+    expect(pricing?.value).toBe("17000");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
   it("clears role workflow busy state after the command refresh completes", async () => {
     const workspace = {
       schema_version: "student-role-workflow-workspace.v1",

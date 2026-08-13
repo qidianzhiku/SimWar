@@ -14,6 +14,7 @@ const playwrightStoreFile = resolvePlaywrightStoreFile();
 
 export default defineConfig({
   testDir: "./tests/e2e-ui",
+  testIgnore: /pr4-.*\.spec\.ts/,
   fullyParallel: false,
   timeout: 60_000,
   workers: 1,
@@ -21,8 +22,19 @@ export default defineConfig({
   reporter: process.env.CI
     ? [
         ["github"],
-        ["html", { open: "never", outputFolder: "tmp/playwright/report" }],
-        ["junit", { outputFile: "tmp/playwright/playwright-junit.xml" }]
+        [
+          "html",
+          {
+            open: "never",
+            outputFolder: "tmp/playwright/report"
+          }
+        ],
+        [
+          "junit",
+          {
+            outputFile: "tmp/playwright/playwright-junit.xml"
+          }
+        ]
       ]
     : [["list"]],
   expect: {

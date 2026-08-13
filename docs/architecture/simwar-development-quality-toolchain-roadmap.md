@@ -21,10 +21,10 @@ Harness 更适合中后期作为完整 CI/CD、审批、环境发布和回滚治
 
 SimWar 的 CI 门禁至少应覆盖：
 
-- `pnpm install`
-- `pnpm run typecheck`
-- `pnpm run quality`
-- `pnpm test`
+- `npm ci`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:contract`
 - contract / schema 校验
 - migration 校验
 - replay golden test
@@ -90,10 +90,10 @@ Vitest 在 SimWar 中应重点覆盖：
 进入 CI 的建议方式：
 
 ```text
-pnpm test
-pnpm run test:coverage
-pnpm run test:contract
-pnpm run test:postgres-adapter
+npm test
+npm run test:contract
+npm run test:coverage          # 规划命令，当前尚未落地
+npm run test:postgres-adapter  # 规划命令，当前尚未落地
 ```
 
 早期不必追求覆盖率数字漂亮，先保证真值链、状态机、adapter contract 和 schema drift 被测试锁住。
@@ -124,6 +124,18 @@ SimWar 有 student、teacher、admin 三端，浏览器端到端测试是必要�
 - 每条 E2E 只验证一个用户价值链，不在 E2E 中重复所有服务层断言。
 - 复杂状态机优先用 Vitest integration 覆盖，E2E 只验证页面和真实 API 协作。
 - 使用固定 fixture 或测试 runtime，避免依赖本地开发快照。
+
+PR4 当前已落地的前端集成门禁（使用 npm workspace 命令）包括：
+
+- `npm run test:unit:pr4`：Admin/Teacher manifest、Student hash/refresh 回归、PR4 工具脚本，以及 UI route/state CSV 矩形和 34 个当前逻辑 hash 目的地的 browser-evidence 绑定测试。
+- `npm run test:e2e:ui` / `npm run test:e2e:ui:core`：两条命令都显式依次构建 API 测试前置与 `@simwar/ui`，再运行当前非 PR4 的 Admin、Teacher、Student 和既有 role-workflow 浏览器套件；默认配置显式忽略 `pr4-*.spec.ts`，不要求 PR4 外部证据环境。根命令保留显式构建顺序，避免 clean runner 仅通过别名隐藏 UI 构建契约。
+- `npm run test:e2e:ui:pr4`：focused PR4 真浏览器套件，覆盖 Admin、Enterprise（现有 Admin 只读投影）、Teacher、Student 和 `@simwar/ui` DesignSystemLab（port 3004）；要求绝对且仓库外的 `PR4_EVIDENCE_ROOT` 与受控临时 `SIMWAR_PLAYWRIGHT_STORE_FILE`。
+- `npm run measure:frontend:budgets -- --base-sha <BASE> --head-sha <HEAD>`：读取三端 built dist，输出带 BASE/HEAD/actual SHA provenance 的 raw/gzip 预算报告。
+- `npm run capture:pr4:baseline -- --source-root <ABS_BASE_WORKTREE> --output <ABS_EXTERNAL_EVIDENCE> --expected-sha <BASE> --store <ABS_EXTERNAL_STORE>`：从 exact、clean、detached BASE checkout 启动真实 API/Admin/Teacher/Student/DesignSystemLab，按与 candidate 相同的 top-0、mouse-reset、viewport-bound 合同生成 20 张独立 baseline PNG；receipt 只证明 BASE 捕获 provenance，不把捕获冒充视觉比较 PASS。
+- `npm run visual:pr4:manifest -- --baseline <ABS> --candidate <ABS> --diff-root <ABS> --output <ABS> --base-sha <BASE> --head-sha <HEAD> --max-diff-pixel-ratio <RATIO> [--role-threshold <ROLE>=<RATIO>]`：使用 Playwright bundled PNG decoder 执行确定性的 RGBA pixel diff；缺失或 SHA 不匹配时保持 `not_ready`，有阈值超限时 `failed`，只有所有配对完成后才允许 `passed`。baseline/candidate/diff/manifest 必须位于外部 evidence root 或显式绝对路径，避免生成物进入仓库。PR4 冻结全局阈值为 `0.01`；仅 Student 允许 `0.065` 的角色级阈值，用于覆盖新增 `aria-current` 活动导航行的确定性像素变化。该例外必须由 CLI 显式传入，并在 manifest 的 `threshold.role_overrides` 与每个 surface 的 `applied_threshold` 中留痕；Admin、Teacher、Enterprise 和 Lab 继续使用全局 `0.01`，不得用角色例外掩盖布局、内容或 hover 漂移。
+
+PR4 CI 会 checkout 并校验 pull-request head SHA（`EXPECTED_PR_HEAD_SHA`），在质量/浏览器门禁前运行 exact-head；browser job 先创建 exact BASE 外部 worktree、安装和构建 BASE，并用 `capture:pr4:baseline` 生成 20 张独立 baseline，再串行运行 `npm run test:e2e:ui:core`、`npm run test:e2e:ui:pr4` 和视觉 comparator。bundle budget 与视觉比较均为真实阻断门禁：`failed`、`not_ready`、缺失配对或 comparator 非零退出都使 browser job 失败；只有 exact BASE↔HEAD 的 20/20 `passed` manifest 可以通过。BASE capture receipt、candidate、diff 和 manifest 均作为外部 artifact 保留。PR4 captures 在字体就绪、无意外 loading 且 bounded DOM-quiet settle 后写入外部证据根。Axe 扫描阻断 serious/critical 以及所有 `wcag*` criterion-tagged moderate 违规，Teacher #365/W020 advisory list 仅过滤已登记的 `aria-prohibited-attr` 精确节点，其余后代与任何其他 rule 均继续扫描并阻断。
+
 - 把 trace、screenshot、video 作为失败诊断 artifact，而不是每次人工查看。
 
 ## 2. 第二层：强烈建议做，保护“契约优先”架构
@@ -353,7 +365,7 @@ Codecov 适合现在立刻做，至少把 coverage artifact 和 PR trend 建起�
 
 适用范围：
 
-- npm / pnpm 依赖。
+- 当前 npm 依赖；pnpm 仅作为未来包管理器迁移候选。
 - GitHub Actions 版本。
 - 前端工具链。
 - testing libraries。
@@ -492,13 +504,13 @@ build artifact
 
 ### 6.1 现在立刻做
 
-| 工具                   | 用途                                 | 接入时机 | 适合保护的 SimWar 风险点                                                         | 需要配置的文件                           | 建议 CI 门禁                                                                       | 是否阻断合并                    | 优先级 |
-| ---------------------- | ------------------------------------ | -------- | -------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- | ------ |
-| GitHub Actions CI 门禁 | PR 自动质量检查                      | 当前建议 | canonical Decision、SettlementResult、Replay hash、schema drift、migration drift | `.github/workflows/ci.yml`               | install、typecheck、quality、test、contract、schema、migration、replay、settlement | 是                              | P0     |
-| Vitest 单元测试        | 纯函数、服务、adapter、contract 测试 | 当前建议 | role decision、merge、confirmation、settlement idempotency、plugin hook          | `vitest.config.ts`、`tests/**/*`         | `pnpm test`、`pnpm run test:coverage`                                              | 是                              | P0     |
-| Playwright 基础 E2E    | 三端主流程浏览器测试                 | 当前建议 | 学员提交、教师查看、发布结果、权限只读态                                         | `playwright.config.ts`、`tests/e2e-ui/*` | `pnpm run test:e2e:ui`                                                             | 先 smoke 阻断，完整套件可报告型 | P0     |
-| OpenAPI + Spectral     | API 规范校验                         | 当前建议 | 字段命名、enum、response envelope、truth fields 暴露                             | `contracts/openapi/*`、`.spectral.yaml`  | `pnpm run lint:openapi`                                                            | 先报告型，稳定后阻断            | P0     |
-| Codecov                | 覆盖率趋势与 PR 覆盖提醒             | 当前建议 | 关键链路测试退化                                                                 | `codecov.yml`、coverage artifact         | `pnpm run test:coverage`                                                           | 先提醒，关键链路可阻断          | P1     |
+| 工具                   | 用途                                 | 接入时机 | 适合保护的 SimWar 风险点                                                         | 需要配置的文件                           | 建议 CI 门禁                                                                       | 是否阻断合并              | 优先级 |
+| ---------------------- | ------------------------------------ | -------- | -------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------- | ------ |
+| GitHub Actions CI 门禁 | PR 自动质量检查                      | 当前建议 | canonical Decision、SettlementResult、Replay hash、schema drift、migration drift | `.github/workflows/ci.yml`               | install、typecheck、quality、test、contract、schema、migration、replay、settlement | 是                        | P0     |
+| Vitest 单元测试        | 纯函数、服务、adapter、contract 测试 | 当前建议 | role decision、merge、confirmation、settlement idempotency、plugin hook          | `vitest.config.ts`、`tests/**/*`         | 当前 `npm test`；`npm run test:coverage` 尚待落地                                  | 是                        | P0     |
+| Playwright 基础 E2E    | 三端主流程浏览器测试                 | 当前建议 | 学员提交、教师查看、发布结果、权限只读态                                         | `playwright.config.ts`、`tests/e2e-ui/*` | 当前 `npm run test:e2e:ui` / `npm run test:e2e:ui:pr4`                             | smoke 与 PR4 focused 阻断 | P0     |
+| OpenAPI + Spectral     | API 规范校验                         | 当前建议 | 字段命名、enum、response envelope、truth fields 暴露                             | `contracts/openapi/*`、`.spectral.yaml`  | `npm run lint:openapi` 尚待落地                                                    | 先报告型，稳定后阻断      | P0     |
+| Codecov                | 覆盖率趋势与 PR 覆盖提醒             | 当前建议 | 关键链路测试退化                                                                 | `codecov.yml`、coverage artifact         | `npm run test:coverage` 尚待落地                                                   | 先提醒，关键链路可阻断    | P1     |
 
 ### 6.2 Phase 1 到 Phase 3 做
 

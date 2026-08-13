@@ -147,6 +147,10 @@
   display: inline-flex;
   gap: var(--sw-space-4);
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
 }
 
 :where(.sw-context-bar__item dt) {
@@ -155,6 +159,9 @@
 
 :where(.sw-context-bar__item dd) {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-weight: var(--sw-type-weight-semibold);
 }
 
@@ -188,7 +195,7 @@
   .sw-authority-badge[data-authority="ai-explanation"],
   .sw-authority-badge[data-authority="teacher-comment"]
 ) {
-  color: var(--sw-color-learning-teal);
+  color: #1f6b69;
 }
 
 :where(.sw-authority-badge[data-authority="unknown"]) {
@@ -488,6 +495,72 @@
 
 :where(.sw-lab-state-grid .sw-state-panel) {
   min-width: 0;
+}
+
+:where(
+  .sw-app-shell .sw-authority-badge[data-authority="official"],
+  .sw-app-shell .sw-authority-badge[data-authority="system-result"]
+) {
+  color: #9f2f2c !important;
+}
+
+:where(
+  .sw-app-shell .sw-authority-badge[data-authority="unknown"],
+  .sw-app-shell .sw-authority-badge[data-authority="draft"],
+  .sw-app-shell .secondary,
+  .sw-app-shell .technical-compatibility
+) {
+  color: #55616b !important;
+}
+
+:where(.sw-app-shell .enterprise-course-factory-context dt) {
+  color: #52606b !important;
+}
+
+:where(.sw-app-shell__main .login-strip) {
+  min-width: 0;
+}
+
+:where(
+  .sw-app-shell__main .login-strip > *,
+  .sw-app-shell__main .login-strip label,
+  .sw-app-shell__main .login-strip input
+) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.sw-app-shell__main .login-strip label),
+:where(.sw-app-shell__main .login-strip input) {
+  width: 100%;
+}
+
+:where(.sw-app-shell__main .panel),
+:where(.sw-app-shell__main .workspace),
+:where(.sw-app-shell__main .panel-title) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(.sw-app-shell__main .panel-title > *) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.sw-app-shell__main .d4-known-limits,
+.sw-app-shell__main .d4-known-limits > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 820px) {
+  :where(.sw-app-shell__main .login-strip) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 1024px) {

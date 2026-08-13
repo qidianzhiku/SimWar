@@ -264,12 +264,24 @@ export function App() {
   >("idle");
   const [roleWorkflowAvailability, setRoleWorkflowAvailability] =
     useState<StudentRoleWorkflowAvailability>("checking");
+  const [activeHash, setActiveHash] = useState(() => {
+    if (typeof window !== "undefined" && window.location.hash) return window.location.hash;
+    return "#student-role-mission";
+  });
   const refreshIdentity = useRef(0);
   const refreshController = useRef<AbortController | null>(null);
   const authIdentity = useRef(0);
   const authController = useRef<AbortController | null>(null);
   const decisionIdentity = useRef(0);
   const decisionController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveHash(window.location.hash || "#student-role-mission");
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   function invalidateDecisionRequest(): void {
     decisionIdentity.current += 1;
@@ -526,7 +538,7 @@ export function App() {
   return (
     <AppShell
       workspaceTitle="SimWar M1 学员执行环境"
-      navigation={<RoleNavigation items={visibleNavigationItems} />}
+      navigation={<RoleNavigation items={visibleNavigationItems} activeHref={activeHash} />}
       banner={<ContextBar context={studentContext} />}
       primaryAction={
         <>
