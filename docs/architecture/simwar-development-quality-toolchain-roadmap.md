@@ -124,6 +124,17 @@ SimWar 有 student、teacher、admin 三端，浏览器端到端测试是必要�
 - 每条 E2E 只验证一个用户价值链，不在 E2E 中重复所有服务层断言。
 - 复杂状态机优先用 Vitest integration 覆盖，E2E 只验证页面和真实 API 协作。
 - 使用固定 fixture 或测试 runtime，避免依赖本地开发快照。
+
+PR4 当前已落地的前端集成门禁（使用 npm workspace 命令）包括：
+
+- `npm run test:unit:pr4`：Admin/Teacher manifest、Student hash/refresh 回归和 PR4 工具脚本单元测试。
+- `npm run test:e2e:ui` / `npm run test:e2e:ui:core`：当前非 PR4 的 Admin、Teacher、Student 和既有 role-workflow 浏览器套件；默认配置显式忽略 `pr4-*.spec.ts`，不要求 PR4 外部证据环境。
+- `npm run test:e2e:ui:pr4`：focused PR4 真浏览器套件，覆盖 Admin、Enterprise（现有 Admin 只读投影）、Teacher、Student 和 `@simwar/ui` DesignSystemLab（port 3004）；要求绝对且仓库外的 `PR4_EVIDENCE_ROOT` 与受控临时 `SIMWAR_PLAYWRIGHT_STORE_FILE`。
+- `npm run measure:frontend:budgets -- --base-sha <BASE> --head-sha <HEAD>`：读取三端 built dist，输出带 BASE/HEAD/actual SHA provenance 的 raw/gzip 预算报告。
+- `npm run visual:pr4:manifest -- --baseline <ABS> --candidate <ABS> --diff-root <ABS> --output <ABS> --base-sha <BASE> --head-sha <HEAD> --max-diff-pixel-ratio <RATIO>`：使用 Playwright bundled PNG decoder 执行确定性的 RGBA pixel diff；缺失或 SHA 不匹配时保持 `not_ready`，有阈值超限时 `failed`，只有所有配对完成后才允许 `passed`。baseline/candidate/diff/manifest 必须位于外部 evidence root 或显式绝对路径，避免生成物进入仓库。
+
+PR4 CI 会 checkout 并校验 pull-request head SHA（`EXPECTED_PR_HEAD_SHA`），在质量/浏览器门禁前运行 exact-head；browser job 串行运行 `npm run test:e2e:ui:core`、`npm run test:e2e:ui:pr4`，再运行视觉 comparator。bundle budget 是真实阻断门禁。视觉 manifest 在没有外部 baseline 时会自动产出 `not_ready`/`pixel_diff:not_run` 证据并保留 artifacts，不伪造视觉 PASS；只有 comparator `failed` 才阻断 CI，`not_ready` 明确为待基线状态；提供 baseline 后由同一 comparator 评估阈值。PR4 captures 在字体就绪、无意外 loading 且 bounded DOM-quiet settle 后写入外部证据根。Axe 扫描阻断 serious/critical 以及所有 `wcag*` criterion-tagged moderate 违规，Teacher #365/W020 advisory list 仅按精确节点排除并标注 known limit。
+
 - 把 trace、screenshot、video 作为失败诊断 artifact，而不是每次人工查看。
 
 ## 2. 第二层：强烈建议做，保护“契约优先”架构

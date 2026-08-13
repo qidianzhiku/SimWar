@@ -1,6 +1,7 @@
 import { gzipSync } from "node:zlib";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 const args = process.argv.slice(2);
 const valueFor = (name, fallback) => {
@@ -10,6 +11,27 @@ const valueFor = (name, fallback) => {
 const distRoot = resolve(valueFor("--dist-root", "."));
 const outputPath = valueFor("--output", "");
 const maxIncreaseRatio = Number(valueFor("--max-increase", "0.1"));
+if (!Number.isFinite(maxIncreaseRatio) || maxIncreaseRatio < 0) {
+  throw new Error("--max-increase must be a finite non-negative number.");
+}
+const baseSha = valueFor("--base-sha", process.env.PR4_BASE_SHA ?? null);
+const headSha = valueFor("--head-sha", process.env.PR4_HEAD_SHA ?? process.env.GITHUB_SHA ?? null);
+const gitValue = (command) => {
+  try {
+    return execFileSync("git", command, { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+};
+const actualSha = gitValue(["rev-parse", "HEAD"]);
+const branch = gitValue(["branch", "--show-current"]);
+const clean = (() => {
+  try {
+    return execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim() === "";
+  } catch {
+    return null;
+  }
+})();
 const baseline = {
   admin: { js: [273.62, 84.49], css: [27.06, 5.29] },
   teacher: { js: [367.35, 106.24], css: [34.18, 6.52] },
@@ -41,6 +63,14 @@ const measured = (app, kind) => {
 
 const budgets = {};
 const failures = [];
+if (!baseSha || !headSha) {
+  failures.push("BASE/HEAD provenance is required for bundle budget measurement");
+}
+if (!actualSha || (headSha && headSha !== actualSha)) {
+  failures.push(
+    `HEAD provenance does not match actual checked-out HEAD (${headSha ?? "missing"} vs ${actualSha ?? "missing"})`
+  );
+}
 for (const app of Object.keys(baseline)) {
   budgets[app] = {};
   for (const kind of ["js", "css"]) {
@@ -66,6 +96,11 @@ for (const app of Object.keys(baseline)) {
 const report = {
   schema_version: 1,
   dist_root: distRoot,
+  base_sha: baseSha,
+  head_sha: headSha,
+  actual_sha: actualSha,
+  branch,
+  clean,
   max_increase_ratio: maxIncreaseRatio,
   budgets,
   failures,
@@ -73,6 +108,7 @@ const report = {
 };
 const serialized = JSON.stringify(report, null, 2);
 if (outputPath) {
+  mkdirSync(dirname(resolve(outputPath)), { recursive: true });
   writeFileSync(resolve(outputPath), `${serialized}\n`);
 } else {
   console.log(serialized);

@@ -1,8 +1,23 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
+const evidenceRootValue = process.env.PR4_EVIDENCE_ROOT;
+if (!evidenceRootValue) {
+  throw new Error("PR4_EVIDENCE_ROOT is required for focused PR4 browser evidence.");
+}
+const evidenceRoot = resolve(evidenceRootValue);
+const baseSha = process.env.PR4_BASE_SHA ?? null;
+const headSha = process.env.PR4_HEAD_SHA ?? process.env.GITHUB_SHA ?? null;
+const actualSha = (() => {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+})();
 const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
@@ -25,6 +40,16 @@ type RuntimePerformanceEvidence = {
 };
 
 const runtimePerformanceEvidence: RuntimePerformanceEvidence[] = [];
+
+function blockingAxeViolations(results: Awaited<ReturnType<AxeBuilder["analyze"]>>) {
+  return results.violations.filter(
+    (violation) =>
+      violation.impact === "serious" ||
+      violation.impact === "critical" ||
+      (violation.impact === "moderate" &&
+        violation.tags.some((tag) => tag.toLowerCase().startsWith("wcag")))
+  );
+}
 
 async function signIn(
   page: Page,
@@ -51,8 +76,19 @@ async function assertSurfaceContracts(page: Page, surface: string) {
   await expect(page.locator('[role="banner"]')).toHaveCount(1);
   await expect(page.getByRole("navigation", { name: "角色导航" })).toHaveCount(1);
   await expect(page.locator("main")).toHaveCount(1);
+  await waitForPr4CaptureStable(page);
 
   const skip = page.getByRole("link", { name: "跳转到主要内容" });
+  await page.evaluate(() => {
+    document.body.setAttribute("data-pr4-focus-reset", "true");
+    document.body.setAttribute("tabindex", "-1");
+    document.body.focus();
+  });
+  await page.keyboard.press("Tab");
+  await expect(skip).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main")).toBeFocused();
+  await page.evaluate(() => document.body.removeAttribute("tabindex"));
   await skip.focus();
   await expect(skip).toBeFocused();
   await expect(skip).toBeVisible();
@@ -65,6 +101,45 @@ async function assertSurfaceContracts(page: Page, surface: string) {
     await expect(link).toHaveAttribute("href", /#.+/);
     const height = await link.evaluate((element) => element.getBoundingClientRect().height);
     expect(height, `${surface} navigation target ${index}`).toBeGreaterThanOrEqual(44);
+  }
+
+  const targets = page.locator(
+    'a:visible,[role="button"]:visible,button:visible,input:visible,select:visible,textarea:visible'
+  );
+  for (let index = 0; index < (await targets.count()); index += 1) {
+    const details = await targets.nth(index).evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const inputType = element instanceof HTMLInputElement ? element.type : null;
+      const label =
+        inputType === "checkbox" || inputType === "radio" ? element.closest("label") : null;
+      const labelRect = label?.getBoundingClientRect() ?? null;
+      return {
+        node: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}.${String(element.className)}`,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        text: (element.textContent ?? "").trim().slice(0, 100),
+        inputType,
+        labelWidth: labelRect ? Math.round(labelRect.width) : null,
+        labelHeight: labelRect ? Math.round(labelRect.height) : null
+      };
+    });
+    if (
+      (details.inputType === "checkbox" || details.inputType === "radio") &&
+      details.labelWidth !== null &&
+      details.labelHeight !== null &&
+      details.labelWidth >= 44 &&
+      details.labelHeight >= 44
+    ) {
+      continue;
+    }
+    expect(
+      details.width,
+      `${surface} target ${index} width ${JSON.stringify(details)}`
+    ).toBeGreaterThanOrEqual(44);
+    expect(
+      details.height,
+      `${surface} target ${index} height ${JSON.stringify(details)}`
+    ).toBeGreaterThanOrEqual(44);
   }
 
   await page.evaluate(() => {
@@ -90,14 +165,19 @@ async function assertSurfaceContracts(page: Page, surface: string) {
   });
 
   const firstLink = links.nth(0);
-  await page.evaluate(() => {
-    window.location.hash = "#student-role-mission";
-  });
-  await firstLink.click();
+  const firstHref = await firstLink.getAttribute("href");
+  const currentHash = await page.evaluate(() => window.location.hash);
+  if (firstHref && currentHash !== firstHref) {
+    await page.evaluate((href) => {
+      window.location.hash = href;
+    }, firstHref);
+  }
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe(firstHref ?? "");
   await expect(firstLink).toHaveAttribute("aria-current", "page");
   let hashNavigationToAriaCurrentMs: number | null = null;
   if ((await links.count()) > 1) {
     const secondLink = links.nth(1);
+    await expect(secondLink).not.toHaveAttribute("aria-current", "page");
     await secondLink.evaluate((element) => {
       const current = window as typeof window & {
         __pr4HashNavigation?: {
@@ -317,31 +397,6 @@ async function assertSurfaceContracts(page: Page, surface: string) {
   ).toBeLessThanOrEqual(overflowMetrics.innerWidth);
   const overflowing = overflowMetrics.overflowing;
   expect(overflowing, `${surface} overflowing descendants`).toEqual([]);
-  const controls = page.locator("button:visible, input:visible, select:visible, textarea:visible");
-  for (let index = 0; index < (await controls.count()); index += 1) {
-    const height = await controls
-      .nth(index)
-      .evaluate((element) => element.getBoundingClientRect().height);
-    if (height < 44) {
-      const details = await controls.nth(index).evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        return {
-          node: `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}.${String(element.className)}`,
-          type: element.getAttribute("type"),
-          text: (element.textContent ?? "").trim().slice(0, 120),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-          minHeight: style.minHeight,
-          padding: style.padding,
-          display: style.display,
-          outerHTML: element.outerHTML.slice(0, 400)
-        };
-      });
-      throw new Error(`${surface} control target ${index} details ${JSON.stringify(details)}`);
-    }
-    expect(height, `${surface} control target ${index}`).toBeGreaterThanOrEqual(44);
-  }
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "";
   });
@@ -358,9 +413,7 @@ async function assertSurfaceContracts(page: Page, surface: string) {
     axe = axe.exclude(teacherAdvisoryList);
   }
   const results = await axe.analyze();
-  const blocking = results.violations.filter(
-    (violation) => violation.impact === "serious" || violation.impact === "critical"
-  );
+  const blocking = blockingAxeViolations(results);
   expect(blocking, `${surface} axe violations: ${JSON.stringify(blocking, null, 2)}`).toEqual([]);
   const status: RuntimePerformanceEvidence["status"] =
     cls === null || hashNavigationToAriaCurrentMs === null
@@ -374,20 +427,41 @@ async function assertSurfaceContracts(page: Page, surface: string) {
       description: `${surface}: CLS or hash-to-aria-current metric was unsupported in this browser run; no synthetic PASS is claimed.`
     });
   }
-  expect(status, `${surface} runtime performance budget`).not.toBe("over_budget");
+  if (status === "over_budget") {
+    const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+    runtimePerformanceEvidence.push({
+      surface,
+      viewport,
+      first_usable_after_sign_in_ms: null,
+      hash_navigation_to_aria_current_ms: hashNavigationToAriaCurrentMs,
+      cls,
+      cls_budget: 0.1,
+      hash_budget_ms: 100,
+      status
+    });
+    writeRuntimePerformanceEvidence();
+  }
+  expect(
+    status,
+    `${surface} runtime performance budget ${JSON.stringify({
+      hashNavigationToAriaCurrentMs,
+      cls
+    })}`
+  ).toBe("within_budget");
   return { hashNavigationToAriaCurrentMs, cls, status };
 }
 
 function writeRuntimePerformanceEvidence(): void {
-  const output = resolve(
-    process.env.PR4_PERFORMANCE_OUTPUT ?? "tmp/pr4-playwright/performance.json"
-  );
+  const output = resolve(evidenceRoot, "performance.json");
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(
     output,
     JSON.stringify(
       {
         schema_version: "pr4-runtime-performance.v1",
+        base_sha: baseSha,
+        head_sha: headSha,
+        actual_sha: actualSha,
         budgets: {
           first_usable_after_sign_in_ms: 2_000,
           hash_navigation_to_aria_current_ms: 100,
@@ -402,7 +476,21 @@ function writeRuntimePerformanceEvidence(): void {
 }
 
 async function captureCandidate(page: Page, surface: string, state = "ready") {
-  const root = resolve(process.env.PR4_VISUAL_CANDIDATE_DIR ?? "tmp/pr4-playwright/candidate");
+  await page.evaluate(async () => {
+    if (document.fonts?.ready) await document.fonts.ready;
+  });
+  const loadingCount = await page.locator('[data-state="loading"]:visible').count();
+  if (loadingCount > 0 && state === "ready") {
+    throw new Error(`${surface} ready capture still has a visible loading state`);
+  }
+  if (loadingCount > 0) {
+    test.info().annotations.push({
+      type: "capture-state",
+      description: `${surface} capture is explicitly labeled ${state}; ${loadingCount} loading state panel(s) remain visible.`
+    });
+  }
+  await waitForPr4CaptureStable(page);
+  const root = resolve(evidenceRoot, "candidate");
   const viewport = page.viewportSize();
   const hashId = new URL(page.url()).hash.replace(/^#/, "") || "surface";
   const path = resolve(
@@ -411,6 +499,38 @@ async function captureCandidate(page: Page, surface: string, state = "ready") {
   );
   mkdirSync(dirname(path), { recursive: true });
   await page.screenshot({ path, fullPage: true });
+}
+
+async function waitForPr4CaptureStable(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let lastMutation = performance.now();
+        let quietFrames = 0;
+        const deadline = lastMutation + 500;
+        const observer = new MutationObserver(() => {
+          lastMutation = performance.now();
+          quietFrames = 0;
+        });
+        observer.observe(document.documentElement, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          characterData: true
+        });
+        const check = () => {
+          const quiet = performance.now() - lastMutation >= 50;
+          quietFrames = quiet ? quietFrames + 1 : 0;
+          if (quietFrames >= 2 || performance.now() >= deadline) {
+            observer.disconnect();
+            resolve();
+            return;
+          }
+          requestAnimationFrame(check);
+        };
+        requestAnimationFrame(check);
+      })
+  );
 }
 
 test.describe.serial("Product PR4 real surface integration", () => {
@@ -455,10 +575,15 @@ test.describe.serial("Product PR4 real surface integration", () => {
       page.locator(".enterprise-course-factory-workspace").getByRole("button")
     ).toHaveCount(0);
     const enterpriseAxe = await new AxeBuilder({ page }).analyze();
-    const enterpriseBlocking = enterpriseAxe.violations.filter(
-      (violation) => violation.impact === "serious" || violation.impact === "critical"
-    );
+    const enterpriseBlocking = blockingAxeViolations(enterpriseAxe);
     expect(enterpriseBlocking, JSON.stringify(enterpriseBlocking, null, 2)).toEqual([]);
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(async () => {
+        if (document.fonts?.ready) await document.fonts.ready;
+      });
+      await captureCandidate(page, "enterprise", "ready");
+    }
     test.info().annotations.push({
       type: "surface",
       description:

@@ -195,7 +195,7 @@
   .sw-authority-badge[data-authority="ai-explanation"],
   .sw-authority-badge[data-authority="teacher-comment"]
 ) {
-  color: var(--sw-color-learning-teal);
+  color: #1f6b69;
 }
 
 :where(.sw-authority-badge[data-authority="unknown"]) {
@@ -511,10 +511,6 @@
   .sw-app-shell .technical-compatibility
 ) {
   color: #55616b !important;
-}
-
-:where(.sw-app-shell .sw-authority-badge[data-authority="advisory"]) {
-  color: #1f6b69 !important;
 }
 
 :where(.sw-app-shell .enterprise-course-factory-context dt) {

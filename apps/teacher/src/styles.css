@@ -133,6 +133,7 @@ body {
   display: inline-flex;
   font-size: 12px;
   min-height: 44px;
+  min-width: 44px;
   padding: 5px 9px;
   text-decoration: none;
 }
@@ -338,6 +339,10 @@ textarea {
 .sw-app-shell__main select,
 .sw-app-shell__main textarea {
   min-height: 44px;
+}
+
+.sw-role-navigation a {
+  min-width: 44px;
 }
 
 .shell {
