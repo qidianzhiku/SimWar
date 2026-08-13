@@ -683,7 +683,11 @@ async function mockTeacherApi(
     getFormalRequests: () => [...formalRequests],
     releaseFormal: (path: string, token: string) => {
       const key = `${path}:${token}`;
-      deferredFormalResolvers.get(key)?.shift()?.();
+      const resolver = deferredFormalResolvers.get(key)?.shift();
+      if (!resolver) {
+        throw new Error(`No pending formal resolver for ${key}`);
+      }
+      resolver();
     },
     getFormalPendingCount: (path: string, token: string) =>
       (deferredFormalResolvers.get(`${path}:${token}`) ?? []).length,
@@ -1382,6 +1386,10 @@ test("Teacher drops old formal catalogs and clone receipt after re-login", async
     stateData: state
   });
 
+  expect(() => api.releaseFormal("course-package-clone", oldToken)).toThrow(
+    "No pending formal resolver"
+  );
+
   const expectOldFormalPending = async (path: string): Promise<void> => {
     await expect
       .poll(
@@ -1418,10 +1426,6 @@ test("Teacher drops old formal catalogs and clone receipt after re-login", async
     .toBe(2);
   await expectOldFormalPending("formal-scenario-package-catalog");
   await expectOldFormalPending("course-blueprint-catalog");
-  await releaseOldFormal("formal-scenario-package-catalog");
-  await releaseOldFormal("course-blueprint-catalog");
-  await expect(page.getByText("scenario_old", { exact: true })).toBeVisible();
-  await expect(page.getByText("旧会话蓝图", { exact: true })).toBeVisible();
 
   const packagePanel = page.getByLabel("Teacher CoursePackageVersion catalog");
   const oldPackageCard = packagePanel
@@ -1448,9 +1452,13 @@ test("Teacher drops old formal catalogs and clone receipt after re-login", async
   await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
   await expect(page.getByText("旧会话蓝图", { exact: true })).toHaveCount(0);
 
+  await releaseOldFormal("formal-scenario-package-catalog");
+  await releaseOldFormal("course-blueprint-catalog");
   await releaseOldFormal("course-package-clone");
   await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
   await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByText("scenario_old", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("旧会话蓝图", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Teacher CoursePackageVersion clone receipt")).toHaveCount(0);
   await expect(page.getByText("旧会话克隆回执", { exact: true })).toHaveCount(0);
 });

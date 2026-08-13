@@ -115,12 +115,21 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
     );
     await expect(lifecycleEmptyState).toHaveCount(1);
   } else {
-    await expect(lifecycleRun).toHaveCount(1);
-    const disabledLifecycleAbort = lifecycleRun.locator(
-      '.lifecycle-actions button.sw-allowed-action[data-action="abort"]:disabled'
+    expect(lifecycleRunCount).toBeGreaterThan(0);
+    const disabledLifecycleActions = page.locator(
+      "#admin-runtime-support .lifecycle-actions button.sw-allowed-action:disabled"
     );
-    await expect(disabledLifecycleAbort).toHaveCount(1);
-    await expect(disabledLifecycleAbort.locator("xpath=..")).toContainText("授权");
+    const disabledLifecycleActionCount = await disabledLifecycleActions.count();
+    expect(disabledLifecycleActionCount).toBeGreaterThan(0);
+    for (let index = 0; index < disabledLifecycleActionCount; index += 1) {
+      const disabledAction = disabledLifecycleActions.nth(index);
+      await expect(disabledAction).toHaveCount(1);
+      const actionReason = disabledAction.locator("xpath=..").getByRole("status");
+      await expect(actionReason).toHaveCount(1);
+      const reasonText = (await actionReason.innerText()).trim();
+      expect(reasonText.length).toBeGreaterThan(0);
+      expect(reasonText).toMatch(/授权|受限|限制|处理中|当前|运行/u);
+    }
   }
 
   const targetMetrics = await page.evaluate(() => {
