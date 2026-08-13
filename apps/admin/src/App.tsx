@@ -32,6 +32,14 @@ import { CourseReportBuilder } from "./CourseReportBuilder";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
+import { AuthorityBadge } from "@simwar/ui";
+import {
+  AdminDeliveryTrustWorkspace,
+  AdminEnvironmentRecoveryLimit,
+  AdminLifecycleOperationButton,
+  ADMIN_NAVIGATION_ITEMS,
+  formatLifecycleBlockedReasons
+} from "./AdminDeliveryTrustWorkspace";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -39,6 +47,27 @@ type LoginForm = {
   username: string;
   password: string;
 };
+
+export interface AdminRequestIdentity {
+  epoch: number;
+  tenantId: string;
+  username: string;
+  sessionId: string;
+  accessToken: string;
+}
+
+export function isAdminRequestCurrent(
+  request: AdminRequestIdentity,
+  current: AdminRequestIdentity
+): boolean {
+  return (
+    request.epoch === current.epoch &&
+    request.tenantId === current.tenantId &&
+    request.username === current.username &&
+    request.sessionId === current.sessionId &&
+    request.accessToken === current.accessToken
+  );
+}
 
 type CoursePackageDraftForm = {
   blueprintDigest: string;
@@ -139,19 +168,48 @@ async function apiRequest<TData>(
   return envelope.data;
 }
 
-function coursePackageStatusLabel(
+export function coursePackageStatusLabel(
   state: CoursePackageSurfaceState,
   operation: AdminCoursePackageOperation
 ): string {
-  if (state === "DEPENDENCY_MISSING") return "Dependency missing";
+  if (state === "DEPENDENCY_MISSING") return "缺少可绑定的依赖";
   if (state === "DIGEST_MISMATCH") {
-    return operation === "import" ? "Import failed · Digest mismatch" : "Digest mismatch";
+    return operation === "import" ? "导入失败：摘要不匹配" : "摘要不匹配";
   }
-  if (state === "EXPORT_RESTRICTED") return "Export restricted";
-  if (state === "INCOMPATIBLE") return "Incompatible";
-  if (state === "PERMISSION_DENIED") return "Permission denied";
-  if (state === "STALE") return "STALE";
-  return "Unknown CoursePackageVersion state";
+  if (state === "EXPORT_RESTRICTED") return "导出受限";
+  if (state === "INCOMPATIBLE") return "依赖不兼容";
+  if (state === "PERMISSION_DENIED") return "当前会话无权执行此操作";
+  if (state === "STALE") return "版本已过期或不可用";
+  return "课程包版本状态暂时无法确认";
+}
+
+export function getAdminVisibleErrorMessage(
+  error: unknown,
+  fallback = "请求暂时无法完成，请稍后重试。"
+) {
+  const raw = error instanceof Error ? error.message : "";
+  if (/AUTH[-_]|invalid credentials|登录/u.test(raw)) {
+    return "登录失败，请检查租户、用户名和密码。";
+  }
+  if (/BFF-422-001|Explicit platform scope/u.test(raw)) {
+    return "平台范围参数无效，请重新加载。";
+  }
+  if (/Sign in is required|需要登录/u.test(raw)) {
+    return "请先登录管理员会话。";
+  }
+  if (/Admin summary is unavailable for this role/u.test(raw)) {
+    return "当前角色无法读取管理摘要。";
+  }
+  if (/Admin summary is unavailable/u.test(raw)) {
+    return "管理摘要暂时无法加载，请稍后重试。";
+  }
+  if (/Run lifecycle operation was denied/u.test(raw)) {
+    return "运行操作被服务端边界拒绝。";
+  }
+  if (/load failed|request failed|failed/u.test(raw)) {
+    return fallback;
+  }
+  return raw && !/[A-Za-z]{3,}/u.test(raw) ? raw : fallback;
 }
 
 export function App() {
@@ -188,9 +246,38 @@ export function App() {
     password: "",
     role: "learner" as ActorRole
   });
-  const [notice, setNotice] = useState("ready");
+  const [notice, setNotice] = useState("准备就绪");
   const [busy, setBusy] = useState(false);
-  const coursePackageSessionEpoch = useRef(0);
+  const [activeHash, setActiveHash] = useState(() => {
+    if (typeof window !== "undefined" && window.location.hash) return window.location.hash;
+    return "#admin-delivery-overview";
+  });
+  const adminRequestEpoch = useRef(0);
+  const adminRequestIdentityRef = useRef<AdminRequestIdentity>({
+    accessToken: "",
+    epoch: 0,
+    sessionId: "",
+    tenantId: "",
+    username: ""
+  });
+
+  function buildAdminRequestIdentity(
+    epoch: number,
+    nextLogin: LoginForm,
+    nextSession: AuthSession | null
+  ): AdminRequestIdentity {
+    return {
+      accessToken: nextSession?.access_token ?? "",
+      epoch,
+      sessionId: nextSession?.user.user_id ?? "",
+      tenantId: nextLogin.tenantId.trim(),
+      username: nextLogin.username.trim()
+    };
+  }
+
+  function isCurrentAdminContext(identity: AdminRequestIdentity): boolean {
+    return isAdminRequestCurrent(identity, adminRequestIdentityRef.current);
+  }
 
   const tenantMap = useMemo(
     () => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])),
@@ -205,61 +292,98 @@ export function App() {
   const knownLimits = session?.user.roles.includes("platform_admin")
     ? getKnownLimitsProjection("platform_admin")
     : getKnownLimitsProjection("tenant_admin");
+  const navigationItems = session
+    ? isTenantAdmin
+      ? ADMIN_NAVIGATION_ITEMS
+      : hasAdminSummaryRole
+        ? ADMIN_NAVIGATION_ITEMS.filter((item) => item.id !== "admin-users-roles")
+        : []
+    : ADMIN_NAVIGATION_ITEMS.filter((item) =>
+        ["admin-delivery-overview", "admin-audit-receipts", "admin-security-projection"].includes(
+          item.id
+        )
+      );
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveHash(window.location.hash || "#admin-delivery-overview");
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const refresh = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session || !session.user.roles.includes("tenant_admin")) {
-      setState(null);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setState(null);
+      }
       return;
     }
 
-    setState(
-      await apiRequest<AdminState>("/api/v1/admin/state", {
+    try {
+      const nextState = await apiRequest<AdminState>("/api/v1/admin/state", {
         token: session.access_token,
         tenantId: login.tenantId
-      })
-    );
+      });
+      if (isCurrentAdminContext(requestIdentity)) {
+        setState(nextState);
+      }
+    } catch (error) {
+      if (isCurrentAdminContext(requestIdentity)) {
+        throw error;
+      }
+    }
   }, [login.tenantId, session]);
 
   const refreshLifecycleControls = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session?.user.roles.includes("tenant_admin")) {
-      setLifecycleControls([]);
-      setLifecycleStatus("idle");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setLifecycleControls([]);
+        setLifecycleStatus("idle");
+      }
       return;
     }
 
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setLifecycleStatus("loading");
     setLifecycleError("");
     try {
-      setLifecycleControls(
-        await loadRunLifecycleControls(session.access_token, (path, init) =>
-          fetch(`${API_BASE}${path}`, init)
-        )
+      const controls = await loadRunLifecycleControls(session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      setLifecycleControls(controls);
       setLifecycleStatus("ready");
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setLifecycleControls([]);
-      setLifecycleError(getAdminSummaryErrorMessage(error));
+      setLifecycleError(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
       setLifecycleStatus("error");
     }
   }, [session]);
 
   const refreshCoursePackages = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
-      setCoursePackageList({ phase: "IDLE" });
+      if (isCurrentAdminContext(requestIdentity)) {
+        setCoursePackageList({ phase: "IDLE" });
+      }
       return;
     }
 
-    const sessionEpoch = coursePackageSessionEpoch.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setCoursePackageList({ phase: "LOADING" });
     setCoursePackageFeedback(null);
     try {
       const packages = await loadAdminCoursePackageVersions(session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageList({ packages, phase: "READY" });
     } catch (error) {
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageList({
         phase: "ERROR",
         surfaceState: getAdminCoursePackageSurfaceState(error, "list")
@@ -268,7 +392,10 @@ export function App() {
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
-    coursePackageSessionEpoch.current += 1;
+    const nextLogin = { ...login, [field]: value };
+    const epoch = adminRequestEpoch.current + 1;
+    adminRequestEpoch.current = epoch;
+    adminRequestIdentityRef.current = buildAdminRequestIdentity(epoch, nextLogin, null);
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -283,11 +410,16 @@ export function App() {
     setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
     setCoursePackageImportPayload("");
     setCoursePackageExportPayload("");
-    setNotice("context changed");
+    setBusy(false);
+    setNotice("登录上下文已更新");
   }
 
   async function signIn(nextLogin = login): Promise<void> {
-    coursePackageSessionEpoch.current += 1;
+    const epoch = adminRequestEpoch.current + 1;
+    adminRequestEpoch.current = epoch;
+    const requestIdentity = buildAdminRequestIdentity(epoch, nextLogin, null);
+    adminRequestIdentityRef.current = requestIdentity;
+    let completionIdentity = requestIdentity;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -309,56 +441,65 @@ export function App() {
           password: nextLogin.password
         }
       });
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      const authenticatedIdentity = buildAdminRequestIdentity(epoch, nextLogin, nextSession);
+      adminRequestIdentityRef.current = authenticatedIdentity;
+      completionIdentity = authenticatedIdentity;
+      setLogin(nextLogin);
       setSession(nextSession);
-      setNotice("signed in");
+      setNotice("已登录");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "login failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "登录失败，请稍后重试。"));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(completionIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   useEffect(() => {
+    const requestIdentity = adminRequestIdentityRef.current;
     refresh().catch((error: unknown) => {
-      setNotice(error instanceof Error ? error.message : "load failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "管理状态暂时无法加载，请稍后重试。"));
+      }
     });
   }, [refresh]);
 
   useEffect(() => {
-    let cancelled = false;
+    const requestIdentity = adminRequestIdentityRef.current;
 
     if (!session) {
       return;
     }
 
     if (!session.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
-      setAdminSummary({ kind: "none" });
-      setSummaryStatus("idle");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setAdminSummary({ kind: "none" });
+        setSummaryStatus("idle");
+      }
       return;
     }
 
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setSummaryStatus("loading");
     setSummaryError("");
     loadAdminSummary(session.user.roles, session.access_token, (path, init) =>
       fetch(`${API_BASE}${path}`, init)
     )
       .then((surface) => {
-        if (!cancelled) {
-          setAdminSummary(surface);
-          setSummaryStatus("ready");
-        }
+        if (!isCurrentAdminContext(requestIdentity)) return;
+        setAdminSummary(surface);
+        setSummaryStatus("ready");
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          setAdminSummary({ kind: "none" });
-          setSummaryError(getAdminSummaryErrorMessage(error));
-          setSummaryStatus("error");
-        }
+        if (!isCurrentAdminContext(requestIdentity)) return;
+        setAdminSummary({ kind: "none" });
+        setSummaryError(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
+        setSummaryStatus("error");
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [session]);
 
   useEffect(() => {
@@ -374,6 +515,8 @@ export function App() {
       return;
     }
 
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setBusy(true);
     try {
       const user = await apiRequest<User>("/api/v1/admin/users", {
@@ -389,17 +532,22 @@ export function App() {
           roles: [userDraft.role]
         }
       });
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setUserDraft((current) => ({
         ...current,
         username: `${current.username}_next`,
         email: `next-${current.email}`
       }));
-      setNotice(`user created: ${user.user_id}`);
+      setNotice(`用户已创建：${user.user_id}`);
       await refresh();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "user create failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "创建用户失败，请稍后重试。"));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -410,19 +558,23 @@ export function App() {
     if (!session || !control.allowed_operations.includes(operation)) {
       return;
     }
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     const consequences: Record<SyntheticRunLifecycleOperation, string> = {
-      abort:
-        "Abort blocks submission, lock, settlement, and publication while preserving evidence.",
-      reset:
-        "Reset reopens only an unsettled round lock and preserves decisions, audit, results, and Replay evidence.",
+      abort: "中止会阻止提交、锁轮、结算和发布，同时保留证据。",
+      reset: "重置只会重新打开尚未结算的回合锁定，并保留决策、审计、结果和回放证据。",
       cleanup:
-        "Cleanup seals this synthetic run with an audit tombstone; v1 deletes no persisted artifacts."
+        "清理会用审计墓碑封存此 synthetic 运行；v1 不删除持久化对象。Technical note: deletes no persisted artifacts."
     };
     const confirmed = window.confirm(
       `${operation.toUpperCase()} ${control.run_id}\n${control.tenant_id} / ${control.course_id}\n\n${consequences[operation]}`
     );
     if (!confirmed) {
+      return;
+    }
+
+    if (!isCurrentAdminContext(requestIdentity)) {
       return;
     }
 
@@ -434,15 +586,19 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setNotice(
-        `${operation} ${control.run_id}: ${result.idempotent ? "already applied" : "completed"}`
+        `${operation === "abort" ? "中止" : operation === "reset" ? "重置" : "清理"} ${control.run_id}：${result.idempotent ? "已幂等应用" : "已完成"}`
       );
       await Promise.all([refresh(), refreshLifecycleControls()]);
     } catch (error) {
-      setNotice(getAdminSummaryErrorMessage(error));
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      setNotice(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
       await refreshLifecycleControls();
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -452,6 +608,8 @@ export function App() {
 
   async function createCoursePackageDraft(): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     const draft: CoursePackageVersionDraftInput = {
       course_blueprint_reference: {
@@ -482,20 +640,26 @@ export function App() {
       await createAdminCoursePackageDraft(draft, session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "draft",
         surfaceState: getAdminCoursePackageSurfaceState(error, "draft")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   async function importCoursePackage(): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     setBusy(true);
     setCoursePackageFeedback(null);
@@ -508,15 +672,19 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageImportPayload("");
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "import",
         surfaceState: getAdminCoursePackageSurfaceState(error, "import")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -525,6 +693,8 @@ export function App() {
     coursePackage: CoursePackageVersion
   ): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     setBusy(true);
     setCoursePackageFeedback(null);
@@ -535,21 +705,26 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation,
         surfaceState: getAdminCoursePackageSurfaceState(error, operation)
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   async function exportCoursePackage(coursePackage: CoursePackageVersion): Promise<void> {
     if (!session) return;
 
-    const sessionEpoch = coursePackageSessionEpoch.current;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setBusy(true);
     setCoursePackageFeedback(null);
     try {
@@ -558,618 +733,771 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageExportPayload(JSON.stringify(exported, null, 2));
     } catch (error) {
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "export",
         surfaceState: getAdminCoursePackageSurfaceState(error, "export")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
-  return (
-    <main className="shell">
-      <header className="topbar">
+  const lifecycleSurface = isTenantAdmin ? (
+    <section className="lifecycle-surface" aria-label="synthetic run lifecycle controls">
+      <div className="lifecycle-heading">
         <div>
-          <p className="eyebrow">Admin Governance</p>
-          <h1>SimWar P1 管理后台</h1>
-          <span className="identity">
-            {session
-              ? `${session.user.display_name} · ${session.user.roles.join(" / ")}`
-              : "not signed in"}
-          </span>
+          <p className="eyebrow">仅限内部 JSON synthetic 运行</p>
+          <h2>预结算运行控制</h2>
         </div>
-        <strong className="notice">{notice}</strong>
-      </header>
-
-      <section className="login-strip" aria-label="admin login">
-        <input
-          aria-label="tenant"
-          value={login.tenantId}
-          onChange={(event) => updateLogin("tenantId", event.target.value)}
-        />
-        <input
-          aria-label="username"
-          value={login.username}
-          onChange={(event) => updateLogin("username", event.target.value)}
-        />
-        <input
-          aria-label="password"
-          type="password"
-          value={login.password}
-          onChange={(event) => updateLogin("password", event.target.value)}
-        />
-        <button disabled={busy} onClick={() => void signIn()}>
-          管理员登录
+        <button
+          aria-label="refresh lifecycle controls"
+          disabled={busy || lifecycleStatus === "loading"}
+          onClick={() => void refreshLifecycleControls()}
+          title="Refresh lifecycle controls"
+        >
+          刷新
         </button>
-        {DEMO_LOGIN_ENABLED ? (
-          <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
-            演示登录
-          </button>
+      </div>
+
+      <p className="lifecycle-boundary">
+        仅作用于当前认证租户内、未结算且未发布的 synthetic JSON run。所有正式决策、审计、结果、
+        score、rank、truth 与 Replay 证据均保留。
+      </p>
+
+      {lifecycleStatus !== "ready" || lifecycleControls.length === 0 ? (
+        <p
+          className={lifecycleStatus === "error" ? "lifecycle-error" : "lifecycle-status"}
+          role={lifecycleStatus === "error" ? "alert" : undefined}
+        >
+          {lifecycleStatus === "loading"
+            ? "正在读取可控运行..."
+            : lifecycleStatus === "error"
+              ? lifecycleError
+              : "当前租户没有可显示的 synthetic JSON run。"}
+        </p>
+      ) : null}
+
+      <div className="lifecycle-list">
+        {lifecycleControls.map((control) => (
+          <article className="lifecycle-run" key={control.run_id}>
+            <div className="lifecycle-run-title">
+              <div>
+                <strong>{control.run_id}</strong>
+                <span className="identity">
+                  {control.tenant_id} / {control.course_id}
+                </span>
+              </div>
+              <span className="summary-badge">{control.lifecycle_state}</span>
+            </div>
+
+            <p className="lifecycle-facts">
+              预结算 {control.pre_settlement ? "是" : "否"} · 预发布{" "}
+              {control.pre_publication ? "是" : "否"} · 证据冻结{" "}
+              {control.evidence_frozen ? "是" : "否"} · 清理不会删除持久化对象{" "}
+              <span className="technical-compatibility">Cleanup 删除 0 个持久化对象</span>
+            </p>
+
+            {control.blocked_reasons.length > 0 ? (
+              <p className="lifecycle-blocked">
+                操作受限：{formatLifecycleBlockedReasons(control.blocked_reasons)}
+              </p>
+            ) : null}
+
+            <div className="lifecycle-actions" aria-label={`actions for ${control.run_id}`}>
+              {(["abort", "reset", "cleanup"] as const).map((operation) => (
+                <AdminLifecycleOperationButton
+                  action={operation}
+                  allowedActions={control.allowed_operations}
+                  loading={busy}
+                  disabledReason={formatLifecycleBlockedReasons(control.blocked_reasons)}
+                  key={operation}
+                  onClick={() => void applyLifecycleOperation(control, operation)}
+                >
+                  {operation === "abort"
+                    ? "中止运行"
+                    : operation === "reset"
+                      ? "重置锁定"
+                      : "清理运行"}
+                </AdminLifecycleOperationButton>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const loginPanel = (
+    <section className="login-strip" aria-label="admin login">
+      <div className="admin-identity" aria-live="polite">
+        <span className="eyebrow">管理治理</span>
+        <span className="identity">
+          {session ? `${session.user.display_name} · ${session.user.roles.join(" / ")}` : "未登录"}
+        </span>
+      </div>
+      <input
+        aria-label="tenant"
+        value={login.tenantId}
+        onChange={(event) => updateLogin("tenantId", event.target.value)}
+      />
+      <input
+        aria-label="username"
+        value={login.username}
+        onChange={(event) => updateLogin("username", event.target.value)}
+      />
+      <input
+        aria-label="password"
+        type="password"
+        value={login.password}
+        onChange={(event) => updateLogin("password", event.target.value)}
+      />
+      <button disabled={busy} onClick={() => void signIn()}>
+        管理员登录
+      </button>
+      {DEMO_LOGIN_ENABLED ? (
+        <button disabled={busy} onClick={() => void signIn(DEMO_LOGIN)}>
+          演示登录
+        </button>
+      ) : null}
+    </section>
+  );
+
+  if (session && !hasAdminSummaryRole) {
+    return (
+      <main className="admin-access-denied">
+        <h1>管理权限验证</h1>
+        <section role="alert" aria-label="管理权限">
+          <h2>当前角色无管理权限</h2>
+          <p>请使用已获服务端授权的管理员会话访问管理交付与信任工作区。</p>
+          <p className="technical-compatibility">
+            会话已登录 <span>signed in</span>
+          </p>
+        </section>
+        {loginPanel}
+      </main>
+    );
+  }
+
+  return (
+    <AdminDeliveryTrustWorkspace
+      context={
+        session
+          ? {
+              tenant: session.user.tenant_id,
+              session: session.user.user_id,
+              role: session.user.roles.join("、"),
+              mode: session.user.roles.includes("platform_admin") ? "平台范围" : "租户范围"
+            }
+          : {}
+      }
+      authority={session ? "official" : "unknown"}
+      activeHash={activeHash}
+      navigationEnabled={!session || hasAdminSummaryRole}
+      navigationItems={navigationItems}
+      stateStatus={session ? "ready" : "empty"}
+      stateMessage={
+        session ? "仅展示服务端提供的上下文，不在前端计算正式结果。" : "请先登录管理员会话。"
+      }
+      primaryAction={
+        <strong className="notice">
+          {notice}
+          {notice === "已登录" ? <span className="technical-compatibility">signed in</span> : null}
+        </strong>
+      }
+      knownLimits={
+        session && hasAdminSummaryRole ? (
+          <>
+            <p>{knownLimits.summary}</p>
+            <details>
+              <summary>查看完整限制</summary>
+              <p className="policy-version">Policy {knownLimits.policy_version}</p>
+              <ul>
+                {knownLimits.items.map((item) => (
+                  <li key={item.semantic_id}>
+                    <strong>
+                      {item.semantic_id} · {item.title}
+                    </strong>
+                    <span>{item.role_note ?? item.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </>
+        ) : null
+      }
+      environmentRecovery={
+        session && hasAdminSummaryRole ? <AdminEnvironmentRecoveryLimit /> : null
+      }
+    >
+      {loginPanel}
+
+      {(!session || hasAdminSummaryRole) && (
+        <section id="admin-audit-receipts" aria-labelledby="admin-audit-receipts-heading">
+          <h2 id="admin-audit-receipts-heading">审计与回执</h2>
+          {session && hasAdminSummaryRole ? (
+            <D5ExportWorkbench
+              apiBase={API_BASE}
+              tenantId={session.user.tenant_id}
+              token={session.access_token}
+            />
+          ) : (
+            <p className="lifecycle-status">登录后显示交付回执与审计工作台。</p>
+          )}
+          {isTenantAdmin && state ? (
+            <a className="admin-inline-link" href="#admin-audit-events">
+              查看审计事件
+            </a>
+          ) : (
+            <p className="lifecycle-status">
+              {session
+                ? "当前角色无法查看租户审计事件。"
+                : "登录并获得租户管理员权限后查看租户审计事件。"}
+            </p>
+          )}
+        </section>
+      )}
+      {session && hasAdminSummaryRole ? (
+        <section id="admin-tenants-entitlements" aria-labelledby="admin-tenants-heading">
+          <h2 id="admin-tenants-heading">租户与权益</h2>
+          {session.user.roles.includes("platform_admin") ? (
+            <TenantBaselineWorkbench apiBase={API_BASE} token={session.access_token} />
+          ) : (
+            <p className="lifecycle-status">当前会话仅显示服务端提供的租户范围与权益摘要。</p>
+          )}
+        </section>
+      ) : null}
+      {session && hasAdminSummaryRole ? (
+        <section
+          id="admin-runtime-support"
+          className="admin-runtime-support"
+          aria-labelledby="admin-runtime-heading"
+        >
+          <h2 id="admin-runtime-heading">运行与支持</h2>
+          <TransferResearchWorkbench
+            apiBase={API_BASE}
+            tenantId={session.user.tenant_id}
+            token={session.access_token}
+            surface="admin"
+          />
+          {lifecycleSurface}
+        </section>
+      ) : null}
+
+      <section id="admin-delivery-overview" aria-labelledby="admin-delivery-overview-heading">
+        <div className="workspace-section-heading">
+          <p className="eyebrow">管理工作区</p>
+          <h2 id="admin-delivery-overview-heading">交付总览</h2>
+        </div>
+
+        {summaryStatus === "loading" && hasAdminSummaryRole ? (
+          <section className="summary-status" aria-live="polite">
+            正在加载管理摘要…
+          </section>
+        ) : null}
+
+        {summaryStatus === "error" && hasAdminSummaryRole ? (
+          <section className="summary-error" role="alert">
+            {summaryError}
+          </section>
+        ) : null}
+
+        {adminSummary.kind === "tenant" ? (
+          <section className="summary-panel" aria-label="tenant admin scoped summary">
+            <div className="summary-heading">
+              <div>
+                <p className="eyebrow">只读摘要</p>
+                <h2>当前租户范围</h2>
+              </div>
+              <strong className="summary-badge">{adminSummary.summary.tenant_id}</strong>
+            </div>
+            <div className="summary-grid">
+              <article>
+                <span>课程</span>
+                <strong>{adminSummary.summary.visible_state.course_count}</strong>
+              </article>
+              <article>
+                <span>队伍</span>
+                <strong>{adminSummary.summary.visible_state.team_count}</strong>
+              </article>
+              <article>
+                <span>运行</span>
+                <strong>{adminSummary.summary.visible_state.run_count}</strong>
+              </article>
+              <article>
+                <span>审计事件</span>
+                <strong>{adminSummary.summary.visible_state.audit_event_count}</strong>
+              </article>
+            </div>
+          </section>
+        ) : null}
+
+        {adminSummary.kind === "platform" ? (
+          <section className="summary-panel" aria-label="platform admin authority summary">
+            <div className="summary-heading">
+              <div>
+                <p className="eyebrow">
+                  平台权限已明确{" "}
+                  <span className="technical-compatibility">Explicit platform authority</span>
+                </p>
+                <h2 aria-label="Platform scope">平台范围</h2>
+              </div>
+              <strong className="summary-badge" aria-label="Read-only summary">
+                只读摘要 <span className="technical-compatibility">Read-only summary</span>
+              </strong>
+            </div>
+            <div className="summary-grid platform-summary-grid">
+              <article>
+                <span aria-label="Tenant count">
+                  租户数量 <span className="technical-compatibility">Tenant count</span>
+                </span>
+                <strong>{adminSummary.authority.visible_state.tenant_count}</strong>
+              </article>
+            </div>
+          </section>
         ) : null}
       </section>
 
-      {session && hasAdminSummaryRole ? (
-        <section className="known-limits-disclosure" aria-label="known limits product disclosure">
-          <p className="eyebrow">Internal Use Boundary</p>
-          <h2>已知限制与内部使用说明</h2>
-          <p>{knownLimits.summary}</p>
-          <details>
-            <summary>查看完整限制</summary>
-            <p className="policy-version">Policy {knownLimits.policy_version}</p>
-            <ul>
-              {knownLimits.items.map((item) => (
-                <li key={item.semantic_id}>
-                  <strong>
-                    {item.semantic_id} · {item.title}
-                  </strong>
-                  <span>{item.role_note ?? item.description}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        </section>
-      ) : null}
-
-      {session && hasAdminSummaryRole ? (
-        <D5ExportWorkbench
-          apiBase={API_BASE}
-          tenantId={session.user.tenant_id}
-          token={session.access_token}
-        />
-      ) : null}
-      {session?.user.roles.includes("platform_admin") ? (
-        <TenantBaselineWorkbench apiBase={API_BASE} token={session.access_token} />
-      ) : null}
-      {session ? (
-        <TransferResearchWorkbench
-          apiBase={API_BASE}
-          tenantId={session.user.tenant_id}
-          token={session.access_token}
-          surface="admin"
-        />
-      ) : null}
-
-      {summaryStatus === "loading" && hasAdminSummaryRole ? (
-        <section className="summary-status" aria-live="polite">
-          Loading Admin summary...
-        </section>
-      ) : null}
-
-      {summaryStatus === "error" && hasAdminSummaryRole ? (
-        <section className="summary-error" role="alert">
-          {summaryError}
-        </section>
-      ) : null}
-
-      {adminSummary.kind === "tenant" ? (
-        <section className="summary-panel" aria-label="tenant admin scoped summary">
-          <div className="summary-heading">
-            <div>
-              <p className="eyebrow">只读摘要</p>
-              <h2>当前租户范围</h2>
+      {(!session || hasAdminSummaryRole) && (
+        <section id="admin-security-projection" aria-labelledby="admin-security-heading">
+          <div className="workspace-section-heading">
+            <p className="eyebrow">服务端权限投影</p>
+            <h2 id="admin-security-heading">权限与安全投影</h2>
+          </div>
+          {session ? (
+            <div className="authority-projection">
+              <AuthorityBadge authority="official" />
+              <p>
+                当前权限来自服务端会话：{session.user.roles.join("、")}。前端不根据状态、角色名称、
+                URL 或本地存储推断权限。
+              </p>
             </div>
-            <strong className="summary-badge">{adminSummary.summary.tenant_id}</strong>
-          </div>
-          <div className="summary-grid">
-            <article>
-              <span>课程</span>
-              <strong>{adminSummary.summary.visible_state.course_count}</strong>
-            </article>
-            <article>
-              <span>队伍</span>
-              <strong>{adminSummary.summary.visible_state.team_count}</strong>
-            </article>
-            <article>
-              <span>运行</span>
-              <strong>{adminSummary.summary.visible_state.run_count}</strong>
-            </article>
-            <article>
-              <span>审计事件</span>
-              <strong>{adminSummary.summary.visible_state.audit_event_count}</strong>
-            </article>
-          </div>
+          ) : (
+            <p className="lifecycle-status">登录后显示服务端权限投影。</p>
+          )}
         </section>
-      ) : null}
-
-      {adminSummary.kind === "platform" ? (
-        <section className="summary-panel" aria-label="platform admin authority summary">
-          <div className="summary-heading">
-            <div>
-              <p className="eyebrow">Explicit platform authority</p>
-              <h2>Platform scope</h2>
-            </div>
-            <strong className="summary-badge">Read-only summary</strong>
-          </div>
-          <div className="summary-grid platform-summary-grid">
-            <article>
-              <span>Tenant count</span>
-              <strong>{adminSummary.authority.visible_state.tenant_count}</strong>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      {isTenantAdmin ? (
-        <section className="lifecycle-surface" aria-label="synthetic run lifecycle controls">
-          <div className="lifecycle-heading">
-            <div>
-              <p className="eyebrow">Synthetic JSON Internal Only</p>
-              <h2>预结算运行控制</h2>
-            </div>
-            <button
-              aria-label="refresh lifecycle controls"
-              disabled={busy || lifecycleStatus === "loading"}
-              onClick={() => void refreshLifecycleControls()}
-              title="Refresh lifecycle controls"
-            >
-              刷新
-            </button>
-          </div>
-
-          <p className="lifecycle-boundary">
-            仅作用于当前认证租户内、未结算且未发布的 synthetic JSON run。所有正式决策、审计、结果、
-            score、rank、truth 与 Replay 证据均保留。
-          </p>
-
-          {lifecycleStatus !== "ready" || lifecycleControls.length === 0 ? (
-            <p
-              className={lifecycleStatus === "error" ? "lifecycle-error" : "lifecycle-status"}
-              role={lifecycleStatus === "error" ? "alert" : undefined}
-            >
-              {lifecycleStatus === "loading"
-                ? "正在读取可控运行..."
-                : lifecycleStatus === "error"
-                  ? lifecycleError
-                  : "当前租户没有可显示的 synthetic JSON run。"}
-            </p>
-          ) : null}
-
-          <div className="lifecycle-list">
-            {lifecycleControls.map((control) => (
-              <article className="lifecycle-run" key={control.run_id}>
-                <div className="lifecycle-run-title">
-                  <div>
-                    <strong>{control.run_id}</strong>
-                    <span className="identity">
-                      {control.tenant_id} / {control.course_id}
-                    </span>
-                  </div>
-                  <span className="summary-badge">{control.lifecycle_state}</span>
-                </div>
-
-                <p className="lifecycle-facts">
-                  预结算 {control.pre_settlement ? "YES" : "NO"} · 预发布{" "}
-                  {control.pre_publication ? "YES" : "NO"} · 证据冻结{" "}
-                  {control.evidence_frozen ? "YES" : "NO"} · Cleanup 删除 0 个持久化对象
-                </p>
-
-                {control.blocked_reasons.length > 0 ? (
-                  <p className="lifecycle-blocked">Blocked: {control.blocked_reasons.join(", ")}</p>
-                ) : null}
-
-                <div className="lifecycle-actions" aria-label={`actions for ${control.run_id}`}>
-                  {(["abort", "reset", "cleanup"] as const).map((operation) => (
-                    <button
-                      disabled={busy || !control.allowed_operations.includes(operation)}
-                      key={operation}
-                      onClick={() => void applyLifecycleOperation(control, operation)}
-                      title={`${operation} ${control.run_id}`}
-                    >
-                      {operation.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      )}
 
       {session && hasCoursePackageAdminRole ? (
-        <CourseReportBuilder
-          sessionKey={`${session.access_token}:${login.tenantId}`}
-          tenantId={login.tenantId}
-          token={session.access_token}
-        />
-      ) : null}
-
-      {session && hasCoursePackageAdminRole ? (
-        <section
-          className="course-package-surface"
-          aria-label="CoursePackageVersion administration"
-        >
-          <div className="lifecycle-heading">
-            <div>
-              <p className="eyebrow">JSON Internal Only</p>
-              <h2>CoursePackageVersion administration</h2>
-            </div>
-            <button
-              disabled={busy || coursePackageList.phase === "LOADING"}
-              onClick={() => void refreshCoursePackages()}
-            >
-              Refresh CoursePackageVersions
-            </button>
-          </div>
-          <p className="lifecycle-boundary">
-            Server-owned immutable teaching/configuration snapshots only. This surface never
-            evaluates dependency compatibility, computes digests, or changes a Course, Run,
-            ParameterSet, settlement, score, rank, replay, or truth field.
-          </p>
-
-          {coursePackageList.phase === "LOADING" ? (
-            <p className="lifecycle-status" role="status">
-              Loading CoursePackageVersions
-            </p>
-          ) : null}
-          {coursePackageList.phase === "ERROR" ? (
-            <p className="lifecycle-error" role="alert">
-              {coursePackageStatusLabel(coursePackageList.surfaceState, "list")}
-            </p>
-          ) : null}
-          {coursePackageFeedback ? (
-            <p className="lifecycle-error" role="alert">
-              {coursePackageStatusLabel(
-                coursePackageFeedback.surfaceState,
-                coursePackageFeedback.operation
-              )}
-            </p>
-          ) : null}
-          {coursePackageExportPayload ? (
-            <article className="panel form-panel" aria-label="CoursePackageVersion export receipt">
-              <div className="panel-title">
-                <h3>Immutable export ready</h3>
-                <span>admin-controlled JSON</span>
+        <section id="admin-assets" aria-labelledby="admin-assets-heading">
+          <h2 id="admin-assets-heading">课程、场景与模型资产</h2>
+          <CourseReportBuilder
+            sessionKey={`${session.access_token}:${login.tenantId}`}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+          <section
+            className="course-package-surface"
+            aria-label="CoursePackageVersion administration"
+          >
+            <div className="lifecycle-heading">
+              <div>
+                <p className="eyebrow">仅限 JSON 内部快照</p>
+                <h2>课程包版本管理</h2>
               </div>
-              <label>
-                Course package export JSON
-                <textarea
-                  aria-label="course package export payload"
-                  readOnly
-                  value={coursePackageExportPayload}
-                />
-              </label>
-              <button onClick={() => setCoursePackageImportPayload(coursePackageExportPayload)}>
-                Use export as import payload
-              </button>
-            </article>
-          ) : null}
-          {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
-            <p className="lifecycle-status">No CoursePackageVersions are available.</p>
-          ) : null}
-          {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
-            <div className="course-package-list">
-              {coursePackageList.packages.map((coursePackage) => (
-                <article
-                  className="course-package-card"
-                  key={`${coursePackage.course_package_id}-${coursePackage.version}-${coursePackage.content_digest}`}
-                >
-                  <div>
-                    <strong>{coursePackage.title}</strong>
-                    <span>{coursePackage.status}</span>
-                    {getAdminCoursePackageSurfaceState(coursePackage, "list") === "STALE" ? (
-                      <span className="lifecycle-blocked">STALE</span>
-                    ) : null}
-                  </div>
-                  <small>
-                    {coursePackage.course_package_id} / {coursePackage.version}
-                  </small>
-                  <p>{coursePackage.description}</p>
-                  <div className="lifecycle-actions">
-                    <button
-                      disabled={busy}
-                      onClick={() => void applyCoursePackageLifecycle("validate", coursePackage)}
-                    >
-                      Validate {coursePackage.course_package_id}
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        void applyCoursePackageLifecycle("make-available", coursePackage)
-                      }
-                    >
-                      Make {coursePackage.course_package_id} available
-                    </button>
-                    <button disabled={busy} onClick={() => void exportCoursePackage(coursePackage)}>
-                      Export {coursePackage.course_package_id}
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() => void applyCoursePackageLifecycle("retire", coursePackage)}
-                    >
-                      Retire {coursePackage.course_package_id}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="course-package-forms">
-            <article className="panel form-panel">
-              <div className="panel-title">
-                <h3>Create immutable DRAFT</h3>
-                <span>server validates all references</span>
-              </div>
-              <label>
-                Course package ID
-                <input
-                  value={coursePackageDraft.packageId}
-                  onChange={(event) => updateCoursePackageDraft("packageId", event.target.value)}
-                />
-              </label>
-              <label>
-                Version
-                <input
-                  value={coursePackageDraft.version}
-                  onChange={(event) => updateCoursePackageDraft("version", event.target.value)}
-                />
-              </label>
-              <label>
-                Title
-                <input
-                  value={coursePackageDraft.title}
-                  onChange={(event) => updateCoursePackageDraft("title", event.target.value)}
-                />
-              </label>
-              <label>
-                Description
-                <input
-                  value={coursePackageDraft.description}
-                  onChange={(event) => updateCoursePackageDraft("description", event.target.value)}
-                />
-              </label>
-              <label>
-                Source tenant ID
-                <input
-                  value={coursePackageDraft.sourceTenantId}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("sourceTenantId", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                CourseBlueprint ID
-                <input
-                  value={coursePackageDraft.blueprintId}
-                  onChange={(event) => updateCoursePackageDraft("blueprintId", event.target.value)}
-                />
-              </label>
-              <label>
-                CourseBlueprint version
-                <input
-                  value={coursePackageDraft.blueprintVersion}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("blueprintVersion", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                CourseBlueprint digest
-                <input
-                  value={coursePackageDraft.blueprintDigest}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("blueprintDigest", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                ScenarioPackage ID
-                <input
-                  value={coursePackageDraft.scenarioId}
-                  onChange={(event) => updateCoursePackageDraft("scenarioId", event.target.value)}
-                />
-              </label>
-              <label>
-                ScenarioPackage version
-                <input
-                  value={coursePackageDraft.scenarioVersion}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("scenarioVersion", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                ScenarioPackage digest
-                <input
-                  value={coursePackageDraft.scenarioDigest}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("scenarioDigest", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                ParameterSet ID
-                <input
-                  value={coursePackageDraft.parameterId}
-                  onChange={(event) => updateCoursePackageDraft("parameterId", event.target.value)}
-                />
-              </label>
-              <label>
-                ParameterSet version
-                <input
-                  value={coursePackageDraft.parameterVersion}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("parameterVersion", event.target.value)
-                  }
-                />
-              </label>
-              <label>
-                ParameterSet digest
-                <input
-                  value={coursePackageDraft.parameterDigest}
-                  onChange={(event) =>
-                    updateCoursePackageDraft("parameterDigest", event.target.value)
-                  }
-                />
-              </label>
-              <button disabled={busy} onClick={() => void createCoursePackageDraft()}>
-                Create CoursePackageVersion DRAFT
-              </button>
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-title">
-                <h3>Import immutable export</h3>
-                <span>server verifies digest</span>
-              </div>
-              <label>
-                Course package export JSON
-                <textarea
-                  aria-label="course package import payload"
-                  value={coursePackageImportPayload}
-                  onChange={(event) => setCoursePackageImportPayload(event.target.value)}
-                />
-              </label>
-              <button disabled={busy} onClick={() => void importCoursePackage()}>
-                Import CoursePackageVersion
-              </button>
-            </article>
-          </div>
-        </section>
-      ) : null}
-
-      {isTenantAdmin && state ? (
-        <section className="workspace legacy-operations">
-          <article className="panel form-panel">
-            <div className="panel-title">
-              <h2>创建用户</h2>
-              <span>tenant scoped</span>
-            </div>
-            <label>
-              租户
-              <input
-                value={userDraft.tenant_id}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              用户名
-              <input
-                value={userDraft.username}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, username: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              邮箱
-              <input
-                value={userDraft.email}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, email: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              显示名
-              <input
-                value={userDraft.display_name}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, display_name: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              初始密码
-              <input
-                type="password"
-                value={userDraft.password}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, password: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              角色
-              <select
-                value={userDraft.role}
-                onChange={(event) =>
-                  setUserDraft((current) => ({ ...current, role: event.target.value as ActorRole }))
-                }
+              <button
+                aria-label="Refresh CoursePackageVersions"
+                disabled={busy || coursePackageList.phase === "LOADING"}
+                onClick={() => void refreshCoursePackages()}
               >
-                {roleOptions.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
+                刷新课程包版本
+              </button>
+            </div>
+            <p className="lifecycle-boundary">
+              当前仅展示服务端拥有的不可变教学与配置快照。此处不会评估依赖兼容性、计算摘要，也不会修改
+              课程、运行、参数集、结算、评分、排名、回放或真值字段。
+            </p>
+
+            {coursePackageList.phase === "LOADING" ? (
+              <p className="lifecycle-status" role="status">
+                正在加载课程包版本…
+                <span className="technical-compatibility">Loading CoursePackageVersions</span>
+              </p>
+            ) : null}
+            {coursePackageList.phase === "ERROR" ? (
+              <p className="lifecycle-error" role="alert">
+                {coursePackageStatusLabel(coursePackageList.surfaceState, "list")}
+              </p>
+            ) : null}
+            {coursePackageFeedback ? (
+              <p className="lifecycle-error" role="alert">
+                {coursePackageStatusLabel(
+                  coursePackageFeedback.surfaceState,
+                  coursePackageFeedback.operation
+                )}
+              </p>
+            ) : null}
+            {coursePackageExportPayload ? (
+              <article
+                className="panel form-panel"
+                aria-label="CoursePackageVersion export receipt"
+              >
+                <div className="panel-title">
+                  <h3>不可变导出已就绪</h3>
+                  <span>管理员控制的 JSON</span>
+                </div>
+                <label>
+                  课程包导出 JSON
+                  <textarea
+                    aria-label="course package export payload"
+                    readOnly
+                    value={coursePackageExportPayload}
+                  />
+                </label>
+                <button onClick={() => setCoursePackageImportPayload(coursePackageExportPayload)}>
+                  使用导出内容作为导入载荷
+                </button>
+              </article>
+            ) : null}
+            {coursePackageList.phase === "READY" && coursePackageList.packages.length === 0 ? (
+              <p className="lifecycle-status">
+                当前没有可用的课程包版本。
+                <span className="technical-compatibility">
+                  No CoursePackageVersions are available.
+                </span>
+              </p>
+            ) : null}
+            {coursePackageList.phase === "READY" && coursePackageList.packages.length > 0 ? (
+              <div className="course-package-list">
+                {coursePackageList.packages.map((coursePackage) => (
+                  <article
+                    className="course-package-card"
+                    key={`${coursePackage.course_package_id}-${coursePackage.version}-${coursePackage.content_digest}`}
+                  >
+                    <div>
+                      <strong>{coursePackage.title}</strong>
+                      <span>{coursePackage.status}</span>
+                      {getAdminCoursePackageSurfaceState(coursePackage, "list") === "STALE" ? (
+                        <span className="lifecycle-blocked">STALE</span>
+                      ) : null}
+                    </div>
+                    <small>
+                      {coursePackage.course_package_id} / {coursePackage.version}
+                    </small>
+                    <p>{coursePackage.description}</p>
+                    <div className="lifecycle-actions">
+                      <button
+                        aria-label={`Validate ${coursePackage.course_package_id}`}
+                        disabled={busy}
+                        onClick={() => void applyCoursePackageLifecycle("validate", coursePackage)}
+                      >
+                        校验 {coursePackage.course_package_id}
+                      </button>
+                      <button
+                        aria-label={`Make ${coursePackage.course_package_id} available`}
+                        disabled={busy}
+                        onClick={() =>
+                          void applyCoursePackageLifecycle("make-available", coursePackage)
+                        }
+                      >
+                        使 {coursePackage.course_package_id} 可用
+                      </button>
+                      <button
+                        aria-label={`Export ${coursePackage.course_package_id}`}
+                        disabled={busy}
+                        onClick={() => void exportCoursePackage(coursePackage)}
+                      >
+                        导出 {coursePackage.course_package_id}
+                      </button>
+                      <button
+                        aria-label={`Retire ${coursePackage.course_package_id}`}
+                        disabled={busy}
+                        onClick={() => void applyCoursePackageLifecycle("retire", coursePackage)}
+                      >
+                        退役 {coursePackage.course_package_id}
+                      </button>
+                    </div>
+                  </article>
                 ))}
-              </select>
-            </label>
-            <button
-              className="primary"
-              disabled={busy || !session}
-              onClick={() => void createUser()}
-            >
-              创建用户
-            </button>
-          </article>
+              </div>
+            ) : null}
+
+            <div className="course-package-forms">
+              <article className="panel form-panel">
+                <div className="panel-title">
+                  <h3>创建不可变草稿</h3>
+                  <span>服务端校验全部引用</span>
+                </div>
+                <label>
+                  课程包 ID
+                  <input
+                    value={coursePackageDraft.packageId}
+                    onChange={(event) => updateCoursePackageDraft("packageId", event.target.value)}
+                  />
+                </label>
+                <label>
+                  版本
+                  <input
+                    value={coursePackageDraft.version}
+                    onChange={(event) => updateCoursePackageDraft("version", event.target.value)}
+                  />
+                </label>
+                <label>
+                  标题
+                  <input
+                    value={coursePackageDraft.title}
+                    onChange={(event) => updateCoursePackageDraft("title", event.target.value)}
+                  />
+                </label>
+                <label>
+                  描述
+                  <input
+                    value={coursePackageDraft.description}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("description", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  源租户 ID
+                  <input
+                    value={coursePackageDraft.sourceTenantId}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("sourceTenantId", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  课程蓝图 ID
+                  <input
+                    value={coursePackageDraft.blueprintId}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("blueprintId", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  课程蓝图版本
+                  <input
+                    value={coursePackageDraft.blueprintVersion}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("blueprintVersion", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  课程蓝图摘要
+                  <input
+                    value={coursePackageDraft.blueprintDigest}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("blueprintDigest", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  场景包 ID
+                  <input
+                    value={coursePackageDraft.scenarioId}
+                    onChange={(event) => updateCoursePackageDraft("scenarioId", event.target.value)}
+                  />
+                </label>
+                <label>
+                  场景包版本
+                  <input
+                    value={coursePackageDraft.scenarioVersion}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("scenarioVersion", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  场景包摘要
+                  <input
+                    value={coursePackageDraft.scenarioDigest}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("scenarioDigest", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  参数集 ID
+                  <input
+                    value={coursePackageDraft.parameterId}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("parameterId", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  参数集版本
+                  <input
+                    value={coursePackageDraft.parameterVersion}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("parameterVersion", event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  参数集摘要
+                  <input
+                    value={coursePackageDraft.parameterDigest}
+                    onChange={(event) =>
+                      updateCoursePackageDraft("parameterDigest", event.target.value)
+                    }
+                  />
+                </label>
+                <button
+                  aria-label="创建 CoursePackageVersion 草稿"
+                  disabled={busy}
+                  onClick={() => void createCoursePackageDraft()}
+                >
+                  创建 CoursePackageVersion 草稿
+                </button>
+              </article>
+
+              <article className="panel form-panel">
+                <div className="panel-title">
+                  <h3>导入不可变导出</h3>
+                  <span>服务端核验摘要</span>
+                </div>
+                <label>
+                  课程包导出 JSON
+                  <textarea
+                    aria-label="course package import payload"
+                    value={coursePackageImportPayload}
+                    onChange={(event) => setCoursePackageImportPayload(event.target.value)}
+                  />
+                </label>
+                <button
+                  aria-label="Import CoursePackageVersion"
+                  disabled={busy}
+                  onClick={() => void importCoursePackage()}
+                >
+                  导入 CoursePackageVersion
+                </button>
+              </article>
+            </div>
+          </section>
         </section>
       ) : null}
 
       {isTenantAdmin && state ? (
-        <section className="workspace wide legacy-operations">
-          <article className="panel">
-            <div className="panel-title">
-              <h2>租户目录</h2>
-              <span>{state?.tenants.length ?? 0}</span>
-            </div>
-            <div className="table">
-              {(state?.tenants ?? []).map((tenant) => (
-                <div className="table-row" key={tenant.tenant_id}>
-                  <span>{tenant.name}</span>
-                  <strong>{tenant.domain}</strong>
-                  <small>{tenant.status}</small>
-                </div>
-              ))}
-            </div>
-          </article>
+        <section id="admin-users-roles" aria-labelledby="admin-users-roles-heading">
+          <h2 id="admin-users-roles-heading" className="workspace-section-title">
+            用户、角色与范围
+          </h2>
+          <section className="workspace legacy-operations">
+            <article className="panel form-panel">
+              <div className="panel-title">
+                <h2>创建用户</h2>
+                <span>租户范围</span>
+              </div>
+              <label>
+                租户
+                <input
+                  value={userDraft.tenant_id}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, tenant_id: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                用户名
+                <input
+                  value={userDraft.username}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, username: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                邮箱
+                <input
+                  value={userDraft.email}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, email: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                显示名
+                <input
+                  value={userDraft.display_name}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, display_name: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                初始密码
+                <input
+                  type="password"
+                  value={userDraft.password}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({ ...current, password: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                角色
+                <select
+                  value={userDraft.role}
+                  onChange={(event) =>
+                    setUserDraft((current) => ({
+                      ...current,
+                      role: event.target.value as ActorRole
+                    }))
+                  }
+                >
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="primary"
+                disabled={busy || !session}
+                onClick={() => void createUser()}
+              >
+                创建用户
+              </button>
+            </article>
+          </section>
+          <section className="workspace wide legacy-operations">
+            <article className="panel">
+              <div className="panel-title">
+                <h2>租户目录</h2>
+                <span>{state?.tenants.length ?? 0}</span>
+              </div>
+              <div className="table">
+                {(state?.tenants ?? []).map((tenant) => (
+                  <div className="table-row" key={tenant.tenant_id}>
+                    <span>{tenant.name}</span>
+                    <strong>{tenant.domain}</strong>
+                    <small>{tenant.status}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
 
-          <article className="panel">
-            <div className="panel-title">
-              <h2>用户目录</h2>
-              <span>{state?.users.length ?? 0}</span>
-            </div>
-            <div className="table">
-              {(state?.users ?? []).map((user) => (
-                <div className="table-row" key={user.user_id}>
-                  <span>{user.display_name}</span>
-                  <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
-                  <small>{user.roles.join(", ")}</small>
-                </div>
-              ))}
-            </div>
-          </article>
+            <article className="panel">
+              <div className="panel-title">
+                <h2>用户目录</h2>
+                <span>{state?.users.length ?? 0}</span>
+              </div>
+              <div className="table">
+                {(state?.users ?? []).map((user) => (
+                  <div className="table-row" key={user.user_id}>
+                    <span>{user.display_name}</span>
+                    <strong>{tenantMap.get(user.tenant_id) ?? user.tenant_id}</strong>
+                    <small>{user.roles.join(", ")}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </section>
         </section>
       ) : null}
 
       {isTenantAdmin && state ? (
-        <section className="panel audit legacy-operations">
+        <section id="admin-audit-events" className="panel audit legacy-operations">
           <div className="panel-title">
             <h2>审计事件</h2>
             <span>{state?.audit_logs.length ?? 0}</span>
@@ -1185,6 +1513,6 @@ export function App() {
           </div>
         </section>
       ) : null}
-    </main>
+    </AdminDeliveryTrustWorkspace>
   );
 }

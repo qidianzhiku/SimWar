@@ -26,7 +26,9 @@ async function signIn(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit without a truth mutation", async ({
@@ -228,10 +230,12 @@ test("Teacher explicitly creates, publishes, and reads an AI-off C4 debrief kit 
   );
   await signIn(page);
   await initialState;
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   if ((await primaryAction.textContent())?.trim() === "创建 Run") {
     await primaryAction.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   }
 
   const panel = page.getByLabel("Instructor intelligence");

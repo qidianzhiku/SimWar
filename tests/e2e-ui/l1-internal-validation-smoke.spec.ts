@@ -65,9 +65,13 @@ test("keeps the tenant admin internal-validation browser surface tenant scoped",
   await page.goto(adminBaseUrl);
   await signInAdminPage(page);
 
-  await expect(page.getByRole("heading", { name: "SimWar P1 管理后台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "SimWar 管理交付与信任" })).toBeVisible();
   await expect(page.getByText("P0 Admin · tenant_admin")).toBeVisible();
-  await expect(page.getByText("Demo Business School").first()).toBeVisible();
+  const tenantDirectory = page
+    .locator("article.panel")
+    .filter({ has: page.getByRole("heading", { name: "租户目录" }) });
+  await expect(tenantDirectory).toHaveCount(1);
+  await expect(tenantDirectory.getByText("Demo Business School", { exact: true })).toBeVisible();
   await expect(page.getByText("Other Tenant")).toHaveCount(0);
   await expect(page.getByText("Other Teacher")).toHaveCount(0);
   await expect(page.getByText("SimWar Platform")).toHaveCount(0);

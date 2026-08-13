@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ApiEnvelope, GoldenJourneyStatusDto } from "@simwar/shared-contracts";
+import { WorkbenchFrame } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
@@ -74,19 +75,16 @@ export function GoldenJourneyWorkbench(props: Props) {
   const retry = () => requestStatus();
 
   return (
-    <section
+    <WorkbenchFrame
       className="golden-journey-workbench"
-      aria-label="Student Golden Teaching Journey"
-      data-testid="student-golden-journey"
-    >
-      <div className="golden-journey-header">
-        <div>
-          <p className="eyebrow">Wave 011 · R3</p>
-          <h2>My Golden Journey</h2>
-          <p className="golden-journey-subtitle">
-            A safe view of journey state, public receipts and next actions.
-          </p>
-        </div>
+      ariaLabel="Student Golden Teaching Journey"
+      testId="student-golden-journey"
+      eyebrow="Wave 011 · R3"
+      title="My Golden Journey"
+      boundaryClassName="golden-journey-subtitle"
+      boundary="A safe view of journey state, public receipts and next actions."
+      headingClassName="golden-journey-header"
+      headerActions={
         <button
           className="secondary"
           type="button"
@@ -95,13 +93,18 @@ export function GoldenJourneyWorkbench(props: Props) {
         >
           Refresh
         </button>
-      </div>
-      {state.phase === "LOADING" ? <p role="status">Loading journey context…</p> : null}
-      {state.phase === "ERROR" ? (
-        <p className="golden-journey-error" role="alert">
-          {state.message}
-        </p>
-      ) : null}
+      }
+      state={
+        <>
+          {state.phase === "LOADING" ? <p role="status">Loading journey context…</p> : null}
+          {state.phase === "ERROR" ? (
+            <p className="golden-journey-error" role="alert">
+              {state.message}
+            </p>
+          ) : null}
+        </>
+      }
+    >
       {state.phase === "READY" ? (
         <>
           <div className="golden-journey-grid">
@@ -143,6 +146,6 @@ export function GoldenJourneyWorkbench(props: Props) {
           </details>
         </>
       ) : null}
-    </section>
+    </WorkbenchFrame>
   );
 }

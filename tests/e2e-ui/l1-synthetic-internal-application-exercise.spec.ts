@@ -31,7 +31,9 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 async function signInAdminPage(page: Page): Promise<void> {
@@ -74,8 +76,12 @@ test("keeps synthetic internal application browser surfaces read-only and scoped
 
   await page.goto(adminBaseUrl);
   await signInAdminPage(page);
-  await expect(page.getByRole("heading", { name: "SimWar P1 管理后台" })).toBeVisible();
-  await expect(page.getByText("Demo Business School").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "SimWar 管理交付与信任" })).toBeVisible();
+  const tenantDirectory = page
+    .locator("article.panel")
+    .filter({ has: page.getByRole("heading", { name: "租户目录" }) });
+  await expect(tenantDirectory).toHaveCount(1);
+  await expect(tenantDirectory.getByText("Demo Business School", { exact: true })).toBeVisible();
   await expect(page.getByText("Other Tenant")).toHaveCount(0);
   await expect(page.getByText("Other Teacher")).toHaveCount(0);
   await expect(page.getByText("SimWar Platform")).toHaveCount(0);

@@ -18,7 +18,13 @@ async function signIn(page: Page, buttonName: "教师登录" | "学员登录", u
   await page.getByLabel("username").fill(username);
   await page.getByLabel("password").fill(username);
   await page.getByRole("button", { name: buttonName }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (buttonName === "教师登录") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
 }
 
 async function openScenarioReadinessPanel(page: Page) {
@@ -33,10 +39,10 @@ async function openScenarioReadinessPanel(page: Page) {
   await signIn(page, "教师登录", "teacher");
   await initialState;
 
-  const runStatus = page.getByRole("region", { name: "M1 run status" });
+  const runStatus = page.getByRole("region", { name: "M1 回合状态" });
   await expect(runStatus.getByText("M1 康养教学闭环课程")).toBeVisible();
 
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   await expect(primaryAction).toBeVisible();
   const actionLabel = (await primaryAction.textContent())?.trim();
   await test.info().attach("scenario-readiness-workspace-state.json", {
@@ -52,7 +58,9 @@ async function openScenarioReadinessPanel(page: Page) {
         response.status() === 200
     );
     await primaryAction.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
     await createdState;
   }
 
@@ -69,7 +77,12 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
 
   const panel = await openScenarioReadinessPanel(page);
   await panel.getByRole("button", { name: "Check readiness" }).click();
-  await expect(panel.getByText("Scenario Package ID is required.")).toBeVisible();
+  await expect(
+    panel.getByRole("status").filter({ hasText: "请输入场景包 ID" })
+  ).toBeVisible();
+  await expect(
+    panel.getByLabel("技术兼容标签").filter({ hasText: "Scenario Package ID is required." })
+  ).toBeVisible();
   await panel.getByLabel("scenario package id").fill("scenario_eldercare_demo");
   await panel.getByLabel("parameter set id").fill("param_toy_approved_1");
 
@@ -84,11 +97,20 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
   expect(request.url()).toContain("scenarioPackageId=scenario_eldercare_demo");
   expect(request.url()).toContain("parameterSetId=param_toy_approved_1");
 
-  await expect(panel.locator(".readiness-result > strong")).toHaveText("READY");
-  await expect(panel.getByText("COMPATIBLE_BY_REFERENCE_ONLY")).toBeVisible();
-  await expect(panel.getByText("Known limits")).toBeVisible();
+  await expect(panel.locator(".readiness-result > strong .teacher-visible-status")).toHaveText(
+    "已就绪"
+  );
   await expect(
-    panel.locator(".readiness-result").getByText("SCENARIO_RUNTIME_NOT_ACTIVATED")
+    panel.locator(".readiness-result > strong").getByLabel("技术兼容标签")
+  ).toHaveText("READY");
+  await expect(
+    panel.getByLabel("技术兼容标签").filter({ hasText: "COMPATIBLE_BY_REFERENCE_ONLY" })
+  ).toBeVisible();
+  await expect(panel.getByLabel("技术兼容标签").filter({ hasText: "Known limits" })).toBeVisible();
+  await expect(
+    panel.locator(".readiness-result").getByLabel("技术兼容标签").filter({
+      hasText: "SCENARIO_RUNTIME_NOT_ACTIVATED"
+    })
   ).toBeVisible();
   await expect(
     panel.getByRole("button", { name: /Activate|Launch|Replay|Publish|Settlement/i })
@@ -132,8 +154,15 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
     });
   });
   await panel.getByRole("button", { name: "Check readiness" }).click();
-  await expect(panel.locator(".readiness-result > strong")).toHaveText("BLOCKED");
-  await expect(panel.getByText("R7_BFF_PARAMETER_SET_NOT_APPROVED")).toBeVisible();
+  await expect(panel.locator(".readiness-result > strong .teacher-visible-status")).toHaveText(
+    "不可开课"
+  );
+  await expect(
+    panel.locator(".readiness-result > strong").getByLabel("技术兼容标签")
+  ).toHaveText("BLOCKED");
+  await expect(
+    panel.getByLabel("技术兼容标签").filter({ hasText: "R7_BFF_PARAMETER_SET_NOT_APPROVED" })
+  ).toBeVisible();
 
   await page.unroute(/\/scenario-selection-readiness\?/);
   await page.route(/\/scenario-selection-readiness\?/, async (route) => {
@@ -150,7 +179,12 @@ test("Teacher checks scenario readiness through the read-only BFF without a tena
     });
   });
   await panel.getByRole("button", { name: "Check readiness" }).click();
-  await expect(panel.getByText("Readiness is unavailable or out of scope.")).toBeVisible();
+  await expect(
+    panel.getByRole("status").filter({ hasText: "场景就绪信息不可用或超出范围" })
+  ).toBeVisible();
+  await expect(
+    panel.getByLabel("技术兼容标签").filter({ hasText: "Readiness is unavailable or out of scope." })
+  ).toBeVisible();
 });
 
 test("Teacher prepares a server-derived binding preview before creating a formal Course", async ({
@@ -492,8 +526,18 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   const blueprintCatalog = panel.getByLabel("formal CourseBlueprint catalog");
   await expect(blueprintCatalog.getByText("Browser C1 Blueprint")).toBeVisible();
   await blueprintCatalog.getByRole("button", { name: "Select locally" }).click();
-  await expect(blueprintCatalog.getByText("LOCAL_SELECTION_ONLY")).toBeVisible();
-  await expect(blueprintCatalog.getByText("NO_COURSE_WRITE_YET")).toBeVisible();
+  await expect(
+    blueprintCatalog.locator(".candidate-preview span").filter({ hasText: "本地选择，仅供预览" })
+  ).toBeVisible();
+  await expect(
+    blueprintCatalog.getByLabel("技术兼容标签").filter({ hasText: "LOCAL_SELECTION_ONLY" })
+  ).toBeVisible();
+  await expect(
+    blueprintCatalog.locator(".candidate-preview small").filter({ hasText: "尚未写入课程" })
+  ).toBeVisible();
+  await expect(
+    blueprintCatalog.getByLabel("技术兼容标签").filter({ hasText: "NO_COURSE_WRITE_YET" })
+  ).toBeVisible();
   await draft.getByLabel("formal Course title").fill("Browser B5 Course");
   await draft.getByRole("button", { name: "Create formal Course" }).click();
   const runCreation = catalog.getByLabel("formal Run creation");
@@ -501,7 +545,9 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   await runCreation.getByRole("button", { name: "Publish formal Course" }).click();
   await expect(runCreation.getByLabel("explicit Run seed")).toBeVisible();
   await runCreation.getByRole("button", { name: "Create formal Run" }).click();
-  await expect(page.getByText("formal Run created")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("formal Run created");
   expect(catalogRequests).toEqual([
     expect.objectContaining({
       method: "GET",

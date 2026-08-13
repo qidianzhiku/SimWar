@@ -75,7 +75,9 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 async function signInStudentPage(page: Page): Promise<void> {
@@ -102,10 +104,14 @@ async function publishSeededRunThroughTeacherUi(
   }
 
   await page.getByRole("button", { name: "创建 Run" }).click();
-  await expect(page.getByText("run created")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("run created");
 
   await page.getByRole("button", { name: "开启回合" }).click();
-  await expect(page.getByText("round opened")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round opened");
 
   const studentToken = await login(request, "student", "student");
   const demoState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);
@@ -127,13 +133,19 @@ async function publishSeededRunThroughTeacherUi(
   await page.reload();
   await signInTeacherPage(page);
   await page.getByRole("button", { name: "锁定回合" }).click();
-  await expect(page.getByText("round locked")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round locked");
 
   await page.getByRole("button", { name: "请求结算" }).click();
-  await expect(page.getByText("settlement completed")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("settlement completed");
 
   await page.getByRole("button", { name: "发布结果" }).click();
-  await expect(page.getByText("result published")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("result published");
 }
 
 test("Teacher and Student frontends consume BFF DTOs without exposing protected internals", async ({

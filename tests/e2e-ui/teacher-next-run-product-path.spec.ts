@@ -61,7 +61,9 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 type DemoRun = P0DemoState["runs"][number];
@@ -236,7 +238,9 @@ test("Teacher creates and selects the next Run without reopening the published R
     { times: 1 }
   );
   await page.getByRole("button", { name: "Create Next Run" }).click();
-  await expect(page.getByText("TEST-503: synthetic create failure")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("TEST-503: synthetic create failure");
   const failedCreationState = await apiGet<P0DemoState>(
     request,
     "/api/v1/demo-state",
@@ -253,7 +257,9 @@ test("Teacher creates and selects the next Run without reopening the published R
   await expect(runSelector.locator("option")).toHaveCount(anchorState.data.runs.length);
 
   await page.getByRole("button", { name: "Create Next Run" }).click();
-  await expect(page.getByText("run created")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("run created");
 
   await expect.soft
     .poll(
@@ -291,14 +297,20 @@ test("Teacher creates and selects the next Run without reopening the published R
     (run) => run.course_id === "course_demo"
   ).length;
   await expect(runSelector.locator("option")).toHaveCount(finalCourseRunCount);
-  await expect(page.getByText(`Run context: ${nextRun?.run_id}`)).toBeVisible();
+  await expect(
+    page.getByLabel("当前上下文").getByText(nextRun?.run_id ?? "", { exact: true })
+  ).toBeVisible();
   await runSelector.selectOption(publishedRunId);
   await expect(page.getByText("Historical Run · read-only")).toBeVisible();
   await expect(page.getByRole("button", { name: "已发布" })).toBeDisabled();
-  await expect(page.getByText(`Run context: ${publishedRunId}`)).toBeVisible();
+  await expect(
+    page.getByLabel("当前上下文").getByText(publishedRunId, { exact: true })
+  ).toBeVisible();
   await runSelector.selectOption(nextRun?.run_id ?? "");
   await expect(page.getByRole("button", { name: "开启回合" })).toBeEnabled();
-  await expect(page.getByText(`Run context: ${nextRun?.run_id}`)).toBeVisible();
+  await expect(
+    page.getByLabel("当前上下文").getByText(nextRun?.run_id ?? "", { exact: true })
+  ).toBeVisible();
 
   const nextRound = finalState.data.rounds.find((round) => round.run_id === nextRun?.run_id);
   expect(nextRound).toBeTruthy();

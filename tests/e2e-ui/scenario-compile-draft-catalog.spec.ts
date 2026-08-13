@@ -87,7 +87,9 @@ async function signInTeacher(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 async function openScenarioReadinessPanel(page: Page) {
@@ -111,8 +113,8 @@ async function openScenarioReadinessPanel(page: Page) {
     (run) => run.course_id === selectedCourseId
   );
   if (!hasSelectedCourseRun) {
-    const createRun = page.getByRole("button", { exact: true, name: "创建 Run" });
-    await expect(createRun).toBeVisible();
+    const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
+    await expect(primaryAction).toHaveText("创建 Run");
     const createdRun = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/v1/courses/${selectedCourseId}/runs`) &&
@@ -125,10 +127,12 @@ async function openScenarioReadinessPanel(page: Page) {
         response.request().method() === "GET" &&
         response.status() === 200
     );
-    await createRun.click();
+    await primaryAction.click();
     await createdRun;
     await createdState;
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   }
 
   return page.getByLabel("scenario readiness");

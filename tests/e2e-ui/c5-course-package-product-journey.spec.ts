@@ -84,7 +84,9 @@ async function signInTeacher(page: Page): Promise<void> {
   await login.getByLabel("username").fill("teacher");
   await login.getByLabel("password").fill("teacher");
   await login.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 test.afterEach(() => {
@@ -190,20 +192,19 @@ test("Admin renders frozen CoursePackageVersion states without making compatibil
   await expect(panel.getByText("STALE")).toBeVisible();
 
   await panel.getByRole("button", { name: "Validate package_draft" }).click();
-  await expect(panel.getByText("Dependency missing")).toBeVisible();
+  await expect(panel.getByText("缺少可绑定的依赖", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Make package_validated available" }).click();
-  await expect(panel.getByText("Incompatible")).toBeVisible();
+  await expect(panel.getByText("依赖不兼容", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Export course_package_wellness_001" }).click();
-  await expect(panel.getByText("Export restricted")).toBeVisible();
+  await expect(panel.getByText("导出受限", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Retire course_package_wellness_001" }).click();
-  await expect(panel.getByText("Permission denied")).toBeVisible();
+  await expect(panel.getByText("当前会话无权执行此操作", { exact: true })).toBeVisible();
   await panel.getByLabel("course package import payload").fill(JSON.stringify(adminPackage));
   await panel.getByRole("button", { name: "Import CoursePackageVersion" }).click();
-  await expect(panel.getByText("Import failed")).toBeVisible();
-  await expect(panel.getByText("Digest mismatch")).toBeVisible();
+  await expect(panel.getByText("导入失败：摘要不匹配", { exact: true })).toBeVisible();
 
   await panel.getByRole("button", { name: "Refresh CoursePackageVersions" }).click();
-  await expect(panel.getByText("Unknown CoursePackageVersion state")).toBeVisible();
+  await expect(panel.getByText("课程包版本状态暂时无法确认", { exact: true })).toBeVisible();
 });
 
 test("Teacher clones an exact available Course Package version without creating a Course or Run", async ({
@@ -384,11 +385,14 @@ test("Teacher ignores an earlier CoursePackageVersion response after a later ses
 
   await page.goto(teacherBaseUrl);
   await signInTeacher(page);
+  await expect.poll(() => listCalls).toBe(1);
   const login = page.getByLabel("teacher login");
   await login.getByLabel("tenant").fill("tenant_other");
   await login.getByLabel("tenant").fill("tenant_demo");
   await login.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
   await expect(page.getByText("Current teacher package")).toBeVisible();
 
   releaseOldResponse?.();

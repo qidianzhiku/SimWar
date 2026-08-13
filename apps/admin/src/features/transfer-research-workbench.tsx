@@ -4,6 +4,7 @@ import type {
   TransferResearchDesignInput,
   TransferResearchDesignListDto
 } from "@simwar/shared-contracts";
+import { WorkbenchFrame } from "@simwar/ui";
 import {
   freezeTransferResearchDesign,
   loadTransferResearchDesigns,
@@ -185,33 +186,34 @@ export function TransferResearchWorkbench({
   };
 
   return (
-    <section
+    <WorkbenchFrame
       className="candidate-surface d6-transfer-workbench"
-      aria-label={`${surface} D6 transfer research design workbench`}
+      ariaLabel={`${surface} D6 transfer research design workbench`}
+      eyebrow="L1+ Program D · D6"
+      title="Transfer Research Governance"
+      badge="synthetic-only"
+      boundary="Admin sees exact design metadata and synthetic previews only. Real records, causal claims, HR/talent outputs, Truth, Score, Rank, Settlement, and Student evidence are unavailable."
+      headingClassName="panel-title"
+      boundaryClassName="d6-boundary"
+      state={
+        <>
+          {phase === "LOADING" ? (
+            <p aria-live="polite">Loading frozen research designs...</p>
+          ) : null}
+          {phase === "EMPTY" ? <p className="d6-empty">No frozen D6 design exists yet.</p> : null}
+          {phase === "ERROR" ? (
+            <p className="d6-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
+            <p className="d6-error" role="status">
+              State: {phase}
+            </p>
+          ) : null}
+        </>
+      }
     >
-      <div className="panel-title">
-        <div>
-          <p className="eyebrow">L1+ Program D · D6</p>
-          <h2>Transfer Research Governance</h2>
-        </div>
-        <span>synthetic-only</span>
-      </div>
-      <p className="d6-boundary">
-        Admin sees exact design metadata and synthetic previews only. Real records, causal claims,
-        HR/talent outputs, Truth, Score, Rank, Settlement, and Student evidence are unavailable.
-      </p>
-      {phase === "LOADING" ? <p aria-live="polite">Loading frozen research designs...</p> : null}
-      {phase === "EMPTY" ? <p className="d6-empty">No frozen D6 design exists yet.</p> : null}
-      {phase === "ERROR" ? (
-        <p className="d6-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {phase === "INVALID" || phase === "BLOCKED" || phase === "CONFLICT" ? (
-        <p className="d6-error" role="status">
-          State: {phase}
-        </p>
-      ) : null}
       <label>
         Design title
         <input value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -278,6 +280,6 @@ export function TransferResearchWorkbench({
         Known Limits: synthetic-only · causal disabled · JSON_INTERNAL_ONLY · Human Validation not
         performed · Issue #111 open
       </p>
-    </section>
+    </WorkbenchFrame>
   );
 }

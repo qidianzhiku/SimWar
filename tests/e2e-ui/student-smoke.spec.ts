@@ -76,7 +76,9 @@ async function signInTeacherPage(page: Page): Promise<void> {
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 }
 
 async function signInAdminPage(page: Page): Promise<void> {
@@ -159,10 +161,12 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
 
   const teacherToken = await login(request, "teacher", "teacher");
   const studentToken = await login(request, "student", "student");
-  const primaryAction = page.locator("header.topbar > button.primary");
+  const primaryAction = page.getByLabel("当前权限边界").getByRole("button");
   if ((await primaryAction.textContent())?.trim() === "创建 Run") {
     await primaryAction.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("run created");
   } else {
     const seededRun = await apiPost<{ run: Run }>(
       request,
@@ -176,7 +180,9 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   }
 
   await page.getByRole("button", { name: "开启回合" }).click();
-  await expect(page.getByText("round opened")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round opened");
 
   const demoState = await apiGet<P0DemoState>(request, "/api/v1/demo-state", teacherToken);
   const runId = demoState.data.runs.at(-1)?.run_id;
@@ -198,16 +204,22 @@ test("lets the teacher browser publish the M1 JSON-runtime classroom result", as
   await signInTeacherPage(page);
   await expect(page.getByRole("button", { name: "锁定回合" })).toBeVisible();
   await page.getByRole("button", { name: "锁定回合" }).click();
-  await expect(page.getByText("round locked")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("round locked");
 
   await page.getByRole("button", { name: "请求结算" }).click();
-  await expect(page.getByText("settlement completed")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("settlement completed");
 
   await page.getByRole("button", { name: "发布结果" }).click();
-  await expect(page.getByText("result published")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("result published");
   await expect(page.getByText("M1 教学正式结果")).toBeVisible();
   await expect(page.getByRole("heading", { name: "BFF Replay 摘要" })).toBeVisible();
-  await expect(page.getByLabel("teacher bff dto surface").getByText("read-only")).toBeVisible();
+  await expect(page.getByLabel("BFF Replay 摘要").getByText("read-only")).toBeVisible();
   await expect(page.getByRole("heading", { name: "课堂复盘材料" })).toBeVisible();
   await expect(page.getByText("Rank 1")).toBeVisible();
 
@@ -223,7 +235,9 @@ test("keeps tenant admin browser scope limited to the current tenant", async ({ 
   await page.goto(adminBaseUrl);
   await signInAdminPage(page);
 
-  await expect(page.getByRole("heading", { name: "SimWar P1 管理后台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "SimWar 管理交付与信任" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "角色导航" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "交付总览" })).toBeVisible();
   await expect(page.getByText("P0 Admin · tenant_admin")).toBeVisible();
   await expect(page.getByText("Demo Business School").first()).toBeVisible();
   await expect(page.getByText("P0 Teacher").first()).toBeVisible();

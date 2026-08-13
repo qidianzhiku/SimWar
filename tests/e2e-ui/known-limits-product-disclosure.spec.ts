@@ -86,7 +86,13 @@ async function signIn(
       name: surface === "teacher" ? "教师登录" : surface === "student" ? "学员登录" : "管理员登录"
     })
     .click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (surface === "teacher") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
   const body = (await (await loginResponse).json()) as { data: { access_token: string } };
   return body.data.access_token;
 }

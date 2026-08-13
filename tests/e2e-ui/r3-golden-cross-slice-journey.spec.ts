@@ -111,7 +111,13 @@ async function signIn(page: import("@playwright/test").Page, role: "teacher" | "
   await page.getByLabel("username").fill(role);
   await page.getByLabel("password").fill(role);
   await page.getByRole("button", { name: role === "teacher" ? "教师登录" : "学员登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  if (role === "teacher") {
+    await expect(
+      page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+    ).toContainText("signed in");
+  } else {
+    await expect(page.getByText("signed in")).toBeVisible();
+  }
 }
 
 test("teacher and student can inspect the R3 Golden Journey safely", async ({ page }) => {

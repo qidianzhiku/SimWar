@@ -26,10 +26,10 @@ export function AllowedActionButton({
   const instanceId = useId();
   const authorized = allowedActions.includes(action);
   const isDisabled = !authorized || disabled || loading;
-  const reason = !authorized
-    ? (disabledReason ?? "当前操作未获服务端授权")
-    : loading
-      ? (disabledReason ?? "正在处理中")
+  const reason = loading
+    ? (disabledReason ?? "正在处理中")
+    : !authorized
+      ? (disabledReason ?? "当前操作未获服务端授权")
       : disabled
         ? (disabledReason ?? "当前操作暂不可用")
         : undefined;

@@ -56,13 +56,21 @@ test("Teacher can rehearse the bounded W023 session-control journey", async ({ p
   await login.getByLabel("username").fill("teacher");
   await login.getByLabel("password").fill("teacher");
   await login.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByText("signed in")).toBeVisible();
+  await expect(
+    page.getByRole("status", { name: "教师操作通知" }).getByLabel("技术兼容标签")
+  ).toContainText("signed in");
 
-  await page.getByRole("button", { name: "创建 Run" }).click();
   const workbench = page.getByLabel("W023 Validation Session Control Plane");
   await expect(workbench).toBeVisible();
   await workbench.getByLabel("Machine admission digest").fill("a".repeat(64));
-  await workbench.getByRole("button", { name: "Create synthetic session" }).click();
+  const createSession = workbench.getByRole("button", { name: "Create synthetic session" });
+  if (await createSession.isDisabled()) {
+    const createRun = page.getByLabel("当前权限边界").getByRole("button", { name: "创建 Run" });
+    await expect(createRun).toBeEnabled();
+    await createRun.click();
+  }
+  await expect(createSession).toBeEnabled();
+  await createSession.click();
   await workbench.getByRole("button", { name: "Set synthetic roster" }).click();
   await workbench.getByRole("button", { name: "Run preflight" }).click();
   await expect(workbench.getByText(/Preflight: PREFLIGHT_READY/)).toBeVisible();

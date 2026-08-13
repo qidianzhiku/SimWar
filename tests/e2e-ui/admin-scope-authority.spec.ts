@@ -268,6 +268,8 @@ test("missing tenant context never becomes implicit platform authority", async (
   await login.getByLabel("password").fill("platform");
   await login.getByRole("button", { name: "管理员登录" }).click();
 
-  await expect(page.getByText(/AUTH-401-002|invalid credentials/)).toBeVisible();
+  await expect(
+    page.getByText("登录失败，请检查租户、用户名和密码。", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel("platform admin authority summary")).toHaveCount(0);
 });
