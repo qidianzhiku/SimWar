@@ -14,6 +14,7 @@ describe("Enterprise Course Factory workspace", () => {
     expect(markup).toContain('id="admin-enterprise-course-factory"');
     expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain("企业课程工厂与 Sponsor 投影");
+    expect(markup).toContain("企业课程工厂整体状态</dt><dd>状态：关闭（只读、已知限制）");
     expect(enterpriseCourseFactoryCapabilities).toHaveLength(8);
     for (const capability of enterpriseCourseFactoryCapabilities) {
       expect(markup).toContain(capability.title);

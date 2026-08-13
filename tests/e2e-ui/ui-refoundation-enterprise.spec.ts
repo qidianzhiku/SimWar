@@ -37,6 +37,7 @@ test("tenant Admin exposes truthful Enterprise Course Factory limits without new
   await enterpriseLink.click();
   await expect(page).toHaveURL(/#admin-enterprise-course-factory$/);
   await expect(page.getByRole("heading", { name: "企业课程工厂与 Sponsor 投影" })).toBeVisible();
+  await expect(page.getByText("状态：关闭（只读、已知限制）", { exact: true })).toBeVisible();
   await expect(
     page.getByText("当前没有独立 Enterprise app、BFF 或权威来源", { exact: false })
   ).toBeVisible();

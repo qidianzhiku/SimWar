@@ -109,8 +109,8 @@ export function EnterpriseCourseFactoryWorkspace({ scope }: EnterpriseCourseFact
           <dd>{scopeLabels[scope]}</dd>
         </div>
         <div>
-          <dt>投影状态</dt>
-          <dd>状态：只读、已知限制</dd>
+          <dt>企业课程工厂整体状态</dt>
+          <dd>状态：关闭（只读、已知限制）</dd>
         </div>
         <div>
           <dt>权威来源</dt>

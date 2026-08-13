@@ -677,15 +677,19 @@ test("E4_PARTIAL_ONLY: renders approved Shanghai Eldercare Golden M1 on generic 
 
   await page.goto(studentBaseUrl);
   await signInStudentPage(page);
-  await expect(page.getByRole("button", { name: "提交决策" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "提交正式决策" })).toBeEnabled();
   const studentDecisionRequest = page.waitForRequest(
     (candidate) =>
       candidate.method() === "POST" &&
       new URL(candidate.url()).pathname === `/api/v1/runs/${demoRound.runId}/rounds/1/decisions`
   );
-  await page.getByRole("button", { name: "提交决策" }).click();
+  await page.getByRole("button", { name: "提交正式决策" }).click();
   await studentDecisionRequest;
-  await expect(page.getByText("decision submitted")).toBeVisible();
+  const submittedReceipt = page
+    .getByRole("article", { name: "最终提交" })
+    .getByText("正式决策已提交", { exact: true });
+  await expect(submittedReceipt).toHaveCount(1);
+  await expect(submittedReceipt).toBeVisible();
 
   const settlement = await checkedApiRequest(
     request,
