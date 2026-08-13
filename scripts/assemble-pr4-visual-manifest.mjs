@@ -34,7 +34,7 @@ const maxDiffPixelRatio = Number(valueFor("--max-diff-pixel-ratio", valueFor("--
 if (!Number.isFinite(maxDiffPixelRatio) || maxDiffPixelRatio < 0 || maxDiffPixelRatio > 1) {
   throw new Error("--max-diff-pixel-ratio must be a finite number between 0 and 1.");
 }
-const supportedRoles = new Set(["admin", "teacher", "student", "enterprise", "lab"]);
+const frozenRoleThresholds = { student: 0.065 };
 const roleThresholds = {};
 for (let index = 0; index < args.length; index += 1) {
   if (args[index] !== "--role-threshold") continue;
@@ -42,11 +42,13 @@ for (let index = 0; index < args.length; index += 1) {
   const separator = specification.indexOf("=");
   const role = separator >= 0 ? specification.slice(0, separator).toLowerCase() : "";
   const ratio = Number(separator >= 0 ? specification.slice(separator + 1) : "NaN");
-  if (!supportedRoles.has(role)) {
-    throw new Error(`--role-threshold role must be one of ${[...supportedRoles].join(", ")}.`);
+  if (!Object.hasOwn(frozenRoleThresholds, role)) {
+    throw new Error("--role-threshold is frozen to the audited Student navigation exception.");
   }
-  if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
-    throw new Error("--role-threshold ratio must be a finite number between 0 and 1.");
+  if (!Number.isFinite(ratio) || ratio !== frozenRoleThresholds[role]) {
+    throw new Error(
+      `--role-threshold ${role} must equal the frozen ratio ${frozenRoleThresholds[role]}.`
+    );
   }
   if (Object.hasOwn(roleThresholds, role)) {
     throw new Error(`--role-threshold may be supplied only once for role ${role}.`);

@@ -471,6 +471,32 @@ describe("Product PR4 integration contracts", () => {
         expect(result.status, `invalid threshold ${invalidThreshold}`).toBe(1);
       }
 
+      for (const invalidRoleThreshold of ["admin=1", "student=0.06"]) {
+        const output = join(
+          fixture,
+          `manifest-role-${invalidRoleThreshold.replace("=", "-")}.json`
+        );
+        const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
+          "--baseline",
+          baseline,
+          "--candidate",
+          candidate,
+          "--diff-root",
+          diff,
+          "--output",
+          output,
+          "--max-diff-pixel-ratio",
+          "0.01",
+          "--role-threshold",
+          invalidRoleThreshold,
+          "--base-sha",
+          "base-sha",
+          "--head-sha",
+          actualSha
+        ]);
+        expect(result.status, `invalid role threshold ${invalidRoleThreshold}`).toBe(1);
+      }
+
       const { PNG } = playwrightRequire("playwright-core/lib/utilsBundle") as {
         PNG: {
           sync: {
@@ -524,7 +550,22 @@ describe("Product PR4 integration contracts", () => {
       });
       expect(manifest.pixel_diff.failures.join(" ")).toContain("diff ratio");
 
-      const withinThresholdOutput = join(fixture, "manifest-dimensions-within-threshold.json");
+      const baselineData = Buffer.alloc(10 * 10 * 4, 0);
+      const candidateData = Buffer.from(baselineData);
+      for (let pixel = 0; pixel < 6; pixel += 1) {
+        candidateData[pixel * 4] = 255;
+        candidateData[pixel * 4 + 3] = 255;
+      }
+      writeFileSync(
+        join(baseline, "student-ready-390x844.png"),
+        PNG.sync.write({ width: 10, height: 10, data: baselineData })
+      );
+      writeFileSync(
+        mismatchedCandidate,
+        PNG.sync.write({ width: 10, height: 10, data: candidateData })
+      );
+
+      const withinThresholdOutput = join(fixture, "manifest-student-within-threshold.json");
       const withinThresholdResult = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
         "--baseline",
         baseline,
@@ -535,9 +576,9 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         withinThresholdOutput,
         "--max-diff-pixel-ratio",
-        "0",
+        "0.01",
         "--role-threshold",
-        "student=0.5",
+        "student=0.065",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -561,18 +602,18 @@ describe("Product PR4 integration contracts", () => {
       expect(withinThresholdManifest).toMatchObject({
         status: "passed",
         threshold: {
-          max_diff_pixel_ratio: 0,
-          role_overrides: { student: 0.5 }
+          max_diff_pixel_ratio: 0.01,
+          role_overrides: { student: 0.065 }
         }
       });
       expect(withinThresholdManifest.surfaces[0]).toMatchObject({
         status: "passed",
         applied_threshold: {
-          max_diff_pixel_ratio: 0.5,
+          max_diff_pixel_ratio: 0.065,
           source: "role:student"
         },
-        dimension_mismatch: true,
-        diff_pixel_ratio: 0.5
+        dimension_mismatch: false,
+        diff_pixel_ratio: 0.06
       });
       expect(withinThresholdManifest.surfaces[0]?.diff_path).toBeTruthy();
     } finally {
