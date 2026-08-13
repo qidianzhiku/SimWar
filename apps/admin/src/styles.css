@@ -665,6 +665,16 @@ label {
   font-size: 0.85rem;
 }
 
+#admin-known-limits li,
+#admin-known-limits li > strong,
+#admin-known-limits li > span {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .course-package-surface {
   border: 1px solid #c7d8d2;
   border-radius: 14px;
@@ -711,6 +721,65 @@ label {
 .course-package-forms textarea {
   min-height: 150px;
   resize: vertical;
+}
+
+.course-package-surface,
+.course-package-forms,
+.course-package-list,
+.course-package-forms .form-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.course-package-forms .form-panel > label,
+.course-package-forms .form-panel > label > input,
+.course-package-forms .form-panel > label > textarea {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.course-package-forms .form-panel > button {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+  width: 100%;
+}
+
+@media (max-width: 820px) {
+  .course-package-list,
+  .course-package-forms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .course-package-forms .form-panel .panel-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .course-package-forms .form-panel .panel-title > * {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .course-package-forms .form-panel > label {
+    width: 100%;
+  }
+
+  .course-package-forms .form-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .course-report-surface {
