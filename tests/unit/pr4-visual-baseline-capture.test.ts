@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(".");
 const scriptPath = resolve(repositoryRoot, "scripts/capture-pr4-visual-baseline.mjs");
+const scriptSource = readFileSync(scriptPath, "utf8");
 const temporaryRoots: string[] = [];
 
 function runCapture(args: string[]) {
@@ -40,6 +41,12 @@ afterEach(() => {
 });
 
 describe("PR4 visual baseline capture CLI", () => {
+  it("does not persist raw network or browser error text in evidence artifacts", () => {
+    expect(scriptSource).not.toContain("data.captureError = stringifyError(error)");
+    expect(scriptSource).toContain('data.captureError = "capture_failed"');
+    expect(scriptSource).toContain('logLines.push("capture failed; details emitted to stderr")');
+  });
+
   it.each([
     ["missing source", ["--output", "C:\\pr4-evidence", "--expected-sha", "a".repeat(40)]],
     ["missing output", ["--source-root", repositoryRoot, "--expected-sha", "a".repeat(40)]],

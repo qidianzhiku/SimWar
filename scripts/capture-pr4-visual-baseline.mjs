@@ -949,8 +949,9 @@ async function executeCapture(parsed) {
       await browser.close();
     }
   } catch (error) {
-    data.captureError = stringifyError(error);
-    logLines.push(`capture failed: ${data.captureError}`);
+    data.captureError = "capture_failed";
+    logLines.push("capture failed; details emitted to stderr");
+    console.error(`PR4 BASE capture failed: ${stringifyError(error)}`);
   } finally {
     await stopOwnedServers(children, logLines);
   }
