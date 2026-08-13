@@ -31,6 +31,7 @@ function createCleanSource() {
   const expectedSha = execFileSync("git", ["-C", sourceRoot, "rev-parse", "HEAD"], {
     encoding: "utf8"
   }).trim();
+  execFileSync("git", ["-C", sourceRoot, "checkout", "--quiet", "--detach", expectedSha]);
   return { sourceRoot, outputRoot, expectedSha };
 }
 
@@ -88,6 +89,71 @@ describe("PR4 visual baseline capture CLI", () => {
     ]);
     expect(result.status).not.toBe(0);
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/outside.*source|source.*outside/i);
+  });
+
+  it("fails closed when evidence or store paths are inside the harness product checkout", () => {
+    const fixture = createCleanSource();
+    const insideProductOutput = join(repositoryRoot, "tmp", "pr4-baseline-capture-test-evidence");
+    const result = runCapture([
+      "--source-root",
+      fixture.sourceRoot,
+      "--output",
+      insideProductOutput,
+      "--expected-sha",
+      fixture.expectedSha,
+      "--dry-run"
+    ]);
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/outside.*product|product.*outside/i);
+
+    const storeResult = runCapture([
+      "--source-root",
+      fixture.sourceRoot,
+      "--output",
+      fixture.outputRoot,
+      "--store",
+      join(repositoryRoot, "tmp", "pr4-baseline-capture-test-store.json"),
+      "--expected-sha",
+      fixture.expectedSha,
+      "--dry-run"
+    ]);
+    expect(storeResult.status).not.toBe(0);
+    expect(`${storeResult.stdout}\n${storeResult.stderr}`).toMatch(
+      /outside.*product|product.*outside/i
+    );
+  });
+
+  it("fails closed when the store is outside the controlled temporary store root", () => {
+    const fixture = createCleanSource();
+    const result = runCapture([
+      "--source-root",
+      fixture.sourceRoot,
+      "--output",
+      fixture.outputRoot,
+      "--store",
+      join(fixture.outputRoot, "arbitrary-store.json"),
+      "--expected-sha",
+      fixture.expectedSha,
+      "--dry-run"
+    ]);
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/controlled.*temporary.*store/i);
+  });
+
+  it("fails closed when the BASE checkout is attached to a branch", () => {
+    const fixture = createCleanSource();
+    execFileSync("git", ["-C", fixture.sourceRoot, "switch", "--quiet", "master"]);
+    const result = runCapture([
+      "--source-root",
+      fixture.sourceRoot,
+      "--output",
+      fixture.outputRoot,
+      "--expected-sha",
+      fixture.expectedSha,
+      "--dry-run"
+    ]);
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/detached/i);
   });
 
   it("fails closed when a supplied candidate SHA does not match the harness checkout", () => {

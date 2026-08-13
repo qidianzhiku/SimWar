@@ -235,11 +235,7 @@ export function parseCaptureArgs(argv = process.argv.slice(2), environment = pro
     values.expectedSha ?? environment.PR4_BASE_SHA ?? environment.PR4_EXPECTED_SHA ?? null;
   const candidateSha =
     values.candidateSha ?? environment.PR4_HEAD_SHA ?? environment.GITHUB_SHA ?? null;
-  const storeFile =
-    values.storeFile ??
-    environment.SIMWAR_PLAYWRIGHT_STORE_FILE ??
-    environment.SIMWAR_STORE_FILE ??
-    null;
+  const storeFile = values.storeFile ?? environment.SIMWAR_PLAYWRIGHT_STORE_FILE ?? null;
   const configuredPort = (key) => {
     const upper = key.toUpperCase();
     const environmentValue =
@@ -291,6 +287,36 @@ function assertOutside(sourceRoot, target, label) {
       !pathFromSource.startsWith(`..${sep}`))
   ) {
     throw new Error(`${label} must be outside the source checkout.`);
+  }
+}
+
+function assertOutsideProductCheckout(target, label) {
+  const productRoot = canonicalPath(SCRIPT_ROOT);
+  const destination = canonicalPath(target);
+  const pathFromProduct = relative(productRoot, destination);
+  if (
+    pathFromProduct === "" ||
+    (!isAbsolute(pathFromProduct) &&
+      pathFromProduct !== ".." &&
+      !pathFromProduct.startsWith(`..${sep}`))
+  ) {
+    throw new Error(`${label} must be outside the product checkout.`);
+  }
+}
+
+function assertControlledStorePath(storeFile) {
+  const normalizeForPlatform = (path) =>
+    process.platform === "win32" ? resolve(path).toLowerCase() : resolve(path);
+  const controlledRoot = normalizeForPlatform(join(tmpdir(), "simwar-playwright"));
+  const destination = normalizeForPlatform(storeFile);
+  const pathFromControlledRoot = relative(controlledRoot, destination);
+  if (
+    pathFromControlledRoot === "" ||
+    isAbsolute(pathFromControlledRoot) ||
+    pathFromControlledRoot === ".." ||
+    pathFromControlledRoot.startsWith(`..${sep}`)
+  ) {
+    throw new Error("--store must be inside the controlled temporary store root.");
   }
 }
 
@@ -363,15 +389,21 @@ export function validateCaptureConfig(parsed) {
     throw new Error(`--output must point to a directory: ${outputRoot}`);
   }
   assertOutside(sourceRoot, outputRoot, "--output");
+  assertOutsideProductCheckout(outputRoot, "--output");
   const storeFile = resolve(parsed.storeFile ?? defaultStoreFile(parsed.expectedSha));
   assertAbsolute(parsed.storeFile ?? storeFile, "--store");
   assertOutside(sourceRoot, storeFile, "--store");
+  assertOutsideProductCheckout(storeFile, "--store");
+  assertControlledStorePath(storeFile);
   const source = gitSnapshot(sourceRoot);
   if (source.sha.toLowerCase() !== parsed.expectedSha.toLowerCase()) {
     throw new Error(`Source SHA mismatch: expected ${parsed.expectedSha}, actual ${source.sha}.`);
   }
   if (!source.clean)
     throw new Error(`Source checkout must be clean before capture:\n${source.status}`);
+  if (!source.detached) {
+    throw new Error("Source checkout must be detached at the exact BASE SHA.");
+  }
   const candidateBefore = candidateSnapshot();
   if (parsed.candidateSha) {
     if (
