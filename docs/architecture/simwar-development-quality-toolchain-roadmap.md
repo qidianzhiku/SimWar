@@ -21,10 +21,10 @@ Harness 更适合中后期作为完整 CI/CD、审批、环境发布和回滚治
 
 SimWar 的 CI 门禁至少应覆盖：
 
-- `pnpm install`
-- `pnpm run typecheck`
-- `pnpm run quality`
-- `pnpm test`
+- `npm ci`
+- `npm run typecheck`
+- `npm test`
+- `npm run test:contract`
 - contract / schema 校验
 - migration 校验
 - replay golden test
@@ -90,10 +90,10 @@ Vitest 在 SimWar 中应重点覆盖：
 进入 CI 的建议方式：
 
 ```text
-pnpm test
-pnpm run test:coverage
-pnpm run test:contract
-pnpm run test:postgres-adapter
+npm test
+npm run test:contract
+npm run test:coverage          # 规划命令，当前尚未落地
+npm run test:postgres-adapter  # 规划命令，当前尚未落地
 ```
 
 早期不必追求覆盖率数字漂亮，先保证真值链、状态机、adapter contract 和 schema drift 被测试锁住。
@@ -365,7 +365,7 @@ Codecov 适合现在立刻做，至少把 coverage artifact 和 PR trend 建起�
 
 适用范围：
 
-- npm / pnpm 依赖。
+- 当前 npm 依赖；pnpm 仅作为未来包管理器迁移候选。
 - GitHub Actions 版本。
 - 前端工具链。
 - testing libraries。
