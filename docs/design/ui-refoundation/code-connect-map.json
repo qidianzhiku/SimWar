@@ -1,0 +1,316 @@
+{
+  "mapName": "SIMWAR_FE_WAVE_001_FIGMA_CODE_CONNECT_MAP",
+  "version": "1.0.0-pr1",
+  "sourceSha": "bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37",
+  "designMode": "FIGMA_CONNECTED",
+  "figmaStatus": "P1_PASS",
+  "figma": {
+    "fileName": "SimWar Design System V6.0",
+    "fileKey": "g73vJXbLoQVhY87lbUaueL",
+    "url": "https://www.figma.com/design/g73vJXbLoQVhY87lbUaueL",
+    "physicalPages": [
+      "00_设计原则",
+      "01_Foundations & Tokens",
+      "02_Product Workspaces & Code Connect"
+    ],
+    "logicalSections": [
+      "00_设计原则",
+      "01_Foundations",
+      "02_Tokens",
+      "03_Core Components",
+      "04_Admin Delivery & Trust",
+      "05_Teacher Course OS",
+      "06_Student Executive Environment",
+      "07_Enterprise Course Factory",
+      "08_States & Recovery",
+      "09_Responsive",
+      "10_Prototype Journeys",
+      "11_Code Connect"
+    ],
+    "limitCode": "FIGMA_STARTER_3_PAGE_LIMIT",
+    "collections": 6,
+    "variables": 68,
+    "webValidation": {
+      "syntax": "PASS",
+      "scope": "PASS",
+      "alias": "PASS"
+    },
+    "physicalPageCount": 3,
+    "logicalSectionCount": 12,
+    "webTokenNameContract": "Figma WEB token names and code CSS custom-property names must be identical",
+    "status": {
+      "variablesStyles": "P1_PASS",
+      "editableComponentVariants": "BLOCKED_BY_PLAN_LIMIT",
+      "finalProductScreens": "BLOCKED_BY_PLAN_LIMIT",
+      "codeConnect": "BLOCKED_BY_PLAN_LIMIT"
+    },
+    "validatedWebTokenNameFamilies": {
+      "background": "--sw-color-bg-*",
+      "text": "--sw-color-text-*",
+      "action": "--sw-color-action-*",
+      "border": "--sw-color-border-*",
+      "roleColors": 5,
+      "layout": ["--sw-space-*", "--sw-radius-*", "--sw-motion-*"]
+    },
+    "syncStatus": "variables/styles P1_PASS; editable component variants/final screens/Code Connect BLOCKED_BY_PLAN_LIMIT",
+    "limitCodes": ["FIGMA_STARTER_3_PAGE_LIMIT", "FIGMA_STARTER_MCP_RATE_LIMIT"],
+    "externalAttempt": {
+      "attemptedOnLocalDate": "2026-08-13",
+      "metadata": {
+        "operation": "get_metadata",
+        "target": "Core Components",
+        "node": "4:2",
+        "result": "SUCCEEDED"
+      },
+      "designContext": {
+        "operation": "get_design_context",
+        "result": "BLOCKED_BY_PLAN_LIMIT",
+        "limitCode": "FIGMA_STARTER_MCP_RATE_LIMIT",
+        "errorMessage": "You've reached the Figma MCP tool call limit on the Starter plan. Upgrade your plan for more tool calls: https://www.figma.com/files/team/1638371820161259734/all-projects?upgrade=mcp_rate_limit_paywall"
+      },
+      "ownerConstraint": "No paid upgrade and no repeated retry; do not claim editable component variants, final screens, or Code Connect completion."
+    },
+    "mappingAuthority": {
+      "repositoryFiles": [
+        "docs/design/ui-refoundation/design-tokens.json",
+        "docs/design/ui-refoundation/code-connect-map.json"
+      ],
+      "codeFirstLab": "PR1 code-first Design System Lab",
+      "status": "Current mapping authority while Figma editable component variants/final screens/Code Connect are BLOCKED_BY_PLAN_LIMIT"
+    }
+  },
+  "tokenSource": "docs/design/ui-refoundation/design-tokens.json",
+  "mappings": [
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "AppShell",
+      "codeName": "AppShell",
+      "codePaths": ["packages/ui/src/components/AppShell.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "stateProps": ["workspace", "role", "navigation", "context", "density"],
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; current apps still render root App directly and have no React Router."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "RoleNavigation",
+      "codeName": "RoleNavigation",
+      "codePaths": [
+        "apps/admin/src/App.tsx",
+        "apps/teacher/src/App.tsx",
+        "apps/student/src/App.tsx"
+      ],
+      "implementationStatus": "target-not-present-in-current-sha",
+      "stateProps": ["items", "activeItem", "collapsed", "mobile"],
+      "authorityInput": "server-visible capabilities and role context",
+      "nextProductPr": "PR1 foundation implementation",
+      "notes": "No client-side permission inference; no route deletion."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "ContextBar",
+      "codeName": "ContextBar",
+      "codePaths": ["packages/ui/src/components/ContextBar.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "stateProps": ["tenant", "course", "session", "run", "round", "team", "role", "mode"],
+      "authorityInput": "BFF visible_state and AuthSession",
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; URL and localStorage are not authoritative context sources."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "AuthorityBadge",
+      "codeName": "AuthorityBadge",
+      "codePaths": ["packages/ui/src/components/AuthorityBadge.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": [
+        "official",
+        "draft",
+        "shadow",
+        "advisory",
+        "system-result",
+        "ai-explanation",
+        "teacher-comment",
+        "unknown"
+      ],
+      "variantLabelsZhHans": {
+        "official": "正式",
+        "draft": "草稿",
+        "shadow": "影子",
+        "advisory": "建议",
+        "system-result": "系统结果",
+        "ai-explanation": "AI 解释",
+        "teacher-comment": "教师点评",
+        "unknown": "未知"
+      },
+      "authorityInput": "evidence_label, source_runtime_path, actor role",
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; color tokens do not define Authority."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "AllowedActionButton",
+      "codeName": "AllowedActionButton",
+      "codePaths": [
+        "packages/ui/src/components/AllowedActionButton.tsx",
+        "packages/ui/src/index.ts"
+      ],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": ["ready", "disabled", "loading", "submitting", "permission-denied", "error"],
+      "authorityInput": "allowed_actions and server-provided disabled reason",
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; a disabled button is not a permission proof."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "ReceiptPanel",
+      "codeName": "ReceiptPanel",
+      "codePaths": ["packages/ui/src/components/ReceiptPanel.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": ["loading", "committed", "reused", "conflict", "failed"],
+      "receiptFields": [
+        "command",
+        "actor",
+        "timestamp",
+        "correlation_id",
+        "status",
+        "reuse_conflict",
+        "exact_ref"
+      ],
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui read-only display; exact_ref remains copyable. reuse_conflict=reused means idempotent command receipt reuse; reuse_conflict=conflict means server rejection or reconfirmation is required; neither changes formal truth."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "EvidenceDrawer",
+      "codeName": "EvidenceDrawer",
+      "codePaths": [
+        "apps/teacher/src/EvidenceWorkbench.tsx",
+        "apps/teacher/src/TeacherConfirmationWorkbench.tsx",
+        "apps/student/src/StudentLearningReport.tsx"
+      ],
+      "implementationStatus": "target-not-present-in-current-sha",
+      "variants": ["closed", "open", "stale", "permission-denied", "error"],
+      "authorityInput": "read-only evidence projection and visibility scope",
+      "nextProductPr": "PR1 foundation implementation",
+      "notes": "Student mapping is safe report only; it never exposes raw teacher evidence."
+    },
+    {
+      "figmaPage": "03_Core Components",
+      "figmaComponent": "KnownLimitBanner",
+      "codeName": "KnownLimitBanner",
+      "codePaths": ["packages/ui/src/components/KnownLimitBanner.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": ["collapsed", "expanded", "current-limit", "not-proven", "scope"],
+      "authorityInput": "Known Limits projection",
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; must distinguish JSON_INTERNAL_ONLY, SYNTHETIC_ONLY and Human Validation not performed."
+    },
+    {
+      "figmaPage": "08_States & Recovery",
+      "figmaComponent": "StatePanel",
+      "codeName": "StatePanel",
+      "codePaths": ["packages/ui/src/components/StatePanel.tsx", "packages/ui/src/index.ts"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": [
+        "loading",
+        "empty",
+        "partial",
+        "ready",
+        "blocked",
+        "stale",
+        "conflict",
+        "unknown",
+        "permission-denied",
+        "error"
+      ],
+      "authorityInput": "BFF state and server reason",
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked @simwar/ui implementation; current product complete state coverage is not measured and the matrix records evidence level."
+    },
+    {
+      "figmaPage": "02_Product Workspaces & Code Connect",
+      "figmaComponent": "DesignSystemLab",
+      "codeName": "DesignSystemLab",
+      "codePaths": ["packages/ui/src/DesignSystemLab.tsx", "packages/ui/lab/main.tsx"],
+      "implementationStatus": "implemented-pr1-code-first",
+      "variants": ["tokens", "authority", "actions", "states"],
+      "nextProductPr": "PR2 app migration",
+      "notes": "Tracked development entry for visual and semantic verification; this repository mapping remains authoritative while Figma Code Connect is BLOCKED_BY_PLAN_LIMIT."
+    },
+    {
+      "figmaPage": "04_Admin Delivery & Trust",
+      "figmaComponent": "AdminDeliveryWorkspace",
+      "codeName": "AdminDeliveryWorkspace",
+      "codePaths": [
+        "apps/admin/src/App.tsx",
+        "apps/admin/src/CourseReportBuilder.tsx",
+        "apps/admin/src/D5ExportWorkbench.tsx",
+        "apps/admin/src/features/transfer-research-workbench.tsx"
+      ],
+      "implementationStatus": "current-composed-workbench",
+      "variants": ["anonymous", "authenticated", "known-limit", "empty", "error"],
+      "authorityInput": "TenantAdminSummaryDTO, PlatformAdminAuthorityDTO and Admin BFF",
+      "nextProductPr": "PR2 Admin migration",
+      "notes": "Keep tenant and platform scope distinct."
+    },
+    {
+      "figmaPage": "05_Teacher Course OS",
+      "figmaComponent": "TeacherCourseOS",
+      "codeName": "TeacherCourseOS",
+      "codePaths": [
+        "apps/teacher/src/App.tsx",
+        "apps/teacher/src/features/GoldenJourneyWorkbench.tsx",
+        "apps/teacher/src/ValidationSessionWorkbench.tsx",
+        "apps/teacher/src/TeachingClosureWorkspace.tsx"
+      ],
+      "implementationStatus": "current-composed-workbench",
+      "variants": ["anonymous", "authenticated", "today", "blocked", "stale", "known-limit"],
+      "authorityInput": "TeacherBffWorkspaceDTO and dedicated Teacher BFFs",
+      "nextProductPr": "PR2 Teacher migration",
+      "notes": "PR2 may reshape layout but not settle/replay semantics."
+    },
+    {
+      "figmaPage": "06_Student Executive Environment",
+      "figmaComponent": "StudentExecutiveEnvironment",
+      "codeName": "StudentExecutiveEnvironment",
+      "codePaths": [
+        "apps/student/src/App.tsx",
+        "apps/student/src/StudentRoleWorkflowPanel.tsx",
+        "apps/student/src/StudentLearningReport.tsx",
+        "apps/student/src/GoldenJourneyWorkbench.tsx"
+      ],
+      "implementationStatus": "current-composed-workbench",
+      "variants": [
+        "anonymous",
+        "authenticated",
+        "waiting-assignment",
+        "draft",
+        "ready",
+        "blocked",
+        "known-limit"
+      ],
+      "authorityInput": "StudentBffCockpitDTO and forbidden_fields list",
+      "nextProductPr": "PR3 Student migration",
+      "notes": "PR #365 owns overlapping StudentRoleAdvisor; do not overwrite its ownership."
+    },
+    {
+      "figmaPage": "07_Enterprise Course Factory",
+      "figmaComponent": "EnterpriseCourseFactoryLogicalWorkspace",
+      "codeName": "EnterpriseCourseFactoryLogicalWorkspace",
+      "codePaths": [
+        "apps/admin/src/App.tsx",
+        "apps/teacher/src/App.tsx",
+        "apps/teacher/src/LearningDesignWorkbench.tsx",
+        "apps/teacher/src/scenario-readiness.ts"
+      ],
+      "implementationStatus": "logical-only-current-contract",
+      "variants": ["closed", "known-limit", "safe-preview"],
+      "authorityInput": "existing Admin/Teacher BFF only",
+      "nextProductPr": "PR3 Enterprise logical workspace",
+      "notes": "No independent Enterprise app/BFF/route exists at current SHA; no new business authority permitted."
+    }
+  ],
+  "variantRule": "Figma variant name must equal code state/prop name or be listed explicitly above",
+  "reviewRule": "A mapping is not implementation proof; source and browser evidence must be rerun on the final exact head"
+}
