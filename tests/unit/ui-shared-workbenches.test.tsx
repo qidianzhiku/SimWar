@@ -103,6 +103,36 @@ describe("shared workbench presentation", () => {
     expect(markup).not.toMatch(/permission|authority|truth|score/i);
   });
 
+  it("keeps Course Report filters before Preview and export actions", () => {
+    const view = mount(
+      <CourseReportWorkbench
+        ariaLabel="Teacher Course Report Builder"
+        eyebrow="Teacher-safe projection"
+        title="Course Report Builder"
+        badge="Teacher BFF"
+        boundary="Reports are read-only server projections."
+        roles={["CEO"]}
+        kpis={["revenue"]}
+        loadReport={() => Promise.resolve(report)}
+        exportReport={() =>
+          Promise.resolve({ export_format: "json", file_name: "report.json", report })
+        }
+        mapError={() => ({ phase: "ERROR", message: "mapped" })}
+      />
+    );
+
+    const filters = view.container.querySelector(".course-report-filters");
+    const actions = view.container.querySelector(".lifecycle-actions");
+    expect(filters).toBeTruthy();
+    expect(actions).toBeTruthy();
+    expect(
+      filters?.compareDocumentPosition(actions as Node) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(actions?.textContent).toContain("Preview Course Report");
+    expect(actions?.textContent).toContain("Export report as JSON");
+    view.cleanup();
+  });
+
   it("uses injected Course Report operations, preserves filters, and ignores stale responses", async () => {
     let releaseOld: (() => void) | undefined;
     const oldReport = new Promise<CourseReportData>((resolve) => {
@@ -189,6 +219,7 @@ describe("shared workbench presentation", () => {
 
   it("keeps D5 exact-reference selection and delegates preview/seal operations", async () => {
     const loadList = vi.fn(() => Promise.resolve({ reports, list }));
+    const refreshExports = vi.fn(() => Promise.resolve(list));
     const generate = vi.fn((selected: readonly D5ExactReference[]) =>
       Promise.resolve({
         aol_dataset: { rows: [{ group_key: "course_d5", sample_size: 2, suppressed: true }] },
@@ -212,6 +243,7 @@ describe("shared workbench presentation", () => {
         badge="Teacher BFF"
         boundary="Tenant-safe export only."
         loadList={loadList}
+        refreshExports={refreshExports}
         generate={generate}
         submit={submit}
         mapError={() => "D5 error"}
@@ -248,6 +280,132 @@ describe("shared workbench presentation", () => {
     });
     expect(submit).toHaveBeenCalledWith([reports[1]?.report_ref, reports[0]?.report_ref]);
     expect(view.container.textContent).toContain("Bundle sealed");
+    expect(loadList).toHaveBeenCalledTimes(1);
+    expect(refreshExports).toHaveBeenCalledTimes(1);
     view.cleanup();
+  });
+
+  it("does not reload D5 reports when an unchanged parent rerenders", async () => {
+    const loadList = vi.fn(() => Promise.resolve({ reports, list }));
+    const refreshExports = vi.fn(() => Promise.resolve(list));
+    const renderView = (sessionKey = "session-1") => (
+      <D5ExportWorkbenchView
+        ariaLabel="D5 teacher evidence export workbench"
+        eyebrow="L1+ Program D · D5"
+        title="Evidence Export Workbench"
+        badge="Teacher BFF"
+        boundary="Tenant-safe export only."
+        sessionKey={sessionKey}
+        loadList={loadList}
+        refreshExports={refreshExports}
+        generate={() =>
+          Promise.resolve({
+            aol_dataset: { rows: [] },
+            known_limits: [],
+            source_report_refs: [],
+            statements: []
+          })
+        }
+        submit={() =>
+          Promise.resolve({
+            bundle_digest: "d".repeat(64),
+            bundle_ref: exact("bundle_d5", "d".repeat(64))
+          })
+        }
+        mapError={() => "D5 operation error"}
+        mapLoadError={() => "D5 load error"}
+      />
+    );
+    const view = mount(renderView());
+    await act(async () => undefined);
+    expect(loadList).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      view.root.render(renderView());
+      await Promise.resolve();
+    });
+    expect(loadList).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      view.root.render(renderView("session-2"));
+      await Promise.resolve();
+    });
+    expect(loadList).toHaveBeenCalledTimes(2);
+    view.cleanup();
+  });
+
+  it("keeps separate initial-load and operation fallback messages", async () => {
+    const initialLoad = vi.fn(() => Promise.reject("initial failure"));
+    const view = mount(
+      <D5ExportWorkbenchView
+        ariaLabel="D5 teacher evidence export workbench"
+        eyebrow="L1+ Program D · D5"
+        title="Evidence Export Workbench"
+        badge="Teacher BFF"
+        boundary="Tenant-safe export only."
+        loadList={initialLoad}
+        refreshExports={() => Promise.resolve(list)}
+        generate={() =>
+          Promise.resolve({
+            aol_dataset: { rows: [] },
+            known_limits: [],
+            source_report_refs: [],
+            statements: []
+          })
+        }
+        submit={() =>
+          Promise.resolve({
+            bundle_digest: "e".repeat(64),
+            bundle_ref: exact("bundle_d5", "e".repeat(64))
+          })
+        }
+        mapLoadError={(cause) =>
+          cause instanceof Error ? cause.message : "Unable to load D5 export workbench"
+        }
+        mapError={(cause) =>
+          cause instanceof Error ? cause.message : "D5 export operation failed"
+        }
+      />
+    );
+    await act(async () => undefined);
+    expect(view.container.textContent).toContain("Unable to load D5 export workbench");
+    view.cleanup();
+
+    const loaded = mount(
+      <D5ExportWorkbenchView
+        ariaLabel="D5 teacher evidence export workbench"
+        eyebrow="L1+ Program D · D5"
+        title="Evidence Export Workbench"
+        badge="Teacher BFF"
+        boundary="Tenant-safe export only."
+        loadList={() => Promise.resolve({ reports, list })}
+        refreshExports={() => Promise.resolve(list)}
+        generate={() =>
+          Promise.resolve({
+            aol_dataset: { rows: [] },
+            known_limits: [],
+            source_report_refs: [],
+            statements: []
+          })
+        }
+        submit={() => Promise.reject("operation failure")}
+        mapLoadError={(cause) =>
+          cause instanceof Error ? cause.message : "Unable to load D5 export workbench"
+        }
+        mapError={(cause) =>
+          cause instanceof Error ? cause.message : "D5 export operation failed"
+        }
+      />
+    );
+    await act(async () => undefined);
+    const seal = [...loaded.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Seal immutable bundle"
+    );
+    await act(async () => {
+      seal?.click();
+      await Promise.resolve();
+    });
+    expect(loaded.container.textContent).toContain("D5 export operation failed");
+    loaded.cleanup();
   });
 });

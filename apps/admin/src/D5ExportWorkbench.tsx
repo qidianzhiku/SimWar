@@ -26,6 +26,7 @@ export function D5ExportWorkbench({
     ]);
     return { reports: reportData.reports, list };
   };
+  const refreshExports = () => loadD5Exports(apiBase, token);
 
   return (
     <D5ExportWorkbenchView
@@ -39,12 +40,16 @@ export function D5ExportWorkbench({
       sessionKey={`${apiBase}:${tenantId}:${token}`}
       headingClassName="candidate-heading"
       loadList={loadList}
+      refreshExports={refreshExports}
       generate={(selected) => previewD5Export(apiBase, token, selected as readonly D5ExactRef[])}
       submit={(selected) => sealD5Export(apiBase, token, selected as readonly D5ExactRef[])}
       deliver={(bundleRef) => createD5Job(apiBase, token, bundleRef as D5ExactRef)}
       retry={(jobId) => retryD5Job(apiBase, token, jobId)}
       cancel={(jobId) => cancelD5Job(apiBase, token, jobId)}
       mapError={(cause) => (cause instanceof Error ? cause.message : "D5 export operation failed")}
+      mapLoadError={(cause) =>
+        cause instanceof Error ? cause.message : "Unable to load D5 export workbench"
+      }
     />
   );
 }

@@ -226,6 +226,80 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
     </>
   );
 
+  const filters = (
+    <div className="course-report-filters">
+      <label>
+        Course
+        <input
+          aria-label="report course"
+          value={form.course_id}
+          onChange={(event) => change({ course_id: event.target.value })}
+        />
+      </label>
+      <label>
+        Run
+        <input
+          aria-label="report run"
+          value={form.run_id}
+          onChange={(event) => change({ run_id: event.target.value })}
+        />
+      </label>
+      <label>
+        Team
+        <input
+          aria-label="report team"
+          value={form.team_id}
+          onChange={(event) => change({ team_id: event.target.value })}
+        />
+      </label>
+      <label>
+        Role
+        <select
+          aria-label="report role"
+          value={form.role}
+          onChange={(event) => change({ role: event.target.value as "" | TRole })}
+        >
+          <option value="">All roles</option>
+          {roles.map((role) => (
+            <option key={role} value={role}>
+              {role}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Round
+        <input
+          aria-label="report round"
+          min="1"
+          type="number"
+          value={form.round_no}
+          onChange={(event) => change({ round_no: event.target.value })}
+        />
+      </label>
+      <fieldset>
+        <legend>KPI</legend>
+        {kpis.map((kpi) => (
+          <label key={kpi}>
+            <input
+              aria-label={`KPI ${kpi}`}
+              checked={form.kpis.includes(kpi)}
+              type="checkbox"
+              onChange={(event) =>
+                change({
+                  kpis: event.target.checked
+                    ? [...form.kpis, kpi]
+                    : form.kpis.filter((value) => value !== kpi)
+                })
+              }
+            />
+            {kpi}
+          </label>
+        ))}
+      </fieldset>
+    </div>
+  );
+
   return (
     <WorkbenchFrame
       ariaLabel={ariaLabel}
@@ -234,6 +308,8 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
       badge={badge}
       boundary={boundary}
       state={state}
+      stateAfterActions
+      beforeActions={filters}
       className={className}
       headingClassName={headingClassName}
       boundaryClassName={boundaryClassName}
@@ -251,77 +327,6 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         </div>
       }
     >
-      <div className="course-report-filters">
-        <label>
-          Course
-          <input
-            aria-label="report course"
-            value={form.course_id}
-            onChange={(event) => change({ course_id: event.target.value })}
-          />
-        </label>
-        <label>
-          Run
-          <input
-            aria-label="report run"
-            value={form.run_id}
-            onChange={(event) => change({ run_id: event.target.value })}
-          />
-        </label>
-        <label>
-          Team
-          <input
-            aria-label="report team"
-            value={form.team_id}
-            onChange={(event) => change({ team_id: event.target.value })}
-          />
-        </label>
-        <label>
-          Role
-          <select
-            aria-label="report role"
-            value={form.role}
-            onChange={(event) => change({ role: event.target.value as "" | TRole })}
-          >
-            <option value="">All roles</option>
-            {roles.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Round
-          <input
-            aria-label="report round"
-            min="1"
-            type="number"
-            value={form.round_no}
-            onChange={(event) => change({ round_no: event.target.value })}
-          />
-        </label>
-        <fieldset>
-          <legend>KPI</legend>
-          {kpis.map((kpi) => (
-            <label key={kpi}>
-              <input
-                aria-label={`KPI ${kpi}`}
-                checked={form.kpis.includes(kpi)}
-                type="checkbox"
-                onChange={(event) =>
-                  change({
-                    kpis: event.target.checked
-                      ? [...form.kpis, kpi]
-                      : form.kpis.filter((value) => value !== kpi)
-                  })
-                }
-              />
-              {kpi}
-            </label>
-          ))}
-        </fieldset>
-      </div>
       {report ? (
         <article className={previewClassName} aria-label="Course report preview">
           <h3>Course report preview</h3>

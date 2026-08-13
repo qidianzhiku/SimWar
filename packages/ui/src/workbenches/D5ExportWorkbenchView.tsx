@@ -73,12 +73,14 @@ export interface D5ExportWorkbenchViewProps {
   headingClassName?: string;
   boundaryClassName?: string;
   loadList: () => Promise<D5LoadedData>;
+  refreshExports: () => Promise<D5ExportList>;
   generate: (selected: readonly D5ExactReference[]) => Promise<D5PreviewData>;
   submit: (selected: readonly D5ExactReference[]) => Promise<D5BundleData>;
   deliver?: (bundleRef: D5ExactReference) => Promise<D5JobData>;
   retry?: (jobId: string) => Promise<D5JobData>;
   cancel?: (jobId: string) => Promise<D5JobData>;
   mapError: (error: unknown) => string;
+  mapLoadError?: (error: unknown) => string;
 }
 
 type Phase = "IDLE" | "LOADING" | "READY" | "ERROR";
@@ -97,12 +99,14 @@ export function D5ExportWorkbenchView({
   headingClassName = "sw-workbench-frame__heading",
   boundaryClassName = "d5-export-boundary",
   loadList,
+  refreshExports,
   generate,
   submit,
   deliver,
   retry,
   cancel,
-  mapError
+  mapError,
+  mapLoadError = mapError
 }: D5ExportWorkbenchViewProps) {
   const [phase, setPhase] = useState<Phase>("IDLE");
   const [reports, setReports] = useState<readonly D5ReportSummary[]>([]);
@@ -115,6 +119,10 @@ export function D5ExportWorkbenchView({
   const requestEpoch = useRef(0);
   const loadListRef = useRef(loadList);
   loadListRef.current = loadList;
+  const mapErrorRef = useRef(mapError);
+  mapErrorRef.current = mapError;
+  const mapLoadErrorRef = useRef(mapLoadError);
+  mapLoadErrorRef.current = mapLoadError;
   const selectedKeys = new Set(selected.map(selectedKey));
 
   const refresh = useCallback(async () => {
@@ -130,22 +138,18 @@ export function D5ExportWorkbenchView({
       setPhase("READY");
     } catch (cause) {
       if (epoch !== requestEpoch.current) return;
-      setError(mapError(cause));
+      setError(mapLoadErrorRef.current(cause));
       setPhase("ERROR");
     }
-  }, [mapError]);
+  }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh, sessionKey]);
 
   const refreshList = async () => {
-    try {
-      const next = await loadListRef.current();
-      setList(next.list);
-    } catch (cause) {
-      setError(mapError(cause));
-    }
+    const next = await refreshExports();
+    setList(next);
   };
 
   const run = async (action: () => Promise<void>) => {
@@ -154,7 +158,7 @@ export function D5ExportWorkbenchView({
     try {
       await action();
     } catch (cause) {
-      setError(mapError(cause));
+      setError(mapErrorRef.current(cause));
     } finally {
       setBusy(false);
     }

@@ -7,6 +7,8 @@ export interface WorkbenchFrameProps {
   badge?: ReactNode;
   boundary?: ReactNode;
   state?: ReactNode;
+  stateAfterActions?: boolean;
+  beforeActions?: ReactNode;
   actions?: ReactNode;
   headerActions?: ReactNode;
   children?: ReactNode;
@@ -27,6 +29,8 @@ export function WorkbenchFrame({
   badge,
   boundary,
   state,
+  stateAfterActions = false,
+  beforeActions,
   actions,
   headerActions,
   children,
@@ -46,8 +50,10 @@ export function WorkbenchFrame({
         {headerActions}
       </div>
       {boundary ? <p className={boundaryClassName}>{boundary}</p> : null}
-      {state}
+      {stateAfterActions ? null : state}
+      {beforeActions}
       {actions}
+      {stateAfterActions ? state : null}
       {children}
     </section>
   );
