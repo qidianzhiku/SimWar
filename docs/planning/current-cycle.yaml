@@ -71,7 +71,7 @@ evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/372
   product_candidate_sha: a24dad3f8d3aca905fafb0a42f05b2309e16e02f
   product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
-  product_manifest_sha256: 23cce9f764805cbca6f7a33477bb234d7afc03441bde431da907b304a525efb3
+  product_manifest_sha256: 86edacd35a5ae91697c27615e72c939794324cea2ab623aaa529d60d488369b8
   evidence_root: C:/Temp/simwar-w025-postmerge-20260813T003312Z
   evidence_manifest_sha256: 4cf064a42fd2e460db5b0758cd4894c1dcfbaadf89c7123158dae4e0d7eb50b9
   fresh_clone: D:/codex/fresh-clones/simwar-w025-postmerge-93883f4-20260813T0833
