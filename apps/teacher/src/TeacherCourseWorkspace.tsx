@@ -212,7 +212,7 @@ export function TeacherNextStepButton({
     );
   }
 
-  const authorized = action !== null && allowedActions.includes(action);
+  const authorized = allowedActions.includes(action);
   const reason = loading
     ? undefined
     : !authorized
