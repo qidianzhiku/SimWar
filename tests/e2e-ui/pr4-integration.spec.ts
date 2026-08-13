@@ -476,6 +476,7 @@ function writeRuntimePerformanceEvidence(): void {
 }
 
 async function captureCandidate(page: Page, surface: string, state = "ready") {
+  await page.mouse.move(0, 0);
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready;
     window.scrollTo({ left: 0, top: 0, behavior: "auto" });
@@ -571,6 +572,7 @@ test.describe.serial("Product PR4 real surface integration", () => {
     const enterprise = page.getByRole("link", { name: "企业课程工厂与 Sponsor 投影" });
     await enterprise.click();
     await expect(page).toHaveURL(/#admin-enterprise-course-factory$/);
+    await expect(enterprise).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "企业课程工厂与 Sponsor 投影" })).toBeVisible();
     await expect(
       page.locator(".enterprise-course-factory-workspace").getByRole("button")

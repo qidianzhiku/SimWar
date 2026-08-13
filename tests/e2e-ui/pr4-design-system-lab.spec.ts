@@ -156,6 +156,7 @@ test.describe.serial("Product PR4 DesignSystemLab surface", () => {
     await page.goto(labUrl);
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
+      await page.mouse.move(0, 0);
       await waitForLabSettled(page, viewport);
 
       const firstUsableMs = await page.evaluate(() => {

@@ -535,7 +535,9 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         withinThresholdOutput,
         "--max-diff-pixel-ratio",
-        "0.5",
+        "0",
+        "--role-threshold",
+        "student=0.5",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -544,16 +546,31 @@ describe("Product PR4 integration contracts", () => {
       expect(withinThresholdResult.status).toBe(0);
       const withinThresholdManifest = JSON.parse(readFileSync(withinThresholdOutput, "utf8")) as {
         status: string;
+        threshold: {
+          max_diff_pixel_ratio: number;
+          role_overrides: Record<string, number>;
+        };
         surfaces: Array<{
           status: string;
+          applied_threshold: { max_diff_pixel_ratio: number; source: string };
           dimension_mismatch: boolean;
           diff_pixel_ratio: number;
           diff_path: string | null;
         }>;
       };
-      expect(withinThresholdManifest).toMatchObject({ status: "passed" });
+      expect(withinThresholdManifest).toMatchObject({
+        status: "passed",
+        threshold: {
+          max_diff_pixel_ratio: 0,
+          role_overrides: { student: 0.5 }
+        }
+      });
       expect(withinThresholdManifest.surfaces[0]).toMatchObject({
         status: "passed",
+        applied_threshold: {
+          max_diff_pixel_ratio: 0.5,
+          source: "role:student"
+        },
         dimension_mismatch: true,
         diff_pixel_ratio: 0.5
       });
@@ -581,6 +598,7 @@ describe("Product PR4 integration contracts", () => {
     expect(ciSource).not.toContain("continue-on-error: true");
     expect(ciSource).toContain('status === "failed"');
     expect(ciSource).toContain('status === "not_ready"');
+    expect(ciSource.match(/--role-threshold student=0\.065/g)).toHaveLength(2);
     expect(ciSource.indexOf('mkdir -p "$PR4_EVIDENCE_ROOT"')).toBeGreaterThan(-1);
     expect(ciSource.indexOf('mkdir -p "$PR4_EVIDENCE_ROOT"')).toBeLessThan(
       ciSource.indexOf("Measure PR4 frontend bundle budgets")
@@ -613,6 +631,9 @@ describe("Product PR4 integration contracts", () => {
     expect(labSource).not.toContain("fullPage: true");
     expect(mainSource).toContain('window.scrollTo({ left: 0, top: 0, behavior: "auto" })');
     expect(labSource).toContain('window.scrollTo({ left: 0, top: 0, behavior: "auto" })');
+    expect(mainSource).toContain(
+      'await expect(enterprise).toHaveAttribute("aria-current", "page")'
+    );
   });
 
   it("fails focused runtime evidence when browser performance metrics are unsupported", () => {

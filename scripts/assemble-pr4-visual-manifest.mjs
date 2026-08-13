@@ -34,6 +34,25 @@ const maxDiffPixelRatio = Number(valueFor("--max-diff-pixel-ratio", valueFor("--
 if (!Number.isFinite(maxDiffPixelRatio) || maxDiffPixelRatio < 0 || maxDiffPixelRatio > 1) {
   throw new Error("--max-diff-pixel-ratio must be a finite number between 0 and 1.");
 }
+const supportedRoles = new Set(["admin", "teacher", "student", "enterprise", "lab"]);
+const roleThresholds = {};
+for (let index = 0; index < args.length; index += 1) {
+  if (args[index] !== "--role-threshold") continue;
+  const specification = args[index + 1] ?? "";
+  const separator = specification.indexOf("=");
+  const role = separator >= 0 ? specification.slice(0, separator).toLowerCase() : "";
+  const ratio = Number(separator >= 0 ? specification.slice(separator + 1) : "NaN");
+  if (!supportedRoles.has(role)) {
+    throw new Error(`--role-threshold role must be one of ${[...supportedRoles].join(", ")}.`);
+  }
+  if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+    throw new Error("--role-threshold ratio must be a finite number between 0 and 1.");
+  }
+  if (Object.hasOwn(roleThresholds, role)) {
+    throw new Error(`--role-threshold may be supplied only once for role ${role}.`);
+  }
+  roleThresholds[role] = ratio;
+}
 const allowDirty = args.includes("--allow-dirty");
 const baseSha = valueFor("--base-sha", process.env.PR4_BASE_SHA ?? null);
 const headSha = valueFor("--head-sha", process.env.PR4_HEAD_SHA ?? process.env.GITHUB_SHA ?? null);
@@ -138,9 +157,12 @@ const surfaces = paths.map((path) => {
   const candidatePath = join(candidateRoot, path);
   const baselinePresent = existsSync(baselinePath);
   const candidatePresent = existsSync(candidatePath);
+  const role = parseRole(path);
+  const roleThreshold = role && Object.hasOwn(roleThresholds, role) ? roleThresholds[role] : null;
+  const appliedThreshold = roleThreshold ?? maxDiffPixelRatio;
   const surface = {
     path,
-    role: parseRole(path),
+    role,
     viewport: parseViewport(path),
     state: parseState(path),
     base_sha: baseSha,
@@ -152,6 +174,10 @@ const surfaces = paths.map((path) => {
     diff_path: null,
     diff_sha256: null,
     diff_pixel_ratio: null,
+    applied_threshold: {
+      max_diff_pixel_ratio: appliedThreshold,
+      source: roleThreshold === null ? "global" : `role:${role}`
+    },
     dimensions: null,
     dimension_mismatch: false,
     failure_reason: null,
@@ -175,9 +201,9 @@ const surfaces = paths.map((path) => {
         surface.diff_path = relativeManifestPath(diffPath);
         surface.diff_sha256 = createHash("sha256").update(comparison.diff).digest("hex");
       }
-      if (comparison.ratio > maxDiffPixelRatio) {
+      if (comparison.ratio > appliedThreshold) {
         surface.status = "failed";
-        failures.push(`${path}: diff ratio ${comparison.ratio} > ${maxDiffPixelRatio}`);
+        failures.push(`${path}: diff ratio ${comparison.ratio} > ${appliedThreshold}`);
       } else {
         surface.status = "passed";
       }
@@ -226,9 +252,13 @@ const manifest = {
   baseline_root: baselineRoot,
   candidate_root: candidateRoot,
   diff_root: diffRoot,
-  threshold: { max_diff_pixel_ratio: maxDiffPixelRatio },
+  threshold: {
+    max_diff_pixel_ratio: maxDiffPixelRatio,
+    role_overrides: roleThresholds
+  },
   automatic_threshold: {
     max_diff_pixel_ratio: maxDiffPixelRatio,
+    role_overrides: roleThresholds,
     enforced: provenanceReady && !missingOrInvalid && surfaces.length > 0
   },
   acceptance_ready: status === "passed" && provenanceReady,
@@ -239,6 +269,7 @@ const manifest = {
       (surface) => surface.status === "passed" || surface.status === "failed"
     ).length,
     max_diff_pixel_ratio: maxDiffPixelRatio,
+    role_overrides: roleThresholds,
     failures
   },
   dialog_drawer: "N/A: no dialog or drawer is implemented by these surfaces.",

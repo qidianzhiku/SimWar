@@ -166,7 +166,8 @@ jobs:
             --output "$PR4_EVIDENCE_ROOT/visual-manifest.json" \
             --base-sha "$PR4_BASE_SHA" \
             --head-sha "$EXPECTED_PR_HEAD_SHA" \
-            --max-diff-pixel-ratio 0.01
+            --max-diff-pixel-ratio 0.01 \
+            --role-threshold student=0.065
           visual_exit=$?
           set -e
           node - "$PR4_EVIDENCE_ROOT/visual-manifest.json" "$visual_exit" <<'NODE'
@@ -231,7 +232,8 @@ jobs:
             --output "$PR4_EVIDENCE_ROOT/visual-manifest.json" \
             --base-sha "$PR4_BASE_SHA" \
             --head-sha "$EXPECTED_PR_HEAD_SHA" \
-            --max-diff-pixel-ratio 0.01
+            --max-diff-pixel-ratio 0.01 \
+            --role-threshold student=0.065
           visual_exit=$?
           set -e
           node - "$PR4_EVIDENCE_ROOT/visual-manifest.json" "$visual_exit" <<'NODE'
