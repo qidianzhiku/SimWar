@@ -23,6 +23,7 @@
 | CodeGraph                               | 审计克隆本地 `.codegraph`                                                                                          | CodeGraph v1.2.0；`lastIndexed=2026-08-12T16:39:12.596Z`；473 files / 7,514 nodes / 30,596 edges / pending=0 / mismatch=null；未写入产品工作树                                                                                                                                        |
 | Current-product runtime visual evidence | `C:\Users\Marshall\.codex\visualizations\2026\08\12\019ff6ce-99bb-7100-b86c-f47b294d077a\fe-current-baseline-luna` | 3 个 app 的登录、认证、DOM、ARIA、截图、网络和运行时收据；1440×900 current-product baseline；本 PR 不复制二进制                                                                                                                                                                       |
 | PR1 DesignSystemLab browser evidence    | `C:\Users\Marshall\.codex\visualizations\2026\08\12\019ff6ce-99bb-7100-b86c-f47b294d077a\fe-pr1-design-system-lab` | tracked `@simwar/ui` lab at the exact branch；runtime JSON hash `E5CD...3764F`；automated four-viewport readback；本 PR 不复制二进制                                                                                                                                                  |
+| Post-W025 PR1 DesignSystemLab readback  | `C:\Users\Marshall\.codex\visualizations\2026\08\12\019ff6ce-99bb-7100-b86c-f47b294d077a\fe-pr1-post-w025-rebase`  | source `639b063ea8f6f535a9114fbd558c841191c776e7`；four fresh viewport screenshots、keyboard/reduced-motion/health checks；`receipt.json` SHA-256 `AD7D29B1742F958392C7AD949EBEDD2F409036F9A61FF3D2F33A5CC2CB32871B`；本 PR 不复制二进制                                              |
 | Target authorization                    | `C:\Users\Marshall\Downloads\SimWar_UI_Frontend_Experience_Refoundation_Codex_Goal_Mode_Prompt_V1.0_20260813.md`   | Owner signed Macro Wave；允许前端范围内自主变更，禁止真值/权限/生产越界                                                                                                                                                                                                               |
 | Figma                                   | `SimWar Design System V6.0`，file key `g73vJXbLoQVhY87lbUaueL`                                                     | variables/styles `P1_PASS`；6 collections / 68 variables；WEB syntax/scope/alias PASS；3 physical pages / 12 logical sections；editable component variants/final screens/Code Connect `BLOCKED_BY_PLAN_LIMIT`；保留 `FIGMA_STARTER_3_PAGE_LIMIT`，新增 `FIGMA_STARTER_MCP_RATE_LIMIT` |
 
@@ -67,8 +68,10 @@ commands are `npm run dev:lab -w @simwar/ui` (Vite at
 
 The lab evidence was produced from the tracked dev entry at the exact branch
 with documentation/base provenance still bound to
-`bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37`; the PR1 implementation state was
-uncommitted at capture time. External evidence root:
+`bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37`; the original PR1 implementation
+state was uncommitted at capture time. The post-W025 rebase and fresh lab
+readback are recorded below; the frozen baseline evidence remains unchanged.
+External evidence root:
 `C:\Users\Marshall\.codex\visualizations\2026\08\12\019ff6ce-99bb-7100-b86c-f47b294d077a\fe-pr1-design-system-lab`.
 Runtime JSON hash: `E5CD...3764F`.
 
@@ -154,9 +157,11 @@ complete.
 
 ## 5. PR 与串行集成事实
 
-- PR #372（W025）实时捕获（`updatedAt=2026-08-12T16:42:29Z`）仍开放、非 draft、mergeable；base `bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37`，当前 head `64fac64bca2138abb33e2db731714ba9bc864254`。quality、browser-smoke、Analyze JavaScript and TypeScript、CodeQL 均 SUCCESS；仍有 6 个未解决 review threads。它当前未修改 `apps/*`，主要覆盖 package/shared-contracts/OpenAPI/API/services/tests；本 Wave 不修改它，也不把 UI 变更塞进旧 PR。
-- #372 的旧 head `574ce707fcca77fec74f5dc3c3a9969f39b3de14` 与旧 browser-smoke failure 仅属于 historical preflight，不代表当前 live check 状态；当前收据以 `64fac64bca2138abb33e2db731714ba9bc864254` 与上述 SUCCESS capture 为准。
-- PR #365（W020 remediation）实时状态为 OPEN/CONFLICTING；head `0fd0…`，base `675f…`（connector capture 只提供前缀）。其 UI/测试重叠至少包括 `apps/student/src/StudentRoleAdvisor.tsx`、`apps/teacher/src/TeacherDebriefAdvisor.tsx` 和 W020 E2E/服务端/OpenAPI。PR1 ownership 包含设计冻结和 `@simwar/ui` foundation scope；后续 Student/Teacher migration 必须尊重该 ownership，不关闭或修改 #365。
+- #372 的 `updatedAt=2026-08-12T16:42:29Z` OPEN/MERGEABLE/non-draft capture、head `64fac64bca2138abb33e2db731714ba9bc864254`、6 unresolved threads 与当时 SUCCESS checks 是 historical pre-W025 evidence only. Its old head `574ce707fcca77fec74f5dc3c3a9969f39b3de14` and browser-smoke failure are also historical and do not describe current live state.
+- Fresh post-W025 readback confirms PR #372 (W025) merged at `2026-08-13T00:33:12Z`; final head `a24dad3f8d3aca905fafb0a42f05b2309e16e02f`; merge commit and protected `origin/master` are exactly `93883f47af9d1ee8892eeabf40f78240c186589a`; the merge changed 36 files. CI `quality` and `browser-smoke`, plus CodeQL `Analyze JavaScript and TypeScript` and `CodeQL`, all concluded SUCCESS. All 6 review threads are resolved.
+- PR1 was locally rebased onto that protected master. The replayed implementation commit is `639b063ea8f6f535a9114fbd558c841191c776e7`; the remote PR #373 head `a43609dc0011c655bc1b6f7850ab68cf8027b1de` remains a historical/stale draft until Sol republishes it. No push or PR mutation occurred in this readback.
+- Fresh post-rebase Lab evidence is stored outside the repository at `C:\Users\Marshall\.codex\visualizations\2026\08\12\019ff6ce-99bb-7100-b86c-f47b294d077a\fe-pr1-post-w025-rebase`; all four viewports reported no horizontal overflow, 44px action targets, expected authority/state/receipt examples, keyboard focus rings, no console/page errors, healthy static requests, and reduced-motion durations of `0.001s`. The evidence receipt hash is `AD7D29B1742F958392C7AD949EBEDD2F409036F9A61FF3D2F33A5CC2CB32871B`.
+- PR #365 (W020 remediation) remains OPEN/CONFLICTING with exact head `0fd0cd2c85b5012512716c53b89951cc442db748`. Its Advisor/W020 ownership and UI/测试重叠至少包括 `apps/student/src/StudentRoleAdvisor.tsx`、`apps/teacher/src/TeacherDebriefAdvisor.tsx` 和 W020 E2E/服务端/OpenAPI。PR1 ownership includes the design freeze and `@simwar/ui` foundation; later Student/Teacher migration must respect that ownership and must not close or modify #365.
 - PR1 scope 包含本目录审计/设计文档、已实现的 `@simwar/ui` foundation 与 code-first `DesignSystemLab` contract/implementation ownership；本次收据同步文档冻结与共享基础层实现事实，不把“docs-only”误写成 Product PR scope。current-product app migrations 仍由后续 PR2/PR3 负责；最终每个 Product PR 必须在 predecessor 合并后的 exact head 重新 rebase、运行门禁和浏览器验证。
 
 ## 6. Known Limits 与下一步证据
