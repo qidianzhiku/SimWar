@@ -154,39 +154,6 @@ jobs:
             --output "$PR4_EVIDENCE_ROOT/budget-report.json" \
             --base-sha "$PR4_BASE_SHA" \
             --head-sha "$EXPECTED_PR_HEAD_SHA"
-      - name: Assemble PR4 visual manifest
-        id: pr4-visual-manifest
-        run: |
-          mkdir -p "$PR4_EVIDENCE_ROOT/baseline" "$PR4_EVIDENCE_ROOT/candidate" "$PR4_EVIDENCE_ROOT/diff"
-          set +e
-          npm run visual:pr4:manifest -- \
-            --baseline "$PR4_EVIDENCE_ROOT/baseline" \
-            --candidate "$PR4_EVIDENCE_ROOT/candidate" \
-            --diff-root "$PR4_EVIDENCE_ROOT/diff" \
-            --output "$PR4_EVIDENCE_ROOT/visual-manifest.json" \
-            --base-sha "$PR4_BASE_SHA" \
-            --head-sha "$EXPECTED_PR_HEAD_SHA" \
-            --max-diff-pixel-ratio 0.01 \
-            --role-threshold student=0.065
-          visual_exit=$?
-          set -e
-          node - "$PR4_EVIDENCE_ROOT/visual-manifest.json" "$visual_exit" <<'NODE'
-          const fs = require("node:fs");
-          const manifest = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-          const comparatorExit = Number(process.argv[3]);
-          if (manifest.status === "failed") {
-            console.error("PR4 visual comparator found a threshold failure");
-            process.exit(1);
-          }
-          if (manifest.status === "not_ready") {
-            console.warn("PR4 visual baseline is absent/mismatched; manifest is not_ready and no PASS is claimed.");
-            process.exit(0);
-          }
-          if (manifest.status !== "passed" || comparatorExit !== 0) {
-            console.error(`PR4 visual comparator did not pass (status=${manifest.status}, exit=${comparatorExit})`);
-            process.exit(1);
-          }
-          NODE
       - name: Upload PR4 quality evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -218,6 +185,23 @@ jobs:
         run: mkdir -p "$(dirname "$SIMWAR_PLAYWRIGHT_STORE_FILE")"
       - run: npx playwright install --with-deps chromium
       - run: npm run test:unit:pr4
+      - name: Prepare exact PR4 BASE checkout
+        run: |
+          PR4_BASE_WORKTREE="/tmp/simwar-pr4-base-${GITHUB_RUN_ID}"
+          echo "PR4_BASE_WORKTREE=$PR4_BASE_WORKTREE" >> "$GITHUB_ENV"
+          git fetch --no-tags --depth=1 origin "$PR4_BASE_SHA"
+          git worktree add --detach "$PR4_BASE_WORKTREE" "$PR4_BASE_SHA"
+          (cd "$PR4_BASE_WORKTREE" && npm ci && npm run build)
+      - name: Capture exact PR4 visual baseline
+        run: |
+          npm run capture:pr4:baseline -- \
+            --source-root "$PR4_BASE_WORKTREE" \
+            --output "$PR4_EVIDENCE_ROOT/base-capture" \
+            --expected-sha "$PR4_BASE_SHA" \
+            --candidate-sha "$EXPECTED_PR_HEAD_SHA" \
+            --store "/tmp/simwar-playwright/pr4-base-${GITHUB_RUN_ID}/playwright-store.json"
+          mkdir -p "$PR4_EVIDENCE_ROOT/baseline"
+          cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png "$PR4_EVIDENCE_ROOT/baseline/"
       - run: npm run test:e2e:ui:core
       - run: npm run test:e2e:ui:pr4
       - name: Compare PR4 visual candidate against external baseline
@@ -244,15 +228,18 @@ jobs:
             console.error("PR4 visual comparator found a threshold failure");
             process.exit(1);
           }
-          if (manifest.status === "not_ready") {
-            console.warn("PR4 visual baseline is absent/mismatched; manifest is not_ready and no PASS is claimed.");
-            process.exit(0);
-          }
           if (manifest.status !== "passed" || comparatorExit !== 0) {
             console.error(`PR4 visual comparator did not pass (status=${manifest.status}, exit=${comparatorExit})`);
             process.exit(1);
           }
           NODE
+      - name: Remove exact PR4 BASE checkout
+        if: always()
+        run: |
+          if [ -n "${PR4_BASE_WORKTREE:-}" ] && [ -d "$PR4_BASE_WORKTREE" ]; then
+            git worktree remove --force "$PR4_BASE_WORKTREE"
+          fi
+          git worktree prune
       - name: Upload Playwright smoke artifacts
         if: always()
         uses: actions/upload-artifact@v4

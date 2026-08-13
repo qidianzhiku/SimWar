@@ -110,7 +110,7 @@ SimWar 的质量工具链按以下职责分工理解和使用：
 - Understand Anything：理解项目结构、知识图谱和影响范围。
 - Codex：小步生成方案、文档、代码和测试。
 - GitHub Actions / Harness：自动质量门禁、发布审批、环境发布和回滚治理；当前优先使用 GitHub Actions，Harness 作为中后期发布治理平台。
-- Vitest：当前保护 unit / service / contract 基线；Playwright / Pact 属于后续 E2E 与 consumer-driven contract 能力，落地前不得写成当前可运行门禁。
+- Vitest：当前保护 unit / service / contract 基线；Playwright 已提供 core、role-workflow 与 PR4 focused 浏览器门禁；Pact 仍属于后续 consumer-driven contract 能力，落地前不得写成当前可运行门禁。
 - OpenAPI / Spectral / JSON Schema：冻结 API、schema、fixtures、shared-contracts 契约。
 - Codecov / SonarQube / Snyk 或 OWASP Dependency-Check：覆盖率趋势、代码质量、安全和供应链风险。
 - Renovate / Dependabot：依赖更新和安全补丁自动化，必须受 CI 门禁约束。
@@ -221,6 +221,14 @@ npm test
 npm run test:contract
 npm run test:postgres-replay
 npm run build
+npm run test:unit:pr4
+npm run test:e2e:ui
+npm run test:e2e:ui:core
+npm run test:e2e:ui:pr4
+npm run check:pr4:head
+npm run measure:frontend:budgets -- --dist-root . --output <external-path> --base-sha <base-sha> --head-sha <head-sha>
+npm run capture:pr4:baseline -- --source-root <absolute-clean-base-worktree> --output <absolute-external-base-evidence> --expected-sha <base-sha> --store <absolute-external-store>
+npm run visual:pr4:manifest -- --baseline <external-baseline> --candidate <external-candidate> --diff-root <external-diff> --output <external-manifest> --base-sha <base-sha> --head-sha <head-sha> --max-diff-pixel-ratio 0.01 --role-threshold student=0.065
 
 # Local dev servers
 npm run dev:api
@@ -243,7 +251,6 @@ npm run test:migration
 npm run test:migration:apply
 npm run test:postgres-adapter
 npm run test:e2e
-npm run test:e2e:ui
 npm run test:replay
 npm run test:settlement-idempotency
 npm run test:plugin-boundary
@@ -253,19 +260,19 @@ npm run schema:check
 
 当前 npm 命令与拟新增命令的大致对应关系：
 
-| Target capability                             | Current repository status                                                                                                        |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Full local aggregate quality gate             | Planned; `npm run quality` does not exist yet                                                                                    |
-| Architecture boundary lint                    | Planned; `npm run lint:boundaries` does not exist yet                                                                            |
-| Knip unused/dependency gate                   | Configuration exists in `knip.json`, but `knip` dependency, script, and CI gate do not exist yet                                 |
-| Coverage gate                                 | Planned; `npm run test:coverage` does not exist yet                                                                              |
-| Dedicated schema gate                         | Planned; current `npm run test:contract` performs baseline contract presence checks                                              |
-| Dedicated migration static gate               | Planned; `npm run check:migrations` / `npm run test:migration` do not exist yet                                                  |
-| Dedicated migration apply gate                | Planned; `npm run test:migration:apply` does not exist yet                                                                       |
-| Dedicated Postgres adapter gate               | Planned; `npm run test:postgres-adapter` does not exist yet                                                                      |
-| Playwright E2E gate                           | Configuration exists in `playwright.config.ts`, but `@playwright/test`, E2E scripts, E2E test files, and CI job do not exist yet |
-| Replay / settlement / plugin boundary专项门禁 | Planned; coverage currently lives in Vitest and Postgres replay verification where applicable                                    |
-| pnpm command set                              | Planned only; current repository uses npm workspaces and `package-lock.json`                                                     |
+| Target capability                             | Current repository status                                                                                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Full local aggregate quality gate             | Planned; `npm run quality` does not exist yet                                                                                                                                                                |
+| Architecture boundary lint                    | Planned; `npm run lint:boundaries` does not exist yet                                                                                                                                                        |
+| Knip unused/dependency gate                   | Configuration exists in `knip.json`, but `knip` dependency, script, and CI gate do not exist yet                                                                                                             |
+| Coverage gate                                 | Planned; `npm run test:coverage` does not exist yet                                                                                                                                                          |
+| Dedicated schema gate                         | Planned; current `npm run test:contract` performs baseline contract presence checks                                                                                                                          |
+| Dedicated migration static gate               | Planned; `npm run check:migrations` / `npm run test:migration` do not exist yet                                                                                                                              |
+| Dedicated migration apply gate                | Planned; `npm run test:migration:apply` does not exist yet                                                                                                                                                   |
+| Dedicated Postgres adapter gate               | Planned; `npm run test:postgres-adapter` does not exist yet                                                                                                                                                  |
+| Playwright E2E gate                           | Implemented: `test:e2e:ui` / `test:e2e:ui:core` cover existing product suites and role workflow; `test:e2e:ui:pr4` covers the exact-SHA focused Admin/Enterprise projection/Teacher/Student/Lab matrix in CI |
+| Replay / settlement / plugin boundary专项门禁 | Planned; coverage currently lives in Vitest and Postgres replay verification where applicable                                                                                                                |
+| pnpm command set                              | Planned only; current repository uses npm workspaces and `package-lock.json`                                                                                                                                 |
 
 ````
 

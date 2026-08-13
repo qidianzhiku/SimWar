@@ -645,22 +645,33 @@ describe("Product PR4 integration contracts", () => {
     };
     const configSource = readFileSync(resolve(root, "playwright.config.ts"), "utf8");
     const ciSource = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+    const agentGuide = readFileSync(resolve(root, "AGENTS.md"), "utf8");
 
     expect(packageJson.scripts["test:e2e:ui"]).toContain("npm run build:test-prerequisites");
     expect(packageJson.scripts["test:e2e:ui"]).toContain("npm run build -w @simwar/ui");
     expect(packageJson.scripts["test:e2e:ui"]).toContain("playwright test");
     expect(packageJson.scripts["test:e2e:ui:core"]).toContain("playwright test");
     expect(packageJson.scripts["test:unit:pr4"]).toContain("npm run build -w @simwar/ui");
+    expect(packageJson.scripts["test:unit:pr4"]).toContain(
+      "tests/unit/pr4-visual-baseline-capture.test.ts"
+    );
     expect(packageJson.scripts["test:e2e:ui:pr4"]).toContain("playwright.pr4.config.ts");
+    expect(packageJson.scripts["capture:pr4:baseline"]).toBe(
+      "node scripts/capture-pr4-visual-baseline.mjs"
+    );
     expect(configSource).toContain("testIgnore: /pr4-.*\\.spec\\.ts/");
     expect(configSource).not.toContain("PR4_CONFIG_LAB");
     expect(configSource).not.toContain("pr4EvidenceRoot");
     expect(ciSource).toContain("npm run test:e2e:ui:core");
     expect(ciSource).toContain("npm run test:e2e:ui:pr4");
+    expect(ciSource).toContain("Capture exact PR4 visual baseline");
+    expect(ciSource).toContain("npm run capture:pr4:baseline");
+    expect(ciSource).toContain('cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png');
+    expect(ciSource).not.toContain("Assemble PR4 visual manifest");
     expect(ciSource).not.toContain("continue-on-error: true");
     expect(ciSource).toContain('status === "failed"');
-    expect(ciSource).toContain('status === "not_ready"');
-    expect(ciSource.match(/--role-threshold student=0\.065/g)).toHaveLength(2);
+    expect(ciSource).not.toContain('manifest.status === "not_ready"');
+    expect(ciSource.match(/--role-threshold student=0\.065/g)).toHaveLength(1);
     expect(ciSource).not.toContain("PR4_EVIDENCE_ROOT: ${{ runner.temp }}");
     expect(ciSource).toContain("PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-quality-${{ github.run_id }}");
     expect(ciSource).toContain("PR4_EVIDENCE_ROOT: /tmp/simwar-pr4-browser-${{ github.run_id }}");
@@ -672,9 +683,17 @@ describe("Product PR4 integration contracts", () => {
     expect(ciSource.indexOf("npm run test:e2e:ui:core")).toBeLessThan(
       ciSource.indexOf("npm run test:e2e:ui:pr4")
     );
+    expect(ciSource.indexOf("Capture exact PR4 visual baseline")).toBeLessThan(
+      ciSource.indexOf("npm run test:e2e:ui:core")
+    );
     expect(ciSource.indexOf("npm run test:e2e:ui:pr4")).toBeLessThan(
       ciSource.indexOf("Compare PR4 visual candidate against external baseline")
     );
+    expect(agentGuide).toContain("npm run test:e2e:ui:core");
+    expect(agentGuide).toContain("npm run test:e2e:ui:pr4");
+    expect(agentGuide).toContain("npm run test:unit:pr4");
+    expect(agentGuide).toContain("npm run capture:pr4:baseline");
+    expect(agentGuide).not.toContain("E2E scripts, E2E test files, and CI job do not exist yet");
   });
 
   it("uses WCAG-tag prefixes and deterministic settle/target checks for every focused capture", () => {
@@ -686,6 +705,11 @@ describe("Product PR4 integration contracts", () => {
 
     expect(mainSource).toContain('tag.toLowerCase().startsWith("wcag")');
     expect(labSource).toContain('tag.toLowerCase().startsWith("wcag")');
+    expect(mainSource).not.toContain("axe.exclude(teacherAdvisoryList)");
+    expect(mainSource).toContain('violation.id === "aria-prohibited-attr"');
+    expect(mainSource).toContain(
+      "node.html.includes('aria-label=\"teacher advisory audit list\"')"
+    );
     expect(mainSource).toContain("waitForPr4CaptureStable");
     expect(labSource).toContain("waitForPr4CaptureStable");
     expect(mainSource).toContain('a:visible,[role="button"]:visible');

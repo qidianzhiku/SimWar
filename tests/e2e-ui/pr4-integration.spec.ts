@@ -41,14 +41,37 @@ type RuntimePerformanceEvidence = {
 
 const runtimePerformanceEvidence: RuntimePerformanceEvidence[] = [];
 
-function blockingAxeViolations(results: Awaited<ReturnType<AxeBuilder["analyze"]>>) {
-  return results.violations.filter(
-    (violation) =>
-      violation.impact === "serious" ||
-      violation.impact === "critical" ||
-      (violation.impact === "moderate" &&
-        violation.tags.some((tag) => tag.toLowerCase().startsWith("wcag")))
+function isKnownTeacherAdvisoryAxeNode(
+  violation: Awaited<ReturnType<AxeBuilder["analyze"]>>["violations"][number],
+  node: Awaited<ReturnType<AxeBuilder["analyze"]>>["violations"][number]["nodes"][number]
+) {
+  return (
+    violation.id === "aria-prohibited-attr" &&
+    node.html.includes('aria-label="teacher advisory audit list"')
   );
+}
+
+function blockingAxeViolations(
+  results: Awaited<ReturnType<AxeBuilder["analyze"]>>,
+  surface?: string
+) {
+  return results.violations
+    .map((violation) =>
+      surface === "teacher"
+        ? {
+            ...violation,
+            nodes: violation.nodes.filter((node) => !isKnownTeacherAdvisoryAxeNode(violation, node))
+          }
+        : violation
+    )
+    .filter((violation) => violation.nodes.length > 0)
+    .filter(
+      (violation) =>
+        violation.impact === "serious" ||
+        violation.impact === "critical" ||
+        (violation.impact === "moderate" &&
+          violation.tags.some((tag) => tag.toLowerCase().startsWith("wcag")))
+    );
 }
 
 async function signIn(
@@ -401,19 +424,21 @@ async function assertSurfaceContracts(page: Page, surface: string) {
     document.documentElement.style.fontSize = "";
   });
 
-  const teacherAdvisoryList = '.candidate-list[aria-label="teacher advisory audit list"]';
-  const advisoryListCount = await page.locator(teacherAdvisoryList).count();
-  let axe = new AxeBuilder({ page });
-  if (surface === "teacher" && advisoryListCount > 0) {
+  const results = await new AxeBuilder({ page }).analyze();
+  const knownTeacherAdvisoryNodeCount = results.violations.reduce(
+    (count, violation) =>
+      count +
+      violation.nodes.filter((node) => isKnownTeacherAdvisoryAxeNode(violation, node)).length,
+    0
+  );
+  if (surface === "teacher" && knownTeacherAdvisoryNodeCount > 0) {
     test.info().annotations.push({
       type: "known-limit",
       description:
-        "Teacher advisory audit list is excluded from the focused Axe scan because external #365/W020 ownership must remediate its aria-label on a role-less div (aria-prohibited-attr)."
+        "Only the exact Teacher advisory audit list aria-prohibited-attr node is filtered because external #365/W020 ownership must remediate its aria-label on a role-less div; its descendants remain in the Axe scan."
     });
-    axe = axe.exclude(teacherAdvisoryList);
   }
-  const results = await axe.analyze();
-  const blocking = blockingAxeViolations(results);
+  const blocking = blockingAxeViolations(results, surface);
   expect(blocking, `${surface} axe violations: ${JSON.stringify(blocking, null, 2)}`).toEqual([]);
   const status: RuntimePerformanceEvidence["status"] =
     cls === null || hashNavigationToAriaCurrentMs === null
