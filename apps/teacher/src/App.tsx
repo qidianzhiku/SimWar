@@ -188,6 +188,12 @@ export interface TeacherWorkspaceRequestIdentity {
   roundId: string;
 }
 
+export interface TeacherLoginRequestIdentity {
+  epoch: number;
+  tenantId: string;
+  username: string;
+}
+
 export function isTeacherWorkspaceRequestCurrent(
   request: TeacherWorkspaceRequestIdentity,
   current: TeacherWorkspaceRequestIdentity
@@ -198,6 +204,17 @@ export function isTeacherWorkspaceRequestCurrent(
     request.tenantId === current.tenantId &&
     request.runId === current.runId &&
     request.roundId === current.roundId
+  );
+}
+
+export function isTeacherLoginRequestCurrent(
+  request: TeacherLoginRequestIdentity,
+  current: TeacherLoginRequestIdentity
+): boolean {
+  return (
+    request.epoch === current.epoch &&
+    request.tenantId === current.tenantId &&
+    request.username === current.username
   );
 }
 
@@ -242,6 +259,10 @@ export function getTeacherScenarioStatusLabel(status: string): string {
       return "不可开课";
     case "DRAFT_REVIEW_REQUIRED":
       return "待质量复核";
+    case "APPROVED":
+      return "已批准";
+    case "VALIDATED":
+      return "已验证";
     case "INCOMPATIBLE":
       return "不兼容";
     case "MISSING":
@@ -485,6 +506,12 @@ export function App() {
   const formalCatalogRequestSequence = useRef(0);
   const coursePackageSessionEpoch = useRef(0);
   const workspaceRequestEpoch = useRef(0);
+  const loginRequestEpoch = useRef(0);
+  const loginRequestIdentityRef = useRef<TeacherLoginRequestIdentity>({
+    epoch: 0,
+    tenantId: "",
+    username: ""
+  });
   const workspaceRequestIdentityRef = useRef<TeacherWorkspaceRequestIdentity>({
     epoch: 0,
     sessionId: "",
@@ -559,7 +586,20 @@ export function App() {
       setWorkspace(null);
       setWorkspaceLoadState("loading");
 
-      const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+      let nextState: P0DemoState;
+      try {
+        nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
+      } catch (error) {
+        if (
+          !isTeacherWorkspaceRequestCurrent(requestIdentity, {
+            ...workspaceRequestIdentityRef.current,
+            epoch: workspaceRequestEpoch.current
+          })
+        ) {
+          return;
+        }
+        throw error;
+      }
       const nextCourseId = selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
       const nextRun = selectVisibleRun(
         nextState,
@@ -655,6 +695,13 @@ export function App() {
   function updateLogin(field: keyof LoginForm, value: string): void {
     workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
+    loginRequestEpoch.current += 1;
+    loginRequestIdentityRef.current = {
+      epoch: loginRequestEpoch.current,
+      tenantId: (field === "tenantId" ? value : login.tenantId).trim(),
+      username: (field === "username" ? value : login.username).trim()
+    };
+    setBusy(false);
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -762,6 +809,13 @@ export function App() {
   async function signIn(nextLogin = login): Promise<void> {
     workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
+    const requestIdentity: TeacherLoginRequestIdentity = {
+      epoch: loginRequestEpoch.current + 1,
+      tenantId: nextLogin.tenantId.trim(),
+      username: nextLogin.username.trim()
+    };
+    loginRequestEpoch.current = requestIdentity.epoch;
+    loginRequestIdentityRef.current = requestIdentity;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -778,12 +832,35 @@ export function App() {
           password: nextLogin.password
         }
       });
+      if (
+        !isTeacherLoginRequestCurrent(requestIdentity, {
+          ...loginRequestIdentityRef.current,
+          epoch: loginRequestEpoch.current
+        })
+      ) {
+        return;
+      }
       setSession(nextSession);
       setNotice("signed in");
     } catch (error) {
+      if (
+        !isTeacherLoginRequestCurrent(requestIdentity, {
+          ...loginRequestIdentityRef.current,
+          epoch: loginRequestEpoch.current
+        })
+      ) {
+        return;
+      }
       setNotice(error instanceof Error ? error.message : "login failed");
     } finally {
-      setBusy(false);
+      if (
+        isTeacherLoginRequestCurrent(requestIdentity, {
+          ...loginRequestIdentityRef.current,
+          epoch: loginRequestEpoch.current
+        })
+      ) {
+        setBusy(false);
+      }
     }
   }
 
@@ -2091,7 +2168,7 @@ export function App() {
                               <strong>{blueprint.title}</strong>
                               <small>
                                 {blueprint.course_blueprint_reference.version} /{" "}
-                                {blueprint.duration_minutes} minutes
+                                {blueprint.duration_minutes} 分钟
                               </small>
                               <button
                                 aria-label="Select locally"
@@ -2177,8 +2254,11 @@ export function App() {
                                 {candidate.schema_version}
                               </small>
                               <small>
-                                ParameterSet {candidate.parameter_set_reference.parameter_set_id} /{" "}
-                                {candidate.parameter_set_reference.version}
+                                参数集 {candidate.parameter_set_reference.parameter_set_id} /{" "}
+                                {candidate.parameter_set_reference.version}{" "}
+                                <TechnicalCompatibilityLabel>
+                                  ParameterSet
+                                </TechnicalCompatibilityLabel>
                               </small>
                               <button
                                 aria-label="Prepare formal Course"
@@ -2207,18 +2287,25 @@ export function App() {
                             {formalDraftCandidate.scenario_package_reference.version}
                           </strong>
                           <small>
-                            Scenario digest:{" "}
-                            {formalDraftCandidate.scenario_package_reference.content_digest}
+                            场景摘要：{" "}
+                            {formalDraftCandidate.scenario_package_reference.content_digest}{" "}
+                            <TechnicalCompatibilityLabel>
+                              Scenario digest
+                            </TechnicalCompatibilityLabel>
                           </small>
                           <small>
-                            ParameterSet digest:{" "}
-                            {formalDraftCandidate.parameter_set_reference.content_digest}
+                            参数集摘要：{" "}
+                            {formalDraftCandidate.parameter_set_reference.content_digest}{" "}
+                            <TechnicalCompatibilityLabel>
+                              ParameterSet digest
+                            </TechnicalCompatibilityLabel>
                           </small>
                           {formalBindingPreview ? (
                             <>
                               <small>
-                                Engine {formalBindingPreview.engine_profile.engine_id} /{" "}
-                                {formalBindingPreview.engine_profile.version}
+                                引擎： {formalBindingPreview.engine_profile.engine_id} /{" "}
+                                {formalBindingPreview.engine_profile.version}{" "}
+                                <TechnicalCompatibilityLabel>Engine</TechnicalCompatibilityLabel>
                               </small>
                               <small>{formalBindingPreview.engine_profile.runtime_authority}</small>
                               <label>
@@ -2244,7 +2331,12 @@ export function App() {
                       ) : null}
                       {selectedCourseId && formalBindingPreview ? (
                         <article className="candidate-preview" aria-label="formal Run creation">
-                          <span>Selected formal Course: {selectedCourseId}</span>
+                          <span>
+                            已选择正式课程： {selectedCourseId}{" "}
+                            <TechnicalCompatibilityLabel>
+                              Selected formal Course
+                            </TechnicalCompatibilityLabel>
+                          </span>
                           {formalCoursePublished ? (
                             <>
                               <label>

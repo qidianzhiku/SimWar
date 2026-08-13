@@ -291,6 +291,28 @@ describe("Teacher Course OS workspace", () => {
     }
   });
 
+  it("rejects a stale login response when tenant or username changes", async () => {
+    const { isTeacherLoginRequestCurrent } = await import("../../apps/teacher/src/App");
+    const current = { epoch: 2, tenantId: "tenant_new", username: "teacher-new" };
+
+    expect(
+      isTeacherLoginRequestCurrent(
+        { epoch: 1, tenantId: "tenant_old", username: "teacher-old" },
+        current
+      )
+    ).toBe(false);
+    expect(isTeacherLoginRequestCurrent(current, current)).toBe(true);
+    expect(isTeacherLoginRequestCurrent(current, { ...current, epoch: current.epoch + 1 })).toBe(
+      false
+    );
+    expect(isTeacherLoginRequestCurrent(current, { ...current, tenantId: "tenant_other" })).toBe(
+      false
+    );
+    expect(isTeacherLoginRequestCurrent(current, { ...current, username: "teacher-other" })).toBe(
+      false
+    );
+  });
+
   it("maps Teacher Course OS scenario and CoursePackage errors to Chinese", async () => {
     const {
       getTeacherCoursePackageErrorMessage,
@@ -301,6 +323,7 @@ describe("Teacher Course OS workspace", () => {
 
     expect(getTeacherScenarioPhaseLabel("READY")).toBe("已就绪");
     expect(getTeacherScenarioPhaseLabel("BLOCKED")).toBe("不可开课");
+    expect(getTeacherScenarioStatusLabel("APPROVED")).toBe("已批准");
     expect(getTeacherScenarioStatusLabel("DRAFT_REVIEW_REQUIRED")).toBe("待质量复核");
     expect(getTeacherScenarioStatusLabel("UNKNOWN_SERVER_CODE")).toBe("服务端状态已记录");
     expect(getTeacherScenarioErrorMessage({ status: 401 })).toBe("请先登录后检查场景就绪状态");

@@ -102,15 +102,60 @@ const blockedReadiness = {
   tenant_id: "tenant_demo"
 };
 
-function teacherSession(roles: string[]) {
+const copyCourseBlueprint = {
+  compatibility_constraints: {},
+  course_blueprint_reference: {
+    content_digest: "b".repeat(64),
+    course_blueprint_id: "blueprint_copy",
+    tenant_id: "tenant_demo",
+    version: "1.0.0"
+  },
+  duration_minutes: 60,
+  objectives_summary: ["练习课堂决策"],
+  phases_summary: [],
+  status: "APPROVED",
+  title: "中文课程蓝图"
+};
+
+const copyFormalScenario = {
+  parameter_set_reference: {
+    content_digest: "c".repeat(64),
+    parameter_set_id: "parameter_copy",
+    version: "1.0.0"
+  },
+  scenario_package_reference: {
+    content_digest: "d".repeat(64),
+    scenario_package_id: "scenario_copy",
+    tenant_id: "tenant_demo",
+    version: "1.0.0"
+  },
+  schema_version: "scenario-package.v1",
+  status: "APPROVED"
+};
+
+const copyFormalBindingPreview = {
+  engine_profile: {
+    engine_id: "toy_logit_wellness_v1",
+    runtime_authority: "simulation-core",
+    version: "1.0.0"
+  },
+  formal_course_binding: {
+    course_blueprint_reference: copyCourseBlueprint.course_blueprint_reference,
+    scenario_package_reference: copyFormalScenario.scenario_package_reference
+  }
+};
+
+function teacherSession(roles: string[], identity: { tenantId?: string; username?: string } = {}) {
+  const username = identity.username ?? (roles.includes("teacher") ? "teacher" : "student");
+  const tenantId = identity.tenantId ?? "tenant_demo";
   return {
-    access_token: roles.includes("teacher") ? "teacher-ui-token" : "student-ui-token",
+    access_token: `${username}-ui-token`,
     expires_at: "2099-01-01T00:00:00.000Z",
     user: {
-      display_name: roles.includes("teacher") ? "教师" : "学员",
+      display_name: identity.username ? username : roles.includes("teacher") ? "教师" : "学员",
       roles,
-      tenant_id: "tenant_demo",
-      user_id: roles.includes("teacher") ? "teacher-001" : "student-001"
+      tenant_id: tenantId,
+      user_id: `${username}-001`
     }
   };
 }
@@ -186,12 +231,25 @@ async function mockTeacherApi(
     workspaceAllowedActionsByRun?: Record<string, readonly string[]>;
     workspaceDeferredRuns?: readonly string[];
     workspaceUnavailable?: boolean;
+    loginDeferredUsers?: readonly string[];
+    demoDeferredTokens?: readonly string[];
+    demoRejectedTokens?: readonly string[];
+    courseBlueprintCatalogResponse?: unknown;
+    formalScenarioCatalogResponse?: unknown;
+    formalBindingPreviewResponse?: unknown;
   } = {}
 ) {
   let allowedActions: string[] = [];
   let startRequests = 0;
   const deferredWorkspaceResolvers = new Map<string, () => void>();
+  const deferredLoginResolvers = new Map<string, () => void>();
+  const deferredDemoResolvers = new Map<string, () => void>();
+  const loginRequests = new Set<string>();
+  const demoRequests = new Set<string>();
+  const completedLoginResponses = new Set<string>();
+  const completedDemoResponses = new Set<string>();
   const workspaceRequests = new Set<string>();
+  const workspaceAuthRequests: Array<{ tenantId: string; token: string }> = [];
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
@@ -199,15 +257,41 @@ async function mockTeacherApi(
     const path = url.pathname;
 
     if (path === "/api/v1/auth/login" && request.method() === "POST") {
+      const body = request.postDataJSON() as { username?: string };
+      const username = body.username ?? "teacher";
+      const tenantId = request.headers()["x-tenant-id"] ?? "tenant_demo";
+      loginRequests.add(username);
+      if (options.loginDeferredUsers?.includes(username)) {
+        await new Promise<void>((resolve) => deferredLoginResolvers.set(username, resolve));
+      }
       await route.fulfill({
-        json: { code: "OK", data: teacherSession(roles), message: "success" }
+        json: {
+          code: "OK",
+          data: teacherSession(roles, { tenantId, username }),
+          message: "success"
+        }
       });
+      completedLoginResponses.add(username);
       return;
     }
     if (path === "/api/v1/demo-state") {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      demoRequests.add(token);
+      if (options.demoDeferredTokens?.includes(token)) {
+        await new Promise<void>((resolve) => deferredDemoResolvers.set(token, resolve));
+      }
+      if (options.demoRejectedTokens?.includes(token)) {
+        await route.fulfill({
+          status: 503,
+          json: { code: "SERVICE_UNAVAILABLE", data: null, message: "stale demo response" }
+        });
+        completedDemoResponses.add(token);
+        return;
+      }
       await route.fulfill({
         json: { code: "OK", data: options.stateData ?? state, message: "success" }
       });
+      completedDemoResponses.add(token);
       return;
     }
     if (path.endsWith("/workspace")) {
@@ -220,6 +304,10 @@ async function mockTeacherApi(
       }
       const runId = path.match(/\/runs\/([^/]+)\/rounds\//)?.[1] ?? "run_teacher_test";
       workspaceRequests.add(runId);
+      workspaceAuthRequests.push({
+        tenantId: request.headers()["x-tenant-id"] ?? "",
+        token: request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? ""
+      });
       if (options.workspaceDeferredRuns?.includes(runId)) {
         await new Promise<void>((resolve) => deferredWorkspaceResolvers.set(runId, resolve));
       }
@@ -294,11 +382,30 @@ async function mockTeacherApi(
       return;
     }
     if (path.includes("formal-scenario-package-catalog")) {
-      await route.fulfill({ json: { candidates: [], explicit_non_proofs: [] } });
+      await route.fulfill({
+        json: options.formalScenarioCatalogResponse ?? { candidates: [], explicit_non_proofs: [] }
+      });
       return;
     }
     if (path.endsWith("/course-blueprints")) {
-      await route.fulfill({ json: { data: { candidates: [] } } });
+      await route.fulfill({
+        json: {
+          data: options.courseBlueprintCatalogResponse ?? { candidates: [] }
+        }
+      });
+      return;
+    }
+    if (path.includes("formal-course-bindings/preview")) {
+      if (options.formalBindingPreviewResponse !== undefined) {
+        await route.fulfill({
+          json: { data: options.formalBindingPreviewResponse }
+        });
+      } else {
+        await route.fulfill({
+          status: 403,
+          json: { code: "FORBIDDEN", data: null, message: "Teacher scope denied" }
+        });
+      }
       return;
     }
     await route.fulfill({
@@ -312,6 +419,13 @@ async function mockTeacherApi(
       allowedActions = ["round:start"];
     },
     getStartRequests: () => startRequests,
+    hasLoginRequest: (username: string) => loginRequests.has(username),
+    hasCompletedLoginResponse: (username: string) => completedLoginResponses.has(username),
+    releaseLogin: (username: string) => deferredLoginResolvers.get(username)?.(),
+    getDemoRequests: () => [...demoRequests],
+    hasCompletedDemoResponse: (token: string) => completedDemoResponses.has(token),
+    releaseDemo: (token: string) => deferredDemoResolvers.get(token)?.(),
+    getWorkspaceAuthRequests: () => [...workspaceAuthRequests],
     hasWorkspaceRequest: (runId: string) => workspaceRequests.has(runId),
     releaseWorkspace: (runId: string) => deferredWorkspaceResolvers.get(runId)?.()
   };
@@ -621,7 +735,13 @@ test("Teacher exposes Chinese clone/readiness copy and native 44px form targets"
       }
     ],
     resultRows: [teacherResult],
-    scenarioReadinessResponse: blockedReadiness
+    scenarioReadinessResponse: blockedReadiness,
+    courseBlueprintCatalogResponse: { candidates: [copyCourseBlueprint] },
+    formalScenarioCatalogResponse: {
+      candidates: [copyFormalScenario],
+      explicit_non_proofs: []
+    },
+    formalBindingPreviewResponse: copyFormalBindingPreview
   });
   await page.goto(teacherBaseUrl);
   await signIn(page, "teacher");
@@ -656,6 +776,25 @@ test("Teacher exposes Chinese clone/readiness copy and native 44px form targets"
   await expect(readinessResult.getByText("待质量复核", { exact: true })).toBeVisible();
   await expect(page.getByText("服务端状态已记录", { exact: true })).toHaveCount(0);
 
+  const blueprintPanel = page.getByLabel("formal CourseBlueprint catalog");
+  await expect(blueprintPanel).toContainText("60 分钟");
+  await expect(blueprintPanel).not.toContainText("minutes");
+  const formalPanel = page.getByLabel("formal ScenarioPackage catalog");
+  await formalPanel.getByRole("button", { name: "Prepare formal Course" }).click();
+  await expect(formalPanel).toContainText("场景摘要：");
+  await expect(formalPanel).toContainText("参数集摘要：");
+  await expect(formalPanel).toContainText("引擎：");
+  await expect(formalPanel).toContainText("已选择正式课程：");
+  const formalPrimaryCopy = await formalPanel.evaluate((panel) => {
+    const clone = panel.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll(".technical-compatibility").forEach((element) => element.remove());
+    return clone.innerText;
+  });
+  expect(formalPrimaryCopy).not.toContain("Scenario digest");
+  expect(formalPrimaryCopy).not.toContain("ParameterSet digest");
+  expect(formalPrimaryCopy).not.toContain("Engine ");
+  expect(formalPrimaryCopy).not.toContain("Selected formal Course");
+
   const results = page.locator("#teacher-results");
   await expect(results).toContainText("88");
   await expect(results).toContainText("下一轮聚焦现金缓冲");
@@ -676,4 +815,73 @@ test("non-Teacher sessions receive a truthful permission-denied surface", async 
   await expect(page.getByRole("navigation", { name: "角色导航" })).toHaveCount(0);
   await expect(page.getByText("今日工作", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "开启回合" })).toHaveCount(0);
+});
+
+test("Teacher ignores a stale login response after tenant and user switch", async ({ page }) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    loginDeferredUsers: ["teacher-old"]
+  });
+  await page.goto(teacherBaseUrl);
+
+  await page.getByLabel("tenant").fill("tenant_old");
+  await page.getByLabel("username").fill("teacher-old");
+  await page.getByLabel("password").fill("teacher-old");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect.poll(() => api.hasLoginRequest("teacher-old")).toBe(true);
+
+  await page.getByLabel("tenant").fill("tenant_new");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await expect(page.getByRole("button", { name: "教师登录" })).toBeEnabled();
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_new");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+
+  api.releaseLogin("teacher-old");
+  await expect.poll(() => api.hasCompletedLoginResponse("teacher-old")).toBe(true);
+  await expect(page.getByLabel("当前上下文")).not.toContainText("tenant_old");
+  await expect(page.getByLabel("当前上下文")).not.toContainText("teacher-old-001");
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  expect(
+    api
+      .getWorkspaceAuthRequests()
+      .every(({ tenantId, token }) => tenantId === "tenant_new" && token === "teacher-new-ui-token")
+  ).toBe(true);
+});
+
+test("Teacher ignores a stale rejected demo-state response after context switch", async ({
+  page
+}) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    demoDeferredTokens: ["teacher-old-ui-token"],
+    demoRejectedTokens: ["teacher-old-ui-token"]
+  });
+  await page.goto(teacherBaseUrl);
+
+  await page.getByLabel("tenant").fill("tenant_old");
+  await page.getByLabel("username").fill("teacher-old");
+  await page.getByLabel("password").fill("teacher-old");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect.poll(() => api.getDemoRequests()).toContain("teacher-old-ui-token");
+
+  await page.getByLabel("tenant").fill("tenant_new");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_new");
+  await expect(page.locator('main > .sw-state-panel[data-state="ready"]')).toHaveCount(1);
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+
+  api.releaseDemo("teacher-old-ui-token");
+  await expect.poll(() => api.hasCompletedDemoResponse("teacher-old-ui-token")).toBe(true);
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_new");
+  await expect(page.locator('main > .sw-state-panel[data-state="ready"]')).toHaveCount(1);
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  expect(api.getStartRequests()).toBe(0);
+  expect(
+    api
+      .getWorkspaceAuthRequests()
+      .every(({ tenantId, token }) => tenantId === "tenant_new" && token === "teacher-new-ui-token")
+  ).toBe(true);
 });
