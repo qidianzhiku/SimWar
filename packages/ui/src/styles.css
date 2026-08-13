@@ -47,16 +47,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--sw-space-16);
+  min-width: 0;
   padding: var(--sw-space-16) var(--sw-space-24);
   color: var(--sw-color-text-inverse);
   background: var(--sw-color-authority-navy);
 }
 
 :where(.sw-app-shell__header h1) {
+  min-width: 0;
   margin: 0;
   font-size: var(--sw-type-size-h3);
   line-height: var(--sw-type-line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+:where(.sw-workbench-frame button),
+:where(.sw-workbench-frame input),
+:where(.sw-workbench-frame select),
+:where(.sw-workbench-frame textarea),
+:where(.course-report-surface button),
+:where(.course-report-surface input),
+:where(.course-report-surface select),
+:where(.course-report-surface textarea),
+:where(.d5-export-workbench button),
+:where(.d5-export-workbench input),
+:where(.d5-export-workbench select),
+:where(.d5-export-workbench textarea) {
+  min-height: 44px;
+}
+
+:where(.sw-workbench-frame input[type="checkbox"]),
+:where(.course-report-surface input[type="checkbox"]),
+:where(.d5-export-workbench input[type="checkbox"]) {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 :where(.sw-app-shell__body) {

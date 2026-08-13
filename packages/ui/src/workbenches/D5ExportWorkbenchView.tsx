@@ -117,6 +117,7 @@ export function D5ExportWorkbenchView({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const requestEpoch = useRef(0);
+  const sessionKeyRef = useRef(sessionKey ?? "");
   const loadListRef = useRef(loadList);
   loadListRef.current = loadList;
   const mapErrorRef = useRef(mapError);
@@ -127,40 +128,60 @@ export function D5ExportWorkbenchView({
 
   const refresh = useCallback(async () => {
     const epoch = ++requestEpoch.current;
+    const requestSessionKey = sessionKeyRef.current;
     setPhase("LOADING");
     setError("");
     try {
       const next = await loadListRef.current();
-      if (epoch !== requestEpoch.current) return;
+      if (epoch !== requestEpoch.current || requestSessionKey !== sessionKeyRef.current) return;
       setReports(next.reports);
       setList(next.list);
       setSelected(next.reports.map((report) => report.report_ref));
       setPhase("READY");
     } catch (cause) {
-      if (epoch !== requestEpoch.current) return;
+      if (epoch !== requestEpoch.current || requestSessionKey !== sessionKeyRef.current) return;
       setError(mapLoadErrorRef.current(cause));
       setPhase("ERROR");
     }
   }, []);
 
   useEffect(() => {
+    sessionKeyRef.current = sessionKey ?? "";
+    requestEpoch.current += 1;
+    setBusy(false);
+    setError("");
+    setReports([]);
+    setSelected([]);
+    setPreview(null);
+    setBundle(null);
+    setList(null);
     void refresh();
   }, [refresh, sessionKey]);
 
-  const refreshList = async () => {
+  const refreshList = async (isCurrent: () => boolean) => {
     const next = await refreshExports();
-    setList(next);
+    if (isCurrent()) {
+      setList(next);
+    }
   };
 
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: (isCurrent: () => boolean) => Promise<void>) => {
+    const operationEpoch = requestEpoch.current;
+    const operationSessionKey = sessionKeyRef.current;
+    const isCurrent = () =>
+      operationEpoch === requestEpoch.current && operationSessionKey === sessionKeyRef.current;
     setBusy(true);
     setError("");
     try {
-      await action();
+      await action(isCurrent);
     } catch (cause) {
-      setError(mapErrorRef.current(cause));
+      if (isCurrent()) {
+        setError(mapErrorRef.current(cause));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrent()) {
+        setBusy(false);
+      }
     }
   };
 
@@ -178,7 +199,12 @@ export function D5ExportWorkbenchView({
 
   const state = (
     <>
-      {phase === "LOADING" ? <p aria-live="polite">Loading exact D4 reports...</p> : null}
+      {phase === "LOADING" ? (
+        <p aria-live="polite">
+          正在加载 D4 精确报告……{" "}
+          <span className="technical-compatibility">Loading exact D4 reports...</span>
+        </p>
+      ) : null}
       {phase === "ERROR" ? (
         <p className="d5-export-error" role="alert">
           {error}
@@ -200,20 +226,28 @@ export function D5ExportWorkbenchView({
       boundaryClassName={boundaryClassName}
       headerActions={
         <button
+          aria-label="Refresh"
           className="secondary"
           disabled={busy || phase === "LOADING"}
           onClick={() => void refresh()}
         >
-          Refresh
+          刷新 <span className="technical-compatibility">Refresh</span>
         </button>
       }
     >
       {phase !== "LOADING" ? (
         <div className="d5-export-grid">
           <div>
-            <h3>Exact source reports</h3>
+            <h3>
+              精确来源报告 <span className="technical-compatibility">Exact source reports</span>
+            </h3>
             {reports.length === 0 ? (
-              <p className="d5-export-empty">No eligible confirmed report is available.</p>
+              <p className="d5-export-empty">
+                当前没有可用的已确认报告。{" "}
+                <span className="technical-compatibility">
+                  No eligible confirmed report is available.
+                </span>
+              </p>
             ) : (
               <ul className="d5-export-report-list">
                 {reports.map((report) => {
@@ -240,48 +274,65 @@ export function D5ExportWorkbenchView({
             )}
             <div className="d5-export-actions">
               <button
-                disabled={busy || selected.length === 0}
-                onClick={() => void run(async () => setPreview(await generate(selected)))}
-              >
-                Preview
-              </button>
-              <button
+                aria-label="Preview"
                 disabled={busy || selected.length === 0}
                 onClick={() =>
-                  void run(async () => {
-                    setBundle(await submit(selected));
-                    await refreshList();
+                  void run(async (isCurrent) => {
+                    const next = await generate(selected);
+                    if (isCurrent()) {
+                      setPreview(next);
+                    }
                   })
                 }
               >
-                Seal immutable bundle
+                预览 <span className="technical-compatibility">Preview</span>
+              </button>
+              <button
+                aria-label="Seal immutable bundle"
+                disabled={busy || selected.length === 0}
+                onClick={() =>
+                  void run(async (isCurrent) => {
+                    const next = await submit(selected);
+                    if (!isCurrent()) return;
+                    setBundle(next);
+                    await refreshList(isCurrent);
+                  })
+                }
+              >
+                封存不可变包 <span className="technical-compatibility">Seal immutable bundle</span>
               </button>
             </div>
           </div>
           <div>
-            <h3>Export state</h3>
+            <h3>
+              导出状态 <span className="technical-compatibility">Export state</span>
+            </h3>
             {preview ? (
               <div className="d5-export-receipt" aria-live="polite">
-                <strong>Preview ready</strong>
-                <span>{preview.statements.length} xAPI statement(s)</span>
-                <span>{preview.aol_dataset.rows.length} AoL row(s), suppressed small cohorts</span>
+                <strong>预览已准备</strong>
+                <span className="technical-compatibility">Preview ready</span>
+                <span>{preview.statements.length} 条 xAPI 陈述</span>
+                <span>{preview.aol_dataset.rows.length} 行 AoL 数据，小样本群体已抑制</span>
               </div>
             ) : null}
             {bundle ? (
               <div className="d5-export-receipt">
-                <strong>Bundle sealed</strong>
+                <strong>导出包已封存</strong>
+                <span className="technical-compatibility">Bundle sealed</span>
                 <code>{bundle.bundle_digest}</code>
                 {deliver ? (
                   <button
+                    aria-label="Deliver to Mock LRS"
                     disabled={busy}
                     onClick={() =>
-                      void run(async () => {
+                      void run(async (isCurrent) => {
                         await deliver(bundle.bundle_ref);
-                        await refreshList();
+                        await refreshList(isCurrent);
                       })
                     }
                   >
-                    Deliver to Mock LRS
+                    发送至 Mock LRS{" "}
+                    <span className="technical-compatibility">Deliver to Mock LRS</span>
                   </button>
                 ) : null}
               </div>
@@ -290,38 +341,40 @@ export function D5ExportWorkbenchView({
               <div className="d5-export-job" key={job.job_ref.content_digest}>
                 <span>{job.job_ref.resource_id}</span>
                 <strong>{job.status}</strong>
-                <span>{job.attempt_count} attempt(s)</span>
+                <span>{job.attempt_count} 次尝试</span>
                 {retry && ["RETRYABLE", "PARTIAL", "FAILED"].includes(job.status) ? (
                   <button
+                    aria-label="Retry"
                     disabled={busy}
                     onClick={() =>
-                      void run(async () => {
+                      void run(async (isCurrent) => {
                         await retry(job.job_ref.resource_id);
-                        await refreshList();
+                        await refreshList(isCurrent);
                       })
                     }
                   >
-                    Retry
+                    重试 <span className="technical-compatibility">Retry</span>
                   </button>
                 ) : null}
                 {cancel && ["QUEUED", "DELIVERING", "RETRYABLE", "PARTIAL"].includes(job.status) ? (
                   <button
+                    aria-label="Cancel"
                     disabled={busy}
                     onClick={() =>
-                      void run(async () => {
+                      void run(async (isCurrent) => {
                         await cancel(job.job_ref.resource_id);
-                        await refreshList();
+                        await refreshList(isCurrent);
                       })
                     }
                   >
-                    Cancel
+                    取消 <span className="technical-compatibility">Cancel</span>
                   </button>
                 ) : null}
               </div>
             ))}
             {list?.receipts.map((receipt) => (
               <div className="d5-export-receipt" key={receipt.receipt_ref.content_digest}>
-                <strong>Receipt · {receipt.outcome}</strong>
+                <strong>回执 · {receipt.outcome}</strong>
                 <code>{receipt.sealed_payload_digest}</code>
               </div>
             ))}

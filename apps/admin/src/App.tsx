@@ -37,6 +37,7 @@ import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
   AdminLifecycleOperationButton,
+  ADMIN_NAVIGATION_ITEMS,
   formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
 
@@ -46,6 +47,27 @@ type LoginForm = {
   username: string;
   password: string;
 };
+
+export interface AdminRequestIdentity {
+  epoch: number;
+  tenantId: string;
+  username: string;
+  sessionId: string;
+  accessToken: string;
+}
+
+export function isAdminRequestCurrent(
+  request: AdminRequestIdentity,
+  current: AdminRequestIdentity
+): boolean {
+  return (
+    request.epoch === current.epoch &&
+    request.tenantId === current.tenantId &&
+    request.username === current.username &&
+    request.sessionId === current.sessionId &&
+    request.accessToken === current.accessToken
+  );
+}
 
 type CoursePackageDraftForm = {
   blueprintDigest: string;
@@ -146,19 +168,48 @@ async function apiRequest<TData>(
   return envelope.data;
 }
 
-function coursePackageStatusLabel(
+export function coursePackageStatusLabel(
   state: CoursePackageSurfaceState,
   operation: AdminCoursePackageOperation
 ): string {
-  if (state === "DEPENDENCY_MISSING") return "Dependency missing";
+  if (state === "DEPENDENCY_MISSING") return "缺少可绑定的依赖";
   if (state === "DIGEST_MISMATCH") {
-    return operation === "import" ? "Import failed · Digest mismatch" : "Digest mismatch";
+    return operation === "import" ? "导入失败：摘要不匹配" : "摘要不匹配";
   }
-  if (state === "EXPORT_RESTRICTED") return "Export restricted";
-  if (state === "INCOMPATIBLE") return "Incompatible";
-  if (state === "PERMISSION_DENIED") return "Permission denied";
-  if (state === "STALE") return "STALE";
-  return "Unknown CoursePackageVersion state";
+  if (state === "EXPORT_RESTRICTED") return "导出受限";
+  if (state === "INCOMPATIBLE") return "依赖不兼容";
+  if (state === "PERMISSION_DENIED") return "当前会话无权执行此操作";
+  if (state === "STALE") return "版本已过期或不可用";
+  return "课程包版本状态暂时无法确认";
+}
+
+export function getAdminVisibleErrorMessage(
+  error: unknown,
+  fallback = "请求暂时无法完成，请稍后重试。"
+) {
+  const raw = error instanceof Error ? error.message : "";
+  if (/AUTH[-_]|invalid credentials|登录/u.test(raw)) {
+    return "登录失败，请检查租户、用户名和密码。";
+  }
+  if (/BFF-422-001|Explicit platform scope/u.test(raw)) {
+    return "平台范围参数无效，请重新加载。";
+  }
+  if (/Sign in is required|需要登录/u.test(raw)) {
+    return "请先登录管理员会话。";
+  }
+  if (/Admin summary is unavailable for this role/u.test(raw)) {
+    return "当前角色无法读取管理摘要。";
+  }
+  if (/Admin summary is unavailable/u.test(raw)) {
+    return "管理摘要暂时无法加载，请稍后重试。";
+  }
+  if (/Run lifecycle operation was denied/u.test(raw)) {
+    return "运行操作被服务端边界拒绝。";
+  }
+  if (/load failed|request failed|failed/u.test(raw)) {
+    return fallback;
+  }
+  return raw && !/[A-Za-z]{3,}/u.test(raw) ? raw : fallback;
 }
 
 export function App() {
@@ -195,13 +246,38 @@ export function App() {
     password: "",
     role: "learner" as ActorRole
   });
-  const [notice, setNotice] = useState("ready");
+  const [notice, setNotice] = useState("准备就绪");
   const [busy, setBusy] = useState(false);
   const [activeHash, setActiveHash] = useState(() => {
     if (typeof window !== "undefined" && window.location.hash) return window.location.hash;
     return "#admin-delivery-overview";
   });
-  const coursePackageSessionEpoch = useRef(0);
+  const adminRequestEpoch = useRef(0);
+  const adminRequestIdentityRef = useRef<AdminRequestIdentity>({
+    accessToken: "",
+    epoch: 0,
+    sessionId: "",
+    tenantId: "",
+    username: ""
+  });
+
+  function buildAdminRequestIdentity(
+    epoch: number,
+    nextLogin: LoginForm,
+    nextSession: AuthSession | null
+  ): AdminRequestIdentity {
+    return {
+      accessToken: nextSession?.access_token ?? "",
+      epoch,
+      sessionId: nextSession?.user.user_id ?? "",
+      tenantId: nextLogin.tenantId.trim(),
+      username: nextLogin.username.trim()
+    };
+  }
+
+  function isCurrentAdminContext(identity: AdminRequestIdentity): boolean {
+    return isAdminRequestCurrent(identity, adminRequestIdentityRef.current);
+  }
 
   const tenantMap = useMemo(
     () => new Map((state?.tenants ?? []).map((tenant) => [tenant.tenant_id, tenant.name])),
@@ -216,6 +292,17 @@ export function App() {
   const knownLimits = session?.user.roles.includes("platform_admin")
     ? getKnownLimitsProjection("platform_admin")
     : getKnownLimitsProjection("tenant_admin");
+  const navigationItems = session
+    ? isTenantAdmin
+      ? ADMIN_NAVIGATION_ITEMS
+      : hasAdminSummaryRole
+        ? ADMIN_NAVIGATION_ITEMS.filter((item) => item.id !== "admin-users-roles")
+        : []
+    : ADMIN_NAVIGATION_ITEMS.filter((item) =>
+        ["admin-delivery-overview", "admin-audit-receipts", "admin-security-projection"].includes(
+          item.id
+        )
+      );
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -226,59 +313,77 @@ export function App() {
   }, []);
 
   const refresh = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session || !session.user.roles.includes("tenant_admin")) {
-      setState(null);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setState(null);
+      }
       return;
     }
 
-    setState(
-      await apiRequest<AdminState>("/api/v1/admin/state", {
+    try {
+      const nextState = await apiRequest<AdminState>("/api/v1/admin/state", {
         token: session.access_token,
         tenantId: login.tenantId
-      })
-    );
+      });
+      if (isCurrentAdminContext(requestIdentity)) {
+        setState(nextState);
+      }
+    } catch (error) {
+      if (isCurrentAdminContext(requestIdentity)) {
+        throw error;
+      }
+    }
   }, [login.tenantId, session]);
 
   const refreshLifecycleControls = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session?.user.roles.includes("tenant_admin")) {
-      setLifecycleControls([]);
-      setLifecycleStatus("idle");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setLifecycleControls([]);
+        setLifecycleStatus("idle");
+      }
       return;
     }
 
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setLifecycleStatus("loading");
     setLifecycleError("");
     try {
-      setLifecycleControls(
-        await loadRunLifecycleControls(session.access_token, (path, init) =>
-          fetch(`${API_BASE}${path}`, init)
-        )
+      const controls = await loadRunLifecycleControls(session.access_token, (path, init) =>
+        fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      setLifecycleControls(controls);
       setLifecycleStatus("ready");
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setLifecycleControls([]);
-      setLifecycleError(getAdminSummaryErrorMessage(error));
+      setLifecycleError(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
       setLifecycleStatus("error");
     }
   }, [session]);
 
   const refreshCoursePackages = useCallback(async () => {
+    const requestIdentity = adminRequestIdentityRef.current;
     if (!session?.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
-      setCoursePackageList({ phase: "IDLE" });
+      if (isCurrentAdminContext(requestIdentity)) {
+        setCoursePackageList({ phase: "IDLE" });
+      }
       return;
     }
 
-    const sessionEpoch = coursePackageSessionEpoch.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setCoursePackageList({ phase: "LOADING" });
     setCoursePackageFeedback(null);
     try {
       const packages = await loadAdminCoursePackageVersions(session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageList({ packages, phase: "READY" });
     } catch (error) {
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageList({
         phase: "ERROR",
         surfaceState: getAdminCoursePackageSurfaceState(error, "list")
@@ -287,7 +392,10 @@ export function App() {
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
-    coursePackageSessionEpoch.current += 1;
+    const nextLogin = { ...login, [field]: value };
+    const epoch = adminRequestEpoch.current + 1;
+    adminRequestEpoch.current = epoch;
+    adminRequestIdentityRef.current = buildAdminRequestIdentity(epoch, nextLogin, null);
     setLogin((current) => ({ ...current, [field]: value }));
     setSession(null);
     setState(null);
@@ -302,11 +410,15 @@ export function App() {
     setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
     setCoursePackageImportPayload("");
     setCoursePackageExportPayload("");
-    setNotice("context changed");
+    setBusy(false);
+    setNotice("登录上下文已更新");
   }
 
   async function signIn(nextLogin = login): Promise<void> {
-    coursePackageSessionEpoch.current += 1;
+    const epoch = adminRequestEpoch.current + 1;
+    adminRequestEpoch.current = epoch;
+    const requestIdentity = buildAdminRequestIdentity(epoch, nextLogin, null);
+    adminRequestIdentityRef.current = requestIdentity;
     setBusy(true);
     setSession(null);
     setState(null);
@@ -328,56 +440,63 @@ export function App() {
           password: nextLogin.password
         }
       });
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      const authenticatedIdentity = buildAdminRequestIdentity(epoch, nextLogin, nextSession);
+      adminRequestIdentityRef.current = authenticatedIdentity;
       setSession(nextSession);
-      setNotice("signed in");
+      setNotice("已登录");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "login failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "登录失败，请稍后重试。"));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   useEffect(() => {
+    const requestIdentity = adminRequestIdentityRef.current;
     refresh().catch((error: unknown) => {
-      setNotice(error instanceof Error ? error.message : "load failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "管理状态暂时无法加载，请稍后重试。"));
+      }
     });
   }, [refresh]);
 
   useEffect(() => {
-    let cancelled = false;
+    const requestIdentity = adminRequestIdentityRef.current;
 
     if (!session) {
       return;
     }
 
     if (!session.user.roles.some((role) => role === "tenant_admin" || role === "platform_admin")) {
-      setAdminSummary({ kind: "none" });
-      setSummaryStatus("idle");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setAdminSummary({ kind: "none" });
+        setSummaryStatus("idle");
+      }
       return;
     }
 
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setSummaryStatus("loading");
     setSummaryError("");
     loadAdminSummary(session.user.roles, session.access_token, (path, init) =>
       fetch(`${API_BASE}${path}`, init)
     )
       .then((surface) => {
-        if (!cancelled) {
-          setAdminSummary(surface);
-          setSummaryStatus("ready");
-        }
+        if (!isCurrentAdminContext(requestIdentity)) return;
+        setAdminSummary(surface);
+        setSummaryStatus("ready");
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          setAdminSummary({ kind: "none" });
-          setSummaryError(getAdminSummaryErrorMessage(error));
-          setSummaryStatus("error");
-        }
+        if (!isCurrentAdminContext(requestIdentity)) return;
+        setAdminSummary({ kind: "none" });
+        setSummaryError(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
+        setSummaryStatus("error");
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [session]);
 
   useEffect(() => {
@@ -393,6 +512,8 @@ export function App() {
       return;
     }
 
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setBusy(true);
     try {
       const user = await apiRequest<User>("/api/v1/admin/users", {
@@ -408,17 +529,22 @@ export function App() {
           roles: [userDraft.role]
         }
       });
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setUserDraft((current) => ({
         ...current,
         username: `${current.username}_next`,
         email: `next-${current.email}`
       }));
-      setNotice(`user created: ${user.user_id}`);
+      setNotice(`用户已创建：${user.user_id}`);
       await refresh();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "user create failed");
+      if (isCurrentAdminContext(requestIdentity)) {
+        setNotice(getAdminVisibleErrorMessage(error, "创建用户失败，请稍后重试。"));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -429,6 +555,8 @@ export function App() {
     if (!session || !control.allowed_operations.includes(operation)) {
       return;
     }
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     const consequences: Record<SyntheticRunLifecycleOperation, string> = {
       abort: "中止会阻止提交、锁轮、结算和发布，同时保留证据。",
@@ -451,15 +579,19 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setNotice(
-        `${operation} ${control.run_id}: ${result.idempotent ? "already applied" : "completed"}`
+        `${operation === "abort" ? "中止" : operation === "reset" ? "重置" : "清理"} ${control.run_id}：${result.idempotent ? "已幂等应用" : "已完成"}`
       );
       await Promise.all([refresh(), refreshLifecycleControls()]);
     } catch (error) {
-      setNotice(getAdminSummaryErrorMessage(error));
+      if (!isCurrentAdminContext(requestIdentity)) return;
+      setNotice(getAdminVisibleErrorMessage(getAdminSummaryErrorMessage(error)));
       await refreshLifecycleControls();
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -469,6 +601,8 @@ export function App() {
 
   async function createCoursePackageDraft(): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     const draft: CoursePackageVersionDraftInput = {
       course_blueprint_reference: {
@@ -499,20 +633,26 @@ export function App() {
       await createAdminCoursePackageDraft(draft, session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageDraft(EMPTY_COURSE_PACKAGE_DRAFT);
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "draft",
         surfaceState: getAdminCoursePackageSurfaceState(error, "draft")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   async function importCoursePackage(): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     setBusy(true);
     setCoursePackageFeedback(null);
@@ -525,15 +665,19 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageImportPayload("");
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "import",
         surfaceState: getAdminCoursePackageSurfaceState(error, "import")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -542,6 +686,8 @@ export function App() {
     coursePackage: CoursePackageVersion
   ): Promise<void> {
     if (!session) return;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
 
     setBusy(true);
     setCoursePackageFeedback(null);
@@ -552,21 +698,26 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentAdminContext(requestIdentity)) return;
       await refreshCoursePackages();
     } catch (error) {
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation,
         surfaceState: getAdminCoursePackageSurfaceState(error, operation)
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
   async function exportCoursePackage(coursePackage: CoursePackageVersion): Promise<void> {
     if (!session) return;
 
-    const sessionEpoch = coursePackageSessionEpoch.current;
+    const requestIdentity = adminRequestIdentityRef.current;
+    if (!isCurrentAdminContext(requestIdentity)) return;
     setBusy(true);
     setCoursePackageFeedback(null);
     try {
@@ -575,16 +726,18 @@ export function App() {
         session.access_token,
         (path, init) => fetch(`${API_BASE}${path}`, init)
       );
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageExportPayload(JSON.stringify(exported, null, 2));
     } catch (error) {
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (!isCurrentAdminContext(requestIdentity)) return;
       setCoursePackageFeedback({
         operation: "export",
         surfaceState: getAdminCoursePackageSurfaceState(error, "export")
       });
     } finally {
-      setBusy(false);
+      if (isCurrentAdminContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -678,9 +831,7 @@ export function App() {
       <div className="admin-identity" aria-live="polite">
         <span className="eyebrow">管理治理</span>
         <span className="identity">
-          {session
-            ? `${session.user.display_name} · ${session.user.roles.join(" / ")}`
-            : "not signed in"}
+          {session ? `${session.user.display_name} · ${session.user.roles.join(" / ")}` : "未登录"}
         </span>
       </div>
       <input
@@ -717,6 +868,9 @@ export function App() {
         <section role="alert" aria-label="管理权限">
           <h2>当前角色无管理权限</h2>
           <p>请使用已获服务端授权的管理员会话访问管理交付与信任工作区。</p>
+          <p className="technical-compatibility">
+            会话已登录 <span>signed in</span>
+          </p>
         </section>
         {loginPanel}
       </main>
@@ -738,7 +892,17 @@ export function App() {
       authority={session ? "official" : "unknown"}
       activeHash={activeHash}
       navigationEnabled={!session || hasAdminSummaryRole}
-      primaryAction={<strong className="notice">{notice}</strong>}
+      navigationItems={navigationItems}
+      stateStatus={session ? "ready" : "empty"}
+      stateMessage={
+        session ? "仅展示服务端提供的上下文，不在前端计算正式结果。" : "请先登录管理员会话。"
+      }
+      primaryAction={
+        <strong className="notice">
+          {notice}
+          {notice === "已登录" ? <span className="technical-compatibility">signed in</span> : null}
+        </strong>
+      }
       knownLimits={
         session && hasAdminSummaryRole ? (
           <>
@@ -778,9 +942,17 @@ export function App() {
           ) : (
             <p className="lifecycle-status">登录后显示交付回执与审计工作台。</p>
           )}
-          <a className="admin-inline-link" href="#admin-audit-events">
-            查看审计事件
-          </a>
+          {isTenantAdmin && state ? (
+            <a className="admin-inline-link" href="#admin-audit-events">
+              查看审计事件
+            </a>
+          ) : (
+            <p className="lifecycle-status">
+              {session
+                ? "当前角色无法查看租户审计事件。"
+                : "登录并获得租户管理员权限后查看租户审计事件。"}
+            </p>
+          )}
         </section>
       )}
       {session && hasAdminSummaryRole ? (

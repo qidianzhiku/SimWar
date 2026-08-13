@@ -8,6 +8,7 @@ import {
   RoleNavigation,
   StatePanel,
   type AuthorityKind,
+  type RoleNavigationItem,
   type ServerContext,
   type StateStatus
 } from "@simwar/ui";
@@ -97,6 +98,7 @@ export interface AdminDeliveryTrustWorkspaceProps {
   authority?: AuthorityKind;
   activeHash?: string;
   navigationEnabled?: boolean;
+  navigationItems?: readonly RoleNavigationItem[];
   primaryAction?: ReactNode;
   stateStatus?: StateStatus;
   stateMessage?: ReactNode;
@@ -110,6 +112,7 @@ export function AdminDeliveryTrustWorkspace({
   authority = "unknown",
   activeHash,
   navigationEnabled = true,
+  navigationItems = ADMIN_NAVIGATION_ITEMS,
   primaryAction,
   stateStatus = "ready",
   stateMessage = "仅展示服务端提供的上下文，不在前端计算正式结果。",
@@ -142,7 +145,7 @@ export function AdminDeliveryTrustWorkspace({
       workspaceTitle="SimWar 管理交付与信任"
       navigation={
         navigationEnabled ? (
-          <RoleNavigation items={ADMIN_NAVIGATION_ITEMS} activeHref={currentHash} />
+          <RoleNavigation items={navigationItems} activeHref={currentHash} />
         ) : (
           <p className="admin-nav-denied">当前角色无管理导航</p>
         )

@@ -234,6 +234,10 @@ async function mockTeacherApi(
     loginDeferredUsers?: readonly string[];
     demoDeferredTokens?: readonly string[];
     demoRejectedTokens?: readonly string[];
+    startDeferred?: boolean;
+    scenarioReadinessDeferredTokens?: readonly string[];
+    coursePackageDeferredTokens?: readonly string[];
+    coursePackagesByToken?: Record<string, readonly unknown[]>;
     courseBlueprintCatalogResponse?: unknown;
     formalScenarioCatalogResponse?: unknown;
     formalBindingPreviewResponse?: unknown;
@@ -244,8 +248,13 @@ async function mockTeacherApi(
   const deferredWorkspaceResolvers = new Map<string, () => void>();
   const deferredLoginResolvers = new Map<string, () => void>();
   const deferredDemoResolvers = new Map<string, () => void>();
+  const deferredStartResolvers: Array<() => void> = [];
+  const deferredReadinessResolvers = new Map<string, () => void>();
+  const deferredCoursePackageResolvers = new Map<string, () => void>();
   const loginRequests = new Set<string>();
   const demoRequests = new Set<string>();
+  const readinessRequests = new Set<string>();
+  const coursePackageRequests = new Set<string>();
   const completedLoginResponses = new Set<string>();
   const completedDemoResponses = new Set<string>();
   const workspaceRequests = new Set<string>();
@@ -353,14 +362,25 @@ async function mockTeacherApi(
     }
     if (path.endsWith("/rounds/1/start") && request.method() === "POST") {
       startRequests += 1;
+      if (options.startDeferred) {
+        await new Promise<void>((resolve) => deferredStartResolvers.push(resolve));
+      }
       await route.fulfill({ json: { code: "OK", data: state.rounds[0], message: "success" } });
       return;
     }
     if (path.includes("course-package-versions")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      coursePackageRequests.add(token);
+      if (options.coursePackageDeferredTokens?.includes(token)) {
+        await new Promise<void>((resolve) => deferredCoursePackageResolvers.set(token, resolve));
+      }
       await route.fulfill({
         json: {
           code: "OK",
-          data: { course_package_versions: options.coursePackages ?? [] },
+          data: {
+            course_package_versions:
+              options.coursePackagesByToken?.[token] ?? options.coursePackages ?? []
+          },
           message: "success"
         }
       });
@@ -371,6 +391,11 @@ async function mockTeacherApi(
       return;
     }
     if (path.includes("scenario-selection-readiness")) {
+      const token = request.headers().authorization?.replace(/^Bearer\s+/u, "") ?? "";
+      readinessRequests.add(token);
+      if (options.scenarioReadinessDeferredTokens?.includes(token)) {
+        await new Promise<void>((resolve) => deferredReadinessResolvers.set(token, resolve));
+      }
       if (options.scenarioReadinessResponse !== undefined) {
         await route.fulfill({ json: options.scenarioReadinessResponse });
       } else {
@@ -427,7 +452,12 @@ async function mockTeacherApi(
     releaseDemo: (token: string) => deferredDemoResolvers.get(token)?.(),
     getWorkspaceAuthRequests: () => [...workspaceAuthRequests],
     hasWorkspaceRequest: (runId: string) => workspaceRequests.has(runId),
-    releaseWorkspace: (runId: string) => deferredWorkspaceResolvers.get(runId)?.()
+    releaseWorkspace: (runId: string) => deferredWorkspaceResolvers.get(runId)?.(),
+    releaseStart: () => deferredStartResolvers.shift()?.(),
+    getReadinessRequests: () => [...readinessRequests],
+    releaseReadiness: (token: string) => deferredReadinessResolvers.get(token)?.(),
+    getCoursePackageRequests: () => [...coursePackageRequests],
+    releaseCoursePackages: (token: string) => deferredCoursePackageResolvers.get(token)?.()
   };
 }
 
@@ -646,6 +676,25 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);
+    const sharedTargetMetrics = await page
+      .locator(
+        ".course-report-surface input, .course-report-surface select, .course-report-surface button, .d5-export-workbench input, .d5-export-workbench button"
+      )
+      .evaluateAll((elements) =>
+        elements.map((element) => ({
+          aria: element.getAttribute("aria-label"),
+          box: element.getBoundingClientRect().toJSON(),
+          height: element.getBoundingClientRect().height,
+          right: element.getBoundingClientRect().right,
+          tag: element.tagName,
+          text: element.textContent?.trim().slice(0, 80),
+          visible: Boolean(element.getClientRects().length)
+        }))
+      );
+    expect(sharedTargetMetrics.length).toBeGreaterThan(0);
+    const visibleSharedTargets = sharedTargetMetrics.filter(({ visible }) => visible);
+    expect(visibleSharedTargets.every(({ height }) => height >= 44)).toBe(true);
+    expect(visibleSharedTargets.every(({ right }) => right <= viewport.width + 1)).toBe(true);
   }
   await page.getByRole("button", { name: "开启回合" }).click();
   await expect.poll(api.getStartRequests).toBe(1);
@@ -884,4 +933,111 @@ test("Teacher ignores a stale rejected demo-state response after context switch"
       .getWorkspaceAuthRequests()
       .every(({ tenantId, token }) => tenantId === "tenant_new" && token === "teacher-new-ui-token")
   ).toBe(true);
+});
+
+test("Teacher ignores a delayed round command after the login context changes", async ({
+  page
+}) => {
+  const api = await mockTeacherApi(page, ["teacher"], {
+    startDeferred: true,
+    stateData: state,
+    workspaceAllowedActionsByRun: { run_teacher_test: ["round:start"] }
+  });
+  api.allowStart();
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  const primary = page.getByRole("button", { name: "开启回合" });
+  await expect(primary).toBeEnabled();
+  await primary.click();
+  await expect.poll(api.getStartRequests).toBe(1);
+
+  await page.getByLabel("tenant").fill("tenant_new");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+
+  api.releaseStart();
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(page.getByLabel("教师操作通知")).not.toContainText("回合已开启");
+  await expect(page.locator('main > .sw-state-panel[data-state="ready"]')).toHaveCount(1);
+});
+
+test("Teacher ignores delayed readiness and catalog responses from the prior session", async ({
+  page
+}) => {
+  const oldPackage = {
+    course_blueprint_reference: {
+      content_digest: "b".repeat(64),
+      course_blueprint_id: "blueprint_old",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    },
+    course_package_reference: {
+      content_digest: "a".repeat(64),
+      course_package_id: "course_package_old",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    },
+    description: "旧会话课程包",
+    parameter_set_reference: {
+      content_digest: "c".repeat(64),
+      parameter_set_id: "parameter_old",
+      version: "1.0.0"
+    },
+    scenario_package_reference: {
+      content_digest: "d".repeat(64),
+      scenario_package_id: "scenario_old",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    },
+    title: "旧会话课程包"
+  };
+  const newPackage = {
+    ...oldPackage,
+    course_package_reference: {
+      ...oldPackage.course_package_reference,
+      course_package_id: "course_package_new"
+    },
+    description: "新会话课程包",
+    title: "新会话课程包"
+  };
+  const api = await mockTeacherApi(page, ["teacher"], {
+    scenarioReadinessResponse: blockedReadiness,
+    scenarioReadinessDeferredTokens: ["teacher-old-ui-token"],
+    coursePackageDeferredTokens: ["teacher-old-ui-token"],
+    coursePackagesByToken: {
+      "teacher-old-ui-token": [oldPackage],
+      "teacher-new-ui-token": [newPackage]
+    }
+  });
+  await page.goto(teacherBaseUrl);
+  await signIn(page, "teacher-old");
+
+  await page.getByLabel("scenario package id").fill("scenario_old");
+  await page.getByLabel("parameter set id").fill("parameter_old");
+  await page.getByRole("button", { name: "Check readiness" }).click();
+  await expect.poll(() => api.getReadinessRequests()).toContain("teacher-old-ui-token");
+  await expect.poll(() => api.getCoursePackageRequests()).toContain("teacher-old-ui-token");
+
+  await page.getByLabel("tenant").fill("tenant_new");
+  await page.getByLabel("username").fill("teacher-new");
+  await page.getByLabel("password").fill("teacher-new");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByLabel("教师操作通知")).toContainText("已登录");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect.poll(() => api.getCoursePackageRequests()).toContain("teacher-new-ui-token");
+
+  const packagePanel = page.getByLabel("Teacher CoursePackageVersion catalog");
+  await expect(packagePanel).toContainText("新会话课程包");
+  await expect(packagePanel).not.toContainText("旧会话课程包");
+
+  api.releaseReadiness("teacher-old-ui-token");
+  api.releaseCoursePackages("teacher-old-ui-token");
+  await expect(page.getByLabel("当前上下文")).toContainText("teacher-new-001");
+  await expect(packagePanel).toContainText("新会话课程包");
+  await expect(packagePanel).not.toContainText("旧会话课程包");
+  await expect(page.locator(".readiness-result")).toHaveCount(0);
 });

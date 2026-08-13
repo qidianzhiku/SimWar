@@ -31,8 +31,8 @@ export function D5ExportWorkbench({
   return (
     <D5ExportWorkbenchView
       ariaLabel="D5 admin evidence export workbench"
-      eyebrow="L1+ Program D · D5"
-      title="Evidence Export Workbench"
+      eyebrow="L1+ 课程项目 · D5"
+      title="证据导出工作台"
       badge=""
       boundary={
         "Tenant-safe export only. Mock LRS is in-process; no Student route, raw evidence, email, score, rank, settlement, or replay data is exported."
@@ -46,9 +46,9 @@ export function D5ExportWorkbench({
       deliver={(bundleRef) => createD5Job(apiBase, token, bundleRef as D5ExactRef)}
       retry={(jobId) => retryD5Job(apiBase, token, jobId)}
       cancel={(jobId) => cancelD5Job(apiBase, token, jobId)}
-      mapError={(cause) => (cause instanceof Error ? cause.message : "D5 export operation failed")}
+      mapError={(cause) => (cause instanceof Error ? cause.message : "D5 导出操作失败。")}
       mapLoadError={(cause) =>
-        cause instanceof Error ? cause.message : "Unable to load D5 export workbench"
+        cause instanceof Error ? cause.message : "D5 导出工作台暂时无法加载。"
       }
     />
   );

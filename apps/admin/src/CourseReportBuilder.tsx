@@ -16,15 +16,14 @@ function messageFor(error: unknown): {
 } {
   if (error instanceof CourseReportRequestError) {
     if (error.status === 401 || error.status === 403)
-      return { phase: "BLOCKED", message: "Report access is not available for this session." };
-    if (error.status === 404)
-      return { phase: "STALE", message: "The selected report scope is no longer available." };
+      return { phase: "BLOCKED", message: "当前会话无权访问课程报告。" };
+    if (error.status === 404) return { phase: "STALE", message: "所选报告范围已不可用。" };
     if (error.code === "COURSE_REPORT_INPUT_INVALID")
-      return { phase: "ERROR", message: "Report filters are invalid." };
+      return { phase: "ERROR", message: "报告筛选条件无效。" };
     if (error.code === "COURSE_REPORT_EXPORT_FORMAT_UNSUPPORTED")
-      return { phase: "ERROR", message: "The requested export format is unavailable." };
+      return { phase: "ERROR", message: "请求的导出格式不可用。" };
   }
-  return { phase: "ERROR", message: "Report request could not be completed." };
+  return { phase: "ERROR", message: "课程报告请求未完成。" };
 }
 
 export function CourseReportBuilder(props: {
@@ -35,11 +34,11 @@ export function CourseReportBuilder(props: {
   return (
     <CourseReportWorkbench
       ariaLabel="Admin Course Report Builder"
-      eyebrow="Server-safe projection"
+      eyebrow="服务端安全投影"
       title="Course Report Builder"
-      badge="Admin BFF"
+      badge="管理员 BFF"
       boundary={
-        "Reports are read-only server projections. They never expose Student-private fields, internal digests, Truth, canonical Decision, or Replay internals."
+        "报告仅为只读服务端投影，不暴露学员私有字段、内部摘要、真值、规范决策或 Replay 内部数据。"
       }
       roles={COURSE_REPORT_ROLE_SLOTS}
       kpis={COURSE_REPORT_KPIS}

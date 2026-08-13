@@ -13,7 +13,6 @@
 
 body {
   min-width: 0;
-  overflow-x: hidden;
   margin: 0;
 }
 
@@ -100,7 +99,13 @@ select {
 }
 
 .topbar {
+  flex-wrap: wrap;
   gap: 24px;
+  min-width: 0;
+}
+
+.topbar > * {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -615,6 +620,12 @@ label {
   white-space: nowrap;
 }
 
+.course-report-filters input,
+.course-report-filters select,
+.course-report-filters button {
+  min-height: 44px;
+}
+
 .course-report-row {
   border-top: 1px solid #d8e7e1;
   display: grid;
@@ -732,7 +743,14 @@ label {
   align-items: flex-start;
   display: flex;
   gap: 8px;
+  min-height: 44px;
   min-width: 0;
+}
+
+.d5-export-report-list input[type="checkbox"] {
+  flex: 0 0 44px;
+  height: 44px;
+  width: 44px;
 }
 
 .d5-export-report-list span {

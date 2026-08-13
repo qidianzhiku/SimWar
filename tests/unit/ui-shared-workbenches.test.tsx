@@ -176,7 +176,7 @@ describe("shared workbench presentation", () => {
     ).toBe(true);
 
     const preview = [...view.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Preview Course Report"
+      (button) => button.getAttribute("aria-label") === "Preview Course Report"
     );
     const course = view.container.querySelector('[aria-label="report course"]') as HTMLInputElement;
     expect(preview).toBeTruthy();
@@ -203,7 +203,7 @@ describe("shared workbench presentation", () => {
     expect(view.container.textContent).not.toContain("Old Team");
 
     const exportButton = [...view.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Export report as JSON"
+      (button) => button.getAttribute("aria-label") === "Export report as JSON"
     );
     await act(async () => {
       exportButton?.click();
@@ -261,7 +261,7 @@ describe("shared workbench presentation", () => {
     expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
     act(() => checkboxes[1]?.click());
     const preview = [...view.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Preview"
+      (button) => button.getAttribute("aria-label") === "Preview"
     );
     await act(async () => {
       preview?.click();
@@ -272,7 +272,7 @@ describe("shared workbench presentation", () => {
 
     act(() => checkboxes[0]?.click());
     const seal = [...view.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Seal immutable bundle"
+      (button) => button.getAttribute("aria-label") === "Seal immutable bundle"
     );
     await act(async () => {
       seal?.click();
@@ -331,6 +331,154 @@ describe("shared workbench presentation", () => {
       await Promise.resolve();
     });
     expect(loadList).toHaveBeenCalledTimes(2);
+    view.cleanup();
+  });
+
+  it("uses Chinese primary copy for missing Course Report input and D5 empty state", async () => {
+    const reportView = mount(
+      <CourseReportWorkbench
+        ariaLabel="Teacher Course Report Builder"
+        eyebrow="教师安全投影"
+        title="Course Report Builder"
+        badge="Teacher BFF"
+        boundary="服务端只读投影。"
+        roles={[]}
+        kpis={[]}
+        loadReport={() => Promise.resolve(report)}
+        exportReport={() => Promise.resolve({ export_format: "json", file_name: "r.json", report })}
+        mapError={() => ({ phase: "ERROR", message: "请求失败" })}
+      />
+    );
+    const reportPreview = reportView.container.querySelector(
+      'button[aria-label="Preview Course Report"]'
+    );
+    await act(async () => {
+      reportPreview?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(reportView.container.textContent).toContain("请填写课程后继续。");
+    reportView.cleanup();
+
+    const d5View = mount(
+      <D5ExportWorkbenchView
+        ariaLabel="D5 teacher evidence export workbench"
+        eyebrow="D5"
+        title="Evidence Export Workbench"
+        badge="Teacher BFF"
+        boundary="租户范围内导出。"
+        loadList={() => Promise.resolve({ reports: [], list })}
+        refreshExports={() => Promise.resolve(list)}
+        generate={() =>
+          Promise.resolve({
+            aol_dataset: { rows: [] },
+            known_limits: [],
+            source_report_refs: [],
+            statements: []
+          })
+        }
+        submit={() => Promise.reject(new Error("fail"))}
+        mapError={() => "导出失败"}
+      />
+    );
+    await act(async () => undefined);
+    expect(d5View.container.textContent).toContain("当前没有可用的已确认报告。");
+    d5View.cleanup();
+  });
+
+  it("rejects a delayed D5 operation from session A after session B loads", async () => {
+    let releaseSubmit:
+      | ((value: { bundle_digest: string; bundle_ref: D5ExactReference }) => void)
+      | undefined;
+    const sessionAList: D5ExportList = {
+      ...list,
+      jobs: [
+        {
+          attempt_count: 1,
+          job_ref: { content_digest: "a-job", resource_id: "job-a" },
+          status: "QUEUED"
+        }
+      ]
+    };
+    const sessionBList: D5ExportList = {
+      ...list,
+      jobs: [
+        {
+          attempt_count: 1,
+          job_ref: { content_digest: "b-job", resource_id: "job-b" },
+          status: "QUEUED"
+        }
+      ]
+    };
+    let loadCount = 0;
+    const loadList = vi.fn(() => {
+      loadCount += 1;
+      return Promise.resolve({ reports, list: loadCount === 1 ? sessionAList : sessionBList });
+    });
+    const refreshExports = vi.fn(() => Promise.resolve(sessionAList));
+    const submit = vi.fn(
+      () =>
+        new Promise<{
+          bundle_digest: string;
+          bundle_ref: D5ExactReference;
+        }>((resolve) => {
+          releaseSubmit = resolve;
+        })
+    );
+    const renderView = (sessionKey: string) => (
+      <D5ExportWorkbenchView
+        ariaLabel="D5 teacher evidence export workbench"
+        eyebrow="L1+ Program D · D5"
+        title="Evidence Export Workbench"
+        badge="Teacher BFF"
+        boundary="Tenant-safe export only."
+        sessionKey={sessionKey}
+        loadList={loadList}
+        refreshExports={refreshExports}
+        generate={() =>
+          Promise.resolve({
+            aol_dataset: { rows: [] },
+            known_limits: [],
+            source_report_refs: [],
+            statements: []
+          })
+        }
+        submit={submit}
+        mapError={() => "D5 export operation failed"}
+      />
+    );
+
+    const view = mount(renderView("session-A"));
+    await act(async () => undefined);
+    expect(view.container.textContent).toContain("job-a");
+
+    const seal = [...view.container.querySelectorAll("button")].find(
+      (button) => button.getAttribute("aria-label") === "Seal immutable bundle"
+    );
+    await act(async () => {
+      seal?.click();
+      await Promise.resolve();
+    });
+    expect(submit).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      view.root.render(renderView("session-B"));
+      await Promise.resolve();
+    });
+    expect(view.container.textContent).toContain("job-b");
+    expect(view.container.textContent).not.toContain("old-bundle");
+
+    releaseSubmit?.({
+      bundle_digest: "old-bundle",
+      bundle_ref: exact("bundle-old", "old-bundle")
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(view.container.textContent).toContain("job-b");
+    expect(view.container.textContent).not.toContain("job-a");
+    expect(view.container.textContent).not.toContain("old-bundle");
     view.cleanup();
   });
 
@@ -399,7 +547,7 @@ describe("shared workbench presentation", () => {
     );
     await act(async () => undefined);
     const seal = [...loaded.container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Seal immutable bundle"
+      (button) => button.getAttribute("aria-label") === "Seal immutable bundle"
     );
     await act(async () => {
       seal?.click();

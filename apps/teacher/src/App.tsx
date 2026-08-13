@@ -194,6 +194,31 @@ export interface TeacherLoginRequestIdentity {
   username: string;
 }
 
+export interface TeacherSessionRequestIdentity {
+  epoch: number;
+  sessionId: string;
+  tenantId: string;
+  accessToken: string;
+  runId: string;
+  roundId: string;
+  action: string;
+}
+
+export function isTeacherSessionRequestCurrent(
+  request: TeacherSessionRequestIdentity,
+  current: TeacherSessionRequestIdentity
+): boolean {
+  return (
+    request.epoch === current.epoch &&
+    request.sessionId === current.sessionId &&
+    request.tenantId === current.tenantId &&
+    request.accessToken === current.accessToken &&
+    request.runId === current.runId &&
+    request.roundId === current.roundId &&
+    request.action === current.action
+  );
+}
+
 export function isTeacherWorkspaceRequestCurrent(
   request: TeacherWorkspaceRequestIdentity,
   current: TeacherWorkspaceRequestIdentity
@@ -507,6 +532,16 @@ export function App() {
   const coursePackageSessionEpoch = useRef(0);
   const workspaceRequestEpoch = useRef(0);
   const loginRequestEpoch = useRef(0);
+  const teacherContextEpoch = useRef(0);
+  const teacherSessionIdentityRef = useRef<TeacherSessionRequestIdentity>({
+    accessToken: "",
+    action: "context",
+    epoch: 0,
+    roundId: "",
+    runId: "",
+    sessionId: "",
+    tenantId: ""
+  });
   const loginRequestIdentityRef = useRef<TeacherLoginRequestIdentity>({
     epoch: 0,
     tenantId: "",
@@ -521,6 +556,60 @@ export function App() {
   });
   const selectedRunIdRef = useRef<string | null>(null);
   const selectedCourseIdRef = useRef<string | null>(null);
+
+  function buildTeacherSessionIdentity(
+    action: string,
+    nextSession: AuthSession | null,
+    tenantId: string,
+    runId = teacherSessionIdentityRef.current.runId,
+    roundId = teacherSessionIdentityRef.current.roundId
+  ): TeacherSessionRequestIdentity {
+    return {
+      accessToken: nextSession?.access_token ?? "",
+      action,
+      epoch: teacherContextEpoch.current,
+      roundId,
+      runId,
+      sessionId: nextSession?.user.user_id ?? "",
+      tenantId: tenantId.trim()
+    };
+  }
+
+  function isCurrentTeacherContext(identity: TeacherSessionRequestIdentity): boolean {
+    const current = teacherSessionIdentityRef.current;
+    return (
+      identity.epoch === current.epoch &&
+      identity.sessionId === current.sessionId &&
+      identity.tenantId === current.tenantId &&
+      identity.accessToken === current.accessToken &&
+      identity.runId === current.runId &&
+      identity.roundId === current.roundId
+    );
+  }
+
+  function isCurrentTeacherSessionContext(identity: TeacherSessionRequestIdentity): boolean {
+    const current = teacherSessionIdentityRef.current;
+    return (
+      identity.epoch === current.epoch &&
+      identity.sessionId === current.sessionId &&
+      identity.tenantId === current.tenantId &&
+      identity.accessToken === current.accessToken
+    );
+  }
+
+  function invalidateTeacherContext(
+    nextLogin: LoginForm = login,
+    nextRunId = "",
+    nextSession: AuthSession | null = session
+  ): void {
+    teacherContextEpoch.current += 1;
+    teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
+      "context",
+      nextSession,
+      nextLogin.tenantId,
+      nextRunId
+    );
+  }
 
   const courseRuns = state ? getCourseRuns(state, selectedCourseId) : [];
   const latestRun = courseRuns.at(-1);
@@ -570,11 +659,14 @@ export function App() {
         return;
       }
 
+      const requestedRunId =
+        preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
+      if (preferredRunId !== undefined && requestedRunId !== (selectedRunIdRef.current ?? "")) {
+        invalidateTeacherContext(login, requestedRunId, session);
+      }
       const requestEpoch = workspaceRequestEpoch.current + 1;
       workspaceRequestEpoch.current = requestEpoch;
       const auth = { token: session.access_token, tenantId: login.tenantId };
-      const requestedRunId =
-        preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
       const requestIdentity: TeacherWorkspaceRequestIdentity = {
         epoch: requestEpoch,
         sessionId: session.user.user_id,
@@ -623,6 +715,13 @@ export function App() {
         return;
       }
       workspaceRequestIdentityRef.current = resolvedIdentity;
+      teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
+        "context",
+        session,
+        login.tenantId,
+        nextRun?.run_id ?? "",
+        nextRound?.round_id ?? ""
+      );
 
       setState(nextState);
       selectedCourseIdRef.current = nextCourseId;
@@ -669,8 +768,16 @@ export function App() {
   );
 
   const refreshTeacherCoursePackages = useCallback(async () => {
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-package-catalog",
+      session,
+      login.tenantId,
+      selectedRunIdRef.current ?? ""
+    );
     if (!session?.user.roles.includes("teacher")) {
-      setCoursePackageList({ phase: "IDLE" });
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setCoursePackageList({ phase: "IDLE" });
+      }
       return;
     }
 
@@ -680,10 +787,18 @@ export function App() {
       const packages = await loadTeacherCoursePackageVersions(session.access_token, (path, init) =>
         fetch(`${API_BASE}${path}`, init)
       );
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (
+        sessionEpoch !== coursePackageSessionEpoch.current ||
+        !isCurrentTeacherSessionContext(requestIdentity)
+      )
+        return;
       setCoursePackageList({ packages, phase: "READY" });
     } catch (error) {
-      if (sessionEpoch !== coursePackageSessionEpoch.current) return;
+      if (
+        sessionEpoch !== coursePackageSessionEpoch.current ||
+        !isCurrentTeacherSessionContext(requestIdentity)
+      )
+        return;
       setCoursePackageList({
         phase: "ERROR",
         surfaceState: getTeacherCoursePackageSurfaceState(error),
@@ -693,9 +808,11 @@ export function App() {
   }, [session]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
+    const nextLogin = { ...login, [field]: value };
     workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
     loginRequestEpoch.current += 1;
+    invalidateTeacherContext(nextLogin, "", null);
     loginRequestIdentityRef.current = {
       epoch: loginRequestEpoch.current,
       tenantId: (field === "tenantId" ? value : login.tenantId).trim(),
@@ -762,6 +879,13 @@ export function App() {
 
     const requestSequence = readinessRequestSequence.current + 1;
     readinessRequestSequence.current = requestSequence;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "scenario-readiness",
+      session,
+      login.tenantId,
+      selectedRun.run_id,
+      selectedRound?.round_id ?? ""
+    );
     setScenarioReadiness({ phase: "LOADING" });
 
     try {
@@ -773,14 +897,20 @@ export function App() {
         token: session.access_token
       });
 
-      if (readinessRequestSequence.current === requestSequence) {
+      if (
+        readinessRequestSequence.current === requestSequence &&
+        isCurrentTeacherContext(requestIdentity)
+      ) {
         setScenarioReadiness({
           phase: response.eligible ? "READY" : "BLOCKED",
           response
         });
       }
     } catch (error) {
-      if (readinessRequestSequence.current !== requestSequence) {
+      if (
+        readinessRequestSequence.current !== requestSequence ||
+        !isCurrentTeacherContext(requestIdentity)
+      ) {
         return;
       }
 
@@ -809,6 +939,7 @@ export function App() {
   async function signIn(nextLogin = login): Promise<void> {
     workspaceRequestEpoch.current += 1;
     coursePackageSessionEpoch.current += 1;
+    teacherContextEpoch.current += 1;
     const requestIdentity: TeacherLoginRequestIdentity = {
       epoch: loginRequestEpoch.current + 1,
       tenantId: nextLogin.tenantId.trim(),
@@ -816,6 +947,11 @@ export function App() {
     };
     loginRequestEpoch.current = requestIdentity.epoch;
     loginRequestIdentityRef.current = requestIdentity;
+    teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
+      "login",
+      null,
+      nextLogin.tenantId
+    );
     setBusy(true);
     setSession(null);
     setState(null);
@@ -841,6 +977,12 @@ export function App() {
         return;
       }
       setSession(nextSession);
+      teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
+        "context",
+        nextSession,
+        nextLogin.tenantId,
+        selectedRunIdRef.current ?? ""
+      );
       setNotice("signed in");
     } catch (error) {
       if (
@@ -865,8 +1007,11 @@ export function App() {
   }
 
   useEffect(() => {
+    const requestIdentity = teacherSessionIdentityRef.current;
     refresh().catch((error: unknown) => {
-      setNotice(error instanceof Error ? error.message : "load failed");
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(getTeacherNoticeLabel(error instanceof Error ? error.message : "load failed"));
+      }
     });
   }, [refresh]);
 
@@ -890,6 +1035,13 @@ export function App() {
 
   async function cloneTeacherCoursePackageVersion(): Promise<void> {
     if (!session || !teacherCoursePackageCloneSource) return;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-package-clone",
+      session,
+      login.tenantId,
+      selectedRunIdRef.current ?? ""
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
 
     const cloneInput: CoursePackageVersionCloneInput = {
       course_package_id: teacherCoursePackageCloneForm.coursePackageId,
@@ -901,17 +1053,23 @@ export function App() {
     setBusy(true);
     setTeacherCoursePackageCloneError(null);
     try {
-      setTeacherCoursePackageCloneReceipt(
-        await requestTeacherCoursePackageClone(cloneInput, session.access_token, (path, init) =>
-          fetch(`${API_BASE}${path}`, init)
-        )
+      const receipt = await requestTeacherCoursePackageClone(
+        cloneInput,
+        session.access_token,
+        (path, init) => fetch(`${API_BASE}${path}`, init)
       );
+      if (!isCurrentTeacherContext(requestIdentity)) return;
+      setTeacherCoursePackageCloneReceipt(receipt);
       setTeacherCoursePackageCloneSource(null);
       setTeacherCoursePackageCloneForm(EMPTY_TEACHER_COURSE_PACKAGE_CLONE_FORM);
     } catch (error) {
-      setTeacherCoursePackageCloneError(getTeacherCoursePackageErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setTeacherCoursePackageCloneError(getTeacherCoursePackageErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -926,6 +1084,12 @@ export function App() {
 
     const requestSequence = candidateRequestSequence.current + 1;
     candidateRequestSequence.current = requestSequence;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "scenario-candidate-catalog",
+      session,
+      login.tenantId,
+      selectedRun.run_id
+    );
     setScenarioCandidates({ phase: "LOADING" });
 
     requestScenarioPackageCandidates({
@@ -934,12 +1098,18 @@ export function App() {
       token: session.access_token
     })
       .then((response) => {
-        if (candidateRequestSequence.current === requestSequence) {
+        if (
+          candidateRequestSequence.current === requestSequence &&
+          isCurrentTeacherContext(requestIdentity)
+        ) {
           setScenarioCandidates({ phase: "READY", response });
         }
       })
       .catch((error: unknown) => {
-        if (candidateRequestSequence.current === requestSequence) {
+        if (
+          candidateRequestSequence.current === requestSequence &&
+          isCurrentTeacherContext(requestIdentity)
+        ) {
           setScenarioCandidates({
             phase: "ERROR",
             compatibilityMessage: getScenarioCandidatesErrorMessage(error),
@@ -959,6 +1129,11 @@ export function App() {
 
     const requestSequence = formalCatalogRequestSequence.current + 1;
     formalCatalogRequestSequence.current = requestSequence;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "formal-scenario-catalog",
+      session,
+      login.tenantId
+    );
     setFormalScenarioCatalog({ phase: "LOADING" });
 
     requestTeacherFormalScenarioPackageCatalog({
@@ -966,12 +1141,18 @@ export function App() {
       token: session.access_token
     })
       .then((response) => {
-        if (formalCatalogRequestSequence.current === requestSequence) {
+        if (
+          formalCatalogRequestSequence.current === requestSequence &&
+          isCurrentTeacherSessionContext(requestIdentity)
+        ) {
           setFormalScenarioCatalog({ phase: "READY", response });
         }
       })
       .catch((error: unknown) => {
-        if (formalCatalogRequestSequence.current === requestSequence) {
+        if (
+          formalCatalogRequestSequence.current === requestSequence &&
+          isCurrentTeacherSessionContext(requestIdentity)
+        ) {
           setFormalScenarioCatalog({
             phase: "ERROR",
             compatibilityMessage: getTeacherFormalScenarioPackageCatalogErrorMessage(error),
@@ -988,22 +1169,37 @@ export function App() {
       setCourseBlueprintCatalog({ phase: "IDLE" });
       return;
     }
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-blueprint-catalog",
+      session,
+      login.tenantId
+    );
     setCourseBlueprintCatalog({ phase: "LOADING" });
     requestTeacherCourseBlueprintCatalog({ apiBaseUrl: API_BASE, token: session.access_token })
-      .then((response) => setCourseBlueprintCatalog({ phase: "READY", response }))
-      .catch((error: unknown) =>
+      .then((response) => {
+        if (!isCurrentTeacherSessionContext(requestIdentity)) return;
+        setCourseBlueprintCatalog({ phase: "READY", response });
+      })
+      .catch((error: unknown) => {
+        if (!isCurrentTeacherSessionContext(requestIdentity)) return;
         setCourseBlueprintCatalog({
           phase: "ERROR",
           compatibilityMessage: getTeacherFormalCourseBindingErrorMessage(error),
           message: getTeacherScenarioErrorMessage(error)
-        })
-      );
+        });
+      });
   }, [session]);
 
   async function prepareFormalCourse(
     candidate: TeacherFormalScenarioPackageCatalogCandidateDto
   ): Promise<void> {
     if (!session) return;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "formal-course-binding-preview",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setFormalDraftCandidate(candidate);
     setFormalBindingPreview(null);
     setFormalCoursePublished(false);
@@ -1014,13 +1210,18 @@ export function App() {
         scenarioPackageReference: candidate.scenario_package_reference,
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setFormalBindingPreview(preview);
       setFormalCourseTitle(`Course: ${candidate.scenario_package_reference.scenario_package_id}`);
       setNotice("formal Course binding preview ready");
     } catch (error) {
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1035,6 +1236,12 @@ export function App() {
       setNotice("an approved CourseBlueprint and exact binding readiness are required");
       return;
     }
+    const requestIdentity = buildTeacherSessionIdentity(
+      "formal-course-create",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const created = await requestTeacherCourseBlueprintCourseCreate({
@@ -1044,14 +1251,19 @@ export function App() {
         title: formalCourseTitle.trim(),
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       selectedCourseIdRef.current = created.course.course_id;
       setSelectedCourseId(created.course.course_id);
       setFormalCoursePublished(false);
       setNotice("formal Course created");
     } catch (error) {
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1062,6 +1274,12 @@ export function App() {
     setCourseBlueprintReadiness(null);
     setNotice("LOCAL_SELECTION_ONLY - no Course write yet");
     if (!session || !formalDraftCandidate) return;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-blueprint-readiness",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const readiness = await requestTeacherCourseBlueprintReadiness({
@@ -1070,14 +1288,19 @@ export function App() {
         scenarioPackageReference: formalDraftCandidate.scenario_package_reference,
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setCourseBlueprintReadiness(readiness);
       setFormalBindingPreview(readiness.formal_course_binding);
       setFormalCourseTitle(`Course: ${blueprint.title}`);
       setNotice("exact Blueprint and B5 readiness confirmed");
     } catch (error) {
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1085,6 +1308,12 @@ export function App() {
     blueprint: TeacherCourseBlueprintCatalogDto["candidates"][number]
   ): Promise<void> {
     if (!session) return;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-blueprint-studio-preview",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     setCourseBlueprintStudioStatus("LOADING");
     try {
@@ -1093,6 +1322,7 @@ export function App() {
         courseBlueprintReference: blueprint.course_blueprint_reference,
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setCourseBlueprintStudioSource(blueprint.course_blueprint_reference);
       setCourseBlueprintStudioPreview(preview);
       setCourseBlueprintStudioForm({
@@ -1102,10 +1332,14 @@ export function App() {
       setCourseBlueprintStudioStatus("EDITING");
       setNotice("Blueprint Studio edit ready");
     } catch (error) {
-      setCourseBlueprintStudioStatus("ERROR");
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setCourseBlueprintStudioStatus("ERROR");
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1118,6 +1352,12 @@ export function App() {
 
   async function saveCourseBlueprintStudioDraft(): Promise<void> {
     if (!session || !courseBlueprintStudioSource || !courseBlueprintStudioForm) return;
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-blueprint-studio-draft",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     setCourseBlueprintStudioStatus("LOADING");
     try {
@@ -1132,15 +1372,20 @@ export function App() {
         courseBlueprintReference: draft.course_blueprint_reference,
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setCourseBlueprintStudioPreview(preview);
       setCourseBlueprintStudioForm(preview.editable_content);
       setCourseBlueprintStudioStatus("DRAFT");
       setNotice("immutable Blueprint draft saved");
     } catch (error) {
-      setCourseBlueprintStudioStatus("ERROR");
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setCourseBlueprintStudioStatus("ERROR");
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1148,6 +1393,12 @@ export function App() {
     if (!session || !courseBlueprintStudioPreview || courseBlueprintStudioStatus !== "DRAFT") {
       return;
     }
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-blueprint-studio-submit",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const submission = await requestTeacherCourseBlueprintStudioSubmission({
@@ -1155,13 +1406,18 @@ export function App() {
         courseBlueprintReference: courseBlueprintStudioPreview.course_blueprint_reference,
         token: session.access_token
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setCourseBlueprintStudioStatus(submission.status);
       setNotice("Blueprint draft submitted for validation");
     } catch (error) {
-      setCourseBlueprintStudioStatus("ERROR");
-      setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setCourseBlueprintStudioStatus("ERROR");
+        setNotice(getTeacherFormalCourseBindingErrorMessage(error));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1170,6 +1426,12 @@ export function App() {
       setNotice("a formal Course is required before publication");
       return;
     }
+    const requestIdentity = buildTeacherSessionIdentity(
+      "formal-course-publish",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
@@ -1177,12 +1439,17 @@ export function App() {
         ...auth,
         method: "POST"
       });
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       setFormalCoursePublished(true);
       setNotice("formal Course published");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "formal Course publication failed");
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(error instanceof Error ? error.message : "formal Course publication failed");
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1191,6 +1458,12 @@ export function App() {
       setNotice("an explicit non-negative Run seed is required");
       return;
     }
+    const requestIdentity = buildTeacherSessionIdentity(
+      "formal-run-create",
+      session,
+      login.tenantId
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
@@ -1198,20 +1471,30 @@ export function App() {
         `/api/v1/courses/${selectedCourseId}/runs`,
         { ...auth, body: { formal_runtime_seed: Number(formalRunSeed) }, method: "POST" }
       );
+      if (!isCurrentTeacherContext(requestIdentity)) return;
       selectedRunIdRef.current = created.run.run_id;
       setSelectedRunId(created.run.run_id);
       setNotice("formal Run created");
+      setBusy(false);
       await refresh(created.run.run_id);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "formal Run creation failed");
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(error instanceof Error ? error.message : "formal Run creation failed");
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
-  async function createCourseRun(): Promise<void> {
+  async function createCourseRun(
+    requestIdentityOverride?: TeacherSessionRequestIdentity
+  ): Promise<void> {
     if (!session) {
-      setNotice("please sign in first");
+      if (!requestIdentityOverride || isCurrentTeacherContext(requestIdentityOverride)) {
+        setNotice("please sign in first");
+      }
       return;
     }
 
@@ -1220,14 +1503,20 @@ export function App() {
       throw new Error("course not available");
     }
 
+    const requestIdentity =
+      requestIdentityOverride ??
+      buildTeacherSessionIdentity("course-run-create", session, login.tenantId);
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     const auth = { token: session.access_token, tenantId: login.tenantId };
     const created = await apiRequest<{ run: Run; round: Round }>(
       `/api/v1/courses/${courseId}/runs`,
       { ...auth, method: "POST" }
     );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     selectedRunIdRef.current = created.run.run_id;
     setSelectedRunId(created.run.run_id);
     setNotice("run created");
+    setBusy(false);
     await refresh(created.run.run_id);
   }
 
@@ -1237,13 +1526,25 @@ export function App() {
       return;
     }
 
+    const requestIdentity = buildTeacherSessionIdentity(
+      "course-run-create-next",
+      session,
+      login.tenantId,
+      latestRun?.run_id ?? "",
+      latestRound?.round_id ?? ""
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
-      await createCourseRun();
+      await createCourseRun(requestIdentity);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "run creation failed");
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(error instanceof Error ? error.message : "run creation failed");
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 
@@ -1269,27 +1570,38 @@ export function App() {
       return;
     }
 
+    const requestIdentity = buildTeacherSessionIdentity(
+      requiredAction ?? (selectedRun ? "run-refresh" : "run-create"),
+      session,
+      login.tenantId,
+      selectedRun?.run_id ?? "",
+      selectedRound?.round_id ?? ""
+    );
+    if (!isCurrentTeacherContext(requestIdentity)) return;
     setBusy(true);
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
 
       if (!selectedRun) {
-        await createCourseRun();
+        await createCourseRun(requestIdentity);
         return;
       } else if (selectedRound?.status === "draft") {
         await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/start`, {
           ...auth,
           method: "POST"
         });
+        if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("round opened");
       } else if (selectedRound?.status === "open") {
         if (!hasDecision) {
+          if (!isCurrentTeacherContext(requestIdentity)) return;
           setNotice("waiting for learner decision");
         } else {
           await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/lock`, {
             ...auth,
             method: "POST"
           });
+          if (!isCurrentTeacherContext(requestIdentity)) return;
           setNotice("round locked");
         }
       } else if (selectedRound?.status === "locked") {
@@ -1297,20 +1609,28 @@ export function App() {
           ...auth,
           method: "POST"
         });
+        if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("settlement completed");
       } else if (selectedRound?.status === "settled") {
         await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/publish`, {
           ...auth,
           method: "POST"
         });
+        if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("result published");
       }
 
+      if (!isCurrentTeacherContext(requestIdentity)) return;
+      setBusy(false);
       await refresh(selectedRun.run_id);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "action failed");
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setNotice(error instanceof Error ? error.message : "action failed");
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentTeacherContext(requestIdentity)) {
+        setBusy(false);
+      }
     }
   }
 

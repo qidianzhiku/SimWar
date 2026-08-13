@@ -313,6 +313,51 @@ describe("Teacher Course OS workspace", () => {
     );
   });
 
+  it("rejects stale Teacher session actions when run, action, or epoch changes", async () => {
+    const { isTeacherSessionRequestCurrent } = await import("../../apps/teacher/src/App");
+    const current = {
+      accessToken: "teacher-new-token",
+      action: "round:start",
+      epoch: 3,
+      roundId: "round-new",
+      runId: "run-new",
+      sessionId: "teacher-new",
+      tenantId: "tenant-new"
+    };
+
+    expect(
+      isTeacherSessionRequestCurrent(
+        {
+          accessToken: "teacher-old-token",
+          action: "round:start",
+          epoch: 2,
+          roundId: "round-old",
+          runId: "run-old",
+          sessionId: "teacher-old",
+          tenantId: "tenant-old"
+        },
+        current
+      )
+    ).toBe(false);
+    expect(isTeacherSessionRequestCurrent(current, current)).toBe(true);
+    for (const key of [
+      "accessToken",
+      "action",
+      "epoch",
+      "roundId",
+      "runId",
+      "sessionId",
+      "tenantId"
+    ] as const) {
+      expect(
+        isTeacherSessionRequestCurrent(current, {
+          ...current,
+          [key]: key === "epoch" ? current.epoch + 1 : `${current[key]}-changed`
+        })
+      ).toBe(false);
+    }
+  });
+
   it("maps Teacher Course OS scenario and CoursePackage errors to Chinese", async () => {
     const {
       getTeacherCoursePackageErrorMessage,

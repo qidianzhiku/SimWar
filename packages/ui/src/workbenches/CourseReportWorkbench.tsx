@@ -170,7 +170,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
     const filter = toFilter(form);
     if (!filter.course_id) {
       setPhase("ERROR");
-      setMessage("A Course is required.");
+      setMessage("请填写课程后继续。");
       return;
     }
     const epoch = ++requestEpoch.current;
@@ -194,7 +194,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
     const filter = toFilter(form);
     if (!filter.course_id) {
       setPhase("ERROR");
-      setMessage("A Course is required.");
+      setMessage("请填写课程后继续。");
       return;
     }
     const epoch = ++requestEpoch.current;
@@ -218,8 +218,18 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
 
   const state = (
     <>
-      {phase === "LOADING" ? <p role="status">Loading safe Course Report</p> : null}
-      {phase === "EMPTY" ? <p role="status">No safe report rows match this scope.</p> : null}
+      {phase === "LOADING" ? (
+        <p role="status">
+          正在加载安全课程报告。{" "}
+          <span className="technical-compatibility">Loading safe Course Report</span>
+        </p>
+      ) : null}
+      {phase === "EMPTY" ? (
+        <p role="status">
+          当前范围没有可展示的安全报告数据。{" "}
+          <span className="technical-compatibility">No safe report rows match this scope.</span>
+        </p>
+      ) : null}
       {phase === "BLOCKED" || phase === "STALE" || phase === "ERROR" ? (
         <p role="alert">{message}</p>
       ) : null}
@@ -229,7 +239,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
   const filters = (
     <div className="course-report-filters">
       <label>
-        Course
+        课程
         <input
           aria-label="report course"
           value={form.course_id}
@@ -237,7 +247,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         />
       </label>
       <label>
-        Run
+        运行
         <input
           aria-label="report run"
           value={form.run_id}
@@ -245,7 +255,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         />
       </label>
       <label>
-        Team
+        团队
         <input
           aria-label="report team"
           value={form.team_id}
@@ -253,13 +263,13 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         />
       </label>
       <label>
-        Role
+        角色
         <select
           aria-label="report role"
           value={form.role}
           onChange={(event) => change({ role: event.target.value as "" | TRole })}
         >
-          <option value="">All roles</option>
+          <option value="">全部角色</option>
           {roles.map((role) => (
             <option key={role} value={role}>
               {role}
@@ -268,7 +278,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         </select>
       </label>
       <label>
-        Round
+        回合
         <input
           aria-label="report round"
           min="1"
@@ -278,7 +288,7 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
         />
       </label>
       <fieldset>
-        <legend>KPI</legend>
+        <legend>指标</legend>
         {kpis.map((kpi) => (
           <label key={kpi}>
             <input
@@ -304,7 +314,11 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
     <WorkbenchFrame
       ariaLabel={ariaLabel}
       eyebrow={eyebrow}
-      title={title}
+      title={
+        <>
+          课程报告构建器 <span className="technical-compatibility">{title}</span>
+        </>
+      }
       badge={badge}
       boundary={boundary}
       state={state}
@@ -315,26 +329,40 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
       boundaryClassName={boundaryClassName}
       actions={
         <div className={actionsClassName}>
-          <button disabled={phase === "LOADING"} onClick={() => void preview()}>
-            Preview Course Report
+          <button
+            aria-label="Preview Course Report"
+            disabled={phase === "LOADING"}
+            onClick={() => void preview()}
+          >
+            预览课程报告 <span className="technical-compatibility">Preview Course Report</span>
           </button>
-          <button disabled={phase === "LOADING"} onClick={() => void runExport("json")}>
-            Export report as JSON
+          <button
+            aria-label="Export report as JSON"
+            disabled={phase === "LOADING"}
+            onClick={() => void runExport("json")}
+          >
+            导出 JSON 报告 <span className="technical-compatibility">Export report as JSON</span>
           </button>
-          <button disabled={phase === "LOADING"} onClick={() => void runExport("csv")}>
-            Export report as CSV
+          <button
+            aria-label="Export report as CSV"
+            disabled={phase === "LOADING"}
+            onClick={() => void runExport("csv")}
+          >
+            导出 CSV 报告 <span className="technical-compatibility">Export report as CSV</span>
           </button>
         </div>
       }
     >
       {report ? (
         <article className={previewClassName} aria-label="Course report preview">
-          <h3>Course report preview</h3>
+          <h3>
+            课程报告预览 <span className="technical-compatibility">Course report preview</span>
+          </h3>
           {report.rows.map((row) => (
             <div className="course-report-row" key={`${row.run_id}-${row.round_no}-${row.team_id}`}>
               <strong>{row.team_name}</strong>
               <span>
-                {row.run_id} / round {row.round_no}
+                {row.run_id} / 第 {row.round_no} 回合
               </span>
               <ul>
                 {row.metrics.map((metric) => (
@@ -345,14 +373,21 @@ export function CourseReportWorkbench<TRole extends string = string, TKpi extend
               </ul>
             </div>
           ))}
-          <small>Known limits: {report.known_limits.join(", ")}</small>
+          <small>
+            已知限制：{report.known_limits.join(", ")}{" "}
+            <span className="technical-compatibility">Known limits</span>
+          </small>
         </article>
       ) : null}
       {receipt ? (
         <article className={receiptClassName} aria-label="Course report export receipt">
-          <h3>Course report export receipt</h3>
+          <h3>
+            课程报告导出回执{" "}
+            <span className="technical-compatibility">Course report export receipt</span>
+          </h3>
           <p>
-            {receipt.file_name} ({receipt.export_format}) is ready.
+            {receipt.file_name}（{receipt.export_format}）已准备就绪。
+            <span className="technical-compatibility"> is ready.</span>
           </p>
         </article>
       ) : null}

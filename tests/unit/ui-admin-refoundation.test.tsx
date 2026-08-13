@@ -148,4 +148,51 @@ describe("Admin Delivery & Trust workspace", () => {
       "unknown_server_reason"
     );
   });
+
+  it("rejects delayed Admin responses when tenant, session, or login epoch changes", async () => {
+    const { isAdminRequestCurrent } = await import("../../apps/admin/src/App");
+    const current = {
+      accessToken: "token-new",
+      epoch: 2,
+      sessionId: "admin-new",
+      tenantId: "tenant-new",
+      username: "admin-new"
+    };
+
+    expect(
+      isAdminRequestCurrent(
+        {
+          accessToken: "token-old",
+          epoch: 1,
+          sessionId: "admin-old",
+          tenantId: "tenant-old",
+          username: "admin-old"
+        },
+        current
+      )
+    ).toBe(false);
+    expect(isAdminRequestCurrent(current, current)).toBe(true);
+    for (const key of ["epoch", "sessionId", "tenantId", "username", "accessToken"] as const) {
+      expect(
+        isAdminRequestCurrent(current, {
+          ...current,
+          [key]: key === "epoch" ? current.epoch + 1 : `${current[key]}-changed`
+        })
+      ).toBe(false);
+    }
+  });
+
+  it("maps Admin identity and CoursePackage failures to Chinese primary copy", async () => {
+    const { coursePackageStatusLabel, getAdminVisibleErrorMessage } =
+      await import("../../apps/admin/src/App");
+
+    expect(coursePackageStatusLabel("DIGEST_MISMATCH", "import")).toBe("导入失败：摘要不匹配");
+    expect(coursePackageStatusLabel("PERMISSION_DENIED", "export")).toBe("当前会话无权执行此操作");
+    expect(getAdminVisibleErrorMessage(new Error("AUTH_INVALID_CREDENTIALS: bad password"))).toBe(
+      "登录失败，请检查租户、用户名和密码。"
+    );
+    expect(getAdminVisibleErrorMessage(new Error("raw upstream English failure"))).toBe(
+      "请求暂时无法完成，请稍后重试。"
+    );
+  });
 });

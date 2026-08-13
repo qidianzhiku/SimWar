@@ -66,6 +66,15 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
     await navigation.getByRole("link", { name: labels[requiredTargets.indexOf(target)] }).click();
     await expect(page).toHaveURL(new RegExp(`#${target}$`));
   }
+  const renderedNavigationTargets = await navigation.locator("a").evaluateAll((links) =>
+    links.map((link) => {
+      const href = link.getAttribute("href") ?? "";
+      const target = href.startsWith("#") ? document.querySelector(href) : null;
+      return { href, targetExists: Boolean(target) };
+    })
+  );
+  expect(renderedNavigationTargets.length).toBe(9);
+  expect(renderedNavigationTargets.every(({ targetExists }) => targetExists)).toBe(true);
 
   await expect(
     page.locator("#admin-assets").getByLabel("CoursePackageVersion administration")
@@ -119,6 +128,26 @@ test("authenticated Admin exposes the task shell, server context, legacy landmar
   expect(targetMetrics.inputHeight).toBeGreaterThanOrEqual(44);
   expect(targetMetrics.actionHeight).toBeGreaterThanOrEqual(44);
   expect(targetMetrics.userCreateHeight).toBeGreaterThanOrEqual(44);
+
+  const sharedControlHeights = await page
+    .locator(
+      ".course-report-surface input, .course-report-surface select, .course-report-surface button, .d5-export-workbench input, .d5-export-workbench button"
+    )
+    .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+  expect(sharedControlHeights.length).toBeGreaterThan(0);
+  expect(sharedControlHeights.every((height) => height >= 44)).toBe(true);
+  const keyRightEdges = await page
+    .locator(
+      ".sw-app-shell__header, .sw-app-shell__body, #admin-assets .course-report-surface, #admin-audit-receipts .d5-export-workbench"
+    )
+    .evaluateAll((elements) =>
+      elements.map((element) => ({
+        right: element.getBoundingClientRect().right,
+        width: element.getBoundingClientRect().width
+      }))
+    );
+  const viewportWidth = await page.evaluate(() => window.innerWidth);
+  expect(keyRightEdges.every(({ right }) => right <= viewportWidth + 1)).toBe(true);
 
   await page.keyboard.press("Tab");
   await expect
@@ -180,6 +209,51 @@ test("Teacher and Student receive a truthful denial without an Admin shell or na
     await expect(page.locator("#admin-delivery-overview")).toHaveCount(0);
     await expect(page.getByRole("alert", { name: "管理权限" })).toContainText("当前角色无管理权限");
   }
+});
+
+test("Platform Admin navigation omits tenant-only locations and exposes only real targets", async ({
+  page
+}) => {
+  await page.goto(adminBaseUrl);
+  const login = page.locator('section[aria-label="admin login"]');
+  await login.getByLabel("tenant").fill("tenant_platform");
+  await login.getByLabel("username").fill("platform");
+  await login.getByLabel("password").fill("platform");
+  await login.getByRole("button", { name: "管理员登录" }).click();
+  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+
+  const navigation = page.getByRole("navigation", { name: "角色导航" });
+  await expect(navigation.getByRole("link", { name: "用户、角色与范围" })).toHaveCount(0);
+  await expect(navigation.getByRole("link")).toHaveCount(8);
+  const renderedTargets = await navigation.locator("a").evaluateAll((links) =>
+    links.map((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return { href, targetExists: href.startsWith("#") && Boolean(document.querySelector(href)) };
+    })
+  );
+  expect(renderedTargets.every(({ targetExists }) => targetExists)).toBe(true);
+  expect(renderedTargets.some(({ href }) => href === "#admin-users-roles")).toBe(false);
+  await expect(page.locator("#admin-users-roles")).toHaveCount(0);
+  await expect(page.locator('a[href="#admin-audit-events"]')).toHaveCount(0);
+  await expect(page.getByText("当前角色无法查看租户审计事件。", { exact: true })).toBeVisible();
+});
+
+test("Unauthenticated Admin navigation is empty-state, unknown-authority, and target-complete", async ({
+  page
+}) => {
+  await page.goto(adminBaseUrl);
+  await expect(page.locator('main > .sw-state-panel[data-state="empty"]')).toHaveCount(1);
+  await expect(page.locator('[data-authority="unknown"]')).toBeVisible();
+  const navigation = page.getByRole("navigation", { name: "角色导航" });
+  await expect(navigation.getByRole("link")).toHaveCount(3);
+  const renderedTargets = await navigation.locator("a").evaluateAll((links) =>
+    links.map((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return { href, targetExists: href.startsWith("#") && Boolean(document.querySelector(href)) };
+    })
+  );
+  expect(renderedTargets.every(({ targetExists }) => targetExists)).toBe(true);
+  await expect(page.locator('a[href="#admin-audit-events"]')).toHaveCount(0);
 });
 
 test("Admin CoursePackage surface uses Chinese visible copy while retaining only evidenced compatibility contracts", async ({
@@ -246,4 +320,72 @@ test("Admin CoursePackage surface uses Chinese visible copy while retaining only
   ]) {
     expect(visibleCopy).not.toContain(englishPhrase);
   }
+});
+
+test("Admin ignores a delayed A response after the tenant and login context switch to B", async ({
+  page
+}) => {
+  let releaseOldLogin: (() => void) | undefined;
+  const loginRequests = new Set<string>();
+  const completedLogins = new Set<string>();
+
+  await page.route("**/api/v1/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (url.pathname === "/api/v1/auth/login" && request.method() === "POST") {
+      const body = request.postDataJSON() as { username?: string };
+      const username = body.username ?? "admin";
+      const tenantId = request.headers()["x-tenant-id"] ?? "tenant_demo";
+      loginRequests.add(username);
+      if (username === "admin-a") {
+        await new Promise<void>((resolve) => {
+          releaseOldLogin = resolve;
+        });
+      }
+      await route.fulfill({
+        json: {
+          code: "OK",
+          data: {
+            access_token: `${username}-ui-token`,
+            expires_at: "2099-01-01T00:00:00.000Z",
+            user: {
+              display_name: username,
+              roles: ["tenant_admin"],
+              tenant_id: tenantId,
+              user_id: `${username}-001`
+            }
+          },
+          message: "success"
+        }
+      });
+      completedLogins.add(username);
+      return;
+    }
+    await route.fulfill({
+      status: 403,
+      json: { code: "FORBIDDEN", data: null, message: "Admin scope denied" }
+    });
+  });
+
+  await page.goto(adminBaseUrl);
+  const login = page.locator('section[aria-label="admin login"]');
+  await login.getByLabel("tenant").fill("tenant_a");
+  await login.getByLabel("username").fill("admin-a");
+  await login.getByLabel("password").fill("admin-a");
+  await login.getByRole("button", { name: "管理员登录" }).click();
+  await expect.poll(() => loginRequests.has("admin-a")).toBe(true);
+
+  await login.getByLabel("tenant").fill("tenant_b");
+  await login.getByLabel("username").fill("admin-b");
+  await login.getByLabel("password").fill("admin-b");
+  await login.getByRole("button", { name: "管理员登录" }).click();
+  await expect(page.getByText("signed in", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_b");
+  await expect(page.getByLabel("当前上下文")).toContainText("admin-b-001");
+  await expect.poll(() => completedLogins.has("admin-b")).toBe(true);
+
+  releaseOldLogin?.();
+  await expect.poll(() => completedLogins.has("admin-a")).toBe(true);
+  await expect(page.getByLabel("当前上下文")).toContainText("tenant_b");
+  await expect(page.getByLabel("当前上下文")).toContainText("admin-b-001");
 });
