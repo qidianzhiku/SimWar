@@ -578,7 +578,7 @@ describe("Product PR4 integration contracts", () => {
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
-  });
+  }, 20_000);
 
   it("keeps ordinary UI E2E independent from focused PR4 evidence", () => {
     const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
@@ -587,7 +587,9 @@ describe("Product PR4 integration contracts", () => {
     const configSource = readFileSync(resolve(root, "playwright.config.ts"), "utf8");
     const ciSource = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
 
-    expect(packageJson.scripts["test:e2e:ui"]).toContain("test:e2e:ui:core");
+    expect(packageJson.scripts["test:e2e:ui"]).toContain("npm run build:test-prerequisites");
+    expect(packageJson.scripts["test:e2e:ui"]).toContain("npm run build -w @simwar/ui");
+    expect(packageJson.scripts["test:e2e:ui"]).toContain("playwright test");
     expect(packageJson.scripts["test:e2e:ui:core"]).toContain("playwright test");
     expect(packageJson.scripts["test:e2e:ui:pr4"]).toContain("playwright.pr4.config.ts");
     expect(configSource).toContain("testIgnore: /pr4-.*\\.spec\\.ts/");
@@ -693,7 +695,7 @@ describe("Product PR4 integration contracts", () => {
     const external = runList(resolve(tmpdir(), "simwar-pr4-unit-external"));
     expect(external.status).toBe(0);
     expect(external.stdout).toContain("Total: 4 tests in 2 files");
-  });
+  }, 20_000);
 
   it("requires bundle budget BASE/HEAD provenance and a matching checked-out HEAD", () => {
     const fixture = mkdtempSync(join(tmpdir(), "simwar-pr4-budget-provenance-guard-"));

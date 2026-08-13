@@ -128,7 +128,7 @@ SimWar 有 student、teacher、admin 三端，浏览器端到端测试是必要�
 PR4 当前已落地的前端集成门禁（使用 npm workspace 命令）包括：
 
 - `npm run test:unit:pr4`：Admin/Teacher manifest、Student hash/refresh 回归、PR4 工具脚本，以及 UI route/state CSV 矩形和 34 个当前逻辑 hash 目的地的 browser-evidence 绑定测试。
-- `npm run test:e2e:ui` / `npm run test:e2e:ui:core`：当前非 PR4 的 Admin、Teacher、Student 和既有 role-workflow 浏览器套件；默认配置显式忽略 `pr4-*.spec.ts`，不要求 PR4 外部证据环境。
+- `npm run test:e2e:ui` / `npm run test:e2e:ui:core`：两条命令都显式依次构建 API 测试前置与 `@simwar/ui`，再运行当前非 PR4 的 Admin、Teacher、Student 和既有 role-workflow 浏览器套件；默认配置显式忽略 `pr4-*.spec.ts`，不要求 PR4 外部证据环境。根命令保留显式构建顺序，避免 clean runner 仅通过别名隐藏 UI 构建契约。
 - `npm run test:e2e:ui:pr4`：focused PR4 真浏览器套件，覆盖 Admin、Enterprise（现有 Admin 只读投影）、Teacher、Student 和 `@simwar/ui` DesignSystemLab（port 3004）；要求绝对且仓库外的 `PR4_EVIDENCE_ROOT` 与受控临时 `SIMWAR_PLAYWRIGHT_STORE_FILE`。
 - `npm run measure:frontend:budgets -- --base-sha <BASE> --head-sha <HEAD>`：读取三端 built dist，输出带 BASE/HEAD/actual SHA provenance 的 raw/gzip 预算报告。
 - `npm run visual:pr4:manifest -- --baseline <ABS> --candidate <ABS> --diff-root <ABS> --output <ABS> --base-sha <BASE> --head-sha <HEAD> --max-diff-pixel-ratio <RATIO> [--role-threshold <ROLE>=<RATIO>]`：使用 Playwright bundled PNG decoder 执行确定性的 RGBA pixel diff；缺失或 SHA 不匹配时保持 `not_ready`，有阈值超限时 `failed`，只有所有配对完成后才允许 `passed`。baseline/candidate/diff/manifest 必须位于外部 evidence root 或显式绝对路径，避免生成物进入仓库。PR4 冻结全局阈值为 `0.01`；仅 Student 允许 `0.065` 的角色级阈值，用于覆盖新增 `aria-current` 活动导航行的确定性像素变化。该例外必须由 CLI 显式传入，并在 manifest 的 `threshold.role_overrides` 与每个 surface 的 `applied_threshold` 中留痕；Admin、Teacher、Enterprise 和 Lab 继续使用全局 `0.01`，不得用角色例外掩盖布局、内容或 hover 漂移。
