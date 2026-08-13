@@ -31,7 +31,8 @@ describe("Admin Delivery & Trust workspace", () => {
       ["admin-audit-receipts", "审计与回执"],
       ["admin-runtime-support", "运行与支持"],
       ["admin-known-limits", "已知限制与信任边界"],
-      ["admin-environment-recovery", "环境启动与恢复"]
+      ["admin-environment-recovery", "环境启动与恢复"],
+      ["admin-enterprise-course-factory", "企业课程工厂与 Sponsor 投影"]
     ] as const;
 
     for (const [id, label] of expectedNavigation) {

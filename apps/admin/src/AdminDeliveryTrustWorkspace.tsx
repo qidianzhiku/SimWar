@@ -18,6 +18,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   { id: "admin-tenants-entitlements", label: "租户与权益" },
   { id: "admin-users-roles", label: "用户、角色与范围" },
   { id: "admin-assets", label: "课程、场景与模型资产" },
+  { id: "admin-enterprise-course-factory", label: "企业课程工厂与 Sponsor 投影" },
   { id: "admin-security-projection", label: "权限与安全投影" },
   { id: "admin-audit-receipts", label: "审计与回执" },
   { id: "admin-runtime-support", label: "运行与支持" },

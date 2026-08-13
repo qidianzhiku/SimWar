@@ -328,7 +328,7 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
       await expect(studentWorkflow.getByText("validated")).toBeVisible();
       await studentWorkflow.getByRole("button", { name: "确认团队决策" }).click();
       await expect(studentWorkflow.getByText("confirmed")).toBeVisible();
-      await expect(page.getByRole("button", { name: "提交决策" })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "提交正式决策" })).toBeDisabled();
     } else {
       await expect(studentWorkflow.getByText("validated")).toHaveCount(0);
     }

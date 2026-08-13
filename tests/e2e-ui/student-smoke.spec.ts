@@ -95,9 +95,12 @@ test("loads the seeded student dashboard through real API login", async ({ page 
   await signInStudentPage(page);
 
   await expect(page.getByRole("heading", { name: "SimWar M1 学员驾驶舱" })).toBeVisible();
-  await expect(page.locator("header").getByText(m1ResultLabel)).toBeVisible();
+  await expect(page.locator("header").getByText("学员工作区权限", { exact: true })).toBeVisible();
+  await expect(page.locator("header").getByText(m1ResultLabel)).toHaveCount(0);
   await expect(page.getByText("learner / team_captain · tenant_demo")).toBeVisible();
-  await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
+  await expect(
+    page.getByLabel("learner status").getByText("M1 康养教学闭环课程", { exact: true })
+  ).toBeVisible();
   await expect(page.getByLabel("learner status").getByText("Alpha 康养队")).toBeVisible();
   await expect(page.getByText("学员试讲导入")).toBeVisible();
   await expect(page.getByText("提交前检查")).toBeVisible();
@@ -113,7 +116,9 @@ test("hides an unassigned same-tenant course from the student UI", async ({ page
   await page.goto("/");
   await signInStudentPage(page);
 
-  await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
+  await expect(
+    page.getByLabel("learner status").getByText("M1 康养教学闭环课程", { exact: true })
+  ).toBeVisible();
   await expect(page.getByText(course.data.title)).toHaveCount(0);
 });
 
@@ -121,7 +126,9 @@ test("clears student classroom state when the login context changes", async ({ p
   await page.goto("/");
   await signInStudentPage(page);
 
-  await expect(page.getByText("M1 康养教学闭环课程")).toBeVisible();
+  await expect(
+    page.getByLabel("learner status").getByText("M1 康养教学闭环课程", { exact: true })
+  ).toBeVisible();
   await page.getByLabel("tenant").fill("tenant_other");
 
   await expect(page.getByText("not signed in")).toBeVisible();
@@ -239,10 +246,15 @@ test("keeps tenant admin browser scope limited to the current tenant", async ({ 
   await expect(page.getByRole("navigation", { name: "角色导航" })).toBeVisible();
   await expect(page.getByRole("link", { name: "交付总览" })).toBeVisible();
   await expect(page.getByText("P0 Admin · tenant_admin")).toBeVisible();
-  await expect(page.getByText("Demo Business School").first()).toBeVisible();
-  await expect(page.getByText("P0 Teacher").first()).toBeVisible();
-  await expect(page.getByText("P0 Student").first()).toBeVisible();
-  await expect(page.getByText("P0 Admin").first()).toBeVisible();
+  const tenantDirectory = page
+    .getByRole("heading", { name: "租户目录" })
+    .locator("..")
+    .locator("..");
+  const userDirectory = page.getByRole("heading", { name: "用户目录" }).locator("..").locator("..");
+  await expect(tenantDirectory.getByText("Demo Business School", { exact: true })).toHaveCount(1);
+  for (const userName of ["P0 Teacher", "P0 Student", "P0 Admin"]) {
+    await expect(userDirectory.getByText(userName, { exact: true })).toHaveCount(1);
+  }
   await expect(page.getByText("Other Tenant")).toHaveCount(0);
   await expect(page.getByText("Other Teacher")).toHaveCount(0);
   await expect(page.getByText("SimWar Platform")).toHaveCount(0);
