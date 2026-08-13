@@ -98,7 +98,7 @@ export interface ParameterSetRegistryPort extends ParameterSetAuthorityReadPort 
     tenantId: string,
     reference: ParameterSetReference
   ): Promise<ParameterSetApprovalRecord[]>;
-  listApprovalRecordsForTenant(tenantId: string): readonly unknown[];
+  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] | Promise<readonly unknown[]>;
   listLifecycleSnapshots(
     tenantId: string,
     parameterSetId: string,
@@ -544,7 +544,7 @@ export class ParameterSetCommandService implements ParameterSetAuthorityReadPort
     return this.registry.listApprovalRecords(tenantId, reference);
   }
 
-  listApprovalRecordsForTenant(tenantId: string): readonly unknown[] {
+  async listApprovalRecordsForTenant(tenantId: string): Promise<readonly unknown[]> {
     return this.registry.listApprovalRecordsForTenant(tenantId);
   }
 

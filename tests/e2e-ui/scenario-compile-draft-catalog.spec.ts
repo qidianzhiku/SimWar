@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { ApiEnvelope, P0DemoState } from "@simwar/shared-contracts";
 import { PLATFORM_TENANT_ID } from "../../services/api/src/store";
 import { cleanupPlaywrightStore } from "./store-isolation";
 
@@ -98,19 +99,36 @@ async function openScenarioReadinessPanel(page: Page) {
   );
   await page.goto(teacherBaseUrl);
   await signInTeacher(page);
-  await initialState;
+  const initialStateResponse = await initialState;
+  const initialStateEnvelope = (await initialStateResponse.json()) as ApiEnvelope<P0DemoState>;
+  const coursesWithTeams = new Set(initialStateEnvelope.data.teams.map((team) => team.course_id));
+  const selectedCourseId = initialStateEnvelope.data.courses
+    .filter((course) => course.status === "published" && coursesWithTeams.has(course.course_id))
+    .at(-1)?.course_id;
+  expect(selectedCourseId).toBeTruthy();
 
-  const primaryAction = page.locator("header.topbar > button.primary");
-  if ((await primaryAction.textContent())?.trim() === "创建 Run") {
+  const hasSelectedCourseRun = initialStateEnvelope.data.runs.some(
+    (run) => run.course_id === selectedCourseId
+  );
+  if (!hasSelectedCourseRun) {
+    const createRun = page.getByRole("button", { exact: true, name: "创建 Run" });
+    await expect(createRun).toBeVisible();
+    const createdRun = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/courses/${selectedCourseId}/runs`) &&
+        response.request().method() === "POST" &&
+        response.status() === 201
+    );
     const createdState = page.waitForResponse(
       (response) =>
         response.url().endsWith("/api/v1/demo-state") &&
         response.request().method() === "GET" &&
         response.status() === 200
     );
-    await primaryAction.click();
-    await expect(page.getByText("run created")).toBeVisible();
+    await createRun.click();
+    await createdRun;
     await createdState;
+    await expect(page.getByText("run created")).toBeVisible();
   }
 
   return page.getByLabel("scenario readiness");

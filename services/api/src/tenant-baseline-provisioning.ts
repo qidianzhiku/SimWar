@@ -354,16 +354,17 @@ function isSelfConsistentScenarioVersion(value: unknown): boolean {
   return false;
 }
 
-function hasExactParameterLifecycle(
+function hasValidParameterLifecyclePrefix(
   snapshots: readonly unknown[],
   tenantId: string,
   parameterSetId: string,
   version: string,
   provenance: TenantBaselineProvenance
 ): boolean {
-  if (snapshots.length !== 4) {
+  if (snapshots.length > 4) {
     return false;
   }
+  if (snapshots.length === 0) return true;
 
   const first = snapshots[0];
   if (!isRecord(first) || !isSelfConsistentParameterVersion(first)) {
@@ -395,7 +396,7 @@ function hasExactParameterLifecycle(
   });
 }
 
-function hasExactScenarioLifecycle(
+function hasValidScenarioLifecyclePrefix(
   snapshots: readonly unknown[],
   tenantId: string,
   scenarioPackageId: string,
@@ -403,9 +404,10 @@ function hasExactScenarioLifecycle(
   parameterReference: unknown,
   provenance: TenantBaselineProvenance
 ): boolean {
-  if (snapshots.length !== 4) {
+  if (snapshots.length > 4) {
     return false;
   }
+  if (snapshots.length === 0) return true;
 
   const first = snapshots[0];
   if (!isRecord(first) || !isSelfConsistentScenarioVersion(first)) {
@@ -702,31 +704,27 @@ export class TenantBaselineProvisioningService {
         targetParameterApprovalEvidence,
         parameterApprovalId,
         input.target_tenant_id
-      ) ||
-        hasApprovalId(
-          targetScenarioApprovalEvidence,
-          scenarioApprovalId,
-          input.target_tenant_id
-        )) &&
-      (existingParameterHistory.length !== 4 || existingScenarioHistory.length !== 4)
+      ) &&
+        existingParameterHistory.length !== 4) ||
+      (hasApprovalId(targetScenarioApprovalEvidence, scenarioApprovalId, input.target_tenant_id) &&
+        existingScenarioHistory.length !== 4)
     ) {
       throw new TenantBaselineProvisioningError("CONFLICT");
     }
     const existingParameter = existingParameterHistory.at(-1) ?? null;
     const existingScenario = existingScenarioHistory.at(-1) ?? null;
     if (existingParameterHistory.length > 0 || existingScenarioHistory.length > 0) {
-      // A deterministic target identity must represent one exact source-version
-      // materialization. Looking up every version prevents a legacy partial or
-      // mismatched version from being hidden by a later retry.
+      // A restart may continue a valid lifecycle prefix, but malformed, skipped,
+      // reordered, or source-digest-mismatched history remains fail-closed.
       if (
-        !hasExactParameterLifecycle(
+        !hasValidParameterLifecyclePrefix(
           existingParameterHistory,
           input.target_tenant_id,
           parameterSetId,
           sourceParameterReference.version,
           provenance
         ) ||
-        !hasExactScenarioLifecycle(
+        !hasValidScenarioLifecyclePrefix(
           existingScenarioHistory,
           input.target_tenant_id,
           scenarioPackageId,
@@ -740,6 +738,8 @@ export class TenantBaselineProvisioningService {
       if (
         existingParameter &&
         existingScenario &&
+        existingParameterHistory.length === 4 &&
+        existingScenarioHistory.length === 4 &&
         (await isApprovedPair(
           existingParameter,
           existingScenario,
@@ -768,7 +768,19 @@ export class TenantBaselineProvisioningService {
         }
         return reused;
       }
-      throw new TenantBaselineProvisioningError("CONFLICT");
+      if (
+        hasApprovalId(
+          targetParameterApprovalEvidence,
+          parameterApprovalId,
+          input.target_tenant_id
+        ) ||
+        hasApprovalId(targetScenarioApprovalEvidence, scenarioApprovalId, input.target_tenant_id)
+      ) {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
+      if (existingParameterHistory.length === 4 && existingScenarioHistory.length === 4) {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
     }
 
     const sourceParameter = await this.authority.parameterSets.getByReference(
@@ -809,72 +821,105 @@ export class TenantBaselineProvisioningService {
         correlation_id: actor.correlation_id,
         tenant_id: input.target_tenant_id
       };
-      const parameterDraft = await this.authority.parameterSets.createDraft(targetActor, {
-        baseline_provenance: provenance,
-        compatibility_metadata: structuredClone(sourceParameter.compatibility_metadata),
-        model_version_ref: sourceParameter.model_version_ref,
-        parameter_set_id: parameterSetId,
-        parameter_values: structuredClone(sourceParameter.parameter_values),
-        schema_version: sourceParameter.schema_version,
-        tenant_id: input.target_tenant_id,
-        version: sourceParameter.version
-      });
-      const parameterValidated = await this.authority.parameterSets.validate(
-        targetActor,
-        parameterDraft.reference
-      );
-      const parameterFrozen = await this.authority.parameterSets.freeze(
-        targetActor,
-        parameterValidated.reference
-      );
-      const parameterApproved = await this.authority.parameterSets.approve(
-        targetActor,
-        parameterFrozen.reference,
-        parameterApprovalId
-      );
-      const scenarioDraft = await this.authority.scenarioPackages.createDraft(targetActor, {
-        artifact_policy: structuredClone(sourceScenario.artifact_policy),
-        baseline_provenance: provenance,
-        compatibility_metadata: {
-          ...structuredClone(sourceScenario.compatibility_metadata),
-          parameter_set_id: parameterApproved.version.reference.parameter_set_id,
-          parameter_set_version: parameterApproved.version.reference.version,
-          ...(sourceScenario.plugin_dependencies[0]
-            ? {
-                plugin_package_id: sourceScenario.plugin_dependencies[0].plugin_package_id,
-                plugin_version: sourceScenario.plugin_dependencies[0].version
-              }
-            : {}),
+      let parameterApproved: ParameterSetVersion;
+      let parameterCurrent = existingParameterHistory.at(-1) ?? null;
+      if (!parameterCurrent) {
+        parameterCurrent = await this.authority.parameterSets.createDraft(targetActor, {
+          baseline_provenance: provenance,
+          compatibility_metadata: structuredClone(sourceParameter.compatibility_metadata),
+          model_version_ref: sourceParameter.model_version_ref,
+          parameter_set_id: parameterSetId,
+          parameter_values: structuredClone(sourceParameter.parameter_values),
+          schema_version: sourceParameter.schema_version,
+          tenant_id: input.target_tenant_id,
+          version: sourceParameter.version
+        });
+      }
+      if (parameterCurrent.status === "DRAFT") {
+        parameterCurrent = await this.authority.parameterSets.validate(
+          targetActor,
+          parameterCurrent.reference
+        );
+      }
+      if (parameterCurrent.status === "VALIDATED") {
+        parameterCurrent = await this.authority.parameterSets.freeze(
+          targetActor,
+          parameterCurrent.reference
+        );
+      }
+      if (parameterCurrent.status === "FROZEN") {
+        parameterApproved = (
+          await this.authority.parameterSets.approve(
+            targetActor,
+            parameterCurrent.reference,
+            parameterApprovalId
+          )
+        ).version;
+      } else if (parameterCurrent.status === "APPROVED") {
+        parameterApproved = parameterCurrent;
+      } else {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
+
+      let scenarioApproved: ScenarioPackageVersion;
+      let scenarioCurrent = existingScenarioHistory.at(-1) ?? null;
+      if (!scenarioCurrent) {
+        scenarioCurrent = await this.authority.scenarioPackages.createDraft(targetActor, {
+          artifact_policy: structuredClone(sourceScenario.artifact_policy),
+          baseline_provenance: provenance,
+          compatibility_metadata: {
+            ...structuredClone(sourceScenario.compatibility_metadata),
+            parameter_set_id: parameterApproved.reference.parameter_set_id,
+            parameter_set_version: parameterApproved.reference.version,
+            ...(sourceScenario.plugin_dependencies[0]
+              ? {
+                  plugin_package_id: sourceScenario.plugin_dependencies[0].plugin_package_id,
+                  plugin_version: sourceScenario.plugin_dependencies[0].version
+                }
+              : {}),
+            scenario_package_id: scenarioPackageId,
+            scenario_package_version: sourceScenario.version
+          },
+          content: structuredClone(sourceScenario.content),
+          metadata: structuredClone(sourceScenario.metadata),
+          parameter_set_reference: parameterApproved.reference,
+          plugin_dependencies: structuredClone(sourceScenario.plugin_dependencies),
           scenario_package_id: scenarioPackageId,
-          scenario_package_version: sourceScenario.version
-        },
-        content: structuredClone(sourceScenario.content),
-        metadata: structuredClone(sourceScenario.metadata),
-        parameter_set_reference: parameterApproved.version.reference,
-        plugin_dependencies: structuredClone(sourceScenario.plugin_dependencies),
-        scenario_package_id: scenarioPackageId,
-        schema_version: sourceScenario.schema_version,
-        tenant_id: input.target_tenant_id,
-        version: sourceScenario.version
-      });
-      const scenarioValidated = await this.authority.scenarioPackages.validate(
-        targetActor,
-        scenarioDraft.reference
-      );
-      const scenarioFrozen = await this.authority.scenarioPackages.freeze(
-        targetActor,
-        scenarioValidated.reference
-      );
-      const scenarioApproved = await this.authority.scenarioPackages.approve(
-        targetActor,
-        scenarioFrozen.reference,
-        scenarioApprovalId
-      );
+          schema_version: sourceScenario.schema_version,
+          tenant_id: input.target_tenant_id,
+          version: sourceScenario.version
+        });
+      }
+      if (scenarioCurrent.status === "DRAFT") {
+        scenarioCurrent = await this.authority.scenarioPackages.validate(
+          targetActor,
+          scenarioCurrent.reference
+        );
+      }
+      if (scenarioCurrent.status === "VALIDATED") {
+        scenarioCurrent = await this.authority.scenarioPackages.freeze(
+          targetActor,
+          scenarioCurrent.reference
+        );
+      }
+      if (scenarioCurrent.status === "FROZEN") {
+        scenarioApproved = (
+          await this.authority.scenarioPackages.approve(
+            targetActor,
+            scenarioCurrent.reference,
+            scenarioApprovalId
+          )
+        ).version;
+      } else if (scenarioCurrent.status === "APPROVED") {
+        scenarioApproved = scenarioCurrent;
+      } else {
+        throw new TenantBaselineProvisioningError("CONFLICT");
+      }
       const created = this.result(
         actor,
         "CREATED",
-        parameterApproved.version,
-        scenarioApproved.version,
+        parameterApproved,
+        scenarioApproved,
         provenance
       );
       if (afterMaterialization) {
@@ -886,7 +931,7 @@ export class TenantBaselineProvisioningService {
       }
       return created;
     } catch (error) {
-      this.authority.removeTenantBaselineMaterialization(materialization);
+      await this.authority.removeTenantBaselineMaterialization(materialization);
       if (error instanceof TenantBaselineProvisioningError && error.code === "AUDIT_FAILED") {
         throw error;
       }

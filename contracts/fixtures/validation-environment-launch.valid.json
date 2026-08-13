@@ -1,0 +1,55 @@
+{
+  "schema_version": "validation-environment-launch.v1",
+  "launch_id": "vlaunch_001",
+  "tenant_id": "tenant-w025",
+  "business_key_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "request_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "READY",
+  "source_parameter_set": {
+    "tenant_id": "tenant-source",
+    "reference": {
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "parameter_set_id": "parameter-1",
+      "version": "1.0.0"
+    }
+  },
+  "source_scenario_package": {
+    "tenant_id": "tenant-source",
+    "reference": {
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "scenario_package_id": "scenario-1",
+      "tenant_id": "tenant-source",
+      "version": "1.0.0"
+    }
+  },
+  "course_blueprint_reference": {
+    "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "course_blueprint_id": "blueprint-1",
+    "tenant_id": "tenant-w025",
+    "version": "1.0.0"
+  },
+  "course_package_reference": {
+    "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "course_package_id": "package-1",
+    "tenant_id": "tenant-w025",
+    "version": "1.0.0"
+  },
+  "step_receipts": {
+    "baseline": {
+      "completed_at": "2026-08-12T12:00:00.000Z",
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "status": "PASS",
+      "summary": "baseline materialized"
+    }
+  },
+  "course_id": "w025_course_001",
+  "run_id": "w025_run_001",
+  "round_id": "w025_round_001",
+  "team_ids": ["team-a", "team-b"],
+  "session_id": "vsession_001",
+  "version": 4,
+  "created_by": "usr_teacher",
+  "created_at": "2026-08-12T12:00:00.000Z",
+  "updated_at": "2026-08-12T12:00:01.000Z",
+  "known_limits": ["HUMAN_VALIDATION_NOT_PERFORMED"]
+}

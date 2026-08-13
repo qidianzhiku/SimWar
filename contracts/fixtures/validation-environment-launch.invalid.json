@@ -1,0 +1,19 @@
+{
+  "schema_version": "validation-environment-launch.v1",
+  "launch_id": "vlaunch-invalid",
+  "tenant_id": "tenant-w025",
+  "business_key_digest": "latest",
+  "request_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "READY",
+  "source_parameter_set": {},
+  "source_scenario_package": {},
+  "course_blueprint_reference": {},
+  "course_package_reference": {},
+  "step_receipts": {},
+  "version": 0,
+  "created_by": "usr_teacher",
+  "created_at": "2026-08-12T12:00:00.000Z",
+  "updated_at": "2026-08-12T12:00:00.000Z",
+  "known_limits": [],
+  "unexpected": true
+}

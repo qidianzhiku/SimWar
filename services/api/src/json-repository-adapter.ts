@@ -40,19 +40,23 @@ import {
 } from "@simwar/shared-contracts";
 import {
   InMemoryJsonParameterSetRegistry,
-  type InMemoryJsonParameterSetRegistryOptions
+  type InMemoryJsonParameterSetRegistryOptions,
+  type ParameterSetRegistryPort
 } from "./parameter-set-authority.js";
 import {
   InMemoryJsonScenarioPackageRegistry,
-  type InMemoryJsonScenarioPackageRegistryOptions
+  type InMemoryJsonScenarioPackageRegistryOptions,
+  type ScenarioPackageRegistryPort
 } from "./scenario-package-authority.js";
 import {
   InMemoryJsonPluginReleaseRegistry,
-  type InMemoryJsonPluginReleaseRegistryOptions
+  type InMemoryJsonPluginReleaseRegistryOptions,
+  type PluginReleaseRegistryPort
 } from "./plugin-release-authority.js";
 import {
   InMemoryJsonCourseBlueprintRegistry,
-  type InMemoryJsonCourseBlueprintRegistryOptions
+  type InMemoryJsonCourseBlueprintRegistryOptions,
+  type CourseBlueprintRegistryPort
 } from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
 import {
@@ -304,11 +308,13 @@ export function createJsonEvidenceProvenanceRepositoryPort(
  * registries. It is deliberately separate from API route composition.
  */
 export interface JsonFormalScenarioAuthorityPersistence {
-  createCourseBlueprintRegistry(): InMemoryJsonCourseBlueprintRegistry;
-  createParameterSetRegistry(): InMemoryJsonParameterSetRegistry;
-  createPluginReleaseRegistry(): InMemoryJsonPluginReleaseRegistry;
-  createScenarioPackageRegistry(): InMemoryJsonScenarioPackageRegistry;
-  removeTenantBaselineMaterialization(materialization: JsonTenantBaselineMaterialization): void;
+  createCourseBlueprintRegistry(): CourseBlueprintRegistryPort;
+  createParameterSetRegistry(): ParameterSetRegistryPort;
+  createPluginReleaseRegistry(): PluginReleaseRegistryPort;
+  createScenarioPackageRegistry(): ScenarioPackageRegistryPort;
+  removeTenantBaselineMaterialization(
+    materialization: JsonTenantBaselineMaterialization
+  ): void | Promise<void>;
 }
 
 /**

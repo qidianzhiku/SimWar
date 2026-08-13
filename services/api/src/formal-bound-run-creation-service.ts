@@ -3,7 +3,7 @@ import {
   createFormalRunRuntimeBinding,
   type FormalRunBindingAuthorityPorts
 } from "./formal-run-runtime-binding.js";
-import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
+import type { FormalRunRuntimeBindingPort } from "./formal-run-runtime-binding-store.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
 import type { FormalCourseAuthorityBinding } from "./formal-course-authority-binding.js";
 
@@ -16,7 +16,7 @@ export interface FormalBoundRunPersistence {
 
 export interface CreateFormalBoundRunInput {
   authorities: FormalRunBindingAuthorityPorts;
-  bindingStore: Pick<FormalRunRuntimeBindingStore, "append">;
+  bindingStore: FormalRunRuntimeBindingPort;
   courseBinding: Pick<
     FormalCourseAuthorityBinding,
     "engine_reference" | "parameter_set_reference" | "scenario_package_reference"
@@ -49,7 +49,7 @@ export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Pr
     runPersisted = true;
     await input.persistence.saveRound(input.round);
     roundPersisted = true;
-    input.bindingStore.append(binding);
+    await input.bindingStore.append(binding);
   } catch (error) {
     if (roundPersisted) {
       await input.persistence.deleteRound(input.round.tenant_id, input.round.round_id);

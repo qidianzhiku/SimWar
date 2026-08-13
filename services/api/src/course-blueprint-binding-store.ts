@@ -4,7 +4,9 @@ import {
 } from "./course-blueprint-binding.js";
 import type { SimWarStore } from "./store.js";
 
-function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 function freeze<T>(value: T): T {
   if (value && typeof value === "object") {
     Object.values(value as Record<string, unknown>).forEach((child) => freeze(child));
@@ -19,8 +21,21 @@ export interface PendingCourseBlueprintBinding {
   readonly token: symbol;
 }
 
+export interface CourseBlueprintBindingPort {
+  append(binding: CourseBlueprintBinding): void | Promise<void>;
+  appendPending(
+    binding: CourseBlueprintBinding
+  ): PendingCourseBlueprintBinding | Promise<PendingCourseBlueprintBinding>;
+  commitPending(pending: PendingCourseBlueprintBinding): void | Promise<void>;
+  removeUncommitted(pending: PendingCourseBlueprintBinding): void | Promise<void>;
+  getForCourse(
+    tenantId: string,
+    courseId: string
+  ): CourseBlueprintBinding | null | Promise<CourseBlueprintBinding | null>;
+}
+
 /** Private append-only recorder. It deliberately never writes Course or B5 bindings. */
-export class CourseBlueprintBindingStore {
+export class CourseBlueprintBindingStore implements CourseBlueprintBindingPort {
   private readonly pending = new Map<symbol, { course_id: string; tenant_id: string }>();
   constructor(private readonly store: SimWarStore) {}
 
@@ -42,7 +57,11 @@ export class CourseBlueprintBindingStore {
 
   private appendInternal(binding: CourseBlueprintBinding): void {
     assertValidCourseBlueprintBinding(binding);
-    if (this.store.courseBlueprintBindings.some((item) => item.tenant_id === binding.tenant_id && item.course_id === binding.course_id)) {
+    if (
+      this.store.courseBlueprintBindings.some(
+        (item) => item.tenant_id === binding.tenant_id && item.course_id === binding.course_id
+      )
+    ) {
       throw new Error("course_blueprint_binding_already_exists");
     }
     this.store.courseBlueprintBindings.push(freeze(clone(binding)));
@@ -55,15 +74,17 @@ export class CourseBlueprintBindingStore {
   }
 
   getForCourse(tenantId: string, courseId: string): CourseBlueprintBinding | null {
-    const item = this.store.courseBlueprintBindings.find((candidate) => candidate.tenant_id === tenantId && candidate.course_id === courseId);
+    const item = this.store.courseBlueprintBindings.find(
+      (candidate) => candidate.tenant_id === tenantId && candidate.course_id === courseId
+    );
     return item ? freeze(clone(item)) : null;
   }
 
   /** Only compensation for this process's uncommitted Course creation; never a history mutation API. */
   removeUncommitted(pending: PendingCourseBlueprintBinding): void {
     this.requirePending(pending);
-    const index = this.store.courseBlueprintBindings.findIndex((item) =>
-      item.tenant_id === pending.tenant_id && item.course_id === pending.course_id
+    const index = this.store.courseBlueprintBindings.findIndex(
+      (item) => item.tenant_id === pending.tenant_id && item.course_id === pending.course_id
     );
     if (index < 0) throw new Error("course_blueprint_binding_pending_missing");
     const [removed] = this.store.courseBlueprintBindings.splice(index, 1);
@@ -78,7 +99,11 @@ export class CourseBlueprintBindingStore {
 
   private requirePending(pending: PendingCourseBlueprintBinding): void {
     const current = this.pending.get(pending.token);
-    if (!current || current.course_id !== pending.course_id || current.tenant_id !== pending.tenant_id) {
+    if (
+      !current ||
+      current.course_id !== pending.course_id ||
+      current.tenant_id !== pending.tenant_id
+    ) {
       throw new Error("course_blueprint_binding_pending_invalid");
     }
   }

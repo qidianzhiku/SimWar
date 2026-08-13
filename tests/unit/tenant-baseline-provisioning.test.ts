@@ -627,6 +627,85 @@ describe("TenantBaselineProvisioningService", () => {
     }).toEqual(countsBeforeRetry);
   });
 
+  it("resumes a valid lifecycle prefix while keeping malformed history fail-closed", async () => {
+    const { authority, parameter, scenario, store } = await seedApprovedSource();
+    const service = new TenantBaselineProvisioningService(authority);
+    const request = {
+      idempotency_key: "valid-prefix-resume-v1",
+      source_parameter_set: {
+        ...parameter.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      source_scenario_package: {
+        ...scenario.reference,
+        source_tenant_id: sourceActor.tenant_id
+      },
+      target_tenant_id: "tenant_target"
+    };
+
+    const created = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "valid_prefix_create" },
+      request
+    );
+    const parameterId = created.parameter_set.reference.parameter_set_id;
+    const scenarioId = created.scenario_package.reference.scenario_package_id;
+    store.formalParameterSetLifecycleSnapshots.splice(
+      0,
+      store.formalParameterSetLifecycleSnapshots.length,
+      ...store.formalParameterSetLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot.tenant_id !== request.target_tenant_id ||
+          snapshot.parameter_set_id !== parameterId ||
+          snapshot.status === "DRAFT" ||
+          snapshot.status === "VALIDATED"
+      )
+    );
+    store.formalScenarioPackageLifecycleSnapshots.splice(
+      0,
+      store.formalScenarioPackageLifecycleSnapshots.length,
+      ...store.formalScenarioPackageLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot.tenant_id !== request.target_tenant_id ||
+          snapshot.scenario_package_id !== scenarioId
+      )
+    );
+    store.formalParameterSetApprovalRecords.splice(
+      0,
+      store.formalParameterSetApprovalRecords.length,
+      ...store.formalParameterSetApprovalRecords.filter(
+        (record) => record.tenant_id !== request.target_tenant_id
+      )
+    );
+    store.formalScenarioPackageApprovalRecords.splice(
+      0,
+      store.formalScenarioPackageApprovalRecords.length,
+      ...store.formalScenarioPackageApprovalRecords.filter(
+        (record) => record.tenant_id !== request.target_tenant_id
+      )
+    );
+
+    const resumed = await service.provision(
+      { actor_id: "usr_platform", correlation_id: "valid_prefix_resume" },
+      request
+    );
+
+    expect(resumed.outcome).toBe("CREATED");
+    expect(
+      store.formalParameterSetLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot.tenant_id === request.target_tenant_id &&
+          snapshot.parameter_set_id === parameterId
+      )
+    ).toHaveLength(4);
+    expect(
+      store.formalScenarioPackageLifecycleSnapshots.filter(
+        (snapshot) =>
+          snapshot.tenant_id === request.target_tenant_id &&
+          snapshot.scenario_package_id === scenarioId
+      )
+    ).toHaveLength(4);
+  });
+
   it("rejects an approved pair when target lifecycle history is incomplete", async () => {
     const { authority, parameter, scenario, store } = await seedApprovedSource();
     const service = new TenantBaselineProvisioningService(authority);

@@ -28,12 +28,20 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
+export interface FormalRunRuntimeBindingPort {
+  append(binding: FormalRunRuntimeBinding): void | Promise<void>;
+  getForRun(
+    tenantId: string,
+    runId: string
+  ): FormalRunRuntimeBinding | null | Promise<FormalRunRuntimeBinding | null>;
+}
+
 /**
  * Private append-only JSON persistence for formal bindings. The public Run
  * remains ID-only so legacy callers cannot mistake a legacy lookup for a
  * formal Authority binding.
  */
-export class FormalRunRuntimeBindingStore {
+export class FormalRunRuntimeBindingStore implements FormalRunRuntimeBindingPort {
   constructor(private readonly store: SimWarStore) {}
 
   append(binding: FormalRunRuntimeBinding): void {

@@ -14,7 +14,7 @@ import {
   type CourseBlueprintVersion
 } from "./course-blueprint-authority.js";
 import { createCourseBlueprintBinding } from "./course-blueprint-binding.js";
-import { CourseBlueprintBindingStore } from "./course-blueprint-binding-store.js";
+import type { CourseBlueprintBindingPort } from "./course-blueprint-binding-store.js";
 import {
   createTeacherFormalCourse,
   resolveTeacherFormalCourseBindingPreview,
@@ -49,7 +49,7 @@ export interface TeacherCourseBlueprintReadinessInput {
 
 export interface CreateTeacherCourseFromBlueprintInput extends TeacherCourseBlueprintReadinessInput {
   beforeCommit?: () => Promise<void>;
-  bindingStore: CourseBlueprintBindingStore;
+  bindingStore: CourseBlueprintBindingPort;
   course: Course;
   formalCourse: Omit<CreateTeacherFormalCourseInput, "course">;
 }
@@ -335,7 +335,7 @@ export async function createTeacherCourseFromBlueprint(
     course_id: input.course.course_id,
     tenant_id: input.course.tenant_id
   });
-  const pendingBinding = input.bindingStore.appendPending(binding);
+  const pendingBinding = await input.bindingStore.appendPending(binding);
 
   try {
     const created = await createTeacherFormalCourse({
@@ -343,7 +343,7 @@ export async function createTeacherCourseFromBlueprint(
       ...(input.beforeCommit ? { beforeCommit: input.beforeCommit } : {}),
       course: input.course
     });
-    input.bindingStore.commitPending(pendingBinding);
+    await input.bindingStore.commitPending(pendingBinding);
     return deepFreeze({
       binding_summary: { course_blueprint_reference: clone(binding.course_blueprint_reference) },
       course: clone(input.course),
@@ -352,7 +352,7 @@ export async function createTeacherCourseFromBlueprint(
     });
   } catch (error) {
     try {
-      input.bindingStore.removeUncommitted(pendingBinding);
+      await input.bindingStore.removeUncommitted(pendingBinding);
     } catch {
       throw new TeacherCourseBlueprintError("TEACHER_COURSE_BLUEPRINT_COMPENSATION_FAILED");
     }
