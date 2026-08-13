@@ -156,7 +156,6 @@ test.describe.serial("Product PR4 DesignSystemLab surface", () => {
     await page.goto(labUrl);
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
-      await page.mouse.move(0, 0);
       await waitForLabSettled(page, viewport);
 
       const firstUsableMs = await page.evaluate(() => {
@@ -357,6 +356,7 @@ test.describe.serial("Product PR4 DesignSystemLab surface", () => {
           firstUsableMs <= 2_000 && hashMs <= 100 && cls <= 0.1 ? "within_budget" : "over_budget"
       });
       expect(cls).toBeLessThanOrEqual(0.1);
+      await page.mouse.move(0, 0);
       await page.screenshot({
         path: resolve(
           evidenceRoot,
