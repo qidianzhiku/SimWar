@@ -31,8 +31,9 @@ const candidateRoot = resolve(candidateArg ?? join(evidenceRoot, "candidate"));
 const diffRoot = resolve(diffArg ?? join(evidenceRoot, "diff"));
 const outputPath = outputArg ?? join(evidenceRoot, "visual-manifest.json");
 const maxDiffPixelRatio = Number(valueFor("--max-diff-pixel-ratio", valueFor("--threshold", "0")));
-if (!Number.isFinite(maxDiffPixelRatio) || maxDiffPixelRatio < 0 || maxDiffPixelRatio > 1) {
-  throw new Error("--max-diff-pixel-ratio must be a finite number between 0 and 1.");
+const frozenGlobalThreshold = 0.01;
+if (!Number.isFinite(maxDiffPixelRatio) || maxDiffPixelRatio !== frozenGlobalThreshold) {
+  throw new Error(`--max-diff-pixel-ratio must equal the frozen ratio ${frozenGlobalThreshold}.`);
 }
 const frozenRoleThresholds = { student: 0.065 };
 const roleThresholds = {};

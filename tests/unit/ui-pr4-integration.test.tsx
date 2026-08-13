@@ -164,7 +164,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "0",
+        "0.01",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -194,7 +194,7 @@ describe("Product PR4 integration contracts", () => {
         }>;
       };
 
-      expect(manifest.threshold.max_diff_pixel_ratio).toBe(0);
+      expect(manifest.threshold.max_diff_pixel_ratio).toBe(0.01);
       expect(manifest.status).toBe("failed");
       expect(manifest.ready_for_review).toBe(false);
       expect(manifest.pixel_diff).toMatchObject({ status: "failed", compared_pairs: 1 });
@@ -246,7 +246,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "0",
+        "0.01",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -267,7 +267,7 @@ describe("Product PR4 integration contracts", () => {
       expect(manifest.pixel_diff).toMatchObject({
         status: "passed",
         compared_pairs: 1,
-        max_diff_pixel_ratio: 0
+        max_diff_pixel_ratio: 0.01
       });
       expect(manifest.surfaces[0]).toMatchObject({
         diff_path: null,
@@ -286,8 +286,21 @@ describe("Product PR4 integration contracts", () => {
       const diff = join(fixture, "diff");
       mkdirSync(baseline);
       mkdirSync(candidate);
-      writePng(join(baseline, "admin-ready-390x844.png"), blackPixelPng);
-      writePng(join(candidate, "admin-ready-390x844.png"), redPixelPng);
+      const { PNG } = playwrightRequire("playwright-core/lib/utilsBundle") as {
+        PNG: { sync: { write: (value: unknown) => Buffer } };
+      };
+      const baselineData = Buffer.alloc(10 * 10 * 4, 0);
+      const candidateData = Buffer.from(baselineData);
+      candidateData[0] = 255;
+      candidateData[3] = 255;
+      writeFileSync(
+        join(baseline, "admin-ready-390x844.png"),
+        PNG.sync.write({ width: 10, height: 10, data: baselineData })
+      );
+      writeFileSync(
+        join(candidate, "admin-ready-390x844.png"),
+        PNG.sync.write({ width: 10, height: 10, data: candidateData })
+      );
       const output = join(fixture, "manifest.json");
       const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
         cwd: root,
@@ -303,7 +316,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "1",
+        "0.01",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -450,7 +463,7 @@ describe("Product PR4 integration contracts", () => {
         encoding: "utf8"
       }).trim();
 
-      for (const invalidThreshold of ["NaN", "1.01"]) {
+      for (const invalidThreshold of ["NaN", "0", "1", "1.01"]) {
         const output = join(fixture, `manifest-${invalidThreshold}.json`);
         const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
           "--baseline",
@@ -525,7 +538,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "0",
+        "0.01",
         "--base-sha",
         "base-sha",
         "--head-sha",
@@ -804,7 +817,7 @@ describe("Product PR4 integration contracts", () => {
         "--output",
         output,
         "--max-diff-pixel-ratio",
-        "0",
+        "0.01",
         "--base-sha",
         "0000000000000000000000000000000000000000",
         "--head-sha",
