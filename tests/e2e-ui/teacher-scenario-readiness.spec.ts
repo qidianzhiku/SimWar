@@ -203,6 +203,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
   };
   const interceptedMutations: string[] = [];
   const serverRunCounts: number[] = [];
+  const roundIdByRunId = new Map<string, string>();
   let isolatedWorkspaceRunCreated = false;
   expect(interceptedMutations).toEqual([]);
   await test.info().attach("c1-isolation-identities.json", {
@@ -242,6 +243,11 @@ test("Teacher prepares a server-derived binding preview before creating a formal
         }
       ];
     }
+    for (const round of envelope.data.rounds) {
+      if (typeof round.run_id === "string" && typeof round.round_id === "string") {
+        roundIdByRunId.set(round.run_id, round.round_id);
+      }
+    }
     await route.fulfill({ response, json: envelope });
   });
   await page.route(/\/api\/v1\/courses\/course_demo\/runs$/, async (route) => {
@@ -276,52 +282,61 @@ test("Teacher prepares a server-derived binding preview before creating a formal
     /\/api\/v1\/bff\/teacher\/runs\/[^/]+\/rounds\/1\/workspace$/,
     async (route) => {
       interceptedMutations.push("workspace.read");
+      const workspacePath = new URL(route.request().url()).pathname;
+      const workspaceRunId =
+        workspacePath.match(/\/runs\/([^/]+)\/rounds\//)?.[1] ?? "run_demo";
+      const workspaceRoundId = roundIdByRunId.get(workspaceRunId) ?? ids.roundId;
       await route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            course_workspace: {
-              evidence_label: "TEACHER_PROJECTION_EVIDENCE",
-              visible_state: {
-                course_title: "M1 康养教学闭环课程",
-                run_status: "active"
-              }
-            },
-            round_control: {
-              status: "draft",
-              visible_state: {
-                decision_count: 0,
-                settlement_available: false,
-                team_count: 1
-              }
-            },
-            teacher_dashboard: {
-              allowed_actions: [],
-              evidence_label: "BFF_DTO_PRODUCTIZATION",
-              visible_state: {
-                course_status: "active",
-                round_status: "draft",
-                team_count: 1
-              }
-            },
-            teacher_replay_summary: {
-              formal_truth_write_allowed: false,
-              redacted_fields: [],
-              visible_state: {
-                result_count: 0,
-                runtime_boundary: "current_json_active_runtime"
-              }
-            },
-            team_monitor: {
-              teams: [],
-              visible_state: {
-                decision_count: 0,
-                team_count: 1
-              }
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          course_workspace: {
+            evidence_label: "TEACHER_PROJECTION_EVIDENCE",
+            visible_state: {
+              course_title: "M1 康养教学闭环课程",
+              run_status: "active"
+            }
+          },
+          round_control: {
+            tenant_id: "tenant_demo",
+            course_id: "course_demo",
+            run_id: workspaceRunId,
+            round_id: workspaceRoundId,
+            round_no: 1,
+            status: "draft",
+            visible_state: {
+              decision_count: 0,
+              settlement_available: false,
+              team_count: 1
+            }
+          },
+          teacher_dashboard: {
+            allowed_actions: [],
+            evidence_label: "BFF_DTO_PRODUCTIZATION",
+            visible_state: {
+              course_status: "active",
+              round_status: "draft",
+              team_count: 1
+            }
+          },
+          teacher_replay_summary: {
+            formal_truth_write_allowed: false,
+            redacted_fields: [],
+            visible_state: {
+              result_count: 0,
+              runtime_boundary: "current_json_active_runtime"
+            }
+          },
+          team_monitor: {
+            teams: [],
+            visible_state: {
+              decision_count: 0,
+              team_count: 1
             }
           }
-        })
-      });
+        }
+      })
+    });
     }
   );
   const catalogRequests: Array<{ headers: Record<string, string>; method: string }> = [];
@@ -396,14 +411,14 @@ test("Teacher prepares a server-derived binding preview before creating a formal
         data: {
           operation_id: "TEACHER_COURSE_BLUEPRINT_CATALOG_V1",
           candidates: [{
-            compatibility_constraints: { scenario_family: "wellness" },
-            content_digest_summary: "c".repeat(12),
+              compatibility_constraints: { scenario_family: "wellness" },
+              content_digest_summary: "c".repeat(12),
             course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) },
-            duration_minutes: 60,
-            objectives_summary: ["Run the course"],
-            phases_summary: [{ duration_minutes: 60, order: 1, title: "Briefing" }],
-            status: "APPROVED",
-            title: "Browser C1 Blueprint"
+              duration_minutes: 60,
+              objectives_summary: ["Run the course"],
+              phases_summary: [{ duration_minutes: 60, order: 1, title: "Briefing" }],
+              status: "APPROVED",
+              title: "Browser C1 Blueprint"
           }]
         }
       })
@@ -413,8 +428,8 @@ test("Teacher prepares a server-derived binding preview before creating a formal
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ data: {
-        operation_id: "TEACHER_COURSE_BLUEPRINT_READINESS_V1",
-        selection_status: "READY",
+          operation_id: "TEACHER_COURSE_BLUEPRINT_READINESS_V1",
+          selection_status: "READY",
         blueprint: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) }, title: "Browser C1 Blueprint", duration_minutes: 60, objectives_summary: ["Run the course"], phases_summary: [], compatibility_constraints: {}, content_digest_summary: "c".repeat(12), status: "APPROVED" },
         formal_course_binding: { engine_profile: { engine_id: "toy_logit_wellness_v1", model_version_ref: "toy_logit_wellness_v1@0.1.0", runtime_authority: "JSON_INTERNAL_ONLY", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, plugin_dependencies: [], scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: ids.scenarioId, version: "1.0.0", content_digest: "a".repeat(64) }, selection_status: "READY" }
       } })
@@ -426,7 +441,7 @@ test("Teacher prepares a server-derived binding preview before creating a formal
       contentType: "application/json",
       status: 201,
       body: JSON.stringify({ data: {
-        operation_id: "TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1",
+          operation_id: "TEACHER_COURSE_BLUEPRINT_COURSE_CREATE_V1",
         binding_summary: { course_blueprint_reference: { tenant_id: "tenant_demo", course_blueprint_id: ids.blueprintId, version: "1.0.0", content_digest: "c".repeat(64) } },
         formal_binding_summary: { engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" }, parameter_set_reference: { parameter_set_id: "parameter_formal_eldercare_shanghai", version: "1.0.0", content_digest: "b".repeat(64) }, scenario_package_reference: { tenant_id: "tenant_demo", scenario_package_id: ids.scenarioId, version: "1.0.0", content_digest: "a".repeat(64) } },
         course: { course_id: ids.courseId, created_by: "usr_teacher", parameter_set_id: "parameter_formal_eldercare_shanghai", scenario_package_id: ids.scenarioId, status: "draft", tenant_id: "tenant_demo", title: "Browser B5 Course" }

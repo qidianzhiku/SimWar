@@ -164,7 +164,8 @@ function teacherWorkspace(
   allowedActions: string[],
   runId = "run_teacher_test",
   roundId = "round_teacher_test",
-  resultRows: readonly unknown[] = []
+  resultRows: readonly unknown[] = [],
+  tenantId = "tenant_demo"
 ) {
   const evidence = "RUNTIME_ENTRYPOINT_EVIDENCE";
   const shared = {
@@ -177,7 +178,7 @@ function teacherWorkspace(
     redacted_fields: [],
     run_id: runId,
     source_runtime_path: ["/api/v1/bff/teacher"],
-    tenant_id: "tenant_demo"
+    tenant_id: tenantId
   };
   return {
     course_workspace: {
@@ -378,7 +379,13 @@ async function mockTeacherApi(
       await route.fulfill({
         json: {
           code: "OK",
-          data: teacherWorkspace([...runAllowedActions], runId, runRoundId, options.resultRows),
+          data: teacherWorkspace(
+            [...runAllowedActions],
+            runId,
+            runRoundId,
+            options.resultRows,
+            request.headers()["x-tenant-id"] ?? "tenant_demo"
+          ),
           message: "success"
         }
       });
