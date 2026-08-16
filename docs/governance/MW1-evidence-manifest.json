@@ -1,0 +1,61 @@
+{
+  "document_id": "MW1-EVIDENCE-MANIFEST",
+  "version": "1.0",
+  "date": "2026-08-16",
+  "source_sha": "a6eaa93afe6ce8f37d8dbedcead592998745dbcb",
+  "source_tree": "417c373eab6bd024b751b42703d5784ee3933c6f",
+  "hash_algorithm": "SHA-256",
+  "scope_note": "This manifest hashes committed Governance Closure documents and selected external evidence artifacts. The manifest intentionally does not self-hash.",
+  "committed_documents": [
+    {
+      "path": "docs/governance/MW1-GOV-00-CANONICAL-DECISION-ADMISSION-SAFETY-CLOSURE.md",
+      "sha256": "CDA57EE3E6499A289D35941969DEFB0B95EEAB7762B2D6BE59D8A1DA265D30F3",
+      "bytes": 9519
+    },
+    {
+      "path": "docs/governance/MW1-GRAPH-CONTRIBUTION-LEDGER.md",
+      "sha256": "05141D5FF626A709A97BADC67454FEF01C5D2B51DA502AAFF4DEBDDA7055453B",
+      "bytes": 3559
+    },
+    {
+      "path": "docs/governance/MW1-CELL-REVIEW-RECEIPTS.md",
+      "sha256": "FF65EE2A50BDA4ED55931FEA70705AB57286B48069AB61D421E8FDF08723CF51",
+      "bytes": 2726
+    },
+    {
+      "path": "docs/governance/MW1-register.json",
+      "sha256": "20E2CCD2B3B2CE04BAEECACA43690CF480EA37317DA3ED6E72F0360DD233365A",
+      "bytes": 1666
+    }
+  ],
+  "external_evidence": [
+    {
+      "path": "E-SIMWAR-MW1-20260816-072206/deliverables/MW1-00-Pre-Merge-Independent-Review-and-Gate.md",
+      "sha256": "812F7B20813AD4280A4C885312A60547EDD3627DFA5C8BC68E4F8EA0A781426D"
+    },
+    {
+      "path": "E-SIMWAR-MW1-20260816-072206/deliverables/MW1-M3-PX1-CA-01-Post-Merge-Execution-and-Verification.md",
+      "sha256": "73AAD082FF034664185E4A9530DF0F42B0C10649F71CF2F98AF947ECBC07A70A",
+      "bytes": 6892
+    },
+    {
+      "path": "E-SIMWAR-MW1-20260816-072206/graph/graphify-premerge/graphify-out/graph.json",
+      "sha256": "72A9F4106643A360FBD85BACFF455EFFE35625AF900FFD9A1BF9CCFEFE3EA8EE"
+    },
+    {
+      "path": "E-SIMWAR-MW1-20260816-072206/graph/graphify-postmerge/graphify-out/graph.json",
+      "sha256": "5E8F7EA7C0C3C850E7CBA10990174A7556826CCE218DD1BC7B8D5E2005DCCED5"
+    },
+    {
+      "path": "E-SIMWAR-MW1-20260816-072206/graph/codegraph-postmerge-source/.codegraph/codegraph.db",
+      "sha256": "A64B3445C4A143B395787EA52EC1F46E461AE80794BED1A389B00B21F24EAFBE"
+    }
+  ],
+  "product_merge": {
+    "pr": 379,
+    "merge_sha": "a6eaa93afe6ce8f37d8dbedcead592998745dbcb",
+    "candidate_head": "f385e9836877cf6b67d8972d2ab071d21c4ea5dd",
+    "patch_sha256": "575844b76412516a89326cd2d8a14aab1bbcf1ac2e6e65737a9d39432a7e56c2"
+  },
+  "automatic_next_start": false
+}
