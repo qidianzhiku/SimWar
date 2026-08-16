@@ -4,13 +4,12 @@ import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
-  Decision,
-  DecisionPayload,
   Round,
   Run,
   SettlementResult
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
+import { createFormalCanonicalDecision } from "./formal-canonical-admission-helper";
 import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
@@ -22,15 +21,6 @@ const PARAMETER_SET_ID = "parameter_b01_default_http";
 const PLUGIN_PACKAGE_ID = "plugin_wellness_v1";
 const SCENARIO_PACKAGE_ID = "scenario_b01_default_http";
 const VERSION = "1.0.0";
-
-const decisionPayload = {
-  capacity_plan: "expand",
-  cash_buffer_target: 0.16,
-  marketing_budget: 180000,
-  pricing: { base_price: 12800 },
-  service_quality_budget: 160000,
-  strategy_statement: "Use the persisted formal authority inputs through the full Golden chain."
-} as const satisfies DecisionPayload;
 
 interface ParameterVersion {
   reference: { content_digest: string; parameter_set_id: string; version: string };
@@ -322,15 +312,7 @@ describe("default persisted authority full Golden chain", () => {
           })
         ).status
       ).toBe(200);
-      expect(
-        (
-          await request<Decision>(baseUrl, `/api/v1/runs/${run.run_id}/rounds/1/decisions`, {
-            body: { decision_payload: decisionPayload, team_id: team.body.data.team_id },
-            method: "POST",
-            token: studentToken
-          })
-        ).status
-      ).toBe(201);
+      await createFormalCanonicalDecision(store, run.run_id, team.body.data.team_id, "usr_student");
       expect(
         (
           await request(baseUrl, `/api/v1/runs/${run.run_id}/rounds/1/lock`, {
@@ -342,7 +324,10 @@ describe("default persisted authority full Golden chain", () => {
       const settlement = await request<SettlementResult>(
         baseUrl,
         `/api/v1/runs/${run.run_id}/rounds/1/settle`,
-        { method: "POST", token: teacherToken }
+        {
+          method: "POST",
+          token: teacherToken
+        }
       );
       expect(settlement.status).toBe(200);
       expect(

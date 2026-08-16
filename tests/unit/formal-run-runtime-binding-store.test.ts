@@ -22,6 +22,7 @@ function createBinding(): FormalRunRuntimeBinding {
   return {
     binding_digest: digest("a"),
     binding_schema_version: "formal-run-runtime-binding.v1",
+    decision_admission_policy: "ROLE_WORKFLOW_REQUIRED",
     engine_reference: { engine_id: "toy_logit_wellness_v1", version: "1.0.0" },
     model_version_references: ["toy-logit@1.0.0"],
     parameter_set_reference: {

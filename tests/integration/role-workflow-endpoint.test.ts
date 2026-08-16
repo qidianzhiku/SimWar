@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
+  AuditLog,
+  FormalRunRuntimeBinding,
   Round,
   RoleDecisionSection,
   RoleId,
@@ -17,6 +19,7 @@ import type {
 import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { SYNTHETIC_JSON_INTERNAL_MARKER } from "../../services/api/src/synthetic-run-lifecycle";
 
 interface RequestOptions {
   body?: unknown;
@@ -73,6 +76,22 @@ function configureRoleWorkflowFixture(store: SimWarStore): void {
       tenant_id: course.tenant_id
     }
   ];
+  const creationAudit: AuditLog = {
+    action: "run.create",
+    actor_id: "usr_teacher",
+    actor_role: "teacher",
+    after: {
+      lifecycle_state: "ACTIVE",
+      synthetic_runtime_classification: SYNTHETIC_JSON_INTERNAL_MARKER
+    },
+    audit_id: "audit_run_role_workflow_create",
+    created_at: "2026-07-31T02:00:00.000Z",
+    request_id: "request_run_role_workflow_create",
+    resource_id: "run_role_workflow",
+    resource_type: "run",
+    tenant_id: course.tenant_id
+  };
+  store.auditLogs.push(creationAudit);
   const roleUsers = [
     ["role_ceo", "CEO"],
     ["role_cfo", "CFO"],
@@ -176,7 +195,109 @@ const scope = {
   team_id: "team_role_workflow"
 };
 
+function createPolicyBinding(
+  runId: string,
+  policy: "ROLE_WORKFLOW_REQUIRED" | "LEGACY_DIRECT_EXPLICIT"
+): FormalRunRuntimeBinding {
+  return {
+    binding_digest: "a".repeat(64),
+    binding_schema_version: "formal-run-runtime-binding.v1",
+    decision_admission_policy: policy,
+    engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+    model_version_references: ["toy_logit_wellness_v1@0.1.0"],
+    parameter_set_reference: {
+      content_digest: "b".repeat(64),
+      parameter_set_id: "parameters_demo",
+      version: "1.0.0"
+    },
+    plugin_release_references: [],
+    projection_schema_references: [
+      { schema_id: "ParameterSet", version: "parameter-set.v1" },
+      { schema_id: "ScenarioPackage", version: "scenario-package.v1" }
+    ],
+    run_id: runId,
+    scenario_package_reference: {
+      content_digest: "c".repeat(64),
+      scenario_package_id: "scenario_demo",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    },
+    seed: 314,
+    seed_policy: "EXACT_RUN_SEED",
+    tenant_id: "tenant_demo"
+  };
+}
+
 describe("Role Workflow HTTP boundary", () => {
+  it("blocks direct Decision submission for an explicitly formal run even before workflow records exist", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.auditLogs = [];
+    store.formalRunRuntimeBindings.push(
+      createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+    );
+    try {
+      const studentToken = await login(baseUrl, "role_ceo");
+      const response = await request<unknown>(
+        baseUrl,
+        `/api/v1/runs/${scope.run_id}/rounds/1/decisions`,
+        {
+          body: {
+            decision_payload: {
+              capacity_plan: "hold",
+              cash_buffer_target: 0.18,
+              marketing_budget: 145000,
+              pricing: { base_price: 12900 },
+              service_quality_budget: 122000,
+              strategy_statement: "Formal runs require role workflow admission."
+            },
+            team_id: scope.team_id
+          },
+          method: "POST",
+          token: studentToken
+        }
+      );
+
+      expect(response.status).toBe(409);
+      expect(response.body.code).toBe("ROLE_WORKFLOW_DIRECT_DECISION_DISABLED");
+      expect(store.decisions).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("fails closed when a run has neither a formal policy nor an explicit compatibility marker", async () => {
+    const { baseUrl, server, store } = await startServer();
+    store.auditLogs = [];
+    try {
+      const studentToken = await login(baseUrl, "role_ceo");
+      const response = await request<unknown>(
+        baseUrl,
+        `/api/v1/runs/${scope.run_id}/rounds/1/decisions`,
+        {
+          body: {
+            decision_payload: {
+              capacity_plan: "hold",
+              cash_buffer_target: 0.18,
+              marketing_budget: 145000,
+              pricing: { base_price: 12900 },
+              service_quality_budget: 122000,
+              strategy_statement: "Missing policy must never become legacy."
+            },
+            team_id: scope.team_id
+          },
+          method: "POST",
+          token: studentToken
+        }
+      );
+
+      expect(response.status).toBe(409);
+      expect(response.body.code).toBe("DECISION_ADMISSION_POLICY_REQUIRED");
+      expect(store.decisions).toEqual([]);
+    } finally {
+      await stopServer(server);
+    }
+  });
+
   it("makes the default golden team assignment-ready and preserves D2 fail-closed scope", async () => {
     const { baseUrl, server, store } = await startDefaultSeedServer();
     try {
@@ -404,7 +525,7 @@ describe("Role Workflow HTTP boundary", () => {
       expect(store.decisions).toHaveLength(1);
       expect(store.decisions[0]).toMatchObject({
         canonical_source: "role_merge_commit",
-        status: "validated",
+        status: "submitted",
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
 

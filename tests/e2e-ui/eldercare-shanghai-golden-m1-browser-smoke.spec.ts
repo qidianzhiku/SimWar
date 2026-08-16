@@ -40,7 +40,7 @@ const SOURCE_PARAMETER_ID = "eldercare_shanghai_browser_source_parameter";
 const SOURCE_SCENARIO_ID = "eldercare_shanghai_browser_source_scenario";
 const E4_PARTIAL_ONLY = "E4_PARTIAL_ONLY" as const;
 const E4_PARTIAL_ONLY_REASON =
-  "The generic Student shell is validated against the canonical demo-team path; a fresh formal Course team cannot be assigned to the seeded demo learner by the current UI contract, so this browser evidence does not claim a full formal Student run.";
+  "The generic Student shell is validated against the Shanghai formal Course surface; direct Decision POST is rejected by the server and Round Lock remains fail-closed until the required Role Workflow admission is complete. The positive role-workflow-to-settlement path is covered by API-integrated evidence because this browser journey does not provision four role users.";
 
 type Ref = {
   content_digest: string;
@@ -678,41 +678,28 @@ test("E4_PARTIAL_ONLY: renders approved Shanghai Eldercare Golden M1 on generic 
   await page.goto(studentBaseUrl);
   await signInStudentPage(page);
   await expect(page.getByRole("button", { name: "提交正式决策" })).toBeEnabled();
-  const studentDecisionRequest = page.waitForRequest(
+  const directDecisionResponse = page.waitForResponse(
     (candidate) =>
-      candidate.method() === "POST" &&
+      candidate.request().method() === "POST" &&
       new URL(candidate.url()).pathname === `/api/v1/runs/${demoRound.runId}/rounds/1/decisions`
   );
   await page.getByRole("button", { name: "提交正式决策" }).click();
-  await studentDecisionRequest;
+  const directDecision = await directDecisionResponse;
+  expect(directDecision.status()).toBe(409);
+  const directDecisionBody = (await directDecision.json()) as ApiEnvelope<unknown>;
+  expect(directDecisionBody.code).toBe("ROLE_WORKFLOW_DIRECT_DECISION_DISABLED");
   const submittedReceipt = page
     .getByRole("article", { name: "最终提交" })
     .getByText("正式决策已提交", { exact: true });
-  await expect(submittedReceipt).toHaveCount(1);
-  await expect(submittedReceipt).toBeVisible();
+  await expect(submittedReceipt).toHaveCount(0);
 
-  const settlement = await checkedApiRequest(
-    request,
-    `/api/v1/runs/${demoRound.runId}/rounds/1/lock`,
-    { body: {}, tenantId: TARGET_TENANT_ID, token: teacherToken },
-    200
-  );
-  expect(settlement).toBeDefined();
-  await checkedApiRequest(
-    request,
-    `/api/v1/runs/${demoRound.runId}/rounds/1/settle`,
-    { body: {}, tenantId: TARGET_TENANT_ID, token: teacherToken },
-    200
-  );
-  await checkedApiRequest(
-    request,
-    `/api/v1/runs/${demoRound.runId}/rounds/1/publish`,
-    { body: {}, tenantId: TARGET_TENANT_ID, token: teacherToken },
-    200
-  );
-  await page.reload();
-  await signInStudentPage(page);
-  await expect(page.getByText("published", { exact: true }).last()).toBeVisible();
+  const lock = await apiRequest(request, `/api/v1/runs/${demoRound.runId}/rounds/1/lock`, {
+    body: {},
+    tenantId: TARGET_TENANT_ID,
+    token: teacherToken
+  });
+  expect(lock.status).toBe(422);
+  expect(lock.body.code).toBe("DECISION_ADMISSION_ROLE_ROSTER_INVALID");
   const studentText = await page.locator("body").innerText();
   for (const marker of ["state_true", "replay_hash", sourceTenantId]) {
     expect(studentText.toLowerCase()).not.toContain(marker.toLowerCase());
@@ -727,8 +714,10 @@ test("E4_PARTIAL_ONLY: renders approved Shanghai Eldercare Golden M1 on generic 
           "POST /api/v1/auth/login",
           `POST /api/v1/runs/${demoRound.runId}/rounds/1/decisions`
         ],
+        direct_formal_decision_status: directDecision.status(),
         e4_status: E4_PARTIAL_ONLY,
         formal_course_package_status: seed.coursePackage.status,
+        lock_before_role_admission_status: lock.status,
         formal_title: seed.coursePackage.title,
         source_tenant_id_hidden_from_student: !studentText.includes(sourceTenantId),
         synthetic_labels: ELDERCARE_GOLDEN_M1_SYNTHETIC_LABELS,

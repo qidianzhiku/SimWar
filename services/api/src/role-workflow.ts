@@ -2,6 +2,7 @@ import {
   DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES,
   DEFAULT_STUDENT_ROLE_TEMPLATES,
   type Decision,
+  type DecisionAdmissionPolicy,
   type DecisionMergeCommit,
   type DecisionPayload,
   type DecisionPayloadFieldPath,
@@ -330,6 +331,7 @@ export class RoleWorkflowCommandService {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
     if (payloadFieldPaths(input.payload).some((field) => !policy.editable_fields.includes(field))) {
@@ -373,6 +375,7 @@ export class RoleWorkflowCommandService {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const current = this.latestSection(snapshot, assignment);
     if (!current) throw new RoleWorkflowError("ROLE_WORKFLOW_SECTION_NOT_FOUND");
@@ -422,6 +425,7 @@ export class RoleWorkflowCommandService {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
+    this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     if (!DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
@@ -471,6 +475,14 @@ export class RoleWorkflowCommandService {
     actor: RoleWorkflowActor,
     input: ConfirmTeamDecisionInput
   ): Promise<TeamConfirmation> {
+    const key = `${actor.tenant_id}:${input.run_id}:${input.team_id}:${input.round_id}`;
+    return this.withWorkflowLock(key, () => this.confirmTeamDecisionUnsafe(actor, input));
+  }
+
+  private async confirmTeamDecisionUnsafe(
+    actor: RoleWorkflowActor,
+    input: ConfirmTeamDecisionInput
+  ): Promise<TeamConfirmation> {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
@@ -492,6 +504,7 @@ export class RoleWorkflowCommandService {
       (candidate) => candidate.merge_commit_id === input.merge_commit_id
     );
     if (existing) return clone(existing);
+    this.assertPostConfirmationMutable(snapshot);
 
     const confirmation: TeamConfirmation = {
       confirmed_at: this.now(),
@@ -512,7 +525,7 @@ export class RoleWorkflowCommandService {
       round_id: input.round_id,
       round_no: snapshot.round!.round_no,
       run_id: input.run_id,
-      status: "validated",
+      status: "submitted",
       submitted_by: actor.actor_id,
       team_confirmation_id: confirmation.team_confirmation_id,
       team_id: input.team_id,
@@ -537,11 +550,18 @@ export class RoleWorkflowCommandService {
 
   async assertDirectDecisionSubmissionAllowed(
     actor: RoleWorkflowActor,
-    input: RoundWorkflowScope
+    input: RoundWorkflowScope,
+    decisionAdmissionPolicy?: DecisionAdmissionPolicy
   ): Promise<void> {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
     this.assertRoundScope(snapshot);
+    if (decisionAdmissionPolicy === undefined) {
+      throw new RoleWorkflowError("DECISION_ADMISSION_POLICY_REQUIRED");
+    }
+    if (decisionAdmissionPolicy !== "LEGACY_DIRECT_EXPLICIT") {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_DIRECT_DECISION_DISABLED");
+    }
     if (
       snapshot.assignments.length > 0 ||
       snapshot.confirmations.length > 0 ||
@@ -583,6 +603,28 @@ export class RoleWorkflowCommandService {
       ...(input.round_id ? { round_id: input.round_id } : {})
     };
     return this.repository.readRoleWorkflow(query);
+  }
+
+  private assertPostConfirmationMutable(snapshot: RoleWorkflowRepositorySnapshot): void {
+    if (snapshot.confirmations.some((confirmation) => confirmation.status === "confirmed")) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMED_IMMUTABLE");
+    }
+  }
+
+  private async withWorkflowLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.mergeLocks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.mergeLocks.set(key, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.mergeLocks.get(key) === current) this.mergeLocks.delete(key);
+    }
   }
 
   private assertScope(snapshot: RoleWorkflowRepositorySnapshot, courseId?: string): void {

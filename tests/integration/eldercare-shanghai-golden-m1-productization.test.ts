@@ -7,7 +7,6 @@ import type {
   ApiEnvelope,
   AuthSession,
   CoursePackageVersion,
-  Decision,
   SettlementResult,
   Tenant,
   TenantBaselineProvisioningResult,
@@ -15,6 +14,7 @@ import type {
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { createFormalCanonicalDecision } from "./formal-canonical-admission-helper";
 import {
   createEldercareGoldenM1BlueprintDraft,
   createEldercareGoldenM1CoursePackageDraft,
@@ -514,6 +514,7 @@ function deterministicResultDigest(settlement: SettlementResult): string {
 
 async function completeJourney(
   baseUrl: string,
+  store: SimWarStore,
   journey: TenantJourney,
   blueprint: BlueprintReference,
   scenario: ScenarioReference
@@ -568,28 +569,7 @@ async function completeJourney(
     { method: "POST", tenantId: journey.tenant.tenant_id, token: journey.teacherToken }
   );
   expect(startRound.status, JSON.stringify(startRound.body)).toBe(200);
-  const decision = await request<ApiEnvelope<Decision>>(
-    baseUrl,
-    `/api/v1/runs/${runId}/rounds/1/decisions`,
-    {
-      body: {
-        decision_payload: {
-          cash_buffer_target: 0.16,
-          capacity_plan: "expand",
-          marketing_budget: 180000,
-          pricing: { base_price: 12800 },
-          service_quality_budget: 160000,
-          strategy_statement: "Shanghai eldercare Golden M1 deterministic teaching decision."
-        },
-        decision_request_id: `eldercare-golden-${journey.tenant.tenant_id}`,
-        team_id: teamId
-      },
-      tenantId: journey.tenant.tenant_id,
-      token: journey.studentToken
-    }
-  );
-  expect(decision.status, JSON.stringify(decision.body)).toBe(201);
-  expect(decision.body.data.status).toBe("validated");
+  await createFormalCanonicalDecision(store, runId, teamId, journey.studentUserId);
   const lock = await request<ApiEnvelope<unknown>>(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {
     method: "POST",
     tenantId: journey.tenant.tenant_id,
@@ -946,6 +926,7 @@ describe("Shanghai Eldercare Golden M1 HTTP productization", () => {
         formalArtifacts.map(({ journey, baseline, artifacts }) =>
           completeJourney(
             baseUrl,
+            store,
             journey,
             artifacts.blueprint,
             baseline.scenario_package.reference

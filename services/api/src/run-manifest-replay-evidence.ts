@@ -26,6 +26,8 @@ const EVIDENCE_KIND = "m1_json_runtime_replay_evidence";
 
 export interface CreateM1RunReplayEvidenceInput {
   decisions: Decision[];
+  /** Exact set admitted by the formal lock/settlement path. */
+  canonical_decision_set?: Decision[];
   formal_runtime_binding?: {
     binding: FormalRunRuntimeBinding;
     formal_resolution_digest: string;
@@ -116,6 +118,13 @@ function latestDecisionForTeam(decisions: Decision[], teamId: string): Decision 
 }
 
 function selectReplayDecisionBatch(input: CreateM1RunReplayEvidenceInput): Decision[] {
+  if (input.canonical_decision_set !== undefined) {
+    return [...input.canonical_decision_set].sort(
+      (left, right) =>
+        left.team_id.localeCompare(right.team_id) ||
+        left.decision_id.localeCompare(right.decision_id)
+    );
+  }
   return input.teams.map((team) => latestDecisionForTeam(input.decisions, team.team_id));
 }
 

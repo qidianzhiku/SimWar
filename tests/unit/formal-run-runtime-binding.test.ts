@@ -205,6 +205,7 @@ describe("Formal Run RuntimeBinding", () => {
 
     expect(binding.binding_schema_version).toBe("formal-run-runtime-binding.v1");
     expect(binding.binding_digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(binding.decision_admission_policy).toBe("ROLE_WORKFLOW_REQUIRED");
     expect(binding.seed_policy).toBe("EXACT_RUN_SEED");
     expect(binding.parameter_set_reference).toEqual(harness.primaryParameterSet.reference);
     expect(binding.scenario_package_reference).toEqual(harness.primaryScenario.reference);

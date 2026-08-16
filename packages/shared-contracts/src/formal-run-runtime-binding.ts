@@ -16,6 +16,8 @@ export interface FormalRunProjectionSchemaReference {
   version: string;
 }
 
+export type DecisionAdmissionPolicy = "ROLE_WORKFLOW_REQUIRED" | "LEGACY_DIRECT_EXPLICIT";
+
 /**
  * Exact formal-authority inputs frozen for one Run. This is deliberately
  * separate from legacy ID-only Run fields so callers cannot mistake an ID
@@ -24,6 +26,12 @@ export interface FormalRunProjectionSchemaReference {
 export interface FormalRunRuntimeBinding {
   binding_digest: string;
   binding_schema_version: typeof FORMAL_RUN_RUNTIME_BINDING_SCHEMA_VERSION;
+  /**
+   * New bindings carry the immutable formal admission policy. It is optional
+   * only so historical v1 bindings remain readable; a missing value is
+   * UNKNOWN for new mutation and must never authorize Legacy admission.
+   */
+  decision_admission_policy?: DecisionAdmissionPolicy;
   engine_reference: Readonly<FormalRunEngineReference>;
   model_version_references: readonly string[];
   parameter_set_reference: Readonly<ParameterSetReference>;
