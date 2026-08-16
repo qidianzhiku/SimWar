@@ -1,0 +1,36 @@
+cycle_id: SIMWAR-MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY-20260816
+cycle_number: 026
+source_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
+source_sha_semantics: FRESH_PROTECTED_MASTER_BEFORE_PRODUCT_MUTATION
+product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
+product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+post_merge_master_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+primary_outcome: ROUND_SCOPED_TEACHER_CONTEXT_AND_COMMAND_INTEGRITY
+product_pr: 383
+product_pr_state: MERGED
+governance_pr: 384
+governance_merge_sha: null
+status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
+scope:
+  - exact tenant, run, round_id, and round_no Teacher context
+  - round-scoped start, lock, settle, and publish command paths
+  - exact BFF identity acceptance and fail-closed mismatch handling
+  - preservation of stale-response and server-authored action boundaries
+non_scope:
+  - backend round creation or selected-round server repair
+  - settlement, replay, canonical decision, publication, migration, or database authority
+  - DecisionTrace, BLP, Shanghai, Small Model, Multi-Agent, human validation, pilot, production
+evidence:
+  protected_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  full_npm_test: PASS_202_FILES_1291_TESTS
+  contract: PASS_20_FILES_48_TESTS
+  teacher_refoundation_browser: PASS_16_1_SKIPPED
+  teacher_scenario_readiness_browser: PASS_3
+  mw3_browser: PASS_1
+  merge_tree: 4ec0248a977c40ab118bbea9bdc5bcfb4cb174a8
+known_limits:
+  - current Teacher flow has no ordinary Round creation endpoint
+  - MW3 multi-round browser evidence uses a controlled Round 2 fixture
+  - full repository formatting has 53 pre-existing files outside this scope
+  - human validation, pilot, and production are unauthorized
+automatic_next_start: false
