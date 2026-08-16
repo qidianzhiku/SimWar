@@ -1,0 +1,43 @@
+{
+  "document_id": "MW2-GOV-00",
+  "mission_id": "SIMWAR-MW2-PX1-PG-01-PUBLICATION-GATE-SAFETY-V1.0",
+  "status": "DOCUMENTATION_ONLY_CLOSURE_CANDIDATE",
+  "authoring_source_sha": "563410a72294834f4f6199894a19a056047d3dcb",
+  "authoring_source_tree": "619284dc40d1f303e329be81fd89c813a966896f",
+  "product_pr": 381,
+  "product_merge": "563410a72294834f4f6199894a19a056047d3dcb",
+  "primary_outcome": "PX1-PG-01_PUBLICATION_GATE_SAFETY",
+  "governance_changed_files": [
+    "docs/governance/MW2-GOV-00-PX1-PG-01-PUBLICATION-GATE-SAFETY-CLOSURE.md",
+    "docs/governance/MW2-GOV-00-PX1-PG-01-PUBLICATION-GATE-SAFETY-REGISTER.json"
+  ],
+  "product_changed_file_count": 5,
+  "required_checks": {
+    "quality": "PASS",
+    "browser-smoke": "PASS",
+    "Analyze JavaScript and TypeScript": "PASS"
+  },
+  "publication_gate": {
+    "student_prepublication": "SAFE_METADATA_ONLY_OR_409_RESULT-409-001",
+    "student_postpublication": "EXISTING_ROLE_SAFE_RESULT",
+    "teacher_preview": "AUTHORIZED_INTERNAL_PREVIEW_RETAINED",
+    "formal_publication_writer": "EXISTING_ROUND_PUBLISH_COMMAND"
+  },
+  "limits": [
+    "SIMWAR_TEST_DATABASE_URL_MISSING",
+    "FRESH_DETACHED_HARNESS_LIMIT_2_TIMEOUTS",
+    "GRAPH_STALE_WITH_SOURCE_FALLBACK",
+    "INHERITED_FORMAT_AND_DEPENDENCY_DEBT",
+    "AUTOMATED_BROWSER_EVIDENCE_ONLY"
+  ],
+  "pr374": "STALE_BUT_PRESERVE_UNCHANGED",
+  "planning_carriers_mutated": false,
+  "new_publication_authority": false,
+  "product_pr_count": 1,
+  "recovery_pr_count": 0,
+  "governance_reclosure_count": 0,
+  "human_validation": "NOT_PERFORMED",
+  "pilot": "NOT_AUTHORIZED",
+  "production": "NOT_AUTHORIZED",
+  "automatic_next_start": false
+}
