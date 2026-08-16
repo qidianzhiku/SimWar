@@ -60,6 +60,7 @@ import {
   M1_CLASSROOM_DEBRIEF_PROMPTS,
   M1_JSON_RUNTIME_BOUNDARY,
   M1_JSON_RUNTIME_LIMITATIONS,
+  M1_STUDENT_RESULT_NOT_PUBLISHED_CODE,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   ROLE_PERMISSION_MATRIX,
   actorHasPermission,
@@ -3344,6 +3345,33 @@ async function createPublicResultView(
     ...(replayEvidence ? { replay_evidence: replayEvidence } : {}),
     results: visibleResults
   };
+}
+
+async function createStudentPublicResultView(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  roundNo: number
+): Promise<PublicResultView> {
+  const actor = requirePermission(context, "result:read");
+  const run = await getRunForRead(runtime, context, runId);
+  await assertActorCanReadRunResults(runtime, context, actor, run);
+  const round = await getRoundForRead(runtime, context, runId, roundNo);
+
+  if (round.status !== "published") {
+    return {
+      classroom_debrief_prompts: [],
+      result_label: M1_TEACHING_OFFICIAL_RESULT_LABEL,
+      results: [],
+      round_no: roundNo,
+      run_id: runId,
+      runtime_boundary: M1_JSON_RUNTIME_BOUNDARY,
+      runtime_limitations: [...M1_JSON_RUNTIME_LIMITATIONS],
+      status: round.status
+    };
+  }
+
+  return createPublicResultView(runtime, context, runId, roundNo);
 }
 
 function selectInstructorDebriefSettlement(
@@ -6724,7 +6752,14 @@ async function routeRequest(
       : undefined;
     const latestResult =
       latestRun && latestRound
-        ? await createPublicResultView(runtime, context, latestRun.run_id, latestRound.round_no)
+        ? canReadClassroomScope(actor)
+          ? await createPublicResultView(runtime, context, latestRun.run_id, latestRound.round_no)
+          : await createStudentPublicResultView(
+              runtime,
+              context,
+              latestRun.run_id,
+              latestRound.round_no
+            )
         : undefined;
     const canReadAdmin = actorHasPermission(actor, "user:read");
 
@@ -6755,7 +6790,9 @@ async function routeRequest(
             decision.tenant_id === context.tenantId &&
             (!visibleTeamIds || visibleTeamIds.has(decision.team_id))
         ),
-        ...(latestResult ? { latest_result: latestResult } : {}),
+        ...(latestResult && (canReadClassroomScope(actor) || latestResult.status === "published")
+          ? { latest_result: latestResult }
+          : {}),
         audit_logs: actorHasPermission(actor, "audit:read")
           ? (
               await filterAuditLogs(
@@ -6863,7 +6900,12 @@ async function routeRequest(
         createStudentBffCockpitDto({
           actor,
           course,
-          resultView: await createPublicResultView(runtime, context, run.run_id, round.round_no),
+          resultView: await createStudentPublicResultView(
+            runtime,
+            context,
+            run.run_id,
+            round.round_no
+          ),
           round,
           run,
           team
@@ -7537,14 +7579,18 @@ async function routeRequest(
       url.pathname,
       /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/results$/
     );
-    sendJson(
-      response,
-      200,
-      createEnvelope(
-        context,
-        await createPublicResultView(runtime, context, runId ?? "", Number(roundNoRaw))
-      )
-    );
+    const actor = requirePermission(context, "result:read");
+    const resultView = canReadClassroomScope(actor)
+      ? await createPublicResultView(runtime, context, runId ?? "", Number(roundNoRaw))
+      : await createStudentPublicResultView(runtime, context, runId ?? "", Number(roundNoRaw));
+    if (!canReadClassroomScope(actor) && resultView.status !== "published") {
+      throw new HttpError(
+        409,
+        M1_STUDENT_RESULT_NOT_PUBLISHED_CODE,
+        "student result is unavailable until the round is published"
+      );
+    }
+    sendJson(response, 200, createEnvelope(context, resultView));
     return;
   }
 

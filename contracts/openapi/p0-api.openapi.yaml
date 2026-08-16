@@ -1524,6 +1524,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorEnvelope"
+        "409":
+          description: Student result is unavailable until the round is published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace:
     get:
       summary: Read the Teacher-safe workspace projection.
