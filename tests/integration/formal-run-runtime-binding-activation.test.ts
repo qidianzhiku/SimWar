@@ -5,10 +5,9 @@ import type {
   ApiEnvelope,
   AuthSession,
   Course,
-  Decision,
-  DecisionPayload,
   FormalRunRuntimeBinding,
   PluginManifest,
+  RoleId,
   Round,
   Run,
   SettlementResult
@@ -24,20 +23,13 @@ import type { PluginReleaseVersion } from "../../services/api/src/plugin-release
 import type { ScenarioPackageVersion } from "../../services/api/src/scenario-package-authority";
 import { resolveFormalRuntimeInputsForActiveRun } from "../../services/api/src/formal-runtime-input-resolver";
 import { createM1RunReplayEvidence } from "../../services/api/src/run-manifest-replay-evidence";
+import { createJsonRepositoryPorts } from "../../services/api/src/json-repository-adapter";
+import { RoleWorkflowCommandService } from "../../services/api/src/role-workflow";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 const TENANT_ID = "tenant_demo";
 const digest = (character: string) => character.repeat(64);
-
-const decisionPayload = {
-  capacity_plan: "expand",
-  cash_buffer_target: 0.16,
-  marketing_budget: 180000,
-  pricing: { base_price: 12800 },
-  service_quality_budget: 160000,
-  strategy_statement: "Use the formally bound eldercare inputs."
-} as const satisfies DecisionPayload;
 
 function seedPersistedFormalAuthorities(store: SimWarStore): void {
   const parameterReference = {
@@ -315,6 +307,93 @@ async function login(baseUrl: string, username: string, password: string): Promi
   });
   expect(response.status).toBe(200);
   return response.body.data.access_token;
+}
+
+async function createFormalCanonicalDecision(
+  store: SimWarStore,
+  runId: string,
+  teamId = "team_alpha"
+): Promise<void> {
+  const run = store.runs.find((candidate) => candidate.run_id === runId);
+  const round = store.rounds.find(
+    (candidate) => candidate.run_id === runId && candidate.round_no === 1
+  );
+  const team = store.teams.find((candidate) => candidate.team_id === teamId);
+  if (!run || !round || !team) throw new Error("formal workflow fixture missing");
+
+  const roleMembers = [
+    ["usr_student", "CEO"],
+    [`${runId}_cfo`, "CFO"],
+    [`${runId}_cmo`, "CMO"],
+    [`${runId}_coo`, "COO"]
+  ] as const;
+  team.members = [
+    ...team.members.filter((member) => member.role_slot === "CEO"),
+    ...roleMembers.slice(1).map(([user_id, role_slot]) => ({
+      display_name: role_slot,
+      role_slot,
+      user_id
+    }))
+  ];
+  team.captain_user_id = "usr_student";
+
+  let id = 0;
+  const workflow = new RoleWorkflowCommandService(createJsonRepositoryPorts(store).roleWorkflow, {
+    createId: (kind) => `${kind}_${runId}_${++id}`,
+    now: () => "2026-08-16T05:00:00.000Z"
+  });
+  const teacher = {
+    actor_id: "usr_teacher",
+    actor_role: "teacher" as const,
+    tenant_id: run.tenant_id
+  };
+  const actors = new Map<string, { actor_id: string; actor_role: "student"; tenant_id: string }>([
+    ["CEO", { actor_id: "usr_student", actor_role: "student", tenant_id: run.tenant_id }],
+    ["CFO", { actor_id: `${runId}_cfo`, actor_role: "student", tenant_id: run.tenant_id }],
+    ["CMO", { actor_id: `${runId}_cmo`, actor_role: "student", tenant_id: run.tenant_id }],
+    ["COO", { actor_id: `${runId}_coo`, actor_role: "student", tenant_id: run.tenant_id }]
+  ]);
+  const payloads: Record<RoleId, Record<string, unknown>> = {
+    CEO: { strategy_statement: "Formal role workflow canonical plan." },
+    CFO: { cash_buffer_target: 0.16, service_quality_budget: 160000 },
+    CMO: { marketing_budget: 180000, pricing: { base_price: 12800 } },
+    COO: { capacity_plan: "expand" }
+  };
+  for (const [user_id, role_key] of roleMembers) {
+    await workflow.assignRole(teacher, {
+      course_id: run.course_id,
+      role_key: role_key as RoleId,
+      run_id: run.run_id,
+      team_id: team.team_id,
+      user_id
+    });
+    const actor = actors.get(role_key)!;
+    const section = await workflow.saveSection(actor, {
+      expected_version: 0,
+      payload: payloads[role_key as RoleId],
+      round_id: round.round_id,
+      run_id: run.run_id,
+      team_id: team.team_id
+    });
+    await workflow.markSectionReady(actor, {
+      expected_version: section.version,
+      round_id: round.round_id,
+      run_id: run.run_id,
+      team_id: team.team_id
+    });
+  }
+  const ceo = actors.get("CEO")!;
+  const merge = await workflow.createMergeCommit(ceo, {
+    round_id: round.round_id,
+    run_id: run.run_id,
+    team_id: team.team_id
+  });
+  await workflow.confirmTeamDecision(ceo, {
+    merge_commit_id: merge.merge_commit_id,
+    round_id: round.round_id,
+    run_id: run.run_id,
+    team_id: team.team_id
+  });
 }
 
 describe("formal Run RuntimeBinding activation", () => {
@@ -651,15 +730,7 @@ describe("formal Run RuntimeBinding activation", () => {
           })
         ).status
       ).toBe(200);
-      expect(
-        (
-          await request<Decision>(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
-            body: { decision_payload: decisionPayload, team_id: "team_alpha" },
-            method: "POST",
-            token: studentToken
-          })
-        ).status
-      ).toBe(201);
+      await createFormalCanonicalDecision(store, runId);
       expect(
         (
           await request<Round>(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {
@@ -769,7 +840,6 @@ describe("formal Run RuntimeBinding activation", () => {
         throw new Error("missing parity student");
       }
       student.team_id = createdTeamId;
-      const studentToken = await login(baseUrl, "student", "student");
       const createdRun = await request<{ run: Run }>(baseUrl, `/api/v1/courses/${courseId}/runs`, {
         body: { formal_runtime_seed: 20260729 },
         method: "POST",
@@ -785,15 +855,7 @@ describe("formal Run RuntimeBinding activation", () => {
           })
         ).status
       ).toBe(200);
-      expect(
-        (
-          await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
-            body: { decision_payload: decisionPayload, team_id: createdTeamId },
-            method: "POST",
-            token: studentToken
-          })
-        ).status
-      ).toBe(201);
+      await createFormalCanonicalDecision(store, runId, createdTeamId);
       expect(
         (
           await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {

@@ -15,6 +15,7 @@ import type {
   CoursePackageVersionReference,
   D2EvidenceCaptureInput,
   D2EvidenceQuery,
+  DecisionAdmissionPolicy,
   LearningGoalDraftInput,
   LearningGoalVersionReference,
   RubricDraftInput,
@@ -212,7 +213,16 @@ import {
 } from "./runtime-security-config.js";
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
 import type { FormalRunBindingAuthorityPorts } from "./formal-run-runtime-binding.js";
-import { FormalRunRuntimeBindingStore } from "./formal-run-runtime-binding-store.js";
+import {
+  FormalRunRuntimeBindingStore,
+  type FormalRunRuntimeBindingPort
+} from "./formal-run-runtime-binding-store.js";
+import {
+  CanonicalDecisionAdmissionError,
+  createCanonicalDecisionSetDigest,
+  resolveDecisionAdmissionPolicy,
+  resolveFormalCanonicalDecisionSet
+} from "./canonical-decision-admission.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
 import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
 import {
@@ -304,7 +314,7 @@ interface ApiRuntime {
   formalScenarioPackageCatalog: ScenarioPackageAuthorityReadFacade;
   tenantBaselineProvisioning: TenantBaselineProvisioningService;
   formalRunBindingAuthorities: FormalRunBindingAuthorityPorts;
-  formalRunRuntimeBindingStore: FormalRunRuntimeBindingStore;
+  formalRunRuntimeBindingStore: FormalRunRuntimeBindingPort;
   createCourseId(): string;
   store: SimWarStore;
   repositoryProvider: RepositoryProvider;
@@ -324,6 +334,7 @@ interface ApiRuntime {
 export interface CreateApiServerOptions {
   env?: RuntimeSecurityConfigEnv;
   formalRunBindingAuthorities?: FormalRunBindingAuthorityPorts;
+  formalRunRuntimeBindingStore?: FormalRunRuntimeBindingPort;
   formalScenarioPackageCatalog?: ScenarioPackageAuthorityReadFacade;
   formalAuthorityPersistence?: JsonFormalScenarioAuthorityPersistence;
   coursePackageRegistry?: CoursePackageRegistryPort;
@@ -569,7 +580,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
   const formalCourseAuthorityBindingStore = new FormalCourseAuthorityBindingStore(store);
-  const formalRunRuntimeBindingStore = new FormalRunRuntimeBindingStore(store);
+  const formalRunRuntimeBindingStore =
+    options.formalRunRuntimeBindingStore ??
+    options.validationEnvironmentLaunchBindings?.formalRunRuntimeBindingStore ??
+    new FormalRunRuntimeBindingStore(store);
   const coursePackageQueries = new CoursePackageQueryService(coursePackageRegistry);
   const validationEnvironmentLaunch = options.validationEnvironmentLaunchLedger
     ? new ValidationEnvironmentLaunchService(options.validationEnvironmentLaunchLedger)
@@ -782,6 +796,27 @@ async function submitDecisionWithRunLock(
   }
 }
 
+async function resolveRunDecisionAdmissionPolicy(
+  runtime: ApiRuntime,
+  tenantId: string,
+  runId: string
+): Promise<{
+  authority: "formal_run_runtime_binding" | "synthetic_run_creation_marker" | "missing";
+  policy: DecisionAdmissionPolicy | null;
+}> {
+  const [binding, runCreationAudits] = await Promise.all([
+    runtime.formalRunRuntimeBindingStore.getForRun(tenantId, runId),
+    runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+      action: "run.create",
+      resource_id: runId,
+      resource_type: "run",
+      scope: "tenant",
+      tenant_id: tenantId
+    })
+  ]);
+  return resolveDecisionAdmissionPolicy({ binding, runCreationAudits });
+}
+
 async function submitDecision(
   runtime: ApiRuntime,
   context: RequestContext,
@@ -819,6 +854,16 @@ async function submitDecision(
     throw new HttpError(403, "TEAM-403-001", "learners can only submit for their own team");
   }
 
+  const admission = await resolveRunDecisionAdmissionPolicy(runtime, context.tenantId, run.run_id);
+  if (!admission.policy) {
+    throw new HttpError(
+      409,
+      "DECISION_ADMISSION_POLICY_REQUIRED",
+      "Decision admission policy is unavailable for this Run"
+    );
+  }
+  const decisionAdmissionPolicy = admission.policy;
+
   await executeRoleWorkflow(() =>
     runtime.roleWorkflow.assertDirectDecisionSubmissionAllowed(
       roleWorkflowActor(context, "student"),
@@ -826,7 +871,8 @@ async function submitDecision(
         round_id: round.round_id,
         run_id: run.run_id,
         team_id: team.team_id
-      }
+      },
+      decisionAdmissionPolicy
     )
   );
 
@@ -923,12 +969,54 @@ async function lockRound(
     return round;
   }
   assertRoundStatus(round, "open", "ROUND-409-003");
+  const admission = await resolveRunDecisionAdmissionPolicy(runtime, context.tenantId, run.run_id);
+  if (!admission.policy) {
+    throw new HttpError(
+      409,
+      "DECISION_ADMISSION_POLICY_REQUIRED",
+      "Decision admission policy is unavailable for this Run"
+    );
+  }
+
+  let admissionDigest: string | undefined;
+  if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+    const teams = await runtime.repositoryProvider.facade.teams.listTeamsForRun(
+      context.tenantId,
+      run.run_id
+    );
+    if (teams.length === 0) {
+      throw new HttpError(422, "DECISION_ADMISSION_ROLE_ROSTER_INVALID", "no participating teams");
+    }
+    try {
+      const admitted = await Promise.all(
+        teams.map((team) =>
+          resolveFormalCanonicalDecisionSet({
+            roleWorkflow: runtime.repositoryProvider.ports.roleWorkflow,
+            round,
+            run,
+            team,
+            tenantId: context.tenantId
+          })
+        )
+      );
+      admissionDigest = createCanonicalDecisionSetDigest(
+        admitted.flatMap((candidate) => candidate.decisions)
+      );
+    } catch (error) {
+      if (error instanceof CanonicalDecisionAdmissionError) {
+        throw new HttpError(422, error.code, error.message);
+      }
+      throw error;
+    }
+  }
   const before = clonePublic(round);
 
   const lockedRound: Round = {
     ...round,
     status: "locked",
-    decision_batch_id: `batch_${run.run_id}_${round.round_no}`
+    decision_batch_id: admissionDigest
+      ? `batch_${run.run_id}_${round.round_no}_${admissionDigest}`
+      : `batch_${run.run_id}_${round.round_no}`
   };
 
   await runtime.repositoryProvider.facade.rounds.saveRound(lockedRound);
@@ -3059,8 +3147,39 @@ async function createPublicReplayEvidenceView(
     return undefined;
   }
 
+  let canonicalDecisionSet: Decision[] | undefined;
+  const admission = await resolveRunDecisionAdmissionPolicy(runtime, context.tenantId, run.run_id);
+  if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+    try {
+      const admitted = await Promise.all(
+        teams.map((team) =>
+          resolveFormalCanonicalDecisionSet({
+            roleWorkflow: runtime.repositoryProvider.ports.roleWorkflow,
+            round,
+            run,
+            team,
+            tenantId: context.tenantId
+          })
+        )
+      );
+      canonicalDecisionSet = admitted
+        .flatMap((candidate) => candidate.decisions)
+        .sort(
+          (left, right) =>
+            left.team_id.localeCompare(right.team_id) ||
+            left.decision_id.localeCompare(right.decision_id)
+        );
+    } catch (error) {
+      if (error instanceof CanonicalDecisionAdmissionError) {
+        throw new HttpError(422, error.code, error.message);
+      }
+      throw error;
+    }
+  }
+
   return createM1RunReplayEvidence({
     decisions,
+    ...(canonicalDecisionSet ? { canonical_decision_set: canonicalDecisionSet } : {}),
     ...(runtimeInputs.formalRuntimeBinding
       ? { formal_runtime_binding: runtimeInputs.formalRuntimeBinding }
       : {}),
@@ -3079,13 +3198,13 @@ async function resolveRunRuntimeInputs(
   run: Run
 ): Promise<{
   formalRuntimeBinding?: {
-    binding: NonNullable<ReturnType<FormalRunRuntimeBindingStore["getForRun"]>>;
+    binding: NonNullable<Awaited<ReturnType<FormalRunRuntimeBindingPort["getForRun"]>>>;
     formal_resolution_digest: string;
   };
   parameterSet: ParameterSet;
   scenario: ScenarioPackage;
 } | null> {
-  const binding = runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
+  const binding = await runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
 
   if (binding) {
     if (!runtime.formalRunBindingAuthorities) {
@@ -7477,8 +7596,20 @@ async function runSettlement(
       throw new HttpError(409, "ROUND-409-004", "round must be locked before settlement");
     }
 
-    const [runtimeInputs, teams, roundDecisions] = await Promise.all([
-      resolveRunRuntimeInputs(runtime, context.tenantId, run),
+    const admission = await resolveRunDecisionAdmissionPolicy(
+      runtime,
+      context.tenantId,
+      run.run_id
+    );
+    if (!admission.policy) {
+      throw new HttpError(
+        409,
+        "DECISION_ADMISSION_POLICY_REQUIRED",
+        "Decision admission policy is unavailable for this Run"
+      );
+    }
+
+    const [teams, roundDecisions] = await Promise.all([
       runtime.repositoryProvider.facade.teams.listTeamsForRun(context.tenantId, run.run_id),
       runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
         context.tenantId,
@@ -7486,14 +7617,60 @@ async function runSettlement(
         round.round_id
       )
     ]);
-    const latestDecisions = teams.map((team) => {
-      const versions = roundDecisions.filter(
-        (decision) => decision.round_no === round.round_no && decision.team_id === team.team_id
-      );
-      return versions.at(-1);
-    });
 
-    if (!runtimeInputs || latestDecisions.some((decision) => !decision)) {
+    let selectedDecisions: Decision[];
+    if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+      try {
+        const admitted = await Promise.all(
+          teams.map((team) =>
+            resolveFormalCanonicalDecisionSet({
+              roleWorkflow: runtime.repositoryProvider.ports.roleWorkflow,
+              round,
+              run,
+              team,
+              tenantId: context.tenantId
+            })
+          )
+        );
+        selectedDecisions = admitted
+          .flatMap((candidate) => candidate.decisions)
+          .sort(
+            (left, right) =>
+              left.team_id.localeCompare(right.team_id) ||
+              left.decision_id.localeCompare(right.decision_id)
+          );
+        const admissionDigest = createCanonicalDecisionSetDigest(selectedDecisions);
+        const expectedBatchId = `batch_${run.run_id}_${round.round_no}_${admissionDigest}`;
+        if (round.decision_batch_id !== expectedBatchId) {
+          throw new HttpError(
+            409,
+            "SETTLE-409-003",
+            "round admission identity does not match the canonical Decision set"
+          );
+        }
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        if (error instanceof CanonicalDecisionAdmissionError) {
+          throw new HttpError(422, error.code, error.message);
+        }
+        throw error;
+      }
+    } else {
+      selectedDecisions = teams.flatMap((team) => {
+        const versions = roundDecisions
+          .filter(
+            (decision) => decision.round_no === round.round_no && decision.team_id === team.team_id
+          )
+          .sort(
+            (left, right) =>
+              left.version - right.version || left.decision_id.localeCompare(right.decision_id)
+          );
+        const decision = versions.at(-1);
+        return decision ? [decision] : [];
+      });
+    }
+
+    if (selectedDecisions.length !== teams.length) {
       throw new HttpError(
         422,
         "SETTLE-422-001",
@@ -7514,6 +7691,23 @@ async function runSettlement(
           settlement.run_id === run.run_id &&
           settlement.round_no === round.round_no
       ) ?? null;
+
+    if (round.status === "published" && existingSettlement) {
+      return {
+        settlement: existingSettlement,
+        committed: false,
+        responseSemantics: "reused"
+      };
+    }
+
+    const runtimeInputs = await resolveRunRuntimeInputs(runtime, context.tenantId, run);
+    if (!runtimeInputs) {
+      throw new HttpError(
+        422,
+        "SETTLE-422-001",
+        "scenario, parameter set and team decisions are required"
+      );
+    }
     const outcome = prepareSettlementOutcome(
       {
         run,
@@ -7521,9 +7715,7 @@ async function runSettlement(
         scenario: runtimeInputs.scenario,
         parameterSet: runtimeInputs.parameterSet,
         teams,
-        decisions: latestDecisions.filter((decision): decision is NonNullable<typeof decision> =>
-          Boolean(decision)
-        )
+        decisions: selectedDecisions
       },
       {
         createSettlementResultId: () =>
@@ -7662,6 +7854,8 @@ if (isMainModule) {
         ? {
             repositoryProvider: postgresRuntime.provider,
             formalAuthorityPersistence: postgresRuntime.formalAuthorityPersistence,
+            formalRunRuntimeBindingStore:
+              postgresRuntime.validationEnvironmentLaunchBindings.formalRunRuntimeBindingStore,
             coursePackageRegistry: postgresRuntime.formalAuthorityPersistence.coursePackageRegistry,
             validationEnvironmentLaunchBindings:
               postgresRuntime.validationEnvironmentLaunchBindings,

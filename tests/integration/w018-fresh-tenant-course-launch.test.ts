@@ -10,6 +10,7 @@ import type {
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { createFormalCanonicalDecision } from "./formal-canonical-admission-helper";
 
 type Ref = {
   content_digest: string;
@@ -302,6 +303,7 @@ async function availableCoursePackage(
 
 async function completeTenantJourney(
   baseUrl: string,
+  store: SimWarStore,
   tenant: Tenant,
   teacherToken: string,
   studentToken: string,
@@ -361,23 +363,7 @@ async function completeTenantJourney(
       })
     ).status
   ).toBe(200);
-  const decision = await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/decisions`, {
-    body: {
-      decision_payload: {
-        cash_buffer_target: 0.16,
-        capacity_plan: "expand",
-        marketing_budget: 180000,
-        pricing: { base_price: 12800 },
-        service_quality_budget: 160000,
-        strategy_statement: `W018 decision for ${tenant.tenant_id}`
-      },
-      decision_request_id: `w018-${tenant.tenant_id}-decision`,
-      team_id: team.body.data.team_id
-    },
-    tenantId: tenant.tenant_id,
-    token: studentToken
-  });
-  expect(decision.status, JSON.stringify(decision.body)).toBe(201);
+  await createFormalCanonicalDecision(store, runId, team.body.data.team_id, studentUserId);
   expect(
     (
       await request(baseUrl, `/api/v1/runs/${runId}/rounds/1/lock`, {
@@ -446,7 +432,7 @@ async function completeTenantJourney(
 
 describe("W018 fresh tenant CoursePackage to Debrief journey", () => {
   it("keeps two tenant launches exact, isolated, settled, published, and exportable", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, server, store } = await startServer();
     try {
       const platformToken = await login(baseUrl, "platform", "platform", "tenant_platform");
       const sourceTenant = await createTenant(baseUrl, platformToken, "w018-source");
@@ -572,6 +558,7 @@ describe("W018 fresh tenant CoursePackage to Debrief journey", () => {
         journeys.push(
           await completeTenantJourney(
             baseUrl,
+            store,
             tenant,
             teacherToken,
             studentToken,

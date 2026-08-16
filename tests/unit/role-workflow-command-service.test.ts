@@ -236,11 +236,15 @@ describe("RoleWorkflowCommandService", () => {
       expect(candidateStore.studentRoleAssignments, testCase.name).toEqual([]);
       expect(candidateStore.roleWorkflowEvents, testCase.name).toEqual([]);
       await expect(
-        candidateService.assertDirectDecisionSubmissionAllowed(studentCeo, {
-          round_id: "round_c3_1",
-          run_id: "run_c3",
-          team_id: "team_c3"
-        })
+        candidateService.assertDirectDecisionSubmissionAllowed(
+          studentCeo,
+          {
+            round_id: "round_c3_1",
+            run_id: "run_c3",
+            team_id: "team_c3"
+          },
+          "LEGACY_DIRECT_EXPLICIT"
+        )
       ).resolves.not.toThrow();
     }
   });
@@ -481,11 +485,36 @@ describe("RoleWorkflowCommandService", () => {
     expect(store.decisions.at(-1)).toMatchObject({
       canonical_source: "role_merge_commit",
       merge_commit_id: firstMerge.merge_commit_id,
-      status: "validated",
+      status: "submitted",
       team_confirmation_id: firstConfirmation.team_confirmation_id,
       version: 2
     });
     expect(store.settlementResults).toEqual(settlementBefore);
+
+    await expect(
+      service.saveSection(studentCeo, {
+        expected_version: 2,
+        payload: { strategy_statement: "A post-confirmation revision must be rejected." },
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_CONFIRMED_IMMUTABLE" }));
+    await expect(
+      service.markSectionReady(studentCeo, {
+        expected_version: 2,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_CONFIRMED_IMMUTABLE" }));
+    await expect(
+      service.createMergeCommit(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_CONFIRMED_IMMUTABLE" }));
   });
 
   it("rejects a stale merge after reset creates a new assignment generation", async () => {
@@ -524,11 +553,15 @@ describe("RoleWorkflowCommandService", () => {
 
   it("disables the direct Decision writer while an active role workflow exists", async () => {
     await expect(
-      service.assertDirectDecisionSubmissionAllowed(studentCeo, {
-        round_id: "round_c3_1",
-        run_id: "run_c3",
-        team_id: "team_c3"
-      })
+      service.assertDirectDecisionSubmissionAllowed(
+        studentCeo,
+        {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        },
+        "LEGACY_DIRECT_EXPLICIT"
+      )
     ).resolves.not.toThrow();
     await service.assignRole(teacher, {
       course_id: "course_c3",
@@ -539,11 +572,15 @@ describe("RoleWorkflowCommandService", () => {
     });
 
     await expect(
-      service.assertDirectDecisionSubmissionAllowed(studentCeo, {
-        round_id: "round_c3_1",
-        run_id: "run_c3",
-        team_id: "team_c3"
-      })
+      service.assertDirectDecisionSubmissionAllowed(
+        studentCeo,
+        {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        },
+        "LEGACY_DIRECT_EXPLICIT"
+      )
     ).rejects.toThrowError(
       expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" })
     );
@@ -555,11 +592,15 @@ describe("RoleWorkflowCommandService", () => {
     });
 
     await expect(
-      service.assertDirectDecisionSubmissionAllowed(studentCeo, {
-        round_id: "round_c3_1",
-        run_id: "run_c3",
-        team_id: "team_c3"
-      })
+      service.assertDirectDecisionSubmissionAllowed(
+        studentCeo,
+        {
+          round_id: "round_c3_1",
+          run_id: "run_c3",
+          team_id: "team_c3"
+        },
+        "LEGACY_DIRECT_EXPLICIT"
+      )
     ).rejects.toThrowError(
       expect.objectContaining({ code: "ROLE_WORKFLOW_DIRECT_DECISION_DISABLED" })
     );

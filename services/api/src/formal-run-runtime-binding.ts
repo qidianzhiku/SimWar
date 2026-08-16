@@ -244,6 +244,14 @@ function assertBindingShape(binding: FormalRunRuntimeBinding): void {
     throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_INVALID");
   }
 
+  if (
+    binding.decision_admission_policy !== undefined &&
+    binding.decision_admission_policy !== "ROLE_WORKFLOW_REQUIRED" &&
+    binding.decision_admission_policy !== "LEGACY_DIRECT_EXPLICIT"
+  ) {
+    throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_INVALID");
+  }
+
   for (const pluginReference of binding.plugin_release_references) {
     try {
       createPluginReleaseReference(pluginReference);
@@ -265,7 +273,7 @@ function assertBindingShape(binding: FormalRunRuntimeBinding): void {
     throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_INVALID");
   }
 
-  const expectedDigest = createBindingDigest({
+  const digestInput: Omit<FormalRunRuntimeBinding, "binding_digest"> = {
     binding_schema_version: binding.binding_schema_version,
     engine_reference: binding.engine_reference,
     model_version_references: binding.model_version_references,
@@ -277,7 +285,11 @@ function assertBindingShape(binding: FormalRunRuntimeBinding): void {
     seed: binding.seed,
     seed_policy: binding.seed_policy,
     tenant_id: binding.tenant_id
-  });
+  };
+  if (binding.decision_admission_policy !== undefined) {
+    digestInput.decision_admission_policy = binding.decision_admission_policy;
+  }
+  const expectedDigest = createBindingDigest(digestInput);
 
   if (expectedDigest !== binding.binding_digest) {
     throw new FormalRunRuntimeBindingError("FORMAL_RUN_BINDING_DIGEST_MISMATCH");
@@ -297,6 +309,7 @@ function createBindingFromAuthorityRecords(input: {
   const scenarioPackageReference = createScenarioPackageReference(input.scenario_package.reference);
   const bindingWithoutDigest = {
     binding_schema_version: FORMAL_RUN_RUNTIME_BINDING_SCHEMA_VERSION,
+    decision_admission_policy: "ROLE_WORKFLOW_REQUIRED" as const,
     engine_reference: clone(input.engine_reference),
     model_version_references: [input.parameter_set.model_version_ref],
     parameter_set_reference: parameterSetReference,
