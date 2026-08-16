@@ -1,16 +1,16 @@
-portfolio_version: 13
+portfolio_version: 14
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-13T19:20:00Z"
+generated_at: "2026-08-16T18:12:00Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 59bad25e093f99d81256511060194be865f057d7
-product_evidence_source_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
-current_master_at_readback: 59bad25e093f99d81256511060194be865f057d7
+assessment_source_anchor_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
+product_evidence_source_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
+current_master_at_readback: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
 governance_closure_merge_sha: null
-portfolio_current_master_lag: GOVERNANCE_PR_378_PENDING
+portfolio_current_master_lag: GOVERNANCE_PR_MW3_PENDING
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: UI_FRONTEND_EXPERIENCE_REFOUNDATION_PRODUCT_COMPLETE_GOVERNANCE_PENDING
+l1_plus_status: MW3_PRODUCT_COMPLETE_GOVERNANCE_PENDING
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -18,14 +18,14 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-UI-FRONTEND-EXPERIENCE-REFOUNDATION
-    capability_id: UI-FRONTEND-EXPERIENCE-REFOUNDATION
+    candidate_id: CAND-MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY
+    capability_id: MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY
     status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-    product_prs: [373, 375, 376, 377]
-    product_candidate_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
-    product_merge_sha: 59bad25e093f99d81256511060194be865f057d7
-    primary_outcome: SIMWAR_FRONTEND_EXPERIENCE_REFOUNDATION_COMPLETE_WITH_LIMITS
-    scope: Shared UI foundation and bounded Admin, Teacher, Student, Enterprise projection, accessibility, responsive, visual, and performance closure without authority drift.
+    product_prs: [383]
+    product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
+    product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+    primary_outcome: ROUND_SCOPED_TEACHER_CONTEXT_AND_COMMAND_INTEGRITY
+    scope: Exact Teacher run and round context selection plus exact start, lock, settle, and publish command targeting without backend authority drift.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -35,8 +35,8 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: PENDING_PR_378
-    governance_pr: 378
+    status: PENDING_MW3_GOVERNANCE_PR
+    governance_pr: 384
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -60,66 +60,51 @@ closed_capabilities:
     product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
     runtime_authority: BOUNDED_VALIDATION_ENVIRONMENT_ONLY
   - capability_id: UI-FRONTEND-EXPERIENCE-REFOUNDATION
-    status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
     product_prs: [373, 375, 376, 377]
-    product_merge_sha: 59bad25e093f99d81256511060194be865f057d7
+    product_merge_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
     runtime_authority: UNCHANGED
 resource_locks:
   status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
   released:
-    - UI_PR1_FOUNDATION
-    - UI_PR2_ADMIN_TEACHER
-    - UI_PR3_STUDENT_ENTERPRISE
-    - UI_PR4_INTEGRATION_GATES
-    - UI_PRODUCT_SERIAL_BROWSER
+    - MW3_P0_TEACHER_ROUND_CONTEXT
+    - MW3_V1_SERIAL_BROWSER_VALIDATION
+    - MW3_PRODUCT_PR_383
   pending:
-    - UI_GOVERNANCE_CLOSURE_PR_378
+    - MW3_GOVERNANCE_CLOSURE_PR
 candidate_backlog:
-  - candidate_id: CAND-UI-A-HUMAN-USABILITY-VALIDATION
-    status: RECOMMENDED_NOT_AUTHORIZED
-    reason: Requires a new real participant session, consent, and separate authorization.
-  - candidate_id: CAND-UI-NEXT-MISSION
-    status: NOT_AUTHORIZED
-    reason: The macro-wave closure sets automatic_next_start to false.
+  - candidate_id: MW3-NEXT-STRUCTURED-STUDENT-DECISION-TRACE
+    status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
+    reason: External next-candidate package only; no automatic successor start is authorized.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/377
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/378
-  product_candidate_sha: 8be563795fe8152981a99b3e1f6d8283bcb4ab34
-  product_merge_sha: 59bad25e093f99d81256511060194be865f057d7
-  product_remote_run: 31727399201
-  fresh_clone: C:/Users/Marshall/AppData/Local/Temp/SimWar-ui-fresh-20260814T015724
-  fresh_clone_status: CLEAN_DETACHED_PRODUCT_TREE
-  fresh_clone_unit: PASS_198_FILES_1273_TESTS_WITH_LOCAL_TIMEOUT_LIMIT
-  fresh_clone_contract: PASS_20_FILES_48_TESTS
-  fresh_clone_browser: PASS_WITH_BOUNDED_RETRY
-  fresh_clone_role_workflow: PASS_1
-  fresh_clone_pr4: PASS_4_AFTER_COLD_START_RETRY
-  fresh_clone_visual: PASS_20_OF_20_ZERO_FAILURES
-  visual_manifest_sha256: f3c19d71d83895cc954a733b4a3a7a1c36882c71084cd24a85d4db1e88f55951
-  base_capture_receipt_sha256: ab2ed4f35a32506d9e83c7cbb0bf8d106c05a44f95c51f8f188dccd4aaf8a1aa
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/383
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/384
+  product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
+  product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+  product_merge_tree: 4ec0248a977c40ab118bbea9bdc5bcfb4cb174a8
+  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750/sources/post-product-master
+  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  route_coverage: PASS_34_OF_34_CURRENT_LOGICAL_DESTINATIONS
-  page_inventory: PASS_39_CLASSIFIED_ROWS
-  state_classification: PASS_480_OF_480_CLASSIFIED_458_APPLICABLE
-  visual: PASS_20_OF_20_GLOBAL_0_01_STUDENT_0_065
-  runtime: PASS_12_PRODUCT_4_LAB
-  accessibility: PASS_WITH_EXACT_W020_KNOWN_LIMIT
-  direct_store: PASS_NEW_0_STALE_0_DUPLICATE_0_BROAD_0_AMBIGUOUS_0
-  challenge_review_blocking: 0_AFTER_REMEDIATION
+  product_pr_state: MERGED_383
+  current_master: EXACT_7EE5107
+  route_context: PASS_EXACT_ROUND_ID_AND_ROUND_NO
+  command_paths: PASS_START_LOCK_SETTLE_PUBLISH_ROUND_SCOPED
+  stale_response_guard: PASS_PRESERVED
+  mw1_canonical_regression: PASS
+  mw2_publication_regression: PASS
+  browser: PASS_MW3_1_TEACHER_REFOUNDATION_16_SCENARIO_READINESS_3
+  security: PASS_AT_CRITICAL_THRESHOLD_WITH_INHERITED_ADVISORIES
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
-  figma: CODE_FIRST_FALLBACK_STARTER_PLAN_LIMIT
-  enterprise: ADMIN_READ_ONLY_LOGICAL_PROJECTION
-  state_matrix: CLASSIFICATION_COMPLETE_NOT_UNIVERSAL_RUNTIME_OBSERVATION
-  teacher_advisory_aria: ISSUE_365_W020_OWNED
-  local_default_vitest: WINDOWS_5_SECOND_TIMEOUT_FLAKE_REMOTE_DEFAULT_CI_GREEN
-  local_postgres_replay: TEST_DATABASE_URL_NOT_CONFIGURED_REMOTE_GATE_GREEN
-  repository_format: 52_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  round_creation: NO_ORDINARY_ROUND_CREATION_ENDPOINT_IN_CURRENT_TEACHER_FLOW
+  browser_multi_round: CONTROLLED_ROUND_2_FIXTURE
+  backend_round_selection: OUT_OF_SCOPE_EXISTING_SERVER_PATH
+  repository_format: 53_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
-valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_OR_VISUAL_THRESHOLD_CHANGE
+valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_OR_ROUND_CONTEXT_CHANGE
 automatic_next_start: false
