@@ -76,6 +76,13 @@ import {
   TeacherPermissionDenied,
   type TeacherWorkspaceLoadState
 } from "./TeacherCourseWorkspace";
+import {
+  getTeacherRoundCommandPath,
+  getTeacherRoundStatusLabel,
+  getTeacherRunRounds,
+  isTeacherRoundWorkspaceForContext,
+  selectTeacherRound
+} from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const knownLimits = getKnownLimitsProjection("teacher");
@@ -441,7 +448,8 @@ function selectInitialCourseId(state: P0DemoState): string | null {
 }
 
 function getRunRound(state: P0DemoState, runId: string): Round | undefined {
-  return state.rounds.find((round) => round.run_id === runId);
+  const run = state.runs.find((candidate) => candidate.run_id === runId);
+  return selectTeacherRound(getTeacherRunRounds(state.rounds, runId, run?.tenant_id));
 }
 
 function selectVisibleRun(
@@ -471,6 +479,7 @@ export function App() {
   const [workspaceLoadState, setWorkspaceLoadState] = useState<TeacherWorkspaceLoadState>("idle");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -560,6 +569,7 @@ export function App() {
     roundId: ""
   });
   const selectedRunIdRef = useRef<string | null>(null);
+  const selectedRoundIdRef = useRef<string | null>(null);
   const selectedCourseIdRef = useRef<string | null>(null);
 
   function buildTeacherSessionIdentity(
@@ -646,12 +656,13 @@ export function App() {
 
   const courseRuns = state ? getCourseRuns(state, selectedCourseId) : [];
   const latestRun = courseRuns.at(-1);
-  const latestRound = latestRun
-    ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
-    : undefined;
-  const selectedRun = state ? selectVisibleRun(state, selectedRunId) : undefined;
+  const latestRound = latestRun ? getRunRound(state!, latestRun.run_id) : undefined;
+  const selectedRun = state ? selectVisibleRun(state, selectedRunId, selectedCourseId) : undefined;
   const selectedRound = selectedRun
-    ? state?.rounds.find((round) => round.run_id === selectedRun.run_id)
+    ? selectTeacherRound(
+        getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined),
+        selectedRoundId
+      )
     : undefined;
   const latestResult = state?.latest_result;
   const selectedResult = latestResult?.run_id === selectedRun?.run_id ? latestResult : undefined;
@@ -682,18 +693,26 @@ export function App() {
 
     return state.decisions.some(
       (decision) =>
-        decision.run_id === selectedRun.run_id && decision.round_no === selectedRound.round_no
+        decision.run_id === selectedRun.run_id &&
+        decision.round_id === selectedRound.round_id &&
+        decision.round_no === selectedRound.round_no
     );
   }, [selectedRun, selectedRound, state]);
 
   const refresh = useCallback(
-    async (preferredRunId?: string | null) => {
+    async (preferredRunId?: string | null, preferredRoundId?: string | null) => {
       if (!session) {
         return;
       }
 
       const requestedRunId =
         preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
+      const requestedRoundId =
+        preferredRoundId !== undefined
+          ? (preferredRoundId ?? "")
+          : preferredRunId === undefined || requestedRunId === (selectedRunIdRef.current ?? "")
+            ? (selectedRoundIdRef.current ?? "")
+            : "";
       if (preferredRunId !== undefined && requestedRunId !== (selectedRunIdRef.current ?? "")) {
         invalidateTeacherContext(login, requestedRunId, session);
       }
@@ -705,7 +724,7 @@ export function App() {
         sessionId: session.user.user_id,
         tenantId: login.tenantId,
         runId: requestedRunId,
-        roundId: ""
+        roundId: requestedRoundId
       };
       workspaceRequestIdentityRef.current = requestIdentity;
       setWorkspace(null);
@@ -732,7 +751,10 @@ export function App() {
         nextCourseId
       );
       const nextRound = nextRun
-        ? nextState.rounds.find((round) => round.run_id === nextRun.run_id)
+        ? selectTeacherRound(
+            getTeacherRunRounds(nextState.rounds, nextRun.run_id, login.tenantId || undefined),
+            requestedRoundId || null
+          )
         : undefined;
       const resolvedIdentity: TeacherWorkspaceRequestIdentity = {
         ...requestIdentity,
@@ -761,6 +783,8 @@ export function App() {
       setSelectedCourseId(nextCourseId);
       selectedRunIdRef.current = nextRun?.run_id ?? null;
       setSelectedRunId(nextRun?.run_id ?? null);
+      selectedRoundIdRef.current = nextRound?.round_id ?? null;
+      setSelectedRoundId(nextRound?.round_id ?? null);
       setWorkspace(null);
 
       if (!nextRun || !nextRound) {
@@ -781,6 +805,17 @@ export function App() {
           })
         ) {
           return;
+        }
+        if (
+          !isTeacherRoundWorkspaceForContext(nextWorkspace, {
+            tenantId: login.tenantId,
+            courseId: nextRun.course_id,
+            runId: nextRun.run_id,
+            roundId: nextRound.round_id,
+            roundNo: nextRound.round_no
+          })
+        ) {
+          throw new Error("TEACHER-ROUND-CONTEXT-409: BFF Round identity mismatch");
         }
         setWorkspace(nextWorkspace);
         setWorkspaceLoadState("ready");
@@ -1585,6 +1620,11 @@ export function App() {
       return;
     }
 
+    if (selectedRun && !selectedRound) {
+      setNotice("当前选择的回合上下文不可用，正式操作已关闭");
+      return;
+    }
+
     const requiredAction = getTeacherRoundAction(selectedRound?.status);
     if (
       requiredAction &&
@@ -1617,10 +1657,13 @@ export function App() {
         await createCourseRun(requestIdentity);
         return;
       } else if (selectedRound?.status === "draft") {
-        await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/start`, {
-          ...auth,
-          method: "POST"
-        });
+        await apiRequest(
+          getTeacherRoundCommandPath(selectedRun.run_id, selectedRound.round_no, "round:start"),
+          {
+            ...auth,
+            method: "POST"
+          }
+        );
         if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("round opened");
       } else if (selectedRound?.status === "open") {
@@ -1628,32 +1671,39 @@ export function App() {
           if (!isCurrentTeacherContext(requestIdentity)) return;
           setNotice("waiting for learner decision");
         } else {
-          await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/lock`, {
-            ...auth,
-            method: "POST"
-          });
+          await apiRequest(
+            getTeacherRoundCommandPath(selectedRun.run_id, selectedRound.round_no, "round:lock"),
+            {
+              ...auth,
+              method: "POST"
+            }
+          );
           if (!isCurrentTeacherContext(requestIdentity)) return;
           setNotice("round locked");
         }
       } else if (selectedRound?.status === "locked") {
-        await apiRequest<SettlementResult>(`/api/v1/runs/${selectedRun.run_id}/rounds/1/settle`, {
-          ...auth,
-          method: "POST"
-        });
+        await apiRequest<SettlementResult>(
+          getTeacherRoundCommandPath(
+            selectedRun.run_id,
+            selectedRound.round_no,
+            "settlement:settle"
+          ),
+          { ...auth, method: "POST" }
+        );
         if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("settlement completed");
       } else if (selectedRound?.status === "settled") {
-        await apiRequest(`/api/v1/runs/${selectedRun.run_id}/rounds/1/publish`, {
-          ...auth,
-          method: "POST"
-        });
+        await apiRequest(
+          getTeacherRoundCommandPath(selectedRun.run_id, selectedRound.round_no, "round:publish"),
+          { ...auth, method: "POST" }
+        );
         if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("result published");
       }
 
       if (!isCurrentTeacherContext(requestIdentity)) return;
       setBusy(false);
-      await refresh(selectedRun.run_id);
+      await refresh(selectedRun.run_id, selectedRound?.round_id ?? null);
     } catch (error) {
       if (isCurrentTeacherContext(requestIdentity)) {
         setNotice(error instanceof Error ? error.message : "action failed");
@@ -1707,7 +1757,12 @@ export function App() {
     ["身份", session?.user.display_name ?? "anonymous"],
     ["课程", courseWorkspace?.visible_state.course_title ?? state?.courses[0]?.title ?? "加载中"],
     ["队伍", `${teacherDashboard?.visible_state.team_count ?? state?.teams.length ?? 0}`],
-    ["回合", roundControl?.status ?? selectedRound?.status ?? "尚未创建"],
+    [
+      "回合",
+      selectedRound
+        ? `第 ${selectedRound.round_no} 轮 · ${getTeacherRoundStatusLabel(selectedRound.status)}`
+        : "尚未创建"
+    ],
     [
       "决策",
       roundControl?.visible_state.decision_count ? "已校验" : hasDecision ? "已校验" : "等待提交"
@@ -1853,15 +1908,59 @@ export function App() {
                   value={selectedRun?.run_id ?? ""}
                 >
                   {courseRuns.map((run) => {
-                    const round = state?.rounds.find(
-                      (candidate) => candidate.run_id === run.run_id
-                    );
+                    const round = state ? getRunRound(state, run.run_id) : undefined;
                     return (
                       <option key={run.run_id} value={run.run_id}>
-                        {run.run_id} · {round?.status ?? run.status}
+                        {run.run_id} ·{" "}
+                        {round ? getTeacherRoundStatusLabel(round.status) : run.status}
                       </option>
                     );
                   })}
+                </select>
+              </label>
+            ) : null}
+            {selectedRun && state ? (
+              <label className="round-selector">
+                <span>当前回合</span>
+                <select
+                  aria-label="round selector"
+                  disabled={busy || !session}
+                  value={selectedRound?.round_id ?? ""}
+                  onChange={(event) => {
+                    const requestedRoundId = event.target.value;
+                    const refreshPromise = refresh(selectedRun.run_id, requestedRoundId);
+                    const selectionIdentity = workspaceRequestIdentityRef.current;
+                    const selectionContextIdentity = teacherSessionIdentityRef.current;
+                    void refreshPromise.catch((error: unknown) => {
+                      const currentWorkspace = workspaceRequestIdentityRef.current;
+                      const sameSelection =
+                        currentWorkspace.epoch === selectionIdentity.epoch &&
+                        currentWorkspace.sessionId === selectionIdentity.sessionId &&
+                        currentWorkspace.tenantId === selectionIdentity.tenantId &&
+                        currentWorkspace.runId === selectedRun.run_id &&
+                        currentWorkspace.roundId === requestedRoundId;
+                      if (
+                        sameSelection &&
+                        isCurrentTeacherSessionContext(selectionContextIdentity)
+                      ) {
+                        setNotice(
+                          getTeacherNoticeLabel(
+                            error instanceof Error ? error.message : "round selection failed"
+                          )
+                        );
+                      }
+                    });
+                  }}
+                >
+                  {getTeacherRunRounds(
+                    state.rounds,
+                    selectedRun.run_id,
+                    login.tenantId || undefined
+                  ).map((round) => (
+                    <option key={round.round_id} value={round.round_id}>
+                      第 {round.round_no} 轮 · {getTeacherRoundStatusLabel(round.status)}
+                    </option>
+                  ))}
                 </select>
               </label>
             ) : null}
@@ -2892,11 +2991,15 @@ export function App() {
           <div className="status-grid">
             <div>
               <span>回合</span>
-              <strong>{roundControl?.round_no}</strong>
+              <strong>
+                {roundControl?.round_no ? `第 ${roundControl.round_no} 轮` : "未选择"}
+              </strong>
             </div>
             <div>
               <span>状态</span>
-              <strong>{roundControl?.status}</strong>
+              <strong>
+                {roundControl?.status ? getTeacherRoundStatusLabel(roundControl.status) : "未加载"}
+              </strong>
             </div>
             <div>
               <span>结算</span>
