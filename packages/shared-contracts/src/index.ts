@@ -891,6 +891,8 @@ export interface SettlementResult {
 export const M1_TEACHING_OFFICIAL_RESULT_LABEL =
   "M1 Teaching-Official Result under Current JSON Active Runtime";
 
+export const M1_STUDENT_RESULT_NOT_PUBLISHED_CODE = "RESULT-409-001";
+
 export const M1_JSON_RUNTIME_BOUNDARY = "current_json_active_runtime";
 
 export const M1_JSON_RUNTIME_LIMITATIONS = [
