@@ -1,21 +1,21 @@
-cycle_id: SIMWAR-MW4-FORMAL-MULTI-ROUND-LIFECYCLE-CONTINUATION-20260816
+cycle_id: SIMWAR-MW5-STRUCTURED-STUDENT-DECISION-TRACE-20260816
 stage: L1_PLUS
 status: GOVERNANCE_CLOSURE_PENDING_WITH_DECLARED_LIMITS
 started_at: "2026-08-16T09:52:01-07:00"
-product_closed_at: "2026-08-17T02:04:39Z"
-governance_updated_at: "2026-08-17T02:04:39Z"
+product_closed_at: "2026-08-17T04:04:55Z"
+governance_updated_at: "2026-08-17T04:09:42Z"
 repository: qidianzhiku/SimWar
-source_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
-assessment_source_anchor_sha: 7fe4df1a1944fdb07474a42e85c3a5735ace20d6
-product_evidence_source_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
-product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+source_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
+assessment_source_anchor_sha: d28ea600ac9eaeed1f2950779dbda3b8aa965035
+product_evidence_source_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
+product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
 product_prs:
-  - 385
-product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
-governance_pr: 386
+  - 387
+product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
+governance_pr: 388
 governance_closure_merge_sha: null
-governance_closure_readback: PENDING_UNTIL_MW3_GOVERNANCE_MERGES
-current_master_at_readback: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+governance_closure_readback: PENDING_UNTIL_MW5_GOVERNANCE_MERGES
+current_master_at_readback: 30dac8b60603bab63aa1682061cd6917d24d772d
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
@@ -26,60 +26,61 @@ predecessor:
   governance_pr: 378
   merge_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
   completed_product_baseline: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-primary_outcome: FORMAL_MULTI_ROUND_LIFECYCLE_CONTINUATION
+primary_outcome: STRUCTURED_STUDENT_DECISION_TRACE_READ_ONLY_PROJECTION
 scope:
-  - server-authoritative continuation of a published predecessor into a deterministic successor draft
-  - exact tenant, run, predecessor round, and successor round identity
-  - idempotent retry and audit receipt semantics under the existing per-run mutation lock
-  - Teacher and Student round-context projection for the created successor
+  - server-authoritative Student DecisionTrace read projection for the exact tenant, run, round, team, and role scope
+  - safe milestones for assignment, own contribution draft/ready, visible team merge, team confirmation, and CEO-only canonical submission
+  - closed-object contract and OpenAPI route with private payload, actor, outcome, replay, and learning exclusion
+  - non-blocking Student surface with stale-response and invalid-shape fail-closed handling
   - no settlement, replay truth, migration, general PostgreSQL, RLS, or automatic successor mutation
 validation:
   github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
-  product_pr: PASS_MERGED_383
-  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_7EE5107_TREE_4EC0248
-  full_npm_test: PASS_PRODUCT_BRANCH_204_FILES_1298_TESTS_WITH_DETACHED_BASELINE_LIMIT
-  contract: PASS_20_FILES_48_TESTS
+  product_pr: PASS_MERGED_387
+  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_30DAC8B_TREE_6ED1805
+  focused_backend: PASS_24_TESTS
+  focused_student_ui: PASS_12_TESTS
+  full_npm_test: KNOWN_LIMIT_6_UNRELATED_BASELINE_OR_CONCURRENCY_FAILURES_204_FILES_1302_TESTS
+  contract: PASS_20_FILES_49_TESTS
   typecheck: PASS
   build: PASS
   lint: PASS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
-  mw4_lifecycle_integration: PASS_FOCUSED_AND_FULL_BROWSER_AFTER_SCOPED_RECOVERY
+  decision_trace_integration: PASS_LOCAL_REAL_BROWSER_AND_CI_BROWSER_SMOKE
   postgres_replay: BLOCKED_ENVIRONMENT_SIMWAR_TEST_DATABASE_URL_ABSENT
   security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  repository_format: KNOWN_LIMIT_54_EXISTING_FILES
+  repository_format: KNOWN_LIMIT_56_EXISTING_FILES_CHANGED_SCOPE_PASS
   graph: SOURCE_READBACK_CODEGRAPH_EXTERNAL_BASELINE_GRAPHIFY_INCOMPLETE
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/385
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/386
-  product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
-  product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
-  product_merge_tree: 3f975206e48457da68b4310779fb3b43c233842b
-  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401/sources/postmerge-422bb78eac6d1f267976f4c63d57ca7e7d755139
-  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/387
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/388
+  product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
+  product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
+  product_merge_tree: 6ed1805681d844980c45a2e7aa9ebc6218ee0da4
+  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347/sources/post-product-master-30dac8b60603bab63aa1682061cd6917d24d772d
+  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347
 resource_locks:
   status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
   released:
-    - MW4_FORMAL_MULTI_ROUND_LIFECYCLE_CONTINUATION
-    - MW4_V1_SERIAL_BROWSER_VALIDATION
-    - MW4_PRODUCT_PR_385
+    - MW5_STRUCTURED_STUDENT_DECISION_TRACE
+    - MW5_V1_SERIAL_BROWSER_VALIDATION
+    - MW5_PRODUCT_PR_387
   pending:
-    - MW4_GOVERNANCE_CLOSURE_PR
+    - MW5_GOVERNANCE_CLOSURE_PR
 candidate_backlog:
-  - candidate_id: MW3-NEXT-STRUCTURED-STUDENT-DECISION-TRACE
+  - candidate_id: MW5-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
     reason: Candidate package is external evidence only; no automatic successor is authorized.
 known_limits:
-  round_creation: CURRENT_TEACHER_FLOW_HAS_NO_ORDINARY_ROUND_CREATION_ENDPOINT
-  browser_multi_round: CONTROLLED_ROUND_2_FIXTURE_USED_FOR_MULTI_ROUND_ACCEPTANCE
-  backend_round_selection: EXISTING_SERVER_PATH_REMAINS_UNCHANGED_AND_OUT_OF_SCOPE
-  full_format: 53_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  decision_trace_modeling: PRIVATE_JUDGMENT_ROLE_POSITION_DIVERGENCE_RESOLUTION_DISSENT_NOT_SEPARATELY_MODELED
+  outcome_boundary: OUTCOME_REPLAY_LEARNING_EVIDENCE_EXCLUDED
+  full_format: 56_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - This cycle does not authorize publication repair, DecisionTrace implementation, BLP, Shanghai, Small Model, Multi-Agent, migration, general PostgreSQL, RLS, human validation, pilot, or production.
-  - The controlled Round 2 browser fixture proves continuation command targeting and BFF integration, not an unrestricted round factory.
+  - This cycle does not authorize publication repair, selectedRound repair, DecisionTrace domain expansion beyond the read-only V1 projection, BLP, Shanghai, Small Model, Multi-Agent, migration, general PostgreSQL, RLS, human validation, pilot, or production.
+  - The DecisionTrace projection proves safe process visibility, not private judgment semantics, teaching effectiveness, official outcome truth, or learning evidence.
   - Product checks and local tests do not prove teaching effectiveness or human usability.
   - No successor starts automatically.
 invalidation_triggers:
