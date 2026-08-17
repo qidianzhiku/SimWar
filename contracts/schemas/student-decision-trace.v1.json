@@ -39,7 +39,11 @@
               "ROLE_CONTRIBUTION_READY",
               "TEAM_MERGE_MILESTONE",
               "TEAM_CONFIRMED",
-              "CANONICAL_DECISION_MILESTONE"
+              "CANONICAL_DECISION_MILESTONE",
+              "DIVERGENCE_REVEALED",
+              "RESOLUTION_PROPOSED",
+              "RESOLUTION_ACKNOWLEDGED",
+              "DISSENT_PRESERVED"
             ]
           },
           "status": { "const": "completed" },
@@ -57,7 +61,11 @@
         "ROLE_CONTRIBUTION_READY",
         "TEAM_MERGE_MILESTONE",
         "TEAM_CONFIRMED",
-        "CANONICAL_DECISION_MILESTONE"
+        "CANONICAL_DECISION_MILESTONE",
+        "DIVERGENCE_REVEALED",
+        "RESOLUTION_PROPOSED",
+        "RESOLUTION_ACKNOWLEDGED",
+        "DISSENT_PRESERVED"
       ]
     },
     "trace_completeness": { "enum": ["empty", "partial", "complete"] },

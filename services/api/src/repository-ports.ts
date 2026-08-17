@@ -14,6 +14,8 @@ import type {
   Round,
   RoleDecisionSection,
   RoleWorkflowEvent,
+  ResolutionAcknowledgement,
+  TeamResolution,
   Run,
   ScenarioPackage,
   SettlementResult,
@@ -314,6 +316,8 @@ export interface RoleWorkflowRepositorySnapshot {
   confirmations: TeamConfirmation[];
   decisions: Decision[];
   events: RoleWorkflowEvent[];
+  resolutions: TeamResolution[];
+  acknowledgements: ResolutionAcknowledgement[];
 }
 
 export type RoleWorkflowCommitCommand =
@@ -336,6 +340,16 @@ export type RoleWorkflowCommitCommand =
       kind: "append_confirmation";
       confirmation: TeamConfirmation;
       decision: Decision;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "append_resolution";
+      resolution: TeamResolution;
+      event: RoleWorkflowEvent;
+    }
+  | {
+      kind: "append_acknowledgement";
+      acknowledgement: ResolutionAcknowledgement;
       event: RoleWorkflowEvent;
     }
   | {

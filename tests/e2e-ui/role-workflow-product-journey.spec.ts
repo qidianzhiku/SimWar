@@ -92,6 +92,13 @@ async function installRoleWorkflowBrowserFixture(page: Page): Promise<void> {
           history: [],
           known_limits: ["JSON_INTERNAL_ONLY"],
           merge_commits: [],
+          divergence_summary: {
+            acknowledged_role_keys: [],
+            divergence_count: 0,
+            required_role_keys: assigned ? ["CEO"] : [],
+            resolved_count: 0,
+            status: "NOT_READY"
+          },
           round_id: "round_browser",
           run_id: "run_browser",
           schema_version: "teacher-role-workflow-workspace.v1",
@@ -395,7 +402,7 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
       await studentWorkflow.getByLabel("角色营销预算").fill("145000");
     } else {
       await studentWorkflow.getByLabel("角色产能计划").selectOption("hold");
-      await studentWorkflow.getByLabel("角色服务质量预算").fill("122000");
+      await studentWorkflow.getByLabel("角色服务质量预算").fill("123000");
     }
     await studentWorkflow.getByRole("button", { name: "保存角色草稿" }).click();
     await expect(studentWorkflow.getByText("draft · v1")).toBeVisible();
@@ -403,14 +410,14 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     await expect(studentWorkflow.getByText("ready · v2")).toBeVisible();
 
     if (role === "CEO") {
-      await studentWorkflow.getByRole("button", { name: "创建团队合并" }).click();
-      await expect(studentWorkflow.getByText("validated")).toBeVisible();
-      await studentWorkflow.getByRole("button", { name: "确认团队决策" }).click();
-      await expect(studentWorkflow.getByText("confirmed")).toBeVisible();
-      await expect(studentWorkflow.getByLabel("决策历程").getByRole("status")).toHaveText(
-        "正式决策已提交"
-      );
-      await expect(page.getByRole("button", { name: "提交正式决策" })).toBeDisabled();
+      await expect(studentWorkflow.getByRole("heading", { name: "待解决分歧" })).toBeVisible();
+      await studentWorkflow
+        .getByLabel("选择团队值 service_quality_budget")
+        .selectOption({ index: 2 });
+      await studentWorkflow.getByRole("button", { name: "提出团队解决方案" }).click();
+      await expect(studentWorkflow.getByText("已提出方案", { exact: true })).toBeVisible();
+      await studentWorkflow.getByRole("button", { name: "确认解决方案" }).click();
+      await expect(studentWorkflow.getByText("本角色已记录：ACKNOWLEDGED")).toBeVisible();
     } else {
       await expect(studentWorkflow.getByText("validated")).toHaveCount(0);
     }
@@ -426,6 +433,34 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
       expect(studentText).not.toContain(marker);
     }
   }
+
+  for (const [username, role] of [fixtureUsers[1], fixtureUsers[2], fixtureUsers[3]] as const) {
+    await page.goto(studentBaseUrl);
+    await signIn(page, "student", username);
+    const studentWorkflow = page.getByLabel("Student role workflow");
+    await expect(studentWorkflow.getByText("已提出方案", { exact: true })).toBeVisible();
+    if (role === "CFO") {
+      await studentWorkflow.getByLabel("异议说明").fill("保留本角色对服务质量预算的异议。");
+      await studentWorkflow.getByRole("button", { name: "保留异议并确认" }).click();
+      await expect(studentWorkflow.getByText("本角色已记录：DISSENT_PRESERVED")).toBeVisible();
+    } else {
+      await studentWorkflow.getByRole("button", { name: "确认解决方案" }).click();
+      await expect(studentWorkflow.getByText("本角色已记录：ACKNOWLEDGED")).toBeVisible();
+    }
+  }
+
+  await page.goto(studentBaseUrl);
+  await signIn(page, "student", fixtureUsers[0][0]);
+  const captainWorkflow = page.getByLabel("Student role workflow");
+  await expect(captainWorkflow.getByText("本角色已记录：ACKNOWLEDGED")).toBeVisible();
+  await captainWorkflow.getByRole("button", { name: "创建团队合并" }).click();
+  await expect(captainWorkflow.getByText("validated")).toBeVisible();
+  await captainWorkflow.getByRole("button", { name: "确认团队决策" }).click();
+  await expect(captainWorkflow.getByText("confirmed")).toBeVisible();
+  await expect(captainWorkflow.getByLabel("决策历程").getByRole("status")).toHaveText(
+    "正式决策已提交"
+  );
+  await expect(page.getByRole("button", { name: "提交正式决策" })).toBeDisabled();
 
   await page.goto(teacherBaseUrl);
   await signIn(page, "teacher", "teacher");

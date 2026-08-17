@@ -2392,6 +2392,52 @@ paths:
                 $ref: "#/components/schemas/RoleWorkflowConfirmationEnvelope"
         "403": { description: "CEO captain authority required" }
         "404": { description: "Merge commit not found" }
+  /api/v1/bff/student/role-workspace/resolution:
+    post:
+      operationId: STUDENT_ROLE_WORKFLOW_RESOLUTION_POST_V1
+      summary: Let the assigned CEO captain propose a candidate-backed team resolution.
+      description: The command accepts only observed divergence candidates from READY role sections and never accepts arbitrary private payload fields.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowResolutionInput"
+      responses:
+        "201":
+          description: Proposed team resolution created or reused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowResolutionEnvelope"
+        "403": { description: "CEO captain authority required" }
+        "409": { description: "Resolution already exists or source sections are stale" }
+        "422": { description: "Selected values are outside the observed divergence candidates" }
+  /api/v1/bff/student/role-workspace/resolution/acknowledgement:
+    post:
+      operationId: STUDENT_ROLE_WORKFLOW_RESOLUTION_ACKNOWLEDGEMENT_POST_V1
+      summary: Record the authenticated role's acknowledgement or preserved dissent.
+      description: Each active assigned role may append one acknowledgement for the current resolution; dissent is process evidence and does not alter truth or settlement.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWorkflowAcknowledgementInput"
+      responses:
+        "201":
+          description: Role acknowledgement created or reused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowAcknowledgementEnvelope"
+        "403": { description: "Assigned role authority required" }
+        "409": { description: "Resolution is stale or this role already acknowledged differently" }
+        "422": { description: "Dissent note or acknowledgement payload invalid" }
   /api/v1/bff/teacher/learning-designs:
     get:
       operationId: TEACHER_LEARNING_DESIGN_LIST_V1
@@ -4790,6 +4836,70 @@ components:
         team_id:
           type: string
           minLength: 1
+    RoleWorkflowResolutionInput:
+      type: object
+      additionalProperties: false
+      required: [round_id, run_id, source_digest, source_section_ids, selected_values, team_id]
+      properties:
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+        source_section_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+        source_digest:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+        selected_values:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            pricing.base_price:
+              oneOf: [{ type: number }, { type: string }]
+            marketing_budget:
+              oneOf: [{ type: number }, { type: string }]
+            service_quality_budget:
+              oneOf: [{ type: number }, { type: string }]
+            capacity_plan:
+              oneOf: [{ type: number }, { type: string }]
+            cash_buffer_target:
+              oneOf: [{ type: number }, { type: string }]
+            strategy_statement:
+              oneOf: [{ type: number }, { type: string }]
+    RoleWorkflowAcknowledgementInput:
+      type: object
+      additionalProperties: false
+      required: [resolution_id, round_id, run_id, status, team_id]
+      properties:
+        resolution_id:
+          type: string
+          minLength: 1
+        round_id:
+          type: string
+          minLength: 1
+        run_id:
+          type: string
+          minLength: 1
+        team_id:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [ACKNOWLEDGED, DISSENT_PRESERVED]
+        dissent_note:
+          type: string
+          minLength: 1
+          maxLength: 280
     RoleWorkflowAssignment:
       type: object
       additionalProperties: false
@@ -4882,6 +4992,71 @@ components:
           type: string
         tenant_id:
           type: string
+    RoleWorkflowResolution:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          resolution_id,
+          tenant_id,
+          run_id,
+          round_id,
+          team_id,
+          status,
+          source_section_ids,
+          source_digest,
+          selected_values,
+          proposed_at
+        ]
+      properties:
+        resolution_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        status: { type: string, const: PROPOSED }
+        source_section_ids:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        source_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        selected_values:
+          type: object
+          additionalProperties: false
+          properties:
+            pricing.base_price: { oneOf: [{ type: number }, { type: string }] }
+            marketing_budget: { oneOf: [{ type: number }, { type: string }] }
+            service_quality_budget: { oneOf: [{ type: number }, { type: string }] }
+            capacity_plan: { oneOf: [{ type: number }, { type: string }] }
+            cash_buffer_target: { oneOf: [{ type: number }, { type: string }] }
+            strategy_statement: { oneOf: [{ type: number }, { type: string }] }
+        proposed_at: { type: string, format: date-time }
+    RoleWorkflowAcknowledgement:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          acknowledgement_id,
+          resolution_id,
+          tenant_id,
+          run_id,
+          round_id,
+          team_id,
+          role_key,
+          status,
+          acknowledged_at
+        ]
+      properties:
+        acknowledgement_id: { type: string, minLength: 1 }
+        resolution_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        role_key: { type: string, enum: [CEO, CFO, CMO, COO] }
+        status: { type: string, enum: [ACKNOWLEDGED, DISSENT_PRESERVED] }
+        dissent_note: { type: string, minLength: 1, maxLength: 280 }
+        acknowledged_at: { type: string, format: date-time }
     RoleWorkflowTeacherWorkspaceEnvelope:
       type: object
       additionalProperties: false
@@ -4992,6 +5167,24 @@ components:
           type: string
         request_id:
           type: string
+    RoleWorkflowResolutionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/RoleWorkflowResolution" }
+        message: { type: string }
+        request_id: { type: string }
+    RoleWorkflowAcknowledgementEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/RoleWorkflowAcknowledgement" }
+        message: { type: string }
+        request_id: { type: string }
     CoursePackageVersion:
       $ref: "../schemas/course-package-version.v1.json"
     CoursePackageExactIdentity:

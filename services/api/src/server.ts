@@ -21,6 +21,7 @@ import type {
   RubricDraftInput,
   RubricVersionReference,
   Decision,
+  DecisionPayloadFieldPath,
   ExactRef,
   DecisionPayload,
   M1DecisionSubmitRequest,
@@ -49,6 +50,7 @@ import type {
   Team,
   Tenant,
   TeamMember,
+  TeamDivergenceValue,
   TenantBaselineProvisioningRequest,
   User
 } from "@simwar/shared-contracts";
@@ -3803,6 +3805,41 @@ function parseRoleWorkflowPayload(value: unknown): Partial<DecisionPayload> {
   return payload;
 }
 
+function parseTeamResolutionValues(
+  value: unknown
+): Partial<Record<DecisionPayloadFieldPath, TeamDivergenceValue>> {
+  if (!isRecord(value)) {
+    throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+  }
+  const allowed = new Set<DecisionPayloadFieldPath>([
+    "pricing.base_price",
+    "marketing_budget",
+    "service_quality_budget",
+    "capacity_plan",
+    "cash_buffer_target",
+    "strategy_statement"
+  ]);
+  const result: Partial<Record<DecisionPayloadFieldPath, TeamDivergenceValue>> = {};
+  for (const [field, raw] of Object.entries(value)) {
+    if (!allowed.has(field as DecisionPayloadFieldPath)) {
+      throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+    }
+    if (typeof raw === "number") {
+      if (!Number.isFinite(raw)) {
+        throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+      }
+      result[field as DecisionPayloadFieldPath] = raw;
+      continue;
+    }
+    if (typeof raw === "string" && raw.trim() === raw && raw.length > 0 && raw.length <= 500) {
+      result[field as DecisionPayloadFieldPath] = raw;
+      continue;
+    }
+    throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+  }
+  return result;
+}
+
 function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
   const denied = new Set([
     "ROLE_WORKFLOW_CAPTAIN_REQUIRED",
@@ -3818,13 +3855,24 @@ function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
     "ROLE_WORKFLOW_MERGE_NOT_FOUND",
     "ROLE_WORKFLOW_ROUND_NOT_FOUND",
     "ROLE_WORKFLOW_SECTION_NOT_FOUND",
-    "ROLE_WORKFLOW_TEMPLATE_NOT_FOUND"
+    "ROLE_WORKFLOW_TEMPLATE_NOT_FOUND",
+    "ROLE_WORKFLOW_RESOLUTION_NOT_FOUND"
   ]);
   const invalid = new Set([
     "ROLE_WORKFLOW_MEMBER_ROLE_INVALID",
     "ROLE_WORKFLOW_MERGED_PAYLOAD_INCOMPLETE",
     "ROLE_WORKFLOW_SCOPE_INVALID",
-    "ROLE_WORKFLOW_TEAM_INCOMPLETE"
+    "ROLE_WORKFLOW_TEAM_INCOMPLETE",
+    "ROLE_WORKFLOW_DISSENT_NOTE_INVALID",
+    "ROLE_WORKFLOW_NO_DIVERGENCE",
+    "ROLE_WORKFLOW_RESOLUTION_CANDIDATE_INVALID"
+  ]);
+  const conflict = new Set([
+    "ROLE_WORKFLOW_RESOLUTION_EXISTS",
+    "ROLE_WORKFLOW_ACKNOWLEDGEMENT_EXISTS",
+    "ROLE_WORKFLOW_DIVERGENCE_UNRESOLVED",
+    "ROLE_WORKFLOW_ACKNOWLEDGEMENTS_INCOMPLETE",
+    "ROLE_WORKFLOW_RESOLUTION_STALE"
   ]);
   const statusCode = denied.has(error.code)
     ? 403
@@ -3832,7 +3880,9 @@ function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
       ? 404
       : invalid.has(error.code)
         ? 422
-        : 409;
+        : conflict.has(error.code)
+          ? 409
+          : 409;
   return new HttpError(statusCode, error.code, error.message);
 }
 
@@ -6107,6 +6157,73 @@ async function routeRequest(
       })
     );
     sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/student/role-workspace/resolution"
+  ) {
+    const actor = roleWorkflowActor(context, "student");
+    const body = await readJson<Record<string, unknown>>(request);
+    assertOnlyRoleWorkflowFields(body, [
+      "round_id",
+      "run_id",
+      "team_id",
+      "source_section_ids",
+      "source_digest",
+      "selected_values"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    if (
+      !Array.isArray(body.source_section_ids) ||
+      body.source_section_ids.length === 0 ||
+      body.source_section_ids.some((value) => typeof value !== "string" || !value.trim())
+    ) {
+      throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+    }
+    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
+      runtime.roleWorkflow.proposeTeamResolution(actor, {
+        ...scope,
+        selected_values: parseTeamResolutionValues(body.selected_values),
+        source_digest: roleWorkflowString(body.source_digest, "source_digest"),
+        source_section_ids: body.source_section_ids as string[]
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, data));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/student/role-workspace/resolution/acknowledgement"
+  ) {
+    const actor = roleWorkflowActor(context, "student");
+    const body = await readJson<Record<string, unknown>>(request);
+    assertOnlyRoleWorkflowFields(body, [
+      "round_id",
+      "run_id",
+      "team_id",
+      "resolution_id",
+      "status",
+      "dissent_note"
+    ]);
+    const scope = roleWorkflowScopeFromBody(body);
+    if (body.status !== "ACKNOWLEDGED" && body.status !== "DISSENT_PRESERVED") {
+      throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+    }
+    if (body.dissent_note !== undefined && typeof body.dissent_note !== "string") {
+      throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
+    }
+    const data = await executeLockedRoleWorkflow(runtime, context.tenantId, scope.run_id, () =>
+      runtime.roleWorkflow.acknowledgeResolution(actor, {
+        ...scope,
+        resolution_id: roleWorkflowString(body.resolution_id, "resolution_id"),
+        status: body.status as "ACKNOWLEDGED" | "DISSENT_PRESERVED",
+        ...(body.dissent_note !== undefined ? { dissent_note: body.dissent_note as string } : {})
+      })
+    );
+    sendJson(response, 201, createEnvelope(context, data));
     return;
   }
 

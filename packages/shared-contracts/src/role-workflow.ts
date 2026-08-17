@@ -6,6 +6,12 @@ import type {
   StudentRoleAssignment,
   TeamConfirmation
 } from "./index.js";
+import type {
+  ResolutionAcknowledgementSafeDTO,
+  TeamDivergenceSet,
+  TeamResolutionSafeDTO,
+  TeacherDivergenceSummary
+} from "./team-divergence.js";
 
 export type RoleWorkflowEventType =
   | "role_assigned"
@@ -13,6 +19,8 @@ export type RoleWorkflowEventType =
   | "section_ready"
   | "merge_created"
   | "team_confirmed"
+  | "resolution_proposed"
+  | "resolution_acknowledged"
   | "workflow_reset";
 
 export interface RoleWorkflowEvent {
@@ -47,6 +55,9 @@ export interface StudentRoleWorkflowWorkspaceDTO {
   section?: RoleDecisionSection;
   merge_candidate?: StudentRoleWorkflowMergeDTO;
   confirmation?: Pick<TeamConfirmation, "status" | "confirmed_at">;
+  divergence_set?: TeamDivergenceSet;
+  team_resolution?: TeamResolutionSafeDTO;
+  resolution_acknowledgements?: ResolutionAcknowledgementSafeDTO[];
 }
 
 export type StudentDecisionTraceStageKey =
@@ -55,7 +66,11 @@ export type StudentDecisionTraceStageKey =
   | "ROLE_CONTRIBUTION_READY"
   | "TEAM_MERGE_MILESTONE"
   | "TEAM_CONFIRMED"
-  | "CANONICAL_DECISION_MILESTONE";
+  | "CANONICAL_DECISION_MILESTONE"
+  | "DIVERGENCE_REVEALED"
+  | "RESOLUTION_PROPOSED"
+  | "RESOLUTION_ACKNOWLEDGED"
+  | "DISSENT_PRESERVED";
 
 export type StudentDecisionTraceStageStatus = "completed";
 
@@ -106,4 +121,5 @@ export interface TeacherRoleWorkflowWorkspaceDTO {
   confirmations: TeamConfirmation[];
   history: RoleWorkflowEvent[];
   known_limits: string[];
+  divergence_summary: TeacherDivergenceSummary;
 }

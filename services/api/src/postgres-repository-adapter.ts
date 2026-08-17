@@ -24,6 +24,7 @@ import type {
   Round,
   RoleDecisionSection,
   RoleWorkflowEvent,
+  ResolutionAcknowledgement,
   Run,
   ScenarioPackage,
   SettlementResult,
@@ -31,6 +32,7 @@ import type {
   StudentRoleAssignment,
   Team,
   TeamConfirmation,
+  TeamResolution,
   TeacherConfirmationVersion,
   W020AdvisoryRecord,
   ValidationSessionRecord
@@ -1504,6 +1506,8 @@ function roleRecordId(kind: string, value: Record<string, unknown>): string {
     decision: ["decision_id"],
     event: ["event_id"],
     merge: ["merge_commit_id"],
+    resolution: ["resolution_id"],
+    acknowledgement: ["acknowledgement_id"],
     section: ["section_id"]
   };
   return payloadId(
@@ -1537,6 +1541,16 @@ async function appendRoleRecord(
     records.push({
       type: "merge",
       value: command.merge_commit as unknown as Record<string, unknown>
+    });
+  if (command.kind === "append_resolution")
+    records.push({
+      type: "resolution",
+      value: command.resolution as unknown as Record<string, unknown>
+    });
+  if (command.kind === "append_acknowledgement")
+    records.push({
+      type: "acknowledgement",
+      value: command.acknowledgement as unknown as Record<string, unknown>
     });
   if (command.kind === "append_confirmation") {
     records.push({
@@ -1679,6 +1693,17 @@ export function createPostgresRepositoryPorts(
             row.record_type === "confirmation" && row.payload.team_confirmation_id !== undefined
         )
         .map((row) => row.payload as unknown as TeamConfirmation);
+      const resolutions = roleRows
+        .filter(
+          (row) => row.record_type === "resolution" && row.payload.resolution_id !== undefined
+        )
+        .map((row) => row.payload as unknown as TeamResolution);
+      const acknowledgements = roleRows
+        .filter(
+          (row) =>
+            row.record_type === "acknowledgement" && row.payload.acknowledgement_id !== undefined
+        )
+        .map((row) => row.payload as unknown as ResolutionAcknowledgement);
       const events = roleRows
         .filter((row) => row.record_type === "event" && row.payload.event_id !== undefined)
         .map((row) => row.payload as unknown as RoleWorkflowEvent);
@@ -1694,6 +1719,8 @@ export function createPostgresRepositoryPorts(
         decisions,
         events,
         merge_commits,
+        resolutions,
+        acknowledgements,
         round,
         run,
         sections,

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/team-divergence-resolution.v1.json",
+  "title": "Team Divergence Resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "divergence_set", "resolution", "acknowledgements"],
+  "properties": {
+    "schema_version": { "const": "team-divergence-resolution.v1" },
+    "divergence_set": { "$ref": "#/$defs/divergence_set" },
+    "resolution": { "anyOf": [{ "$ref": "#/$defs/resolution" }, { "type": "null" }] },
+    "acknowledgements": { "type": "array", "items": { "$ref": "#/$defs/acknowledgement" } }
+  },
+  "$defs": {
+    "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+    "field": {
+      "enum": [
+        "pricing.base_price",
+        "marketing_budget",
+        "service_quality_budget",
+        "capacity_plan",
+        "cash_buffer_target",
+        "strategy_statement"
+      ]
+    },
+    "value": { "type": ["number", "string"] },
+    "divergence_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_key", "source_section_id", "value"],
+      "properties": {
+        "role_key": { "$ref": "#/$defs/role_key" },
+        "source_section_id": { "type": "string", "minLength": 1 },
+        "value": { "$ref": "#/$defs/value" }
+      }
+    },
+    "divergence_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["divergence_id", "field", "status", "candidates"],
+      "properties": {
+        "divergence_id": { "type": "string", "minLength": 1 },
+        "field": { "$ref": "#/$defs/field" },
+        "status": { "enum": ["OPEN", "RESOLVED"] },
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/divergence_candidate" }
+        }
+      }
+    },
+    "divergence_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "tenant_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "status",
+        "source_section_ids",
+        "source_digest",
+        "divergences",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "team-divergence-set.v1" },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["NONE", "OPEN", "RESOLVED"] },
+        "source_section_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "divergences": { "type": "array", "items": { "$ref": "#/$defs/divergence_row" } },
+        "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolution_id",
+        "tenant_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "status",
+        "source_section_ids",
+        "source_digest",
+        "selected_values",
+        "proposed_at"
+      ],
+      "properties": {
+        "resolution_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "status": { "const": "PROPOSED" },
+        "source_section_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "selected_values": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pricing.base_price": { "$ref": "#/$defs/value" },
+            "marketing_budget": { "$ref": "#/$defs/value" },
+            "service_quality_budget": { "$ref": "#/$defs/value" },
+            "capacity_plan": { "$ref": "#/$defs/value" },
+            "cash_buffer_target": { "$ref": "#/$defs/value" },
+            "strategy_statement": { "$ref": "#/$defs/value" }
+          }
+        },
+        "proposed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "acknowledgement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acknowledgement_id",
+        "resolution_id",
+        "tenant_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "role_key",
+        "status",
+        "acknowledged_at"
+      ],
+      "properties": {
+        "acknowledgement_id": { "type": "string", "minLength": 1 },
+        "resolution_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "role_key": { "$ref": "#/$defs/role_key" },
+        "status": { "enum": ["ACKNOWLEDGED", "DISSENT_PRESERVED"] },
+        "dissent_note": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "acknowledged_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

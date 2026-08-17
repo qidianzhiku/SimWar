@@ -209,6 +209,26 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
               );
             })}
           </div>
+          {workspace?.divergence_summary ? (
+            <div className="decision-trace" aria-label="团队分歧只读摘要">
+              <div className="panel-title">
+                <div>
+                  <p className="eyebrow">Divergence evidence</p>
+                  <h3>团队分歧摘要</h3>
+                </div>
+                <span role="status">{workspace.divergence_summary.status}</span>
+              </div>
+              <p>
+                分歧 {workspace.divergence_summary.divergence_count} 项 · 已解决{" "}
+                {workspace.divergence_summary.resolved_count} 项
+              </p>
+              <p className="evidence-note">
+                已确认角色：
+                {workspace.divergence_summary.acknowledged_role_keys.join(", ") || "暂无"}；
+                教师端仅可查看摘要，不提供解决或确认写入入口。
+              </p>
+            </div>
+          ) : null}
           {!teamPreconditionReady ? (
             <p className="evidence-note" role="status">
               角色分配前置条件：Team 必须各有一名 CEO、CFO、CMO、COO，且 CEO 必须是队长。

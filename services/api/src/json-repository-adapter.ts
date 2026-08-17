@@ -210,6 +210,10 @@ export function createJsonRoleWorkflowRepositoryPort(
         decisions: store.decisions.filter((candidate) => inWorkflow(candidate)),
         events: store.roleWorkflowEvents.filter((candidate) => inWorkflow(candidate)),
         merge_commits: store.decisionMergeCommits.filter((candidate) => inWorkflow(candidate)),
+        resolutions: store.teamResolutions.filter((candidate) => inWorkflow(candidate)),
+        acknowledgements: store.resolutionAcknowledgements.filter((candidate) =>
+          inWorkflow(candidate)
+        ),
         round,
         run,
         sections: store.roleDecisionSections.filter((candidate) => inWorkflow(candidate)),
@@ -224,7 +228,9 @@ export function createJsonRoleWorkflowRepositoryPort(
         decisions: clone(store.decisions),
         events: clone(store.roleWorkflowEvents),
         mergeCommits: clone(store.decisionMergeCommits),
-        sections: clone(store.roleDecisionSections)
+        sections: clone(store.roleDecisionSections),
+        resolutions: clone(store.teamResolutions),
+        acknowledgements: clone(store.resolutionAcknowledgements)
       };
       try {
         switch (command.kind) {
@@ -240,6 +246,12 @@ export function createJsonRoleWorkflowRepositoryPort(
           case "append_confirmation":
             store.teamConfirmations.push(clone(command.confirmation));
             saveCanonicalDecisionToJsonStore(store, clone(command.decision));
+            break;
+          case "append_resolution":
+            store.teamResolutions.push(clone(command.resolution));
+            break;
+          case "append_acknowledgement":
+            store.resolutionAcknowledgements.push(clone(command.acknowledgement));
             break;
           case "reset":
             for (const assignment of store.studentRoleAssignments) {
@@ -258,6 +270,8 @@ export function createJsonRoleWorkflowRepositoryPort(
         store.roleWorkflowEvents = previous.events;
         store.decisionMergeCommits = previous.mergeCommits;
         store.roleDecisionSections = previous.sections;
+        store.teamResolutions = previous.resolutions;
+        store.resolutionAcknowledgements = previous.acknowledgements;
         throw error;
       }
     }
