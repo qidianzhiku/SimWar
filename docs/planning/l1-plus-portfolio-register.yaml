@@ -1,16 +1,17 @@
-portfolio_version: 16
+portfolio_version: 17
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-17T04:09:42Z"
+generated_at: "2026-08-17T08:22:43Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: d28ea600ac9eaeed1f2950779dbda3b8aa965035
-product_evidence_source_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-current_master_at_readback: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-governance_closure_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+assessment_source_anchor_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
+product_evidence_source_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+current_master_at_readback: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 portfolio_current_master_lag: RECONCILED_AT_CURRENT_MASTER
-runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
+runtime_authority: JSON_INTERNAL_ONLY
+postgres_application_runtime: NOT_ACTIVATED
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: MW5_PRODUCT_AND_GOVERNANCE_COMPLETE_WITH_DECLARED_LIMITS
+l1_plus_status: W026_PRODUCT_COMPLETE_WITH_DECLARED_LIMITS_GOVERNANCE_PENDING
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -18,14 +19,14 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-MW5-STRUCTURED-STUDENT-DECISION-TRACE
-    capability_id: MW5-STRUCTURED-STUDENT-DECISION-TRACE
+    candidate_id: CAND-W026-TEAM-DIVERGENCE-RESOLUTION
+    capability_id: W026-TEAM-DIVERGENCE-RESOLUTION-PRESERVED-DISSENT
     status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-    product_prs: [387]
-    product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-    product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
-    primary_outcome: STRUCTURED_STUDENT_DECISION_TRACE_READ_ONLY_PROJECTION
-    scope: Expose a tenant/run/round/team/role-scoped process projection with closed-object and role-safe visibility boundaries.
+    product_prs: [390]
+    product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+    product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+    primary_outcome: TEAM_DIVERGENCE_RESOLUTION_AND_PRESERVED_DISSENT_V1
+    scope: Team-scoped READY divergence is resolved by captain-selected observed values with required role acknowledgement or preserved dissent before the existing canonical merge path.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -35,8 +36,8 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: CLOSED_WITH_EXTERNAL_EXACT_READBACK
-    governance_pr: 388
+    status: PENDING_GOVERNANCE_MERGE_READBACK
+    governance_pr: 391
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -69,6 +70,15 @@ closed_capabilities:
     product_pr: 387
     product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
     runtime_authority: JSON_INTERNAL_ONLY
+  - capability_id: W026-TEAM-DIVERGENCE-RESOLUTION-PRESERVED-DISSENT
+    status: CLOSED_AND_CURRENT_WITH_LIMITS
+    product_pr: 390
+    product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+    product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+    runtime_authority: JSON_INTERNAL_ONLY
+    human_validation: NOT_PERFORMED
+    pilot: NOT_AUTHORIZED
+    production: NOT_AUTHORIZED
 historical_governance_reconciliations:
   - capability_id: W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
     product_pr: 372
@@ -88,42 +98,49 @@ historical_governance_reconciliations:
     resource_lock_state: W025_GOVERNANCE_LOCK_HELD_PENDING_REMEDIATION_MERGE
     automatic_next_start: false
 resource_locks:
-  status: RELEASED
-  released:
-    - MW5_STRUCTURED_STUDENT_DECISION_TRACE
-    - MW5_V1_SERIAL_BROWSER_VALIDATION
-    - MW5_PRODUCT_PR_387
-    - MW5_GOVERNANCE_CLOSURE_PR
+  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
+  held:
+    - W026_TEAM_DIVERGENCE_RESOLUTION
+    - W026_PRODUCT_PR_390
+    - W026_GOVERNANCE_CLOSURE_PR
   pending: []
 candidate_backlog:
-  - candidate_id: MW5-NEXT-PENDING-OWNER-DIRECTION
+  - candidate_id: W027-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
-    reason: No automatic successor start is authorized; next candidate requires owner direction and fresh reality.
+    reason: No automatic successor start is authorized; the next wave requires owner direction and fresh reality.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/387
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/388
-  product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-  product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
-  product_merge_tree: 6ed1805681d844980c45a2e7aa9ebc6218ee0da4
-  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347/sources/post-product-master-30dac8b60603bab63aa1682061cd6917d24d772d
-  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/390
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/391
+  product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+  product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+  product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
+  fresh_clone: D:/codex/fresh-clones/simwar-w026-postmerge-e7f0d91
+  evidence_root: C:/Temp/simwar-w026-team-divergence-20260817T004500Z
+  postmerge_graph: C:/Temp/simwar-w026-postmerge-graph-e7f0d91
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  product_pr_state: MERGED_387
-  current_master: EXACT_53C554B
-  decision_trace_route: PASS_READ_ONLY_ROLE_SAFE_ROUND_SCOPED
-  decision_trace_idempotency: NOT_APPLICABLE_READ_ONLY_PROJECTION
-  browser: PASS_MW5_REAL_JOURNEY_VIEWPORT_AND_CI_SMOKE
+  product_pr_state: MERGED_390
+  current_master: EXACT_E7F0D91
+  divergence_resolution: PASS_33_FOCUSED_TESTS_AND_REAL_BROWSER
+  canonical_writer: UNCHANGED_CONFIRM_TEAM_DECISION
+  dissent: SAFE_PROCESS_EVIDENCE_ONLY
+  browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
+  full_npm_test: PASS_204_FILES_1307_TESTS
+  contract: PASS_20_FILES_50_TESTS
+  postgres_replay: PASS_20_TESTS_DISPOSABLE_POSTGRES_16
   security: PASS_AT_CRITICAL_THRESHOLD_WITH_INHERITED_ADVISORIES
+  graphify: HEALTHY_WITH_RECORDED_LIMITS
+  codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
-  round_creation: NO_ORDINARY_ROUND_CREATION_ENDPOINT_IN_CURRENT_TEACHER_FLOW
-  browser_multi_round: CONTROLLED_ROUND_2_FIXTURE
-  backend_round_selection: OUT_OF_SCOPE_EXISTING_SERVER_PATH
-  repository_format: 56_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  resolution_model: V1_OBSERVED_CANDIDATE_SELECTION_ONLY
+  roster: FOUR_ROLE_ROSTER_SIX_ROLE_EXPANSION_OUT_OF_SCOPE
+  private_judgment: NOT_SEPARATELY_MODELED
+  issue_351: OPEN_BROADER_DURABLE_BOUNDARY
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
+  graph_tooling: CODEGRAPH_UNAVAILABLE_GRAPHIFY_INPUT_LIMITS_RECORDED
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_OR_ROUND_CONTEXT_CHANGE

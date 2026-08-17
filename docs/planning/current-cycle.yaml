@@ -1,91 +1,96 @@
-cycle_id: SIMWAR-MW5-STRUCTURED-STUDENT-DECISION-TRACE-20260816
+cycle_id: SIMWAR-W026-TEAM-DIVERGENCE-RESOLUTION-20260817
 stage: L1_PLUS
-status: GOVERNANCE_CLOSED_WITH_EXTERNAL_EXACT_READBACK
-started_at: "2026-08-16T09:52:01-07:00"
-product_closed_at: "2026-08-17T04:04:55Z"
-governance_updated_at: "2026-08-17T04:20:33Z"
+status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
+started_at: "2026-08-17T00:00:00Z"
+product_closed_at: "2026-08-17T16:02:59+08:00"
+governance_updated_at: "2026-08-17T08:22:43Z"
 repository: qidianzhiku/SimWar
-source_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-assessment_source_anchor_sha: d28ea600ac9eaeed1f2950779dbda3b8aa965035
-product_evidence_source_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
+source_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
+execution_base_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
+product_evidence_source_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
 product_prs:
-  - 387
-product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
-governance_pr: 388
-governance_closure_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-governance_closure_readback: CLOSED_WITH_EXTERNAL_EXACT_READBACK
-current_master_at_readback: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
+  - 390
+product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
+governance_pr: 391
+governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
+governance_closure_readback: PENDING_UNTIL_GOVERNANCE_MERGES
+current_master_at_readback: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+runtime_authority: JSON_INTERNAL_ONLY
+postgres_application_runtime: NOT_ACTIVATED
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 automatic_next_start: false
 predecessor:
-  cycle_id: UI-FRONTEND-EXPERIENCE-REFOUNDATION-20260814
-  product_pr: 377
-  governance_pr: 378
-  merge_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-  completed_product_baseline: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-primary_outcome: STRUCTURED_STUDENT_DECISION_TRACE_READ_ONLY_PROJECTION
+  cycle_id: SIMWAR-MW5-STRUCTURED-STUDENT-DECISION-TRACE-20260816
+  product_pr: 387
+  product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
+  governance_pr: 388
+  governance_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+  completed_product_baseline: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+primary_outcome: TEAM_DIVERGENCE_RESOLUTION_AND_PRESERVED_DISSENT_V1
 scope:
-  - server-authoritative Student DecisionTrace read projection for the exact tenant, run, round, team, and role scope
-  - safe milestones for assignment, own contribution draft/ready, visible team merge, team confirmation, and CEO-only canonical submission
-  - closed-object contract and OpenAPI route with private payload, actor, outcome, replay, and learning exclusion
-  - non-blocking Student surface with stale-response and invalid-shape fail-closed handling
-  - no settlement, replay truth, migration, general PostgreSQL, RLS, or automatic successor mutation
+  - deterministic team-scoped divergence projection from active READY role sections
+  - captain-only selection of one observed candidate value for each divergent field
+  - required per-role ACKNOWLEDGED or DISSENT_PRESERVED process evidence before merge
+  - safe Student DecisionTrace milestones and Teacher readonly divergence summary
+  - reuse of existing DecisionMergeCommit and TeamConfirmation canonical path
+  - no settlement, replay truth, migration, general PostgreSQL, RLS, or successor mutation
 validation:
   github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
-  product_pr: PASS_MERGED_387
-  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_30DAC8B_TREE_6ED1805
-  focused_backend: PASS_24_TESTS
-  focused_student_ui: PASS_12_TESTS
-  full_npm_test: KNOWN_LIMIT_6_UNRELATED_BASELINE_OR_CONCURRENCY_FAILURES_204_FILES_1302_TESTS
-  contract: PASS_20_FILES_49_TESTS
+  product_pr: PASS_MERGED_390
+  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_E7F0D91_TREE_341943F
+  focused_w026: PASS_33_TESTS
+  full_npm_test: PASS_204_FILES_1307_TESTS
+  contract: PASS_20_FILES_50_TESTS
   typecheck: PASS
   build: PASS
   lint: PASS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
-  decision_trace_integration: PASS_LOCAL_REAL_BROWSER_AND_CI_BROWSER_SMOKE
-  postgres_replay: BLOCKED_ENVIRONMENT_SIMWAR_TEST_DATABASE_URL_ABSENT
+  browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
+  w026_browser_journey: PASS_1_TEST
+  postgres_replay: PASS_20_TESTS_DISPOSABLE_POSTGRES_16
   security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  repository_format: KNOWN_LIMIT_56_EXISTING_FILES_CHANGED_SCOPE_PASS
-  graph: SOURCE_READBACK_CODEGRAPH_EXTERNAL_BASELINE_GRAPHIFY_INCOMPLETE
+  graphify: HEALTHY_13131_NODES_23941_EDGES_WITH_RECORDED_LIMITS
+  codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK_REVIEW
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/387
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/388
-  product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-  product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
-  product_merge_tree: 6ed1805681d844980c45a2e7aa9ebc6218ee0da4
-  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347/sources/post-product-master-30dac8b60603bab63aa1682061cd6917d24d772d
-  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/390
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/391
+  product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+  product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+  product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
+  fresh_clone: D:/codex/fresh-clones/simwar-w026-postmerge-e7f0d91
+  evidence_root: C:/Temp/simwar-w026-team-divergence-20260817T004500Z
 resource_locks:
-  status: RELEASED
-  released:
-    - MW5_STRUCTURED_STUDENT_DECISION_TRACE
-    - MW5_V1_SERIAL_BROWSER_VALIDATION
-    - MW5_PRODUCT_PR_387
-    - MW5_GOVERNANCE_CLOSURE_PR
+  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
+  held:
+    - W026_TEAM_DIVERGENCE_RESOLUTION
+    - W026_PRODUCT_PR_390
+    - W026_GOVERNANCE_CLOSURE_PR
   pending: []
 candidate_backlog:
-  - candidate_id: MW5-NEXT-PENDING-OWNER-DIRECTION
+  - candidate_id: W027-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
-    reason: Candidate package is external evidence only; no automatic successor is authorized.
+    reason: No automatic successor start is authorized; next wave requires owner direction and fresh reality.
 known_limits:
-  decision_trace_modeling: PRIVATE_JUDGMENT_ROLE_POSITION_DIVERGENCE_RESOLUTION_DISSENT_NOT_SEPARATELY_MODELED
-  outcome_boundary: OUTCOME_REPLAY_LEARNING_EVIDENCE_EXCLUDED
-  full_format: 56_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  resolution_model: V1_SELECTS_ONE_OBSERVED_CANDIDATE_VALUE_NO_TEAM_AUTHORED_COMPROMISE
+  dissent: PROCESS_EVIDENCE_ONLY_NOT_DECISION_OR_SETTLEMENT_INPUT
+  roster: FOUR_ROLE_CURRENT_ROSTER_SIX_ROLE_EXPANSION_OUT_OF_SCOPE
+  private_judgment: SEPARATE_PRIVATE_JUDGMENT_AND_ROLE_POSITION_NOT_INDEPENDENTLY_MODELED
+  graph: CODEGRAPH_UNAVAILABLE_GRAPHIFY_JSON_SQL_AND_SENSITIVE_FILE_LIMITS_RECORDED
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - This cycle does not authorize publication repair, selectedRound repair, DecisionTrace domain expansion beyond the read-only V1 projection, BLP, Shanghai, Small Model, Multi-Agent, migration, general PostgreSQL, RLS, human validation, pilot, or production.
-  - The DecisionTrace projection proves safe process visibility, not private judgment semantics, teaching effectiveness, official outcome truth, or learning evidence.
-  - Product checks and local tests do not prove teaching effectiveness or human usability.
+  - W026 does not authorize six-role expansion, BLP/Shanghai, Round Count/Run Factory, Small Model, Multi-Agent, general PostgreSQL, RLS, migration, Human Validation, Pilot, or Production.
+  - Divergence and dissent are safe process evidence, not private judgment authority, canonical Decision input, SettlementResult input, Score/Rank input, or Replay truth input.
+  - Product checks, browser journeys, and fresh-clone validation do not prove teaching effectiveness or human usability.
   - No successor starts automatically.
 invalidation_triggers:
   - product_or_teacher_runtime_changed
-  - round_contract_or_bff_projection_changed
+  - role_workflow_contract_or_bff_projection_changed
   - server_action_authority_or_tenant_boundary_changed
   - settlement_or_replay_truth_semantics_changed
   - governance_merge_readback_changed
