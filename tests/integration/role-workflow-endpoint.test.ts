@@ -13,6 +13,7 @@ import type {
   StudentRoleAssignment,
   StudentRoleWorkflowMergeDTO,
   StudentRoleWorkflowWorkspaceDTO,
+  StudentDecisionTraceDTO,
   TeacherRoleWorkflowWorkspaceDTO,
   TeamConfirmation
 } from "../../packages/shared-contracts/src";
@@ -528,6 +529,48 @@ describe("Role Workflow HTTP boundary", () => {
         status: "submitted",
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
+
+      const ceoTrace = await request<StudentDecisionTraceDTO>(
+        baseUrl,
+        `/api/v1/bff/student/role-workspace/decision-trace?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
+        { token: tokens.get("role_ceo") }
+      );
+      expect(ceoTrace.status).toBe(200);
+      expect(ceoTrace.body.data).toMatchObject({
+        current_stage: "CANONICAL_DECISION_MILESTONE",
+        role_key: "CEO",
+        round_id: scope.round_id,
+        trace_completeness: "complete"
+      });
+      expect(ceoTrace.body.data.trace_stages.map((stage) => stage.stage_key)).toEqual([
+        "ROLE_ASSIGNED",
+        "ROLE_CONTRIBUTION_DRAFTED",
+        "ROLE_CONTRIBUTION_READY",
+        "TEAM_MERGE_MILESTONE",
+        "TEAM_CONFIRMED",
+        "CANONICAL_DECISION_MILESTONE"
+      ]);
+      expect(JSON.stringify(ceoTrace.body.data)).not.toContain("One canonical team plan.");
+      expect(JSON.stringify(ceoTrace.body.data)).not.toContain("role_cfo");
+      expect(JSON.stringify(ceoTrace.body.data)).not.toContain("state_true");
+      expect(JSON.stringify(ceoTrace.body.data)).not.toContain("replay_hash");
+
+      const cfoTrace = await request<StudentDecisionTraceDTO>(
+        baseUrl,
+        `/api/v1/bff/student/role-workspace/decision-trace?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
+        { token: tokens.get("role_cfo") }
+      );
+      expect(cfoTrace.status).toBe(200);
+      expect(cfoTrace.body.data.trace_stages.map((stage) => stage.stage_key)).not.toContain(
+        "TEAM_MERGE_MILESTONE"
+      );
+      expect(cfoTrace.body.data.trace_stages.map((stage) => stage.stage_key)).toContain(
+        "TEAM_CONFIRMED"
+      );
+      expect(cfoTrace.body.data.trace_stages.map((stage) => stage.stage_key)).not.toContain(
+        "CANONICAL_DECISION_MILESTONE"
+      );
+      expect(JSON.stringify(cfoTrace.body.data)).not.toContain("role_ceo");
 
       const peerConfirm = await request<unknown>(
         baseUrl,

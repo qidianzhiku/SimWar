@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/student-decision-trace.v1.json",
+  "title": "Student DecisionTrace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tenant_id",
+    "run_id",
+    "round_id",
+    "round_no",
+    "team_id",
+    "role_key",
+    "trace_stages",
+    "current_stage",
+    "trace_completeness",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "student-decision-trace.v1" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "round_id": { "type": "string", "minLength": 1 },
+    "round_no": { "type": "integer", "minimum": 1 },
+    "team_id": { "type": "string", "minLength": 1 },
+    "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+    "trace_stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage_key", "status", "occurred_at", "safe_evidence_reference", "safe_label"],
+        "properties": {
+          "stage_key": {
+            "enum": [
+              "ROLE_ASSIGNED",
+              "ROLE_CONTRIBUTION_DRAFTED",
+              "ROLE_CONTRIBUTION_READY",
+              "TEAM_MERGE_MILESTONE",
+              "TEAM_CONFIRMED",
+              "CANONICAL_DECISION_MILESTONE"
+            ]
+          },
+          "status": { "const": "completed" },
+          "occurred_at": { "type": "string", "format": "date-time" },
+          "safe_evidence_reference": { "type": "string", "minLength": 1 },
+          "safe_label": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "current_stage": {
+      "enum": [
+        "NOT_STARTED",
+        "ROLE_ASSIGNED",
+        "ROLE_CONTRIBUTION_DRAFTED",
+        "ROLE_CONTRIBUTION_READY",
+        "TEAM_MERGE_MILESTONE",
+        "TEAM_CONFIRMED",
+        "CANONICAL_DECISION_MILESTONE"
+      ]
+    },
+    "trace_completeness": { "enum": ["empty", "partial", "complete"] },
+    "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  }
+}

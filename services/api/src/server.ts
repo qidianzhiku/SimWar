@@ -3816,6 +3816,7 @@ function roleWorkflowHttpError(error: RoleWorkflowError): HttpError {
   const notFound = new Set([
     "ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND",
     "ROLE_WORKFLOW_MERGE_NOT_FOUND",
+    "ROLE_WORKFLOW_ROUND_NOT_FOUND",
     "ROLE_WORKFLOW_SECTION_NOT_FOUND",
     "ROLE_WORKFLOW_TEMPLATE_NOT_FOUND"
   ]);
@@ -6044,6 +6045,18 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "student");
     const data = await executeRoleWorkflow(() =>
       runtime.roleWorkflow.getStudentWorkspace(actor, roleWorkflowScopeFromUrl(url))
+    );
+    sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    url.pathname === "/api/v1/bff/student/role-workspace/decision-trace"
+  ) {
+    const actor = roleWorkflowActor(context, "student");
+    const data = await executeRoleWorkflow(() =>
+      runtime.roleWorkflow.getStudentDecisionTrace(actor, roleWorkflowScopeFromUrl(url))
     );
     sendJson(response, 200, createEnvelope(context, data));
     return;

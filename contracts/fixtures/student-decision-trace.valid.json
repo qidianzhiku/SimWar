@@ -1,0 +1,32 @@
+{
+  "schema_version": "student-decision-trace.v1",
+  "tenant_id": "tenant_demo",
+  "run_id": "run_trace_demo",
+  "round_id": "round_trace_demo_1",
+  "round_no": 1,
+  "team_id": "team_trace_demo",
+  "role_key": "CEO",
+  "trace_stages": [
+    {
+      "stage_key": "ROLE_ASSIGNED",
+      "status": "completed",
+      "occurred_at": "2026-08-01T01:00:00.000Z",
+      "safe_evidence_reference": "role_assignment",
+      "safe_label": "角色已分配"
+    },
+    {
+      "stage_key": "ROLE_CONTRIBUTION_DRAFTED",
+      "status": "completed",
+      "occurred_at": "2026-08-01T01:01:00.000Z",
+      "safe_evidence_reference": "role_contribution_revision_1",
+      "safe_label": "已记录角色贡献"
+    }
+  ],
+  "current_stage": "ROLE_CONTRIBUTION_DRAFTED",
+  "trace_completeness": "partial",
+  "known_limits": [
+    "PRIVATE_JUDGMENT_NOT_SEPARATELY_MODELED",
+    "ROLE_POSITION_NOT_SEPARATELY_MODELED",
+    "OUTCOME_TRUTH_EXCLUDED"
+  ]
+}

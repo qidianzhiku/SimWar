@@ -49,6 +49,42 @@ export interface StudentRoleWorkflowWorkspaceDTO {
   confirmation?: Pick<TeamConfirmation, "status" | "confirmed_at">;
 }
 
+export type StudentDecisionTraceStageKey =
+  | "ROLE_ASSIGNED"
+  | "ROLE_CONTRIBUTION_DRAFTED"
+  | "ROLE_CONTRIBUTION_READY"
+  | "TEAM_MERGE_MILESTONE"
+  | "TEAM_CONFIRMED"
+  | "CANONICAL_DECISION_MILESTONE";
+
+export type StudentDecisionTraceStageStatus = "completed";
+
+export type StudentDecisionTraceCurrentStage = StudentDecisionTraceStageKey | "NOT_STARTED";
+
+export type StudentDecisionTraceCompleteness = "empty" | "partial" | "complete";
+
+export interface StudentDecisionTraceStage {
+  stage_key: StudentDecisionTraceStageKey;
+  status: StudentDecisionTraceStageStatus;
+  occurred_at: string;
+  safe_evidence_reference: string;
+  safe_label: string;
+}
+
+export interface StudentDecisionTraceDTO {
+  schema_version: "student-decision-trace.v1";
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  round_no: number;
+  team_id: string;
+  role_key: RoleKey;
+  trace_stages: StudentDecisionTraceStage[];
+  current_stage: StudentDecisionTraceCurrentStage;
+  trace_completeness: StudentDecisionTraceCompleteness;
+  known_limits: string[];
+}
+
 export interface TeacherRoleWorkflowSectionSummary {
   role_key: RoleKey;
   status: "missing" | RoleDecisionSection["status"];
