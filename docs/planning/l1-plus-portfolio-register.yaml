@@ -1,16 +1,16 @@
-portfolio_version: 14
+portfolio_version: 15
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-16T18:12:00Z"
+generated_at: "2026-08-17T02:04:39Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-product_evidence_source_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
-current_master_at_readback: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+assessment_source_anchor_sha: 7fe4df1a1944fdb07474a42e85c3a5735ace20d6
+product_evidence_source_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+current_master_at_readback: 422bb78eac6d1f267976f4c63d57ca7e7d755139
 governance_closure_merge_sha: null
-portfolio_current_master_lag: GOVERNANCE_PR_MW3_PENDING
+portfolio_current_master_lag: GOVERNANCE_PR_MW4_PENDING
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: MW3_PRODUCT_COMPLETE_GOVERNANCE_PENDING
+l1_plus_status: MW4_PRODUCT_COMPLETE_GOVERNANCE_PENDING
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -18,14 +18,14 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY
-    capability_id: MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY
+    candidate_id: CAND-MW4-FORMAL-MULTI-ROUND-LIFECYCLE-CONTINUATION
+    capability_id: MW4-FORMAL-MULTI-ROUND-LIFECYCLE-CONTINUATION
     status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-    product_prs: [383]
-    product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
-    product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
-    primary_outcome: ROUND_SCOPED_TEACHER_CONTEXT_AND_COMMAND_INTEGRITY
-    scope: Exact Teacher run and round context selection plus exact start, lock, settle, and publish command targeting without backend authority drift.
+    product_prs: [385]
+    product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+    product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+    primary_outcome: FORMAL_MULTI_ROUND_LIFECYCLE_CONTINUATION
+    scope: Continue a published predecessor into a deterministic successor draft with server-authoritative exact identity, idempotent retry, and role-safe Teacher/Student projections.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -35,8 +35,8 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: PENDING_MW3_GOVERNANCE_PR
-    governance_pr: 384
+    status: PENDING_MW4_GOVERNANCE_PR
+    governance_pr: RECORDED_AT_PR_CREATION
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -73,28 +73,25 @@ resource_locks:
   pending:
     - MW3_GOVERNANCE_CLOSURE_PR
 candidate_backlog:
-  - candidate_id: MW3-NEXT-STRUCTURED-STUDENT-DECISION-TRACE
+  - candidate_id: MW4-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
-    reason: External next-candidate package only; no automatic successor start is authorized.
+    reason: No automatic successor start is authorized; next candidate requires owner direction and fresh reality.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/383
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/384
-  product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
-  product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
-  product_merge_tree: 4ec0248a977c40ab118bbea9bdc5bcfb4cb174a8
-  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750/sources/post-product-master
-  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/385
+  governance_pr_url: RECORDED_AT_PR_CREATION
+  product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+  product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+  product_merge_tree: 3f975206e48457da68b4310779fb3b43c233842b
+  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401/sources/postmerge-422bb78eac6d1f267976f4c63d57ca7e7d755139
+  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  product_pr_state: MERGED_383
-  current_master: EXACT_7EE5107
-  route_context: PASS_EXACT_ROUND_ID_AND_ROUND_NO
-  command_paths: PASS_START_LOCK_SETTLE_PUBLISH_ROUND_SCOPED
-  stale_response_guard: PASS_PRESERVED
-  mw1_canonical_regression: PASS
-  mw2_publication_regression: PASS
-  browser: PASS_MW3_1_TEACHER_REFOUNDATION_16_SCENARIO_READINESS_3
+  product_pr_state: MERGED_385
+  current_master: EXACT_422BB78
+  continuation_route: PASS_PUBLISHED_PREDECESSOR_TO_DETERMINISTIC_SUCCESSOR
+  continuation_idempotency: PASS_EXACT_RETRY_REUSE
+  browser: PASS_MW4_FOCUSED_AND_FULL_AFTER_SCOPED_RECOVERY
   security: PASS_AT_CRITICAL_THRESHOLD_WITH_INHERITED_ADVISORIES
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
@@ -102,7 +99,7 @@ known_limits:
   round_creation: NO_ORDINARY_ROUND_CREATION_ENDPOINT_IN_CURRENT_TEACHER_FLOW
   browser_multi_round: CONTROLLED_ROUND_2_FIXTURE
   backend_round_selection: OUT_OF_SCOPE_EXISTING_SERVER_PATH
-  repository_format: 53_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
+  repository_format: 54_EXISTING_FILES_OUTSIDE_THIS_CLOSURE
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
