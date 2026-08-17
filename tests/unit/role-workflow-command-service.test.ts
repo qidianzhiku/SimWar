@@ -271,6 +271,42 @@ describe("RoleWorkflowCommandService", () => {
     );
   });
 
+  it("fails closed when a repository returns a round outside the requested run scope", async () => {
+    await service.assignRole(teacher, {
+      course_id: "course_c3",
+      role_key: "CEO",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      user_id: studentCeo.actor_id
+    });
+
+    const baseRepository = createJsonRepositoryPorts(store).roleWorkflow;
+    const divergentRepository = {
+      readRoleWorkflow: async (query: Parameters<typeof baseRepository.readRoleWorkflow>[0]) => {
+        const snapshot = await baseRepository.readRoleWorkflow(query);
+        return {
+          ...snapshot,
+          round: snapshot.round
+            ? { ...snapshot.round, run_id: "run_outside_requested_scope" }
+            : snapshot.round
+        };
+      },
+      commitRoleWorkflow: baseRepository.commitRoleWorkflow
+    };
+    const divergentService = new RoleWorkflowCommandService(divergentRepository, {
+      createId: (kind) => `${kind}_divergent`,
+      now: () => "2026-07-31T02:00:00.000Z"
+    });
+
+    await expect(
+      divergentService.getStudentDecisionTrace(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toMatchObject({ code: "ROLE_WORKFLOW_SCOPE_INVALID" });
+  });
+
   it("rejects every nonviable team topology before activation and keeps direct Decision available", async () => {
     const cases: Array<{
       configure: (candidateStore: SimWarStore) => void;

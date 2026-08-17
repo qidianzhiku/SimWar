@@ -380,7 +380,7 @@ export class RoleWorkflowCommandService {
   ): Promise<StudentDecisionTraceDTO> {
     this.requireStudent(actor);
     const snapshot = await this.read(actor, input);
-    this.assertReadableRoundScope(snapshot);
+    this.assertReadableRoundScope(snapshot, input);
     const assignment = this.findActorAssignment(actor, snapshot);
     const permissions = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
     const traceStages: StudentDecisionTraceStage[] = [
@@ -842,10 +842,20 @@ export class RoleWorkflowCommandService {
     }
   }
 
-  private assertReadableRoundScope(snapshot: RoleWorkflowRepositorySnapshot): void {
+  private assertReadableRoundScope(
+    snapshot: RoleWorkflowRepositorySnapshot,
+    input: RoundWorkflowScope
+  ): void {
     this.assertScope(snapshot);
     if (!snapshot.round) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_FOUND");
+    }
+    if (
+      snapshot.round.tenant_id !== snapshot.run?.tenant_id ||
+      snapshot.round.run_id !== input.run_id ||
+      snapshot.round.round_id !== input.round_id
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_SCOPE_INVALID");
     }
     if (!["open", "locked", "settled", "published"].includes(snapshot.round.status)) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_OPEN");
