@@ -13,7 +13,7 @@
 | Product candidate SHA | `2d29d062ce110f55fdd7ef51e5bd240189032104`                                  |
 | Product merge SHA     | `30dac8b60603bab63aa1682061cd6917d24d772d`                                  |
 | Product merge tree    | `6ed1805681d844980c45a2e7aa9ebc6218ee0da4`                                  |
-| Governance PR         | PENDING_GOVERNANCE_PR_CREATION                                              |
+| Governance PR         | #388                                                                        |
 | Governance merge SHA  | PENDING_UNTIL_GOVERNANCE_MERGES                                             |
 | Implementation claim  | Bounded, read-only Student DecisionTrace projection implemented with limits |
 | Human validation      | NOT_PERFORMED                                                               |
@@ -100,7 +100,7 @@ This closure does not claim completion of private judgment, separate role positi
 
 ## Planning carrier reconciliation
 
-`docs/planning/current-cycle.yaml` and `docs/planning/l1-plus-portfolio-register.yaml` now carry MW5's product merge, current master, closed capability, released Product ownership, explicit limits, and no-automatic-successor rule. The Governance PR number and governance merge SHA remain pending until this exact governance candidate is created and merged; they are not invented in advance.
+`docs/planning/current-cycle.yaml` and `docs/planning/l1-plus-portfolio-register.yaml` now carry MW5's product merge, current master, closed capability, released Product ownership, explicit limits, and no-automatic-successor rule. Governance PR #388 is recorded; its governance merge SHA remains pending until this exact candidate is merged and is not invented in advance.
 
 ## Governance disposition
 
