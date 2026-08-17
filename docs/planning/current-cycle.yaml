@@ -1,21 +1,21 @@
-cycle_id: SIMWAR-MW3-ROUND-SCOPED-TEACHER-CONTEXT-COMMAND-INTEGRITY-20260816
+cycle_id: SIMWAR-MW4-FORMAL-MULTI-ROUND-LIFECYCLE-CONTINUATION-20260816
 stage: L1_PLUS
 status: GOVERNANCE_CLOSURE_PENDING_WITH_DECLARED_LIMITS
 started_at: "2026-08-16T09:52:01-07:00"
-product_closed_at: "2026-08-16T18:09:27Z"
-governance_updated_at: "2026-08-16T18:12:00Z"
+product_closed_at: "2026-08-17T02:04:39Z"
+governance_updated_at: "2026-08-17T02:04:39Z"
 repository: qidianzhiku/SimWar
-source_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
-assessment_source_anchor_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-product_evidence_source_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
-product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
+source_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+assessment_source_anchor_sha: 7fe4df1a1944fdb07474a42e85c3a5735ace20d6
+product_evidence_source_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
 product_prs:
-  - 383
-product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
-governance_pr: 384
+  - 385
+product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+governance_pr: 386
 governance_closure_merge_sha: null
 governance_closure_readback: PENDING_UNTIL_MW3_GOVERNANCE_MERGES
-current_master_at_readback: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
+current_master_at_readback: 422bb78eac6d1f267976f4c63d57ca7e7d755139
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
@@ -26,49 +26,45 @@ predecessor:
   governance_pr: 378
   merge_sha: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
   completed_product_baseline: 51ce10038a04c07c5b3add1e3b3a9a20b4a51919
-primary_outcome: ROUND_SCOPED_TEACHER_CONTEXT_AND_COMMAND_INTEGRITY
+primary_outcome: FORMAL_MULTI_ROUND_LIFECYCLE_CONTINUATION
 scope:
-  - exact tenant, run, round_id, and round_no selection in the Teacher workspace
-  - exact round-scoped start, lock, settle, and publish command paths
-  - server-authored BFF round identity and allowed-action projection remains authoritative
-  - stale-response, request-identity, and post-action refresh guards preserve the selected context
-  - no shared contract, OpenAPI, backend authority, settlement, replay, migration, or database mutation
+  - server-authoritative continuation of a published predecessor into a deterministic successor draft
+  - exact tenant, run, predecessor round, and successor round identity
+  - idempotent retry and audit receipt semantics under the existing per-run mutation lock
+  - Teacher and Student round-context projection for the created successor
+  - no settlement, replay truth, migration, general PostgreSQL, RLS, or automatic successor mutation
 validation:
   github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
   product_pr: PASS_MERGED_383
   product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_7EE5107_TREE_4EC0248
-  full_npm_test: PASS_202_FILES_1291_TESTS
+  full_npm_test: PASS_PRODUCT_BRANCH_204_FILES_1298_TESTS_WITH_DETACHED_BASELINE_LIMIT
   contract: PASS_20_FILES_48_TESTS
   typecheck: PASS
   build: PASS
   lint: PASS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
-  mw1_canonical_integration: PASS_3
-  mw2_publication_integration: PASS_2
-  teacher_refoundation_browser: PASS_16_1_SKIPPED
-  teacher_scenario_readiness_browser: PASS_3
-  mw3_browser: PASS_1
-  postgres_replay: NOT_RERUN_POST_MERGE_REMOTE_PROTECTED_CHECK_NOT_REQUIRED_FOR_UI_ONLY_DELTA
+  mw4_lifecycle_integration: PASS_FOCUSED_AND_FULL_BROWSER_AFTER_SCOPED_RECOVERY
+  postgres_replay: BLOCKED_ENVIRONMENT_SIMWAR_TEST_DATABASE_URL_ABSENT
   security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  repository_format: KNOWN_LIMIT_53_EXISTING_FILES
+  repository_format: KNOWN_LIMIT_54_EXISTING_FILES
   graph: SOURCE_READBACK_CODEGRAPH_EXTERNAL_BASELINE_GRAPHIFY_INCOMPLETE
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/383
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/384
-  product_candidate_sha: 01dd97fc9930ccda82f221cb02eb281f08d4c1ac
-  product_merge_sha: 7ee5107abcaea31b8a1ce4d69723b50c51acb6ea
-  product_merge_tree: 4ec0248a977c40ab118bbea9bdc5bcfb4cb174a8
-  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750/sources/post-product-master
-  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW3-20260816-094750
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/385
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/386
+  product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
+  product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
+  product_merge_tree: 3f975206e48457da68b4310779fb3b43c233842b
+  fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401/sources/postmerge-422bb78eac6d1f267976f4c63d57ca7e7d755139
+  evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW4-20260816-174401
 resource_locks:
   status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
   released:
-    - MW3_P0_TEACHER_ROUND_CONTEXT
-    - MW3_V1_SERIAL_BROWSER_VALIDATION
-    - MW3_PRODUCT_PR_383
+    - MW4_FORMAL_MULTI_ROUND_LIFECYCLE_CONTINUATION
+    - MW4_V1_SERIAL_BROWSER_VALIDATION
+    - MW4_PRODUCT_PR_385
   pending:
-    - MW3_GOVERNANCE_CLOSURE_PR
+    - MW4_GOVERNANCE_CLOSURE_PR
 candidate_backlog:
   - candidate_id: MW3-NEXT-STRUCTURED-STUDENT-DECISION-TRACE
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
@@ -83,7 +79,7 @@ known_limits:
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
   - This cycle does not authorize publication repair, DecisionTrace implementation, BLP, Shanghai, Small Model, Multi-Agent, migration, general PostgreSQL, RLS, human validation, pilot, or production.
-  - The controlled Round 2 browser fixture proves command targeting and BFF integration, not ordinary Round creation.
+  - The controlled Round 2 browser fixture proves continuation command targeting and BFF integration, not an unrestricted round factory.
   - Product checks and local tests do not prove teaching effectiveness or human usability.
   - No successor starts automatically.
 invalidation_triggers:
