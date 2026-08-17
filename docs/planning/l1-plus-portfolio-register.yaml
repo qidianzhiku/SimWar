@@ -5,12 +5,12 @@ repository: qidianzhiku/SimWar
 default_branch: master
 assessment_source_anchor_sha: d28ea600ac9eaeed1f2950779dbda3b8aa965035
 product_evidence_source_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
-current_master_at_readback: 30dac8b60603bab63aa1682061cd6917d24d772d
-governance_closure_merge_sha: null
-portfolio_current_master_lag: GOVERNANCE_PR_MW5_PENDING
+current_master_at_readback: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+governance_closure_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+portfolio_current_master_lag: RECONCILED_AT_CURRENT_MASTER
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: MW5_PRODUCT_COMPLETE_GOVERNANCE_PENDING
+l1_plus_status: MW5_PRODUCT_AND_GOVERNANCE_COMPLETE_WITH_DECLARED_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -35,7 +35,7 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: PENDING_MW5_GOVERNANCE_PR
+    status: CLOSED_WITH_EXTERNAL_EXACT_READBACK
     governance_pr: 388
     governance_pr_budget: 1
 closed_capabilities:
@@ -69,14 +69,32 @@ closed_capabilities:
     product_pr: 387
     product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
     runtime_authority: JSON_INTERNAL_ONLY
+historical_governance_reconciliations:
+  - capability_id: W025-DURABLE-VALIDATION-ENVIRONMENT-LAUNCH
+    product_pr: 372
+    product_merge_sha: 93883f47af9d1ee8892eeabf40f78240c186589a
+    product_changed_file_count: 36
+    product_manifest_sha256: 86edacd35a5ae91697c27615e72c939794324cea2ab623aaa529d60d488369b8
+    historical_governance_pr: 374
+    historical_governance_pr_state: CLOSED_UNMERGED_SUPERSEDED
+    governance_reconciliation_base: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+    governance_closure: PENDING_REMEDIATION_PR_MERGE_READBACK
+    runtime_authority: JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_W024_W025
+    human_validation: NOT_PERFORMED
+    pilot: NOT_AUTHORIZED
+    production: NOT_AUTHORIZED
+    issue_351: OPEN_BROADER_DURABLE_BOUNDARY
+    w026: NOT_AUTHORIZED_NOT_STARTED
+    resource_lock_state: W025_GOVERNANCE_LOCK_HELD_PENDING_REMEDIATION_MERGE
+    automatic_next_start: false
 resource_locks:
-  status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
+  status: RELEASED
   released:
     - MW5_STRUCTURED_STUDENT_DECISION_TRACE
     - MW5_V1_SERIAL_BROWSER_VALIDATION
     - MW5_PRODUCT_PR_387
-  pending:
     - MW5_GOVERNANCE_CLOSURE_PR
+  pending: []
 candidate_backlog:
   - candidate_id: MW5-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
@@ -93,7 +111,7 @@ evidence:
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
   product_pr_state: MERGED_387
-  current_master: EXACT_30DAC8B
+  current_master: EXACT_53C554B
   decision_trace_route: PASS_READ_ONLY_ROLE_SAFE_ROUND_SCOPED
   decision_trace_idempotency: NOT_APPLICABLE_READ_ONLY_PROJECTION
   browser: PASS_MW5_REAL_JOURNEY_VIEWPORT_AND_CI_SMOKE

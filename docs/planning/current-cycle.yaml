@@ -1,11 +1,11 @@
 cycle_id: SIMWAR-MW5-STRUCTURED-STUDENT-DECISION-TRACE-20260816
 stage: L1_PLUS
-status: GOVERNANCE_CLOSURE_PENDING_WITH_DECLARED_LIMITS
+status: GOVERNANCE_CLOSED_WITH_EXTERNAL_EXACT_READBACK
 started_at: "2026-08-16T09:52:01-07:00"
 product_closed_at: "2026-08-17T04:04:55Z"
-governance_updated_at: "2026-08-17T04:09:42Z"
+governance_updated_at: "2026-08-17T04:20:33Z"
 repository: qidianzhiku/SimWar
-source_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
+source_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
 assessment_source_anchor_sha: d28ea600ac9eaeed1f2950779dbda3b8aa965035
 product_evidence_source_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
 product_candidate_sha: 2d29d062ce110f55fdd7ef51e5bd240189032104
@@ -13,9 +13,9 @@ product_prs:
   - 387
 product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
 governance_pr: 388
-governance_closure_merge_sha: null
-governance_closure_readback: PENDING_UNTIL_MW5_GOVERNANCE_MERGES
-current_master_at_readback: 30dac8b60603bab63aa1682061cd6917d24d772d
+governance_closure_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
+governance_closure_readback: CLOSED_WITH_EXTERNAL_EXACT_READBACK
+current_master_at_readback: 53c554b21172d1e5bec6d8f2096f95dad397ad84
 runtime_authority: UNCHANGED_JSON_DEFAULT_EXPLICIT_POSTGRES_BOUNDED_PATHS_ONLY
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
@@ -60,13 +60,13 @@ evidence:
   fresh_clone: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347/sources/post-product-master-30dac8b60603bab63aa1682061cd6917d24d772d
   evidence_root: C:/Users/Marshall/.codex/px0-evidence/E-SIMWAR-MW5-20260816-201347
 resource_locks:
-  status: RELEASE_PENDING_GOVERNANCE_MERGE_READBACK
+  status: RELEASED
   released:
     - MW5_STRUCTURED_STUDENT_DECISION_TRACE
     - MW5_V1_SERIAL_BROWSER_VALIDATION
     - MW5_PRODUCT_PR_387
-  pending:
     - MW5_GOVERNANCE_CLOSURE_PR
+  pending: []
 candidate_backlog:
   - candidate_id: MW5-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
