@@ -11,6 +11,9 @@ import {
   type RoleId,
   type RoleWorkflowEvent,
   type StudentRoleAssignment,
+  type StudentDecisionTraceDTO,
+  type StudentDecisionTraceStage,
+  type StudentDecisionTraceStageKey,
   type StudentRoleWorkflowMergeDTO,
   type StudentRoleWorkflowWorkspaceDTO,
   type TeacherRoleWorkflowWorkspaceDTO,
@@ -100,6 +103,53 @@ function toStudentMergeDto(mergeCommit: DecisionMergeCommit): StudentRoleWorkflo
     merge_commit_id: mergeCommit.merge_commit_id,
     status: mergeCommit.status
   };
+}
+
+const STUDENT_DECISION_TRACE_KNOWN_LIMITS = [
+  "PRIVATE_JUDGMENT_NOT_SEPARATELY_MODELED",
+  "ROLE_POSITION_NOT_SEPARATELY_MODELED",
+  "DIVERGENCE_NOT_STRUCTURED_IN_V1",
+  "RESOLUTION_NOT_STRUCTURED_IN_V1",
+  "PRESERVED_DISSENT_NOT_STRUCTURED_IN_V1",
+  "OTHER_ROLE_PAYLOADS_EXCLUDED",
+  "OTHER_ROLE_ACTOR_IDENTIFIERS_EXCLUDED",
+  "OUTCOME_TRUTH_EXCLUDED",
+  "LEARNING_EVIDENCE_EXCLUDED"
+] as const;
+
+const STUDENT_DECISION_TRACE_STAGE_ORDER: Record<StudentDecisionTraceStageKey, number> = {
+  ROLE_ASSIGNED: 0,
+  ROLE_CONTRIBUTION_DRAFTED: 1,
+  ROLE_CONTRIBUTION_READY: 2,
+  TEAM_MERGE_MILESTONE: 3,
+  TEAM_CONFIRMED: 4,
+  CANONICAL_DECISION_MILESTONE: 5
+};
+
+function createStudentTraceStage(
+  stage_key: StudentDecisionTraceStageKey,
+  occurred_at: string,
+  safe_evidence_reference: string,
+  safe_label: string
+): StudentDecisionTraceStage {
+  return {
+    occurred_at,
+    safe_evidence_reference,
+    safe_label,
+    stage_key,
+    status: "completed"
+  };
+}
+
+function sortStudentTraceStages(stages: StudentDecisionTraceStage[]): StudentDecisionTraceStage[] {
+  return stages.slice().sort((left, right) => {
+    const occurredAt = left.occurred_at.localeCompare(right.occurred_at);
+    if (occurredAt !== 0) return occurredAt;
+    return (
+      STUDENT_DECISION_TRACE_STAGE_ORDER[left.stage_key] -
+      STUDENT_DECISION_TRACE_STAGE_ORDER[right.stage_key]
+    );
+  });
 }
 
 function buildMergedPayload(sections: RoleDecisionSection[]): DecisionPayload {
@@ -321,6 +371,151 @@ export class RoleWorkflowCommandService {
       sections: clone(snapshot.sections),
       team_id: input.team_id,
       tenant_id: actor.tenant_id
+    };
+  }
+
+  async getStudentDecisionTrace(
+    actor: RoleWorkflowActor,
+    input: RoundWorkflowScope
+  ): Promise<StudentDecisionTraceDTO> {
+    this.requireStudent(actor);
+    const snapshot = await this.read(actor, input);
+    this.assertReadableRoundScope(snapshot, input);
+    const assignment = this.findActorAssignment(actor, snapshot);
+    const permissions = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
+    const traceStages: StudentDecisionTraceStage[] = [
+      createStudentTraceStage(
+        "ROLE_ASSIGNED",
+        assignment.assigned_at,
+        "role_assignment",
+        "角色已分配"
+      )
+    ];
+
+    const ownSections = snapshot.sections.filter(
+      (section) =>
+        section.tenant_id === actor.tenant_id &&
+        section.run_id === input.run_id &&
+        section.round_id === input.round_id &&
+        section.team_id === input.team_id &&
+        section.role_key === assignment.role_key &&
+        section.submitted_by === actor.actor_id &&
+        (!section.assignment_id || section.assignment_id === assignment.assignment_id)
+    );
+    const ownSectionIds = new Set(ownSections.map((section) => section.section_id));
+    for (const event of snapshot.events) {
+      if (!ownSectionIds.has(event.resource_id)) continue;
+      if (event.event_type === "section_saved") {
+        const section = ownSections.find((candidate) => candidate.section_id === event.resource_id);
+        traceStages.push(
+          createStudentTraceStage(
+            "ROLE_CONTRIBUTION_DRAFTED",
+            event.created_at,
+            section ? `role_contribution_revision_${section.version}` : "role_contribution",
+            "已记录角色贡献"
+          )
+        );
+      }
+      if (event.event_type === "section_ready") {
+        const section = ownSections.find((candidate) => candidate.section_id === event.resource_id);
+        traceStages.push(
+          createStudentTraceStage(
+            "ROLE_CONTRIBUTION_READY",
+            event.created_at,
+            section ? `role_contribution_revision_${section.version}` : "role_contribution",
+            "角色贡献已就绪"
+          )
+        );
+      }
+    }
+
+    if (permissions.visible_scopes.includes("team.merge_summary")) {
+      for (const mergeCommit of snapshot.merge_commits.filter(
+        (candidate) =>
+          candidate.tenant_id === actor.tenant_id &&
+          candidate.run_id === input.run_id &&
+          candidate.round_id === input.round_id &&
+          candidate.team_id === input.team_id
+      )) {
+        traceStages.push(
+          createStudentTraceStage(
+            "TEAM_MERGE_MILESTONE",
+            mergeCommit.created_at,
+            "team_merge",
+            "团队合并已校验"
+          )
+        );
+      }
+    }
+
+    const confirmations = snapshot.confirmations.filter(
+      (candidate) =>
+        candidate.tenant_id === actor.tenant_id &&
+        candidate.run_id === input.run_id &&
+        candidate.round_id === input.round_id &&
+        candidate.team_id === input.team_id &&
+        candidate.status === "confirmed"
+    );
+    for (const confirmation of confirmations) {
+      traceStages.push(
+        createStudentTraceStage(
+          "TEAM_CONFIRMED",
+          confirmation.confirmed_at,
+          "team_confirmation",
+          "团队已确认"
+        )
+      );
+    }
+
+    if (permissions.can_submit_canonical_decision) {
+      for (const decision of snapshot.decisions.filter(
+        (candidate) =>
+          candidate.tenant_id === actor.tenant_id &&
+          candidate.run_id === input.run_id &&
+          candidate.round_id === input.round_id &&
+          candidate.team_id === input.team_id &&
+          candidate.status === "submitted" &&
+          candidate.canonical_source === "role_merge_commit" &&
+          candidate.team_confirmation_id !== undefined &&
+          confirmations.some(
+            (confirmation) => confirmation.team_confirmation_id === candidate.team_confirmation_id
+          )
+      )) {
+        const confirmation = confirmations.find(
+          (candidate) => candidate.team_confirmation_id === decision.team_confirmation_id
+        );
+        if (!confirmation) continue;
+        traceStages.push(
+          createStudentTraceStage(
+            "CANONICAL_DECISION_MILESTONE",
+            confirmation.confirmed_at,
+            "canonical_decision",
+            "正式决策已提交"
+          )
+        );
+      }
+    }
+
+    const orderedStages = sortStudentTraceStages(traceStages);
+    const currentStage = orderedStages.at(-1)?.stage_key ?? "NOT_STARTED";
+    return {
+      current_stage: currentStage,
+      known_limits: [...STUDENT_DECISION_TRACE_KNOWN_LIMITS],
+      role_key: assignment.role_key,
+      round_id: input.round_id,
+      round_no: snapshot.round!.round_no,
+      run_id: input.run_id,
+      schema_version: "student-decision-trace.v1",
+      team_id: input.team_id,
+      tenant_id: actor.tenant_id,
+      trace_completeness: orderedStages.some(
+        (stage) => stage.stage_key === "CANONICAL_DECISION_MILESTONE"
+      )
+        ? "complete"
+        : orderedStages.length > 0
+          ? "partial"
+          : "empty",
+      trace_stages: orderedStages
     };
   }
 
@@ -643,6 +838,26 @@ export class RoleWorkflowCommandService {
   private assertRoundScope(snapshot: RoleWorkflowRepositorySnapshot): void {
     this.assertScope(snapshot);
     if (!snapshot.round || snapshot.round.status !== "open") {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_OPEN");
+    }
+  }
+
+  private assertReadableRoundScope(
+    snapshot: RoleWorkflowRepositorySnapshot,
+    input: RoundWorkflowScope
+  ): void {
+    this.assertScope(snapshot);
+    if (!snapshot.round) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_FOUND");
+    }
+    if (
+      snapshot.round.tenant_id !== snapshot.run?.tenant_id ||
+      snapshot.round.run_id !== input.run_id ||
+      snapshot.round.round_id !== input.round_id
+    ) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_SCOPE_INVALID");
+    }
+    if (!["open", "locked", "settled", "published"].includes(snapshot.round.status)) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_ROUND_NOT_OPEN");
     }
   }

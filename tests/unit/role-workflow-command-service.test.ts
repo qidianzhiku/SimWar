@@ -170,6 +170,143 @@ describe("RoleWorkflowCommandService", () => {
     expect(workspace.assignment).not.toHaveProperty("assigned_by");
   });
 
+  it("projects a deterministic role-safe DecisionTrace without creating formal writes", async () => {
+    const assignment = await service.assignRole(teacher, {
+      course_id: "course_c3",
+      role_key: "CEO",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      user_id: studentCeo.actor_id
+    });
+    await service.saveSection(studentCeo, {
+      expected_version: 0,
+      payload: { strategy_statement: "Private role contribution." },
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    await service.markSectionReady(studentCeo, {
+      expected_version: 1,
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+
+    const before = {
+      decisions: structuredClone(store.decisions),
+      confirmations: structuredClone(store.teamConfirmations),
+      events: structuredClone(store.roleWorkflowEvents),
+      merges: structuredClone(store.decisionMergeCommits),
+      sections: structuredClone(store.roleDecisionSections)
+    };
+    const trace = await service.getStudentDecisionTrace(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+
+    expect(trace).toMatchObject({
+      current_stage: "ROLE_CONTRIBUTION_READY",
+      role_key: "CEO",
+      round_id: "round_c3_1",
+      schema_version: "student-decision-trace.v1",
+      team_id: "team_c3",
+      trace_completeness: "partial"
+    });
+    expect(trace.trace_stages.map((stage) => stage.stage_key)).toEqual([
+      "ROLE_ASSIGNED",
+      "ROLE_CONTRIBUTION_DRAFTED",
+      "ROLE_CONTRIBUTION_READY"
+    ]);
+    expect(JSON.stringify(trace)).not.toContain("Private role contribution");
+    expect(JSON.stringify(trace)).not.toContain(studentCeo.actor_id);
+    expect(JSON.stringify(trace)).not.toContain(studentCfo.actor_id);
+    expect(store.decisions).toEqual(before.decisions);
+    expect(store.teamConfirmations).toEqual(before.confirmations);
+    expect(store.roleWorkflowEvents).toEqual(before.events);
+    expect(store.decisionMergeCommits).toEqual(before.merges);
+    expect(store.roleDecisionSections).toEqual(before.sections);
+    expect(trace.trace_stages[0]).toMatchObject({
+      safe_evidence_reference: "role_assignment",
+      status: "completed",
+      safe_label: "角色已分配"
+    });
+    expect(assignment.assignment_id).toBeDefined();
+  });
+
+  it("isolates a successor round from predecessor contribution milestones", async () => {
+    await service.assignRole(teacher, {
+      course_id: "course_c3",
+      role_key: "CEO",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      user_id: studentCeo.actor_id
+    });
+    await service.saveSection(studentCeo, {
+      expected_version: 0,
+      payload: { strategy_statement: "Round one contribution." },
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    store.rounds.push({
+      round_id: "round_c3_2",
+      round_no: 2,
+      run_id: "run_c3",
+      status: "open",
+      tenant_id: "tenant_c3"
+    });
+
+    const successorTrace = await service.getStudentDecisionTrace(studentCeo, {
+      round_id: "round_c3_2",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+
+    expect(successorTrace.round_id).toBe("round_c3_2");
+    expect(successorTrace.round_no).toBe(2);
+    expect(successorTrace.trace_stages.map((stage) => stage.stage_key)).toEqual(["ROLE_ASSIGNED"]);
+    expect(successorTrace.trace_stages).not.toContainEqual(
+      expect.objectContaining({ safe_evidence_reference: "role_contribution_revision_1" })
+    );
+  });
+
+  it("fails closed when a repository returns a round outside the requested run scope", async () => {
+    await service.assignRole(teacher, {
+      course_id: "course_c3",
+      role_key: "CEO",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      user_id: studentCeo.actor_id
+    });
+
+    const baseRepository = createJsonRepositoryPorts(store).roleWorkflow;
+    const divergentRepository = {
+      readRoleWorkflow: async (query: Parameters<typeof baseRepository.readRoleWorkflow>[0]) => {
+        const snapshot = await baseRepository.readRoleWorkflow(query);
+        return {
+          ...snapshot,
+          round: snapshot.round
+            ? { ...snapshot.round, run_id: "run_outside_requested_scope" }
+            : snapshot.round
+        };
+      },
+      commitRoleWorkflow: baseRepository.commitRoleWorkflow
+    };
+    const divergentService = new RoleWorkflowCommandService(divergentRepository, {
+      createId: (kind) => `${kind}_divergent`,
+      now: () => "2026-07-31T02:00:00.000Z"
+    });
+
+    await expect(
+      divergentService.getStudentDecisionTrace(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toMatchObject({ code: "ROLE_WORKFLOW_SCOPE_INVALID" });
+  });
+
   it("rejects every nonviable team topology before activation and keeps direct Decision available", async () => {
     const cases: Array<{
       configure: (candidateStore: SimWarStore) => void;

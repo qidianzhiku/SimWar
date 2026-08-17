@@ -2267,6 +2267,42 @@ paths:
                 $ref: "#/components/schemas/RoleWorkflowStudentWorkspaceEnvelope"
         "403": { description: "Student or tenant boundary denied" }
         "404": { description: "Active assignment not found" }
+  /api/v1/bff/student/role-workspace/decision-trace:
+    get:
+      operationId: STUDENT_ROLE_WORKFLOW_DECISION_TRACE_GET_V1
+      summary: Read the authenticated Student's role-safe, round-scoped process trace.
+      description: This read-only projection exposes supported workflow milestones only. It excludes role payloads, actor identifiers, outcome truth, Replay material, and learning evidence.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: run_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: round_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: team_id
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Student-safe DecisionTrace process projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleWorkflowStudentDecisionTraceEnvelope"
+        "403": { description: "Student, role, or tenant boundary denied" }
+        "404": { description: "Active assignment or exact round not found" }
+        "409": { description: "Round is not an executable or historical readable state" }
   /api/v1/bff/student/role-workspace/section:
     put:
       operationId: STUDENT_ROLE_WORKFLOW_SECTION_PUT_V1
@@ -4868,6 +4904,19 @@ components:
           type: string
         data:
           $ref: "../schemas/student-role-workflow-workspace.v1.json"
+        message:
+          type: string
+        request_id:
+          type: string
+    RoleWorkflowStudentDecisionTraceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code:
+          type: string
+        data:
+          $ref: "../schemas/student-decision-trace.v1.json"
         message:
           type: string
         request_id:

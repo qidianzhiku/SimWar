@@ -90,6 +90,28 @@ describe("Role Workflow executable contracts", () => {
     );
   });
 
+  it("validates the closed Student DecisionTrace contract and rejects private stage fields", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    const trace = ajv.compile(readJson("contracts/schemas/student-decision-trace.v1.json"));
+
+    expect(trace(readJson("contracts/fixtures/student-decision-trace.valid.json"))).toBe(true);
+    expect(trace(readJson("contracts/fixtures/student-decision-trace-private.invalid.json"))).toBe(
+      false
+    );
+    expect(trace.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "payload" }
+        }),
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "actor_id" }
+        })
+      ])
+    );
+  });
+
   it("accepts the assignment-bound RoleDecisionSection persisted by the C3 writer", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
     const section = ajv.compile(readJson("contracts/schemas/role-decision-section.v1.json"));
@@ -127,6 +149,13 @@ describe("Role Workflow executable contracts", () => {
         "get",
         undefined,
         "RoleWorkflowStudentWorkspaceEnvelope",
+        "200"
+      ],
+      [
+        "/api/v1/bff/student/role-workspace/decision-trace",
+        "get",
+        undefined,
+        "RoleWorkflowStudentDecisionTraceEnvelope",
         "200"
       ],
       [
@@ -174,7 +203,8 @@ describe("Role Workflow executable contracts", () => {
 
     for (const path of [
       "/api/v1/bff/teacher/role-workflows",
-      "/api/v1/bff/student/role-workspace"
+      "/api/v1/bff/student/role-workspace",
+      "/api/v1/bff/student/role-workspace/decision-trace"
     ]) {
       expect(openapi.paths[path].get.parameters).toEqual([
         { in: "query", name: "run_id", required: true, schema: expect.any(Object) },

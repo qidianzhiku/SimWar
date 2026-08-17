@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   DecisionPayload,
   RoleDecisionSection,
+  StudentDecisionTraceDTO,
   StudentRoleWorkflowMergeDTO,
   StudentRoleWorkflowWorkspaceDTO,
   TeamConfirmation
@@ -62,6 +63,23 @@ export function canReadStudentRoleWorkspace(
   return workspace?.context?.permissions?.can_read_role_workspace === true;
 }
 
+export function studentDecisionTraceCurrentStageCopy(
+  trace: StudentDecisionTraceDTO | null
+): string {
+  return trace?.trace_stages?.[trace.trace_stages.length - 1]?.safe_label ?? "尚未开始记录";
+}
+
+function isStudentDecisionTrace(value: unknown): value is StudentDecisionTraceDTO {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<StudentDecisionTraceDTO>;
+  return (
+    candidate.schema_version === "student-decision-trace.v1" &&
+    Array.isArray(candidate.trace_stages) &&
+    typeof candidate.current_stage === "string" &&
+    typeof candidate.trace_completeness === "string"
+  );
+}
+
 interface StudentRoleWorkflowPanelProps {
   active: boolean;
   roundId: string | undefined;
@@ -104,6 +122,7 @@ async function roleWorkflowRequest<T>(
 
 export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const [workspace, setWorkspace] = useState<StudentRoleWorkflowWorkspaceDTO | null>(null);
+  const [decisionTrace, setDecisionTrace] = useState<StudentDecisionTraceDTO | null>(null);
   const [draft, setDraft] = useState<DecisionPayload>(initialDraft);
   const [notice, setNotice] = useState("等待角色分配");
   const [busy, setBusy] = useState(false);
@@ -143,6 +162,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
       if (!props.active || !props.token || !props.runId || !props.roundId || !props.teamId) {
         if (requestId === requestIdentity.current) {
           setWorkspace(null);
+          setDecisionTrace(null);
           setAvailability("inactive");
         }
         return;
@@ -178,6 +198,40 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
           ...next.section?.payload,
           pricing: next.section?.payload.pricing ?? current.pricing
         }));
+        void roleWorkflowRequest<StudentDecisionTraceDTO>(
+          `/api/v1/bff/student/role-workspace/decision-trace?run_id=${encodeURIComponent(
+            props.runId
+          )}&round_id=${encodeURIComponent(props.roundId)}&team_id=${encodeURIComponent(
+            props.teamId
+          )}`,
+          props,
+          { signal: controller.signal }
+        )
+          .then((trace) => {
+            if (!isStudentDecisionTrace(trace)) {
+              throw new Error("STUDENT_DECISION_TRACE_INVALID_RESPONSE");
+            }
+            if (
+              isCurrentRoleWorkflowRequest(
+                requestId,
+                requestIdentity.current,
+                controller.signal.aborted
+              )
+            ) {
+              setDecisionTrace(trace);
+            }
+          })
+          .catch(() => {
+            if (
+              isCurrentRoleWorkflowRequest(
+                requestId,
+                requestIdentity.current,
+                controller.signal.aborted
+              )
+            ) {
+              setDecisionTrace(null);
+            }
+          });
         setNotice("当前角色工作区已就绪");
       } catch (error) {
         if (
@@ -189,6 +243,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
         )
           return;
         setWorkspace(null);
+        setDecisionTrace(null);
         const message = error instanceof Error ? error.message : "角色工作区暂不可用";
         setAvailability(
           message.includes("ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND") ? "inactive" : "error"
@@ -333,6 +388,32 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                 <span className="compatibility-copy">{confirmationStatus.compatibility}</span>
               </strong>
             </div>
+          </div>
+          <div className="decision-trace" aria-label="决策历程">
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">过程证据</p>
+                <h3>决策历程</h3>
+              </div>
+              <span role="status">{studentDecisionTraceCurrentStageCopy(decisionTrace)}</span>
+            </div>
+            {decisionTrace?.trace_stages.length ? (
+              <ol>
+                {decisionTrace.trace_stages.map((stage, index) => (
+                  <li key={`${stage.stage_key}-${index}`}>
+                    <strong>{stage.safe_label}</strong>
+                    <time dateTime={stage.occurred_at}>
+                      {new Date(stage.occurred_at).toLocaleString("zh-CN")}
+                    </time>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="muted">暂时没有可显示的过程节点。</p>
+            )}
+            <p className="evidence-note">
+              仅显示当前角色可见的过程节点，不显示队友私有内容或正式结果。
+            </p>
           </div>
           <div className="role-workflow-fields">
             {fields.includes("strategy_statement") ? (

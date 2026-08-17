@@ -21,6 +21,7 @@ import {
   isCurrentRoleWorkflowRequest,
   getRoleWorkflowNoticeCopy,
   roleWorkflowStatusCopy,
+  studentDecisionTraceCurrentStageCopy,
   StudentRoleWorkflowPanel
 } from "../../apps/student/src/StudentRoleWorkflowPanel";
 import {
@@ -148,6 +149,20 @@ describe("Student executive workspace refoundation", () => {
         context: { permissions: { can_read_role_workspace: false } }
       } as never)
     ).toBe(false);
+    expect(studentDecisionTraceCurrentStageCopy(null)).toBe("尚未开始记录");
+    expect(
+      studentDecisionTraceCurrentStageCopy({
+        trace_stages: [
+          {
+            occurred_at: "2026-08-01T01:00:00.000Z",
+            safe_evidence_reference: "role_assignment",
+            safe_label: "角色已分配",
+            stage_key: "ROLE_ASSIGNED",
+            status: "completed"
+          }
+        ]
+      } as never)
+    ).toBe("角色已分配");
   });
 
   it("clears Student busy state when an edited login context invalidates a pending sign-in", async () => {
@@ -540,11 +555,13 @@ describe("Student executive workspace refoundation", () => {
       return { promise, resolve };
     };
     const initial = deferred<Response>();
+    const trace = deferred<Response>();
     const command = deferred<Response>();
     const refreshed = deferred<Response>();
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockImplementationOnce(async () => initial.promise)
+      .mockImplementationOnce(async () => trace.promise)
       .mockImplementationOnce(async () => command.promise)
       .mockImplementationOnce(async () => refreshed.promise);
     const container = document.createElement("div");
@@ -566,6 +583,17 @@ describe("Student executive workspace refoundation", () => {
     await act(async () => {
       initial.resolve(response(workspace));
       await initial.promise;
+    });
+    await act(async () => {
+      trace.resolve(
+        response({
+          schema_version: "student-decision-trace.v1",
+          trace_stages: [],
+          current_stage: "NOT_STARTED",
+          trace_completeness: "empty"
+        })
+      );
+      await trace.promise;
     });
     const saveButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("保存角色草稿")

@@ -115,6 +115,81 @@ async function installRoleWorkflowBrowserFixture(page: Page): Promise<void> {
   await page.route("**/api/v1/bff/student/role-workspace**", async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
+    if (pathname.endsWith("/decision-trace")) {
+      const traceStages = [
+        {
+          occurred_at: "2026-07-31T02:00:00.000Z",
+          safe_evidence_reference: "role_assignment",
+          safe_label: "角色已分配",
+          stage_key: "ROLE_ASSIGNED",
+          status: "completed"
+        }
+      ];
+      if (sectionStatus) {
+        traceStages.push({
+          occurred_at: "2026-07-31T02:01:00.000Z",
+          safe_evidence_reference: "role_contribution_revision_1",
+          safe_label: "已记录角色贡献",
+          stage_key: "ROLE_CONTRIBUTION_DRAFTED",
+          status: "completed"
+        });
+        if (sectionStatus === "ready") {
+          traceStages.push({
+            occurred_at: "2026-07-31T02:01:30.000Z",
+            safe_evidence_reference: "role_contribution_revision_2",
+            safe_label: "角色贡献已就绪",
+            stage_key: "ROLE_CONTRIBUTION_READY",
+            status: "completed"
+          });
+        }
+      }
+      if (merged) {
+        traceStages.push({
+          occurred_at: "2026-07-31T02:02:00.000Z",
+          safe_evidence_reference: "team_merge",
+          safe_label: "团队合并已校验",
+          stage_key: "TEAM_MERGE_MILESTONE",
+          status: "completed"
+        });
+      }
+      if (confirmed) {
+        traceStages.push(
+          {
+            occurred_at: "2026-07-31T02:03:00.000Z",
+            safe_evidence_reference: "team_confirmation",
+            safe_label: "团队已确认",
+            stage_key: "TEAM_CONFIRMED",
+            status: "completed"
+          },
+          {
+            occurred_at: "2026-07-31T02:03:00.000Z",
+            safe_evidence_reference: "canonical_decision",
+            safe_label: "正式决策已提交",
+            stage_key: "CANONICAL_DECISION_MILESTONE",
+            status: "completed"
+          }
+        );
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          envelope({
+            current_stage: traceStages.at(-1)?.stage_key ?? "NOT_STARTED",
+            known_limits: ["OUTCOME_TRUTH_EXCLUDED"],
+            role_key: "CEO",
+            round_id: "round_browser",
+            round_no: 1,
+            run_id: "run_browser",
+            schema_version: "student-decision-trace.v1",
+            team_id: "team_alpha",
+            tenant_id: "tenant_demo",
+            trace_completeness: confirmed ? "complete" : "partial",
+            trace_stages: traceStages
+          })
+        )
+      });
+      return;
+    }
     if (pathname.endsWith("/section")) {
       expect(request.method()).toBe("PUT");
       expect(request.postDataJSON()).toMatchObject({
@@ -303,6 +378,10 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     await signIn(page, "student", username);
     const studentWorkflow = page.getByLabel("Student role workflow");
     await expect(studentWorkflow.getByRole("heading", { name: "角色工作区" })).toBeVisible();
+    await expect(studentWorkflow.getByRole("heading", { name: "决策历程" })).toBeVisible();
+    await expect(studentWorkflow.getByLabel("决策历程").getByRole("status")).toHaveText(
+      "角色已分配"
+    );
     await expect(studentWorkflow.getByText(role, { exact: true })).toBeVisible();
     if (role === "CEO") {
       await studentWorkflow
@@ -328,6 +407,9 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
       await expect(studentWorkflow.getByText("validated")).toBeVisible();
       await studentWorkflow.getByRole("button", { name: "确认团队决策" }).click();
       await expect(studentWorkflow.getByText("confirmed")).toBeVisible();
+      await expect(studentWorkflow.getByLabel("决策历程").getByRole("status")).toHaveText(
+        "正式决策已提交"
+      );
       await expect(page.getByRole("button", { name: "提交正式决策" })).toBeDisabled();
     } else {
       await expect(studentWorkflow.getByText("validated")).toHaveCount(0);
@@ -390,5 +472,6 @@ test("Role workflow stays within the mobile Teacher and Student viewports", asyn
   await signIn(page, "student", "student");
   const studentWorkflow = page.getByLabel("Student role workflow");
   await expect(studentWorkflow.getByRole("heading", { name: "角色工作区" })).toBeVisible();
+  await expect(studentWorkflow.getByRole("heading", { name: "决策历程" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
