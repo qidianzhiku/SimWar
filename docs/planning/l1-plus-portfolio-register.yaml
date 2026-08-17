@@ -37,7 +37,7 @@ selected:
     status: NONE
   closure:
     status: PENDING_GOVERNANCE_MERGE_READBACK
-    governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+    governance_pr: 391
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -111,7 +111,7 @@ candidate_backlog:
 blocked_candidates: []
 evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/390
-  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/391
   product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
   product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
   product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d

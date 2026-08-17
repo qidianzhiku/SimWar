@@ -14,7 +14,7 @@
 | Product candidate SHA                         | `26f91ab611da3a859ded9d476cf5d502bc5193d5`                         |
 | Product merge SHA                             | `e7f0d911b9c8487effd0eea82c678e1cbde8b1cc`                         |
 | Product merge tree                            | `341943f20a45904d2514d6377c417468c3eb247d`                         |
-| Governance PR                                 | PENDING_UNTIL_GOVERNANCE_PR_CREATED                                |
+| Governance PR                                 | #391                                                               |
 | Governance merge SHA                          | PENDING_UNTIL_GOVERNANCE_MERGES                                    |
 | Product changed-file count                    | 23                                                                 |
 | Product manifest SHA-256                      | `81e1371583607d093b5e724a6cc9f4b5d1e559bbace79ab9d823b8a44249e159` |
