@@ -18,7 +18,7 @@ Product merge: `422bb78eac6d1f267976f4c63d57ca7e7d755139`
 
 Product merge tree: `3f975206e48457da68b4310779fb3b43c233842b`
 
-Governance PR: `RECORDED_AT_PR_CREATION`
+Governance PR: [#386](https://github.com/qidianzhiku/SimWar/pull/386)
 
 Automatic successor: `false`
 

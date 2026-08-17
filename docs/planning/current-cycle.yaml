@@ -12,7 +12,7 @@ product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
 product_prs:
   - 385
 product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
-governance_pr: RECORDED_AT_PR_CREATION
+governance_pr: 386
 governance_closure_merge_sha: null
 governance_closure_readback: PENDING_UNTIL_MW3_GOVERNANCE_MERGES
 current_master_at_readback: 422bb78eac6d1f267976f4c63d57ca7e7d755139
@@ -51,7 +51,7 @@ validation:
   graph: SOURCE_READBACK_CODEGRAPH_EXTERNAL_BASELINE_GRAPHIFY_INCOMPLETE
 evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/385
-  governance_pr_url: RECORDED_AT_PR_CREATION
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/386
   product_candidate_sha: f38e159172a5cecff521aea832c69fc2e74f97c8
   product_merge_sha: 422bb78eac6d1f267976f4c63d57ca7e7d755139
   product_merge_tree: 3f975206e48457da68b4310779fb3b43c233842b
