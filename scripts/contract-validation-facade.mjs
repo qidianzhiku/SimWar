@@ -33,6 +33,7 @@ const m1ContractFiles = [
   "contracts/schemas/m1-decision-submit-request.v1.json",
   "contracts/schemas/m1-decision-submit-success-envelope.v1.json",
   "contracts/schemas/m1-round-envelope.v1.json",
+  "contracts/schemas/mw4-round-continuation-envelope.v1.json",
   "contracts/schemas/m1-run-create-envelope.v1.json",
   "contracts/schemas/m1-settlement-result-envelope.v1.json",
   "contracts/schemas/m1-student-result-envelope.v1.json",
@@ -45,6 +46,7 @@ const m1ContractFiles = [
   "contracts/fixtures/m1-decision-submit-success-envelope.valid.json",
   "contracts/fixtures/m1-auth-session-envelope.valid.json",
   "contracts/fixtures/m1-round-envelope.valid.json",
+  "contracts/fixtures/mw4-round-continuation-envelope.valid.json",
   "contracts/fixtures/m1-run-create-envelope.valid.json",
   "contracts/fixtures/m1-settlement-result-envelope.valid.json",
   "contracts/fixtures/m1-wrong-team-error-envelope.valid.json",
@@ -156,6 +158,7 @@ const requiredOpenApiPaths = [
   "/api/v1/courses/{courseId}/runs",
   "/api/v1/courses/{courseId}/teams/{teamId}/members",
   "/api/v1/runs/{runId}/rounds/{roundNo}/decisions",
+  "/api/v1/runs/{runId}/rounds/{roundNo}/continue",
   "/internal/v1/runs/{runId}/rounds/{roundNo}/settle",
   "/api/v1/runs/{runId}/rounds/{roundNo}/results",
   "/api/v1/bff/teacher/runs/{runId}/rounds/{roundNo}/workspace",
@@ -219,6 +222,11 @@ const schemaCases = [
   {
     schema: "contracts/schemas/m1-round-envelope.v1.json",
     valid: ["contracts/fixtures/m1-round-envelope.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/mw4-round-continuation-envelope.v1.json",
+    valid: ["contracts/fixtures/mw4-round-continuation-envelope.valid.json"],
     invalid: []
   },
   {
@@ -490,6 +498,23 @@ function assertM1OpenApiBindings(openApi) {
     );
   }
 
+  const continuationPost = openApi.paths["/api/v1/runs/{runId}/rounds/{roundNo}/continue"]?.post;
+  assert(continuationPost, "Missing POST operation for MW4 round continuation.");
+  for (const statusCode of ["200", "201"]) {
+    assert(
+      jsonContentSchema(continuationPost.responses?.[statusCode])?.$ref ===
+        schemaRef("MW4RoundContinuationEnvelope"),
+      `MW4 round continuation ${statusCode} response must reference MW4RoundContinuationEnvelope.`
+    );
+  }
+  for (const statusCode of ["403", "404", "409"]) {
+    assert(
+      jsonContentSchema(continuationPost.responses?.[statusCode])?.$ref ===
+        schemaRef("ApiErrorEnvelope"),
+      `MW4 round continuation ${statusCode} response must reference ApiErrorEnvelope.`
+    );
+  }
+
   for (const path of [
     "/api/v1/runs/{runId}/rounds/{roundNo}/settle",
     "/internal/v1/runs/{runId}/rounds/{roundNo}/settle"
@@ -556,6 +581,7 @@ function assertM1OpenApiBindings(openApi) {
     "M1DecisionSubmitRequest",
     "M1DecisionSubmitSuccessEnvelope",
     "M1RoundEnvelope",
+    "MW4RoundContinuationEnvelope",
     "M1RunCreateEnvelope",
     "M1SettlementResultEnvelope",
     "M1StudentResultEnvelope",

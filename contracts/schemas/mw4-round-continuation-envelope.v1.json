@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/mw4-round-continuation-envelope.v1.json",
+  "title": "MW4RoundContinuationEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "code", "message", "data"],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "code": { "const": "OK" },
+    "message": { "type": "string", "minLength": 1 },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round", "receipt"],
+      "properties": {
+        "round": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["round_id", "tenant_id", "run_id", "round_no", "status"],
+          "properties": {
+            "round_id": { "type": "string", "minLength": 1 },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "status": { "enum": ["draft", "open", "locked", "settled", "published"] },
+            "decision_batch_id": { "type": "string", "minLength": 1 },
+            "replay_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        },
+        "receipt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "action",
+            "audit_id",
+            "continuation_key",
+            "outcome",
+            "predecessor_round_id",
+            "round_id",
+            "round_no",
+            "run_id",
+            "tenant_id"
+          ],
+          "properties": {
+            "action": { "const": "round.continue" },
+            "audit_id": { "type": "string", "minLength": 1 },
+            "continuation_key": { "type": "string", "minLength": 1 },
+            "outcome": { "enum": ["created", "reused"] },
+            "predecessor_round_id": { "type": "string", "minLength": 1 },
+            "round_id": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "tenant_id": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

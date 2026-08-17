@@ -9,7 +9,8 @@ export type TeacherRoundCommand =
   | "round:start"
   | "round:lock"
   | "settlement:settle"
-  | "round:publish";
+  | "round:publish"
+  | "round:continue";
 
 export interface TeacherRoundContext {
   tenant_id: string;
@@ -42,7 +43,8 @@ const ROUND_COMMAND_SEGMENTS: Record<TeacherRoundCommand, string> = {
   "round:start": "start",
   "round:lock": "lock",
   "round:publish": "publish",
-  "settlement:settle": "settle"
+  "settlement:settle": "settle",
+  "round:continue": "continue"
 };
 
 export function sortTeacherRounds(rounds: readonly Round[]): Round[] {
@@ -90,7 +92,8 @@ export function createTeacherRoundContext(input: {
     round_id: input.round.round_id,
     round_no: input.round.round_no,
     round_status: input.round.status,
-    is_actionable: input.round.status !== "published",
+    is_actionable:
+      input.round.status !== "published" || input.allowedActions.includes("round:continue"),
     allowed_actions: [...input.allowedActions]
   };
 }

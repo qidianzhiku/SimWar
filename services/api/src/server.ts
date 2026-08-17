@@ -32,6 +32,7 @@ import type {
   PublicResultView,
   RoleId,
   Round,
+  RoundContinuationResult,
   RoundStatus,
   Run,
   ScenarioPackage,
@@ -83,6 +84,7 @@ import {
   type JsonFormalScenarioAuthorityPersistence
 } from "./json-repository-adapter.js";
 import { createSettlementBusinessKey } from "./settlement-idempotency.js";
+import { resolveNextRound, RoundContinuationError } from "./round-continuation.js";
 import { createJsonTeacherConfirmationRepositoryPort } from "./teacher-confirmation-registry.js";
 import { createJsonRepositoryProvider, type RepositoryProvider } from "./repository-provider.js";
 import { createPostgresRuntime, resolveRepositoryMode } from "./postgres-runtime.js";
@@ -1093,6 +1095,92 @@ async function publishRound(
   });
 
   return publishedRound;
+}
+
+async function continueRoundWithRunLock(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  predecessorRoundNo: number
+): Promise<RoundContinuationResult> {
+  const release = await acquireRunMutationLock(
+    runtime,
+    runMutationBusinessKey(context.tenantId, runId)
+  );
+  try {
+    return await continueRound(runtime, context, runId, predecessorRoundNo);
+  } finally {
+    release();
+  }
+}
+
+async function continueRound(
+  runtime: ApiRuntime,
+  context: RequestContext,
+  runId: string,
+  predecessorRoundNo: number
+): Promise<RoundContinuationResult> {
+  const actor = requirePermission(context, "round:continue");
+  const run = await runtime.repositoryProvider.facade.runs.getRun(context.tenantId, runId);
+  if (!run) {
+    throw new HttpError(404, "RUN-404-001", "run not found");
+  }
+  await assertRunLifecycleAllowsProgress({
+    provider: runtime.repositoryProvider,
+    runId: run.run_id,
+    tenantId: context.tenantId
+  });
+
+  const predecessor = await getRoundForRead(runtime, context, run.run_id, predecessorRoundNo);
+  const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+    context.tenantId,
+    run.run_id
+  );
+
+  let resolution: ReturnType<typeof resolveNextRound>;
+  try {
+    resolution = resolveNextRound({ predecessor, rounds });
+  } catch (error) {
+    if (error instanceof RoundContinuationError) {
+      throw new HttpError(409, error.code, error.message);
+    }
+    throw error;
+  }
+
+  if (resolution.outcome === "created") {
+    await runtime.repositoryProvider.facade.rounds.saveRound(resolution.round);
+  }
+
+  const continuationKey = `${context.tenantId}:${run.run_id}:${predecessor.round_id}`;
+  const audit = await appendAudit(runtime, {
+    actor,
+    action: "round.continue",
+    resourceType: "round",
+    resourceId: resolution.round.round_id,
+    requestId: context.requestId,
+    before: clonePublic(predecessor),
+    after: {
+      ...clonePublic(resolution.round),
+      continuation_key: continuationKey,
+      outcome: resolution.outcome,
+      predecessor_round_id: predecessor.round_id
+    }
+  });
+
+  return {
+    receipt: {
+      action: "round.continue",
+      audit_id: audit.audit_id,
+      continuation_key: continuationKey,
+      outcome: resolution.outcome,
+      predecessor_round_id: predecessor.round_id,
+      round_id: resolution.round.round_id,
+      round_no: resolution.round.round_no,
+      run_id: run.run_id,
+      tenant_id: context.tenantId
+    },
+    round: resolution.round
+  };
 }
 
 function createEnvelope<TData>(
@@ -7439,6 +7527,28 @@ async function routeRequest(
       })
     });
     sendJson(response, 201, createEnvelope(context, { run, round }));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/runs\/[^/]+\/rounds\/\d+\/continue$/.test(url.pathname)
+  ) {
+    const [, runId, roundNoRaw] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/runs\/([^/]+)\/rounds\/(\d+)\/continue$/
+    );
+    const result = await continueRoundWithRunLock(
+      runtime,
+      context,
+      runId ?? "",
+      Number(roundNoRaw)
+    );
+    sendJson(
+      response,
+      result.receipt.outcome === "created" ? 201 : 200,
+      createEnvelope(context, result)
+    );
     return;
   }
 

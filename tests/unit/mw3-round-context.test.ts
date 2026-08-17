@@ -141,6 +141,9 @@ describe("MW3 TeacherRoundContext", () => {
     expect(getTeacherRoundCommandPath("run-2", 2, "round:publish")).toBe(
       "/api/v1/runs/run-2/rounds/2/publish"
     );
+    expect(getTeacherRoundCommandPath("run-2", 1, "round:continue")).toBe(
+      "/api/v1/runs/run-2/rounds/1/continue"
+    );
   });
 
   it("RC08 and RC09 expose one exact, server-consumable context", () => {
@@ -174,6 +177,14 @@ describe("MW3 TeacherRoundContext", () => {
         allowedActions: []
       }).is_actionable
     ).toBe(false);
+    expect(
+      createTeacherRoundContext({
+        tenantId: "tenant-1",
+        courseId: "course-1",
+        round: selected,
+        allowedActions: ["round:continue"]
+      }).is_actionable
+    ).toBe(true);
     expect(getTeacherRoundStatusLabel("published")).toBe("已发布");
   });
 

@@ -68,7 +68,8 @@ const TEACHER_RUNTIME_PATHS = [
   "GET /api/v1/runs/:runId/rounds/:roundNo/results",
   "POST /api/v1/runs/:runId/rounds/:roundNo/lock",
   "POST /internal/v1/runs/:runId/rounds/:roundNo/settle",
-  "POST /api/v1/runs/:runId/rounds/:roundNo/publish"
+  "POST /api/v1/runs/:runId/rounds/:roundNo/publish",
+  "POST /api/v1/runs/:runId/rounds/:roundNo/continue"
 ] as const;
 
 const STUDENT_RUNTIME_PATHS = [
@@ -172,14 +173,19 @@ export function createTeacherBffWorkspaceDto(
   input: TeacherBffProjectionInput
 ): TeacherBffWorkspaceDTO {
   const role = firstRole(input.actor);
-  const allowed = allowedActions(input.actor, [
+  const actorAllowed = allowedActions(input.actor, [
     "course:read",
     "round:lock",
     "settlement:settle",
     "round:publish",
+    "round:continue",
     "result:read",
     "audit:read"
   ]);
+  const allowed =
+    input.round.status === "published"
+      ? actorAllowed
+      : actorAllowed.filter((action) => action !== "round:continue");
   const source_runtime_path = [...TEACHER_RUNTIME_PATHS];
   const audit_reference = auditReference(input.auditLogs, [
     "course.publish",
