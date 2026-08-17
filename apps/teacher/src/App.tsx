@@ -14,6 +14,7 @@ import type {
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
   Round,
+  RoundContinuationResult,
   Run,
   SettlementResult,
   TeacherBffWorkspaceDTO,
@@ -431,7 +432,7 @@ function getRoundAction(round?: Round): string {
     return "发布结果";
   }
 
-  return "已发布";
+  return "创建下一回合";
 }
 
 function getCourseRuns(state: P0DemoState, selectedCourseId?: string | null): Run[] {
@@ -1652,6 +1653,7 @@ export function App() {
     setBusy(true);
     try {
       const auth = { token: session.access_token, tenantId: login.tenantId };
+      let preferredRoundId = selectedRound?.round_id ?? null;
 
       if (!selectedRun) {
         await createCourseRun(requestIdentity);
@@ -1699,11 +1701,19 @@ export function App() {
         );
         if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("result published");
+      } else if (selectedRound?.status === "published") {
+        const continuation = await apiRequest<RoundContinuationResult>(
+          getTeacherRoundCommandPath(selectedRun.run_id, selectedRound.round_no, "round:continue"),
+          { ...auth, method: "POST" }
+        );
+        if (!isCurrentTeacherContext(requestIdentity)) return;
+        preferredRoundId = continuation.round.round_id;
+        setNotice("round continued");
       }
 
       if (!isCurrentTeacherContext(requestIdentity)) return;
       setBusy(false);
-      await refresh(selectedRun.run_id, selectedRound?.round_id ?? null);
+      await refresh(selectedRun.run_id, preferredRoundId);
     } catch (error) {
       if (isCurrentTeacherContext(requestIdentity)) {
         setNotice(error instanceof Error ? error.message : "action failed");
@@ -1814,7 +1824,7 @@ export function App() {
         : !selectedRound
           ? "当前没有已选择的回合"
           : selectedRoundAction === null
-            ? "回合已发布，当前没有下一项正式命令"
+            ? "当前回合没有可用的服务端命令"
             : !selectedRoundActionAllowed
               ? `服务端未授权此操作：${selectedRoundAction}`
               : selectedRound.status === "open" && !hasDecision

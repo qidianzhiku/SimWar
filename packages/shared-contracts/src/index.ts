@@ -105,6 +105,7 @@ export type PermissionKey =
   | "round:lock"
   | "settlement:settle"
   | "round:publish"
+  | "round:continue"
   | "decision:submit"
   | "result:read"
   | "audit:read"
@@ -293,6 +294,23 @@ export interface Round {
   status: RoundStatus;
   decision_batch_id?: string;
   replay_hash?: string;
+}
+
+export interface RoundContinuationReceipt {
+  action: "round.continue";
+  audit_id: string;
+  continuation_key: string;
+  outcome: "created" | "reused";
+  predecessor_round_id: string;
+  round_id: string;
+  round_no: number;
+  run_id: string;
+  tenant_id: string;
+}
+
+export interface RoundContinuationResult {
+  receipt: RoundContinuationReceipt;
+  round: Round;
 }
 
 export * from "./validation-environment-launch.js";
@@ -1502,6 +1520,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "round:lock",
     "settlement:settle",
     "round:publish",
+    "round:continue",
     "decision:submit",
     "result:read",
     "audit:read",
@@ -1529,6 +1548,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "round:lock",
     "settlement:settle",
     "round:publish",
+    "round:continue",
     "result:read",
     "audit:read"
   ],
@@ -1542,6 +1562,7 @@ export const ROLE_PERMISSION_MATRIX: Record<ActorRole, PermissionKey[]> = {
     "round:lock",
     "settlement:settle",
     "round:publish",
+    "round:continue",
     "result:read",
     "audit:read"
   ],

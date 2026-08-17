@@ -1,0 +1,25 @@
+{
+  "request_id": "request-mw4-1",
+  "code": "OK",
+  "message": "success",
+  "data": {
+    "round": {
+      "round_id": "round_run_1_2",
+      "tenant_id": "tenant_demo",
+      "run_id": "run_1",
+      "round_no": 2,
+      "status": "draft"
+    },
+    "receipt": {
+      "action": "round.continue",
+      "audit_id": "audit_1",
+      "continuation_key": "tenant_demo:run_1:round_1",
+      "outcome": "created",
+      "predecessor_round_id": "round_1",
+      "round_id": "round_run_1_2",
+      "round_no": 2,
+      "run_id": "run_1",
+      "tenant_id": "tenant_demo"
+    }
+  }
+}

@@ -302,7 +302,7 @@ test("Teacher creates and selects the next Run without reopening the published R
   ).toBeVisible();
   await runSelector.selectOption(publishedRunId);
   await expect(page.getByText("Historical Run · read-only")).toBeVisible();
-  await expect(page.getByRole("button", { name: "已发布" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "创建下一回合" })).toBeEnabled();
   await expect(
     page.getByLabel("当前上下文").getByText(publishedRunId, { exact: true })
   ).toBeVisible();

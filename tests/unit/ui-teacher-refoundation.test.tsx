@@ -78,7 +78,7 @@ describe("Teacher Course OS workspace", () => {
     expect(getTeacherRoundAction("open")).toBe("round:lock");
     expect(getTeacherRoundAction("locked")).toBe("settlement:settle");
     expect(getTeacherRoundAction("settled")).toBe("round:publish");
-    expect(getTeacherRoundAction("published")).toBeNull();
+    expect(getTeacherRoundAction("published")).toBe("round:continue");
   });
 
   it("requires the exact BFF server action before enabling a formal command", () => {
@@ -88,6 +88,7 @@ describe("Teacher Course OS workspace", () => {
     expect(isTeacherRoundActionAllowed("open", ["round:lock"])).toBe(true);
     expect(isTeacherRoundActionAllowed("locked", ["settlement:settle"])).toBe(true);
     expect(isTeacherRoundActionAllowed("settled", ["round:publish"])).toBe(true);
+    expect(isTeacherRoundActionAllowed("published", ["round:continue"])).toBe(true);
   });
 
   it("shows a truthful disabled reason when BFF omits the formal action", () => {
@@ -157,20 +158,20 @@ describe("Teacher Course OS workspace", () => {
     expect(authorizedButDisabled).not.toContain("服务端未授权此操作");
   });
 
-  it("explains that a published round is read-only and has no next command", () => {
+  it("exposes the server-authorized continuation command for a published round", () => {
     const markup = renderToStaticMarkup(
       <TeacherNextStepButton
         roundStatus="published"
-        allowedActions={["round:start"]}
+        allowedActions={["round:continue"]}
         onClick={vi.fn()}
       >
-        已发布
+        创建下一回合
       </TeacherNextStepButton>
     );
 
-    expect(markup).toContain('aria-label="已发布"');
-    expect(markup).toContain("disabled");
-    expect(markup).toContain("回合已发布，当前没有下一项正式命令");
+    expect(markup).toContain('data-action="round:continue"');
+    expect(markup).not.toContain("disabled");
+    expect(markup).toContain("创建下一回合");
   });
 
   it("uses Chinese headings for the shell and Today surface", () => {

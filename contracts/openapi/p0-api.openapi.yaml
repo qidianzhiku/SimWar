@@ -550,6 +550,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/M1RoundEnvelope"
+  /api/v1/runs/{runId}/rounds/{roundNo}/continue:
+    post:
+      summary: Continue a published round into the next draft round in the same Run.
+      description: The server computes the next round number, reuses the exact Run context, and returns an auditable created-or-reused receipt. The predecessor must be published.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roundNo
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "201":
+          description: Next draft round created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MW4RoundContinuationEnvelope"
+        "200":
+          description: Exact existing next round reused for an idempotent continuation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MW4RoundContinuationEnvelope"
+        "403":
+          description: Teacher continuation authority required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "404":
+          description: Run or predecessor round not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
+        "409":
+          description: Predecessor is not published or successor identity is conflicted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorEnvelope"
   /api/v1/runs/{runId}/rounds/{roundNo}/decisions:
     post:
       summary: Submit a validated team decision.
@@ -5389,6 +5438,8 @@ components:
       $ref: "../schemas/m1-decision-submit-success-envelope.v1.json"
     M1RoundEnvelope:
       $ref: "../schemas/m1-round-envelope.v1.json"
+    MW4RoundContinuationEnvelope:
+      $ref: "../schemas/mw4-round-continuation-envelope.v1.json"
     M1RunCreateEnvelope:
       $ref: "../schemas/m1-run-create-envelope.v1.json"
     M1SettlementResultEnvelope:

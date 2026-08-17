@@ -66,6 +66,7 @@ const TEACHER_NOTICE_LABELS: Record<string, string> = {
   "round locked": "回合已锁定",
   "settlement completed": "结算已完成",
   "result published": "正式结果已发布",
+  "round continued": "下一回合已创建并切换到新回合",
   "action failed": "操作失败",
   "run selection failed": "运行批次选择失败"
 };
@@ -153,7 +154,8 @@ export type TeacherRoundAction =
   | "round:start"
   | "round:lock"
   | "settlement:settle"
-  | "round:publish";
+  | "round:publish"
+  | "round:continue";
 
 export function getTeacherRoundAction(
   status: RoundStatus | null | undefined
@@ -162,6 +164,7 @@ export function getTeacherRoundAction(
   if (status === "open") return "round:lock";
   if (status === "locked") return "settlement:settle";
   if (status === "settled") return "round:publish";
+  if (status === "published") return "round:continue";
   return null;
 }
 
@@ -206,7 +209,7 @@ export function TeacherNextStepButton({
           {children}
         </button>
         <span className="sw-action-reason" id="teacher-published-reason" role="status">
-          回合已发布，当前没有下一项正式命令
+          回合已发布，等待服务端创建下一回合
         </span>
       </span>
     );
