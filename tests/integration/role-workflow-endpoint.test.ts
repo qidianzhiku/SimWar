@@ -15,7 +15,9 @@ import type {
   StudentRoleWorkflowWorkspaceDTO,
   StudentDecisionTraceDTO,
   TeacherRoleWorkflowWorkspaceDTO,
-  TeamConfirmation
+  TeamConfirmation,
+  TeamDivergenceSet,
+  TeamResolutionSafeDTO
 } from "../../packages/shared-contracts/src";
 import { hashPassword } from "../../services/api/src/auth";
 import { createApiServer } from "../../services/api/src/server";
@@ -660,6 +662,148 @@ describe("Role Workflow HTTP boundary", () => {
       expect(store.settlementResults).toEqual(officialSettlementSnapshot);
     } finally {
       await stopServer(server);
+    }
+  });
+
+  it("resolves observed team divergence through the HTTP boundary and preserves dissent", async () => {
+    const { baseUrl, server, store } = await startServer();
+    try {
+      const teacherToken = await login(baseUrl, "teacher");
+      const tokens = new Map<string, string>();
+      for (const username of ["role_ceo", "role_cfo", "role_cmo", "role_coo"]) {
+        tokens.set(username, await login(baseUrl, username));
+      }
+      const scope = {
+        round_id: "round_role_workflow_1",
+        run_id: "run_role_workflow",
+        team_id: "team_role_workflow"
+      };
+      const roles = [
+        ["role_ceo", "CEO"],
+        ["role_cfo", "CFO"],
+        ["role_cmo", "CMO"],
+        ["role_coo", "COO"]
+      ] as const;
+      for (const [user_id, role_key] of roles) {
+        const assigned = await request<StudentRoleAssignment>(
+          baseUrl,
+          "/api/v1/bff/teacher/role-workflows/assignments",
+          {
+            body: {
+              course_id: "course_demo",
+              role_key,
+              run_id: scope.run_id,
+              team_id: scope.team_id,
+              user_id
+            },
+            method: "PUT",
+            token: teacherToken
+          }
+        );
+        expect(assigned.status).toBe(201);
+      }
+      const payloads = new Map<string, object>([
+        ["role_ceo", { strategy_statement: "One bounded team plan." }],
+        ["role_cfo", { cash_buffer_target: 0.18, service_quality_budget: 120000 }],
+        ["role_cmo", { marketing_budget: 145000, pricing: { base_price: 12900 } }],
+        ["role_coo", { capacity_plan: "hold", service_quality_budget: 125000 }]
+      ]);
+      for (const [username] of roles) {
+        const saved = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/section",
+          {
+            body: { ...scope, expected_version: 0, payload: payloads.get(username) },
+            method: "PUT",
+            token: tokens.get(username)
+          }
+        );
+        expect(saved.status).toBe(200);
+        const ready = await request<RoleDecisionSection>(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/ready",
+          {
+            body: { ...scope, expected_version: saved.body.data.version },
+            method: "POST",
+            token: tokens.get(username)
+          }
+        );
+        expect(ready.status).toBe(200);
+      }
+
+      const teacherWorkspace = await request<TeacherRoleWorkflowWorkspaceDTO>(
+        baseUrl,
+        `/api/v1/bff/teacher/role-workflows?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
+        { token: teacherToken }
+      );
+      expect(teacherWorkspace.body.data.divergence_summary).toMatchObject({
+        divergence_count: 1,
+        status: "OPEN"
+      });
+
+      const blockedMerge = await request(baseUrl, "/api/v1/bff/student/role-workspace/merge", {
+        body: scope,
+        method: "POST",
+        token: tokens.get("role_ceo")
+      });
+      expect(blockedMerge.status).toBe(409);
+      expect(blockedMerge.body.code).toBe("ROLE_WORKFLOW_DIVERGENCE_UNRESOLVED");
+
+      const captainWorkspace = await request<StudentRoleWorkflowWorkspaceDTO>(
+        baseUrl,
+        `/api/v1/bff/student/role-workspace?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
+        { token: tokens.get("role_ceo") }
+      );
+      expect(captainWorkspace.body.data.divergence_set?.divergences).toHaveLength(1);
+      const divergence = captainWorkspace.body.data.divergence_set as TeamDivergenceSet;
+      const resolution = await request<TeamResolutionSafeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/resolution",
+        {
+          body: {
+            ...scope,
+            selected_values: { service_quality_budget: 125000 },
+            source_digest: divergence.source_digest,
+            source_section_ids: divergence.source_section_ids
+          },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(resolution.status).toBe(201);
+      expect(JSON.stringify(resolution.body.data)).not.toContain("proposed_by");
+
+      for (const [username] of roles) {
+        const acknowledgement = await request(
+          baseUrl,
+          "/api/v1/bff/student/role-workspace/resolution/acknowledgement",
+          {
+            body: {
+              ...scope,
+              resolution_id: resolution.body.data.resolution_id,
+              status: username === "role_cfo" ? "DISSENT_PRESERVED" : "ACKNOWLEDGED",
+              ...(username === "role_cfo"
+                ? { dissent_note: "保留本角色对服务质量预算的异议。" }
+                : {})
+            },
+            method: "POST",
+            token: tokens.get(username)
+          }
+        );
+        expect(acknowledgement.status).toBe(201);
+        expect(JSON.stringify(acknowledgement.body.data)).not.toContain("acknowledged_by");
+      }
+
+      const merge = await request<StudentRoleWorkflowMergeDTO>(
+        baseUrl,
+        "/api/v1/bff/student/role-workspace/merge",
+        { body: scope, method: "POST", token: tokens.get("role_ceo") }
+      );
+      expect(merge.status).toBe(201);
+      expect(store.decisionMergeCommits[0]?.merged_payload.service_quality_budget).toBe(125000);
+      expect(store.decisionMergeCommits[0]?.merged_payload).not.toHaveProperty("state_true");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 

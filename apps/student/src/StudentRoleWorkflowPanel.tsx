@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   DecisionPayload,
+  DecisionPayloadFieldPath,
   RoleDecisionSection,
   StudentDecisionTraceDTO,
   StudentRoleWorkflowMergeDTO,
   StudentRoleWorkflowWorkspaceDTO,
-  TeamConfirmation
+  TeamConfirmation,
+  TeamDivergenceValue,
+  TeamResolutionSafeDTO
 } from "@simwar/shared-contracts";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -99,6 +102,12 @@ const initialDraft: DecisionPayload = {
   strategy_statement: ""
 };
 
+const requiredResolutionRoles = ["CEO", "CFO", "CMO", "COO"] as const;
+
+function divergenceValueCopy(value: TeamDivergenceValue): string {
+  return typeof value === "number" ? value.toLocaleString("zh-CN") : value;
+}
+
 async function roleWorkflowRequest<T>(
   path: string,
   props: Pick<StudentRoleWorkflowPanelProps, "tenantId" | "token">,
@@ -126,6 +135,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const [draft, setDraft] = useState<DecisionPayload>(initialDraft);
   const [notice, setNotice] = useState("等待角色分配");
   const [busy, setBusy] = useState(false);
+  const [resolutionSelections, setResolutionSelections] = useState<
+    Partial<Record<DecisionPayloadFieldPath, TeamDivergenceValue>>
+  >({});
+  const [dissentNote, setDissentNote] = useState("");
   const [availability, setAvailability] = useState<"checking" | "active" | "inactive" | "error">(
     "checking"
   );
@@ -330,6 +343,44 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     }
   }
 
+  async function proposeResolution(): Promise<void> {
+    const divergenceSet = workspace?.divergence_set;
+    if (!divergenceSet?.divergences.length) return;
+    const selectedValues: Partial<Record<DecisionPayloadFieldPath, TeamDivergenceValue>> = {};
+    for (const divergence of divergenceSet.divergences) {
+      const selected = resolutionSelections[divergence.field];
+      if (selected === undefined) {
+        setNotice("请为每项分歧明确选择一个已有候选值");
+        return;
+      }
+      selectedValues[divergence.field] = selected;
+    }
+    await mutate<TeamResolutionSafeDTO>(
+      "/api/v1/bff/student/role-workspace/resolution",
+      {
+        ...scope(),
+        selected_values: selectedValues,
+        source_digest: divergenceSet.source_digest,
+        source_section_ids: divergenceSet.source_section_ids
+      },
+      "团队解决方案已提出"
+    );
+  }
+
+  async function acknowledgeResolution(status: "ACKNOWLEDGED" | "DISSENT_PRESERVED") {
+    if (!workspace?.team_resolution) return;
+    await mutate(
+      "/api/v1/bff/student/role-workspace/resolution/acknowledgement",
+      {
+        ...scope(),
+        resolution_id: workspace.team_resolution.resolution_id,
+        status,
+        ...(status === "DISSENT_PRESERVED" ? { dissent_note: dissentNote } : {})
+      },
+      status === "DISSENT_PRESERVED" ? "本角色异议已保留" : "本角色已确认解决方案"
+    );
+  }
+
   const fields = workspace?.context.permissions.editable_fields ?? [];
   const sectionStatus = workspace?.section
     ? {
@@ -346,6 +397,16 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     ? roleWorkflowStatusCopy(workspace.merge_candidate.status)
     : null;
   const noticeCopy = getRoleWorkflowNoticeCopy(notice);
+  const divergenceSet = workspace?.divergence_set;
+  const teamResolution = workspace?.team_resolution;
+  const ownAcknowledgement = workspace?.resolution_acknowledgements?.find(
+    (acknowledgement) => acknowledgement.role_key === workspace.context.role_key
+  );
+  const allResolutionAcknowledged = requiredResolutionRoles.every((roleKey) =>
+    workspace?.resolution_acknowledgements?.some(
+      (acknowledgement) => acknowledgement.role_key === roleKey
+    )
+  );
   const fieldsLocked =
     busy ||
     workspace?.section?.status === "ready" ||
@@ -415,6 +476,125 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
               仅显示当前角色可见的过程节点，不显示队友私有内容或正式结果。
             </p>
           </div>
+          {divergenceSet?.divergences.length ? (
+            <div className="decision-trace" aria-label="团队分歧与解决方案">
+              <div className="panel-title">
+                <div>
+                  <p className="eyebrow">团队协作证据</p>
+                  <h3>待解决分歧</h3>
+                </div>
+                <span role="status">{teamResolution ? "已提出方案" : "等待队长提出方案"}</span>
+              </div>
+              {divergenceSet.divergences.map((divergence) => (
+                <div className="role-workflow-row" key={divergence.divergence_id}>
+                  <div>
+                    <strong>{divergence.field}</strong>
+                    <div className="compatibility-copy">
+                      {divergence.candidates
+                        .map(
+                          (candidate) =>
+                            `${candidate.role_key}: ${divergenceValueCopy(candidate.value)}`
+                        )
+                        .join(" · ")}
+                    </div>
+                  </div>
+                  {!teamResolution && workspace.context.permissions.can_create_merge_commit ? (
+                    <label>
+                      选择团队值
+                      <select
+                        aria-label={`选择团队值 ${divergence.field}`}
+                        disabled={busy}
+                        value={resolutionSelections[divergence.field] ?? ""}
+                        onChange={(event) => {
+                          const candidate = divergence.candidates.find(
+                            (item) =>
+                              `${item.role_key}:${item.source_section_id}` === event.target.value
+                          );
+                          if (candidate) {
+                            setResolutionSelections((current) => ({
+                              ...current,
+                              [divergence.field]: candidate.value
+                            }));
+                          }
+                        }}
+                      >
+                        <option value="">请选择已有候选值</option>
+                        {divergence.candidates.map((candidate) => (
+                          <option
+                            key={`${candidate.role_key}-${candidate.source_section_id}`}
+                            value={`${candidate.role_key}:${candidate.source_section_id}`}
+                          >
+                            {candidate.role_key}: {divergenceValueCopy(candidate.value)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <span>
+                      {teamResolution
+                        ? divergenceValueCopy(teamResolution.selected_values[divergence.field]!)
+                        : "等待队长"}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {teamResolution ? (
+                <>
+                  <p className="evidence-note">
+                    每个角色都必须确认方案，或明确保留异议后才能创建团队合并。
+                  </p>
+                  <div className="role-workflow-list">
+                    {requiredResolutionRoles.map((roleKey) => {
+                      const acknowledgement = workspace.resolution_acknowledgements?.find(
+                        (candidate) => candidate.role_key === roleKey
+                      );
+                      return (
+                        <div className="role-workflow-row" key={roleKey}>
+                          <span>{roleKey}</span>
+                          <strong>{acknowledgement?.status ?? "待确认"}</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {!ownAcknowledgement ? (
+                    <div className="role-workflow-actions">
+                      <button
+                        disabled={busy}
+                        onClick={() => void acknowledgeResolution("ACKNOWLEDGED")}
+                      >
+                        确认解决方案
+                      </button>
+                      <label>
+                        异议说明
+                        <textarea
+                          aria-label="异议说明"
+                          maxLength={280}
+                          value={dissentNote}
+                          onChange={(event) => setDissentNote(event.target.value)}
+                        />
+                      </label>
+                      <button
+                        className="secondary"
+                        disabled={busy || !dissentNote.trim()}
+                        onClick={() => void acknowledgeResolution("DISSENT_PRESERVED")}
+                      >
+                        保留异议并确认
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="evidence-note">本角色已记录：{ownAcknowledgement.status}</p>
+                  )}
+                </>
+              ) : workspace.context.permissions.can_create_merge_commit ? (
+                <button disabled={busy} onClick={() => void proposeResolution()}>
+                  提出团队解决方案
+                </button>
+              ) : null}
+              <p className="evidence-note">
+                仅展示当前 Team 的 READY 候选值；不展示队友私有草稿、actor 标识或正式结果。
+              </p>
+            </div>
+          ) : null}
           <div className="role-workflow-fields">
             {fields.includes("strategy_statement") ? (
               <label>
@@ -570,7 +750,12 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
             </button>
             {workspace.context.permissions.can_create_merge_commit ? (
               <button
-                disabled={busy || workspace.section?.status !== "ready"}
+                disabled={
+                  busy ||
+                  workspace.section?.status !== "ready" ||
+                  (Boolean(divergenceSet?.divergences.length) &&
+                    (!teamResolution || !allResolutionAcknowledged))
+                }
                 onClick={() =>
                   void mutate<StudentRoleWorkflowMergeDTO>(
                     "/api/v1/bff/student/role-workspace/merge",

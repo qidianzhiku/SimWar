@@ -16,5 +16,12 @@
   "merge_commits": [],
   "confirmations": [],
   "history": [],
-  "known_limits": ["JSON_INTERNAL_ONLY", "COMPENSATING_ATOMICITY_NOT_CRASH_SAFE"]
+  "known_limits": ["JSON_INTERNAL_ONLY", "COMPENSATING_ATOMICITY_NOT_CRASH_SAFE"],
+  "divergence_summary": {
+    "status": "NOT_READY",
+    "divergence_count": 0,
+    "resolved_count": 0,
+    "required_role_keys": [],
+    "acknowledged_role_keys": []
+  }
 }

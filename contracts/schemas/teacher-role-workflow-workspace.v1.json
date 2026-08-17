@@ -16,7 +16,8 @@
     "merge_commits",
     "confirmations",
     "history",
-    "known_limits"
+    "known_limits",
+    "divergence_summary"
   ],
   "properties": {
     "schema_version": { "const": "teacher-role-workflow-workspace.v1" },
@@ -44,6 +45,32 @@
     "merge_commits": { "type": "array", "items": { "type": "object" } },
     "confirmations": { "type": "array", "items": { "type": "object" } },
     "history": { "type": "array", "items": { "type": "object" } },
-    "known_limits": { "type": "array", "items": { "type": "string" } }
+    "known_limits": { "type": "array", "items": { "type": "string" } },
+    "divergence_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "divergence_count",
+        "resolved_count",
+        "required_role_keys",
+        "acknowledged_role_keys"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["NOT_READY", "NONE", "OPEN", "RESOLVED", "RESOLUTION_PROPOSED", "ACKS_COMPLETE"]
+        },
+        "divergence_count": { "type": "integer", "minimum": 0 },
+        "resolved_count": { "type": "integer", "minimum": 0 },
+        "required_role_keys": {
+          "type": "array",
+          "items": { "enum": ["CEO", "CFO", "CMO", "COO"] }
+        },
+        "acknowledged_role_keys": {
+          "type": "array",
+          "items": { "enum": ["CEO", "CFO", "CMO", "COO"] }
+        }
+      }
+    }
   }
 }

@@ -37,6 +37,8 @@ import type {
   User,
   UserRole,
   RoleWorkflowEvent,
+  ResolutionAcknowledgement,
+  TeamResolution,
   D2EvidenceArtifactVersion,
   D2ProvenanceEdge,
   TeacherConfirmationVersion,
@@ -120,6 +122,8 @@ export interface SimWarStoreSnapshot {
   decisionMergeCommits: DecisionMergeCommit[];
   teamConfirmations: TeamConfirmation[];
   roleWorkflowEvents: RoleWorkflowEvent[];
+  teamResolutions: TeamResolution[];
+  resolutionAcknowledgements: ResolutionAcknowledgement[];
   instructorAssets: readonly Readonly<InstructorAsset>[];
   coursePackageLifecycleSnapshots: CoursePackageVersion[];
   learningGoalVersions: LearningGoalVersion[];
@@ -777,6 +781,8 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     decisionMergeCommits: [],
     teamConfirmations: [],
     roleWorkflowEvents: [],
+    teamResolutions: [],
+    resolutionAcknowledgements: [],
     instructorAssets: [],
     coursePackageLifecycleSnapshots: [],
     learningGoalVersions: [],
@@ -836,6 +842,8 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     decisionMergeCommits: store.decisionMergeCommits,
     teamConfirmations: store.teamConfirmations,
     roleWorkflowEvents: store.roleWorkflowEvents,
+    teamResolutions: store.teamResolutions,
+    resolutionAcknowledgements: store.resolutionAcknowledgements,
     instructorAssets: store.instructorAssets,
     coursePackageLifecycleSnapshots: store.coursePackageLifecycleSnapshots,
     learningGoalVersions: store.learningGoalVersions,
@@ -890,6 +898,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     decisionMergeCommits: snapshot.decisionMergeCommits ?? [],
     teamConfirmations: snapshot.teamConfirmations ?? [],
     roleWorkflowEvents: snapshot.roleWorkflowEvents ?? [],
+    teamResolutions: snapshot.teamResolutions ?? [],
+    resolutionAcknowledgements: snapshot.resolutionAcknowledgements ?? [],
     instructorAssets,
     coursePackageLifecycleSnapshots,
     learningGoalVersions: snapshot.learningGoalVersions ?? [],

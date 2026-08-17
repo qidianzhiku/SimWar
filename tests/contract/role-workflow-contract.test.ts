@@ -112,6 +112,32 @@ describe("Role Workflow executable contracts", () => {
     );
   });
 
+  it("validates bounded divergence resolution evidence and rejects private actor/value fields", () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    const resolution = ajv.compile(
+      readJson("contracts/schemas/team-divergence-resolution.v1.json")
+    );
+
+    expect(resolution(readJson("contracts/fixtures/team-divergence-resolution.valid.json"))).toBe(
+      true
+    );
+    expect(resolution(readJson("contracts/fixtures/team-divergence-resolution.invalid.json"))).toBe(
+      false
+    );
+    expect(resolution.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "proposed_by" }
+        }),
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "state_true" }
+        })
+      ])
+    );
+  });
+
   it("accepts the assignment-bound RoleDecisionSection persisted by the C3 writer", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
     const section = ajv.compile(readJson("contracts/schemas/role-decision-section.v1.json"));
@@ -184,6 +210,20 @@ describe("Role Workflow executable contracts", () => {
         "post",
         "RoleWorkflowConfirmInput",
         "RoleWorkflowConfirmationEnvelope",
+        "201"
+      ],
+      [
+        "/api/v1/bff/student/role-workspace/resolution",
+        "post",
+        "RoleWorkflowResolutionInput",
+        "RoleWorkflowResolutionEnvelope",
+        "201"
+      ],
+      [
+        "/api/v1/bff/student/role-workspace/resolution/acknowledgement",
+        "post",
+        "RoleWorkflowAcknowledgementInput",
+        "RoleWorkflowAcknowledgementEnvelope",
         "201"
       ]
     ] as const;

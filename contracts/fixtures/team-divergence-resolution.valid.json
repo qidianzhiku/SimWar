@@ -1,0 +1,50 @@
+{
+  "schema_version": "team-divergence-resolution.v1",
+  "divergence_set": {
+    "schema_version": "team-divergence-set.v1",
+    "tenant_id": "tenant_demo",
+    "run_id": "run_demo",
+    "round_id": "round_demo_1",
+    "team_id": "team_alpha",
+    "status": "OPEN",
+    "source_section_ids": ["section_ceo", "section_cfo"],
+    "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "divergences": [
+      {
+        "divergence_id": "divergence_pricing_base_price",
+        "field": "pricing.base_price",
+        "status": "OPEN",
+        "candidates": [
+          { "role_key": "CEO", "source_section_id": "section_ceo", "value": 12800 },
+          { "role_key": "CFO", "source_section_id": "section_cfo", "value": 12900 }
+        ]
+      }
+    ],
+    "known_limits": ["READY_SECTIONS_ONLY", "OUTCOME_TRUTH_EXCLUDED"]
+  },
+  "resolution": {
+    "resolution_id": "resolution_demo",
+    "tenant_id": "tenant_demo",
+    "run_id": "run_demo",
+    "round_id": "round_demo_1",
+    "team_id": "team_alpha",
+    "status": "PROPOSED",
+    "source_section_ids": ["section_ceo", "section_cfo"],
+    "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "selected_values": { "pricing.base_price": 12900 },
+    "proposed_at": "2026-08-17T01:00:00.000Z"
+  },
+  "acknowledgements": [
+    {
+      "acknowledgement_id": "ack_demo_ceo",
+      "resolution_id": "resolution_demo",
+      "tenant_id": "tenant_demo",
+      "run_id": "run_demo",
+      "round_id": "round_demo_1",
+      "team_id": "team_alpha",
+      "role_key": "CEO",
+      "status": "ACKNOWLEDGED",
+      "acknowledged_at": "2026-08-17T01:01:00.000Z"
+    }
+  ]
+}

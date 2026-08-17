@@ -534,8 +534,220 @@ describe("RoleWorkflowCommandService", () => {
         run_id: "run_c3",
         team_id: "team_c3"
       })
-    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_MERGE_CONFLICT" }));
+    ).rejects.toThrowError(
+      expect.objectContaining({ code: "ROLE_WORKFLOW_DIVERGENCE_UNRESOLVED" })
+    );
     expect(store.decisionMergeCommits).toEqual([]);
+  });
+
+  it("projects a deterministic READY-only divergence set without peer drafts", async () => {
+    await assignAllRoles();
+    const payloads = new Map<RoleWorkflowActor, object>([
+      [studentCeo, { strategy_statement: "One plan." }],
+      [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+      [studentCmo, { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+      [studentCoo, { capacity_plan: "expand", service_quality_budget: 130000 }]
+    ]);
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.saveSection(actor, {
+        expected_version: 0,
+        payload: payloads.get(actor)!,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+      await service.markSectionReady(actor, {
+        expected_version: 1,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+    }
+
+    const workspace = await service.getStudentWorkspace(studentCfo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+
+    expect(workspace.divergence_set).toMatchObject({
+      schema_version: "team-divergence-set.v1",
+      status: "OPEN",
+      team_id: "team_c3",
+      tenant_id: "tenant_c3"
+    });
+    expect(workspace.divergence_set?.divergences).toHaveLength(1);
+    expect(workspace.divergence_set?.divergences[0]).toMatchObject({
+      field: "service_quality_budget",
+      status: "OPEN"
+    });
+    expect(workspace.divergence_set?.divergences[0]?.candidates).toEqual([
+      expect.objectContaining({ role_key: "CFO", value: 125000 }),
+      expect.objectContaining({ role_key: "COO", value: 130000 })
+    ]);
+    expect(JSON.stringify(workspace)).not.toContain("student_ceo");
+    expect(JSON.stringify(workspace)).not.toContain("One plan.");
+  });
+
+  it("requires captain resolution and every role acknowledgement before merge", async () => {
+    await assignAllRoles();
+    const payloads = new Map<RoleWorkflowActor, object>([
+      [studentCeo, { strategy_statement: "One plan." }],
+      [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+      [studentCmo, { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+      [studentCoo, { capacity_plan: "expand", service_quality_budget: 130000 }]
+    ]);
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.saveSection(actor, {
+        expected_version: 0,
+        payload: payloads.get(actor)!,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+      await service.markSectionReady(actor, {
+        expected_version: 1,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+    }
+
+    const before = await service.getStudentWorkspace(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    const divergence = before.divergence_set!;
+    await expect(
+      service.proposeTeamResolution(studentCfo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        source_section_ids: divergence.source_section_ids,
+        source_digest: divergence.source_digest,
+        selected_values: { service_quality_budget: 125000 }
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_CAPTAIN_REQUIRED" }));
+
+    await expect(
+      service.createMergeCommit(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toThrowError(
+      expect.objectContaining({ code: "ROLE_WORKFLOW_DIVERGENCE_UNRESOLVED" })
+    );
+
+    const resolution = await service.proposeTeamResolution(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      source_section_ids: divergence.source_section_ids,
+      source_digest: divergence.source_digest,
+      selected_values: { service_quality_budget: 125000 }
+    });
+    await expect(
+      service.acknowledgeResolution(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        resolution_id: resolution.resolution_id,
+        status: "ACKNOWLEDGED"
+      })
+    ).resolves.toMatchObject({ role_key: "CEO", status: "ACKNOWLEDGED" });
+    await expect(
+      service.createMergeCommit(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      })
+    ).rejects.toThrowError(
+      expect.objectContaining({ code: "ROLE_WORKFLOW_ACKNOWLEDGEMENTS_INCOMPLETE" })
+    );
+
+    const acknowledgements = [
+      [studentCfo, "ACKNOWLEDGED"],
+      [studentCmo, "DISSENT_PRESERVED"],
+      [studentCoo, "ACKNOWLEDGED"]
+    ] as const;
+    for (const [actor, status] of acknowledgements) {
+      await service.acknowledgeResolution(actor, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        resolution_id: resolution.resolution_id,
+        status,
+        ...(status === "DISSENT_PRESERVED" ? { dissent_note: "保留该角色的原始判断。" } : {})
+      });
+    }
+    const repeated = await service.acknowledgeResolution(studentCmo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      resolution_id: resolution.resolution_id,
+      status: "DISSENT_PRESERVED",
+      dissent_note: "保留该角色的原始判断。"
+    });
+    expect(repeated.status).toBe("DISSENT_PRESERVED");
+
+    const merge = await service.createMergeCommit(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    expect(merge).toMatchObject({ status: "validated" });
+    expect(store.decisionMergeCommits[0]?.merged_payload.service_quality_budget).toBe(125000);
+  });
+
+  it("rejects a resolution whose source digest is stale", async () => {
+    await assignAllRoles();
+    const payloads = new Map<RoleWorkflowActor, object>([
+      [studentCeo, { strategy_statement: "One plan." }],
+      [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+      [studentCmo, { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+      [studentCoo, { capacity_plan: "expand", service_quality_budget: 130000 }]
+    ]);
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.saveSection(actor, {
+        expected_version: 0,
+        payload: payloads.get(actor)!,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+      await service.markSectionReady(actor, {
+        expected_version: 1,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+    }
+    const before = await service.getStudentWorkspace(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    const divergence = before.divergence_set!;
+    store.roleDecisionSections.push({
+      ...structuredClone(store.roleDecisionSections.find((section) => section.role_key === "CFO")!),
+      section_id: "section_stale_ready",
+      status: "ready",
+      version: 2,
+      updated_at: "2026-07-31T02:01:00.000Z",
+      payload: { cash_buffer_target: 0.2, service_quality_budget: 140000 }
+    });
+    await expect(
+      service.proposeTeamResolution(studentCeo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        source_section_ids: divergence.source_section_ids,
+        source_digest: divergence.source_digest,
+        selected_values: { service_quality_budget: 140000 }
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_RESOLUTION_STALE" }));
   });
 
   it("merges ready role sections and confirms exactly one canonical decision idempotently", async () => {
