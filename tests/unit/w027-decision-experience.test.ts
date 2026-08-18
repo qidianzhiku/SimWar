@@ -164,6 +164,13 @@ describe("W027 decision experience", () => {
     const workspace = await service.getStudentWorkspace(coo, scope);
     expect(workspace.private_judgments).toHaveLength(1);
     expect(workspace.private_judgments[0]?.statement).toContain("quality and risk");
+    expect(workspace.context.role_key).toBe("COO");
+    expect(workspace.context.permissions.operational_capabilities).toEqual(
+      expect.arrayContaining(["quality_control", "risk_register"])
+    );
+    expect(workspace.context.permissions.can_write_private_judgment).toBe(true);
+    expect(workspace.context.permissions.can_publish_role_position).toBe(true);
+    expect(workspace.context.permissions.can_propose_resolution).toBe(false);
     expect(workspace.team_safe_positions.map((position) => position.position_id)).toEqual([
       cooPosition.position_id,
       chroPosition.position_id
