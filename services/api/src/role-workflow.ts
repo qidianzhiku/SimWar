@@ -108,7 +108,27 @@ export interface ResolutionAcknowledgementInput extends RoundWorkflowScope {
   dissent_note?: string;
 }
 
-const ROLE_MERGE_ORDER: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const LEGACY_ROLE_MERGE_ORDER: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const W027_ROLE_MERGE_ORDER: RoleId[] = ["CEO", "CFO", "CMO", "COO", "CHRO"];
+
+function normalizeTeamRoleKey(roleKey: string): RoleId | undefined {
+  if (roleKey === "risk" || roleKey === "Quality & Risk") return "COO";
+  return W027_ROLE_MERGE_ORDER.includes(roleKey as RoleId) ? (roleKey as RoleId) : undefined;
+}
+
+function roleMergeOrderForRoleKeys(roleKeys: readonly string[]): RoleId[] {
+  const normalized = roleKeys
+    .map(normalizeTeamRoleKey)
+    .filter((roleKey): roleKey is RoleId => roleKey !== undefined);
+  return normalized.includes("CHRO") ? W027_ROLE_MERGE_ORDER : LEGACY_ROLE_MERGE_ORDER;
+}
+
+function roleMergeOrderForSnapshot(snapshot: RoleWorkflowRepositorySnapshot): RoleId[] {
+  return roleMergeOrderForRoleKeys([
+    ...(snapshot.team?.members ?? []).map((member) => member.role_slot),
+    ...snapshot.assignments.map((assignment) => assignment.role_key)
+  ]);
+}
 
 const DIVERGENCE_FIELDS: DecisionPayloadFieldPath[] = [
   "pricing.base_price",
@@ -273,7 +293,7 @@ function buildMergedPayload(
     }
   };
 
-  for (const roleKey of ROLE_MERGE_ORDER) {
+  for (const roleKey of roleMergeOrderForRoleKeys(sections.map((section) => section.role_key))) {
     const section = sections.find((candidate) => candidate.role_key === roleKey);
     if (!section) continue;
     const payload = section.payload;
@@ -337,12 +357,17 @@ export class RoleWorkflowCommandService {
     this.requireTeacher(actor);
     const snapshot = await this.read(actor, input);
     this.assertScope(snapshot, input.course_id);
+    const normalizedInputRole = normalizeTeamRoleKey(input.role_key);
     const member = snapshot.team!.members.find((candidate) => candidate.user_id === input.user_id);
-    if (!member || member.role_slot !== input.role_key) {
+    if (
+      !normalizedInputRole ||
+      !member ||
+      normalizeTeamRoleKey(member.role_slot) !== normalizedInputRole
+    ) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_MEMBER_ROLE_INVALID");
     }
     const template = DEFAULT_STUDENT_ROLE_TEMPLATES.find(
-      (candidate) => candidate.role_key === input.role_key
+      (candidate) => candidate.role_key === normalizedInputRole
     );
     if (!template) throw new RoleWorkflowError("ROLE_WORKFLOW_TEMPLATE_NOT_FOUND");
     if (
@@ -361,7 +386,7 @@ export class RoleWorkflowCommandService {
       assigned_at: this.now(),
       assigned_by: actor.actor_id,
       course_id: input.course_id,
-      role_key: input.role_key,
+      role_key: normalizedInputRole,
       role_template_id: template.role_template_id,
       run_id: input.run_id,
       source: "teacher_assigned",
@@ -981,9 +1006,14 @@ export class RoleWorkflowCommandService {
     const activeAssignments = snapshot.assignments.filter(
       (candidate) => candidate.status === "active"
     );
-    const readySections = activeAssignments.map((candidate) =>
-      this.latestSection(snapshot, candidate)
-    );
+    const mergeOrder = roleMergeOrderForSnapshot(snapshot);
+    const readySections = activeAssignments
+      .map((candidate) => this.latestSection(snapshot, candidate))
+      .sort(
+        (left, right) =>
+          mergeOrder.indexOf(left?.role_key as RoleId) -
+          mergeOrder.indexOf(right?.role_key as RoleId)
+      );
     if (
       readySections.some((section) => !section || section.status !== "ready") ||
       readySections.length === 0
@@ -1196,8 +1226,8 @@ export class RoleWorkflowCommandService {
       .filter((section): section is RoleDecisionSection => section !== undefined)
       .sort(
         (left, right) =>
-          ROLE_MERGE_ORDER.indexOf(left.role_key as RoleId) -
-          ROLE_MERGE_ORDER.indexOf(right.role_key as RoleId)
+          roleMergeOrderForSnapshot(snapshot).indexOf(left.role_key as RoleId) -
+          roleMergeOrderForSnapshot(snapshot).indexOf(right.role_key as RoleId)
       );
     const sourceSectionIds = orderedSections.map((section) => section.section_id);
     const sourceDigest = digest(
@@ -1277,8 +1307,8 @@ export class RoleWorkflowCommandService {
       .filter((acknowledgement) => acknowledgement.resolution_id === resolution.resolution_id)
       .sort(
         (left, right) =>
-          ROLE_MERGE_ORDER.indexOf(left.role_key as RoleId) -
-          ROLE_MERGE_ORDER.indexOf(right.role_key as RoleId)
+          roleMergeOrderForSnapshot(snapshot).indexOf(left.role_key as RoleId) -
+          roleMergeOrderForSnapshot(snapshot).indexOf(right.role_key as RoleId)
       );
   }
 
@@ -1375,14 +1405,17 @@ export class RoleWorkflowCommandService {
 
   private assertTeamWorkflowViable(snapshot: RoleWorkflowRepositorySnapshot): void {
     const team = snapshot.team!;
-    const requiredMembers = ROLE_MERGE_ORDER.map((roleKey) =>
-      team.members.filter((member) => member.role_slot === roleKey)
+    const requiredRoleKeys = roleMergeOrderForRoleKeys(
+      team.members.map((member) => member.role_slot)
+    );
+    const requiredMembers = requiredRoleKeys.map((roleKey) =>
+      team.members.filter((member) => normalizeTeamRoleKey(member.role_slot) === roleKey)
     );
     const ownerIds = requiredMembers.flatMap((members) => members.map((member) => member.user_id));
     const ceo = requiredMembers[0]?.[0];
     if (
       requiredMembers.some((members) => members.length !== 1) ||
-      new Set(ownerIds).size !== ROLE_MERGE_ORDER.length ||
+      new Set(ownerIds).size !== requiredRoleKeys.length ||
       !ceo ||
       team.captain_user_id !== ceo.user_id
     ) {
@@ -1461,12 +1494,18 @@ export class RoleWorkflowCommandService {
   }
 
   private currentReadySectionIds(snapshot: RoleWorkflowRepositorySnapshot): string[] {
+    const mergeOrder = roleMergeOrderForSnapshot(snapshot);
     return snapshot.assignments
       .filter((assignment) => assignment.status === "active")
       .map((assignment) => this.latestSection(snapshot, assignment))
       .filter(
         (section): section is RoleDecisionSection =>
           section !== undefined && section.status === "ready"
+      )
+      .sort(
+        (left, right) =>
+          mergeOrder.indexOf(left.role_key as RoleId) -
+          mergeOrder.indexOf(right.role_key as RoleId)
       )
       .map((section) => section.section_id);
   }

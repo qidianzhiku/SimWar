@@ -1337,7 +1337,7 @@ function assertSnapshotEntities(snapshot: SimWarStoreSnapshot, snapshotPath: str
   const actorRoles = new Set(
     Object.keys(ROLE_PERMISSION_MATRIX).concat(["student", "admin", "service"])
   );
-  const roleSlots = new Set(["CEO", "CFO", "CMO", "COO", "risk"] as const);
+  const roleSlots = new Set(["CEO", "CFO", "CMO", "COO", "CHRO", "risk"] as const);
   const permissionKeySet = new Set<string>(permissionKeys);
 
   for (const [index, tenant] of assertRecordArray(

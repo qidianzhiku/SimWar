@@ -423,7 +423,7 @@ export interface RoleContext {
   expires_at: string;
 }
 
-const ROLE_IDS: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const ROLE_IDS: RoleId[] = ["CEO", "CFO", "CMO", "COO", "CHRO"];
 const ROLE_CONTRACT_DISALLOWED_EDIT_FIELDS = new Set<string>([
   "state_true",
   "market_share",
@@ -482,6 +482,17 @@ export const DEFAULT_STUDENT_ROLE_TEMPLATES: RoleTemplate[] = [
     default_editable_fields: ["capacity_plan", "service_quality_budget"],
     default_visible_scopes: ["team.operations_summary", "round.state_obs"],
     advisory_scopes: ["operations", "service_delivery", "quality_control", "risk_register"],
+    version: "1.0.0"
+  },
+  {
+    role_template_id: "role_template_chro_v1",
+    role_key: "CHRO",
+    display_name: "CHRO",
+    description: "People and capability owner for team readiness and change adoption.",
+    responsibility_summary: "Owns people, capability, and change-readiness inputs before CEO merge.",
+    default_editable_fields: ["strategy_statement"],
+    default_visible_scopes: ["team.people_summary", "round.state_obs"],
+    advisory_scopes: ["people", "capability", "change_readiness"],
     version: "1.0.0"
   }
 ];
@@ -558,11 +569,6 @@ export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermis
     advisory_scopes: ["people", "capability", "change_readiness"]
   }
 };
-
-Object.defineProperty(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES, "CHRO", {
-  enumerable: false,
-  value: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.CHRO
-});
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -20,7 +20,8 @@ interface RoleWorkflowPanelProps {
   token: string | undefined;
 }
 
-const REQUIRED_ROLE_KEYS: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const LEGACY_ROLE_KEYS: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const W027_ROLE_KEYS: RoleId[] = ["CEO", "CFO", "CMO", "COO", "CHRO"];
 
 async function roleWorkflowRequest<T>(
   path: string,
@@ -50,16 +51,19 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
   const selectedTeam = props.teams.find((team) => team.team_id === selectedTeamId);
   const teamIdentity = props.teams.map((team) => team.team_id).join("|");
   const teamMembers = (selectedTeam?.members ?? []).filter((member) => member.role_slot !== "risk");
-  const roleMemberIds = REQUIRED_ROLE_KEYS.flatMap((roleKey) =>
+  const requiredRoleKeys = teamMembers.some((member) => member.role_slot === "CHRO")
+    ? W027_ROLE_KEYS
+    : LEGACY_ROLE_KEYS;
+  const roleMemberIds = requiredRoleKeys.flatMap((roleKey) =>
     teamMembers.filter((member) => member.role_slot === roleKey).map((member) => member.user_id)
   );
   const ceoMember = teamMembers.find((member) => member.role_slot === "CEO");
   const teamPreconditionReady = Boolean(
     selectedTeam &&
-    REQUIRED_ROLE_KEYS.every(
+    requiredRoleKeys.every(
       (roleKey) => teamMembers.filter((member) => member.role_slot === roleKey).length === 1
     ) &&
-    new Set(roleMemberIds).size === REQUIRED_ROLE_KEYS.length &&
+    new Set(roleMemberIds).size === requiredRoleKeys.length &&
     ceoMember?.user_id === selectedTeam.captain_user_id
   );
   const scopeReady = Boolean(
@@ -231,7 +235,7 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
           ) : null}
           {!teamPreconditionReady ? (
             <p className="evidence-note" role="status">
-              角色分配前置条件：Team 必须各有一名 CEO、CFO、CMO、COO，且 CEO 必须是队长。
+              角色分配前置条件：Team 必须各有一名 {requiredRoleKeys.join("、")}，且 CEO 必须是队长。
             </p>
           ) : null}
           <div className="role-workflow-footer">

@@ -47,6 +47,11 @@ W027 boundary. They are never emitted as a standalone configured role.
 
 ## Existing Authority Reuse
 
+- The shared RoleWorkflow accepts the legacy four-role team shape and the
+  corrected five-role W027 shape. A team containing `CHRO` uses the five-role
+  READY, merge, acknowledgement, and canonical-admission gate; older teams
+  retain the four-role gate. Legacy `risk`/`Quality & Risk` role inputs are
+  normalized to `COO` before persistence.
 - W027 `merge` and `confirm` BFF commands delegate to the existing
   `RoleWorkflowCommandService`; W027 does not add a second merge or canonical
   Decision writer.

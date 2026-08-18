@@ -3958,7 +3958,7 @@ components:
         run_id: { type: string, minLength: 1 }
         round_id: { type: string, minLength: 1 }
         team_id: { type: string, minLength: 1 }
-        role_key: { enum: [CEO, CFO, CMO, COO] }
+        role_key: { enum: [CEO, CFO, CMO, COO, CHRO] }
         idempotency_key: { type: string, minLength: 1 }
     W020AdvisoryEnvelope:
       type: object
@@ -3991,7 +3991,7 @@ components:
       required: [user_id, role_slot]
       properties:
         user_id: { type: string, minLength: 1 }
-        role_slot: { enum: [CEO, CFO, CMO, COO] }
+        role_slot: { enum: [CEO, CFO, CMO, COO, CHRO] }
     ValidationSessionEnvelope:
       type: object
       additionalProperties: false
@@ -4492,7 +4492,7 @@ components:
                       properties:
                         user_id: { type: string, minLength: 1 }
                         display_name: { type: string, minLength: 1 }
-                        role_slot: { type: string, enum: [CEO, CFO, CMO, COO] }
+                        role_slot: { type: string, enum: [CEO, CFO, CMO, COO, CHRO] }
         seed: { type: integer, minimum: 0 }
     ValidationEnvironmentLaunchRecord:
       type: object
@@ -5026,7 +5026,7 @@ components:
           minLength: 1
         role_key:
           type: string
-          enum: [CEO, CFO, CMO, COO]
+          enum: [CEO, CFO, CMO, COO, CHRO]
         run_id:
           type: string
           minLength: 1
@@ -5223,7 +5223,7 @@ components:
           type: string
         role_key:
           type: string
-          enum: [CEO, CFO, CMO, COO]
+          enum: [CEO, CFO, CMO, COO, CHRO]
         role_template_id:
           type: string
         run_id:
@@ -5348,7 +5348,7 @@ components:
         run_id: { type: string, minLength: 1 }
         round_id: { type: string, minLength: 1 }
         team_id: { type: string, minLength: 1 }
-        role_key: { type: string, enum: [CEO, CFO, CMO, COO] }
+        role_key: { type: string, enum: [CEO, CFO, CMO, COO, CHRO] }
         status: { type: string, enum: [ACKNOWLEDGED, DISSENT_PRESERVED] }
         dissent_note: { type: string, minLength: 1, maxLength: 280 }
         acknowledged_at: { type: string, format: date-time }

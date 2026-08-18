@@ -379,6 +379,7 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     fixtureUsers[1],
     fixtureUsers[2],
     fixtureUsers[3],
+    fixtureUsers[4],
     fixtureUsers[0]
   ] as const) {
     await page.goto(studentBaseUrl);
@@ -400,9 +401,13 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     } else if (role === "CMO") {
       await studentWorkflow.getByLabel("角色定价").fill("12900");
       await studentWorkflow.getByLabel("角色营销预算").fill("145000");
-    } else {
+    } else if (role === "COO") {
       await studentWorkflow.getByLabel("角色产能计划").selectOption("hold");
       await studentWorkflow.getByLabel("角色服务质量预算").fill("123000");
+    } else {
+      await studentWorkflow
+        .getByLabel("策略说明")
+        .fill("Coordinate one safe canonical team decision.");
     }
     await studentWorkflow.getByRole("button", { name: "保存角色草稿" }).click();
     await expect(studentWorkflow.getByText("draft · v1")).toBeVisible();
@@ -434,7 +439,12 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     }
   }
 
-  for (const [username, role] of [fixtureUsers[1], fixtureUsers[2], fixtureUsers[3]] as const) {
+  for (const [username, role] of [
+    fixtureUsers[1],
+    fixtureUsers[2],
+    fixtureUsers[3],
+    fixtureUsers[4]
+  ] as const) {
     await page.goto(studentBaseUrl);
     await signIn(page, "student", username);
     const studentWorkflow = page.getByLabel("Student role workflow");

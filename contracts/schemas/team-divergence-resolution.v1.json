@@ -12,7 +12,7 @@
     "acknowledgements": { "type": "array", "items": { "$ref": "#/$defs/acknowledgement" } }
   },
   "$defs": {
-    "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+    "role_key": { "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"] },
     "field": {
       "enum": [
         "pricing.base_price",

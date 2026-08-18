@@ -34,7 +34,7 @@
         "additionalProperties": false,
         "required": ["role_key", "status", "version"],
         "properties": {
-          "role_key": { "enum": ["CEO", "CFO", "CMO", "COO"] },
+          "role_key": { "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"] },
           "status": { "enum": ["missing", "draft", "ready"] },
           "version": { "type": "integer", "minimum": 0 },
           "submitted_by": { "type": "string" },
@@ -64,11 +64,11 @@
         "resolved_count": { "type": "integer", "minimum": 0 },
         "required_role_keys": {
           "type": "array",
-          "items": { "enum": ["CEO", "CFO", "CMO", "COO"] }
+          "items": { "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"] }
         },
         "acknowledged_role_keys": {
           "type": "array",
-          "items": { "enum": ["CEO", "CFO", "CMO", "COO"] }
+          "items": { "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"] }
         }
       }
     }

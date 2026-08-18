@@ -6218,14 +6218,19 @@ async function routeRequest(
     const actor = roleWorkflowActor(context, "teacher");
     const body = await readJson<Record<string, unknown>>(request);
     assertOnlyRoleWorkflowFields(body, ["course_id", "role_key", "run_id", "team_id", "user_id"]);
+    const requestedRoleKey = roleWorkflowString(body.role_key, "role_key");
+    const roleKey =
+      requestedRoleKey === "risk" || requestedRoleKey === "Quality & Risk"
+        ? "COO"
+        : requestedRoleKey;
     const input = {
       course_id: roleWorkflowString(body.course_id, "course_id"),
-      role_key: roleWorkflowString(body.role_key, "role_key") as RoleId,
+      role_key: roleKey as RoleId,
       run_id: roleWorkflowString(body.run_id, "run_id"),
       team_id: roleWorkflowString(body.team_id, "team_id"),
       user_id: roleWorkflowString(body.user_id, "user_id")
     };
-    if (!["CEO", "CFO", "CMO", "COO"].includes(input.role_key)) {
+    if (!["CEO", "CFO", "CMO", "COO", "CHRO"].includes(input.role_key)) {
       throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid");
     }
     const data = await executeLockedRoleWorkflow(runtime, context.tenantId, input.run_id, () =>
@@ -7941,7 +7946,7 @@ async function routeRequest(
     assertNoTruthProtectedFields(body);
     const userId = typeof body.user_id === "string" ? body.user_id.trim() : "";
     const roleSlot = typeof body.role_slot === "string" ? body.role_slot.trim() : "";
-    if (!userId || !["CEO", "CFO", "CMO", "COO"].includes(roleSlot)) {
+    if (!userId || !["CEO", "CFO", "CMO", "COO", "CHRO"].includes(roleSlot)) {
       throw new HttpError(422, "TEAM-MEMBER-422-001", "user_id and role_slot are required");
     }
     const user = await runtime.repositoryProvider.facade.identity.getUser(context.tenantId, userId);
