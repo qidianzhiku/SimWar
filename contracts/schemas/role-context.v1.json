@@ -31,7 +31,7 @@
     "assignment_id": { "type": "string", "minLength": 1 },
     "role_key": {
       "type": "string",
-      "enum": ["CEO", "CFO", "CMO", "COO"]
+      "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"]
     },
     "role_template_id": { "type": "string", "minLength": 1 },
     "permissions": { "$ref": "role-permission-policy.v1.json" },

@@ -1,0 +1,126 @@
+{
+  "schema_version": "w027-student-decision-experience.v1",
+  "context": {
+    "schema_version": "w027-role-context.v1",
+    "tenant_id": "tenant_w027",
+    "course_id": "course_w027",
+    "run_id": "run_w027",
+    "round_id": "round_w027_1",
+    "team_id": "team_w027",
+    "user_id": "user_coo",
+    "role_key": "COO",
+    "permissions": {
+      "schema_version": "w027-decision-right-policy.v1",
+      "policy_id": "policy_coo",
+      "role_key": "COO",
+      "can_read_role_workspace": true,
+      "can_write_private_judgment": true,
+      "can_publish_role_position": true,
+      "can_propose_resolution": false,
+      "can_acknowledge_resolution": true,
+      "can_merge_team_decision": false,
+      "can_confirm_team_decision": false,
+      "private_judgment_kinds": ["value", "assumption", "evidence", "risk", "tradeoff"],
+      "operational_capabilities": ["operations", "quality_control", "risk_register"],
+      "known_limits": ["QUALITY_RISK_MERGED_INTO_COO"]
+    },
+    "source": "resolved_from_w027_assignment"
+  },
+  "roster": {
+    "schema_version": "w027-role-roster.v1",
+    "roster_id": "roster_w027",
+    "tenant_id": "tenant_w027",
+    "course_id": "course_w027",
+    "run_id": "run_w027",
+    "team_id": "team_w027",
+    "role_keys": ["CEO", "CFO", "CMO", "COO", "CHRO"],
+    "compatibility_map": { "risk": "COO", "Quality & Risk": "COO" },
+    "decision_right_policies": [
+      {
+        "schema_version": "w027-decision-right-policy.v1",
+        "policy_id": "policy_coo",
+        "role_key": "COO",
+        "can_read_role_workspace": true,
+        "can_write_private_judgment": true,
+        "can_publish_role_position": true,
+        "can_propose_resolution": false,
+        "can_acknowledge_resolution": true,
+        "can_merge_team_decision": false,
+        "can_confirm_team_decision": false,
+        "private_judgment_kinds": ["value", "assumption", "evidence", "risk", "tradeoff"],
+        "operational_capabilities": ["operations", "quality_control", "risk_register"],
+        "known_limits": ["QUALITY_RISK_MERGED_INTO_COO"]
+      }
+    ],
+    "version": 1,
+    "configured_at": "2026-08-17T00:00:00.000Z",
+    "configured_by": "teacher_w027"
+  },
+  "private_judgments": [
+    {
+      "schema_version": "w027-private-judgment.v1",
+      "judgment_id": "judgment_w027",
+      "tenant_id": "tenant_w027",
+      "course_id": "course_w027",
+      "run_id": "run_w027",
+      "round_id": "round_w027_1",
+      "team_id": "team_w027",
+      "role_key": "COO",
+      "kind": "risk",
+      "problem_frame": "How can quality and risk be controlled?",
+      "assumptions": ["The current control loop is observable."],
+      "options_considered": ["Add a quality gate", "Accept the drift"],
+      "trade_offs": ["Control effort versus delivery speed"],
+      "prediction": "A quality gate reduces drift.",
+      "confidence": 0.8,
+      "rationale": "The quality signal is actionable.",
+      "statement": "Internal quality and risk judgment.",
+      "evidence_refs": [],
+      "status": "ready",
+      "version": 1,
+      "visibility": "role_private",
+      "created_by": "user_coo",
+      "created_at": "2026-08-17T00:00:00.000Z"
+    }
+  ],
+  "team_safe_positions": [
+    {
+      "schema_version": "w027-role-position.v1",
+      "position_id": "position_w027",
+      "tenant_id": "tenant_w027",
+      "course_id": "course_w027",
+      "run_id": "run_w027",
+      "round_id": "round_w027_1",
+      "team_id": "team_w027",
+      "role_key": "COO",
+      "summary": "Operations position",
+      "assumptions": [],
+      "evidence_refs": [],
+      "risk_flags": ["quality drift"],
+      "tradeoffs": [],
+      "status": "ready",
+      "version": 1,
+      "visibility": "team_safe",
+      "created_at": "2026-08-17T00:00:00.000Z"
+    }
+  ],
+  "trace": {
+    "schema_version": "w027-decision-trace.v2",
+    "tenant_id": "tenant_w027",
+    "run_id": "run_w027",
+    "round_id": "round_w027_1",
+    "team_id": "team_w027",
+    "role_key": "COO",
+    "stages": [
+      {
+        "stage_key": "PRIVATE_JUDGMENT_CAPTURED",
+        "occurred_at": "2026-08-17T00:00:00.000Z",
+        "safe_evidence_reference": "w027_private_judgment",
+        "safe_label": "judgment"
+      }
+    ],
+    "current_stage": "PRIVATE_JUDGMENT_CAPTURED",
+    "known_limits": ["QUALITY_RISK_MERGED_INTO_COO"]
+  },
+  "known_limits": ["JSON_INTERNAL_ONLY", "QUALITY_RISK_MERGED_INTO_COO"]
+}

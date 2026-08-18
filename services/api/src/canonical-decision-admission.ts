@@ -7,10 +7,10 @@ import type {
   RoleDecisionSection,
   Round,
   Run,
+  RoleId,
   StudentRoleAssignment,
   Team
 } from "@simwar/shared-contracts";
-import { DEFAULT_STUDENT_ROLE_TEMPLATES } from "@simwar/shared-contracts";
 import type {
   RoleWorkflowRepositoryPort,
   RoleWorkflowRepositorySnapshot
@@ -50,6 +50,15 @@ export class CanonicalDecisionAdmissionError extends Error {
     super(message);
     this.name = "CanonicalDecisionAdmissionError";
   }
+}
+
+const LEGACY_REQUIRED_ROLE_KEYS: RoleId[] = ["CEO", "CFO", "CMO", "COO"];
+const W027_REQUIRED_ROLE_KEYS: RoleId[] = ["CEO", "CFO", "CMO", "COO", "CHRO"];
+
+function requiredRoleKeysForTeam(team: Team): RoleId[] {
+  return team.members.some((member) => member.role_slot === "CHRO")
+    ? W027_REQUIRED_ROLE_KEYS
+    : LEGACY_REQUIRED_ROLE_KEYS;
 }
 
 function canonicalize(value: unknown): unknown {
@@ -210,7 +219,7 @@ export async function resolveFormalCanonicalDecisionSet(input: {
   }
   exactScope(snapshot, input);
 
-  const requiredRoleKeys = DEFAULT_STUDENT_ROLE_TEMPLATES.map((template) => template.role_key);
+  const requiredRoleKeys = requiredRoleKeysForTeam(snapshot.team);
   const activeAssignments = snapshot.assignments.filter(
     (assignment) => assignment.status === "active"
   );

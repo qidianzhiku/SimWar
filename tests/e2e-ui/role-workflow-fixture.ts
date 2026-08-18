@@ -12,7 +12,8 @@ export function roleWorkflowUsers(index: number) {
     [`role_ceo_browser_${index}`, "CEO"],
     [`role_cfo_browser_${index}`, "CFO"],
     [`role_cmo_browser_${index}`, "CMO"],
-    [`role_coo_browser_${index}`, "COO"]
+    [`role_coo_browser_${index}`, "COO"],
+    [`role_chro_browser_${index}`, "CHRO"]
   ] as const;
 }
 

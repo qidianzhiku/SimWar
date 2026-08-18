@@ -30,18 +30,21 @@ function roleEnum(name: string): string[] {
 }
 
 describe("student role context and assignment contracts", () => {
-  it("defines RoleId as the four approved P2-002 MVP roles", () => {
-    expect(["CEO", "CFO", "CMO", "COO"].every((roleId) => isRoleId(roleId))).toBe(true);
+  it("defines RoleId as the five W027 formal roles", () => {
+    expect(["CEO", "CFO", "CMO", "COO", "CHRO"].every((roleId) => isRoleId(roleId))).toBe(
+      true
+    );
     expect(isRoleId("risk")).toBe(false);
   });
 
-  it("defines default role templates and action policies for the four approved MVP roles", () => {
+  it("defines default role templates and action policies for the five formal roles", () => {
     const roleKeys = DEFAULT_STUDENT_ROLE_TEMPLATES.map((template) => template.role_key);
 
-    expect(roleKeys).toEqual(["CEO", "CFO", "CMO", "COO"]);
+    expect(roleKeys).toEqual(["CEO", "CFO", "CMO", "COO", "CHRO"]);
     expect(Object.keys(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES).sort()).toEqual([
       "CEO",
       "CFO",
+      "CHRO",
       "CMO",
       "COO"
     ]);
@@ -93,14 +96,14 @@ describe("student role context and assignment contracts", () => {
     }
   });
 
-  it("keeps risk outside the P2-002 assignable role schemas", () => {
+  it("keeps risk outside the assignable role schemas while allowing CHRO", () => {
     for (const name of [
       "student-role-assignment.v1.json",
       "role-context.v1.json",
       "role-permission-policy.v1.json",
       "role-template.v1.json"
     ]) {
-      expect(roleEnum(name)).toEqual(["CEO", "CFO", "CMO", "COO"]);
+      expect(roleEnum(name)).toEqual(["CEO", "CFO", "CMO", "COO", "CHRO"]);
       expect(roleEnum(name)).not.toContain("risk");
     }
   });

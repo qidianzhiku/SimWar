@@ -15,6 +15,7 @@ import type {
   StudentBffCockpitDTO
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
+import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -708,6 +709,20 @@ export function App() {
               tenantId={login.tenantId}
               token={activeSession?.access_token}
               onAvailabilityChange={setRoleWorkflowAvailability}
+            />
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section id="student-w027-decision-experience" aria-label="W027 决策体验">
+            <W027DecisionExperiencePanel
+              active={latestRound?.status === "open"}
+              courseId={latestRun?.course_id}
+              roundId={latestRound?.round_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token}
             />
           </section>
         ) : null}

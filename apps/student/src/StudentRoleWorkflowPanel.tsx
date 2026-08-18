@@ -102,7 +102,7 @@ const initialDraft: DecisionPayload = {
   strategy_statement: ""
 };
 
-const requiredResolutionRoles = ["CEO", "CFO", "CMO", "COO"] as const;
+const requiredResolutionRoles = ["CEO", "CFO", "CMO", "COO", "CHRO"] as const;
 
 function divergenceValueCopy(value: TeamDivergenceValue): string {
   return typeof value === "number" ? value.toLocaleString("zh-CN") : value;

@@ -21,7 +21,7 @@
     "policy_id": { "type": "string", "minLength": 1 },
     "role_key": {
       "type": "string",
-      "enum": ["CEO", "CFO", "CMO", "COO"]
+      "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"]
     },
     "schema_version": { "const": "role-permission-policy.v1" },
     "can_read_role_workspace": { "type": "boolean" },

@@ -1,0 +1,14 @@
+{
+  "schema_version": "w027-student-decision-experience.v1",
+  "context": { "role_key": "Quality & Risk" },
+  "roster": {
+    "schema_version": "w027-role-roster.v1",
+    "compatibility_map": { "risk": "Quality & Risk" }
+  },
+  "private_judgments": [],
+  "team_safe_positions": [
+    { "role_key": "COO", "statement": "private payload must not be projected" }
+  ],
+  "trace": { "schema_version": "w027-decision-trace.v2" },
+  "known_limits": []
+}
