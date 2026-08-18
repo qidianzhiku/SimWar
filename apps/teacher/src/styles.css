@@ -791,6 +791,16 @@ h3 {
   word-break: break-word;
 }
 
+.w027-decision-experience-panel button,
+.w027-decision-experience-panel select,
+.w027-decision-experience-panel textarea {
+  min-height: 44px;
+}
+
+.w027-decision-experience-panel select {
+  min-width: 44px;
+}
+
 .package-brief,
 .phase-row p,
 .compact-list,
