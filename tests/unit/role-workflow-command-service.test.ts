@@ -701,6 +701,89 @@ describe("RoleWorkflowCommandService", () => {
     expect(store.decisionMergeCommits[0]?.merged_payload.service_quality_budget).toBe(125000);
   });
 
+  it("allows an explicitly configured non-captain confirmer without creating a second canonical writer", async () => {
+    await assignAllRoles();
+    service = new RoleWorkflowCommandService(createJsonRepositoryPorts(store).roleWorkflow, {
+      createId: (kind) => `${kind}_${++idSequence}`,
+      now: () => "2026-07-31T02:00:00.000Z",
+      resolveW027DecisionPolicy: async (_input, roleKey) =>
+        roleKey === "CFO"
+          ? {
+              can_confirm_team_decision: true,
+              can_merge_team_decision: true,
+              can_propose_resolution: true
+            }
+          : undefined
+    });
+    const payloads = new Map<RoleWorkflowActor, object>([
+      [studentCeo, { strategy_statement: "One plan." }],
+      [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+      [studentCmo, { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+      [studentCoo, { capacity_plan: "expand", service_quality_budget: 130000 }]
+    ]);
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.saveSection(actor, {
+        expected_version: 0,
+        payload: payloads.get(actor)!,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+      await service.markSectionReady(actor, {
+        expected_version: 1,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+    }
+    const before = await service.getStudentWorkspace(studentCfo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    const divergence = before.divergence_set!;
+    const resolution = await service.proposeTeamResolution(studentCfo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      source_section_ids: divergence.source_section_ids,
+      source_digest: divergence.source_digest,
+      selected_values: { service_quality_budget: 125000 }
+    });
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.acknowledgeResolution(actor, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        resolution_id: resolution.resolution_id,
+        status: "ACKNOWLEDGED"
+      });
+    }
+    const merge = await service.createMergeCommit(studentCfo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    await expect(
+      service.confirmTeamDecision(studentCmo, {
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3",
+        merge_commit_id: merge.merge_commit_id
+      })
+    ).rejects.toThrowError(expect.objectContaining({ code: "ROLE_WORKFLOW_CONFIRMATION_DENIED" }));
+    const confirmation = await service.confirmTeamDecision(studentCfo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3",
+      merge_commit_id: merge.merge_commit_id
+    });
+    expect(confirmation.confirmed_by).toBe(studentCfo.actor_id);
+    expect(store.decisions.filter((decision) => decision.round_id === "round_c3_1")).toHaveLength(
+      1
+    );
+  });
+
   it("rejects a resolution whose source digest is stale", async () => {
     await assignAllRoles();
     const payloads = new Map<RoleWorkflowActor, object>([

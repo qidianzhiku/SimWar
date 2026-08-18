@@ -9,7 +9,21 @@
     "team_id": "team_w027",
     "user_id": "user_coo",
     "role_key": "COO",
-    "permissions": { "role_key": "COO", "can_write_private_judgment": true },
+    "permissions": {
+      "schema_version": "w027-decision-right-policy.v1",
+      "policy_id": "policy_coo",
+      "role_key": "COO",
+      "can_read_role_workspace": true,
+      "can_write_private_judgment": true,
+      "can_publish_role_position": true,
+      "can_propose_resolution": false,
+      "can_acknowledge_resolution": true,
+      "can_merge_team_decision": false,
+      "can_confirm_team_decision": false,
+      "private_judgment_kinds": ["value", "assumption", "evidence", "risk", "tradeoff"],
+      "operational_capabilities": ["operations", "quality_control", "risk_register"],
+      "known_limits": ["QUALITY_RISK_MERGED_INTO_COO"]
+    },
     "source": "resolved_from_w027_assignment"
   },
   "roster": {
@@ -21,6 +35,23 @@
     "team_id": "team_w027",
     "role_keys": ["CEO", "CFO", "CMO", "COO", "CHRO"],
     "compatibility_map": { "risk": "COO", "Quality & Risk": "COO" },
+    "decision_right_policies": [
+      {
+        "schema_version": "w027-decision-right-policy.v1",
+        "policy_id": "policy_coo",
+        "role_key": "COO",
+        "can_read_role_workspace": true,
+        "can_write_private_judgment": true,
+        "can_publish_role_position": true,
+        "can_propose_resolution": false,
+        "can_acknowledge_resolution": true,
+        "can_merge_team_decision": false,
+        "can_confirm_team_decision": false,
+        "private_judgment_kinds": ["value", "assumption", "evidence", "risk", "tradeoff"],
+        "operational_capabilities": ["operations", "quality_control", "risk_register"],
+        "known_limits": ["QUALITY_RISK_MERGED_INTO_COO"]
+      }
+    ],
     "version": 1,
     "configured_at": "2026-08-17T00:00:00.000Z",
     "configured_by": "teacher_w027"
@@ -36,6 +67,13 @@
       "team_id": "team_w027",
       "role_key": "COO",
       "kind": "risk",
+      "problem_frame": "How can quality and risk be controlled?",
+      "assumptions": ["The current control loop is observable."],
+      "options_considered": ["Add a quality gate", "Accept the drift"],
+      "trade_offs": ["Control effort versus delivery speed"],
+      "prediction": "A quality gate reduces drift.",
+      "confidence": 0.8,
+      "rationale": "The quality signal is actionable.",
       "statement": "Internal quality and risk judgment.",
       "evidence_refs": [],
       "status": "ready",

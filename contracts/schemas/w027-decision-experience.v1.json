@@ -6,6 +6,44 @@
   "$defs": {
     "role": { "enum": ["CEO", "CFO", "CMO", "COO", "CHRO"] },
     "kind": { "enum": ["value", "assumption", "evidence", "risk", "tradeoff"] },
+    "decision_right_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "policy_id",
+        "role_key",
+        "can_read_role_workspace",
+        "can_write_private_judgment",
+        "can_publish_role_position",
+        "can_propose_resolution",
+        "can_acknowledge_resolution",
+        "can_merge_team_decision",
+        "can_confirm_team_decision",
+        "private_judgment_kinds",
+        "operational_capabilities",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "w027-decision-right-policy.v1" },
+        "policy_id": { "type": "string", "minLength": 1 },
+        "role_key": { "$ref": "#/$defs/role" },
+        "can_read_role_workspace": { "type": "boolean" },
+        "can_write_private_judgment": { "type": "boolean" },
+        "can_publish_role_position": { "type": "boolean" },
+        "can_propose_resolution": { "type": "boolean" },
+        "can_acknowledge_resolution": { "type": "boolean" },
+        "can_merge_team_decision": { "type": "boolean" },
+        "can_confirm_team_decision": { "type": "boolean" },
+        "private_judgment_kinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/kind" }
+        },
+        "operational_capabilities": { "type": "array", "items": { "type": "string" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "roster": {
       "type": "object",
       "additionalProperties": false,
@@ -18,6 +56,7 @@
         "team_id",
         "role_keys",
         "compatibility_map",
+        "decision_right_policies",
         "version",
         "configured_at",
         "configured_by"
@@ -36,6 +75,13 @@
           "items": { "$ref": "#/$defs/role" }
         },
         "compatibility_map": { "const": { "risk": "COO", "Quality & Risk": "COO" } },
+        "decision_right_policies": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/decision_right_policy" }
+        },
         "version": { "type": "integer", "minimum": 1 },
         "configured_at": { "type": "string", "format": "date-time" },
         "configured_by": { "type": "string", "minLength": 1 }
@@ -54,6 +100,13 @@
         "team_id",
         "role_key",
         "kind",
+        "problem_frame",
+        "assumptions",
+        "options_considered",
+        "trade_offs",
+        "prediction",
+        "confidence",
+        "rationale",
         "statement",
         "evidence_refs",
         "status",
@@ -72,6 +125,13 @@
         "team_id": { "type": "string" },
         "role_key": { "$ref": "#/$defs/role" },
         "kind": { "$ref": "#/$defs/kind" },
+        "problem_frame": { "type": "string", "minLength": 1 },
+        "assumptions": { "type": "array", "items": { "type": "string" } },
+        "options_considered": { "type": "array", "items": { "type": "string" } },
+        "trade_offs": { "type": "array", "items": { "type": "string" } },
+        "prediction": { "type": "string", "minLength": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
         "statement": { "type": "string", "minLength": 1 },
         "evidence_refs": { "type": "array", "items": { "type": "string" } },
         "status": { "enum": ["draft", "ready"] },
@@ -147,7 +207,7 @@
         "team_id": { "type": "string" },
         "user_id": { "type": "string" },
         "role_key": { "$ref": "#/$defs/role" },
-        "permissions": { "type": "object" },
+        "permissions": { "$ref": "#/$defs/decision_right_policy" },
         "source": { "const": "resolved_from_w027_assignment" }
       }
     },
@@ -207,6 +267,124 @@
         "known_limits": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "resolution_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "source_digest",
+        "resolution_mode",
+        "selected_option",
+        "rationale",
+        "supporting_evidence_refs",
+        "trade_off",
+        "risk",
+        "affected_divergence_ids",
+        "authority_role_key",
+        "selected_position_ids",
+        "preserved_dissent_role_keys",
+        "acknowledged_role_keys",
+        "status",
+        "proposed_by",
+        "proposed_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "w027-resolution.v2" },
+        "resolution_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "source_digest": { "type": "string", "minLength": 1 },
+        "resolution_mode": {
+          "enum": ["OBSERVED_CANDIDATE_SELECTION", "EXPLICIT_TEAM_COMPROMISE"]
+        },
+        "selected_option": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "supporting_evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "trade_off": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "affected_divergence_ids": { "type": "array", "items": { "type": "string" } },
+        "authority_role_key": { "$ref": "#/$defs/role" },
+        "selected_position_ids": { "type": "array", "items": { "type": "string" } },
+        "preserved_dissent_role_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" }
+        },
+        "acknowledged_role_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" }
+        },
+        "status": { "enum": ["PROPOSED", "ACKS_COMPLETE"] },
+        "proposed_by": { "type": "string", "minLength": 1 },
+        "proposed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "resolution_safe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "resolution_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "source_digest",
+        "resolution_mode",
+        "selected_option",
+        "rationale",
+        "supporting_evidence_refs",
+        "trade_off",
+        "risk",
+        "affected_divergence_ids",
+        "authority_role_key",
+        "selected_position_ids",
+        "preserved_dissent_role_keys",
+        "acknowledged_role_keys",
+        "status",
+        "proposed_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "w027-resolution.v2" },
+        "resolution_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "source_digest": { "type": "string", "minLength": 1 },
+        "resolution_mode": {
+          "enum": ["OBSERVED_CANDIDATE_SELECTION", "EXPLICIT_TEAM_COMPROMISE"]
+        },
+        "selected_option": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "supporting_evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "trade_off": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string", "minLength": 1 },
+        "affected_divergence_ids": { "type": "array", "items": { "type": "string" } },
+        "authority_role_key": { "$ref": "#/$defs/role" },
+        "selected_position_ids": { "type": "array", "items": { "type": "string" } },
+        "preserved_dissent_role_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" }
+        },
+        "acknowledged_role_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" }
+        },
+        "status": { "enum": ["PROPOSED", "ACKS_COMPLETE"] },
+        "proposed_at": { "type": "string", "format": "date-time" }
+      }
+    },
     "student": {
       "type": "object",
       "additionalProperties": false,
@@ -224,10 +402,10 @@
         "context": { "$ref": "#/$defs/context" },
         "roster": { "$ref": "#/$defs/roster" },
         "private_judgments": { "type": "array", "items": { "$ref": "#/$defs/private_judgment" } },
-        "own_role_position": { "type": "object" },
+        "own_role_position": { "$ref": "#/$defs/safe_position" },
         "team_safe_positions": { "type": "array", "items": { "$ref": "#/$defs/safe_position" } },
         "divergence": { "$ref": "#/$defs/divergence" },
-        "resolution": { "type": "object" },
+        "resolution": { "$ref": "#/$defs/resolution_safe" },
         "trace": { "$ref": "#/$defs/trace" },
         "known_limits": { "type": "array", "items": { "type": "string" } }
       }
@@ -245,10 +423,10 @@
       "properties": {
         "schema_version": { "const": "w027-teacher-decision-experience.v1" },
         "roster": { "$ref": "#/$defs/roster" },
-        "role_positions": { "type": "array", "items": { "$ref": "#/$defs/private_judgment" } },
+        "role_positions": { "type": "array", "items": { "$ref": "#/$defs/safe_position" } },
         "private_judgment_summary": { "type": "array", "items": { "type": "object" } },
         "divergence": { "$ref": "#/$defs/divergence" },
-        "resolution": { "type": "object" },
+        "resolution": { "$ref": "#/$defs/resolution" },
         "known_limits": { "type": "array", "items": { "type": "string" } }
       }
     }

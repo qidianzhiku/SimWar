@@ -99,6 +99,18 @@ export function W027DecisionExperiencePanel(props: Props) {
       {workspace ? (
         <>
           <p>正式角色：{workspace.roster.role_keys.join(" / ")}。Quality &amp; Risk → COO。</p>
+          <div className="table" aria-label="W027 decision rights">
+            {workspace.roster.decision_right_policies.map((policy) => (
+              <div className="table-row" key={policy.role_key}>
+                <span>{policy.role_key}</span>
+                <span>{policy.operational_capabilities.join(" / ") || "无专属操作能力"}</span>
+                <strong>
+                  {policy.can_merge_team_decision ? "可合并" : "不可合并"} ·{" "}
+                  {policy.can_confirm_team_decision ? "可确认" : "不可确认"}
+                </strong>
+              </div>
+            ))}
+          </div>
           <div className="table" aria-label="W027 role positions">
             {workspace.role_positions.map((position) => (
               <div className="table-row" key={position.position_id}>

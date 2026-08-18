@@ -48,6 +48,17 @@ export interface RoleWorkflowActor {
 export interface RoleWorkflowDependencies {
   createId?: (kind: string) => string;
   now?: () => string;
+  resolveW027DecisionPolicy?: (
+    input: RoundWorkflowScope & { tenant_id: string; course_id?: string },
+    roleKey: string
+  ) => Promise<
+    | {
+        can_merge_team_decision: boolean;
+        can_propose_resolution: boolean;
+        can_confirm_team_decision: boolean;
+      }
+    | undefined
+  >;
 }
 
 export class RoleWorkflowError extends Error {
@@ -305,12 +316,14 @@ function buildMergedPayload(
 export class RoleWorkflowCommandService {
   private readonly createId: (kind: string) => string;
   private readonly now: () => string;
+  private readonly dependencies: RoleWorkflowDependencies;
   private readonly mergeLocks = new Map<string, Promise<void>>();
 
   constructor(
     private readonly repository: RoleWorkflowRepositoryPort,
     dependencies: RoleWorkflowDependencies = {}
   ) {
+    this.dependencies = dependencies;
     this.createId =
       dependencies.createId ??
       ((kind) => `${kind}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
@@ -782,10 +795,19 @@ export class RoleWorkflowCommandService {
     this.assertRoundScope(snapshot);
     this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
-    if (snapshot.team!.captain_user_id !== actor.actor_id) {
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
     }
-    if (!DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit) {
+    if (
+      !(
+        configuredPolicy?.can_propose_resolution ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
     }
     const divergenceSet = this.buildDivergenceSet(snapshot, input);
@@ -941,10 +963,19 @@ export class RoleWorkflowCommandService {
     this.assertRoundScope(snapshot);
     this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
-    if (!DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit) {
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
+    if (
+      !(
+        configuredPolicy?.can_merge_team_decision ??
+        DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key].can_create_merge_commit
+      )
+    ) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_DENIED");
     }
-    if (snapshot.team!.captain_user_id !== actor.actor_id) {
+    if (!configuredPolicy && snapshot.team!.captain_user_id !== actor.actor_id) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_CAPTAIN_REQUIRED");
     }
     const activeAssignments = snapshot.assignments.filter(
@@ -1014,10 +1045,14 @@ export class RoleWorkflowCommandService {
     this.assertRoundScope(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
+    const configuredPolicy = await this.dependencies.resolveW027DecisionPolicy?.(
+      { ...input, course_id: snapshot.run?.course_id ?? "", tenant_id: actor.tenant_id },
+      assignment.role_key
+    );
     if (
-      !policy.can_submit_canonical_decision ||
-      assignment.role_key !== "CEO" ||
-      snapshot.team!.captain_user_id !== actor.actor_id
+      !(configuredPolicy?.can_confirm_team_decision ?? policy.can_submit_canonical_decision) ||
+      (!configuredPolicy &&
+        (assignment.role_key !== "CEO" || snapshot.team!.captain_user_id !== actor.actor_id))
     ) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_CONFIRMATION_DENIED");
     }

@@ -28,6 +28,7 @@ export interface W027RoleRoster {
   team_id: string;
   role_keys: W027RoleKey[];
   compatibility_map: typeof W027_ROLE_COMPATIBILITY_MAP;
+  decision_right_policies: W027DecisionRightPolicy[];
   version: number;
   configured_at: string;
   configured_by: string;
@@ -48,6 +49,14 @@ export interface W027DecisionRightPolicy {
   operational_capabilities: string[];
   known_limits: string[];
 }
+
+export type W027DecisionRightPolicyInput = Omit<
+  W027DecisionRightPolicy,
+  "schema_version" | "policy_id" | "known_limits"
+> & {
+  policy_id?: string;
+  known_limits?: string[];
+};
 
 export interface W027RoleContext {
   schema_version: "w027-role-context.v1";
@@ -72,6 +81,13 @@ export interface W027PrivateJudgment {
   team_id: string;
   role_key: W027RoleKey;
   kind: W027JudgmentKind;
+  problem_frame: string;
+  assumptions: string[];
+  options_considered: string[];
+  trade_offs: string[];
+  prediction: string;
+  confidence: number;
+  rationale: string;
   statement: string;
   evidence_refs: string[];
   status: "draft" | "ready";
@@ -152,6 +168,14 @@ export interface W027ResolutionV2 {
   round_id: string;
   team_id: string;
   source_digest: string;
+  resolution_mode: "OBSERVED_CANDIDATE_SELECTION" | "EXPLICIT_TEAM_COMPROMISE";
+  selected_option: string;
+  rationale: string;
+  supporting_evidence_refs: string[];
+  trade_off: string;
+  risk: string;
+  affected_divergence_ids: string[];
+  authority_role_key: W027RoleKey;
   selected_position_ids: string[];
   preserved_dissent_role_keys: W027RoleKey[];
   acknowledged_role_keys: W027RoleKey[];
@@ -186,7 +210,8 @@ export interface W027DecisionTraceV2Stage {
     | "RESOLUTION_V2_PROPOSED"
     | "DISSENT_PRESERVED_V2"
     | "TEAM_MERGE_MILESTONE"
-    | "TEAM_CONFIRMED";
+    | "TEAM_CONFIRMED"
+    | "CANONICAL_DECISION_MILESTONE";
   occurred_at: string;
   safe_evidence_reference: string;
   safe_label: string;
@@ -209,7 +234,7 @@ export interface W027StudentDecisionExperienceDTO {
   context: W027RoleContext;
   roster: W027RoleRoster;
   private_judgments: W027PrivateJudgment[];
-  own_role_position?: W027RolePosition;
+  own_role_position?: W027RolePositionSafeDTO;
   team_safe_positions: W027RolePositionSafeDTO[];
   divergence?: W027DivergenceSet;
   resolution?: W027ResolutionSafeDTO;
@@ -220,7 +245,7 @@ export interface W027StudentDecisionExperienceDTO {
 export interface W027TeacherDecisionExperienceDTO {
   schema_version: "w027-teacher-decision-experience.v1";
   roster: W027RoleRoster;
-  role_positions: W027RolePosition[];
+  role_positions: W027RolePositionSafeDTO[];
   private_judgment_summary: W027PrivateJudgmentSafeDTO[];
   divergence?: W027DivergenceSet;
   resolution?: W027ResolutionV2;
@@ -230,8 +255,28 @@ export interface W027TeacherDecisionExperienceDTO {
 export interface W027PrivateJudgmentInput {
   kind: W027JudgmentKind;
   statement: string;
+  problem_frame?: string;
+  assumptions?: string[];
+  options_considered?: string[];
+  trade_offs?: string[];
+  prediction?: string;
+  confidence?: number;
+  rationale?: string;
   evidence_refs?: string[];
   status?: "draft" | "ready";
+}
+
+export interface W027ResolutionInput {
+  source_digest: string;
+  selected_position_ids: string[];
+  preserved_dissent_role_keys?: string[];
+  resolution_mode?: "OBSERVED_CANDIDATE_SELECTION" | "EXPLICIT_TEAM_COMPROMISE";
+  selected_option?: string;
+  rationale?: string;
+  supporting_evidence_refs?: string[];
+  trade_off?: string;
+  risk?: string;
+  affected_divergence_ids?: string[];
 }
 
 export interface W027RolePositionInput {
@@ -247,6 +292,7 @@ export const W027_KNOWN_LIMITS = [
   "JSON_INTERNAL_ONLY",
   "PRIVATE_JUDGMENT_NOT_CANONICAL_TRUTH",
   "ROLE_POSITION_IS_PROCESS_EVIDENCE",
+  "ROLE_POSITION_DERIVED_READ_ONLY",
   "QUALITY_RISK_MERGED_INTO_COO",
   "DURABLE_RECOVERY_NOT_PROVEN",
   "HUMAN_VALIDATION_NOT_PERFORMED",
@@ -266,6 +312,7 @@ export function createDefaultW027Roster(input: {
   return {
     ...input,
     compatibility_map: W027_ROLE_COMPATIBILITY_MAP,
+    decision_right_policies: Object.values(createDefaultW027DecisionRightPolicies()),
     role_keys: [...W027_FORMAL_ROLE_KEYS],
     schema_version: "w027-role-roster.v1",
     version: input.version ?? 1

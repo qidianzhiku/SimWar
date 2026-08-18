@@ -2507,6 +2507,48 @@ paths:
                         maxItems: 7,
                         uniqueItems: true,
                         items: { enum: [CEO, CFO, CMO, COO, CHRO, risk, "Quality & Risk"] }
+                      },
+                    decision_right_policies:
+                      {
+                        type: array,
+                        maxItems: 5,
+                        items:
+                          {
+                            type: object,
+                            additionalProperties: false,
+                            required:
+                              [
+                                role_key,
+                                can_read_role_workspace,
+                                can_write_private_judgment,
+                                can_publish_role_position,
+                                can_propose_resolution,
+                                can_acknowledge_resolution,
+                                can_merge_team_decision,
+                                can_confirm_team_decision,
+                                private_judgment_kinds,
+                                operational_capabilities
+                              ],
+                            properties:
+                              {
+                                policy_id: { type: string },
+                                role_key: { enum: [CEO, CFO, CMO, COO, CHRO] },
+                                can_read_role_workspace: { type: boolean },
+                                can_write_private_judgment: { type: boolean },
+                                can_publish_role_position: { type: boolean },
+                                can_propose_resolution: { type: boolean },
+                                can_acknowledge_resolution: { type: boolean },
+                                can_merge_team_decision: { type: boolean },
+                                can_confirm_team_decision: { type: boolean },
+                                private_judgment_kinds:
+                                  {
+                                    type: array,
+                                    items: { enum: [value, assumption, evidence, risk, tradeoff] }
+                                  },
+                                operational_capabilities: { type: array, items: { type: string } },
+                                known_limits: { type: array, items: { type: string } }
+                              }
+                          }
                       }
                   }
               }
@@ -2523,7 +2565,30 @@ paths:
       operationId: STUDENT_W027_PRIVATE_JUDGMENT_PUT_V1
       summary: Append a role-private W027 judgment.
       security: [{ SessionBearer: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [course_id, run_id, round_id, team_id, kind, statement]
+              properties:
+                course_id: { type: string }
+                run_id: { type: string }
+                round_id: { type: string }
+                team_id: { type: string }
+                kind: { enum: [value, assumption, evidence, risk, tradeoff] }
+                statement: { type: string, minLength: 1 }
+                problem_frame: { type: string, minLength: 1 }
+                assumptions: { type: array, items: { type: string } }
+                options_considered: { type: array, items: { type: string } }
+                trade_offs: { type: array, items: { type: string } }
+                prediction: { type: string, minLength: 1 }
+                confidence: { type: number, minimum: 0, maximum: 1 }
+                rationale: { type: string, minLength: 1 }
+                evidence_refs: { type: array, items: { type: string } }
+                status: { enum: [draft, ready] }
       responses:
         "200":
           {
@@ -2538,9 +2603,23 @@ paths:
   /api/v1/bff/student/w027/role-position:
     put:
       operationId: STUDENT_W027_ROLE_POSITION_PUT_V1
-      summary: Append a team-safe W027 role position.
+      summary: Read the derived team-safe W027 role position for the assigned role.
       security: [{ SessionBearer: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      description: "Legacy compatibility body; the server derives the projection and does not persist a Role Position writer payload."
+                    }
+                }
+            }
+        }
       responses:
         "200":
           {
@@ -2557,7 +2636,32 @@ paths:
       operationId: STUDENT_W027_RESOLUTION_POST_V1
       summary: Propose a W027 divergence resolution without changing canonical truth.
       security: [{ SessionBearer: [] }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [course_id, run_id, round_id, team_id, source_digest, selected_position_ids]
+              properties:
+                course_id: { type: string, minLength: 1 }
+                run_id: { type: string, minLength: 1 }
+                round_id: { type: string, minLength: 1 }
+                team_id: { type: string, minLength: 1 }
+                source_digest: { type: string, minLength: 1 }
+                selected_position_ids: { type: array, items: { type: string } }
+                preserved_dissent_role_keys:
+                  type: array
+                  items: { type: string }
+                resolution_mode:
+                  enum: [OBSERVED_CANDIDATE_SELECTION, EXPLICIT_TEAM_COMPROMISE]
+                selected_option: { type: string, minLength: 1 }
+                rationale: { type: string, minLength: 1 }
+                supporting_evidence_refs: { type: array, items: { type: string } }
+                trade_off: { type: string, minLength: 1 }
+                risk: { type: string, minLength: 1 }
+                affected_divergence_ids: { type: array, items: { type: string } }
       responses:
         "201":
           {
@@ -2569,6 +2673,49 @@ paths:
               }
           }
         "409": { description: Stale divergence }
+  /api/v1/bff/student/w027/merge:
+    post:
+      operationId: STUDENT_W027_MERGE_POST_V1
+      summary: Create the existing RoleWorkflow merge milestone using W027 policy.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [run_id, round_id, team_id]
+              properties:
+                run_id: { type: string }
+                round_id: { type: string }
+                team_id: { type: string }
+      responses:
+        "201": { description: Existing RoleWorkflow merge milestone }
+        "403": { description: Configured merge right required }
+        "409": { description: Required W027 resolution or acknowledgement is incomplete }
+  /api/v1/bff/student/w027/confirm:
+    post:
+      operationId: STUDENT_W027_CONFIRM_POST_V1
+      summary: Confirm through the existing RoleWorkflow canonical writer using W027 policy.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [run_id, round_id, team_id, merge_commit_id]
+              properties:
+                run_id: { type: string }
+                round_id: { type: string }
+                team_id: { type: string }
+                merge_commit_id: { type: string }
+      responses:
+        "200": { description: Existing RoleWorkflow confirmation and canonical Decision }
+        "403": { description: Configured confirmation right required }
+        "404": { description: Merge milestone not found }
   /api/v1/bff/student/w027/resolution/acknowledgement:
     post:
       operationId: STUDENT_W027_RESOLUTION_ACKNOWLEDGEMENT_POST_V1

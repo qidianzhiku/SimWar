@@ -33,7 +33,9 @@ export function W027DecisionExperiencePanel(props: Props) {
     "risk"
   );
   const [statement, setStatement] = useState("");
-  const [summary, setSummary] = useState("");
+  const [resolutionRationale, setResolutionRationale] = useState("");
+  const [dissentNote, setDissentNote] = useState("");
+  const [mergeCommitId, setMergeCommitId] = useState<string | null>(null);
   const [notice, setNotice] = useState("等待 W027 工作区");
 
   async function refresh(): Promise<void> {
@@ -73,20 +75,84 @@ export function W027DecisionExperiencePanel(props: Props) {
     await refresh();
   }
 
-  async function savePosition(): Promise<void> {
-    if (!props.runId || !props.roundId || !props.teamId || !summary.trim()) return;
-    await request("/api/v1/bff/student/w027/role-position", props, {
-      method: "PUT",
+  async function createMerge(): Promise<void> {
+    if (!props.runId || !props.roundId || !props.teamId) return;
+    const merge = await request<{ merge_commit_id: string }>(
+      "/api/v1/bff/student/w027/merge",
+      props,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          run_id: props.runId,
+          round_id: props.roundId,
+          team_id: props.teamId
+        })
+      }
+    );
+    setMergeCommitId(merge.merge_commit_id);
+    await refresh();
+  }
+
+  async function proposeResolution(): Promise<void> {
+    if (!props.runId || !props.roundId || !props.teamId || !workspace?.divergence) return;
+    const selectedPosition = workspace.team_safe_positions[0];
+    if (!selectedPosition) return;
+    await request("/api/v1/bff/student/w027/resolution", props, {
+      method: "POST",
       body: JSON.stringify({
         course_id: props.courseId ?? "course_demo",
         run_id: props.runId,
         round_id: props.roundId,
         team_id: props.teamId,
-        summary,
-        status: "ready"
+        source_digest: workspace.divergence.source_digest,
+        selected_position_ids: [selectedPosition.position_id],
+        selected_option: selectedPosition.summary,
+        rationale: resolutionRationale.trim() || "基于当前团队安全立场选择观察到的候选方案。",
+        supporting_evidence_refs: [
+          `w027_divergence_${workspace.divergence.source_digest.slice(0, 16)}`
+        ],
+        trade_off: "在当前分歧中平衡团队安全立场。",
+        risk: "保留异议仍属于过程证据，不改变正式真值。",
+        affected_divergence_ids: workspace.divergence.divergences.map(
+          (divergence) => divergence.divergence_id
+        )
       })
     });
-    setSummary("");
+    setResolutionRationale("");
+    await refresh();
+  }
+
+  async function acknowledgeResolution(
+    status: "ACKNOWLEDGED" | "DISSENT_PRESERVED"
+  ): Promise<void> {
+    if (!props.runId || !props.roundId || !props.teamId || !workspace?.resolution) return;
+    await request("/api/v1/bff/student/w027/resolution/acknowledgement", props, {
+      method: "POST",
+      body: JSON.stringify({
+        course_id: props.courseId ?? "course_demo",
+        run_id: props.runId,
+        round_id: props.roundId,
+        team_id: props.teamId,
+        resolution_id: workspace.resolution.resolution_id,
+        status,
+        ...(status === "DISSENT_PRESERVED" ? { dissent_note: dissentNote.trim() } : {})
+      })
+    });
+    setDissentNote("");
+    await refresh();
+  }
+
+  async function confirmMerge(): Promise<void> {
+    if (!props.runId || !props.roundId || !props.teamId || !mergeCommitId) return;
+    await request("/api/v1/bff/student/w027/confirm", props, {
+      method: "POST",
+      body: JSON.stringify({
+        run_id: props.runId,
+        round_id: props.roundId,
+        team_id: props.teamId,
+        merge_commit_id: mergeCommitId
+      })
+    });
     await refresh();
   }
 
@@ -120,14 +186,27 @@ export function W027DecisionExperiencePanel(props: Props) {
             <button type="button" onClick={() => void saveJudgment()}>
               记录私有判断
             </button>
-            <label>
-              团队安全立场
-              <textarea value={summary} onChange={(event) => setSummary(event.target.value)} />
-            </label>
-            <button type="button" onClick={() => void savePosition()}>
-              发布团队安全立场
-            </button>
           </div>
+          <p>团队安全立场由已准备的角色贡献确定性生成，当前页面只读展示。</p>
+          <div className="table" aria-label="W027 team-safe role positions">
+            {workspace.team_safe_positions.map((position) => (
+              <div className="table-row" key={position.position_id}>
+                <span>{position.role_key}</span>
+                <span>{position.summary}</span>
+                <strong>{position.status}</strong>
+              </div>
+            ))}
+          </div>
+          {workspace.context.permissions.can_merge_team_decision ? (
+            <button type="button" onClick={() => void createMerge()}>
+              创建团队合并候选
+            </button>
+          ) : null}
+          {workspace.context.permissions.can_confirm_team_decision && mergeCommitId ? (
+            <button type="button" onClick={() => void confirmMerge()}>
+              确认团队决策
+            </button>
+          ) : null}
           <p>
             trace v2 当前阶段：<strong>{workspace.trace.current_stage}</strong>
           </p>
@@ -144,6 +223,61 @@ export function W027DecisionExperiencePanel(props: Props) {
           ) : (
             <p>当前没有可显示的团队分歧。</p>
           )}
+          {workspace.context.permissions.can_propose_resolution &&
+          workspace.divergence?.divergences.length ? (
+            <div className="role-workflow-fields">
+              <label>
+                解决方案理由
+                <textarea
+                  value={resolutionRationale}
+                  onChange={(event) => setResolutionRationale(event.target.value)}
+                  placeholder="说明选择候选方案的依据、权衡和风险"
+                />
+              </label>
+              <button type="button" onClick={() => void proposeResolution()}>
+                提出观察到的候选解决方案
+              </button>
+            </div>
+          ) : null}
+          {workspace.resolution ? (
+            <div className="table" aria-label="W027 resolution v2">
+              <div className="table-row">
+                <span>解决模式</span>
+                <span>{workspace.resolution.resolution_mode}</span>
+                <strong>{workspace.resolution.status}</strong>
+              </div>
+              <div className="table-row">
+                <span>候选方案</span>
+                <span>{workspace.resolution.selected_option}</span>
+                <strong>{workspace.resolution.authority_role_key}</strong>
+              </div>
+              <div className="role-workflow-fields">
+                <label>
+                  保留异议说明
+                  <textarea
+                    value={dissentNote}
+                    onChange={(event) => setDissentNote(event.target.value)}
+                  />
+                </label>
+                {workspace.context.permissions.can_acknowledge_resolution ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => void acknowledgeResolution("ACKNOWLEDGED")}
+                    >
+                      确认解决方案
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void acknowledgeResolution("DISSENT_PRESERVED")}
+                    >
+                      保留我的异议
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <ul>
             {workspace.known_limits.map((limit) => (
               <li key={limit}>{limit}</li>

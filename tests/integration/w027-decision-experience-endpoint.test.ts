@@ -142,6 +142,21 @@ function seedFixture(store: SimWarStore): void {
     };
     return assignment;
   });
+  store.roleDecisionSections = members.map(({ role_slot, user_id }) => ({
+    assignment_id: `assignment_${role_slot}`,
+    payload: { strategy_statement: `${role_slot} contribution` },
+    role_key: role_slot,
+    round_id: roundId,
+    run_id: runId,
+    section_id: `section_${role_slot}`,
+    status: "ready" as const,
+    submitted_at: "2026-08-17T00:00:00.000Z",
+    submitted_by: user_id,
+    team_id: teamId,
+    tenant_id: tenantId,
+    updated_at: "2026-08-17T00:00:00.000Z",
+    version: 1
+  }));
 }
 
 async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
@@ -173,6 +188,20 @@ describe("W027 decision experience HTTP boundary", () => {
         body: {
           course_id: courseId,
           role_keys: ["CEO", "CFO", "CMO", "COO", "CHRO", "Quality & Risk"],
+          decision_right_policies: [
+            {
+              role_key: "COO",
+              can_read_role_workspace: true,
+              can_write_private_judgment: true,
+              can_publish_role_position: true,
+              can_propose_resolution: true,
+              can_acknowledge_resolution: true,
+              can_merge_team_decision: false,
+              can_confirm_team_decision: false,
+              private_judgment_kinds: ["value", "assumption", "evidence", "risk", "tradeoff"],
+              operational_capabilities: ["operations", "quality_control", "risk_register"]
+            }
+          ],
           round_id: roundId,
           run_id: runId,
           team_id: teamId
@@ -182,11 +211,23 @@ describe("W027 decision experience HTTP boundary", () => {
       });
       expect(roster.status).toBe(200);
       expect(roster.body.data.role_keys).toEqual(["CEO", "CFO", "CMO", "COO", "CHRO"]);
+      expect(
+        roster.body.data.decision_right_policies.find(
+          (policy: { role_key: string }) => policy.role_key === "COO"
+        ).can_propose_resolution
+      ).toBe(true);
 
       const judgment = await request(baseUrl, "/api/v1/bff/student/w027/private-judgment", {
         body: {
           course_id: courseId,
           kind: "risk",
+          problem_frame: "Quality drift could undermine the run",
+          assumptions: ["The quality signal is observable"],
+          options_considered: ["Add a gate", "Accept drift"],
+          trade_offs: ["Control effort versus speed"],
+          prediction: "A gate reduces drift",
+          confidence: 0.8,
+          rationale: "The signal is actionable",
           round_id: roundId,
           run_id: runId,
           statement: "Private COO risk judgment",
@@ -222,6 +263,7 @@ describe("W027 decision experience HTTP boundary", () => {
       expect(studentWorkspace.body.data.private_judgments[0]?.statement).toBe(
         "Private COO risk judgment"
       );
+      expect(studentWorkspace.body.data.private_judgments[0]?.confidence).toBe(0.8);
       expect(studentWorkspace.body.data.team_safe_positions[0]).not.toHaveProperty("created_by");
 
       const teacherWorkspace = await request<W027TeacherDecisionExperienceDTO>(

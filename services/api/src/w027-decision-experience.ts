@@ -12,6 +12,7 @@ import {
   type W027PrivateJudgment,
   type W027PrivateJudgmentInput,
   type W027ResolutionSafeDTO,
+  type W027ResolutionInput,
   type W027ResolutionV2,
   type W027RoleContext,
   type W027RoleKey,
@@ -21,6 +22,8 @@ import {
   type W027RoleRoster,
   type W027DecisionTraceV2,
   type W027DecisionTraceV2Stage,
+  type W027DecisionRightPolicy,
+  type W027DecisionRightPolicyInput,
   type W027StudentDecisionExperienceDTO,
   type W027TeacherDecisionExperienceDTO
 } from "@simwar/shared-contracts";
@@ -87,6 +90,59 @@ function boundedStrings(value: readonly string[] | undefined, code: string): str
   return value.map((item) => item.trim());
 }
 
+function boundedConfidence(value: number | undefined, code: string): number {
+  const result = value ?? 0.5;
+  if (!Number.isFinite(result) || result < 0 || result > 1) {
+    throw new W027DecisionExperienceError(code);
+  }
+  return result;
+}
+
+function normalizePolicyInput(
+  input: W027DecisionRightPolicyInput,
+  defaults: Record<W027RoleKey, W027DecisionRightPolicy>
+): W027DecisionRightPolicy {
+  if (!W027_FORMAL_ROLE_KEYS.includes(input.role_key)) {
+    throw new W027DecisionExperienceError("W027_POLICY_ROLE_INVALID");
+  }
+  const defaultPolicy = defaults[input.role_key];
+  const boolFields = [
+    "can_read_role_workspace",
+    "can_write_private_judgment",
+    "can_publish_role_position",
+    "can_propose_resolution",
+    "can_acknowledge_resolution",
+    "can_merge_team_decision",
+    "can_confirm_team_decision"
+  ] as const;
+  if (boolFields.some((field) => typeof input[field] !== "boolean")) {
+    throw new W027DecisionExperienceError("W027_POLICY_INVALID");
+  }
+  const privateKinds = boundedStrings(
+    input.private_judgment_kinds,
+    "W027_POLICY_JUDGMENT_KINDS_INVALID"
+  ) as W027DecisionRightPolicy["private_judgment_kinds"];
+  if (
+    privateKinds.some(
+      (kind) => !["value", "assumption", "evidence", "risk", "tradeoff"].includes(kind)
+    )
+  ) {
+    throw new W027DecisionExperienceError("W027_POLICY_JUDGMENT_KINDS_INVALID");
+  }
+  return {
+    ...defaultPolicy,
+    ...input,
+    known_limits: [...new Set([...(input.known_limits ?? []), ...safeLimits])],
+    operational_capabilities: boundedStrings(
+      input.operational_capabilities,
+      "W027_POLICY_CAPABILITIES_INVALID"
+    ),
+    policy_id: input.policy_id?.trim() || defaultPolicy.policy_id,
+    private_judgment_kinds: privateKinds,
+    schema_version: "w027-decision-right-policy.v1"
+  };
+}
+
 function positionDimensionValue(
   position: W027RolePosition,
   dimension: W027DivergenceDimension
@@ -108,7 +164,7 @@ function positionDimensionValue(
 export class W027DecisionExperienceService {
   private readonly now: () => string;
   private readonly createId: (kind: string) => string;
-  private readonly policies = createDefaultW027DecisionRightPolicies();
+  private readonly defaultPolicies = createDefaultW027DecisionRightPolicies();
 
   constructor(private readonly dependencies: W027DecisionExperienceDependencies) {
     this.now = dependencies.now ?? (() => new Date().toISOString());
@@ -117,10 +173,39 @@ export class W027DecisionExperienceService {
       ((kind) => `${kind}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
   }
 
+  async resolveRoleWorkflowPolicy(
+    scope: W027DecisionExperienceScope,
+    roleKeyInput: string
+  ): Promise<
+    | {
+        can_merge_team_decision: boolean;
+        can_propose_resolution: boolean;
+        can_confirm_team_decision: boolean;
+      }
+    | undefined
+  > {
+    let roleKey: W027RoleKey;
+    try {
+      roleKey = normalizeW027RoleKey(roleKeyInput as never);
+    } catch {
+      return undefined;
+    }
+    const snapshot = await this.dependencies.repository.readW027DecisionExperience(scope);
+    const roster = snapshot.rosters.at(-1);
+    if (!roster) return undefined;
+    const policy = this.policyFor(roster, roleKey);
+    return {
+      can_confirm_team_decision: policy.can_confirm_team_decision,
+      can_merge_team_decision: policy.can_merge_team_decision,
+      can_propose_resolution: policy.can_propose_resolution
+    };
+  }
+
   async configureRoster(
     actor: W027DecisionExperienceActor,
     scope: W027DecisionExperienceScope,
-    roleInputs: readonly string[]
+    roleInputs: readonly string[],
+    decisionRightPolicies?: readonly W027DecisionRightPolicyInput[]
   ): Promise<W027RoleRoster> {
     this.requireTeacher(actor);
     if (roleInputs.length === 0 || roleInputs.length > W027_MAX_ROLE_INPUTS) {
@@ -143,6 +228,20 @@ export class W027DecisionExperienceService {
       version: 1
     });
     roster.role_keys = roleKeys;
+    if (decisionRightPolicies) {
+      if (decisionRightPolicies.length > W027_FORMAL_ROLE_KEYS.length) {
+        throw new W027DecisionExperienceError("W027_POLICY_INVALID");
+      }
+      const seen = new Set<W027RoleKey>();
+      roster.decision_right_policies = decisionRightPolicies.map((input) => {
+        const policy = normalizePolicyInput(input, this.defaultPolicies);
+        if (seen.has(policy.role_key)) {
+          throw new W027DecisionExperienceError("W027_POLICY_DUPLICATE_ROLE");
+        }
+        seen.add(policy.role_key);
+        return policy;
+      });
+    }
     const existing = (await this.read(scope)).rosters.at(-1);
     if (existing) {
       roster.roster_id = existing.roster_id;
@@ -161,17 +260,22 @@ export class W027DecisionExperienceService {
   ): Promise<W027StudentDecisionExperienceDTO> {
     this.requireStudent(actor);
     const snapshot = await this.read(scope);
+    const roleWorkflowSnapshot = await this.dependencies.roleWorkflow.readRoleWorkflow(scope);
     const assignment = await this.findAssignment(actor, scope);
     const roster = this.currentRoster(snapshot, scope, actor.actor_id);
     if (!roster.role_keys.includes(normalizeW027RoleKey(assignment.role_key as never))) {
       throw new W027DecisionExperienceError("W027_ROLE_NOT_IN_ROSTER");
     }
     const roleKey = normalizeW027RoleKey(assignment.role_key as never);
-    const context = this.context(actor, scope, roleKey);
+    const policy = this.policyFor(roster, roleKey);
+    if (!policy.can_read_role_workspace) {
+      throw new W027DecisionExperienceError("W027_WORKSPACE_READ_DENIED");
+    }
+    const context = this.context(actor, scope, roleKey, policy);
     const ownJudgments = snapshot.private_judgments.filter(
       (judgment) => judgment.created_by === actor.actor_id && judgment.role_key === roleKey
     );
-    const positions = snapshot.role_positions.filter((position) => position.status === "ready");
+    const positions = this.projectRolePositions(snapshot, roleWorkflowSnapshot, scope);
     const ownPosition = positions.filter((position) => position.role_key === roleKey).at(-1);
     const divergence = this.buildDivergence(scope, roster, positions);
     const resolution = this.safeResolution(this.currentResolution(snapshot, divergence));
@@ -193,9 +297,18 @@ export class W027DecisionExperienceService {
         ownJudgments,
         ownPosition,
         divergence,
-        resolution
+        resolution,
+        roleWorkflowSnapshot
       ),
-      ...(ownPosition ? { own_role_position: clone(ownPosition) } : {}),
+      ...(ownPosition
+        ? {
+            own_role_position: clone(
+              (({ created_by: _createdBy, ...position }) => position as W027RolePositionSafeDTO)(
+                ownPosition
+              )
+            )
+          }
+        : {}),
       ...(divergence ? { divergence: clone(divergence) } : {}),
       ...(resolution ? { resolution: clone(resolution) } : {})
     };
@@ -208,7 +321,8 @@ export class W027DecisionExperienceService {
     this.requireTeacher(actor);
     const snapshot = await this.read(scope);
     const roster = this.currentRoster(snapshot, scope, actor.actor_id);
-    const positions = snapshot.role_positions.filter((position) => position.status === "ready");
+    const roleWorkflowSnapshot = await this.dependencies.roleWorkflow.readRoleWorkflow(scope);
+    const positions = this.projectRolePositions(snapshot, roleWorkflowSnapshot, scope);
     const divergence = this.buildDivergence(scope, roster, positions);
     const resolution = this.currentResolution(snapshot, divergence);
     return {
@@ -222,7 +336,11 @@ export class W027DecisionExperienceService {
         version: judgment.version,
         visibility: judgment.visibility
       })),
-      role_positions: clone(positions),
+      role_positions: clone(
+        positions.map(
+          ({ created_by: _createdBy, ...position }) => position as W027RolePositionSafeDTO
+        )
+      ),
       roster: clone(roster),
       schema_version: "w027-teacher-decision-experience.v1",
       ...(divergence ? { divergence: clone(divergence) } : {}),
@@ -238,11 +356,15 @@ export class W027DecisionExperienceService {
     this.requireStudent(actor);
     const assignment = await this.findAssignment(actor, scope);
     const roleKey = normalizeW027RoleKey(assignment.role_key as never);
-    const policy = this.policies[roleKey];
+    const snapshot = await this.read(scope);
+    const roster = this.currentRoster(snapshot, scope, actor.actor_id);
+    const policy = this.policyFor(roster, roleKey);
+    if (!policy.can_write_private_judgment) {
+      throw new W027DecisionExperienceError("W027_JUDGMENT_DENIED");
+    }
     if (!policy.private_judgment_kinds.includes(input.kind)) {
       throw new W027DecisionExperienceError("W027_JUDGMENT_KIND_DENIED");
     }
-    const snapshot = await this.read(scope);
     const previous = snapshot.private_judgments
       .filter(
         (judgment) =>
@@ -258,6 +380,16 @@ export class W027DecisionExperienceService {
       evidence_refs: boundedStrings(input.evidence_refs, "W027_JUDGMENT_EVIDENCE_INVALID"),
       judgment_id: this.createId("w027_judgment"),
       kind: input.kind,
+      problem_frame: nonEmpty(
+        input.problem_frame ?? input.statement,
+        "W027_JUDGMENT_PROBLEM_FRAME_INVALID"
+      ),
+      assumptions: boundedStrings(input.assumptions, "W027_JUDGMENT_ASSUMPTIONS_INVALID"),
+      options_considered: boundedStrings(input.options_considered, "W027_JUDGMENT_OPTIONS_INVALID"),
+      trade_offs: boundedStrings(input.trade_offs, "W027_JUDGMENT_TRADE_OFFS_INVALID"),
+      prediction: nonEmpty(input.prediction ?? input.statement, "W027_JUDGMENT_PREDICTION_INVALID"),
+      confidence: boundedConfidence(input.confidence, "W027_JUDGMENT_CONFIDENCE_INVALID"),
+      rationale: nonEmpty(input.rationale ?? input.statement, "W027_JUDGMENT_RATIONALE_INVALID"),
       role_key: roleKey,
       run_id: scope.run_id,
       round_id: scope.round_id,
@@ -285,56 +417,48 @@ export class W027DecisionExperienceService {
     const assignment = await this.findAssignment(actor, scope);
     const roleKey = normalizeW027RoleKey(assignment.role_key as never);
     const snapshot = await this.read(scope);
-    const previous = snapshot.role_positions
-      .filter((position) => position.created_by === actor.actor_id && position.role_key === roleKey)
-      .at(-1);
-    const position: W027RolePosition = {
-      assumptions: boundedStrings(input.assumptions, "W027_POSITION_ASSUMPTIONS_INVALID"),
-      created_at: this.now(),
-      created_by: actor.actor_id,
-      course_id: scope.course_id,
-      evidence_refs: boundedStrings(input.evidence_refs, "W027_POSITION_EVIDENCE_INVALID"),
-      position_id: this.createId("w027_position"),
-      risk_flags: boundedStrings(input.risk_flags, "W027_POSITION_RISK_INVALID"),
-      role_key: roleKey,
-      round_id: scope.round_id,
-      run_id: scope.run_id,
-      schema_version: "w027-role-position.v1",
-      status: input.status ?? "draft",
-      summary: nonEmpty(input.summary, "W027_POSITION_SUMMARY_INVALID", 600),
-      team_id: scope.team_id,
-      tenant_id: actor.tenant_id,
-      tradeoffs: boundedStrings(input.tradeoffs, "W027_POSITION_TRADEOFF_INVALID"),
-      version: (previous?.version ?? 0) + 1,
-      visibility: "team_safe"
-    };
-    await this.dependencies.repository.commitW027DecisionExperience({
-      kind: "append_role_position",
-      position
-    });
+    const roster = this.currentRoster(snapshot, scope, actor.actor_id);
+    const policy = this.policyFor(roster, roleKey);
+    if (!policy.can_publish_role_position) {
+      throw new W027DecisionExperienceError("W027_POSITION_DENIED");
+    }
+    void input;
+    const roleWorkflowSnapshot = await this.dependencies.roleWorkflow.readRoleWorkflow(scope);
+    const position = this.projectRolePositions(snapshot, roleWorkflowSnapshot, scope).find(
+      (candidate) => candidate.role_key === roleKey && candidate.created_by === actor.actor_id
+    );
+    if (!position) throw new W027DecisionExperienceError("W027_POSITION_NOT_READY");
     return clone(position);
   }
 
   async proposeResolution(
     actor: W027DecisionExperienceActor,
     scope: W027DecisionExperienceScope,
-    input: {
-      source_digest: string;
-      selected_position_ids: string[];
-      preserved_dissent_role_keys?: string[];
-    }
+    input: W027ResolutionInput
   ): Promise<W027ResolutionV2> {
     this.requireStudent(actor);
     const assignment = await this.findAssignment(actor, scope);
     const roleKey = normalizeW027RoleKey(assignment.role_key as never);
-    if (!this.policies[roleKey].can_propose_resolution)
-      throw new W027DecisionExperienceError("W027_RESOLUTION_DENIED");
     const snapshot = await this.read(scope);
     const roster = this.currentRoster(snapshot, scope, actor.actor_id);
-    const positions = snapshot.role_positions.filter((position) => position.status === "ready");
+    const policy = this.policyFor(roster, roleKey);
+    if (!policy.can_propose_resolution)
+      throw new W027DecisionExperienceError("W027_RESOLUTION_DENIED");
+    const roleWorkflowSnapshot = await this.dependencies.roleWorkflow.readRoleWorkflow(scope);
+    const positions = this.projectRolePositions(snapshot, roleWorkflowSnapshot, scope);
     const divergence = this.buildDivergence(scope, roster, positions);
     if (!divergence || divergence.source_digest !== input.source_digest)
       throw new W027DecisionExperienceError("W027_DIVERGENCE_STALE");
+    const resolutionMode = input.resolution_mode ?? "OBSERVED_CANDIDATE_SELECTION";
+    if (
+      resolutionMode === "EXPLICIT_TEAM_COMPROMISE" &&
+      !policy.operational_capabilities.includes("explicit_team_compromise")
+    ) {
+      throw new W027DecisionExperienceError("W027_COMPROMISE_NOT_AUTHORIZED");
+    }
+    if (input.selected_position_ids.length === 0 && resolutionMode !== "EXPLICIT_TEAM_COMPROMISE") {
+      throw new W027DecisionExperienceError("W027_RESOLUTION_POSITION_INVALID");
+    }
     if (
       input.selected_position_ids.some(
         (id) => !positions.some((position) => position.position_id === id)
@@ -342,9 +466,22 @@ export class W027DecisionExperienceService {
     ) {
       throw new W027DecisionExperienceError("W027_RESOLUTION_POSITION_INVALID");
     }
+    const selectedOption = nonEmpty(
+      input.selected_option ??
+        positions
+          .filter((position) => input.selected_position_ids.includes(position.position_id))
+          .map((position) => position.summary)
+          .join("; "),
+      "W027_RESOLUTION_OPTION_INVALID",
+      600
+    );
     const resolution: W027ResolutionV2 = {
       acknowledged_role_keys: [],
       course_id: scope.course_id,
+      affected_divergence_ids: input.affected_divergence_ids
+        ? boundedStrings(input.affected_divergence_ids, "W027_RESOLUTION_DIVERGENCE_INVALID")
+        : divergence.divergences.map((row) => row.divergence_id),
+      authority_role_key: roleKey,
       preserved_dissent_role_keys: [
         ...new Set(
           (input.preserved_dissent_role_keys ?? []).map((value) =>
@@ -355,14 +492,37 @@ export class W027DecisionExperienceService {
       proposed_at: this.now(),
       proposed_by: actor.actor_id,
       resolution_id: this.createId("w027_resolution"),
+      rationale: nonEmpty(
+        input.rationale ?? "Selected team-safe evidence for the current divergence.",
+        "W027_RESOLUTION_RATIONALE_INVALID",
+        1200
+      ),
       round_id: scope.round_id,
       run_id: scope.run_id,
+      resolution_mode: resolutionMode,
+      risk: nonEmpty(
+        input.risk ?? "Preserved dissent remains process evidence only.",
+        "W027_RESOLUTION_RISK_INVALID",
+        600
+      ),
       schema_version: "w027-resolution.v2",
+      selected_option: selectedOption,
       selected_position_ids: [...input.selected_position_ids],
       source_digest: divergence.source_digest,
       status: "PROPOSED",
+      supporting_evidence_refs: boundedStrings(
+        input.supporting_evidence_refs ?? [
+          `w027_divergence_${divergence.source_digest.slice(0, 16)}`
+        ],
+        "W027_RESOLUTION_EVIDENCE_INVALID"
+      ),
       team_id: scope.team_id,
-      tenant_id: actor.tenant_id
+      tenant_id: actor.tenant_id,
+      trade_off: nonEmpty(
+        input.trade_off ?? "Selection balances the recorded team-safe positions.",
+        "W027_RESOLUTION_TRADE_OFF_INVALID",
+        600
+      )
     };
     await this.dependencies.repository.commitW027DecisionExperience({
       kind: "append_resolution",
@@ -384,6 +544,10 @@ export class W027DecisionExperienceService {
     const assignment = await this.findAssignment(actor, scope);
     const roleKey = normalizeW027RoleKey(assignment.role_key as never);
     const snapshot = await this.read(scope);
+    const roster = this.currentRoster(snapshot, scope, actor.actor_id);
+    if (!this.policyFor(roster, roleKey).can_acknowledge_resolution) {
+      throw new W027DecisionExperienceError("W027_ACKNOWLEDGEMENT_DENIED");
+    }
     const resolution = snapshot.resolutions.find(
       (candidate) => candidate.resolution_id === input.resolution_id
     );
@@ -525,6 +689,69 @@ export class W027DecisionExperienceService {
     };
   }
 
+  private projectRolePositions(
+    snapshot: Awaited<
+      ReturnType<W027DecisionExperienceRepositoryPort["readW027DecisionExperience"]>
+    >,
+    workflow: Awaited<ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>>,
+    scope: W027DecisionExperienceScope
+  ): W027RolePosition[] {
+    const projected = workflow.assignments
+      .filter((assignment) => assignment.status === "active")
+      .map((assignment) => {
+        const section = workflow.sections
+          .filter(
+            (candidate) =>
+              candidate.assignment_id === assignment.assignment_id && candidate.status === "ready"
+          )
+          .at(-1);
+        if (!section) return undefined;
+        const roleKey = normalizeW027RoleKey(assignment.role_key as never);
+        const judgments = snapshot.private_judgments.filter(
+          (judgment) => judgment.role_key === roleKey && judgment.status === "ready"
+        );
+        if (judgments.length === 0) return undefined;
+        const sourceDigest = digest({
+          judgment_ids: judgments.map((judgment) => judgment.judgment_id),
+          section_id: section.section_id
+        });
+        const safeKindDigest = (kind: W027DivergenceDimension): string[] => {
+          const matching = judgments.filter((judgment) => judgment.kind === kind);
+          return matching.length ? [`${kind}_digest:${digest(matching).slice(0, 16)}`] : [];
+        };
+        const summary =
+          typeof section.payload.strategy_statement === "string" &&
+          section.payload.strategy_statement.trim()
+            ? section.payload.strategy_statement.trim()
+            : `${roleKey} contribution is ready`;
+        return {
+          assumptions: safeKindDigest("assumption"),
+          created_at: section.updated_at,
+          created_by: section.submitted_by,
+          course_id: scope.course_id,
+          evidence_refs: safeKindDigest("evidence"),
+          position_id: `w027_projection_${sourceDigest.slice(0, 24)}`,
+          risk_flags: safeKindDigest("risk"),
+          role_key: roleKey,
+          round_id: scope.round_id,
+          run_id: scope.run_id,
+          schema_version: "w027-role-position.v1" as const,
+          status: "ready" as const,
+          summary,
+          team_id: scope.team_id,
+          tenant_id: scope.tenant_id,
+          tradeoffs: safeKindDigest("tradeoff"),
+          version: section.version,
+          visibility: "team_safe" as const
+        } satisfies W027RolePosition;
+      })
+      .filter(
+        (position): position is NonNullable<typeof position> => position !== undefined
+      ) as W027RolePosition[];
+    if (projected.length > 0) return projected;
+    return snapshot.role_positions.filter((position) => position.status === "ready");
+  }
+
   private currentResolution(
     snapshot: Awaited<
       ReturnType<W027DecisionExperienceRepositoryPort["readW027DecisionExperience"]>
@@ -560,7 +787,8 @@ export class W027DecisionExperienceService {
     judgments: W027PrivateJudgment[],
     position: W027RolePosition | undefined,
     divergence: W027DivergenceSet | undefined,
-    resolution: W027ResolutionSafeDTO | undefined
+    resolution: W027ResolutionSafeDTO | undefined,
+    roleWorkflowSnapshot: Awaited<ReturnType<RoleWorkflowRepositoryPort["readRoleWorkflow"]>>
   ): W027DecisionTraceV2 {
     const stages: W027DecisionTraceV2Stage[] = [
       {
@@ -606,6 +834,30 @@ export class W027DecisionExperienceService {
           stage_key: "DISSENT_PRESERVED_V2"
         });
     }
+    const merge = roleWorkflowSnapshot.merge_commits.at(-1);
+    if (merge)
+      stages.push({
+        occurred_at: merge.created_at,
+        safe_evidence_reference: "w027_role_merge",
+        safe_label: "团队角色贡献已合并",
+        stage_key: "TEAM_MERGE_MILESTONE"
+      });
+    const confirmation = roleWorkflowSnapshot.confirmations.at(-1);
+    if (confirmation)
+      stages.push({
+        occurred_at: confirmation.confirmed_at,
+        safe_evidence_reference: "w027_team_confirmation",
+        safe_label: "团队决策已确认",
+        stage_key: "TEAM_CONFIRMED"
+      });
+    const canonicalDecision = roleWorkflowSnapshot.decisions.at(-1);
+    if (canonicalDecision)
+      stages.push({
+        occurred_at: confirmation?.confirmed_at ?? merge?.created_at ?? this.now(),
+        safe_evidence_reference: "w027_canonical_decision",
+        safe_label: "正式 Decision 已由既有 RoleWorkflow 提交",
+        stage_key: "CANONICAL_DECISION_MILESTONE"
+      });
     const currentStage = stages.at(-1)?.stage_key ?? "NOT_STARTED";
     return {
       current_stage: currentStage,
@@ -623,11 +875,12 @@ export class W027DecisionExperienceService {
   private context(
     actor: W027DecisionExperienceActor,
     scope: W027DecisionExperienceScope,
-    roleKey: W027RoleKey
+    roleKey: W027RoleKey,
+    permissions: W027DecisionRightPolicy
   ): W027RoleContext {
     return {
       course_id: scope.course_id,
-      permissions: clone(this.policies[roleKey]),
+      permissions: clone(permissions),
       role_key: roleKey,
       round_id: scope.round_id,
       run_id: scope.run_id,
@@ -637,6 +890,13 @@ export class W027DecisionExperienceService {
       tenant_id: actor.tenant_id,
       user_id: actor.actor_id
     };
+  }
+
+  private policyFor(roster: W027RoleRoster, roleKey: W027RoleKey): W027DecisionRightPolicy {
+    return clone(
+      roster.decision_right_policies?.find((policy) => policy.role_key === roleKey) ??
+        this.defaultPolicies[roleKey]
+    );
   }
 
   private requireStudent(actor: W027DecisionExperienceActor): void {

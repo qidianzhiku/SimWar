@@ -54,6 +54,7 @@ import type {
   TenantBaselineProvisioningRequest,
   User
 } from "@simwar/shared-contracts";
+import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
 import type {
   ValidationSessionIncident,
   ValidationSessionObservation,
@@ -589,7 +590,6 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
 
-  const roleWorkflow = new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow);
   const w027DecisionExperience = new W027DecisionExperienceService({
     repository:
       repositoryProvider.ports.decisionExperience ??
@@ -599,6 +599,21 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
             throw new Error("W027_DECISION_EXPERIENCE_POSTGRES_PORT_REQUIRED");
           })()),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
+  const roleWorkflow = new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow, {
+    resolveW027DecisionPolicy: (input, roleKey) =>
+      input.course_id
+        ? w027DecisionExperience.resolveRoleWorkflowPolicy(
+            {
+              course_id: input.course_id,
+              round_id: input.round_id,
+              run_id: input.run_id,
+              team_id: input.team_id,
+              tenant_id: input.tenant_id
+            },
+            roleKey
+          )
+        : Promise.resolve(undefined)
   });
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
@@ -3772,6 +3787,60 @@ function w027StringArray(value: unknown, field: string, max = 8): string[] {
   return value.map((item) => (item as string).trim());
 }
 
+function w027PolicyInputs(value: unknown): W027DecisionRightPolicyInput[] {
+  if (!Array.isArray(value) || value.length > 5) {
+    throw new HttpError(422, "W027-422-001", "W027 request invalid");
+  }
+  return value.map((candidate) => {
+    if (!isRecord(candidate) || typeof candidate.role_key !== "string") {
+      throw new HttpError(422, "W027-422-001", "W027 request invalid");
+    }
+    const booleanFields = [
+      "can_read_role_workspace",
+      "can_write_private_judgment",
+      "can_publish_role_position",
+      "can_propose_resolution",
+      "can_acknowledge_resolution",
+      "can_merge_team_decision",
+      "can_confirm_team_decision"
+    ] as const;
+    if (booleanFields.some((field) => typeof candidate[field] !== "boolean")) {
+      throw new HttpError(422, "W027-422-001", "W027 request invalid");
+    }
+    if (typeof candidate.policy_id !== "undefined" && typeof candidate.policy_id !== "string") {
+      throw new HttpError(422, "W027-422-001", "W027 request invalid");
+    }
+    const privateKinds = w027StringArray(
+      candidate.private_judgment_kinds,
+      "private_judgment_kinds",
+      5
+    );
+    const operationalCapabilities = w027StringArray(
+      candidate.operational_capabilities,
+      "operational_capabilities"
+    );
+    const knownLimits =
+      candidate.known_limits === undefined
+        ? undefined
+        : w027StringArray(candidate.known_limits, "known_limits", 16);
+    return {
+      can_acknowledge_resolution: candidate.can_acknowledge_resolution as boolean,
+      can_confirm_team_decision: candidate.can_confirm_team_decision as boolean,
+      can_merge_team_decision: candidate.can_merge_team_decision as boolean,
+      can_propose_resolution: candidate.can_propose_resolution as boolean,
+      can_publish_role_position: candidate.can_publish_role_position as boolean,
+      can_read_role_workspace: candidate.can_read_role_workspace as boolean,
+      can_write_private_judgment: candidate.can_write_private_judgment as boolean,
+      operational_capabilities: operationalCapabilities,
+      private_judgment_kinds:
+        privateKinds as W027DecisionRightPolicyInput["private_judgment_kinds"],
+      role_key: candidate.role_key as W027DecisionRightPolicyInput["role_key"],
+      ...(knownLimits ? { known_limits: knownLimits } : {}),
+      ...(typeof candidate.policy_id === "string" ? { policy_id: candidate.policy_id } : {})
+    };
+  });
+}
+
 function roleWorkflowString(value: unknown, field: string): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new HttpError(422, "ROLE_WORKFLOW-422-001", "role workflow request invalid", [
@@ -6226,13 +6295,25 @@ async function routeRequest(
   if (request.method === "PUT" && url.pathname === "/api/v1/bff/teacher/w027/roster") {
     const actor = w027Actor(context, "teacher");
     const body = await readJson<Record<string, unknown>>(request);
-    assertOnlyRoleWorkflowFields(body, ["course_id", "round_id", "run_id", "team_id", "role_keys"]);
+    assertOnlyRoleWorkflowFields(body, [
+      "course_id",
+      "round_id",
+      "run_id",
+      "team_id",
+      "role_keys",
+      "decision_right_policies"
+    ]);
     const roleKeys = w027StringArray(body.role_keys, "role_keys", W027_MAX_ROLE_INPUTS);
+    const decisionRightPolicies =
+      body.decision_right_policies === undefined
+        ? undefined
+        : w027PolicyInputs(body.decision_right_policies);
     const data = await executeW027(() =>
       runtime.w027DecisionExperience.configureRoster(
         actor,
         w027ScopeFromBody(body, context.tenantId),
-        roleKeys
+        roleKeys,
+        decisionRightPolicies
       )
     );
     sendJson(response, 200, createEnvelope(context, data));
@@ -6250,6 +6331,13 @@ async function routeRequest(
       "kind",
       "statement",
       "evidence_refs",
+      "problem_frame",
+      "assumptions",
+      "options_considered",
+      "trade_offs",
+      "prediction",
+      "confidence",
+      "rationale",
       "status"
     ]);
     if (typeof body.kind !== "string" || typeof body.statement !== "string") {
@@ -6261,6 +6349,31 @@ async function routeRequest(
       body.evidence_refs === undefined
         ? undefined
         : w027StringArray(body.evidence_refs, "evidence_refs");
+    const assumptions =
+      body.assumptions === undefined ? undefined : w027StringArray(body.assumptions, "assumptions");
+    const optionsConsidered =
+      body.options_considered === undefined
+        ? undefined
+        : w027StringArray(body.options_considered, "options_considered");
+    const tradeOffs =
+      body.trade_offs === undefined ? undefined : w027StringArray(body.trade_offs, "trade_offs");
+    const problemFrame =
+      body.problem_frame === undefined
+        ? undefined
+        : roleWorkflowString(body.problem_frame, "problem_frame");
+    const prediction =
+      body.prediction === undefined ? undefined : roleWorkflowString(body.prediction, "prediction");
+    const rationale =
+      body.rationale === undefined ? undefined : roleWorkflowString(body.rationale, "rationale");
+    const confidence =
+      body.confidence === undefined
+        ? undefined
+        : typeof body.confidence === "number"
+          ? body.confidence
+          : Number.NaN;
+    if (confidence !== undefined && !Number.isFinite(confidence)) {
+      throw new HttpError(422, "W027-422-001", "W027 request invalid");
+    }
     const data = await executeW027(() =>
       runtime.w027DecisionExperience.savePrivateJudgment(
         actor,
@@ -6269,7 +6382,14 @@ async function routeRequest(
           kind,
           statement,
           status: body.status === "ready" ? "ready" : "draft",
-          ...(evidenceRefs ? { evidence_refs: evidenceRefs } : {})
+          ...(evidenceRefs ? { evidence_refs: evidenceRefs } : {}),
+          ...(problemFrame ? { problem_frame: problemFrame } : {}),
+          ...(assumptions ? { assumptions } : {}),
+          ...(optionsConsidered ? { options_considered: optionsConsidered } : {}),
+          ...(tradeOffs ? { trade_offs: tradeOffs } : {}),
+          ...(prediction ? { prediction } : {}),
+          ...(confidence !== undefined ? { confidence } : {}),
+          ...(rationale ? { rationale } : {})
         }
       )
     );
@@ -6323,6 +6443,31 @@ async function routeRequest(
     return;
   }
 
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/merge") {
+    const actor = w027Actor(context, "student");
+    const body = await readJson<Record<string, unknown>>(request);
+    assertOnlyRoleWorkflowFields(body, ["round_id", "run_id", "team_id"]);
+    const input = roleWorkflowScopeFromBody(body);
+    const data = await executeRoleWorkflow(() =>
+      runtime.roleWorkflow.createMergeCommit(actor, input)
+    );
+    sendJson(response, 201, createEnvelope(context, data));
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/confirm") {
+    const actor = w027Actor(context, "student");
+    const body = await readJson<Record<string, unknown>>(request);
+    assertOnlyRoleWorkflowFields(body, ["merge_commit_id", "round_id", "run_id", "team_id"]);
+    const input = roleWorkflowScopeFromBody(body);
+    const mergeCommitId = roleWorkflowString(body.merge_commit_id, "merge_commit_id");
+    const data = await executeRoleWorkflow(() =>
+      runtime.roleWorkflow.confirmTeamDecision(actor, { ...input, merge_commit_id: mergeCommitId })
+    );
+    sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
   if (request.method === "POST" && url.pathname === "/api/v1/bff/student/w027/resolution") {
     const actor = w027Actor(context, "student");
     const body = await readJson<Record<string, unknown>>(request);
@@ -6333,7 +6478,14 @@ async function routeRequest(
       "team_id",
       "source_digest",
       "selected_position_ids",
-      "preserved_dissent_role_keys"
+      "preserved_dissent_role_keys",
+      "resolution_mode",
+      "selected_option",
+      "rationale",
+      "supporting_evidence_refs",
+      "trade_off",
+      "risk",
+      "affected_divergence_ids"
     ]);
     if (typeof body.source_digest !== "string")
       throw new HttpError(422, "W027-422-001", "W027 request invalid");
@@ -6342,12 +6494,45 @@ async function routeRequest(
       body.preserved_dissent_role_keys === undefined
         ? undefined
         : w027StringArray(body.preserved_dissent_role_keys, "preserved_dissent_role_keys", 5);
+    const resolutionMode =
+      body.resolution_mode === undefined
+        ? undefined
+        : body.resolution_mode === "OBSERVED_CANDIDATE_SELECTION" ||
+            body.resolution_mode === "EXPLICIT_TEAM_COMPROMISE"
+          ? body.resolution_mode
+          : (() => {
+              throw new HttpError(422, "W027-422-001", "W027 request invalid");
+            })();
+    const selectedOption =
+      body.selected_option === undefined
+        ? undefined
+        : roleWorkflowString(body.selected_option, "selected_option");
+    const rationale =
+      body.rationale === undefined ? undefined : roleWorkflowString(body.rationale, "rationale");
+    const supportingEvidenceRefs =
+      body.supporting_evidence_refs === undefined
+        ? undefined
+        : w027StringArray(body.supporting_evidence_refs, "supporting_evidence_refs");
+    const tradeOff =
+      body.trade_off === undefined ? undefined : roleWorkflowString(body.trade_off, "trade_off");
+    const risk = body.risk === undefined ? undefined : roleWorkflowString(body.risk, "risk");
+    const affectedDivergenceIds =
+      body.affected_divergence_ids === undefined
+        ? undefined
+        : w027StringArray(body.affected_divergence_ids, "affected_divergence_ids");
     const data = await executeW027(() =>
       runtime.w027DecisionExperience.proposeResolution(
         actor,
         w027ScopeFromBody(body, context.tenantId),
         {
           ...(preservedDissent ? { preserved_dissent_role_keys: preservedDissent } : {}),
+          ...(resolutionMode ? { resolution_mode: resolutionMode } : {}),
+          ...(selectedOption ? { selected_option: selectedOption } : {}),
+          ...(rationale ? { rationale } : {}),
+          ...(supportingEvidenceRefs ? { supporting_evidence_refs: supportingEvidenceRefs } : {}),
+          ...(tradeOff ? { trade_off: tradeOff } : {}),
+          ...(risk ? { risk } : {}),
+          ...(affectedDivergenceIds ? { affected_divergence_ids: affectedDivergenceIds } : {}),
           selected_position_ids: w027StringArray(
             body.selected_position_ids,
             "selected_position_ids",
