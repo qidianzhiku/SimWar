@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   W027_FORMAL_ROLE_KEYS,
   W027_KNOWN_LIMITS,
+  W027_MAX_ROLE_INPUTS,
   createDefaultW027DecisionRightPolicies,
   createDefaultW027Roster,
   normalizeW027RoleKey,
@@ -122,7 +123,7 @@ export class W027DecisionExperienceService {
     roleInputs: readonly string[]
   ): Promise<W027RoleRoster> {
     this.requireTeacher(actor);
-    if (roleInputs.length === 0 || roleInputs.length > W027_FORMAL_ROLE_KEYS.length) {
+    if (roleInputs.length === 0 || roleInputs.length > W027_MAX_ROLE_INPUTS) {
       throw new W027DecisionExperienceError("W027_ROSTER_INVALID");
     }
     let roleKeys: W027RoleKey[];

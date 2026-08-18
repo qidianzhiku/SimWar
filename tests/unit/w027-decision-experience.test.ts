@@ -122,9 +122,10 @@ describe("W027 decision experience", () => {
       "CFO",
       "CMO",
       "COO",
+      "CHRO",
       "Quality & Risk"
     ]);
-    expect(roster.role_keys).toEqual(["CEO", "CFO", "CMO", "COO"]);
+    expect(roster.role_keys).toEqual(["CEO", "CFO", "CMO", "COO", "CHRO"]);
     expect(roster.role_keys).not.toContain("Quality & Risk");
   });
 

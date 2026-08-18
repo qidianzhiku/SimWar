@@ -65,6 +65,7 @@ import {
   M1_JSON_RUNTIME_LIMITATIONS,
   M1_STUDENT_RESULT_NOT_PUBLISHED_CODE,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
+  W027_MAX_ROLE_INPUTS,
   ROLE_PERMISSION_MATRIX,
   actorHasPermission,
   createParameterSetReference,
@@ -6226,7 +6227,7 @@ async function routeRequest(
     const actor = w027Actor(context, "teacher");
     const body = await readJson<Record<string, unknown>>(request);
     assertOnlyRoleWorkflowFields(body, ["course_id", "round_id", "run_id", "team_id", "role_keys"]);
-    const roleKeys = w027StringArray(body.role_keys, "role_keys", 5);
+    const roleKeys = w027StringArray(body.role_keys, "role_keys", W027_MAX_ROLE_INPUTS);
     const data = await executeW027(() =>
       runtime.w027DecisionExperience.configureRoster(
         actor,

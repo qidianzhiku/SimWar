@@ -9,6 +9,10 @@ export const W027_ROLE_COMPATIBILITY_MAP = {
   "Quality & Risk": "COO"
 } as const satisfies Record<Exclude<W027RoleInput, W027RoleKey>, "COO">;
 
+// Accept the five formal roles plus both legacy aliases before normalization.
+export const W027_MAX_ROLE_INPUTS =
+  W027_FORMAL_ROLE_KEYS.length + Object.keys(W027_ROLE_COMPATIBILITY_MAP).length;
+
 export function normalizeW027RoleKey(input: W027RoleInput): W027RoleKey {
   if (input === "risk" || input === "Quality & Risk") return "COO";
   if (!W027_FORMAL_ROLE_KEYS.includes(input)) throw new Error("W027_ROLE_INVALID");

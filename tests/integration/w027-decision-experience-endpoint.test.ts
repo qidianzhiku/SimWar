@@ -172,7 +172,7 @@ describe("W027 decision experience HTTP boundary", () => {
       const roster = await request<W027RoleRoster>(baseUrl, "/api/v1/bff/teacher/w027/roster", {
         body: {
           course_id: courseId,
-          role_keys: ["CEO", "CFO", "CMO", "COO", "Quality & Risk"],
+          role_keys: ["CEO", "CFO", "CMO", "COO", "CHRO", "Quality & Risk"],
           round_id: roundId,
           run_id: runId,
           team_id: teamId
@@ -181,7 +181,7 @@ describe("W027 decision experience HTTP boundary", () => {
         token: teacherToken
       });
       expect(roster.status).toBe(200);
-      expect(roster.body.data.role_keys).toEqual(["CEO", "CFO", "CMO", "COO"]);
+      expect(roster.body.data.role_keys).toEqual(["CEO", "CFO", "CMO", "COO", "CHRO"]);
 
       const judgment = await request(baseUrl, "/api/v1/bff/student/w027/private-judgment", {
         body: {
@@ -234,7 +234,13 @@ describe("W027 decision experience HTTP boundary", () => {
       expect(teacherWorkspace.body.data.private_judgment_summary[0]).not.toHaveProperty(
         "statement"
       );
-      expect(teacherWorkspace.body.data.roster.role_keys).toEqual(["CEO", "CFO", "CMO", "COO"]);
+      expect(teacherWorkspace.body.data.roster.role_keys).toEqual([
+        "CEO",
+        "CFO",
+        "CMO",
+        "COO",
+        "CHRO"
+      ]);
 
       const wrongCourse = await request(
         baseUrl,
