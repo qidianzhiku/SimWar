@@ -8,7 +8,7 @@ post_merge_master_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
 primary_outcome: FIVE_ROLE_DECISION_EXPERIENCE_WITH_PRIVATE_JUDGMENT_AND_TRACE_V2
 product_pr: 392
 product_pr_state: MERGED
-governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+governance_pr: 393
 governance_merge_sha: null
 governance_readback: PENDING_UNTIL_GOVERNANCE_MERGES
 status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING

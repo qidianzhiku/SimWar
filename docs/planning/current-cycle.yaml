@@ -14,7 +14,7 @@ product_prs:
   - 392
 product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
 product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
-governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+governance_pr: 393
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 governance_closure_readback: PENDING_UNTIL_GOVERNANCE_MERGES
 current_master_at_readback: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
@@ -70,7 +70,7 @@ validation:
   coo_quality_and_risk_merge: PASS_FORMAL_ROLE_AND_ALIAS_NEGATIVES
 evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/392
-  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/393
   product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
   product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
   product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
