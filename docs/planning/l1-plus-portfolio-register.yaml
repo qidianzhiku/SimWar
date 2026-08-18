@@ -1,17 +1,17 @@
-portfolio_version: 17
+portfolio_version: 18
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-17T08:22:43Z"
+generated_at: "2026-08-18T12:04:54Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
-product_evidence_source_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
-current_master_at_readback: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+assessment_source_anchor_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
+product_evidence_source_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+current_master_at_readback: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 portfolio_current_master_lag: RECONCILED_AT_CURRENT_MASTER
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: W026_PRODUCT_COMPLETE_WITH_DECLARED_LIMITS_GOVERNANCE_PENDING
+l1_plus_status: W027_PRODUCT_COMPLETE_WITH_DECLARED_LIMITS_GOVERNANCE_PENDING
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -19,14 +19,16 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-W026-TEAM-DIVERGENCE-RESOLUTION
-    capability_id: W026-TEAM-DIVERGENCE-RESOLUTION-PRESERVED-DISSENT
+    candidate_id: CAND-W027-W2-DECISION-EXPERIENCE-G2
+    capability_id: W027-W2-DECISION-EXPERIENCE-G2
     status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-    product_prs: [390]
-    product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
-    product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
-    primary_outcome: TEAM_DIVERGENCE_RESOLUTION_AND_PRESERVED_DISSENT_V1
-    scope: Team-scoped READY divergence is resolved by captain-selected observed values with required role acknowledgement or preserved dissent before the existing canonical merge path.
+    product_prs: [392]
+    product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+    product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+    primary_outcome: FIVE_ROLE_DECISION_EXPERIENCE_WITH_PRIVATE_JUDGMENT_AND_TRACE_V2
+    formal_roles: [CEO, CFO, CMO, COO, CHRO]
+    quality_and_risk_role: MERGED_INTO_COO
+    scope: Five-role decision experience with COO-owned Quality & Risk permissions, private judgment, safe role positions, divergence/resolution/preserved dissent, and DecisionTrace V2.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -37,7 +39,7 @@ selected:
     status: NONE
   closure:
     status: PENDING_GOVERNANCE_MERGE_READBACK
-    governance_pr: 391
+    governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -75,7 +77,20 @@ closed_capabilities:
     product_pr: 390
     product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
     product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+    governance_pr: 391
+    governance_merge_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
     runtime_authority: JSON_INTERNAL_ONLY
+    human_validation: NOT_PERFORMED
+    pilot: NOT_AUTHORIZED
+    production: NOT_AUTHORIZED
+  - capability_id: W027-W2-DECISION-EXPERIENCE-G2
+    status: CLOSED_WITH_LIMITS_PENDING_GOVERNANCE_READBACK
+    product_pr: 392
+    product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+    product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+    runtime_authority: JSON_INTERNAL_ONLY
+    formal_roles: [CEO, CFO, CMO, COO, CHRO]
+    quality_and_risk_role: MERGED_INTO_COO
     human_validation: NOT_PERFORMED
     pilot: NOT_AUTHORIZED
     production: NOT_AUTHORIZED
@@ -100,47 +115,51 @@ historical_governance_reconciliations:
 resource_locks:
   status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
   held:
-    - W026_TEAM_DIVERGENCE_RESOLUTION
-    - W026_PRODUCT_PR_390
-    - W026_GOVERNANCE_CLOSURE_PR
+    - W027_W2_DECISION_EXPERIENCE
+    - W027_PRODUCT_PR_392
+    - W027_GOVERNANCE_CLOSURE_PR
   pending: []
 candidate_backlog:
-  - candidate_id: W027-NEXT-PENDING-OWNER-DIRECTION
+  - candidate_id: W028-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
     reason: No automatic successor start is authorized; the next wave requires owner direction and fresh reality.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/390
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/391
-  product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
-  product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
-  product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
-  fresh_clone: D:/codex/fresh-clones/simwar-w026-postmerge-e7f0d91
-  evidence_root: C:/Temp/simwar-w026-team-divergence-20260817T004500Z
-  postmerge_graph: C:/Temp/simwar-w026-postmerge-graph-e7f0d91
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/392
+  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+  product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+  product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+  product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
+  fresh_clone: D:/codex/fresh-clones/simwar-w027-postmerge-2665d06
+  evidence_root: C:/Temp/simwar-w027-w2-g2-20260818T120454Z
+  postmerge_graph: C:/Temp/simwar-w027-postmerge-graph-2665d06
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  product_pr_state: MERGED_390
-  current_master: EXACT_E7F0D91
-  divergence_resolution: PASS_33_FOCUSED_TESTS_AND_REAL_BROWSER
-  canonical_writer: UNCHANGED_CONFIRM_TEAM_DECISION
-  dissent: SAFE_PROCESS_EVIDENCE_ONLY
+  product_pr_state: MERGED_392
+  current_master: EXACT_2665D06
+  five_role_capability: PASS_COO_OWNS_QUALITY_AND_RISK
+  private_judgment_and_safe_projection: PASS_55_FOCUSED_TESTS
   browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
-  full_npm_test: PASS_204_FILES_1307_TESTS
-  contract: PASS_20_FILES_50_TESTS
-  postgres_replay: PASS_20_TESTS_DISPOSABLE_POSTGRES_16
-  security: PASS_AT_CRITICAL_THRESHOLD_WITH_INHERITED_ADVISORIES
-  graphify: HEALTHY_WITH_RECORDED_LIMITS
+  w027_browser_journey: PASS_1_TEST
+  full_npm_test_remote_exact_head: PASS_207_FILES_1314_TESTS
+  full_npm_test_fresh_clone: INHERITED_ROUTE_C_BAD_PORT_206_FILES_1313_TESTS_FOCUSED_CONTROL_PASS
+  contract: PASS_22_FILES_52_TESTS
+  typecheck: PASS
+  build: PASS
+  lint: PASS
+  hidden_unicode: PASS
+  direct_store_boundary: PASS_NEW_0
+  security: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
+  graphify: AVAILABLE_WITH_POSTMERGE_UNMAPPED_PRODUCT_DELTA
   codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK
+  canonical_writer: UNCHANGED_EXISTING_ROLE_WORKFLOW
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
-  resolution_model: V1_OBSERVED_CANDIDATE_SELECTION_ONLY
-  roster: FOUR_ROLE_ROSTER_SIX_ROLE_EXPANSION_OUT_OF_SCOPE
-  private_judgment: NOT_SEPARATELY_MODELED
-  issue_351: OPEN_BROADER_DURABLE_BOUNDARY
+  roster: FIVE_FORMAL_ROLES_QUALITY_AND_RISK_MERGED_INTO_COO
+  full_suite: FRESH_CLONE_LOCAL_BAD_PORT_ROUTE_C_ENVIRONMENT_ANOMALY_NOT_PRODUCT_REGRESSION
+  graph_tooling: CODEGRAPH_UNAVAILABLE_GRAPH_COMPANION_UNMAPPED_PRODUCT_DELTA
   dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
-  graph_tooling: CODEGRAPH_UNAVAILABLE_GRAPHIFY_INPUT_LIMITS_RECORDED
   human_validation: NOT_PERFORMED
   pilot_production: NOT_AUTHORIZED
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_OR_ROUND_CONTEXT_CHANGE

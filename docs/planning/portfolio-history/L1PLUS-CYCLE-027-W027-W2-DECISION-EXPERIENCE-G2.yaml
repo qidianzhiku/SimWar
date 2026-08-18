@@ -1,0 +1,51 @@
+cycle_id: SIMWAR-W027-W2-DECISION-EXPERIENCE-G2-20260818
+cycle_number: 027
+source_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
+source_sha_semantics: FRESH_PROTECTED_MASTER_BEFORE_PRODUCT_MUTATION
+product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+post_merge_master_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+primary_outcome: FIVE_ROLE_DECISION_EXPERIENCE_WITH_PRIVATE_JUDGMENT_AND_TRACE_V2
+product_pr: 392
+product_pr_state: MERGED
+governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+governance_merge_sha: null
+governance_readback: PENDING_UNTIL_GOVERNANCE_MERGES
+status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
+formal_roles:
+  - CEO
+  - CFO
+  - CMO
+  - COO
+  - CHRO
+quality_and_risk_role: MERGED_INTO_COO
+role_aliases:
+  risk: COO
+  Quality & Risk: COO
+scope:
+  - five-role configurable roster with COO-owned Quality & Risk permissions and operations
+  - role-private evidence-backed judgment and team-safe role-position projection
+  - divergence, rationale, trade-offs, preserved dissent, and DecisionTrace V2
+  - existing RoleWorkflow merge and TeamConfirmation canonical writer retained
+  - Student and Teacher W027 surfaces with safe visibility and mobile controls
+  - no second canonical Decision, Truth, Settlement, Score, Rank, Replay, or Learning authority
+evidence:
+  protected_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  full_npm_test_remote: PASS_207_FILES_1314_TESTS
+  full_npm_test_fresh_clone: INHERITED_ROUTE_C_BAD_PORT_206_FILES_1313_TESTS_FOCUSED_CONTROL_PASS
+  contract: PASS_22_FILES_52_TESTS
+  browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
+  w027_browser: PASS_1_TEST
+  fresh_clone: D:/codex/fresh-clones/simwar-w027-postmerge-2665d06
+  merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
+  graph: GRAPHIFY_AVAILABLE_COMPANION_BLOCKED_UNMAPPED_PRODUCT_DELTA
+  codegraph: UNAVAILABLE
+known_limits:
+  - fresh-clone default full-suite bad-port result is an inherited Route-C environment anomaly, not a W027 product regression
+  - graph companion reports an unmapped product delta and CodeGraph is unavailable
+  - Human Validation is NOT_PERFORMED and teaching effectiveness is NOT_PROVEN
+  - dependency baseline remains 2 low and 7 high advisories with no dependency change
+  - PostgreSQL remains bounded validation only and is not the default runtime authority
+resource_locks: HELD_PENDING_GOVERNANCE_MERGE_READBACK
+automatic_next_start: false
+candidate_successor: W028_NOT_AUTHORIZED_NOT_STARTED

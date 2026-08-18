@@ -1,92 +1,107 @@
-cycle_id: SIMWAR-W026-TEAM-DIVERGENCE-RESOLUTION-20260817
+cycle_id: SIMWAR-W027-W2-DECISION-EXPERIENCE-G2-20260818
 stage: L1_PLUS
 status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-started_at: "2026-08-17T00:00:00Z"
-product_closed_at: "2026-08-17T16:02:59+08:00"
-governance_updated_at: "2026-08-17T08:22:43Z"
+started_at: "2026-08-18T00:00:00Z"
+product_closed_at: "2026-08-18T11:47:10Z"
+governance_updated_at: "2026-08-18T12:04:54Z"
 repository: qidianzhiku/SimWar
-source_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
-execution_base_sha: 5423c2adac82355a8f77bb134bb3e67c954cb634
-product_evidence_source_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
-product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
+source_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
+source_sha_semantics: FRESH_PROTECTED_MASTER_BEFORE_PRODUCT_MUTATION
+execution_base_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
+product_evidence_source_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
 product_prs:
-  - 390
-product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
-product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
-governance_pr: 391
+  - 392
+product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
+governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATED
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 governance_closure_readback: PENDING_UNTIL_GOVERNANCE_MERGES
-current_master_at_readback: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+current_master_at_readback: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 automatic_next_start: false
 predecessor:
-  cycle_id: SIMWAR-MW5-STRUCTURED-STUDENT-DECISION-TRACE-20260816
-  product_pr: 387
-  product_merge_sha: 30dac8b60603bab63aa1682061cd6917d24d772d
-  governance_pr: 388
-  governance_merge_sha: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-  completed_product_baseline: 53c554b21172d1e5bec6d8f2096f95dad397ad84
-primary_outcome: TEAM_DIVERGENCE_RESOLUTION_AND_PRESERVED_DISSENT_V1
+  cycle_id: SIMWAR-W026-TEAM-DIVERGENCE-RESOLUTION-20260817
+  product_pr: 390
+  product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+  governance_pr: 391
+  governance_merge_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
+  completed_product_baseline: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
+primary_outcome: FIVE_ROLE_DECISION_EXPERIENCE_WITH_PRIVATE_JUDGMENT_AND_TRACE_V2
+formal_roles:
+  - CEO
+  - CFO
+  - CMO
+  - COO
+  - CHRO
+quality_and_risk_role: MERGED_INTO_COO
+role_aliases:
+  risk: COO
+  Quality & Risk: COO
 scope:
-  - deterministic team-scoped divergence projection from active READY role sections
-  - captain-only selection of one observed candidate value for each divergent field
-  - required per-role ACKNOWLEDGED or DISSENT_PRESERVED process evidence before merge
-  - safe Student DecisionTrace milestones and Teacher readonly divergence summary
-  - reuse of existing DecisionMergeCommit and TeamConfirmation canonical path
-  - no settlement, replay truth, migration, general PostgreSQL, RLS, or successor mutation
+  - five-role configurable roster with COO-owned Quality & Risk permissions and operations
+  - role-private evidence-backed judgment and team-safe role-position projection
+  - divergence, rationale, trade-offs, preserved dissent, and DecisionTrace V2
+  - existing RoleWorkflow merge and TeamConfirmation canonical writer retained
+  - Student and Teacher W027 surfaces with safe visibility and mobile controls
+  - no second canonical Decision, Truth, Settlement, Score, Rank, Replay, or Learning authority
 validation:
   github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
-  product_pr: PASS_MERGED_390
-  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_E7F0D91_TREE_341943F
-  focused_w026: PASS_33_TESTS
-  full_npm_test: PASS_204_FILES_1307_TESTS
-  contract: PASS_20_FILES_50_TESTS
+  product_pr: PASS_MERGED_392
+  product_merge_fresh_clone: PASS_CLEAN_DETACHED_AT_2665D06
+  focused_w027: PASS_55_TESTS_LOCAL_EXACT_HEAD
+  focused_w027_fresh_clone: PASS_5_FILES_33_TESTS
+  full_npm_test_remote_exact_head: PASS_207_FILES_1314_TESTS
+  full_npm_test_fresh_clone: INHERITED_ROUTE_C_BAD_PORT_206_FILES_1313_TESTS_FOCUSED_CONTROL_PASS
+  contract: PASS_22_FILES_52_TESTS
   typecheck: PASS
   build: PASS
   lint: PASS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
   browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
-  w026_browser_journey: PASS_1_TEST
-  postgres_replay: PASS_20_TESTS_DISPOSABLE_POSTGRES_16
+  w027_browser_journey: PASS_1_TEST
   security_audit: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  graphify: HEALTHY_13131_NODES_23941_EDGES_WITH_RECORDED_LIMITS
+  graphify: AVAILABLE_POSTMERGE_COMPANION_BLOCKED_UNMAPPED_PRODUCT_DELTA
   codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK_REVIEW
+  coo_quality_and_risk_merge: PASS_FORMAL_ROLE_AND_ALIAS_NEGATIVES
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/390
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/391
-  product_candidate_sha: 26f91ab611da3a859ded9d476cf5d502bc5193d5
-  product_merge_sha: e7f0d911b9c8487effd0eea82c678e1cbde8b1cc
-  product_merge_tree: 341943f20a45904d2514d6377c417468c3eb247d
-  fresh_clone: D:/codex/fresh-clones/simwar-w026-postmerge-e7f0d91
-  evidence_root: C:/Temp/simwar-w026-team-divergence-20260817T004500Z
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/392
+  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATED
+  product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
+  product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+  product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
+  fresh_clone: D:/codex/fresh-clones/simwar-w027-postmerge-2665d06
+  evidence_root: C:/Temp/simwar-w027-w2-g2-20260818T120454Z
+  graph_readback: C:/Temp/simwar-w027-postmerge-graph-2665d06
 resource_locks:
   status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
   held:
-    - W026_TEAM_DIVERGENCE_RESOLUTION
-    - W026_PRODUCT_PR_390
-    - W026_GOVERNANCE_CLOSURE_PR
+    - W027_W2_DECISION_EXPERIENCE
+    - W027_PRODUCT_PR_392
+    - W027_GOVERNANCE_CLOSURE_PR
   pending: []
 candidate_backlog:
-  - candidate_id: W027-NEXT-PENDING-OWNER-DIRECTION
+  - candidate_id: W028-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
-    reason: No automatic successor start is authorized; next wave requires owner direction and fresh reality.
+    reason: No automatic successor start is authorized; the next wave requires owner direction and fresh reality.
 known_limits:
-  resolution_model: V1_SELECTS_ONE_OBSERVED_CANDIDATE_VALUE_NO_TEAM_AUTHORED_COMPROMISE
-  dissent: PROCESS_EVIDENCE_ONLY_NOT_DECISION_OR_SETTLEMENT_INPUT
-  roster: FOUR_ROLE_CURRENT_ROSTER_SIX_ROLE_EXPANSION_OUT_OF_SCOPE
-  private_judgment: SEPARATE_PRIVATE_JUDGMENT_AND_ROLE_POSITION_NOT_INDEPENDENTLY_MODELED
-  graph: CODEGRAPH_UNAVAILABLE_GRAPHIFY_JSON_SQL_AND_SENSITIVE_FILE_LIMITS_RECORDED
-  dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
+  full_suite: FRESH_CLONE_LOCAL_BAD_PORT_ROUTE_C_ENVIRONMENT_ANOMALY_NOT_PRODUCT_REGRESSION
+  graph: CODEGRAPH_UNAVAILABLE_GRAPH_COMPANION_UNMAPPED_PRODUCT_DELTA_RECORDED
+  role_model: FIVE_FORMAL_ROLES_QUALITY_AND_RISK_IS_NOT_A_FORMAL_ROLE
   human_validation: NOT_PERFORMED
+  teaching_effectiveness: NOT_PROVEN_BY_SYNTHETIC_BROWSER_EVIDENCE
+  dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
   pilot_production: NOT_AUTHORIZED
 explicit_non_proofs:
-  - W026 does not authorize six-role expansion, BLP/Shanghai, Round Count/Run Factory, Small Model, Multi-Agent, general PostgreSQL, RLS, migration, Human Validation, Pilot, or Production.
-  - Divergence and dissent are safe process evidence, not private judgment authority, canonical Decision input, SettlementResult input, Score/Rank input, or Replay truth input.
+  - W027 does not create a second Decision, Truth, Settlement, Score, Rank, Replay, or Learning authority.
+  - Quality & Risk is a compatibility alias and capability set owned by COO, not a sixth formal role.
   - Product checks, browser journeys, and fresh-clone validation do not prove teaching effectiveness or human usability.
+  - The fresh-clone full-suite bad-port result is recorded as an environment limitation, never as PASS.
+  - Human Validation remains NOT_PERFORMED; Pilot and Production remain NOT_AUTHORIZED.
   - No successor starts automatically.
 invalidation_triggers:
   - product_or_teacher_runtime_changed
