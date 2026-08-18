@@ -46,6 +46,7 @@ import {
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
 import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
+import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
   cloneTeacherCoursePackageVersion as requestTeacherCoursePackageClone,
@@ -3045,6 +3046,20 @@ export function App() {
             active={selectedRound?.status === "open"}
             courseId={selectedRun?.course_id}
             disabled={busy || selectedRound?.status !== "open"}
+            roundId={selectedRound?.round_id}
+            runId={selectedRun?.run_id}
+            teams={
+              state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ??
+              []
+            }
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session ? (
+          <W027DecisionExperiencePanel
+            active={selectedRound?.status === "open"}
+            courseId={selectedRun?.course_id}
             roundId={selectedRound?.round_id}
             runId={selectedRun?.run_id}
             teams={

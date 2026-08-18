@@ -2438,6 +2438,147 @@ paths:
         "403": { description: "Assigned role authority required" }
         "409": { description: "Resolution is stale or this role already acknowledged differently" }
         "422": { description: "Dissent note or acknowledgement payload invalid" }
+  /api/v1/bff/student/w027/decision-experience:
+    get:
+      operationId: STUDENT_W027_DECISION_EXPERIENCE_GET_V1
+      summary: Read the role-private and team-safe W027 decision experience.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          {
+            description: W027 Student decision experience,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope" } }
+              }
+          }
+        "403": { description: Student authority required }
+  /api/v1/bff/teacher/w027/decision-experience:
+    get:
+      operationId: TEACHER_W027_DECISION_EXPERIENCE_GET_V1
+      summary: Read the teacher-safe W027 decision experience.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          {
+            description: W027 Teacher decision experience,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027TeacherDecisionExperienceEnvelope" } }
+              }
+          }
+        "403": { description: Teacher authority required }
+  /api/v1/bff/teacher/w027/roster:
+    put:
+      operationId: TEACHER_W027_ROSTER_PUT_V1
+      summary: Configure the W027 formal role roster.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              {
+                type: object,
+                additionalProperties: false,
+                required: [course_id, run_id, round_id, team_id, role_keys],
+                properties:
+                  {
+                    course_id: { type: string },
+                    run_id: { type: string },
+                    round_id: { type: string },
+                    team_id: { type: string },
+                    role_keys: { type: array, items: { enum: [CEO, CFO, CMO, COO, CHRO] } }
+                  }
+              }
+      responses:
+        "200":
+          {
+            description: W027 roster,
+            content:
+              { application/json: { schema: { $ref: "#/components/schemas/W027RosterEnvelope" } } }
+          }
+        "403": { description: Teacher authority required }
+  /api/v1/bff/student/w027/private-judgment:
+    put:
+      operationId: STUDENT_W027_PRIVATE_JUDGMENT_PUT_V1
+      summary: Append a role-private W027 judgment.
+      security: [{ SessionBearer: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "200":
+          {
+            description: Private judgment,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027PrivateJudgmentEnvelope" } }
+              }
+          }
+        "403": { description: Assigned student role required }
+  /api/v1/bff/student/w027/role-position:
+    put:
+      operationId: STUDENT_W027_ROLE_POSITION_PUT_V1
+      summary: Append a team-safe W027 role position.
+      security: [{ SessionBearer: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "200":
+          {
+            description: Team-safe role position,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027RolePositionEnvelope" } }
+              }
+          }
+        "403": { description: Assigned student role required }
+  /api/v1/bff/student/w027/resolution:
+    post:
+      operationId: STUDENT_W027_RESOLUTION_POST_V1
+      summary: Propose a W027 divergence resolution without changing canonical truth.
+      security: [{ SessionBearer: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "201":
+          {
+            description: W027 resolution,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027ResolutionEnvelope" } }
+              }
+          }
+        "409": { description: Stale divergence }
+  /api/v1/bff/student/w027/resolution/acknowledgement:
+    post:
+      operationId: STUDENT_W027_RESOLUTION_ACKNOWLEDGEMENT_POST_V1
+      summary: Acknowledge a W027 resolution or preserve dissent.
+      security: [{ SessionBearer: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses:
+        "200":
+          {
+            description: W027 acknowledgement,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/W027ResolutionEnvelope" } }
+              }
+          }
+        "409": { description: Duplicate acknowledgement }
   /api/v1/bff/teacher/learning-designs:
     get:
       operationId: TEACHER_LEARNING_DESIGN_LIST_V1
@@ -5696,3 +5837,22 @@ components:
       $ref: "../schemas/m1-student-bff-cockpit-envelope.v1.json"
     M1PublicReplayEvidence:
       $ref: "../schemas/m1-public-replay-evidence.v1.json"
+    W027StudentDecisionExperienceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/w027-decision-experience.v1.json" }
+        message: { type: string }
+        request_id: { type: string }
+    W027TeacherDecisionExperienceEnvelope:
+      $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
+    W027RosterEnvelope:
+      $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
+    W027PrivateJudgmentEnvelope:
+      $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
+    W027RolePositionEnvelope:
+      $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
+    W027ResolutionEnvelope:
+      $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"

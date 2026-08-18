@@ -25,7 +25,12 @@ import type {
   TeamMember,
   TeamConfirmation,
   TeacherConfirmationVersion,
-  W020AdvisoryRecord
+  W020AdvisoryRecord,
+  W027PrivateJudgment,
+  W027ResolutionV2,
+  W027ResolutionAcknowledgement,
+  W027RolePosition,
+  W027RoleRoster
 } from "@simwar/shared-contracts";
 import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 
@@ -363,6 +368,36 @@ export interface RoleWorkflowRepositoryPort {
   commitRoleWorkflow(command: RoleWorkflowCommitCommand): Promise<void>;
 }
 
+export interface W027DecisionExperienceRepositoryQuery {
+  tenant_id: RepositoryId;
+  course_id: RepositoryId;
+  run_id: RepositoryId;
+  round_id: RepositoryId;
+  team_id: RepositoryId;
+}
+
+export interface W027DecisionExperienceRepositorySnapshot {
+  rosters: W027RoleRoster[];
+  private_judgments: W027PrivateJudgment[];
+  role_positions: W027RolePosition[];
+  resolutions: W027ResolutionV2[];
+  acknowledgements: W027ResolutionAcknowledgement[];
+}
+
+export type W027DecisionExperienceCommitCommand =
+  | { kind: "upsert_roster"; roster: W027RoleRoster }
+  | { kind: "append_private_judgment"; judgment: W027PrivateJudgment }
+  | { kind: "append_role_position"; position: W027RolePosition }
+  | { kind: "append_resolution"; resolution: W027ResolutionV2 }
+  | { kind: "append_acknowledgement"; acknowledgement: W027ResolutionAcknowledgement };
+
+export interface W027DecisionExperienceRepositoryPort {
+  readW027DecisionExperience(
+    query: W027DecisionExperienceRepositoryQuery
+  ): Promise<W027DecisionExperienceRepositorySnapshot>;
+  commitW027DecisionExperience(command: W027DecisionExperienceCommitCommand): Promise<void>;
+}
+
 export interface EvidenceProvenanceCaptureCommand {
   artifact: D2EvidenceArtifactVersion;
   provenance_edges: D2ProvenanceEdge[];
@@ -528,6 +563,7 @@ export interface SimWarRepositoryPorts {
   auditLogs: AuditLogRepositoryPort;
   replay: ReplayRepositoryPort;
   roleWorkflow: RoleWorkflowRepositoryPort;
+  decisionExperience?: W027DecisionExperienceRepositoryPort;
   evidenceProvenance: EvidenceProvenanceRepositoryPort;
   teacherConfirmations?: TeacherConfirmationRepositoryPort;
   governedAdvisories?: GovernedAdvisoryRepositoryPort;

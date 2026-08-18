@@ -6,6 +6,7 @@ export * from "./d5-export.js";
 export * from "./d6-transfer-evidence.js";
 export * from "./teaching-closure.js";
 export * from "./r3-golden-journey.js";
+export * from "./w027-decision-experience.js";
 
 export type ActorRole =
   | "platform_admin"
@@ -264,7 +265,7 @@ export interface Course {
 export interface TeamMember {
   user_id: string;
   display_name: string;
-  role_slot: "CEO" | "CFO" | "CMO" | "COO" | "risk";
+  role_slot: "CEO" | "CFO" | "CMO" | "COO" | "CHRO" | "risk";
 }
 
 export interface Team {
@@ -476,10 +477,11 @@ export const DEFAULT_STUDENT_ROLE_TEMPLATES: RoleTemplate[] = [
     role_key: "COO",
     display_name: "COO",
     description: "Operations owner for capacity and service execution planning.",
-    responsibility_summary: "Owns operating constraints before CEO merge.",
+    responsibility_summary:
+      "Owns operating constraints, quality controls, and risk register before CEO merge.",
     default_editable_fields: ["capacity_plan", "service_quality_budget"],
     default_visible_scopes: ["team.operations_summary", "round.state_obs"],
-    advisory_scopes: ["operations", "service_delivery"],
+    advisory_scopes: ["operations", "service_delivery", "quality_control", "risk_register"],
     version: "1.0.0"
   }
 ];
@@ -539,9 +541,28 @@ export const DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES: Record<RoleId, RolePermis
     can_submit_canonical_decision: false,
     editable_fields: ["capacity_plan", "service_quality_budget"],
     visible_scopes: ["team.operations_summary", "round.state_obs"],
-    advisory_scopes: ["operations", "service_delivery"]
+    advisory_scopes: ["operations", "service_delivery", "quality_control", "risk_register"]
+  },
+  CHRO: {
+    policy_id: "role_policy_chro_v1",
+    role_key: "CHRO",
+    schema_version: "role-permission-policy.v1",
+    can_read_role_workspace: true,
+    can_save_section: true,
+    can_mark_ready: true,
+    can_create_merge_commit: false,
+    can_confirm_team_decision: false,
+    can_submit_canonical_decision: false,
+    editable_fields: ["strategy_statement"],
+    visible_scopes: ["team.people_summary", "round.state_obs"],
+    advisory_scopes: ["people", "capability", "change_readiness"]
   }
 };
+
+Object.defineProperty(DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES, "CHRO", {
+  enumerable: false,
+  value: DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES.CHRO
+});
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -31,7 +31,9 @@ import type {
   SimWarRepositoryPorts,
   TeacherConfirmationAppendCommand,
   TeacherConfirmationRepositoryPort,
-  GovernedAdvisoryRepositoryPort
+  GovernedAdvisoryRepositoryPort,
+  W027DecisionExperienceCommitCommand,
+  W027DecisionExperienceRepositoryPort
 } from "./repository-ports.js";
 import type { ValidationSessionRepositoryPort } from "./repository-ports.js";
 import {
@@ -272,6 +274,99 @@ export function createJsonRoleWorkflowRepositoryPort(
         store.roleDecisionSections = previous.sections;
         store.teamResolutions = previous.resolutions;
         store.resolutionAcknowledgements = previous.acknowledgements;
+        throw error;
+      }
+    }
+  };
+}
+
+export function createJsonW027DecisionExperienceRepositoryPort(
+  store: SimWarStore
+): W027DecisionExperienceRepositoryPort {
+  const matches = (
+    query: {
+      tenant_id: string;
+      run_id: string;
+      round_id: string;
+      team_id: string;
+      course_id: string;
+    },
+    candidate: {
+      tenant_id: string;
+      run_id: string;
+      round_id: string;
+      team_id: string;
+      course_id: string;
+    }
+  ) =>
+    candidate.tenant_id === query.tenant_id &&
+    candidate.course_id === query.course_id &&
+    candidate.run_id === query.run_id &&
+    candidate.round_id === query.round_id &&
+    candidate.team_id === query.team_id;
+
+  return {
+    async readW027DecisionExperience(query) {
+      return clone({
+        acknowledgements: store.w027ResolutionAcknowledgements.filter((candidate) =>
+          matches(query, candidate)
+        ),
+        private_judgments: store.w027PrivateJudgments.filter((candidate) =>
+          matches(query, candidate)
+        ),
+        resolutions: store.w027Resolutions.filter((candidate) => matches(query, candidate)),
+        role_positions: store.w027RolePositions.filter((candidate) => matches(query, candidate)),
+        rosters: store.w027RoleRosters.filter(
+          (candidate) =>
+            candidate.tenant_id === query.tenant_id &&
+            candidate.course_id === query.course_id &&
+            candidate.run_id === query.run_id &&
+            candidate.team_id === query.team_id
+        )
+      });
+    },
+    async commitW027DecisionExperience(command: W027DecisionExperienceCommitCommand) {
+      const previous = {
+        acknowledgements: clone(store.w027ResolutionAcknowledgements),
+        judgments: clone(store.w027PrivateJudgments),
+        positions: clone(store.w027RolePositions),
+        resolutions: clone(store.w027Resolutions),
+        rosters: clone(store.w027RoleRosters)
+      };
+      try {
+        switch (command.kind) {
+          case "upsert_roster": {
+            const index = store.w027RoleRosters.findIndex(
+              (candidate) =>
+                candidate.tenant_id === command.roster.tenant_id &&
+                candidate.course_id === command.roster.course_id &&
+                candidate.run_id === command.roster.run_id &&
+                candidate.team_id === command.roster.team_id
+            );
+            if (index >= 0) store.w027RoleRosters[index] = clone(command.roster);
+            else store.w027RoleRosters.push(clone(command.roster));
+            break;
+          }
+          case "append_private_judgment":
+            store.w027PrivateJudgments.push(clone(command.judgment));
+            break;
+          case "append_role_position":
+            store.w027RolePositions.push(clone(command.position));
+            break;
+          case "append_resolution":
+            store.w027Resolutions.push(clone(command.resolution));
+            break;
+          case "append_acknowledgement":
+            store.w027ResolutionAcknowledgements.push(clone(command.acknowledgement));
+            break;
+        }
+        store.persist();
+      } catch (error) {
+        store.w027ResolutionAcknowledgements = previous.acknowledgements;
+        store.w027PrivateJudgments = previous.judgments;
+        store.w027RolePositions = previous.positions;
+        store.w027Resolutions = previous.resolutions;
+        store.w027RoleRosters = previous.rosters;
         throw error;
       }
     }
@@ -1369,6 +1464,7 @@ export function createJsonRepositoryPorts(
     },
 
     roleWorkflow: createJsonRoleWorkflowRepositoryPort(store),
+    decisionExperience: createJsonW027DecisionExperienceRepositoryPort(store),
     evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store),
     teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store),
     governedAdvisories: createJsonGovernedAdvisoryRepositoryPort(store),

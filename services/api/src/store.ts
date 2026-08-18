@@ -42,7 +42,12 @@ import type {
   D2EvidenceArtifactVersion,
   D2ProvenanceEdge,
   TeacherConfirmationVersion,
-  W020AdvisoryRecord
+  W020AdvisoryRecord,
+  W027PrivateJudgment,
+  W027ResolutionV2,
+  W027ResolutionAcknowledgement,
+  W027RolePosition,
+  W027RoleRoster
 } from "@simwar/shared-contracts";
 import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
@@ -133,6 +138,11 @@ export interface SimWarStoreSnapshot {
   teacherConfirmationVersions: TeacherConfirmationVersion[];
   governedAdvisoryRecords?: W020AdvisoryRecord[];
   validationSessions: ValidationSessionRecord[];
+  w027RoleRosters: W027RoleRoster[];
+  w027PrivateJudgments: W027PrivateJudgment[];
+  w027RolePositions: W027RolePosition[];
+  w027Resolutions: W027ResolutionV2[];
+  w027ResolutionAcknowledgements: W027ResolutionAcknowledgement[];
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -792,6 +802,11 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     teacherConfirmationVersions: [],
     governedAdvisoryRecords: [],
     validationSessions: [],
+    w027RoleRosters: [],
+    w027PrivateJudgments: [],
+    w027RolePositions: [],
+    w027Resolutions: [],
+    w027ResolutionAcknowledgements: [],
     counters: {
       tenant: 3,
       user: 5,
@@ -853,6 +868,11 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     teacherConfirmationVersions: store.teacherConfirmationVersions,
     governedAdvisoryRecords: store.governedAdvisoryRecords ?? [],
     validationSessions: store.validationSessions,
+    w027RoleRosters: store.w027RoleRosters,
+    w027PrivateJudgments: store.w027PrivateJudgments,
+    w027RolePositions: store.w027RolePositions,
+    w027Resolutions: store.w027Resolutions,
+    w027ResolutionAcknowledgements: store.w027ResolutionAcknowledgements,
     counters: store.counters
   };
 }
@@ -909,6 +929,11 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
     governedAdvisoryRecords: snapshot.governedAdvisoryRecords ?? [],
     validationSessions: snapshot.validationSessions ?? [],
+    w027RoleRosters: snapshot.w027RoleRosters ?? [],
+    w027PrivateJudgments: snapshot.w027PrivateJudgments ?? [],
+    w027RolePositions: snapshot.w027RolePositions ?? [],
+    w027Resolutions: snapshot.w027Resolutions ?? [],
+    w027ResolutionAcknowledgements: snapshot.w027ResolutionAcknowledgements ?? [],
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

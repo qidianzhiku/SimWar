@@ -772,6 +772,25 @@ h3 {
   text-align: right;
 }
 
+.w027-decision-experience-panel,
+.w027-decision-experience-panel > *,
+.w027-decision-experience-panel .table,
+.w027-decision-experience-panel .table-row {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.w027-decision-experience-panel p,
+.w027-decision-experience-panel li,
+.w027-decision-experience-panel span,
+.w027-decision-experience-panel strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .package-brief,
 .phase-row p,
 .compact-list,
@@ -1638,5 +1657,11 @@ h3 {
   .role-workflow-footer {
     align-items: stretch;
     display: grid;
+  }
+
+  .w027-decision-experience-panel button,
+  .w027-decision-experience-panel select {
+    max-width: 100%;
+    width: 100%;
   }
 }
