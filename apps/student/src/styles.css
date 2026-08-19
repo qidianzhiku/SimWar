@@ -306,7 +306,7 @@ h2 {
 .bff-surface {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 18px;
 }
 
