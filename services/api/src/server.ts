@@ -131,8 +131,10 @@ import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-desi
 import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
+import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
+import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import {
   W027DecisionExperienceError,
   W027DecisionExperienceService,
@@ -337,6 +339,7 @@ interface ApiRuntime {
   governedAdvisory: GovernedAdvisoryService;
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
+  w3OfficialConsequence: W3OfficialConsequenceLearningService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
     context: RequestContext
@@ -600,6 +603,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           })()),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
+  const w3OfficialConsequence = new W3OfficialConsequenceLearningService({
+    confirmations: teacherConfirmations,
+    evidence: repositoryProvider.ports.evidenceProvenance,
+    idGenerator: repositoryProvider.idGenerator,
+    reports: studentLearningReports,
+    repository: repositoryProvider.facade
+  });
   const roleWorkflow = new RoleWorkflowCommandService(repositoryProvider.ports.roleWorkflow, {
     resolveW027DecisionPolicy: (input, roleKey) =>
       input.course_id
@@ -660,6 +670,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     repositoryProvider,
     roleWorkflow,
     w027DecisionExperience,
+    w3OfficialConsequence,
     instructorAssets: new InstructorAssetRegistry(
       {
         captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
@@ -5440,6 +5451,29 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (
+    await handleW3OfficialConsequenceRoute(
+      runtime.w3OfficialConsequence,
+      request,
+      response,
+      url,
+      {
+        requestId: context.requestId,
+        tenantId: context.tenantId,
+        ...(context.actor ? { actor: context.actor } : {})
+      },
+      {
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        readJson,
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        sendJson
+      }
+    )
+  )
+    return;
 
   if (await handleW023ValidationSessionRoute(runtime, request, response, url, context)) return;
 

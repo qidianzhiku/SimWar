@@ -17,6 +17,7 @@ import type {
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
+import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -312,6 +313,21 @@ export function App() {
   }, [latestRun, latestRound, team, state]);
 
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
+  const w3RoleKey =
+    team?.members.find((member) => member.user_id === session?.user.user_id)?.role_slot ?? "CEO";
+  const w3Context =
+    latestRun && latestRound && team
+      ? {
+          activity_id: "activity_consequence",
+          course_id: latestRun.course_id,
+          role_key: w3RoleKey,
+          round_id: latestRound.round_id,
+          round_no: latestRound.round_no,
+          run_id: latestRun.run_id,
+          team_id: team.team_id,
+          tenant_id: login.tenantId
+        }
+      : undefined;
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshIdentity.current;
@@ -991,6 +1007,21 @@ export function App() {
                 token={activeSession?.access_token ?? ""}
               />
             </WorkbenchFrame>
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section
+            id="student-w3-consequence"
+            className="student-location"
+            aria-label="W3 官方后果与决策学习"
+          >
+            <W3OfficialConsequenceLearningPanel
+              apiBase={API_BASE}
+              context={w3Context}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
           </section>
         ) : null}
 

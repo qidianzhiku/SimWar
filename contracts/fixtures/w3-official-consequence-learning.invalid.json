@@ -1,0 +1,58 @@
+{
+  "schema_version": "w3-official-consequence-learning.v1",
+  "record_id": "latest",
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "context": {
+    "activity_id": "activity_consequence",
+    "course_id": "course_w3",
+    "role_key": "CEO",
+    "round_id": "round_w3",
+    "round_no": 1,
+    "run_id": "run_w3",
+    "team_id": "team_w3",
+    "tenant_id": "tenant_w3"
+  },
+  "source": {
+    "canonical_decision_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "decision_w3",
+      "resource_type": "canonical_decision",
+      "tenant_id": "tenant_other",
+      "version": "1.0.0"
+    },
+    "round_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "round_w3",
+      "resource_type": "round",
+      "tenant_id": "tenant_w3",
+      "version": "1.0.0"
+    },
+    "settlement_ref": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "discriminator": "exact_ref",
+      "resource_id": "settlement_w3",
+      "resource_type": "settlement_result",
+      "tenant_id": "tenant_w3",
+      "version": "1.0.0"
+    }
+  },
+  "publication": { "status": "PUBLISHED" },
+  "official_result": {
+    "outcome_label": "official_published",
+    "profit_band": "healthy",
+    "rank": 1,
+    "score": 80,
+    "team_id": "team_w3"
+  },
+  "decision_story": { "decision_summary": "safe", "consequence_summary": "safe" },
+  "causal_debrief": { "label": "causal_fact", "statements": ["unsupported causal claim"] },
+  "learning": {
+    "evidence_selection_status": "NOT_SELECTED",
+    "next_round_hypothesis_status": "BLOCKED",
+    "teacher_confirmation_status": "MISSING"
+  },
+  "known_limits": ["safe"],
+  "raw_private_payload": "forbidden"
+}

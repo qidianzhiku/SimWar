@@ -63,6 +63,7 @@ import { TransferResearchWorkbench } from "./features/transfer-research-workbenc
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
+import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceLearningWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import {
@@ -688,6 +689,23 @@ export function App() {
   const teamMonitor = workspace?.team_monitor;
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
+  const w3Team = state?.teams.find(
+    (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
+  );
+  const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
+  const w3Context =
+    selectedRun && selectedRound && w3Team
+      ? {
+          activity_id: "activity_consequence",
+          course_id: selectedRun.course_id,
+          role_key: w3RoleKey,
+          round_id: selectedRound.round_id,
+          round_no: selectedRound.round_no,
+          run_id: selectedRun.run_id,
+          team_id: w3Team.team_id,
+          tenant_id: login.tenantId
+        }
+      : undefined;
   const hasDecision = useMemo(() => {
     if (!selectedRun || !selectedRound || !state) {
       return false;
@@ -3090,6 +3108,14 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-debrief">
+        {isTeacher && session ? (
+          <W3OfficialConsequenceLearningWorkbench
+            apiBase={API_BASE}
+            context={w3Context}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
         {session ? (
           <InstructorIntelligencePanel
             courseId={selectedRun?.course_id}

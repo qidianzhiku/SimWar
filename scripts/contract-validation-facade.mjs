@@ -152,6 +152,12 @@ const w027ContractFiles = [
   "contracts/fixtures/w027-decision-experience.invalid.json"
 ];
 
+const w3ContractFiles = [
+  "contracts/schemas/w3-official-consequence-learning.v1.json",
+  "contracts/fixtures/w3-official-consequence-learning.valid.json",
+  "contracts/fixtures/w3-official-consequence-learning.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -206,7 +212,13 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/instructor-debrief-artifact",
   "/api/v1/bff/teacher/instructor-debrief-artifact/export",
   "/api/v1/bff/teacher/fresh-learner-admission",
-  "/api/v1/bff/teacher/validation-sessions"
+  "/api/v1/bff/teacher/validation-sessions",
+  "/api/v1/bff/student/w3/consequence",
+  "/api/v1/bff/teacher/w3/consequence",
+  "/api/v1/bff/teacher/w3/counterfactual",
+  "/api/v1/bff/student/w3/reflection",
+  "/api/v1/bff/teacher/w3/evidence-selection",
+  "/api/v1/bff/teacher/w3/next-round-hypothesis"
 ];
 
 const schemaCases = [
@@ -351,6 +363,11 @@ const schemaCases = [
     schema: "contracts/schemas/w027-decision-experience.v1.json",
     valid: ["contracts/fixtures/w027-decision-experience.valid.json"],
     invalid: ["contracts/fixtures/w027-decision-experience.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/w3-official-consequence-learning.v1.json",
+    valid: ["contracts/fixtures/w3-official-consequence-learning.valid.json"],
+    invalid: ["contracts/fixtures/w3-official-consequence-learning.invalid.json"]
   }
 ];
 
@@ -804,6 +821,39 @@ function assertW023OpenApiBindings(openApi) {
   );
 }
 
+function assertW3OpenApiBindings(openApi) {
+  const responseSchema = (path, method = "get") =>
+    jsonContentSchema(openApi?.paths?.[path]?.[method]?.responses?.["200"]);
+  assert(
+    responseSchema("/api/v1/bff/student/w3/consequence")?.$ref ===
+      schemaRef("W3OfficialConsequenceEnvelope"),
+    "W3 student consequence path must reference W3OfficialConsequenceEnvelope."
+  );
+  assert(
+    responseSchema("/api/v1/bff/teacher/w3/consequence")?.$ref ===
+      schemaRef("W3OfficialConsequenceEnvelope"),
+    "W3 teacher consequence path must reference W3OfficialConsequenceEnvelope."
+  );
+  for (const path of [
+    "/api/v1/bff/teacher/w3/counterfactual",
+    "/api/v1/bff/student/w3/reflection",
+    "/api/v1/bff/teacher/w3/evidence-selection",
+    "/api/v1/bff/teacher/w3/next-round-hypothesis"
+  ]) {
+    assert(openApi?.paths?.[path]?.post, `Missing W3 command operation: ${path}`);
+  }
+  assert(
+    openApi?.components?.schemas?.W3OfficialConsequenceEnvelope?.properties?.data?.$ref ===
+      schemaRef("W3OfficialConsequenceResponse"),
+    "W3 consequence envelope must reference W3OfficialConsequenceResponse."
+  );
+  assert(
+    openApi?.components?.schemas?.W3OfficialConsequenceResponse?.properties?.record?.$ref ===
+      "../schemas/w3-official-consequence-learning.v1.json",
+    "W3 consequence response must reference its JSON Schema artifact."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -886,7 +936,8 @@ export async function runContractValidation(options = {}) {
     ...w022ContractFiles,
     ...w023ContractFiles,
     ...w025ContractFiles,
-    ...w027ContractFiles
+    ...w027ContractFiles,
+    ...w3ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -905,7 +956,8 @@ export async function runContractValidation(options = {}) {
     ...w022ContractFiles,
     ...w023ContractFiles,
     ...w025ContractFiles,
-    ...w027ContractFiles
+    ...w027ContractFiles,
+    ...w3ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -923,6 +975,7 @@ export async function runContractValidation(options = {}) {
   assertW020OpenApiBindings(openApi);
   assertW022OpenApiBindings(openApi);
   assertW023OpenApiBindings(openApi);
+  assertW3OpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();

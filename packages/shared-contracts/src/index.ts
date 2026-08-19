@@ -315,6 +315,7 @@ export interface RoundContinuationResult {
 }
 
 export * from "./validation-environment-launch.js";
+export * from "./w3-official-consequence-learning.js";
 
 export interface DecisionPayload {
   pricing: {
@@ -489,7 +490,8 @@ export const DEFAULT_STUDENT_ROLE_TEMPLATES: RoleTemplate[] = [
     role_key: "CHRO",
     display_name: "CHRO",
     description: "People and capability owner for team readiness and change adoption.",
-    responsibility_summary: "Owns people, capability, and change-readiness inputs before CEO merge.",
+    responsibility_summary:
+      "Owns people, capability, and change-readiness inputs before CEO merge.",
     default_editable_fields: ["strategy_statement"],
     default_visible_scopes: ["team.people_summary", "round.state_obs"],
     advisory_scopes: ["people", "capability", "change_readiness"],
