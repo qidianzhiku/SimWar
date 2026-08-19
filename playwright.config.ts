@@ -62,6 +62,7 @@ export default defineConfig({
         INTERNAL_SERVICE_TOKEN: "playwright-internal-service-token",
         JWT_SECRET: "playwright-jwt-secret-with-sufficient-length",
         SIMWAR_ENV: "test",
+        SIMWAR_PLAYWRIGHT_W3: "true",
         SIMWAR_PLAYWRIGHT_STORE_FILE: playwrightStoreFile,
         SIMWAR_STORE_FILE: playwrightStoreFile
       },

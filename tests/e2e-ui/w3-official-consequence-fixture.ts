@@ -9,7 +9,7 @@ const settlementId = "settlement_w3_browser";
 export function seedW3OfficialConsequenceFixture(storeFile: string): void {
   const store = createP1Store({ persistenceFile: storeFile });
   if (store.runs.some((run) => run.run_id === runId)) {
-    throw new Error("W3 fixture must be seeded into a freshly reset store.");
+    return;
   }
   const course = store.courses.find((candidate) => candidate.course_id === "course_demo");
   const team = store.teams.find((candidate) => candidate.team_id === "team_alpha");

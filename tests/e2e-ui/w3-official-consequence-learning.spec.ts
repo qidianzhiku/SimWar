@@ -3,6 +3,8 @@ import { cleanupPlaywrightStore } from "./store-isolation";
 
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
+const w3Query =
+  "w3=true&activity_id=activity_consequence&course_id=course_demo&role_key=CEO&round_id=round_w3_browser_1&round_no=1&run_id=run_w3_browser&team_id=team_alpha&tenant_id=tenant_demo";
 
 test.afterAll(() => cleanupPlaywrightStore());
 
@@ -23,7 +25,7 @@ async function signIn(page: Page, app: "student" | "teacher"): Promise<void> {
 test("real W3 BFF journey keeps publication, reflection and counterfactual boundaries", async ({
   page
 }) => {
-  await page.goto(studentBaseUrl);
+  await page.goto(`${studentBaseUrl}?${w3Query}`);
   const studentConsequenceResponse = page.waitForResponse(
     (response) =>
       response.url().includes("/api/v1/bff/student/w3/consequence") &&
@@ -55,7 +57,7 @@ test("real W3 BFF journey keeps publication, reflection and counterfactual bound
         response.url().includes("/api/v1/bff/teacher/w3/consequence") &&
         response.request().method() === "GET"
     );
-    await teacherPage.goto(teacherBaseUrl);
+    await teacherPage.goto(`${teacherBaseUrl}?${w3Query}`);
     await signIn(teacherPage, "teacher");
     const teacherPanel = teacherPage.getByLabel("W3 官方后果与决策学习工作台");
     await expect(teacherPanel).toBeVisible();

@@ -39,14 +39,14 @@ export default defineConfig({
     },
     {
       command: `npm run dev -w @simwar/teacher -- --host 127.0.0.1 --port ${teacherPort}`,
-      env: { VITE_API_BASE_URL: apiBaseUrl },
+      env: { VITE_API_BASE_URL: apiBaseUrl, VITE_SIMWAR_W3_ENABLED: "true" },
       reuseExistingServer: false,
       timeout: 180_000,
       url: `http://127.0.0.1:${teacherPort}`
     },
     {
       command: `npm run dev -w @simwar/student -- --host 127.0.0.1 --port ${studentPort}`,
-      env: { VITE_API_BASE_URL: apiBaseUrl },
+      env: { VITE_API_BASE_URL: apiBaseUrl, VITE_SIMWAR_W3_ENABLED: "true" },
       reuseExistingServer: false,
       timeout: 180_000,
       url: `http://127.0.0.1:${studentPort}`
