@@ -31,8 +31,15 @@ same PR and then resolved; no force push, admin bypass, or auto-merge was used.
 
 The Product PR added executable evidence under
 `docs/evidence/w5-formal-rebase/`. The final merge was independently re-run in
-one fresh detached checkout. The fresh receipts are stored outside the
-repository at:
+one fresh detached checkout. Redacted, durable copies of the fresh receipts
+are committed with this Governance Delta:
+
+- [fresh M-RB1 receipt](./w5-formal-rebase-v5.8-fresh-rb1.json)
+- [fresh M-RB2 receipt](./w5-formal-rebase-v5.8-fresh-rb2.json)
+- [fresh M-RB3 receipt](./w5-formal-rebase-v5.8-fresh-rb3.json)
+- [fresh verification receipt](./w5-formal-rebase-v5.8-fresh-verification.json)
+
+The original external evidence copies are also retained at:
 
 - `C:\Temp\simwar-w5-formal-rebase-20260820T155612Z\fresh-detached\2026-08-20-w5-formal-rebase-rb1.json`
 - `C:\Temp\simwar-w5-formal-rebase-20260820T155612Z\fresh-detached\2026-08-20-w5-formal-rebase-rb2.json`

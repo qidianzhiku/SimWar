@@ -1,0 +1,105 @@
+{
+  "drift_labels": [
+    "CODE_DRIFT",
+    "DATA_DRIFT",
+    "ENVIRONMENT_ANOMALY",
+    "MEASUREMENT_MISMATCH",
+    "EXPECTED_MODEL_DIFFERENCE"
+  ],
+  "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+  "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+  "records": [
+    {
+      "command": "npm run test:w5:formal-rebase",
+      "environment_fingerprint": "node=v24.18.0;platform=win32/x64;package_lock_sha256=8f663c4280de7402b65fb103b3643bc0dc283eee68e5fb21e52dbbb61f6ffe6d;core_model_sha256=4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a;convergence_sha256=4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b;runner_sha256=f9c7edf333fb7a03d9d108c62f30416b294b4183c4e125896cc83ae7a9552fe5",
+      "exit_code": 0,
+      "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+      "input_digest": "239b50b5545454833e2e5e9b3f52942438ebcd9450b577e783188162cd6bcb3b",
+      "kind": "GOLDEN",
+      "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+      "notes": [
+        "Core model, synthetic WANT, CAN constraints, and REALIZED projection executed in one bounded run."
+      ],
+      "output_digest": "e9d36a523cbf616dcf6cb03c10a1a65f7afb6f98e55d6b6d51170a74af8739e0",
+      "result": "PASS_WITH_LIMITS",
+      "timestamp": "2026-08-20T16:32:48.2400550Z",
+      "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64"
+    },
+    {
+      "command": "npm run test:w5:formal-rebase",
+      "environment_fingerprint": "node=v24.18.0;platform=win32/x64;package_lock_sha256=8f663c4280de7402b65fb103b3643bc0dc283eee68e5fb21e52dbbb61f6ffe6d;core_model_sha256=4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a;convergence_sha256=4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b;runner_sha256=f9c7edf333fb7a03d9d108c62f30416b294b4183c4e125896cc83ae7a9552fe5",
+      "exit_code": 0,
+      "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+      "input_digest": "7f41ee0498a1e060a62da13ac72493add0de32fa0d45bfeaefd15d8f73718b61",
+      "kind": "DIFFERENTIAL",
+      "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+      "notes": [
+        "Bounded monthly_price perturbation changed the core replay identity.",
+        "No unsupported plane was toggled because no real BLP/RCNL/Ideal Point plane exists."
+      ],
+      "output_digest": "0ba1f1877d356c627ea4c7160cc994d8e5b6c98cd6adb0b9b9f683bb23a1574d",
+      "result": "PASS_WITH_LIMITS",
+      "timestamp": "2026-08-20T16:32:48.2400550Z",
+      "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64"
+    },
+    {
+      "command": "npm run test:w5:formal-rebase",
+      "environment_fingerprint": "node=v24.18.0;platform=win32/x64;package_lock_sha256=8f663c4280de7402b65fb103b3643bc0dc283eee68e5fb21e52dbbb61f6ffe6d;core_model_sha256=4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a;convergence_sha256=4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b;runner_sha256=f9c7edf333fb7a03d9d108c62f30416b294b4183c4e125896cc83ae7a9552fe5",
+      "exit_code": 0,
+      "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+      "input_digest": "a433fe0c8cfb31cc1a30892ba760211936d224fc196c2327c8c063f229957a65",
+      "kind": "REPLAY",
+      "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+      "notes": [
+        "Exact ModelVersion/Scenario/Parameter/seed was evaluated twice.",
+        "Replay digests matched deterministically and replay is non-overwriting."
+      ],
+      "output_digest": "a23b08c0d3a39eecb409ae0347b65f76fced19f04951935bfdbb3d2097b6cbd9",
+      "result": "PASS_WITH_LIMITS",
+      "timestamp": "2026-08-20T16:32:48.2400550Z",
+      "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64",
+      "replay_writes_official_results": false
+    },
+    {
+      "command": "npm run test:w5:formal-rebase",
+      "environment_fingerprint": "node=v24.18.0;platform=win32/x64;package_lock_sha256=8f663c4280de7402b65fb103b3643bc0dc283eee68e5fb21e52dbbb61f6ffe6d;core_model_sha256=4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a;convergence_sha256=4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b;runner_sha256=f9c7edf333fb7a03d9d108c62f30416b294b4183c4e125896cc83ae7a9552fe5",
+      "exit_code": 0,
+      "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+      "input_digest": "d09ba1e950710767dd9a32494b77229be91331e122994ca43ac037b689779564",
+      "kind": "ZERO_SIGNAL_FALLBACK",
+      "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+      "notes": [
+        "Unavailable candidate produced zero activation signal.",
+        "Official Simulation Core path continued and no second runtime was created."
+      ],
+      "output_digest": "a5931a84139b7a1fea2bd46ae90f42148e3bfd066aca5b7945fe7600421223fc",
+      "result": "PASS_WITH_LIMITS",
+      "timestamp": "2026-08-20T16:32:48.2400550Z",
+      "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64",
+      "fallback_continues_core": true,
+      "replay_writes_official_results": false
+    },
+    {
+      "command": "npm run test:w5:formal-rebase",
+      "environment_fingerprint": "node=v24.18.0;platform=win32/x64;package_lock_sha256=8f663c4280de7402b65fb103b3643bc0dc283eee68e5fb21e52dbbb61f6ffe6d;core_model_sha256=4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a;convergence_sha256=4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b;runner_sha256=f9c7edf333fb7a03d9d108c62f30416b294b4183c4e125896cc83ae7a9552fe5",
+      "exit_code": 0,
+      "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+      "input_digest": "85d0d2bbea49a82c1bad9115b2514111aa6bc132af24fc9943623b791fa395d5",
+      "kind": "DRIFT",
+      "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+      "notes": [
+        "CODE_DRIFT, DATA_DRIFT, ENVIRONMENT_ANOMALY, and MEASUREMENT_MISMATCH are monitored labels.",
+        "EXPECTED_MODEL_DIFFERENCE is the bounded parameter perturbation above.",
+        "Standard and Advanced use the same core authority and replay digest."
+      ],
+      "output_digest": "4dc0f579a33b9feaf86647b0faab7d6b71b41cb90cd42477994706e8065f5833",
+      "result": "PASS_WITH_LIMITS",
+      "timestamp": "2026-08-20T16:32:48.2400550Z",
+      "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64"
+    }
+  ],
+  "standard_advanced_parity": true,
+  "status": "PASS_WITH_LIMITS",
+  "timestamp": "2026-08-20T16:32:48.2400550Z",
+  "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64"
+}
