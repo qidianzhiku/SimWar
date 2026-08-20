@@ -1,6 +1,7 @@
 import type { ActorRole } from "./index.js";
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
+import type { W5FormalRebaseClassification } from "./w5-formal-rebase.js";
 
 export const W5_GOVERNED_MODEL_SCHEMA_VERSION = "w5-governed-model.v1" as const;
 export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.0.0" as const;
@@ -63,6 +64,20 @@ export interface W5FeatureOwnership {
   visibility: "approved_view" | "internal" | "shadow";
 }
 
+export interface W5ModelFamilyReadiness {
+  activation_claim:
+    | "CURRENT_CORE"
+    | "SYNTHETIC_HEURISTIC"
+    | "SHADOW"
+    | "RESEARCH"
+    | "MISSING"
+    | "DEFERRED";
+  classification: W5FormalRebaseClassification;
+  family: string;
+  invocation_proven: boolean;
+  known_limit: string;
+}
+
 export interface W5ModelVersion {
   approved_at: string;
   engine_reference: { engine_id: string; version: string };
@@ -73,6 +88,7 @@ export interface W5ModelVersion {
     official_path_continues: true;
   };
   model_family: "eldercare_core_model_v1";
+  model_family_readiness: readonly W5ModelFamilyReadiness[];
   model_version_ref: typeof W5_MODEL_VERSION_REF;
   no_implicit_latest: true;
   status: "APPROVED";
@@ -165,7 +181,7 @@ export interface W5ConvergenceProjection {
   want: {
     candidate_value: number;
     official: false;
-    source_plane: "BLP_RCNL_LANCaster_IDEAL_POINT";
+    source_plane: "SYNTHETIC_HEURISTIC";
   };
 }
 
@@ -179,7 +195,17 @@ export interface W5GovernedModelTeacherProjection {
 }
 
 export interface W5GovernedModelStudentProjection {
-  convergence: Pick<W5ConvergenceProjection, "can" | "experience_profile" | "fallback" | "known_limits" | "realized" | "replay" | "shadow" | "want"> & {
+  convergence: Pick<
+    W5ConvergenceProjection,
+    | "can"
+    | "experience_profile"
+    | "fallback"
+    | "known_limits"
+    | "realized"
+    | "replay"
+    | "shadow"
+    | "want"
+  > & {
     model_version_ref: typeof W5_MODEL_VERSION_REF;
   };
   operation_id: "W5_STUDENT_GOVERNED_MODEL_PROJECTION_GET_V1";

@@ -27,22 +27,24 @@ describe("W5GovernedModelService", () => {
     const created = governed.createDraft(actor, scope, { title: "上海标准/进阶闭环" });
     expect(created.draft.status).toBe("DRAFT");
     expect(created.draft.model_version_ref).toBe(W5_MODEL_VERSION_REF);
-    expect(() => governed.bindDraft(actor, scope, created.draft.draft_id, {
-      run_id: "run_demo",
-      round_no: 1,
-      seed: 42,
-      parameter_set_reference: {
-        content_digest: "a".repeat(64),
-        parameter_set_id: "param_toy_approved_1",
-        version: "1.0.0"
-      },
-      scenario_package_reference: {
-        content_digest: "b".repeat(64),
-        scenario_package_id: "scenario_eldercare_demo",
-        tenant_id: "tenant_demo",
-        version: "1.0.0"
-      }
-    })).toThrow(new W5GovernedModelError("W5_DRAFT_NOT_FROZEN"));
+    expect(() =>
+      governed.bindDraft(actor, scope, created.draft.draft_id, {
+        run_id: "run_demo",
+        round_no: 1,
+        seed: 42,
+        parameter_set_reference: {
+          content_digest: "a".repeat(64),
+          parameter_set_id: "param_toy_approved_1",
+          version: "1.0.0"
+        },
+        scenario_package_reference: {
+          content_digest: "b".repeat(64),
+          scenario_package_id: "scenario_eldercare_demo",
+          tenant_id: "tenant_demo",
+          version: "1.0.0"
+        }
+      })
+    ).toThrow(new W5GovernedModelError("W5_DRAFT_NOT_FROZEN"));
 
     const validated = governed.validateDraft(actor, scope, created.draft.draft_id);
     const frozen = governed.freezeDraft(actor, scope, validated.draft.draft_id);
@@ -70,7 +72,11 @@ describe("W5GovernedModelService", () => {
   it("keeps WANT and CAN non-official while REALIZED comes from one core plane", () => {
     const governed = service();
     const draft = governed.createDraft(actor, scope, {}).draft;
-    const frozen = governed.freezeDraft(actor, scope, governed.validateDraft(actor, scope, draft.draft_id).draft.draft_id).draft;
+    const frozen = governed.freezeDraft(
+      actor,
+      scope,
+      governed.validateDraft(actor, scope, draft.draft_id).draft.draft_id
+    ).draft;
     governed.bindDraft(actor, scope, frozen.draft_id, {
       run_id: "run_demo",
       round_no: 1,
@@ -87,9 +93,20 @@ describe("W5GovernedModelService", () => {
         version: "1.0.0"
       }
     });
-    const standard = governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, frozen.draft_id, "STANDARD");
-    const advanced = governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, frozen.draft_id, "ADVANCED");
+    const standard = governed.evaluate(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      frozen.draft_id,
+      "STANDARD"
+    );
+    const advanced = governed.evaluate(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      frozen.draft_id,
+      "ADVANCED"
+    );
     expect(standard.want.official).toBe(false);
+    expect(standard.want.source_plane).toBe("SYNTHETIC_HEURISTIC");
     expect(standard.can.official).toBe(false);
     expect(standard.realized.authority).toBe("SIMULATION_CORE");
     expect(standard.realized.official).toBe(true);
@@ -103,7 +120,10 @@ describe("W5GovernedModelService", () => {
     const created = governed.createDraft(actor, scope, {
       parameters: { custom_parameter: "teacher hypothesis" }
     });
-    expect(created.draft.parameter_descriptors.find((item) => item.key === "custom_parameter")?.mapping_readiness).toBe("DRAFT");
+    expect(
+      created.draft.parameter_descriptors.find((item) => item.key === "custom_parameter")
+        ?.mapping_readiness
+    ).toBe("DRAFT");
     const fallbackDraft = governed.createDraft(actor, scope, {}).draft;
     const validated = governed.validateDraft(actor, scope, fallbackDraft.draft_id).draft;
     const frozen = governed.freezeDraft(actor, scope, validated.draft_id).draft;
@@ -123,9 +143,15 @@ describe("W5GovernedModelService", () => {
         version: "1.0.0"
       }
     });
-    const evaluated = governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, frozen.draft_id, "STANDARD", {
-      model_plane: "OFF"
-    });
+    const evaluated = governed.evaluate(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      frozen.draft_id,
+      "STANDARD",
+      {
+        model_plane: "OFF"
+      }
+    );
     expect(evaluated.fallback.applied).toBe(true);
     expect(evaluated.fallback.official_path_continues).toBe(true);
     expect(evaluated.realized.authority).toBe("SIMULATION_CORE");
@@ -134,8 +160,14 @@ describe("W5GovernedModelService", () => {
   it("fails closed when evaluation is unbound or the exact run/round does not match", () => {
     const governed = service();
     const created = governed.createDraft(actor, scope, {}).draft;
-    expect(() => governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, created.draft_id, "STANDARD"))
-      .toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
+    expect(() =>
+      governed.evaluate(
+        actor,
+        { ...scope, run_id: "run_demo", round_no: 1 },
+        created.draft_id,
+        "STANDARD"
+      )
+    ).toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
 
     const validated = governed.validateDraft(actor, scope, created.draft_id).draft;
     const frozen = governed.freezeDraft(actor, scope, validated.draft_id).draft;
@@ -155,15 +187,25 @@ describe("W5GovernedModelService", () => {
         version: "1.0.0"
       }
     });
-    expect(() => governed.evaluate(actor, { ...scope, run_id: "run_other", round_no: 1 }, frozen.draft_id, "STANDARD"))
-      .toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
+    expect(() =>
+      governed.evaluate(
+        actor,
+        { ...scope, run_id: "run_other", round_no: 1 },
+        frozen.draft_id,
+        "STANDARD"
+      )
+    ).toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
   });
 
   it("fails closed on a cross-tenant security context", () => {
     const governed = service();
     const created = governed.createDraft(actor, scope, {});
-    expect(() => governed.getDraft({ ...actor, tenant_id: "tenant_other" }, { ...scope, course_id: "course_other" }, created.draft.draft_id)).toThrow(
-      new W5GovernedModelError("W5_SCOPE_CONFLICT")
-    );
+    expect(() =>
+      governed.getDraft(
+        { ...actor, tenant_id: "tenant_other" },
+        { ...scope, course_id: "course_other" },
+        created.draft.draft_id
+      )
+    ).toThrow(new W5GovernedModelError("W5_SCOPE_CONFLICT"));
   });
 });

@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@simwar/shared-contracts": ["packages/shared-contracts/src/index.ts"],
+      "@simwar/simulation-core": ["services/simulation-core/src/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "include": [
+    "run-w5-formal-rebase.ts",
+    "../services/api/src/w5-formal-rebase.ts",
+    "../packages/shared-contracts/src/w5-formal-rebase.ts",
+    "../packages/shared-contracts/src/w5-governed-model.ts"
+  ]
+}

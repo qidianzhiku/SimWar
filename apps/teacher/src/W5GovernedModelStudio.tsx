@@ -56,10 +56,16 @@ function convergenceRows(convergence: W5ConvergenceProjection | null): Array<[st
   return [
     ["WANT 候选", `${convergence.want.candidate_value} · 非正式`],
     ["CAN 约束", `${convergence.can.eligible ? "eligible" : "blocked"} · 非正式`],
-    ["REALIZED 权威", `${convergence.realized.authority} · formal=${convergence.realized.official}`],
+    [
+      "REALIZED 权威",
+      `${convergence.realized.authority} · formal=${convergence.realized.official}`
+    ],
     ["Replay identity", convergence.replay.exact_identity],
     ["Fallback", convergence.fallback.applied ? "PLANE_OFF · core continues" : "PLANE_ON"],
-    ["Shadow", `${convergence.shadow.plane} · overwrite=${convergence.shadow.overwrites_official_result}`]
+    [
+      "Shadow",
+      `${convergence.shadow.plane} · overwrite=${convergence.shadow.overwrites_official_result}`
+    ]
   ];
 }
 
@@ -103,7 +109,7 @@ export function W5GovernedModelStudio({
       setSelectedDraftId((current) =>
         current && data.drafts.some((draft) => draft.draft_id === current)
           ? current
-          : data.drafts.at(-1)?.draft_id ?? null
+          : (data.drafts.at(-1)?.draft_id ?? null)
       );
       setNotice(data.drafts.length ? "Studio 已加载" : "尚未创建 W5 草稿");
     } catch (error) {
@@ -152,8 +158,7 @@ export function W5GovernedModelStudio({
               ? { experience_profile: "STANDARD", round_no: roundNo, run_id: runId }
               : undefined;
         const data = await request<
-          | { draft: W5ScenarioDraft }
-          | { convergence: W5ConvergenceProjection }
+          { draft: W5ScenarioDraft } | { convergence: W5ConvergenceProjection }
         >(
           apiBase,
           tenantId,
@@ -185,7 +190,12 @@ export function W5GovernedModelStudio({
         token,
         `/api/v1/bff/teacher/w5/scenario-studio/drafts/${draft.draft_id}/evaluate`,
         {
-          body: { experience_profile: profile, model_plane: modelPlane, round_no: roundNo, run_id: runId },
+          body: {
+            experience_profile: profile,
+            model_plane: modelPlane,
+            round_no: roundNo,
+            run_id: runId
+          },
           method: "POST"
         }
       );
@@ -205,31 +215,71 @@ export function W5GovernedModelStudio({
           <p className="eyebrow">W5 · Shanghai governed model</p>
           <h2>受控模型 Scenario Studio</h2>
           <p className="evidence-note">
-            Teacher-only governance plane：WANT/CAN 为非正式候选，REALIZED 只能来自 Simulation Core。
+            Teacher-only governance plane：WANT/CAN 为非正式候选，REALIZED 只能来自 Simulation
+            Core。
           </p>
         </div>
         <span className="w5-status-tag">{notice}</span>
       </header>
 
       <div className="w5-studio-actions">
-        <button disabled={busy || !courseId} onClick={() => void act("create")}>创建草稿</button>
-        <button disabled={busy || !draft || draft.status !== "DRAFT"} onClick={() => void act("validate")}>验证草稿</button>
-        <button disabled={busy || !draft || draft.status !== "VALIDATED"} onClick={() => void act("freeze")}>冻结草稿</button>
-        <button disabled={busy || !draft || draft.status !== "FROZEN" || !runId || roundNo === undefined} onClick={() => void act("bind")}>精确绑定当前 Run</button>
+        <button disabled={busy || !courseId} onClick={() => void act("create")}>
+          创建草稿
+        </button>
+        <button
+          disabled={busy || !draft || draft.status !== "DRAFT"}
+          onClick={() => void act("validate")}
+        >
+          验证草稿
+        </button>
+        <button
+          disabled={busy || !draft || draft.status !== "VALIDATED"}
+          onClick={() => void act("freeze")}
+        >
+          冻结草稿
+        </button>
+        <button
+          disabled={busy || !draft || draft.status !== "FROZEN" || !runId || roundNo === undefined}
+          onClick={() => void act("bind")}
+        >
+          精确绑定当前 Run
+        </button>
       </div>
 
       {projection ? (
         <>
           <div className="w5-studio-meta">
-            <span style={breakableTextStyle}>ModelVersion: {projection.model_version.model_version_ref}</span>
+            <span style={breakableTextStyle}>
+              ModelVersion: {projection.model_version.model_version_ref}
+            </span>
             <span style={breakableTextStyle}>
               Draft: {draft ? `${draft.draft_id} · ${statusLabel(draft.status)}` : "未选择"}
             </span>
-            <span style={breakableTextStyle}>Run: {runId ?? "未选择"} / Round: {roundNo ?? "未选择"}</span>
+            <span style={breakableTextStyle}>
+              Run: {runId ?? "未选择"} / Round: {roundNo ?? "未选择"}
+            </span>
           </div>
+          <section className="w5-model-readiness" aria-label="W5 model readiness">
+            <h3>模型家族 readiness</h3>
+            <div className="w5-parameter-grid">
+              {projection.model_version.model_family_readiness.map((family) => (
+                <article key={family.family} className="w5-parameter-card">
+                  <strong style={breakableTextStyle}>{family.family}</strong>
+                  <span style={breakableTextStyle}>
+                    {family.activation_claim} · {family.classification} · invocation=
+                    {family.invocation_proven ? "proven" : "not proven"}
+                  </span>
+                  <small style={breakableTextStyle}>{family.known_limit}</small>
+                </article>
+              ))}
+            </div>
+          </section>
           <label className="w5-draft-select">
             当前草稿
-            <select value={selectedDraftId ?? ""} onChange={(event) => setSelectedDraftId(event.target.value || null)}>
+            <select
+              value={selectedDraftId ?? ""}
+              onChange={(event) => setSelectedDraftId(event.target.value || null)}
+            >
               <option value="">请选择</option>
               {projection.drafts.map((candidate) => (
                 <option key={candidate.draft_id} value={candidate.draft_id}>
@@ -242,8 +292,12 @@ export function W5GovernedModelStudio({
             {projection.parameter_descriptors.map((parameter) => (
               <article key={parameter.key} className="w5-parameter-card">
                 <strong style={breakableTextStyle}>{parameter.label}</strong>
-                <span style={breakableTextStyle}>{parameter.key} · {parameter.unit}</span>
-                <small style={breakableTextStyle}>{parameter.mapping_readiness} · {parameter.consumer}</small>
+                <span style={breakableTextStyle}>
+                  {parameter.key} · {parameter.unit}
+                </span>
+                <small style={breakableTextStyle}>
+                  {parameter.mapping_readiness} · {parameter.consumer}
+                </small>
               </article>
             ))}
           </div>
@@ -251,9 +305,24 @@ export function W5GovernedModelStudio({
       ) : null}
 
       <div className="w5-studio-actions">
-        <button disabled={busy || !draft || draft.status !== "BOUND"} onClick={() => void evaluate("STANDARD")}>Standard 评估</button>
-        <button disabled={busy || !draft || draft.status !== "BOUND"} onClick={() => void evaluate("ADVANCED")}>Advanced 评估</button>
-        <button disabled={busy || !draft || draft.status !== "BOUND"} onClick={() => void evaluate("STANDARD", "OFF")}>Plane OFF fallback</button>
+        <button
+          disabled={busy || !draft || draft.status !== "BOUND"}
+          onClick={() => void evaluate("STANDARD")}
+        >
+          Standard 评估
+        </button>
+        <button
+          disabled={busy || !draft || draft.status !== "BOUND"}
+          onClick={() => void evaluate("ADVANCED")}
+        >
+          Advanced 评估
+        </button>
+        <button
+          disabled={busy || !draft || draft.status !== "BOUND"}
+          onClick={() => void evaluate("STANDARD", "OFF")}
+        >
+          Plane OFF fallback
+        </button>
       </div>
 
       {convergence ? (

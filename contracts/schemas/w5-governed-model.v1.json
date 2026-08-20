@@ -12,7 +12,17 @@
     "security": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["activity", "actor", "course", "dimensions", "role", "round", "run", "team", "tenant"],
+      "required": [
+        "activity",
+        "actor",
+        "course",
+        "dimensions",
+        "role",
+        "round",
+        "run",
+        "team",
+        "tenant"
+      ],
       "properties": {
         "activity": { "type": "string", "minLength": 1 },
         "actor": { "type": "string", "minLength": 1 },
@@ -22,7 +32,14 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["dimension", "enforcement_point", "evidence_ref", "negative_test", "status", "value"],
+            "required": [
+              "dimension",
+              "enforcement_point",
+              "evidence_ref",
+              "negative_test",
+              "status",
+              "value"
+            ],
             "properties": {
               "dimension": { "type": "string" },
               "enforcement_point": { "type": "string" },
@@ -43,7 +60,17 @@
     "descriptor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["consumer", "default", "key", "label", "mapping_readiness", "source", "type", "unit", "visibility"],
+      "required": [
+        "consumer",
+        "default",
+        "key",
+        "label",
+        "mapping_readiness",
+        "source",
+        "type",
+        "unit",
+        "visibility"
+      ],
       "properties": {
         "consumer": { "type": "string" },
         "default": {},
@@ -65,7 +92,14 @@
     "featureOwnership": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["economic_meaning", "feature_id", "primary_producer", "source_ref", "unit", "visibility"],
+      "required": [
+        "economic_meaning",
+        "feature_id",
+        "primary_producer",
+        "source_ref",
+        "unit",
+        "visibility"
+      ],
       "properties": {
         "economic_meaning": { "type": "string" },
         "feature_id": { "type": "string" },
@@ -75,10 +109,59 @@
         "visibility": { "enum": ["approved_view", "internal", "shadow"] }
       }
     },
+    "modelFamilyReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activation_claim",
+        "classification",
+        "family",
+        "invocation_proven",
+        "known_limit"
+      ],
+      "properties": {
+        "activation_claim": {
+          "enum": [
+            "CURRENT_CORE",
+            "SYNTHETIC_HEURISTIC",
+            "SHADOW",
+            "RESEARCH",
+            "MISSING",
+            "DEFERRED"
+          ]
+        },
+        "classification": {
+          "enum": [
+            "CURRENT",
+            "APPROVED_BASELINE",
+            "SHADOW",
+            "RESEARCH",
+            "MISSING",
+            "STALE",
+            "DEFERRED",
+            "NOT_CALIBRATED"
+          ]
+        },
+        "family": { "type": "string", "minLength": 1 },
+        "invocation_proven": { "type": "boolean" },
+        "known_limit": { "type": "string", "minLength": 1 }
+      }
+    },
     "modelVersion": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["approved_at", "engine_reference", "feature_ownership", "fallback", "model_family", "model_version_ref", "no_implicit_latest", "status", "visibility"],
+      "required": [
+        "approved_at",
+        "engine_reference",
+        "feature_ownership",
+        "fallback",
+        "model_family",
+        "model_family_readiness",
+        "model_version_ref",
+        "no_implicit_latest",
+        "status",
+        "visibility"
+      ],
       "properties": {
         "approved_at": { "type": "string" },
         "engine_reference": {
@@ -88,6 +171,11 @@
           "properties": { "engine_id": { "type": "string" }, "version": { "type": "string" } }
         },
         "feature_ownership": { "type": "array", "items": { "$ref": "#/$defs/featureOwnership" } },
+        "model_family_readiness": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelFamilyReadiness" },
+          "minItems": 1
+        },
         "fallback": {
           "type": "object",
           "additionalProperties": false,
@@ -108,7 +196,21 @@
     "draft": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["course_id", "created_by", "data_classification", "draft_id", "exact_runtime_binding", "model_version_ref", "parameter_descriptors", "parameter_values", "seed", "status", "tenant_id", "title", "updated_at"],
+      "required": [
+        "course_id",
+        "created_by",
+        "data_classification",
+        "draft_id",
+        "exact_runtime_binding",
+        "model_version_ref",
+        "parameter_descriptors",
+        "parameter_values",
+        "seed",
+        "status",
+        "tenant_id",
+        "title",
+        "updated_at"
+      ],
       "properties": {
         "course_id": { "type": "string" },
         "created_by": { "type": "string" },
@@ -128,7 +230,19 @@
     "convergence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["can", "experience_profile", "fallback", "known_limits", "model_version_ref", "provenance", "realized", "replay", "security", "shadow", "want"],
+      "required": [
+        "can",
+        "experience_profile",
+        "fallback",
+        "known_limits",
+        "model_version_ref",
+        "provenance",
+        "realized",
+        "replay",
+        "security",
+        "shadow",
+        "want"
+      ],
       "properties": {
         "can": { "type": "object" },
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
@@ -146,7 +260,14 @@
     "teacherProjection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["known_limits", "model_version", "operation_id", "parameter_descriptors", "drafts", "security"],
+      "required": [
+        "known_limits",
+        "model_version",
+        "operation_id",
+        "parameter_descriptors",
+        "drafts",
+        "security"
+      ],
       "properties": {
         "known_limits": { "type": "array", "items": { "type": "string" } },
         "model_version": { "$ref": "#/$defs/modelVersion" },
@@ -170,7 +291,17 @@
     "studentConvergence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["can", "experience_profile", "fallback", "known_limits", "model_version_ref", "realized", "replay", "shadow", "want"],
+      "required": [
+        "can",
+        "experience_profile",
+        "fallback",
+        "known_limits",
+        "model_version_ref",
+        "realized",
+        "replay",
+        "shadow",
+        "want"
+      ],
       "properties": {
         "can": { "type": "object" },
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },

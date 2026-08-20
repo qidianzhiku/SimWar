@@ -229,6 +229,8 @@ const PARAMETER_DESCRIPTORS: readonly W5ParameterDescriptor[] = [
 const DEFAULT_KNOWN_LIMITS = [
   "Shanghai evidence is synthetic/assumption-labelled; reality calibration is not proven.",
   "WANT and CAN are candidates/constraints and never write official truth.",
+  "BLP/RCNL and Ideal Point/Lancaster are not executable in the current runtime and are not active claims.",
+  "Huff/Spatial and Marketing remain missing/research candidates, not official producers.",
   "System Dynamics is shadow-only and does not integrate W4 persistent state.",
   "Human Validation A/B was not performed; this evidence can only be HV-B-ready.",
   "JSON_INTERNAL_ONLY remains the active runtime authority; Postgres/RLS is not active."
@@ -241,18 +243,18 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
     {
       economic_meaning: "relative preference fit",
       feature_id: "preference_fit",
-      primary_producer: "ideal_point_lancaster",
-      source_ref: "services/api/src/w5-governed-model-service.ts",
+      primary_producer: "deferred_model_registry",
+      source_ref: "No executable Ideal Point/Lancaster artifact in current source",
       unit: "index",
-      visibility: "approved_view"
+      visibility: "shadow"
     },
     {
       economic_meaning: "latent demand and diversion candidate",
       feature_id: "latent_demand",
-      primary_producer: "blp_rcnl_choice_candidate",
-      source_ref: "W5 shadow candidate adapter",
+      primary_producer: "deferred_model_registry",
+      source_ref: "No executable BLP/RCNL artifact or active adapter in current source",
       unit: "households",
-      visibility: "approved_view"
+      visibility: "shadow"
     },
     {
       economic_meaning: "spatial access and catchment candidate",
@@ -301,6 +303,50 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
     official_path_continues: true
   },
   model_family: "eldercare_core_model_v1",
+  model_family_readiness: [
+    {
+      activation_claim: "DEFERRED",
+      classification: "DEFERRED",
+      family: "IDEAL_POINT_LANCASTER",
+      invocation_proven: false,
+      known_limit: "No executable artifact, invocation, or calibration is present."
+    },
+    {
+      activation_claim: "MISSING",
+      classification: "MISSING",
+      family: "BLP_RCNL",
+      invocation_proven: false,
+      known_limit: "No executable artifact, dependency, invocation, or calibration is present."
+    },
+    {
+      activation_claim: "MISSING",
+      classification: "MISSING",
+      family: "HUFF_SPATIAL",
+      invocation_proven: false,
+      known_limit: "No executable spatial-choice artifact or invocation is present."
+    },
+    {
+      activation_claim: "SHADOW",
+      classification: "SHADOW",
+      family: "SYSTEM_DYNAMICS",
+      invocation_proven: false,
+      known_limit: "Shadow-only; cannot overwrite official results."
+    },
+    {
+      activation_claim: "SYNTHETIC_HEURISTIC",
+      classification: "CURRENT",
+      family: "SYNTHETIC_WANT",
+      invocation_proven: true,
+      known_limit: "Synthetic heuristic; official=false."
+    },
+    {
+      activation_claim: "CURRENT_CORE",
+      classification: "CURRENT",
+      family: "CORE_REALIZED",
+      invocation_proven: true,
+      known_limit: "Simulation Core projection only; formal settlement truth is not written."
+    }
+  ],
   model_version_ref: "eldercare_w5_governed_v1@1.0.0",
   no_implicit_latest: true,
   status: "APPROVED",
@@ -344,7 +390,9 @@ function defaultValues(): Record<string, boolean | number | string> {
   return Object.fromEntries(PARAMETER_DESCRIPTORS.map((item) => [item.key, item.default]));
 }
 
-function validateParameterValues(values: Readonly<Record<string, boolean | number | string>>): void {
+function validateParameterValues(
+  values: Readonly<Record<string, boolean | number | string>>
+): void {
   for (const [key, value] of Object.entries(values)) {
     const item = descriptor(key);
     if (item.type === "number" && !isFiniteNumber(value)) {
@@ -358,14 +406,22 @@ function validateParameterValues(values: Readonly<Record<string, boolean | numbe
     if (item.type === "boolean" && typeof value !== "boolean") {
       throw new W5GovernedModelError("W5_INVALID_PARAMETER");
     }
-    if (item.range && typeof value === "number" && (value < item.range.min || value > item.range.max)) {
+    if (
+      item.range &&
+      typeof value === "number" &&
+      (value < item.range.min || value > item.range.max)
+    ) {
       throw new W5GovernedModelError("W5_INVALID_PARAMETER");
     }
   }
 }
 
 function securityContext(actor: W5ServiceActor, scope: W5ServiceScope): W5SecurityContext {
-  const evidence = (dimension: W5SecurityDimensionEvidence["dimension"], value: number | string | null, status: "PASS" | "N/A"): W5SecurityDimensionEvidence => ({
+  const evidence = (
+    dimension: W5SecurityDimensionEvidence["dimension"],
+    value: number | string | null,
+    status: "PASS" | "N/A"
+  ): W5SecurityDimensionEvidence => ({
     dimension,
     enforcement_point: "W5GovernedModelService scope guard",
     evidence_ref: `W5-SEC-${dimension.toUpperCase()}-EXACT_SCOPE`,
@@ -426,7 +482,10 @@ export class W5GovernedModelService {
     }
   }
 
-  getTeacherProjection(actor: W5ServiceActor, scope: W5ServiceScope): W5GovernedModelTeacherProjection {
+  getTeacherProjection(
+    actor: W5ServiceActor,
+    scope: W5ServiceScope
+  ): W5GovernedModelTeacherProjection {
     this.assertTenant(actor, scope);
     return {
       known_limits: [...DEFAULT_KNOWN_LIMITS],
@@ -434,7 +493,9 @@ export class W5GovernedModelService {
       operation_id: "W5_TEACHER_GOVERNED_MODEL_STUDIO_GET_V1",
       parameter_descriptors: clone(PARAMETER_DESCRIPTORS),
       drafts: [...this.drafts.values()]
-        .filter((draft) => draft.tenant_id === actor.tenant_id && draft.course_id === scope.course_id)
+        .filter(
+          (draft) => draft.tenant_id === actor.tenant_id && draft.course_id === scope.course_id
+        )
         .map(clone),
       security: securityContext(actor, scope)
     };
@@ -502,7 +563,12 @@ export class W5GovernedModelService {
     if (draft.status !== "DRAFT") throw new W5GovernedModelError("W5_INVALID_TRANSITION");
     const previous = clone(draft);
     validateParameterValues(draft.parameter_values);
-    if (draft.parameter_descriptors.some((item) => item.mapping_readiness === "DRAFT" && draft.parameter_values[item.key] !== item.default)) {
+    if (
+      draft.parameter_descriptors.some(
+        (item) =>
+          item.mapping_readiness === "DRAFT" && draft.parameter_values[item.key] !== item.default
+      )
+    ) {
       throw new W5GovernedModelError("W5_PARAMETER_MAPPING_DRAFT");
     }
     draft.status = "VALIDATED";
@@ -633,10 +699,9 @@ export class W5GovernedModelService {
     const planeOff = options.model_plane === "OFF";
     const demandCandidate = planeOff
       ? 0
-      : Math.round(
-          core.metrics.market.demand_index * (1 + Number(values.aging_rate)) * 100
-        ) / 100;
-    const eligible = core.metrics.operations.service_capacity > 0 && core.metrics.quality.care_quality_index > 0;
+      : Math.round(core.metrics.market.demand_index * (1 + Number(values.aging_rate)) * 100) / 100;
+    const eligible =
+      core.metrics.operations.service_capacity > 0 && core.metrics.quality.care_quality_index > 0;
     const realizedDigest = digest({
       binding: binding ? binding.binding_digest : null,
       core: core.replay_relevant_digest,
@@ -690,7 +755,7 @@ export class W5GovernedModelService {
       want: {
         candidate_value: demandCandidate,
         official: false,
-        source_plane: "BLP_RCNL_LANCaster_IDEAL_POINT"
+        source_plane: "SYNTHETIC_HEURISTIC"
       }
     };
   }
@@ -751,7 +816,11 @@ export class W5GovernedModelService {
     });
   }
 
-  private mutableDraft(actor: W5ServiceActor, scope: W5ServiceScope, draftId: string): W5ScenarioDraft {
+  private mutableDraft(
+    actor: W5ServiceActor,
+    scope: W5ServiceScope,
+    draftId: string
+  ): W5ScenarioDraft {
     this.getDraft(actor, scope, draftId);
     const draft = this.drafts.get(draftId);
     if (!draft) throw new W5GovernedModelError("W5_DRAFT_NOT_FOUND");

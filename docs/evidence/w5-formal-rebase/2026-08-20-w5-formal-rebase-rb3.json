@@ -1,0 +1,453 @@
+{
+  "causal_feature_ownership": [
+    {
+      "economic_meaning": "service capacity",
+      "feature_id": "service_capacity",
+      "primary_producer": "CAPACITY",
+      "unit": "places",
+      "visibility": "CURRENT_CORE"
+    },
+    {
+      "economic_meaning": "staffing feasibility",
+      "feature_id": "workforce_feasibility",
+      "primary_producer": "WORKFORCE",
+      "unit": "staffed places",
+      "visibility": "CURRENT_CORE"
+    },
+    {
+      "economic_meaning": "quality and risk signal",
+      "feature_id": "quality_risk_signal",
+      "primary_producer": "QUALITY_RISK",
+      "unit": "index",
+      "visibility": "CURRENT_CORE"
+    },
+    {
+      "economic_meaning": "scenario finance projection",
+      "feature_id": "finance_projection",
+      "primary_producer": "FINANCE",
+      "unit": "CNY and ratio",
+      "visibility": "CURRENT_CORE"
+    },
+    {
+      "economic_meaning": "synthetic learner preference heuristic",
+      "feature_id": "synthetic_want",
+      "primary_producer": "SYNTHETIC_WANT",
+      "unit": "heuristic index",
+      "visibility": "SYNTHETIC_HEURISTIC"
+    },
+    {
+      "economic_meaning": "official realized core metrics",
+      "feature_id": "realized_core_metrics",
+      "primary_producer": "CORE_REALIZED",
+      "unit": "core metrics",
+      "visibility": "CURRENT_CORE"
+    },
+    {
+      "economic_meaning": "system dynamics hypothesis",
+      "feature_id": "sd_lag_candidate",
+      "primary_producer": "SYSTEM_DYNAMICS",
+      "unit": "index",
+      "visibility": "SHADOW"
+    }
+  ],
+  "fallback": {
+    "official_path_continues": true,
+    "plane_off": "DETERMINISTIC_CORE",
+    "second_runtime": false
+  },
+  "head_sha": "fa00e6f8223244209221b28facca3ee280ef2b82",
+  "identity": {
+    "model_version": "eldercare_w5_governed_v1@1.0.0",
+    "parameter_digest": "465a58862dfbbe2c4cd9d6ead9ab678f02b87be5b7e2e0621534e595982c34ae",
+    "scenario": "r7a-shanghai-eldercare-core-scenario-v2",
+    "seed": 20260726
+  },
+  "known_limits": [
+    "BLP/RCNL has no executable artifact, invocation, calibration, or active adapter in this repository.",
+    "Ideal Point/Lancaster has no executable artifact, invocation, calibration, or active adapter in this repository.",
+    "Huff/Spatial and Marketing are not current runtime producers.",
+    "WANT is a synthetic heuristic and is never official truth.",
+    "System Dynamics is shadow-only and cannot overwrite the Simulation Core projection.",
+    "Shanghai inputs are synthetic/assumption-labelled and not calibrated to external reality.",
+    "Human Model Validation B was not performed; the output is HV-B-ready machine evidence only.",
+    "JSON_INTERNAL_ONLY remains the active runtime authority; PostgreSQL/RLS is not activated."
+  ],
+  "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+  "model_families": {
+    "IDEAL_POINT_LANCASTER": {
+      "actual_invocation_path": "NONE_PROVEN",
+      "code_path": "NOT_PRESENT_IN_CURRENT_SOURCE",
+      "consumer": "none; not bound to official runtime",
+      "data_refs": [
+        "NONE_PROVEN"
+      ],
+      "environment": "NONE_PROVEN",
+      "fallback": "deterministic Simulation Core",
+      "formal_writer": "none",
+      "input_schema": "NOT_PROVEN",
+      "input_unit": "NOT_PROVEN",
+      "known_limits": [
+        "No executable Ideal Point/Lancaster artifact or invocation is present; do not expose as active."
+      ],
+      "output_schema": "NOT_PROVEN",
+      "output_unit": "NOT_PROVEN",
+      "primary_producer": "unavailable_model_registry",
+      "seed": null,
+      "solver_evaluator": "NONE_PROVEN",
+      "symbol": "NOT_PRESENT",
+      "version": "NOT_AVAILABLE",
+      "visibility": "RESEARCH",
+      "artifact_id": "simwar.w5.ideal_point_lancaster.v1",
+      "classification": "DEFERRED",
+      "digest": "77f57651668407750eb37eb44ec4d0d2a4ded9847ed1e37baa2e93344fb4789f",
+      "family": "IDEAL_POINT_LANCASTER",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "BLP_RCNL": {
+      "actual_invocation_path": "NONE_PROVEN",
+      "code_path": "NOT_PRESENT_IN_CURRENT_SOURCE",
+      "consumer": "none; not bound to official runtime",
+      "data_refs": [
+        "NONE_PROVEN"
+      ],
+      "environment": "NONE_PROVEN",
+      "fallback": "deterministic Simulation Core",
+      "formal_writer": "none",
+      "input_schema": "NOT_PROVEN",
+      "input_unit": "NOT_PROVEN",
+      "known_limits": [
+        "No executable BLP/RCNL artifact, dependency, invocation, calibration, or active adapter is present."
+      ],
+      "output_schema": "NOT_PROVEN",
+      "output_unit": "NOT_PROVEN",
+      "primary_producer": "unavailable_model_registry",
+      "seed": null,
+      "solver_evaluator": "NONE_PROVEN",
+      "symbol": "NOT_PRESENT",
+      "version": "NOT_AVAILABLE",
+      "visibility": "MISSING",
+      "artifact_id": "simwar.w5.blp_rcnl.v1",
+      "classification": "MISSING",
+      "digest": "b75611e0e82c0c9ca8c4293bd668f133dfceb6b16f4fa34e2b239956d8517da4",
+      "family": "BLP_RCNL",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "HUFF_SPATIAL": {
+      "actual_invocation_path": "NONE_PROVEN",
+      "code_path": "NOT_PRESENT_IN_CURRENT_SOURCE",
+      "consumer": "none; not bound to official runtime",
+      "data_refs": [
+        "NONE_PROVEN"
+      ],
+      "environment": "NONE_PROVEN",
+      "fallback": "deterministic Simulation Core",
+      "formal_writer": "none",
+      "input_schema": "NOT_PROVEN",
+      "input_unit": "NOT_PROVEN",
+      "known_limits": [
+        "No executable Huff/Spatial choice artifact or invocation is present."
+      ],
+      "output_schema": "NOT_PROVEN",
+      "output_unit": "NOT_PROVEN",
+      "primary_producer": "unavailable_model_registry",
+      "seed": null,
+      "solver_evaluator": "NONE_PROVEN",
+      "symbol": "NOT_PRESENT",
+      "version": "NOT_AVAILABLE",
+      "visibility": "MISSING",
+      "artifact_id": "simwar.w5.huff_spatial.v1",
+      "classification": "MISSING",
+      "digest": "afbc75d61f454a09b9f23aa599a72de9285d6e89e6e691c989bb1805b68655ab",
+      "family": "HUFF_SPATIAL",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "CAPACITY": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "Simulation Core operations metrics",
+      "data_refs": [
+        "EldercareModelInput.decision.facility"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Capacity is a deterministic core metric, not an external capacity forecast."
+      ],
+      "output_schema": "EldercareRoundMetrics.operations.service_capacity",
+      "output_unit": "places",
+      "primary_producer": "services/simulation-core/src/eldercare-core-model.ts::evaluateEldercareCoreRound",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "evaluateEldercareCoreRound.capacity",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.capacity.v1",
+      "classification": "CURRENT",
+      "digest": "4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a",
+      "family": "CAPACITY",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "WORKFORCE": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "Simulation Core operations and quality metrics",
+      "data_refs": [
+        "EldercareModelInput.decision.facility.staff_count",
+        "nurse_ratio"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Workforce is a bounded synthetic scenario constraint."
+      ],
+      "output_schema": "EldercareRoundMetrics.operations.staffed_capacity",
+      "output_unit": "staffed places",
+      "primary_producer": "services/simulation-core/src/eldercare-core-model.ts::evaluateEldercareCoreRound",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "evaluateEldercareCoreRound.workforce",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.workforce.v1",
+      "classification": "CURRENT",
+      "digest": "4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a",
+      "family": "WORKFORCE",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "QUALITY_RISK": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "Simulation Core quality projection",
+      "data_refs": [
+        "service_quality_budget",
+        "staff_count",
+        "beds"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Quality/risk signals are synthetic model outputs, not clinical validation."
+      ],
+      "output_schema": "EldercareRoundMetrics.quality",
+      "output_unit": "bounded indices",
+      "primary_producer": "services/simulation-core/src/eldercare-core-model.ts::evaluateEldercareCoreRound",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "evaluateEldercareCoreRound.quality",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.quality_risk.v1",
+      "classification": "CURRENT",
+      "digest": "4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a",
+      "family": "QUALITY_RISK",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "FINANCE": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "Simulation Core finance projection",
+      "data_refs": [
+        "monthly_price",
+        "service_quality_budget",
+        "community_outreach_budget"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Finance is a scenario projection and not a production ledger writer."
+      ],
+      "output_schema": "EldercareRoundMetrics.finance",
+      "output_unit": "CNY and ratio",
+      "primary_producer": "services/simulation-core/src/eldercare-core-model.ts::evaluateEldercareCoreRound",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "evaluateEldercareCoreRound.finance",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.finance.v1",
+      "classification": "CURRENT",
+      "digest": "4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a",
+      "family": "FINANCE",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "SYSTEM_DYNAMICS": {
+      "actual_invocation_path": "NONE_IN_OFFICIAL_PATH",
+      "code_path": "W5 shadow-only plane",
+      "consumer": "teacher advanced explanation only",
+      "data_refs": [
+        "hypothetical stock/flow trace"
+      ],
+      "environment": "not executed by official W5 path",
+      "fallback": "deterministic Simulation Core",
+      "formal_writer": "none",
+      "input_schema": "candidate shadow input",
+      "input_unit": "scenario values",
+      "known_limits": [
+        "Shadow-only; cannot overwrite official output."
+      ],
+      "output_schema": "candidate shadow trace",
+      "output_unit": "index",
+      "primary_producer": "system_dynamics_shadow",
+      "seed": null,
+      "solver_evaluator": "NONE_PROVEN",
+      "symbol": "SHADOW_ONLY",
+      "version": "NOT_ACTIVE",
+      "visibility": "SHADOW",
+      "artifact_id": "simwar.w5.system_dynamics.v1",
+      "classification": "SHADOW",
+      "digest": "8ba451c657e56395f4735e4c3fa49d503c4e2cf656a92a447ab7215b3f06baba",
+      "family": "SYSTEM_DYNAMICS",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "MARKETING": {
+      "actual_invocation_path": "NONE_PROVEN",
+      "code_path": "NOT_PRESENT_IN_CURRENT_SOURCE",
+      "consumer": "none; not bound to official runtime",
+      "data_refs": [
+        "NONE_PROVEN"
+      ],
+      "environment": "NONE_PROVEN",
+      "fallback": "deterministic Simulation Core",
+      "formal_writer": "none",
+      "input_schema": "NOT_PROVEN",
+      "input_unit": "NOT_PROVEN",
+      "known_limits": [
+        "No independent marketing response engine is proven; outreach is an input to the core scenario."
+      ],
+      "output_schema": "NOT_PROVEN",
+      "output_unit": "NOT_PROVEN",
+      "primary_producer": "unavailable_model_registry",
+      "seed": null,
+      "solver_evaluator": "NONE_PROVEN",
+      "symbol": "NOT_PRESENT",
+      "version": "NOT_AVAILABLE",
+      "visibility": "RESEARCH",
+      "artifact_id": "simwar.w5.marketing.v1",
+      "classification": "RESEARCH",
+      "digest": "287cd964ceac09d5aa3f259095013f837014975ce68e550c510d40e654708c7a",
+      "family": "MARKETING",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "SHANGHAI": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "Scenario compiler and Simulation Core",
+      "data_refs": [
+        "r7a-shanghai-eldercare-core-scenario-v2",
+        "synthetic region weights"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Synthetic/assumption-labelled; not calibrated to external Shanghai data."
+      ],
+      "output_schema": "W5CoreRealization.metrics",
+      "output_unit": "demand/capacity/finance/quality metrics",
+      "primary_producer": "services/simulation-core/src/eldercare-core-model.ts::createDefaultEldercareModelInput",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "createDefaultEldercareModelInput",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.shanghai.v1",
+      "classification": "CURRENT",
+      "digest": "4633fb92ce7fb738b912963a16e337adfafb6b1b572c084370e74bea823da17a",
+      "family": "SHANGHAI",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "SYNTHETIC_WANT": {
+      "actual_invocation_path": "W5 reproduction runner -> syntheticWantCandidate",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "W5 WANT projection only",
+      "data_refs": [
+        "core demand index and monthly price"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Synthetic heuristic; official=false and never a settlement input."
+      ],
+      "output_schema": "number",
+      "output_unit": "heuristic index",
+      "primary_producer": "services/api/src/w5-formal-rebase.ts::syntheticWantCandidate",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "syntheticWantCandidate",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "SYNTHETIC_HEURISTIC",
+      "artifact_id": "simwar.w5.synthetic_want.v1",
+      "classification": "CURRENT",
+      "digest": "f10887660e4f958ec351a54b51c8cd8e2e360f9c9fd34025dbcf80109264094c",
+      "family": "SYNTHETIC_WANT",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    },
+    "CORE_REALIZED": {
+      "actual_invocation_path": "W5 -> evaluateW5CoreRealization -> evaluateEldercareCoreRound",
+      "code_path": "services/simulation-core/src/eldercare-core-model.ts",
+      "consumer": "W5 governed convergence / teacher and student projections",
+      "data_refs": [
+        "r7a-shanghai-eldercare-core-scenario-v2 synthetic asset"
+      ],
+      "environment": "Node.js pure function; no external provider",
+      "fallback": "PLANE_OFF -> deterministic Simulation Core",
+      "formal_writer": "none; projection only, formal_truth_write=false",
+      "input_schema": "EldercareModelInput",
+      "input_unit": "scenario + decision parameters + seed",
+      "known_limits": [
+        "Core projection is official for W5 realized evidence but writes no formal result."
+      ],
+      "output_schema": "W5CoreRealization.metrics",
+      "output_unit": "demand/capacity/finance/quality metrics",
+      "primary_producer": "services/simulation-core/src/w5-governed-convergence.ts::evaluateW5CoreRealization",
+      "seed": 20260726,
+      "solver_evaluator": "evaluateEldercareCoreRound",
+      "symbol": "evaluateW5CoreRealization",
+      "version": "eldercare_core_model_v1@1.0.0",
+      "visibility": "CURRENT_CORE",
+      "artifact_id": "simwar.w5.core_realized.v1",
+      "classification": "CURRENT",
+      "digest": "4565ff9fbecd4e84b43ea166ce28d188ca33d717d8e3861a0978098bddb5bb1b",
+      "family": "CORE_REALIZED",
+      "reproduction_command": "npm run test:w5:formal-rebase"
+    }
+  },
+  "replay": {
+    "deterministic": true,
+    "exact_binding": true,
+    "non_overwrite": true
+  },
+  "shanghai": {
+    "data_classification": "SYNTHETIC",
+    "provenance": "SYNTHETIC_ASSUMPTION_NOT_CALIBRATED"
+  },
+  "standard_advanced_parity": true,
+  "status": "PASS_WITH_LIMITS",
+  "system_dynamics": {
+    "official": false,
+    "status": "SHADOW_ONLY"
+  },
+  "synthetic_want": {
+    "official": false,
+    "status": "SYNTHETIC_HEURISTIC"
+  },
+  "timestamp": "2026-08-20T16:24:26.2851990Z",
+  "tree_sha": "2b9cf9310d25fae8b3258e0b4539dd2b047556c5"
+}

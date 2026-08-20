@@ -1,0 +1,42 @@
+{
+  "evidence_after_mission_start": true,
+  "evidence_files": [
+    "2026-08-20-w5-formal-rebase-rb1.json",
+    "2026-08-20-w5-formal-rebase-rb2.json",
+    "2026-08-20-w5-formal-rebase-rb3.json"
+  ],
+  "head_sha": "fa00e6f8223244209221b28facca3ee280ef2b82",
+  "mission_id": "SIMWAR-W5-FORMAL-REBASE-COMPLETION-V5.8-20260820",
+  "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+  "mission_start_utc": "2026-08-20T15:56:12Z",
+  "model_family_disposition": {
+    "current": [
+      "CAPACITY",
+      "WORKFORCE",
+      "QUALITY_RISK",
+      "FINANCE",
+      "SHANGHAI",
+      "SYNTHETIC_WANT",
+      "CORE_REALIZED"
+    ],
+    "missing_or_deferred": [
+      "IDEAL_POINT_LANCASTER",
+      "BLP_RCNL",
+      "HUFF_SPATIAL"
+    ],
+    "research": [
+      "MARKETING"
+    ],
+    "shadow": [
+      "SYSTEM_DYNAMICS"
+    ]
+  },
+  "product_head_readback": "RECORDED_IN_PR_READBACK",
+  "statuses": {
+    "m_rb1": "PASS_WITH_LIMITS",
+    "m_rb2": "PASS_WITH_LIMITS",
+    "m_rb3": "PASS_WITH_LIMITS"
+  },
+  "timestamp": "2026-08-20T16:24:26.2851990Z",
+  "tree_sha": "2b9cf9310d25fae8b3258e0b4539dd2b047556c5"
+}
