@@ -769,7 +769,7 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <section id="student-w5-governed-model" className="student-location" aria-label="W5 受控模型">
+          <section id="student-w5-governed-model" aria-label="W5 受控模型">
             <div role="region" aria-label="W5 governed model convergence">
               <p className="eyebrow">W5 · role-safe student projection</p>
               <h2>受控模型收敛视图</h2>
