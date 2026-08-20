@@ -59,6 +59,12 @@
         "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "decision_ids": ["decision_w4"],
+      "decision_payload_bindings": [
+        {
+          "decision_id": "decision_w4",
+          "decision_payload_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        }
+      ],
       "scenario_package_id": "scenario_w4",
       "parameter_set_id": "parameters_w4",
       "engine_id": "toy_logit_wellness_v1",

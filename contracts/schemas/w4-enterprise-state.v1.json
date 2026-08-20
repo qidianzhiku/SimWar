@@ -89,6 +89,7 @@
         "round_id",
         "opening_state_ref",
         "decision_ids",
+        "decision_payload_bindings",
         "scenario_package_id",
         "parameter_set_id",
         "engine_id",
@@ -104,11 +105,24 @@
         "round_id": { "type": "string", "minLength": 1 },
         "opening_state_ref": { "$ref": "#/$defs/stateRef" },
         "decision_ids": { "type": "array", "items": { "type": "string" } },
+        "decision_payload_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/decisionPayloadBinding" }
+        },
         "scenario_package_id": { "type": "string", "minLength": 1 },
         "parameter_set_id": { "type": "string", "minLength": 1 },
         "engine_id": { "type": "string", "minLength": 1 },
         "plugin_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "decisionPayloadBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "decision_payload_digest"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1 },
+        "decision_payload_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
     },
     "policySeam": {

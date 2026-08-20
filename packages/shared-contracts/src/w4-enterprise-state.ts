@@ -63,6 +63,7 @@ export interface W4EnterpriseStateData {
   product_lines: string[];
   positioning: string;
   organization: Record<string, number | string>;
+  operating_units: W4OperatingUnit[];
   portfolio: {
     projects: string[];
     facilities: string[];
@@ -98,6 +99,12 @@ export interface W4NewProjectPayload {
   lead_time_rounds: number;
 }
 
+export interface W4OperatingUnit {
+  operating_unit_id: string;
+  name: string;
+  status: "active" | "planned";
+}
+
 export interface W4CanonicalStrategicDecision {
   decision_id: string;
   tenant_id: string;
@@ -119,11 +126,18 @@ export interface W4DecisionAdmission {
   canonical_decision_id: string | null;
   merge_commit_id: string | null;
   team_confirmation_id: string | null;
+  decision_payload_digest: string;
+}
+
+export interface W4DecisionPayloadBinding {
+  decision_id: string;
+  decision_payload_digest: string;
 }
 
 export interface W4Commitment {
   commitment_id: string;
   decision_id: string;
+  decision_payload_digest: string;
   tenant_id: string;
   course_id: string;
   run_id: string;
@@ -137,6 +151,7 @@ export interface W4Commitment {
 export interface W4StrategicEffect {
   effect_id: string;
   commitment_id: string;
+  decision_payload_digest: string;
   tenant_id: string;
   course_id: string;
   run_id: string;
@@ -204,6 +219,7 @@ export interface W4ReplayInputManifest {
   round_id: string;
   opening_state_ref: W4StateRef;
   decision_ids: string[];
+  decision_payload_bindings: W4DecisionPayloadBinding[];
   scenario_package_id: string;
   parameter_set_id: string;
   engine_id: string;
@@ -222,9 +238,49 @@ export interface W4ReplayEvidence {
   opening_state_ref: W4StateRef;
   closing_state_ref: W4StateRef;
   decision_ids: string[];
+  decision_payload_bindings: W4DecisionPayloadBinding[];
   persistent_effect_ids: string[];
   path_digest: string;
   replay_writes_formal_results: false;
+}
+
+export interface W4StateDiffEvidence {
+  opening_state_ref: W4StateRef;
+  closing_state_ref: W4StateRef;
+  parent_state_ref: W4StateRef | null;
+  opening_digest: string;
+  closing_digest: string;
+  changed_paths: string[];
+}
+
+export interface W4PathEvidence {
+  opening_vs_closing: W4StateDiffEvidence | null;
+  initiative_timeline: Array<{
+    initiative_id: string;
+    status: W4InitiativeStatus;
+    current_milestone: string;
+    milestones: string[];
+    remaining_lead_time_rounds: number;
+    activation_round_no: number;
+  }>;
+  persistent_effect_ids: string[];
+  portfolio_hierarchy: {
+    group_tenant_id: string;
+    portfolio_projects: string[];
+    portfolio_facilities: string[];
+    operating_unit_ids: string[];
+  };
+  official_replay_path: {
+    official_outcome_id: string | null;
+    replay_ids: string[];
+    path_digests: string[];
+    replay_writes_formal_results: false;
+  };
+  same_current_decision_different_history: {
+    status: "proven" | "not_observed";
+    current_decision_ids: string[];
+    comparison_count: number;
+  };
 }
 
 export interface W4ProjectionBase {
@@ -236,6 +292,7 @@ export interface W4ProjectionBase {
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
   evidence: W4ReplayEvidence[];
+  path_evidence: W4PathEvidence;
 }
 
 export interface W4StoreState {

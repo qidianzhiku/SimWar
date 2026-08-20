@@ -4186,6 +4186,12 @@ paths:
       operationId: W4_STUDENT_PORTFOLIO_PROJECTION_GET_V1
       summary: Student-safe Opening/Closing State and Initiative projection.
       security: [{ SessionBearer: [] }]
+      parameters:
+        - name: round_id
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+          description: Exact runtime round identity used for the projection scope.
       responses:
         "200":
           description: Student-safe W4 projection.
@@ -4196,6 +4202,12 @@ paths:
       operationId: W4_TEACHER_PORTFOLIO_PROJECTION_GET_V1
       summary: Teacher initiative readiness and state transition projection.
       security: [{ SessionBearer: [] }]
+      parameters:
+        - name: round_id
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+          description: Exact runtime round identity used for the projection scope.
       responses:
         "200":
           description: Teacher W4 projection.
@@ -4206,6 +4218,12 @@ paths:
       operationId: W4_ADMIN_PORTFOLIO_PROJECTION_GET_V1
       summary: Admin-safe Run portfolio projection.
       security: [{ SessionBearer: [] }]
+      parameters:
+        - name: round_id
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+          description: Exact runtime round identity used for the projection scope.
       responses:
         "200":
           description: Admin W4 projection.
@@ -4218,7 +4236,7 @@ paths:
       security: [{ SessionBearer: [] }]
       responses:
         "200":
-          description: Admin Group/Portfolio/Project/Facility projection.
+          description: Admin Group/Portfolio/OperatingUnit/Project/Facility projection.
           content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
 
 components:
