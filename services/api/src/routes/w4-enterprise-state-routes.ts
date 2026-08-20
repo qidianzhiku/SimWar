@@ -27,6 +27,11 @@ interface W4RouteDependencies {
   requireAdmin: () => CurrentUser;
   resolveRun: (tenantId: string, runId: string) => Promise<{ course_id: string } | null>;
   resolveTeam: (tenantId: string, teamId: string) => Promise<{ course_id: string } | null>;
+  resolveRound: (
+    tenantId: string,
+    runId: string,
+    roundNo: number
+  ) => Promise<{ round_id: string } | null>;
   admitStrategicDecision: (
     scope: W4ScopeContext,
     decision: W4CanonicalStrategicDecision
@@ -249,16 +254,29 @@ export async function handleW4EnterpriseStateRoute(
       const teamId = url.searchParams.get("team_id") ?? actor.team_id ?? "";
       const courseId = url.searchParams.get("course_id") ?? "course_demo";
       await assertRuntimeScope(dependencies, context.tenantId, parsed.runId, courseId, teamId);
+      const requestedRoundId = url.searchParams.get("round_id");
+      if (requestedRoundId) {
+        const runtimeRound = await dependencies.resolveRound(
+          context.tenantId,
+          parsed.runId,
+          parsed.roundNo
+        );
+        if (!runtimeRound || runtimeRound.round_id !== requestedRoundId) {
+          throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+        }
+      }
       const scope = routeScope(
         context,
         actor,
         parsed.runId,
-        url.searchParams.get("round_id") ?? `round_${parsed.runId}_${parsed.roundNo}`,
+        requestedRoundId ?? `round_${parsed.runId}_${parsed.roundNo}`,
         parsed.roundNo,
         teamId,
         courseId
       );
-      const projection = await service.getProjection(scope);
+      const projection = await service.getProjection(scope, {
+        allowEmptyRound: Boolean(requestedRoundId)
+      });
       const safeProjection =
         surface === "student"
           ? {

@@ -842,7 +842,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       return clone(evidence);
     },
 
-    async getProjection(scope: W4ScopeContext) {
+    async getProjection(scope: W4ScopeContext, options: { allowEmptyRound?: boolean } = {}) {
       const current = repository.snapshot();
       const scopedStates = current.states.filter((state) => scopeMatches(scope, state));
       const scopedOutcomes = current.outcomes.filter((outcome) => scopeMatches(scope, outcome));
@@ -854,7 +854,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const isKnownOrNextRound =
         scope.round_no >= 1 &&
         (scope.round_no <= highestRound + 1 || (highestRound === 0 && scope.round_no === 1));
-      if (!isKnownOrNextRound) {
+      if (!isKnownOrNextRound && !(options.allowEmptyRound && scope.round_no >= 1)) {
         throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
       }
       const outcomes = current.outcomes.filter((item) => scopeMatches(scope, item));

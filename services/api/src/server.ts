@@ -5484,6 +5484,15 @@ async function routeRequest(
           runtime.repositoryProvider.facade.runs.getRun(tenantId, runId),
         resolveTeam: (tenantId, teamId) =>
           runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId),
+        resolveRound: async (tenantId, runId, roundNo) => {
+          if (tenantId !== context.tenantId) return null;
+          try {
+            const round = await getRoundForRead(runtime, context, runId, roundNo);
+            return { round_id: round.round_id };
+          } catch {
+            return null;
+          }
+        },
         admitStrategicDecision: async (scope, decision): Promise<W4DecisionAdmission> => {
           const run = await runtime.repositoryProvider.facade.runs.getRun(
             scope.tenant_id,

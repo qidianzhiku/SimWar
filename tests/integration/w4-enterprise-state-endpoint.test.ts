@@ -350,6 +350,14 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       expect(wrongRound.status).toBe(409);
       expect(wrongRound.body.data).toMatchObject({ code: "W4_ROUND_SCOPE_CONFLICT" });
 
+      const staleRoundId = await request(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/1/portfolio?course_id=course_demo&round_id=stale-round-id`,
+        student
+      );
+      expect(staleRoundId.status).toBe(409);
+      expect(staleRoundId.body.data).toMatchObject({ code: "W4_ROUND_SCOPE_CONFLICT" });
+
       const wrongTeam = await request(
         baseUrl,
         `/api/v1/w4/runs/${activeRunId}/rounds/1/strategic-decisions`,
