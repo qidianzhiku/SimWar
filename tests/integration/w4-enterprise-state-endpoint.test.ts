@@ -281,4 +281,131 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       await once(server, "close");
     }
   });
+
+  it("enforces the W4 route authorization matrix and rejects stale scope", async () => {
+    const { server, baseUrl } = await start();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const student = await login(baseUrl, "student");
+      const created = await request<{ run: { run_id: string } }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        teacher,
+        {}
+      );
+      expect(created.status).toBe(201);
+      const activeRunId = created.body.data.run.run_id;
+      const started = await request<{ round_id: string }>(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/start`,
+        teacher,
+        {}
+      );
+      expect(started.status).toBe(200);
+      const roundId = started.body.data.round_id;
+      const initial = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/states`,
+        teacher,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          state: {}
+        }
+      );
+      expect(initial.status).toBe(201);
+
+      const wrongTenant = await request(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/1/portfolio?course_id=course_demo&round_id=${encodeURIComponent(roundId)}`,
+        student,
+        undefined,
+        "tenant_other"
+      );
+      expect(wrongTenant.status).toBeGreaterThanOrEqual(400);
+      expect(wrongTenant.body.code).toBe("TENANT-403-001");
+
+      const wrongCourse = await request(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/1/portfolio?course_id=course_other&round_id=${encodeURIComponent(roundId)}`,
+        student
+      );
+      expect(wrongCourse.status).toBe(409);
+      expect(wrongCourse.body.data).toMatchObject({ code: "W4_COURSE_SCOPE_CONFLICT" });
+
+      const unknownRun = await request(
+        baseUrl,
+        "/api/v1/bff/student/w4/runs/unknown-w4-run/rounds/1/portfolio?course_id=course_demo",
+        student
+      );
+      expect(unknownRun.status).toBe(404);
+      expect(unknownRun.body.data).toMatchObject({ code: "W4_RUN_NOT_FOUND" });
+
+      const wrongRound = await request(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/99/portfolio?course_id=course_demo`,
+        student
+      );
+      expect(wrongRound.status).toBe(409);
+      expect(wrongRound.body.data).toMatchObject({ code: "W4_ROUND_SCOPE_CONFLICT" });
+
+      const wrongTeam = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/strategic-decisions`,
+        student,
+        { course_id: "course_demo", team_id: "team_beta", round_id: roundId }
+      );
+      expect(wrongTeam.status).toBe(409);
+      expect(wrongTeam.body.data).toMatchObject({ code: "W4_TEAM_SCOPE_CONFLICT" });
+
+      const wrongRole = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/states`,
+        student,
+        { course_id: "course_demo", team_id: "team_alpha", round_id: roundId, state: {} }
+      );
+      expect(wrongRole.status).toBe(403);
+      expect(wrongRole.body.code).toBe("D4_REPORT_SCOPE_VIOLATION");
+
+      const staleState = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/2/continue`,
+        teacher,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          closing_state_ref: {
+            enterprise_state_id: "stale-state",
+            tenant_id: tenantId,
+            course_id: "course_demo",
+            run_id: activeRunId,
+            team_id: "team_alpha",
+            round_id: roundId,
+            round_no: 1,
+            version: 1,
+            state_digest: "0".repeat(64),
+            parent_state_ref: null
+          }
+        }
+      );
+      expect(staleState.status).toBe(409);
+      expect(staleState.body.data).toMatchObject({ code: "W4_STATE_REF_CONFLICT" });
+
+      const activityIsServerBound = await request<{
+        process_information: { activity_id: string };
+      }>(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/1/portfolio?course_id=course_demo&round_id=${encodeURIComponent(roundId)}&activity_id=caller-supplied-wrong-activity`,
+        student
+      );
+      expect(activityIsServerBound.status).toBe(200);
+      expect(activityIsServerBound.body.data.process_information.activity_id).toBe(
+        "w4-enterprise-state-strategic-evolution"
+      );
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
 });

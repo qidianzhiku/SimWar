@@ -126,11 +126,18 @@ export interface W4DecisionAdmission {
   canonical_decision_id: string | null;
   merge_commit_id: string | null;
   team_confirmation_id: string | null;
+  decision_payload_digest: string;
+}
+
+export interface W4DecisionPayloadBinding {
+  decision_id: string;
+  decision_payload_digest: string;
 }
 
 export interface W4Commitment {
   commitment_id: string;
   decision_id: string;
+  decision_payload_digest: string;
   tenant_id: string;
   course_id: string;
   run_id: string;
@@ -144,6 +151,7 @@ export interface W4Commitment {
 export interface W4StrategicEffect {
   effect_id: string;
   commitment_id: string;
+  decision_payload_digest: string;
   tenant_id: string;
   course_id: string;
   run_id: string;
@@ -211,6 +219,7 @@ export interface W4ReplayInputManifest {
   round_id: string;
   opening_state_ref: W4StateRef;
   decision_ids: string[];
+  decision_payload_bindings: W4DecisionPayloadBinding[];
   scenario_package_id: string;
   parameter_set_id: string;
   engine_id: string;
@@ -229,6 +238,7 @@ export interface W4ReplayEvidence {
   opening_state_ref: W4StateRef;
   closing_state_ref: W4StateRef;
   decision_ids: string[];
+  decision_payload_bindings: W4DecisionPayloadBinding[];
   persistent_effect_ids: string[];
   path_digest: string;
   replay_writes_formal_results: false;

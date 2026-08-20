@@ -3,7 +3,7 @@ import { settleEnterpriseState } from "@simwar/simulation-core";
 import type {
   W4CanonicalStrategicDecision,
   W4Commitment,
-  W4DecisionAdmission,
+  W4DecisionPayloadBinding,
   W4EnterpriseState,
   W4EnterpriseStateData,
   W4OfficialOutcome,
@@ -17,6 +17,7 @@ import type {
   W4StateRef,
   W4StrategicEffect,
   W4StrategicInitiative,
+  W4StrategicDecisionKind,
   W4StoreState
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
@@ -82,6 +83,26 @@ function clone<T>(value: T): T {
 
 function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function normalizeDecisionPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeDecisionPayload);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, nested]) => nested !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, normalizeDecisionPayload(nested)])
+    );
+  }
+  return value;
+}
+
+export function createW4DecisionPayloadDigest(
+  kind: W4StrategicDecisionKind,
+  payload: unknown
+): string {
+  return digest({ kind, payload: normalizeDecisionPayload(payload) });
 }
 
 function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
@@ -176,7 +197,8 @@ function assertScope(scope: W4ScopeContext, value: W4CanonicalStrategicDecision)
   }
 }
 
-function assertDecisionAdmission(admission: W4DecisionAdmission): void {
+function assertDecisionAdmission(decision: W4CanonicalStrategicDecision): void {
+  const admission = decision.admission;
   if (!admission || typeof admission !== "object") {
     throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
   }
@@ -189,9 +211,7 @@ function assertDecisionAdmission(admission: W4DecisionAdmission): void {
     ) {
       throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
     }
-    return;
-  }
-  if (
+  } else if (
     admission.policy !== "LEGACY_DIRECT_EXPLICIT" ||
     admission.authority !== "synthetic_run_creation_marker" ||
     admission.canonical_decision_id !== null ||
@@ -199,6 +219,13 @@ function assertDecisionAdmission(admission: W4DecisionAdmission): void {
     admission.team_confirmation_id !== null
   ) {
     throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+  }
+  if (
+    !/^[a-f0-9]{64}$/.test(admission.decision_payload_digest) ||
+    admission.decision_payload_digest !==
+      createW4DecisionPayloadDigest(decision.kind, decision.payload)
+  ) {
+    throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
   }
 }
 
@@ -221,10 +248,53 @@ function assertReplayInputManifest(
     !manifest.engine_id ||
     !Number.isInteger(manifest.seed) ||
     manifest.seed < 0 ||
-    manifest.plugin_ids.some((pluginId) => !pluginId.trim())
+    !Array.isArray(manifest.plugin_ids) ||
+    manifest.plugin_ids.some((pluginId) => !pluginId.trim()) ||
+    !Array.isArray(manifest.decision_ids) ||
+    !Array.isArray(manifest.decision_payload_bindings) ||
+    manifest.decision_ids.length !== manifest.decision_payload_bindings.length ||
+    manifest.decision_ids.some(
+      (decisionId, index) => manifest.decision_payload_bindings[index]?.decision_id !== decisionId
+    ) ||
+    manifest.decision_payload_bindings.some(
+      (binding) =>
+        !binding ||
+        typeof binding.decision_id !== "string" ||
+        !/^[a-f0-9]{64}$/.test(binding.decision_payload_digest)
+    )
   ) {
     throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
   }
+}
+
+function assertDecisionPayloadBindings(
+  scope: W4ScopeContext,
+  manifest: W4ReplayInputManifest,
+  decisions: W4CanonicalStrategicDecision[]
+): W4DecisionPayloadBinding[] {
+  const selected = manifest.decision_payload_bindings.map((binding) => {
+    const decision = decisions.find(
+      (candidate) =>
+        candidate.decision_id === binding.decision_id &&
+        candidate.tenant_id === scope.tenant_id &&
+        candidate.course_id === scope.course_id &&
+        candidate.run_id === scope.run_id &&
+        candidate.team_id === scope.team_id &&
+        candidate.round_id === scope.round_id &&
+        candidate.round_no === scope.round_no &&
+        candidate.status === "canonical"
+    );
+    if (
+      !decision ||
+      decision.admission.decision_payload_digest !== binding.decision_payload_digest ||
+      createW4DecisionPayloadDigest(decision.kind, decision.payload) !==
+        binding.decision_payload_digest
+    ) {
+      throw new W4EnterpriseStateError("W4_REPLAY_DECISION_BINDING_CONFLICT");
+    }
+    return { ...binding };
+  });
+  return selected;
 }
 
 function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseStateData {
@@ -383,7 +453,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       decision: W4CanonicalStrategicDecision
     ): Promise<W4CompiledStrategicDecision> {
       assertScope(scope, decision);
-      assertDecisionAdmission(decision.admission);
+      assertDecisionAdmission(decision);
       const current = repository.snapshot();
       if (current.decisions.some((item) => item.decision_id === decision.decision_id)) {
         throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
@@ -395,6 +465,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const commitment: W4Commitment = {
         commitment_id: `commitment_${decision.decision_id}`,
         decision_id: decision.decision_id,
+        decision_payload_digest: decision.admission.decision_payload_digest,
         tenant_id: decision.tenant_id,
         course_id: decision.course_id,
         run_id: decision.run_id,
@@ -420,6 +491,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const effect: W4StrategicEffect = {
         effect_id: `effect_${decision.decision_id}`,
         commitment_id: commitment.commitment_id,
+        decision_payload_digest: decision.admission.decision_payload_digest,
         tenant_id: decision.tenant_id,
         course_id: decision.course_id,
         run_id: decision.run_id,
@@ -570,11 +642,16 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       );
       if (!opening) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
       assertReplayInputManifest(scope, input.opening_state_ref, input.replay_input_manifest);
+      const selectedDecisionPayloadBindings = assertDecisionPayloadBindings(
+        scope,
+        input.replay_input_manifest,
+        before.decisions
+      );
       if (
         input.decision_id &&
-        !before.decisions.some((item) => item.decision_id === input.decision_id)
+        !selectedDecisionPayloadBindings.some((item) => item.decision_id === input.decision_id)
       ) {
-        throw new W4EnterpriseStateError("W4_DECISION_NOT_FOUND");
+        throw new W4EnterpriseStateError("W4_REPLAY_DECISION_BINDING_CONFLICT");
       }
       const priorOutcome = before.outcomes.find(
         (outcome) =>
@@ -716,6 +793,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         opening_state_ref: clone(outcome.opening_state_ref),
         closing_state_ref: clone(outcome.closing_state_ref),
         decision_ids: [],
+        decision_payload_bindings: clone(outcome.replay_input_manifest.decision_payload_bindings),
         persistent_effect_ids: [...outcome.persistent_effect_ids],
         path_digest: digest(outcome),
         replay_writes_formal_results: false
@@ -746,12 +824,14 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         decision_ids: current.commitments
           .filter((commitment) => outcome.commitment_ids.includes(commitment.commitment_id))
           .map((commitment) => commitment.decision_id),
+        decision_payload_bindings: clone(outcome.replay_input_manifest.decision_payload_bindings),
         persistent_effect_ids: [...outcome.persistent_effect_ids],
         path_digest: digest({
           opening_state_ref: outcome.opening_state_ref,
           closing_state_ref: outcome.closing_state_ref,
           commitment_ids: outcome.commitment_ids,
-          effect_ids: outcome.persistent_effect_ids
+          effect_ids: outcome.persistent_effect_ids,
+          decision_payload_bindings: outcome.replay_input_manifest.decision_payload_bindings
         }),
         replay_writes_formal_results: false
       };

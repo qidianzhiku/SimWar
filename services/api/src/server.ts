@@ -263,6 +263,7 @@ import {
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
   createJsonW4Repository,
+  createW4DecisionPayloadDigest,
   W4EnterpriseStateError,
   type W4Repository
 } from "./w4-enterprise-state.js";
@@ -5516,15 +5517,27 @@ async function routeRequest(
                 tenantId: scope.tenant_id
               });
               const canonical = admitted.decisions[0];
-              if (!canonical || canonical.team_id !== decision.team_id) {
-                throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+              if (
+                !canonical ||
+                canonical.team_id !== decision.team_id ||
+                canonical.decision_id !== decision.decision_id ||
+                canonical.round_id !== decision.round_id ||
+                canonical.round_no !== decision.round_no ||
+                createW4DecisionPayloadDigest(decision.kind, canonical.payload) !==
+                  createW4DecisionPayloadDigest(decision.kind, decision.payload)
+              ) {
+                throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
               }
               return {
                 policy: admission.policy,
                 authority: "formal_run_runtime_binding",
                 canonical_decision_id: canonical.decision_id,
                 merge_commit_id: canonical.merge_commit_id ?? null,
-                team_confirmation_id: canonical.team_confirmation_id ?? null
+                team_confirmation_id: canonical.team_confirmation_id ?? null,
+                decision_payload_digest: createW4DecisionPayloadDigest(
+                  decision.kind,
+                  decision.payload
+                )
               };
             } catch (error) {
               if (error instanceof W4EnterpriseStateError) throw error;
@@ -5549,7 +5562,11 @@ async function routeRequest(
             authority: "synthetic_run_creation_marker",
             canonical_decision_id: null,
             merge_commit_id: null,
-            team_confirmation_id: null
+            team_confirmation_id: null,
+            decision_payload_digest: createW4DecisionPayloadDigest(
+              decision.kind,
+              decision.payload
+            )
           };
         },
         assertSettlementReady: async (
@@ -5616,6 +5633,33 @@ async function routeRequest(
             if (!canonical) throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
             decisionIds = [canonical.decision_id];
           }
+          const w4Decisions = runtime.w4EnterpriseStateRepository
+            .snapshot()
+            .decisions.filter(
+              (decision) =>
+                decision.tenant_id === scope.tenant_id &&
+                decision.course_id === scope.course_id &&
+                decision.run_id === scope.run_id &&
+                decision.team_id === scope.team_id &&
+                decision.round_id === scope.round_id &&
+                decision.round_no === scope.round_no &&
+                decision.status === "canonical"
+            );
+          if (admission.policy === "LEGACY_DIRECT_EXPLICIT") {
+            decisionIds = w4Decisions.map((decision) => decision.decision_id);
+          }
+          const decisionPayloadBindings = decisionIds.map((decisionId) => {
+            const w4Decision = w4Decisions.find(
+              (decision) => decision.decision_id === decisionId
+            );
+            if (!w4Decision) {
+              throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+            }
+            return {
+              decision_id: w4Decision.decision_id,
+              decision_payload_digest: w4Decision.admission.decision_payload_digest
+            };
+          });
           const runtimeInputs = await resolveRunRuntimeInputs(runtime, scope.tenant_id, run);
           if (!runtimeInputs) throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
           return {
@@ -5627,6 +5671,7 @@ async function routeRequest(
             round_id: scope.round_id,
             opening_state_ref: structuredClone(openingStateRef),
             decision_ids: decisionIds,
+            decision_payload_bindings: decisionPayloadBindings,
             scenario_package_id: run.scenario_package_id,
             parameter_set_id: run.parameter_set_id,
             engine_id:

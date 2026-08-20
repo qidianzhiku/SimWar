@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  createW4DecisionPayloadDigest,
   createEnterpriseStateStrategicEvolutionService,
   createInMemoryW4Repository,
   W4EnterpriseStateError
 } from "../../services/api/src/w4-enterprise-state";
 import type {
   W4CanonicalStrategicDecision,
+  W4OfficialOutcome,
   W4EnterpriseState,
   W4ReplayInputManifest,
   W4ScopeContext
@@ -39,7 +41,17 @@ const newProjectDecision: W4CanonicalStrategicDecision = {
     authority: "synthetic_run_creation_marker",
     canonical_decision_id: null,
     merge_commit_id: null,
-    team_confirmation_id: null
+    team_confirmation_id: null,
+    decision_payload_digest: createW4DecisionPayloadDigest("new_project", {
+      project_name: "新区康养中心",
+      cost: 300,
+      cycle_rounds: 3,
+      area: 12000,
+      beds: 120,
+      bed_mix: { standard: 72, memory_care: 36, premium: 12 },
+      ramp: 0.4,
+      lead_time_rounds: 2
+    })
   },
   payload: {
     project_name: "新区康养中心",
@@ -82,7 +94,8 @@ function replayManifest(
     ReturnType<typeof createEnterpriseStateStrategicEvolutionService>["settleRound"]
   >[1]["opening_state_ref"],
   roundId = scope.round_id,
-  roundNo = scope.round_no
+  roundNo = scope.round_no,
+  decisionIds: string[] = []
 ): W4ReplayInputManifest {
   return {
     manifest_id: `manifest_${scope.run_id}_${scope.team_id}_${roundNo}`,
@@ -92,7 +105,20 @@ function replayManifest(
     team_id: scope.team_id,
     round_id: roundId,
     opening_state_ref: structuredClone(openingStateRef),
-    decision_ids: [newProjectDecision.decision_id],
+    decision_ids: decisionIds,
+    decision_payload_bindings: decisionIds.map((decisionId) => ({
+      decision_id: decisionId,
+      decision_payload_digest: createW4DecisionPayloadDigest("new_project", {
+        project_name: "新区康养中心",
+        cost: 300,
+        cycle_rounds: 3,
+        area: 12000,
+        beds: 120,
+        bed_mix: { standard: 72, memory_care: 36, premium: 12 },
+        ramp: 0.4,
+        lead_time_rounds: 2
+      })
+    })),
     scenario_package_id: "scenario_w4",
     parameter_set_id: "parameters_w4",
     engine_id: "toy_logit_wellness_v1",
@@ -135,13 +161,13 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const alphaOutcome = await service.settleRound(scope, {
       opening_state_ref: alphaOpening.state_ref,
       decision_id: null,
-      replay_input_manifest: replayManifest(alphaOpening.state_ref)
+      replay_input_manifest: replayManifest(alphaOpening.state_ref, scope.round_id, scope.round_no, [])
     });
     const betaOutcome = await service.settleRound(betaScope, {
       opening_state_ref: betaOpening.state_ref,
       decision_id: null,
       replay_input_manifest: {
-        ...replayManifest(betaOpening.state_ref),
+        ...replayManifest(betaOpening.state_ref, scope.round_id, scope.round_no, []),
         manifest_id: "manifest_run_w4_team_beta_1",
         team_id: "team_beta",
         decision_ids: []
@@ -171,6 +197,89 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     });
   });
 
+  it("binds the admitted decision payload to every state-changing and replay artifact", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+    const compiled = await service.commitStrategicDecision(scope, newProjectDecision);
+
+    expect(compiled.decision.admission.decision_payload_digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(compiled.commitment.decision_payload_digest).toBe(
+      compiled.decision.admission.decision_payload_digest
+    );
+    expect(compiled.effect.decision_payload_digest).toBe(
+      compiled.decision.admission.decision_payload_digest
+    );
+
+    const binding = {
+      decision_id: newProjectDecision.decision_id,
+      decision_payload_digest: compiled.decision.admission.decision_payload_digest
+    };
+    const settled = await service.settleRound(scope, {
+      opening_state_ref: opening.state_ref,
+      decision_id: newProjectDecision.decision_id,
+      replay_input_manifest: {
+        ...replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+          newProjectDecision.decision_id
+        ]),
+        decision_payload_bindings: [binding]
+      }
+    });
+    const outcome = repository.snapshot().outcomes[0] as W4OfficialOutcome;
+    expect(outcome.replay_input_manifest.decision_payload_bindings).toEqual([binding]);
+
+    await expect(
+      service.settleRound(
+        scope,
+        {
+          opening_state_ref: opening.state_ref,
+          decision_id: newProjectDecision.decision_id,
+          replay_input_manifest: {
+            ...outcome.replay_input_manifest,
+            decision_payload_bindings: [
+              { ...binding, decision_payload_digest: "0".repeat(64) }
+            ]
+          }
+        }
+      )
+    ).rejects.toMatchObject({ code: "W4_REPLAY_DECISION_BINDING_CONFLICT" });
+
+    const replay = await service.replay(scope, settled.outcome_id);
+    expect(replay.decision_payload_bindings).toEqual([binding]);
+  });
+
+  it("rejects payloads that are not admitted, stale, or exact for the requested decision", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+
+    await expect(
+      service.commitStrategicDecision(scope, {
+        ...newProjectDecision,
+        admission: {
+          ...newProjectDecision.admission,
+          decision_payload_digest: "0".repeat(64)
+        }
+      })
+    ).rejects.toMatchObject({ code: "W4_DECISION_PAYLOAD_BINDING_CONFLICT" });
+
+    await expect(
+      service.commitStrategicDecision(scope, {
+        ...newProjectDecision,
+        round_id: "round_w4_stale",
+        round_no: 2
+      })
+    ).rejects.toMatchObject({ code: "W4_SCOPE_CONFLICT" });
+
+    await service.commitStrategicDecision(scope, newProjectDecision);
+    await expect(
+      service.commitStrategicDecision(scope, {
+        ...newProjectDecision,
+        payload: { ...newProjectDecision.payload, project_name: "different" }
+      })
+    ).rejects.toMatchObject({ code: "W4_DECISION_PAYLOAD_BINDING_CONFLICT" });
+  });
+
   it("proves Tier B adjustments use the same generic commitment/effect/initiative framework", async () => {
     const kinds = [
       "product_line_adjustment",
@@ -184,7 +293,14 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
         ...newProjectDecision,
         decision_id: `decision_w4_generic_${index}`,
         kind,
-        payload: { change: `generic-${kind}`, rationale: "bounded framework proof" }
+        payload: { change: `generic-${kind}`, rationale: "bounded framework proof" },
+        admission: {
+          ...newProjectDecision.admission,
+          decision_payload_digest: createW4DecisionPayloadDigest(kind, {
+            change: `generic-${kind}`,
+            rationale: "bounded framework proof"
+          })
+        }
       };
       await service.createInitialState(scope, initialState());
       const compiled = await service.commitStrategicDecision(scope, decision);
@@ -204,7 +320,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const roundOne = await service.settleRound(scope, {
       opening_state_ref: opening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(opening.state_ref)
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
     });
     expect(repository.snapshot().initiatives[0]?.remaining_lead_time_rounds).toBe(2);
 
@@ -219,7 +337,7 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       {
         opening_state_ref: openingTwo.state_ref,
         decision_id: null,
-        replay_input_manifest: replayManifest(openingTwo.state_ref, "round_w4_2", 2)
+        replay_input_manifest: replayManifest(openingTwo.state_ref, "round_w4_2", 2, [])
       }
     );
     expect(repository.snapshot().initiatives[0]?.status).toBe("in_progress");
@@ -236,7 +354,7 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       {
         opening_state_ref: openingThree.state_ref,
         decision_id: null,
-        replay_input_manifest: replayManifest(openingThree.state_ref, "round_w4_3", 3)
+        replay_input_manifest: replayManifest(openingThree.state_ref, "round_w4_3", 3, [])
       }
     );
     expect(repository.snapshot().initiatives[0]?.status).toBe("active");
@@ -289,7 +407,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const settled = await service.settleRound(scope, {
       opening_state_ref: opening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(opening.state_ref)
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
     });
 
     await expect(
@@ -311,10 +431,12 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       service.settleRound(scope, {
         opening_state_ref: { ...opening.state_ref, round_id: "round_tampered" },
         decision_id: null,
-        replay_input_manifest: replayManifest({
-          ...opening.state_ref,
-          round_id: "round_tampered"
-        })
+        replay_input_manifest: replayManifest(
+          { ...opening.state_ref, round_id: "round_tampered" },
+          "round_tampered",
+          scope.round_no,
+          []
+        )
       })
     ).rejects.toMatchObject({ code: "W4_STATE_REF_CONFLICT" });
   });
@@ -366,7 +488,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const settled = await service.settleRound(scope, {
       opening_state_ref: opening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(opening.state_ref)
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
     });
     const next = await service.createNextRoundOpening({
       ...scope,
@@ -379,7 +503,7 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       {
         opening_state_ref: next.state_ref,
         decision_id: null,
-        replay_input_manifest: replayManifest(next.state_ref, "round_w4_2", 2)
+        replay_input_manifest: replayManifest(next.state_ref, "round_w4_2", 2, [])
       }
     );
 
@@ -399,7 +523,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       service.settleRound(scope, {
         opening_state_ref: opening.state_ref,
         decision_id: newProjectDecision.decision_id,
-        replay_input_manifest: replayManifest(opening.state_ref)
+       replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+         newProjectDecision.decision_id
+       ])
       })
     ).rejects.toMatchObject({ code: "W4_ATOMIC_COMMIT_FAILED" });
     expect(repository.snapshot().outcomes).toHaveLength(0);
@@ -408,7 +534,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const settled = await service.settleRound(scope, {
       opening_state_ref: opening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(opening.state_ref)
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
     });
     expect(repository.snapshot().outcomes[0]?.replay_input_manifest).toMatchObject({
       manifest_id: `manifest_${scope.run_id}_${scope.team_id}_1`,
@@ -435,7 +563,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const alphaOutcome = await service.settleRound(scope, {
       opening_state_ref: alphaOpening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(alphaOpening.state_ref)
+      replay_input_manifest: replayManifest(alphaOpening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
     });
 
     const betaScope = { ...scope, actor_id: "usr_student_beta", team_id: "team_beta" };
@@ -455,7 +585,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       opening_state_ref: betaOpening.state_ref,
       decision_id: betaDecision.decision_id,
       replay_input_manifest: {
-        ...replayManifest(betaOpening.state_ref),
+        ...replayManifest(betaOpening.state_ref, scope.round_id, scope.round_no, [
+          betaDecision.decision_id
+        ]),
         manifest_id: "manifest_run_w4_team_beta_1",
         team_id: "team_beta",
         decision_ids: [betaDecision.decision_id]
