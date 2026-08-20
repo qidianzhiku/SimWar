@@ -71,6 +71,7 @@ function initialState(): W4EnterpriseState {
       product_lines: ["core-care"],
       positioning: "trusted-care",
       organization: { team_size: 4 },
+      operating_units: [],
       portfolio: { projects: [], facilities: [] }
     }
   };
@@ -276,6 +277,44 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
           version: 1,
           state_digest: "0".repeat(64)
         }
+      })
+    ).rejects.toMatchObject({ code: "W4_STATE_REF_CONFLICT" });
+  });
+
+  it("rejects a non-sequential next-round context even when the closing ref is valid", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+    await service.commitStrategicDecision(scope, newProjectDecision);
+    const settled = await service.settleRound(scope, {
+      opening_state_ref: opening.state_ref,
+      decision_id: newProjectDecision.decision_id,
+      replay_input_manifest: replayManifest(opening.state_ref)
+    });
+
+    await expect(
+      service.createNextRoundOpening({
+        ...scope,
+        round_id: "round_w4_99",
+        round_no: 99,
+        opening_state_ref: settled.closing_state_ref
+      })
+    ).rejects.toMatchObject({ code: "W4_ROUND_SCOPE_CONFLICT" });
+  });
+
+  it("rejects a state reference whose digest matches but whose identity fields were tampered", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+
+    await expect(
+      service.settleRound(scope, {
+        opening_state_ref: { ...opening.state_ref, round_id: "round_tampered" },
+        decision_id: null,
+        replay_input_manifest: replayManifest({
+          ...opening.state_ref,
+          round_id: "round_tampered"
+        })
       })
     ).rejects.toMatchObject({ code: "W4_STATE_REF_CONFLICT" });
   });

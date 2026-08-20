@@ -21,6 +21,7 @@ type Portfolio = {
       state_digest: string;
     } | null;
     portfolio: { projects: string[]; facilities: string[] };
+    operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
     initiatives: Array<{
       initiative_id: string;
       kind: string;
@@ -89,6 +90,13 @@ export function W4EnterprisePortfolioPanel({
           </strong>
         </div>
         <div>
+          <span>OperatingUnit</span>
+          <strong>
+            {projection?.portfolios.reduce((sum, item) => sum + item.operating_units.length, 0) ??
+              0}
+          </strong>
+        </div>
+        <div>
           <span>Initiatives</span>
           <strong>
             {projection?.portfolios.reduce((sum, item) => sum + item.initiatives.length, 0) ?? 0}
@@ -99,7 +107,9 @@ export function W4EnterprisePortfolioPanel({
         {(projection?.portfolios ?? []).map((portfolio) => (
           <li key={`${portfolio.course_id}:${portfolio.run_id}`}>
             {portfolio.run_id} · State {portfolio.latest_state_ref?.enterprise_state_id ?? "—"} ·
-            Project {portfolio.portfolio.projects.join(", ") || "—"}
+            OperatingUnit {portfolio.operating_units.map((unit) => unit.name).join(", ") || "—"} ·
+            Project {portfolio.portfolio.projects.join(", ") || "—"} · Facility{" "}
+            {portfolio.portfolio.facilities.join(", ") || "—"}
           </li>
         ))}
       </ul>

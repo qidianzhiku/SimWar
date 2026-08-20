@@ -17,7 +17,7 @@ async function start(): Promise<{ server: Server; baseUrl: string }> {
   return { server, baseUrl: `http://127.0.0.1:${address.port}` };
 }
 
-async function login(baseUrl: string, username: "teacher" | "student"): Promise<string> {
+async function login(baseUrl: string, username: "teacher" | "student" | "admin"): Promise<string> {
   const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-tenant-id": tenantId },
@@ -82,6 +82,9 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
             product_lines: ["core-care"],
             positioning: "trusted-care",
             organization: { team_size: 4 },
+            operating_units: [
+              { operating_unit_id: "unit_alpha", name: "Alpha Operations", status: "active" }
+            ],
             portfolio: { projects: [], facilities: [] }
           }
         }
@@ -197,6 +200,24 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       expect(projection.status).toBe(200);
       expect(projection.body.data.state.cash).toBeUndefined();
       expect(projection.body.data.opening_state_ref).toEqual(continued.body.data.state_ref);
+
+      const admin = await login(baseUrl, "admin");
+      const adminProjection = await request<{
+        portfolios: Array<{
+          operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
+        }>;
+      }>(baseUrl, "/api/v1/bff/admin/w4/portfolio", admin);
+      expect(adminProjection.status).toBe(200);
+      expect(adminProjection.body.data.portfolios[0]?.operating_units).toEqual([
+        { operating_unit_id: "unit_alpha", name: "Alpha Operations", status: "active" }
+      ]);
+
+      const unknownRoundProjection = await request(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/99/portfolio?course_id=course_demo`,
+        student
+      );
+      expect(unknownRoundProjection.status).toBe(409);
     } finally {
       server.close();
       await once(server, "close");

@@ -144,6 +144,7 @@ export async function handleW4EnterpriseStateRoute(
             }
           : null,
         portfolio: latest?.state.portfolio ?? { projects: [], facilities: [] },
+        operating_units: latest?.state.operating_units ?? [],
         initiatives: initiatives.map((initiative) => ({
           initiative_id: initiative.initiative_id,
           kind: initiative.kind,
@@ -203,6 +204,7 @@ export async function handleW4EnterpriseStateRoute(
                     capacity: projection.state.capacity,
                     product_lines: projection.state.product_lines,
                     positioning: projection.state.positioning,
+                    operating_units: projection.state.operating_units,
                     portfolio: projection.state.portfolio
                   }
                 : null
@@ -257,6 +259,9 @@ export async function handleW4EnterpriseStateRoute(
     );
 
     if (request.method === "POST" && operation === "states") {
+      if (parsed.roundNo !== 1) {
+        throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      }
       const supplied = (body.state ?? {}) as Partial<W4EnterpriseState["state"]>;
       const input: W4EnterpriseState = {
         enterprise_state_id: String(
@@ -279,6 +284,9 @@ export async function handleW4EnterpriseStateRoute(
             : ["core-care"],
           positioning: String(supplied.positioning ?? "trusted-care"),
           organization: supplied.organization ?? { team_size: 4 },
+          operating_units: Array.isArray(supplied.operating_units)
+            ? structuredClone(supplied.operating_units)
+            : [{ operating_unit_id: "unit_default", name: "Core Operations", status: "active" }],
           portfolio: supplied.portfolio ?? { projects: [], facilities: [] }
         }
       };

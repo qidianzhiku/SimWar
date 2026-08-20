@@ -110,6 +110,22 @@ function scopeMatches(
   );
 }
 
+function stateMatchesExactRef(state: W4EnterpriseState, reference: W4StateRef): boolean {
+  return (
+    state.enterprise_state_id === reference.enterprise_state_id &&
+    state.tenant_id === reference.tenant_id &&
+    state.course_id === reference.course_id &&
+    state.run_id === reference.run_id &&
+    state.team_id === reference.team_id &&
+    state.round_id === reference.round_id &&
+    state.version === reference.version &&
+    state.state_digest === reference.state_digest &&
+    (reference.parent_state_ref === undefined
+      ? state.parent_state_ref === null
+      : JSON.stringify(state.parent_state_ref) === JSON.stringify(reference.parent_state_ref))
+  );
+}
+
 function assertScope(scope: W4ScopeContext, value: W4CanonicalStrategicDecision): void {
   if (
     scope.tenant_id !== value.tenant_id ||
@@ -188,6 +204,7 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
       product_lines: [],
       positioning: "",
       organization: {},
+      operating_units: [],
       portfolio: { projects: [project.project_name], facilities: [] }
     };
   }
@@ -197,6 +214,7 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
     product_lines: [],
     positioning: "",
     organization: {},
+    operating_units: [],
     portfolio: { projects: [], facilities: [] }
   };
 }
@@ -490,14 +508,14 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const current = repository.snapshot();
       const source = current.states.find(
         (state) =>
-          state.enterprise_state_id === context.opening_state_ref?.enterprise_state_id &&
-          state.state_digest === context.opening_state_ref?.state_digest &&
-          state.tenant_id === context.tenant_id &&
-          state.course_id === context.course_id &&
-          state.run_id === context.run_id &&
-          state.team_id === context.team_id
+          context.opening_state_ref !== null &&
+          stateMatchesExactRef(state, context.opening_state_ref) &&
+          scopeMatches(context, state)
       );
       if (!source) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
+      if (context.round_no !== source.round_no + 1) {
+        throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      }
       return {
         state_ref: clone(context.opening_state_ref),
         source_closing_state_ref: clone(context.opening_state_ref)
@@ -511,12 +529,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const before = repository.snapshot();
       const opening = before.states.find(
         (state) =>
-          state.enterprise_state_id === input.opening_state_ref.enterprise_state_id &&
-          state.state_digest === input.opening_state_ref.state_digest &&
-          state.tenant_id === scope.tenant_id &&
-          state.course_id === scope.course_id &&
-          state.run_id === scope.run_id &&
-          state.team_id === scope.team_id
+          stateMatchesExactRef(state, input.opening_state_ref) && scopeMatches(scope, state)
       );
       if (!opening) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
       assertReplayInputManifest(scope, input.opening_state_ref, input.replay_input_manifest);
@@ -648,7 +661,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
     ): Promise<{ applied: false; evidence: W4ReplayEvidence }> {
       const current = repository.snapshot();
       const outcome = current.outcomes.find(
-        (item) => item.official_outcome_id === outcomeId && scopeMatches(scope, item)
+        (item) =>
+          item.official_outcome_id === outcomeId &&
+          scopeMatches(scope, item) &&
+          item.round_id === scope.round_id &&
+          item.round_no === scope.round_no
       );
       if (!outcome) throw new W4EnterpriseStateError("W4_OUTCOME_NOT_FOUND");
       const evidence: W4ReplayEvidence = {
@@ -672,7 +689,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
     async replay(scope: W4ScopeContext, outcomeId: string): Promise<W4ReplayEvidence> {
       const current = repository.snapshot();
       const outcome = current.outcomes.find(
-        (item) => item.official_outcome_id === outcomeId && scopeMatches(scope, item)
+        (item) =>
+          item.official_outcome_id === outcomeId &&
+          scopeMatches(scope, item) &&
+          item.round_id === scope.round_id &&
+          item.round_no === scope.round_no
       );
       if (!outcome) throw new W4EnterpriseStateError("W4_OUTCOME_NOT_FOUND");
       const evidence: W4ReplayEvidence = {
@@ -706,6 +727,19 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
 
     async getProjection(scope: W4ScopeContext) {
       const current = repository.snapshot();
+      const scopedStates = current.states.filter((state) => scopeMatches(scope, state));
+      const scopedOutcomes = current.outcomes.filter((outcome) => scopeMatches(scope, outcome));
+      const highestRound = Math.max(
+        ...scopedStates.map((state) => state.round_no),
+        ...scopedOutcomes.map((outcome) => outcome.round_no),
+        0
+      );
+      const isKnownOrNextRound =
+        scope.round_no >= 1 &&
+        (scope.round_no <= highestRound + 1 || (highestRound === 0 && scope.round_no === 1));
+      if (!isKnownOrNextRound) {
+        throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      }
       const outcomes = current.outcomes.filter((item) => scopeMatches(scope, item));
       const currentOutcome = outcomes.find((item) => item.round_id === scope.round_id);
       const latestOutcome = outcomes

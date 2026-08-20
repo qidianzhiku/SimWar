@@ -63,6 +63,7 @@ export interface W4EnterpriseStateData {
   product_lines: string[];
   positioning: string;
   organization: Record<string, number | string>;
+  operating_units: W4OperatingUnit[];
   portfolio: {
     projects: string[];
     facilities: string[];
@@ -96,6 +97,12 @@ export interface W4NewProjectPayload {
   bed_mix: Record<string, number>;
   ramp: number;
   lead_time_rounds: number;
+}
+
+export interface W4OperatingUnit {
+  operating_unit_id: string;
+  name: string;
+  status: "active" | "planned";
 }
 
 export interface W4CanonicalStrategicDecision {

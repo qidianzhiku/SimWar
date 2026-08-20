@@ -61,6 +61,9 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
       product_lines: ["core-care"],
       positioning: "trusted-care",
       organization: { team_size: 4 },
+      operating_units: [
+        { operating_unit_id: "unit_alpha", name: "Alpha Operations", status: "active" }
+      ],
       portfolio: { projects: [], facilities: [] }
     }
   });

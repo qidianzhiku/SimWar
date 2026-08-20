@@ -4218,7 +4218,7 @@ paths:
       security: [{ SessionBearer: [] }]
       responses:
         "200":
-          description: Admin Group/Portfolio/Project/Facility projection.
+          description: Admin Group/Portfolio/OperatingUnit/Project/Facility projection.
           content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
 
 components:
