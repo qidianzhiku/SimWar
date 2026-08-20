@@ -57,11 +57,21 @@ the W4 remediation control evidence:
 | actor / tenant | token tenant and request tenant differ | `403 TENANT-403-001` |
 | course | course does not own the Run | `409 W4_COURSE_SCOPE_CONFLICT` |
 | run | unknown Run | `404 W4_RUN_NOT_FOUND` |
-| round | unknown round, stale round, or round ID mismatched with path round | `409 W4_ROUND_SCOPE_CONFLICT` |
+| round | non-adjacent unknown round or round ID mismatched with path round | `409 W4_ROUND_SCOPE_CONFLICT` |
 | team | learner requests another team | `409 W4_TEAM_SCOPE_CONFLICT` |
 | role | student invokes teacher-only state creation | `403 D4_REPORT_SCOPE_VIOLATION` |
 | activity | caller-supplied activity is ignored | fixed server activity `w4-enterprise-state-strategic-evolution`; caller activity is not authoritative |
 | state reference | stale or unknown continuation reference | `409 W4_STATE_REF_CONFLICT` |
+
+Round scope has one explicit read-only limit: when a caller omits `round_id`
+and requests the immediately following numeric path round, the projection
+service accepts the adjacent round and returns an empty W4 projection. This
+preserves existing Teacher journeys while no W4 state or official outcome is
+available. It is not evidence that the primary runtime Round exists, and it
+does not authorize a state mutation. A supplied `round_id` is always resolved
+against the path round; stale, mismatched, or non-adjacent unknown rounds fail
+closed with `W4_ROUND_SCOPE_CONFLICT`. This is recorded as `LIMIT`, not `PASS`,
+for the round dimension.
 
 Admin history comparison recognizes `admin`, `tenant_admin`, and
 `platform_admin`; no cross-tenant projection is introduced.
