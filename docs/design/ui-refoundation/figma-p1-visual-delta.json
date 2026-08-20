@@ -2,7 +2,7 @@
   "schema_version": 1,
   "change_id": "figma-p1-visual-foundation",
   "figma_file_key": "6ezOykmrZbMbFEYPfIkZ07",
-  "base_sha": "b95aaaf9b93a99261acc28780b5fbc4d92d8a79a",
+  "base_sha": "2304f79b70d68f62a504073ae90232e1f52719cd",
   "change_type": "design-system-token-typography-surface-migration",
   "accepted_roles": {
     "admin": {

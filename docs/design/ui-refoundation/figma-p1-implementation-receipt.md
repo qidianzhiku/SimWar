@@ -2,7 +2,7 @@
 
 **Receipt ID**: `SIMWAR-FE-P1-FIGMA-IMPLEMENTATION-2026-08-20`
 
-**Implementation code head**: `caa5c4438aaa0ec27ead585c2d3e13e9bfc3dd3b`
+**Implementation code head**: `c33b30690ef2d60e6490eed5e91e83b19b65e546`
 
 **Base**: `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f` (`origin/master` at task start)
 
@@ -27,7 +27,7 @@ The applications intentionally remain single-root hash workspaces. There is no R
 
 ## Visual regression interpretation
 
-The ordinary PR4 pixel threshold remains `0.01` for regression work. This mission is also an intentional Figma visual migration: the approved board replaces the legacy page surface, typography, spacing, radius, and semantic color layer. Those expected differences are declared in [`figma-p1-visual-delta.json`](./figma-p1-visual-delta.json), bound to BASE `b95aaaf9b93a99261acc28780b5fbc4d92d8a79a` and the approved Figma file. The comparator still fails closed for missing, malformed, undeclared, or over-limit pairs; declared pairs are emitted as `acceptable_difference` with their raw pixel ratios and diff PNGs retained. This is a visual acceptance classification, not a suppression of screenshot generation or pixel measurement.
+The ordinary PR4 pixel threshold remains `0.01` for regression work. This mission is also an intentional Figma visual migration: the approved board replaces the legacy page surface, typography, spacing, radius, and semantic color layer. Those expected differences are declared in [`figma-p1-visual-delta.json`](./figma-p1-visual-delta.json), bound to BASE `2304f79b70d68f62a504073ae90232e1f52719cd` and the approved Figma file. The comparator still fails closed for missing, malformed, undeclared, or over-limit pairs; declared pairs are emitted as `acceptable_difference` with their raw pixel ratios and diff PNGs retained. This is a visual acceptance classification, not a suppression of screenshot generation or pixel measurement.
 
 ## Synced design system
 
@@ -54,7 +54,7 @@ The ordinary PR4 pixel threshold remains `0.01` for regression work. This missio
 Clean exact-head browser evidence was written outside the repository at:
 `C:\Users\Marshall\AppData\Local\Temp\simwar-figma-p1-final-20260820-045851`.
 
-The evidence uses base `b95aaaf9b93a99261acc28780b5fbc4d92d8a79a`, head/actual `caa5c4438aaa0ec27ead585c2d3e13e9bfc3dd3b`, and a clean checkout. The Playwright result is `4 passed`, with 20 external PNG captures and no failed tests. The old-base pixel comparator is intentionally classified by the explicit Figma visual-delta receipt above; it is not silently treated as a zero-diff regression.
+The evidence uses base `2304f79b70d68f62a504073ae90232e1f52719cd`, head/actual `c33b30690ef2d60e6490eed5e91e83b19b65e546`, and a clean checkout. The Playwright result is `4 passed`, with 20 external PNG captures and no failed tests. The base-to-candidate pixel comparator is intentionally classified by the explicit Figma visual-delta receipt above; it is not silently treated as a zero-diff regression.
 
 Already passing in the implementation worktree:
 
