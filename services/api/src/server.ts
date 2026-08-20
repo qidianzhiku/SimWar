@@ -52,7 +52,10 @@ import type {
   TeamMember,
   TeamDivergenceValue,
   TenantBaselineProvisioningRequest,
-  User
+  User,
+  W4DecisionAdmission,
+  W4ReplayInputManifest,
+  W4ScopeContext
 } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
 import type {
@@ -5479,7 +5482,160 @@ async function routeRequest(
         resolveRun: (tenantId, runId) =>
           runtime.repositoryProvider.facade.runs.getRun(tenantId, runId),
         resolveTeam: (tenantId, teamId) =>
-          runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId)
+          runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId),
+        admitStrategicDecision: async (scope, decision): Promise<W4DecisionAdmission> => {
+          const run = await runtime.repositoryProvider.facade.runs.getRun(
+            scope.tenant_id,
+            scope.run_id
+          );
+          const team = await runtime.repositoryProvider.facade.teams.getTeam(
+            scope.tenant_id,
+            scope.team_id
+          );
+          const round = run
+            ? await getRoundForRead(runtime, context, scope.run_id, scope.round_no)
+            : null;
+          if (!run || !team || team.course_id !== run.course_id || round?.round_id !== scope.round_id) {
+            throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+          }
+          const admission = await resolveRunDecisionAdmissionPolicy(
+            runtime,
+            scope.tenant_id,
+            scope.run_id
+          );
+          if (!admission.policy || admission.authority === "missing") {
+            throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+          }
+          if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+            try {
+              const admitted = await resolveFormalCanonicalDecisionSet({
+                roleWorkflow: runtime.repositoryProvider.ports.roleWorkflow,
+                round,
+                run,
+                team,
+                tenantId: scope.tenant_id
+              });
+              const canonical = admitted.decisions[0];
+              if (!canonical || canonical.team_id !== decision.team_id) {
+                throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+              }
+              return {
+                policy: admission.policy,
+                authority: "formal_run_runtime_binding",
+                canonical_decision_id: canonical.decision_id,
+                merge_commit_id: canonical.merge_commit_id ?? null,
+                team_confirmation_id: canonical.team_confirmation_id ?? null
+              };
+            } catch (error) {
+              if (error instanceof W4EnterpriseStateError) throw error;
+              if (error instanceof CanonicalDecisionAdmissionError) {
+                throw new W4EnterpriseStateError(`W4_${error.code}`);
+              }
+              throw error;
+            }
+          }
+          try {
+            await runtime.roleWorkflow.assertDirectDecisionSubmissionAllowed(
+              roleWorkflowActor(context, "student"),
+              { round_id: round.round_id, run_id: run.run_id, team_id: team.team_id },
+              admission.policy
+            );
+          } catch (error) {
+            if (error instanceof W4EnterpriseStateError) throw error;
+            throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+          }
+          return {
+            policy: admission.policy,
+            authority: "synthetic_run_creation_marker",
+            canonical_decision_id: null,
+            merge_commit_id: null,
+            team_confirmation_id: null
+          };
+        },
+        assertSettlementReady: async (
+          scope: W4ScopeContext,
+          openingStateRef: W4ReplayInputManifest["opening_state_ref"]
+        ): Promise<W4ReplayInputManifest> => {
+          const run = await runtime.repositoryProvider.facade.runs.getRun(
+            scope.tenant_id,
+            scope.run_id
+          );
+          if (!run) throw new W4EnterpriseStateError("W4_RUN_NOT_FOUND");
+          const round = await getRoundForRead(runtime, context, scope.run_id, scope.round_no);
+          if (
+            round.round_id !== scope.round_id ||
+            (round.status !== "locked" && round.status !== "settled" && round.status !== "published")
+          ) {
+            throw new W4EnterpriseStateError("W4_ROUND_NOT_LOCKED_CONFLICT");
+          }
+          const team = await runtime.repositoryProvider.facade.teams.getTeam(
+            scope.tenant_id,
+            scope.team_id
+          );
+          if (!team || team.course_id !== run.course_id) {
+            throw new W4EnterpriseStateError("W4_TEAM_SCOPE_CONFLICT");
+          }
+          const admission = await resolveRunDecisionAdmissionPolicy(
+            runtime,
+            scope.tenant_id,
+            scope.run_id
+          );
+          if (!admission.policy || admission.authority === "missing") {
+            throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+          }
+          let decisionIds: string[];
+          if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+            try {
+              const admitted = await resolveFormalCanonicalDecisionSet({
+                roleWorkflow: runtime.repositoryProvider.ports.roleWorkflow,
+                round,
+                run,
+                team,
+                tenantId: scope.tenant_id
+              });
+              decisionIds = admitted.decisions.map((decision) => decision.decision_id);
+            } catch (error) {
+              if (error instanceof CanonicalDecisionAdmissionError) {
+                throw new W4EnterpriseStateError(`W4_${error.code}`);
+              }
+              throw error;
+            }
+          } else {
+            const roundDecisions =
+              await runtime.repositoryProvider.facade.decisions.listDecisionsForRound(
+                scope.tenant_id,
+                scope.run_id,
+                round.round_id
+              );
+            const canonical = roundDecisions.find(
+              (decision) =>
+                decision.team_id === scope.team_id &&
+                decision.round_no === scope.round_no &&
+                (decision.status === "validated" || decision.status === "submitted")
+            );
+            if (!canonical) throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+            decisionIds = [canonical.decision_id];
+          }
+          const runtimeInputs = await resolveRunRuntimeInputs(runtime, scope.tenant_id, run);
+          if (!runtimeInputs) throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
+          return {
+            manifest_id: `manifest_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
+            tenant_id: scope.tenant_id,
+            course_id: scope.course_id,
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            round_id: scope.round_id,
+            opening_state_ref: structuredClone(openingStateRef),
+            decision_ids: decisionIds,
+            scenario_package_id: run.scenario_package_id,
+            parameter_set_id: run.parameter_set_id,
+            engine_id:
+              runtimeInputs.formalRuntimeBinding?.binding.engine_reference.engine_id ??
+              "toy_logit_wellness_v1",
+            plugin_ids: [...runtimeInputs.scenario.plugin_package_ids],
+            seed: runtimeInputs.formalRuntimeBinding?.binding.seed ?? run.seed
+          };
+        }
       }
     )
   )

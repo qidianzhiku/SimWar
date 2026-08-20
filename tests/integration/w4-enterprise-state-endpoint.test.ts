@@ -60,6 +60,14 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       );
       expect(created.status).toBe(201);
       const activeRunId = created.body.data.run.run_id;
+      const started = await request<{ round_id: string }>(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/start`,
+        teacher,
+        {}
+      );
+      expect(started.status).toBe(200);
+      const roundId = started.body.data.round_id;
       const initial = await request<{ state_ref: unknown }>(
         baseUrl,
         `/api/v1/w4/runs/${activeRunId}/rounds/1/states`,
@@ -67,6 +75,7 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
         {
           course_id: "course_demo",
           team_id: "team_alpha",
+          round_id: roundId,
           state: {
             cash: 1000,
             capacity: 100,
@@ -86,12 +95,13 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
         {
           course_id: "course_demo",
           team_id: "team_alpha",
+          round_id: roundId,
           decision: {
             decision_id: "w4-http-decision-1",
             tenant_id: tenantId,
             course_id: "course_demo",
             run_id: activeRunId,
-            round_id: `round_${activeRunId}_1`,
+            round_id: roundId,
             round_no: 1,
             team_id: "team_alpha",
             kind: "new_project",
@@ -112,6 +122,46 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       );
       expect(decision.status).toBe(201);
 
+      const openRoundSettlement = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/settle`,
+        teacher,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          opening_state_ref: initial.body.data.state_ref,
+          decision_id: "w4-http-decision-1"
+        }
+      );
+      expect(openRoundSettlement.status).toBe(409);
+
+      const canonicalRoundDecision = await request(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/decisions`,
+        student,
+        {
+          team_id: "team_alpha",
+          decision_payload: {
+            pricing: { base_price: 12000 },
+            marketing_budget: 10,
+            service_quality_budget: 10,
+            capacity_plan: "hold",
+            cash_buffer_target: 0.3,
+            strategy_statement: "W4 settlement admission decision"
+          }
+        }
+      );
+      expect(canonicalRoundDecision.status).toBe(201);
+
+      const locked = await request(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/lock`,
+        teacher,
+        {}
+      );
+      expect(locked.status).toBe(200);
+
       const settled = await request<{ closing_state_ref: Record<string, unknown> }>(
         baseUrl,
         `/api/v1/w4/runs/${activeRunId}/rounds/1/settle`,
@@ -119,6 +169,7 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
         {
           course_id: "course_demo",
           team_id: "team_alpha",
+          round_id: roundId,
           opening_state_ref: initial.body.data.state_ref,
           decision_id: "w4-http-decision-1"
         }

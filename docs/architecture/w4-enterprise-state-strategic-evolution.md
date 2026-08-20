@@ -19,11 +19,12 @@ Opening Enterprise State
 
 ## 事实与引用
 
-- State identity 由 `enterprise_state_id`、scope、round、version 和 SHA-256 `state_digest` 组成。
+- State identity 由 `enterprise_state_id`、tenant/course/run/team scope、round、version 和 SHA-256 `state_digest` 组成；不同 team 在同一 Run/round 下不会共享 state/outcome identity。
 - Initial State 的 `parent_state_ref` 为 `null`；Closing State 的 parent 必须是本次输入的完整 Opening State ref。
 - 下一回合只接受已存在且 digest 匹配的 Closing State ref，不重建或复制第二份 Opening Truth。
 - Official Outcome 与 Closing State 通过一次 repository commit 写入；commit 失败时恢复原快照。
 - 后续回合只消费持久 Commitment / Effect，不重新执行历史 Decision；`reexecuted_decision_ids` 固定为空数组。
+- 每个 Official Outcome 原子保存 replay input manifest，包含 admitted decision IDs、scenario、parameter set、engine、plugin IDs 和 exact seed；manifest 的 opening ref 必须与本次 settlement 输入完全一致。
 - Replay 只产生证据，Shadow Replay 永不应用正式结果。
 
 ## 产品垂直与投影
@@ -42,6 +43,6 @@ M&A、ABS、IPO、project sale 和 project closure 只通过 typed `W4PolicySeam
 
 ## 路由安全边界
 
-所有 W4 round-scoped 路由在 route layer 绑定 actor、tenant、course、run、team、round、role 和固定 activity id `w4-enterprise-state-strategic-evolution`，并在应用服务前验证 Run 与 Team 的租户/课程归属。Learner 只能访问自己的 team。Admin aggregate 只在当前 tenant 的 Admin 会话下可读，且不暴露写入接口。
+所有 W4 round-scoped 路由在 route layer 绑定 actor、tenant、course、run、team、round、role 和固定 activity id `w4-enterprise-state-strategic-evolution`，并在应用服务前验证 Run 与 Team 的租户/课程归属。Learner 只能访问自己的 team。Strategic Decision 不信任客户端的 `canonical` 标记：formal run 必须由现有 role-workflow canonical admission 返回 merge commit/team confirmation 证据，legacy direct 仅接受显式 synthetic admission。Settlement 只接受已锁定（或已结算/发布）的真实 Round，并再次验证该 team 的 canonical admission。Admin aggregate 只在当前 tenant 的 Admin 会话下可读，且不暴露写入接口。
 
 W3 的历史 `W3-SECURITY-LIMIT-ROLE-ACTIVITY-RECEIPT` 未被 W4 新路径复用，保留为 `NOT_CONSUMED_PRESERVED`；W4 不扩展 PostgreSQL/RLS、Pilot 或 Production 权限。

@@ -17,6 +17,11 @@ export type W4PolicySeamKind =
 
 export type W4PolicySeamStatus = "proposed" | "under_review" | "approved" | "rejected" | "closed";
 
+export type W4DecisionAdmissionPolicy = "ROLE_WORKFLOW_REQUIRED" | "LEGACY_DIRECT_EXPLICIT";
+export type W4DecisionAdmissionAuthority =
+  | "formal_run_runtime_binding"
+  | "synthetic_run_creation_marker";
+
 export type W4CommitmentStatus = "active" | "completed" | "failed" | "cancelled";
 export type W4EffectStatus = "pending" | "active" | "expired";
 export type W4InitiativeStatus =
@@ -44,6 +49,7 @@ export interface W4StateRef {
   tenant_id: string;
   course_id: string;
   run_id: string;
+  team_id: string;
   round_id: string;
   enterprise_state_id: string;
   version: number;
@@ -68,6 +74,7 @@ export interface W4EnterpriseState {
   tenant_id: string;
   course_id: string;
   run_id: string;
+  team_id: string;
   round_id: string;
   round_no: number;
   version: number;
@@ -103,6 +110,15 @@ export interface W4CanonicalStrategicDecision {
   version: number;
   status: "canonical";
   payload: W4NewProjectPayload | Record<string, unknown>;
+  admission: W4DecisionAdmission;
+}
+
+export interface W4DecisionAdmission {
+  policy: W4DecisionAdmissionPolicy;
+  authority: W4DecisionAdmissionAuthority;
+  canonical_decision_id: string | null;
+  merge_commit_id: string | null;
+  team_confirmation_id: string | null;
 }
 
 export interface W4Commitment {
@@ -174,8 +190,25 @@ export interface W4OfficialOutcome {
   commitment_ids: string[];
   persistent_effect_ids: string[];
   reexecuted_decision_ids: string[];
+  replay_input_manifest: W4ReplayInputManifest;
   settlement_digest: string;
   status: "official";
+}
+
+export interface W4ReplayInputManifest {
+  manifest_id: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  round_id: string;
+  opening_state_ref: W4StateRef;
+  decision_ids: string[];
+  scenario_package_id: string;
+  parameter_set_id: string;
+  engine_id: string;
+  plugin_ids: string[];
+  seed: number;
 }
 
 export interface W4ReplayEvidence {

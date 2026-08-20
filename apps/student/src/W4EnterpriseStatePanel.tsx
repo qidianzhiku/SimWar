@@ -19,6 +19,7 @@ interface Props {
   tenantId: string;
   courseId?: string | undefined;
   runId?: string | undefined;
+  roundId?: string | undefined;
   roundNo?: number | undefined;
   teamId?: string | undefined;
 }
@@ -49,6 +50,7 @@ export function W4EnterpriseStatePanel({
   tenantId,
   courseId = "course_demo",
   runId,
+  roundId,
   roundNo,
   teamId
 }: Props) {
@@ -110,7 +112,7 @@ export function W4EnterpriseStatePanel({
   }, [courseId, reloadVersion, roundNo, runId, teamId, tenantId, token]);
 
   async function submitProject(): Promise<void> {
-    if (!runId || !roundNo || !teamId) return;
+    if (!runId || !roundId || !roundNo || !teamId) return;
     setBusy(true);
     setNotice("");
     try {
@@ -131,7 +133,7 @@ export function W4EnterpriseStatePanel({
               tenant_id: tenantId,
               course_id: courseId,
               run_id: runId,
-              round_id: `round_${runId}_${roundNo}`,
+              round_id: roundId,
               round_no: roundNo,
               team_id: teamId,
               kind: "new_project",

@@ -1,5 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { CurrentUser, W4EnterpriseState, W4ScopeContext } from "@simwar/shared-contracts";
+import type {
+  CurrentUser,
+  W4CanonicalStrategicDecision,
+  W4DecisionAdmission,
+  W4EnterpriseState,
+  W4ReplayInputManifest,
+  W4ScopeContext,
+  W4StateRef
+} from "@simwar/shared-contracts";
 import {
   createEnterpriseStateStrategicEvolutionService,
   W4EnterpriseStateError,
@@ -19,6 +27,14 @@ interface W4RouteDependencies {
   requireAdmin: () => CurrentUser;
   resolveRun: (tenantId: string, runId: string) => Promise<{ course_id: string } | null>;
   resolveTeam: (tenantId: string, teamId: string) => Promise<{ course_id: string } | null>;
+  admitStrategicDecision: (
+    scope: W4ScopeContext,
+    decision: W4CanonicalStrategicDecision
+  ) => Promise<W4DecisionAdmission>;
+  assertSettlementReady: (
+    scope: W4ScopeContext,
+    openingStateRef: W4StateRef
+  ) => Promise<W4ReplayInputManifest>;
 }
 
 const ACTIVITY_ID = "w4-enterprise-state-strategic-evolution";
@@ -110,7 +126,10 @@ export async function handleW4EnterpriseStateRoute(
       );
       const latest = runStates.slice().sort((left, right) => right.round_no - left.round_no)[0];
       const initiatives = current.initiatives.filter(
-        (item) => item.course_id === courseId && item.run_id === runId
+        (item) =>
+          item.tenant_id === context.tenantId &&
+          item.course_id === courseId &&
+          item.run_id === runId
       );
       return {
         course_id: courseId,
@@ -240,10 +259,13 @@ export async function handleW4EnterpriseStateRoute(
     if (request.method === "POST" && operation === "states") {
       const supplied = (body.state ?? {}) as Partial<W4EnterpriseState["state"]>;
       const input: W4EnterpriseState = {
-        enterprise_state_id: String(body.enterprise_state_id ?? `state_${parsed.runId}_initial`),
+        enterprise_state_id: String(
+          body.enterprise_state_id ?? `state_${parsed.runId}_${scope.team_id}_initial`
+        ),
         tenant_id: context.tenantId,
         course_id: scope.course_id,
         run_id: parsed.runId,
+        team_id: scope.team_id,
         round_id: roundId,
         round_no: parsed.roundNo,
         version: 1,
@@ -269,17 +291,25 @@ export async function handleW4EnterpriseStateRoute(
       const decision = body.decision as Parameters<typeof service.commitStrategicDecision>[1];
       if (!decision || typeof decision !== "object")
         throw new W4EnterpriseStateError("W4_DECISION_REQUIRED");
-      const compiled = await service.commitStrategicDecision(scope, decision);
+      const admission = await dependencies.admitStrategicDecision(scope, decision);
+      const compiled = await service.commitStrategicDecision(scope, {
+        ...decision,
+        status: "canonical",
+        admission
+      });
       dependencies.sendJson(response, 201, dependencies.createEnvelope(context, compiled));
       return true;
     }
 
     if (request.method === "POST" && operation === "settle") {
+      const openingStateRef = body.opening_state_ref as Parameters<
+        typeof service.settleRound
+      >[1]["opening_state_ref"];
+      const replayInputManifest = await dependencies.assertSettlementReady(scope, openingStateRef);
       const result = await service.settleRound(scope, {
-        opening_state_ref: body.opening_state_ref as Parameters<
-          typeof service.settleRound
-        >[1]["opening_state_ref"],
-        decision_id: body.decision_id ? String(body.decision_id) : null
+        opening_state_ref: openingStateRef,
+        decision_id: body.decision_id ? String(body.decision_id) : null,
+        replay_input_manifest: replayInputManifest
       });
       dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
       return true;

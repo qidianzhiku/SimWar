@@ -3,6 +3,7 @@ import { settleEnterpriseState } from "@simwar/simulation-core";
 import type {
   W4CanonicalStrategicDecision,
   W4Commitment,
+  W4DecisionAdmission,
   W4EnterpriseState,
   W4EnterpriseStateData,
   W4OfficialOutcome,
@@ -10,6 +11,7 @@ import type {
   W4PolicySeamKind,
   W4PolicySeamStatus,
   W4ReplayEvidence,
+  W4ReplayInputManifest,
   W4RoundContext,
   W4ScopeContext,
   W4StateRef,
@@ -57,6 +59,7 @@ export function createJsonW4Repository(store: SimWarStore): W4Repository {
 export interface W4SettlementInput {
   opening_state_ref: W4StateRef;
   decision_id: string | null;
+  replay_input_manifest: W4ReplayInputManifest;
 }
 
 export interface W4CompiledStrategicDecision {
@@ -86,6 +89,7 @@ function stateRef(state: W4EnterpriseState, parent?: W4StateRef | null): W4State
     tenant_id: state.tenant_id,
     course_id: state.course_id,
     run_id: state.run_id,
+    team_id: state.team_id,
     round_id: state.round_id,
     enterprise_state_id: state.enterprise_state_id,
     version: state.version,
@@ -116,6 +120,57 @@ function assertScope(scope: W4ScopeContext, value: W4CanonicalStrategicDecision)
     scope.team_id !== value.team_id
   ) {
     throw new W4EnterpriseStateError("W4_SCOPE_CONFLICT");
+  }
+}
+
+function assertDecisionAdmission(admission: W4DecisionAdmission): void {
+  if (!admission || typeof admission !== "object") {
+    throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+  }
+  if (admission.policy === "ROLE_WORKFLOW_REQUIRED") {
+    if (
+      admission.authority !== "formal_run_runtime_binding" ||
+      !admission.canonical_decision_id ||
+      !admission.merge_commit_id ||
+      !admission.team_confirmation_id
+    ) {
+      throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+    }
+    return;
+  }
+  if (
+    admission.policy !== "LEGACY_DIRECT_EXPLICIT" ||
+    admission.authority !== "synthetic_run_creation_marker" ||
+    admission.canonical_decision_id !== null ||
+    admission.merge_commit_id !== null ||
+    admission.team_confirmation_id !== null
+  ) {
+    throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+  }
+}
+
+function assertReplayInputManifest(
+  scope: W4ScopeContext,
+  openingStateRef: W4StateRef,
+  manifest: W4ReplayInputManifest
+): void {
+  if (
+    !manifest ||
+    typeof manifest !== "object" ||
+    manifest.tenant_id !== scope.tenant_id ||
+    manifest.course_id !== scope.course_id ||
+    manifest.run_id !== scope.run_id ||
+    manifest.team_id !== scope.team_id ||
+    manifest.round_id !== scope.round_id ||
+    JSON.stringify(manifest.opening_state_ref) !== JSON.stringify(openingStateRef) ||
+    !manifest.scenario_package_id ||
+    !manifest.parameter_set_id ||
+    !manifest.engine_id ||
+    !Number.isInteger(manifest.seed) ||
+    manifest.seed < 0 ||
+    manifest.plugin_ids.some((pluginId) => !pluginId.trim())
+  ) {
+    throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
   }
 }
 
@@ -235,13 +290,22 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       input: W4EnterpriseState
     ): Promise<{ state: W4EnterpriseState; state_ref: W4StateRef; state_digest: string }> {
       const current = repository.snapshot();
-      if (current.states.some((state) => state.run_id === scope.run_id && state.round_no === 1)) {
+      if (
+        current.states.some(
+          (state) =>
+            state.tenant_id === scope.tenant_id &&
+            state.run_id === scope.run_id &&
+            state.team_id === scope.team_id &&
+            state.round_no === 1
+        )
+      ) {
         throw new W4EnterpriseStateError("W4_INITIAL_STATE_EXISTS");
       }
       if (
         scope.tenant_id !== input.tenant_id ||
         scope.course_id !== input.course_id ||
-        scope.run_id !== input.run_id
+        scope.run_id !== input.run_id ||
+        scope.team_id !== input.team_id
       ) {
         throw new W4EnterpriseStateError("W4_SCOPE_CONFLICT");
       }
@@ -264,6 +328,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       decision: W4CanonicalStrategicDecision
     ): Promise<W4CompiledStrategicDecision> {
       assertScope(scope, decision);
+      assertDecisionAdmission(decision.admission);
       const current = repository.snapshot();
       if (current.decisions.some((item) => item.decision_id === decision.decision_id)) {
         throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
@@ -429,7 +494,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           state.state_digest === context.opening_state_ref?.state_digest &&
           state.tenant_id === context.tenant_id &&
           state.course_id === context.course_id &&
-          state.run_id === context.run_id
+          state.run_id === context.run_id &&
+          state.team_id === context.team_id
       );
       if (!source) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
       return {
@@ -449,9 +515,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           state.state_digest === input.opening_state_ref.state_digest &&
           state.tenant_id === scope.tenant_id &&
           state.course_id === scope.course_id &&
-          state.run_id === scope.run_id
+          state.run_id === scope.run_id &&
+          state.team_id === scope.team_id
       );
       if (!opening) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
+      assertReplayInputManifest(scope, input.opening_state_ref, input.replay_input_manifest);
       if (
         input.decision_id &&
         !before.decisions.some((item) => item.decision_id === input.decision_id)
@@ -461,7 +529,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const priorOutcome = before.outcomes.find(
         (outcome) =>
           outcome.tenant_id === scope.tenant_id &&
+          outcome.course_id === scope.course_id &&
           outcome.run_id === scope.run_id &&
+          outcome.team_id === scope.team_id &&
           outcome.round_id === scope.round_id
       );
       if (priorOutcome)
@@ -497,10 +567,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       });
       const sourceData = stateTransition.closing;
       const closing: W4EnterpriseState = {
-        enterprise_state_id: `state_${scope.run_id}_${scope.round_no}`,
+        enterprise_state_id: `state_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
         tenant_id: scope.tenant_id,
         course_id: scope.course_id,
         run_id: scope.run_id,
+        team_id: scope.team_id,
         round_id: scope.round_id,
         round_no: scope.round_no,
         version: opening.version + 1,
@@ -510,7 +581,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       };
       const closingRef = stateRef(closing, clone(input.opening_state_ref));
       const outcome: W4OfficialOutcome = {
-        official_outcome_id: `outcome_${scope.run_id}_${scope.round_no}`,
+        official_outcome_id: `outcome_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
         tenant_id: scope.tenant_id,
         course_id: scope.course_id,
         run_id: scope.run_id,
@@ -522,6 +593,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         commitment_ids: activeCommitments.map((commitment) => commitment.commitment_id),
         persistent_effect_ids: stateTransition.persistent_effect_ids,
         reexecuted_decision_ids: [],
+        replay_input_manifest: clone(input.replay_input_manifest),
         settlement_digest: digest({
           opening: input.opening_state_ref,
           closing: closing.state_digest
@@ -644,7 +716,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           (state) =>
             state.tenant_id === scope.tenant_id &&
             state.course_id === scope.course_id &&
-            state.run_id === scope.run_id
+            state.run_id === scope.run_id &&
+            state.team_id === scope.team_id
         )
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];

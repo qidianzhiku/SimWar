@@ -43,11 +43,18 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   const created = await apiPost<{ run: Run }>(request, "/api/v1/courses/course_demo/runs", teacher);
   expect(created.response.ok()).toBe(true);
   const runId = created.body.data.run.run_id;
-  const roundId = `round_${runId}_1`;
+  const started = await apiPost<{ round_id: string }>(
+    request,
+    `/api/v1/runs/${runId}/rounds/1/start`,
+    teacher
+  );
+  expect(started.response.ok()).toBe(true);
+  const roundId = started.body.data.round_id;
 
   const state = await apiPost(request, `/api/v1/w4/runs/${runId}/rounds/1/states`, teacher, {
     course_id: "course_demo",
     team_id: "team_alpha",
+    round_id: roundId,
     state: {
       cash: 1000,
       capacity: 100,
@@ -65,6 +72,7 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
     {
       course_id: "course_demo",
       team_id: "team_alpha",
+      round_id: roundId,
       decision: {
         decision_id: `w4-browser-decision-${runId}`,
         tenant_id: tenantId,

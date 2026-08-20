@@ -770,6 +770,7 @@ export function App() {
               tenantId={login.tenantId}
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
+              roundId={latestRound?.round_id}
               roundNo={latestRound?.round_no}
               teamId={team?.team_id}
             />
