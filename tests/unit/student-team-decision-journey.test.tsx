@@ -279,6 +279,60 @@ describe("Student team decision journey", () => {
     fetchMock.mockRestore();
   });
 
+  it("fails closed when the server denies role-workspace read access", async () => {
+    const deniedFixture: W027StudentDecisionExperienceDTO = {
+      ...fixture,
+      context: {
+        ...fixture.context,
+        permissions: { ...fixture.context.permissions, can_read_role_workspace: false }
+      }
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(response(true, deniedFixture));
+    const { container, root } = renderPanel();
+
+    await act(async () => {
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(container.querySelector('[data-state="denied"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="问题框架"]')).toBeNull();
+    expect(container.textContent).toContain("当前角色无法读取该工作区");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("renders a server-bounded role mission before private judgment", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response(true));
+    const { container, root } = renderPanel();
+
+    await act(async () => {
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(container.textContent).toContain("角色任务");
+    expect(container.textContent).toContain("情境");
+    expect(container.textContent).toContain("张力");
+    expect(container.textContent).toContain("决策问题");
+    expect(container.textContent).toContain("角色视角");
+    expect(container.textContent).toContain("决策权");
+    expect(container.textContent).toContain("当前队伍角色");
+    expect(container.textContent).toContain("CFO");
+    expect(container.textContent).toContain("角色任务信息由当前服务端投影提供");
+    expect(container.textContent).toContain("60–90 秒");
+    const startJudgment = container.querySelector('a[href="#w027-private-judgment"]');
+    expect(startJudgment?.textContent).toContain("开始我的判断");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
   it("saves the complete private judgment as draft and keeps the editor after readback", async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -399,6 +453,44 @@ describe("Student team decision journey", () => {
     });
     expect(container.textContent).toContain("工作区刷新失败，请重试");
     expect(container.querySelector('[data-state="error"]')).not.toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("does not treat an unknown private-judgment receipt as a successful save", async () => {
+    const calls: string[] = [];
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.includes("private-judgment")) {
+        return { ok: true, json: async () => ({}) } as Response;
+      }
+      return response(true);
+    });
+    const { container, root } = renderPanel();
+
+    await act(async () => {
+      await vi.waitFor(() =>
+        expect(calls.some((url) => url.includes("decision-experience"))).toBe(true)
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    const save = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("保存私有判断")
+    );
+    expect(save).toBeDefined();
+    await act(async () => {
+      save?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() =>
+        expect(calls.some((url) => url.includes("private-judgment"))).toBe(true)
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(container.textContent).toContain("工作区暂时不可用，可以重试");
+    expect(container.textContent).toContain("FAILED_RETRYABLE");
 
     act(() => root.unmount());
     container.remove();

@@ -18,6 +18,7 @@ import {
 import type { P0DemoState, StudentRoleWorkflowWorkspaceDTO } from "@simwar/shared-contracts";
 import {
   canReadStudentRoleWorkspace,
+  requiredResolutionRoleKeys,
   isCurrentRoleWorkflowRequest,
   getRoleWorkflowNoticeCopy,
   roleWorkflowStatusCopy,
@@ -53,6 +54,45 @@ const expectedLocations = [
   ["student-learning-path", "学习路径"]
 ] as const;
 describe("Student executive workspace refoundation", () => {
+  it("derives divergence acknowledgement roles from the active team instead of assuming CHRO", () => {
+    const workspace = {
+      assignment: { role_key: "CEO" },
+      divergence_set: {
+        divergences: [
+          {
+            candidates: [
+              { role_key: "CEO" },
+              { role_key: "CFO" },
+              { role_key: "CMO" },
+              { role_key: "COO" }
+            ]
+          }
+        ]
+      },
+      resolution_acknowledgements: [
+        { role_key: "CEO" },
+        { role_key: "CFO" },
+        { role_key: "CMO" },
+        { role_key: "COO" }
+      ]
+    } as unknown as StudentRoleWorkflowWorkspaceDTO;
+
+    expect(requiredResolutionRoleKeys(workspace)).toEqual(["CEO", "CFO", "CMO", "COO"]);
+  });
+
+  it("keeps CHRO in the acknowledgement gate only when the server projection includes it", () => {
+    const workspace = {
+      assignment: { role_key: "CEO" },
+      divergence_set: {
+        divergences: [{ candidates: [{ role_key: "CHRO" }] }]
+      },
+      resolution_acknowledgements: [{ role_key: "CHRO" }]
+    } as unknown as StudentRoleWorkflowWorkspaceDTO;
+
+    expect(requiredResolutionRoleKeys(workspace)).toEqual(["CEO", "CHRO"]);
+    expect(requiredResolutionRoleKeys(workspace)).not.toContain("Quality & Risk");
+  });
+
   it("freezes thirteen stable student logical locations", () => {
     expect(STUDENT_NAVIGATION_ITEMS).toHaveLength(expectedLocations.length);
     expect(STUDENT_NAVIGATION_ITEMS.map(({ id, label }) => [id, label])).toEqual(expectedLocations);
@@ -763,11 +803,239 @@ describe("Student executive workspace refoundation", () => {
     expect(saveButton?.disabled).toBe(true);
 
     act(() => root.render(renderRound("round-b")));
+    expect(
+      [...container.querySelectorAll("button")].some(
+        (button) => button.textContent?.includes("保存角色草稿") && button.disabled
+      )
+    ).toBe(false);
     await act(async () => {
       resolveNext(response(workspace));
       await next;
+      await new Promise((resolve) => setTimeout(resolve, 100));
     });
-    expect(saveButton?.disabled).toBe(false);
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("renders a retryable role-workflow error when the initial projection fails", async () => {
+    const errorResponse = {
+      ok: false,
+      json: async () => ({ code: "ROLE_WORKFLOW_TEMPORARY", message: "temporary" })
+    } as unknown as Response;
+    let allowSuccess = false;
+    const successWorkspace = {
+      schema_version: "student-role-workflow-workspace.v1",
+      context: { permissions: { can_read_role_workspace: true } },
+      assignment: { role_key: "CEO" },
+      section: { status: "draft", version: 1, payload: {} }
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (!allowSuccess) return errorResponse;
+      return {
+        ok: true,
+        json: async () => ({
+          data: String(input).includes("decision-trace")
+            ? {
+                schema_version: "student-decision-trace.v1",
+                trace_stages: [],
+                current_stage: "NOT_STARTED",
+                trace_completeness: "empty"
+              }
+            : successWorkspace
+        })
+      } as unknown as Response;
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StudentRoleWorkflowPanel
+          active
+          roundId="round-a"
+          runId="run-a"
+          teamId="team-a"
+          tenantId="tenant-a"
+          token="student-token"
+        />
+      );
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(container.querySelector('[data-state="error"]')).not.toBeNull();
+    expect(container.textContent).toContain("角色工作区请求失败，请刷新后重试");
+    const retry = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("重新加载角色工作区")
+    );
+    expect(retry).toBeDefined();
+
+    await act(async () => {
+      allowSuccess = true;
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(container.textContent).toContain("当前角色工作区已就绪");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("fails closed when a role-workflow command has no receipt data", async () => {
+    const workspace = {
+      schema_version: "student-role-workflow-workspace.v1",
+      context: {
+        role_key: "CEO",
+        permissions: {
+          editable_fields: ["strategy_statement"],
+          can_read_role_workspace: true,
+          can_save_section: true,
+          can_mark_ready: true,
+          can_create_merge_commit: false,
+          can_confirm_team_decision: false,
+          can_submit_canonical_decision: false
+        }
+      },
+      assignment: { role_key: "CEO", status: "active", team_id: "team-a", user_id: "student-a" },
+      section: {
+        status: "draft",
+        version: 1,
+        payload: {
+          pricing: { base_price: 12800 },
+          marketing_budget: 0,
+          service_quality_budget: 0,
+          capacity_plan: "hold",
+          cash_buffer_target: 0.1,
+          strategy_statement: ""
+        }
+      }
+    } as unknown as StudentRoleWorkflowWorkspaceDTO;
+    const trace = {
+      schema_version: "student-decision-trace.v1",
+      trace_stages: [],
+      current_stage: "NOT_STARTED",
+      trace_completeness: "empty"
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("decision-trace")) {
+        return { ok: true, json: async () => ({ data: trace }) } as Response;
+      }
+      if (url.includes("/role-workspace/section")) {
+        return { ok: true, json: async () => ({}) } as Response;
+      }
+      return { ok: true, json: async () => ({ data: workspace }) } as Response;
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => {
+      root.render(
+        <StudentRoleWorkflowPanel
+          active
+          roundId="round-a"
+          runId="run-a"
+          teamId="team-a"
+          tenantId="tenant-a"
+          token="student-token"
+        />
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(container.textContent).toContain("当前角色工作区已就绪");
+    const save = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("保存角色草稿")
+    );
+    expect(save).toBeDefined();
+    await act(async () => {
+      save?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(container.textContent).toContain("未知回执");
+    expect(container.textContent).not.toContain("角色草稿已保存");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("clears the previous role workspace while a new context is loading", async () => {
+    const workspace = {
+      schema_version: "student-role-workflow-workspace.v1",
+      context: {
+        role_key: "CEO",
+        permissions: {
+          editable_fields: ["strategy_statement"],
+          can_read_role_workspace: true,
+          can_save_section: true,
+          can_mark_ready: true,
+          can_create_merge_commit: false,
+          can_confirm_team_decision: false,
+          can_submit_canonical_decision: false
+        }
+      },
+      assignment: { role_key: "CEO", status: "active", team_id: "team-a", user_id: "student-a" },
+      section: {
+        status: "draft",
+        version: 1,
+        payload: {
+          pricing: { base_price: 12800 },
+          marketing_budget: 0,
+          service_quality_budget: 0,
+          capacity_plan: "hold",
+          cash_buffer_target: 0.1,
+          strategy_statement: "旧上下文私有草稿"
+        }
+      }
+    } as unknown as StudentRoleWorkflowWorkspaceDTO;
+    let resolveNext!: (response: Response) => void;
+    const next = new Promise<Response>((resolve) => (resolveNext = resolve));
+    const trace = {
+      schema_version: "student-decision-trace.v1",
+      trace_stages: [],
+      current_stage: "NOT_STARTED",
+      trace_completeness: "empty"
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("round_id=round-b")) return next;
+      if (url.includes("decision-trace")) {
+        return { ok: true, json: async () => ({ data: trace }) } as Response;
+      }
+      return { ok: true, json: async () => ({ data: workspace }) } as Response;
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const render = (roundId: string) => (
+      <StudentRoleWorkflowPanel
+        active
+        roundId={roundId}
+        runId="run-a"
+        teamId="team-a"
+        tenantId="tenant-a"
+        token="student-token"
+      />
+    );
+    act(() => root.render(render("round-a")));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(container.textContent).toContain("旧上下文私有草稿");
+    act(() => root.render(render("round-b")));
+    expect(container.textContent).not.toContain("旧上下文私有草稿");
+    expect(container.textContent).toContain("正在读取当前角色工作区");
+    await act(async () => {
+      resolveNext({ ok: true, json: async () => ({ data: workspace }) } as Response);
+      await next;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
 
     act(() => root.unmount());
     container.remove();
