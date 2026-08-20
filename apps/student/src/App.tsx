@@ -821,6 +821,7 @@ export function App() {
               teamId={team?.team_id}
               tenantId={login.tenantId}
               token={activeSession?.access_token}
+              activeRoleKeys={team ? team.members.map((member) => member.role_slot) : []}
               onAvailabilityChange={setRoleWorkflowAvailability}
             />
           </section>

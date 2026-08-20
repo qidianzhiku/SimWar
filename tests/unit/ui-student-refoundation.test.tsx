@@ -93,6 +93,23 @@ describe("Student executive workspace refoundation", () => {
     expect(requiredResolutionRoleKeys(workspace)).not.toContain("Quality & Risk");
   });
 
+  it("uses the server-projected active roster when divergence candidates are deduplicated", () => {
+    const workspace = {
+      assignment: { role_key: "CEO" },
+      divergence_set: {
+        divergences: [{ candidates: [{ role_key: "CEO" }] }]
+      },
+      resolution_acknowledgements: []
+    } as unknown as StudentRoleWorkflowWorkspaceDTO;
+
+    expect(requiredResolutionRoleKeys(workspace, ["CEO", "CFO", "CMO", "COO"])).toEqual([
+      "CEO",
+      "CFO",
+      "CMO",
+      "COO"
+    ]);
+  });
+
   it("freezes thirteen stable student logical locations", () => {
     expect(STUDENT_NAVIGATION_ITEMS).toHaveLength(expectedLocations.length);
     expect(STUDENT_NAVIGATION_ITEMS.map(({ id, label }) => [id, label])).toEqual(expectedLocations);

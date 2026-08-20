@@ -94,6 +94,7 @@ interface StudentRoleWorkflowPanelProps {
   teamId: string | undefined;
   tenantId: string;
   token: string | undefined;
+  activeRoleKeys?: readonly RoleKey[];
   onAvailabilityChange?: (availability: "checking" | "active" | "inactive" | "error") => void;
 }
 
@@ -110,10 +111,11 @@ export function requiredResolutionRoleKeys(
   workspace: Pick<
     StudentRoleWorkflowWorkspaceDTO,
     "assignment" | "divergence_set" | "resolution_acknowledgements"
-  > | null
+  > | null,
+  activeRoleKeys: readonly RoleKey[] = []
 ): RoleKey[] {
   if (!workspace) return [];
-  const roles = new Set<RoleKey>([workspace.assignment.role_key]);
+  const roles = new Set<RoleKey>([...activeRoleKeys, workspace.assignment.role_key]);
   for (const divergence of workspace.divergence_set?.divergences ?? []) {
     for (const candidate of divergence.candidates) roles.add(candidate.role_key);
   }
@@ -447,7 +449,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const ownAcknowledgement = workspace?.resolution_acknowledgements?.find(
     (acknowledgement) => acknowledgement.role_key === workspace.context.role_key
   );
-  const allResolutionAcknowledged = requiredResolutionRoleKeys(workspace).every((roleKey) =>
+  const allResolutionAcknowledged = requiredResolutionRoleKeys(
+    workspace,
+    props.activeRoleKeys
+  ).every((roleKey) =>
     workspace?.resolution_acknowledgements?.some(
       (acknowledgement) => acknowledgement.role_key === roleKey
     )
@@ -605,7 +610,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                     每个角色都必须确认方案，或明确保留异议后才能创建团队合并。
                   </p>
                   <div className="role-workflow-list">
-                    {requiredResolutionRoleKeys(workspace).map((roleKey) => {
+                    {requiredResolutionRoleKeys(workspace, props.activeRoleKeys).map((roleKey) => {
                       const acknowledgement = workspace.resolution_acknowledgements?.find(
                         (candidate) => candidate.role_key === roleKey
                       );
