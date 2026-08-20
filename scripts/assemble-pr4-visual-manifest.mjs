@@ -18,8 +18,12 @@ const baselineArg = valueFor("--baseline", null);
 const candidateArg = valueFor("--candidate", null);
 const diffArg = valueFor("--diff-root", null);
 const outputArg = valueFor("--output", null);
+const expectedDiffReceiptArg = valueFor("--expected-diff-receipt", null);
 if ([baselineArg, candidateArg, diffArg, outputArg].some((path) => path && !isAbsolute(path))) {
   throw new Error("PR4 visual comparison paths must be absolute.");
+}
+if (expectedDiffReceiptArg && !isAbsolute(expectedDiffReceiptArg)) {
+  throw new Error("--expected-diff-receipt must be an absolute path.");
 }
 if (!evidenceRoot && [baselineArg, candidateArg, diffArg, outputArg].some((path) => !path)) {
   throw new Error(
@@ -60,6 +64,56 @@ const allowDirty = args.includes("--allow-dirty");
 const baseSha = valueFor("--base-sha", process.env.PR4_BASE_SHA ?? null);
 const headSha = valueFor("--head-sha", process.env.PR4_HEAD_SHA ?? process.env.GITHUB_SHA ?? null);
 const captureState = valueFor("--state", "candidate");
+let expectedVisualDelta = null;
+if (expectedDiffReceiptArg) {
+  if (!existsSync(expectedDiffReceiptArg)) {
+    throw new Error(`Expected visual-diff receipt does not exist: ${expectedDiffReceiptArg}`);
+  }
+  let receipt;
+  try {
+    receipt = JSON.parse(readFileSync(expectedDiffReceiptArg, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Expected visual-diff receipt is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  if (
+    receipt?.schema_version !== 1 ||
+    receipt?.change_type !== "design-system-token-typography-surface-migration"
+  ) {
+    throw new Error("Expected visual-diff receipt has an unsupported schema or change type.");
+  }
+  if (receipt?.figma_file_key !== "6ezOykmrZbMbFEYPfIkZ07") {
+    throw new Error("Expected visual-diff receipt must reference the approved SimWar Figma file.");
+  }
+  if (!baseSha || receipt?.base_sha !== baseSha) {
+    throw new Error(
+      "Expected visual-diff receipt BASE SHA does not match the comparison BASE SHA."
+    );
+  }
+  if (!receipt?.rationale || typeof receipt.rationale !== "string") {
+    throw new Error("Expected visual-diff receipt must include a human-readable rationale.");
+  }
+  const acceptedRoles = receipt?.accepted_roles;
+  if (!acceptedRoles || typeof acceptedRoles !== "object" || Array.isArray(acceptedRoles)) {
+    throw new Error("Expected visual-diff receipt must declare accepted_roles.");
+  }
+  for (const [role, configuration] of Object.entries(acceptedRoles)) {
+    const ratio = configuration?.max_diff_pixel_ratio;
+    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+      throw new Error(`Expected visual-diff receipt has an invalid ratio for role ${role}.`);
+    }
+  }
+  expectedVisualDelta = {
+    change_id: receipt.change_id ?? null,
+    figma_file_key: receipt.figma_file_key,
+    base_sha: receipt.base_sha,
+    change_type: receipt.change_type,
+    rationale: receipt.rationale,
+    accepted_roles: acceptedRoles,
+    receipt_path: resolve(expectedDiffReceiptArg)
+  };
+}
 
 const gitValue = (command) => {
   try {
@@ -155,6 +209,7 @@ const paths = [...new Set([...filesUnder(baselineRoot), ...filesUnder(candidateR
   .filter((path) => path.toLowerCase().endsWith(".png"))
   .sort();
 const failures = [];
+const acceptedDifferences = [];
 const surfaces = paths.map((path) => {
   const baselinePath = join(baselineRoot, path);
   const candidatePath = join(candidateRoot, path);
@@ -184,6 +239,7 @@ const surfaces = paths.map((path) => {
     dimensions: null,
     dimension_mismatch: false,
     failure_reason: null,
+    expected_difference: false,
     status: "not_ready"
   };
   if (!baselinePresent || !candidatePresent) {
@@ -205,8 +261,22 @@ const surfaces = paths.map((path) => {
         surface.diff_sha256 = createHash("sha256").update(comparison.diff).digest("hex");
       }
       if (comparison.ratio > appliedThreshold) {
-        surface.status = "failed";
-        failures.push(`${path}: diff ratio ${comparison.ratio} > ${appliedThreshold}`);
+        const expectedRole = role && expectedVisualDelta?.accepted_roles?.[role];
+        const expectedLimit = expectedRole?.max_diff_pixel_ratio;
+        if (Number.isFinite(expectedLimit) && comparison.ratio <= expectedLimit) {
+          surface.status = "acceptable_difference";
+          surface.expected_difference = true;
+          surface.expected_difference_reason = expectedVisualDelta.rationale;
+          acceptedDifferences.push({
+            path,
+            role,
+            diff_pixel_ratio: Number(comparison.ratio.toFixed(8)),
+            max_diff_pixel_ratio: expectedLimit
+          });
+        } else {
+          surface.status = "failed";
+          failures.push(`${path}: diff ratio ${comparison.ratio} > ${appliedThreshold}`);
+        }
       } else {
         surface.status = "passed";
       }
@@ -223,7 +293,11 @@ const surfaces = paths.map((path) => {
   return surface;
 });
 
-const allCompared = surfaces.length > 0 && surfaces.every((surface) => surface.status === "passed");
+const allCompared =
+  surfaces.length > 0 &&
+  surfaces.every(
+    (surface) => surface.status === "passed" || surface.status === "acceptable_difference"
+  );
 const missingOrInvalid = surfaces.some((surface) => surface.status === "not_ready");
 const provenanceReady = Boolean(
   baseSha && headSha && actualSha && headSha === actualSha && clean === true
@@ -267,14 +341,30 @@ const manifest = {
   acceptance_ready: status === "passed" && provenanceReady,
   dirty_override: allowDirty,
   pixel_diff: {
-    status: status === "passed" ? "passed" : status === "failed" ? "failed" : "not_ready",
+    status:
+      status !== "passed"
+        ? status === "failed"
+          ? "failed"
+          : "not_ready"
+        : acceptedDifferences.length > 0
+          ? "acceptable_difference"
+          : "passed",
     compared_pairs: surfaces.filter(
-      (surface) => surface.status === "passed" || surface.status === "failed"
+      (surface) =>
+        surface.status === "passed" ||
+        surface.status === "acceptable_difference" ||
+        surface.status === "failed"
     ).length,
     max_diff_pixel_ratio: maxDiffPixelRatio,
     role_overrides: roleThresholds,
     failures
   },
+  expected_visual_delta: expectedVisualDelta
+    ? {
+        ...expectedVisualDelta,
+        accepted_differences: acceptedDifferences
+      }
+    : null,
   dialog_drawer: "N/A: no dialog or drawer is implemented by these surfaces.",
   surfaces
 };

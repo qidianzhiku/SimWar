@@ -1,5 +1,7 @@
 # SimWar 前端体验重构：PR1 设计冻结原则
 
+> **历史记录**：本文件保留早期 PR1 冻结快照。当前 Figma P1 文件、变量、组件变体和实现映射以 [`figma-p1-implementation-receipt.md`](./figma-p1-implementation-receipt.md)、[`design-tokens.json`](./design-tokens.json) 和 [`code-connect-map.json`](./code-connect-map.json) 为准；本历史快照中的旧 Figma file key、颜色值、变量数量和 Starter 限制不再描述当前实现。
+
 **冻结对象**：`SIMWAR-FE-WAVE-001-APPLE-EDITORIAL-EXPERIENCE-REFOUNDATION-V1.0` 的 Frontend Foundation
 
 **冻结日期**：2026-08-13（Asia/Shanghai）

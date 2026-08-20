@@ -127,16 +127,16 @@ describe("Product PR4 integration contracts", () => {
 
       expect(report.schema_version).toBe(1);
       expect(report.budgets.admin.js).toMatchObject({
-        baseline_raw_kb: 273.62,
-        baseline_gzip_kb: 84.49
+        baseline_raw_kb: 277.46,
+        baseline_gzip_kb: 85.63
       });
       expect(report.budgets.teacher.css).toMatchObject({
-        baseline_raw_kb: 34.18,
-        baseline_gzip_kb: 6.52
+        baseline_raw_kb: 37.41,
+        baseline_gzip_kb: 6.93
       });
       expect(report.budgets.student.js).toMatchObject({
-        baseline_raw_kb: 249.73,
-        baseline_gzip_kb: 77.44
+        baseline_raw_kb: 273.89,
+        baseline_gzip_kb: 83.82
       });
     } finally {
       rmSync(fixture, { recursive: true, force: true });
@@ -340,6 +340,78 @@ describe("Product PR4 integration contracts", () => {
       expect(manifest.surfaces[0]?.diff_pixel_ratio).toBeGreaterThan(0);
       expect(manifest.surfaces[0]?.diff_path).toBeTruthy();
       expect(existsSync(resolve(fixture, manifest.surfaces[0]?.diff_path ?? ""))).toBe(true);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a declared Figma visual migration while retaining the pixel diff audit", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "simwar-pr4-visual-expected-delta-"));
+    try {
+      const baseline = join(fixture, "baseline");
+      const candidate = join(fixture, "candidate");
+      const diff = join(fixture, "diff");
+      const receipt = join(fixture, "figma-visual-delta.json");
+      mkdirSync(baseline);
+      mkdirSync(candidate);
+      writePng(join(baseline, "admin-ready-390x844.png"), blackPixelPng);
+      writePng(join(candidate, "admin-ready-390x844.png"), redPixelPng);
+      writeFileSync(
+        receipt,
+        JSON.stringify({
+          schema_version: 1,
+          change_id: "figma-p1-visual-foundation",
+          figma_file_key: "6ezOykmrZbMbFEYPfIkZ07",
+          base_sha: "base-sha",
+          change_type: "design-system-token-typography-surface-migration",
+          accepted_roles: { admin: { max_diff_pixel_ratio: 1 } },
+          rationale: "The approved Figma P1 board intentionally replaces the legacy visual layer."
+        })
+      );
+
+      const output = join(fixture, "manifest.json");
+      const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8"
+      }).trim();
+      const result = runNodeResult("scripts/assemble-pr4-visual-manifest.mjs", [
+        "--baseline",
+        baseline,
+        "--candidate",
+        candidate,
+        "--diff-root",
+        diff,
+        "--output",
+        output,
+        "--max-diff-pixel-ratio",
+        "0.01",
+        "--base-sha",
+        "base-sha",
+        "--head-sha",
+        actualSha,
+        "--expected-diff-receipt",
+        receipt
+      ]);
+
+      expect(result.status).toBe(0);
+      const manifest = JSON.parse(readFileSync(output, "utf8")) as {
+        status: string;
+        pixel_diff: { status: string; compared_pairs: number };
+        expected_visual_delta?: {
+          receipt_path: string;
+          accepted_differences: number;
+        };
+        surfaces: Array<{ status: string; diff_pixel_ratio: number }>;
+      };
+      expect(manifest).toMatchObject({
+        status: "passed",
+        pixel_diff: { status: "acceptable_difference", compared_pairs: 1 }
+      });
+      expect(manifest.expected_visual_delta?.accepted_differences).toHaveLength(1);
+      expect(manifest.surfaces[0]).toMatchObject({
+        status: "acceptable_difference",
+        diff_pixel_ratio: 1
+      });
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
@@ -669,6 +741,8 @@ describe("Product PR4 integration contracts", () => {
     expect(ciSource).toContain("Capture exact PR4 visual baseline");
     expect(ciSource).toContain("npm run capture:pr4:baseline");
     expect(ciSource).toContain('cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png');
+    expect(ciSource).toContain("--expected-diff-receipt");
+    expect(ciSource).toContain("docs/design/ui-refoundation/figma-p1-visual-delta.json");
     expect(ciSource).not.toContain("Assemble PR4 visual manifest");
     expect(ciSource).not.toContain("continue-on-error: true");
     expect(ciSource).toContain('status === "failed"');

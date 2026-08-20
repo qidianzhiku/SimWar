@@ -121,9 +121,9 @@ p {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: var(--sw-type-size-h1);
   letter-spacing: 0;
-  line-height: 1.15;
+  line-height: var(--sw-type-line-height-tight);
   margin-bottom: 0;
 }
 
@@ -1001,4 +1001,12 @@ label {
     margin-left: 0;
     text-align: left;
   }
+}
+
+.panel,
+.notice,
+.login-strip,
+.admin-inline-card {
+  border-color: var(--sw-color-surface-border);
+  border-radius: var(--sw-radius-card);
 }

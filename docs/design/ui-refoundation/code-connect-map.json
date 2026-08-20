@@ -1,17 +1,29 @@
 {
   "mapName": "SIMWAR_FE_WAVE_001_FIGMA_CODE_CONNECT_MAP",
-  "version": "1.0.0-pr1",
-  "sourceSha": "bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37",
+  "version": "1.1.0-p1-figma-sync",
+  "sourceSha": "c33b30690ef2d60e6490eed5e91e83b19b65e546",
   "designMode": "FIGMA_CONNECTED",
   "figmaStatus": "P1_PASS",
   "figma": {
-    "fileName": "SimWar Design System V6.0",
-    "fileKey": "g73vJXbLoQVhY87lbUaueL",
-    "url": "https://www.figma.com/design/g73vJXbLoQVhY87lbUaueL",
+    "fileName": "SimWar Frontend P1 Design Board",
+    "fileKey": "6ezOykmrZbMbFEYPfIkZ07",
+    "url": "https://www.figma.com/design/6ezOykmrZbMbFEYPfIkZ07",
     "physicalPages": [
-      "00_设计原则",
-      "01_Foundations & Tokens",
-      "02_Product Workspaces & Code Connect"
+      "00 Cover",
+      "01 Design System",
+      "02 Components",
+      "03 Teacher Portal",
+      "04 Student Portal",
+      "05 Admin Portal",
+      "06 Scenario & Plugin",
+      "07 AI & Replay",
+      "08 Prototype Flow",
+      "09 Mobile & Tablet",
+      "10 Archive",
+      "Archive · Current Evidence",
+      "Archive · Optimization Plan",
+      "Archive · Prompt Alignment",
+      "Archive · P1 Foundation"
     ],
     "logicalSections": [
       "00_设计原则",
@@ -27,48 +39,46 @@
       "10_Prototype Journeys",
       "11_Code Connect"
     ],
-    "limitCode": "FIGMA_STARTER_3_PAGE_LIMIT",
-    "collections": 6,
-    "variables": 68,
+    "limitCode": "FIGMA_CODE_CONNECT_DEV_OR_FULL_SEAT",
+    "collections": 1,
+    "variables": 26,
     "webValidation": {
       "syntax": "PASS",
       "scope": "PASS",
       "alias": "PASS"
     },
-    "physicalPageCount": 3,
-    "logicalSectionCount": 12,
+    "physicalPageCount": 15,
+    "logicalSectionCount": 11,
     "webTokenNameContract": "Figma WEB token names and code CSS custom-property names must be identical",
     "status": {
       "variablesStyles": "P1_PASS",
-      "editableComponentVariants": "BLOCKED_BY_PLAN_LIMIT",
-      "finalProductScreens": "BLOCKED_BY_PLAN_LIMIT",
-      "codeConnect": "BLOCKED_BY_PLAN_LIMIT"
+      "editableComponentVariants": "P1_PASS",
+      "finalProductScreens": "P1_BOARD_PRESENT",
+      "codeConnect": "BLOCKED_BY_SEAT"
     },
     "validatedWebTokenNameFamilies": {
       "background": "--sw-color-bg-*",
       "text": "--sw-color-text-*",
       "action": "--sw-color-action-*",
       "border": "--sw-color-border-*",
-      "roleColors": 5,
-      "layout": ["--sw-space-*", "--sw-radius-*", "--sw-motion-*"]
+      "roleColors": 13,
+      "layout": ["--sw-space-*", "--sw-radius-*", "--sw-motion-*", "--sw-control-min-height"]
     },
-    "syncStatus": "variables/styles P1_PASS; editable component variants/final screens/Code Connect BLOCKED_BY_PLAN_LIMIT",
-    "limitCodes": ["FIGMA_STARTER_3_PAGE_LIMIT", "FIGMA_STARTER_MCP_RATE_LIMIT"],
+    "syncStatus": "variables/styles/components P1_PASS; Code Connect BLOCKED_BY_SEAT",
+    "limitCodes": ["FIGMA_CODE_CONNECT_DEV_OR_FULL_SEAT"],
     "externalAttempt": {
-      "attemptedOnLocalDate": "2026-08-13",
+      "attemptedOnLocalDate": "2026-08-20",
       "metadata": {
-        "operation": "get_metadata",
-        "target": "Core Components",
-        "node": "4:2",
+        "operation": "use_figma",
+        "target": "SimWar P1 variables and Components page",
+        "nodes": ["19:45", "18:4", "29:8", "29:17", "29:30", "29:43"],
         "result": "SUCCEEDED"
       },
-      "designContext": {
-        "operation": "get_design_context",
-        "result": "BLOCKED_BY_PLAN_LIMIT",
-        "limitCode": "FIGMA_STARTER_MCP_RATE_LIMIT",
-        "errorMessage": "You've reached the Figma MCP tool call limit on the Starter plan. Upgrade your plan for more tool calls: https://www.figma.com/files/team/1638371820161259734/all-projects?upgrade=mcp_rate_limit_paywall"
-      },
-      "ownerConstraint": "No paid upgrade and no repeated retry; do not claim editable component variants, final screens, or Code Connect completion."
+      "codeConnect": {
+        "operation": "get_code_connect_map",
+        "result": "BLOCKED_BY_SEAT",
+        "limitCode": "FIGMA_CODE_CONNECT_DEV_OR_FULL_SEAT"
+      }
     },
     "mappingAuthority": {
       "repositoryFiles": [
@@ -76,7 +86,7 @@
         "docs/design/ui-refoundation/code-connect-map.json"
       ],
       "codeFirstLab": "PR1 code-first Design System Lab",
-      "status": "Current mapping authority while Figma editable component variants/final screens/Code Connect are BLOCKED_BY_PLAN_LIMIT"
+      "status": "Figma P1 variables, styles and component variants are current mapping authority; Code Connect remains unavailable by seat"
     }
   },
   "tokenSource": "docs/design/ui-refoundation/design-tokens.json",
@@ -236,7 +246,7 @@
       "implementationStatus": "implemented-pr1-code-first",
       "variants": ["tokens", "authority", "actions", "states"],
       "nextProductPr": "PR2 app migration",
-      "notes": "Tracked development entry for visual and semantic verification; this repository mapping remains authoritative while Figma Code Connect is BLOCKED_BY_PLAN_LIMIT."
+      "notes": "Tracked development entry for visual and semantic verification; this repository mapping remains authoritative while Figma Code Connect is unavailable to the current seat."
     },
     {
       "figmaPage": "04_Admin Delivery & Trust",
@@ -309,6 +319,50 @@
       "authorityInput": "existing Admin/Teacher BFF only",
       "nextProductPr": "PR3 Enterprise logical workspace",
       "notes": "No independent Enterprise app/BFF/route exists at current SHA; no new business authority permitted."
+    },
+    {
+      "figmaPage": "02 Components",
+      "figmaNodeId": "29:8",
+      "figmaComponent": "SimWar / ActionButton",
+      "codeName": "AllowedActionButton",
+      "codePaths": ["packages/ui/src/components/AllowedActionButton.tsx"],
+      "implementationStatus": "figma-p1-variant-set",
+      "variants": ["kind=primary", "kind=secondary", "kind=disabled"],
+      "authorityInput": "server allowed_actions and disabled reason",
+      "notes": "Figma variant is presentation-only; server action authorization remains authoritative."
+    },
+    {
+      "figmaPage": "02 Components",
+      "figmaNodeId": "29:17",
+      "figmaComponent": "SimWar / StateBadge",
+      "codeName": "AuthorityBadge",
+      "codePaths": ["packages/ui/src/components/AuthorityBadge.tsx"],
+      "implementationStatus": "figma-p1-variant-set",
+      "variants": ["kind=official", "kind=draft", "kind=shadow", "kind=advisory"],
+      "authorityInput": "server-supplied result/advisory provenance",
+      "notes": "Badge labels do not promote advisory, draft or shadow data to formal truth."
+    },
+    {
+      "figmaPage": "02 Components",
+      "figmaNodeId": "29:30",
+      "figmaComponent": "SimWar / StatePanel",
+      "codeName": "StatePanel",
+      "codePaths": ["packages/ui/src/components/StatePanel.tsx"],
+      "implementationStatus": "figma-p1-variant-set",
+      "variants": ["kind=ready", "kind=loading", "kind=error"],
+      "authorityInput": "server projection state and recovery action",
+      "notes": "Error and recovery are presentation states; they do not retry commands implicitly."
+    },
+    {
+      "figmaPage": "02 Components",
+      "figmaNodeId": "29:43",
+      "figmaComponent": "SimWar / FormField",
+      "codeName": "DecisionForm field presentation",
+      "codePaths": ["apps/student/src/App.tsx", "packages/ui/src/styles.css"],
+      "implementationStatus": "figma-p1-variant-set",
+      "variants": ["kind=default", "kind=error", "kind=disabled"],
+      "authorityInput": "server editable_fields and validation state",
+      "notes": "The Figma field state cannot widen server field permissions."
     }
   ],
   "variantRule": "Figma variant name must equal code state/prop name or be listed explicitly above",
