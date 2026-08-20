@@ -4105,6 +4105,122 @@ paths:
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/states:
+    post:
+      operationId: W4_ENTERPRISE_STATE_INITIAL_CREATE_V1
+      summary: Create the immutable initial Enterprise State for a Run.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "201":
+          description: Initial state reference.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: State identity or scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/strategic-decisions:
+    post:
+      operationId: W4_STRATEGIC_DECISION_COMMIT_V1
+      summary: Compile a canonical strategic decision into Commitment and Initiative.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "201":
+          description: Commitment and Initiative receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Duplicate, stale, or scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/settle:
+    post:
+      operationId: W4_ENTERPRISE_STATE_SETTLE_V1
+      summary: Sole W4 Simulation Core state settlement operation.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Official Outcome and Closing State reference.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Atomic write or state conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/continue:
+    post:
+      operationId: W4_CLOSING_TO_NEXT_OPENING_V1
+      summary: Bind the exact Closing State reference as the next Opening State context.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "201":
+          description: Exact next-opening reference.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Stale or conflicting state reference.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/replay:
+    post:
+      operationId: W4_OFFICIAL_REPLAY_EVIDENCE_V1
+      summary: Append official replay path evidence without writing formal results.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Replay evidence receipt.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/shadow-replay:
+    post:
+      operationId: W4_SHADOW_REPLAY_V1
+      summary: Produce non-applying shadow replay evidence.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Non-applying shadow evidence.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
+  /api/v1/bff/student/w4/runs/{runId}/rounds/{roundNo}/portfolio:
+    get:
+      operationId: W4_STUDENT_PORTFOLIO_PROJECTION_GET_V1
+      summary: Student-safe Opening/Closing State and Initiative projection.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Student-safe W4 projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
+  /api/v1/bff/teacher/w4/runs/{runId}/rounds/{roundNo}/portfolio:
+    get:
+      operationId: W4_TEACHER_PORTFOLIO_PROJECTION_GET_V1
+      summary: Teacher initiative readiness and state transition projection.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Teacher W4 projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
+  /api/v1/bff/admin/w4/runs/{runId}/rounds/{roundNo}/portfolio:
+    get:
+      operationId: W4_ADMIN_PORTFOLIO_PROJECTION_GET_V1
+      summary: Admin-safe Run portfolio projection.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Admin W4 projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
+  /api/v1/bff/admin/w4/portfolio:
+    get:
+      operationId: W4_ADMIN_GROUP_PORTFOLIO_PROJECTION_GET_V1
+      summary: Admin Group and Portfolio hierarchy projection.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Admin Group/Portfolio/Project/Facility projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -6263,3 +6379,12 @@ components:
       $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
     W027ResolutionEnvelope:
       $ref: "#/components/schemas/W027StudentDecisionExperienceEnvelope"
+    W4Envelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { type: object, additionalProperties: true }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }

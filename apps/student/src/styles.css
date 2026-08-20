@@ -205,6 +205,13 @@ textarea {
   font: inherit;
 }
 
+#student-enterprise-state button,
+#student-enterprise-state input,
+#student-enterprise-state select,
+#student-enterprise-state textarea {
+  min-height: 44px;
+}
+
 .shell {
   box-sizing: border-box;
   min-height: 100vh;

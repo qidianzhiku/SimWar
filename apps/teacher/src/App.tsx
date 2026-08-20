@@ -65,6 +65,7 @@ import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
 import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceLearningWorkbench";
+import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import {
@@ -3087,6 +3088,19 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-teams-roles">
+        {session && selectedRun && selectedRound ? (
+          <W4EnterpriseStateWorkbench
+            courseId={selectedRun.course_id}
+            roundNo={selectedRound.round_no}
+            runId={selectedRun.run_id}
+            teamId={
+              state?.teams.find((candidate) => candidate.course_id === selectedRun.course_id)
+                ?.team_id
+            }
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
         {isTeacher && session ? (
           <FreshLearnerAdmissionPanel
             apiBase={API_BASE}

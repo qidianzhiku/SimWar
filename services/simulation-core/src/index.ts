@@ -14,6 +14,11 @@ export { calculateFinance } from "./finance.js";
 export { calculateMarketDemand } from "./market.js";
 export { calculateOperations } from "./operations.js";
 export { buildTeamSettlements, calculateScore } from "./scoring.js";
+export { settleEnterpriseState } from "./enterprise-state.js";
+export type {
+  EnterpriseStateSettlementInput,
+  EnterpriseStateSettlementOutput
+} from "./enterprise-state.js";
 export {
   createToyLogitEngine,
   registerSettlementPlugin,

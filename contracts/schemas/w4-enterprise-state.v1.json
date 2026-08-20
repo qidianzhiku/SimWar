@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/w4-enterprise-state.v1.json",
+  "title": "W4 Official Enterprise State Outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "outcome"],
+  "properties": {
+    "contract_version": { "const": "w4-enterprise-state.v1" },
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "policy_seams": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/policySeam" }
+    }
+  },
+  "$defs": {
+    "stateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "enterprise_state_id",
+        "version",
+        "state_digest"
+      ],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "enterprise_state_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parent_state_ref": { "anyOf": [{ "$ref": "#/$defs/stateRef" }, { "type": "null" }] }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official_outcome_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "round_no",
+        "opening_state_ref",
+        "closing_state_ref",
+        "commitment_ids",
+        "persistent_effect_ids",
+        "reexecuted_decision_ids",
+        "replay_input_manifest",
+        "settlement_digest",
+        "status"
+      ],
+      "properties": {
+        "official_outcome_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "closing_state_ref": { "$ref": "#/$defs/stateRef" },
+        "commitment_ids": { "type": "array", "items": { "type": "string" } },
+        "persistent_effect_ids": { "type": "array", "items": { "type": "string" } },
+        "reexecuted_decision_ids": { "const": [] },
+        "replay_input_manifest": { "$ref": "#/$defs/replayInputManifest" },
+        "settlement_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "status": { "const": "official" }
+      }
+    },
+    "replayInputManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "opening_state_ref",
+        "decision_ids",
+        "scenario_package_id",
+        "parameter_set_id",
+        "engine_id",
+        "plugin_ids",
+        "seed"
+      ],
+      "properties": {
+        "manifest_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "decision_ids": { "type": "array", "items": { "type": "string" } },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "engine_id": { "type": "string", "minLength": 1 },
+        "plugin_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "policySeam": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_seam_id",
+        "kind",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_no",
+        "status",
+        "payload",
+        "requires_policy_approval",
+        "may_write_enterprise_state",
+        "may_write_official_outcome"
+      ],
+      "properties": {
+        "policy_seam_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "merger_acquisition",
+            "asset_backed_securitization",
+            "initial_public_offering",
+            "project_sale",
+            "project_closure"
+          ]
+        },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["proposed", "under_review", "approved", "rejected", "closed"] },
+        "payload": { "type": "object" },
+        "requires_policy_approval": { "const": true },
+        "may_write_enterprise_state": { "const": false },
+        "may_write_official_outcome": { "const": false }
+      }
+    }
+  }
+}

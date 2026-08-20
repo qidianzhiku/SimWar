@@ -19,6 +19,7 @@ import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
+import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -100,6 +101,7 @@ export const STUDENT_NAVIGATION_ITEMS = [
   { id: "student-role-mission", label: "角色任务" },
   { id: "student-cockpit", label: "经营驾驶舱" },
   { id: "student-evidence", label: "信息与证据" },
+  { id: "student-enterprise-state", label: "企业状态与战略演进" },
   { id: "student-private-draft", label: "个人草稿" },
   { id: "student-collaboration", label: "团队协作" },
   { id: "student-divergence", label: "分歧冲突" },
@@ -753,6 +755,24 @@ export function App() {
               teamId={team?.team_id}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
+            />
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section
+            id="student-enterprise-state"
+            className="student-location"
+            aria-label="企业状态与战略演进"
+          >
+            <W4EnterpriseStatePanel
+              token={activeSession?.access_token ?? ""}
+              tenantId={login.tenantId}
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              roundId={latestRound?.round_id}
+              roundNo={latestRound?.round_no}
+              teamId={team?.team_id}
             />
           </section>
         ) : null}
