@@ -551,14 +551,18 @@ export function W027DecisionExperiencePanel(props: Props) {
                 <span className="eyebrow">00 · ROLE MISSION</span>
                 <h3>角色任务</h3>
               </div>
-              <div className="w027-mission-heading-actions">
-                <a className="primary w027-start-judgment" href="#w027-private-judgment">
+              <div className="role-workflow-actions">
+                <a
+                  className="primary badge"
+                  href="#w027-private-judgment"
+                  style={{ textDecoration: "none" }}
+                >
                   开始我的判断
                 </a>
                 <span className="w027-readonly-badge badge">服务端投影</span>
               </div>
             </div>
-            <div className="w027-mission-grid role-workflow-summary">
+            <div className="role-workflow-summary">
               <div>
                 <span>情境</span>
                 <strong>

@@ -789,32 +789,6 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-.w027-mission-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.w027-mission-grid strong {
-  color: #102a42;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.w027-mission-heading-actions {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.w027-start-judgment {
-  align-items: center;
-  display: inline-flex;
-  min-height: 44px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
 .role-workflow-actions {
   display: flex;
   flex-wrap: wrap;
@@ -841,16 +815,11 @@ textarea {
   }
 
   .role-workflow-summary,
-  .role-workflow-fields,
-  .w027-mission-grid {
+  .role-workflow-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .role-workflow-actions {
     display: grid;
-  }
-
-  .w027-mission-heading-actions {
-    justify-content: flex-start;
   }
 }
