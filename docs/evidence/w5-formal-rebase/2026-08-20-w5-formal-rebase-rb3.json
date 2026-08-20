@@ -55,7 +55,7 @@
     "plane_off": "DETERMINISTIC_CORE",
     "second_runtime": false
   },
-  "head_sha": "793bd6cc8df013f3c434443aa728640ed340a317",
+  "head_sha": "fa00e6f8223244209221b28facca3ee280ef2b82",
   "identity": {
     "model_version": "eldercare_w5_governed_v1@1.0.0",
     "parameter_digest": "465a58862dfbbe2c4cd9d6ead9ab678f02b87be5b7e2e0621534e595982c34ae",
@@ -395,7 +395,7 @@
       "visibility": "SYNTHETIC_HEURISTIC",
       "artifact_id": "simwar.w5.synthetic_want.v1",
       "classification": "CURRENT",
-      "digest": "d3b6e850481cd0ef977beb88a7c49f5f5001c26df95a3d754d6c4570cd164389",
+      "digest": "f10887660e4f958ec351a54b51c8cd8e2e360f9c9fd34025dbcf80109264094c",
       "family": "SYNTHETIC_WANT",
       "reproduction_command": "npm run test:w5:formal-rebase"
     },
@@ -448,6 +448,6 @@
     "official": false,
     "status": "SYNTHETIC_HEURISTIC"
   },
-  "timestamp": "2026-08-20T16:13:47.2099625Z",
-  "tree_sha": "e8b582452e5b71021e2a0993ce7887f355778847"
+  "timestamp": "2026-08-20T16:24:26.2851990Z",
+  "tree_sha": "2b9cf9310d25fae8b3258e0b4539dd2b047556c5"
 }
