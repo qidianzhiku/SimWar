@@ -1,5 +1,7 @@
 # FE_CURRENT_REALITY_RECEIPT
 
+> **历史收据说明**：本文件是早期 PR1 current-reality 快照，保留用于审计追溯。当前 Figma P1 设计与前端实现请以 [`figma-p1-implementation-receipt.md`](./figma-p1-implementation-receipt.md)、[`design-tokens.json`](./design-tokens.json) 和 [`code-connect-map.json`](./code-connect-map.json) 为准；本文件中的旧 Figma file key、变量数量、页面限制和未完成状态不得覆盖当前收据。
+
 **收据 ID**：`FE_CURRENT_REALITY_RECEIPT-2026-08-13`
 
 **审计范围**：SimWar 前端 UI/UX Wave 001；包含 exact-source current-product baseline 与 Product PR1 foundation implementation receipt

@@ -151,7 +151,11 @@ async function verifyDisclosure(
 
   const overflowingElements = await page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((element) => element.scrollWidth > element.clientWidth + 1)
+      // A text input's scrollWidth includes its horizontally scrollable value;
+      // that is not document overflow and is intentionally excluded here.
+      .filter(
+        (element) => element.tagName !== "INPUT" && element.scrollWidth > element.clientWidth + 1
+      )
       .map((element) => ({
         className: element.className,
         clientWidth: element.clientWidth,

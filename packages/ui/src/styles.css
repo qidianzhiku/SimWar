@@ -3,6 +3,7 @@
 :where(.sw-ui) {
   color: var(--sw-color-text-primary);
   font-family: var(--sw-font-ui);
+  font-size: var(--sw-type-size-body);
   line-height: var(--sw-type-line-height-normal);
 }
 
@@ -58,7 +59,7 @@
 :where(.sw-app-shell__header h1) {
   min-width: 0;
   margin: 0;
-  font-size: var(--sw-type-size-h3);
+  font-size: var(--sw-type-size-h1);
   line-height: var(--sw-type-line-height-tight);
   overflow-wrap: anywhere;
 }
@@ -320,6 +321,79 @@
   }
 }
 
+/* Figma P1 visual contract: semantic aliases keep the shared shell and its
+   controls visually consistent without changing permission or data behavior. */
+:where(.sw-app-shell__header) {
+  background: var(--sw-color-text-strong);
+}
+
+:where(.sw-app-shell__body) {
+  padding: var(--sw-space-page);
+}
+
+:where(.sw-app-shell__main),
+:where(.sw-receipt-panel),
+:where(.sw-known-limit-banner),
+:where(.sw-state-panel) {
+  border-radius: var(--sw-radius-card);
+  border-color: var(--sw-color-surface-border);
+}
+
+:where(.sw-role-navigation a),
+:where(.sw-allowed-action),
+:where(.sw-state-panel__recovery) {
+  border-radius: var(--sw-radius-button);
+}
+
+:where(.sw-allowed-action) {
+  min-height: var(--sw-control-min-height);
+  background: var(--sw-color-action-primary-accessible);
+  border-color: var(--sw-color-action-primary-accessible);
+}
+
+/* Keep state semantics after the generic Figma action surface override. */
+:where(.sw-allowed-action[data-variant="risk"]) {
+  background: var(--sw-color-action-risk);
+  border-color: var(--sw-color-action-risk);
+}
+
+:where(.sw-allowed-action:disabled) {
+  color: var(--sw-color-text-secondary);
+  background: var(--sw-color-bg-disabled);
+  border-color: var(--sw-color-border-default);
+  cursor: not-allowed;
+}
+
+:where(.sw-authority-badge[data-authority="official"]),
+:where(.sw-authority-badge[data-authority="system-result"]) {
+  color: var(--sw-color-official);
+}
+
+:where(.sw-authority-badge[data-authority="advisory"]),
+:where(.sw-authority-badge[data-authority="ai-explanation"]) {
+  color: var(--sw-color-brand-secondary-accessible);
+}
+
+:where(.sw-authority-badge[data-authority="shadow"]) {
+  color: var(--sw-color-replay-accessible);
+}
+
+:where(.sw-authority-badge[data-authority="draft"]) {
+  color: var(--sw-color-state-ai);
+}
+
+:where(.sw-action-reason) {
+  color: var(--sw-color-text-muted);
+}
+
+:where(.sw-ui button),
+:where(.sw-ui input),
+:where(.sw-ui select),
+:where(.sw-ui textarea) {
+  min-height: var(--sw-control-min-height);
+  border-radius: var(--sw-radius-button);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(.sw-ui) *,
   :where(.sw-ui) *::before,
@@ -341,7 +415,7 @@
   align-items: center;
   min-height: var(--sw-space-48);
   padding: var(--sw-space-8) var(--sw-space-16);
-  color: var(--sw-color-text-authority);
+  color: var(--sw-color-brand-primary-accessible);
   background: var(--sw-color-bg-authority-subtle);
   border: 1px solid var(--sw-color-border-default);
   border-radius: var(--sw-radius-8);

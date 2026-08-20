@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "change_id": "figma-p1-visual-foundation",
+  "figma_file_key": "6ezOykmrZbMbFEYPfIkZ07",
+  "base_sha": "2304f79b70d68f62a504073ae90232e1f52719cd",
+  "change_type": "design-system-token-typography-surface-migration",
+  "accepted_roles": {
+    "admin": {
+      "max_diff_pixel_ratio": 0.92
+    },
+    "enterprise": {
+      "max_diff_pixel_ratio": 0.92
+    },
+    "teacher": {
+      "max_diff_pixel_ratio": 1
+    },
+    "student": {
+      "max_diff_pixel_ratio": 0.97
+    },
+    "lab": {
+      "max_diff_pixel_ratio": 0.65
+    }
+  },
+  "source_paths": [
+    "packages/ui/src/tokens.css",
+    "packages/ui/src/styles.css",
+    "apps/admin/src/styles.css",
+    "apps/teacher/src/styles.css",
+    "apps/student/src/styles.css"
+  ],
+  "rationale": "The approved SimWar Figma P1 board intentionally replaces the legacy visual layer with its token, typography, surface, radius, and responsive presentation values. The ordinary 0.01 regression threshold remains enforced for non-declared changes; these five roles are accepted only for this explicit, auditable design migration and all missing, malformed, or undeclared pairs still fail closed."
+}

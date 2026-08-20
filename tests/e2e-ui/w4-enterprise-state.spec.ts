@@ -131,6 +131,6 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   await page.getByLabel("password").fill("admin");
   await page.getByRole("button", { name: "管理员登录" }).click();
   await expect(page.getByRole("heading", { name: "Enterprise Portfolio 投影" })).toBeVisible();
-  await expect(page.getByText("OperatingUnit", { exact: false })).toBeVisible();
+  await expect(page.getByText("OperatingUnit", { exact: true })).toBeVisible();
   await expect(page.getByText("Group", { exact: true })).toBeVisible();
 });
