@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simwar.local/contracts/w5-governed-model.v1.json",
+  "title": "SimWar W5 Governed Model",
+  "oneOf": [
+    { "$ref": "#/$defs/teacherProjection" },
+    { "$ref": "#/$defs/studentProjection" },
+    { "$ref": "#/$defs/convergence" }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activity", "actor", "course", "dimensions", "role", "round", "run", "team", "tenant"],
+      "properties": {
+        "activity": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 },
+        "course": { "type": "string", "minLength": 1 },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dimension", "enforcement_point", "evidence_ref", "negative_test", "status", "value"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "enforcement_point": { "type": "string" },
+              "evidence_ref": { "type": "string" },
+              "negative_test": { "type": "string" },
+              "status": { "enum": ["PASS", "N/A", "LIMIT"] },
+              "value": {}
+            }
+          }
+        },
+        "role": { "type": "string" },
+        "round": { "type": ["integer", "null"] },
+        "run": { "type": ["string", "null"] },
+        "team": { "type": ["string", "null"] },
+        "tenant": { "type": "string", "minLength": 1 }
+      }
+    },
+    "descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consumer", "default", "key", "label", "mapping_readiness", "source", "type", "unit", "visibility"],
+      "properties": {
+        "consumer": { "type": "string" },
+        "default": {},
+        "key": { "type": "string" },
+        "label": { "type": "string" },
+        "mapping_readiness": { "enum": ["READY", "DRAFT"] },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max", "min"],
+          "properties": { "max": { "type": "number" }, "min": { "type": "number" } }
+        },
+        "source": { "type": "string" },
+        "type": { "enum": ["boolean", "enum", "number", "string"] },
+        "unit": { "type": "string" },
+        "visibility": { "enum": ["advanced", "standard", "teacher"] }
+      }
+    },
+    "featureOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["economic_meaning", "feature_id", "primary_producer", "source_ref", "unit", "visibility"],
+      "properties": {
+        "economic_meaning": { "type": "string" },
+        "feature_id": { "type": "string" },
+        "primary_producer": { "type": "string" },
+        "source_ref": { "type": "string" },
+        "unit": { "type": "string" },
+        "visibility": { "enum": ["approved_view", "internal", "shadow"] }
+      }
+    },
+    "modelVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approved_at", "engine_reference", "feature_ownership", "fallback", "model_family", "model_version_ref", "no_implicit_latest", "status", "visibility"],
+      "properties": {
+        "approved_at": { "type": "string" },
+        "engine_reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engine_id", "version"],
+          "properties": { "engine_id": { "type": "string" }, "version": { "type": "string" } }
+        },
+        "feature_ownership": { "type": "array", "items": { "$ref": "#/$defs/featureOwnership" } },
+        "fallback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["deterministic_plane", "mode", "official_path_continues"],
+          "properties": {
+            "deterministic_plane": { "type": "string" },
+            "mode": { "const": "PLANE_OFF" },
+            "official_path_continues": { "const": true }
+          }
+        },
+        "model_family": { "type": "string" },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "no_implicit_latest": { "const": true },
+        "status": { "const": "APPROVED" },
+        "visibility": { "type": "object" }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "created_by", "data_classification", "draft_id", "exact_runtime_binding", "model_version_ref", "parameter_descriptors", "parameter_values", "seed", "status", "tenant_id", "title", "updated_at"],
+      "properties": {
+        "course_id": { "type": "string" },
+        "created_by": { "type": "string" },
+        "data_classification": { "enum": ["REALITY", "SYNTHETIC", "ASSUMPTION", "STRESS_TEST"] },
+        "draft_id": { "type": "string" },
+        "exact_runtime_binding": { "type": ["object", "null"] },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "parameter_descriptors": { "type": "array", "items": { "$ref": "#/$defs/descriptor" } },
+        "parameter_values": { "type": "object" },
+        "seed": { "type": "integer" },
+        "status": { "enum": ["DRAFT", "VALIDATED", "FROZEN", "BOUND"] },
+        "tenant_id": { "type": "string" },
+        "title": { "type": "string" },
+        "updated_at": { "type": "string" }
+      }
+    },
+    "convergence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["can", "experience_profile", "fallback", "known_limits", "model_version_ref", "provenance", "realized", "replay", "security", "shadow", "want"],
+      "properties": {
+        "can": { "type": "object" },
+        "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
+        "fallback": { "type": "object" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "provenance": { "type": "object" },
+        "realized": { "type": "object" },
+        "replay": { "type": "object" },
+        "security": { "$ref": "#/$defs/security" },
+        "shadow": { "type": "object" },
+        "want": { "type": "object" }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["known_limits", "model_version", "operation_id", "parameter_descriptors", "drafts", "security"],
+      "properties": {
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_version": { "$ref": "#/$defs/modelVersion" },
+        "operation_id": { "const": "W5_TEACHER_GOVERNED_MODEL_STUDIO_GET_V1" },
+        "parameter_descriptors": { "type": "array", "items": { "$ref": "#/$defs/descriptor" } },
+        "drafts": { "type": "array", "items": { "$ref": "#/$defs/draft" } },
+        "security": { "$ref": "#/$defs/security" }
+      }
+    },
+    "studentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["convergence", "operation_id", "security", "visibility"],
+      "properties": {
+        "convergence": { "$ref": "#/$defs/studentConvergence" },
+        "operation_id": { "const": "W5_STUDENT_GOVERNED_MODEL_PROJECTION_GET_V1" },
+        "security": { "$ref": "#/$defs/security" },
+        "visibility": { "const": "ROLE_SAFE_STUDENT" }
+      }
+    },
+    "studentConvergence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["can", "experience_profile", "fallback", "known_limits", "model_version_ref", "realized", "replay", "shadow", "want"],
+      "properties": {
+        "can": { "type": "object" },
+        "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
+        "fallback": { "type": "object" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "realized": { "type": "object" },
+        "replay": { "type": "object" },
+        "shadow": { "type": "object" },
+        "want": { "type": "object" }
+      }
+    }
+  }
+}

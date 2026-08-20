@@ -14,6 +14,7 @@ function safeInstructorDebriefFilenamePart(value: string): string {
 
 interface InstructorIntelligencePanelProps {
   courseId: string | undefined;
+  createButtonLabel?: string | undefined;
   disabled: boolean;
   roundNo: number | undefined;
   runId: string | undefined;
@@ -502,7 +503,7 @@ export function InstructorIntelligencePanel(props: InstructorIntelligencePanelPr
                 disabled={busy || props.disabled || !title.trim()}
                 onClick={() => void createDraft()}
               >
-                创建草稿
+                {props.createButtonLabel ?? "创建草稿"}
               </button>
             </div>
           </div>

@@ -68,6 +68,7 @@ import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceL
 import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
+import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -489,6 +490,14 @@ function selectInitialCourseId(state: P0DemoState): string | null {
   const runnableCourses = state.courses.filter(
     (course) => course.status === "published" && coursesWithTeams.has(course.course_id)
   );
+  const runnableCourseIds = new Set(runnableCourses.map((course) => course.course_id));
+  const latestActiveRun = [...state.runs]
+    .reverse()
+    .find(
+      (run) =>
+        runnableCourseIds.has(run.course_id) && getRunRound(state, run.run_id)?.status !== "published"
+    );
+  if (latestActiveRun) return latestActiveRun.course_id;
   return runnableCourses.at(-1)?.course_id ?? null;
 }
 
@@ -2080,6 +2089,27 @@ export function App() {
         ) : null}
       </TeacherLocation>
 
+      <section
+        className="w5-governed-model-location"
+        id="teacher-w5-governed-model"
+        aria-labelledby="teacher-w5-governed-model-heading"
+      >
+        <div className="teacher-location-heading">
+          <p className="eyebrow">教师课程工作区</p>
+          <h2 id="teacher-w5-governed-model-heading">W5 受控模型</h2>
+        </div>
+        {isTeacher && session ? (
+          <W5GovernedModelStudio
+            apiBase={API_BASE}
+            courseId={selectedRun?.course_id ?? selectedCourseId}
+            runId={selectedRun?.run_id ?? selectedRunId}
+            roundNo={selectedRound?.round_no}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+      </section>
+
       <TeacherLocation id="teacher-validation">
         {isTeacher && session ? (
           <ValidationSessionWorkbench
@@ -3176,6 +3206,7 @@ export function App() {
         {session ? (
           <InstructorIntelligencePanel
             courseId={selectedRun?.course_id}
+            createButtonLabel={selectedRound?.status === "open" ? "创建复盘草稿" : undefined}
             disabled={busy}
             roundNo={selectedRound?.round_no}
             runId={selectedRun?.run_id}

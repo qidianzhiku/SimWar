@@ -4239,6 +4239,109 @@ paths:
           description: Admin Group/Portfolio/OperatingUnit/Project/Facility projection.
           content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
 
+  /api/v1/bff/teacher/w5/governed-model:
+    get:
+      operationId: W5_TEACHER_GOVERNED_MODEL_STUDIO_GET_V1
+      summary: Read the teacher-only W5 governed model studio projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: courseId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Teacher W5 governed model projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5TeacherGovernedModelEnvelope" } } }
+
+  /api/v1/bff/teacher/w5/scenario-studio/drafts:
+    post:
+      operationId: W5_TEACHER_SCENARIO_STUDIO_DRAFT_CREATE_V1
+      summary: Create a W5 governed scenario draft.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W5DraftCreateRequest" }
+      responses:
+        "201":
+          description: W5 draft created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+
+  /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/validate:
+    post:
+      operationId: W5_TEACHER_SCENARIO_STUDIO_DRAFT_VALIDATE_V1
+      summary: Validate a W5 scenario draft.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: W5 draft validated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+
+  /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/freeze:
+    post:
+      operationId: W5_TEACHER_SCENARIO_STUDIO_DRAFT_FREEZE_V1
+      summary: Freeze a validated W5 scenario draft.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: W5 draft frozen.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+
+  /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/bind:
+    post:
+      operationId: W5_TEACHER_SCENARIO_STUDIO_DRAFT_BIND_V1
+      summary: Bind a frozen W5 draft to exact run and round references.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W5ExactBindingRequest" }
+      responses:
+        "200":
+          description: W5 draft exactly bound.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+
+  /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/evaluate:
+    post:
+      operationId: W5_TEACHER_SCENARIO_STUDIO_DRAFT_EVALUATE_V1
+      summary: Evaluate an exactly bound W5 draft through the governed convergence plane.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W5EvaluateRequest" }
+      responses:
+        "200":
+          description: W5 non-official convergence projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+
+  /api/v1/bff/student/w5/convergence:
+    get:
+      operationId: W5_STUDENT_GOVERNED_MODEL_PROJECTION_GET_V1
+      summary: Read the enrolled student's role-safe W5 convergence projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: experienceProfile, in: query, required: false, schema: { enum: [STANDARD, ADVANCED] } }
+      responses:
+        "200":
+          description: Role-safe student W5 projection.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W5StudentGovernedModelEnvelope" } } }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -6406,3 +6509,63 @@ components:
         data: { type: object, additionalProperties: true }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
+    W5TeacherGovernedModelEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/teacherProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W5StudentGovernedModelEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/studentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W5MutationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            draft: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/draft" }
+            convergence: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/convergence" }
+            receipt: { type: object, additionalProperties: true }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W5DraftCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [course_id]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        data_classification: { enum: [REALITY, SYNTHETIC, ASSUMPTION, STRESS_TEST] }
+        parameters: { type: object, additionalProperties: true }
+        seed: { type: integer, minimum: 0 }
+        title: { type: string }
+    W5ExactBindingRequest:
+      type: object
+      additionalProperties: false
+      required: [run_id, round_no]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        seed: { type: integer, minimum: 0 }
+    W5EvaluateRequest:
+      type: object
+      additionalProperties: false
+      required: [run_id, round_no]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        experience_profile: { enum: [STANDARD, ADVANCED] }
+        model_plane: { enum: [OFF, ON] }

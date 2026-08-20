@@ -88,6 +88,7 @@ import { getApiHealthPayload } from "./health.js";
 import {
   createJsonFormalScenarioAuthorityPersistence,
   createJsonGovernedAdvisoryRepositoryPort,
+  createJsonW5GovernedModelPersistence,
   createJsonW027DecisionExperienceRepositoryPort,
   type JsonFormalScenarioAuthorityPersistence
 } from "./json-repository-adapter.js";
@@ -137,6 +138,7 @@ import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
+import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import {
@@ -177,6 +179,10 @@ import {
   CourseReportQueryServiceError
 } from "./course-report-query-service.js";
 import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-routes.js";
+import {
+  W5GovernedModelError,
+  W5GovernedModelService
+} from "./w5-governed-model-service.js";
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
@@ -351,6 +357,7 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   w4EnterpriseStateRepository: W4Repository;
+  w5GovernedModel: W5GovernedModelService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
     context: RequestContext
@@ -647,6 +654,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const validationEnvironmentLaunch = options.validationEnvironmentLaunchLedger
     ? new ValidationEnvironmentLaunchService(options.validationEnvironmentLaunchLedger)
     : undefined;
+  const w5GovernedModel = new W5GovernedModelService(
+    undefined,
+    createJsonW5GovernedModelPersistence(store)
+  );
 
   return {
     courseBlueprintBindingStore,
@@ -683,6 +694,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     w4EnterpriseStateRepository: createJsonW4Repository(store),
+    w5GovernedModel,
     instructorAssets: new InstructorAssetRegistry(
       {
         captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
@@ -5324,6 +5336,31 @@ async function routeRequest(
   const url = new URL(request.url ?? "/", "http://localhost");
   const courseReportRoute = isCourseReportRoute(request.method, url);
 
+  if (
+    await handleW5GovernedModelRoute(runtime.w5GovernedModel, request, response, url, {
+      actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+      createContext: (incoming) => createContext(runtime, incoming),
+      createEnvelope: (context, data, message) =>
+        createEnvelope(context as RequestContext, data, message),
+      readJson,
+      repository: runtime.repositoryProvider.facade,
+      resolveExactReferences: async (tenantId, run) => {
+        const binding = await runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
+        return binding
+          ? {
+              parameter_set_reference: { ...binding.parameter_set_reference },
+              scenario_package_reference: { ...binding.scenario_package_reference }
+            }
+          : null;
+      },
+      requirePermission: (context, permission) =>
+        requirePermission(context as RequestContext, permission),
+      sendJson
+    })
+  ) {
+    return;
+  }
+
   if (url.pathname.startsWith("/api/v1/admin/validation-environment-launches")) {
     const w025Context = createContext(runtime, request);
     if (
@@ -8847,6 +8884,21 @@ export function createApiServer(
 
       if (error instanceof W4EnterpriseStateError) {
         sendError(response, fallbackContext, new HttpError(409, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof W5GovernedModelError) {
+        const statusCode =
+          error.code === "W5_DRAFT_NOT_FOUND"
+            ? 404
+            : error.code === "W5_SCOPE_CONFLICT"
+              ? 403
+              : error.code === "W5_DRAFT_NOT_FROZEN" ||
+                  error.code === "W5_DRAFT_NOT_VALIDATED" ||
+                  error.code === "W5_INVALID_TRANSITION"
+                ? 409
+                : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;
       }
 

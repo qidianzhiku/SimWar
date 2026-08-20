@@ -48,6 +48,7 @@ import type {
   W027ResolutionAcknowledgement,
   W027RolePosition,
   W027RoleRoster,
+  W5ScenarioDraft,
   W4StoreState
 } from "@simwar/shared-contracts";
 import type { ValidationSessionRecord } from "@simwar/shared-contracts";
@@ -144,6 +145,8 @@ export interface SimWarStoreSnapshot {
   w027RolePositions: W027RolePosition[];
   w027Resolutions: W027ResolutionV2[];
   w027ResolutionAcknowledgements: W027ResolutionAcknowledgement[];
+  /** W5 governance-plane drafts; never part of canonical settlement truth. */
+  w5GovernedModelDrafts?: W5ScenarioDraft[];
   w4: W4StoreState;
 }
 
@@ -809,6 +812,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     w027RolePositions: [],
     w027Resolutions: [],
     w027ResolutionAcknowledgements: [],
+    w5GovernedModelDrafts: [],
     w4: {
       states: [],
       decisions: [],
@@ -885,6 +889,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     w027RolePositions: store.w027RolePositions,
     w027Resolutions: store.w027Resolutions,
     w027ResolutionAcknowledgements: store.w027ResolutionAcknowledgements,
+    w5GovernedModelDrafts: store.w5GovernedModelDrafts ?? [],
     w4: store.w4,
     counters: store.counters
   };
@@ -947,6 +952,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     w027RolePositions: snapshot.w027RolePositions ?? [],
     w027Resolutions: snapshot.w027Resolutions ?? [],
     w027ResolutionAcknowledgements: snapshot.w027ResolutionAcknowledgements ?? [],
+    w5GovernedModelDrafts: snapshot.w5GovernedModelDrafts ?? [],
     w4: {
       ...seed.w4,
       ...(snapshot.w4 ?? {}),
