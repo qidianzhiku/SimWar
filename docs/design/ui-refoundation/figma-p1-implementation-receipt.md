@@ -2,7 +2,7 @@
 
 **Receipt ID**: `SIMWAR-FE-P1-FIGMA-IMPLEMENTATION-2026-08-20`
 
-**Implementation head at receipt creation**: `fc935938d278beda1fa8e41fcebd5f2a64e40031`
+**Implementation head**: `d4333098a162f110cac954b7f3df19be475204c5`
 
 **Base**: `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f` (`origin/master` at task start)
 
@@ -47,10 +47,10 @@ The applications intentionally remain single-root hash workspaces. There is no R
 
 ## Validation evidence
 
-External debugging evidence was written outside the repository at:
-`C:\Users\Marshall\AppData\Local\Temp\simwar-figma-p1-evidence-20260820-043421`.
+Clean exact-head browser evidence was written outside the repository at:
+`C:\Users\Marshall\AppData\Local\Temp\simwar-figma-p1-clean-20260820-044125`.
 
-That run used the base SHA as both expected base and head while the implementation worktree was explicitly marked non-acceptance dirty. It is retained as diagnostic evidence only. A clean exact-head rerun is required before publication.
+The evidence uses base `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f`, head/actual `d4333098a162f110cac954b7f3df19be475204c5`, and a clean checkout. The Playwright result is `4 passed`, with 20 external PNG captures and no failed tests.
 
 Already passing in the implementation worktree:
 
@@ -59,7 +59,7 @@ Already passing in the implementation worktree:
 - root `npm run typecheck` and `npm run build`;
 - shared UI, Admin, Teacher, and Student production builds;
 - Prettier, hidden-Unicode, direct-store boundary guard, and scoped ESLint;
-- diagnostic PR4 browser matrix: 4/4, 20 external screenshots, 12 app runtime rows + 4 DesignSystemLab rows within budget.
+- clean PR4 browser matrix: 4/4, 20 external screenshots, 12 app runtime rows + 4 DesignSystemLab rows within budget; all hash-navigation timings are below 100 ms and CLS is 0.
 
 ## Limits and governance
 
