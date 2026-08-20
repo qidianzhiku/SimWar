@@ -217,7 +217,8 @@ jobs:
             --base-sha "$PR4_BASE_SHA" \
             --head-sha "$EXPECTED_PR_HEAD_SHA" \
             --max-diff-pixel-ratio 0.01 \
-            --role-threshold student=0.065
+            --role-threshold student=0.065 \
+            --expected-diff-receipt "$GITHUB_WORKSPACE/docs/design/ui-refoundation/figma-p1-visual-delta.json"
           visual_exit=$?
           set -e
           node - "$PR4_EVIDENCE_ROOT/visual-manifest.json" "$visual_exit" <<'NODE'
