@@ -58,7 +58,7 @@
 :where(.sw-app-shell__header h1) {
   min-width: 0;
   margin: 0;
-  font-size: var(--sw-type-size-h3);
+  font-size: var(--sw-type-size-h1);
   line-height: var(--sw-type-line-height-tight);
   overflow-wrap: anywhere;
 }
@@ -377,6 +377,7 @@
 :where(.sw-ui select),
 :where(.sw-ui textarea) {
   min-height: var(--sw-control-min-height);
+  border-radius: var(--sw-radius-button);
 }
 
 @media (prefers-reduced-motion: reduce) {

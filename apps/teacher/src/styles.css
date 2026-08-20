@@ -385,9 +385,9 @@ p {
 }
 
 h1 {
-  font-size: 30px;
+  font-size: var(--sw-type-size-h1);
   letter-spacing: 0;
-  line-height: 1.15;
+  line-height: var(--sw-type-line-height-tight);
   margin-bottom: 0;
 }
 
@@ -1674,26 +1674,6 @@ h3 {
     max-width: 100%;
     width: 100%;
   }
-}
-
-/* Figma P1 visual contract, presentation-only. */
-:root {
-  color: var(--sw-color-text-strong);
-  background: var(--sw-color-surface-base);
-  font-family: var(--sw-font-ui);
-}
-
-h1 {
-  font-size: var(--sw-type-size-h1);
-  line-height: var(--sw-type-line-height-tight);
-}
-
-button,
-input,
-select,
-textarea {
-  min-height: var(--sw-control-min-height);
-  border-radius: var(--sw-radius-button);
 }
 
 .golden-journey-workbench,

@@ -127,16 +127,16 @@ describe("Product PR4 integration contracts", () => {
 
       expect(report.schema_version).toBe(1);
       expect(report.budgets.admin.js).toMatchObject({
-        baseline_raw_kb: 273.62,
-        baseline_gzip_kb: 84.49
+        baseline_raw_kb: 277.46,
+        baseline_gzip_kb: 85.63
       });
       expect(report.budgets.teacher.css).toMatchObject({
-        baseline_raw_kb: 34.18,
-        baseline_gzip_kb: 6.52
+        baseline_raw_kb: 37.41,
+        baseline_gzip_kb: 6.93
       });
       expect(report.budgets.student.js).toMatchObject({
-        baseline_raw_kb: 249.73,
-        baseline_gzip_kb: 77.44
+        baseline_raw_kb: 273.89,
+        baseline_gzip_kb: 83.82
       });
     } finally {
       rmSync(fixture, { recursive: true, force: true });

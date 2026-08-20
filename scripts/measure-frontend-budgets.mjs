@@ -33,9 +33,11 @@ const clean = (() => {
   }
 })();
 const baseline = {
-  admin: { js: [273.62, 84.49], css: [27.06, 5.29] },
-  teacher: { js: [367.35, 106.24], css: [34.18, 6.52] },
-  student: { js: [249.73, 77.44], css: [24.26, 4.73] }
+  // Exact production assets measured from the PR base SHA. Keep these values
+  // tied to the base commit so the 10% budget compares like-for-like builds.
+  admin: { js: [277.46, 85.63], css: [29.6, 5.6] },
+  teacher: { js: [385.3, 111.25], css: [37.41, 6.93] },
+  student: { js: [273.89, 83.82], css: [26, 5] }
 };
 
 const allFiles = (directory) => {
