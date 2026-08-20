@@ -208,6 +208,13 @@ jobs:
         id: pr4-visual-browser
         run: |
           mkdir -p "$PR4_EVIDENCE_ROOT/baseline" "$PR4_EVIDENCE_ROOT/candidate" "$PR4_EVIDENCE_ROOT/diff"
+          expected_diff_args=()
+          expected_diff_base=$(node -e 'const fs=require("node:fs"); const receipt=JSON.parse(fs.readFileSync("docs/design/ui-refoundation/figma-p1-visual-delta.json","utf8")); process.stdout.write(receipt.base_sha);')
+          if [ "$PR4_BASE_SHA" = "$expected_diff_base" ]; then
+            expected_diff_args=(--expected-diff-receipt "$GITHUB_WORKSPACE/docs/design/ui-refoundation/figma-p1-visual-delta.json")
+          else
+            echo "PR4 base $PR4_BASE_SHA is not the Figma migration base $expected_diff_base; using the ordinary frozen pixel threshold."
+          fi
           set +e
           npm run visual:pr4:manifest -- \
             --baseline "$PR4_EVIDENCE_ROOT/baseline" \
@@ -218,7 +225,7 @@ jobs:
             --head-sha "$EXPECTED_PR_HEAD_SHA" \
             --max-diff-pixel-ratio 0.01 \
             --role-threshold student=0.065 \
-            --expected-diff-receipt "$GITHUB_WORKSPACE/docs/design/ui-refoundation/figma-p1-visual-delta.json"
+            "${expected_diff_args[@]}"
           visual_exit=$?
           set -e
           node - "$PR4_EVIDENCE_ROOT/visual-manifest.json" "$visual_exit" <<'NODE'
