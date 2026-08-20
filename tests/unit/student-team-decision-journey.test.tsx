@@ -4,7 +4,10 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type { W027StudentDecisionExperienceDTO } from "@simwar/shared-contracts";
-import { W027DecisionExperiencePanel } from "../../apps/student/src/W027DecisionExperiencePanel";
+import {
+  draftForKind,
+  W027DecisionExperiencePanel
+} from "../../apps/student/src/W027DecisionExperiencePanel";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -159,14 +162,14 @@ function response(ok: boolean, data: unknown = fixture): Response {
   } as Response;
 }
 
-function renderPanel() {
+function renderPanel(active = true) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
   act(() => {
     root.render(
       <W027DecisionExperiencePanel
-        active
+        active={active}
         courseId="course-a"
         roundId="round-a"
         runId="run-a"
@@ -180,6 +183,78 @@ function renderPanel() {
 }
 
 describe("Student team decision journey", () => {
+  it("keeps private readiness and settlement readback distinct from canonical milestones", async () => {
+    const readyPrivateFixture: W027StudentDecisionExperienceDTO = {
+      ...fixture,
+      private_judgments: fixture.private_judgments.map((judgment) => ({
+        ...judgment,
+        status: "ready"
+      })),
+      trace: {
+        ...fixture.trace,
+        stages: [
+          {
+            stage_key: "CANONICAL_DECISION_MILESTONE",
+            occurred_at: "2026-08-20T00:00:00.000Z",
+            safe_evidence_reference: "w027_canonical_decision",
+            safe_label: "正式 Decision 已由既有 RoleWorkflow 提交"
+          }
+        ],
+        current_stage: "CANONICAL_DECISION_MILESTONE"
+      }
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(response(true, readyPrivateFixture));
+    const { container, root } = renderPanel();
+
+    await act(async () => {
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(container.textContent).toContain("Role READY");
+    expect(container.textContent).toContain("未准备");
+    expect(container.textContent).toContain("Settlement");
+    expect(container.textContent).toContain("等待正式结果投影");
+    expect(container.textContent).not.toContain("服务端已读回");
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("loads a closed round as read-only so the team readback remains visible", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response(true));
+    const { container, root } = renderPanel(false);
+
+    await act(async () => {
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+
+    expect(container.textContent).toContain("团队安全立场");
+    expect(container.textContent).toContain("团队草案、确认与正式结果");
+    const save = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("保存私有判断")
+    );
+    expect(save).toBeDefined();
+    expect(save).toHaveProperty("disabled", true);
+
+    act(() => root.unmount());
+    container.remove();
+    fetchMock.mockRestore();
+  });
+
+  it("hydrates the selected judgment kind instead of carrying another kind's private text", async () => {
+    const selected = draftForKind(fixture, "evidence");
+
+    expect(selected.kind).toBe("evidence");
+    expect(selected.problemFrame).toBe("");
+    expect(selected.statement).toBe("");
+    expect(selected.status).toBe("draft");
+  });
+
   it("renders the full private-to-safe journey without a second merge or confirm writer", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response(true));
     const { container, root } = renderPanel();

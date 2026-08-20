@@ -81,6 +81,13 @@ const latest = (workspace: W027StudentDecisionExperienceDTO, kind: W027JudgmentK
   workspace.private_judgments
     .filter((item) => item.kind === kind)
     .sort((a, b) => b.version - a.version)[0];
+export const draftForKind = (
+  workspace: W027StudentDecisionExperienceDTO,
+  kind: W027JudgmentKind
+) => {
+  const value = latest(workspace, kind);
+  return value ? draftFrom(value) : emptyDraft(kind);
+};
 const hasTrace = (workspace: W027StudentDecisionExperienceDTO, key: string) =>
   workspace.trace.stages.some((stage) => stage.stage_key === key);
 
@@ -184,11 +191,6 @@ export function W027DecisionExperiencePanel(props: Props) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    if (!props.active) {
-      setPhase("idle");
-      setNotice("当前回合未开放编辑");
-      return false;
-    }
     if (!props.token || !props.runId || !props.roundId || !props.teamId) {
       setPhase("missing");
       setNotice("等待服务端返回当前角色工作区");
@@ -261,9 +263,9 @@ export function W027DecisionExperiencePanel(props: Props) {
     setDissentNote("");
     setCommandBusy(false);
     setTechnical("");
-    setPhase(props.active ? "loading" : "idle");
-    setNotice(props.active ? "正在读取当前角色工作区" : "当前回合未开放编辑");
-  }, [contextKey, props.active]);
+    setPhase("loading");
+    setNotice("正在读取当前角色工作区");
+  }, [contextKey]);
   useEffect(() => {
     void refresh();
     return () => abortRef.current?.abort();
@@ -334,6 +336,7 @@ export function W027DecisionExperiencePanel(props: Props) {
   }
   async function proposeResolution() {
     if (
+      !props.active ||
       !workspace?.divergence ||
       !workspace.context.permissions.can_propose_resolution ||
       !props.runId ||
@@ -382,6 +385,7 @@ export function W027DecisionExperiencePanel(props: Props) {
   }
   async function acknowledge(status: "ACKNOWLEDGED" | "DISSENT_PRESERVED") {
     if (
+      !props.active ||
       !workspace?.resolution ||
       !workspace.context.permissions.can_acknowledge_resolution ||
       !props.runId ||
@@ -422,15 +426,13 @@ export function W027DecisionExperiencePanel(props: Props) {
     }
   }
 
-  const readOnly = phase === "denied" || !workspace?.context.permissions.can_write_private_judgment;
+  const readOnly =
+    !props.active ||
+    phase === "denied" ||
+    !workspace?.context.permissions.can_write_private_judgment;
   const stages = workspace
     ? [
-        [
-          "Role READY",
-          draft.status === "ready" || hasTrace(workspace, "ROLE_POSITION_PUBLISHED")
-            ? "READY"
-            : "未准备"
-        ],
+        ["Role READY", hasTrace(workspace, "ROLE_POSITION_PUBLISHED") ? "READY" : "未准备"],
         [
           "Team Confirm",
           hasTrace(workspace, "TEAM_CONFIRMED") ||
@@ -438,11 +440,8 @@ export function W027DecisionExperiencePanel(props: Props) {
             ? "已确认"
             : "等待角色工作区"
         ],
-        ["Round Lock", props.active ? "OPEN" : "由服务端决定"],
-        [
-          "Settlement",
-          hasTrace(workspace, "CANONICAL_DECISION_MILESTONE") ? "服务端已读回" : "尚未结算"
-        ]
+        ["Round Lock", props.active ? "OPEN" : "服务端只读"],
+        ["Settlement", "等待正式结果投影"]
       ]
     : [];
   const field = (
@@ -564,11 +563,12 @@ export function W027DecisionExperiencePanel(props: Props) {
                   value={draft.kind}
                   disabled={readOnly || saveState === "saving"}
                   onChange={(event) => {
-                    const next = { ...draft, kind: event.target.value as W027JudgmentKind };
+                    const next = draftForKind(workspace, event.target.value as W027JudgmentKind);
                     draftRef.current = next;
                     setDraft(next);
-                    dirtyRef.current = true;
-                    setDirty(true);
+                    dirtyRef.current = false;
+                    setDirty(false);
+                    setSaveState(next.status === "ready" ? "saved" : "draft");
                   }}
                 >
                   {KINDS.map((kind) => (
@@ -692,14 +692,14 @@ export function W027DecisionExperiencePanel(props: Props) {
                   <textarea
                     aria-label="分歧解决理由"
                     value={resolutionRationale}
-                    disabled={commandBusy}
+                    disabled={readOnly || commandBusy}
                     onChange={(event) => setResolutionRationale(event.target.value)}
                     placeholder="共同事实、角色立场、护栏、理由与风险"
                   />
                 </label>
                 <button
                   type="button"
-                  disabled={commandBusy}
+                  disabled={readOnly || commandBusy}
                   onClick={() => void proposeResolution()}
                 >
                   提出观察到的候选解决方案
@@ -735,7 +735,7 @@ export function W027DecisionExperiencePanel(props: Props) {
                       <textarea
                         aria-label="保留异议说明"
                         value={dissentNote}
-                        disabled={commandBusy}
+                        disabled={readOnly || commandBusy}
                         onChange={(event) => setDissentNote(event.target.value)}
                         placeholder="如果不同意，说明仍需保留的异议"
                       />
@@ -743,14 +743,14 @@ export function W027DecisionExperiencePanel(props: Props) {
                     <div className="w027-action-row role-workflow-actions">
                       <button
                         type="button"
-                        disabled={commandBusy}
+                        disabled={readOnly || commandBusy}
                         onClick={() => void acknowledge("ACKNOWLEDGED")}
                       >
                         确认解决方案
                       </button>
                       <button
                         type="button"
-                        disabled={commandBusy}
+                        disabled={readOnly || commandBusy}
                         onClick={() => void acknowledge("DISSENT_PRESERVED")}
                       >
                         保留我的异议
