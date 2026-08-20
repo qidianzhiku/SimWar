@@ -1,0 +1,50 @@
+{
+  "mission_id": "SIMWAR-W5-FORMAL-REBASE-COMPLETION-V5.8-20260820",
+  "mission_lineage_id": "SIMWAR-W5-FORMAL-REBASE-V5.8-20260820T155612Z",
+  "product_pr": 406,
+  "product_merge_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+  "fresh_checkout": "D:/codex/worktrees/simwar-w5-formal-rebase-fresh-20260820T163055Z",
+  "head_sha": "97dd4cb66d2f244df94a332b15fcb6b782ebb988",
+  "tree_sha": "6743a1416d5ccf0d405f5c0df1e64cf20b59ad64",
+  "worktree": "CLEAN",
+  "m_rb1": "PASS_WITH_LIMITS",
+  "m_rb2": "PASS_WITH_LIMITS",
+  "m_rb3": "PASS_WITH_LIMITS",
+  "checks": {
+    "npm_ci": "PASS",
+    "focused_w5_core": "PASS 13/13",
+    "contract": "PASS 26 files / 59 tests",
+    "full_test": {
+      "status": "PASS_WITH_EXPLICIT_LIMIT",
+      "passed_files": 216,
+      "total_files": 219,
+      "passed_tests": 1356,
+      "total_tests": 1359,
+      "known_failures": [
+        "settlement-write-replay-hash-characterization: fetch failed / bad port in integration harness",
+        "direct-store-boundary-check: detached HEAD baseline inventory timeout and non-symbolic HEAD assumption",
+        "ui-teacher-refoundation: existing stale-workspace-response test timeout"
+      ]
+    },
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "build": "PASS",
+    "browser_w5": "PASS 1/1",
+    "hidden_unicode": "PASS",
+    "direct_store": "PASS; new_unapproved_runtime_direct_store_access=0",
+    "security_audit": "PASS at critical threshold; 7 high dependency advisories remain",
+    "postgres_replay": "NOT_RUN_ENVIRONMENT_LIMIT; SIMWAR_TEST_DATABASE_URL absent and PG/RLS not authorized"
+  },
+  "reproduction_evidence": {
+    "rb1": "C:/Temp/simwar-w5-formal-rebase-20260820T155612Z/fresh-detached/2026-08-20-w5-formal-rebase-rb1.json",
+    "rb2": "C:/Temp/simwar-w5-formal-rebase-20260820T155612Z/fresh-detached/2026-08-20-w5-formal-rebase-rb2.json",
+    "rb3": "C:/Temp/simwar-w5-formal-rebase-20260820T155612Z/fresh-detached/2026-08-20-w5-formal-rebase-rb3.json"
+  },
+  "hv_b_readiness": "READY",
+  "human_model_validation_b": "NOT_PERFORMED",
+  "pilot": "NOT_AUTHORIZED",
+  "production": "NOT_AUTHORIZED",
+  "general_postgres_rls": "NOT_AUTHORIZED",
+  "w6": "NOT_STARTED",
+  "recorded_at": "2026-08-20T16:38:00Z"
+}
