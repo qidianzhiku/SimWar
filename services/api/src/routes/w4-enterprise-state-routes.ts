@@ -119,40 +119,104 @@ export async function handleW4EnterpriseStateRoute(
     const current = repository.snapshot();
     const states = current.states.filter((state) => state.tenant_id === context.tenantId);
     const tenantRuns = new Set(states.map((state) => `${state.course_id}:${state.run_id}`));
-    const portfolios = [...tenantRuns].map((key) => {
-      const [courseId, runId] = key.split(":");
-      const runStates = states.filter(
-        (state) => state.course_id === courseId && state.run_id === runId
-      );
-      const latest = runStates.slice().sort((left, right) => right.round_no - left.round_no)[0];
-      const initiatives = current.initiatives.filter(
-        (item) =>
-          item.tenant_id === context.tenantId &&
-          item.course_id === courseId &&
-          item.run_id === runId
-      );
-      return {
-        course_id: courseId,
-        run_id: runId,
-        enterprise_state_count: runStates.length,
-        latest_state_ref: latest
-          ? {
-              enterprise_state_id: latest.enterprise_state_id,
-              round_id: latest.round_id,
-              round_no: latest.round_no,
-              state_digest: latest.state_digest
-            }
-          : null,
-        portfolio: latest?.state.portfolio ?? { projects: [], facilities: [] },
-        operating_units: latest?.state.operating_units ?? [],
-        initiatives: initiatives.map((initiative) => ({
-          initiative_id: initiative.initiative_id,
-          kind: initiative.kind,
-          status: initiative.status,
-          project_name: initiative.project?.project_name ?? null
-        }))
-      };
-    });
+    const portfolios = await Promise.all(
+      [...tenantRuns].map(async (key) => {
+        const [courseId = "", runId = ""] = key.split(":");
+        const runStates = states.filter(
+          (state) => state.course_id === courseId && state.run_id === runId
+        );
+        const latest = runStates.slice().sort((left, right) => right.round_no - left.round_no)[0];
+        const initiatives = current.initiatives.filter(
+          (item) =>
+            item.tenant_id === context.tenantId &&
+            item.course_id === courseId &&
+            item.run_id === runId
+        );
+        const teamPaths = await Promise.all(
+          [...new Set(runStates.map((state) => state.team_id))].map(async (teamId) => {
+            const teamLatest = runStates
+              .filter((state) => state.team_id === teamId)
+              .slice()
+              .sort((left, right) => right.round_no - left.round_no)[0];
+            if (!teamLatest) return null;
+            const teamProjection = await service.getProjection({
+              actor_id: actor.user_id,
+              tenant_id: context.tenantId,
+              course_id: courseId,
+              run_id: runId,
+              team_id: teamId,
+              round_id: teamLatest.round_id,
+              round_no: teamLatest.round_no,
+              role_key: actor.roles[0] ?? "admin",
+              activity_id: ACTIVITY_ID
+            });
+            return {
+              team_id: teamId,
+              path_evidence: teamProjection.path_evidence,
+              process_information: {
+                status: teamProjection.initiatives.some(
+                  (initiative) => initiative.status === "blocked"
+                )
+                  ? "blocked"
+                  : teamProjection.state
+                    ? "ready"
+                    : "empty",
+                activity_id: ACTIVITY_ID
+              },
+              outcome_information: {
+                status: teamProjection.closing_state_ref ? "official" : "empty",
+                opening_state_ref: teamProjection.opening_state_ref,
+                closing_state_ref: teamProjection.closing_state_ref
+              }
+            };
+          })
+        );
+        const latestOutcome = current.outcomes
+          .filter(
+            (outcome) =>
+              outcome.tenant_id === context.tenantId &&
+              outcome.course_id === courseId &&
+              outcome.run_id === runId
+          )
+          .slice()
+          .sort((left, right) => right.round_no - left.round_no)[0];
+        return {
+          course_id: courseId,
+          run_id: runId,
+          enterprise_state_count: runStates.length,
+          latest_state_ref: latest
+            ? {
+                enterprise_state_id: latest.enterprise_state_id,
+                round_id: latest.round_id,
+                round_no: latest.round_no,
+                state_digest: latest.state_digest
+              }
+            : null,
+          portfolio: latest?.state.portfolio ?? { projects: [], facilities: [] },
+          operating_units: latest?.state.operating_units ?? [],
+          process_information: {
+            status: initiatives.some((initiative) => initiative.status === "blocked")
+              ? "blocked"
+              : latest
+                ? "ready"
+                : "empty",
+            activity_id: ACTIVITY_ID
+          },
+          outcome_information: {
+            status: latestOutcome ? "official" : "empty",
+            opening_state_ref: latestOutcome?.opening_state_ref ?? null,
+            closing_state_ref: latestOutcome?.closing_state_ref ?? null
+          },
+          team_paths: teamPaths.filter((path): path is NonNullable<typeof path> => path !== null),
+          initiatives: initiatives.map((initiative) => ({
+            initiative_id: initiative.initiative_id,
+            kind: initiative.kind,
+            status: initiative.status,
+            project_name: initiative.project?.project_name ?? null
+          }))
+        };
+      })
+    );
     dependencies.sendJson(
       response,
       200,
@@ -189,7 +253,7 @@ export async function handleW4EnterpriseStateRoute(
         context,
         actor,
         parsed.runId,
-        `round_${parsed.runId}_${parsed.roundNo}`,
+        url.searchParams.get("round_id") ?? `round_${parsed.runId}_${parsed.roundNo}`,
         parsed.roundNo,
         teamId,
         courseId

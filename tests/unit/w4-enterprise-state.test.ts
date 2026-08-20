@@ -426,6 +426,65 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     expect(repository.snapshot().replayEvidence).toHaveLength(1);
     expect(repository.snapshot().outcomes).toEqual(before.outcomes);
   });
+
+  it("publishes D3 path evidence without creating a second truth or replay writer", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const alphaOpening = await service.createInitialState(scope, initialState());
+    await service.commitStrategicDecision(scope, newProjectDecision);
+    const alphaOutcome = await service.settleRound(scope, {
+      opening_state_ref: alphaOpening.state_ref,
+      decision_id: newProjectDecision.decision_id,
+      replay_input_manifest: replayManifest(alphaOpening.state_ref)
+    });
+
+    const betaScope = { ...scope, actor_id: "usr_student_beta", team_id: "team_beta" };
+    const betaOpening = await service.createInitialState(betaScope, {
+      ...initialState(),
+      enterprise_state_id: "state_w4_beta_0",
+      team_id: "team_beta",
+      state: { ...initialState().state, cash: 1200 }
+    });
+    const betaDecision = {
+      ...newProjectDecision,
+      decision_id: "decision_w4_project_beta",
+      team_id: "team_beta"
+    };
+    await service.commitStrategicDecision(betaScope, betaDecision);
+    await service.settleRound(betaScope, {
+      opening_state_ref: betaOpening.state_ref,
+      decision_id: betaDecision.decision_id,
+      replay_input_manifest: {
+        ...replayManifest(betaOpening.state_ref),
+        manifest_id: "manifest_run_w4_team_beta_1",
+        team_id: "team_beta",
+        decision_ids: [betaDecision.decision_id]
+      }
+    });
+
+    const projection = await service.getProjection({ ...scope, role_key: "teacher" });
+    expect(projection.path_evidence.opening_vs_closing).toMatchObject({
+      opening_state_ref: alphaOpening.state_ref,
+      closing_state_ref: alphaOutcome.closing_state_ref,
+      parent_state_ref: alphaOpening.state_ref
+    });
+    expect(projection.path_evidence.opening_vs_closing?.changed_paths).toContain("cash");
+    expect(projection.path_evidence.initiative_timeline[0]?.milestones).toEqual([
+      "approved",
+      "construction",
+      "activated"
+    ]);
+    expect(projection.path_evidence.official_replay_path).toMatchObject({
+      official_outcome_id: alphaOutcome.outcome_id,
+      replay_writes_formal_results: false
+    });
+    expect(projection.path_evidence.same_current_decision_different_history).toMatchObject({
+      status: "proven",
+      comparison_count: 1
+    });
+    expect(repository.snapshot().outcomes).toHaveLength(2);
+    expect(repository.snapshot().states).toHaveLength(4);
+  });
 });
 
 void W4EnterpriseStateError;

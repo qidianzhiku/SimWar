@@ -3091,6 +3091,7 @@ export function App() {
         {session && selectedRun && selectedRound ? (
           <W4EnterpriseStateWorkbench
             courseId={selectedRun.course_id}
+            roundId={selectedRound.round_id}
             roundNo={selectedRound.round_no}
             runId={selectedRun.run_id}
             teamId={

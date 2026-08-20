@@ -3,6 +3,8 @@ import type { ApiEnvelope, AuthSession, Run } from "../../packages/shared-contra
 import { cleanupPlaywrightStore } from "./store-isolation";
 
 const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
+const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
+const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
 const tenantId = "tenant_demo";
 
@@ -25,7 +27,10 @@ async function apiPost<T>(
   return { response, body: (await response.json()) as ApiEnvelope<T> };
 }
 
-async function login(request: APIRequestContext, username: "teacher" | "student"): Promise<string> {
+async function login(
+  request: APIRequestContext,
+  username: "teacher" | "student" | "admin"
+): Promise<string> {
   const { response, body } = await apiPost<AuthSession>(request, "/api/v1/auth/login", undefined, {
     username,
     password: username
@@ -110,4 +115,22 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   await expect(page.getByRole("heading", { name: "Enterprise State · New Project" })).toBeVisible();
   await expect(page.getByText("Commitment", { exact: false })).toBeVisible();
   await expect(page.getByText("浏览器新区项目", { exact: false })).toBeVisible();
+
+  await page.goto(teacherBaseUrl);
+  await page.getByLabel("tenant").fill(tenantId);
+  await page.getByLabel("username").fill("teacher");
+  await page.getByLabel("password").fill("teacher");
+  await page.getByRole("button", { name: "教师登录" }).click();
+  await expect(page.getByRole("heading", { name: "W4 Strategic Evolution 监控" })).toBeVisible();
+  await expect(page.getByText("Process Information", { exact: false })).toBeVisible();
+  await expect(page.getByText("Outcome Information", { exact: false })).toBeVisible();
+
+  await page.goto(adminBaseUrl);
+  await page.getByLabel("tenant").fill(tenantId);
+  await page.getByLabel("username").fill("admin");
+  await page.getByLabel("password").fill("admin");
+  await page.getByRole("button", { name: "管理员登录" }).click();
+  await expect(page.getByRole("heading", { name: "Enterprise Portfolio 投影" })).toBeVisible();
+  await expect(page.getByText("OperatingUnit", { exact: false })).toBeVisible();
+  await expect(page.getByText("Group", { exact: true })).toBeVisible();
 });

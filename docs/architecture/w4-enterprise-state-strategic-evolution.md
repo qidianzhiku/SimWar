@@ -31,7 +31,7 @@ Opening Enterprise State
 
 New Project 经过 canonical decision 校验，保存 cost、cycle、area、beds、bed mix、ramp 和 lead time，并以 Initiative milestone 记录 approved、construction、activated 路径。项目只有在 activation round 到达后才进入 active。
 
-Student 通过 `/api/v1/bff/student/w4/.../portfolio` 获取脱敏投影，不包含 cash、`state_true`、score、rank 或其他队伍私有字段；Teacher 读取只读的 Opening/Closing、Commitment、Effect、milestone 和 blocker；Admin 的 `/api/v1/bff/admin/w4/portfolio` 提供 Group / Portfolio / OperatingUnit / Project / Facility 聚合投影。
+Student 通过 `/api/v1/bff/student/w4/.../portfolio` 获取脱敏投影，不包含 cash、`state_true`、score、rank 或其他队伍私有字段；Teacher 读取只读的 Opening/Closing、Commitment、Effect、milestone、blocker 和 D3 path evidence；Admin 的 `/api/v1/bff/admin/w4/portfolio` 提供 Group / Portfolio / OperatingUnit / Project / Facility 聚合投影，并按 team 给出只读的 path/replay evidence。D3 projection 明确返回 Opening-vs-Closing changed paths、Closing parent ref、initiative timeline、persistent effect IDs、official replay path 和同一决策意图/不同历史比较结果；Student 不接收跨 team 比较计数。
 
 Process Information 与 Outcome Information 分开表达。前端明确呈现 loading、empty、partial、ready、blocked、permission、stale、conflict、dependency-missing、error 和 retry 状态。
 
@@ -43,6 +43,6 @@ M&A、ABS、IPO、project sale 和 project closure 只通过 typed `W4PolicySeam
 
 ## 路由安全边界
 
-所有 W4 round-scoped 路由在 route layer 绑定 actor、tenant、course、run、team、round、role 和固定 activity id `w4-enterprise-state-strategic-evolution`，并在应用服务前验证 Run 与 Team 的租户/课程归属。Learner 只能访问自己的 team。Initial State 仅允许 round 1；continuation 必须消费精确的上一 Closing ref 且目标 round 连续；Projection、Replay 与 Shadow Replay 必须使用已知或紧邻下一 round，Replay/Shadow Replay 还必须与 outcome 的 exact round ref 一致。Strategic Decision 不信任客户端的 `canonical` 标记：formal run 必须由现有 role-workflow canonical admission 返回 merge commit/team confirmation 证据，legacy direct 仅接受显式 synthetic admission。Settlement 只接受已锁定（或已结算/发布）的真实 Round，并再次验证该 team 的 canonical admission。Admin aggregate 只在当前 tenant 的 Admin 会话下可读，且不暴露写入接口。
+所有 W4 round-scoped 路由在 route layer 绑定 actor、tenant、course、run、team、round、role 和固定 activity id `w4-enterprise-state-strategic-evolution`，并在应用服务前验证 Run 与 Team 的租户/课程归属。Learner 只能访问自己的 team。Projection 查询必须携带真实 `round_id`（未提供时只使用约定 fallback），避免将另一个 round 的 projection 当作当前路径。Initial State 仅允许 round 1；continuation 必须消费精确的上一 Closing ref 且目标 round 连续；Projection、Replay 与 Shadow Replay 必须使用已知或紧邻下一 round，Replay/Shadow Replay 还必须与 outcome 的 exact round ref 一致。Strategic Decision 不信任客户端的 `canonical` 标记：formal run 必须由现有 role-workflow canonical admission 返回 merge commit/team confirmation 证据，legacy direct 仅接受显式 synthetic admission。Settlement 只接受已锁定（或已结算/发布）的真实 Round，并再次验证该 team 的 canonical admission。Admin aggregate 只在当前 tenant 的 Admin 会话下可读，且不暴露写入接口。
 
 W3 的历史 `W3-SECURITY-LIMIT-ROLE-ACTIVITY-RECEIPT` 未被 W4 新路径复用，保留为 `NOT_CONSUMED_PRESERVED`；W4 不扩展 PostgreSQL/RLS、Pilot 或 Production 权限。

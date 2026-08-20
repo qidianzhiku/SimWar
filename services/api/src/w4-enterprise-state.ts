@@ -84,6 +84,43 @@ function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
+  if (
+    before === null ||
+    after === null ||
+    typeof before !== "object" ||
+    typeof after !== "object" ||
+    Array.isArray(before) ||
+    Array.isArray(after)
+  ) {
+    return JSON.stringify(before) === JSON.stringify(after) ? [] : [prefix || "state"];
+  }
+  const keys = new Set([
+    ...Object.keys(before as Record<string, unknown>),
+    ...Object.keys(after as Record<string, unknown>)
+  ]);
+  return [...keys]
+    .sort()
+    .flatMap((key) =>
+      changedPaths(
+        (before as Record<string, unknown>)[key],
+        (after as Record<string, unknown>)[key],
+        prefix ? `${prefix}.${key}` : key
+      )
+    );
+}
+
+function decisionIntentDigest(
+  decisions: W4CanonicalStrategicDecision[],
+  decisionIds: readonly string[]
+): string | null {
+  const selected = decisions
+    .filter((decision) => decisionIds.includes(decision.decision_id))
+    .map((decision) => ({ kind: decision.kind, payload: decision.payload }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return selected.length ? digest(selected) : null;
+}
+
 function stateRef(state: W4EnterpriseState, parent?: W4StateRef | null): W4StateRef {
   return {
     tenant_id: state.tenant_id,
@@ -755,6 +792,107 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         )
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
+      const scopedInitiatives = current.initiatives.filter((item) => scopeMatches(scope, item));
+      const scopedCommitments = current.commitments
+        .filter((item) => scopeMatches(scope, item))
+        .map(({ commitment_id, kind, status, cost }) => ({ commitment_id, kind, status, cost }));
+      const scopedEffects = current.effects
+        .filter((item) => scopeMatches(scope, item))
+        .map(({ effect_id, status, effective_round_no }) => ({
+          effect_id,
+          status,
+          effective_round_no
+        }));
+      const currentOpeningState = currentOutcome
+        ? current.states.find((state) =>
+            stateMatchesExactRef(state, currentOutcome.opening_state_ref)
+          )
+        : undefined;
+      const currentClosingState = currentOutcome
+        ? current.states.find((state) =>
+            stateMatchesExactRef(state, currentOutcome.closing_state_ref)
+          )
+        : undefined;
+      const scopedEvidence = current.replayEvidence.filter((item) => scopeMatches(scope, item));
+      const currentDecisionIds = currentOutcome?.replay_input_manifest.decision_ids ?? [];
+      const currentIntentDigest = decisionIntentDigest(current.decisions, currentDecisionIds);
+      const canCompareAcrossTeams = scope.role_key === "teacher" || scope.role_key === "admin";
+      const alternativeHistoryCount =
+        canCompareAcrossTeams && currentIntentDigest
+          ? current.outcomes.filter((outcome) => {
+              if (
+                outcome === currentOutcome ||
+                outcome.tenant_id !== scope.tenant_id ||
+                outcome.course_id !== scope.course_id ||
+                outcome.run_id !== scope.run_id ||
+                outcome.opening_state_ref.state_digest ===
+                  currentOutcome?.opening_state_ref.state_digest
+              ) {
+                return false;
+              }
+              return (
+                decisionIntentDigest(
+                  current.decisions,
+                  outcome.replay_input_manifest.decision_ids
+                ) === currentIntentDigest
+              );
+            }).length
+          : 0;
+      const openingVsClosing =
+        currentOutcome && currentOpeningState && currentClosingState
+          ? {
+              opening_state_ref: clone(currentOutcome.opening_state_ref),
+              closing_state_ref: clone(currentOutcome.closing_state_ref),
+              parent_state_ref: clone(currentClosingState.parent_state_ref),
+              opening_digest: currentOpeningState.state_digest,
+              closing_digest: currentClosingState.state_digest,
+              changed_paths: changedPaths(currentOpeningState.state, currentClosingState.state)
+            }
+          : null;
+      const pathEvidence = {
+        opening_vs_closing: openingVsClosing,
+        initiative_timeline: scopedInitiatives.map((initiative) => ({
+          initiative_id: initiative.initiative_id,
+          status: initiative.status,
+          current_milestone: initiative.current_milestone,
+          milestones: [...initiative.milestones],
+          remaining_lead_time_rounds: initiative.remaining_lead_time_rounds,
+          activation_round_no: initiative.activation_round_no
+        })),
+        persistent_effect_ids: scopedEffects
+          .filter((effect) => effect.status !== "expired")
+          .map((effect) => effect.effect_id),
+        portfolio_hierarchy: {
+          group_tenant_id: scope.tenant_id,
+          portfolio_projects: [...(latestState?.state.portfolio.projects ?? [])],
+          portfolio_facilities: [...(latestState?.state.portfolio.facilities ?? [])],
+          operating_unit_ids: (latestState?.state.operating_units ?? []).map(
+            (unit) => unit.operating_unit_id
+          )
+        },
+        official_replay_path: {
+          official_outcome_id: currentOutcome?.official_outcome_id ?? null,
+          replay_ids: scopedEvidence
+            .filter(
+              (evidence) => evidence.source_outcome_id === currentOutcome?.official_outcome_id
+            )
+            .map((evidence) => evidence.replay_id),
+          path_digests: [
+            ...(currentOutcome ? [currentOutcome.settlement_digest] : []),
+            ...scopedEvidence
+              .filter(
+                (evidence) => evidence.source_outcome_id === currentOutcome?.official_outcome_id
+              )
+              .map((evidence) => evidence.path_digest)
+          ],
+          replay_writes_formal_results: false as const
+        },
+        same_current_decision_different_history: {
+          status: alternativeHistoryCount > 0 ? ("proven" as const) : ("not_observed" as const),
+          current_decision_ids: [...currentDecisionIds],
+          comparison_count: alternativeHistoryCount
+        }
+      };
       return {
         scope: {
           tenant_id: scope.tenant_id,
@@ -766,22 +904,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           currentOutcome?.opening_state_ref ?? latestOutcome?.closing_state_ref ?? null,
         closing_state_ref: currentOutcome?.closing_state_ref ?? null,
         state: latestState ? clone(latestState.state) : null,
-        initiatives: clone(current.initiatives.filter((item) => scopeMatches(scope, item))),
-        commitments: clone(
-          current.commitments
-            .filter((item) => scopeMatches(scope, item))
-            .map(({ commitment_id, kind, status, cost }) => ({ commitment_id, kind, status, cost }))
-        ),
-        effects: clone(
-          current.effects
-            .filter((item) => scopeMatches(scope, item))
-            .map(({ effect_id, status, effective_round_no }) => ({
-              effect_id,
-              status,
-              effective_round_no
-            }))
-        ),
-        evidence: clone(current.replayEvidence.filter((item) => scopeMatches(scope, item)))
+        initiatives: clone(scopedInitiatives),
+        commitments: clone(scopedCommitments),
+        effects: clone(scopedEffects),
+        evidence: clone(scopedEvidence),
+        path_evidence: clone(pathEvidence)
       };
     }
   };

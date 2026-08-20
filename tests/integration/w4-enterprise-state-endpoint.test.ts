@@ -192,7 +192,17 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       expect(continued.status).toBe(201);
       expect(continued.body.data.state_ref).toEqual(settled.body.data.closing_state_ref);
 
-      const projection = await request<{ state: Record<string, unknown> }>(
+      const projection = await request<{
+        state: Record<string, unknown>;
+        path_evidence: {
+          opening_vs_closing: { parent_state_ref: unknown; changed_paths: string[] };
+          official_replay_path: {
+            official_outcome_id: string;
+            path_digests: string[];
+            replay_writes_formal_results: false;
+          };
+        };
+      }>(
         baseUrl,
         `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/2/portfolio?course_id=course_demo`,
         student
@@ -200,17 +210,47 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       expect(projection.status).toBe(200);
       expect(projection.body.data.state.cash).toBeUndefined();
       expect(projection.body.data.opening_state_ref).toEqual(continued.body.data.state_ref);
+      expect(projection.body.data.path_evidence.opening_vs_closing).toBeNull();
+
+      const roundOneProjection = await request<{
+        path_evidence: {
+          opening_vs_closing: { parent_state_ref: unknown; changed_paths: string[] };
+          official_replay_path: {
+            official_outcome_id: string;
+            path_digests: string[];
+            replay_writes_formal_results: false;
+          };
+        };
+      }>(
+        baseUrl,
+        `/api/v1/bff/student/w4/runs/${activeRunId}/rounds/1/portfolio?course_id=course_demo&round_id=${encodeURIComponent(roundId)}`,
+        student
+      );
+      expect(
+        roundOneProjection.body.data.path_evidence.opening_vs_closing.parent_state_ref
+      ).toEqual(initial.body.data.state_ref);
+      expect(roundOneProjection.body.data.path_evidence.opening_vs_closing.changed_paths).toContain(
+        "cash"
+      );
+      expect(
+        roundOneProjection.body.data.path_evidence.official_replay_path.path_digests
+      ).toHaveLength(1);
+      expect(
+        roundOneProjection.body.data.path_evidence.official_replay_path.replay_writes_formal_results
+      ).toBe(false);
 
       const admin = await login(baseUrl, "admin");
       const adminProjection = await request<{
         portfolios: Array<{
           operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
+          team_paths: Array<{ team_id: string; path_evidence: { official_replay_path: unknown } }>;
         }>;
       }>(baseUrl, "/api/v1/bff/admin/w4/portfolio", admin);
       expect(adminProjection.status).toBe(200);
       expect(adminProjection.body.data.portfolios[0]?.operating_units).toEqual([
         { operating_unit_id: "unit_alpha", name: "Alpha Operations", status: "active" }
       ]);
+      expect(adminProjection.body.data.portfolios[0]?.team_paths[0]?.path_evidence).toBeDefined();
 
       const unknownRoundProjection = await request(
         baseUrl,

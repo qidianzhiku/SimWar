@@ -45,6 +45,13 @@ function statusLabel(status: PanelStatus): string {
   }[status];
 }
 
+function failureStatus(code: string): PanelStatus {
+  if (code.includes("403") || code.includes("PERMISSION")) return "permission";
+  if (code.includes("409") || code.includes("CONFLICT")) return "conflict";
+  if (code.includes("NOT_FOUND")) return "dependency-missing";
+  return "retry";
+}
+
 export function W4EnterpriseStatePanel({
   token,
   tenantId,
@@ -73,7 +80,7 @@ export function W4EnterpriseStatePanel({
     const controller = new AbortController();
     setStatus("loading");
     fetch(
-      `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/v1/bff/student/w4/runs/${runId}/rounds/${roundNo}/portfolio?course_id=${encodeURIComponent(courseId)}&team_id=${encodeURIComponent(teamId)}`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/v1/bff/student/w4/runs/${runId}/rounds/${roundNo}/portfolio?course_id=${encodeURIComponent(courseId)}&team_id=${encodeURIComponent(teamId)}&round_id=${encodeURIComponent(roundId ?? `round_${runId}_${roundNo}`)}`,
       {
         headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
         signal: controller.signal
@@ -83,15 +90,7 @@ export function W4EnterpriseStatePanel({
         const envelope = (await response.json()) as { data?: ProjectionResponse; code?: string };
         if (!response.ok) {
           const code = envelope.code ?? "W4-LOAD-ERROR";
-          setStatus(
-            code.includes("403")
-              ? "permission"
-              : code.includes("409")
-                ? "conflict"
-                : code.includes("404")
-                  ? "dependency-missing"
-                  : "retry"
-          );
+          setStatus(failureStatus(code));
           throw new Error(code);
         }
         setProjection(envelope.data ?? null);
@@ -107,6 +106,7 @@ export function W4EnterpriseStatePanel({
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setNotice(error instanceof Error ? error.message : "W4 状态暂时不可用");
+        setStatus((current) => (current === "loading" ? "error" : current));
       });
     return () => controller.abort();
   }, [courseId, reloadVersion, roundNo, runId, teamId, tenantId, token]);
@@ -206,6 +206,26 @@ export function W4EnterpriseStatePanel({
           <div>
             <span>Outcome Information</span>
             <strong>{projection.outcome_information.status}</strong>
+          </div>
+        </div>
+      ) : null}
+      {projection ? (
+        <div className="evidence-note">
+          <div>
+            Opening / Closing diff：
+            {projection.path_evidence.opening_vs_closing?.changed_paths.join(", ") ||
+              "等待官方结算"}
+          </div>
+          <div>
+            Official replay path：{projection.path_evidence.official_replay_path.replay_ids.length}{" "}
+            条 · Shadow apply ={" "}
+            {projection.path_evidence.official_replay_path.replay_writes_formal_results === false
+              ? "否"
+              : "未证明"}
+          </div>
+          <div>
+            同一决策意图 / 不同历史：
+            {projection.path_evidence.same_current_decision_different_history.status}
           </div>
         </div>
       ) : null}
