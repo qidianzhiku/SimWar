@@ -320,6 +320,69 @@
   }
 }
 
+/* Figma P1 visual contract: semantic aliases keep the shared shell and its
+   controls visually consistent without changing permission or data behavior. */
+:where(.sw-app-shell__header) {
+  background: var(--sw-color-text-strong);
+}
+
+:where(.sw-app-shell__body) {
+  padding: var(--sw-space-page);
+}
+
+:where(.sw-app-shell__main),
+:where(.sw-receipt-panel),
+:where(.sw-known-limit-banner),
+:where(.sw-state-panel) {
+  border-radius: var(--sw-radius-card);
+  border-color: var(--sw-color-surface-border);
+}
+
+:where(.sw-role-navigation a),
+:where(.sw-allowed-action),
+:where(.sw-state-panel__recovery) {
+  border-radius: var(--sw-radius-button);
+}
+
+:where(.sw-allowed-action) {
+  min-height: var(--sw-control-min-height);
+  background: var(--sw-color-action-primary-accessible);
+  border-color: var(--sw-color-action-primary-accessible);
+}
+
+:where(.sw-authority-badge[data-authority="official"]),
+:where(.sw-authority-badge[data-authority="system-result"]) {
+  color: var(--sw-color-official);
+}
+
+:where(.sw-authority-badge[data-authority="advisory"]),
+:where(.sw-authority-badge[data-authority="ai-explanation"]) {
+  color: var(--sw-color-brand-secondary-accessible);
+}
+
+:where(.sw-authority-badge[data-authority="shadow"]) {
+  color: var(--sw-color-replay-accessible);
+}
+
+:where(.sw-authority-badge[data-authority="draft"]) {
+  color: var(--sw-color-state-ai);
+}
+
+:where(.sw-action-reason) {
+  color: var(--sw-color-text-muted);
+}
+
+:where(.sw-lab-navigation a) {
+  color: var(--sw-color-brand-primary-accessible);
+}
+
+:where(.sw-ui button),
+:where(.sw-ui input),
+:where(.sw-ui select),
+:where(.sw-ui textarea) {
+  min-height: var(--sw-control-min-height);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(.sw-ui) *,
   :where(.sw-ui) *::before,

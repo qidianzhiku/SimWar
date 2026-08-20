@@ -1,32 +1,32 @@
 {
   "$schema": "https://design-tokens.github.io/community-group/format/",
-  "name": "simwar-design-system-v6",
-  "version": "6.0.0-pr1-freeze",
-  "status": "frozen-for-foundation",
-  "sourceSha": "bb343faf0c38e4a4a6d8b7928d0a0f35ecf8ad37",
+  "name": "simwar-design-system-p1",
+  "version": "1.0.0-p1-figma-sync",
+  "status": "figma-p1-synced",
+  "sourceSha": "1fcd8c7c8339d42b24e1500ecc658390cf89bd8f",
   "figma": {
-    "fileName": "SimWar Design System V6.0",
-    "fileKey": "g73vJXbLoQVhY87lbUaueL",
-    "url": "https://www.figma.com/design/g73vJXbLoQVhY87lbUaueL",
+    "fileName": "SimWar Frontend P1 Design Board",
+    "fileKey": "6ezOykmrZbMbFEYPfIkZ07",
+    "url": "https://www.figma.com/design/6ezOykmrZbMbFEYPfIkZ07",
     "mode": "FIGMA_CONNECTED",
     "status": "P1_PASS",
-    "collections": 6,
-    "variables": 68,
+    "collections": 1,
+    "variables": 26,
     "webValidation": {
       "syntax": "PASS",
       "scope": "PASS",
       "alias": "PASS"
     },
-    "physicalPages": 3,
-    "logicalSections": 12,
+    "physicalPages": 15,
+    "logicalSections": 11,
     "webTokenNameContract": "Figma WEB token names and code CSS custom-property names must be identical; semantic aliases are not renamed during sync",
     "status": {
       "variablesStyles": "P1_PASS",
-      "editableComponentVariants": "BLOCKED_BY_PLAN_LIMIT",
-      "finalProductScreens": "BLOCKED_BY_PLAN_LIMIT",
-      "codeConnect": "BLOCKED_BY_PLAN_LIMIT"
+      "editableComponentVariants": "P1_PASS",
+      "finalProductScreens": "P1_BOARD_PRESENT",
+      "codeConnect": "BLOCKED_BY_SEAT"
     },
-    "limitCodes": ["FIGMA_STARTER_3_PAGE_LIMIT", "FIGMA_STARTER_MCP_RATE_LIMIT"],
+    "limitCodes": ["FIGMA_CODE_CONNECT_DEV_OR_FULL_SEAT"],
     "detailedExternalEvidence": ["current-reality-receipt.md", "code-connect-map.json"],
     "validatedWebTokenNameFamilies": {
       "background": "--sw-color-bg-*",
@@ -34,17 +34,25 @@
       "action": "--sw-color-action-*",
       "border": "--sw-color-border-*",
       "roleColors": [
+        "--sw-color-brand-primary",
+        "--sw-color-brand-secondary",
+        "--sw-color-state-success",
+        "--sw-color-state-warning",
+        "--sw-color-state-danger",
+        "--sw-color-state-ai",
+        "--sw-color-official",
+        "--sw-color-replay",
         "--sw-color-brand-editorial-crimson",
         "--sw-color-authority-navy",
         "--sw-color-learning-teal",
         "--sw-color-decision-gold",
         "--sw-color-official-risk"
       ],
-      "layout": ["--sw-space-*", "--sw-radius-*", "--sw-motion-*"]
+      "layout": ["--sw-space-*", "--sw-radius-*", "--sw-motion-*", "--sw-control-min-height"]
     },
-    "syncStatus": "variables/styles P1_PASS; editable component variants/final screens/Code Connect BLOCKED_BY_PLAN_LIMIT",
-    "physicalPageLimit": 3,
-    "limitCode": "FIGMA_STARTER_3_PAGE_LIMIT"
+    "syncStatus": "variables/styles/components P1_PASS; Code Connect BLOCKED_BY_SEAT",
+    "physicalPageLimit": 15,
+    "limitCode": "FIGMA_CODE_CONNECT_DEV_OR_FULL_SEAT"
   },
   "principles": [
     "clear",
@@ -60,49 +68,49 @@
   ],
   "color": {
     "editorialCrimson": {
-      "$value": "#A51C30",
+      "$value": "#2F6BFF",
       "$type": "color",
       "semantic": "brand-section-emphasis",
       "use": "brand emphasis, chapter marker, key choice",
       "notFor": "error, blocked, irreversible risk"
     },
     "authorityNavy": {
-      "$value": "#162334",
+      "$value": "#102A43",
       "$type": "color",
       "semantic": "system-authority-context",
       "use": "system, Context, Authority, governance"
     },
     "learningTeal": {
-      "$value": "#287C7A",
+      "$value": "#0F766E",
       "$type": "color",
       "semantic": "learning-evidence",
       "use": "explanation, Evidence, progress"
     },
     "decisionGold": {
-      "$value": "#C6923B",
+      "$value": "#C88719",
       "$type": "color",
       "semantic": "decision-attention",
       "use": "decision emphasis, variable needing attention"
     },
     "officialRiskRed": {
-      "$value": "#B64A45",
+      "$value": "#D14343",
       "$type": "color",
       "semantic": "official-result-risk",
       "use": "official result, risk, blocked, irreversible action",
       "contrastRule": "must not be used as ordinary decoration"
     },
     "ink": {
-      "$value": "#171717",
+      "$value": "#102A43",
       "$type": "color",
       "semantic": "primary-text"
     },
     "secondaryGray": {
-      "$value": "#65727D",
+      "$value": "#52606D",
       "$type": "color",
       "semantic": "secondary-text"
     },
     "warmPaper": {
-      "$value": "#F7F4EE",
+      "$value": "#F7F9FC",
       "$type": "color",
       "semantic": "page-background"
     },
@@ -112,17 +120,17 @@
       "semantic": "surface"
     },
     "borderSubtle": {
-      "$value": "#D7D0C5",
+      "$value": "#D9E2EC",
       "$type": "color",
       "semantic": "subtle-rule"
     },
     "focusRing": {
-      "$value": "#162334",
+      "$value": "#2F6BFF",
       "$type": "color",
       "semantic": "keyboard-focus"
     },
     "overlayScrim": {
-      "$value": "rgba(22,35,52,0.32)",
+      "$value": "rgba(16,42,67,0.32)",
       "$type": "color",
       "semantic": "dialog-drawer-scrim"
     }
@@ -144,17 +152,17 @@
     },
     "size": {
       "display": { "$value": "36px", "$type": "dimension" },
-      "h1": { "$value": "30px", "$type": "dimension" },
-      "h2": { "$value": "24px", "$type": "dimension" },
-      "h3": { "$value": "18px", "$type": "dimension" },
-      "body": { "$value": "16px", "$type": "dimension" },
+      "h1": { "$value": "24px", "$type": "dimension" },
+      "h2": { "$value": "20px", "$type": "dimension" },
+      "h3": { "$value": "16px", "$type": "dimension" },
+      "body": { "$value": "14px", "$type": "dimension" },
       "bodySmall": { "$value": "14px", "$type": "dimension" },
       "caption": { "$value": "12px", "$type": "dimension" },
-      "metric": { "$value": "28px", "$type": "dimension" }
+      "metric": { "$value": "24px", "$type": "dimension" }
     },
     "lineHeight": {
-      "tight": { "$value": 1.2, "$type": "number" },
-      "normal": { "$value": 1.5, "$type": "number" },
+      "tight": { "$value": 1.333333, "$type": "number" },
+      "normal": { "$value": 1.571429, "$type": "number" },
       "relaxed": { "$value": 1.7, "$type": "number" }
     },
     "weight": {
@@ -171,12 +179,19 @@
     "4": { "$value": "16px", "$type": "dimension" },
     "6": { "$value": "24px", "$type": "dimension" },
     "8": { "$value": "32px", "$type": "dimension" },
-    "12": { "$value": "48px", "$type": "dimension" }
+    "12": { "$value": "48px", "$type": "dimension" },
+    "page": { "$value": "24px", "$type": "dimension" },
+    "card": { "$value": "20px", "$type": "dimension" },
+    "form": { "$value": "16px", "$type": "dimension" },
+    "row": { "$value": "52px", "$type": "dimension" },
+    "controlMinHeight": { "$value": "44px", "$type": "dimension" }
   },
   "radius": {
     "sm": { "$value": "4px", "$type": "dimension" },
     "md": { "$value": "8px", "$type": "dimension" },
-    "lg": { "$value": "12px", "$type": "dimension" }
+    "lg": { "$value": "12px", "$type": "dimension" },
+    "button": { "$value": "10px", "$type": "dimension" },
+    "modal": { "$value": "16px", "$type": "dimension" }
   },
   "elevation": {
     "0": { "$value": "none", "$type": "shadow" },

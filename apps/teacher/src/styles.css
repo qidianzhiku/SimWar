@@ -1675,3 +1675,38 @@ h3 {
     width: 100%;
   }
 }
+
+/* Figma P1 visual contract, presentation-only. */
+:root {
+  color: var(--sw-color-text-strong);
+  background: var(--sw-color-surface-base);
+  font-family: var(--sw-font-ui);
+}
+
+h1 {
+  font-size: var(--sw-type-size-h1);
+  line-height: var(--sw-type-line-height-tight);
+}
+
+button,
+input,
+select,
+textarea {
+  min-height: var(--sw-control-min-height);
+  border-radius: var(--sw-radius-button);
+}
+
+.golden-journey-workbench,
+.teacher-access-denied,
+.teacher-panel,
+.teacher-card {
+  border-color: var(--sw-color-surface-border);
+  border-radius: var(--sw-radius-card);
+}
+
+.golden-journey-nav a,
+.golden-journey-action {
+  color: var(--sw-color-brand-primary-accessible);
+  border-color: var(--sw-color-brand-primary-accessible);
+  border-radius: var(--sw-radius-button);
+}

@@ -830,3 +830,39 @@ textarea {
     display: grid;
   }
 }
+
+/* Figma P1 component surfaces: keep student workbench cards and journey
+   controls aligned with the shared token layer after app-local rules. */
+.golden-journey-workbench,
+.student-shell-content .workspace,
+.student-shell-content .learner-guide,
+.student-shell-content .bff-surface {
+  border-color: var(--sw-color-surface-border);
+  border-radius: var(--sw-radius-card);
+}
+
+.golden-journey-nav a,
+.golden-journey-action {
+  color: var(--sw-color-brand-primary-accessible);
+  border-color: var(--sw-color-brand-primary-accessible);
+  border-radius: var(--sw-radius-button);
+}
+
+:root {
+  color: var(--sw-color-text-strong);
+  background: var(--sw-color-surface-base);
+  font-family: var(--sw-font-ui);
+}
+
+h1 {
+  font-size: var(--sw-type-size-h1);
+  line-height: var(--sw-type-line-height-tight);
+}
+
+button,
+input,
+select,
+textarea {
+  min-height: var(--sw-control-min-height);
+  border-radius: var(--sw-radius-button);
+}
