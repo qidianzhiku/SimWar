@@ -3,6 +3,7 @@ import { settleEnterpriseState } from "@simwar/simulation-core";
 import type {
   W4CanonicalStrategicDecision,
   W4Commitment,
+  W4DecisionAdmission,
   W4DecisionPayloadBinding,
   W4EnterpriseState,
   W4EnterpriseStateData,
@@ -38,7 +39,110 @@ export interface W4Repository {
   commit(snapshot: W4StoreState): Promise<void>;
 }
 
+type LegacyDecisionAdmission = Omit<W4DecisionAdmission, "decision_payload_digest"> & {
+  decision_payload_digest?: string;
+};
+type LegacyCommitment = Omit<W4Commitment, "decision_payload_digest"> & {
+  decision_payload_digest?: string;
+};
+type LegacyEffect = Omit<W4StrategicEffect, "decision_payload_digest"> & {
+  decision_payload_digest?: string;
+};
+type LegacyReplayInputManifest = Omit<W4ReplayInputManifest, "decision_payload_bindings"> & {
+  decision_payload_bindings?: W4DecisionPayloadBinding[];
+};
+type LegacyReplayEvidence = Omit<W4ReplayEvidence, "decision_payload_bindings"> & {
+  decision_payload_bindings?: W4DecisionPayloadBinding[];
+};
+
+function normalizeW4StoreState(input: W4StoreState): W4StoreState {
+  const next = clone(input);
+  const decisionDigests = new Map<string, string>();
+  next.decisions = next.decisions.map((decision) => {
+    const legacyAdmission = decision.admission as LegacyDecisionAdmission;
+    const decisionPayloadDigest =
+      legacyAdmission.decision_payload_digest ??
+      createW4DecisionPayloadDigest(decision.kind, decision.payload);
+    decisionDigests.set(decision.decision_id, decisionPayloadDigest);
+    return {
+      ...decision,
+      admission: {
+        ...legacyAdmission,
+        decision_payload_digest: decisionPayloadDigest
+      }
+    };
+  });
+
+  const commitmentDigests = new Map<string, string>();
+  next.commitments = next.commitments.map((commitment) => {
+    const legacyCommitment = commitment as LegacyCommitment;
+    const decisionPayloadDigest =
+      legacyCommitment.decision_payload_digest ?? decisionDigests.get(commitment.decision_id) ?? "";
+    commitmentDigests.set(commitment.commitment_id, decisionPayloadDigest);
+    return { ...legacyCommitment, decision_payload_digest: decisionPayloadDigest };
+  });
+
+  next.effects = next.effects.map((effect) => {
+    const legacyEffect = effect as LegacyEffect;
+    const decisionPayloadDigest =
+      legacyEffect.decision_payload_digest ?? commitmentDigests.get(effect.commitment_id) ?? "";
+    return { ...legacyEffect, decision_payload_digest: decisionPayloadDigest };
+  });
+
+  const normalizeManifest = (
+    inputManifest: W4ReplayInputManifest | LegacyReplayInputManifest
+  ): W4ReplayInputManifest => {
+    const manifest = inputManifest as LegacyReplayInputManifest;
+    const existingBindings = manifest.decision_payload_bindings ?? [];
+    return {
+      ...manifest,
+      decision_payload_bindings: manifest.decision_ids.map((decisionId) => {
+        const existing = existingBindings.find((binding) => binding.decision_id === decisionId);
+        return (
+          existing ?? {
+            decision_id: decisionId,
+            decision_payload_digest: decisionDigests.get(decisionId) ?? ""
+          }
+        );
+      })
+    };
+  };
+
+  next.outcomes = next.outcomes.map((outcome) => ({
+    ...outcome,
+    replay_input_manifest: normalizeManifest(outcome.replay_input_manifest)
+  }));
+  next.replayEvidence = next.replayEvidence.map((evidence) => {
+    const legacyEvidence = evidence as LegacyReplayEvidence;
+    const existingBindings = legacyEvidence.decision_payload_bindings ?? [];
+    return {
+      ...legacyEvidence,
+      decision_payload_bindings: legacyEvidence.decision_ids.map((decisionId) => {
+        const existing = existingBindings.find((binding) => binding.decision_id === decisionId);
+        return (
+          existing ?? {
+            decision_id: decisionId,
+            decision_payload_digest: decisionDigests.get(decisionId) ?? ""
+          }
+        );
+      })
+    };
+  });
+  return next;
+}
+
 export function createJsonW4Repository(store: SimWarStore): W4Repository {
+  const normalized = normalizeW4StoreState(store.w4);
+  if (JSON.stringify(normalized) !== JSON.stringify(store.w4)) {
+    const previous = clone(store.w4);
+    store.w4 = normalized;
+    try {
+      store.persist();
+    } catch (error) {
+      store.w4 = previous;
+      throw error;
+    }
+  }
   return {
     snapshot: () => clone(store.w4),
     replace: (next) => {
@@ -707,6 +811,20 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         state: sourceData
       };
       const closingRef = stateRef(closing, clone(input.opening_state_ref));
+      const consumedDecisionIds = activeCommitments.map((commitment) => commitment.decision_id);
+      const consumedDecisionPayloadBindings = consumedDecisionIds.map((decisionId) => {
+        const decision = before.decisions.find((item) => item.decision_id === decisionId);
+        if (!decision) throw new W4EnterpriseStateError("W4_REPLAY_DECISION_BINDING_CONFLICT");
+        return {
+          decision_id: decisionId,
+          decision_payload_digest: decision.admission.decision_payload_digest
+        };
+      });
+      const replayInputManifest: W4ReplayInputManifest = {
+        ...input.replay_input_manifest,
+        decision_ids: consumedDecisionIds,
+        decision_payload_bindings: consumedDecisionPayloadBindings
+      };
       const outcome: W4OfficialOutcome = {
         official_outcome_id: `outcome_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
         tenant_id: scope.tenant_id,
@@ -720,7 +838,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         commitment_ids: activeCommitments.map((commitment) => commitment.commitment_id),
         persistent_effect_ids: stateTransition.persistent_effect_ids,
         reexecuted_decision_ids: [],
-        replay_input_manifest: clone(input.replay_input_manifest),
+        replay_input_manifest: replayInputManifest,
         settlement_digest: digest({
           opening: input.opening_state_ref,
           closing: closing.state_digest
@@ -792,7 +910,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         source_outcome_id: outcome.official_outcome_id,
         opening_state_ref: clone(outcome.opening_state_ref),
         closing_state_ref: clone(outcome.closing_state_ref),
-        decision_ids: [],
+        decision_ids: [...outcome.replay_input_manifest.decision_ids],
         decision_payload_bindings: clone(outcome.replay_input_manifest.decision_payload_bindings),
         persistent_effect_ids: [...outcome.persistent_effect_ids],
         path_digest: digest(outcome),
@@ -821,9 +939,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         source_outcome_id: outcome.official_outcome_id,
         opening_state_ref: clone(outcome.opening_state_ref),
         closing_state_ref: clone(outcome.closing_state_ref),
-        decision_ids: current.commitments
-          .filter((commitment) => outcome.commitment_ids.includes(commitment.commitment_id))
-          .map((commitment) => commitment.decision_id),
+        decision_ids: [...outcome.replay_input_manifest.decision_ids],
         decision_payload_bindings: clone(outcome.replay_input_manifest.decision_payload_bindings),
         persistent_effect_ids: [...outcome.persistent_effect_ids],
         path_digest: digest({
@@ -896,7 +1012,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const scopedEvidence = current.replayEvidence.filter((item) => scopeMatches(scope, item));
       const currentDecisionIds = currentOutcome?.replay_input_manifest.decision_ids ?? [];
       const currentIntentDigest = decisionIntentDigest(current.decisions, currentDecisionIds);
-      const canCompareAcrossTeams = scope.role_key === "teacher" || scope.role_key === "admin";
+      const canCompareAcrossTeams =
+        scope.role_key === "teacher" ||
+        scope.role_key === "admin" ||
+        scope.role_key === "tenant_admin" ||
+        scope.role_key === "platform_admin";
       const alternativeHistoryCount =
         canCompareAcrossTeams && currentIntentDigest
           ? current.outcomes.filter((outcome) => {

@@ -5529,11 +5529,8 @@ async function routeRequest(
               if (
                 !canonical ||
                 canonical.team_id !== decision.team_id ||
-                canonical.decision_id !== decision.decision_id ||
                 canonical.round_id !== decision.round_id ||
-                canonical.round_no !== decision.round_no ||
-                createW4DecisionPayloadDigest(decision.kind, canonical.payload) !==
-                  createW4DecisionPayloadDigest(decision.kind, decision.payload)
+                canonical.round_no !== decision.round_no
               ) {
                 throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
               }

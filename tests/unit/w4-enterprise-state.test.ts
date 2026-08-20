@@ -3,14 +3,17 @@ import {
   createW4DecisionPayloadDigest,
   createEnterpriseStateStrategicEvolutionService,
   createInMemoryW4Repository,
+  createJsonW4Repository,
   W4EnterpriseStateError
 } from "../../services/api/src/w4-enterprise-state";
+import { createP1Store } from "../../services/api/src/store";
 import type {
   W4CanonicalStrategicDecision,
   W4OfficialOutcome,
   W4EnterpriseState,
   W4ReplayInputManifest,
-  W4ScopeContext
+  W4ScopeContext,
+  W4StoreState
 } from "../../packages/shared-contracts/src";
 
 const scope: W4ScopeContext = {
@@ -510,6 +513,67 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     expect(nextSettlement.reexecuted_decision_ids).toEqual([]);
     expect(nextSettlement.persistent_effect_ids.length).toBeGreaterThan(0);
     expect(nextSettlement.closing_state_ref.parent_state_ref).toEqual(next.state_ref);
+    const nextOutcome = repository.snapshot().outcomes.find(
+      (outcome) => outcome.official_outcome_id === nextSettlement.outcome_id
+    );
+    expect(nextOutcome?.replay_input_manifest.decision_ids).toEqual([
+      newProjectDecision.decision_id
+    ]);
+    expect(nextOutcome?.replay_input_manifest.decision_payload_bindings).toEqual([
+      {
+        decision_id: newProjectDecision.decision_id,
+        decision_payload_digest: newProjectDecision.admission.decision_payload_digest
+      }
+    ]);
+    const nextReplay = await service.replay(
+      { ...scope, round_id: "round_w4_2", round_no: 2 },
+      nextSettlement.outcome_id
+    );
+    expect(nextReplay.decision_ids).toEqual(nextReplay.decision_payload_bindings.map((item) => item.decision_id));
+  });
+
+  it("normalizes legacy W4 snapshots before enforcing payload bindings", async () => {
+    const store = createP1Store();
+    const repository = createJsonW4Repository(store);
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+    const settledDecision = await service.commitStrategicDecision(scope, newProjectDecision);
+    await service.settleRound(scope, {
+      opening_state_ref: opening.state_ref,
+      decision_id: newProjectDecision.decision_id,
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
+    });
+
+    const legacy = structuredClone(store.w4) as W4StoreState;
+    const legacyAdmission = legacy.decisions[0]?.admission as unknown as Record<string, unknown>;
+    delete legacyAdmission.decision_payload_digest;
+    const legacyCommitment = legacy.commitments[0] as unknown as Record<string, unknown>;
+    delete legacyCommitment.decision_payload_digest;
+    const legacyEffect = legacy.effects[0] as unknown as Record<string, unknown>;
+    delete legacyEffect.decision_payload_digest;
+    const legacyManifest = legacy.outcomes[0]
+      ?.replay_input_manifest as unknown as Record<string, unknown>;
+    delete legacyManifest.decision_payload_bindings;
+    store.w4 = legacy;
+
+    const migrated = createJsonW4Repository(store).snapshot();
+    expect(migrated.decisions[0]?.admission.decision_payload_digest).toBe(
+      settledDecision.decision.admission.decision_payload_digest
+    );
+    expect(migrated.commitments[0]?.decision_payload_digest).toBe(
+      settledDecision.commitment.decision_payload_digest
+    );
+    expect(migrated.effects[0]?.decision_payload_digest).toBe(
+      settledDecision.effect.decision_payload_digest
+    );
+    expect(migrated.outcomes[0]?.replay_input_manifest.decision_payload_bindings).toEqual([
+      {
+        decision_id: newProjectDecision.decision_id,
+        decision_payload_digest: newProjectDecision.admission.decision_payload_digest
+      }
+    ]);
   });
 
   it("commits Official Outcome plus Closing State atomically and never applies Shadow Replay", async () => {
@@ -616,6 +680,16 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     });
     expect(repository.snapshot().outcomes).toHaveLength(2);
     expect(repository.snapshot().states).toHaveLength(4);
+
+    const tenantAdminProjection = await service.getProjection({
+      ...scope,
+      actor_id: "usr_admin",
+      role_key: "tenant_admin"
+    });
+    expect(tenantAdminProjection.path_evidence.same_current_decision_different_history).toMatchObject({
+      status: "proven",
+      comparison_count: 1
+    });
   });
 });
 
