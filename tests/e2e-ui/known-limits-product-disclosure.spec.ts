@@ -172,8 +172,18 @@ async function verifyDisclosure(
 
 function captureConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
+  const expectedMissingW027Resources = new Set<string>();
+  page.on("response", (response) => {
+    if (
+      response.status() === 404 &&
+      response.url().includes("/api/v1/bff/student/w027/decision-experience")
+    ) {
+      expectedMissingW027Resources.add(response.url());
+    }
+  });
   page.on("console", (message) => {
     if (message.type() === "error") {
+      if (expectedMissingW027Resources.has(message.location().url)) return;
       errors.push(message.text());
     }
   });
