@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DEFAULT_STUDENT_ROLE_TEMPLATES } from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
   W027JudgmentKind,
@@ -430,6 +431,22 @@ export function W027DecisionExperiencePanel(props: Props) {
     !props.active ||
     phase === "denied" ||
     !workspace?.context.permissions.can_write_private_judgment;
+  const roleTemplate = workspace
+    ? DEFAULT_STUDENT_ROLE_TEMPLATES.find(
+        (template) => template.role_key === workspace.context.role_key
+      )
+    : undefined;
+  const divergenceCount = workspace?.divergence?.divergences.length ?? 0;
+  const decisionRights = workspace
+    ? [
+        workspace.context.permissions.can_write_private_judgment ? "保存私有判断" : null,
+        workspace.context.permissions.can_publish_role_position ? "发布安全立场" : null,
+        workspace.context.permissions.can_propose_resolution ? "提出分歧方案" : null,
+        workspace.context.permissions.can_acknowledge_resolution ? "确认或保留异议" : null,
+        workspace.context.permissions.can_merge_team_decision ? "创建团队合并" : null,
+        workspace.context.permissions.can_confirm_team_decision ? "确认团队决策" : null
+      ].filter((value): value is string => Boolean(value))
+    : [];
   const stages = workspace
     ? [
         ["Role READY", hasTrace(workspace, "ROLE_POSITION_PUBLISHED") ? "READY" : "未准备"],
@@ -528,6 +545,80 @@ export function W027DecisionExperiencePanel(props: Props) {
       ) : null}
       {workspace && phase !== "denied" ? (
         <>
+          <div className="w027-journey-section w027-role-mission d4-report-card form-panel">
+            <div className="w027-section-heading d4-section-heading">
+              <div>
+                <span className="eyebrow">00 · ROLE MISSION</span>
+                <h3>角色任务</h3>
+              </div>
+              <div className="role-workflow-actions">
+                <a
+                  className="primary badge"
+                  href="#w027-private-judgment"
+                  style={{ textDecoration: "none" }}
+                >
+                  开始我的判断
+                </a>
+                <span className="w027-readonly-badge badge">服务端投影</span>
+              </div>
+            </div>
+            <div className="role-workflow-summary">
+              <div>
+                <span>情境</span>
+                <strong>
+                  当前回合 {workspace.context.round_id} · 当前队伍 {workspace.context.team_id}
+                </strong>
+              </div>
+              <div>
+                <span>张力</span>
+                <strong>
+                  {divergenceCount > 0
+                    ? `发现 ${divergenceCount} 项团队安全立场差异`
+                    : "当前没有服务端分歧投影"}
+                </strong>
+              </div>
+              <div>
+                <span>决策问题</span>
+                <strong>{roleTemplate?.description ?? "等待服务端返回当前角色的决策任务"}</strong>
+              </div>
+              <div>
+                <span>角色视角</span>
+                <strong>{roleTemplate?.responsibility_summary ?? "等待服务端返回角色职责"}</strong>
+              </div>
+              <div>
+                <span>决策权</span>
+                <strong>
+                  {decisionRights.length ? decisionRights.join(" · ") : "当前角色无可用写入动作"}
+                </strong>
+              </div>
+              <div>
+                <span>约束</span>
+                <strong>私有全文仅本角色可见；安全立场由服务端派生。</strong>
+              </div>
+              <div>
+                <span>成功标准</span>
+                <strong>角色 READY → role-safe position → 团队确认 → 正式 readback</strong>
+              </div>
+              <div>
+                <span>证据</span>
+                <strong>{workspace.trace.current_stage}</strong>
+              </div>
+              <div>
+                <span>当前队伍角色</span>
+                <strong>{workspace.roster.role_keys.join(" · ")}</strong>
+              </div>
+              <div>
+                <span>已知限制</span>
+                <strong>{workspace.known_limits.join(" · ") || "当前没有额外限制"}</strong>
+              </div>
+            </div>
+            <p className="w027-mission-timing runtime-limits">
+              建议先用 60–90 秒完成第一版判断，再进入安全立场与团队协作。
+            </p>
+            <p className="w027-boundary runtime-limits">
+              角色任务信息由当前服务端投影提供；没有返回的场景字段保持未知，不由前端补写。
+            </p>
+          </div>
           <div className="w027-context-strip">
             <span>
               当前正式角色：<strong>{workspace.context.role_key}</strong>
@@ -543,7 +634,10 @@ export function W027DecisionExperiencePanel(props: Props) {
               </div>
             ))}
           </div>
-          <div className="w027-journey-section d4-report-card form-panel">
+          <div
+            className="w027-journey-section d4-report-card form-panel"
+            id="w027-private-judgment"
+          >
             <div className="w027-section-heading d4-section-heading">
               <div>
                 <span className="eyebrow">01 · PRIVATE JUDGMENT</span>

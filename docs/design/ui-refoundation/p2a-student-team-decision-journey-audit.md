@@ -89,3 +89,30 @@ Measured in the live browser:
 The browser checks above cover target size, responsive overflow, visible state semantics, and privacy-text absence. They do not constitute a full WCAG audit. In particular, this run did not measure color contrast with Axe, complete keyboard order/focus return across every panel, screen-reader output, zoom at 200%, or a ready-state W027 mutation flow. The W027 ready/error/permission paths are covered by focused Vitest fixtures; a live open-round BFF projection was not available in the current JSON demo session.
 
 Human visual validation was not performed. The Figma frames and screenshots are evidence for mapping and review, not approval of production visual fidelity.
+
+## P2-A implementation delta (current candidate)
+
+The bounded FE-15 slice now renders a server-bounded `角色任务` section before private judgment. It derives the current role description, responsibility summary, roster, permissions, divergence count, trace stage, success path, and known limits from the W027 projection plus the existing shared role templates. The primary action is the in-page `开始我的判断` link, which moves focus/navigation to the private editor without creating a new route or writer. The proposed 60–90 second role-mission target remains a product hypothesis; it has not been measured with users.
+
+The FE-16/17/18 behavior remains intentionally split across the existing surfaces: W027 owns the self-only private judgment, role-safe positions, divergence proposal/acknowledgement, dissent, and stage readback; `StudentRoleWorkflowPanel` remains the only merge/confirm writer. Resolution acknowledgement roles are seeded from the server-projected active team roster and then unioned with the active assignment, divergence candidates, and server acknowledgements, so duplicate divergence values cannot hide a required role and a four-role team is not blocked by an assumed CHRO member. Focused tests cover denied read access, unknown save receipts, same-context draft recovery, and the private-to-safe/readback separation.
+
+The W027 contract still does not carry a scenario-specific question/tension object or dedicated `risk`/`questions` private fields. The UI therefore labels missing scenario fields as unknown and maps only existing DTO fields; it does not invent values. This is a contract proposal, not a frontend workaround:
+
+- narrow the W027 response envelopes to their actual payloads instead of the full experience DTO;
+- add explicit success/receipt schemas for merge and confirm commands;
+- define the acknowledgement request body and a stable unknown/conflict receipt shape;
+- decide whether `risk` and `questions` are first-class private-judgment fields or remain represented by the existing `kind`, `rationale`, and evidence fields.
+
+## Tool and evidence state
+
+Figma was read through the existing file `6ezOykmrZbMbFEYPfIkZ07`; no Figma mutation was needed because frames `34:2` and `36:2` already cover the P2-A ready and flow references. Code Connect remains `BLOCKED_BY_SEAT`. The Product Design connector had no callable MCP operation in this run, so the product critique was completed through the structured fallback in this document; this is not a claim of a plugin-generated review. CodeGraph was unavailable in the clean candidate worktree because no `.codegraph` directory exists, so source/tests/git evidence is used instead.
+
+## Focused candidate verification
+
+- `npx vitest run tests/unit/student-team-decision-journey.test.tsx tests/unit/ui-student-refoundation.test.tsx tests/unit/student-learning-report-projection.test.ts tests/unit/student-learning-report-routes.test.ts --config vitest.config.ts` — 4 files / 29 tests passed;
+- `npm run typecheck` — passed;
+- `npm run build -w @simwar/student` — passed;
+- `npx playwright test tests/e2e-ui/ui-refoundation-student.spec.ts --config playwright.config.ts --project=chromium` — 4 tests passed across 1440, 1280, 1024, and 390 widths;
+- `npx playwright test tests/e2e-ui/role-workflow-product-journey.spec.ts --config playwright.role-workflow.config.ts --project=role-workflow` — 1 real Teacher-to-Student role workflow test passed.
+
+These are focused candidate checks, not a claim that the complete repository gate, full accessibility audit, visual comparator, or human validation has passed. The existing React test suite still emits one non-failing `act(...)` warning in a legacy App recovery test.

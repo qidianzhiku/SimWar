@@ -4,6 +4,7 @@ import type {
   DecisionPayload,
   DecisionPayloadFieldPath,
   RoleDecisionSection,
+  RoleKey,
   StudentDecisionTraceDTO,
   StudentRoleWorkflowMergeDTO,
   StudentRoleWorkflowWorkspaceDTO,
@@ -45,6 +46,9 @@ export function getRoleWorkflowNoticeCopy(value: string): {
   }
   if (value.includes("ROLE_WORKFLOW_ASSIGNMENT_NOT_FOUND")) {
     return { primary: "当前运行尚未分配角色工作区。", compatibility: value };
+  }
+  if (value.includes("ROLE_WORKFLOW_UNKNOWN_RECEIPT")) {
+    return { primary: "角色工作区返回未知回执，请刷新后重试。", compatibility: value };
   }
   if (/^[A-Z][A-Z0-9_-]+(?:-\d+)*:/.test(value) || /\b(failed|error|denied)\b/i.test(value)) {
     return { primary: "角色工作区请求失败，请刷新后重试。", compatibility: value };
@@ -90,6 +94,7 @@ interface StudentRoleWorkflowPanelProps {
   teamId: string | undefined;
   tenantId: string;
   token: string | undefined;
+  activeRoleKeys?: readonly RoleKey[];
   onAvailabilityChange?: (availability: "checking" | "active" | "inactive" | "error") => void;
 }
 
@@ -102,7 +107,23 @@ const initialDraft: DecisionPayload = {
   strategy_statement: ""
 };
 
-const requiredResolutionRoles = ["CEO", "CFO", "CMO", "COO", "CHRO"] as const;
+export function requiredResolutionRoleKeys(
+  workspace: Pick<
+    StudentRoleWorkflowWorkspaceDTO,
+    "assignment" | "divergence_set" | "resolution_acknowledgements"
+  > | null,
+  activeRoleKeys: readonly RoleKey[] = []
+): RoleKey[] {
+  if (!workspace) return [];
+  const roles = new Set<RoleKey>([...activeRoleKeys, workspace.assignment.role_key]);
+  for (const divergence of workspace.divergence_set?.divergences ?? []) {
+    for (const candidate of divergence.candidates) roles.add(candidate.role_key);
+  }
+  for (const acknowledgement of workspace.resolution_acknowledgements ?? []) {
+    roles.add(acknowledgement.role_key);
+  }
+  return [...roles];
+}
 
 function divergenceValueCopy(value: TeamDivergenceValue): string {
   return typeof value === "number" ? value.toLocaleString("zh-CN") : value;
@@ -126,6 +147,9 @@ async function roleWorkflowRequest<T>(
   const response = await fetch(`${API_BASE}${path}`, init);
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+  if (envelope.data === undefined) {
+    throw new Error("ROLE_WORKFLOW_UNKNOWN_RECEIPT: 服务端未返回可验证回执");
+  }
   return envelope.data;
 }
 
@@ -146,6 +170,14 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const requestController = useRef<AbortController | null>(null);
   const actionIdentity = useRef(0);
   const actionController = useRef<AbortController | null>(null);
+  const contextKey = [
+    props.active,
+    props.roundId,
+    props.runId,
+    props.teamId,
+    props.tenantId,
+    props.token
+  ].join("|");
 
   function beginRefresh(): { requestId: number; controller: AbortController } {
     const requestId = ++requestIdentity.current;
@@ -266,6 +298,21 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     },
     [props.active, props.roundId, props.runId, props.teamId, props.tenantId, props.token]
   );
+
+  useEffect(() => {
+    requestIdentity.current += 1;
+    requestController.current?.abort();
+    actionIdentity.current += 1;
+    actionController.current?.abort();
+    setWorkspace(null);
+    setDecisionTrace(null);
+    setDraft(initialDraft);
+    setResolutionSelections({});
+    setDissentNote("");
+    setBusy(false);
+    setAvailability(props.active ? "checking" : "inactive");
+    setNotice(props.active ? "正在读取当前角色工作区" : "等待角色分配");
+  }, [contextKey, props.active]);
 
   useEffect(() => {
     const pendingRefresh = refresh();
@@ -402,7 +449,10 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
   const ownAcknowledgement = workspace?.resolution_acknowledgements?.find(
     (acknowledgement) => acknowledgement.role_key === workspace.context.role_key
   );
-  const allResolutionAcknowledged = requiredResolutionRoles.every((roleKey) =>
+  const allResolutionAcknowledged = requiredResolutionRoleKeys(
+    workspace,
+    props.activeRoleKeys
+  ).every((roleKey) =>
     workspace?.resolution_acknowledgements?.some(
       (acknowledgement) => acknowledgement.role_key === roleKey
     )
@@ -427,7 +477,23 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
         </span>
       </div>
       {!workspace ? (
-        <p className="muted">等待服务端分配当前运行的角色。</p>
+        availability === "error" ? (
+          <div className="role-workflow-error feedback-block" data-state="error" role="alert">
+            <strong>{noticeCopy.primary}</strong>
+            {noticeCopy.compatibility ? (
+              <span className="compatibility-copy">{noticeCopy.compatibility}</span>
+            ) : null}
+            <button type="button" onClick={() => void refresh()}>
+              重新加载角色工作区
+            </button>
+          </div>
+        ) : (
+          <p className="muted">
+            {availability === "checking"
+              ? "正在读取当前角色工作区"
+              : "等待服务端分配当前运行的角色。"}
+          </p>
+        )
       ) : (
         <>
           <div className="role-workflow-summary">
@@ -544,7 +610,7 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
                     每个角色都必须确认方案，或明确保留异议后才能创建团队合并。
                   </p>
                   <div className="role-workflow-list">
-                    {requiredResolutionRoles.map((roleKey) => {
+                    {requiredResolutionRoleKeys(workspace, props.activeRoleKeys).map((roleKey) => {
                       const acknowledgement = workspace.resolution_acknowledgements?.find(
                         (candidate) => candidate.role_key === roleKey
                       );
