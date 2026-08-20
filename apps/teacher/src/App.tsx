@@ -22,7 +22,8 @@ import type {
   TeacherCourseBlueprintReadinessDto,
   TeacherFormalCourseBindingPreviewDto,
   TeacherFormalScenarioPackageCatalogCandidateDto,
-  TeacherFormalScenarioPackageCatalogDto
+  TeacherFormalScenarioPackageCatalogDto,
+  W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import {
   ScenarioReadinessRequestError,
@@ -63,6 +64,7 @@ import { TransferResearchWorkbench } from "./features/transfer-research-workbenc
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
+import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceLearningWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import {
@@ -87,6 +89,46 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const W3_ENABLED =
+  import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("w3") === "true");
+
+function readW3QueryContext(): W3OfficialConsequenceContext | undefined {
+  if (typeof window === "undefined") return undefined;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("w3") !== "true") return undefined;
+  const activityId = params.get("activity_id");
+  const courseId = params.get("course_id");
+  const roleKey = params.get("role_key");
+  const roundId = params.get("round_id");
+  const roundNo = Number(params.get("round_no"));
+  const runId = params.get("run_id");
+  const teamId = params.get("team_id");
+  const tenantId = params.get("tenant_id");
+  if (
+    !activityId ||
+    !courseId ||
+    !roleKey ||
+    !roundId ||
+    !Number.isSafeInteger(roundNo) ||
+    !runId ||
+    !teamId ||
+    !tenantId
+  ) {
+    return undefined;
+  }
+  return {
+    activity_id: activityId,
+    course_id: courseId,
+    role_key: roleKey,
+    round_id: roundId,
+    round_no: roundNo,
+    run_id: runId,
+    team_id: teamId,
+    tenant_id: tenantId
+  };
+}
 const knownLimits = getKnownLimitsProjection("teacher");
 type LoginForm = {
   tenantId: string;
@@ -688,6 +730,24 @@ export function App() {
   const teamMonitor = workspace?.team_monitor;
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
+  const w3Team = state?.teams.find(
+    (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
+  );
+  const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
+  const w3Context =
+    readW3QueryContext() ??
+    (selectedRun && selectedRound && w3Team
+      ? {
+          activity_id: "activity_consequence",
+          course_id: selectedRun.course_id,
+          role_key: w3RoleKey,
+          round_id: selectedRound.round_id,
+          round_no: selectedRound.round_no,
+          run_id: selectedRun.run_id,
+          team_id: w3Team.team_id,
+          tenant_id: login.tenantId
+        }
+      : undefined);
   const hasDecision = useMemo(() => {
     if (!selectedRun || !selectedRound || !state) {
       return false;
@@ -3090,6 +3150,14 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-debrief">
+        {W3_ENABLED && isTeacher && session ? (
+          <W3OfficialConsequenceLearningWorkbench
+            apiBase={API_BASE}
+            context={w3Context}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
         {session ? (
           <InstructorIntelligencePanel
             courseId={selectedRun?.course_id}

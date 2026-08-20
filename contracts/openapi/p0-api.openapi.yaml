@@ -3921,6 +3921,190 @@ paths:
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
+  /api/v1/bff/student/w3/consequence:
+    get:
+      operationId: STUDENT_W3_OFFICIAL_CONSEQUENCE_GET_V1
+      summary: Read the published, role-safe W3 official consequence.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Student-safe published consequence.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Student team scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "404":
+          description: Official settlement or publication not found
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid exact context
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/teacher/w3/consequence:
+    get:
+      operationId: TEACHER_W3_OFFICIAL_CONSEQUENCE_GET_V1
+      summary: Read the teacher-safe W3 official consequence and learning status.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Teacher-safe consequence and learning projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Teacher scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "404":
+          description: Official settlement not found
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid exact context
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/teacher/w3/counterfactual:
+    post:
+      operationId: TEACHER_W3_COUNTERFACTUAL_POST_V1
+      summary: Run one isolated, non-official, one-change W3 counterfactual.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W3CounterfactualInput" }
+      responses:
+        "200":
+          description: Teacher-safe result with isolated counterfactual comparison.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Teacher scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Deterministic counterfactual conflict
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid one-change request
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/student/w3/reflection:
+    post:
+      operationId: STUDENT_W3_REFLECTION_POST_V1
+      summary: Save one AI-off student reflection after publication.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W3ReflectionInput" }
+      responses:
+        "201":
+          description: Reflection saved in the learning evidence path.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Student team scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Deterministic reflection conflict
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid reflection request
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/teacher/w3/evidence-selection:
+    post:
+      operationId: TEACHER_W3_EVIDENCE_SELECTION_POST_V1
+      summary: Select existing EvidenceArtifact references for W3 learning.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W3EvidenceSelectionInput" }
+      responses:
+        "201":
+          description: Evidence selection recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Teacher scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "404":
+          description: Evidence artifact not found
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Deterministic evidence selection conflict
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid evidence selection request
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/teacher/w3/next-round-hypothesis:
+    post:
+      operationId: TEACHER_W3_NEXT_ROUND_HYPOTHESIS_POST_V1
+      summary: Prepare a bounded next-round hypothesis after confirmed learning evidence.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W3HypothesisInput" }
+      responses:
+        "200":
+          description: Ready or blocked next-round hypothesis status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/W3OfficialConsequenceEnvelope" }
+        "403":
+          description: Teacher scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "404":
+          description: Official result not found
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Learning prerequisites are incomplete
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -3985,6 +4169,75 @@ components:
             known_limits: { type: array, items: { type: string } }
         message: { type: string }
         request_id: { type: string }
+    W3OfficialConsequenceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/W3OfficialConsequenceResponse" }
+        message: { type: string }
+        request_id: { type: string }
+    W3OfficialConsequenceResponse:
+      type: object
+      additionalProperties: false
+      required: [known_limits, record, runtime_authority, visibility]
+      properties:
+        known_limits: { type: array, minItems: 1, items: { type: string } }
+        record: { $ref: "../schemas/w3-official-consequence-learning.v1.json" }
+        runtime_authority: { const: JSON_INTERNAL_ONLY }
+        visibility: { enum: [student_safe, teacher_safe] }
+    W3CounterfactualInput:
+      type: object
+      additionalProperties: false
+      required: [changed_field, changed_value, context, idempotency_key]
+      properties:
+        changed_field:
+          enum:
+            [
+              capacity_plan,
+              cash_buffer_target,
+              marketing_budget,
+              pricing.base_price,
+              service_quality_budget
+            ]
+        changed_value: {}
+        idempotency_key: { type: string, minLength: 1 }
+        context:
+          type: object
+          additionalProperties: false
+          required: [activity_id, course_id, role_key, round_id, round_no, run_id, team_id]
+          properties:
+            activity_id: { type: string, minLength: 1 }
+            course_id: { type: string, minLength: 1 }
+            role_key: { type: string, minLength: 1 }
+            round_id: { type: string, minLength: 1 }
+            round_no: { type: integer, minimum: 1 }
+            run_id: { type: string, minLength: 1 }
+            team_id: { type: string, minLength: 1 }
+    W3ReflectionInput:
+      type: object
+      additionalProperties: false
+      required: [context, idempotency_key, prompt_id, response]
+      properties:
+        context: { $ref: "#/components/schemas/W3CounterfactualInput/properties/context" }
+        idempotency_key: { type: string, minLength: 1 }
+        prompt_id: { type: string, minLength: 1 }
+        response: { type: string, minLength: 1, maxLength: 2000 }
+    W3EvidenceSelectionInput:
+      type: object
+      additionalProperties: false
+      required: [context, evidence_refs, idempotency_key]
+      properties:
+        context: { $ref: "#/components/schemas/W3CounterfactualInput/properties/context" }
+        evidence_refs: { type: array, minItems: 1, items: { type: object } }
+        idempotency_key: { type: string, minLength: 1 }
+    W3HypothesisInput:
+      type: object
+      additionalProperties: false
+      required: [context]
+      properties:
+        context: { $ref: "#/components/schemas/W3CounterfactualInput/properties/context" }
     TeamMemberEnrollmentInput:
       type: object
       additionalProperties: false

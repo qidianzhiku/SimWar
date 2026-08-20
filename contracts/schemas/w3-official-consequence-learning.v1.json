@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/w3-official-consequence-learning.v1.json",
+  "title": "W3 Official Consequence and Decision Learning",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "causal_debrief",
+    "context",
+    "decision_story",
+    "known_limits",
+    "learning",
+    "official_result",
+    "publication",
+    "record_id",
+    "runtime_authority",
+    "schema_version",
+    "source"
+  ],
+  "properties": {
+    "causal_debrief": { "$ref": "#/$defs/causalDebrief" },
+    "context": { "$ref": "#/$defs/context" },
+    "counterfactual": { "$ref": "#/$defs/counterfactual" },
+    "decision_story": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consequence_summary", "decision_summary"],
+      "properties": {
+        "consequence_summary": { "$ref": "#/$defs/safeText" },
+        "decision_summary": { "$ref": "#/$defs/safeText" }
+      }
+    },
+    "evidence_selection": { "$ref": "#/$defs/evidenceSelection" },
+    "known_limits": { "type": "array", "items": { "$ref": "#/$defs/safeText" }, "minItems": 1 },
+    "learning": { "$ref": "#/$defs/learning" },
+    "next_round_hypothesis": { "$ref": "#/$defs/hypothesis" },
+    "official_result": { "$ref": "#/$defs/officialResult" },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "published_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["SETTLED_UNPUBLISHED", "PUBLISHED"] }
+      }
+    },
+    "reflection": { "$ref": "#/$defs/reflection" },
+    "record_id": { "$ref": "#/$defs/identity" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "schema_version": { "const": "w3-official-consequence-learning.v1" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_decision_ref", "round_ref", "settlement_ref"],
+      "properties": {
+        "canonical_decision_ref": { "$ref": "#/$defs/canonicalDecisionRef" },
+        "round_ref": { "$ref": "#/$defs/roundRef" },
+        "settlement_ref": { "$ref": "#/$defs/settlementRef" }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])"
+      }
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "^[^<>\\u0000-\\u001F\\u007F]+$"
+    },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/identity" },
+        "resource_type": {
+          "enum": [
+            "canonical_decision",
+            "course",
+            "evidence_artifact",
+            "learning_goal_version",
+            "round",
+            "run",
+            "settlement_result",
+            "student_learning_report",
+            "teacher_confirmation_version",
+            "transformation_rule"
+          ]
+        },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "canonicalDecisionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/exactRef" },
+        { "type": "object", "properties": { "resource_type": { "const": "canonical_decision" } } }
+      ]
+    },
+    "roundRef": {
+      "allOf": [
+        { "$ref": "#/$defs/exactRef" },
+        { "type": "object", "properties": { "resource_type": { "const": "round" } } }
+      ]
+    },
+    "settlementRef": {
+      "allOf": [
+        { "$ref": "#/$defs/exactRef" },
+        { "type": "object", "properties": { "resource_type": { "const": "settlement_result" } } }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activity_id",
+        "course_id",
+        "role_key",
+        "round_id",
+        "round_no",
+        "run_id",
+        "team_id",
+        "tenant_id"
+      ],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/identity" },
+        "course_id": { "$ref": "#/$defs/identity" },
+        "role_key": { "$ref": "#/$defs/identity" },
+        "round_id": { "$ref": "#/$defs/identity" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/identity" },
+        "team_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "causalDebrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "statements"],
+      "properties": {
+        "label": { "enum": ["model_conditioned_association", "causal_not_proven"] },
+        "statements": { "type": "array", "items": { "$ref": "#/$defs/safeText" }, "minItems": 1 }
+      }
+    },
+    "officialResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome_label", "profit_band", "rank", "score", "team_id"],
+      "properties": {
+        "outcome_label": { "enum": ["official_published", "official_settled_unpublished"] },
+        "profit_band": { "enum": ["loss", "thin", "healthy"] },
+        "rank": { "type": "integer" },
+        "score": { "type": "integer" },
+        "team_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_selection_status",
+        "next_round_hypothesis_status",
+        "teacher_confirmation_status"
+      ],
+      "properties": {
+        "evidence_selection_status": { "enum": ["NOT_SELECTED", "SELECTED"] },
+        "next_round_hypothesis_status": { "enum": ["READY", "BLOCKED"] },
+        "student_learning_report_ref": { "$ref": "#/$defs/exactRef" },
+        "teacher_confirmation_ref": { "$ref": "#/$defs/exactRef" },
+        "teacher_confirmation_status": { "enum": ["MISSING", "DRAFT", "CONFIRMED"] }
+      }
+    },
+    "counterfactual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "causal_label",
+        "changed_field",
+        "changed_value_digest",
+        "comparison",
+        "counterfactual_id",
+        "exact_context_ref",
+        "official",
+        "original_value_digest"
+      ],
+      "properties": {
+        "causal_label": { "enum": ["model_conditioned_association", "causal_not_proven"] },
+        "changed_field": {
+          "enum": [
+            "capacity_plan",
+            "cash_buffer_target",
+            "marketing_budget",
+            "pricing.base_price",
+            "service_quality_budget"
+          ]
+        },
+        "changed_value_digest": { "$ref": "#/$defs/digest" },
+        "comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "official_score",
+            "counterfactual_score",
+            "score_delta",
+            "official_rank",
+            "counterfactual_rank",
+            "rank_delta"
+          ],
+          "properties": {
+            "official_score": { "type": "number" },
+            "counterfactual_score": { "type": "number" },
+            "score_delta": { "type": "number" },
+            "official_rank": { "type": "number" },
+            "counterfactual_rank": { "type": "number" },
+            "rank_delta": { "type": "number" }
+          }
+        },
+        "counterfactual_id": { "$ref": "#/$defs/identity" },
+        "exact_context_ref": { "$ref": "#/$defs/roundRef" },
+        "official": { "const": false },
+        "original_value_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "reflection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ai_used", "advisory_only", "prompt_id", "reflection_id", "response", "status"],
+      "properties": {
+        "ai_used": { "const": false },
+        "advisory_only": { "const": true },
+        "prompt_id": { "$ref": "#/$defs/identity" },
+        "reflection_id": { "$ref": "#/$defs/identity" },
+        "response": { "$ref": "#/$defs/safeText" },
+        "status": { "const": "SUBMITTED" }
+      }
+    },
+    "evidenceSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_refs", "selection_id", "status"],
+      "properties": {
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/exactRef" },
+              {
+                "type": "object",
+                "properties": { "resource_type": { "const": "evidence_artifact" } }
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "selection_id": { "$ref": "#/$defs/identity" },
+        "status": { "const": "SELECTED" }
+      }
+    },
+    "hypothesis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis", "hypothesis", "status"],
+      "properties": {
+        "basis": { "$ref": "#/$defs/safeText" },
+        "hypothesis": { "$ref": "#/$defs/safeText" },
+        "status": { "enum": ["READY", "BLOCKED"] }
+      }
+    }
+  }
+}

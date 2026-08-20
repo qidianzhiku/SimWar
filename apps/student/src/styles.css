@@ -43,6 +43,10 @@ body {
   font-size: 0.85em;
 }
 
+.sw-app-shell__primary-action > .compatibility-copy {
+  color: #ffffff;
+}
+
 .compatibility-heading {
   color: #5b6a75;
   font-size: 1rem;
@@ -306,8 +310,14 @@ h2 {
 .bff-surface {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(5, minmax(210px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 18px;
+}
+
+@media (max-width: 1280px) {
+  .bff-surface {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .row,
@@ -562,6 +572,11 @@ h2 {
 .feedback-stack span {
   display: block;
   margin-bottom: 6px;
+}
+
+.status-grid span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-grid strong,

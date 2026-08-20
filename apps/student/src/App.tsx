@@ -12,11 +12,13 @@ import type {
   DecisionPayload,
   P0DemoState,
   DecisionPayloadFieldPath,
-  StudentBffCockpitDTO
+  StudentBffCockpitDTO,
+  W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
+import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -31,6 +33,46 @@ import {
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const W3_ENABLED =
+  import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("w3") === "true");
+
+function readW3QueryContext(): W3OfficialConsequenceContext | undefined {
+  if (typeof window === "undefined") return undefined;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("w3") !== "true") return undefined;
+  const activityId = params.get("activity_id");
+  const courseId = params.get("course_id");
+  const roleKey = params.get("role_key");
+  const roundId = params.get("round_id");
+  const roundNo = Number(params.get("round_no"));
+  const runId = params.get("run_id");
+  const teamId = params.get("team_id");
+  const tenantId = params.get("tenant_id");
+  if (
+    !activityId ||
+    !courseId ||
+    !roleKey ||
+    !roundId ||
+    !Number.isSafeInteger(roundNo) ||
+    !runId ||
+    !teamId ||
+    !tenantId
+  ) {
+    return undefined;
+  }
+  return {
+    activity_id: activityId,
+    course_id: courseId,
+    role_key: roleKey,
+    round_id: roundId,
+    round_no: roundNo,
+    run_id: runId,
+    team_id: teamId,
+    tenant_id: tenantId
+  };
+}
 const knownLimits = getKnownLimitsProjection("student");
 type LoginForm = {
   tenantId: string;
@@ -312,6 +354,22 @@ export function App() {
   }, [latestRun, latestRound, team, state]);
 
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
+  const w3RoleKey =
+    team?.members.find((member) => member.user_id === session?.user.user_id)?.role_slot ?? "CEO";
+  const w3Context =
+    readW3QueryContext() ??
+    (latestRun && latestRound && team
+      ? {
+          activity_id: "activity_consequence",
+          course_id: latestRun.course_id,
+          role_key: w3RoleKey,
+          round_id: latestRound.round_id,
+          round_no: latestRound.round_no,
+          run_id: latestRun.run_id,
+          team_id: team.team_id,
+          tenant_id: login.tenantId
+        }
+      : undefined);
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshIdentity.current;
@@ -991,6 +1049,21 @@ export function App() {
                 token={activeSession?.access_token ?? ""}
               />
             </WorkbenchFrame>
+          </section>
+        ) : null}
+
+        {W3_ENABLED && hasStudentSurface ? (
+          <section
+            id="student-w3-consequence"
+            className="student-location"
+            aria-label="W3 官方后果与决策学习"
+          >
+            <W3OfficialConsequenceLearningPanel
+              apiBase={API_BASE}
+              context={w3Context}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
           </section>
         ) : null}
 
