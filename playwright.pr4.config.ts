@@ -78,6 +78,16 @@ if (
 
 const { default: baseConfig } = await import("./playwright.config");
 const labBaseUrl = `http://127.0.0.1:${designSystemLab.port}`;
+const pr4WebServers = (baseConfig.webServer ?? []).map((server, index) => {
+  if (index !== 0 || typeof server !== "object" || server === null) return server;
+  return {
+    ...server,
+    env: {
+      ...server.env,
+      SIMWAR_PLAYWRIGHT_W3: "false"
+    }
+  };
+});
 
 export default defineConfig({
   ...baseConfig,
@@ -100,7 +110,7 @@ export default defineConfig({
     designSystemLab
   },
   webServer: [
-    ...(baseConfig.webServer ?? []),
+    ...pr4WebServers,
     {
       command: designSystemLab.command,
       env: { PR4_EVIDENCE_ROOT: resolvedEvidenceRoot },

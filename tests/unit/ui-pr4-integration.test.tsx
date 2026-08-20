@@ -644,6 +644,7 @@ describe("Product PR4 integration contracts", () => {
       scripts: Record<string, string>;
     };
     const configSource = readFileSync(resolve(root, "playwright.config.ts"), "utf8");
+    const pr4ConfigSource = readFileSync(resolve(root, "playwright.pr4.config.ts"), "utf8");
     const ciSource = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
     const agentGuide = readFileSync(resolve(root, "AGENTS.md"), "utf8");
 
@@ -662,6 +663,7 @@ describe("Product PR4 integration contracts", () => {
     expect(configSource).toContain("testIgnore: /pr4-.*\\.spec\\.ts/");
     expect(configSource).not.toContain("PR4_CONFIG_LAB");
     expect(configSource).not.toContain("pr4EvidenceRoot");
+    expect(pr4ConfigSource).toContain('SIMWAR_PLAYWRIGHT_W3: "false"');
     expect(ciSource).toContain("npm run test:e2e:ui:core");
     expect(ciSource).toContain("npm run test:e2e:ui:pr4");
     expect(ciSource).toContain("Capture exact PR4 visual baseline");
