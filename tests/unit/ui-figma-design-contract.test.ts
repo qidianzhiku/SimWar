@@ -51,6 +51,18 @@ describe("Figma P1 design contract", () => {
     }
   });
 
+  it("applies body typography and preserves action state semantics", () => {
+    expect(styleSource).toContain("font-size: var(--sw-type-size-body)");
+    const genericAction = styleSource.indexOf(":where(.sw-allowed-action) {");
+    const stateAction = styleSource.lastIndexOf(
+      ':where(.sw-allowed-action[data-variant="risk"]) {'
+    );
+    const disabledAction = styleSource.lastIndexOf(":where(.sw-allowed-action:disabled) {");
+    expect(genericAction).toBeGreaterThanOrEqual(0);
+    expect(stateAction).toBeGreaterThan(genericAction);
+    expect(disabledAction).toBeGreaterThan(genericAction);
+  });
+
   it("keeps long compatibility copy inside the responsive student surface", () => {
     expect(studentStyleSource).toContain(".compatibility-copy");
     expect(studentStyleSource).toContain("overflow-wrap: anywhere");
