@@ -57,7 +57,13 @@ function round2(value: number): number {
 }
 
 function assertFresh(context: W5FormalRebaseContext): void {
-  if (context.timestamp < context.mission_start_utc) {
+  const timestampMs = Date.parse(context.timestamp);
+  const missionStartMs = Date.parse(context.mission_start_utc);
+  if (
+    !Number.isFinite(timestampMs) ||
+    !Number.isFinite(missionStartMs) ||
+    timestampMs < missionStartMs
+  ) {
     throw new Error("W5_FORMAL_REBASE_STALE_EVIDENCE");
   }
 }
@@ -438,14 +444,22 @@ export function reproduceW5ModelBaseline(
     parameter_digest: digest(input),
     seed: input.seed
   };
+  const replayCore = evaluateW5CoreRealization(input);
+  if (replayCore.replay_relevant_digest !== core.replay_relevant_digest) {
+    throw new Error("W5_FORMAL_REBASE_REPLAY_DRIFT");
+  }
   const replay = record(
     context,
     "REPLAY",
     replayIdentity,
-    { replay_identity: replayIdentity, replay_digest: core.replay_relevant_digest },
+    {
+      first_run_digest: core.replay_relevant_digest,
+      replay_identity: replayIdentity,
+      replay_run_digest: replayCore.replay_relevant_digest
+    },
     [
-      "Exact ModelVersion/Scenario/Parameter/seed replayed deterministically.",
-      "Replay is non-overwriting."
+      "Exact ModelVersion/Scenario/Parameter/seed was evaluated twice.",
+      "Replay digests matched deterministically and replay is non-overwriting."
     ],
     { replay_writes_official_results: false }
   );

@@ -35,8 +35,20 @@ function gitValue(expression: string): string {
   }).trim();
 }
 
+function gitStatus(): string {
+  return execFileSync("git", ["status", "--porcelain"], {
+    cwd: workspaceRoot,
+    encoding: "utf8"
+  }).trim();
+}
+
+const actualHead = gitValue("HEAD");
+const actualTree = gitValue("HEAD^{tree}");
 const head = required("W5_HEAD_SHA", startMaster);
-const tree = treeSha || gitValue("HEAD^{tree}");
+const tree = treeSha || actualTree;
+if (head !== actualHead) throw new Error("W5_FORMAL_REBASE_HEAD_MISMATCH");
+if (tree !== actualTree) throw new Error("W5_FORMAL_REBASE_TREE_MISMATCH");
+if (gitStatus()) throw new Error("W5_FORMAL_REBASE_WORKTREE_NOT_CLEAN");
 const lineage = required("W5_MISSION_LINEAGE_ID", missionLineage);
 const missionStartUtc = required("W5_MISSION_START_UTC", missionStart);
 const packageLockPath = resolve(workspaceRoot, "package-lock.json");

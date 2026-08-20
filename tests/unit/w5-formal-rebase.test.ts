@@ -90,4 +90,13 @@ describe("W5 formal rebase evidence", () => {
     expect(baseline.model_families.BLP_RCNL.classification).toBe("MISSING");
     expect(baseline.model_families.IDEAL_POINT_LANCASTER.classification).toBe("DEFERRED");
   });
+
+  it("rejects unverifiable or stale evidence timestamps", () => {
+    expect(() => buildW5AuthorityCensus({ ...context, timestamp: "not-a-date" })).toThrow(
+      "W5_FORMAL_REBASE_STALE_EVIDENCE"
+    );
+    expect(() =>
+      buildW5AuthorityCensus({ ...context, timestamp: "2026-08-20T08:00:00-07:00" })
+    ).toThrow("W5_FORMAL_REBASE_STALE_EVIDENCE");
+  });
 });
