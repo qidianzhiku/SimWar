@@ -158,6 +158,12 @@ const w3ContractFiles = [
   "contracts/fixtures/w3-official-consequence-learning.invalid.json"
 ];
 
+const w4ContractFiles = [
+  "contracts/schemas/w4-enterprise-state.v1.json",
+  "contracts/fixtures/w4-enterprise-state.valid.json",
+  "contracts/fixtures/w4-enterprise-state.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -218,7 +224,17 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/w3/counterfactual",
   "/api/v1/bff/student/w3/reflection",
   "/api/v1/bff/teacher/w3/evidence-selection",
-  "/api/v1/bff/teacher/w3/next-round-hypothesis"
+  "/api/v1/bff/teacher/w3/next-round-hypothesis",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/states",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/strategic-decisions",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/settle",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/continue",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/replay",
+  "/api/v1/w4/runs/{runId}/rounds/{roundNo}/shadow-replay",
+  "/api/v1/bff/student/w4/runs/{runId}/rounds/{roundNo}/portfolio",
+  "/api/v1/bff/teacher/w4/runs/{runId}/rounds/{roundNo}/portfolio",
+  "/api/v1/bff/admin/w4/runs/{runId}/rounds/{roundNo}/portfolio",
+  "/api/v1/bff/admin/w4/portfolio"
 ];
 
 const schemaCases = [
@@ -368,6 +384,11 @@ const schemaCases = [
     schema: "contracts/schemas/w3-official-consequence-learning.v1.json",
     valid: ["contracts/fixtures/w3-official-consequence-learning.valid.json"],
     invalid: ["contracts/fixtures/w3-official-consequence-learning.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/w4-enterprise-state.v1.json",
+    valid: ["contracts/fixtures/w4-enterprise-state.valid.json"],
+    invalid: ["contracts/fixtures/w4-enterprise-state.invalid.json"]
   }
 ];
 
@@ -937,7 +958,8 @@ export async function runContractValidation(options = {}) {
     ...w023ContractFiles,
     ...w025ContractFiles,
     ...w027ContractFiles,
-    ...w3ContractFiles
+    ...w3ContractFiles,
+    ...w4ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -957,7 +979,8 @@ export async function runContractValidation(options = {}) {
     ...w023ContractFiles,
     ...w025ContractFiles,
     ...w027ContractFiles,
-    ...w3ContractFiles
+    ...w3ContractFiles,
+    ...w4ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

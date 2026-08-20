@@ -1,0 +1,116 @@
+{
+  "contract_version": "w4-enterprise-state.v1",
+  "outcome": {
+    "official_outcome_id": "outcome_run_w4_1",
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_w4",
+    "team_id": "team_alpha",
+    "round_id": "round_w4_1",
+    "round_no": 1,
+    "opening_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "round_id": "round_w4_0",
+      "enterprise_state_id": "state_run_w4_0",
+      "version": 1,
+      "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "closing_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "round_id": "round_w4_1",
+      "enterprise_state_id": "state_run_w4_1",
+      "version": 2,
+      "state_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "parent_state_ref": {
+        "tenant_id": "tenant_demo",
+        "course_id": "course_demo",
+        "run_id": "run_w4",
+        "round_id": "round_w4_0",
+        "enterprise_state_id": "state_run_w4_0",
+        "version": 1,
+        "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "commitment_ids": ["commitment_decision_w4"],
+    "persistent_effect_ids": ["effect_decision_w4"],
+    "reexecuted_decision_ids": [],
+    "settlement_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "status": "official"
+  },
+  "policy_seams": [
+    {
+      "policy_seam_id": "policy_seam_ma",
+      "kind": "merger_acquisition",
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "team_id": "team_alpha",
+      "round_no": 1,
+      "status": "proposed",
+      "payload": { "requires_review": true },
+      "requires_policy_approval": true,
+      "may_write_enterprise_state": false,
+      "may_write_official_outcome": false
+    },
+    {
+      "policy_seam_id": "policy_seam_abs",
+      "kind": "asset_backed_securitization",
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "team_id": "team_alpha",
+      "round_no": 1,
+      "status": "under_review",
+      "payload": { "requires_review": true },
+      "requires_policy_approval": true,
+      "may_write_enterprise_state": false,
+      "may_write_official_outcome": false
+    },
+    {
+      "policy_seam_id": "policy_seam_ipo",
+      "kind": "initial_public_offering",
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "team_id": "team_alpha",
+      "round_no": 1,
+      "status": "approved",
+      "payload": { "requires_review": true },
+      "requires_policy_approval": true,
+      "may_write_enterprise_state": false,
+      "may_write_official_outcome": false
+    },
+    {
+      "policy_seam_id": "policy_seam_sale",
+      "kind": "project_sale",
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "team_id": "team_alpha",
+      "round_no": 1,
+      "status": "rejected",
+      "payload": { "requires_review": true },
+      "requires_policy_approval": true,
+      "may_write_enterprise_state": false,
+      "may_write_official_outcome": false
+    },
+    {
+      "policy_seam_id": "policy_seam_closure",
+      "kind": "project_closure",
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_w4",
+      "team_id": "team_alpha",
+      "round_no": 1,
+      "status": "closed",
+      "payload": { "requires_review": true },
+      "requires_policy_approval": true,
+      "may_write_enterprise_state": false,
+      "may_write_official_outcome": false
+    }
+  ]
+}

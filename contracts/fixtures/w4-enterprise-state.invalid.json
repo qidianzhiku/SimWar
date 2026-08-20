@@ -1,0 +1,20 @@
+{
+  "contract_version": "w4-enterprise-state.v1",
+  "outcome": {
+    "official_outcome_id": "outcome_invalid",
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_w4",
+    "team_id": "team_alpha",
+    "round_id": "round_w4_1",
+    "round_no": 1,
+    "opening_state_ref": { "enterprise_state_id": "state", "state_digest": "not-a-digest" },
+    "closing_state_ref": { "enterprise_state_id": "state", "state_digest": "not-a-digest" },
+    "commitment_ids": [],
+    "persistent_effect_ids": [],
+    "reexecuted_decision_ids": ["historical-decision-must-not-reexecute"],
+    "settlement_digest": "not-a-digest",
+    "status": "official",
+    "state_true": { "cash": 100 }
+  }
+}

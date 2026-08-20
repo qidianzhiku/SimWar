@@ -41,6 +41,7 @@ const expectedLocations = [
   ["student-role-mission", "角色任务"],
   ["student-cockpit", "经营驾驶舱"],
   ["student-evidence", "信息与证据"],
+  ["student-enterprise-state", "企业状态与战略演进"],
   ["student-private-draft", "个人草稿"],
   ["student-collaboration", "团队协作"],
   ["student-divergence", "分歧冲突"],
@@ -52,7 +53,7 @@ const expectedLocations = [
   ["student-learning-path", "学习路径"]
 ] as const;
 describe("Student executive workspace refoundation", () => {
-  it("freezes twelve stable student logical locations", () => {
+  it("freezes thirteen stable student logical locations", () => {
     expect(STUDENT_NAVIGATION_ITEMS).toHaveLength(expectedLocations.length);
     expect(STUDENT_NAVIGATION_ITEMS.map(({ id, label }) => [id, label])).toEqual(expectedLocations);
   });

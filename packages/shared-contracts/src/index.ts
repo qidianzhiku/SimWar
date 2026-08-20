@@ -316,6 +316,7 @@ export interface RoundContinuationResult {
 
 export * from "./validation-environment-launch.js";
 export * from "./w3-official-consequence-learning.js";
+export * from "./w4-enterprise-state.js";
 
 export interface DecisionPayload {
   pricing: {

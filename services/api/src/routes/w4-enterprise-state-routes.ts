@@ -1,0 +1,323 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { CurrentUser, W4EnterpriseState, W4ScopeContext } from "@simwar/shared-contracts";
+import {
+  createEnterpriseStateStrategicEvolutionService,
+  W4EnterpriseStateError,
+  type W4Repository
+} from "../w4-enterprise-state.js";
+
+type RouteContext = { requestId: string; tenantId: string; actor?: CurrentUser };
+
+interface W4RouteDependencies {
+  repository: W4Repository;
+  readJson: <T>(request: IncomingMessage) => Promise<T>;
+  sendJson: (response: ServerResponse, statusCode: number, body: unknown) => void;
+  createEnvelope: (context: RouteContext, payload: unknown, message?: string) => unknown;
+  requireActor: () => CurrentUser;
+  requireStudent: () => CurrentUser;
+  requireTeacher: () => CurrentUser;
+  requireAdmin: () => CurrentUser;
+  resolveRun: (tenantId: string, runId: string) => Promise<{ course_id: string } | null>;
+  resolveTeam: (tenantId: string, teamId: string) => Promise<{ course_id: string } | null>;
+}
+
+const ACTIVITY_ID = "w4-enterprise-state-strategic-evolution";
+
+function routeScope(
+  context: RouteContext,
+  actor: CurrentUser,
+  runId: string,
+  roundId: string,
+  roundNo: number,
+  teamId: string,
+  courseId: string
+): W4ScopeContext {
+  if (actor.tenant_id !== context.tenantId) {
+    throw new W4EnterpriseStateError("W4_TENANT_SCOPE_CONFLICT");
+  }
+  if (!teamId.trim()) throw new W4EnterpriseStateError("W4_TEAM_SCOPE_REQUIRED");
+  if (actor.roles.includes("learner") && actor.team_id !== teamId) {
+    throw new W4EnterpriseStateError("W4_TEAM_SCOPE_CONFLICT");
+  }
+  return {
+    actor_id: actor.user_id,
+    tenant_id: context.tenantId,
+    course_id: courseId,
+    run_id: runId,
+    team_id: teamId,
+    round_id: roundId,
+    round_no: roundNo,
+    role_key: actor.roles.includes("team_captain") ? "CEO" : (actor.roles[0] ?? "unknown"),
+    activity_id: ACTIVITY_ID
+  };
+}
+
+function parseRoundPath(
+  pathname: string,
+  prefix: string
+): { runId: string; roundNo: number } | null {
+  const match = pathname.match(new RegExp(`^${prefix}/runs/([^/]+)/rounds/(\\d+)(?:/([^/]+))?$`));
+  if (!match) return null;
+  return { runId: match[1] ?? "", roundNo: Number(match[2]) };
+}
+
+function errorStatus(error: W4EnterpriseStateError): number {
+  return error.code.includes("CONFLICT") ||
+    error.code.includes("DUPLICATE") ||
+    error.code.includes("ATOMIC")
+    ? 409
+    : error.code.includes("NOT_FOUND")
+      ? 404
+      : 422;
+}
+
+async function assertRuntimeScope(
+  dependencies: Pick<W4RouteDependencies, "resolveRun" | "resolveTeam">,
+  tenantId: string,
+  runId: string,
+  courseId: string,
+  teamId: string
+): Promise<void> {
+  const run = await dependencies.resolveRun(tenantId, runId);
+  if (!run) throw new W4EnterpriseStateError("W4_RUN_NOT_FOUND");
+  if (run.course_id !== courseId) throw new W4EnterpriseStateError("W4_COURSE_SCOPE_CONFLICT");
+  const team = await dependencies.resolveTeam(tenantId, teamId);
+  if (!team) throw new W4EnterpriseStateError("W4_TEAM_NOT_FOUND");
+  if (team.course_id !== courseId) throw new W4EnterpriseStateError("W4_TEAM_SCOPE_CONFLICT");
+}
+
+export async function handleW4EnterpriseStateRoute(
+  repository: W4Repository,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  context: RouteContext,
+  dependencies: Omit<W4RouteDependencies, "repository">
+): Promise<boolean> {
+  const service = createEnterpriseStateStrategicEvolutionService(repository);
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/w4/portfolio") {
+    const actor = dependencies.requireAdmin();
+    if (actor.tenant_id !== context.tenantId) {
+      throw new W4EnterpriseStateError("W4_TENANT_SCOPE_CONFLICT");
+    }
+    const current = repository.snapshot();
+    const states = current.states.filter((state) => state.tenant_id === context.tenantId);
+    const tenantRuns = new Set(states.map((state) => `${state.course_id}:${state.run_id}`));
+    const portfolios = [...tenantRuns].map((key) => {
+      const [courseId, runId] = key.split(":");
+      const runStates = states.filter(
+        (state) => state.course_id === courseId && state.run_id === runId
+      );
+      const latest = runStates.slice().sort((left, right) => right.round_no - left.round_no)[0];
+      const initiatives = current.initiatives.filter(
+        (item) => item.course_id === courseId && item.run_id === runId
+      );
+      return {
+        course_id: courseId,
+        run_id: runId,
+        enterprise_state_count: runStates.length,
+        latest_state_ref: latest
+          ? {
+              enterprise_state_id: latest.enterprise_state_id,
+              round_id: latest.round_id,
+              round_no: latest.round_no,
+              state_digest: latest.state_digest
+            }
+          : null,
+        portfolio: latest?.state.portfolio ?? { projects: [], facilities: [] },
+        initiatives: initiatives.map((initiative) => ({
+          initiative_id: initiative.initiative_id,
+          kind: initiative.kind,
+          status: initiative.status,
+          project_name: initiative.project?.project_name ?? null
+        }))
+      };
+    });
+    dependencies.sendJson(
+      response,
+      200,
+      dependencies.createEnvelope(context, {
+        surface: "admin",
+        group: { tenant_id: context.tenantId, portfolio_count: portfolios.length },
+        portfolios,
+        writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE"
+      })
+    );
+    return true;
+  }
+  const route = parseRoundPath(url.pathname, "/api/v1/w4");
+  const bffRoute = parseRoundPath(url.pathname, "/api/v1/bff/(?:student|teacher|admin)/w4");
+  if (!route && !bffRoute) return false;
+
+  const isBff = Boolean(bffRoute);
+  const parsed = route ?? bffRoute!;
+  const suffix = url.pathname.split(`/rounds/${parsed.roundNo}`)[1] ?? "";
+
+  try {
+    if (isBff && request.method === "GET") {
+      const surface = url.pathname.match(/^\/api\/v1\/bff\/(student|teacher|admin)\/w4\//)?.[1];
+      const actor =
+        surface === "student"
+          ? dependencies.requireStudent()
+          : surface === "admin"
+            ? dependencies.requireAdmin()
+            : dependencies.requireTeacher();
+      const teamId = url.searchParams.get("team_id") ?? actor.team_id ?? "";
+      const courseId = url.searchParams.get("course_id") ?? "course_demo";
+      await assertRuntimeScope(dependencies, context.tenantId, parsed.runId, courseId, teamId);
+      const scope = routeScope(
+        context,
+        actor,
+        parsed.runId,
+        `round_${parsed.runId}_${parsed.roundNo}`,
+        parsed.roundNo,
+        teamId,
+        courseId
+      );
+      const projection = await service.getProjection(scope);
+      const safeProjection =
+        surface === "student"
+          ? {
+              ...projection,
+              state: projection.state
+                ? {
+                    capacity: projection.state.capacity,
+                    product_lines: projection.state.product_lines,
+                    positioning: projection.state.positioning,
+                    portfolio: projection.state.portfolio
+                  }
+                : null
+            }
+          : projection;
+      dependencies.sendJson(
+        response,
+        200,
+        dependencies.createEnvelope(context, {
+          ...safeProjection,
+          surface,
+          process_information: {
+            status: projection.initiatives.some((initiative) => initiative.status === "blocked")
+              ? "blocked"
+              : "ready",
+            activity_id: ACTIVITY_ID
+          },
+          outcome_information: {
+            status: projection.closing_state_ref ? "official" : "empty",
+            opening_state_ref: projection.opening_state_ref,
+            closing_state_ref: projection.closing_state_ref
+          }
+        })
+      );
+      return true;
+    }
+
+    const body =
+      request.method === "GET" ? {} : await dependencies.readJson<Record<string, unknown>>(request);
+    const operation = suffix.replace(/^\//, "");
+    const actor =
+      operation === "strategic-decisions"
+        ? dependencies.requireActor()
+        : dependencies.requireTeacher();
+    const teamId = String(body.team_id ?? actor.team_id ?? "");
+    const roundId = String(body.round_id ?? `round_${parsed.runId}_${parsed.roundNo}`);
+    const scope = routeScope(
+      context,
+      actor,
+      parsed.runId,
+      roundId,
+      parsed.roundNo,
+      teamId,
+      String(body.course_id ?? "course_demo")
+    );
+    await assertRuntimeScope(
+      dependencies,
+      context.tenantId,
+      parsed.runId,
+      scope.course_id,
+      scope.team_id
+    );
+
+    if (request.method === "POST" && operation === "states") {
+      const supplied = (body.state ?? {}) as Partial<W4EnterpriseState["state"]>;
+      const input: W4EnterpriseState = {
+        enterprise_state_id: String(body.enterprise_state_id ?? `state_${parsed.runId}_initial`),
+        tenant_id: context.tenantId,
+        course_id: scope.course_id,
+        run_id: parsed.runId,
+        round_id: roundId,
+        round_no: parsed.roundNo,
+        version: 1,
+        parent_state_ref: null,
+        state_digest: "",
+        state: {
+          cash: Number(supplied.cash ?? 1000),
+          capacity: Number(supplied.capacity ?? 100),
+          product_lines: Array.isArray(supplied.product_lines)
+            ? supplied.product_lines.map(String)
+            : ["core-care"],
+          positioning: String(supplied.positioning ?? "trusted-care"),
+          organization: supplied.organization ?? { team_size: 4 },
+          portfolio: supplied.portfolio ?? { projects: [], facilities: [] }
+        }
+      };
+      const created = await service.createInitialState(scope, input);
+      dependencies.sendJson(response, 201, dependencies.createEnvelope(context, created));
+      return true;
+    }
+
+    if (request.method === "POST" && operation === "strategic-decisions") {
+      const decision = body.decision as Parameters<typeof service.commitStrategicDecision>[1];
+      if (!decision || typeof decision !== "object")
+        throw new W4EnterpriseStateError("W4_DECISION_REQUIRED");
+      const compiled = await service.commitStrategicDecision(scope, decision);
+      dependencies.sendJson(response, 201, dependencies.createEnvelope(context, compiled));
+      return true;
+    }
+
+    if (request.method === "POST" && operation === "settle") {
+      const result = await service.settleRound(scope, {
+        opening_state_ref: body.opening_state_ref as Parameters<
+          typeof service.settleRound
+        >[1]["opening_state_ref"],
+        decision_id: body.decision_id ? String(body.decision_id) : null
+      });
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    }
+
+    if (request.method === "POST" && operation === "continue") {
+      const result = await service.createNextRoundOpening({
+        ...scope,
+        round_id: roundId,
+        opening_state_ref: body.closing_state_ref as Parameters<
+          typeof service.createNextRoundOpening
+        >[0]["opening_state_ref"]
+      });
+      dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
+      return true;
+    }
+
+    if (request.method === "POST" && operation === "shadow-replay") {
+      const result = await service.shadowReplay(scope, String(body.outcome_id ?? ""));
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    }
+
+    if (request.method === "POST" && operation === "replay") {
+      const result = await service.replay(scope, String(body.outcome_id ?? ""));
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    }
+  } catch (error) {
+    if (error instanceof W4EnterpriseStateError) {
+      dependencies.sendJson(
+        response,
+        errorStatus(error),
+        dependencies.createEnvelope(context, { code: error.code, message: error.message })
+      );
+      return true;
+    }
+    throw error;
+  }
+  return false;
+}

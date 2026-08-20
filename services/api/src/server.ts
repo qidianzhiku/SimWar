@@ -132,6 +132,7 @@ import { handleTransferResearchDesignRoute } from "./routes/transfer-research-de
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
+import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
@@ -258,6 +259,11 @@ import {
 } from "./r7-teacher-scenario-selection-readiness.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
+  createJsonW4Repository,
+  W4EnterpriseStateError,
+  type W4Repository
+} from "./w4-enterprise-state.js";
+import {
   SyntheticRunLifecycleError,
   assertRunLifecycleAllowsProgress,
   createSyntheticRunCreationAuditMarker,
@@ -340,6 +346,7 @@ interface ApiRuntime {
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
+  w4EnterpriseStateRepository: W4Repository;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
     context: RequestContext
@@ -671,6 +678,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow,
     w027DecisionExperience,
     w3OfficialConsequence,
+    w4EnterpriseStateRepository: createJsonW4Repository(store),
     instructorAssets: new InstructorAssetRegistry(
       {
         captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
@@ -5453,6 +5461,31 @@ async function routeRequest(
   const context = createContext(runtime, request);
 
   if (
+    await handleW4EnterpriseStateRoute(
+      runtime.w4EnterpriseStateRepository,
+      request,
+      response,
+      url,
+      context,
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireActor: () => requireActor(context),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context),
+        resolveRun: (tenantId, runId) =>
+          runtime.repositoryProvider.facade.runs.getRun(tenantId, runId),
+        resolveTeam: (tenantId, teamId) =>
+          runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId)
+      }
+    )
+  )
+    return;
+
+  if (
     await handleW3OfficialConsequenceRoute(
       runtime.w3OfficialConsequence,
       request,
@@ -8602,6 +8635,11 @@ export function createApiServer(
           fallbackContext,
           new HttpError(error.statusCode, error.code, error.message)
         );
+        return;
+      }
+
+      if (error instanceof W4EnterpriseStateError) {
+        sendError(response, fallbackContext, new HttpError(409, error.code, error.message));
         return;
       }
 

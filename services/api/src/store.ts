@@ -47,7 +47,8 @@ import type {
   W027ResolutionV2,
   W027ResolutionAcknowledgement,
   W027RolePosition,
-  W027RoleRoster
+  W027RoleRoster,
+  W4StoreState
 } from "@simwar/shared-contracts";
 import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
@@ -143,6 +144,7 @@ export interface SimWarStoreSnapshot {
   w027RolePositions: W027RolePosition[];
   w027Resolutions: W027ResolutionV2[];
   w027ResolutionAcknowledgements: W027ResolutionAcknowledgement[];
+  w4: W4StoreState;
 }
 
 export interface SimWarStore extends SimWarStoreSnapshot {
@@ -807,6 +809,16 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     w027RolePositions: [],
     w027Resolutions: [],
     w027ResolutionAcknowledgements: [],
+    w4: {
+      states: [],
+      decisions: [],
+      commitments: [],
+      effects: [],
+      initiatives: [],
+      policySeams: [],
+      outcomes: [],
+      replayEvidence: []
+    },
     counters: {
       tenant: 3,
       user: 5,
@@ -873,6 +885,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     w027RolePositions: store.w027RolePositions,
     w027Resolutions: store.w027Resolutions,
     w027ResolutionAcknowledgements: store.w027ResolutionAcknowledgements,
+    w4: store.w4,
     counters: store.counters
   };
 }
@@ -934,6 +947,18 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     w027RolePositions: snapshot.w027RolePositions ?? [],
     w027Resolutions: snapshot.w027Resolutions ?? [],
     w027ResolutionAcknowledgements: snapshot.w027ResolutionAcknowledgements ?? [],
+    w4: {
+      ...seed.w4,
+      ...(snapshot.w4 ?? {}),
+      states: snapshot.w4?.states ?? seed.w4.states,
+      decisions: snapshot.w4?.decisions ?? seed.w4.decisions,
+      commitments: snapshot.w4?.commitments ?? seed.w4.commitments,
+      effects: snapshot.w4?.effects ?? seed.w4.effects,
+      initiatives: snapshot.w4?.initiatives ?? seed.w4.initiatives,
+      policySeams: snapshot.w4?.policySeams ?? seed.w4.policySeams,
+      outcomes: snapshot.w4?.outcomes ?? seed.w4.outcomes,
+      replayEvidence: snapshot.w4?.replayEvidence ?? seed.w4.replayEvidence
+    },
     counters: { ...seed.counters, ...(snapshot.counters ?? {}) }
   };
 }

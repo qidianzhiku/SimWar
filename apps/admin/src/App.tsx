@@ -41,6 +41,7 @@ import {
   formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
 import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorkspace";
+import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -1381,6 +1382,10 @@ export function App() {
         <EnterpriseCourseFactoryWorkspace
           scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
         />
+      ) : null}
+
+      {session && hasAdminSummaryRole ? (
+        <W4EnterprisePortfolioPanel tenantId={login.tenantId} token={session.access_token} />
       ) : null}
 
       {isTenantAdmin && state ? (

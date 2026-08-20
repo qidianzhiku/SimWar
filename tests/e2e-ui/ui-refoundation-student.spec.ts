@@ -4,6 +4,7 @@ const studentLocations = [
   ["student-role-mission", "角色任务"],
   ["student-cockpit", "经营驾驶舱"],
   ["student-evidence", "信息与证据"],
+  ["student-enterprise-state", "企业状态与战略演进"],
   ["student-private-draft", "个人草稿"],
   ["student-collaboration", "团队协作"],
   ["student-divergence", "分歧冲突"],
@@ -22,7 +23,9 @@ async function signIn(page: import("@playwright/test").Page, username: string, p
   await page.getByRole("button", { name: "学员登录" }).click();
 }
 
-test("Student executive workspace exposes the twelve real logical locations", async ({ page }) => {
+test("Student executive workspace exposes the thirteen real logical locations", async ({
+  page
+}) => {
   await page.goto("/");
   await signIn(page, "student", "student");
   await expect(
