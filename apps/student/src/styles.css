@@ -841,6 +841,12 @@ textarea {
   border-radius: var(--sw-radius-card);
 }
 
+.golden-journey-limits .compatibility-copy {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .golden-journey-nav a,
 .golden-journey-action {
   color: var(--sw-color-brand-primary-accessible);

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const tokenSource = readFileSync(resolve("packages/ui/src/tokens.css"), "utf8");
 const styleSource = readFileSync(resolve("packages/ui/src/styles.css"), "utf8");
+const studentStyleSource = readFileSync(resolve("apps/student/src/styles.css"), "utf8");
 
 describe("Figma P1 design contract", () => {
   it("maps the approved Design System board values into shared CSS tokens", () => {
@@ -48,5 +49,11 @@ describe("Figma P1 design contract", () => {
     ]) {
       expect(styleSource).toContain(token);
     }
+  });
+
+  it("keeps long compatibility copy inside the responsive student surface", () => {
+    expect(studentStyleSource).toContain(".compatibility-copy");
+    expect(studentStyleSource).toContain("overflow-wrap: anywhere");
+    expect(studentStyleSource).toContain("word-break: break-word");
   });
 });
