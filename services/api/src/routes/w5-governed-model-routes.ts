@@ -304,6 +304,12 @@ export async function handleW5GovernedModelRoute(
       throw new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED");
     }
     const run = await resolveRun(deps, context.tenantId, runId, roundNo);
+    const enrolledTeam = await deps.repository.teams.getTeamForUser(
+      context.tenantId,
+      run.run_id,
+      actor.user_id
+    );
+    if (!enrolledTeam) throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
     send(
       deps,
       context,

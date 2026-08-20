@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
   ActorRole,
+  AuditLog,
   ParameterSetReference,
   ScenarioPackageReference,
   W5ConvergenceProjection,
@@ -46,6 +47,16 @@ export interface W5BindDraftInput {
   run_id: string;
   scenario_package_reference: ScenarioPackageReference;
   seed: number;
+}
+
+/**
+ * Persistence boundary for the JSON runtime's governance-plane records.
+ * Drafts and their audit entries are deliberately separate from canonical
+ * decisions and settlement truth.
+ */
+export interface W5GovernedModelPersistence {
+  listDrafts(): readonly W5ScenarioDraft[];
+  commitDraft(draft: W5ScenarioDraft, auditLog: AuditLog): void;
 }
 
 export type W5ModelPlane = "OFF" | "ON";
@@ -401,11 +412,18 @@ function receipt(
 export class W5GovernedModelService {
   readonly modelVersion = clone(DEFAULT_MODEL_VERSION);
   private readonly clock: Clock;
+  private readonly persistence: W5GovernedModelPersistence | undefined;
   private readonly drafts = new Map<string, W5ScenarioDraft>();
   private sequence = 0;
 
-  constructor(clock: Clock = DEFAULT_CLOCK) {
+  constructor(clock: Clock = DEFAULT_CLOCK, persistence?: W5GovernedModelPersistence) {
     this.clock = clock;
+    this.persistence = persistence;
+    for (const draft of persistence?.listDrafts() ?? []) {
+      this.drafts.set(draft.draft_id, clone(draft));
+      const sequence = Number(draft.draft_id.replace(/^w5_draft_/, ""));
+      if (Number.isSafeInteger(sequence)) this.sequence = Math.max(this.sequence, sequence);
+    }
   }
 
   getTeacherProjection(actor: W5ServiceActor, scope: W5ServiceScope): W5GovernedModelTeacherProjection {
@@ -447,7 +465,14 @@ export class W5GovernedModelService {
     };
     this.drafts.set(draft.draft_id, draft);
     const security = securityContext(actor, scope);
-    return { draft: clone(draft), receipt: receipt("create_draft", security, `w5_receipt_${this.sequence}`) };
+    const mutationReceipt = receipt("create_draft", security, `w5_receipt_${this.sequence}`);
+    try {
+      this.commitDraft(draft, actor, mutationReceipt);
+    } catch (error) {
+      this.drafts.delete(draft.draft_id);
+      throw error;
+    }
+    return { draft: clone(draft), receipt: mutationReceipt };
   }
 
   getDraft(actor: W5ServiceActor, scope: W5ServiceScope, draftId: string): W5ScenarioDraft {
@@ -475,6 +500,7 @@ export class W5GovernedModelService {
   ): { draft: W5ScenarioDraft; receipt: W5MutationReceipt } {
     const draft = this.mutableDraft(actor, scope, draftId);
     if (draft.status !== "DRAFT") throw new W5GovernedModelError("W5_INVALID_TRANSITION");
+    const previous = clone(draft);
     validateParameterValues(draft.parameter_values);
     if (draft.parameter_descriptors.some((item) => item.mapping_readiness === "DRAFT" && draft.parameter_values[item.key] !== item.default)) {
       throw new W5GovernedModelError("W5_PARAMETER_MAPPING_DRAFT");
@@ -482,7 +508,14 @@ export class W5GovernedModelService {
     draft.status = "VALIDATED";
     draft.updated_at = this.clock.now();
     const security = securityContext(actor, scope);
-    return { draft: clone(draft), receipt: receipt("validate", security, `w5_receipt_${++this.sequence}`) };
+    const mutationReceipt = receipt("validate", security, `w5_receipt_${++this.sequence}`);
+    try {
+      this.commitDraft(draft, actor, mutationReceipt);
+    } catch (error) {
+      Object.assign(draft, previous);
+      throw error;
+    }
+    return { draft: clone(draft), receipt: mutationReceipt };
   }
 
   freezeDraft(
@@ -492,10 +525,18 @@ export class W5GovernedModelService {
   ): { draft: W5ScenarioDraft; receipt: W5MutationReceipt } {
     const draft = this.mutableDraft(actor, scope, draftId);
     if (draft.status !== "VALIDATED") throw new W5GovernedModelError("W5_DRAFT_NOT_VALIDATED");
+    const previous = clone(draft);
     draft.status = "FROZEN";
     draft.updated_at = this.clock.now();
     const security = securityContext(actor, scope);
-    return { draft: clone(draft), receipt: receipt("freeze", security, `w5_receipt_${++this.sequence}`) };
+    const mutationReceipt = receipt("freeze", security, `w5_receipt_${++this.sequence}`);
+    try {
+      this.commitDraft(draft, actor, mutationReceipt);
+    } catch (error) {
+      Object.assign(draft, previous);
+      throw error;
+    }
+    return { draft: clone(draft), receipt: mutationReceipt };
   }
 
   bindDraft(
@@ -506,6 +547,7 @@ export class W5GovernedModelService {
   ): { draft: W5ScenarioDraft; receipt: W5MutationReceipt } {
     const draft = this.mutableDraft(actor, scope, draftId);
     if (draft.status !== "FROZEN") throw new W5GovernedModelError("W5_DRAFT_NOT_FROZEN");
+    const previous = clone(draft);
     if (
       (scope.run_id !== undefined && scope.run_id !== input.run_id) ||
       (scope.round_no !== undefined && scope.round_no !== input.round_no)
@@ -543,7 +585,14 @@ export class W5GovernedModelService {
     draft.status = "BOUND";
     draft.updated_at = this.clock.now();
     const security = securityContext(actor, scope);
-    return { draft: clone(draft), receipt: receipt("bind", security, `w5_receipt_${++this.sequence}`) };
+    const mutationReceipt = receipt("bind", security, `w5_receipt_${++this.sequence}`);
+    try {
+      this.commitDraft(draft, actor, mutationReceipt);
+    } catch (error) {
+      Object.assign(draft, previous);
+      throw error;
+    }
+    return { draft: clone(draft), receipt: mutationReceipt };
   }
 
   evaluate(
@@ -555,11 +604,19 @@ export class W5GovernedModelService {
   ): W5ConvergenceProjection {
     const draft = this.getDraft(actor, scope, draftId);
     const binding = draft.exact_runtime_binding;
+    if (
+      !binding ||
+      binding.status !== "BOUND" ||
+      scope.run_id !== binding.run_id ||
+      scope.round_no !== binding.round_no
+    ) {
+      throw new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED");
+    }
     const values = draft.parameter_values;
     const baseInput = createDefaultEldercareModelInput();
     const input = {
       ...baseInput,
-      seed: binding?.seed ?? draft.seed,
+      seed: binding.seed,
       decision: {
         ...baseInput.decision,
         community_outreach_budget: Math.max(0, 60000 + Number(values.construction_cost) * 0.2),
@@ -607,11 +664,11 @@ export class W5GovernedModelService {
       model_version_ref: this.modelVersion.model_version_ref,
       provenance: {
         data_classification: draft.data_classification,
-        exact_binding_digest: binding?.binding_digest ?? null,
+        exact_binding_digest: binding.binding_digest,
         model_version_ref: this.modelVersion.model_version_ref,
-        parameter_set_reference: binding?.parameter_set_reference ?? null,
-        scenario_package_reference: binding?.scenario_package_reference ?? null,
-        seed: binding?.seed ?? draft.seed
+        parameter_set_reference: binding.parameter_set_reference,
+        scenario_package_reference: binding.scenario_package_reference,
+        seed: binding.seed
       },
       realized: {
         authority: core.authority,
@@ -621,7 +678,7 @@ export class W5GovernedModelService {
       },
       replay: {
         differential: "NON_OFFICIAL",
-        exact_identity: binding ? "READY" : "NOT_BOUND",
+        exact_identity: "READY",
         replay_writes_official_results: false
       },
       security,
@@ -667,6 +724,31 @@ export class W5GovernedModelService {
     if (!actor.tenant_id || !scope.course_id || !scope.activity_id) {
       throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
     }
+  }
+
+  private commitDraft(
+    draft: W5ScenarioDraft,
+    actor: W5ServiceActor,
+    mutationReceipt: W5MutationReceipt
+  ): void {
+    this.persistence?.commitDraft(clone(draft), {
+      action: `w5.${mutationReceipt.action}`,
+      actor_id: actor.actor_id,
+      actor_role: actor.role,
+      after: {
+        course_id: draft.course_id,
+        status: draft.status,
+        ...(draft.exact_runtime_binding
+          ? { binding_id: draft.exact_runtime_binding.binding_id }
+          : {})
+      },
+      audit_id: `w5_audit_${mutationReceipt.receipt_id}`,
+      created_at: this.clock.now(),
+      request_id: mutationReceipt.receipt_id,
+      resource_id: draft.draft_id,
+      resource_type: "w5_governed_model_draft",
+      tenant_id: actor.tenant_id
+    });
   }
 
   private mutableDraft(actor: W5ServiceActor, scope: W5ServiceScope, draftId: string): W5ScenarioDraft {

@@ -104,12 +104,59 @@ describe("W5GovernedModelService", () => {
       parameters: { custom_parameter: "teacher hypothesis" }
     });
     expect(created.draft.parameter_descriptors.find((item) => item.key === "custom_parameter")?.mapping_readiness).toBe("DRAFT");
-    const evaluated = governed.evaluate(actor, scope, created.draft.draft_id, "STANDARD", {
+    const fallbackDraft = governed.createDraft(actor, scope, {}).draft;
+    const validated = governed.validateDraft(actor, scope, fallbackDraft.draft_id).draft;
+    const frozen = governed.freezeDraft(actor, scope, validated.draft_id).draft;
+    governed.bindDraft(actor, scope, frozen.draft_id, {
+      run_id: "run_demo",
+      round_no: 1,
+      seed: 42,
+      parameter_set_reference: {
+        content_digest: "a".repeat(64),
+        parameter_set_id: "param_toy_approved_1",
+        version: "1.0.0"
+      },
+      scenario_package_reference: {
+        content_digest: "b".repeat(64),
+        scenario_package_id: "scenario_eldercare_demo",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    });
+    const evaluated = governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, frozen.draft_id, "STANDARD", {
       model_plane: "OFF"
     });
     expect(evaluated.fallback.applied).toBe(true);
     expect(evaluated.fallback.official_path_continues).toBe(true);
     expect(evaluated.realized.authority).toBe("SIMULATION_CORE");
+  });
+
+  it("fails closed when evaluation is unbound or the exact run/round does not match", () => {
+    const governed = service();
+    const created = governed.createDraft(actor, scope, {}).draft;
+    expect(() => governed.evaluate(actor, { ...scope, run_id: "run_demo", round_no: 1 }, created.draft_id, "STANDARD"))
+      .toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
+
+    const validated = governed.validateDraft(actor, scope, created.draft_id).draft;
+    const frozen = governed.freezeDraft(actor, scope, validated.draft_id).draft;
+    governed.bindDraft(actor, scope, frozen.draft_id, {
+      run_id: "run_demo",
+      round_no: 1,
+      seed: 42,
+      parameter_set_reference: {
+        content_digest: "a".repeat(64),
+        parameter_set_id: "param_toy_approved_1",
+        version: "1.0.0"
+      },
+      scenario_package_reference: {
+        content_digest: "b".repeat(64),
+        scenario_package_id: "scenario_eldercare_demo",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    });
+    expect(() => governed.evaluate(actor, { ...scope, run_id: "run_other", round_no: 1 }, frozen.draft_id, "STANDARD"))
+      .toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
   });
 
   it("fails closed on a cross-tenant security context", () => {

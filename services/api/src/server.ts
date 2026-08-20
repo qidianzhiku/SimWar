@@ -88,6 +88,7 @@ import { getApiHealthPayload } from "./health.js";
 import {
   createJsonFormalScenarioAuthorityPersistence,
   createJsonGovernedAdvisoryRepositoryPort,
+  createJsonW5GovernedModelPersistence,
   createJsonW027DecisionExperienceRepositoryPort,
   type JsonFormalScenarioAuthorityPersistence
 } from "./json-repository-adapter.js";
@@ -653,7 +654,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const validationEnvironmentLaunch = options.validationEnvironmentLaunchLedger
     ? new ValidationEnvironmentLaunchService(options.validationEnvironmentLaunchLedger)
     : undefined;
-  const w5GovernedModel = new W5GovernedModelService();
+  const w5GovernedModel = new W5GovernedModelService(
+    undefined,
+    createJsonW5GovernedModelPersistence(store)
+  );
 
   return {
     courseBlueprintBindingStore,

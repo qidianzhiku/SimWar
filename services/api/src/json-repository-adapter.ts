@@ -61,6 +61,8 @@ import {
   type CourseBlueprintRegistryPort
 } from "./course-blueprint-authority.js";
 import type { SimWarStore } from "./store.js";
+import type { W5GovernedModelPersistence } from "./w5-governed-model-service.js";
+import type { W5ScenarioDraft } from "@simwar/shared-contracts";
 import {
   createSettlementBusinessKey,
   createSettlementFingerprint
@@ -140,6 +142,36 @@ export function createJsonGovernedAdvisoryRepositoryPort(
         store.persist();
       } catch (error) {
         records.splice(0, records.length, ...previous);
+        throw error;
+      }
+    }
+  };
+}
+
+/** JSON persistence for W5 governance-plane drafts plus their audit entries. */
+export function createJsonW5GovernedModelPersistence(
+  store: SimWarStore
+): W5GovernedModelPersistence {
+  const drafts = store.w5GovernedModelDrafts ?? (store.w5GovernedModelDrafts = []);
+  return {
+    listDrafts() {
+      return clone(drafts);
+    },
+    commitDraft(draft: W5ScenarioDraft, auditLog) {
+      const previousDrafts = clone(drafts);
+      const previousAuditLogs = clone(store.auditLogs);
+      const index = drafts.findIndex(
+        (candidate) =>
+          candidate.tenant_id === draft.tenant_id && candidate.draft_id === draft.draft_id
+      );
+      if (index >= 0) drafts[index] = clone(draft);
+      else drafts.push(clone(draft));
+      store.auditLogs.push(clone(auditLog));
+      try {
+        store.persist();
+      } catch (error) {
+        drafts.splice(0, drafts.length, ...previousDrafts);
+        store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
         throw error;
       }
     }

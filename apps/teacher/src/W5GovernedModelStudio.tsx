@@ -116,6 +116,10 @@ export function W5GovernedModelStudio({
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    setConvergence(null);
+  }, [courseId, roundNo, runId, selectedDraftId]);
+
   const draft = useMemo(
     () => projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null,
     [projection, selectedDraftId]

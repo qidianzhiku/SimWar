@@ -68,7 +68,7 @@ async function startServer() {
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("server did not bind");
-  return { baseUrl: `http://127.0.0.1:${address.port}`, server };
+  return { baseUrl: `http://127.0.0.1:${address.port}`, server, store };
 }
 
 async function api<T>(baseUrl: string, path: string, token: string, method = "GET", body?: unknown, tenantId = DEFAULT_TENANT_ID) {
@@ -85,7 +85,7 @@ async function api<T>(baseUrl: string, path: string, token: string, method = "GE
 
 describe("W5 governed model BFF", () => {
   it("runs the teacher lifecycle, exact binding, Standard/Advanced parity and student-safe projection", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, server, store } = await startServer();
     try {
       const teacher = await login(baseUrl, "teacher", "teacher");
       const student = await login(baseUrl, "student", "student");
@@ -127,6 +127,10 @@ describe("W5 governed model BFF", () => {
       expect(bound.status).toBe(200);
       expect(bound.body.data.draft.status).toBe("BOUND");
       expect(bound.body.data.draft.exact_runtime_binding).toBeTruthy();
+      expect(store.w5GovernedModelDrafts?.find((draft) => draft.draft_id === draftId)?.status).toBe("BOUND");
+      expect(
+        store.auditLogs.filter((audit) => audit.resource_id === draftId).map((audit) => audit.action)
+      ).toEqual(["w5.create_draft", "w5.validate", "w5.freeze", "w5.bind"]);
 
       const standard = await api<ApiEnvelope<{ convergence: { realized: { replay_relevant_digest: string }; experience_profile: string } }>>(
         baseUrl,
@@ -161,6 +165,29 @@ describe("W5 governed model BFF", () => {
       expect(serializedStudent).not.toContain("parameter_values");
       expect(serializedStudent).not.toContain("content_digest");
       expect(serializedStudent).toContain("SIMULATION_CORE");
+
+      const enrolledRun = store.runs.find((candidate) => candidate.run_id === "run_w5_demo");
+      if (!enrolledRun) throw new Error("W5 test run was not stored");
+      const unenrolledRun: Run = {
+        ...enrolledRun,
+        course_id: "course_without_team",
+        run_id: "run_w5_unenrolled"
+      };
+      const enrolledRound = store.rounds.find((candidate) => candidate.run_id === "run_w5_demo");
+      if (!enrolledRound) throw new Error("W5 test round was not stored");
+      const unenrolledRound: Round = {
+        ...enrolledRound,
+        round_id: "round_w5_unenrolled_1",
+        run_id: unenrolledRun.run_id
+      };
+      store.runs.push(unenrolledRun);
+      store.rounds.push(unenrolledRound);
+      const unenrolled = await api<Record<string, unknown>>(
+        baseUrl,
+        `/api/v1/bff/student/w5/convergence?draftId=${draftId}&runId=${unenrolledRun.run_id}&roundNo=1`,
+        student.access_token
+      );
+      expect(unenrolled.status).toBe(403);
 
       const crossTenant = await api<Record<string, unknown>>(
         baseUrl,
