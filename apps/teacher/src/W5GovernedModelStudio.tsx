@@ -63,6 +63,14 @@ function convergenceRows(convergence: W5ConvergenceProjection | null): Array<[st
   ];
 }
 
+const breakableTextStyle = {
+  display: "block" as const,
+  maxWidth: "100%",
+  minWidth: 0,
+  overflowWrap: "anywhere" as const,
+  wordBreak: "break-word" as const
+};
+
 export function W5GovernedModelStudio({
   apiBase,
   courseId,
@@ -209,9 +217,11 @@ export function W5GovernedModelStudio({
       {projection ? (
         <>
           <div className="w5-studio-meta">
-            <span>ModelVersion: {projection.model_version.model_version_ref}</span>
-            <span>Draft: {draft ? `${draft.draft_id} · ${statusLabel(draft.status)}` : "未选择"}</span>
-            <span>Run: {runId ?? "未选择"} / Round: {roundNo ?? "未选择"}</span>
+            <span style={breakableTextStyle}>ModelVersion: {projection.model_version.model_version_ref}</span>
+            <span style={breakableTextStyle}>
+              Draft: {draft ? `${draft.draft_id} · ${statusLabel(draft.status)}` : "未选择"}
+            </span>
+            <span style={breakableTextStyle}>Run: {runId ?? "未选择"} / Round: {roundNo ?? "未选择"}</span>
           </div>
           <label className="w5-draft-select">
             当前草稿
@@ -227,9 +237,9 @@ export function W5GovernedModelStudio({
           <div className="w5-parameter-grid">
             {projection.parameter_descriptors.map((parameter) => (
               <article key={parameter.key} className="w5-parameter-card">
-                <strong>{parameter.label}</strong>
-                <span>{parameter.key} · {parameter.unit}</span>
-                <small>{parameter.mapping_readiness} · {parameter.consumer}</small>
+                <strong style={breakableTextStyle}>{parameter.label}</strong>
+                <span style={breakableTextStyle}>{parameter.key} · {parameter.unit}</span>
+                <small style={breakableTextStyle}>{parameter.mapping_readiness} · {parameter.consumer}</small>
               </article>
             ))}
           </div>
@@ -248,13 +258,17 @@ export function W5GovernedModelStudio({
           <div className="w5-convergence-grid">
             {convergenceRows(convergence).map(([label, value]) => (
               <article key={label} className="w5-convergence-card">
-                <span>{label}</span>
-                <strong>{value}</strong>
+                <span style={breakableTextStyle}>{label}</span>
+                <strong style={breakableTextStyle}>{value}</strong>
               </article>
             ))}
           </div>
-          <p className="evidence-note">REALIZED digest: {convergence.realized.replay_relevant_digest}</p>
-          <p className="evidence-note">Known limits: {convergence.known_limits.join(" · ")}</p>
+          <p className="evidence-note" style={breakableTextStyle}>
+            REALIZED digest: {convergence.realized.replay_relevant_digest}
+          </p>
+          <p className="evidence-note" style={breakableTextStyle}>
+            Known limits: {convergence.known_limits.join(" · ")}
+          </p>
         </div>
       ) : null}
     </section>
