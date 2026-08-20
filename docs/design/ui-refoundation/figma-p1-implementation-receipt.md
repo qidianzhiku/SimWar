@@ -2,7 +2,7 @@
 
 **Receipt ID**: `SIMWAR-FE-P1-FIGMA-IMPLEMENTATION-2026-08-20`
 
-**Implementation code head**: `bc60b46c9cc483d3e933fad0f08d6b287e3ba712`
+**Implementation code head**: `f547a9e35b161d0f5c2c19d7a2f5448ee220b946`
 
 **Base**: `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f` (`origin/master` at task start)
 
@@ -48,9 +48,9 @@ The applications intentionally remain single-root hash workspaces. There is no R
 ## Validation evidence
 
 Clean exact-head browser evidence was written outside the repository at:
-`C:\Users\Marshall\AppData\Local\Temp\simwar-figma-p1-final-20260820-045130`.
+`C:\Users\Marshall\AppData\Local\Temp\simwar-figma-p1-final-20260820-045851`.
 
-The evidence uses base `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f`, head/actual `bc60b46c9cc483d3e933fad0f08d6b287e3ba712`, and a clean checkout. The Playwright result is `4 passed`, with 20 external PNG captures and no failed tests.
+The evidence uses base `1fcd8c7c8339d42b24e1500ecc658390cf89bd8f`, head/actual `f547a9e35b161d0f5c2c19d7a2f5448ee220b946`, and a clean checkout. The Playwright result is `4 passed`, with 20 external PNG captures and no failed tests.
 
 Already passing in the implementation worktree:
 
