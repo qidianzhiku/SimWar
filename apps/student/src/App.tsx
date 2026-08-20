@@ -13,6 +13,7 @@ import type {
   P0DemoState,
   DecisionPayloadFieldPath,
   StudentBffCockpitDTO,
+  W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
@@ -20,7 +21,6 @@ import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
-import { W5GovernedModelProjection } from "./W5GovernedModelProjection";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -305,6 +305,7 @@ export function App() {
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("等待服务端状态");
+  const [w5Projection, setW5Projection] = useState<W5GovernedModelStudentProjection | null>(null);
   const [workspacePhase, setWorkspacePhase] = useState<
     "idle" | "loading" | "empty" | "ready" | "error"
   >("idle");
@@ -320,6 +321,10 @@ export function App() {
   const authController = useRef<AbortController | null>(null);
   const decisionIdentity = useRef(0);
   const decisionController = useRef<AbortController | null>(null);
+  const w5DraftId =
+    typeof window === "undefined"
+      ? ""
+      : new URLSearchParams(window.location.search).get("w5DraftId") ?? "";
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -405,6 +410,7 @@ export function App() {
 
       if (!nextRun || !nextRound) {
         setCockpit(null);
+        setW5Projection(null);
         setWorkspacePhase("empty");
         return;
       }
@@ -415,6 +421,20 @@ export function App() {
       );
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
       setCockpit(nextCockpit);
+      if (w5DraftId) {
+        try {
+          setW5Projection(
+            await apiRequest<W5GovernedModelStudentProjection>(
+              `/api/v1/bff/student/w5/convergence?draftId=${encodeURIComponent(w5DraftId)}&runId=${encodeURIComponent(nextRun.run_id)}&roundNo=${nextRound.round_no}`,
+              auth
+            )
+          );
+        } catch {
+          setW5Projection(null);
+        }
+      } else {
+        setW5Projection(null);
+      }
       setWorkspacePhase("ready");
     } catch (error) {
       if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
@@ -422,7 +442,7 @@ export function App() {
       setWorkspacePhase("error");
       throw error;
     }
-  }, [isStudentSession, login.tenantId, session]);
+  }, [isStudentSession, login.tenantId, session, w5DraftId]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     authIdentity.current += 1;
@@ -750,14 +770,15 @@ export function App() {
 
         {hasStudentSurface ? (
           <section id="student-w5-governed-model" className="student-location" aria-label="W5 受控模型">
-            <W5GovernedModelProjection
-              apiBase={API_BASE}
-              courseId={latestRun?.course_id}
-              roundNo={latestRound?.round_no}
-              runId={latestRun?.run_id}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token ?? ""}
-            />
+            <div role="region" aria-label="W5 governed model convergence">
+              <p className="eyebrow">W5 · role-safe student projection</p>
+              <h2>受控模型收敛视图</h2>
+              {w5Projection ? (
+                <p className="evidence-note">
+                  {w5Projection.visibility} · CAN={w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED={w5Projection.convergence.realized.authority}
+                </p>
+              ) : null}
+            </div>
           </section>
         ) : null}
 
