@@ -162,11 +162,15 @@ readiness.
 
 ### Student visibility delta
 
-Student access remains tenant/course/run/team/role/round scoped and requires a
+Student access remains tenant/course/run/team/round scoped and requires a
 published official result. The Student surface exposes only the safe official
 projection, bounded causal labels, reflection, confirmed evidence linkage, and
 next-round hypothesis. It does not expose raw private event payloads or widen
-Student visibility into private state.
+Student visibility into private state. A full role/activity-scoped audit
+receipt guarantee is not proven for every W3 reflection/evidence lookup:
+`role_key` and `activity_id` are not yet part of the receipt lookup identity in
+the reviewed path. This closure therefore makes no role-scoped security PASS
+claim for that path.
 
 ## Known limits and non-claims
 
@@ -183,6 +187,10 @@ Student visibility into private state.
   threshold command passed, but the advisories remain open evidence limits.
 - CodeGraph was unavailable for this detached checkout because no `.codegraph`
   index was present. This is recorded as unavailable, not as graph PASS.
+- `W3-SECURITY-LIMIT-ROLE-ACTIVITY-RECEIPT`: the reviewed W3 `buildRecord()` /
+  `recordId()` path does not yet prove actor binding to `context.role_key` or
+  receipt-key binding to `activity_id`. This remains an unresolved runtime
+  security limit; this docs-only governance PR does not claim to repair it.
 
 ## Governance self-reference and release condition
 
