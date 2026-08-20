@@ -372,10 +372,6 @@
   color: var(--sw-color-text-muted);
 }
 
-:where(.sw-lab-navigation a) {
-  color: var(--sw-color-brand-primary-accessible);
-}
-
 :where(.sw-ui button),
 :where(.sw-ui input),
 :where(.sw-ui select),
@@ -404,7 +400,7 @@
   align-items: center;
   min-height: var(--sw-space-48);
   padding: var(--sw-space-8) var(--sw-space-16);
-  color: var(--sw-color-text-authority);
+  color: var(--sw-color-brand-primary-accessible);
   background: var(--sw-color-bg-authority-subtle);
   border: 1px solid var(--sw-color-border-default);
   border-radius: var(--sw-radius-8);
