@@ -465,13 +465,16 @@ export function W027DecisionExperiencePanel(props: Props) {
   );
 
   return (
-    <section className="panel bff-panel w027-journey" aria-label="学生团队决策旅程">
+    <section
+      className="panel bff-panel w027-journey role-workflow-panel"
+      aria-label="学生团队决策旅程"
+    >
       <div className="panel-title">
         <div>
           <span className="eyebrow">P2-A · STUDENT TEAM DECISION</span>
           <h2>从个人判断到正式 readback</h2>
         </div>
-        <div className="w027-title-actions">
+        <div className="w027-title-actions role-workflow-actions">
           <span role="status" aria-live="polite">
             {notice}
           </span>
@@ -487,23 +490,23 @@ export function W027DecisionExperiencePanel(props: Props) {
       </div>
       {technical ? <span className="compatibility-copy w027-technical">{technical}</span> : null}
       {phase === "loading" ? (
-        <div className="w027-state" data-state="loading">
+        <div className="w027-state feedback-block" data-state="loading">
           正在读取当前角色工作区…
         </div>
       ) : null}
       {phase === "missing" ? (
-        <div className="w027-state" data-state="unknown">
+        <div className="w027-state feedback-block" data-state="unknown">
           等待服务端返回当前角色工作区。
         </div>
       ) : null}
       {phase === "idle" ? (
-        <div className="w027-state" data-state="unknown">
+        <div className="w027-state feedback-block" data-state="unknown">
           当前回合未开放编辑；已保留只读边界。
         </div>
       ) : null}
       {phase === "error" || phase === "denied" ? (
         <div
-          className="w027-state w027-state-error"
+          className="w027-state w027-state-error feedback-block"
           data-state={phase === "denied" ? "denied" : "error"}
           role="alert"
         >
@@ -516,7 +519,11 @@ export function W027DecisionExperiencePanel(props: Props) {
         </div>
       ) : null}
       {dirty && (phase === "error" || phase === "denied" || phase === "missing") ? (
-        <div className="w027-draft-recovery" data-testid="w027-local-draft-recovery" role="status">
+        <div
+          className="w027-draft-recovery visibility-note"
+          data-testid="w027-local-draft-recovery"
+          role="status"
+        >
           本地私有编辑已保留；恢复服务端投影后才能继续同步，不会展示给其他角色。
         </div>
       ) : null}
@@ -529,7 +536,7 @@ export function W027DecisionExperiencePanel(props: Props) {
             <span>仅当前租户 / 队伍 / 回合</span>
             <span>私有全文：SELF_ONLY</span>
           </div>
-          <div className="w027-status-grid" aria-label="决策链状态">
+          <div className="w027-status-grid status-grid" aria-label="决策链状态">
             {stages.map(([label, value]) => (
               <div key={label}>
                 <span>{label}</span>
@@ -537,20 +544,20 @@ export function W027DecisionExperiencePanel(props: Props) {
               </div>
             ))}
           </div>
-          <div className="w027-journey-section">
-            <div className="w027-section-heading">
+          <div className="w027-journey-section d4-report-card form-panel">
+            <div className="w027-section-heading d4-section-heading">
               <div>
                 <span className="eyebrow">01 · PRIVATE JUDGMENT</span>
                 <h3>仅本角色可见的完整判断</h3>
               </div>
-              <span className={"w027-save-state w027-save-state-" + saveState}>
+              <span className={"w027-save-state w027-save-state-" + saveState + " badge"}>
                 {saveState.toUpperCase()}
               </span>
             </div>
-            <p className="w027-boundary">
+            <p className="w027-boundary runtime-limits">
               队友只会看到后续 role-safe position；教师不会看到这段私有全文。
             </p>
-            <div className="w027-form-grid">
+            <div className="w027-form-grid role-workflow-fields">
               <label>
                 判断类型
                 <select
@@ -593,7 +600,7 @@ export function W027DecisionExperiencePanel(props: Props) {
               {field("判断理由", "判断理由", "rationale")}
               {field("证据引用", "证据引用", "evidenceRefs", "每行一个引用")}
             </div>
-            <div className="w027-action-row">
+            <div className="w027-action-row role-workflow-actions">
               <button
                 type="button"
                 disabled={readOnly || saveState === "saving"}
@@ -612,19 +619,19 @@ export function W027DecisionExperiencePanel(props: Props) {
               {dirty ? <span role="status">本地编辑尚未保存</span> : null}
             </div>
           </div>
-          <div className="w027-journey-section">
-            <div className="w027-section-heading">
+          <div className="w027-journey-section d4-report-card form-panel">
+            <div className="w027-section-heading d4-section-heading">
               <div>
                 <span className="eyebrow">02 · ROLE-SAFE POSITION</span>
                 <h3>团队安全立场</h3>
               </div>
-              <span className="w027-readonly-badge">服务端只读投影</span>
+              <span className="w027-readonly-badge badge">服务端只读投影</span>
             </div>
-            <p className="w027-boundary">
+            <p className="w027-boundary runtime-limits">
               这里不展示任何成员的完整私有判断，只展示允许团队协作的安全位置、证据缺口与风险。
             </p>
             {workspace.own_role_position ? (
-              <div className="w027-own-position">
+              <div className="w027-own-position feedback-block">
                 <strong>我的安全立场</strong>
                 <span>{workspace.own_role_position.summary}</span>
                 <small>
@@ -632,13 +639,13 @@ export function W027DecisionExperiencePanel(props: Props) {
                 </small>
               </div>
             ) : (
-              <div className="w027-state" data-state="empty">
+              <div className="w027-state feedback-block" data-state="empty">
                 尚未发布当前角色的安全立场。
               </div>
             )}
-            <div className="w027-safe-positions" aria-label="团队安全立场列表">
+            <div className="w027-safe-positions feedback-stack" aria-label="团队安全立场列表">
               {workspace.team_safe_positions.map((position) => (
-                <div className="w027-safe-position" key={position.position_id}>
+                <div className="w027-safe-position feedback-block" key={position.position_id}>
                   <span className="role-key">{position.role_key}</span>
                   <span>{position.summary}</span>
                   <small>
@@ -648,18 +655,20 @@ export function W027DecisionExperiencePanel(props: Props) {
               ))}
             </div>
           </div>
-          <div className="w027-journey-section">
-            <div className="w027-section-heading">
+          <div className="w027-journey-section d4-report-card form-panel">
+            <div className="w027-section-heading d4-section-heading">
               <div>
                 <span className="eyebrow">03 · DIVERGENCE + DISSENT</span>
                 <h3>关键分歧与保留异议</h3>
               </div>
-              <strong className="w027-status-chip">{workspace.divergence?.status ?? "NONE"}</strong>
+              <strong className="w027-status-chip badge">
+                {workspace.divergence?.status ?? "NONE"}
+              </strong>
             </div>
             {workspace.divergence?.divergences.length ? (
-              <div className="w027-divergences" aria-label="关键分歧列表">
+              <div className="w027-divergences feedback-stack" aria-label="关键分歧列表">
                 {workspace.divergence.divergences.map((item) => (
-                  <div className="w027-divergence" key={item.divergence_id}>
+                  <div className="w027-divergence feedback-block" key={item.divergence_id}>
                     <span>{item.dimension}</span>
                     <span>
                       {item.candidates
@@ -671,13 +680,13 @@ export function W027DecisionExperiencePanel(props: Props) {
                 ))}
               </div>
             ) : (
-              <div className="w027-state" data-state="empty">
+              <div className="w027-state feedback-block" data-state="empty">
                 当前没有可显示的团队分歧。
               </div>
             )}
             {workspace.context.permissions.can_propose_resolution &&
             workspace.divergence?.divergences.length ? (
-              <div className="w027-resolution-editor">
+              <div className="w027-resolution-editor form-panel">
                 <label>
                   解决提案理由
                   <textarea
@@ -702,7 +711,7 @@ export function W027DecisionExperiencePanel(props: Props) {
               </p>
             )}
             {workspace.resolution ? (
-              <div className="w027-resolution-card">
+              <div className="w027-resolution-card feedback-block">
                 <div>
                   <span>解决模式</span>
                   <strong>{workspace.resolution.resolution_mode}</strong>
@@ -731,7 +740,7 @@ export function W027DecisionExperiencePanel(props: Props) {
                         placeholder="如果不同意，说明仍需保留的异议"
                       />
                     </label>
-                    <div className="w027-action-row">
+                    <div className="w027-action-row role-workflow-actions">
                       <button
                         type="button"
                         disabled={commandBusy}
@@ -752,15 +761,15 @@ export function W027DecisionExperiencePanel(props: Props) {
               </div>
             ) : null}
           </div>
-          <div className="w027-journey-section w027-readback">
-            <div className="w027-section-heading">
+          <div className="w027-journey-section w027-readback d4-report-card form-panel">
+            <div className="w027-section-heading d4-section-heading">
               <div>
                 <span className="eyebrow">04 · TEAM DECISION READBACK</span>
                 <h3>团队草案、确认与正式结果</h3>
               </div>
-              <span className="w027-readonly-badge">不在此重复写入</span>
+              <span className="w027-readonly-badge badge">不在此重复写入</span>
             </div>
-            <div className="w027-readback-grid">
+            <div className="w027-readback-grid status-grid">
               {stages.map(([label, value]) => (
                 <div key={label}>
                   <span>{label}</span>
@@ -777,12 +786,12 @@ export function W027DecisionExperiencePanel(props: Props) {
                 </div>
               ))}
             </div>
-            <p className="w027-boundary">
+            <p className="w027-boundary runtime-limits">
               Confirm 不等于 Round Lock，Round Lock 不等于 Settlement；完整 merge / confirm 写入由
               StudentRoleWorkflowPanel 唯一负责。
             </p>
           </div>
-          <details className="w027-known-limits">
+          <details className="w027-known-limits known-limits-disclosure">
             <summary>已知限制与证据边界</summary>
             <ul>
               {[
