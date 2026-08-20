@@ -2081,7 +2081,15 @@ export function App() {
         ) : null}
       </TeacherLocation>
 
-      <TeacherLocation id="teacher-w5-governed-model">
+      <section
+        className="teacher-location-target"
+        id="teacher-w5-governed-model"
+        aria-labelledby="teacher-w5-governed-model-heading"
+      >
+        <div className="teacher-location-heading">
+          <p className="eyebrow">教师课程工作区</p>
+          <h2 id="teacher-w5-governed-model-heading">W5 受控模型</h2>
+        </div>
         {isTeacher && session ? (
           <W5GovernedModelStudio
             apiBase={API_BASE}
@@ -2092,7 +2100,7 @@ export function App() {
             token={session.access_token}
           />
         ) : null}
-      </TeacherLocation>
+      </section>
 
       <TeacherLocation id="teacher-validation">
         {isTeacher && session ? (
