@@ -15,6 +15,33 @@ body {
   margin: 0;
 }
 
+.w5-student-projection {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--sw-color-bg-surface, #fff);
+  border: 1px solid var(--sw-color-border-default, #c8d1d5);
+  border-radius: 8px;
+}
+
+.w5-student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.w5-student-grid article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  overflow-wrap: anywhere;
+  background: var(--sw-color-bg-subtle, #f3f5f7);
+  border: 1px solid var(--sw-color-border-default, #c8d1d5);
+  border-radius: 6px;
+}
+
 .student-shell-content {
   display: grid;
   gap: 24px;

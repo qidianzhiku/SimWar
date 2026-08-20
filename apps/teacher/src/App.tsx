@@ -68,6 +68,7 @@ import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceL
 import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
+import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -2074,6 +2075,19 @@ export function App() {
           <GoldenJourneyWorkbench
             courseId={selectedRun?.course_id ?? selectedCourseId}
             runId={selectedRun?.run_id ?? selectedRunId}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+      </TeacherLocation>
+
+      <TeacherLocation id="teacher-w5-governed-model">
+        {isTeacher && session ? (
+          <W5GovernedModelStudio
+            apiBase={API_BASE}
+            courseId={selectedRun?.course_id ?? selectedCourseId}
+            runId={selectedRun?.run_id ?? selectedRunId}
+            roundNo={selectedRound?.round_no}
             tenantId={login.tenantId}
             token={session.access_token}
           />

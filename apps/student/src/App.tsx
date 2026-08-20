@@ -20,6 +20,7 @@ import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
+import { W5GovernedModelProjection } from "./W5GovernedModelProjection";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -744,6 +745,19 @@ export function App() {
                 ))}
               </section>
             </WorkbenchFrame>
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section id="student-w5-governed-model" className="student-location" aria-label="W5 受控模型">
+            <W5GovernedModelProjection
+              apiBase={API_BASE}
+              courseId={latestRun?.course_id}
+              roundNo={latestRound?.round_no}
+              runId={latestRun?.run_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
           </section>
         ) : null}
 

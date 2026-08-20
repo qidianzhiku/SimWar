@@ -114,6 +114,8 @@ export {
   rejectR7CScenarioMutation,
   validateR7CScenarioFactory
 } from "./eldercare-scenario-factory.js";
+export { evaluateW5CoreRealization } from "./w5-governed-convergence.js";
+export type { W5CoreRealization } from "./w5-governed-convergence.js";
 export {
   assertHistoricalScenarioArtifactNotBindable,
   projectHistoricalScenarioArtifactForStudent,

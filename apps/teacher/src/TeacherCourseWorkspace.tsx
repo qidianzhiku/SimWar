@@ -18,6 +18,7 @@ export const TEACHER_NAVIGATION_ITEMS = [
   { id: "teacher-blockers", label: "即将阻断" },
   { id: "teacher-courses", label: "课程与班级" },
   { id: "teacher-readiness", label: "开课准备" },
+  { id: "teacher-w5-governed-model", label: "W5 受控模型" },
   { id: "teacher-teams-roles", label: "团队与角色" },
   { id: "teacher-round-control", label: "轮次控制" },
   { id: "teacher-results", label: "结果发布" },
