@@ -54,7 +54,7 @@ same Simulation Core evaluates the realized projection. Approved model views
 may produce WANT candidates and CAN constraints; they do not become a second
 Truth, Settlement, Enterprise State, Score, or Rank writer.
 
-The merged Product PR contains 18 W5 files across the bounded frontend,
+The merged Product PR contains 21 W5 files across the bounded frontend,
 shared-contract, OpenAPI/schema, API service/route, Simulation Core adapter,
 and focused test surfaces. Its final Product diff against the product base
 contains only the W5 implementation; governance is not mixed into that PR.
@@ -71,7 +71,7 @@ The W5 source map is recorded as follows:
 | Teacher Scenario Studio | CURRENT | Author → validate → freeze → exact bind lifecycle is implemented and browser-tested. |
 | Capacity, workforce, quality, and eligibility | CURRENT | CAN constraints are derived from the Simulation Core evaluation path. |
 | Simulation Core realized plane | CURRENT | REALIZED is produced by the existing core evaluator. |
-| Ideal Point/Lancaster and BLP/RCNL views | APPROVED CANDIDATE/SHADOW | WANT is non-official and cannot write formal truth. |
+| Ideal Point/Lancaster and BLP/RCNL labels | DECLARED CANDIDATE/SHADOW OWNERSHIP | The current W5 implementation does not invoke these engines; WANT is a synthetic heuristic and cannot write formal truth. |
 | Huff/spatial choice | SHADOW | Candidate ownership is explicit; it is not a formal result authority. |
 | System Dynamics | SHADOW | Lag/stock/flow output is non-official and cannot overwrite official results. |
 | Shanghai reality calibration | LIMIT/RESEARCH | Synthetic and assumption-labelled; reality calibration is not proven. |
@@ -82,9 +82,18 @@ the repository or supplied attachment set during the fresh W5 context read.
 That document-availability fact is retained as a known limit; the closure is
 based on current source, tests, exact Git identities, and the signed W5 scope.
 
-## M-RB1/RB2 — model, version, and ownership
+## M-RB1/RB2 — model, version, ownership, and canonical gate status
 
-The approved model identity is:
+This section records the W5 implementation inventory; it does not replace the
+canonical model-governance gate records. The current dispositions remain
+`M-RB1=PARTIAL`, `M-RB2=NOT_RUN` (including the required
+Golden/Differential/Replay reproduction), and `M-RB3=NOT_PASSED`.
+Downstream model activation remains unauthorized by this closure. No statement
+below should be read as a formal M-RB pass or as evidence that the referenced
+BLP, RCNL, Lancaster, or ideal-point engines have been implemented or
+validated.
+
+The bounded W5 declared model identity is:
 
 - `ModelVersion`: `eldercare_w5_governed_v1@1.0.0`;
 - model family: `eldercare_core_model_v1`;
@@ -97,8 +106,8 @@ The seven explicit feature ownership records are:
 
 | Feature | Primary producer | Visibility / meaning |
 | --- | --- | --- |
-| `preference_fit` | `ideal_point_lancaster` | Approved relative-preference view. |
-| `latent_demand` | `blp_rcnl_choice_candidate` | Approved candidate demand/diversion view. |
+| `preference_fit` | `ideal_point_lancaster` | Declared candidate ownership label; not evidence that an ideal-point/Lancaster engine was invoked or validated. |
+| `latent_demand` | `blp_rcnl_choice_candidate` | Declared candidate ownership label; not evidence that a BLP/RCNL engine was invoked or validated. |
 | `spatial_access` | `huff_spatial_choice_candidate` | Shadow spatial-access candidate. |
 | `service_capacity` | `simulation_core_operations` | Approved capacity constraint. |
 | `workforce_feasibility` | `simulation_core_operations` | Approved staffing constraint. |
@@ -113,7 +122,9 @@ silently promoted into runtime truth.
 
 The W5 convergence projection has three deliberately separate planes:
 
-- `WANT`: candidate value from the BLP/RCNL/Lancaster ideal-point view;
+- `WANT`: synthetic heuristic value derived from the existing core demand index
+  and `aging_rate`; the BLP/RCNL/Lancaster/ideal-point labels are ownership
+  metadata only, no such engine is invoked by the current implementation, and
   `official=false`.
 - `CAN`: capacity/workforce/quality/eligibility constraints;
   `official=false`.
