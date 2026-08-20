@@ -25,6 +25,7 @@
     "test:unit:pr4": "npm run build -w @simwar/ui && vitest run tests/unit/ui-pr4-integration.test.tsx tests/unit/ui-student-refoundation.test.tsx tests/unit/ui-refoundation-coverage-matrix.test.ts tests/unit/pr4-visual-baseline-capture.test.ts",
     "test:e2e:ui:pr4": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.pr4.config.ts",
     "test:e2e:ui:w4": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.w4.config.ts",
+    "test:w5:formal-rebase": "tsx --tsconfig scripts/tsconfig.w5-formal-rebase.json scripts/run-w5-formal-rebase.ts",
     "check:pr4:head": "node scripts/check-pr4-exact-head.mjs",
     "measure:frontend:budgets": "node scripts/measure-frontend-budgets.mjs",
     "capture:pr4:baseline": "node scripts/capture-pr4-visual-baseline.mjs",
