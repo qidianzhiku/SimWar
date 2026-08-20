@@ -29,10 +29,12 @@ The merged product implementation preserves these authorities:
   separately identified; it is not a client-supplied canonical admission.
 - Settlement resolves the exact runtime round and requires the round to be
   locked, settled, or published before an official outcome can be written.
-- The official outcome and closing state are committed atomically with the
-  replay input manifest. The manifest retains the exact opening reference,
+- The official outcome and closing state are committed atomically with a
+  replay input manifest. The manifest stores the exact opening reference,
   admitted decision IDs, scenario, parameter set, engine, plugins, seed, and
-  team scope.
+  team scope. The stronger claim that the manifest decision ID is proven to be
+  the exact W4 payload that changed state remains an explicit tracked limit in
+  [Issue #398](https://github.com/qidianzhiku/SimWar/issues/398).
 - The next opening state consumes the exact prior closing reference. State,
   outcome, initiative, projection, replay, and shadow-replay identities remain
   tenant/course/run/team/round scoped as applicable.
@@ -96,8 +98,16 @@ event was a product assertion failure.
 
 ## Security and known limits
 
-- W4 route-level actor, tenant, course, run, team, round, role, and activity
-  binding was exercised by the security proof gate and negative-path tests.
+- Verified W4 evidence covers server-side decision admission, locked-round
+  settlement rejection, tenant-isolated Admin projection, team-scoped outcome
+  identity, and replay-manifest shape. This is not a claim that every
+  actor/course/run/round/team/role/activity mismatch has a dedicated route-level
+  negative test.
+- Comprehensive route-level negative coverage for the remaining scope
+  dimensions, and proof that the replay decision ID is the exact state-changing
+  W4 payload, remain tracked in
+  [Issue #398](https://github.com/qidianzhiku/SimWar/issues/398). The current
+  W4 closeout therefore reports these dimensions as limits rather than PASS.
 - The W3 role-activity receipt limitation
   `W3-SECURITY-LIMIT-ROLE-ACTIVITY-RECEIPT` was not consumed by W4 and remains
   `NOT_CONSUMED_PRESERVED`.
@@ -115,13 +125,15 @@ event was a product assertion failure.
 ## Governance decision
 
 The W4 implementation and its post-merge evidence are sufficient to create a
-governance record with limits. This document is not a declaration that every
-future security, accessibility, migration, or production-readiness concern is
-closed. Any future work must receive its own scoped issue, branch, validation,
-and authorization.
+governance record with explicit limits. [Issue #398](https://github.com/qidianzhiku/SimWar/issues/398)
+remains open for the replay-binding and route-level authorization evidence
+limits; this document does not close that issue or declare every future
+security, accessibility, migration, or production-readiness concern closed.
+Any future work must receive its own scoped issue, branch, validation, and
+authorization.
 
 ```text
-MISSION_STATUS: W4_COMPLETE_WITH_LIMITS_PENDING_GOVERNANCE_MERGE
+MISSION_STATUS: W4_COMPLETE_WITH_LIMITS
 PRODUCT_PR: 396 MERGED
 PRODUCT_MERGE: f6d147cbdbeac3c1294a49281f1b27a174ee9b3a
 FRESH_DETACHED_VALIDATION: PASS_WITH_LIMITS
