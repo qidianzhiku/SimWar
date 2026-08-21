@@ -24,6 +24,7 @@
     "test:e2e:ui:core": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test && playwright test --config playwright.role-workflow.config.ts",
     "test:e2e:ui:m2-p1": "npm run build:test-prerequisites && npm run build -w @simwar/ui && node scripts/run-m2-p1-browser.mjs",
     "test:e2e:ui:m2-p2": "npm run build:test-prerequisites && npm run build -w @simwar/ui && node scripts/run-m2-p2-browser.mjs",
+    "test:e2e:ui:m2-p4": "npm run build:test-prerequisites && npm run build -w @simwar/ui && node scripts/run-m2-p4-browser.mjs",
     "test:unit:pr4": "npm run build -w @simwar/ui && vitest run tests/unit/ui-pr4-integration.test.tsx tests/unit/ui-student-refoundation.test.tsx tests/unit/ui-refoundation-coverage-matrix.test.ts tests/unit/pr4-visual-baseline-capture.test.ts",
     "test:e2e:ui:pr4": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.pr4.config.ts",
     "test:e2e:ui:p2b": "npm run build:test-prerequisites && npm run build -w @simwar/ui && playwright test --config playwright.p2b.config.ts",

@@ -22,7 +22,33 @@
         "round_control": { "type": "object" },
         "teacher_dashboard": { "type": "object" },
         "teacher_replay_summary": { "type": "object" },
-        "team_monitor": { "type": "object" }
+        "team_monitor": { "type": "object" },
+        "live_round_ops": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "schema_version",
+            "exact_scope",
+            "session_command",
+            "round",
+            "settlement",
+            "publication",
+            "teams",
+            "receipts",
+            "debrief_handoff"
+          ],
+          "properties": {
+            "schema_version": { "const": "m2p4-live-round-ops.v1" },
+            "exact_scope": { "type": "object" },
+            "session_command": { "type": "object" },
+            "round": { "type": "object" },
+            "settlement": { "type": "object" },
+            "publication": { "type": "object" },
+            "teams": { "type": "array" },
+            "receipts": { "type": "object" },
+            "debrief_handoff": { "type": "object" }
+          }
+        }
       }
     }
   }

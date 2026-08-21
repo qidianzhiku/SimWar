@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/m2p4-live-round-ops.v1.json",
+  "type": "object",
+  "$defs": {
+    "exact_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "round_id", "round_no"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "team_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "project_profile_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "project_profile_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "team_ops": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_scope",
+        "team_id",
+        "team_name",
+        "project",
+        "role",
+        "decision",
+        "blockers"
+      ],
+      "properties": {
+        "exact_scope": { "$ref": "#/$defs/exact_scope" },
+        "team_id": { "type": "string", "minLength": 1 },
+        "team_name": { "type": "string" },
+        "project": { "type": "object", "additionalProperties": true },
+        "role": { "type": "object", "additionalProperties": true },
+        "decision": { "type": "object", "additionalProperties": true },
+        "blockers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "teacher_live_round_ops": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "exact_scope",
+        "session_command",
+        "round",
+        "settlement",
+        "publication",
+        "teams",
+        "receipts",
+        "debrief_handoff"
+      ],
+      "properties": {
+        "schema_version": { "const": "m2p4-live-round-ops.v1" },
+        "exact_scope": { "$ref": "#/$defs/exact_scope" },
+        "session_command": { "type": "object", "additionalProperties": true },
+        "round": { "type": "object", "additionalProperties": true },
+        "settlement": { "type": "object", "additionalProperties": true },
+        "publication": { "type": "object", "additionalProperties": true },
+        "teams": { "type": "array", "items": { "$ref": "#/$defs/team_ops" } },
+        "receipts": { "type": "object", "additionalProperties": true },
+        "debrief_handoff": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "student_project_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "exact_scope",
+        "brief_kind",
+        "title",
+        "description",
+        "customer_segment",
+        "geography",
+        "industry",
+        "positioning",
+        "service_bundle",
+        "market_world_reference",
+        "project_profile_reference",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "m2p4-live-round-ops.v1" },
+        "exact_scope": { "$ref": "#/$defs/exact_scope" },
+        "brief_kind": { "const": "PROJECT_BRIEF" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "customer_segment": { "type": "string" },
+        "geography": { "type": "string" },
+        "industry": { "type": "string" },
+        "positioning": { "type": "string" },
+        "service_bundle": { "type": "string" },
+        "market_world_reference": { "type": "object", "additionalProperties": true },
+        "project_profile_reference": { "$ref": "#/$defs/project_profile_ref" },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -754,6 +754,7 @@ export function App() {
   const courseWorkspace = workspace?.course_workspace;
   const roundControl = workspace?.round_control;
   const teamMonitor = workspace?.team_monitor;
+  const liveRoundOps = workspace?.live_round_ops;
   const replaySummary = workspace?.teacher_replay_summary;
   const isTeacher = session?.user.roles.includes("teacher") ?? false;
   const w3Team = state?.teams.find(
@@ -1714,17 +1715,17 @@ export function App() {
     }
 
     const requiredAction = getTeacherRoundAction(selectedRound?.status);
-    if (
-      requiredAction &&
-      (workspaceLoadState !== "ready" ||
-        !isTeacherRoundActionAllowed(selectedRound?.status, roundControl?.allowed_actions))
-    ) {
+    const serverActionEnabled = liveRoundOps
+      ? liveRoundOps.session_command.primary_action === requiredAction &&
+        liveRoundOps.session_command.enabled
+      : isTeacherRoundActionAllowed(selectedRound?.status, roundControl?.allowed_actions);
+    if (requiredAction && (workspaceLoadState !== "ready" || !serverActionEnabled)) {
       setNotice(
         workspaceLoadState === "error"
           ? TEACHER_WORKSPACE_ERROR_REASON
           : workspaceLoadState !== "ready" || !workspace
             ? TEACHER_WORKSPACE_LOADING_REASON
-            : `服务端未授权此操作：${requiredAction}`
+            : (liveRoundOps?.session_command.reason ?? `服务端未授权此操作：${requiredAction}`)
       );
       return;
     }
@@ -1756,9 +1757,10 @@ export function App() {
         if (!isCurrentTeacherContext(requestIdentity)) return;
         setNotice("round opened");
       } else if (selectedRound?.status === "open") {
-        if (!hasDecision) {
+        const lockReady = liveRoundOps ? liveRoundOps.round.lock_ready : hasDecision;
+        if (!lockReady) {
           if (!isCurrentTeacherContext(requestIdentity)) return;
-          setNotice("waiting for learner decision");
+          setNotice(liveRoundOps?.session_command.reason ?? "waiting for learner decision");
         } else {
           await apiRequest(
             getTeacherRoundCommandPath(selectedRun.run_id, selectedRound.round_no, "round:lock"),
@@ -1862,7 +1864,15 @@ export function App() {
     ],
     [
       "决策",
-      roundControl?.visible_state.decision_count ? "已校验" : hasDecision ? "已校验" : "等待提交"
+      liveRoundOps
+        ? liveRoundOps.round.lock_ready
+          ? "全队就绪"
+          : `${liveRoundOps.teams.filter((team) => team.decision.state === "READY").length}/${liveRoundOps.teams.length} 队伍就绪`
+        : roundControl?.visible_state.decision_count
+          ? "已校验"
+          : hasDecision
+            ? "已校验"
+            : "等待提交"
     ],
     ["运行时", runtimeBoundary],
     ["回放（Replay）", replaySummary?.replay_status ?? "等待中"],
@@ -1873,21 +1883,35 @@ export function App() {
   const selectedRoundAction = selectedRound ? getTeacherRoundAction(selectedRound.status) : null;
   const selectedRoundActionAllowed = selectedRoundAction
     ? workspaceLoadState === "ready" &&
-      isTeacherRoundActionAllowed(selectedRound?.status, roundControl?.allowed_actions)
+      (liveRoundOps
+        ? liveRoundOps.session_command.primary_action === selectedRoundAction &&
+          liveRoundOps.session_command.enabled
+        : isTeacherRoundActionAllowed(selectedRound?.status, roundControl?.allowed_actions))
     : true;
   const nextStepDisabledReason =
     workspaceLoadState === "error"
       ? TEACHER_WORKSPACE_ERROR_REASON
       : workspaceLoadState !== "ready" || !workspace
         ? TEACHER_WORKSPACE_LOADING_REASON
-        : selectedRound?.status === "open" && !hasDecision && selectedRoundActionAllowed
-          ? "等待学员提交决策"
-          : undefined;
+        : selectedRound?.status === "open" && liveRoundOps && !liveRoundOps.round.lock_ready
+          ? (liveRoundOps.session_command.reason ?? "等待全队 canonical Decision 就绪")
+          : selectedRound?.status === "open" &&
+              !liveRoundOps &&
+              !hasDecision &&
+              selectedRoundActionAllowed
+            ? "等待学员提交决策"
+            : undefined;
   const primaryCommand = selectedRound?.status ? (
     <TeacherNextStepButton
       roundStatus={selectedRound.status}
       allowedActions={roundControl?.allowed_actions ?? []}
-      disabled={busy || !workspace || !state || (selectedRound.status === "open" && !hasDecision)}
+      disabled={
+        busy ||
+        !workspace ||
+        !state ||
+        (selectedRound.status === "open" &&
+          (liveRoundOps ? !liveRoundOps.round.lock_ready : !hasDecision))
+      }
       {...(nextStepDisabledReason ? { disabledReason: nextStepDisabledReason } : {})}
       loading={busy}
       onClick={() => void runNextStep()}
@@ -3233,7 +3257,17 @@ export function App() {
                 <div className="table-row" key={team.team_id}>
                   <span>{team.team_name}</span>
                   <span>{team.members} 位成员</span>
-                  <strong>{team.decision_submitted ? "已提交" : "等待中"}</strong>
+                  <strong>
+                    {liveRoundOps?.teams.find((candidate) => candidate.team_id === team.team_id)
+                      ?.blockers.length
+                      ? "存在阻断"
+                      : liveRoundOps?.teams.find((candidate) => candidate.team_id === team.team_id)
+                            ?.decision.state === "READY"
+                        ? "全链路就绪"
+                        : team.decision_submitted
+                          ? "已提交，待 canonical"
+                          : "等待中"}
+                  </strong>
                 </div>
               ))}
             </div>

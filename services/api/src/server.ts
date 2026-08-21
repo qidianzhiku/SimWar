@@ -306,6 +306,10 @@ import {
 } from "./market-world-product.js";
 import { ProjectLibraryError, ProjectLibraryService } from "./project-library-service.js";
 import {
+  buildM2P4StudentProjectContext,
+  buildM2P4TeacherLiveRoundOps
+} from "./m2p4-live-round-ops.js";
+import {
   ProjectAwareCourseLaunchError,
   ProjectAwareCourseLaunchService
 } from "./project-aware-course-launch-service.js";
@@ -8502,6 +8506,59 @@ async function routeRequest(
         course.parameter_set_id
       )
     ]);
+    const [roleSnapshots, projectReadiness, settlements] = await Promise.all([
+      Promise.all(
+        teams.map(
+          async (team) =>
+            [
+              team.team_id,
+              await runtime.repositoryProvider.ports.roleWorkflow.readRoleWorkflow({
+                tenant_id: context.tenantId,
+                run_id: run.run_id,
+                team_id: team.team_id,
+                round_id: round.round_id
+              })
+            ] as const
+        )
+      ),
+      runtime.projectAwareCourseLaunch
+        .getReadiness(
+          { actor_id: actor.user_id, actor_role: "teacher", tenant_id: actor.tenant_id },
+          { tenant_id: context.tenantId, course_id: course.course_id, run_id: run.run_id }
+        )
+        .catch(() => undefined),
+      runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
+        context.tenantId,
+        run.run_id,
+        round.round_id
+      )
+    ]);
+    const liveRoundOps = buildM2P4TeacherLiveRoundOps({
+      actorAllowedActions: actor.permissions ?? [
+        "course:read",
+        "round:lock",
+        "settlement:settle",
+        "round:publish",
+        "round:continue",
+        "result:read",
+        "audit:read"
+      ],
+      auditLogs,
+      course,
+      decisions,
+      ...(projectReadiness ? { projectReadiness } : {}),
+      roleSnapshots: new Map(roleSnapshots),
+      round,
+      run,
+      settlement:
+        settlements.find(
+          (candidate) =>
+            candidate.tenant_id === context.tenantId &&
+            candidate.run_id === run.run_id &&
+            candidate.round_no === round.round_no
+        ) ?? null,
+      teams
+    });
     const resultView = await createPublicResultView(runtime, context, run.run_id, round.round_no);
 
     sendJson(
@@ -8519,7 +8576,8 @@ async function routeRequest(
           run,
           ...(parameterSet ? { parameterSet } : {}),
           ...(scenario ? { scenario } : {}),
-          teams
+          teams,
+          liveRoundOps
         })
       )
     );
@@ -8551,6 +8609,30 @@ async function routeRequest(
       throw new HttpError(404, "TEAM-404-001", "team not found");
     }
 
+    const projectContext = await runtime.projectLibrary
+      .getStudentBrief({
+        tenant_id: context.tenantId,
+        course_id: course.course_id,
+        run_id: run.run_id,
+        team_id: team.team_id,
+        user_id: actor.user_id
+      })
+      .then((brief) =>
+        buildM2P4StudentProjectContext({
+          brief,
+          tenant_id: context.tenantId,
+          course_id: course.course_id,
+          run_id: run.run_id,
+          round_id: round.round_id,
+          round_no: round.round_no,
+          team_id: team.team_id
+        })
+      )
+      .catch((error: unknown) => {
+        if (error instanceof ProjectLibraryError) return undefined;
+        throw error;
+      });
+
     sendJson(
       response,
       200,
@@ -8567,7 +8649,8 @@ async function routeRequest(
           ),
           round,
           run,
-          team
+          team,
+          ...(projectContext ? { projectContext } : {})
         })
       )
     );

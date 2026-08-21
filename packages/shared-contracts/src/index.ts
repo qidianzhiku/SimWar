@@ -11,6 +11,7 @@ export * from "./market-world.js";
 export * from "./project-library.js";
 import type { MarketWorldRef } from "./market-world.js";
 import type { W4StrategicActionEnvelope } from "./w4-enterprise-state.js";
+import type { M2P4StudentProjectContext, M2P4TeacherLiveRoundOps } from "./m2p4-live-round-ops.js";
 
 export type ActorRole =
   | "platform_admin"
@@ -323,6 +324,7 @@ export * from "./validation-environment-launch.js";
 export * from "./w3-official-consequence-learning.js";
 export * from "./w4-enterprise-state.js";
 export * from "./project-aware-course-launch.js";
+export * from "./m2p4-live-round-ops.js";
 
 export interface DecisionPayload {
   pricing: {
@@ -1245,6 +1247,7 @@ export interface TeamMonitorDTO {
     decision_count: number;
     team_count: number;
   };
+  live_round_ops?: M2P4TeacherLiveRoundOps;
 }
 
 export interface TeacherReplaySummaryDTO {
@@ -1277,6 +1280,7 @@ export interface TeacherBffWorkspaceDTO {
   teacher_dashboard: TeacherDashboardDTO;
   teacher_replay_summary: TeacherReplaySummaryDTO;
   team_monitor: TeamMonitorDTO;
+  live_round_ops?: M2P4TeacherLiveRoundOps;
 }
 
 export interface StudentBffDtoBase {
@@ -1295,6 +1299,7 @@ export interface StudentBffDtoBase {
   state_obs?: StudentSafeTeamSettlement["state_obs"];
   team_id: string;
   tenant_id: string;
+  project_context?: M2P4StudentProjectContext;
 }
 
 export interface StudentCockpitDTO extends StudentBffDtoBase {
@@ -1341,6 +1346,7 @@ export interface StudentBffCockpitDTO {
   published_result: PublishedResultDTO;
   student_cockpit: StudentCockpitDTO;
   three_part_feedback: ThreePartFeedbackDTO;
+  project_context?: M2P4StudentProjectContext;
 }
 
 export interface TenantAdminSummaryDTO {
