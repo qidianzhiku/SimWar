@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { W4PathEvidence } from "@simwar/shared-contracts";
 
+void import("@simwar/ui/w4-commercial.css");
+
 interface Props {
   token: string;
   tenantId: string;
@@ -80,6 +82,22 @@ function failureStatus(code: string): PanelStatus {
   return "retry";
 }
 
+function stateValueLabel(value: string | undefined, fallback = "等待中"): string {
+  if (!value) return fallback;
+  return (
+    (
+      {
+        ready: "已就绪",
+        active: "进行中",
+        pending: "待处理",
+        blocked: "存在阻塞",
+        completed: "已完成",
+        available: "可查看"
+      } as Record<string, string>
+    )[value.toLowerCase()] ?? value
+  );
+}
+
 export function W4EnterprisePortfolioPanel({
   token,
   tenantId,
@@ -123,70 +141,82 @@ export function W4EnterprisePortfolioPanel({
     return () => controller.abort();
   }, [courseId, reloadVersion, runId, roundNo, teamId, tenantId, token]);
 
+  const portfolios = projection?.portfolios ?? [];
+  const projectCount = portfolios.reduce((sum, item) => sum + item.portfolio.projects.length, 0);
+  const operatingUnitCount = portfolios.reduce((sum, item) => sum + item.operating_units.length, 0);
+  const initiativeCount = portfolios.reduce((sum, item) => sum + item.initiatives.length, 0);
+
   return (
-    <section className="summary-panel" aria-label="W4 Enterprise portfolio">
-      <div className="summary-heading">
-        <h2>Enterprise Portfolio 投影</h2>
-        <strong className="summary-badge">{statusLabel(status)}</strong>
+    <section className="sw-w4-panel sw-w4-panel--admin" aria-label="项目组合审计">
+      <div className="sw-w4-panel__header">
+        <div>
+          <p className="sw-w4-panel__eyebrow">管理员 · 只读审计</p>
+          <h2 className="sw-w4-panel__title">项目组合总览</h2>
+        </div>
+        <strong className="sw-w4-panel__status" data-status={status}>
+          {statusLabel(status)}
+        </strong>
       </div>
-      <div className="summary-grid">
-        <div>
-          <span>Group</span>
-          <strong>{projection?.group.tenant_id ?? tenantId}</strong>
+      <p className="sw-w4-panel__description">
+        按租户查看项目、运营单元与官方回放证据，默认不提供第二条写入路径。
+      </p>
+      <div className="sw-w4-metric-grid">
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">租户范围</span>
+          <strong className="sw-w4-metric__value">{projection?.group.tenant_id ?? tenantId}</strong>
         </div>
-        <div>
-          <span>Portfolio</span>
-          <strong>{projection?.group.portfolio_count ?? 0}</strong>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">项目组合</span>
+          <strong className="sw-w4-metric__value">{projection?.group.portfolio_count ?? 0}</strong>
         </div>
-        <div>
-          <span>Projects</span>
-          <strong>
-            {projection?.portfolios.reduce(
-              (sum, item) => sum + item.portfolio.projects.length,
-              0
-            ) ?? 0}
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">项目</span>
+          <strong className="sw-w4-metric__value">{projectCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">运营单元</span>
+          <strong className="sw-w4-metric__value">{operatingUnitCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">行动计划</span>
+          <strong className="sw-w4-metric__value">{initiativeCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">处理状态</span>
+          <strong className="sw-w4-metric__value">
+            {stateValueLabel(portfolios[0]?.process_information.status)}
           </strong>
         </div>
-        <div>
-          <span>OperatingUnit</span>
-          <strong>
-            {projection?.portfolios.reduce((sum, item) => sum + item.operating_units.length, 0) ??
-              0}
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">结果状态</span>
+          <strong className="sw-w4-metric__value">
+            {stateValueLabel(portfolios[0]?.outcome_information.status)}
           </strong>
-        </div>
-        <div>
-          <span>Initiatives</span>
-          <strong>
-            {projection?.portfolios.reduce((sum, item) => sum + item.initiatives.length, 0) ?? 0}
-          </strong>
-        </div>
-        <div>
-          <span>Process Information</span>
-          <strong>{projection?.portfolios[0]?.process_information.status ?? "等待中"}</strong>
-        </div>
-        <div>
-          <span>Outcome Information</span>
-          <strong>{projection?.portfolios[0]?.outcome_information.status ?? "等待中"}</strong>
         </div>
       </div>
-      <ul className="compact-list">
-        {(projection?.portfolios ?? []).map((portfolio) => (
+      <ul className="sw-w4-list" aria-label="项目组合列表">
+        {portfolios.map((portfolio) => (
           <li key={`${portfolio.course_id}:${portfolio.run_id}`}>
-            {portfolio.run_id} · State {portfolio.latest_state_ref?.enterprise_state_id ?? "—"} ·
-            OperatingUnit {portfolio.operating_units.map((unit) => unit.name).join(", ") || "—"} ·
-            Project {portfolio.portfolio.projects.join(", ") || "—"} · Facility{" "}
-            {portfolio.portfolio.facilities.join(", ") || "—"}
+            <strong>{portfolio.run_id}</strong> · 最新状态{" "}
+            {portfolio.latest_state_ref?.enterprise_state_id ?? "待建立"} · 运营单元{" "}
+            {portfolio.operating_units.map((unit) => unit.name).join("、") || "—"} · 项目{" "}
+            {portfolio.portfolio.projects.join("、") || "—"} · 设施{" "}
+            {portfolio.portfolio.facilities.join("、") || "—"}
           </li>
         ))}
       </ul>
-      <ul className="compact-list">
-        {(projection?.portfolios ?? []).flatMap((portfolio) =>
+      <ul className="sw-w4-list" aria-label="团队回放证据">
+        {portfolios.flatMap((portfolio) =>
           portfolio.team_paths.map((path) => (
             <li key={`${portfolio.run_id}:${path.team_id}`}>
-              {portfolio.run_id} / {path.team_id} · Opening/Closing diff{" "}
-              {path.path_evidence.opening_vs_closing?.changed_paths.join(", ") || "等待官方结算"} ·
-              Replay {path.path_evidence.official_replay_path.replay_ids.length} · 同一决策不同历史{" "}
-              {path.path_evidence.same_current_decision_different_history.status}
+              {portfolio.run_id} / {path.team_id} · 起始与结束差异：
+              {path.path_evidence.opening_vs_closing?.changed_paths.join("、") || "等待官方结算"} ·
+              官方回放 {path.path_evidence.official_replay_path.replay_ids.length} 条 ·
+              同一决策的历史差异：
+              {stateValueLabel(
+                path.path_evidence.same_current_decision_different_history.status,
+                "未观察"
+              )}
             </li>
           ))
         )}
@@ -195,13 +225,16 @@ export function W4EnterprisePortfolioPanel({
       status === "dependency-missing" ||
       status === "error" ||
       status === "conflict" ? (
-        <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>
-          重新加载 Enterprise Portfolio
+        <button
+          className="sw-w4-panel__action"
+          type="button"
+          onClick={() => setReloadVersion((value) => value + 1)}
+        >
+          重新加载项目组合
         </button>
       ) : null}
-      <p className="evidence-note">
-        Group / Portfolio / Project / Facility 仅由 W4 Role BFF 投影读取；Admin
-        不具备第二个写入路径。
+      <p className="sw-w4-panel__note">
+        本页面只读取已授权的项目组合与官方回放证据，不提供第二条写入路径。
       </p>
     </section>
   );

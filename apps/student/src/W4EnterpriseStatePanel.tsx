@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { W4ProjectionBase } from "@simwar/shared-contracts";
 
+void import("@simwar/ui/w4-commercial.css");
+
 type PanelStatus =
   | "loading"
   | "empty"
@@ -50,6 +52,22 @@ function failureStatus(code: string): PanelStatus {
   if (code.includes("409") || code.includes("CONFLICT")) return "conflict";
   if (code.includes("NOT_FOUND")) return "dependency-missing";
   return "retry";
+}
+
+function stateValueLabel(value: string | undefined, fallback = "等待中"): string {
+  if (!value) return fallback;
+  return (
+    (
+      {
+        ready: "已就绪",
+        active: "进行中",
+        pending: "待处理",
+        blocked: "存在阻塞",
+        completed: "已完成",
+        available: "可查看"
+      } as Record<string, string>
+    )[value.toLowerCase()] ?? value
+  );
 }
 
 export function W4EnterpriseStatePanel({
@@ -159,7 +177,7 @@ export function W4EnterpriseStatePanel({
       );
       const envelope = (await response.json()) as { code?: string };
       if (!response.ok) throw new Error(envelope.code ?? "W4-DECISION-ERROR");
-      setNotice("New Project 已进入 Commitment 与 Initiative 流程");
+      setNotice("项目承诺已提交，正在进入后续计划流程");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "提交失败");
       setStatus("error");
@@ -169,133 +187,161 @@ export function W4EnterpriseStatePanel({
   }
 
   return (
-    <article className="panel bff-panel" aria-label="W4 Enterprise State 学员工作区">
-      <div className="panel-title">
-        <h2>Enterprise State · New Project</h2>
-        <span>{statusLabel(status)}</span>
+    <article className="sw-w4-panel" aria-label="战略项目承诺">
+      <div className="sw-w4-panel__header">
+        <div>
+          <p className="sw-w4-panel__eyebrow">学员 · 当前回合</p>
+          <h2 className="sw-w4-panel__title">提交项目承诺</h2>
+        </div>
+        <strong className="sw-w4-panel__status" data-status={status}>
+          {statusLabel(status)}
+        </strong>
       </div>
-      <p className="evidence-note">
-        当前只消费 Role BFF 投影；Opening State、Closing State 与 Initiative 由服务端维护。
+      <p className="sw-w4-panel__description">
+        只填写当前回合需要的项目参数，系统会继续维护承诺、计划与正式结果之间的边界。
       </p>
       {projection?.opening_state_ref ? (
-        <div className="status-grid">
-          <div>
-            <span>Opening State</span>
-            <strong>{projection.opening_state_ref.enterprise_state_id}</strong>
+        <div className="sw-w4-metric-grid">
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">起始状态</span>
+            <strong className="sw-w4-metric__value">
+              {projection.opening_state_ref.enterprise_state_id}
+            </strong>
           </div>
-          <div>
-            <span>Commitment</span>
-            <strong>{projection.commitments.length}</strong>
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">项目承诺</span>
+            <strong className="sw-w4-metric__value">{projection.commitments.length}</strong>
           </div>
-          <div>
-            <span>Initiative</span>
-            <strong>{projection.initiatives.length}</strong>
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">行动计划</span>
+            <strong className="sw-w4-metric__value">{projection.initiatives.length}</strong>
           </div>
-          <div>
-            <span>Closing State</span>
-            <strong>{projection.closing_state_ref?.enterprise_state_id ?? "待结算"}</strong>
-          </div>
-        </div>
-      ) : null}
-      {projection ? (
-        <div className="status-grid">
-          <div>
-            <span>Process Information</span>
-            <strong>{projection.process_information.status}</strong>
-          </div>
-          <div>
-            <span>Outcome Information</span>
-            <strong>{projection.outcome_information.status}</strong>
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">结算状态</span>
+            <strong className="sw-w4-metric__value">
+              {projection.closing_state_ref?.enterprise_state_id ?? "待结算"}
+            </strong>
           </div>
         </div>
       ) : null}
       {projection ? (
-        <div className="evidence-note">
+        <div className="sw-w4-metric-grid">
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">处理状态</span>
+            <strong className="sw-w4-metric__value">
+              {stateValueLabel(projection.process_information.status)}
+            </strong>
+          </div>
+          <div className="sw-w4-metric">
+            <span className="sw-w4-metric__label">结果状态</span>
+            <strong className="sw-w4-metric__value">
+              {stateValueLabel(projection.outcome_information.status)}
+            </strong>
+          </div>
+        </div>
+      ) : null}
+      {projection ? (
+        <div className="sw-w4-panel__note">
           <div>
-            Opening / Closing diff：
-            {projection.path_evidence.opening_vs_closing?.changed_paths.join(", ") ||
+            起始与结束差异：
+            {projection.path_evidence.opening_vs_closing?.changed_paths.join("、") ||
               "等待官方结算"}
           </div>
           <div>
-            Official replay path：{projection.path_evidence.official_replay_path.replay_ids.length}{" "}
-            条 · Shadow apply ={" "}
+            官方回放证据：{projection.path_evidence.official_replay_path.replay_ids.length} 条 ·
+            是否写入正式结果：
             {projection.path_evidence.official_replay_path.replay_writes_formal_results === false
               ? "否"
               : "未证明"}
           </div>
           <div>
-            同一决策意图 / 不同历史：
-            {projection.path_evidence.same_current_decision_different_history.status}
+            同一决策意图的历史差异：
+            {stateValueLabel(
+              projection.path_evidence.same_current_decision_different_history.status,
+              "未观察"
+            )}
           </div>
         </div>
       ) : null}
       {projection?.latest_strategic_action ? (
-        <div className="evidence-note" aria-label="W4 strategic action admission summary">
+        <div className="sw-w4-panel__note" aria-label="项目承诺回执">
           <div>
-            Role source：{projection.latest_strategic_action.admission.authority} · Policy：
+            来源角色：{projection.latest_strategic_action.admission.authority} · 处理规则：
             {projection.latest_strategic_action.admission.policy}
           </div>
           <div>
-            Merge：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"} · Team
-            confirmation：
+            团队合并回执：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"}{" "}
+            · 团队确认：
             {projection.latest_strategic_action.admission.team_confirmation_id ?? "未确认"}
           </div>
           <div>
-            Cost：{projection.latest_strategic_action.cost} · Lead time：
-            {projection.latest_strategic_action.lead_time_rounds} 回合 · Reversible：
+            成本：{projection.latest_strategic_action.cost} · 预计周期：
+            {projection.latest_strategic_action.lead_time_rounds} 回合 · 是否可撤回：
             {projection.latest_strategic_action.reversible ? "是" : "否"}
           </div>
           <div>
-            Dependencies：
-            {projection.latest_strategic_action.dependencies.join(", ") || "无"} · KPI hypothesis：
-            {projection.latest_strategic_action.kpi_hypothesis}
+            前置条件：{projection.latest_strategic_action.dependencies.join("、") || "无"} ·
+            目标假设：{projection.latest_strategic_action.kpi_hypothesis}
           </div>
           {projection.latest_strategic_action.known_limits.map((limit) => (
-            <div key={limit}>Known limit：{limit}</div>
+            <div key={limit}>当前限制：{limit}</div>
           ))}
         </div>
       ) : null}
       {projection?.initiatives.length ? (
-        <ul className="tag-list">
+        <ul className="sw-w4-list" aria-label="行动计划">
           {projection.initiatives.map((initiative) => (
             <li key={initiative.initiative_id}>
-              {initiative.project?.project_name ?? initiative.kind} · {initiative.status} · 剩余{" "}
-              {initiative.remaining_lead_time_rounds} 回合
+              {initiative.project?.project_name ?? initiative.kind} ·{" "}
+              {stateValueLabel(initiative.status)} · 剩余 {initiative.remaining_lead_time_rounds}{" "}
+              回合
             </li>
           ))}
         </ul>
       ) : null}
-      <fieldset disabled={busy || !token || !runId || !roundNo || !teamId}>
-        <legend>新建战略项目（typed action，须由已确认团队 Decision admission）</legend>
-        <label>
-          项目名称
-          <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
-        </label>
-        <label>
-          成本
-          <input type="number" value={cost} onChange={(event) => setCost(event.target.value)} />
-        </label>
-        <label>
-          床位
-          <input type="number" value={beds} onChange={(event) => setBeds(event.target.value)} />
-        </label>
-        <label>
-          Lead time（回合）
-          <input
-            type="number"
-            min="0"
-            value={leadTime}
-            onChange={(event) => setLeadTime(event.target.value)}
-          />
-        </label>
-        <button onClick={() => void submitProject()}>提交 New Project Commitment</button>
+      <fieldset className="sw-w4-form" disabled={busy || !token || !runId || !roundNo || !teamId}>
+        <legend className="sw-w4-form__legend">新建战略项目</legend>
+        <div className="sw-w4-form__grid">
+          <label>
+            项目名称
+            <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+          </label>
+          <label>
+            预计成本
+            <input type="number" value={cost} onChange={(event) => setCost(event.target.value)} />
+          </label>
+          <label>
+            床位数量
+            <input type="number" value={beds} onChange={(event) => setBeds(event.target.value)} />
+          </label>
+          <label>
+            预计周期（回合）
+            <input
+              type="number"
+              min="0"
+              value={leadTime}
+              onChange={(event) => setLeadTime(event.target.value)}
+            />
+          </label>
+        </div>
+        <button className="sw-w4-panel__action" type="button" onClick={() => void submitProject()}>
+          提交项目承诺
+        </button>
       </fieldset>
       {status === "retry" || status === "dependency-missing" || status === "error" ? (
-        <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>
-          重新加载 W4 状态
+        <button
+          className="sw-w4-panel__action"
+          type="button"
+          onClick={() => setReloadVersion((value) => value + 1)}
+        >
+          重新加载项目状态
         </button>
       ) : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? (
+        <p className="sw-w4-panel__notice" role="status">
+          {notice}
+        </p>
+      ) : null}
     </article>
   );
 }
