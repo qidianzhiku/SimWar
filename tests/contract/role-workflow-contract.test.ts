@@ -259,5 +259,12 @@ describe("Role Workflow executable contracts", () => {
     expect(assignment.additionalProperties).toBe(false);
     expect(assignment.required).toEqual(["course_id", "role_key", "run_id", "team_id", "user_id"]);
     expect(assignment.properties).not.toHaveProperty("round_id");
+
+    expect(
+      openapi.components.schemas.RoleWorkflowDecisionPayload.properties.w4_strategic_action
+    ).toEqual({
+      $ref: "#/components/schemas/W4StrategicActionEnvelope"
+    });
+    expect(openapi.components.schemas.W4StrategicActionEnvelope.oneOf).toHaveLength(4);
   });
 });

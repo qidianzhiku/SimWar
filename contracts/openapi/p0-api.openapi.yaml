@@ -4873,15 +4873,7 @@ components:
       type: object
       additionalProperties: false
       required:
-        [
-          assigned_role_keys,
-          blockers,
-          role_keys,
-          state,
-          successor_available,
-          team_id,
-          team_name
-        ]
+        [assigned_role_keys, blockers, role_keys, state, successor_available, team_id, team_name]
       properties:
         team_id: { type: string, minLength: 1 }
         team_name: { type: string, minLength: 1 }
@@ -6215,6 +6207,129 @@ components:
           minimum: 0
         strategy_statement:
           type: string
+        w4_strategic_action:
+          $ref: "#/components/schemas/W4StrategicActionEnvelope"
+    W4StrategicActionEnvelope:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, version, payload]
+          properties:
+            kind: { const: new_project }
+            version: { type: integer, minimum: 1 }
+            payload:
+              $ref: "#/components/schemas/W4NewProjectPayload"
+        - type: object
+          additionalProperties: false
+          required: [kind, version, payload]
+          properties:
+            kind: { const: product_line_adjustment }
+            version: { type: integer, minimum: 1 }
+            payload:
+              $ref: "#/components/schemas/W4ProductLineAdjustmentPayload"
+        - type: object
+          additionalProperties: false
+          required: [kind, version, payload]
+          properties:
+            kind: { const: positioning_adjustment }
+            version: { type: integer, minimum: 1 }
+            payload:
+              $ref: "#/components/schemas/W4PositioningAdjustmentPayload"
+        - type: object
+          additionalProperties: false
+          required: [kind, version, payload]
+          properties:
+            kind: { const: organization_adjustment }
+            version: { type: integer, minimum: 1 }
+            payload:
+              $ref: "#/components/schemas/W4OrganizationAdjustmentPayload"
+    W4NewProjectPayload:
+      type: object
+      additionalProperties: false
+      required: [project_name, cost, cycle_rounds, area, beds, bed_mix, ramp, lead_time_rounds]
+      properties:
+        project_name: { type: string, minLength: 1 }
+        cost: { type: number, minimum: 0 }
+        cycle_rounds: { type: integer, minimum: 1 }
+        area: { type: number, exclusiveMinimum: 0 }
+        beds: { type: number, exclusiveMinimum: 0 }
+        bed_mix:
+          type: object
+          additionalProperties: { type: number, minimum: 0 }
+        ramp: { type: number, minimum: 0, maximum: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+    W4AdjustmentMetadata:
+      type: object
+      required: [rationale, lead_time_rounds, reversible, dependencies, kpi_hypothesis]
+      properties:
+        rationale: { type: string, minLength: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+        reversible: { type: boolean }
+        dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        kpi_hypothesis: { type: string, minLength: 1 }
+    W4ProductLineAdjustmentPayload:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rationale,
+          lead_time_rounds,
+          reversible,
+          dependencies,
+          kpi_hypothesis,
+          product_line_id,
+          operation,
+          target_value
+        ]
+      properties:
+        rationale: { type: string, minLength: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+        reversible: { type: boolean }
+        dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        kpi_hypothesis: { type: string, minLength: 1 }
+        product_line_id: { type: string, minLength: 1 }
+        operation: { type: string, enum: [add, update, remove] }
+        target_value: { type: string, minLength: 1 }
+    W4PositioningAdjustmentPayload:
+      type: object
+      additionalProperties: false
+      required: [rationale, lead_time_rounds, reversible, dependencies, kpi_hypothesis, positioning]
+      properties:
+        rationale: { type: string, minLength: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+        reversible: { type: boolean }
+        dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        kpi_hypothesis: { type: string, minLength: 1 }
+        positioning: { type: string, minLength: 1 }
+    W4OrganizationAdjustmentPayload:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rationale,
+          lead_time_rounds,
+          reversible,
+          dependencies,
+          kpi_hypothesis,
+          unit_name,
+          headcount_delta
+        ]
+      properties:
+        rationale: { type: string, minLength: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+        reversible: { type: boolean }
+        dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        kpi_hypothesis: { type: string, minLength: 1 }
+        unit_name: { type: string, minLength: 1 }
+        headcount_delta: { type: integer, not: { const: 0 } }
     RoleWorkflowCanonicalDecisionPayload:
       allOf:
         - $ref: "#/components/schemas/RoleWorkflowDecisionPayload"

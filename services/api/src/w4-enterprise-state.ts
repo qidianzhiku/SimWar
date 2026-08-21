@@ -745,10 +745,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
               decision.payload as W4CanonicalStrategicDecision["payload"] & Record<string, unknown>
             )
           : null;
-      const leadTime =
-        decision.kind === "new_project"
-          ? Number((decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0)
-          : 0;
+      const leadTime = Number(
+        (decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0
+      );
       const effect: W4StrategicEffect = {
         effect_id: `effect_${decision.decision_id}`,
         commitment_id: commitment.commitment_id,

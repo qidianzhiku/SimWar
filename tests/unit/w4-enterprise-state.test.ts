@@ -337,6 +337,12 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
 
       expect(compiled.commitment.kind).toBe(kind);
       expect(compiled.initiative.kind).toBe(kind);
+      expect(compiled.commitment.cost).toBe(0);
+      expect(compiled.effect.status).toBe("pending");
+      expect(compiled.effect.effective_round_no).toBe(2);
+      expect(compiled.initiative.status).toBe("in_progress");
+      expect(compiled.initiative.remaining_lead_time_rounds).toBe(1);
+      expect(compiled.initiative.activation_round_no).toBe(2);
       expect(compiled.effect.commitment_id).toBe(compiled.commitment.commitment_id);
       expect(repository.snapshot().outcomes).toHaveLength(0);
     }
