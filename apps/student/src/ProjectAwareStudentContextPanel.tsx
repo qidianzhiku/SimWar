@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { ProjectAwareStudentContext } from "@simwar/shared-contracts";
 import { fetchProjectAwareStudentContext } from "./project-aware-student-context-client";
 
+void import("@simwar/ui/project-aware.css");
+
 export interface ProjectAwareStudentContextPanelProps {
   baseUrl: string;
   courseId?: string | undefined;
@@ -12,6 +14,12 @@ export interface ProjectAwareStudentContextPanelProps {
 }
 
 type PanelPhase = "empty" | "loading" | "ready" | "error";
+
+function briefKindLabel(kind: string | undefined): string {
+  if (kind === "SAFE_PROJECTION") return "安全项目简报";
+  if (kind === "PROJECT_BRIEF") return "项目简报";
+  return "当前项目资料";
+}
 
 function scopeReady(
   props: ProjectAwareStudentContextPanelProps
@@ -62,10 +70,10 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
         setContext(next);
         setPhase("ready");
       })
-      .catch((cause: unknown) => {
+      .catch(() => {
         if (controller.signal.aborted) return;
         setContext(null);
-        setError(cause instanceof Error ? cause.message : "学生项目上下文暂不可用");
+        setError("当前页面暂时无法读取项目资料，请稍后重试。");
         setPhase("error");
       });
 
@@ -81,103 +89,127 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
   ]);
 
   return (
-    <section className="summary-panel" aria-label="Student project-aware context">
-      <div className="summary-heading">
+    <section className="sw-project-aware" aria-label="学生项目上下文">
+      <div className="sw-project-aware__heading">
         <div>
-          <p className="eyebrow">M2-P3 · student safe projection</p>
-          <h2>当前项目与角色上下文</h2>
+          <p className="sw-project-aware__eyebrow">当前项目 · 安全投影</p>
+          <h2 className="sw-project-aware__title">当前项目与角色</h2>
+          <p className="sw-project-aware__subtitle">这里显示与你当前队伍相关的项目与角色信息。</p>
         </div>
-        {context ? <strong className="summary-badge">SERVER_SCOPED</strong> : null}
+        {context ? (
+          <strong className="sw-project-aware__status" data-state="readonly">
+            安全投影
+          </strong>
+        ) : null}
       </div>
 
       {phase === "empty" ? (
-        <p className="muted">等待服务端提供当前 Course / Run / Team 的学生上下文。</p>
+        <p className="sw-project-aware__empty">等待服务端提供当前课程、运行和队伍信息。</p>
       ) : null}
-      {phase === "loading" ? <p role="status">正在读取当前队伍的角色与安全项目简报…</p> : null}
+      {phase === "loading" ? (
+        <p className="sw-project-aware__loading" role="status">
+          正在读取当前队伍的角色与项目简报…
+        </p>
+      ) : null}
       {phase === "error" ? (
-        <div className="summary-error" role="alert">
-          <strong>学生项目上下文读取失败</strong>
+        <div className="sw-project-aware__callout sw-project-aware__callout--error" role="alert">
+          <strong>项目资料读取失败</strong>
           <span>{error}</span>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setReloadKey((value) => value + 1)}
-          >
-            重试
-          </button>
+          <div className="sw-project-aware__actions">
+            <button
+              type="button"
+              className="sw-project-aware__button"
+              onClick={() => setReloadKey((value) => value + 1)}
+            >
+              重试
+            </button>
+          </div>
         </div>
       ) : null}
 
       {context ? (
         <>
-          <div className="summary-grid">
-            <article>
-              <span>Course / Run</span>
-              <strong>
+          <div className="sw-project-aware__metrics">
+            <article className="sw-project-aware__metric">
+              <span className="sw-project-aware__metric-label">课程与运行</span>
+              <code className="sw-project-aware__code">
                 {context.scope.course_id} · {context.scope.run_id}
+              </code>
+            </article>
+            <article className="sw-project-aware__metric">
+              <span className="sw-project-aware__metric-label">当前队伍</span>
+              <strong className="sw-project-aware__metric-value">{context.scope.team_id}</strong>
+            </article>
+            <article className="sw-project-aware__metric">
+              <span className="sw-project-aware__metric-label">角色</span>
+              <strong className="sw-project-aware__metric-value">
+                {context.role_context.role_key}
               </strong>
+              <small className="sw-project-aware__metric-detail">
+                {context.role_context.role_template_id}
+              </small>
             </article>
-            <article>
-              <span>Current Team</span>
-              <strong>{context.scope.team_id}</strong>
-            </article>
-            <article>
-              <span>Role</span>
-              <strong>{context.role_context.role_key}</strong>
-              <small>{context.role_context.role_template_id}</small>
-            </article>
-            <article>
-              <span>Round</span>
-              <strong>
-                {context.role_context.round_no} · {context.role_context.round_id}
+            <article className="sw-project-aware__metric">
+              <span className="sw-project-aware__metric-label">当前轮次</span>
+              <strong className="sw-project-aware__metric-value">
+                第 {context.role_context.round_no} 轮
               </strong>
+              <code className="sw-project-aware__code">{context.role_context.round_id}</code>
             </article>
           </div>
 
-          <article className="summary-panel" aria-label="Safe project brief">
-            <div className="summary-heading">
+          <article className="sw-project-aware sw-project-aware--nested" aria-label="项目简报">
+            <div className="sw-project-aware__receipt-heading">
               <div>
-                <p className="eyebrow">Safe project brief</p>
-                <h3>{context.project_brief.title}</h3>
+                <p className="sw-project-aware__eyebrow">项目简报</p>
+                <h3 className="sw-project-aware__receipt-title">{context.project_brief.title}</h3>
               </div>
-              <strong className="summary-badge">{context.project_brief.brief_kind}</strong>
+              <strong className="sw-project-aware__badge" data-state="readonly">
+                {briefKindLabel(context.project_brief.brief_kind)}
+              </strong>
             </div>
-            <div className="summary-grid">
-              <article>
-                <span>Industry / Geography</span>
-                <strong>
+            <div className="sw-project-aware__metrics">
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">行业与地区</span>
+                <strong className="sw-project-aware__metric-value">
                   {context.project_brief.industry} · {context.project_brief.geography}
                 </strong>
               </article>
-              <article>
-                <span>Customer segment</span>
-                <strong>{context.project_brief.customer_segment}</strong>
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">客户群体</span>
+                <strong className="sw-project-aware__metric-value">
+                  {context.project_brief.customer_segment}
+                </strong>
               </article>
-              <article>
-                <span>Service bundle</span>
-                <strong>{context.project_brief.service_bundle}</strong>
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">服务组合</span>
+                <strong className="sw-project-aware__metric-value">
+                  {context.project_brief.service_bundle}
+                </strong>
               </article>
-              <article>
-                <span>Exact profile</span>
-                <strong>
+              <article className="sw-project-aware__metric">
+                <span className="sw-project-aware__metric-label">项目档案</span>
+                <strong className="sw-project-aware__metric-value">
                   {context.project_brief.project_profile_reference.project_profile_id}@
                   {context.project_brief.project_profile_reference.version}
                 </strong>
-                <small>{context.project_brief.project_profile_reference.content_digest}</small>
+                <code className="sw-project-aware__code">
+                  {context.project_brief.project_profile_reference.content_digest}
+                </code>
               </article>
             </div>
-            <p>{context.project_brief.description}</p>
-            <p>{context.project_brief.positioning}</p>
+            <p className="sw-project-aware__description">{context.project_brief.description}</p>
+            <p className="sw-project-aware__positioning">{context.project_brief.positioning}</p>
             <details>
-              <summary>查看当前项目说明边界</summary>
-              <ul>
+              <summary>查看项目边界</summary>
+              <ul className="sw-project-aware__list">
                 {context.project_brief.known_limits.map((limit) => (
                   <li key={limit}>{limit}</li>
                 ))}
               </ul>
             </details>
-            <p className="evidence-note">
-              角色与项目均由服务端按当前用户和 Team scope 返回；本面板只展示安全投影。
+            <p className="sw-project-aware__note">
+              角色与项目由服务端按当前用户和队伍范围返回；本面板只展示安全投影。
             </p>
           </article>
         </>
