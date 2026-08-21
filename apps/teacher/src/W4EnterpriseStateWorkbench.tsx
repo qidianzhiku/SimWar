@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { W4ProjectionBase } from "@simwar/shared-contracts";
 
+void import("@simwar/ui/w4-commercial.css");
+
 interface Props {
   token: string;
   tenantId: string;
@@ -50,6 +52,33 @@ function failureStatus(code: string): PanelStatus {
   if (code.includes("409") || code.includes("CONFLICT")) return "conflict";
   if (code.includes("NOT_FOUND")) return "dependency-missing";
   return "retry";
+}
+
+function stateValueLabel(value: string | undefined, fallback = "等待中"): string {
+  if (!value) return fallback;
+  return (
+    (
+      {
+        ready: "已就绪",
+        active: "进行中",
+        in_progress: "进行中",
+        draft: "待开始",
+        pending: "待处理",
+        blocked: "存在阻塞",
+        completed: "已完成",
+        failed: "处理失败",
+        cancelled: "已取消",
+        available: "可查看",
+        empty: "暂无记录",
+        official: "正式结果",
+        proven: "已验证",
+        not_observed: "尚未观察",
+        approved: "已批准",
+        construction: "建设中",
+        activated: "已启用"
+      } as Record<string, string>
+    )[value.toLowerCase()] ?? value
+  );
 }
 
 export function W4EnterpriseStateWorkbench({
@@ -105,70 +134,94 @@ export function W4EnterpriseStateWorkbench({
   }, [courseId, reloadVersion, roundId, runId, roundNo, teamId, tenantId, token]);
 
   return (
-    <article className="panel bff-panel" aria-label="W4 教师 Enterprise State 工作台">
-      <div className="panel-title">
-        <h2>W4 Strategic Evolution 监控</h2>
-        <span>{statusLabel(status)}</span>
+    <article className="sw-w4-panel" aria-label="企业项目演进观察">
+      <div className="sw-w4-panel__header">
+        <div>
+          <p className="sw-w4-panel__eyebrow">教师 · 课堂观察</p>
+          <h2 className="sw-w4-panel__title">战略演进观察</h2>
+        </div>
+        <strong className="sw-w4-panel__status" data-status={status}>
+          {statusLabel(status)}
+        </strong>
       </div>
-      <div className="status-grid">
-        <div>
-          <span>Opening State</span>
-          <strong>{projection?.opening_state_ref?.enterprise_state_id ?? "未建立"}</strong>
+      <p className="sw-w4-panel__description">
+        聚焦阻塞、里程碑与阶段迁移，帮助教师在课堂中解释变化，而不是修改正式结果。
+      </p>
+      <div className="sw-w4-metric-grid">
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">起始状态</span>
+          <strong className="sw-w4-metric__value">
+            {projection?.opening_state_ref?.enterprise_state_id ?? "待建立"}
+          </strong>
         </div>
-        <div>
-          <span>Closing State</span>
-          <strong>{projection?.closing_state_ref?.enterprise_state_id ?? "等待结算"}</strong>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">结算状态</span>
+          <strong className="sw-w4-metric__value">
+            {projection?.closing_state_ref?.enterprise_state_id ?? "等待结算"}
+          </strong>
         </div>
-        <div>
-          <span>Commitment / Effect</span>
-          <strong>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">承诺 / 影响</span>
+          <strong className="sw-w4-metric__value">
             {projection?.commitments.length ?? 0} / {projection?.effects.length ?? 0}
           </strong>
         </div>
-        <div>
-          <span>Process Information</span>
-          <strong>{projection?.process_information.status ?? "等待中"}</strong>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">处理状态</span>
+          <strong className="sw-w4-metric__value">
+            {stateValueLabel(projection?.process_information.status)}
+          </strong>
         </div>
-        <div>
-          <span>Outcome Information</span>
-          <strong>{projection?.outcome_information.status ?? "等待中"}</strong>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">结果状态</span>
+          <strong className="sw-w4-metric__value">
+            {stateValueLabel(projection?.outcome_information.status)}
+          </strong>
         </div>
       </div>
-      <ul className="compact-list">
+      <ul className="sw-w4-list" aria-label="项目里程碑">
         {(projection?.initiatives ?? []).map((initiative) => (
           <li key={initiative.initiative_id}>
-            {initiative.project?.project_name ?? "通用战略 Initiative"} · {initiative.status} ·{" "}
-            {initiative.current_milestone} · 剩余 {initiative.remaining_lead_time_rounds} 回合
+            {initiative.project?.project_name ?? "通用战略项目"} ·{" "}
+            {stateValueLabel(initiative.status)} · {initiative.current_milestone} · 剩余{" "}
+            {initiative.remaining_lead_time_rounds} 回合
           </li>
         ))}
       </ul>
-      <div className="evidence-note">
+      <div className="sw-w4-panel__note">
         <div>
-          Opening / Closing diff：
-          {projection?.path_evidence.opening_vs_closing?.changed_paths.join(", ") || "等待官方结算"}
+          起始与结束差异：
+          {projection?.path_evidence.opening_vs_closing?.changed_paths.join("、") || "等待官方结算"}
         </div>
         <div>
-          Replay path：{projection?.path_evidence.official_replay_path.replay_ids.length ?? 0}{" "}
-          条证据； Shadow apply ={" "}
+          官方回放证据：{projection?.path_evidence.official_replay_path.replay_ids.length ?? 0} 条 ·
+          影子应用是否写入正式结果：
           {projection?.path_evidence.official_replay_path.replay_writes_formal_results === false
             ? "否"
             : "未证明"}
         </div>
         <div>
-          同一决策意图 / 不同历史：
-          {projection?.path_evidence.same_current_decision_different_history.status ?? "未观察"}
+          同一决策意图的历史差异：
+          {stateValueLabel(
+            projection?.path_evidence.same_current_decision_different_history.status,
+            "未观察"
+          )}
         </div>
       </div>
       {status === "retry" ||
       status === "dependency-missing" ||
       status === "error" ||
       status === "conflict" ? (
-        <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>
-          重新加载 W4 状态
+        <button
+          className="sw-w4-panel__action"
+          type="button"
+          onClick={() => setReloadVersion((value) => value + 1)}
+        >
+          重新加载项目演进
         </button>
       ) : null}
-      <p className="evidence-note">
-        教师侧只读：可查看阻塞、里程碑和状态迁移，不成为第二个 Enterprise State writer。
+      <p className="sw-w4-panel__note">
+        教师侧只读：可查看阻塞、里程碑和状态迁移，不修改正式结果。
       </p>
     </article>
   );
