@@ -46,6 +46,8 @@ describe("W4 commercial visual contract", () => {
 
     expect(teacher).toContain("教师策略工作台");
     expect(teacher).toContain("匹配项目路径");
+    expect(teacher).toContain("匹配项目选择");
+    expect(teacher).toContain("已结算（详细路径证据不可用）");
     expect(teacher).toContain("教师复盘");
     expect(teacher).toContain("/matched-arena");
     expect(student).toContain("组合与资金工作区");

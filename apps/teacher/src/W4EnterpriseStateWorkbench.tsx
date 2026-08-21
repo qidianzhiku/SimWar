@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { W4MatchedProjectArena, W4ProjectionBase } from "@simwar/shared-contracts";
 
 void import("@simwar/ui/w4-commercial.css");
@@ -96,6 +96,24 @@ export function W4EnterpriseStateWorkbench({
   const [arenaStatus, setArenaStatus] = useState<PanelStatus>("dependency-missing");
   const [arenaError, setArenaError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [selectedProjectEntryId, setSelectedProjectEntryId] = useState("");
+  const arenaRequestVersion = useRef(0);
+  const selectedProjectId =
+    projection?.project_portfolio.find((entry) => entry.project_entry_id === selectedProjectEntryId)
+      ?.project_entry_id ??
+    projection?.project_portfolio[0]?.project_entry_id ??
+    "";
+  const selectedProject = projection?.project_portfolio.find(
+    (entry) => entry.project_entry_id === selectedProjectId
+  );
+
+  useEffect(() => {
+    arenaRequestVersion.current += 1;
+    setArena(null);
+    setArenaError("");
+    setArenaStatus("dependency-missing");
+  }, [courseId, roundId, roundNo, runId, selectedProjectId, teamId, tenantId, token]);
+
   useEffect(() => {
     if (!token || !runId || !roundNo || !teamId) {
       setStatus(token ? "dependency-missing" : "permission");
@@ -137,13 +155,14 @@ export function W4EnterpriseStateWorkbench({
   }, [courseId, reloadVersion, roundId, runId, roundNo, teamId, tenantId, token]);
 
   async function loadMatchedArena(): Promise<void> {
-    const reference = projection?.project_portfolio[0]?.project_profile_reference;
+    const reference = selectedProject?.project_profile_reference;
     if (!runId || !reference) {
       setArena(null);
       setArenaError("当前回合还没有绑定 Project Profile，暂不能比较匹配项目路径。");
       setArenaStatus("dependency-missing");
       return;
     }
+    const requestVersion = ++arenaRequestVersion.current;
     setArenaStatus("loading");
     setArenaError("");
     try {
@@ -155,11 +174,7 @@ export function W4EnterpriseStateWorkbench({
       });
       const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
       const response = await fetch(
-        apiBase +
-          "/api/v1/bff/teacher/w4/runs/" +
-          runId +
-          "/matched-arena?" +
-          query.toString(),
+        apiBase + "/api/v1/bff/teacher/w4/runs/" + runId + "/matched-arena?" + query.toString(),
         { headers: { authorization: "Bearer " + token, "x-tenant-id": tenantId } }
       );
       const envelope = (await response.json()) as {
@@ -169,9 +184,11 @@ export function W4EnterpriseStateWorkbench({
       if (!response.ok || !envelope.data) {
         throw new Error(envelope.code ?? "W4-MATCHED-ARENA-ERROR");
       }
+      if (requestVersion !== arenaRequestVersion.current) return;
       setArena(envelope.data);
       setArenaStatus(envelope.data.different_history_observed ? "ready" : "partial");
     } catch (error) {
+      if (requestVersion !== arenaRequestVersion.current) return;
       const code = error instanceof Error ? error.message : "W4-MATCHED-ARENA-ERROR";
       setArenaError(code);
       setArenaStatus(failureStatus(code));
@@ -264,14 +281,32 @@ export function W4EnterpriseStateWorkbench({
           </li>
           {(projection?.initiatives ?? []).map((initiative) => (
             <li key={"timeline-" + initiative.initiative_id}>
-              {initiative.project?.project_name ?? "战略项目"} · {stateValueLabel(initiative.status)} ·{" "}
-              {initiative.current_milestone} · 还需 {initiative.remaining_lead_time_rounds} 回合
+              {initiative.project?.project_name ?? "战略项目"} ·{" "}
+              {stateValueLabel(initiative.status)} · {initiative.current_milestone} · 还需{" "}
+              {initiative.remaining_lead_time_rounds} 回合
             </li>
           ))}
           <li>
             官方结果 · {stateValueLabel(projection?.outcome_information.status, "等待官方结算")}
           </li>
         </ol>
+        {projection?.project_portfolio.length ? (
+          <label>
+            比较项目
+            <select
+              aria-label="匹配项目选择"
+              value={selectedProjectId}
+              onChange={(event) => setSelectedProjectEntryId(event.target.value)}
+            >
+              {projection.project_portfolio.map((entry) => (
+                <option key={entry.project_entry_id} value={entry.project_entry_id}>
+                  {entry.project_name} · {entry.project_profile_reference.project_profile_id} ·{" "}
+                  {entry.project_profile_reference.version}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <button
           className="sw-w4-panel__action"
           type="button"
@@ -295,7 +330,8 @@ export function W4EnterpriseStateWorkbench({
               {arena.teams.map((team) => (
                 <li key={team.team_id}>
                   <strong>{team.team_id}</strong> · 路径 {team.path_digest.slice(0, 12)} ·{" "}
-                  {team.path_evidence?.opening_vs_closing?.changed_paths.join("、") || "等待结果"}
+                  {team.path_evidence?.opening_vs_closing?.changed_paths.join("、") ||
+                    (team.closing_state_ref ? "已结算（详细路径证据不可用）" : "等待结果")}
                 </li>
               ))}
             </ul>
@@ -313,7 +349,8 @@ export function W4EnterpriseStateWorkbench({
             {stateValueLabel(
               projection?.path_evidence.same_current_decision_different_history.status,
               "未观察"
-            )}。复盘只解释正式回放与路径证据，不修改官方状态、结算或排名。
+            )}
+            。复盘只解释正式回放与路径证据，不修改官方状态、结算或排名。
           </p>
         </section>
       </section>

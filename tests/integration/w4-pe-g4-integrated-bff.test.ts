@@ -72,7 +72,11 @@ function initialState(teamId: string): W4EnterpriseState {
   };
 }
 
-function decision(teamId: string, decisionId: string, roundNo: number): W4CanonicalStrategicDecision {
+function decision(
+  teamId: string,
+  decisionId: string,
+  roundNo: number
+): W4CanonicalStrategicDecision {
   const currentScope = scope(teamId, roundNo);
   const payload = {
     project_name: teamId + " strategic project " + roundNo,
@@ -180,14 +184,10 @@ describe("W4 P-E G4 integrated real BFF journey", () => {
     const service = createEnterpriseStateStrategicEvolutionService(repository);
     const closingRefs = new Map<string, W4StateRef>();
     for (const teamId of ["team_alpha", "team_beta"]) {
-      let opening = (
-        await service.createInitialState(scope(teamId, 1), initialState(teamId))
-      ).state_ref;
+      let opening = (await service.createInitialState(scope(teamId, 1), initialState(teamId)))
+        .state_ref;
       const firstDecision = decision(teamId, "pe-g4-" + teamId + "-1", 1);
-      const firstCompiled = await service.commitStrategicDecision(
-        scope(teamId, 1),
-        firstDecision
-      );
+      const firstCompiled = await service.commitStrategicDecision(scope(teamId, 1), firstDecision);
       await service.addProjectToPortfolio(scope(teamId, 1), {
         project_entry_id: "pe-g4-entry-" + teamId,
         initiative_id: firstCompiled.initiative.initiative_id,
@@ -281,10 +281,13 @@ describe("W4 P-E G4 integrated real BFF journey", () => {
       expect(arena.status).toBe(200);
       const arenaBody = (await arena.json()) as ApiEnvelope<{
         team_ids: string[];
+        teams: Array<{ closing_state_ref: W4StateRef | null; path_evidence: unknown }>;
         different_history_observed: boolean;
         state_isolation_proven: true;
       }>;
       expect(arenaBody.data.team_ids).toEqual(["team_alpha", "team_beta"]);
+      expect(arenaBody.data.teams.every((team) => team.closing_state_ref !== null)).toBe(true);
+      expect(arenaBody.data.teams.every((team) => team.path_evidence === null)).toBe(true);
       expect(arenaBody.data.different_history_observed).toBe(true);
       expect(arenaBody.data.state_isolation_proven).toBe(true);
 
