@@ -19,6 +19,7 @@ import type {
   W4StrategicEffect,
   W4StrategicInitiative,
   W4StrategicDecisionKind,
+  W4ProjectLifecycleStatus,
   W4StoreState,
   W4ProjectionBase,
   Decision
@@ -774,6 +775,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           leadTime > 0 ? ["approved", "construction", "activated"] : ["approved", "activated"],
         remaining_lead_time_rounds: leadTime,
         activation_round_no: decision.round_no + leadTime,
+        ...(decision.kind === "new_project"
+          ? { project_lifecycle_status: leadTime > 0 ? "Feasibility" : "Operating" }
+          : {}),
         project: project as W4StrategicInitiative["project"]
       };
       current.decisions.push(clone(decision));
@@ -809,6 +813,37 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       initiative.status = target;
       if (target === "active") initiative.current_milestone = "activated";
       if (target === "completed") initiative.current_milestone = "completed";
+      await repository.commit(current);
+      return clone(initiative);
+    },
+
+    async advanceProjectLifecycle(
+      scope: W4ScopeContext,
+      initiativeId: string,
+      target: W4ProjectLifecycleStatus
+    ): Promise<W4StrategicInitiative> {
+      const current = repository.snapshot();
+      const initiative = current.initiatives.find(
+        (item) =>
+          item.initiative_id === initiativeId && scopeMatches(scope, item) && item.project !== null
+      );
+      if (!initiative || !initiative.project_lifecycle_status) {
+        throw new W4EnterpriseStateError("W4_PROJECT_LIFECYCLE_NOT_FOUND");
+      }
+      const allowed: Record<W4ProjectLifecycleStatus, W4ProjectLifecycleStatus[]> = {
+        Opportunity: ["Feasibility", "Cancelled"],
+        Feasibility: ["DueDiligence", "Cancelled"],
+        DueDiligence: ["Negotiation", "Cancelled"],
+        Negotiation: ["TermSheet", "Cancelled"],
+        TermSheet: ["Operating", "Cancelled"],
+        Operating: ["Closed"],
+        Closed: [],
+        Cancelled: []
+      };
+      if (!allowed[initiative.project_lifecycle_status].includes(target)) {
+        throw new W4EnterpriseStateError("W4_INVALID_PROJECT_LIFECYCLE_TRANSITION");
+      }
+      initiative.project_lifecycle_status = target;
       await repository.commit(current);
       return clone(initiative);
     },

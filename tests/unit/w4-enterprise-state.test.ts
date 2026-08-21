@@ -369,6 +369,26 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     });
   });
 
+  it("advances a project through the governed portfolio lifecycle without a second writer", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+    const compiled = await service.commitStrategicDecision(scope, newProjectDecision);
+
+    expect(compiled.initiative.project_lifecycle_status).toBe("Feasibility");
+    await expect(
+      service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, "Negotiation")
+    ).rejects.toMatchObject({ code: "W4_INVALID_PROJECT_LIFECYCLE_TRANSITION" });
+
+    for (const target of ["DueDiligence", "Negotiation", "TermSheet", "Operating"] as const) {
+      await service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, target);
+    }
+    const operating = repository.snapshot().initiatives[0];
+    expect(operating?.project_lifecycle_status).toBe("Operating");
+    expect(operating?.commitment_id).toBe(compiled.commitment.commitment_id);
+    expect(repository.snapshot().states).toHaveLength(1);
+  });
+
   it("advances lead time and activates the project only at its governed round", async () => {
     const repository = createInMemoryW4Repository();
     const service = createEnterpriseStateStrategicEvolutionService(repository);

@@ -217,6 +217,7 @@ export async function handleW4EnterpriseStateRoute(
             initiative_id: initiative.initiative_id,
             kind: initiative.kind,
             status: initiative.status,
+            project_lifecycle_status: initiative.project_lifecycle_status ?? null,
             project_name: initiative.project?.project_name ?? null
           }))
         };
@@ -233,6 +234,48 @@ export async function handleW4EnterpriseStateRoute(
       })
     );
     return true;
+  }
+  const lifecycleMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/initiatives\/([^/]+)\/lifecycle$/
+  );
+  if (request.method === "POST" && lifecycleMatch) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const runId = lifecycleMatch[1] ?? "";
+      const roundNo = Number(lifecycleMatch[2]);
+      const initiativeId = lifecycleMatch[3] ?? "";
+      const teamId = String(body.team_id ?? "");
+      const courseId = String(body.course_id ?? "course_demo");
+      const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? round.round_id),
+        roundNo,
+        teamId,
+        courseId
+      );
+      await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
+      const target = String(body.target ?? "") as Parameters<
+        typeof service.advanceProjectLifecycle
+      >[2];
+      const result = await service.advanceProjectLifecycle(scope, initiativeId, target);
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
   }
   const route = parseRoundPath(url.pathname, "/api/v1/w4");
   const bffRoute = parseRoundPath(url.pathname, "/api/v1/bff/(?:student|teacher|admin)/w4");

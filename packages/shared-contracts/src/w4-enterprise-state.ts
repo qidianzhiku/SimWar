@@ -33,6 +33,16 @@ export type W4InitiativeStatus =
   | "failed"
   | "cancelled";
 
+export type W4ProjectLifecycleStatus =
+  | "Opportunity"
+  | "Feasibility"
+  | "DueDiligence"
+  | "Negotiation"
+  | "TermSheet"
+  | "Operating"
+  | "Closed"
+  | "Cancelled";
+
 export interface W4ScopeContext {
   actor_id: string;
   tenant_id: string;
@@ -209,6 +219,7 @@ export interface W4StrategicInitiative {
   milestones: string[];
   remaining_lead_time_rounds: number;
   activation_round_no: number;
+  project_lifecycle_status?: W4ProjectLifecycleStatus;
   project: W4NewProjectPayload | null;
 }
 
