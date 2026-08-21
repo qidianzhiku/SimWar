@@ -239,7 +239,9 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(reflectionCall).toBeDefined();
     const body = JSON.parse(String(reflectionCall?.[1]?.body)) as { response: string };
     expect(body.response).toContain("判断：先判断结果；学习：再学习机制；下一轮：下一轮验证");
-    expect(body.response).not.toMatch(/[\u0000-\u001f]/);
+    expect(
+      [...body.response].some((character) => character.charCodeAt(0) < 0x20)
+    ).toBe(false);
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
