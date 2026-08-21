@@ -280,6 +280,7 @@ import {
 } from "./r7-teacher-scenario-selection-readiness.js";
 import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.js";
 import {
+  assertFormalW4DecisionMatchesCanonical,
   createJsonW4Repository,
   createW4DecisionPayloadDigest,
   createEnterpriseStateStrategicEvolutionService,
@@ -702,10 +703,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     },
     scope: { tenant_id: string; course_id: string; run_id: string }
   ): Promise<{ binding_digest?: string }> => {
-    const existing = await formalRunRuntimeBindingStore.getForRun(
-      scope.tenant_id,
-      scope.run_id
-    );
+    const existing = await formalRunRuntimeBindingStore.getForRun(scope.tenant_id, scope.run_id);
     if (existing) return { binding_digest: existing.binding_digest };
     if (!formalRunBindingAuthorities) throw new Error("FORMAL_RUN_AUTHORITY_UNAVAILABLE");
     const courseBinding = formalCourseAuthorityBindingStore.getForCourse(
@@ -947,13 +945,15 @@ async function ensureProjectAwareInitialState(
   );
   const openingRound = rounds.find((round) => round.round_no === 1);
   if (!openingRound || openingRound.status !== "open") return { created: false };
-  const existing = runtime.w4EnterpriseStateRepository.snapshot().states.find(
-    (state) =>
-      state.tenant_id === actor.tenant_id &&
-      state.run_id === assignment.run_id &&
-      state.team_id === assignment.team_id &&
-      state.round_no === 1
-  );
+  const existing = runtime.w4EnterpriseStateRepository
+    .snapshot()
+    .states.find(
+      (state) =>
+        state.tenant_id === actor.tenant_id &&
+        state.run_id === assignment.run_id &&
+        state.team_id === assignment.team_id &&
+        state.round_no === 1
+    );
   if (existing) {
     return {
       created: false,
@@ -5726,8 +5726,7 @@ async function routeRequest(
     );
     const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
     const runId = typeof body.run_id === "string" ? body.run_id : "";
-    const idempotencyKey =
-      typeof body.idempotency_key === "string" ? body.idempotency_key : "";
+    const idempotencyKey = typeof body.idempotency_key === "string" ? body.idempotency_key : "";
     if (!runId || !idempotencyKey) {
       throw new HttpError(400, "PROJECT-AWARE-400-002", "run_id and idempotency_key are required");
     }
@@ -5749,9 +5748,7 @@ async function routeRequest(
 
   if (
     request.method === "GET" &&
-    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-aware-launch-receipt$/.test(
-      url.pathname
-    )
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-aware-launch-receipt$/.test(url.pathname)
   ) {
     const context = createContext(runtime, request);
     const actor = requirePermission(context, "course:read");
@@ -6084,6 +6081,7 @@ async function routeRequest(
               ) {
                 throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
               }
+              assertFormalW4DecisionMatchesCanonical(decision, canonical);
               return {
                 policy: admission.policy,
                 authority: "formal_run_runtime_binding",
@@ -7145,7 +7143,11 @@ async function routeRequest(
     const runId = url.searchParams.get("run_id")?.trim() ?? "";
     const teamId = url.searchParams.get("team_id")?.trim() ?? "";
     if (!courseId || !runId || !teamId) {
-      throw new HttpError(422, "PROJECT_AWARE_STUDENT_SCOPE_VIOLATION", "student scope is required");
+      throw new HttpError(
+        422,
+        "PROJECT_AWARE_STUDENT_SCOPE_VIOLATION",
+        "student scope is required"
+      );
     }
     const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
       context.tenantId,
@@ -7154,7 +7156,7 @@ async function routeRequest(
     const requestedRoundId = url.searchParams.get("round_id")?.trim();
     const round = requestedRoundId
       ? rounds.find((candidate) => candidate.round_id === requestedRoundId)
-      : rounds.find((candidate) => candidate.round_no === 1) ?? rounds[0];
+      : (rounds.find((candidate) => candidate.round_no === 1) ?? rounds[0]);
     if (!round) {
       throw new HttpError(404, "PROJECT_AWARE_STUDENT_ROUND_NOT_FOUND", "round not found");
     }
@@ -7176,7 +7178,12 @@ async function routeRequest(
         200,
         createEnvelope(context, {
           schema_version: "project-aware-launch.v1",
-          scope: { course_id: courseId, run_id: runId, team_id: teamId, tenant_id: actor.tenant_id },
+          scope: {
+            course_id: courseId,
+            run_id: runId,
+            team_id: teamId,
+            tenant_id: actor.tenant_id
+          },
           role_context: workspace.context,
           project_brief: projectBrief
         })

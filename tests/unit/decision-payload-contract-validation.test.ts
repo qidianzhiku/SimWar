@@ -119,6 +119,59 @@ describe("decision payload schema and fixture validation", () => {
     expectValidBySchemaAndRuntime(validDecisionPayloadFixture());
   });
 
+  it("accepts the closed W4 strategic action envelope in a canonical payload", () => {
+    const payload = {
+      ...clonePayload(),
+      w4_strategic_action: {
+        kind: "new_project",
+        version: 1,
+        payload: {
+          project_name: "Contract project",
+          cost: 120000,
+          cycle_rounds: 3,
+          area: 1200,
+          beds: 40,
+          bed_mix: { standard: 30, premium: 10 },
+          ramp: 0.6,
+          lead_time_rounds: 2
+        }
+      }
+    };
+
+    expectValidBySchemaAndRuntime(payload);
+  });
+
+  it("rejects unknown keys inside the closed W4 strategic action payload", () => {
+    const payload = {
+      ...clonePayload(),
+      w4_strategic_action: {
+        kind: "new_project",
+        version: 1,
+        payload: {
+          project_name: "Contract project",
+          cost: 120000,
+          cycle_rounds: 3,
+          area: 1200,
+          beds: 40,
+          bed_mix: { standard: 30, premium: 10 },
+          ramp: 0.6,
+          lead_time_rounds: 2,
+          unsupported_field: true
+        }
+      }
+    };
+
+    const errors = schemaErrorsFor(payload);
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          keyword: "additionalProperties",
+          params: { additionalProperty: "unsupported_field" }
+        })
+      ])
+    );
+  });
+
   it("treats cash_buffer_target as a ratio in schema and runtime validation", () => {
     const ratioPayload = {
       ...clonePayload(),

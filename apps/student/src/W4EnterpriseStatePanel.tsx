@@ -229,6 +229,32 @@ export function W4EnterpriseStatePanel({
           </div>
         </div>
       ) : null}
+      {projection?.latest_strategic_action ? (
+        <div className="evidence-note" aria-label="W4 strategic action admission summary">
+          <div>
+            Role source：{projection.latest_strategic_action.admission.authority} · Policy：
+            {projection.latest_strategic_action.admission.policy}
+          </div>
+          <div>
+            Merge：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"} · Team
+            confirmation：
+            {projection.latest_strategic_action.admission.team_confirmation_id ?? "未确认"}
+          </div>
+          <div>
+            Cost：{projection.latest_strategic_action.cost} · Lead time：
+            {projection.latest_strategic_action.lead_time_rounds} 回合 · Reversible：
+            {projection.latest_strategic_action.reversible ? "是" : "否"}
+          </div>
+          <div>
+            Dependencies：
+            {projection.latest_strategic_action.dependencies.join(", ") || "无"} · KPI hypothesis：
+            {projection.latest_strategic_action.kpi_hypothesis}
+          </div>
+          {projection.latest_strategic_action.known_limits.map((limit) => (
+            <div key={limit}>Known limit：{limit}</div>
+          ))}
+        </div>
+      ) : null}
       {projection?.initiatives.length ? (
         <ul className="tag-list">
           {projection.initiatives.map((initiative) => (
@@ -240,7 +266,7 @@ export function W4EnterpriseStatePanel({
         </ul>
       ) : null}
       <fieldset disabled={busy || !token || !runId || !roundNo || !teamId}>
-        <legend>新建战略项目（canonical decision）</legend>
+        <legend>新建战略项目（typed action，须由已确认团队 Decision admission）</legend>
         <label>
           项目名称
           <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />

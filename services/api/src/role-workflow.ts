@@ -274,6 +274,19 @@ function buildMergedPayload(
   selectedValues: Partial<Record<DecisionPayloadFieldPath, TeamDivergenceValue>> = {}
 ): DecisionPayload {
   const merged: Partial<DecisionPayload> = {};
+  const w4Actions = sections
+    .map((section) => section.payload.w4_strategic_action)
+    .filter(
+      (action): action is NonNullable<DecisionPayload["w4_strategic_action"]> =>
+        action !== undefined
+    );
+  if (w4Actions.length > 1) {
+    const firstAction = stableSerialize(w4Actions[0]);
+    if (w4Actions.some((action) => stableSerialize(action) !== firstAction)) {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_MERGE_CONFLICT");
+    }
+  }
+  if (w4Actions[0] !== undefined) merged.w4_strategic_action = clone(w4Actions[0]);
 
   const assign = (
     field: DecisionPayloadFieldPath,
@@ -747,6 +760,9 @@ export class RoleWorkflowCommandService {
     this.assertPostConfirmationMutable(snapshot);
     const assignment = this.findActorAssignment(actor, snapshot);
     const policy = DEFAULT_STUDENT_ROLE_PERMISSION_POLICIES[assignment.role_key];
+    if (input.payload.w4_strategic_action !== undefined && assignment.role_key !== "CEO") {
+      throw new RoleWorkflowError("ROLE_WORKFLOW_W4_ACTION_OWNER_REQUIRED");
+    }
     if (payloadFieldPaths(input.payload).some((field) => !policy.editable_fields.includes(field))) {
       throw new RoleWorkflowError("ROLE_WORKFLOW_FIELD_DENIED");
     }
@@ -1504,8 +1520,7 @@ export class RoleWorkflowCommandService {
       )
       .sort(
         (left, right) =>
-          mergeOrder.indexOf(left.role_key as RoleId) -
-          mergeOrder.indexOf(right.role_key as RoleId)
+          mergeOrder.indexOf(left.role_key as RoleId) - mergeOrder.indexOf(right.role_key as RoleId)
       )
       .map((section) => section.section_id);
   }
