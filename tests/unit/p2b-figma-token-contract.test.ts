@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const tokens = readFileSync(resolve(process.cwd(), "packages/ui/src/tokens.css"), "utf8");
+const p2bTokens = readFileSync(resolve(process.cwd(), "packages/ui/src/p2b-tokens.css"), "utf8");
 const studentCss = readFileSync(
   resolve(process.cwd(), "apps/student/src/p2b-decision-learning.css"),
   "utf8"
@@ -14,6 +15,9 @@ const teacherCss = readFileSync(
 
 describe("P2-B Figma token contract", () => {
   it("keeps the P2-B handoff values in the shared UI token layer", () => {
+    for (const token of ["--sw-control-min-height"]) {
+      expect(tokens).toContain(token);
+    }
     for (const token of [
       "--sw-color-surface-warm",
       "--sw-color-surface-navy",
@@ -26,9 +30,13 @@ describe("P2-B Figma token contract", () => {
       "--sw-color-text-subtle-accessible",
       "--sw-color-state-critical",
       "--sw-color-focus-warm",
-      "--sw-control-min-height"
+      "--sw-space-10",
+      "--sw-space-14",
+      "--sw-space-18",
+      "--sw-radius-10",
+      "--sw-radius-16"
     ]) {
-      expect(tokens).toContain(token);
+      expect(p2bTokens).toContain(token);
     }
   });
 

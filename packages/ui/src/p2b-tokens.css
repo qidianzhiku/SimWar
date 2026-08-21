@@ -1,0 +1,30 @@
+/* Figma P2-B handoff tokens (student 40:28, teacher 43:57).
+   This package-owned file is imported only by P2-B journey styles, so the
+   Admin initial bundle does not pay for a feature-specific palette. */
+:root {
+  --sw-color-surface-warm: #f7f4ed;
+  --sw-color-surface-navy: #10253f;
+  --sw-color-surface-teal-subtle: #eef4f3;
+  --sw-color-surface-metric: #f5f8fa;
+  --sw-color-surface-mechanism: #f7f3ea;
+  --sw-color-surface-blocked: #fff8e7;
+  --sw-color-border-teal: #8eb8b1;
+  --sw-color-border-soft: #d8e3e7;
+  --sw-color-border-input: #b7c6cf;
+  --sw-color-border-blocked: #ead69a;
+  --sw-color-border-transfer: #a6cbc4;
+  --sw-color-text-body: #52646e;
+  --sw-color-text-subtle: #627d98;
+  /* Figma's muted primitive is retained above; this alias meets AA for small
+     text on white/metric surfaces. */
+  --sw-color-text-subtle-accessible: #4b6478;
+  --sw-color-text-blocked: #6b5320;
+  --sw-color-state-critical: #9f2f2c;
+  --sw-color-focus-warm: #d4a72c;
+  --sw-space-10: 10px;
+  --sw-space-14: 14px;
+  --sw-space-18: 18px;
+  --sw-space-20: 20px;
+  --sw-radius-10: 10px;
+  --sw-radius-16: 16px;
+}

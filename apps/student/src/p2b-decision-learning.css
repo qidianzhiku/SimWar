@@ -1,3 +1,5 @@
+@import "@simwar/ui/p2b-tokens.css";
+
 .p2b-student-journey,
 .p2b-teacher-debrief {
   --p2b-ink: var(--sw-color-authority-navy);

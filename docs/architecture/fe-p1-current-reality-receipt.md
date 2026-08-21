@@ -26,6 +26,9 @@ historical feature SHA was treated as current source.
   `AuthorityBadge`, `AllowedActionButton`, `KnownLimitBanner`, `ReceiptPanel`,
   `StatePanel`, `WorkbenchFrame`, `CourseReportWorkbench`, and
   `DesignSystemLab`.
+- P2-B-specific aliases are package-owned in
+  `packages/ui/src/p2b-tokens.css` and imported by the Student/Teacher journey
+  styles only; the Admin initial bundle keeps the base P1 token payload.
 - P1 visual authority is the existing SimWar Figma file and its `SimWar P1`
   variable collection. The current source continues to be the authority for
   behavioral and data boundaries.

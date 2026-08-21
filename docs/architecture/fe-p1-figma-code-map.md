@@ -27,8 +27,10 @@ The existing `SimWar P1` collection (`VariableCollectionId:14:2`) has one mode
 and 28 variables. The implementation reuses its exact brand, state, surface,
 border, text, focus, spacing, control-height, and radius values. The P2-B board
 already exposes warm surface (`#f7f4ed`) and navy (`#10253f`) values; matching
-semantic aliases were added to `packages/ui/src/tokens.css` so app CSS can
-consume the Figma handoff without a local palette.
+semantic aliases live in the package-owned `packages/ui/src/p2b-tokens.css`
+entrypoint and are imported only by the P2-B journey styles. This keeps the
+design system single-sourced without adding feature-only bytes to the Admin
+initial bundle.
 
 P2-B additions are semantic aliases for warm/navy surfaces, teal-subtle and
 metric surfaces, mechanism and blocked surfaces, soft/input/blocked/transfer
@@ -69,7 +71,7 @@ the matching `var(--sw-space-*)` web code syntax; readback confirmed values
 ## Fidelity and safety checks
 
 The visual implementation now maps the P2-B handoff colors and geometry to
-shared CSS variables, keeps a minimum interactive height of 44px, preserves
+package-owned shared CSS variables, keeps a minimum interactive height of 44px, preserves
 responsive one-column collapse, and adds a focused token contract test that
 rejects reintroducing the old app-local palette. Automated visual confidence is
 not human validation: the final receipt must still distinguish browser/a11y

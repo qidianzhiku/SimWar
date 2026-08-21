@@ -575,7 +575,7 @@
   .sw-app-shell .sw-authority-badge[data-authority="official"],
   .sw-app-shell .sw-authority-badge[data-authority="system-result"]
 ) {
-  color: var(--sw-color-state-critical) !important;
+  color: var(--sw-color-official-risk) !important;
 }
 
 :where(

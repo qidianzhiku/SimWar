@@ -11,6 +11,7 @@
       "default": "./dist/index.js"
     },
     "./tokens.css": "./src/tokens.css",
+    "./p2b-tokens.css": "./src/p2b-tokens.css",
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
