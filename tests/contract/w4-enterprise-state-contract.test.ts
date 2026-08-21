@@ -93,5 +93,6 @@ describe("W4 Enterprise State contract", () => {
     const openapi = readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8");
     expect(openapi).toContain("/api/v1/bff/teacher/w4/runs/{runId}/matched-arena:");
     expect(openapi).toContain("/api/v1/bff/{surface}/w4/runs/{runId}/counterfactual:");
+    expect(openapi).toContain("#/components/schemas/W4CounterfactualEnvelope");
   });
 });

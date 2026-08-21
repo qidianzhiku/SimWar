@@ -264,6 +264,7 @@ describe("W4 P-D real BFF boundaries", () => {
             "content-type": "application/json",
             "x-tenant-id": tenantId
           },
+          // lgtm [js/file-access-to-http] - this is synthetic fixture data sent only to the in-process 127.0.0.1 BFF.
           body: JSON.stringify(counterfactualBody)
         }
       );
@@ -285,6 +286,7 @@ describe("W4 P-D real BFF boundaries", () => {
             "content-type": "application/json",
             "x-tenant-id": tenantId
           },
+          // lgtm [js/file-access-to-http] - this is synthetic fixture data sent only to the in-process 127.0.0.1 BFF.
           body: JSON.stringify(counterfactualBody)
         }
       );

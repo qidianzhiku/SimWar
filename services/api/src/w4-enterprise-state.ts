@@ -421,6 +421,17 @@ function projectProfileReferencesEqual(
   );
 }
 
+function counterfactualCapitalActionSnapshot(
+  action: W4CapitalAction,
+  sourceRoundNo: number
+): W4CapitalAction {
+  if (action.blocked_reason === "W4_CAPITAL_POLICY_REQUIRED") return clone(action);
+  const snapshot = clone(action);
+  delete snapshot.blocked_reason;
+  snapshot.status = action.effective_round_no <= sourceRoundNo ? "active" : "pending";
+  return snapshot;
+}
+
 function assertProjectProfileReference(
   scope: W4ScopeContext,
   reference: W4ProjectPortfolioEntry["project_profile_reference"]
@@ -1846,6 +1857,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           projectProfileReferencesEqual(entry.project_profile_reference, projectProfileReference)
       );
       const availableTeamIds = [...new Set(matchingEntries.map((entry) => entry.team_id))].sort();
+      if (requestedTeamIds.some((teamId) => !availableTeamIds.includes(teamId))) {
+        throw new W4EnterpriseStateError("W4_MATCHED_ARENA_TEAM_CONFLICT");
+      }
       const teamIds = (requestedTeamIds.length ? requestedTeamIds : availableTeamIds)
         .filter((teamId, index, values) => teamId.trim() && values.indexOf(teamId) === index)
         .sort();
@@ -1917,6 +1931,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           scopeMatches(scope, outcome) && outcome.official_outcome_id === input.source_outcome_id
       );
       if (!sourceOutcome) throw new W4EnterpriseStateError("W4_OUTCOME_NOT_FOUND");
+      if (!stateMatchesExactRef(sourceState, sourceOutcome.closing_state_ref)) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_SOURCE_LINEAGE_CONFLICT");
+      }
       const sourceManifest = sourceOutcome.replay_input_manifest;
       if (
         sourceManifest.scenario_package_id !== input.scenario_package_id ||
@@ -1979,9 +1996,22 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const selectedPortfolio = current.projectPortfolio.filter(
         (entry) => scopeMatches(scope, entry) && selectedInitiativeIds.has(entry.initiative_id)
       );
-      const selectedCapitalActions = current.capitalActions.filter(
-        (action) => scopeMatches(scope, action) && selectedDecisionIds.includes(action.decision_id)
+      const sourceCapitalActionSnapshot = new Map(
+        (sourceManifest.capital_action_snapshot ?? []).map((action) => [
+          action.capital_action_id,
+          action
+        ])
       );
+      const selectedCapitalActions = current.capitalActions
+        .filter(
+          (action) => scopeMatches(scope, action) && selectedDecisionIds.includes(action.decision_id)
+        )
+        .map((action) => {
+          const sourceSnapshot = sourceCapitalActionSnapshot.get(action.capital_action_id);
+          return sourceSnapshot
+            ? clone(sourceSnapshot)
+            : counterfactualCapitalActionSnapshot(action, sourceState.round_no);
+        });
       const rounds: W4CounterfactualRoundEvidence[] = [];
       let openingStateData = clone(sourceState.state);
       let openingRef = clone(input.source_state_ref);

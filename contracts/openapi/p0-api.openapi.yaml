@@ -4758,7 +4758,8 @@ paths:
       responses:
         "200":
           description: Deterministic non-official multi-round fork with explicit no-write flags.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W4CounterfactualEnvelope" } } }
         "409":
           description: Source lineage or runtime binding conflict.
           content: { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
@@ -7567,6 +7568,15 @@ components:
       properties:
         code: { type: string }
         data: { type: object, additionalProperties: true }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W4CounterfactualEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/w4-counterfactual.v1.json" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W4ProjectProfileRef:

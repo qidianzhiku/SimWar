@@ -94,6 +94,50 @@ function decision(teamId: string, decisionId: string, roundNo: number): W4Canoni
   };
 }
 
+function capitalDecision(
+  teamId: string,
+  decisionId: string,
+  roundNo: number
+): W4CanonicalStrategicDecision {
+  const currentScope = scope(teamId, roundNo);
+  const payload = {
+    capital_action_kind: "debt" as const,
+    principal: 200,
+    term_rounds: 3,
+    rate_or_cost_bps: 100,
+    cost_source: "scenario",
+    covenant_min_cash: 0,
+    fees: 0,
+    obligation: "term_debt" as const,
+    rationale: "fund a future strategic expansion",
+    reversible: false,
+    dependencies: [],
+    kpi_hypothesis: "preserve runway for the next project cycle",
+    lead_time_rounds: 0
+  };
+  return {
+    decision_id: decisionId,
+    tenant_id: currentScope.tenant_id,
+    course_id: currentScope.course_id,
+    run_id: currentScope.run_id,
+    round_id: currentScope.round_id,
+    round_no: currentScope.round_no,
+    team_id: currentScope.team_id,
+    kind: "capital_action",
+    version: 1,
+    status: "canonical",
+    payload,
+    admission: {
+      policy: "LEGACY_DIRECT_EXPLICIT",
+      authority: "synthetic_run_creation_marker",
+      canonical_decision_id: null,
+      merge_commit_id: null,
+      team_confirmation_id: null,
+      decision_payload_digest: createW4DecisionPayloadDigest("capital_action", payload)
+    }
+  };
+}
+
 function replayManifest(
   openingStateRef: W4StateRef,
   currentScope: W4ScopeContext,
@@ -182,6 +226,9 @@ describe("W4 cross-round path, matched arena, and counterfactual boundaries", ()
     expect(matched.different_history_observed).toBe(true);
     expect(matched.teams[0]?.state_refs[0]?.team_id).toBe("team_alpha");
     expect(matched.teams[1]?.state_refs[0]?.team_id).toBe("team_beta");
+    await expect(service.getMatchedArena(alpha, profile, ["team_gamma"])).rejects.toMatchObject({
+      code: "W4_MATCHED_ARENA_TEAM_CONFLICT"
+    });
 
     const nextScope = scope("team_alpha", 2, "round_team_alpha_2");
     await expect(
@@ -246,5 +293,57 @@ describe("W4 cross-round path, matched arena, and counterfactual boundaries", ()
     expect(evidence.replay_writes_formal_results).toBe(false);
     expect(repository.snapshot()).toEqual(before);
     expect(firstCompiled.commitment.created_round_no).toBe(1);
+    await expect(
+      service.counterfactual(secondRound, {
+        ...input,
+        source_state_ref: initial.state_ref
+      })
+    ).rejects.toMatchObject({ code: "W4_COUNTERFACTUAL_SOURCE_LINEAGE_CONFLICT" });
+  });
+
+  it("uses a source-bound capital snapshot when live action status has advanced", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const firstRound = scope("team_alpha");
+    const initial = await service.createInitialState(firstRound, initialState("team_alpha"));
+    const firstDecision = decision("team_alpha", "decision_capital_source", 1);
+    await service.commitStrategicDecision(firstRound, firstDecision);
+    const firstManifest = replayManifest(
+      initial.state_ref,
+      firstRound,
+      [firstDecision.decision_id],
+      [firstDecision.admission.decision_payload_digest]
+    );
+    const settled = await service.settleRound(firstRound, {
+      opening_state_ref: initial.state_ref,
+      decision_id: firstDecision.decision_id,
+      replay_input_manifest: firstManifest
+    });
+
+    const secondRound = scope("team_alpha", 2, "round_team_alpha_2");
+    const futureCapitalDecision = capitalDecision("team_alpha", "decision_capital_future", 2);
+    await service.commitStrategicDecision(secondRound, futureCapitalDecision);
+    const mutated = repository.snapshot();
+    const liveAction = mutated.capitalActions.find(
+      (action) => action.decision_id === futureCapitalDecision.decision_id
+    );
+    expect(liveAction).toBeDefined();
+    liveAction!.status = "completed";
+    await repository.commit(mutated);
+
+    const evidence = await service.counterfactual(secondRound, {
+      source_state_ref: settled.closing_state_ref,
+      source_outcome_id: settled.outcome_id,
+      decision_ids: [futureCapitalDecision.decision_id],
+      horizon_rounds: 1,
+      scenario_package_id: firstManifest.scenario_package_id,
+      parameter_set_id: firstManifest.parameter_set_id,
+      engine_id: firstManifest.engine_id,
+      plugin_ids: firstManifest.plugin_ids,
+      seed: firstManifest.seed
+    });
+
+    expect(evidence.rounds[0]?.closing_state.capital?.debt_principal).toBe(200);
+    expect(evidence.official_state_writes).toBe(false);
   });
 });
