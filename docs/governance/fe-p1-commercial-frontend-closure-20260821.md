@@ -45,6 +45,11 @@ provider, or database authority was changed.
 - Fresh post-merge worktree at `7264601e...`: `npm ci`, typecheck, full build,
   contract gate (29/67), and focused P2-B/token tests (3 files / 12 tests)
   passed.
+- Fresh post-merge browser gates on the same `7264601e...` worktree passed on
+  rerun: P2-B real-BFF acceptance 2/2 and PR4 DesignSystemLab plus
+  Admin/Teacher/Student responsive/axe integration 4/4. The first PR4 run
+  encountered a 60-second Admin axe evaluation timeout without an assertion
+  failure; the independent rerun passed all four tests.
 - `git diff --check` passed after review feedback removed Markdown trailing
   whitespace.
 
