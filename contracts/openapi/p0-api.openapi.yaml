@@ -4544,6 +4544,63 @@ paths:
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/portfolio/projects:
+    post:
+      operationId: W4_PROJECT_PORTFOLIO_ENTRY_CREATE_V1
+      summary: Add an exact validated ProjectProfileRef to the governed W4 portfolio.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4ProjectPortfolioEntryCreateRequest" }
+      responses:
+        "201":
+          description: Governed project portfolio entry and completed add transaction.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Project authority, initiative, or scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/portfolio/transactions:
+    post:
+      operationId: W4_PROJECT_PORTFOLIO_TRANSACTION_CREATE_V1
+      summary: Create a governed sale, closure, or M&A transaction for a project initiative.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4ProjectTransactionCreateRequest" }
+      responses:
+        "201":
+          description: Transaction in Listing phase.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Transaction authority or scope conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/w4/runs/{runId}/rounds/{roundNo}/portfolio/transactions/{transactionId}/advance:
+    post:
+      operationId: W4_PROJECT_PORTFOLIO_TRANSACTION_ADVANCE_V1
+      summary: Advance a governed project transaction, requiring dual confirmation at M&A closing.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4ProjectTransactionAdvanceRequest" }
+      responses:
+        "200":
+          description: Updated transaction phase and ownership lineage.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Invalid phase, stale transaction, or missing M&A confirmations.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
   /api/v1/w4/runs/{runId}/rounds/{roundNo}/settle:
     post:
       operationId: W4_ENTERPRISE_STATE_SETTLE_V1
@@ -4859,7 +4916,8 @@ components:
       properties:
         blocker_id: { type: string, minLength: 1 }
         category:
-          enum: [course, run, round, project_assignment, project_profile, role_workflow, formal_binding]
+          enum:
+            [course, run, round, project_assignment, project_profile, role_workflow, formal_binding]
         code:
           enum:
             [
@@ -4881,7 +4939,15 @@ components:
         impact: { type: string, minLength: 1 }
         source_authority:
           enum:
-            [Course, Run, Round, ProjectAssignment, ProjectProfile, RoleWorkflow, FormalCourseAuthorityBinding]
+            [
+              Course,
+              Run,
+              Round,
+              ProjectAssignment,
+              ProjectProfile,
+              RoleWorkflow,
+              FormalCourseAuthorityBinding
+            ]
         recovery_action: { type: string, minLength: 1 }
         freshness: { enum: [FRESH_SNAPSHOT, HISTORICAL_EXACT_REF, UNKNOWN] }
         evidence_ref: { type: string, minLength: 1 }
@@ -7373,6 +7439,50 @@ components:
         data: { type: object, additionalProperties: true }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
+    W4ProjectProfileRef:
+      type: object
+      additionalProperties: false
+      required: [content_digest, project_profile_id, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        project_profile_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, minLength: 1 }
+    W4ProjectPortfolioEntryCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [course_id, initiative_id, project_entry_id, project_profile_reference, round_id, team_id]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        initiative_id: { type: string, minLength: 1 }
+        project_entry_id: { type: string, minLength: 1 }
+        project_profile_reference: { $ref: "#/components/schemas/W4ProjectProfileRef" }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+    W4ProjectTransactionCreateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [course_id, initiative_id, kind, project_entry_id, round_id, team_id, transaction_id]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        initiative_id: { type: string, minLength: 1 }
+        kind: { enum: [project_sale, project_closure, merger_acquisition] }
+        project_entry_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        transaction_id: { type: string, minLength: 1 }
+        target_project_profile_reference: { $ref: "#/components/schemas/W4ProjectProfileRef" }
+    W4ProjectTransactionAdvanceRequest:
+      type: object
+      additionalProperties: false
+      required: [target]
+      properties:
+        target:
+          enum: [Bid, DueDiligence, Negotiation, TermSheet, Closing, Closed, Cancelled]
+        buyer_confirmation_id: { type: string, minLength: 1 }
+        seller_confirmation_id: { type: string, minLength: 1 }
     W5TeacherGovernedModelEnvelope:
       type: object
       additionalProperties: false

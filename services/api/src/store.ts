@@ -824,6 +824,8 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
       commitments: [],
       effects: [],
       initiatives: [],
+      projectPortfolio: [],
+      projectTransactions: [],
       policySeams: [],
       outcomes: [],
       replayEvidence: []
@@ -970,6 +972,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
       commitments: snapshot.w4?.commitments ?? seed.w4.commitments,
       effects: snapshot.w4?.effects ?? seed.w4.effects,
       initiatives: snapshot.w4?.initiatives ?? seed.w4.initiatives,
+      projectPortfolio: snapshot.w4?.projectPortfolio ?? seed.w4.projectPortfolio,
+      projectTransactions: snapshot.w4?.projectTransactions ?? seed.w4.projectTransactions,
       policySeams: snapshot.w4?.policySeams ?? seed.w4.policySeams,
       outcomes: snapshot.w4?.outcomes ?? seed.w4.outcomes,
       replayEvidence: snapshot.w4?.replayEvidence ?? seed.w4.replayEvidence

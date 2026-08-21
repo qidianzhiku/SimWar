@@ -20,6 +20,10 @@ import type {
   W4StrategicInitiative,
   W4StrategicDecisionKind,
   W4ProjectLifecycleStatus,
+  W4ProjectPortfolioEntry,
+  W4ProjectTransaction,
+  W4ProjectTransactionKind,
+  W4ProjectTransactionPhase,
   W4StoreState,
   W4ProjectionBase,
   Decision
@@ -60,6 +64,12 @@ type LegacyReplayEvidence = Omit<W4ReplayEvidence, "decision_payload_bindings"> 
 
 function normalizeW4StoreState(input: W4StoreState): W4StoreState {
   const next = clone(input);
+  const legacy = next as W4StoreState & {
+    projectPortfolio?: W4ProjectPortfolioEntry[];
+    projectTransactions?: W4ProjectTransaction[];
+  };
+  next.projectPortfolio = clone(legacy.projectPortfolio ?? []);
+  next.projectTransactions = clone(legacy.projectTransactions ?? []);
   const decisionDigests = new Map<string, string>();
   next.decisions = next.decisions.map((decision) => {
     const legacyAdmission = decision.admission as LegacyDecisionAdmission;
@@ -184,8 +194,44 @@ export interface W4SettlementResult {
   reexecuted_decision_ids: string[];
 }
 
+export interface W4ProjectPortfolioInput {
+  project_entry_id: string;
+  initiative_id: string;
+  project_profile_reference: W4ProjectPortfolioEntry["project_profile_reference"];
+  source_assignment_id: string;
+  project_name: string;
+}
+
+export interface W4ProjectTransactionInput {
+  transaction_id: string;
+  kind: Exclude<W4ProjectTransactionKind, "project_add">;
+  initiative_id: string;
+  project_entry_id: string;
+  target_project_profile_reference?: W4ProjectPortfolioEntry["project_profile_reference"];
+  target_project_name?: string;
+}
+
+export interface W4ProjectTransactionConfirmationInput {
+  buyer_confirmation_id?: string;
+  seller_confirmation_id?: string;
+}
+
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+async function commitW4Mutation(
+  repository: W4Repository,
+  before: W4StoreState,
+  next: W4StoreState
+): Promise<void> {
+  try {
+    await repository.commit(next);
+  } catch (error) {
+    repository.replace(before);
+    if (error instanceof W4EnterpriseStateError) throw error;
+    throw new W4EnterpriseStateError("W4_ATOMIC_COMMIT_FAILED");
+  }
 }
 
 function digest(value: unknown): string {
@@ -310,6 +356,21 @@ function scopeMatches(
     scope.run_id === value.run_id &&
     scope.team_id === value.team_id
   );
+}
+
+function assertProjectProfileReference(
+  scope: W4ScopeContext,
+  reference: W4ProjectPortfolioEntry["project_profile_reference"]
+): void {
+  if (
+    !reference ||
+    reference.tenant_id !== scope.tenant_id ||
+    !reference.project_profile_id.trim() ||
+    !reference.version.trim() ||
+    !/^[a-f0-9-]{8,}$/.test(reference.content_digest)
+  ) {
+    throw new W4EnterpriseStateError("W4_PROJECT_PROFILE_REFERENCE_INVALID");
+  }
 }
 
 function stateMatchesExactRef(state: W4EnterpriseState, reference: W4StateRef): boolean {
@@ -649,6 +710,8 @@ export function createInMemoryW4Repository(initial?: Partial<W4StoreState>): W4R
     commitments: clone(initial?.commitments ?? []),
     effects: clone(initial?.effects ?? []),
     initiatives: clone(initial?.initiatives ?? []),
+    projectPortfolio: clone(initial?.projectPortfolio ?? []),
+    projectTransactions: clone(initial?.projectTransactions ?? []),
     policySeams: clone(initial?.policySeams ?? []),
     outcomes: clone(initial?.outcomes ?? []),
     replayEvidence: clone(initial?.replayEvidence ?? [])
@@ -817,12 +880,234 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       return clone(initiative);
     },
 
+    async addProjectToPortfolio(
+      scope: W4ScopeContext,
+      input: W4ProjectPortfolioInput
+    ): Promise<W4ProjectPortfolioEntry> {
+      const current = repository.snapshot();
+      const before = clone(current);
+      if (
+        !input.project_entry_id.trim() ||
+        !input.initiative_id.trim() ||
+        !input.source_assignment_id.trim() ||
+        !input.project_name.trim()
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_PORTFOLIO_INPUT_INVALID");
+      }
+      if (
+        current.projectPortfolio.some((entry) => entry.project_entry_id === input.project_entry_id)
+      ) {
+        throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
+      }
+      const initiative = current.initiatives.find(
+        (item) =>
+          item.initiative_id === input.initiative_id &&
+          scopeMatches(scope, item) &&
+          item.kind === "new_project" &&
+          item.project !== null
+      );
+      if (!initiative) throw new W4EnterpriseStateError("W4_PROJECT_INITIATIVE_REQUIRED");
+      assertProjectProfileReference(scope, input.project_profile_reference);
+      initiative.project_lifecycle_status = "Opportunity";
+      const entry: W4ProjectPortfolioEntry = {
+        project_entry_id: input.project_entry_id,
+        initiative_id: input.initiative_id,
+        source_assignment_id: input.source_assignment_id,
+        project_profile_reference: clone(input.project_profile_reference),
+        project_name: input.project_name,
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        lifecycle_status: "Opportunity",
+        ownership_status: "owned",
+        operating_unit_id: null,
+        successor_of_entry_id: null,
+        created_round_no: scope.round_no,
+        updated_round_no: scope.round_no
+      };
+      const transaction: W4ProjectTransaction = {
+        transaction_id: `transaction_${input.project_entry_id}`,
+        kind: "project_add",
+        phase: "Closed",
+        initiative_id: input.initiative_id,
+        project_entry_id: input.project_entry_id,
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        created_round_no: scope.round_no,
+        updated_round_no: scope.round_no
+      };
+      current.projectPortfolio.push(entry);
+      current.projectTransactions.push(transaction);
+      await commitW4Mutation(repository, before, current);
+      return clone(entry);
+    },
+
+    async createProjectTransaction(
+      scope: W4ScopeContext,
+      input: W4ProjectTransactionInput
+    ): Promise<W4ProjectTransaction> {
+      const current = repository.snapshot();
+      const before = clone(current);
+      if (
+        current.projectTransactions.some((item) => item.transaction_id === input.transaction_id)
+      ) {
+        throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
+      }
+      const initiative = current.initiatives.find(
+        (item) => item.initiative_id === input.initiative_id && scopeMatches(scope, item)
+      );
+      const entry = current.projectPortfolio.find(
+        (item) => item.project_entry_id === input.project_entry_id && scopeMatches(scope, item)
+      );
+      if (!initiative || !entry || entry.initiative_id !== input.initiative_id) {
+        throw new W4EnterpriseStateError("W4_PROJECT_TRANSACTION_SCOPE_CONFLICT");
+      }
+      if (entry.ownership_status !== "owned") {
+        throw new W4EnterpriseStateError("W4_PROJECT_NOT_OWNED");
+      }
+      if (input.kind === "merger_acquisition") {
+        if (!input.target_project_profile_reference || !input.target_project_name?.trim()) {
+          throw new W4EnterpriseStateError("W4_M_AND_A_SUCCESSOR_REQUIRED");
+        }
+        assertProjectProfileReference(scope, input.target_project_profile_reference);
+      }
+      const transaction: W4ProjectTransaction = {
+        transaction_id: input.transaction_id,
+        kind: input.kind,
+        phase: "Listing",
+        initiative_id: input.initiative_id,
+        project_entry_id: input.project_entry_id,
+        ...(input.target_project_profile_reference
+          ? { target_project_profile_reference: clone(input.target_project_profile_reference) }
+          : {}),
+        ...(input.target_project_name ? { target_project_name: input.target_project_name } : {}),
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        created_round_no: scope.round_no,
+        updated_round_no: scope.round_no
+      };
+      current.projectTransactions.push(transaction);
+      await commitW4Mutation(repository, before, current);
+      return clone(transaction);
+    },
+
+    async advanceProjectTransaction(
+      scope: W4ScopeContext,
+      transactionId: string,
+      target: W4ProjectTransactionPhase,
+      confirmations: W4ProjectTransactionConfirmationInput = {}
+    ): Promise<W4ProjectTransaction> {
+      const current = repository.snapshot();
+      const before = clone(current);
+      const transaction = current.projectTransactions.find(
+        (item) => item.transaction_id === transactionId && scopeMatches(scope, item)
+      );
+      if (!transaction || transaction.kind === "project_add") {
+        throw new W4EnterpriseStateError("W4_PROJECT_TRANSACTION_NOT_FOUND");
+      }
+      const allowed: Record<
+        Exclude<W4ProjectTransactionKind, "project_add">,
+        Record<W4ProjectTransactionPhase, W4ProjectTransactionPhase[]>
+      > = {
+        project_sale: {
+          Listing: ["Bid", "Cancelled"],
+          Bid: ["DueDiligence", "Cancelled"],
+          DueDiligence: ["Negotiation", "Cancelled"],
+          Negotiation: ["TermSheet", "Cancelled"],
+          TermSheet: ["Closing", "Cancelled"],
+          Closing: ["Closed", "Cancelled"],
+          Closed: [],
+          Cancelled: []
+        },
+        project_closure: {
+          Listing: ["Closing", "Cancelled"],
+          Bid: [],
+          DueDiligence: [],
+          Negotiation: [],
+          TermSheet: [],
+          Closing: ["Closed", "Cancelled"],
+          Closed: [],
+          Cancelled: []
+        },
+        merger_acquisition: {
+          Listing: ["Bid", "Cancelled"],
+          Bid: ["DueDiligence", "Cancelled"],
+          DueDiligence: ["Negotiation", "Cancelled"],
+          Negotiation: ["TermSheet", "Cancelled"],
+          TermSheet: ["Closing", "Cancelled"],
+          Closing: ["Closed", "Cancelled"],
+          Closed: [],
+          Cancelled: []
+        }
+      };
+      if (!allowed[transaction.kind][transaction.phase].includes(target)) {
+        throw new W4EnterpriseStateError("W4_INVALID_PROJECT_TRANSACTION_TRANSITION");
+      }
+      if (target === "Closing") {
+        const buyer = confirmations.buyer_confirmation_id ?? transaction.buyer_confirmation_id;
+        const seller = confirmations.seller_confirmation_id ?? transaction.seller_confirmation_id;
+        if (transaction.kind === "merger_acquisition" && (!buyer || !seller)) {
+          throw new W4EnterpriseStateError("W4_M_AND_A_DUAL_CONFIRMATION_REQUIRED");
+        }
+        if (buyer) transaction.buyer_confirmation_id = buyer;
+        if (seller) transaction.seller_confirmation_id = seller;
+      }
+      if (target === "Closed") {
+        if (transaction.phase !== "Closing") {
+          throw new W4EnterpriseStateError("W4_INVALID_PROJECT_TRANSACTION_TRANSITION");
+        }
+        if (
+          transaction.kind === "merger_acquisition" &&
+          (!transaction.buyer_confirmation_id || !transaction.seller_confirmation_id)
+        ) {
+          throw new W4EnterpriseStateError("W4_M_AND_A_DUAL_CONFIRMATION_REQUIRED");
+        }
+        const entry = current.projectPortfolio.find(
+          (item) => item.project_entry_id === transaction.project_entry_id
+        );
+        if (!entry) throw new W4EnterpriseStateError("W4_PROJECT_TRANSACTION_SCOPE_CONFLICT");
+        entry.updated_round_no = scope.round_no;
+        entry.operating_unit_id = null;
+        entry.lifecycle_status = "Closed";
+        entry.ownership_status = transaction.kind === "project_closure" ? "closed" : "sold";
+        if (transaction.kind === "merger_acquisition") {
+          const successor: W4ProjectPortfolioEntry = {
+            ...clone(entry),
+            project_entry_id: `${transaction.transaction_id}:successor`,
+            initiative_id: `${transaction.initiative_id}:successor`,
+            project_profile_reference: clone(
+              transaction.target_project_profile_reference ?? entry.project_profile_reference
+            ),
+            project_name: transaction.target_project_name ?? entry.project_name,
+            lifecycle_status: "Opportunity",
+            ownership_status: "owned",
+            operating_unit_id: null,
+            successor_of_entry_id: entry.project_entry_id,
+            created_round_no: scope.round_no,
+            updated_round_no: scope.round_no
+          };
+          entry.successor_of_entry_id = successor.project_entry_id;
+          current.projectPortfolio.push(successor);
+        }
+      }
+      transaction.phase = target;
+      transaction.updated_round_no = scope.round_no;
+      await commitW4Mutation(repository, before, current);
+      return clone(transaction);
+    },
+
     async advanceProjectLifecycle(
       scope: W4ScopeContext,
       initiativeId: string,
       target: W4ProjectLifecycleStatus
     ): Promise<W4StrategicInitiative> {
       const current = repository.snapshot();
+      const before = clone(current);
       const initiative = current.initiatives.find(
         (item) =>
           item.initiative_id === initiativeId && scopeMatches(scope, item) && item.project !== null
@@ -830,6 +1115,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       if (!initiative || !initiative.project_lifecycle_status) {
         throw new W4EnterpriseStateError("W4_PROJECT_LIFECYCLE_NOT_FOUND");
       }
+      const portfolioEntry = current.projectPortfolio.find(
+        (entry) => entry.initiative_id === initiative.initiative_id && scopeMatches(scope, entry)
+      );
+      const currentLifecycle =
+        portfolioEntry?.lifecycle_status ?? initiative.project_lifecycle_status;
       const allowed: Record<W4ProjectLifecycleStatus, W4ProjectLifecycleStatus[]> = {
         Opportunity: ["Feasibility", "Cancelled"],
         Feasibility: ["DueDiligence", "Cancelled"],
@@ -840,11 +1130,33 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         Closed: [],
         Cancelled: []
       };
-      if (!allowed[initiative.project_lifecycle_status].includes(target)) {
+      if (!allowed[currentLifecycle].includes(target)) {
         throw new W4EnterpriseStateError("W4_INVALID_PROJECT_LIFECYCLE_TRANSITION");
       }
       initiative.project_lifecycle_status = target;
-      await repository.commit(current);
+      if (portfolioEntry) {
+        if (
+          target === "Closed" &&
+          !current.projectTransactions.some(
+            (transaction) =>
+              transaction.project_entry_id === portfolioEntry.project_entry_id &&
+              transaction.kind === "project_closure" &&
+              transaction.phase === "Closed"
+          )
+        ) {
+          throw new W4EnterpriseStateError("W4_PROJECT_TRANSACTION_REQUIRED");
+        }
+        portfolioEntry.lifecycle_status = target;
+        portfolioEntry.updated_round_no = scope.round_no;
+        if (target === "Operating") {
+          portfolioEntry.operating_unit_id = `operating-unit-${portfolioEntry.project_entry_id}`;
+        }
+        if (target === "Cancelled" || target === "Closed") {
+          portfolioEntry.operating_unit_id = null;
+          if (target === "Cancelled") portfolioEntry.ownership_status = "closed";
+        }
+      }
+      await commitW4Mutation(repository, before, current);
       return clone(initiative);
     },
 
@@ -985,7 +1297,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         roundNo: scope.round_no,
         commitments: activeCommitments,
         effects: persistentEffects,
-        initiatives: before.initiatives.filter((initiative) => scopeMatches(scope, initiative))
+        initiatives: before.initiatives.filter((initiative) => scopeMatches(scope, initiative)),
+        project_portfolio: before.projectPortfolio.filter((entry) => scopeMatches(scope, entry))
       });
       const sourceData = stateTransition.closing;
       const closing: W4EnterpriseState = {
@@ -1180,6 +1493,12 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
       const scopedInitiatives = current.initiatives.filter((item) => scopeMatches(scope, item));
+      const scopedProjectPortfolio = current.projectPortfolio.filter((item) =>
+        scopeMatches(scope, item)
+      );
+      const scopedProjectTransactions = current.projectTransactions.filter((item) =>
+        scopeMatches(scope, item)
+      );
       const latestStrategicDecision = current.decisions
         .filter((item) => scopeMatches(scope, item))
         .sort(
@@ -1303,6 +1622,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         closing_state_ref: currentOutcome?.closing_state_ref ?? null,
         state: latestState ? clone(latestState.state) : null,
         initiatives: clone(scopedInitiatives),
+        project_portfolio: clone(scopedProjectPortfolio),
+        project_transactions: clone(scopedProjectTransactions),
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
         latest_strategic_action: latestStrategicDecision

@@ -1,6 +1,7 @@
 import type {
   W4EnterpriseStateData,
   W4Commitment,
+  W4ProjectPortfolioEntry,
   W4StrategicEffect,
   W4StrategicInitiative
 } from "@simwar/shared-contracts";
@@ -11,6 +12,7 @@ export interface EnterpriseStateSettlementInput {
   commitments: W4Commitment[];
   effects: W4StrategicEffect[];
   initiatives: W4StrategicInitiative[];
+  project_portfolio?: W4ProjectPortfolioEntry[];
 }
 
 export interface EnterpriseStateSettlementOutput {
@@ -41,8 +43,54 @@ export function settleEnterpriseState(
   const applicableInitiatives = input.initiatives.filter(
     (initiative) => initiative.activation_round_no <= input.roundNo
   );
+  const governedEntries = input.project_portfolio ?? [];
+  const governedInitiativeIds = new Set(governedEntries.map((entry) => entry.initiative_id));
+  const governedActiveNames = new Set(
+    governedEntries
+      .filter(
+        (entry) => entry.ownership_status === "owned" && entry.lifecycle_status === "Operating"
+      )
+      .map((entry) => entry.project_name)
+  );
+  const governedClosedNames = new Set(
+    governedEntries
+      .filter(
+        (entry) => entry.ownership_status !== "owned" || entry.lifecycle_status !== "Operating"
+      )
+      .map((entry) => entry.project_name)
+  );
+  const retainedProjects = closing.portfolio.projects.filter(
+    (projectName) => !governedClosedNames.has(projectName) || governedActiveNames.has(projectName)
+  );
+  closing.portfolio.projects = retainedProjects;
+
+  closing.operating_units = closing.operating_units.filter(
+    (unit) => !governedEntries.some((entry) => entry.operating_unit_id === unit.operating_unit_id)
+  );
+  for (const entry of governedEntries) {
+    if (entry.ownership_status !== "owned" || entry.lifecycle_status !== "Operating") continue;
+    if (!closing.portfolio.projects.includes(entry.project_name)) {
+      closing.portfolio.projects.push(entry.project_name);
+      const initiative = input.initiatives.find(
+        (item) => item.initiative_id === entry.initiative_id
+      );
+      if (initiative?.project) closing.capacity += initiative.project.beds;
+    }
+    if (
+      entry.operating_unit_id &&
+      !closing.operating_units.some((unit) => unit.operating_unit_id === entry.operating_unit_id)
+    ) {
+      closing.operating_units.push({
+        operating_unit_id: entry.operating_unit_id,
+        name: entry.project_name,
+        status: "active"
+      });
+    }
+  }
+
   for (const initiative of applicableInitiatives) {
     const project = initiative.project;
+    if (governedInitiativeIds.has(initiative.initiative_id)) continue;
     if (!project || closing.portfolio.projects.includes(project.project_name)) continue;
     closing.portfolio.projects.push(project.project_name);
     closing.capacity += project.beds;

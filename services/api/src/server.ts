@@ -6035,6 +6035,26 @@ async function routeRequest(
             return null;
           }
         },
+        resolveProjectAuthority: async (scope, reference) => {
+          const profile = await runtime.projectLibrary.getByReference(scope.tenant_id, reference);
+          const assignments = await runtime.projectLibrary.getAssignmentsForScope(
+            { actor_id: scope.actor_id, tenant_id: scope.tenant_id },
+            { course_id: scope.course_id, run_id: scope.run_id, team_ids: [scope.team_id] }
+          );
+          const assignment = assignments[0];
+          if (
+            !profile ||
+            profile.status !== "VALIDATED" ||
+            profile.course_id !== scope.course_id ||
+            !assignment
+          ) {
+            return null;
+          }
+          return {
+            source_assignment_id: assignment.assignment_id,
+            project_name: profile.title
+          };
+        },
         admitStrategicDecision: async (scope, decision): Promise<W4DecisionAdmission> => {
           const run = await runtime.repositoryProvider.facade.runs.getRun(
             scope.tenant_id,
