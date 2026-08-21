@@ -4842,8 +4842,24 @@ components:
     ProjectAwareBlocker:
       type: object
       additionalProperties: false
-      required: [action, code, owner]
+      required:
+        [
+          action,
+          blocker_id,
+          category,
+          code,
+          evidence_ref,
+          freshness,
+          impact,
+          owner,
+          reason,
+          recovery_action,
+          source_authority
+        ]
       properties:
+        blocker_id: { type: string, minLength: 1 }
+        category:
+          enum: [course, run, round, project_assignment, project_profile, role_workflow, formal_binding]
         code:
           enum:
             [
@@ -4861,6 +4877,15 @@ components:
             ]
         owner: { enum: [teacher, platform, team] }
         action: { type: string, minLength: 1 }
+        reason: { type: string, minLength: 1 }
+        impact: { type: string, minLength: 1 }
+        source_authority:
+          enum:
+            [Course, Run, Round, ProjectAssignment, ProjectProfile, RoleWorkflow, FormalCourseAuthorityBinding]
+        recovery_action: { type: string, minLength: 1 }
+        freshness: { enum: [FRESH_SNAPSHOT, HISTORICAL_EXACT_REF, UNKNOWN] }
+        evidence_ref: { type: string, minLength: 1 }
+        waiver_policy: { type: string, minLength: 1 }
         detail: { type: string }
     ProjectAwareFormalBinding:
       type: object

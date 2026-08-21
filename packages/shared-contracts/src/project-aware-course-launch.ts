@@ -39,6 +39,35 @@ export const PROJECT_AWARE_BLOCKER_CODES = [
 ] as const;
 export type ProjectAwareBlockerCode = (typeof PROJECT_AWARE_BLOCKER_CODES)[number];
 
+export const PROJECT_AWARE_BLOCKER_CATEGORIES = [
+  "course",
+  "run",
+  "round",
+  "project_assignment",
+  "project_profile",
+  "role_workflow",
+  "formal_binding"
+] as const;
+export type ProjectAwareBlockerCategory = (typeof PROJECT_AWARE_BLOCKER_CATEGORIES)[number];
+
+export const PROJECT_AWARE_BLOCKER_AUTHORITIES = [
+  "Course",
+  "Run",
+  "Round",
+  "ProjectAssignment",
+  "ProjectProfile",
+  "RoleWorkflow",
+  "FormalCourseAuthorityBinding"
+] as const;
+export type ProjectAwareBlockerAuthority = (typeof PROJECT_AWARE_BLOCKER_AUTHORITIES)[number];
+
+export const PROJECT_AWARE_BLOCKER_FRESHNESS = [
+  "FRESH_SNAPSHOT",
+  "HISTORICAL_EXACT_REF",
+  "UNKNOWN"
+] as const;
+export type ProjectAwareBlockerFreshness = (typeof PROJECT_AWARE_BLOCKER_FRESHNESS)[number];
+
 export const PROJECT_AWARE_STUDENT_FORBIDDEN_FIELDS = [
   "state_true",
   "raw_source_path",
@@ -57,9 +86,18 @@ export interface ProjectAwareScope {
 }
 
 export interface ProjectAwareBlocker {
+  blocker_id: string;
+  category: ProjectAwareBlockerCategory;
   code: ProjectAwareBlockerCode;
   owner: "teacher" | "platform" | "team";
   action: string;
+  reason: string;
+  impact: string;
+  source_authority: ProjectAwareBlockerAuthority;
+  recovery_action: string;
+  freshness: ProjectAwareBlockerFreshness;
+  evidence_ref: string;
+  waiver_policy?: string;
   detail?: string;
 }
 

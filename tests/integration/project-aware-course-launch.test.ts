@@ -139,7 +139,27 @@ describe("Project-aware launch BFF", () => {
       expect(launch.body.data.status).toBe("ACCEPTED");
       expect(launch.body.data.team_ids).toEqual(["team_alpha", "team_beta"]);
       expect(store.formalRunRuntimeBindings).toHaveLength(1);
-      expect(store.w4.states).toHaveLength(2);
+      const openingStates = store.w4.states.filter(
+        (state) => state.run_id === M2P3_RUN_ID && state.round_no === 1
+      );
+      expect(openingStates).toHaveLength(2);
+      expect(openingStates.map((state) => state.team_id).sort()).toEqual([
+        "team_alpha",
+        "team_beta"
+      ]);
+      expect(new Set(openingStates.map((state) => state.enterprise_state_id)).size).toBe(2);
+      expect(new Set(openingStates.map((state) => state.state_digest)).size).toBe(2);
+      expect(
+        openingStates.every(
+          (state) =>
+            state.state.organization.project_profile_id === "shanghai-project-m2-p3-browser" &&
+            !JSON.stringify(state.state).includes(
+              state.team_id === "team_alpha" ? "team_beta" : "team_alpha"
+            )
+        )
+      ).toBe(true);
+      expect(store.w4.decisions).toHaveLength(0);
+      expect(store.w4.outcomes).toHaveLength(0);
 
       const concurrent = await Promise.all([
         request<{ status: string }>(
