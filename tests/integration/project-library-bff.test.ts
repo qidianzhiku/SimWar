@@ -34,6 +34,7 @@ async function login(baseUrl: string, username: string): Promise<string> {
 
 async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const store = createP1Store();
+  store.courses[0]!.market_world_reference = getShanghaiMarketWorldReference();
   store.runs.push({
     course_id: "course_demo",
     parameter_set_id: "param_toy_approved_1",

@@ -16,6 +16,7 @@ const marketWorldReference = getShanghaiMarketWorldReference();
 
 function seedRunAndSecondTeam() {
   const store = createP1Store();
+  store.courses[0]!.market_world_reference = marketWorldReference;
   store.runs.push({
     course_id: "course_demo",
     parameter_set_id: "param_toy_approved_1",
@@ -177,6 +178,34 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
     ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_CONFLICT" });
   });
 
+  it("serializes concurrent assignment requests for one Run and Team", async () => {
+    const store = seedRunAndSecondTeam();
+    const service = new ProjectLibraryService(store);
+    const profile = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput()
+    });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(profile) });
+
+    const results = await Promise.all([
+      service.assign(actor, {
+        course_id: "course_demo",
+        project_profile_ref: ref(profile),
+        run_id: "run_project_library",
+        team_id: "team_beta"
+      }),
+      service.assign(actor, {
+        course_id: "course_demo",
+        project_profile_ref: ref(profile),
+        run_id: "run_project_library",
+        team_id: "team_beta"
+      })
+    ]);
+
+    expect(results.map((result) => result.idempotent).sort()).toEqual([false, true]);
+    expect(store.projectAssignments).toHaveLength(1);
+  });
+
   it("keeps historical profiles immutable and resolves successors without rewriting refs", async () => {
     const service = new ProjectLibraryService(seedRunAndSecondTeam());
     const source = await service.createDraft(actor, {
@@ -230,6 +259,54 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
         team_id: "team_alpha"
       })
     ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_RETIRED" });
+  });
+
+  it("requires a valid future-effective timestamp for successors", async () => {
+    const service = new ProjectLibraryService(seedRunAndSecondTeam());
+    const source = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput()
+    });
+    const validated = await service.validate(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(source)
+    });
+
+    await expect(
+      service.createSuccessor(actor, {
+        course_id: "course_demo",
+        description: "Invalid future successor",
+        future_effective_at: "not-a-date",
+        project_profile_id: "shanghai-project-invalid-successor",
+        source_project_profile_ref: ref(validated),
+        title: "Invalid successor",
+        version: "2026-09-01.1"
+      })
+    ).rejects.toMatchObject({ code: "PROJECT_PROFILE_INPUT_INVALID" });
+  });
+
+  it("blocks assignment when the Course MarketWorld dependency is unbound", async () => {
+    const store = seedRunAndSecondTeam();
+    store.courses[0]!.market_world_reference = undefined;
+    const service = new ProjectLibraryService(store);
+    const profile = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput()
+    });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(profile) });
+
+    expect((await service.getTeacherLibrary(actor, "course_demo"))[0]?.readiness).toContain(
+      "DEPENDENCY_MISSING"
+    );
+    await expect(
+      service.assign(actor, {
+        course_id: "course_demo",
+        project_profile_ref: ref(profile),
+        run_id: "run_project_library",
+        team_id: "team_alpha"
+      })
+    ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_DEPENDENCY_MISSING" });
+    expect(store.projectAssignments).toHaveLength(0);
   });
 
   it("returns only the assigned safe brief and never writes W4 state", async () => {

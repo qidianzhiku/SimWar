@@ -1,4 +1,5 @@
 import { createP1Store } from "../../services/api/src/store";
+import { getShanghaiMarketWorldReference } from "../../services/api/src/market-world-product";
 
 const RUN_ID = "run_m2_p2_project_library_browser";
 const ROUND_ID = "round_m2_p2_project_library_browser";
@@ -13,6 +14,7 @@ export function seedM2P2ProjectLibraryFixture(storeFile: string): void {
   }
   const course = store.courses.find((candidate) => candidate.course_id === "course_demo");
   if (!course) throw new Error("M2-P2 fixture requires the default demo course.");
+  course.market_world_reference = getShanghaiMarketWorldReference();
   store.runs.push({
     course_id: course.course_id,
     parameter_set_id: course.parameter_set_id,

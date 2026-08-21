@@ -1002,7 +1002,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "../schemas/project-profile.v1.json"
+                $ref: "#/components/schemas/ProjectProfileEnvelope"
         "401": { description: Authentication required }
         "403": { description: Teacher authority required }
         "409": { description: Duplicate immutable identity }
@@ -4643,6 +4643,16 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    ProjectProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          $ref: "../schemas/project-profile.v1.json"
+        message: { type: string }
+        request_id: { type: string }
     TeachingClosureEnvelope:
       type: object
       required: [code, data, message, request_id]

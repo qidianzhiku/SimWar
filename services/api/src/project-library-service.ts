@@ -159,6 +159,17 @@ function sameMarketWorldReference(
   );
 }
 
+function normalizeFutureEffectiveAt(value: unknown): string {
+  if (typeof value !== "string" || !value.includes("T")) {
+    throw new ProjectLibraryError("PROJECT_PROFILE_INPUT_INVALID");
+  }
+  const timestamp = new Date(value);
+  if (!Number.isFinite(timestamp.getTime()) || timestamp.getTime() <= Date.now()) {
+    throw new ProjectLibraryError("PROJECT_PROFILE_INPUT_INVALID");
+  }
+  return timestamp.toISOString();
+}
+
 function assertClosedDraft(input: ProjectProfileDraftInput, code: ProjectLibraryErrorCode): void {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new ProjectLibraryError(code);
@@ -232,7 +243,7 @@ function profileReadiness(
   if (profile.status === "VALIDATED") readiness.push("READY");
   if (profile.status === "RETIRED") readiness.push("RETIRED");
   if (
-    course.market_world_reference &&
+    !course.market_world_reference ||
     !sameMarketWorldReference(course.market_world_reference, profile.market_world_reference)
   ) {
     readiness.push("DEPENDENCY_MISSING");
@@ -271,6 +282,8 @@ function studentBrief(profile: ProjectProfile): ProjectProfileStudentBrief {
 }
 
 export class ProjectLibraryService {
+  private readonly assignmentLocks = new Map<string, Promise<void>>();
+
   constructor(private readonly store: SimWarStore) {}
 
   async getByReference(
@@ -415,7 +428,7 @@ export class ProjectLibraryService {
         kind: "SUCCESSOR",
         source_project_profile_reference: profileReference(source)
       }),
-      future_effective_at: input.future_effective_at,
+      future_effective_at: normalizeFutureEffectiveAt(input.future_effective_at),
       provenance: {
         kind: "SUCCESSOR",
         source_project_profile_reference: profileReference(source)
@@ -429,76 +442,88 @@ export class ProjectLibraryService {
     actor: ProjectLibraryActor,
     input: ProjectAssignmentInput
   ): Promise<ProjectAssignmentResult> {
-    assertActor(actor);
-    const course = this.requireCourse(actor.tenant_id, input.course_id);
-    const run = this.store.runs.find(
-      (candidate) =>
-        candidate.run_id === input.run_id &&
-        candidate.tenant_id === actor.tenant_id &&
-        candidate.course_id === course.course_id
+    return this.withAssignmentLock(
+      `${actor.tenant_id}:${input.course_id}:${input.run_id}:${input.team_id}`,
+      async () => {
+        assertActor(actor);
+        const course = this.requireCourse(actor.tenant_id, input.course_id);
+        const run = this.store.runs.find(
+          (candidate) =>
+            candidate.run_id === input.run_id &&
+            candidate.tenant_id === actor.tenant_id &&
+            candidate.course_id === course.course_id
+        );
+        const team = this.store.teams.find(
+          (candidate) =>
+            candidate.team_id === input.team_id &&
+            candidate.tenant_id === actor.tenant_id &&
+            candidate.course_id === course.course_id
+        );
+        if (!run || !team) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_SCOPE_VIOLATION");
+        const existing = this.store.projectAssignments.find(
+          (assignment) =>
+            assignment.tenant_id === actor.tenant_id &&
+            assignment.course_id === course.course_id &&
+            assignment.run_id === input.run_id &&
+            assignment.team_id === input.team_id
+        );
+        if (
+          existing &&
+          !sameProfileReference(
+            existing.project_profile_reference,
+            normalizeReference(input.project_profile_ref)
+          )
+        ) {
+          throw new ProjectLibraryError("PROJECT_ASSIGNMENT_CONFLICT");
+        }
+        const profile = await this.requireOwned(actor, input.project_profile_ref, course.course_id);
+        if (profile.status === "RETIRED")
+          throw new ProjectLibraryError("PROJECT_ASSIGNMENT_RETIRED");
+        if (profile.status !== "VALIDATED")
+          throw new ProjectLibraryError("PROJECT_ASSIGNMENT_DEPENDENCY_MISSING");
+        if (
+          !course.market_world_reference ||
+          !sameMarketWorldReference(course.market_world_reference, profile.market_world_reference)
+        ) {
+          throw new ProjectLibraryError("PROJECT_ASSIGNMENT_DEPENDENCY_MISSING");
+        }
+        if (existing) {
+          return {
+            assignment: clone(existing),
+            idempotent: true,
+            readiness: profileReadiness(profile, this.store.projectProfiles, course)
+          };
+        }
+        const assignment: ProjectAssignment = {
+          assigned_at: new Date().toISOString(),
+          assigned_by: actor.actor_id,
+          assignment_id: `project-assignment-${digest({
+            course_id: course.course_id,
+            project_profile_reference: profileReference(profile),
+            run_id: input.run_id,
+            team_id: input.team_id
+          }).slice(0, 24)}`,
+          course_id: course.course_id,
+          project_profile_reference: profileReference(profile),
+          run_id: input.run_id,
+          schema_version: "project-assignment.v1",
+          team_id: input.team_id,
+          tenant_id: actor.tenant_id
+        };
+        this.store.projectAssignments.push(assignment);
+        try {
+          this.store.persist();
+        } catch (error) {
+          this.store.projectAssignments.pop();
+          throw error;
+        }
+        return {
+          assignment: clone(assignment),
+          idempotent: false,
+          readiness: profileReadiness(profile, this.store.projectProfiles, course)
+        };
+      }
     );
-    const team = this.store.teams.find(
-      (candidate) =>
-        candidate.team_id === input.team_id &&
-        candidate.tenant_id === actor.tenant_id &&
-        candidate.course_id === course.course_id
-    );
-    if (!run || !team) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_SCOPE_VIOLATION");
-    const existing = this.store.projectAssignments.find(
-      (assignment) =>
-        assignment.tenant_id === actor.tenant_id &&
-        assignment.course_id === course.course_id &&
-        assignment.run_id === input.run_id &&
-        assignment.team_id === input.team_id
-    );
-    if (
-      existing &&
-      !sameProfileReference(
-        existing.project_profile_reference,
-        normalizeReference(input.project_profile_ref)
-      )
-    ) {
-      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_CONFLICT");
-    }
-    const profile = await this.requireOwned(actor, input.project_profile_ref, course.course_id);
-    if (profile.status === "RETIRED") throw new ProjectLibraryError("PROJECT_ASSIGNMENT_RETIRED");
-    if (profile.status !== "VALIDATED")
-      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_DEPENDENCY_MISSING");
-    if (existing) {
-      return {
-        assignment: clone(existing),
-        idempotent: true,
-        readiness: profileReadiness(profile, this.store.projectProfiles, course)
-      };
-    }
-    const assignment: ProjectAssignment = {
-      assigned_at: new Date().toISOString(),
-      assigned_by: actor.actor_id,
-      assignment_id: `project-assignment-${digest({
-        course_id: course.course_id,
-        project_profile_reference: profileReference(profile),
-        run_id: input.run_id,
-        team_id: input.team_id
-      }).slice(0, 24)}`,
-      course_id: course.course_id,
-      project_profile_reference: profileReference(profile),
-      run_id: input.run_id,
-      schema_version: "project-assignment.v1",
-      team_id: input.team_id,
-      tenant_id: actor.tenant_id
-    };
-    this.store.projectAssignments.push(assignment);
-    try {
-      this.store.persist();
-    } catch (error) {
-      this.store.projectAssignments.pop();
-      throw error;
-    }
-    return {
-      assignment: clone(assignment),
-      idempotent: false,
-      readiness: profileReadiness(profile, this.store.projectProfiles, course)
-    };
   }
 
   async getTeacherLibrary(
@@ -623,6 +648,23 @@ export class ProjectLibraryService {
     provenance: ProjectProfileProvenance
   ): Promise<ProjectProfile> {
     return this.appendProfile(this.buildProfile(actor, courseId, draft, provenance));
+  }
+
+  private async withAssignmentLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.assignmentLocks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const queued = previous.then(() => current);
+    this.assignmentLocks.set(key, queued);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.assignmentLocks.get(key) === queued) this.assignmentLocks.delete(key);
+    }
   }
 
   private buildProfile(

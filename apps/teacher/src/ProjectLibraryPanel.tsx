@@ -45,6 +45,12 @@ export function ProjectLibraryPanel({
   const [title, setTitle] = useState("Shanghai Care Project");
   const [profileId, setProfileId] = useState("shanghai-project-teacher");
   const [description, setDescription] = useState("Safe normalized teaching project.");
+  const teamIdsKey = teamIds.join("\u0000");
+
+  useEffect(() => {
+    const fallback = teamIds[0] ?? "team_alpha";
+    setTeamId((current) => (teamIds.includes(current) ? current : fallback));
+  }, [courseId, teamIdsKey]);
 
   const load = useCallback(async () => {
     if (!courseId || !token) {
