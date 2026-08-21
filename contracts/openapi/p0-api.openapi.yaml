@@ -4697,6 +4697,72 @@ paths:
           description: Admin W4 projection.
           content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
 
+  /api/v1/bff/teacher/w4/runs/{runId}/matched-arena:
+    get:
+      operationId: W4_TEACHER_MATCHED_PROJECT_ARENA_GET_V1
+      summary: Read teacher-only matched ProjectProfile paths across isolated teams.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: project_profile_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: version
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: content_digest
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+        - name: team_ids
+          in: query
+          required: false
+          schema: { type: string }
+          description: Optional comma-separated team ids; omitted means all matching teams.
+      responses:
+        "200":
+          description: Exact-reference matched arena with isolated state/path digests.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Tenant, course, or exact reference conflict.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/{surface}/w4/runs/{runId}/counterfactual:
+    post:
+      operationId: W4_COUNTERFACTUAL_FORK_V1
+      summary: Run bounded non-writing counterfactual evidence from an exact historical state.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: surface
+          in: path
+          required: true
+          schema: { type: string, enum: [student, teacher] }
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/W4CounterfactualRequest" }
+      responses:
+        "200":
+          description: Deterministic non-official multi-round fork with explicit no-write flags.
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+        "409":
+          description: Source lineage or runtime binding conflict.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
   /api/v1/bff/admin/w4/portfolio:
     get:
       operationId: W4_ADMIN_GROUP_PORTFOLIO_PROJECTION_GET_V1
@@ -7512,6 +7578,24 @@ components:
         project_profile_id: { type: string, minLength: 1 }
         tenant_id: { type: string, minLength: 1 }
         version: { type: string, minLength: 1 }
+    W4StateRef:
+      type: object
+      additionalProperties: false
+      required:
+        [tenant_id, course_id, run_id, team_id, round_id, enterprise_state_id, version, state_digest]
+      properties:
+        tenant_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        enterprise_state_id: { type: string, minLength: 1 }
+        version: { type: integer, minimum: 1 }
+        state_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        parent_state_ref:
+          anyOf:
+            - $ref: "#/components/schemas/W4StateRef"
+            - type: "null"
     W4ProjectPortfolioEntryCreateRequest:
       type: object
       additionalProperties: false
@@ -7547,6 +7631,29 @@ components:
           enum: [Bid, DueDiligence, Negotiation, TermSheet, Closing, Closed, Cancelled]
         buyer_confirmation_id: { type: string, minLength: 1 }
         seller_confirmation_id: { type: string, minLength: 1 }
+    W4CounterfactualRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [source_state_ref, source_outcome_id, decision_ids, horizon_rounds, scenario_package_id, parameter_set_id, engine_id, plugin_ids, seed]
+      properties:
+        source_state_ref: { $ref: "#/components/schemas/W4StateRef" }
+        source_outcome_id: { type: string, minLength: 1 }
+        decision_ids:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        horizon_rounds: { type: integer, minimum: 1, maximum: 8 }
+        scenario_package_id: { type: string, minLength: 1 }
+        parameter_set_id: { type: string, minLength: 1 }
+        engine_id: { type: string, minLength: 1 }
+        plugin_ids:
+          type: array
+          items: { type: string, minLength: 1 }
+        seed: { type: integer, minimum: 0 }
+        course_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
     W5TeacherGovernedModelEnvelope:
       type: object
       additionalProperties: false
