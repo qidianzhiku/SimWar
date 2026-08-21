@@ -12,7 +12,8 @@
     },
     "./tokens.css": "./src/tokens.css",
     "./p2b-tokens.css": "./src/p2b-tokens.css",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./project-aware.css": "./src/project-aware.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
