@@ -310,6 +310,38 @@ export function W4EnterpriseStatePanel({
           ))}
         </ul>
       ) : null}
+      <section className="sw-w4-panel__note" aria-label="组合与资金工作区">
+        <strong>组合与资金工作区</strong>
+        <p>
+          学员只能查看本团队已提交的项目组合、资本动作与回合影响；正式状态仍由仿真内核结算。
+        </p>
+        <ol className="sw-w4-list" aria-label="策略时间线">
+          {(projection?.initiatives ?? []).map((initiative) => (
+            <li key={"student-timeline-" + initiative.initiative_id}>
+              {initiative.project?.project_name ?? "战略项目"} · {stateValueLabel(initiative.status)} ·{" "}
+              {initiative.current_milestone}
+            </li>
+          ))}
+          {(projection?.effects ?? []).map((effect) => (
+            <li key={"student-effect-" + effect.effect_id}>
+              影响 {effect.effect_id} · {stateValueLabel(effect.status)} · 生效回合{" "}
+              {effect.effective_round_no}
+            </li>
+          ))}
+        </ol>
+        {projection?.capital_actions.length ? (
+          <ul className="sw-w4-list" aria-label="资本动作">
+            {projection.capital_actions.map((action) => (
+              <li key={action.capital_action_id}>
+                {action.kind} · {stateValueLabel(action.status)} · 生效回合{" "}
+                {action.effective_round_no} · 本金 {action.principal}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>本团队尚无资本动作记录。</p>
+        )}
+      </section>
       <fieldset className="sw-w4-form" disabled={busy || !token || !runId || !roundNo || !teamId}>
         <legend className="sw-w4-form__legend">新建战略项目</legend>
         <div className="sw-w4-form__grid">

@@ -54,6 +54,17 @@ test("W4 commercial surfaces stay responsive and avoid serious accessibility vio
       await page.getByLabel("password").fill(route.url === "student" ? "student" : route.url);
       await page.getByRole("button", { name: route.login }).click();
       await expect(page.getByLabel(route.panel)).toBeVisible();
+      if (route.url === "teacher") {
+        await expect(page.getByLabel("教师策略工作台")).toBeVisible();
+        await expect(page.getByRole("button", { name: "查看匹配项目路径" })).toBeVisible();
+      }
+      if (route.url === "student") {
+        await expect(page.getByLabel("组合与资金工作区")).toBeVisible();
+      }
+      if (route.url === "admin") {
+        await expect(page.getByLabel("资本管线")).toBeVisible();
+        await expect(page.getByLabel("项目交易审计")).toBeVisible();
+      }
 
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth

@@ -24,6 +24,25 @@ type Portfolio = {
       state_digest: string;
     } | null;
     portfolio: { projects: string[]; facilities: string[] };
+    project_portfolio: Array<{
+      project_entry_id: string;
+      project_name: string;
+      lifecycle_status: string;
+      project_profile_reference: { project_profile_id: string; version: string };
+    }>;
+    project_transactions: Array<{
+      transaction_id: string;
+      kind: string;
+      phase: string;
+      project_entry_id: string;
+    }>;
+    capital_actions: Array<{
+      capital_action_id: string;
+      kind: string;
+      status: string;
+      principal: number;
+      effective_round_no: number;
+    }>;
     operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
     process_information: { status: string; activity_id: string };
     outcome_information: { status: string; opening_state_ref: unknown; closing_state_ref: unknown };
@@ -43,7 +62,9 @@ type Portfolio = {
       status: string;
       project_name: string | null;
     }>;
+    writer_authority?: string;
   }>;
+  writer_authority?: string;
 };
 
 type PanelStatus =
@@ -156,6 +177,11 @@ export function W4EnterprisePortfolioPanel({
   const projectCount = portfolios.reduce((sum, item) => sum + item.portfolio.projects.length, 0);
   const operatingUnitCount = portfolios.reduce((sum, item) => sum + item.operating_units.length, 0);
   const initiativeCount = portfolios.reduce((sum, item) => sum + item.initiatives.length, 0);
+  const capitalActionCount = portfolios.reduce((sum, item) => sum + item.capital_actions.length, 0);
+  const transactionCount = portfolios.reduce(
+    (sum, item) => sum + item.project_transactions.length,
+    0
+  );
 
   return (
     <section className="sw-w4-panel sw-w4-panel--admin" aria-label="项目组合审计">
@@ -191,6 +217,14 @@ export function W4EnterprisePortfolioPanel({
         <div className="sw-w4-metric">
           <span className="sw-w4-metric__label">行动计划</span>
           <strong className="sw-w4-metric__value">{initiativeCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">资本动作</span>
+          <strong className="sw-w4-metric__value">{capitalActionCount}</strong>
+        </div>
+        <div className="sw-w4-metric">
+          <span className="sw-w4-metric__label">项目交易</span>
+          <strong className="sw-w4-metric__value">{transactionCount}</strong>
         </div>
         <div className="sw-w4-metric">
           <span className="sw-w4-metric__label">处理状态</span>
@@ -232,6 +266,32 @@ export function W4EnterprisePortfolioPanel({
           ))
         )}
       </ul>
+      <ul className="sw-w4-list" aria-label="资本管线">
+        {portfolios.flatMap((portfolio) =>
+          portfolio.capital_actions.map((action) => (
+            <li key={portfolio.run_id + ":" + action.capital_action_id}>
+              {portfolio.run_id} · {action.kind} · {stateValueLabel(action.status)} · 生效回合{" "}
+              {action.effective_round_no} · 本金 {action.principal}
+            </li>
+          ))
+        )}
+        {capitalActionCount === 0 ? <li>暂无资本动作记录</li> : null}
+      </ul>
+      <ul className="sw-w4-list" aria-label="项目交易审计">
+        {portfolios.flatMap((portfolio) =>
+          portfolio.project_transactions.map((transaction) => (
+            <li key={portfolio.run_id + ":" + transaction.transaction_id}>
+              {portfolio.run_id} · {transaction.kind} · {transaction.phase} ·{" "}
+              {transaction.project_entry_id}
+            </li>
+          ))
+        )}
+        {transactionCount === 0 ? <li>暂无项目交易记录</li> : null}
+      </ul>
+      <p className="sw-w4-panel__note">
+        写入 authority：{projection?.writer_authority ?? "SOLE_W4_ENTERPRISE_STATE_SERVICE"} · 管理员侧仅审计，
+        不提供第二条真值写入路径。
+      </p>
       {status === "retry" ||
       status === "dependency-missing" ||
       status === "error" ||

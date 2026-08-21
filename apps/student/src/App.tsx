@@ -29,7 +29,6 @@ import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
-import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -49,6 +48,10 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
+const W4EnterpriseStatePanel = lazy(async () => {
+  const module = await import("./W4EnterpriseStatePanel");
+  return { default: module.W4EnterpriseStatePanel };
+});
 const ProjectAwareStudentContextPanel = lazy(async () => {
   const module = await import("./ProjectAwareStudentContextPanel");
   return { default: module.ProjectAwareStudentContextPanel };
@@ -823,15 +826,17 @@ export function App() {
             className="student-location"
             aria-label="企业状态与战略演进"
           >
-            <W4EnterpriseStatePanel
-              token={activeSession?.access_token ?? ""}
-              tenantId={login.tenantId}
-              courseId={latestRun?.course_id}
-              runId={latestRun?.run_id}
-              roundId={latestRound?.round_id}
-              roundNo={latestRound?.round_no}
-              teamId={team?.team_id}
-            />
+            <Suspense fallback={<p className="muted">正在载入企业战略状态…</p>}>
+              <W4EnterpriseStatePanel
+                token={activeSession?.access_token ?? ""}
+                tenantId={login.tenantId}
+                courseId={latestRun?.course_id}
+                runId={latestRun?.run_id}
+                roundId={latestRound?.round_id}
+                roundNo={latestRound?.round_no}
+                teamId={team?.team_id}
+              />
+            </Suspense>
             <ProjectBriefPanel
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
