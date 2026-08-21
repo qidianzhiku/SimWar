@@ -85,6 +85,11 @@ test("@m2-p4-real completes teacher lock-settle-publish and student-safe project
   page,
   request
 }) => {
+  test.skip(
+    process.env.SIMWAR_PLAYWRIGHT_M2P4 !== "true",
+    "M2-P4 dedicated real-BFF fixture is enabled only for the explicit mocks=0 run"
+  );
+
   await test.step("R01 dedicated runner has an explicit real-BFF, mocks=0 contract", async () => {
     expect(process.env.SIMWAR_PLAYWRIGHT_M2P4).toBe("true");
     expect(process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE).not.toBe("true");

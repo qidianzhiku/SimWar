@@ -8533,32 +8533,37 @@ async function routeRequest(
         round.round_id
       )
     ]);
-    const liveRoundOps = buildM2P4TeacherLiveRoundOps({
-      actorAllowedActions: actor.permissions ?? [
-        "course:read",
-        "round:lock",
-        "settlement:settle",
-        "round:publish",
-        "round:continue",
-        "result:read",
-        "audit:read"
-      ],
-      auditLogs,
-      course,
-      decisions,
-      ...(projectReadiness ? { projectReadiness } : {}),
-      roleSnapshots: new Map(roleSnapshots),
-      round,
-      run,
-      settlement:
-        settlements.find(
-          (candidate) =>
-            candidate.tenant_id === context.tenantId &&
-            candidate.run_id === run.run_id &&
-            candidate.round_no === round.round_no
-        ) ?? null,
-      teams
-    });
+    const projectAwareRoundOpsEnabled = Boolean(
+      projectReadiness?.teams.some((team) => team.project_profile_reference)
+    );
+    const liveRoundOps = projectAwareRoundOpsEnabled
+      ? buildM2P4TeacherLiveRoundOps({
+          actorAllowedActions: actor.permissions ?? [
+            "course:read",
+            "round:lock",
+            "settlement:settle",
+            "round:publish",
+            "round:continue",
+            "result:read",
+            "audit:read"
+          ],
+          auditLogs,
+          course,
+          decisions,
+          ...(projectReadiness ? { projectReadiness } : {}),
+          roleSnapshots: new Map(roleSnapshots),
+          round,
+          run,
+          settlement:
+            settlements.find(
+              (candidate) =>
+                candidate.tenant_id === context.tenantId &&
+                candidate.run_id === run.run_id &&
+                candidate.round_no === round.round_no
+            ) ?? null,
+          teams
+        })
+      : undefined;
     const resultView = await createPublicResultView(runtime, context, run.run_id, round.round_no);
 
     sendJson(
@@ -8577,7 +8582,7 @@ async function routeRequest(
           ...(parameterSet ? { parameterSet } : {}),
           ...(scenario ? { scenario } : {}),
           teams,
-          liveRoundOps
+          ...(liveRoundOps ? { liveRoundOps } : {})
         })
       )
     );
