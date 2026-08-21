@@ -127,27 +127,35 @@ const BLOCKER_METADATA: Record<
   }
 };
 
+interface BlockerMetadataOverride {
+  category?: ProjectAwareBlockerCategory;
+  source_authority?: ProjectAwareBlockerAuthority;
+  blocker_id_suffix?: string;
+}
+
 function blocker(
   code: ProjectAwareBlocker["code"],
   owner: ProjectAwareBlocker["owner"],
   action: string,
   detail: string | undefined,
   scope: ProjectAwareScope,
-  teamId?: string
+  teamId?: string,
+  overrides: BlockerMetadataOverride = {}
 ): ProjectAwareBlocker {
   const metadata = BLOCKER_METADATA[code];
+  const blockerIdSuffix = overrides.blocker_id_suffix ?? teamId;
   const evidenceRef = `project-aware-readiness:${scope.tenant_id}/${scope.course_id}/${scope.run_id}${
     teamId ? `/${teamId}` : ""
   }`;
   return {
-    blocker_id: `${code}${teamId ? `:${teamId}` : ""}`,
-    category: metadata.category,
+    blocker_id: `${code}${blockerIdSuffix ? `:${blockerIdSuffix}` : ""}`,
+    category: overrides.category ?? metadata.category,
     code,
     owner,
     action,
     reason: metadata.reason,
     impact: metadata.impact,
-    source_authority: metadata.source_authority,
+    source_authority: overrides.source_authority ?? metadata.source_authority,
     recovery_action: action,
     freshness: "FRESH_SNAPSHOT",
     evidence_ref: evidenceRef,
@@ -216,11 +224,23 @@ export function evaluateProjectAwareReadiness(
     owner: ProjectAwareBlocker["owner"],
     action: string,
     detail?: string,
-    teamId?: string
-  ): ProjectAwareBlocker => blocker(code, owner, action, detail, snapshot.scope, teamId);
+    teamId?: string,
+    overrides?: BlockerMetadataOverride
+  ): ProjectAwareBlocker => blocker(code, owner, action, detail, snapshot.scope, teamId, overrides);
   if (!snapshot.course || snapshot.course.tenant_id !== snapshot.scope.tenant_id) {
     globalBlockers.push(
-      scopedBlocker("SCOPE_MISMATCH", "teacher", "Select a Course in the active tenant.")
+      scopedBlocker(
+        "SCOPE_MISMATCH",
+        "teacher",
+        "Select a Course in the active tenant.",
+        undefined,
+        undefined,
+        {
+          category: "course",
+          source_authority: "Course",
+          blocker_id_suffix: "Course"
+        }
+      )
     );
   }
   if (!snapshot.run) {
@@ -236,7 +256,10 @@ export function evaluateProjectAwareReadiness(
       scopedBlocker(
         "SCOPE_MISMATCH",
         "teacher",
-        "Use the exact Course/Run scope without rebinding."
+        "Use the exact Course/Run scope without rebinding.",
+        undefined,
+        undefined,
+        { category: "run", source_authority: "Run", blocker_id_suffix: "Run" }
       )
     );
   } else if (snapshot.run.status !== "active") {
@@ -373,7 +396,14 @@ export function evaluateProjectAwareReadiness(
             "teacher",
             "Restore the exact profile identity or explicitly rebind to an approved successor.",
             undefined,
-            team.team_id
+            team.team_id,
+            mismatch === "scope"
+              ? {
+                  category: "project_profile",
+                  source_authority: "ProjectProfile",
+                  blocker_id_suffix: `ProjectProfile:${team.team_id}`
+                }
+              : undefined
           )
         );
       } else {
@@ -409,7 +439,12 @@ export function evaluateProjectAwareReadiness(
               "teacher",
               "Use a ProjectProfile bound to the Course's exact MarketWorldRef.",
               undefined,
-              team.team_id
+              team.team_id,
+              {
+                category: "project_profile",
+                source_authority: "ProjectProfile",
+                blocker_id_suffix: `ProjectProfileMarketWorld:${team.team_id}`
+              }
             )
           );
         }
@@ -430,7 +465,14 @@ export function evaluateProjectAwareReadiness(
 
   if (!exactScopeIsValid(snapshot) && globalBlockers.length === 0) {
     globalBlockers.push(
-      scopedBlocker("SCOPE_MISMATCH", "teacher", "Use the exact tenant/course/run references.")
+      scopedBlocker(
+        "SCOPE_MISMATCH",
+        "teacher",
+        "Use the exact tenant/course/run references.",
+        undefined,
+        undefined,
+        { category: "course", source_authority: "Course", blocker_id_suffix: "CourseRunScope" }
+      )
     );
   }
   if (scopedTeams.length === 0) {
