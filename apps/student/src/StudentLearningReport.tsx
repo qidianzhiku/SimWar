@@ -29,6 +29,7 @@ export const learningReportCopy = {
 } as const;
 
 type ReportState =
+  | { kind: "blocked" }
   | { kind: "loading" }
   | { kind: "empty"; data: StudentLearningReportListDto }
   | { kind: "ready"; data: StudentLearningReportListDto }
@@ -36,15 +37,21 @@ type ReportState =
 
 export function StudentLearningReportPanel({
   token,
-  tenantId
+  tenantId,
+  published = true
 }: {
   token: string;
   tenantId: string;
+  published?: boolean;
 }) {
-  const [state, setState] = useState<ReportState>({ kind: "loading" });
+  const [state, setState] = useState<ReportState>({ kind: published ? "loading" : "blocked" });
 
   useEffect(() => {
     const controller = new AbortController();
+    if (!published) {
+      setState({ kind: "blocked" });
+      return () => controller.abort();
+    }
     setState({ kind: "loading" });
     fetchStudentLearningReports(token, tenantId, controller.signal)
       .then((data) =>
@@ -58,7 +65,7 @@ export function StudentLearningReportPanel({
         });
       });
     return () => controller.abort();
-  }, [tenantId, token]);
+  }, [published, tenantId, token]);
 
   return (
     <section
@@ -80,6 +87,12 @@ export function StudentLearningReportPanel({
         </span>
       </div>
       {state.kind === "loading" ? <p className="muted">正在读取已确认的学习证据…</p> : null}
+      {state.kind === "blocked" ? (
+        <div className="d4-empty d4-empty--blocked" data-testid="student-learning-report-blocked">
+          <strong>正式结果发布后，学习报告才会开放</strong>
+          <p>当前页面不会读取、预取或缓存未发布的正式结果与学习证据。</p>
+        </div>
+      ) : null}
       {state.kind === "error" ? (
         <p className="d4-error" role="alert">
           <span>学习报告暂不可用。</span>{" "}
@@ -239,11 +252,13 @@ function labelForState(kind: ReportState["kind"]): {
   primary: string;
   compatibility: string;
 } {
-  return kind === "ready"
-    ? { primary: "已生成", compatibility: "generated" }
-    : kind === "empty"
-      ? { primary: "暂无报告", compatibility: "empty" }
-      : kind === "error"
-        ? { primary: "加载失败", compatibility: "failed" }
-        : { primary: "加载中", compatibility: "loading" };
+  return kind === "blocked"
+    ? { primary: "等待发布", compatibility: "blocked" }
+    : kind === "ready"
+      ? { primary: "已生成", compatibility: "generated" }
+      : kind === "empty"
+        ? { primary: "暂无报告", compatibility: "empty" }
+        : kind === "error"
+          ? { primary: "加载失败", compatibility: "failed" }
+          : { primary: "加载中", compatibility: "loading" };
 }

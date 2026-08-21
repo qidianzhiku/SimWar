@@ -1,0 +1,391 @@
+import { useEffect, useRef, useState } from "react";
+import type {
+  W3OfficialConsequenceContext,
+  W3OfficialConsequenceRecord,
+  W3OfficialConsequenceResponse
+} from "@simwar/shared-contracts";
+import "./p2b-decision-learning.css";
+
+export const P2B_STUDENT_STAGES = [
+  "result",
+  "story",
+  "mechanism",
+  "what_if",
+  "reflection",
+  "transfer"
+] as const;
+
+export type StudentLearningGate = "blocked" | "ready";
+
+export function getStudentLearningGate(published: boolean): StudentLearningGate {
+  return published ? "ready" : "blocked";
+}
+
+type Props = {
+  apiBase: string;
+  token: string;
+  tenantId: string;
+  context?: W3OfficialConsequenceContext | undefined;
+  published: boolean;
+};
+
+type JourneyState =
+  | { phase: "blocked" | "idle" | "loading" }
+  | { phase: "empty"; message: string }
+  | { phase: "ready"; record: W3OfficialConsequenceRecord }
+  | { phase: "error"; message: string };
+
+function contextQuery(context: W3OfficialConsequenceContext): string {
+  return new URLSearchParams(
+    Object.entries(context).map(([key, value]) => [key, String(value)])
+  ).toString();
+}
+
+function safeMessage(value: unknown): string {
+  if (value instanceof Error && value.message) return value.message;
+  return "学习投影暂不可用，请稍后重试。";
+}
+
+export function StudentDecisionLearningJourney({
+  apiBase,
+  token,
+  tenantId,
+  context,
+  published
+}: Props) {
+  const [state, setState] = useState<JourneyState>({
+    phase: getStudentLearningGate(published) === "blocked" ? "blocked" : "idle"
+  });
+  const [reflection, setReflection] = useState({ judgment: "", learning: "", next: "" });
+  const [reflectionNotice, setReflectionNotice] = useState("");
+  const [reflectionBusy, setReflectionBusy] = useState(false);
+  const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}`;
+  const previousIdentityKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousIdentityKey.current && previousIdentityKey.current !== identityKey) {
+      setReflection({ judgment: "", learning: "", next: "" });
+      setReflectionNotice("");
+      setReflectionBusy(false);
+    }
+    previousIdentityKey.current = identityKey;
+  }, [identityKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!published) {
+      setState({ phase: "blocked" });
+      return () => controller.abort();
+    }
+    if (!context || !token || !tenantId) {
+      setState({ phase: "idle" });
+      return () => controller.abort();
+    }
+
+    setState({ phase: "loading" });
+    fetch(`${apiBase}/api/v1/bff/student/w3/consequence?${contextQuery(context)}`, {
+      headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+      signal: controller.signal
+    })
+      .then(async (response) => {
+        const envelope = (await response.json()) as {
+          data?: W3OfficialConsequenceResponse;
+          message?: string;
+        };
+        if (response.status === 404) {
+          setState({ phase: "empty", message: envelope.message ?? "等待教师确认学习投影" });
+          return;
+        }
+        if (!response.ok || !envelope.data) {
+          throw new Error(envelope.message ?? "学习投影读取失败");
+        }
+        setState({ phase: "ready", record: envelope.data.record });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setState({ phase: "error", message: safeMessage(error) });
+      });
+
+    return () => controller.abort();
+  }, [apiBase, context, published, tenantId, token]);
+
+  const record = state.phase === "ready" ? state.record : undefined;
+
+  async function submitReflection(): Promise<void> {
+    if (!record || !context || !reflectionText.trim() || reflectionBusy) return;
+    setReflectionBusy(true);
+    setReflectionNotice("正在保存 AI-off 学习草稿");
+    try {
+      const response = await fetch(`${apiBase}/api/v1/bff/student/w3/reflection`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          "x-tenant-id": tenantId
+        },
+        body: JSON.stringify({
+          context,
+          idempotency_key: `w3-reflection-${record.record_id}`,
+          prompt_id: "w3-reflection-off-v1",
+          response: reflectionText.trim()
+        })
+      });
+      const envelope = (await response.json()) as {
+        data?: W3OfficialConsequenceResponse;
+        message?: string;
+      };
+      if (!response.ok || !envelope.data) {
+        throw new Error(envelope.message ?? "学习草稿保存失败");
+      }
+      setState({ phase: "ready", record: envelope.data.record });
+      setReflectionNotice("学习草稿已保存；它不会进入正式结算。");
+    } catch (error: unknown) {
+      setReflectionNotice(safeMessage(error));
+    } finally {
+      setReflectionBusy(false);
+    }
+  }
+
+  const reflectionText = [
+    `判断：${reflection.judgment.trim()}`,
+    `学习：${reflection.learning.trim()}`,
+    `下一轮：${reflection.next.trim()}`
+  ]
+    .filter((value) => !value.endsWith("："))
+    .join("\n\n");
+
+  return (
+    <section
+      className="panel p2b-student-journey"
+      aria-label="学员决策学习旅程"
+      aria-busy={state.phase === "loading"}
+    >
+      <div className="panel-title p2b-journey-heading">
+        <div>
+          <p className="eyebrow">FE-19 / DECISION LEARNING</p>
+          <h2>从正式结果回到可行动的学习</h2>
+        </div>
+        <span role="status">
+          {state.phase === "blocked"
+            ? "等待发布"
+            : state.phase === "loading"
+              ? "读取中"
+              : state.phase === "ready"
+                ? "已读取"
+                : state.phase === "error"
+                  ? "加载失败"
+                  : "学习旅程"}
+        </span>
+      </div>
+
+      {state.phase === "blocked" ? (
+        <div className="p2b-state-card p2b-state-card--blocked" data-testid="student-p2b-blocked">
+          <strong>结果发布后，学习旅程才会开放</strong>
+          <p>结算但未发布时，学员不读取、不预取、不缓存正式结果或学习报告。</p>
+        </div>
+      ) : null}
+      {state.phase === "idle" ? (
+        <div className="p2b-state-card" data-testid="student-p2b-idle">
+          <strong>等待 exact Course / Run / Round / Team 上下文</strong>
+          <p>上下文准备好后，页面才会读取服务端安全投影。</p>
+        </div>
+      ) : null}
+      {state.phase === "loading" ? (
+        <div className="p2b-state-card" data-testid="student-p2b-loading">
+          <strong>正在读取已发布结果</strong>
+          <p>只读取当前学员、当前团队和当前回合的 safe projection。</p>
+        </div>
+      ) : null}
+      {state.phase === "empty" ? (
+        <div className="p2b-state-card" data-testid="student-p2b-empty">
+          <strong>{state.message}</strong>
+          <p>教师确认学习证据后，这里会出现对应的复盘阶段。</p>
+        </div>
+      ) : null}
+      {state.phase === "error" ? (
+        <div className="p2b-state-card p2b-state-card--error" data-testid="student-p2b-error">
+          <strong>学习投影暂不可用</strong>
+          <p>{state.message}</p>
+        </div>
+      ) : null}
+
+      {record ? (
+        <div className="p2b-stage-stack">
+          <article className="p2b-stage p2b-stage--result" data-testid="student-p2b-result">
+            <div className="p2b-stage-kicker">01 · PUBLISHED RESULT</div>
+            <div className="p2b-stage-heading">
+              <div>
+                <h3>本轮经营结果</h3>
+                <p>正式结果先于解释；下面所有学习内容都不会改写它。</p>
+              </div>
+              <span className="p2b-authority-badge p2b-authority-badge--official">已发布</span>
+            </div>
+            <div className="p2b-metric-grid">
+              <div>
+                <span>结果</span>
+                <strong>
+                  {record.official_result.outcome_label === "official_published"
+                    ? "已发布"
+                    : "已结算"}
+                </strong>
+              </div>
+              <div>
+                <span>分数</span>
+                <strong>{record.official_result.score}</strong>
+              </div>
+              <div>
+                <span>排名</span>
+                <strong>第 {record.official_result.rank} 名</strong>
+              </div>
+              <div>
+                <span>利润带</span>
+                <strong>{record.official_result.profit_band}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article className="p2b-stage" data-testid="student-p2b-story">
+            <div className="p2b-stage-kicker">02 · DECISION STORY</div>
+            <h3>从决策到结果</h3>
+            <p>{record.decision_story.decision_summary}</p>
+            <p>{record.decision_story.consequence_summary}</p>
+            <div className="p2b-source-note">
+              来源：confirmed decision · published result · student-safe projection
+            </div>
+          </article>
+
+          <article className="p2b-stage" data-testid="student-p2b-mechanism">
+            <div className="p2b-stage-kicker">03 · BOUNDED MECHANISM</div>
+            <h3>为什么可能发生</h3>
+            <div className="p2b-mechanism-chain">
+              <div>
+                <span>条件</span>
+                <strong>你的行动</strong>
+                <p>{record.decision_story.decision_summary}</p>
+              </div>
+              <div>
+                <span>机制</span>
+                <strong>中间响应</strong>
+                <p>{record.causal_debrief.statements[0] ?? "服务端未提供机制摘要"}</p>
+              </div>
+              <div>
+                <span>边界</span>
+                <strong>不是因果证明</strong>
+                <p>解释保持为 model-conditioned association。</p>
+              </div>
+            </div>
+          </article>
+
+          <article className="p2b-stage" data-testid="student-p2b-what_if">
+            <div className="p2b-stage-kicker">04 · ONE-CHANGE WHAT-IF</div>
+            <h3>如果当时只改一项</h3>
+            <p className="p2b-boundary-note">
+              非正式结果 · 只读预览 · 学员不能发起 counterfactual writer。
+            </p>
+            {record.counterfactual ? (
+              <div className="p2b-compare-grid">
+                <div>
+                  <span>正式结果</span>
+                  <strong>
+                    {record.counterfactual.comparison.official_score} / 第{" "}
+                    {record.counterfactual.comparison.official_rank} 名
+                  </strong>
+                </div>
+                <div>
+                  <span>教师生成的预览</span>
+                  <strong>
+                    {record.counterfactual.comparison.counterfactual_score} / 第{" "}
+                    {record.counterfactual.comparison.counterfactual_rank} 名
+                  </strong>
+                </div>
+                <div>
+                  <span>变化</span>
+                  <strong>
+                    分数 Δ {record.counterfactual.comparison.score_delta} · 排名 Δ{" "}
+                    {record.counterfactual.comparison.rank_delta}
+                  </strong>
+                </div>
+              </div>
+            ) : (
+              <div className="p2b-empty-inline">暂无教师生成的单变量预览；不在客户端自行计算。</div>
+            )}
+          </article>
+
+          <article className="p2b-stage" data-testid="student-p2b-reflection">
+            <div className="p2b-stage-kicker">05 · REFLECTION</div>
+            <h3>我的经营复盘</h3>
+            <p>AI off · advisory only · 这是学习输入，不进入正式结算。</p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitReflection();
+              }}
+            >
+              <label className="p2b-field" htmlFor="student-p2b-reflection-judgment">
+                <span>我原本的判断</span>
+                <textarea
+                  id="student-p2b-reflection-judgment"
+                  value={reflection.judgment}
+                  maxLength={600}
+                  onChange={(event) =>
+                    setReflection((current) => ({ ...current, judgment: event.target.value }))
+                  }
+                  placeholder="我原本认为……"
+                />
+              </label>
+              <label className="p2b-field" htmlFor="student-p2b-reflection-learning">
+                <span>结果让我学到</span>
+                <textarea
+                  id="student-p2b-reflection-learning"
+                  value={reflection.learning}
+                  maxLength={600}
+                  onChange={(event) =>
+                    setReflection((current) => ({ ...current, learning: event.target.value }))
+                  }
+                  placeholder="结果让我看到……"
+                />
+              </label>
+              <label className="p2b-field" htmlFor="student-p2b-reflection-next">
+                <span>下一轮我会检查</span>
+                <textarea
+                  id="student-p2b-reflection-next"
+                  value={reflection.next}
+                  maxLength={600}
+                  onChange={(event) =>
+                    setReflection((current) => ({ ...current, next: event.target.value }))
+                  }
+                  placeholder="下一轮我会验证……"
+                />
+              </label>
+              <button
+                className="primary"
+                type="submit"
+                disabled={reflectionBusy || !reflectionText.trim()}
+              >
+                {reflectionBusy ? "保存中" : "保存学习草稿"}
+              </button>
+              <p role="status" className="p2b-inline-status">
+                {reflectionNotice ||
+                  (record.reflection ? "已有一份 AI-off 学习草稿" : "尚未保存学习草稿")}
+              </p>
+            </form>
+          </article>
+
+          <article className="p2b-stage" data-testid="student-p2b-transfer">
+            <div className="p2b-stage-kicker">06 · TRANSFER</div>
+            <h3>下一轮假设</h3>
+            <div className="p2b-transfer-card">
+              <strong>
+                {record.next_round_hypothesis?.hypothesis ?? "等待教师确认下一轮学习假设"}
+              </strong>
+              <span>{record.next_round_hypothesis?.basis ?? "当前学习报告尚未生成"}</span>
+            </div>
+            <div className="p2b-known-limit">当前边界：{record.known_limits.join(" / ")}</div>
+          </article>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export default StudentDecisionLearningJourney;

@@ -798,28 +798,3 @@ textarea {
 .role-workflow-actions button {
   min-height: 44px;
 }
-
-@media (max-width: 780px) {
-  .shell {
-    padding: 18px;
-  }
-
-  .topbar,
-  .bff-surface,
-  .learner-guide,
-  .workspace,
-  .login-strip {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .role-workflow-summary,
-  .role-workflow-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .role-workflow-actions {
-    display: grid;
-  }
-}

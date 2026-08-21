@@ -735,6 +735,12 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
   await signIn(page, "teacher");
 
   await expect(page.getByRole("navigation", { name: "角色导航" })).toBeVisible();
+  await expect(page.getByTestId("teacher-p2b-today")).toBeVisible();
+  await expect(page.getByTestId("teacher-p2b-highest_blocker")).toBeVisible();
+  await expect(page.getByTestId("teacher-p2b-cohort_progress")).toBeVisible();
+  await expect(page.getByTestId("teacher-p2b-teachable_moment")).toBeVisible();
+  await expect(page.getByTestId("teacher-p2b-debrief_prep")).toBeVisible();
+  await expect(page.getByLabel("课堂笔记草稿（本地）")).toHaveCount(1);
   await expect(page.getByRole("link", { name: "今日工作" })).toHaveAttribute(
     "href",
     "#teacher-today"

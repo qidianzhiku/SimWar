@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
@@ -92,6 +101,7 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -496,7 +506,8 @@ function selectInitialCourseId(state: P0DemoState): string | null {
     .reverse()
     .find(
       (run) =>
-        runnableCourseIds.has(run.course_id) && getRunRound(state, run.run_id)?.status !== "published"
+        runnableCourseIds.has(run.course_id) &&
+        getRunRound(state, run.run_id)?.status !== "published"
     );
   if (latestActiveRun) return latestActiveRun.course_id;
   return runnableCourses.at(-1)?.course_id ?? null;
@@ -3204,13 +3215,28 @@ export function App() {
       </TeacherLocation>
 
       <TeacherLocation id="teacher-debrief">
+        {isTeacher && session ? (
+          <Suspense fallback={<p className="muted">正在载入教师复盘…</p>}>
+            <TeacherDebriefWorkspace
+              apiBase={API_BASE}
+              context={W3_ENABLED ? w3Context : undefined}
+              blockerSummary="当前没有可用的回合阻断"
+              teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
+        ) : null}
         {W3_ENABLED && isTeacher && session ? (
-          <W3OfficialConsequenceLearningWorkbench
-            apiBase={API_BASE}
-            context={w3Context}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <details className="p2b-compatibility-details" open>
+            <summary>W3 高级教师命令（兼容入口）</summary>
+            <W3OfficialConsequenceLearningWorkbench
+              apiBase={API_BASE}
+              context={w3Context}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </details>
         ) : null}
         {session ? (
           <InstructorIntelligencePanel

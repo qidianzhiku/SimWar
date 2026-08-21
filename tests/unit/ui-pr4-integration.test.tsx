@@ -100,8 +100,10 @@ describe("Product PR4 integration contracts", () => {
       for (const app of ["admin", "teacher", "student"]) {
         const assetDir = join(fixture, "apps", app, "dist", "assets");
         mkdirSync(assetDir, { recursive: true });
-        writeFileSync(join(assetDir, `${app}.js`), "console.log('pr4');\n");
-        writeFileSync(join(assetDir, `${app}.css`), ".app{display:block}\n");
+        writeFileSync(join(assetDir, `index-${app}.js`), "console.log('pr4');\n");
+        writeFileSync(join(assetDir, `index-${app}.css`), ".app{display:block}\n");
+        writeFileSync(join(assetDir, `P2B-${app}.js`), "console.log('lazy');\n");
+        writeFileSync(join(assetDir, `P2B-${app}.css`), ".lazy{display:block}\n");
       }
 
       const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -491,8 +493,8 @@ describe("Product PR4 integration contracts", () => {
       for (const app of ["admin", "teacher", "student"]) {
         const assetDir = join(fixture, "apps", app, "dist", "assets");
         mkdirSync(assetDir, { recursive: true });
-        writeFileSync(join(assetDir, `${app}.js`), Buffer.alloc(400_000, 7));
-        writeFileSync(join(assetDir, `${app}.css`), "body{color:#000}\n");
+        writeFileSync(join(assetDir, `index-${app}.js`), Buffer.alloc(400_000, 7));
+        writeFileSync(join(assetDir, `index-${app}.css`), "body{color:#000}\n");
       }
       const output = join(fixture, "budget.json");
       const result = runNodeResult("scripts/measure-frontend-budgets.mjs", [
@@ -867,8 +869,8 @@ describe("Product PR4 integration contracts", () => {
       for (const app of ["admin", "teacher", "student"]) {
         const assetDir = join(fixture, "apps", app, "dist", "assets");
         mkdirSync(assetDir, { recursive: true });
-        writeFileSync(join(assetDir, `${app}.js`), "console.log('pr4');\n");
-        writeFileSync(join(assetDir, `${app}.css`), ".app{display:block}\n");
+        writeFileSync(join(assetDir, `index-${app}.js`), "console.log('pr4');\n");
+        writeFileSync(join(assetDir, `index-${app}.css`), ".app{display:block}\n");
       }
       const missingOutput = join(fixture, "missing.json");
       const provenanceFreeEnv = { ...process.env };
@@ -957,8 +959,8 @@ describe("Product PR4 integration contracts", () => {
       for (const app of ["admin", "teacher", "student"]) {
         const assetDir = join(fixture, "apps", app, "dist", "assets");
         mkdirSync(assetDir, { recursive: true });
-        writeFileSync(join(assetDir, `${app}.js`), "console.log('pr4');\n");
-        writeFileSync(join(assetDir, `${app}.css`), ".app{display:block}\n");
+        writeFileSync(join(assetDir, `index-${app}.js`), "console.log('pr4');\n");
+        writeFileSync(join(assetDir, `index-${app}.css`), ".app{display:block}\n");
       }
       const actualSha = execFileSync("git", ["rev-parse", "HEAD"], {
         cwd: root,
