@@ -5,9 +5,9 @@
 - Product scope: Teacher Course Director live-round command center, exact Course/Run/Round scope, all-team canonical Decision readiness, explicit lock, existing settlement, Teacher-safe SETTLED preview, governed publication, Student own-team Project context/result and existing W3/P2-B handoff.
 - Evidence timestamp: `2026-08-21T17:38:51Z`
 - Initial authenticated `origin/master`: `d7ddfd62254364698819e2f89dbaf9939758084a`
-- Current authenticated `origin/master`: `969bfd7457ea665946fe59a808694d31e2c815d0`
-- Current candidate implementation head: `3d3315fc60602d710cd874d94b393164d009a671`
-- Current candidate tree: `499db69f94b1871b6896861fb6e715722434f854`
+- Current authenticated pre-merge `origin/master`: `969bfd7457ea665946fe59a808694d31e2c815d0`
+- Product PR #434 head before merge: `2ab9b0a0c1f117b9cf048885e77f6a07c88a118e`
+- Product merge commit and current `origin/master`: `fbda560081e880bc4a3daf185d3c8e57092ea18a`
 
 ## Receipt map
 
@@ -25,7 +25,7 @@
 | FILE_OWNERSHIP_MATRIX | PASS | [`FILE_OWNERSHIP_MATRIX.md`](./FILE_OWNERSHIP_MATRIX.md) |
 | BASELINE_FAILURE_FINGERPRINT_REGISTRY | CURRENT_CANDIDATE_RECORDED | [`BASELINE_FAILURE_FINGERPRINT_REGISTRY.md`](./BASELINE_FAILURE_FINGERPRINT_REGISTRY.md) |
 | PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT | PASS | [`PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT.md`](./PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT.md) |
-| POST_MERGE_DETACHED_RECEIPT | PENDING_PRODUCT_MERGE | [`POST_MERGE_DETACHED_RECEIPT.md`](./POST_MERGE_DETACHED_RECEIPT.md) |
+| POST_MERGE_DETACHED_RECEIPT | PASS_WITH_LIMITS | [`POST_MERGE_DETACHED_RECEIPT.md`](./POST_MERGE_DETACHED_RECEIPT.md) |
 | FINAL_GOVERNANCE_READBACK_RECEIPT | PENDING_GOVERNANCE_CLOSURE | [`FINAL_GOVERNANCE_READBACK_RECEIPT.md`](./FINAL_GOVERNANCE_READBACK_RECEIPT.md) |
 
 ## Acceptance summary
@@ -33,9 +33,9 @@
 - Shared contract and DTO projection: implemented and focused-tested.
 - Teacher projection: server-owned exact scope, all-team project/role/canonical readiness, round command state, lock/settlement/publication receipts, and debrief handoff.
 - Student projection: exact assigned ProjectProfile context, own-team result only after publication, no truth-field or cross-team projection.
-- Dedicated browser: `@m2-p4-real`, mocks=0, retries=0, one test passed on current rebased candidate.
+- Dedicated browser: `@m2-p4-real`, mocks=0, retries=0, one test passed on the merged Product tree using isolated ports 3200-3203.
 - Current code gates after rebase: typecheck, build, lint, contract, focused regression, hidden Unicode, and direct-store boundary guard passed.
-- Full Vitest: 238/243 files and 1459/1464 tests passed in concurrent mode; 5 unrelated 5-second timeout fingerprints were reproduced as passing in a serial rerun of the 5 affected files (191/191). See the baseline receipt.
+- Full Vitest post-merge: 243/244 files and 1468/1469 tests passed in concurrent mode; the one shell-metacharacter snapshot subprocess timeout was reproduced as passing in a serial rerun of its affected file (147/147).
 - Security audit: inherited 9 advisories (2 low, 7 high); no dependency mutation was authorized or performed.
 
 ## Explicit non-proofs
