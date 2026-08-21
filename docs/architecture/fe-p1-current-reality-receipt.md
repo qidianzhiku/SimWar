@@ -62,14 +62,18 @@ contracts.
 - `npm run build`: pass for shared contracts, agent gateway, simulation core,
   API, UI, Admin, Teacher, and Student.
 - Focused P2-B and token contract tests: 3 files, 12 tests passed.
+- `npm test -- --no-file-parallelism --maxWorkers=1`: 231 files, 1419 tests
+  passed. This serial rerun clears the two scheduling-sensitive failures seen
+  in the initial parallel baseline.
 - `git diff --check`: pass.
 - Repository-wide `npm run format:check` remains red on 74 pre-existing files;
   the changed P2-B CSS is unchanged under Prettier and the new token contract
   test was formatted.
-- The earlier full `npm test` baseline had two unrelated failures in
+- The initial parallel `npm test` baseline reported two unrelated failures in
   `direct-store-boundary-check.test.ts` (10-second inventory timeout) and
   `store-snapshot-persistence.test.ts` (shell-metacharacter snapshot path
-  returned null). This visual wave does not change those store paths.
+  returned null); the controlled serial rerun passed both without source
+  changes. This visual wave does not change those store paths.
 
 Human Validation, Pilot, and Production authorization are not claimed by this
 automated receipt.
