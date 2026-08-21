@@ -251,7 +251,7 @@ export function ProjectLibraryPanel({
           <button type="button" disabled={busy} onClick={() => void createDraft()}>
             {busy ? "处理中…" : "新增安全项目档案"}
           </button>
-          <div className="summary-grid" aria-label="project profiles">
+          <div className="summary-grid" role="region" aria-label="project profiles">
             {state.profiles.map((profile) => (
               <article
                 key={`${profile.project_profile_reference.project_profile_id}:${profile.version}`}
