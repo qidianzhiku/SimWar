@@ -221,6 +221,12 @@ export async function handleW4EnterpriseStateRoute(
               transaction.course_id === courseId &&
               transaction.run_id === runId
           ),
+          capital_actions: current.capitalActions.filter(
+            (action) =>
+              action.tenant_id === context.tenantId &&
+              action.course_id === courseId &&
+              action.run_id === runId
+          ),
           operating_units: latest?.state.operating_units ?? [],
           process_information: {
             status: initiatives.some((initiative) => initiative.status === "blocked")
@@ -571,6 +577,16 @@ export async function handleW4EnterpriseStateRoute(
         state: {
           cash: Number(supplied.cash ?? 1000),
           capacity: Number(supplied.capacity ?? 100),
+          capital: supplied.capital ?? {
+            debt_principal: 0,
+            equity_proceeds: 0,
+            working_capital_available: 0,
+            interest_paid: 0,
+            fees_paid: 0,
+            covenant_min_cash: 0,
+            covenant_breach_action_ids: [],
+            active_capital_action_ids: []
+          },
           product_lines: Array.isArray(supplied.product_lines)
             ? supplied.product_lines.map(String)
             : ["core-care"],

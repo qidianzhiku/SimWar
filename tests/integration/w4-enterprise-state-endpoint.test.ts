@@ -125,6 +125,50 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       );
       expect(decision.status).toBe(201);
 
+      const capitalDecision = await request(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/strategic-decisions`,
+        student,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          decision: {
+            decision_id: "w4-http-capital-action-1",
+            tenant_id: tenantId,
+            course_id: "course_demo",
+            run_id: activeRunId,
+            round_id: roundId,
+            round_no: 1,
+            team_id: "team_alpha",
+            kind: "capital_action",
+            version: 1,
+            status: "canonical",
+            payload: {
+              rationale: "fund a controlled expansion runway",
+              lead_time_rounds: 0,
+              reversible: false,
+              dependencies: ["cash-policy-v1"],
+              kpi_hypothesis: "maintain liquidity while expanding capacity",
+              capital_action_kind: "debt",
+              principal: 250,
+              term_rounds: 2,
+              rate_or_cost_bps: 100,
+              cost_source: "scenario-capital-cost-v1",
+              covenant_min_cash: 500,
+              fees: 5,
+              obligation: "term_debt"
+            }
+          }
+        }
+      );
+      expect(capitalDecision.status).toBe(201);
+      expect(capitalDecision.body.data.capital_action).toMatchObject({
+        kind: "debt",
+        status: "active",
+        principal: 250
+      });
+
       const openRoundSettlement = await request(
         baseUrl,
         `/api/v1/w4/runs/${activeRunId}/rounds/1/settle`,
@@ -244,6 +288,7 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
         portfolios: Array<{
           operating_units: Array<{ operating_unit_id: string; name: string; status: string }>;
           team_paths: Array<{ team_id: string; path_evidence: { official_replay_path: unknown } }>;
+          capital_actions: Array<{ capital_action_id: string }>;
         }>;
       }>(baseUrl, "/api/v1/bff/admin/w4/portfolio", admin);
       expect(adminProjection.status).toBe(200);
@@ -251,6 +296,11 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
         { operating_unit_id: "unit_alpha", name: "Alpha Operations", status: "active" }
       ]);
       expect(adminProjection.body.data.portfolios[0]?.team_paths[0]?.path_evidence).toBeDefined();
+      expect(adminProjection.body.data.portfolios[0]?.capital_actions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ capital_action_id: "capital_action_w4-http-capital-action-1" })
+        ])
+      );
 
       const unknownRoundProjection = await request(
         baseUrl,

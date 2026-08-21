@@ -122,6 +122,15 @@
         "project_portfolio_snapshot": {
           "type": "array",
           "items": { "type": "object" }
+        },
+        "capital_action_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "capital_action_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "capital_action_snapshot": {
+          "type": "array",
+          "items": { "type": "object" }
         }
       }
     },
