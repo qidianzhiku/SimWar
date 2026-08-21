@@ -272,6 +272,64 @@ describe("RoleWorkflowCommandService", () => {
     expect(store.decisions[0]?.canonical_source).toBe("role_merge_commit");
   });
 
+  it("carries a typed W4 strategic action from the role section through merge and confirmation", async () => {
+    await assignAllRoles();
+    const w4Action = {
+      kind: "new_project" as const,
+      version: 1,
+      payload: {
+        project_name: "Role-owned project",
+        cost: 120000,
+        cycle_rounds: 3,
+        area: 1200,
+        beds: 40,
+        bed_mix: { standard: 30, premium: 10 },
+        ramp: 0.6,
+        lead_time_rounds: 2
+      }
+    };
+    const payloads = new Map<RoleWorkflowActor, object>([
+      [
+        studentCeo,
+        { strategy_statement: "Grow with a governed project.", w4_strategic_action: w4Action }
+      ],
+      [studentCfo, { cash_buffer_target: 0.2, service_quality_budget: 125000 }],
+      [studentCmo, { marketing_budget: 150000, pricing: { base_price: 12800 } }],
+      [studentCoo, { capacity_plan: "expand" }]
+    ]);
+
+    for (const actor of [studentCeo, studentCfo, studentCmo, studentCoo]) {
+      await service.saveSection(actor, {
+        expected_version: 0,
+        payload: payloads.get(actor)!,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+      await service.markSectionReady(actor, {
+        expected_version: 1,
+        round_id: "round_c3_1",
+        run_id: "run_c3",
+        team_id: "team_c3"
+      });
+    }
+
+    const merge = await service.createMergeCommit(studentCeo, {
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    expect(store.decisionMergeCommits[0]?.merged_payload.w4_strategic_action).toEqual(w4Action);
+
+    await service.confirmTeamDecision(studentCeo, {
+      merge_commit_id: merge.merge_commit_id,
+      round_id: "round_c3_1",
+      run_id: "run_c3",
+      team_id: "team_c3"
+    });
+    expect(store.decisions[0]?.payload.w4_strategic_action).toEqual(w4Action);
+  });
+
   it("projects a deterministic role-safe DecisionTrace without creating formal writes", async () => {
     const assignment = await service.assignRole(teacher, {
       course_id: "course_c3",

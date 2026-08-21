@@ -19,7 +19,9 @@ import type {
   W4StrategicEffect,
   W4StrategicInitiative,
   W4StrategicDecisionKind,
-  W4StoreState
+  W4StoreState,
+  W4ProjectionBase,
+  Decision
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
 
@@ -207,6 +209,43 @@ export function createW4DecisionPayloadDigest(
   payload: unknown
 ): string {
   return digest({ kind, payload: normalizeDecisionPayload(payload) });
+}
+
+/**
+ * Formal W4 actions are projections of the already admitted RoleWorkflow
+ * Decision. The W4 route may persist its own typed action record for the W4
+ * state machine, but it must never reinterpret a client payload as the
+ * canonical team Decision. The canonical Decision therefore carries an
+ * explicit, versioned W4 action envelope and this comparison is the only
+ * accepted bridge between the two authorities.
+ */
+export function assertFormalW4DecisionMatchesCanonical(
+  submitted: Pick<W4CanonicalStrategicDecision, "kind" | "version" | "payload">,
+  canonical: Pick<Decision, "version" | "payload">
+): void {
+  const canonicalPayload = canonical.payload;
+  const envelope =
+    canonicalPayload && typeof canonicalPayload === "object"
+      ? (canonicalPayload as unknown as Record<string, unknown>).w4_strategic_action
+      : undefined;
+  if (!envelope || typeof envelope !== "object") {
+    throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
+  }
+
+  const action = envelope as {
+    kind?: unknown;
+    version?: unknown;
+    payload?: unknown;
+  };
+  if (
+    action.kind !== submitted.kind ||
+    action.version !== submitted.version ||
+    canonical.version !== submitted.version ||
+    createW4DecisionPayloadDigest(submitted.kind, action.payload) !==
+      createW4DecisionPayloadDigest(submitted.kind, submitted.payload)
+  ) {
+    throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
+  }
 }
 
 function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
@@ -430,8 +469,45 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
   };
 }
 
+function strategicActionProjection(
+  decision: W4CanonicalStrategicDecision
+): NonNullable<W4ProjectionBase["latest_strategic_action"]> {
+  const payload = decision.payload as unknown as Record<string, unknown>;
+  const hasActionMetadata =
+    typeof payload.reversible === "boolean" &&
+    Array.isArray(payload.dependencies) &&
+    typeof payload.kpi_hypothesis === "string";
+  return {
+    decision_id: decision.decision_id,
+    kind: decision.kind,
+    version: decision.version,
+    admission: {
+      policy: decision.admission.policy,
+      authority: decision.admission.authority,
+      canonical_decision_id: decision.admission.canonical_decision_id,
+      merge_commit_id: decision.admission.merge_commit_id,
+      team_confirmation_id: decision.admission.team_confirmation_id
+    },
+    cost: typeof payload.cost === "number" ? payload.cost : 0,
+    lead_time_rounds: typeof payload.lead_time_rounds === "number" ? payload.lead_time_rounds : 0,
+    reversible: hasActionMetadata ? Boolean(payload.reversible) : false,
+    dependencies: hasActionMetadata
+      ? (payload.dependencies as string[]).map((dependency) => String(dependency))
+      : [],
+    kpi_hypothesis: hasActionMetadata ? String(payload.kpi_hypothesis) : "未提供 KPI 假设",
+    known_limits: hasActionMetadata
+      ? []
+      : [
+          "当前 New Project 历史兼容 payload 未包含 reversible/dependencies/kpi_hypothesis；默认值不代表业务确认。"
+        ]
+  };
+}
+
 function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void {
-  if (decision.kind !== "new_project") return;
+  if (decision.kind !== "new_project") {
+    validateTypedAdjustmentPayload(decision.kind, decision.payload);
+    return;
+  }
   const payload = decision.payload as {
     project_name?: unknown;
     cost?: unknown;
@@ -442,6 +518,22 @@ function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void
     ramp?: unknown;
     lead_time_rounds?: unknown;
   };
+  const expectedKeys = [
+    "area",
+    "bed_mix",
+    "beds",
+    "cost",
+    "cycle_rounds",
+    "lead_time_rounds",
+    "project_name",
+    "ramp"
+  ];
+  if (
+    Object.keys(payload).length !== expectedKeys.length ||
+    Object.keys(payload).some((key) => !expectedKeys.includes(key))
+  ) {
+    throw new W4EnterpriseStateError("W4_NEW_PROJECT_INVALID");
+  }
   const numericFields = [
     "cost",
     "cycle_rounds",
@@ -478,6 +570,71 @@ function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void
     Object.values(payload.bed_mix).some((value) => Number(value) < 0)
   ) {
     throw new W4EnterpriseStateError("W4_NEW_PROJECT_BED_MIX_INVALID");
+  }
+}
+
+function validateTypedAdjustmentPayload(
+  kind: Exclude<W4StrategicDecisionKind, "new_project">,
+  input: unknown
+): void {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  const payload = input as Record<string, unknown>;
+  const commonKeys = [
+    "dependencies",
+    "kpi_hypothesis",
+    "lead_time_rounds",
+    "rationale",
+    "reversible"
+  ];
+  const kindKeys: Record<typeof kind, string[]> = {
+    product_line_adjustment: ["operation", "product_line_id", "target_value"],
+    positioning_adjustment: ["positioning"],
+    organization_adjustment: ["headcount_delta", "unit_name"]
+  };
+  const expectedKeys = [...commonKeys, ...(kindKeys[kind] ?? [])].sort();
+  const actualKeys = Object.keys(payload).sort();
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  if (
+    typeof payload.rationale !== "string" ||
+    payload.rationale.trim() === "" ||
+    typeof payload.kpi_hypothesis !== "string" ||
+    payload.kpi_hypothesis.trim() === "" ||
+    typeof payload.reversible !== "boolean" ||
+    !Number.isInteger(payload.lead_time_rounds) ||
+    Number(payload.lead_time_rounds) < 0 ||
+    !Array.isArray(payload.dependencies) ||
+    payload.dependencies.some((item) => typeof item !== "string" || item.trim() === "")
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  if (kind === "product_line_adjustment") {
+    if (
+      typeof payload.product_line_id !== "string" ||
+      payload.product_line_id.trim() === "" ||
+      !["add", "update", "remove"].includes(String(payload.operation)) ||
+      typeof payload.target_value !== "string" ||
+      payload.target_value.trim() === ""
+    ) {
+      throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+    }
+  } else if (kind === "positioning_adjustment") {
+    if (typeof payload.positioning !== "string" || payload.positioning.trim() === "") {
+      throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+    }
+  } else if (
+    typeof payload.unit_name !== "string" ||
+    payload.unit_name.trim() === "" ||
+    !Number.isInteger(payload.headcount_delta) ||
+    Number(payload.headcount_delta) === 0
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
   }
 }
 
@@ -588,10 +745,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
               decision.payload as W4CanonicalStrategicDecision["payload"] & Record<string, unknown>
             )
           : null;
-      const leadTime =
-        decision.kind === "new_project"
-          ? Number((decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0)
-          : 0;
+      const leadTime = Number(
+        (decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0
+      );
       const effect: W4StrategicEffect = {
         effect_id: `effect_${decision.decision_id}`,
         commitment_id: commitment.commitment_id,
@@ -989,6 +1145,13 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
       const scopedInitiatives = current.initiatives.filter((item) => scopeMatches(scope, item));
+      const latestStrategicDecision = current.decisions
+        .filter((item) => scopeMatches(scope, item))
+        .sort(
+          (left, right) =>
+            left.round_no - right.round_no || left.decision_id.localeCompare(right.decision_id)
+        )
+        .at(-1);
       const scopedCommitments = current.commitments
         .filter((item) => scopeMatches(scope, item))
         .map(({ commitment_id, kind, status, cost }) => ({ commitment_id, kind, status, cost }));
@@ -1107,6 +1270,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         initiatives: clone(scopedInitiatives),
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
+        latest_strategic_action: latestStrategicDecision
+          ? strategicActionProjection(latestStrategicDecision)
+          : null,
         evidence: clone(scopedEvidence),
         path_evidence: clone(pathEvidence)
       };
