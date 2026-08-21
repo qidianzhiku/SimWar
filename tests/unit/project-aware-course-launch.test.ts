@@ -136,6 +136,27 @@ describe("project-aware launch readiness", () => {
     );
   });
 
+  it("exposes an actionable evidence-bound blocker contract", () => {
+    const result = evaluateProjectAwareReadiness(
+      snapshot({ assignments: [], role_workflows: { team_alpha: { assignments: [] } } })
+    );
+    const blocker = result.teams[0]?.blockers.find((entry) => entry.code === "MISSING_ASSIGNMENT");
+
+    expect(blocker).toEqual(
+      expect.objectContaining({
+        blocker_id: "MISSING_ASSIGNMENT:team_alpha",
+        category: "project_assignment",
+        reason: "No exact validated ProjectProfileRef is assigned to this team.",
+        impact: "Project-aware launch remains blocked for this team.",
+        source_authority: "ProjectAssignment",
+        owner: "teacher",
+        recovery_action: "Assign one exact validated ProjectProfileRef to this team.",
+        freshness: "FRESH_SNAPSHOT",
+        evidence_ref: "project-aware-readiness:tenant_demo/course_demo/run_formal/team_alpha"
+      })
+    );
+  });
+
   it("does not implicitly replace a retired profile with its successor", () => {
     const current = snapshot();
     const profile = current.profiles[0]!;
@@ -181,6 +202,54 @@ describe("project-aware launch readiness", () => {
       expect.arrayContaining([
         expect.objectContaining({ code: "UNKNOWN_FORMAL_STATUS", owner: "platform" })
       ])
+    );
+  });
+
+  it("binds scope blocker evidence to the failing authority and keeps repeated IDs distinct", () => {
+    const current = snapshot();
+    const result = evaluateProjectAwareReadiness({
+      ...current,
+      course: { ...current.course!, tenant_id: "tenant_other" },
+      run: { ...current.run!, course_id: "course_other" }
+    });
+    const scopeBlockers = result.blockers.filter((entry) => entry.code === "SCOPE_MISMATCH");
+
+    expect(scopeBlockers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          blocker_id: "SCOPE_MISMATCH:Course",
+          category: "course",
+          source_authority: "Course"
+        }),
+        expect.objectContaining({
+          blocker_id: "SCOPE_MISMATCH:Run",
+          category: "run",
+          source_authority: "Run"
+        })
+      ])
+    );
+    expect(new Set(scopeBlockers.map((entry) => entry.blocker_id)).size).toBe(scopeBlockers.length);
+  });
+
+  it("attributes a team profile scope mismatch to ProjectProfile", () => {
+    const current = snapshot();
+    const result = evaluateProjectAwareReadiness({
+      ...current,
+      profiles: [
+        {
+          ...current.profiles[0]!,
+          tenant_id: "tenant_other"
+        }
+      ]
+    });
+    const blocker = result.teams[0]?.blockers.find((entry) => entry.code === "SCOPE_MISMATCH");
+
+    expect(blocker).toEqual(
+      expect.objectContaining({
+        blocker_id: "SCOPE_MISMATCH:ProjectProfile:team_alpha",
+        category: "project_profile",
+        source_authority: "ProjectProfile"
+      })
     );
   });
 

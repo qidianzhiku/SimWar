@@ -86,6 +86,8 @@ The projection contains:
 
 Course readiness is `READY` only when every required team has a valid exact assignment, every existing team member has an existing role assignment, the course/run scope is exact, and formal runtime inputs are authoritatively bound. The implementation does not invent a fixed five-role minimum; it evaluates all role seats currently declared by the existing Team members, allowing the existing one-member fixtures to remain valid while still catching missing role assignments.
 
+Every readiness blocker is an evidence-bound public DTO. Within one readiness projection, `blocker_id` is stable and unique for the failed condition; `code` identifies the failure family, while `category` identifies the failed domain (`course`, `run`, `round`, `project_assignment`, `project_profile`, `role_workflow`, or `formal_binding`). The DTO also includes the human-readable `reason`, user impact, `owner`, `action`, explicit `recovery_action`, the failing `source_authority`, `freshness`, and an `evidence_ref` that is scoped to the exact tenant/course/run/team subject. An optional `waiver_policy` is metadata only and never turns a non-ready state into an implicit launch approval. For scope failures, the category, source authority, and blocker identity identify the actual failed Course, Run, or ProjectProfile check rather than using a generic Course label.
+
 ### 4.3 Launch command and receipt
 
 The teacher command accepts an explicit course scope and an idempotency key. It may accept an explicit list of team IDs for a matched arena, but it must not accept replacement scenario, parameter, engine, plugin or ProjectProfile refs as a hidden override. The command returns a durable receipt containing:

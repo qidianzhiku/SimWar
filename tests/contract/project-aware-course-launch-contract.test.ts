@@ -67,4 +67,23 @@ describe("Project-aware launch contract", () => {
     expect(openapi).toContain("ROUND_NOT_OPEN");
     expect(openapi).toContain("ProjectAwareLaunchReceiptEnvelope");
   });
+
+  it("declares the full evidence-bound blocker contract", () => {
+    const openapi = readFileSync("contracts/openapi/p0-api.openapi.yaml", "utf8");
+    for (const field of [
+      "blocker_id",
+      "category",
+      "reason",
+      "impact",
+      "source_authority",
+      "recovery_action",
+      "freshness",
+      "evidence_ref",
+      "waiver_policy"
+    ]) {
+      expect(openapi).toContain(`        ${field}:`);
+    }
+    expect(openapi).toContain("ProjectAssignment");
+    expect(openapi).toContain("FRESH_SNAPSHOT");
+  });
 });

@@ -5,6 +5,7 @@ import { cleanupPlaywrightStore } from "./store-isolation";
 const adminBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_ADMIN_PORT ?? 3103}`;
 const teacherBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_TEACHER_PORT ?? 3101}`;
 const studentBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_STUDENT_PORT ?? 3102}`;
+const apiBaseUrl = `http://127.0.0.1:${process.env.SIMWAR_PLAYWRIGHT_API_PORT ?? 3100}`;
 
 test.afterEach(() => cleanupPlaywrightStore());
 
@@ -67,6 +68,25 @@ test("@m2-p3-real completes exact project-aware readiness, launch and safe stude
   } finally {
     await betaContext.close();
   }
+
+  const directStudentLogin = await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+    data: { password: "student", username: "student" },
+    headers: { "x-tenant-id": "tenant_demo" }
+  });
+  expect(directStudentLogin.status()).toBe(200);
+  const directStudentSession = (await directStudentLogin.json()) as {
+    data: { access_token: string };
+  };
+  const crossTeamResponse = await page.request.get(
+    `${apiBaseUrl}/api/v1/bff/student/project-aware-context?course_id=course_demo&run_id=${M2P3_RUN_ID}&team_id=team_beta`,
+    {
+      headers: {
+        authorization: `Bearer ${directStudentSession.data.access_token}`,
+        "x-tenant-id": "tenant_demo"
+      }
+    }
+  );
+  expect(crossTeamResponse.status()).toBe(403);
 
   await page.goto(adminBaseUrl);
   await signIn(page, "admin", "管理员登录");
