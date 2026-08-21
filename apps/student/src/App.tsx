@@ -31,6 +31,7 @@ import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
+import { ProjectAwareStudentContextPanel } from "./ProjectAwareStudentContextPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { isW3ContextAvailable } from "./p2b-w3-context";
@@ -827,6 +828,14 @@ export function App() {
               teamId={team?.team_id}
             />
             <ProjectBriefPanel
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+            <ProjectAwareStudentContextPanel
+              baseUrl={API_BASE}
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
               teamId={team?.team_id}

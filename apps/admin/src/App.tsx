@@ -44,6 +44,7 @@ import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorks
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
+import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -1075,6 +1076,15 @@ export function App() {
         {session && hasAdminSummaryRole ? (
           <ProjectLibraryAuditPanel
             apiBase={API_BASE}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <ProjectAwareLaunchAuditPanel
+            baseUrl={API_BASE}
+            courseId={import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID}
+            runId={import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID}
             tenantId={login.tenantId}
             token={session.access_token}
           />

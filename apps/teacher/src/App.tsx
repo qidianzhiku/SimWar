@@ -80,6 +80,7 @@ import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
+import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -2111,6 +2112,13 @@ export function App() {
                   .filter((team) => team.course_id === (selectedRun?.course_id ?? selectedCourseId))
                   .map((team) => team.team_id) ?? []
               }
+            />
+            <ProjectAwareCourseLaunchPanel
+              baseUrl={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId ?? undefined}
+              runId={selectedRun?.run_id ?? selectedRunId ?? undefined}
+              tenantId={login.tenantId}
+              token={session.access_token}
             />
             <GoldenJourneyWorkbench
               courseId={selectedRun?.course_id ?? selectedCourseId}

@@ -548,6 +548,38 @@ export class ProjectLibraryService {
     }));
   }
 
+  async getProfilesForCourse(
+    actor: ProjectLibraryActor,
+    courseId: string
+  ): Promise<ProjectProfile[]> {
+    assertActor(actor);
+    const course = this.requireCourse(actor.tenant_id, courseId);
+    return clone(
+      this.store.projectProfiles.filter(
+        (profile) =>
+          profile.tenant_id === actor.tenant_id && profile.course_id === course.course_id
+      )
+    );
+  }
+
+  async getAssignmentsForScope(
+    actor: ProjectLibraryActor,
+    input: { course_id: string; run_id: string; team_ids?: readonly string[] }
+  ): Promise<ProjectAssignment[]> {
+    assertActor(actor);
+    const course = this.requireCourse(actor.tenant_id, input.course_id);
+    const teamIds = input.team_ids ? new Set(input.team_ids) : undefined;
+    return clone(
+      this.store.projectAssignments.filter(
+        (assignment) =>
+          assignment.tenant_id === actor.tenant_id &&
+          assignment.course_id === course.course_id &&
+          assignment.run_id === input.run_id &&
+          (!teamIds || teamIds.has(assignment.team_id))
+      )
+    );
+  }
+
   async getStudentBrief(context: StudentProjectBriefContext): Promise<ProjectProfileStudentBrief> {
     const course = this.store.courses.find(
       (candidate) => candidate.course_id === context.course_id

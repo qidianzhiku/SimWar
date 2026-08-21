@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/project-aware-launch.v1.schema.json",
+  "title": "Project-aware course launch receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "command_idempotency_key",
+    "status",
+    "tenant_id",
+    "course_id",
+    "run_id",
+    "team_ids",
+    "readiness_state",
+    "audit_id",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "project-aware-launch.v1" },
+    "command_idempotency_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
+    },
+    "status": { "enum": ["ACCEPTED", "REUSED"] },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "course_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "team_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "readiness_state": { "const": "READY" },
+    "readiness_generated_at": { "type": "string", "format": "date-time" },
+    "formal_binding_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "w4_state_refs": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "audit_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}
