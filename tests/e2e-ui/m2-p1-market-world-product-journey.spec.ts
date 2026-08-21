@@ -35,6 +35,10 @@ async function signIn(
 test("@m2-p1-real joins the exact MarketWorldRef across Teacher, Student, and Admin", async ({
   page
 }) => {
+  test.skip(
+    process.env.SIMWAR_PLAYWRIGHT_M2_MARKET_WORLD !== "true",
+    "M2 Market World fixture is enabled only for the dedicated real-BFF run"
+  );
   await page.goto(teacherBaseUrl);
   const teacherProjectionResponse = page.waitForResponse(
     (response) =>
