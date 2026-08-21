@@ -3220,7 +3220,7 @@ export function App() {
             <TeacherDebriefWorkspace
               apiBase={API_BASE}
               context={W3_ENABLED ? w3Context : undefined}
-              blockerSummary="当前没有可用的回合阻断"
+              blockerSummary={blockerSummary}
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}

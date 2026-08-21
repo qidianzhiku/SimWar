@@ -194,4 +194,54 @@ describe("P2-B FE-19 student decision learning", () => {
     host.remove();
     fetchSpy.mockRestore();
   });
+
+  it("serializes multiple reflection fields without control-character separators", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/reflection")) {
+        return new Response(JSON.stringify({ data: response }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const { host, root } = renderJourney();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    for (const [id, value] of [
+      ["student-p2b-reflection-judgment", "先判断结果"],
+      ["student-p2b-reflection-learning", "再学习机制"],
+      ["student-p2b-reflection-next", "下一轮验证"]
+    ] as const) {
+      const field = host.querySelector<HTMLTextAreaElement>(`#${id}`);
+      expect(field).not.toBeNull();
+      act(() => {
+        if (field) {
+          const setValue = Object.getOwnPropertyDescriptor(
+            HTMLTextAreaElement.prototype,
+            "value"
+          )?.set;
+          setValue?.call(field, value);
+          field.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      });
+    }
+    const submit = host.querySelector<HTMLButtonElement>(
+      '[data-testid="student-p2b-reflection"] button[type="submit"]'
+    );
+    expect(submit?.disabled).toBe(false);
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    const reflectionCall = fetchSpy.mock.calls.find(([input]) =>
+      String(input).includes("/reflection")
+    );
+    expect(reflectionCall).toBeDefined();
+    const body = JSON.parse(String(reflectionCall?.[1]?.body)) as { response: string };
+    expect(body.response).toContain("判断：先判断结果；学习：再学习机制；下一轮：下一轮验证");
+    expect(body.response).not.toMatch(/[\u0000-\u001f]/);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
 });

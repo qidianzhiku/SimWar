@@ -195,23 +195,9 @@ export function TeacherDebriefWorkspace({
           <div className="p2b-stage-kicker">03 · COHORT PROGRESS</div>
           <h3>团队学习进度</h3>
           <p>聚合课堂信号，不展示学生私有判断正文。</p>
-          <div className="p2b-cohort-row p2b-cohort-row--header">
-            <span>团队</span>
-            <span>结果解释</span>
-            <span>下一轮假设</span>
-            <span>状态</span>
-          </div>
-          <div className="p2b-cohort-row">
-            <span>A</span>
-            <span>能说清结果</span>
-            <span>已记录</span>
-            <strong>已准备</strong>
-          </div>
-          <div className="p2b-cohort-row">
-            <span>B</span>
-            <span>缺机制链</span>
-            <span>待引导</span>
-            <strong>阻断</strong>
+          <div className="p2b-empty-inline" role="status">
+            暂无 teacher-safe 团队学习进度投影；当前仅确认 {teamCount}{" "}
+            个团队存在，未编造团队级判断。
           </div>
         </article>
 

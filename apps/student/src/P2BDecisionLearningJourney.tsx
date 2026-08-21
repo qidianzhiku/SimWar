@@ -152,7 +152,9 @@ export function StudentDecisionLearningJourney({
     `下一轮：${reflection.next.trim()}`
   ]
     .filter((value) => !value.endsWith("："))
-    .join("\n\n");
+    // W3 safeText rejects all ASCII control characters, including LF. Keep
+    // the three learner prompts readable without sending rejected separators.
+    .join("；");
 
   return (
     <section

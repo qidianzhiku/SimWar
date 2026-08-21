@@ -75,6 +75,9 @@ describe("P2-B FE-20 teacher debrief", () => {
     expect(markup).toContain("teacher-safe projection");
     expect(markup).toContain("课堂笔记草稿（本地）");
     expect(markup).toContain("不会写入正式结果");
+    expect(markup).toContain("暂无 teacher-safe 团队学习进度投影");
+    expect(markup).not.toContain(">A<");
+    expect(markup).not.toContain(">B<");
     expect(markup).not.toContain("private peer drafts");
     expect(markup).not.toContain("Exact Ref JSON 数组");
   });
