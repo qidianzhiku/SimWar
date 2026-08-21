@@ -3,7 +3,8 @@
 ## Status
 
 - `FIGMA_DISCOVERY=PASS`
-- `DESIGN_GATE=PASS_WITH_LIMITS`
+- `FIGMA_DESIGN_FREEZE_RECEIPT=PASS`
+- `DESIGN_GATE=PASS`
 - `FIGMA_TO_CODE_MAP=PASS`
 - `BFF_BROWSER_ACCEPTANCE=PASS` for the real W3 consequence journey
 - `FINAL_COMMIT=414e07c98649c9ea48c51357767b5cd099c14446`
@@ -31,6 +32,6 @@ No service, API, DTO, contract, database, settlement, replay, permission, tenant
 
 ## Remaining limits
 
-Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. A dedicated Axe scan, visual screenshot diff against a frozen runtime baseline, human design approval, production deployment, pilot, and FE21/P3 work remain deferred. The Figma file itself is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
+Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; a separate P2-B-only Axe artifact and a visual screenshot diff against a frozen runtime baseline, human design approval, production deployment, pilot, and FE21/P3 work remain deferred. The Figma file itself is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
 
 The final focused PR4 run was executed on clean commit `414e07c98649c9ea48c51357767b5cd099c14446` with exact-head checks enabled. The full Vitest suite recorded 1,399 passing tests and two unrelated 5-second timeout failures (`shared-contracts-built-esm-startup` and `pr4-visual-baseline-capture`); the focused P2-B suite, all frontend builds, and the clean focused PR4 gate passed.

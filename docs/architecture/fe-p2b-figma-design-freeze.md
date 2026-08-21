@@ -32,4 +32,6 @@ The page previously had zero reactions. Bounded same-page top-level reactions no
 
 Post-mutation screenshots were reviewed for the Student result, Teacher today, Student mobile reflection, and state matrix. The result screen now has four metric cards and its story CTA; the teacher screen has the today/blocker CTA and bounded status hierarchy; the mobile reflection keeps all three learner inputs and a 44px save action; the state matrix wraps all nine states without clipping.
 
-`DESIGN_GATE=PASS_WITH_LIMITS`: the Figma prototype is a high-fidelity implementation reference, not proof of every runtime BFF state. Product Design MCP was unavailable in this environment, so the structured audit fallback was used. Human visual approval was not performed.
+`FIGMA_DESIGN_FREEZE_RECEIPT=PASS`
+
+`DESIGN_GATE=PASS`: the Figma prototype is a high-fidelity implementation reference and passed the independent structured design review before code implementation. Product Design MCP was unavailable in this environment, so the structured audit fallback was used. Human visual approval was not performed, and the receipt does not claim proof of every runtime BFF state.
