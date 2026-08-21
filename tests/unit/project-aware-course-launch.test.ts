@@ -136,6 +136,27 @@ describe("project-aware launch readiness", () => {
     );
   });
 
+  it("exposes an actionable evidence-bound blocker contract", () => {
+    const result = evaluateProjectAwareReadiness(
+      snapshot({ assignments: [], role_workflows: { team_alpha: { assignments: [] } } })
+    );
+    const blocker = result.teams[0]?.blockers.find((entry) => entry.code === "MISSING_ASSIGNMENT");
+
+    expect(blocker).toEqual(
+      expect.objectContaining({
+        blocker_id: "MISSING_ASSIGNMENT:team_alpha",
+        category: "project_assignment",
+        reason: "No exact validated ProjectProfileRef is assigned to this team.",
+        impact: "Project-aware launch remains blocked for this team.",
+        source_authority: "ProjectAssignment",
+        owner: "teacher",
+        recovery_action: "Assign one exact validated ProjectProfileRef to this team.",
+        freshness: "FRESH_SNAPSHOT",
+        evidence_ref: "project-aware-readiness:tenant_demo/course_demo/run_formal/team_alpha"
+      })
+    );
+  });
+
   it("does not implicitly replace a retired profile with its successor", () => {
     const current = snapshot();
     const profile = current.profiles[0]!;

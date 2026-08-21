@@ -1,9 +1,12 @@
 import type {
   AuditLog,
   ProjectAwareBlocker,
+  ProjectAwareBlockerAuthority,
+  ProjectAwareBlockerCategory,
   ProjectAwareCourseReadiness,
   ProjectAwareLaunchReceipt,
   ProjectAwareReadinessSnapshot,
+  ProjectAwareScope,
   ProjectAwareReadinessState,
   ProjectAwareTeamReadiness,
   ProjectAssignment,
@@ -46,13 +49,110 @@ function normalizeRole(role: string): string {
   return role === "risk" || role === "Quality & Risk" ? "COO" : role;
 }
 
+const BLOCKER_METADATA: Record<
+  ProjectAwareBlocker["code"],
+  {
+    category: ProjectAwareBlockerCategory;
+    reason: string;
+    impact: string;
+    source_authority: ProjectAwareBlockerAuthority;
+  }
+> = {
+  MISSING_ASSIGNMENT: {
+    category: "project_assignment",
+    reason: "No exact validated ProjectProfileRef is assigned to this team.",
+    impact: "Project-aware launch remains blocked for this team.",
+    source_authority: "ProjectAssignment"
+  },
+  SCOPE_MISMATCH: {
+    category: "course",
+    reason: "The requested references do not belong to one exact tenant/Course/Run scope.",
+    impact: "Launch cannot proceed outside the exact tenant/Course/Run scope.",
+    source_authority: "Course"
+  },
+  CONFLICTING_ASSIGNMENT: {
+    category: "project_assignment",
+    reason: "More than one active ProjectAssignment matches this team scope.",
+    impact: "Launch is blocked until the assignment identity is unambiguous.",
+    source_authority: "ProjectAssignment"
+  },
+  STALE_PROFILE_DIGEST: {
+    category: "project_profile",
+    reason: "The exact ProjectProfile reference is missing, stale, or not validated.",
+    impact:
+      "Launch is blocked until the exact profile reference is restored or explicitly rebound.",
+    source_authority: "ProjectProfile"
+  },
+  RETIRED_PROFILE: {
+    category: "project_profile",
+    reason: "The assigned exact ProjectProfile reference is retired.",
+    impact: "Launch is blocked until an explicit approved successor rebind is completed.",
+    source_authority: "ProjectProfile"
+  },
+  MISSING_ROLE: {
+    category: "role_workflow",
+    reason: "A required active role assignment is missing from the team workflow.",
+    impact: "Launch is blocked until every required role seat is assigned.",
+    source_authority: "RoleWorkflow"
+  },
+  ROUND_NOT_OPEN: {
+    category: "round",
+    reason: "The exact opening Round is missing or not open.",
+    impact: "Launch cannot be admitted until the exact opening Round is open.",
+    source_authority: "Round"
+  },
+  UNKNOWN_FORMAL_STATUS: {
+    category: "formal_binding",
+    reason: "The existing Formal Course authority status cannot be verified.",
+    impact: "Launch remains in UNKNOWN_VERIFYING until the formal binding is verified.",
+    source_authority: "FormalCourseAuthorityBinding"
+  },
+  FORMAL_BINDING_MISMATCH: {
+    category: "formal_binding",
+    reason: "The resolved formal authority does not match the exact launch scope.",
+    impact: "Launch is blocked until the exact formal authority is restored.",
+    source_authority: "FormalCourseAuthorityBinding"
+  },
+  RUN_NOT_FOUND: {
+    category: "run",
+    reason: "The exact Run is missing, inactive, or cannot be verified.",
+    impact: "Launch cannot proceed without the exact active Run.",
+    source_authority: "Run"
+  },
+  COURSE_NOT_READY: {
+    category: "course",
+    reason: "The exact Course is missing, inactive, or has no enrolled team in scope.",
+    impact: "Launch cannot proceed until the exact Course is ready.",
+    source_authority: "Course"
+  }
+};
+
 function blocker(
   code: ProjectAwareBlocker["code"],
   owner: ProjectAwareBlocker["owner"],
   action: string,
-  detail?: string
+  detail: string | undefined,
+  scope: ProjectAwareScope,
+  teamId?: string
 ): ProjectAwareBlocker {
-  return { code, owner, action, ...(detail ? { detail } : {}) };
+  const metadata = BLOCKER_METADATA[code];
+  const evidenceRef = `project-aware-readiness:${scope.tenant_id}/${scope.course_id}/${scope.run_id}${
+    teamId ? `/${teamId}` : ""
+  }`;
+  return {
+    blocker_id: `${code}${teamId ? `:${teamId}` : ""}`,
+    category: metadata.category,
+    code,
+    owner,
+    action,
+    reason: metadata.reason,
+    impact: metadata.impact,
+    source_authority: metadata.source_authority,
+    recovery_action: action,
+    freshness: "FRESH_SNAPSHOT",
+    evidence_ref: evidenceRef,
+    ...(detail ? { detail } : {})
+  };
 }
 
 function stateForBlockers(blockers: readonly ProjectAwareBlocker[]): ProjectAwareReadinessState {
@@ -111,14 +211,21 @@ export function evaluateProjectAwareReadiness(
   now = new Date().toISOString()
 ): ProjectAwareCourseReadiness {
   const globalBlockers: ProjectAwareBlocker[] = [];
+  const scopedBlocker = (
+    code: ProjectAwareBlocker["code"],
+    owner: ProjectAwareBlocker["owner"],
+    action: string,
+    detail?: string,
+    teamId?: string
+  ): ProjectAwareBlocker => blocker(code, owner, action, detail, snapshot.scope, teamId);
   if (!snapshot.course || snapshot.course.tenant_id !== snapshot.scope.tenant_id) {
     globalBlockers.push(
-      blocker("SCOPE_MISMATCH", "teacher", "Select a Course in the active tenant.")
+      scopedBlocker("SCOPE_MISMATCH", "teacher", "Select a Course in the active tenant.")
     );
   }
   if (!snapshot.run) {
     globalBlockers.push(
-      blocker("RUN_NOT_FOUND", "teacher", "Create or select the exact Run for this Course.")
+      scopedBlocker("RUN_NOT_FOUND", "teacher", "Create or select the exact Run for this Course.")
     );
   } else if (
     snapshot.run.tenant_id !== snapshot.scope.tenant_id ||
@@ -126,16 +233,24 @@ export function evaluateProjectAwareReadiness(
     snapshot.run.run_id !== snapshot.scope.run_id
   ) {
     globalBlockers.push(
-      blocker("SCOPE_MISMATCH", "teacher", "Use the exact Course/Run scope without rebinding.")
+      scopedBlocker(
+        "SCOPE_MISMATCH",
+        "teacher",
+        "Use the exact Course/Run scope without rebinding."
+      )
     );
   } else if (snapshot.run.status !== "active") {
     globalBlockers.push(
-      blocker("RUN_NOT_FOUND", "teacher", "Use an active Run; closed Runs cannot be launched.")
+      scopedBlocker(
+        "RUN_NOT_FOUND",
+        "teacher",
+        "Use an active Run; closed Runs cannot be launched."
+      )
     );
   }
   if (!snapshot.opening_round || snapshot.opening_round.status !== "open") {
     globalBlockers.push(
-      blocker(
+      scopedBlocker(
         "ROUND_NOT_OPEN",
         "teacher",
         "Open the exact first Round before launching the project-aware Course."
@@ -144,12 +259,12 @@ export function evaluateProjectAwareReadiness(
   }
   if (snapshot.course && !["active", "published"].includes(snapshot.course.status)) {
     globalBlockers.push(
-      blocker("COURSE_NOT_READY", "teacher", "Publish or activate the exact Course first.")
+      scopedBlocker("COURSE_NOT_READY", "teacher", "Publish or activate the exact Course first.")
     );
   }
   if (snapshot.formal_binding.status === "UNKNOWN") {
     globalBlockers.push(
-      blocker(
+      scopedBlocker(
         "UNKNOWN_FORMAL_STATUS",
         "platform",
         "Verify the existing Formal Course binding before launch."
@@ -184,16 +299,24 @@ export function evaluateProjectAwareReadiness(
     const missingRoles = requiredRoles.filter((role) => !assignedRoles.includes(role));
     if (missingRoles.length > 0) {
       blockers.push(
-        blocker(
+        scopedBlocker(
           "MISSING_ROLE",
           "teacher",
-          `Assign the missing role seat(s): ${missingRoles.join(", ")}.`
+          `Assign the missing role seat(s): ${missingRoles.join(", ")}.`,
+          undefined,
+          team.team_id
         )
       );
     }
     if (!roleSnapshot?.round && snapshot.run) {
       blockers.push(
-        blocker("RUN_NOT_FOUND", "platform", "Verify the exact open Round for this team.")
+        scopedBlocker(
+          "RUN_NOT_FOUND",
+          "platform",
+          "Verify the exact open Round for this team.",
+          undefined,
+          team.team_id
+        )
       );
     }
 
@@ -206,19 +329,23 @@ export function evaluateProjectAwareReadiness(
     );
     if (scopedAssignments.length === 0) {
       blockers.push(
-        blocker(
+        scopedBlocker(
           "MISSING_ASSIGNMENT",
           "teacher",
-          "Assign one exact validated ProjectProfileRef to this team."
+          "Assign one exact validated ProjectProfileRef to this team.",
+          undefined,
+          team.team_id
         )
       );
     }
     if (scopedAssignments.length > 1) {
       blockers.push(
-        blocker(
+        scopedBlocker(
           "CONFLICTING_ASSIGNMENT",
           "teacher",
-          "Resolve the duplicate team assignment without selecting an implicit latest ref."
+          "Resolve the duplicate team assignment without selecting an implicit latest ref.",
+          undefined,
+          team.team_id
         )
       );
     }
@@ -241,27 +368,33 @@ export function evaluateProjectAwareReadiness(
       if (!profile) {
         const mismatch = findProfileStatusMismatch(snapshot, reference);
         blockers.push(
-          blocker(
+          scopedBlocker(
             mismatch === "scope" ? "SCOPE_MISMATCH" : "STALE_PROFILE_DIGEST",
             "teacher",
-            "Restore the exact profile identity or explicitly rebind to an approved successor."
+            "Restore the exact profile identity or explicitly rebind to an approved successor.",
+            undefined,
+            team.team_id
           )
         );
       } else {
         if (profile.status === "RETIRED") {
           blockers.push(
-            blocker(
+            scopedBlocker(
               "RETIRED_PROFILE",
               "teacher",
-              "Explicitly rebind this team to an approved successor; no automatic rebind is allowed."
+              "Explicitly rebind this team to an approved successor; no automatic rebind is allowed.",
+              undefined,
+              team.team_id
             )
           );
         } else if (profile.status !== "VALIDATED") {
           blockers.push(
-            blocker(
+            scopedBlocker(
               "STALE_PROFILE_DIGEST",
               "teacher",
-              "Validate the exact ProjectProfile before launch."
+              "Validate the exact ProjectProfile before launch.",
+              undefined,
+              team.team_id
             )
           );
         }
@@ -271,10 +404,12 @@ export function evaluateProjectAwareReadiness(
             JSON.stringify(profile.market_world_reference)
         ) {
           blockers.push(
-            blocker(
+            scopedBlocker(
               "SCOPE_MISMATCH",
               "teacher",
-              "Use a ProjectProfile bound to the Course's exact MarketWorldRef."
+              "Use a ProjectProfile bound to the Course's exact MarketWorldRef.",
+              undefined,
+              team.team_id
             )
           );
         }
@@ -295,12 +430,16 @@ export function evaluateProjectAwareReadiness(
 
   if (!exactScopeIsValid(snapshot) && globalBlockers.length === 0) {
     globalBlockers.push(
-      blocker("SCOPE_MISMATCH", "teacher", "Use the exact tenant/course/run references.")
+      scopedBlocker("SCOPE_MISMATCH", "teacher", "Use the exact tenant/course/run references.")
     );
   }
   if (scopedTeams.length === 0) {
     globalBlockers.push(
-      blocker("COURSE_NOT_READY", "teacher", "Enroll at least one exact team in this Course/Run.")
+      scopedBlocker(
+        "COURSE_NOT_READY",
+        "teacher",
+        "Enroll at least one exact team in this Course/Run."
+      )
     );
   }
   const allBlockers = [...globalBlockers, ...teams.flatMap((team) => team.blockers)];
