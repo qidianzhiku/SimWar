@@ -8,7 +8,10 @@ Product PR: [#420](https://github.com/qidianzhiku/SimWar/pull/420)
 
 Merged commit: `7264601e39937d03f51f21eb99a1c09931f67c8d`
 
-Forward source: `origin/master` at the merged commit above
+Forward source: the closure was verified at `7264601e...`; the current
+`origin/master` has since advanced through the unrelated Project-aware launch
+follow-up (PRs #422 and #423). That later work is outside this P1/P2-B closure
+and is not being reclassified as part of the product delivery.
 
 ## Closure decision
 
@@ -30,6 +33,20 @@ provider, or database authority was changed.
 - Source/design mapping is recorded in
   `docs/architecture/fe-p1-figma-code-map.md` and current reality is recorded
   in `docs/architecture/fe-p1-current-reality-receipt.md`.
+- Continuation evidence addendum (2026-08-21): after the closure readback, an
+  additive, description-only Figma metadata write appended an explicit
+  `STATE_CONTRACT: SUPPORTED=...; NOT_APPLICABLE=...` line to the existing
+  descriptions for `19:340` AppShell, `19:344` DataTable, `19:348`
+  StatusBadge, `19:352` DecisionForm, `19:356` AIAdviceCard, `19:360`
+  ReplayDiffCard, `29:8` ActionButton, `29:17` StateBadge, `29:30`
+  StatePanel, `29:43` FormField, `13:355` LoginCard, `13:359`
+  TenantSwitcher, `13:363` PermissionTag, and `13:367` AuditRow. Existing
+  descriptions were preserved; no page, component, variant, variable, or
+  prototype node was deleted or structurally rewritten. A fresh readback
+  still reports 31 variables, six text styles, no paint styles, and the same
+  component-set variants. This corrects the earlier shorthand “only Figma
+  writes” sentence; the three spacing variables and this state-contract
+  metadata append are the complete authorized mutation set.
 - The protected dirty workspace was not reset, cleaned, stashed, or overwritten.
   Implementation and post-merge evidence used independent worktrees.
 
