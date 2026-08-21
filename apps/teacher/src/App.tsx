@@ -79,6 +79,7 @@ import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
+import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -2098,6 +2099,18 @@ export function App() {
               courseId={selectedRun?.course_id ?? selectedCourseId}
               tenantId={login.tenantId}
               token={session.access_token}
+            />
+            <ProjectLibraryPanel
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+              teamIds={
+                state?.teams
+                  .filter((team) => team.course_id === (selectedRun?.course_id ?? selectedCourseId))
+                  .map((team) => team.team_id) ?? []
+              }
             />
             <GoldenJourneyWorkbench
               courseId={selectedRun?.course_id ?? selectedCourseId}

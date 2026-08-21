@@ -8,6 +8,7 @@ export * from "./teaching-closure.js";
 export * from "./r3-golden-journey.js";
 export * from "./w027-decision-experience.js";
 export * from "./market-world.js";
+export * from "./project-library.js";
 import type { MarketWorldRef } from "./market-world.js";
 
 export type ActorRole =

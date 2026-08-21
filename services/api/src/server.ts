@@ -54,8 +54,15 @@ import type {
   TenantBaselineProvisioningRequest,
   User,
   W4DecisionAdmission,
+  W4EnterpriseState,
   W4ReplayInputManifest,
-  W4ScopeContext
+  W4ScopeContext,
+  ProjectAssignmentInput,
+  ProjectProfileCloneInput,
+  ProjectProfileCreateInput,
+  ProjectProfileImportInput,
+  ProjectProfileReferenceInput,
+  ProjectProfileSuccessorInput
 } from "@simwar/shared-contracts";
 import type { MarketWorldRef } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
@@ -180,10 +187,7 @@ import {
   CourseReportQueryServiceError
 } from "./course-report-query-service.js";
 import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-routes.js";
-import {
-  W5GovernedModelError,
-  W5GovernedModelService
-} from "./w5-governed-model-service.js";
+import { W5GovernedModelError, W5GovernedModelService } from "./w5-governed-model-service.js";
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
@@ -271,6 +275,7 @@ import { prepareSettlementOutcome, validateDecisionPayload } from "./simulation.
 import {
   createJsonW4Repository,
   createW4DecisionPayloadDigest,
+  createEnterpriseStateStrategicEvolutionService,
   W4EnterpriseStateError,
   type W4Repository
 } from "./w4-enterprise-state.js";
@@ -291,6 +296,7 @@ import {
   createTeacherMarketWorldProjection,
   marketWorldReferenceState
 } from "./market-world-product.js";
+import { ProjectLibraryError, ProjectLibraryService } from "./project-library-service.js";
 import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
@@ -368,6 +374,8 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   w4EnterpriseStateRepository: W4Repository;
+  w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
+  projectLibrary: ProjectLibraryService;
   w5GovernedModel: W5GovernedModelService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
@@ -669,6 +677,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     undefined,
     createJsonW5GovernedModelPersistence(store)
   );
+  const w4EnterpriseStateRepository = createJsonW4Repository(store);
 
   return {
     courseBlueprintBindingStore,
@@ -704,7 +713,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow,
     w027DecisionExperience,
     w3OfficialConsequence,
-    w4EnterpriseStateRepository: createJsonW4Repository(store),
+    w4EnterpriseStateRepository,
+    w4EnterpriseStateService: createEnterpriseStateStrategicEvolutionService(
+      w4EnterpriseStateRepository
+    ),
+    projectLibrary: new ProjectLibraryService(store),
     w5GovernedModel,
     instructorAssets: new InstructorAssetRegistry(
       {
@@ -1854,11 +1867,19 @@ function matchPath(pathname: string, pattern: RegExp): RegExpMatchArray {
 
 function parseMarketWorldBindingReference(body: unknown): MarketWorldRef {
   if (!isRecord(body) || Object.keys(body).some((field) => field !== "market_world_reference")) {
-    throw new HttpError(422, "MARKET_WORLD_REFERENCE_INVALID", "market world binding request invalid");
+    throw new HttpError(
+      422,
+      "MARKET_WORLD_REFERENCE_INVALID",
+      "market world binding request invalid"
+    );
   }
   const value = body.market_world_reference;
   if (!isRecord(value)) {
-    throw new HttpError(422, "MARKET_WORLD_REFERENCE_INVALID", "market world binding request invalid");
+    throw new HttpError(
+      422,
+      "MARKET_WORLD_REFERENCE_INVALID",
+      "market world binding request invalid"
+    );
   }
   return {
     digest: value.digest as string,
@@ -5450,7 +5471,11 @@ async function routeRequest(
       /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/market-world$/
     );
     const course = await getCourseForRead(runtime, context, courseId ?? "");
-    sendJson(response, 200, createEnvelope(context, createTeacherMarketWorldProjection({ course })));
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, createTeacherMarketWorldProjection({ course }))
+    );
     return;
   }
 
@@ -5492,6 +5517,172 @@ async function routeRequest(
       tenantId: context.tenantId
     });
     sendJson(response, 200, createEnvelope(context, receipt));
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-library$/.test(url.pathname)
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher project library authority required");
+    }
+    const [, courseId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/project-library$/
+    );
+    const profiles = await runtime.projectLibrary.getTeacherLibrary(
+      { actor_id: actor.user_id, tenant_id: context.tenantId },
+      courseId ?? ""
+    );
+    sendJson(response, 200, createEnvelope(context, { course_id: courseId, profiles }));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-library(?:\/(import|validate|clone|successor|retire|assign))?$/.test(
+      url.pathname
+    )
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:create");
+    if (
+      !actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher project library authority required");
+    }
+    const [, courseId, operation] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/project-library(?:\/(import|validate|clone|successor|retire|assign))?$/
+    );
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    const projectActor = { actor_id: actor.user_id, tenant_id: context.tenantId };
+    let data: unknown;
+    if (!operation) {
+      data = await runtime.projectLibrary.createDraft(projectActor, {
+        course_id: courseId ?? "",
+        project_profile: body.project_profile as ProjectProfileCreateInput["project_profile"]
+      });
+    } else if (operation === "import") {
+      data = await runtime.projectLibrary.import(projectActor, {
+        course_id: courseId ?? "",
+        project_profile: body.project_profile as ProjectProfileImportInput["project_profile"]
+      });
+    } else if (operation === "validate") {
+      data = await runtime.projectLibrary.validate(projectActor, {
+        course_id: courseId ?? "",
+        project_profile_ref:
+          body.project_profile_ref as ProjectProfileReferenceInput["project_profile_ref"]
+      });
+    } else if (operation === "clone") {
+      data = await runtime.projectLibrary.clone(projectActor, {
+        ...(body as unknown as Omit<ProjectProfileCloneInput, "course_id">),
+        course_id: courseId ?? ""
+      });
+    } else if (operation === "successor") {
+      data = await runtime.projectLibrary.createSuccessor(projectActor, {
+        ...(body as unknown as Omit<ProjectProfileSuccessorInput, "course_id">),
+        course_id: courseId ?? ""
+      });
+    } else if (operation === "retire") {
+      data = await runtime.projectLibrary.retire(projectActor, {
+        course_id: courseId ?? "",
+        project_profile_ref:
+          body.project_profile_ref as ProjectProfileReferenceInput["project_profile_ref"]
+      });
+    } else {
+      const assignment = await runtime.projectLibrary.assign(projectActor, {
+        ...(body as unknown as Omit<ProjectAssignmentInput, "course_id">),
+        course_id: courseId ?? ""
+      });
+      const profile = await runtime.projectLibrary.getByReference(
+        context.tenantId,
+        assignment.assignment.project_profile_reference
+      );
+      const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+        context.tenantId,
+        assignment.assignment.run_id
+      );
+      const openingRound = rounds.find((round) => round.round_no === 1);
+      let w4InitialState: { created: boolean; state_ref?: unknown } = { created: false };
+      if (profile && openingRound) {
+        const existing = runtime.w4EnterpriseStateRepository
+          .snapshot()
+          .states.find(
+            (state) =>
+              state.tenant_id === context.tenantId &&
+              state.run_id === assignment.assignment.run_id &&
+              state.team_id === assignment.assignment.team_id &&
+              state.round_no === 1
+          );
+        if (existing) {
+          w4InitialState = {
+            created: false,
+            state_ref: {
+              enterprise_state_id: existing.enterprise_state_id,
+              state_digest: existing.state_digest,
+              version: existing.version
+            }
+          };
+        } else {
+          const initialState: W4EnterpriseState = {
+            enterprise_state_id: `w4-initial-${assignment.assignment.run_id}-${assignment.assignment.team_id}`,
+            tenant_id: context.tenantId,
+            course_id: assignment.assignment.course_id,
+            run_id: assignment.assignment.run_id,
+            team_id: assignment.assignment.team_id,
+            round_id: openingRound.round_id,
+            round_no: 1,
+            version: 1,
+            parent_state_ref: null,
+            state_digest: "",
+            state: {
+              cash: profile.starting_cash,
+              capacity: profile.starting_capacity,
+              product_lines: [profile.service_bundle],
+              positioning: profile.positioning,
+              organization: { project_profile_id: profile.project_profile_id },
+              operating_units: [
+                {
+                  operating_unit_id: `unit-${assignment.assignment.team_id}`,
+                  name: profile.title,
+                  status: "active"
+                }
+              ],
+              portfolio: { projects: [profile.title], facilities: [] }
+            }
+          };
+          const created = await runtime.w4EnterpriseStateService.createInitialState(
+            {
+              actor_id: actor.user_id,
+              tenant_id: context.tenantId,
+              course_id: assignment.assignment.course_id,
+              run_id: assignment.assignment.run_id,
+              team_id: assignment.assignment.team_id,
+              round_id: openingRound.round_id,
+              round_no: 1,
+              role_key: "teacher",
+              activity_id: "project-library.assignment"
+            },
+            initialState
+          );
+          w4InitialState = { created: true, state_ref: created.state_ref };
+        }
+      }
+      data = { ...assignment, w4_initial_state: w4InitialState };
+    }
+    sendJson(
+      response,
+      operation === "assign" || operation === "validate" ? 200 : 201,
+      createEnvelope(context, data)
+    );
     return;
   }
 
@@ -5630,7 +5821,12 @@ async function routeRequest(
           const round = run
             ? await getRoundForRead(runtime, context, scope.run_id, scope.round_no)
             : null;
-          if (!run || !team || team.course_id !== run.course_id || round?.round_id !== scope.round_id) {
+          if (
+            !run ||
+            !team ||
+            team.course_id !== run.course_id ||
+            round?.round_id !== scope.round_id
+          ) {
             throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
           }
           const admission = await resolveRunDecisionAdmissionPolicy(
@@ -5694,10 +5890,7 @@ async function routeRequest(
             canonical_decision_id: null,
             merge_commit_id: null,
             team_confirmation_id: null,
-            decision_payload_digest: createW4DecisionPayloadDigest(
-              decision.kind,
-              decision.payload
-            )
+            decision_payload_digest: createW4DecisionPayloadDigest(decision.kind, decision.payload)
           };
         },
         assertSettlementReady: async (
@@ -5712,7 +5905,9 @@ async function routeRequest(
           const round = await getRoundForRead(runtime, context, scope.run_id, scope.round_no);
           if (
             round.round_id !== scope.round_id ||
-            (round.status !== "locked" && round.status !== "settled" && round.status !== "published")
+            (round.status !== "locked" &&
+              round.status !== "settled" &&
+              round.status !== "published")
           ) {
             throw new W4EnterpriseStateError("W4_ROUND_NOT_LOCKED_CONFLICT");
           }
@@ -5780,9 +5975,7 @@ async function routeRequest(
             decisionIds = w4Decisions.map((decision) => decision.decision_id);
           }
           const decisionPayloadBindings = decisionIds.map((decisionId) => {
-            const w4Decision = w4Decisions.find(
-              (decision) => decision.decision_id === decisionId
-            );
+            const w4Decision = w4Decisions.find((decision) => decision.decision_id === decisionId);
             if (!w4Decision) {
               throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
             }
@@ -6681,6 +6874,29 @@ async function routeRequest(
         ...(marketBrief ? { market_brief: marketBrief } : {})
       })
     );
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/student/project-brief") {
+    const actor = roleWorkflowActor(context, "student");
+    const courseId = url.searchParams.get("course_id") ?? "";
+    const runId = url.searchParams.get("run_id") ?? "";
+    const teamId = url.searchParams.get("team_id") ?? "";
+    if (!courseId || !runId || !teamId) {
+      throw new HttpError(
+        422,
+        "PROJECT_ASSIGNMENT_SCOPE_VIOLATION",
+        "project brief scope is required"
+      );
+    }
+    const data = await runtime.projectLibrary.getStudentBrief({
+      course_id: courseId,
+      run_id: runId,
+      team_id: teamId,
+      tenant_id: actor.tenant_id,
+      user_id: actor.actor_id
+    });
+    sendJson(response, 200, createEnvelope(context, data));
     return;
   }
 
@@ -8092,6 +8308,22 @@ async function routeRequest(
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/project-library") {
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "admin project library authority required");
+    }
+    const data = await runtime.projectLibrary.getAdminAudit({
+      actor_id: actor.user_id,
+      tenant_id: context.tenantId
+    });
+    sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/run-lifecycle-controls") {
     const actor = requirePermission(context, "run:lifecycle");
     if (!actorHasAnyRole(actor, ["tenant_admin"]) || actor.tenant_id !== context.tenantId) {
@@ -9031,6 +9263,25 @@ export function createApiServer(
               : error.code === "W5_DRAFT_NOT_FROZEN" ||
                   error.code === "W5_DRAFT_NOT_VALIDATED" ||
                   error.code === "W5_INVALID_TRANSITION"
+                ? 409
+                : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof ProjectLibraryError) {
+        const statusCode =
+          error.code === "PROJECT_PROFILE_NOT_FOUND" ||
+          error.code === "PROJECT_ASSIGNMENT_NOT_FOUND"
+            ? 404
+            : error.code === "PROJECT_PROFILE_TENANT_SCOPE_VIOLATION" ||
+                error.code === "PROJECT_ASSIGNMENT_SCOPE_VIOLATION"
+              ? 403
+              : error.code === "PROJECT_PROFILE_DUPLICATE_VERSION" ||
+                  error.code === "PROJECT_PROFILE_LIFECYCLE_INVALID" ||
+                  error.code === "PROJECT_PROFILE_HISTORICAL_IMMUTABLE" ||
+                  error.code === "PROJECT_ASSIGNMENT_CONFLICT" ||
+                  error.code === "PROJECT_ASSIGNMENT_RETIRED"
                 ? 409
                 : 422;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));

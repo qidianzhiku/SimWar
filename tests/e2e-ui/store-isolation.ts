@@ -126,6 +126,10 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
     const { seedM2MarketWorldProductFixture } = await import("./m2-p1-market-world-fixture");
     seedM2MarketWorldProductFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_LIBRARY === "true") {
+    const { seedM2P2ProjectLibraryFixture } = await import("./m2-p2-project-library-fixture");
+    seedM2P2ProjectLibraryFixture(PLAYWRIGHT_STORE_FILE);
+  }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
     seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);
