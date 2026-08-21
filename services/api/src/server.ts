@@ -56,11 +56,14 @@ import type {
   W4DecisionAdmission,
   W4EnterpriseState,
   W4ReplayInputManifest,
+  W4StateRef,
   W4ScopeContext,
+  ProjectAssignment,
   ProjectAssignmentInput,
   ProjectProfileCloneInput,
   ProjectProfileCreateInput,
   ProjectProfileImportInput,
+  ProjectProfile,
   ProjectProfileReferenceInput,
   ProjectProfileSuccessorInput,
   ProjectProfileStudentBrief
@@ -255,7 +258,10 @@ import {
   resolveFormalCanonicalDecisionSet
 } from "./canonical-decision-admission.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
-import { createFormalBoundRun } from "./formal-bound-run-creation-service.js";
+import {
+  createFormalBoundRun,
+  ensureFormalRunRuntimeBindingForActiveRun
+} from "./formal-bound-run-creation-service.js";
 import {
   ValidationEnvironmentLaunchService,
   type ValidationEnvironmentLaunchLedger,
@@ -298,6 +304,10 @@ import {
   marketWorldReferenceState
 } from "./market-world-product.js";
 import { ProjectLibraryError, ProjectLibraryService } from "./project-library-service.js";
+import {
+  ProjectAwareCourseLaunchError,
+  ProjectAwareCourseLaunchService
+} from "./project-aware-course-launch-service.js";
 import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
@@ -377,6 +387,7 @@ interface ApiRuntime {
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
   projectLibrary: ProjectLibraryService;
+  projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
@@ -679,6 +690,39 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     createJsonW5GovernedModelPersistence(store)
   );
   const w4EnterpriseStateRepository = createJsonW4Repository(store);
+  const w4EnterpriseStateService = createEnterpriseStateStrategicEvolutionService(
+    w4EnterpriseStateRepository
+  );
+  const projectLibrary = new ProjectLibraryService(store);
+  const ensureFormalRunOpen = async (
+    _actor: {
+      actor_id: string;
+      actor_role: "teacher" | "tenant_admin" | "platform_admin";
+      tenant_id: string;
+    },
+    scope: { tenant_id: string; course_id: string; run_id: string }
+  ): Promise<{ binding_digest?: string }> => {
+    const existing = await formalRunRuntimeBindingStore.getForRun(
+      scope.tenant_id,
+      scope.run_id
+    );
+    if (existing) return { binding_digest: existing.binding_digest };
+    if (!formalRunBindingAuthorities) throw new Error("FORMAL_RUN_AUTHORITY_UNAVAILABLE");
+    const courseBinding = formalCourseAuthorityBindingStore.getForCourse(
+      scope.tenant_id,
+      scope.course_id
+    );
+    if (!courseBinding) throw new Error("FORMAL_COURSE_BINDING_UNKNOWN");
+    const run = await repositoryProvider.facade.runs.getRun(scope.tenant_id, scope.run_id);
+    if (!run) throw new Error("FORMAL_RUN_NOT_FOUND");
+    const binding = await ensureFormalRunRuntimeBindingForActiveRun({
+      authorities: formalRunBindingAuthorities,
+      bindingStore: formalRunRuntimeBindingStore,
+      courseBinding,
+      run
+    });
+    return { binding_digest: binding.binding_digest };
+  };
 
   return {
     courseBlueprintBindingStore,
@@ -715,10 +759,21 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     w4EnterpriseStateRepository,
-    w4EnterpriseStateService: createEnterpriseStateStrategicEvolutionService(
-      w4EnterpriseStateRepository
-    ),
-    projectLibrary: new ProjectLibraryService(store),
+    w4EnterpriseStateService,
+    projectLibrary,
+    projectAwareCourseLaunch: new ProjectAwareCourseLaunchService({
+      formalCourseAuthorityBindingStore,
+      ensureFormalRunOpen,
+      ensureTeamInitialState: (actor, scope, assignment, profile) =>
+        ensureProjectAwareInitialState(
+          { repositoryProvider, w4EnterpriseStateRepository, w4EnterpriseStateService },
+          actor,
+          assignment,
+          profile
+        ),
+      projectLibrary,
+      repositoryProvider
+    }),
     w5GovernedModel,
     instructorAssets: new InstructorAssetRegistry(
       {
@@ -875,6 +930,88 @@ async function appendAudit(runtime: ApiRuntime, input: AuditLogInput): Promise<A
 
   await runtime.repositoryProvider.facade.auditLogs.appendAuditLog(log);
   return log;
+}
+
+async function ensureProjectAwareInitialState(
+  runtime: Pick<
+    ApiRuntime,
+    "repositoryProvider" | "w4EnterpriseStateRepository" | "w4EnterpriseStateService"
+  >,
+  actor: { actor_id: string; tenant_id: string },
+  assignment: ProjectAssignment,
+  profile: ProjectProfile
+): Promise<{ created: boolean; state_ref?: W4StateRef }> {
+  const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+    actor.tenant_id,
+    assignment.run_id
+  );
+  const openingRound = rounds.find((round) => round.round_no === 1);
+  if (!openingRound || openingRound.status !== "open") return { created: false };
+  const existing = runtime.w4EnterpriseStateRepository.snapshot().states.find(
+    (state) =>
+      state.tenant_id === actor.tenant_id &&
+      state.run_id === assignment.run_id &&
+      state.team_id === assignment.team_id &&
+      state.round_no === 1
+  );
+  if (existing) {
+    return {
+      created: false,
+      state_ref: {
+        tenant_id: existing.tenant_id,
+        course_id: existing.course_id,
+        run_id: existing.run_id,
+        team_id: existing.team_id,
+        round_id: existing.round_id,
+        enterprise_state_id: existing.enterprise_state_id,
+        version: existing.version,
+        state_digest: existing.state_digest,
+        parent_state_ref: null
+      }
+    };
+  }
+  const initialState: W4EnterpriseState = {
+    enterprise_state_id: `w4-initial-${assignment.run_id}-${assignment.team_id}`,
+    tenant_id: actor.tenant_id,
+    course_id: assignment.course_id,
+    run_id: assignment.run_id,
+    team_id: assignment.team_id,
+    round_id: openingRound.round_id,
+    round_no: 1,
+    version: 1,
+    parent_state_ref: null,
+    state_digest: "",
+    state: {
+      cash: profile.starting_cash,
+      capacity: profile.starting_capacity,
+      product_lines: [profile.service_bundle],
+      positioning: profile.positioning,
+      organization: { project_profile_id: profile.project_profile_id },
+      operating_units: [
+        {
+          operating_unit_id: `unit-${assignment.team_id}`,
+          name: profile.title,
+          status: "active"
+        }
+      ],
+      portfolio: { projects: [profile.title], facilities: [] }
+    }
+  };
+  const created = await runtime.w4EnterpriseStateService.createInitialState(
+    {
+      actor_id: actor.actor_id,
+      tenant_id: actor.tenant_id,
+      course_id: assignment.course_id,
+      run_id: assignment.run_id,
+      team_id: assignment.team_id,
+      round_id: openingRound.round_id,
+      round_no: 1,
+      role_key: "teacher",
+      activity_id: "project-aware.launch"
+    },
+    initialState
+  );
+  return { created: true, state_ref: created.state_ref };
 }
 
 async function submitDecisionWithRunLock(
@@ -5546,6 +5683,97 @@ async function routeRequest(
   }
 
   if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-aware-readiness$/.test(url.pathname)
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["teacher"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher project-aware authority required");
+    }
+    const [, courseId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/project-aware-readiness$/
+    );
+    const runId = url.searchParams.get("run_id")?.trim();
+    if (!runId) throw new HttpError(400, "PROJECT-AWARE-400-001", "run_id is required");
+    const data = await runtime.projectAwareCourseLaunch.getReadiness(
+      { actor_id: actor.user_id, actor_role: "teacher", tenant_id: context.tenantId },
+      { course_id: courseId ?? "", run_id: runId, tenant_id: context.tenantId }
+    );
+    sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-aware-launch$/.test(url.pathname)
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "run:create");
+    if (
+      !actorHasAnyRole(actor, ["teacher"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher project-aware launch authority required");
+    }
+    const [, courseId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/project-aware-launch$/
+    );
+    const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
+    const runId = typeof body.run_id === "string" ? body.run_id : "";
+    const idempotencyKey =
+      typeof body.idempotency_key === "string" ? body.idempotency_key : "";
+    if (!runId || !idempotencyKey) {
+      throw new HttpError(400, "PROJECT-AWARE-400-002", "run_id and idempotency_key are required");
+    }
+    try {
+      const receipt = await runtime.projectAwareCourseLaunch.launch(
+        { actor_id: actor.user_id, actor_role: "teacher", tenant_id: context.tenantId },
+        { course_id: courseId ?? "", run_id: runId, tenant_id: context.tenantId },
+        idempotencyKey
+      );
+      sendJson(response, 200, createEnvelope(context, receipt));
+    } catch (error) {
+      if (error instanceof ProjectAwareCourseLaunchError) {
+        throw new HttpError(422, error.code, error.code);
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-aware-launch-receipt$/.test(
+      url.pathname
+    )
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+    if (!actorHasAnyRole(actor, ["teacher"])) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher project-aware receipt authority required");
+    }
+    const commandIdempotencyKey = url.searchParams.get("idempotency_key")?.trim() ?? "";
+    if (!commandIdempotencyKey) {
+      throw new HttpError(400, "PROJECT-AWARE-400-003", "idempotency_key is required");
+    }
+    const receipt = await runtime.projectAwareCourseLaunch.readLaunchReceipt(
+      context.tenantId,
+      commandIdempotencyKey
+    );
+    if (!receipt) {
+      throw new HttpError(404, "PROJECT_AWARE_RECEIPT_NOT_FOUND", "launch receipt not found");
+    }
+    sendJson(response, 200, createEnvelope(context, receipt));
+    return;
+  }
+
+  if (
     request.method === "POST" &&
     /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/project-library(?:\/(import|validate|clone|successor|retire|assign))?$/.test(
       url.pathname
@@ -6908,6 +7136,57 @@ async function routeRequest(
       }
     }
     sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/student/project-aware-context") {
+    const actor = roleWorkflowActor(context, "student");
+    const courseId = url.searchParams.get("course_id")?.trim() ?? "";
+    const runId = url.searchParams.get("run_id")?.trim() ?? "";
+    const teamId = url.searchParams.get("team_id")?.trim() ?? "";
+    if (!courseId || !runId || !teamId) {
+      throw new HttpError(422, "PROJECT_AWARE_STUDENT_SCOPE_VIOLATION", "student scope is required");
+    }
+    const rounds = await runtime.repositoryProvider.facade.rounds.listRoundsForRun(
+      context.tenantId,
+      runId
+    );
+    const requestedRoundId = url.searchParams.get("round_id")?.trim();
+    const round = requestedRoundId
+      ? rounds.find((candidate) => candidate.round_id === requestedRoundId)
+      : rounds.find((candidate) => candidate.round_no === 1) ?? rounds[0];
+    if (!round) {
+      throw new HttpError(404, "PROJECT_AWARE_STUDENT_ROUND_NOT_FOUND", "round not found");
+    }
+    try {
+      const workspace = await runtime.roleWorkflow.getStudentWorkspace(actor, {
+        round_id: round.round_id,
+        run_id: runId,
+        team_id: teamId
+      });
+      const projectBrief = await runtime.projectLibrary.getStudentBrief({
+        course_id: courseId,
+        run_id: runId,
+        team_id: teamId,
+        tenant_id: actor.tenant_id,
+        user_id: actor.actor_id
+      });
+      sendJson(
+        response,
+        200,
+        createEnvelope(context, {
+          schema_version: "project-aware-launch.v1",
+          scope: { course_id: courseId, run_id: runId, team_id: teamId, tenant_id: actor.tenant_id },
+          role_context: workspace.context,
+          project_brief: projectBrief
+        })
+      );
+    } catch (error) {
+      if (error instanceof RoleWorkflowError || error instanceof ProjectLibraryError) {
+        throw new HttpError(403, "PROJECT_AWARE_STUDENT_SCOPE_VIOLATION", error.message);
+      }
+      throw error;
+    }
     return;
   }
 
@@ -8332,6 +8611,60 @@ async function routeRequest(
       tenant_id: context.tenantId
     });
     sendJson(response, 200, createEnvelope(context, data));
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/project-aware-audit") {
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "admin project-aware audit authority required");
+    }
+    const courseId = url.searchParams.get("course_id")?.trim() ?? "";
+    const runId = url.searchParams.get("run_id")?.trim() ?? "";
+    if (!courseId || !runId) {
+      throw new HttpError(400, "PROJECT-AWARE-ADMIN-400-001", "course_id and run_id are required");
+    }
+    const [projectLibrary, readiness, auditLogs] = await Promise.all([
+      runtime.projectLibrary.getAdminAudit({
+        actor_id: actor.user_id,
+        tenant_id: context.tenantId
+      }),
+      runtime.projectAwareCourseLaunch.getAdminReadiness(
+        {
+          actor_id: actor.user_id,
+          actor_role: actorHasAnyRole(actor, ["platform_admin"])
+            ? ("platform_admin" as const)
+            : ("tenant_admin" as const),
+          tenant_id: context.tenantId
+        },
+        { course_id: courseId, run_id: runId, tenant_id: context.tenantId }
+      ),
+      runtime.repositoryProvider.facade.auditLogs.listAuditLogs({
+        action: "project-aware.launch.receipt",
+        scope: "tenant",
+        tenant_id: context.tenantId
+      })
+    ]);
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, {
+        project_library: projectLibrary,
+        readiness,
+        lineage: auditLogs
+          .filter(
+            (audit) =>
+              audit.resource_type === "course" &&
+              audit.resource_id === courseId &&
+              audit.after?.receipt &&
+              (audit.after.receipt as Record<string, unknown>).run_id === runId
+          )
+          .map((audit) => audit.after?.receipt)
+      })
+    );
     return;
   }
 

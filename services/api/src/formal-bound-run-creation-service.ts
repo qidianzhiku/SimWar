@@ -1,4 +1,4 @@
-import type { Round, Run } from "@simwar/shared-contracts";
+import type { FormalRunRuntimeBinding, Round, Run } from "@simwar/shared-contracts";
 import {
   createFormalRunRuntimeBinding,
   type FormalRunBindingAuthorityPorts
@@ -59,4 +59,41 @@ export async function createFormalBoundRun(input: CreateFormalBoundRunInput): Pr
     }
     throw error;
   }
+}
+
+export interface EnsureFormalRunRuntimeBindingInput {
+  authorities: FormalRunBindingAuthorityPorts;
+  bindingStore: FormalRunRuntimeBindingPort;
+  courseBinding: CreateFormalBoundRunInput["courseBinding"];
+  run: Run;
+}
+
+/**
+ * Formalize an already-created active Run without creating a second Run/Round.
+ * The existing Course/Run authority owns Run creation; this helper only uses
+ * the same formal binding resolver and append-only runtime binding port to
+ * complete an explicitly scoped launch command.
+ */
+export async function ensureFormalRunRuntimeBindingForActiveRun(
+  input: EnsureFormalRunRuntimeBindingInput
+): Promise<FormalRunRuntimeBinding> {
+  const existing = await input.bindingStore.getForRun(input.run.tenant_id, input.run.run_id);
+  if (existing) return existing;
+  if (input.run.status !== "active") throw new Error("FORMAL_RUN_NOT_ACTIVE");
+  const binding = await createFormalRunRuntimeBinding({
+    authorities: input.authorities,
+    engine_reference: input.courseBinding.engine_reference,
+    parameter_set_reference: input.courseBinding.parameter_set_reference,
+    run_id: input.run.run_id,
+    scenario_package_reference: input.courseBinding.scenario_package_reference,
+    seed: input.run.seed,
+    tenant_id: input.run.tenant_id
+  });
+  await resolveFormalRuntimeInputsForActiveRun({
+    authorities: input.authorities,
+    binding,
+    run: input.run
+  });
+  await input.bindingStore.append(binding);
+  return binding;
 }
