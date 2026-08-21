@@ -26,3 +26,25 @@
 ## Acceptable deltas
 
 The Figma cohort example contains sample A/B/C rows, while runtime code intentionally renders a teacher-safe empty state because no server cohort rows are present. This is an intentional privacy and anti-fabrication delta. Figma's visual labels such as `FE-19`/`FE-20` are handoff metadata; customer-facing runtime copy remains Chinese-first.
+
+## FIGMA_CODE_DELTA
+
+### MATCHED
+
+- Student and Teacher AppShell/header hierarchy, warm reading surface, navy authority header, restrained gold/crimson accents, and 44px primary controls.
+- Existing `ActionButton`/`AllowedActionButton` and `StateBadge`/`AuthorityBadge` reuse rather than new authority-bearing components.
+- Student `#student-debrief` six-stage flow and Teacher `#teacher-debrief` five-stage flow.
+- Published-result gating, safe BFF projection, no pre-publication result fetch, bounded mechanism language, non-official what-if labeling, advisory-only reflection, and local teacher facilitation actions.
+- Figma loading, empty, blocked/unpublished, stale, error, recovery, committed-receipt, and unknown-context semantics.
+- Desktop/tablet four-column metric rhythm and mobile single-column flow with the Student 390px reflection core preserved.
+
+### ACCEPTABLE_DIFFERENCE
+
+- Figma sample cohort cards contain A/B/C examples; the runtime has no server cohort rows and therefore renders a safe empty projection instead of fabricated teams.
+- Figma handoff labels such as `FE-19`, `FE-20`, `BFF`, and `safe projection` are implementation metadata and are not copied into normal customer-facing runtime copy.
+- Figma top-level prototype reactions represent the conceptual journey; runtime stage CTAs use local hash/section navigation and do not create a new backend command.
+- Figma what-if shows a teacher-generated preview sample; runtime uses the existing safe projection and preserves empty/blocked states instead of client-side counterfactual calculation.
+
+### MUST_FIX
+
+`0` after same-wave remediation. The Figma screenshots and final-node design context were read back after implementation; no unresolved overlap, clipping, detached component, raw-color, or authority-boundary delta was left for a later wave.
