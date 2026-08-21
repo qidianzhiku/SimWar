@@ -1,17 +1,18 @@
-portfolio_version: 18
+portfolio_version: 19
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-18T12:04:54Z"
+generated_at: "2026-08-21T13:15:20Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 1e595b5521fa2bb73da44cf1f0aba90e9118d279
-product_evidence_source_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
-current_master_at_readback: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
+assessment_source_anchor_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+product_evidence_source_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
+current_master_at_readback: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
-portfolio_current_master_lag: RECONCILED_AT_CURRENT_MASTER
+portfolio_current_master_lag: RECONCILED_AT_PRODUCT_MERGE_PENDING_FINAL_GOVERNANCE_READBACK
+current_planning_pointer_disposition: RECONCILED_MUTABLE_CURRENT_POINTER
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: W027_PRODUCT_COMPLETE_WITH_DECLARED_LIMITS_GOVERNANCE_PENDING
+l1_plus_status: M2P3_PRODUCT_AND_GOVERNANCE_CLOSURE_WITH_DECLARED_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -19,16 +20,16 @@ wip_policy:
   closure: 1
 selected:
   mainline:
-    candidate_id: CAND-W027-W2-DECISION-EXPERIENCE-G2
-    capability_id: W027-W2-DECISION-EXPERIENCE-G2
-    status: PRODUCT_COMPLETE_WITH_LIMITS_GOVERNANCE_PENDING
-    product_prs: [392]
-    product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
-    product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
-    primary_outcome: FIVE_ROLE_DECISION_EXPERIENCE_WITH_PRIVATE_JUDGMENT_AND_TRACE_V2
-    formal_roles: [CEO, CFO, CMO, COO, CHRO]
-    quality_and_risk_role: MERGED_INTO_COO
-    scope: Five-role decision experience with COO-owned Quality & Risk permissions, private judgment, safe role positions, divergence/resolution/preserved dissent, and DecisionTrace V2.
+    candidate_id: CAND-M2P3-PROJECT-AWARE-LAUNCH-V5.14
+    capability_id: M2P3-PROJECT-AWARE-LAUNCH
+    status: CLOSED_WITH_LIMITS_GOVERNANCE_READBACK_RECORDED_SEPARATELY
+    product_prs: [426]
+    product_candidate_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
+    product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+    primary_outcome: PROJECT_AWARE_COURSE_LAUNCH_STUDENT_ENTRY_READY
+    formal_roles: EXISTING_TEAM_ROLE_WORKFLOW_DECLARATIONS
+    quality_and_risk_role: EXISTING_ROLE_WORKFLOW_ALIAS_POLICY_UNCHANGED
+    scope: Exact project-aware Course/Run/Team/Role/Profile/Assignment readiness, formal launch, matched-arena state isolation, safe Student entry, and tenant-scoped Admin lineage.
   support_code:
     candidate_id: NONE
     status: NONE
@@ -38,8 +39,8 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: PENDING_GOVERNANCE_MERGE_READBACK
-    governance_pr: 393
+    status: GOVERNANCE_CLOSURE_READY_PENDING_PR_CREATION
+    governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATION
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -113,46 +114,41 @@ historical_governance_reconciliations:
     resource_lock_state: W025_GOVERNANCE_LOCK_HELD_PENDING_REMEDIATION_MERGE
     automatic_next_start: false
 resource_locks:
-  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
-  held:
-    - W027_W2_DECISION_EXPERIENCE
-    - W027_PRODUCT_PR_392
-    - W027_GOVERNANCE_CLOSURE_PR
+  status: RELEASED_AFTER_GOVERNANCE_MERGE_READBACK
+  held: []
   pending: []
 candidate_backlog:
-  - candidate_id: W028-NEXT-PENDING-OWNER-DIRECTION
-    status: NOT_STARTED_PENDING_POST_GOVERNANCE_OWNER_DIRECTION
+  - candidate_id: M2P4-NEXT-PENDING-OWNER-DIRECTION
+    status: NOT_STARTED_PENDING_OWNER_DIRECTION
     reason: No automatic successor start is authorized; the next wave requires owner direction and fresh reality.
 blocked_candidates: []
 evidence:
-  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/392
-  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/393
-  product_candidate_sha: 06caf6a7336021cbe30d35636bc16a72e49fe136
-  product_merge_sha: 2665d06ac7611cd3ee65868d2e7a6b3b29dacea9
-  product_merge_tree: 385d4aa7f1b6b2edba4d8913df44a9214bbd0252
-  fresh_clone: D:/codex/fresh-clones/simwar-w027-postmerge-2665d06
-  evidence_root: C:/Temp/simwar-w027-w2-g2-20260818T120454Z
-  postmerge_graph: C:/Temp/simwar-w027-postmerge-graph-2665d06
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/426
+  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATION
+  product_candidate_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
+  product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+  product_merge_tree: 44a653ec3c084df4ced4bdaf3ecd978e24295548
+  fresh_clone: D:/codex/SimWar-m2-p3-v514-postmerge-20260821
+  evidence_root: C:/Temp/simwar-m2p3-v514-20260821
+  postmerge_receipt: C:/Temp/simwar-m2p3-v514-20260821/17-post-merge-validation-receipt.md
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
-  product_pr_state: MERGED_392
-  current_master: EXACT_2665D06
-  five_role_capability: PASS_COO_OWNS_QUALITY_AND_RISK
-  private_judgment_and_safe_projection: PASS_55_FOCUSED_TESTS
-  browser: PASS_114_125_WITH_11_EXISTING_CONDITIONAL_SKIPS
-  w027_browser_journey: PASS_1_TEST
-  full_npm_test_remote_exact_head: PASS_207_FILES_1314_TESTS
-  full_npm_test_fresh_clone: INHERITED_ROUTE_C_BAD_PORT_206_FILES_1313_TESTS_FOCUSED_CONTROL_PASS
-  contract: PASS_22_FILES_52_TESTS
+  product_pr_state: MERGED_426
+  current_master: EXACT_C0EE529_PRODUCT_MERGE_BEFORE_GOVERNANCE
+  focused_project_aware: PASS_15_TESTS
+  browser: PASS_1_REAL_BFF_TEST_MOCKS_OFF
+  contract: PASS_20_BASELINE_37_M1_29_SCHEMA_FIXTURE_GROUPS
   typecheck: PASS
   build: PASS
-  lint: PASS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
-  security: PASS_AT_CRITICAL_THRESHOLD_2_LOW_7_HIGH_INHERITED
-  graphify: AVAILABLE_WITH_POSTMERGE_UNMAPPED_PRODUCT_DELTA
-  codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK
-  canonical_writer: UNCHANGED_EXISTING_ROLE_WORKFLOW
+  codegraph: UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK_RECORDED
+  graphify: RECONCILED_WITH_CODEGRAPH_LIMIT_RECORDED
+  local_vault: PASS_BOUNDED_HISTORICAL_REFERENCE_RECEIPT
+  competitor_oss: PASS_READ_ONLY_ALLOWLIST_RECEIPTS
+  matched_arena: PASS_SAME_PROFILE_DISTINCT_ASSIGNMENTS_AND_STATE_IDS
+  student_cross_team: PASS_403
+  admin_scope: PASS_TENANT_SCOPED
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
