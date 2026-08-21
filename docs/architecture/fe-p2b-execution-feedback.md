@@ -7,8 +7,8 @@
 - `DESIGN_GATE=PASS`
 - `FIGMA_TO_CODE_MAP=PASS`
 - `BFF_BROWSER_ACCEPTANCE=PASS` for the dedicated real-BFF FE-19/FE-20 journey
-- `FINAL_RUNTIME_COMMIT=8dff688d621990d3f7392437bfe2d06536f7476b`
-- `FINAL_EVIDENCE_HEAD=85345fadad34745c573c4325c29ed07d3d4bf0e1`
+- `FINAL_RUNTIME_COMMIT=c890d7f9b8223ca566453b565d71c748148bae90`
+- `FINAL_EVIDENCE_HEAD=c890d7f9b8223ca566453b565d71c748148bae90`
 - `UNIT=PASS`
 - `BUILD=PASS`
 - `ROUTE_PERMISSION_BOUNDARY=PASS`
@@ -18,7 +18,7 @@
 
 ## Evidence executed
 
-- `npx vitest run tests/unit/p2b-decision-learning.test.tsx tests/unit/p2b-teacher-debrief.test.tsx tests/unit/ui-refoundation-coverage-matrix.test.ts` — 13/13 passed.
+- `npx vitest run tests/unit/p2b-decision-learning.test.tsx tests/unit/p2b-teacher-debrief.test.tsx` — 10/10 passed after the stale-GET-after-reflection regression fix.
 - `npm run build:test-prerequisites` — passed.
 - `npm run build -w @simwar/ui` — passed.
 - `npm run build -w @simwar/student` — passed.
@@ -26,8 +26,10 @@
 - `npx playwright test tests/e2e-ui/w3-official-consequence-learning.spec.ts` with alternate local ports — 1/1 passed against the real BFF.
 - `npm run test:e2e:ui:p2b` with alternate local ports and the explicit W3 fixture config — 2/2 passed against the real BFF: Student six stages, reflection `201`, Teacher five stages/local note, blocked no-context state, real `422` error and recovery to `200`.
 - Student/Teacher refoundation browser suite with alternate local ports — the final rerun passed the exercised tests; an earlier run exposed and then fixed a stale assertion caused by the new Figma-aligned prep card copy.
-- `npm run test:e2e:ui:pr4` on clean exact `85345fa` — 4/4 passed (DesignSystemLab, Admin/Enterprise, Teacher, Student), 20 viewport captures, 12 main runtime rows and 4 Lab runtime rows all within budget. External evidence root: `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-85345fa-20260820`.
-- Exact BASE comparator against `298fcf1` — 20/20 pairs passed at the frozen `0.01` global threshold with Student `0.065` role exception; no failures and automatic threshold enforcement enabled.
+- Remote CI run `32452935253` — quality and browser-smoke passed; browser-smoke included exact-head, BASE capture, core E2E, M2 real-BFF, PR4 4/4 matrix, P2-B real-BFF, comparator, artifact upload and cleanup.
+- Remote CodeQL run `32452935171` — passed.
+- Exact BASE comparator — 20/20 pairs passed at the frozen `0.01` global threshold with Student `0.065` role exception; no failures and automatic threshold enforcement enabled.
+- Post-merge detached validation at `df36a459` — fresh `npm ci`, typecheck, P2-B unit 10/10 and external-port P2-B browser 2/2 passed.
 
 ## Safety boundary
 
@@ -35,12 +37,12 @@ No service, API, DTO, contract, database, settlement, replay, permission, tenant
 
 ## Remaining limits
 
-Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; the dedicated P2-B spec is intentionally functional/real-BFF rather than a second visual/Axe matrix. Human design approval, production deployment, pilot, FE21/P3 work and remote CI/CodeQL remain deferred. The Figma file is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
+Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; the dedicated P2-B spec is intentionally functional/real-BFF rather than a second visual/Axe matrix. Human design approval, production deployment, pilot and FE21/P3 remain deferred. The Figma file is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
 
-The final focused PR4 run was executed on clean evidence head `85345fadad34745c573c4325c29ed07d3d4bf0e1` with exact-head checks enabled; the runtime implementation is `8dff688d621990d3f7392437bfe2d06536f7476b` and later tip commits are docs/test-gate-only. The current verification scope is focused unit/typecheck/build/browser/comparator evidence; the full aggregate Vitest, contract, Postgres replay, remote CI and merge gates remain to be run or read back on the published head.
+The final focused evidence was rechecked against `c890d7f9b8223ca566453b565d71c748148bae90` with exact-head checks enabled. Product PR #415 merged as `df36a45998939ba65d170a996413ee3485fd896c`; the remote quality, browser-smoke and CodeQL gates are green, and the post-merge detached focused validation is complete.
 
 ## Remote CI recheck and context-gate remediation
 
 The first remote run for branch tip `6f4064e40fff35ae10afe8d1b7f28199481ce6b2` completed the quality job and CodeQL successfully. Its browser-smoke job failed only in the second P2-B test: the CI W3 fixture supplied a default published record, while the URL contained `w3=true` without a complete Course / Run / Round / Team query context. The Student shell therefore inferred a fallback context instead of showing the required blocked state.
 
-The follow-up fix adds a pure `isW3ContextAvailable` gate. Query-driven P2-B surfaces now require a complete explicit W3 context before they can publish or fetch the official learning projection; the existing explicit environment-enabled demo path remains supported. The regression was reproduced and fixed locally with an external store and alternate ports: the dedicated real-BFF P2-B browser suite passed 2/2, and the focused P2-B unit suite passed 9/9. The updated branch must receive a fresh remote CI run before merge; this local remediation is not itself a remote-CI PASS.
+The follow-up fix adds a pure `isW3ContextAvailable` gate. Query-driven P2-B surfaces now require a complete explicit W3 context before they can publish or fetch the official learning projection; the existing explicit environment-enabled demo path remains supported. The regression was reproduced and fixed locally with an external store and alternate ports, then verified by remote CI run `32452935253`. The subsequent review fix invalidates older projection GET responses after a successful reflection POST, updates the cached record, and is covered by the final 10/10 focused unit suite.

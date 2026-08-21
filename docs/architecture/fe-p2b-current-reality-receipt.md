@@ -4,17 +4,17 @@
 
 - `CURRENT_REALITY_RECEIPT=PASS`
 - Mission: `SIMWAR-FE-P2B-DECISION-LEARNING-TEACHER-DEBRIEF-001`
-- Fresh read: `2026-08-20T21:34:59-07:00`
+- Fresh read: `2026-08-21`
 - Starting master after movement: `f64c9ce649eb7b8d5c25490e0aeb4a37d5e92a06`
 - Previous starting master superseded by this read: `eb2314c6601779f720f399a003e623ac85119ef0`
-- Latest live `origin/master` after the subsequent governance merge: `298fcf1236734978501930071124d1f7818ad219`
+- Latest live `origin/master` after Product PR #415: `df36a45998939ba65d170a996413ee3485fd896c`
 - P2-B implementation commit on the new base: `135704a7a09494ddfa5474fdf99647a738327346`
-- Runtime implementation commit: `8dff688d621990d3f7392437bfe2d06536f7476b`
-- Real-BFF acceptance/config commit: `b194bbfbace55aed41100cfafb470cee438a1265`
-- Final exact evidence/docs tip used for the clean replay: `85345fadad34745c573c4325c29ed07d3d4bf0e1`
-- Branch: `codex/fe-p2b-recompile-20260820`
-- Product PR: `#415` (open; not merged)
-- Governance closure: `#416` (open; must remain open until remote gates finish)
+- Runtime implementation and final pre-merge head: `c890d7f9b8223ca566453b565d71c748148bae90`
+- Product merge commit: `df36a45998939ba65d170a996413ee3485fd896c`
+- Remote CI: `32452935253` (quality and browser-smoke success)
+- Remote CodeQL: `32452935171` (success)
+- Product PR: `#415` (merged)
+- Governance closure: `#416` (closed as completed)
 
 ## Master movement and worktree boundary
 
@@ -73,9 +73,10 @@ Hot-file ownership preserved:
 
 ## Evidence and limits
 
-- Focused P2-B unit evidence after the new-base replay: 13/13; TypeScript typecheck passed.
-- Clean exact-head PR4 browser/Axe matrix at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-85345fa-20260820`: 4/4 passed, 20 viewport PNGs, 12 main runtime rows and 4 Lab rows within budget, all BASE/HEAD/actual SHA fields bound to `298fcf1` → `85345fa`.
-- Dedicated real-BFF P2-B acceptance at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-p2b-clean-85345fa-20260820`: 2/2 passed. It covers Student six stages plus reflection `201`, Teacher five stages and local-only debrief draft, and real `422` error → published recovery; no `page.route`, `fetch` mock, or new writer.
-- Exact visual comparator at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-85345fa-20260820/visual-manifest.json`: `status=passed`, `ready_for_review=true`, 20/20 pairs, automatic threshold enforced (`0.01`, Student override `0.065`), failures `0`.
+- Focused P2-B unit evidence after the final review fix: 10/10; TypeScript typecheck passed.
+- Remote browser-smoke run `32452935253`: exact-head, BASE capture, core E2E, M2 real-BFF, PR4 4/4 matrix, P2-B real-BFF, comparator, artifact upload and cleanup all passed.
+- Dedicated real-BFF P2-B acceptance: 2/2 passed. It covers Student six stages plus reflection `201`, Teacher five stages and local-only debrief draft, blocked no-context state, and real `422` error → published recovery; no `page.route`, `fetch` mock, or new writer.
+- Exact visual comparator: `status=passed`, `ready_for_review=true`, 20/20 pairs, automatic threshold enforced (`0.01`, Student override `0.065`), failures `0`.
+- Post-merge detached validation at `df36a459`: fresh `npm ci`, typecheck, P2-B units 10/10 and external-port P2-B browser 2/2; worktree clean and removed afterward.
 - Human visual validation, production deployment, pilot, FE21, and P3 remain outside this mission.
-- Remote CI/CodeQL for the rebased head are required before merge and governance closure.
+- Human visual validation, production deployment, pilot, FE21/P3 and dependency remediation remain outside this mission. The implementation is post-merge verified, not a production-readiness declaration.
