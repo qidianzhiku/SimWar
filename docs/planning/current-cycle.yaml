@@ -14,7 +14,7 @@ product_prs:
   - 426
 product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
 product_merge_tree: 44a653ec3c084df4ced4bdaf3ecd978e24295548
-governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATION
+governance_pr: 428
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 governance_closure_readback: PENDING_UNTIL_FINAL_DETACHED_READBACK
 current_master_at_readback: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
@@ -80,13 +80,13 @@ invalidation_triggers:
   - formal-binding-or-w4-state-writer_changed
   - governance-merge-readback-does-not-match-recorded-product-head
 resource_locks:
-  status: RELEASED_AFTER_GOVERNANCE_MERGE_READBACK
-  held: []
+  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
+  held:
+    - M2P3_PROJECT_AWARE_LAUNCH
+    - M2P3_PRODUCT_PR_426
+    - M2P3_GOVERNANCE_CLOSURE_PR_428
   pending: []
 candidate_backlog:
   - candidate_id: M2P4-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_OWNER_DIRECTION
     reason: No automatic successor start is authorized; the next wave requires fresh current reality and explicit owner direction.
-portfolio_version: 19
-document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-21T13:15:20Z"

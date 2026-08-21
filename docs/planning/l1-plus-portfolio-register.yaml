@@ -39,8 +39,8 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: GOVERNANCE_CLOSURE_READY_PENDING_PR_CREATION
-    governance_pr: PENDING_UNTIL_GOVERNANCE_PR_CREATION
+    status: GOVERNANCE_CLOSURE_PENDING_MERGE_READBACK
+    governance_pr: 428
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -114,8 +114,11 @@ historical_governance_reconciliations:
     resource_lock_state: W025_GOVERNANCE_LOCK_HELD_PENDING_REMEDIATION_MERGE
     automatic_next_start: false
 resource_locks:
-  status: RELEASED_AFTER_GOVERNANCE_MERGE_READBACK
-  held: []
+  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
+  held:
+    - M2P3_PROJECT_AWARE_LAUNCH
+    - M2P3_PRODUCT_PR_426
+    - M2P3_GOVERNANCE_CLOSURE_PR_428
   pending: []
 candidate_backlog:
   - candidate_id: M2P4-NEXT-PENDING-OWNER-DIRECTION
@@ -124,7 +127,7 @@ candidate_backlog:
 blocked_candidates: []
 evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/426
-  governance_pr_url: PENDING_UNTIL_GOVERNANCE_PR_CREATION
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/428
   product_candidate_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
   product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
   product_merge_tree: 44a653ec3c084df4ced4bdaf3ecd978e24295548
@@ -152,11 +155,13 @@ validation:
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
-  roster: FIVE_FORMAL_ROLES_QUALITY_AND_RISK_MERGED_INTO_COO
-  full_suite: FRESH_CLONE_LOCAL_BAD_PORT_ROUTE_C_ENVIRONMENT_ANOMALY_NOT_PRODUCT_REGRESSION
-  graph_tooling: CODEGRAPH_UNAVAILABLE_GRAPH_COMPANION_UNMAPPED_PRODUCT_DELTA
-  dependency_advisories: 2_LOW_7_HIGH_NO_DEPENDENCY_CHANGE
+  full_suite: LOCAL_BASELINE_224_FILES_PASS_17_FAILURES_5_WORKER_ERRORS_NOT_RECLASSIFIED
+  graph_tooling: CODEGRAPH_UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK_GRAPHIFY_RECONCILED
+  accessibility: NOT_FULL_WCAG_PASS_KNOWN_COLOR_CONTRAST_LIMIT_REMAINS_VISIBLE
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
   human_validation: NOT_PERFORMED
+  teaching_effectiveness: NOT_PROVEN_BY_AUTOMATED_BROWSER_EVIDENCE
   pilot_production: NOT_AUTHORIZED
+  successor: NO_AUTOMATIC_SUCCESSOR_OWNER_DIRECTION_REQUIRED
 valid_until: PRODUCT_OR_AUTHORITY_OR_CONTRACT_OR_REPLAY_OR_VISIBILITY_OR_ROUND_CONTEXT_CHANGE
 automatic_next_start: false
