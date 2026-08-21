@@ -206,6 +206,8 @@ jobs:
       - name: Run dedicated M2 real-BFF browser journey
         run: npm run test:e2e:ui:m2-p1
       - run: npm run test:e2e:ui:pr4
+      - name: Run P2-B real-BFF decision-learning and teacher-debrief acceptance
+        run: npm run test:e2e:ui:p2b
       - name: Compare PR4 visual candidate against external baseline
         id: pr4-visual-browser
         run: |

@@ -84,7 +84,7 @@ const pr4WebServers = (baseConfig.webServer ?? []).map((server, index) => {
     ...server,
     env: {
       ...server.env,
-      SIMWAR_PLAYWRIGHT_W3: "false"
+      SIMWAR_PLAYWRIGHT_W3: process.env.PR4_W3_FIXTURE === "true" ? "true" : "false"
     }
   };
 });
@@ -92,7 +92,7 @@ const pr4WebServers = (baseConfig.webServer ?? []).map((server, index) => {
 export default defineConfig({
   ...baseConfig,
   testMatch: /pr4-.*\.spec\.ts/,
-  testIgnore: [],
+  testIgnore: /pr4-p2b-decision-learning-teacher-debrief\.spec\.ts/,
   outputDir: resolve(resolvedEvidenceRoot, "test-results"),
   reporter: process.env.CI
     ? [

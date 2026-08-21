@@ -76,6 +76,12 @@ describe("P2-B FE-20 teacher debrief", () => {
     expect(markup).toContain("课堂笔记草稿（本地）");
     expect(markup).toContain("不会写入正式结果");
     expect(markup).toContain("暂无 teacher-safe 团队学习进度投影");
+    expect(markup).toContain('data-testid="teacher-p2b-today-blocker-cta"');
+    expect(markup).toContain('data-testid="teacher-p2b-blocker-prep-cta"');
+    expect(markup).toContain('data-testid="teacher-p2b-teachable-ask"');
+    expect(markup).toContain('data-testid="teacher-p2b-teachable-show"');
+    expect(markup).toContain('data-testid="teacher-p2b-teachable-listen"');
+    expect(markup).toContain('data-testid="teacher-p2b-prep-blocker"');
     expect(markup).not.toContain(">A<");
     expect(markup).not.toContain(">B<");
     expect(markup).not.toContain("private peer drafts");

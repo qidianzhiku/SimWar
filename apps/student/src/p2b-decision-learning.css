@@ -44,6 +44,9 @@
 .p2b-state-card--error {
   border-left-color: #9f2f2c;
 }
+.p2b-state-card--stale {
+  border-left-color: #d4a72c;
+}
 .p2b-state-card p,
 .p2b-stage p,
 .p2b-teacher-stage p {
@@ -77,6 +80,9 @@
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 16px;
+}
+.p2b-student-journey .p2b-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 :is(.p2b-metric-grid, .p2b-compare-grid, .p2b-blocker-grid, .p2b-prep-grid) > div {
   background: #f5f8fa;
@@ -158,6 +164,11 @@
   margin-top: 12px;
   min-height: 44px;
 }
+.p2b-stage-cta,
+.p2b-retry-button {
+  margin-top: 14px;
+  min-height: 44px;
+}
 .p2b-transfer-card,
 .p2b-teachable-card {
   background: #eef4f3;
@@ -193,6 +204,9 @@
     .p2b-prep-grid,
     .p2b-mechanism-chain
   ) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .p2b-student-journey .p2b-metric-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .p2b-stage-heading {

@@ -37,6 +37,9 @@
 .p2b-state-card--error {
   border-left-color: #9f2f2c;
 }
+.p2b-state-card--stale {
+  border-left-color: #d4a72c;
+}
 .p2b-state-card p,
 .p2b-teacher-stage p {
   color: #52646e;
@@ -66,6 +69,9 @@
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 16px;
+}
+.p2b-teacher-debrief .p2b-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 :is(.p2b-metric-grid, .p2b-blocker-grid, .p2b-prep-grid) > div {
   background: #f5f8fa;
@@ -99,6 +105,21 @@
   gap: 8px;
   margin-top: 14px;
   padding: 14px;
+}
+.p2b-teachable-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.p2b-teachable-actions button,
+.p2b-stage-cta,
+.p2b-retry-button {
+  min-height: 44px;
+}
+.p2b-teachable-mode {
+  color: #1f6b69 !important;
+  font-weight: 700;
 }
 .p2b-teachable-card span,
 .p2b-safe-copy,

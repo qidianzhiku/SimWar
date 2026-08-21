@@ -33,6 +33,7 @@ type JourneyState =
   | { phase: "blocked" | "idle" | "loading" }
   | { phase: "empty"; message: string }
   | { phase: "ready"; record: W3OfficialConsequenceRecord }
+  | { phase: "stale"; record: W3OfficialConsequenceRecord }
   | { phase: "error"; message: string };
 
 function contextQuery(context: W3OfficialConsequenceContext): string {
@@ -59,6 +60,9 @@ export function StudentDecisionLearningJourney({
   const [reflection, setReflection] = useState({ judgment: "", learning: "", next: "" });
   const [reflectionNotice, setReflectionNotice] = useState("");
   const [reflectionBusy, setReflectionBusy] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(undefined);
+  const requestEpochRef = useRef(0);
   const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
@@ -67,12 +71,14 @@ export function StudentDecisionLearningJourney({
       setReflection({ judgment: "", learning: "", next: "" });
       setReflectionNotice("");
       setReflectionBusy(false);
+      recordRef.current = undefined;
     }
     previousIdentityKey.current = identityKey;
   }, [identityKey]);
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestEpoch = ++requestEpochRef.current;
     if (!published) {
       setState({ phase: "blocked" });
       return () => controller.abort();
@@ -82,7 +88,9 @@ export function StudentDecisionLearningJourney({
       return () => controller.abort();
     }
 
-    setState({ phase: "loading" });
+    setState(
+      recordRef.current ? { phase: "stale", record: recordRef.current } : { phase: "loading" }
+    );
     fetch(`${apiBase}/api/v1/bff/student/w3/consequence?${contextQuery(context)}`, {
       headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
       signal: controller.signal
@@ -92,6 +100,7 @@ export function StudentDecisionLearningJourney({
           data?: W3OfficialConsequenceResponse;
           message?: string;
         };
+        if (requestEpoch !== requestEpochRef.current) return;
         if (response.status === 404) {
           setState({ phase: "empty", message: envelope.message ?? "等待教师确认学习投影" });
           return;
@@ -99,17 +108,24 @@ export function StudentDecisionLearningJourney({
         if (!response.ok || !envelope.data) {
           throw new Error(envelope.message ?? "学习投影读取失败");
         }
+        recordRef.current = envelope.data.record;
         setState({ phase: "ready", record: envelope.data.record });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestEpoch !== requestEpochRef.current) return;
         setState({ phase: "error", message: safeMessage(error) });
       });
 
     return () => controller.abort();
-  }, [apiBase, context, published, tenantId, token]);
+  }, [apiBase, identityKey, retryNonce]);
 
-  const record = state.phase === "ready" ? state.record : undefined;
+  const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
+
+  function scrollToStage(stage: string): void {
+    const target = document.getElementById(`student-p2b-${stage}`);
+    target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
 
   async function submitReflection(): Promise<void> {
     if (!record || !context || !reflectionText.trim() || reflectionBusy) return;
@@ -137,6 +153,8 @@ export function StudentDecisionLearningJourney({
       if (!response.ok || !envelope.data) {
         throw new Error(envelope.message ?? "学习草稿保存失败");
       }
+      requestEpochRef.current += 1;
+      recordRef.current = envelope.data.record;
       setState({ phase: "ready", record: envelope.data.record });
       setReflectionNotice("学习草稿已保存；它不会进入正式结算。");
     } catch (error: unknown) {
@@ -167,16 +185,18 @@ export function StudentDecisionLearningJourney({
           <p className="eyebrow">FE-19 / DECISION LEARNING</p>
           <h2>从正式结果回到可行动的学习</h2>
         </div>
-        <span role="status">
+        <span role="status" aria-live="polite">
           {state.phase === "blocked"
             ? "等待发布"
             : state.phase === "loading"
               ? "读取中"
               : state.phase === "ready"
                 ? "已读取"
-                : state.phase === "error"
-                  ? "加载失败"
-                  : "学习旅程"}
+                : state.phase === "stale"
+                  ? "正在刷新"
+                  : state.phase === "error"
+                    ? "加载失败"
+                    : "学习旅程"}
         </span>
       </div>
 
@@ -198,6 +218,12 @@ export function StudentDecisionLearningJourney({
           <p>只读取当前学员、当前团队和当前回合的 safe projection。</p>
         </div>
       ) : null}
+      {state.phase === "stale" ? (
+        <div className="p2b-state-card p2b-state-card--stale" data-testid="student-p2b-stale">
+          <strong>正在刷新学习投影</strong>
+          <p>上一份安全结果仍保留在页面中；刷新完成后会替换为最新版本。</p>
+        </div>
+      ) : null}
       {state.phase === "empty" ? (
         <div className="p2b-state-card" data-testid="student-p2b-empty">
           <strong>{state.message}</strong>
@@ -208,12 +234,24 @@ export function StudentDecisionLearningJourney({
         <div className="p2b-state-card p2b-state-card--error" data-testid="student-p2b-error">
           <strong>学习投影暂不可用</strong>
           <p>{state.message}</p>
+          <button
+            className="secondary p2b-retry-button"
+            data-testid="student-p2b-retry"
+            type="button"
+            onClick={() => setRetryNonce((current) => current + 1)}
+          >
+            重试读取
+          </button>
         </div>
       ) : null}
 
       {record ? (
         <div className="p2b-stage-stack">
-          <article className="p2b-stage p2b-stage--result" data-testid="student-p2b-result">
+          <article
+            className="p2b-stage p2b-stage--result"
+            data-testid="student-p2b-result"
+            id="student-p2b-result"
+          >
             <div className="p2b-stage-kicker">01 · PUBLISHED RESULT</div>
             <div className="p2b-stage-heading">
               <div>
@@ -224,7 +262,15 @@ export function StudentDecisionLearningJourney({
             </div>
             <div className="p2b-metric-grid">
               <div>
-                <span>结果</span>
+                <span>利润区间</span>
+                <strong>{record.official_result.profit_band}</strong>
+              </div>
+              <div>
+                <span>市场排名</span>
+                <strong>第 {record.official_result.rank} 名</strong>
+              </div>
+              <div>
+                <span>结果状态</span>
                 <strong>
                   {record.official_result.outcome_label === "official_published"
                     ? "已发布"
@@ -232,21 +278,21 @@ export function StudentDecisionLearningJourney({
                 </strong>
               </div>
               <div>
-                <span>分数</span>
-                <strong>{record.official_result.score}</strong>
-              </div>
-              <div>
-                <span>排名</span>
-                <strong>第 {record.official_result.rank} 名</strong>
-              </div>
-              <div>
-                <span>利润带</span>
-                <strong>{record.official_result.profit_band}</strong>
+                <span>学习入口</span>
+                <strong>6 个阶段</strong>
               </div>
             </div>
+            <button
+              className="secondary p2b-stage-cta"
+              data-testid="student-p2b-result-story-cta"
+              type="button"
+              onClick={() => scrollToStage("story")}
+            >
+              查看决策故事
+            </button>
           </article>
 
-          <article className="p2b-stage" data-testid="student-p2b-story">
+          <article className="p2b-stage" data-testid="student-p2b-story" id="student-p2b-story">
             <div className="p2b-stage-kicker">02 · DECISION STORY</div>
             <h3>从决策到结果</h3>
             <p>{record.decision_story.decision_summary}</p>
@@ -366,7 +412,7 @@ export function StudentDecisionLearningJourney({
               >
                 {reflectionBusy ? "保存中" : "保存学习草稿"}
               </button>
-              <p role="status" className="p2b-inline-status">
+              <p role="status" aria-live="polite" className="p2b-inline-status">
                 {reflectionNotice ||
                   (record.reflection ? "已有一份 AI-off 学习草稿" : "尚未保存学习草稿")}
               </p>

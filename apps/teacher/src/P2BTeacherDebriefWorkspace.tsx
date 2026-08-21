@@ -28,6 +28,7 @@ type WorkspaceState =
   | { phase: "idle" | "loading" }
   | { phase: "empty"; message: string }
   | { phase: "ready"; record: W3OfficialConsequenceRecord }
+  | { phase: "stale"; record: W3OfficialConsequenceRecord }
   | { phase: "error"; message: string };
 
 function contextQuery(context: W3OfficialConsequenceContext): string {
@@ -49,12 +50,16 @@ export function TeacherDebriefWorkspace({
     response ? { phase: "ready", record: response.record } : { phase: "idle" }
   );
   const [note, setNote] = useState("");
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [teachableMode, setTeachableMode] = useState<"ask" | "show" | "listen">("ask");
+  const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
   const identityKey = `${tenantId}:${token}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (previousIdentityKey.current && previousIdentityKey.current !== identityKey) {
       setNote("");
+      recordRef.current = undefined;
     }
     previousIdentityKey.current = identityKey;
   }, [identityKey]);
@@ -69,7 +74,9 @@ export function TeacherDebriefWorkspace({
       setState({ phase: "idle" });
       return () => controller.abort();
     }
-    setState({ phase: "loading" });
+    setState(
+      recordRef.current ? { phase: "stale", record: recordRef.current } : { phase: "loading" }
+    );
     fetch(`${apiBase}/api/v1/bff/teacher/w3/consequence?${contextQuery(context)}`, {
       headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
       signal: controller.signal
@@ -85,6 +92,7 @@ export function TeacherDebriefWorkspace({
         }
         if (!result.ok || !envelope.data)
           throw new Error(envelope.message ?? "教师复盘投影读取失败");
+        recordRef.current = envelope.data.record;
         setState({ phase: "ready", record: envelope.data.record });
       })
       .catch((error: unknown) => {
@@ -95,9 +103,14 @@ export function TeacherDebriefWorkspace({
         });
       });
     return () => controller.abort();
-  }, [apiBase, context, response, tenantId, token]);
+  }, [apiBase, context, response, retryNonce, tenantId, token]);
 
-  const record = state.phase === "ready" ? state.record : undefined;
+  const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
+
+  function scrollToStage(stage: string): void {
+    const target = document.getElementById(`teacher-p2b-${stage}`);
+    target?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <section
@@ -110,14 +123,16 @@ export function TeacherDebriefWorkspace({
           <p className="eyebrow">FE-20 / TEACHER DEBRIEF</p>
           <h2>把结果变成下一轮课堂行动</h2>
         </div>
-        <span role="status">
+        <span role="status" aria-live="polite">
           {state.phase === "ready"
             ? "已读取"
             : state.phase === "loading"
               ? "读取中"
-              : state.phase === "error"
-                ? "加载失败"
-                : "课堂复盘"}
+              : state.phase === "stale"
+                ? "正在刷新"
+                : state.phase === "error"
+                  ? "加载失败"
+                  : "课堂复盘"}
         </span>
       </div>
       {state.phase === "idle" ? (
@@ -132,6 +147,12 @@ export function TeacherDebriefWorkspace({
           <p>读取结果、阻断和安全的学习进度。</p>
         </div>
       ) : null}
+      {state.phase === "stale" ? (
+        <div className="p2b-state-card p2b-state-card--stale" data-testid="teacher-p2b-stale">
+          <strong>正在刷新课堂复盘投影</strong>
+          <p>上一份 teacher-safe 材料仍保留在页面中；刷新完成后会替换。</p>
+        </div>
+      ) : null}
       {state.phase === "empty" ? (
         <div className="p2b-state-card">
           <strong>{state.message}</strong>
@@ -142,11 +163,23 @@ export function TeacherDebriefWorkspace({
         <div className="p2b-state-card p2b-state-card--error">
           <strong>教师复盘投影暂不可用</strong>
           <p>{state.message}</p>
+          <button
+            className="secondary p2b-retry-button"
+            data-testid="teacher-p2b-retry"
+            type="button"
+            onClick={() => setRetryNonce((current) => current + 1)}
+          >
+            重试读取
+          </button>
         </div>
       ) : null}
 
       <div className="p2b-teacher-stage-stack">
-        <article className="p2b-teacher-stage" data-testid="teacher-p2b-today">
+        <article
+          className="p2b-teacher-stage"
+          data-testid="teacher-p2b-today"
+          id="teacher-p2b-today"
+        >
           <div className="p2b-stage-kicker">01 · TODAY</div>
           <h3>今日课堂</h3>
           <div className="p2b-metric-grid">
@@ -162,15 +195,28 @@ export function TeacherDebriefWorkspace({
               <span>复盘状态</span>
               <strong>{record ? "可准备" : "待投影"}</strong>
             </div>
+            <div>
+              <span>课堂边界</span>
+              <strong>只读安全投影</strong>
+            </div>
           </div>
           <p className="p2b-safe-copy">
             今天不需要重算结果，只需要帮助团队把结果变成下一轮行动。teacher-safe projection。
           </p>
+          <button
+            className="secondary p2b-stage-cta"
+            data-testid="teacher-p2b-today-blocker-cta"
+            type="button"
+            onClick={() => scrollToStage("highest_blocker")}
+          >
+            查看阻断
+          </button>
         </article>
 
         <article
           className="p2b-teacher-stage p2b-teacher-stage--critical"
           data-testid="teacher-p2b-highest_blocker"
+          id="teacher-p2b-highest_blocker"
         >
           <div className="p2b-stage-kicker">02 · HIGHEST BLOCKER</div>
           <h3>最高阻断</h3>
@@ -189,6 +235,14 @@ export function TeacherDebriefWorkspace({
               <strong>展示结果与机制链</strong>
             </div>
           </div>
+          <button
+            className="primary p2b-stage-cta"
+            data-testid="teacher-p2b-blocker-prep-cta"
+            type="button"
+            onClick={() => scrollToStage("debrief_prep")}
+          >
+            准备复盘
+          </button>
         </article>
 
         <article className="p2b-teacher-stage" data-testid="teacher-p2b-cohort_progress">
@@ -201,13 +255,34 @@ export function TeacherDebriefWorkspace({
           </div>
         </article>
 
-        <article className="p2b-teacher-stage" data-testid="teacher-p2b-teachable_moment">
+        <article
+          className="p2b-teacher-stage"
+          data-testid="teacher-p2b-teachable_moment"
+          id="teacher-p2b-teachable_moment"
+        >
           <div className="p2b-stage-kicker">04 · TEACHABLE MOMENT</div>
           <h3>可教学时刻</h3>
           <div className="p2b-teachable-card">
             <strong>“结果改善了，但为什么履约压力也一起上升？”</strong>
             <span>先问中间机制，再展示 bounded mechanism。</span>
           </div>
+          <div className="p2b-teachable-actions" role="group" aria-label="可教学时刻动作">
+            {(["ask", "show", "listen"] as const).map((mode) => (
+              <button
+                className={teachableMode === mode ? "primary" : "secondary"}
+                data-testid={`teacher-p2b-teachable-${mode}`}
+                key={mode}
+                type="button"
+                onClick={() => setTeachableMode(mode)}
+              >
+                {mode === "ask" ? "先问" : mode === "show" ? "展示机制" : "听取回应"}
+              </button>
+            ))}
+          </div>
+          <p className="p2b-teachable-mode" role="status" aria-live="polite">
+            当前课堂动作：
+            {teachableMode === "ask" ? "先问" : teachableMode === "show" ? "展示机制" : "听取回应"}
+          </p>
           <label className="p2b-field" htmlFor="teacher-p2b-local-note">
             <span>课堂笔记草稿（本地）</span>
             <textarea
@@ -221,12 +296,28 @@ export function TeacherDebriefWorkspace({
           <p className="p2b-safe-copy">
             Teacher action only · advisory facilitation · official result remains read-only。
           </p>
+          <button
+            className="primary p2b-stage-cta"
+            data-testid="teacher-p2b-teachable-prep-cta"
+            type="button"
+            onClick={() => scrollToStage("debrief_prep")}
+          >
+            生成复盘准备
+          </button>
         </article>
 
-        <article className="p2b-teacher-stage" data-testid="teacher-p2b-debrief_prep">
+        <article
+          className="p2b-teacher-stage"
+          data-testid="teacher-p2b-debrief_prep"
+          id="teacher-p2b-debrief_prep"
+        >
           <div className="p2b-stage-kicker">05 · DEBRIEF PREP</div>
           <h3>复盘准备</h3>
           <div className="p2b-prep-grid">
+            <div data-testid="teacher-p2b-prep-blocker">
+              <span>最高阻断</span>
+              <strong>与最高阻断卡片保持一致</strong>
+            </div>
             <div>
               <span>正式结果</span>
               <strong>{record?.official_result.outcome_label ?? "等待投影"}</strong>

@@ -731,15 +731,18 @@ describe("Product PR4 integration contracts", () => {
       "tests/unit/pr4-visual-baseline-capture.test.ts"
     );
     expect(packageJson.scripts["test:e2e:ui:pr4"]).toContain("playwright.pr4.config.ts");
+    expect(packageJson.scripts["test:e2e:ui:p2b"]).toContain("playwright.p2b.config.ts");
     expect(packageJson.scripts["capture:pr4:baseline"]).toBe(
       "node scripts/capture-pr4-visual-baseline.mjs"
     );
     expect(configSource).toContain("testIgnore: /pr4-.*\\.spec\\.ts/");
     expect(configSource).not.toContain("PR4_CONFIG_LAB");
     expect(configSource).not.toContain("pr4EvidenceRoot");
-    expect(pr4ConfigSource).toContain('SIMWAR_PLAYWRIGHT_W3: "false"');
+    expect(pr4ConfigSource).toContain('process.env.PR4_W3_FIXTURE === "true"');
+    expect(pr4ConfigSource).toContain("pr4-p2b-decision-learning-teacher-debrief\\.spec\\.ts");
     expect(ciSource).toContain("npm run test:e2e:ui:core");
     expect(ciSource).toContain("npm run test:e2e:ui:pr4");
+    expect(ciSource).toContain("npm run test:e2e:ui:p2b");
     expect(ciSource).toContain("Capture exact PR4 visual baseline");
     expect(ciSource).toContain("npm run capture:pr4:baseline");
     expect(ciSource).toContain('cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png');
@@ -765,6 +768,9 @@ describe("Product PR4 integration contracts", () => {
       ciSource.indexOf("npm run test:e2e:ui:core")
     );
     expect(ciSource.indexOf("npm run test:e2e:ui:pr4")).toBeLessThan(
+      ciSource.indexOf("npm run test:e2e:ui:p2b")
+    );
+    expect(ciSource.indexOf("npm run test:e2e:ui:p2b")).toBeLessThan(
       ciSource.indexOf("Compare PR4 visual candidate against external baseline")
     );
     expect(agentGuide).toContain("npm run test:e2e:ui:core");

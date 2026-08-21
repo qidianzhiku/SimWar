@@ -9,6 +9,7 @@ import {
   StudentDecisionLearningJourney,
   getStudentLearningGate
 } from "../../apps/student/src/P2BDecisionLearningJourney";
+import { isW3ContextAvailable } from "../../apps/student/src/p2b-w3-context";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -105,6 +106,12 @@ function renderJourney(
 }
 
 describe("P2-B FE-19 student decision learning", () => {
+  it("requires an explicit W3 context unless the feature is enabled by environment", () => {
+    expect(isW3ContextAvailable(undefined, false)).toBe(false);
+    expect(isW3ContextAvailable(context, false)).toBe(true);
+    expect(isW3ContextAvailable(undefined, true)).toBe(true);
+  });
+
   it("freezes the six Figma stages", () => {
     expect(P2B_STUDENT_STAGES).toEqual([
       "result",
@@ -147,8 +154,33 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(host.textContent).toContain("如果当时只改一项");
     expect(host.textContent).toContain("我的经营复盘");
     expect(host.textContent).toContain("下一轮假设");
+    expect(host.querySelector('[data-testid="student-p2b-result-story-cta"]')).not.toBeNull();
     expect(host.textContent).not.toContain("private peer drafts");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("offers a recoverable error state without changing the safe projection contract", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
+    const { host, root } = renderJourney();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[data-testid="student-p2b-error"]')).not.toBeNull();
+    const retry = host.querySelector<HTMLButtonElement>('[data-testid="student-p2b-retry"]');
+    expect(retry).not.toBeNull();
+    expect(retry?.textContent).toContain("重试");
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ data: response }), { status: 200 }));
+    await act(async () => {
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[data-testid="student-p2b-result"]')).not.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
@@ -239,9 +271,95 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(reflectionCall).toBeDefined();
     const body = JSON.parse(String(reflectionCall?.[1]?.body)) as { response: string };
     expect(body.response).toContain("判断：先判断结果；学习：再学习机制；下一轮：下一轮验证");
-    expect(
-      [...body.response].some((character) => character.charCodeAt(0) < 0x20)
-    ).toBe(false);
+    expect([...body.response].some((character) => character.charCodeAt(0) < 0x20)).toBe(false);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("keeps the reflection POST record when an older projection GET resolves later", async () => {
+    let projectionCalls = 0;
+    let resolveOlderProjection: ((value: Response) => void) | undefined;
+    const olderProjection = new Promise<Response>((resolve) => {
+      resolveOlderProjection = resolve;
+    });
+    const updatedResponse = {
+      ...response,
+      record: {
+        ...response.record,
+        official_result: {
+          ...response.record.official_result,
+          profit_band: "post_saved"
+        },
+        reflection: { response: "已保存的新学习草稿" }
+      }
+    } as W3OfficialConsequenceResponse;
+    const jsonResponse = (value: W3OfficialConsequenceResponse) =>
+      new Response(JSON.stringify({ data: value }), { status: 200 });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/reflection")) return jsonResponse(updatedResponse);
+      projectionCalls += 1;
+      if (projectionCalls === 1) return jsonResponse(response);
+      return olderProjection;
+    });
+    const { host, root } = renderJourney();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(1);
+
+    const equivalentContext = { ...context };
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api.test"
+          tenantId="tenant-001"
+          token="token"
+          context={equivalentContext}
+          published
+        />
+      );
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(1);
+
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api-alt.test"
+          tenantId="tenant-001"
+          token="token"
+          context={equivalentContext}
+          published
+        />
+      );
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(2);
+
+    const judgment = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setValue?.call(judgment, "保留新草稿");
+      judgment?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const submit = host.querySelector<HTMLButtonElement>(
+      '[data-testid="student-p2b-reflection"] button[type="submit"]'
+    );
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("post_saved");
+
+    await act(async () => {
+      resolveOlderProjection?.(jsonResponse(response));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("post_saved");
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
