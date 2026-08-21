@@ -516,6 +516,47 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
               </strong>
             </div>
           </div>
+          <section
+            className="decision-trace market-world-brief"
+            aria-label="Shanghai Market World brief"
+            data-market-world-visibility={workspace.market_world_visibility ?? "PRE_VISIBILITY"}
+          >
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">角色安全市场上下文</p>
+                <h3>上海养老 Market Brief</h3>
+              </div>
+              <span role="status">
+                {workspace.market_world_visibility === "VISIBLE" ? "已开放" : "尚未开放"}
+              </span>
+            </div>
+            {workspace.market_brief ? (
+              <>
+                <p>{workspace.market_brief.market_structure}</p>
+                <div className="summary-grid">
+                  <article>
+                    <span>客户张力</span>
+                    <strong>{workspace.market_brief.customer_tensions.length}</strong>
+                  </article>
+                  <article>
+                    <span>服务组合</span>
+                    <strong>{workspace.market_brief.service_landscape.length}</strong>
+                  </article>
+                  <article>
+                    <span>外部替代</span>
+                    <strong>{workspace.market_brief.outside_options.length}</strong>
+                  </article>
+                </div>
+                <p className="evidence-note">
+                  这是当前角色可用的产品上下文，不是 settlement truth；不包含私有校准、其他队伍数据或正式结果。
+                </p>
+              </>
+            ) : (
+              <p className="muted">
+                Market World 尚未在已发布 Course 上完成精确绑定，或当前版本处于 stale/unknown；正式角色工作区仍可继续按服务端状态运行。
+              </p>
+            )}
+          </section>
           <div className="decision-trace" aria-label="决策历程">
             <div className="panel-title">
               <div>

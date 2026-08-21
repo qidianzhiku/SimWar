@@ -12,6 +12,7 @@ import type {
   TeamResolutionSafeDTO,
   TeacherDivergenceSummary
 } from "./team-divergence.js";
+import type { MarketWorldVisibilityState, StudentMarketBriefProjection } from "./market-world.js";
 
 export type RoleWorkflowEventType =
   | "role_assigned"
@@ -58,6 +59,8 @@ export interface StudentRoleWorkflowWorkspaceDTO {
   divergence_set?: TeamDivergenceSet;
   team_resolution?: TeamResolutionSafeDTO;
   resolution_acknowledgements?: ResolutionAcknowledgementSafeDTO[];
+  market_world_visibility?: MarketWorldVisibilityState;
+  market_brief?: StudentMarketBriefProjection;
 }
 
 export type StudentDecisionTraceStageKey =

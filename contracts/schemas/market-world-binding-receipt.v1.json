@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/market-world-binding-receipt.v1.json",
+  "title": "Teacher Market World Binding Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation_id",
+    "course_id",
+    "tenant_id",
+    "binding_state",
+    "idempotent",
+    "market_world_reference",
+    "readiness",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "market-world-binding-receipt.v1" },
+    "operation_id": { "const": "TEACHER_MARKET_WORLD_BINDING_POST_V1" },
+    "course_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "binding_state": { "const": "BOUND" },
+    "idempotent": { "type": "boolean" },
+    "market_world_reference": { "$ref": "market-world.v1.json#/$defs/marketWorldRef" },
+    "readiness": { "$ref": "market-world.v1.json#/$defs/readiness" },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  }
+}

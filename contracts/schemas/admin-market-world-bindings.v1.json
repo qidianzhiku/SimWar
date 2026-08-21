@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/admin-market-world-bindings.v1.json",
+  "title": "Admin Market World Binding Audit Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tenant_id", "courses"],
+  "properties": {
+    "schema_version": { "const": "admin-market-world-bindings.v1" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "courses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "course_id",
+          "tenant_id",
+          "binding_state",
+          "readiness",
+          "source_categories",
+          "limited_archetypes",
+          "known_limits"
+        ],
+        "properties": {
+          "schema_version": { "const": "market-world.v1" },
+          "course_id": { "type": "string", "minLength": 1 },
+          "tenant_id": { "type": "string", "minLength": 1 },
+          "binding_state": { "enum": ["UNBOUND", "BOUND", "STALE", "UNKNOWN", "CONFLICT"] },
+          "market_world_reference": { "$ref": "market-world.v1.json#/$defs/marketWorldRef" },
+          "readiness": { "$ref": "market-world.v1.json#/$defs/readiness" },
+          "source_categories": { "type": "array", "items": { "type": "string" } },
+          "limited_archetypes": { "type": "array", "items": { "type": "string" } },
+          "known_limits": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

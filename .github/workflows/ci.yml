@@ -203,6 +203,8 @@ jobs:
           mkdir -p "$PR4_EVIDENCE_ROOT/baseline"
           cp "$PR4_EVIDENCE_ROOT/base-capture/candidate/"*.png "$PR4_EVIDENCE_ROOT/baseline/"
       - run: npm run test:e2e:ui:core
+      - name: Run dedicated M2 real-BFF browser journey
+        run: npm run test:e2e:ui:m2-p1
       - run: npm run test:e2e:ui:pr4
       - name: Compare PR4 visual candidate against external baseline
         id: pr4-visual-browser

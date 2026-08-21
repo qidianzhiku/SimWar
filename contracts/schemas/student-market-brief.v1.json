@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/student-market-brief.v1.json",
+  "title": "Student Market World Brief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "brief_kind",
+    "visibility_state",
+    "market_world_reference",
+    "market_world_name",
+    "market_structure",
+    "customer_tensions",
+    "service_landscape",
+    "outside_options",
+    "archetype_context",
+    "key_business_tensions",
+    "freshness",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "student-market-brief.v1" },
+    "brief_kind": { "const": "SHANGHAI_MARKET_BRIEF" },
+    "visibility_state": { "const": "VISIBLE" },
+    "market_world_reference": { "$ref": "market-world.v1.json#/$defs/marketWorldRef" },
+    "market_world_name": { "type": "string", "minLength": 1 },
+    "market_structure": { "type": "string", "minLength": 1 },
+    "customer_tensions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "service_landscape": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "outside_options": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "archetype_context": { "type": "string", "minLength": 1 },
+    "key_business_tensions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "freshness": { "$ref": "market-world.v1.json#/$defs/freshness" },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  }
+}
