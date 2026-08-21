@@ -25,9 +25,11 @@ provider, or database authority was changed.
 
 - Figma file `6ezOykmrZbMbFEYPfIkZ07` remains the visual authority.
 - Existing `SimWar P1` collection `VariableCollectionId:14:2` remains the only
-  token collection. The only Figma writes were `space/10` (`VariableID:60:2`),
-  `space/14` (`VariableID:60:3`), and `space/18` (`VariableID:60:4`), all
-  `FLOAT`, `GAP` scoped, and read back with web syntax `var(--sw-space-*)`.
+  token collection. The Figma variable writes were `space/10`
+  (`VariableID:60:2`), `space/14` (`VariableID:60:3`), and `space/18`
+  (`VariableID:60:4`), all `FLOAT`, `GAP` scoped, and read back with web syntax
+  `var(--sw-space-*)`. The later description-only state-contract append is
+  recorded below as a separate metadata mutation.
 - Existing Components page `18:4` retains its ActionButton, StateBadge,
   StatePanel, FormField, and handoff component structure.
 - Source/design mapping is recorded in
@@ -79,8 +81,9 @@ provider, or database authority was changed.
 - CodeGraph was attempted but its local index was stale for current master;
   source, exact-SHA, test, and CI evidence were used instead. This is a
   tooling limitation, not a claim of graph completeness.
-- Figma visual comparison is automated/read-only after the minimal variable
-  write; no claim is made that a human reviewed every pixel.
+- Figma visual comparison was automated/read-only after the additive metadata
+  append; no claim is made that a human reviewed every pixel. The append did
+  not alter visual structure, layout, variables, or variants.
 
 ## Rollback
 
