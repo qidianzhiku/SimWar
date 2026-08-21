@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import {
   createW4DecisionPayloadDigest,
   createEnterpriseStateStrategicEvolutionService,
@@ -660,6 +661,21 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
         decision_payload_digest: newProjectDecision.admission.decision_payload_digest
       }
     ]);
+  });
+
+  it("preserves legacy state bytes and digests while loading new optional fields", () => {
+    const store = createP1Store();
+    const legacy = initialState();
+    legacy.state_digest = createHash("sha256")
+      .update(JSON.stringify(legacy.state))
+      .digest("hex");
+    store.w4.states.push(legacy);
+
+    const migrated = createJsonW4Repository(store).snapshot();
+
+    expect(migrated.states[0]?.state).toEqual(legacy.state);
+    expect(migrated.states[0]?.state_digest).toBe(legacy.state_digest);
+    expect(migrated.states[0]?.state.capital).toBeUndefined();
   });
 
   it("commits Official Outcome plus Closing State atomically and never applies Shadow Replay", async () => {

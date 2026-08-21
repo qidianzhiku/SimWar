@@ -73,10 +73,11 @@ function normalizeW4StoreState(input: W4StoreState): W4StoreState {
     projectTransactions?: W4ProjectTransaction[];
     capitalActions?: W4CapitalAction[];
   };
-  next.states = next.states.map((state) => ({
-    ...state,
-    state: normalizeStateData(state.state)
-  }));
+  // Legacy state bytes are immutable evidence. Do not inject newly optional
+  // fields into them here: doing so would change the bytes without changing
+  // the stored state_digest and would invalidate historical state references.
+  // The settlement engine applies default capital semantics at read time; new
+  // initial states are normalized and re-digested below.
   next.projectPortfolio = clone(legacy.projectPortfolio ?? []);
   next.projectTransactions = clone(legacy.projectTransactions ?? []);
   next.capitalActions = clone(legacy.capitalActions ?? []);

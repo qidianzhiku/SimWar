@@ -6479,6 +6479,12 @@ components:
         project_entry_id: { type: string, minLength: 1 }
         initiative_id: { type: string, minLength: 1 }
         policy_seam_id: { type: string, minLength: 1 }
+      allOf:
+        - if:
+            properties:
+              capital_action_kind: { const: project_finance }
+          then:
+            required: [project_entry_id, initiative_id]
     RoleWorkflowCanonicalDecisionPayload:
       allOf:
         - $ref: "#/components/schemas/RoleWorkflowDecisionPayload"
