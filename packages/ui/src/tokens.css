@@ -45,6 +45,26 @@
   --sw-color-surface-base: var(--sw-primitive-color-surface-base);
   --sw-color-surface-white: var(--sw-primitive-color-surface-white);
   --sw-color-surface-border: var(--sw-primitive-color-border);
+
+  /* Figma P2-B visual handoff (student 40:28, teacher 43:57). These are
+     semantic aliases, not a second design system; P1 primitives stay the
+     single source of truth for shared surfaces and authority colors. */
+  --sw-color-surface-warm: #f7f4ed;
+  --sw-color-surface-navy: #10253f;
+  --sw-color-surface-teal-subtle: #eef4f3;
+  --sw-color-surface-metric: #f5f8fa;
+  --sw-color-surface-mechanism: #f7f3ea;
+  --sw-color-surface-blocked: #fff8e7;
+  --sw-color-border-teal: #8eb8b1;
+  --sw-color-border-soft: #d8e3e7;
+  --sw-color-border-input: #b7c6cf;
+  --sw-color-border-blocked: #ead69a;
+  --sw-color-border-transfer: #a6cbc4;
+  --sw-color-text-body: #52646e;
+  --sw-color-text-subtle: #627d98;
+  --sw-color-text-blocked: #6b5320;
+  --sw-color-state-critical: #9f2f2c;
+  --sw-color-focus-warm: #d4a72c;
   --sw-color-bg-disabled: color-mix(
     in srgb,
     var(--sw-primitive-color-text-muted) 12%,
@@ -120,6 +140,10 @@
   --sw-space-24: 24px;
   --sw-space-32: 32px;
   --sw-space-48: 48px;
+  --sw-space-10: 10px;
+  --sw-space-14: 14px;
+  --sw-space-18: 18px;
+  --sw-space-20: 20px;
   --sw-space-page: 24px;
   --sw-space-card: 20px;
   --sw-space-form: 16px;
@@ -128,7 +152,9 @@
 
   --sw-radius-4: 4px;
   --sw-radius-8: 8px;
+  --sw-radius-10: 10px;
   --sw-radius-12: 12px;
+  --sw-radius-16: 16px;
   --sw-radius-card: 12px;
   --sw-radius-button: 10px;
   --sw-radius-modal: 16px;
