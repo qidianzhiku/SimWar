@@ -62,6 +62,7 @@ export function StudentDecisionLearningJourney({
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(undefined);
+  const requestEpochRef = useRef(0);
   const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
@@ -77,6 +78,7 @@ export function StudentDecisionLearningJourney({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestEpoch = ++requestEpochRef.current;
     if (!published) {
       setState({ phase: "blocked" });
       return () => controller.abort();
@@ -98,6 +100,7 @@ export function StudentDecisionLearningJourney({
           data?: W3OfficialConsequenceResponse;
           message?: string;
         };
+        if (requestEpoch !== requestEpochRef.current) return;
         if (response.status === 404) {
           setState({ phase: "empty", message: envelope.message ?? "等待教师确认学习投影" });
           return;
@@ -110,11 +113,12 @@ export function StudentDecisionLearningJourney({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestEpoch !== requestEpochRef.current) return;
         setState({ phase: "error", message: safeMessage(error) });
       });
 
     return () => controller.abort();
-  }, [apiBase, context, published, retryNonce, tenantId, token]);
+  }, [apiBase, identityKey, retryNonce]);
 
   const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
 
@@ -149,6 +153,8 @@ export function StudentDecisionLearningJourney({
       if (!response.ok || !envelope.data) {
         throw new Error(envelope.message ?? "学习草稿保存失败");
       }
+      requestEpochRef.current += 1;
+      recordRef.current = envelope.data.record;
       setState({ phase: "ready", record: envelope.data.record });
       setReflectionNotice("学习草稿已保存；它不会进入正式结算。");
     } catch (error: unknown) {

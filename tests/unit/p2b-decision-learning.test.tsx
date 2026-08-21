@@ -276,4 +276,92 @@ describe("P2-B FE-19 student decision learning", () => {
     host.remove();
     fetchSpy.mockRestore();
   });
+
+  it("keeps the reflection POST record when an older projection GET resolves later", async () => {
+    let projectionCalls = 0;
+    let resolveOlderProjection: ((value: Response) => void) | undefined;
+    const olderProjection = new Promise<Response>((resolve) => {
+      resolveOlderProjection = resolve;
+    });
+    const updatedResponse = {
+      ...response,
+      record: {
+        ...response.record,
+        official_result: {
+          ...response.record.official_result,
+          profit_band: "post_saved"
+        },
+        reflection: { response: "已保存的新学习草稿" }
+      }
+    } as W3OfficialConsequenceResponse;
+    const jsonResponse = (value: W3OfficialConsequenceResponse) =>
+      new Response(JSON.stringify({ data: value }), { status: 200 });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/reflection")) return jsonResponse(updatedResponse);
+      projectionCalls += 1;
+      if (projectionCalls === 1) return jsonResponse(response);
+      return olderProjection;
+    });
+    const { host, root } = renderJourney();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(1);
+
+    const equivalentContext = { ...context };
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api.test"
+          tenantId="tenant-001"
+          token="token"
+          context={equivalentContext}
+          published
+        />
+      );
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(1);
+
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api-alt.test"
+          tenantId="tenant-001"
+          token="token"
+          context={equivalentContext}
+          published
+        />
+      );
+      await Promise.resolve();
+    });
+    expect(projectionCalls).toBe(2);
+
+    const judgment = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setValue?.call(judgment, "保留新草稿");
+      judgment?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const submit = host.querySelector<HTMLButtonElement>(
+      '[data-testid="student-p2b-reflection"] button[type="submit"]'
+    );
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("post_saved");
+
+    await act(async () => {
+      resolveOlderProjection?.(jsonResponse(response));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("post_saved");
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
 });
