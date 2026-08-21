@@ -112,8 +112,8 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   await page.getByLabel("username").fill("student");
   await page.getByLabel("password").fill("student");
   await page.getByRole("button", { name: "学员登录" }).click();
-  await expect(page.getByRole("heading", { name: "Enterprise State · New Project" })).toBeVisible();
-  await expect(page.getByText("Commitment", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "提交项目承诺" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "提交项目承诺" })).toBeVisible();
   await expect(page.getByText("浏览器新区项目", { exact: false })).toBeVisible();
 
   await page.goto(teacherBaseUrl);
@@ -121,16 +121,17 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   await page.getByLabel("username").fill("teacher");
   await page.getByLabel("password").fill("teacher");
   await page.getByRole("button", { name: "教师登录" }).click();
-  await expect(page.getByRole("heading", { name: "W4 Strategic Evolution 监控" })).toBeVisible();
-  await expect(page.getByText("Process Information", { exact: false })).toBeVisible();
-  await expect(page.getByText("Outcome Information", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "战略演进观察" })).toBeVisible();
+  await expect(page.getByText("处理状态", { exact: false })).toBeVisible();
+  await expect(page.getByText("结果状态", { exact: false })).toBeVisible();
 
   await page.goto(adminBaseUrl);
   await page.getByLabel("tenant").fill(tenantId);
   await page.getByLabel("username").fill("admin");
   await page.getByLabel("password").fill("admin");
   await page.getByRole("button", { name: "管理员登录" }).click();
-  await expect(page.getByRole("heading", { name: "Enterprise Portfolio 投影" })).toBeVisible();
-  await expect(page.getByText("OperatingUnit", { exact: true })).toBeVisible();
-  await expect(page.getByText("Group", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "项目组合总览" })).toBeVisible();
+  const portfolioPanel = page.getByLabel("项目组合审计");
+  await expect(portfolioPanel.getByText("运营单元", { exact: true })).toBeVisible();
+  await expect(portfolioPanel.getByText("租户范围", { exact: true })).toBeVisible();
 });

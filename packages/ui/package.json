@@ -13,7 +13,8 @@
     "./tokens.css": "./src/tokens.css",
     "./p2b-tokens.css": "./src/p2b-tokens.css",
     "./styles.css": "./src/styles.css",
-    "./project-aware.css": "./src/project-aware.css"
+    "./project-aware.css": "./src/project-aware.css",
+    "./w4-commercial.css": "./src/w4-commercial.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
