@@ -83,6 +83,13 @@ function snapshot(
         version: profileReference.version
       }
     ],
+    opening_round: {
+      round_id: "round_formal",
+      round_no: 1,
+      run_id: "run_formal",
+      status: "open",
+      tenant_id: "tenant_demo"
+    },
     role_workflows: {
       team_alpha: {
         round: {
@@ -174,6 +181,29 @@ describe("project-aware launch readiness", () => {
       expect.arrayContaining([
         expect.objectContaining({ code: "UNKNOWN_FORMAL_STATUS", owner: "platform" })
       ])
+    );
+  });
+
+  it("uses the latest lifecycle record for an exact profile reference", () => {
+    const current = snapshot();
+    const profile = current.profiles[0]!;
+    const result = evaluateProjectAwareReadiness({
+      ...current,
+      profiles: [{ ...profile, status: "DRAFT" }, profile]
+    });
+
+    expect(result.state).toBe("READY");
+    expect(result.teams[0]?.blockers).toEqual([]);
+  });
+
+  it("blocks launch when the exact opening Round is no longer open", () => {
+    const result = evaluateProjectAwareReadiness(
+      snapshot({ opening_round: { ...snapshot().opening_round!, status: "locked" } })
+    );
+
+    expect(result.state).toBe("BLOCKED");
+    expect(result.blockers).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "ROUND_NOT_OPEN" })])
     );
   });
 });

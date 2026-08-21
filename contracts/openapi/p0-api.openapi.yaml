@@ -1036,6 +1036,150 @@ paths:
         "404": { description: Exact dependency not found }
         "409": { description: "Lifecycle, history, or assignment conflict" }
         "422": { description: Invalid exact reference or normalized input }
+  /api/v1/bff/teacher/courses/{courseId}/project-aware-readiness:
+    get:
+      operationId: TEACHER_PROJECT_AWARE_READINESS_GET_V1
+      summary: Read exact project-aware Course/Run launch readiness.
+      description: Read-only readiness projection. It requires the exact tenant, Course and Run scope and never creates or rebinds a runtime authority.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Exact project-aware launch readiness
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAwareReadinessEnvelope"
+        "400": { description: Exact run_id query parameter is required }
+        "401": { description: Authentication required }
+        "403": { description: Teacher authority required }
+        "404": { description: Course or Run not found in tenant scope }
+  /api/v1/bff/teacher/courses/{courseId}/project-aware-launch:
+    post:
+      operationId: TEACHER_PROJECT_AWARE_LAUNCH_POST_V1
+      summary: Launch one exact project-aware Course/Run scope.
+      description: Idempotent launch command. It consumes the existing formal Course/Run authority and refuses non-ready, stale, conflicting or differently scoped assignments.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectAwareLaunchRequest"
+      responses:
+        "200":
+          description: Accepted or exact idempotent launch receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAwareLaunchReceiptEnvelope"
+        "400": { description: Required launch fields are missing }
+        "401": { description: Authentication required }
+        "403": { description: Teacher authority required }
+        "422": { description: "Readiness, exact-reference, idempotency or formal-run gate failed" }
+  /api/v1/bff/teacher/courses/{courseId}/project-aware-launch-receipt:
+    get:
+      operationId: TEACHER_PROJECT_AWARE_LAUNCH_RECEIPT_GET_V1
+      summary: Read one exact project-aware launch receipt.
+      description: Read-only append-only lineage readback keyed by the exact command idempotency key.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: idempotency_key
+          in: query
+          required: true
+          schema: { type: string, minLength: 3, maxLength: 128 }
+      responses:
+        "200":
+          description: Exact accepted launch receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAwareLaunchReceiptEnvelope"
+        "400": { description: Required idempotency_key query parameter is missing }
+        "401": { description: Authentication required }
+        "403": { description: Teacher authority required }
+        "404": { description: Launch receipt not found }
+  /api/v1/bff/student/project-aware-context:
+    get:
+      operationId: STUDENT_PROJECT_AWARE_CONTEXT_GET_V1
+      summary: Read the enrolled student's role-safe project-aware context.
+      description: Returns only the exact student's tenant, Course, Run, team, role and assigned project brief. Formal settlement truth, other-team data and private source fields are excluded.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: team_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: round_id
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Role-safe project-aware student context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAwareStudentContextEnvelope"
+        "403": { description: "Student enrollment, role or tenant scope denied" }
+        "404": { description: Exact Round not found }
+        "422": { description: Exact student scope is required }
+  /api/v1/bff/admin/project-aware-audit:
+    get:
+      operationId: ADMIN_PROJECT_AWARE_AUDIT_GET_V1
+      summary: Read tenant-scoped project-aware readiness and launch lineage.
+      description: Tenant administrator projection of the exact Project Library, Course/Run readiness and append-only launch receipts. It excludes cross-tenant data and does not mutate runtime authority.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Tenant-scoped project-aware audit projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectAwareAdminAuditEnvelope"
+        "400": { description: Exact course_id and run_id query parameters are required }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator authority required }
+        "404": { description: Exact Course or Run not found in tenant scope }
   /api/v1/bff/teacher/formal-course-bindings/preview:
     post:
       operationId: TEACHER_FORMAL_COURSE_BINDING_PREVIEW_V1
@@ -4653,6 +4797,227 @@ components:
           $ref: "../schemas/project-profile.v1.json"
         message: { type: string }
         request_id: { type: string }
+    ProjectAwareLaunchRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotency_key, run_id]
+      properties:
+        idempotency_key: { type: string, minLength: 3, maxLength: 128 }
+        run_id: { type: string, minLength: 1 }
+    ProjectAwareReadinessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/ProjectAwareReadiness" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ProjectAwareReadiness:
+      type: object
+      additionalProperties: false
+      required: [blockers, formal_binding, generated_at, schema_version, scope, state, teams]
+      properties:
+        schema_version: { const: project-aware-launch.v1 }
+        scope: { $ref: "#/components/schemas/ProjectAwareScope" }
+        state:
+          enum: [BLOCKED, STALE, DEGRADED, READY, UNKNOWN_VERIFYING]
+        blockers:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectAwareBlocker" }
+        teams:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectAwareTeamReadiness" }
+        formal_binding:
+          $ref: "#/components/schemas/ProjectAwareFormalBinding"
+        generated_at: { type: string, format: date-time }
+    ProjectAwareScope:
+      type: object
+      additionalProperties: false
+      required: [course_id, run_id, tenant_id]
+      properties:
+        tenant_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+    ProjectAwareBlocker:
+      type: object
+      additionalProperties: false
+      required: [action, code, owner]
+      properties:
+        code:
+          enum:
+            [
+              MISSING_ASSIGNMENT,
+              SCOPE_MISMATCH,
+              CONFLICTING_ASSIGNMENT,
+              STALE_PROFILE_DIGEST,
+              RETIRED_PROFILE,
+              MISSING_ROLE,
+              ROUND_NOT_OPEN,
+              UNKNOWN_FORMAL_STATUS,
+              FORMAL_BINDING_MISMATCH,
+              RUN_NOT_FOUND,
+              COURSE_NOT_READY
+            ]
+        owner: { enum: [teacher, platform, team] }
+        action: { type: string, minLength: 1 }
+        detail: { type: string }
+    ProjectAwareFormalBinding:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { enum: [BOUND, UNKNOWN] }
+        binding_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+    ProjectAwareTeamReadiness:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          assigned_role_keys,
+          blockers,
+          role_keys,
+          state,
+          successor_available,
+          team_id,
+          team_name
+        ]
+      properties:
+        team_id: { type: string, minLength: 1 }
+        team_name: { type: string, minLength: 1 }
+        state: { enum: [BLOCKED, STALE, DEGRADED, READY, UNKNOWN_VERIFYING] }
+        blockers:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectAwareBlocker" }
+        role_keys: { type: array, items: { type: string, minLength: 1 } }
+        assigned_role_keys: { type: array, items: { type: string, minLength: 1 } }
+        project_profile_reference:
+          $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
+        successor_available: { type: boolean }
+    ProjectAwareLaunchReceiptEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/project-aware-launch.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ProjectAwareStudentContextEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/ProjectAwareStudentContext" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ProjectAwareStudentContext:
+      type: object
+      additionalProperties: false
+      required: [project_brief, role_context, schema_version, scope]
+      properties:
+        schema_version: { const: project-aware-launch.v1 }
+        scope:
+          type: object
+          additionalProperties: false
+          required: [course_id, run_id, team_id, tenant_id]
+          properties:
+            tenant_id: { type: string, minLength: 1 }
+            course_id: { type: string, minLength: 1 }
+            run_id: { type: string, minLength: 1 }
+            team_id: { type: string, minLength: 1 }
+        role_context:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              assignment_id,
+              course_id,
+              expires_at,
+              permissions,
+              role_context_id,
+              role_key,
+              role_template_id,
+              round_id,
+              round_no,
+              run_id,
+              source,
+              team_id,
+              tenant_id,
+              user_id
+            ]
+          properties:
+            role_context_id: { type: string, minLength: 1 }
+            tenant_id: { type: string, minLength: 1 }
+            user_id: { type: string, minLength: 1 }
+            course_id: { type: string, minLength: 1 }
+            run_id: { type: string, minLength: 1 }
+            round_id: { type: string, minLength: 1 }
+            round_no: { type: integer, minimum: 1 }
+            team_id: { type: string, minLength: 1 }
+            assignment_id: { type: string, minLength: 1 }
+            role_key: { type: string, minLength: 1 }
+            role_template_id: { type: string, minLength: 1 }
+            permissions: { type: object }
+            source: { const: resolved_from_assignment }
+            expires_at: { type: string, format: date-time }
+        project_brief:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              brief_kind,
+              customer_segment,
+              description,
+              geography,
+              industry,
+              known_limits,
+              market_world_reference,
+              positioning,
+              project_profile_reference,
+              service_bundle,
+              title
+            ]
+          properties:
+            brief_kind: { const: PROJECT_BRIEF }
+            customer_segment: { type: string }
+            description: { type: string }
+            geography: { type: string }
+            industry: { type: string }
+            known_limits: { type: array, items: { type: string } }
+            market_world_reference:
+              $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+            positioning: { type: string }
+            project_profile_reference:
+              $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
+            service_bundle: { type: string }
+            title: { type: string }
+    ProjectAwareAdminAuditEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [lineage, project_library, readiness]
+          properties:
+            project_library:
+              type: object
+              additionalProperties: true
+              required: [assignments, profiles, tenant_id]
+              properties:
+                assignments: { type: array, items: { type: object } }
+                profiles: { type: array, items: { type: object } }
+                tenant_id: { type: string, minLength: 1 }
+            readiness: { $ref: "#/components/schemas/ProjectAwareReadiness" }
+            lineage:
+              type: array
+              items: { $ref: "../schemas/project-aware-launch.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     TeachingClosureEnvelope:
       type: object
       required: [code, data, message, request_id]

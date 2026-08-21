@@ -31,6 +31,7 @@ export const PROJECT_AWARE_BLOCKER_CODES = [
   "STALE_PROFILE_DIGEST",
   "RETIRED_PROFILE",
   "MISSING_ROLE",
+  "ROUND_NOT_OPEN",
   "UNKNOWN_FORMAL_STATUS",
   "FORMAL_BINDING_MISMATCH",
   "RUN_NOT_FOUND",
@@ -79,6 +80,7 @@ export interface ProjectAwareReadinessSnapshot {
   teams: readonly Team[];
   assignments: readonly ProjectAssignment[];
   profiles: readonly ProjectProfile[];
+  opening_round: Round | null;
   role_workflows: Readonly<Record<string, ProjectAwareRoleWorkflowSnapshot>>;
   formal_binding: ProjectAwareFormalBindingSnapshot;
 }

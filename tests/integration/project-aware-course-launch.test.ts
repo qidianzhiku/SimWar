@@ -186,6 +186,21 @@ describe("Project-aware launch BFF", () => {
       expect(receiptReadback.body.data.status).toBe("ACCEPTED");
       expect(receiptReadback.body.data.audit_id).toBe(launch.body.data.audit_id);
 
+      const betaTeam = store.teams.find((team) => team.team_id === "team_beta");
+      if (!betaTeam) throw new Error("fixture team_beta missing");
+      store.teams = store.teams.filter((team) => team.team_id !== "team_beta");
+      const changedTeamRetry = await request(
+        baseUrl,
+        "/api/v1/bff/teacher/courses/course_demo/project-aware-launch",
+        {
+          body: { idempotency_key: "m2p3-launch-course-demo", run_id: M2P3_RUN_ID },
+          token: teacherToken
+        }
+      );
+      expect(changedTeamRetry.status).toBe(422);
+      expect(changedTeamRetry.body.code).toBe("PROJECT_AWARE_IDEMPOTENCY_CONFLICT");
+      store.teams.push(betaTeam);
+
       const studentToken = await login(baseUrl, "student");
       const studentContext = await request<{ scope: { team_id: string }; role_context: unknown }>(
         baseUrl,

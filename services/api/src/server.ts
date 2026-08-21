@@ -946,7 +946,7 @@ async function ensureProjectAwareInitialState(
     assignment.run_id
   );
   const openingRound = rounds.find((round) => round.round_no === 1);
-  if (!openingRound) return { created: false };
+  if (!openingRound || openingRound.status !== "open") return { created: false };
   const existing = runtime.w4EnterpriseStateRepository.snapshot().states.find(
     (state) =>
       state.tenant_id === actor.tenant_id &&

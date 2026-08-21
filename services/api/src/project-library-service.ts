@@ -555,9 +555,11 @@ export class ProjectLibraryService {
     assertActor(actor);
     const course = this.requireCourse(actor.tenant_id, courseId);
     return clone(
-      this.store.projectProfiles.filter(
-        (profile) =>
-          profile.tenant_id === actor.tenant_id && profile.course_id === course.course_id
+      latestByIdentity(
+        this.store.projectProfiles.filter(
+          (profile) =>
+            profile.tenant_id === actor.tenant_id && profile.course_id === course.course_id
+        )
       )
     );
   }

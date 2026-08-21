@@ -52,4 +52,19 @@ describe("Project-aware launch contract", () => {
       })
     ).toBe(false);
   });
+
+  it("declares every project-aware BFF route in the public OpenAPI contract", () => {
+    const openapi = readFileSync("contracts/openapi/p0-api.openapi.yaml", "utf8");
+    for (const path of [
+      "/api/v1/bff/teacher/courses/{courseId}/project-aware-readiness",
+      "/api/v1/bff/teacher/courses/{courseId}/project-aware-launch",
+      "/api/v1/bff/teacher/courses/{courseId}/project-aware-launch-receipt",
+      "/api/v1/bff/student/project-aware-context",
+      "/api/v1/bff/admin/project-aware-audit"
+    ]) {
+      expect(openapi).toContain(`  ${path}:`);
+    }
+    expect(openapi).toContain("ROUND_NOT_OPEN");
+    expect(openapi).toContain("ProjectAwareLaunchReceiptEnvelope");
+  });
 });

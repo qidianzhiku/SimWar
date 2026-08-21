@@ -36,6 +36,12 @@ function sameReference(
   );
 }
 
+function sameTeamSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const leftSet = new Set(left);
+  return leftSet.size === right.length && right.every((teamId) => leftSet.has(teamId));
+}
+
 function normalizeRole(role: string): string {
   return role === "risk" || role === "Quality & Risk" ? "COO" : role;
 }
@@ -57,6 +63,7 @@ function stateForBlockers(blockers: readonly ProjectAwareBlocker[]): ProjectAwar
         "SCOPE_MISMATCH",
         "CONFLICTING_ASSIGNMENT",
         "MISSING_ROLE",
+        "ROUND_NOT_OPEN",
         "RUN_NOT_FOUND",
         "COURSE_NOT_READY"
       ].includes(entry.code)
@@ -120,6 +127,19 @@ export function evaluateProjectAwareReadiness(
   ) {
     globalBlockers.push(
       blocker("SCOPE_MISMATCH", "teacher", "Use the exact Course/Run scope without rebinding.")
+    );
+  } else if (snapshot.run.status !== "active") {
+    globalBlockers.push(
+      blocker("RUN_NOT_FOUND", "teacher", "Use an active Run; closed Runs cannot be launched.")
+    );
+  }
+  if (!snapshot.opening_round || snapshot.opening_round.status !== "open") {
+    globalBlockers.push(
+      blocker(
+        "ROUND_NOT_OPEN",
+        "teacher",
+        "Open the exact first Round before launching the project-aware Course."
+      )
     );
   }
   if (snapshot.course && !["active", "published"].includes(snapshot.course.status)) {
@@ -214,9 +234,10 @@ export function evaluateProjectAwareReadiness(
           profile.successor_of &&
           sameReference(profile.successor_of, reference)
       );
-      const profile = snapshot.profiles.find(
+      const matchingProfiles = snapshot.profiles.filter(
         (candidate) => reference && sameReference(candidate, reference)
       );
+      const profile = matchingProfiles.at(-1);
       if (!profile) {
         const mismatch = findProfileStatusMismatch(snapshot, reference);
         blockers.push(
@@ -408,6 +429,7 @@ export class ProjectAwareCourseLaunchService {
       teams,
       assignments,
       profiles,
+      opening_round: openingRound ?? null,
       role_workflows: Object.fromEntries(roleEntries),
       formal_binding: binding
         ? { status: "BOUND", binding_digest: binding.binding_digest }
@@ -468,10 +490,15 @@ export class ProjectAwareCourseLaunchService {
     }
     const existing = await this.findReceipt(actor.tenant_id, commandIdempotencyKey);
     if (existing) {
+      const currentReadiness = await this.getReadiness(actor, scope);
       if (
         existing.course_id !== scope.course_id ||
         existing.run_id !== scope.run_id ||
-        existing.tenant_id !== scope.tenant_id
+        existing.tenant_id !== scope.tenant_id ||
+        !sameTeamSet(
+          existing.team_ids,
+          currentReadiness.teams.map((team) => team.team_id)
+        )
       ) {
         throw new ProjectAwareCourseLaunchError("PROJECT_AWARE_IDEMPOTENCY_CONFLICT");
       }
