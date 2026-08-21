@@ -209,7 +209,7 @@ export function W4EnterpriseStatePanel({
         </strong>
       </div>
       <p className="sw-w4-panel__description">
-        只填写当前回合需要的项目参数，系统会继续维护承诺、计划与正式结果之间的边界。
+        填写本回合参数，维护承诺与结果边界。
       </p>
       {projection?.opening_state_ref ? (
         <div className="sw-w4-metric-grid">
@@ -254,19 +254,19 @@ export function W4EnterpriseStatePanel({
       {projection ? (
         <div className="sw-w4-panel__note">
           <div>
-            起始与结束差异：
+            起止差异：
             {projection.path_evidence.opening_vs_closing?.changed_paths.join("、") ||
               "等待官方结算"}
           </div>
           <div>
-            官方回放证据：{projection.path_evidence.official_replay_path.replay_ids.length} 条 ·
-            是否写入正式结果：
+            官方回放：{projection.path_evidence.official_replay_path.replay_ids.length} 条 ·
+            写入正式结果：
             {projection.path_evidence.official_replay_path.replay_writes_formal_results === false
               ? "否"
               : "未证明"}
           </div>
           <div>
-            同一决策意图的历史差异：
+            同一决策的历史差异：
             {stateValueLabel(
               projection.path_evidence.same_current_decision_different_history.status,
               "未观察"
@@ -275,24 +275,24 @@ export function W4EnterpriseStatePanel({
         </div>
       ) : null}
       {projection?.latest_strategic_action ? (
-        <div className="sw-w4-panel__note" aria-label="项目承诺回执">
+        <div className="sw-w4-panel__note" aria-label="承诺回执">
           <div>
-            来源角色：{projection.latest_strategic_action.admission.authority} · 处理规则：
+            来源角色：{projection.latest_strategic_action.admission.authority} · 规则：
             {projection.latest_strategic_action.admission.policy}
           </div>
           <div>
-            团队合并回执：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"}{" "}
+            合并回执：{projection.latest_strategic_action.admission.merge_commit_id ?? "未确认"}{" "}
             · 团队确认：
             {projection.latest_strategic_action.admission.team_confirmation_id ?? "未确认"}
           </div>
           <div>
-            成本：{projection.latest_strategic_action.cost} · 预计周期：
-            {projection.latest_strategic_action.lead_time_rounds} 回合 · 是否可撤回：
+            成本：{projection.latest_strategic_action.cost} · 周期：
+            {projection.latest_strategic_action.lead_time_rounds} 回合 · 可撤回：
             {projection.latest_strategic_action.reversible ? "是" : "否"}
           </div>
           <div>
-            前置条件：{projection.latest_strategic_action.dependencies.join("、") || "无"} ·
-            目标假设：{projection.latest_strategic_action.kpi_hypothesis}
+            前置：{projection.latest_strategic_action.dependencies.join("、") || "无"} ·
+            目标：{projection.latest_strategic_action.kpi_hypothesis}
           </div>
           {projection.latest_strategic_action.known_limits.map((limit) => (
             <div key={limit}>当前限制：{limit}</div>
@@ -326,7 +326,7 @@ export function W4EnterpriseStatePanel({
             <input type="number" value={beds} onChange={(event) => setBeds(event.target.value)} />
           </label>
           <label>
-            预计周期（回合）
+            周期（回合）
             <input
               type="number"
               min="0"
@@ -345,7 +345,7 @@ export function W4EnterpriseStatePanel({
           type="button"
           onClick={() => setReloadVersion((value) => value + 1)}
         >
-          重新加载项目状态
+          重新加载状态
         </button>
       ) : null}
       {notice ? (
