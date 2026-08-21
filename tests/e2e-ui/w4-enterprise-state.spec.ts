@@ -114,7 +114,7 @@ test("W4 Student journey exposes New Project, Commitment, lead time, and safe Op
   await page.getByRole("button", { name: "学员登录" }).click();
   await expect(page.getByRole("heading", { name: "提交项目承诺" })).toBeVisible();
   await expect(page.getByRole("button", { name: "提交项目承诺" })).toBeVisible();
-  await expect(page.getByText("浏览器新区项目", { exact: false })).toBeVisible();
+  await expect(page.getByText("浏览器新区项目", { exact: false }).first()).toBeVisible();
 
   await page.goto(teacherBaseUrl);
   await page.getByLabel("tenant").fill(tenantId);

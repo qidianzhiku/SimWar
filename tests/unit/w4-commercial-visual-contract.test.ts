@@ -38,4 +38,20 @@ describe("W4 commercial visual contract", () => {
       );
     }
   });
+
+  it("exposes the integrated Strategy Studio role surfaces without adding a writer", () => {
+    const teacher = source("apps/teacher/src/W4EnterpriseStateWorkbench.tsx");
+    const student = source("apps/student/src/W4EnterpriseStatePanel.tsx");
+    const admin = source("apps/admin/src/W4EnterprisePortfolioPanel.tsx");
+
+    expect(teacher).toContain("教师策略工作台");
+    expect(teacher).toContain("匹配项目路径");
+    expect(teacher).toContain("教师复盘");
+    expect(teacher).toContain("/matched-arena");
+    expect(student).toContain("组合与资金工作区");
+    expect(student).toContain("资本动作");
+    expect(admin).toContain("资本管线");
+    expect(admin).toContain("项目交易审计");
+    expect(admin).toContain("SOLE_W4_ENTERPRISE_STATE_SERVICE");
+  });
 });

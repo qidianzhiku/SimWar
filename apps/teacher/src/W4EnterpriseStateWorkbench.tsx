@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { W4ProjectionBase } from "@simwar/shared-contracts";
+import type { W4MatchedProjectArena, W4ProjectionBase } from "@simwar/shared-contracts";
 
 void import("@simwar/ui/w4-commercial.css");
 
@@ -92,6 +92,9 @@ export function W4EnterpriseStateWorkbench({
 }: Props) {
   const [projection, setProjection] = useState<Projection | null>(null);
   const [status, setStatus] = useState<PanelStatus>("dependency-missing");
+  const [arena, setArena] = useState<W4MatchedProjectArena | null>(null);
+  const [arenaStatus, setArenaStatus] = useState<PanelStatus>("dependency-missing");
+  const [arenaError, setArenaError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
   useEffect(() => {
     if (!token || !runId || !roundNo || !teamId) {
@@ -132,6 +135,48 @@ export function W4EnterpriseStateWorkbench({
       });
     return () => controller.abort();
   }, [courseId, reloadVersion, roundId, runId, roundNo, teamId, tenantId, token]);
+
+  async function loadMatchedArena(): Promise<void> {
+    const reference = projection?.project_portfolio[0]?.project_profile_reference;
+    if (!runId || !reference) {
+      setArena(null);
+      setArenaError("当前回合还没有绑定 Project Profile，暂不能比较匹配项目路径。");
+      setArenaStatus("dependency-missing");
+      return;
+    }
+    setArenaStatus("loading");
+    setArenaError("");
+    try {
+      const query = new URLSearchParams({
+        course_id: courseId,
+        project_profile_id: reference.project_profile_id,
+        version: reference.version,
+        content_digest: reference.content_digest
+      });
+      const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+      const response = await fetch(
+        apiBase +
+          "/api/v1/bff/teacher/w4/runs/" +
+          runId +
+          "/matched-arena?" +
+          query.toString(),
+        { headers: { authorization: "Bearer " + token, "x-tenant-id": tenantId } }
+      );
+      const envelope = (await response.json()) as {
+        data?: W4MatchedProjectArena;
+        code?: string;
+      };
+      if (!response.ok || !envelope.data) {
+        throw new Error(envelope.code ?? "W4-MATCHED-ARENA-ERROR");
+      }
+      setArena(envelope.data);
+      setArenaStatus(envelope.data.different_history_observed ? "ready" : "partial");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "W4-MATCHED-ARENA-ERROR";
+      setArenaError(code);
+      setArenaStatus(failureStatus(code));
+    }
+  }
 
   return (
     <article className="sw-w4-panel" aria-label="企业项目演进观察">
@@ -208,6 +253,70 @@ export function W4EnterpriseStateWorkbench({
           )}
         </div>
       </div>
+      <section className="sw-w4-panel__note" aria-label="教师策略工作台">
+        <div>
+          <strong>教师策略工作台</strong> · 只读连接过程、结果与可解释的路径证据。
+        </div>
+        <ol className="sw-w4-list" aria-label="过程与结果时间线">
+          <li>
+            决策承诺 {projection?.commitments.length ?? 0} 条 · 已产生影响{" "}
+            {projection?.effects.length ?? 0} 条
+          </li>
+          {(projection?.initiatives ?? []).map((initiative) => (
+            <li key={"timeline-" + initiative.initiative_id}>
+              {initiative.project?.project_name ?? "战略项目"} · {stateValueLabel(initiative.status)} ·{" "}
+              {initiative.current_milestone} · 还需 {initiative.remaining_lead_time_rounds} 回合
+            </li>
+          ))}
+          <li>
+            官方结果 · {stateValueLabel(projection?.outcome_information.status, "等待官方结算")}
+          </li>
+        </ol>
+        <button
+          className="sw-w4-panel__action"
+          type="button"
+          onClick={() => void loadMatchedArena()}
+          disabled={arenaStatus === "loading" || !projection?.project_portfolio.length}
+        >
+          {arenaStatus === "loading" ? "正在载入匹配路径" : "查看匹配项目路径"}
+        </button>
+        {arenaError ? (
+          <p className="sw-w4-panel__notice" role="status">
+            {arenaError}
+          </p>
+        ) : null}
+        {arena ? (
+          <section aria-label="匹配项目路径">
+            <p>
+              Project Profile {arena.project_profile_reference.project_profile_id} ·{" "}
+              {arena.different_history_observed ? "已观察到不同历史" : "尚未观察到不同历史"}
+            </p>
+            <ul className="sw-w4-list">
+              {arena.teams.map((team) => (
+                <li key={team.team_id}>
+                  <strong>{team.team_id}</strong> · 路径 {team.path_digest.slice(0, 12)} ·{" "}
+                  {team.path_evidence?.opening_vs_closing?.changed_paths.join("、") || "等待结果"}
+                </li>
+              ))}
+            </ul>
+            <ul className="sw-w4-list" aria-label="匹配路径限制">
+              {arena.known_limits.map((limit) => (
+                <li key={limit}>{limit}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <section aria-label="教师复盘">
+          <strong>教师复盘</strong>
+          <p>
+            当前决策与历史的差异：
+            {stateValueLabel(
+              projection?.path_evidence.same_current_decision_different_history.status,
+              "未观察"
+            )}。复盘只解释正式回放与路径证据，不修改官方状态、结算或排名。
+          </p>
+        </section>
+      </section>
       {status === "retry" ||
       status === "dependency-missing" ||
       status === "error" ||
