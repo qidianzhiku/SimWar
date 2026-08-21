@@ -461,6 +461,70 @@ export interface W4PathEvidence {
   };
 }
 
+export interface W4MatchedArenaTeamPath {
+  team_id: string;
+  project_portfolio_entry_ids: string[];
+  state_refs: W4StateRef[];
+  opening_state_ref: W4StateRef | null;
+  closing_state_ref: W4StateRef | null;
+  path_digest: string;
+  path_evidence: W4PathEvidence | null;
+}
+
+export interface W4MatchedProjectArena {
+  arena_id: string;
+  project_profile_reference: ProjectProfileRef;
+  team_ids: string[];
+  teams: W4MatchedArenaTeamPath[];
+  state_isolation_proven: true;
+  different_history_observed: boolean;
+  known_limits: string[];
+}
+
+export interface W4CounterfactualInput {
+  source_state_ref: W4StateRef;
+  source_outcome_id: string;
+  decision_ids: string[];
+  horizon_rounds: number;
+  scenario_package_id: string;
+  parameter_set_id: string;
+  engine_id: string;
+  plugin_ids: string[];
+  seed: number;
+}
+
+export interface W4CounterfactualRoundEvidence {
+  round_no: number;
+  opening_state_ref: W4StateRef;
+  closing_state_ref: W4StateRef;
+  opening_state: W4EnterpriseStateData;
+  closing_state: W4EnterpriseStateData;
+  opening_digest: string;
+  closing_digest: string;
+  changed_paths: string[];
+}
+
+export interface W4CounterfactualEvidence {
+  counterfactual_id: string;
+  source_outcome_id: string;
+  source_state_ref: W4StateRef;
+  decision_ids: string[];
+  decision_payload_bindings: W4DecisionPayloadBinding[];
+  scenario_package_id: string;
+  parameter_set_id: string;
+  engine_id: string;
+  plugin_ids: string[];
+  seed: number;
+  horizon_rounds: number;
+  rounds: W4CounterfactualRoundEvidence[];
+  official_decision_writes: false;
+  official_settlement_writes: false;
+  official_state_writes: false;
+  apply_to_next_round: false;
+  replay_writes_formal_results: false;
+  known_limits: string[];
+}
+
 export interface W4StrategicActionProjection {
   decision_id: string;
   kind: W4StrategicDecisionKind;

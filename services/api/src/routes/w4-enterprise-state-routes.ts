@@ -450,6 +450,136 @@ export async function handleW4EnterpriseStateRoute(
       throw error;
     }
   }
+  const matchedArenaMatch = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/w4\/runs\/([^/]+)\/matched-arena$/
+  );
+  if (request.method === "GET" && matchedArenaMatch) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const runId = matchedArenaMatch[1] ?? "";
+      const courseId = url.searchParams.get("course_id") ?? "course_demo";
+      const run = await dependencies.resolveRun(context.tenantId, runId);
+      if (!run) throw new W4EnterpriseStateError("W4_RUN_NOT_FOUND");
+      if (run.course_id !== courseId) {
+        throw new W4EnterpriseStateError("W4_COURSE_SCOPE_CONFLICT");
+      }
+      const projectProfileReference: ProjectProfileRef = {
+        tenant_id: context.tenantId,
+        project_profile_id: url.searchParams.get("project_profile_id") ?? "",
+        version: url.searchParams.get("version") ?? "",
+        content_digest: url.searchParams.get("content_digest") ?? ""
+      };
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        "matched-arena",
+        1,
+        actor.team_id ?? "matched-arena",
+        courseId
+      );
+      const requestedTeamIds = (url.searchParams.get("team_ids") ?? "")
+        .split(",")
+        .map((teamId) => teamId.trim())
+        .filter(Boolean);
+      const result = await service.getMatchedArena(
+        scope,
+        projectProfileReference,
+        requestedTeamIds
+      );
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
+  const counterfactualMatch = url.pathname.match(
+    /^\/api\/v1\/bff\/(student|teacher)\/w4\/runs\/([^/]+)\/counterfactual$/
+  );
+  if (request.method === "POST" && counterfactualMatch) {
+    try {
+      const surface = counterfactualMatch[1] ?? "teacher";
+      const actor = surface === "student" ? dependencies.requireStudent() : dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const sourceStateRef = body.source_state_ref as W4StateRef;
+      if (!sourceStateRef || typeof sourceStateRef !== "object") {
+        throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
+      }
+      const runId = counterfactualMatch[2] ?? "";
+      const courseId = String(body.course_id ?? sourceStateRef.course_id ?? "course_demo");
+      const sourceTeamId = String(sourceStateRef.team_id ?? "");
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? `counterfactual_${runId}`),
+        Number(body.round_no ?? 1),
+        sourceTeamId,
+        courseId
+      );
+      await assertRuntimeScope(
+        dependencies,
+        context.tenantId,
+        runId,
+        courseId,
+        sourceTeamId
+      );
+      const result = await service.counterfactual(scope, {
+        source_state_ref: sourceStateRef,
+        source_outcome_id: String(body.source_outcome_id ?? ""),
+        decision_ids: Array.isArray(body.decision_ids) ? body.decision_ids.map(String) : [],
+        horizon_rounds: Number(body.horizon_rounds),
+        scenario_package_id: String(body.scenario_package_id ?? ""),
+        parameter_set_id: String(body.parameter_set_id ?? ""),
+        engine_id: String(body.engine_id ?? ""),
+        plugin_ids: Array.isArray(body.plugin_ids) ? body.plugin_ids.map(String) : [],
+        seed: Number(body.seed)
+      });
+      const safeResult =
+        surface === "student"
+          ? {
+              ...result,
+              rounds: result.rounds.map((round) => ({
+                ...round,
+                opening_state: {
+                  capacity: round.opening_state.capacity,
+                  product_lines: round.opening_state.product_lines,
+                  positioning: round.opening_state.positioning,
+                  operating_units: round.opening_state.operating_units,
+                  portfolio: round.opening_state.portfolio
+                },
+                closing_state: {
+                  capacity: round.closing_state.capacity,
+                  product_lines: round.closing_state.product_lines,
+                  positioning: round.closing_state.positioning,
+                  operating_units: round.closing_state.operating_units,
+                  portfolio: round.closing_state.portfolio
+                }
+              }))
+            }
+          : result;
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, safeResult));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
   const route = parseRoundPath(url.pathname, "/api/v1/w4");
   const bffRoute = parseRoundPath(url.pathname, "/api/v1/bff/(?:student|teacher|admin)/w4");
   if (!route && !bffRoute) return false;

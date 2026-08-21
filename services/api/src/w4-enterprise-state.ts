@@ -30,6 +30,11 @@ import type {
   W4CapitalObligation,
   W4StoreState,
   W4ProjectionBase,
+  W4MatchedProjectArena,
+  W4MatchedArenaTeamPath,
+  W4CounterfactualEvidence,
+  W4CounterfactualInput,
+  W4CounterfactualRoundEvidence,
   Decision
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
@@ -393,6 +398,40 @@ function scopeMatches(
   );
 }
 
+function runScopeMatches(
+  scope: W4ScopeContext,
+  value: Pick<W4ScopeContext, "tenant_id" | "course_id" | "run_id">
+): boolean {
+  return (
+    scope.tenant_id === value.tenant_id &&
+    scope.course_id === value.course_id &&
+    scope.run_id === value.run_id
+  );
+}
+
+function projectProfileReferencesEqual(
+  left: W4ProjectPortfolioEntry["project_profile_reference"],
+  right: W4ProjectPortfolioEntry["project_profile_reference"]
+): boolean {
+  return (
+    left.tenant_id === right.tenant_id &&
+    left.project_profile_id === right.project_profile_id &&
+    left.version === right.version &&
+    left.content_digest === right.content_digest
+  );
+}
+
+function counterfactualCapitalActionSnapshot(
+  action: W4CapitalAction,
+  sourceRoundNo: number
+): W4CapitalAction {
+  if (action.blocked_reason === "W4_CAPITAL_POLICY_REQUIRED") return clone(action);
+  const snapshot = clone(action);
+  delete snapshot.blocked_reason;
+  snapshot.status = action.effective_round_no <= sourceRoundNo ? "active" : "pending";
+  return snapshot;
+}
+
 function assertProjectProfileReference(
   scope: W4ScopeContext,
   reference: W4ProjectPortfolioEntry["project_profile_reference"]
@@ -422,6 +461,32 @@ function stateMatchesExactRef(state: W4EnterpriseState, reference: W4StateRef): 
       ? state.parent_state_ref === null
       : JSON.stringify(state.parent_state_ref) === JSON.stringify(reference.parent_state_ref))
   );
+}
+
+function assertOpeningStateLineage(
+  snapshot: W4StoreState,
+  scope: W4ScopeContext,
+  opening: W4EnterpriseState,
+  openingRef: W4StateRef
+): void {
+  if (scope.round_no === 1) {
+    if (opening.round_no !== 1 || opening.parent_state_ref !== null) {
+      throw new W4EnterpriseStateError("W4_OPENING_STATE_LINEAGE_CONFLICT");
+    }
+    return;
+  }
+  const predecessor = snapshot.outcomes.find(
+    (outcome) =>
+      scopeMatches(scope, outcome) && outcome.round_no === scope.round_no - 1
+  );
+  if (
+    !predecessor ||
+    opening.round_no !== scope.round_no - 1 ||
+    !stateMatchesExactRef(opening, predecessor.closing_state_ref) ||
+    JSON.stringify(openingRef) !== JSON.stringify(predecessor.closing_state_ref)
+  ) {
+    throw new W4EnterpriseStateError("W4_OPENING_STATE_LINEAGE_CONFLICT");
+  }
 }
 
 function assertScope(scope: W4ScopeContext, value: W4CanonicalStrategicDecision): void {
@@ -1515,6 +1580,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           stateMatchesExactRef(state, input.opening_state_ref) && scopeMatches(scope, state)
       );
       if (!opening) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
+      assertOpeningStateLineage(before, scope, opening, input.opening_state_ref);
       assertReplayInputManifest(scope, input.opening_state_ref, input.replay_input_manifest);
       const selectedDecisionPayloadBindings = assertDecisionPayloadBindings(
         scope,
@@ -1776,6 +1842,255 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         await repository.commit(current);
       }
       return clone(evidence);
+    },
+
+    async getMatchedArena(
+      scope: W4ScopeContext,
+      projectProfileReference: W4ProjectPortfolioEntry["project_profile_reference"],
+      requestedTeamIds: string[] = []
+    ): Promise<W4MatchedProjectArena> {
+      assertProjectProfileReference(scope, projectProfileReference);
+      const current = repository.snapshot();
+      const matchingEntries = current.projectPortfolio.filter(
+        (entry) =>
+          runScopeMatches(scope, entry) &&
+          projectProfileReferencesEqual(entry.project_profile_reference, projectProfileReference)
+      );
+      const availableTeamIds = [...new Set(matchingEntries.map((entry) => entry.team_id))].sort();
+      if (requestedTeamIds.some((teamId) => !availableTeamIds.includes(teamId))) {
+        throw new W4EnterpriseStateError("W4_MATCHED_ARENA_TEAM_CONFLICT");
+      }
+      const teamIds = (requestedTeamIds.length ? requestedTeamIds : availableTeamIds)
+        .filter((teamId, index, values) => teamId.trim() && values.indexOf(teamId) === index)
+        .sort();
+      const teams: W4MatchedArenaTeamPath[] = teamIds.map((teamId) => {
+        const entries = matchingEntries
+          .filter((entry) => entry.team_id === teamId)
+          .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
+        const states = current.states
+          .filter((state) => runScopeMatches(scope, state) && state.team_id === teamId)
+          .sort((left, right) => left.round_no - right.round_no);
+        const outcomes = current.outcomes
+          .filter((outcome) => runScopeMatches(scope, outcome) && outcome.team_id === teamId)
+          .sort((left, right) => left.round_no - right.round_no);
+        const refs = states.map((state) =>
+          stateRef(
+            state,
+            state.parent_state_ref === null ? undefined : state.parent_state_ref
+          )
+        );
+        const pathDigest = digest({
+          state_history: states.map((state) => ({
+            round_no: state.round_no,
+            state_digest: state.state_digest,
+            parent_state_digest: state.parent_state_ref?.state_digest ?? null
+          })),
+          settlement_digests: outcomes.map((outcome) => outcome.settlement_digest)
+        });
+        return {
+          team_id: teamId,
+          project_portfolio_entry_ids: entries.map((entry) => entry.project_entry_id),
+          state_refs: refs,
+          opening_state_ref: refs[0] ?? null,
+          closing_state_ref: refs.at(-1) ?? null,
+          path_digest: pathDigest,
+          path_evidence: null
+        };
+      });
+      const uniquePathDigests = new Set(teams.map((team) => team.path_digest));
+      const arenaId = `matched_arena_${digest({
+        project_profile_reference: projectProfileReference,
+        team_ids: teams.map((team) => team.team_id)
+      }).slice(0, 24)}`;
+      return {
+        arena_id: arenaId,
+        project_profile_reference: clone(projectProfileReference),
+        team_ids: teams.map((team) => team.team_id),
+        teams,
+        state_isolation_proven: true,
+        different_history_observed: teams.length > 1 && uniquePathDigests.size > 1,
+        known_limits: [
+          "Matched Arena compares only teams that carry the exact ProjectProfileRef.",
+          "Path digests prove stored lineage differences; they do not infer causal attribution."
+        ]
+      };
+    },
+
+    async counterfactual(
+      scope: W4ScopeContext,
+      input: W4CounterfactualInput
+    ): Promise<W4CounterfactualEvidence> {
+      const current = repository.snapshot();
+      const sourceState = current.states.find(
+        (state) =>
+          scopeMatches(scope, state) && stateMatchesExactRef(state, input.source_state_ref)
+      );
+      if (!sourceState) throw new W4EnterpriseStateError("W4_STATE_REF_CONFLICT");
+      const sourceOutcome = current.outcomes.find(
+        (outcome) =>
+          scopeMatches(scope, outcome) && outcome.official_outcome_id === input.source_outcome_id
+      );
+      if (!sourceOutcome) throw new W4EnterpriseStateError("W4_OUTCOME_NOT_FOUND");
+      if (!stateMatchesExactRef(sourceState, sourceOutcome.closing_state_ref)) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_SOURCE_LINEAGE_CONFLICT");
+      }
+      const sourceManifest = sourceOutcome.replay_input_manifest;
+      if (
+        sourceManifest.scenario_package_id !== input.scenario_package_id ||
+        sourceManifest.parameter_set_id !== input.parameter_set_id ||
+        sourceManifest.engine_id !== input.engine_id ||
+        sourceManifest.seed !== input.seed ||
+        JSON.stringify(sourceManifest.plugin_ids) !== JSON.stringify(input.plugin_ids)
+      ) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_RUNTIME_BINDING_CONFLICT");
+      }
+      if (
+        !Number.isInteger(input.horizon_rounds) ||
+        input.horizon_rounds < 1 ||
+        input.horizon_rounds > 8
+      ) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_HORIZON_INVALID");
+      }
+      const decisionIds = [...new Set(input.decision_ids)];
+      if (!decisionIds.length || decisionIds.some((decisionId) => !decisionId.trim())) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_DECISIONS_REQUIRED");
+      }
+      const selectedDecisions = decisionIds.map((decisionId) => {
+        const decision = current.decisions.find(
+          (item) => item.decision_id === decisionId && scopeMatches(scope, item)
+        );
+        if (!decision || decision.round_no <= sourceState.round_no) {
+          throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_DECISION_SCOPE_CONFLICT");
+        }
+        if (decision.round_no > sourceState.round_no + input.horizon_rounds) {
+          throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_DECISION_HORIZON_CONFLICT");
+        }
+        return decision;
+      });
+      const selectedDecisionIds = selectedDecisions.map((decision) => decision.decision_id);
+      const selectedCommitments = current.commitments.filter(
+        (commitment) =>
+          scopeMatches(scope, commitment) && selectedDecisionIds.includes(commitment.decision_id)
+      );
+      if (selectedCommitments.length !== selectedDecisionIds.length) {
+        throw new W4EnterpriseStateError("W4_COUNTERFACTUAL_COMMITMENT_MISSING");
+      }
+      const selectedCommitmentIds = new Set(
+        selectedCommitments.map((commitment) => commitment.commitment_id)
+      );
+      const selectedEffects = current.effects.filter(
+        (effect) => scopeMatches(scope, effect) && selectedCommitmentIds.has(effect.commitment_id)
+      );
+      const selectedInitiativeIds = new Set(
+        current.initiatives
+          .filter(
+            (initiative) =>
+              scopeMatches(scope, initiative) &&
+              selectedCommitmentIds.has(initiative.commitment_id)
+          )
+          .map((initiative) => initiative.initiative_id)
+      );
+      const selectedInitiatives = current.initiatives.filter((initiative) =>
+        selectedInitiativeIds.has(initiative.initiative_id)
+      );
+      const selectedPortfolio = current.projectPortfolio.filter(
+        (entry) => scopeMatches(scope, entry) && selectedInitiativeIds.has(entry.initiative_id)
+      );
+      const sourceCapitalActionSnapshot = new Map(
+        (sourceManifest.capital_action_snapshot ?? []).map((action) => [
+          action.capital_action_id,
+          action
+        ])
+      );
+      const selectedCapitalActions = current.capitalActions
+        .filter(
+          (action) => scopeMatches(scope, action) && selectedDecisionIds.includes(action.decision_id)
+        )
+        .map((action) => {
+          const sourceSnapshot = sourceCapitalActionSnapshot.get(action.capital_action_id);
+          return sourceSnapshot
+            ? clone(sourceSnapshot)
+            : counterfactualCapitalActionSnapshot(action, sourceState.round_no);
+        });
+      const rounds: W4CounterfactualRoundEvidence[] = [];
+      let openingStateData = clone(sourceState.state);
+      let openingRef = clone(input.source_state_ref);
+      for (let offset = 1; offset <= input.horizon_rounds; offset += 1) {
+        const roundNo = sourceState.round_no + offset;
+        const transition = settleEnterpriseState({
+          opening: openingStateData,
+          roundNo,
+          commitments: selectedCommitments.filter(
+            (commitment) => commitment.created_round_no <= roundNo
+          ),
+          effects: selectedEffects.filter((effect) => effect.effective_round_no <= roundNo),
+          initiatives: selectedInitiatives,
+          project_portfolio: selectedPortfolio,
+          capital_actions: selectedCapitalActions
+        });
+        const closingState = transition.closing;
+        const closingRef: W4StateRef = {
+          tenant_id: scope.tenant_id,
+          course_id: scope.course_id,
+          run_id: scope.run_id,
+          team_id: scope.team_id,
+          round_id: `counterfactual_${input.source_outcome_id}_${roundNo}`,
+          enterprise_state_id: `counterfactual_state_${input.source_outcome_id}_${roundNo}`,
+          version: sourceState.version + offset,
+          state_digest: digest(closingState),
+          parent_state_ref: clone(openingRef)
+        };
+        rounds.push({
+          round_no: roundNo,
+          opening_state_ref: clone(openingRef),
+          closing_state_ref: clone(closingRef),
+          opening_state: clone(openingStateData),
+          closing_state: clone(closingState),
+          opening_digest: openingRef.state_digest,
+          closing_digest: closingRef.state_digest,
+          changed_paths: changedPaths(openingStateData, closingState)
+        });
+        openingStateData = closingState;
+        openingRef = closingRef;
+      }
+      const evidence: W4CounterfactualEvidence = {
+        counterfactual_id: `counterfactual_${digest({
+          source_state_ref: input.source_state_ref,
+          source_outcome_id: input.source_outcome_id,
+          decision_ids: selectedDecisionIds,
+          horizon_rounds: input.horizon_rounds,
+          scenario_package_id: input.scenario_package_id,
+          parameter_set_id: input.parameter_set_id,
+          engine_id: input.engine_id,
+          plugin_ids: input.plugin_ids,
+          seed: input.seed
+        }).slice(0, 24)}`,
+        source_outcome_id: input.source_outcome_id,
+        source_state_ref: clone(input.source_state_ref),
+        decision_ids: selectedDecisionIds,
+        decision_payload_bindings: selectedDecisions.map((decision) => ({
+          decision_id: decision.decision_id,
+          decision_payload_digest: decision.admission.decision_payload_digest
+        })),
+        scenario_package_id: input.scenario_package_id,
+        parameter_set_id: input.parameter_set_id,
+        engine_id: input.engine_id,
+        plugin_ids: [...input.plugin_ids],
+        seed: input.seed,
+        horizon_rounds: input.horizon_rounds,
+        rounds,
+        official_decision_writes: false,
+        official_settlement_writes: false,
+        official_state_writes: false,
+        apply_to_next_round: false,
+        replay_writes_formal_results: false,
+        known_limits: [
+          "Counterfactual rounds are deterministic evidence only and are never persisted as W4 state.",
+          "Runtime identity is accepted only when it exactly matches the source Official Outcome manifest.",
+          "No score, rank, or publication projection is calculated by this evidence path."
+        ]
+      };
+      return evidence;
     },
 
     async getProjection(scope: W4ScopeContext, options: { allowEmptyRound?: boolean } = {}) {
