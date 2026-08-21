@@ -325,6 +325,9 @@ export interface W4ReplayInputManifest {
   engine_id: string;
   plugin_ids: string[];
   seed: number;
+  project_portfolio_digest?: string;
+  project_portfolio_entry_ids?: string[];
+  project_portfolio_snapshot?: W4ProjectPortfolioEntry[];
 }
 
 export interface W4ReplayEvidence {
@@ -341,6 +344,7 @@ export interface W4ReplayEvidence {
   decision_payload_bindings: W4DecisionPayloadBinding[];
   persistent_effect_ids: string[];
   path_digest: string;
+  project_portfolio_digest?: string;
   replay_writes_formal_results: false;
 }
 

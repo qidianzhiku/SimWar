@@ -466,7 +466,14 @@ function assertReplayInputManifest(
         !binding ||
         typeof binding.decision_id !== "string" ||
         !/^[a-f0-9]{64}$/.test(binding.decision_payload_digest)
-    )
+    ) ||
+    (manifest.project_portfolio_digest !== undefined &&
+      !/^[a-f0-9]{64}$/.test(manifest.project_portfolio_digest)) ||
+    (manifest.project_portfolio_entry_ids !== undefined &&
+      (!Array.isArray(manifest.project_portfolio_entry_ids) ||
+        manifest.project_portfolio_entry_ids.some((entryId) => typeof entryId !== "string"))) ||
+    (manifest.project_portfolio_snapshot !== undefined &&
+      !Array.isArray(manifest.project_portfolio_snapshot))
   ) {
     throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
   }
@@ -1076,10 +1083,32 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         entry.lifecycle_status = "Closed";
         entry.ownership_status = transaction.kind === "project_closure" ? "closed" : "sold";
         if (transaction.kind === "merger_acquisition") {
+          const sourceInitiative = current.initiatives.find(
+            (initiative) => initiative.initiative_id === transaction.initiative_id
+          );
+          if (!sourceInitiative?.project) {
+            throw new W4EnterpriseStateError("W4_PROJECT_TRANSACTION_SCOPE_CONFLICT");
+          }
+          const successorInitiativeId = `${transaction.transaction_id}:successor`;
+          current.initiatives.push({
+            ...clone(sourceInitiative),
+            initiative_id: successorInitiativeId,
+            commitment_id: `${transaction.transaction_id}:successor-commitment`,
+            status: "in_progress",
+            current_milestone: "approved",
+            milestones: ["approved", "activated"],
+            remaining_lead_time_rounds: 0,
+            activation_round_no: scope.round_no,
+            project_lifecycle_status: "Opportunity",
+            project: {
+              ...clone(sourceInitiative.project),
+              project_name: transaction.target_project_name ?? sourceInitiative.project.project_name
+            }
+          });
           const successor: W4ProjectPortfolioEntry = {
             ...clone(entry),
             project_entry_id: `${transaction.transaction_id}:successor`,
-            initiative_id: `${transaction.initiative_id}:successor`,
+            initiative_id: successorInitiativeId,
             project_profile_reference: clone(
               transaction.target_project_profile_reference ?? entry.project_profile_reference
             ),
@@ -1132,6 +1161,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       };
       if (!allowed[currentLifecycle].includes(target)) {
         throw new W4EnterpriseStateError("W4_INVALID_PROJECT_LIFECYCLE_TRANSITION");
+      }
+      if (target === "Operating" && scope.round_no < initiative.activation_round_no) {
+        throw new W4EnterpriseStateError("W4_PROJECT_LIFECYCLE_LEAD_TIME_CONFLICT");
       }
       initiative.project_lifecycle_status = target;
       if (portfolioEntry) {
@@ -1292,6 +1324,10 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           effect.team_id === scope.team_id &&
           effect.status !== "expired"
       );
+      const projectPortfolioSnapshot = before.projectPortfolio
+        .filter((entry) => scopeMatches(scope, entry))
+        .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
+      const projectPortfolioDigest = digest(projectPortfolioSnapshot);
       const stateTransition = settleEnterpriseState({
         opening: opening.state,
         roundNo: scope.round_no,
@@ -1327,7 +1363,12 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const replayInputManifest: W4ReplayInputManifest = {
         ...input.replay_input_manifest,
         decision_ids: consumedDecisionIds,
-        decision_payload_bindings: consumedDecisionPayloadBindings
+        decision_payload_bindings: consumedDecisionPayloadBindings,
+        project_portfolio_digest: projectPortfolioDigest,
+        project_portfolio_entry_ids: projectPortfolioSnapshot.map(
+          (entry) => entry.project_entry_id
+        ),
+        project_portfolio_snapshot: clone(projectPortfolioSnapshot)
       };
       const outcome: W4OfficialOutcome = {
         official_outcome_id: `outcome_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
@@ -1345,7 +1386,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         replay_input_manifest: replayInputManifest,
         settlement_digest: digest({
           opening: input.opening_state_ref,
-          closing: closing.state_digest
+          closing: closing.state_digest,
+          project_portfolio_digest: projectPortfolioDigest
         }),
         status: "official"
       };
@@ -1418,6 +1460,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         decision_payload_bindings: clone(outcome.replay_input_manifest.decision_payload_bindings),
         persistent_effect_ids: [...outcome.persistent_effect_ids],
         path_digest: digest(outcome),
+        ...(outcome.replay_input_manifest.project_portfolio_digest
+          ? { project_portfolio_digest: outcome.replay_input_manifest.project_portfolio_digest }
+          : {}),
         replay_writes_formal_results: false
       };
       return { applied: false, evidence };
@@ -1451,8 +1496,12 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           closing_state_ref: outcome.closing_state_ref,
           commitment_ids: outcome.commitment_ids,
           effect_ids: outcome.persistent_effect_ids,
-          decision_payload_bindings: outcome.replay_input_manifest.decision_payload_bindings
+          decision_payload_bindings: outcome.replay_input_manifest.decision_payload_bindings,
+          project_portfolio_snapshot: outcome.replay_input_manifest.project_portfolio_snapshot
         }),
+        ...(outcome.replay_input_manifest.project_portfolio_digest
+          ? { project_portfolio_digest: outcome.replay_input_manifest.project_portfolio_digest }
+          : {}),
         replay_writes_formal_results: false
       };
       if (!current.replayEvidence.some((item) => item.replay_id === evidence.replay_id)) {

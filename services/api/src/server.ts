@@ -6030,7 +6030,7 @@ async function routeRequest(
           if (tenantId !== context.tenantId) return null;
           try {
             const round = await getRoundForRead(runtime, context, runId, roundNo);
-            return { round_id: round.round_id };
+            return { round_id: round.round_id, status: round.status };
           } catch {
             return null;
           }
@@ -6041,7 +6041,14 @@ async function routeRequest(
             { actor_id: scope.actor_id, tenant_id: scope.tenant_id },
             { course_id: scope.course_id, run_id: scope.run_id, team_ids: [scope.team_id] }
           );
-          const assignment = assignments[0];
+          const assignment = assignments.find(
+            (candidate) =>
+              candidate.project_profile_reference.tenant_id === reference.tenant_id &&
+              candidate.project_profile_reference.project_profile_id ===
+                reference.project_profile_id &&
+              candidate.project_profile_reference.version === reference.version &&
+              candidate.project_profile_reference.content_digest === reference.content_digest
+          );
           if (
             !profile ||
             profile.status !== "VALIDATED" ||

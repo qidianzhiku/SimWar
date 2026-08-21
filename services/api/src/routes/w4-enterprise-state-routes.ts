@@ -32,7 +32,7 @@ interface W4RouteDependencies {
     tenantId: string,
     runId: string,
     roundNo: number
-  ) => Promise<{ round_id: string } | null>;
+  ) => Promise<{ round_id: string; status: string } | null>;
   resolveProjectAuthority?: (
     scope: W4ScopeContext,
     reference: ProjectProfileRef
@@ -110,6 +110,12 @@ async function assertRuntimeScope(
   const team = await dependencies.resolveTeam(tenantId, teamId);
   if (!team) throw new W4EnterpriseStateError("W4_TEAM_NOT_FOUND");
   if (team.course_id !== courseId) throw new W4EnterpriseStateError("W4_TEAM_SCOPE_CONFLICT");
+}
+
+function assertWritableRound(round: { status: string }): void {
+  if (round.status !== "open") {
+    throw new W4EnterpriseStateError("W4_ROUND_READ_ONLY_CONFLICT");
+  }
 }
 
 export async function handleW4EnterpriseStateRoute(
@@ -266,6 +272,7 @@ export async function handleW4EnterpriseStateRoute(
       const courseId = String(body.course_id ?? "course_demo");
       const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
       if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
       const scope = routeScope(
         context,
         actor,
@@ -305,6 +312,7 @@ export async function handleW4EnterpriseStateRoute(
       const roundNo = Number(portfolioProjectMatch[2]);
       const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
       if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
       const scope = routeScope(
         context,
         actor,
@@ -360,6 +368,7 @@ export async function handleW4EnterpriseStateRoute(
       const transactionId = portfolioTransactionMatch[3];
       const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
       if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
       const scope = routeScope(
         context,
         actor,

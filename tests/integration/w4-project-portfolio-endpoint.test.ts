@@ -192,6 +192,16 @@ describe("W4 governed project portfolio endpoints", () => {
       });
       expect(added.status, JSON.stringify(added.body)).toBe(201);
       expect(added.body.data.project_entry_id).toBe("w4-entry-1");
+      const unassignedProfile = await request(baseUrl, addPath, teacher, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        initiative_id: decision.body.data.initiative.initiative_id,
+        project_entry_id: "w4-entry-unassigned-profile",
+        project_profile_reference: successorRef
+      });
+      expect(unassignedProfile.status).toBe(422);
+      expect(unassignedProfile.body.message).toBe("W4_PROJECT_ASSIGNMENT_REQUIRED");
 
       const projection = await request<{ project_portfolio: Array<{ project_entry_id: string }> }>(
         baseUrl,

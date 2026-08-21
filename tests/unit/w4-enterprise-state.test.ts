@@ -381,7 +381,15 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     ).rejects.toMatchObject({ code: "W4_INVALID_PROJECT_LIFECYCLE_TRANSITION" });
 
     for (const target of ["DueDiligence", "Negotiation", "TermSheet", "Operating"] as const) {
-      await service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, target);
+      if (target === "Operating") {
+        await service.advanceProjectLifecycle(
+          { ...scope, round_id: "round_w4_3", round_no: 3 },
+          compiled.initiative.initiative_id,
+          target
+        );
+      } else {
+        await service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, target);
+      }
     }
     const operating = repository.snapshot().initiatives[0];
     expect(operating?.project_lifecycle_status).toBe("Operating");

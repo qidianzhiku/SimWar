@@ -176,6 +176,15 @@ describe("W4 governed project portfolio", () => {
       "operating-unit-portfolio-entry-1"
     );
 
+    const closure = await service.createProjectTransaction(scope, {
+      transaction_id: "transaction-closure-1",
+      kind: "project_closure",
+      initiative_id: first.initiative.initiative_id,
+      project_entry_id: "portfolio-entry-1"
+    });
+    await service.advanceProjectTransaction(scope, closure.transaction_id, "Closing");
+    await service.advanceProjectTransaction(scope, closure.transaction_id, "Closed");
+
     const nextOpening = await service.createNextRoundOpening({
       ...scope,
       round_id: "round-portfolio-2",
@@ -213,7 +222,11 @@ describe("W4 governed project portfolio", () => {
     expect(carried?.parent_state_ref?.enterprise_state_id).toBe(
       roundOne.closing_state_ref.enterprise_state_id
     );
-    expect(carried?.state.portfolio.projects).toContain("Project One");
+    expect(carried?.state.portfolio.projects).not.toContain("Project One");
+    expect(carried?.state.capacity).toBe(100);
+    expect(
+      repository.snapshot().outcomes[0]?.replay_input_manifest.project_portfolio_snapshot
+    ).toHaveLength(2);
   });
 
   it("requires the governed M&A phases and dual confirmation before creating an ownership successor", async () => {
@@ -268,5 +281,51 @@ describe("W4 governed project portfolio", () => {
     expect(source?.ownership_status).toBe("sold");
     expect(successor?.ownership_status).toBe("owned");
     expect(successor?.project_profile_reference.project_profile_id).toBe("profile-successor");
+    expect(
+      snapshot.initiatives.some(
+        (initiative) => initiative.initiative_id === successor?.initiative_id
+      )
+    ).toBe(true);
+    for (const target of [
+      "Feasibility",
+      "DueDiligence",
+      "Negotiation",
+      "TermSheet",
+      "Operating"
+    ] as const) {
+      await service.advanceProjectLifecycle(scope, successor!.initiative_id, target);
+    }
+    expect(
+      repository
+        .snapshot()
+        .projectPortfolio.find((entry) => entry.project_entry_id === successor?.project_entry_id)
+        ?.operating_unit_id
+    ).toBe(`operating-unit-${successor?.project_entry_id}`);
+  });
+
+  it("does not allow Operating before the initiative lead time has elapsed", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+    const longLeadDecision = decision("decision-long-lead", "Long Lead Project");
+    longLeadDecision.payload = { ...longLeadDecision.payload, lead_time_rounds: 2 };
+    longLeadDecision.admission.decision_payload_digest = createW4DecisionPayloadDigest(
+      "new_project",
+      longLeadDecision.payload
+    );
+    const compiled = await service.commitStrategicDecision(scope, longLeadDecision);
+    await service.addProjectToPortfolio(scope, {
+      project_entry_id: "portfolio-long-lead",
+      initiative_id: compiled.initiative.initiative_id,
+      project_profile_reference: profileRef("profile-long-lead"),
+      source_assignment_id: "assignment-baseline",
+      project_name: "Long Lead Project"
+    });
+    for (const target of ["Feasibility", "DueDiligence", "Negotiation", "TermSheet"] as const) {
+      await service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, target);
+    }
+    await expect(
+      service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, "Operating")
+    ).rejects.toMatchObject({ code: "W4_PROJECT_LIFECYCLE_LEAD_TIME_CONFLICT" });
   });
 });

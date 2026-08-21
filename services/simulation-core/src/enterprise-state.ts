@@ -59,6 +59,18 @@ export function settleEnterpriseState(
       )
       .map((entry) => entry.project_name)
   );
+  for (const entry of governedEntries) {
+    if (
+      (entry.ownership_status === "owned" && entry.lifecycle_status === "Operating") ||
+      !closing.portfolio.projects.includes(entry.project_name)
+    ) {
+      continue;
+    }
+    const initiative = input.initiatives.find((item) => item.initiative_id === entry.initiative_id);
+    if (initiative?.project?.project_name === entry.project_name) {
+      closing.capacity = Math.max(0, closing.capacity - initiative.project.beds);
+    }
+  }
   const retainedProjects = closing.portfolio.projects.filter(
     (projectName) => !governedClosedNames.has(projectName) || governedActiveNames.has(projectName)
   );
