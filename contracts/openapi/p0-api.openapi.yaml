@@ -1654,7 +1654,11 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "200": { description: Assigned role-safe Project Profile brief }
+        "200":
+          {
+            description: Assigned role-safe Project Profile brief,
+            or null when the current team has no assignment yet
+          }
         "401": { description: Authentication required }
         "403": { description: Student team scope denied }
         "404": { description: Assignment not found }

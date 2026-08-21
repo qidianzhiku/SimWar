@@ -82,6 +82,14 @@ describe("Project Library BFF", () => {
       const studentToken = await login(baseUrl, "student");
       const adminToken = await login(baseUrl, "admin");
 
+      const emptyBrief = await request(
+        baseUrl,
+        "/api/v1/bff/student/project-brief?course_id=course_demo&run_id=run_project_library&team_id=team_alpha",
+        { token: studentToken }
+      );
+      expect(emptyBrief.status).toBe(200);
+      expect(emptyBrief.body.data).toBeNull();
+
       const created = await request<ProjectProfile>(
         baseUrl,
         "/api/v1/bff/teacher/courses/course_demo/project-library",

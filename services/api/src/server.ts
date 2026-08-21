@@ -62,7 +62,8 @@ import type {
   ProjectProfileCreateInput,
   ProjectProfileImportInput,
   ProjectProfileReferenceInput,
-  ProjectProfileSuccessorInput
+  ProjectProfileSuccessorInput,
+  ProjectProfileStudentBrief
 } from "@simwar/shared-contracts";
 import type { MarketWorldRef } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
@@ -6889,13 +6890,23 @@ async function routeRequest(
         "project brief scope is required"
       );
     }
-    const data = await runtime.projectLibrary.getStudentBrief({
-      course_id: courseId,
-      run_id: runId,
-      team_id: teamId,
-      tenant_id: actor.tenant_id,
-      user_id: actor.actor_id
-    });
+    let data: ProjectProfileStudentBrief | null = null;
+    try {
+      data = await runtime.projectLibrary.getStudentBrief({
+        course_id: courseId,
+        run_id: runId,
+        team_id: teamId,
+        tenant_id: actor.tenant_id,
+        user_id: actor.actor_id
+      });
+    } catch (error) {
+      if (
+        !(error instanceof ProjectLibraryError) ||
+        error.code !== "PROJECT_ASSIGNMENT_NOT_FOUND"
+      ) {
+        throw error;
+      }
+    }
     sendJson(response, 200, createEnvelope(context, data));
     return;
   }

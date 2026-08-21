@@ -822,11 +822,6 @@ export function App() {
               roundNo={latestRound?.round_no}
               teamId={team?.team_id}
             />
-          </section>
-        ) : null}
-
-        {hasStudentSurface ? (
-          <section id="student-project-brief" className="student-location" aria-label="项目简报">
             <ProjectBriefPanel
               courseId={latestRun?.course_id}
               runId={latestRun?.run_id}
