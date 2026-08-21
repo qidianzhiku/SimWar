@@ -6,8 +6,8 @@
 - `FIGMA_DESIGN_FREEZE_RECEIPT=PASS`
 - `DESIGN_GATE=PASS`
 - `FIGMA_TO_CODE_MAP=PASS`
-- `BFF_BROWSER_ACCEPTANCE=PASS` for the real W3 consequence journey
-- `FINAL_COMMIT=414e07c98649c9ea48c51357767b5cd099c14446`
+- `BFF_BROWSER_ACCEPTANCE=PASS` for the dedicated real-BFF FE-19/FE-20 journey
+- `FINAL_CODE_COMMIT=3061d12dee181026b28329620a0f4131929c4a40`
 - `UNIT=PASS`
 - `BUILD=PASS`
 - `ROUTE_PERMISSION_BOUNDARY=PASS`
@@ -23,8 +23,10 @@
 - `npm run build -w @simwar/student` — passed.
 - `npm run build -w @simwar/teacher` — passed.
 - `npx playwright test tests/e2e-ui/w3-official-consequence-learning.spec.ts` with alternate local ports — 1/1 passed against the real BFF.
+- `npm run test:e2e:ui:p2b` with alternate local ports and the explicit W3 fixture config — 2/2 passed against the real BFF: Student six stages, reflection `201`, Teacher five stages/local note, blocked no-context state, real `422` error and recovery to `200`.
 - Student/Teacher refoundation browser suite with alternate local ports — the final rerun passed the exercised tests; an earlier run exposed and then fixed a stale assertion caused by the new Figma-aligned prep card copy.
-- Focused PR4 Playwright + Axe matrix on the clean committed checkout with alternate ports — 4/4 passed (DesignSystemLab, Admin/Enterprise, Teacher, Student), 20 viewport captures, 12 main runtime rows and 4 Lab runtime rows all within budget. External evidence root: `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-p2b-clean-414e07c-20260820211814`.
+- `npm run test:e2e:ui:pr4` on clean exact `3061d12` — 4/4 passed (DesignSystemLab, Admin/Enterprise, Teacher, Student), 20 viewport captures, 12 main runtime rows and 4 Lab runtime rows all within budget. External evidence root: `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-3061d12-20260820`.
+- Exact BASE comparator against `f64c9ce` — 20/20 pairs passed at the frozen `0.01` global threshold with Student `0.065` role exception; no failures and automatic threshold enforcement enabled.
 
 ## Safety boundary
 
@@ -32,6 +34,6 @@ No service, API, DTO, contract, database, settlement, replay, permission, tenant
 
 ## Remaining limits
 
-Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; a separate P2-B-only Axe artifact and a visual screenshot diff against a frozen runtime baseline, human design approval, production deployment, pilot, and FE21/P3 work remain deferred. The Figma file itself is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
+Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; the dedicated P2-B spec is intentionally functional/real-BFF rather than a second visual/Axe matrix. Human design approval, production deployment, pilot, FE21/P3 work and remote CI/CodeQL remain deferred. The Figma file is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
 
-The final focused PR4 run was executed on clean commit `414e07c98649c9ea48c51357767b5cd099c14446` with exact-head checks enabled. The full Vitest suite recorded 1,399 passing tests and two unrelated 5-second timeout failures (`shared-contracts-built-esm-startup` and `pr4-visual-baseline-capture`); the focused P2-B suite, all frontend builds, and the clean focused PR4 gate passed.
+The final focused PR4 run was executed on clean commit `3061d12dee181026b28329620a0f4131929c4a40` with exact-head checks enabled. The current verification scope is focused unit/typecheck/build/browser/comparator evidence; the full aggregate Vitest, contract, Postgres replay, remote CI and merge gates remain to be run or read back on the published head.
