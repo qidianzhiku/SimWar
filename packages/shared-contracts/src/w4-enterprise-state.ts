@@ -4,7 +4,8 @@ export type W4StrategicDecisionKind =
   | "new_project"
   | "product_line_adjustment"
   | "positioning_adjustment"
-  | "organization_adjustment";
+  | "organization_adjustment"
+  | "capital_action";
 
 /**
  * Typed policy seams are intentionally control-plane records only. They do
@@ -88,6 +89,7 @@ export interface W4StateRef {
 export interface W4EnterpriseStateData {
   cash: number;
   capacity: number;
+  capital?: W4CapitalPosition;
   product_lines: string[];
   positioning: string;
   organization: Record<string, number | string>;
@@ -150,11 +152,42 @@ export interface W4OrganizationAdjustmentPayload extends W4AdjustmentMetadata {
   headcount_delta: number;
 }
 
+export type W4CapitalActionKind =
+  | "debt"
+  | "project_finance"
+  | "working_capital"
+  | "asset_backed_securitization"
+  | "initial_public_offering";
+
+export type W4CapitalObligation =
+  | "term_debt"
+  | "project_finance"
+  | "working_capital_revolver"
+  | "securitized_receivable"
+  | "equity";
+
+export type W4CapitalActionStatus = "pending" | "active" | "blocked" | "completed";
+
+export interface W4CapitalActionPayload extends W4AdjustmentMetadata {
+  capital_action_kind: W4CapitalActionKind;
+  principal: number;
+  term_rounds: number;
+  rate_or_cost_bps: number;
+  cost_source: string;
+  covenant_min_cash: number;
+  fees: number;
+  obligation: W4CapitalObligation;
+  project_entry_id?: string;
+  initiative_id?: string;
+  policy_seam_id?: string;
+}
+
 export type W4StrategicActionPayload =
   | W4NewProjectPayload
   | W4ProductLineAdjustmentPayload
   | W4PositioningAdjustmentPayload
-  | W4OrganizationAdjustmentPayload;
+  | W4OrganizationAdjustmentPayload
+  | W4CapitalActionPayload;
 
 export interface W4StrategicActionEnvelope {
   kind: W4StrategicDecisionKind;
@@ -222,6 +255,43 @@ export interface W4StrategicEffect {
   status: W4EffectStatus;
   effective_round_no: number;
   effect: Record<string, unknown>;
+}
+
+export interface W4CapitalPosition {
+  debt_principal: number;
+  equity_proceeds: number;
+  working_capital_available: number;
+  interest_paid: number;
+  fees_paid: number;
+  covenant_min_cash: number;
+  covenant_breach_action_ids: string[];
+  active_capital_action_ids: string[];
+}
+
+export interface W4CapitalAction {
+  capital_action_id: string;
+  decision_id: string;
+  decision_payload_digest: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  kind: W4CapitalActionKind;
+  status: W4CapitalActionStatus;
+  blocked_reason?: string;
+  principal: number;
+  term_rounds: number;
+  rate_or_cost_bps: number;
+  cost_source: string;
+  covenant_min_cash: number;
+  fees: number;
+  obligation: W4CapitalObligation;
+  project_entry_id: string | null;
+  initiative_id: string | null;
+  policy_seam_id: string | null;
+  created_round_no: number;
+  effective_round_no: number;
+  maturity_round_no: number;
 }
 
 export interface W4StrategicInitiative {
@@ -328,6 +398,9 @@ export interface W4ReplayInputManifest {
   project_portfolio_digest?: string;
   project_portfolio_entry_ids?: string[];
   project_portfolio_snapshot?: W4ProjectPortfolioEntry[];
+  capital_action_digest?: string;
+  capital_action_ids?: string[];
+  capital_action_snapshot?: W4CapitalAction[];
 }
 
 export interface W4ReplayEvidence {
@@ -345,6 +418,7 @@ export interface W4ReplayEvidence {
   persistent_effect_ids: string[];
   path_digest: string;
   project_portfolio_digest?: string;
+  capital_action_digest?: string;
   replay_writes_formal_results: false;
 }
 
@@ -411,6 +485,7 @@ export interface W4ProjectionBase {
   initiatives: W4StrategicInitiative[];
   project_portfolio: W4ProjectPortfolioEntry[];
   project_transactions: W4ProjectTransaction[];
+  capital_actions: W4CapitalAction[];
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
   latest_strategic_action: W4StrategicActionProjection | null;
@@ -426,6 +501,7 @@ export interface W4StoreState {
   initiatives: W4StrategicInitiative[];
   projectPortfolio: W4ProjectPortfolioEntry[];
   projectTransactions: W4ProjectTransaction[];
+  capitalActions: W4CapitalAction[];
   policySeams: W4PolicySeam[];
   outcomes: W4OfficialOutcome[];
   replayEvidence: W4ReplayEvidence[];

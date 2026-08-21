@@ -141,6 +141,35 @@ describe("decision payload schema and fixture validation", () => {
     expectValidBySchemaAndRuntime(payload);
   });
 
+  it("accepts a governed capital action envelope in a canonical payload", () => {
+    const payload = {
+      ...clonePayload(),
+      w4_strategic_action: {
+        kind: "capital_action",
+        version: 1,
+        payload: {
+          rationale: "fund controlled project expansion",
+          lead_time_rounds: 1,
+          reversible: false,
+          dependencies: ["approved-cash-plan"],
+          kpi_hypothesis: "protect liquidity through the project ramp",
+          capital_action_kind: "project_finance",
+          principal: 500000,
+          term_rounds: 3,
+          rate_or_cost_bps: 600,
+          cost_source: "scenario-capital-cost-v1",
+          covenant_min_cash: 100000,
+          fees: 5000,
+          obligation: "project_finance",
+          project_entry_id: "project-entry-1",
+          initiative_id: "initiative-project-1"
+        }
+      }
+    };
+
+    expectValidBySchemaAndRuntime(payload);
+  });
+
   it("rejects unknown keys inside the closed W4 strategic action payload", () => {
     const payload = {
       ...clonePayload(),

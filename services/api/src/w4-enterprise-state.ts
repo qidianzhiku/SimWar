@@ -24,6 +24,10 @@ import type {
   W4ProjectTransaction,
   W4ProjectTransactionKind,
   W4ProjectTransactionPhase,
+  W4CapitalAction,
+  W4CapitalActionPayload,
+  W4CapitalActionStatus,
+  W4CapitalObligation,
   W4StoreState,
   W4ProjectionBase,
   Decision
@@ -67,9 +71,16 @@ function normalizeW4StoreState(input: W4StoreState): W4StoreState {
   const legacy = next as W4StoreState & {
     projectPortfolio?: W4ProjectPortfolioEntry[];
     projectTransactions?: W4ProjectTransaction[];
+    capitalActions?: W4CapitalAction[];
   };
+  // Legacy state bytes are immutable evidence. Do not inject newly optional
+  // fields into them here: doing so would change the bytes without changing
+  // the stored state_digest and would invalidate historical state references.
+  // The settlement engine applies default capital semantics at read time; new
+  // initial states are normalized and re-digested below.
   next.projectPortfolio = clone(legacy.projectPortfolio ?? []);
   next.projectTransactions = clone(legacy.projectTransactions ?? []);
+  next.capitalActions = clone(legacy.capitalActions ?? []);
   const decisionDigests = new Map<string, string>();
   next.decisions = next.decisions.map((decision) => {
     const legacyAdmission = decision.admission as LegacyDecisionAdmission;
@@ -185,6 +196,7 @@ export interface W4CompiledStrategicDecision {
   commitment: W4Commitment;
   effect: W4StrategicEffect;
   initiative: W4StrategicInitiative;
+  capital_action?: W4CapitalAction;
 }
 
 export interface W4SettlementResult {
@@ -218,6 +230,29 @@ export interface W4ProjectTransactionConfirmationInput {
 
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+function emptyCapitalPosition(): NonNullable<W4EnterpriseStateData["capital"]> {
+  return {
+    debt_principal: 0,
+    equity_proceeds: 0,
+    working_capital_available: 0,
+    interest_paid: 0,
+    fees_paid: 0,
+    covenant_min_cash: 0,
+    covenant_breach_action_ids: [],
+    active_capital_action_ids: []
+  };
+}
+
+function normalizeStateData(state: W4EnterpriseStateData): W4EnterpriseStateData {
+  return {
+    ...clone(state),
+    capital: {
+      ...emptyCapitalPosition(),
+      ...(state.capital ? clone(state.capital) : {})
+    }
+  };
 }
 
 async function commitW4Mutation(
@@ -473,7 +508,14 @@ function assertReplayInputManifest(
       (!Array.isArray(manifest.project_portfolio_entry_ids) ||
         manifest.project_portfolio_entry_ids.some((entryId) => typeof entryId !== "string"))) ||
     (manifest.project_portfolio_snapshot !== undefined &&
-      !Array.isArray(manifest.project_portfolio_snapshot))
+      !Array.isArray(manifest.project_portfolio_snapshot)) ||
+    (manifest.capital_action_digest !== undefined &&
+      !/^[a-f0-9]{64}$/.test(manifest.capital_action_digest)) ||
+    (manifest.capital_action_ids !== undefined &&
+      (!Array.isArray(manifest.capital_action_ids) ||
+        manifest.capital_action_ids.some((actionId) => typeof actionId !== "string"))) ||
+    (manifest.capital_action_snapshot !== undefined &&
+      !Array.isArray(manifest.capital_action_snapshot))
   ) {
     throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
   }
@@ -520,6 +562,7 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
     return {
       cash: 0,
       capacity: project.beds,
+      capital: emptyCapitalPosition(),
       product_lines: [],
       positioning: "",
       organization: {},
@@ -530,6 +573,7 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
   return {
     cash: 0,
     capacity: 0,
+    capital: emptyCapitalPosition(),
     product_lines: [],
     positioning: "",
     organization: {},
@@ -557,7 +601,12 @@ function strategicActionProjection(
       merge_commit_id: decision.admission.merge_commit_id,
       team_confirmation_id: decision.admission.team_confirmation_id
     },
-    cost: typeof payload.cost === "number" ? payload.cost : 0,
+    cost:
+      typeof payload.cost === "number"
+        ? payload.cost
+        : typeof payload.fees === "number"
+          ? payload.fees
+          : 0,
     lead_time_rounds: typeof payload.lead_time_rounds === "number" ? payload.lead_time_rounds : 0,
     reversible: hasActionMetadata ? Boolean(payload.reversible) : false,
     dependencies: hasActionMetadata
@@ -574,6 +623,10 @@ function strategicActionProjection(
 
 function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void {
   if (decision.kind !== "new_project") {
+    if (decision.kind === "capital_action") {
+      validateCapitalActionPayload(decision.payload);
+      return;
+    }
     validateTypedAdjustmentPayload(decision.kind, decision.payload);
     return;
   }
@@ -642,8 +695,104 @@ function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void
   }
 }
 
+function validateCapitalActionPayload(input: unknown): asserts input is W4CapitalActionPayload {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_ACTION_INVALID");
+  }
+  const payload = input as Record<string, unknown>;
+  const requiredKeys = [
+    "capital_action_kind",
+    "covenant_min_cash",
+    "cost_source",
+    "dependencies",
+    "fees",
+    "kpi_hypothesis",
+    "lead_time_rounds",
+    "obligation",
+    "principal",
+    "rate_or_cost_bps",
+    "rationale",
+    "reversible",
+    "term_rounds"
+  ];
+  const optionalKeys = ["initiative_id", "policy_seam_id", "project_entry_id"];
+  const actualKeys = Object.keys(payload).sort();
+  const allowedKeys = [...requiredKeys, ...optionalKeys].sort();
+  if (
+    requiredKeys.some((key) => !(key in payload)) ||
+    actualKeys.some((key) => !allowedKeys.includes(key))
+  ) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_ACTION_INVALID");
+  }
+  if (
+    typeof payload.capital_action_kind !== "string" ||
+    ![
+      "debt",
+      "project_finance",
+      "working_capital",
+      "asset_backed_securitization",
+      "initial_public_offering"
+    ].includes(payload.capital_action_kind) ||
+    typeof payload.principal !== "number" ||
+    !Number.isFinite(payload.principal) ||
+    payload.principal <= 0 ||
+    !Number.isInteger(payload.term_rounds) ||
+    Number(payload.term_rounds) < 1 ||
+    typeof payload.rate_or_cost_bps !== "number" ||
+    !Number.isFinite(payload.rate_or_cost_bps) ||
+    payload.rate_or_cost_bps < 0 ||
+    typeof payload.cost_source !== "string" ||
+    payload.cost_source.trim() === "" ||
+    typeof payload.covenant_min_cash !== "number" ||
+    !Number.isFinite(payload.covenant_min_cash) ||
+    payload.covenant_min_cash < 0 ||
+    typeof payload.fees !== "number" ||
+    !Number.isFinite(payload.fees) ||
+    payload.fees < 0 ||
+    typeof payload.obligation !== "string" ||
+    ![
+      "term_debt",
+      "project_finance",
+      "working_capital_revolver",
+      "securitized_receivable",
+      "equity"
+    ].includes(payload.obligation) ||
+    typeof payload.rationale !== "string" ||
+    payload.rationale.trim() === "" ||
+    typeof payload.reversible !== "boolean" ||
+    !Number.isInteger(payload.lead_time_rounds) ||
+    Number(payload.lead_time_rounds) < 0 ||
+    typeof payload.kpi_hypothesis !== "string" ||
+    payload.kpi_hypothesis.trim() === "" ||
+    !Array.isArray(payload.dependencies) ||
+    payload.dependencies.some((item) => typeof item !== "string" || item.trim() === "")
+  ) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_ACTION_INVALID");
+  }
+  const expectedObligation: Record<string, W4CapitalObligation> = {
+    debt: "term_debt",
+    project_finance: "project_finance",
+    working_capital: "working_capital_revolver",
+    asset_backed_securitization: "securitized_receivable",
+    initial_public_offering: "equity"
+  };
+  if (payload.obligation !== expectedObligation[payload.capital_action_kind]) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_ACTION_INVALID");
+  }
+  for (const key of optionalKeys) {
+    if (payload[key] !== undefined && (typeof payload[key] !== "string" || !payload[key].trim())) {
+      throw new W4EnterpriseStateError("W4_CAPITAL_ACTION_INVALID");
+    }
+  }
+  if (payload.capital_action_kind === "project_finance") {
+    if (!payload.project_entry_id || !payload.initiative_id) {
+      throw new W4EnterpriseStateError("W4_CAPITAL_PROJECT_REQUIRED");
+    }
+  }
+}
+
 function validateTypedAdjustmentPayload(
-  kind: Exclude<W4StrategicDecisionKind, "new_project">,
+  kind: Exclude<W4StrategicDecisionKind, "new_project" | "capital_action">,
   input: unknown
 ): void {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -719,6 +868,7 @@ export function createInMemoryW4Repository(initial?: Partial<W4StoreState>): W4R
     initiatives: clone(initial?.initiatives ?? []),
     projectPortfolio: clone(initial?.projectPortfolio ?? []),
     projectTransactions: clone(initial?.projectTransactions ?? []),
+    capitalActions: clone(initial?.capitalActions ?? []),
     policySeams: clone(initial?.policySeams ?? []),
     outcomes: clone(initial?.outcomes ?? []),
     replayEvidence: clone(initial?.replayEvidence ?? [])
@@ -766,9 +916,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       ) {
         throw new W4EnterpriseStateError("W4_SCOPE_CONFLICT");
       }
+      const normalizedStateData = normalizeStateData(input.state);
       const normalized: W4EnterpriseState = {
         ...clone(input),
-        state_digest: digest(input.state),
+        state_digest: digest(normalizedStateData),
+        state: normalizedStateData,
         parent_state_ref: null
       };
       current.states.push(normalized);
@@ -794,6 +946,72 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         throw new W4EnterpriseStateError("W4_DECISION_NOT_CANONICAL");
       }
       validateStrategicDecision(decision);
+      const leadTime = Number(
+        (decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0
+      );
+      const capitalPayload =
+        decision.kind === "capital_action"
+          ? (decision.payload as unknown as W4CapitalActionPayload)
+          : undefined;
+      let capitalAction: W4CapitalAction | undefined;
+      if (capitalPayload) {
+        if (capitalPayload.capital_action_kind === "project_finance") {
+          const projectEntry = current.projectPortfolio.find(
+            (entry) =>
+              entry.project_entry_id === capitalPayload.project_entry_id &&
+              entry.initiative_id === capitalPayload.initiative_id &&
+              scopeMatches(scope, entry) &&
+              entry.ownership_status === "owned"
+          );
+          if (!projectEntry) throw new W4EnterpriseStateError("W4_CAPITAL_PROJECT_REQUIRED");
+        }
+        const policyRequired = ["asset_backed_securitization", "initial_public_offering"].includes(
+          capitalPayload.capital_action_kind
+        );
+        const policySeam = capitalPayload.policy_seam_id
+          ? current.policySeams.find(
+              (seam) =>
+                seam.policy_seam_id === capitalPayload.policy_seam_id && scopeMatches(scope, seam)
+            )
+          : undefined;
+        const blockedReason =
+          policyRequired &&
+          (!policySeam ||
+            policySeam.kind !== capitalPayload.capital_action_kind ||
+            policySeam.status !== "approved")
+            ? "W4_CAPITAL_POLICY_REQUIRED"
+            : undefined;
+        const capitalActionStatus: W4CapitalActionStatus = blockedReason
+          ? "blocked"
+          : leadTime > 0
+            ? "pending"
+            : "active";
+        capitalAction = {
+          capital_action_id: `capital_action_${decision.decision_id}`,
+          decision_id: decision.decision_id,
+          decision_payload_digest: decision.admission.decision_payload_digest,
+          tenant_id: decision.tenant_id,
+          course_id: decision.course_id,
+          run_id: decision.run_id,
+          team_id: decision.team_id,
+          kind: capitalPayload.capital_action_kind,
+          status: capitalActionStatus,
+          ...(blockedReason ? { blocked_reason: blockedReason } : {}),
+          principal: capitalPayload.principal,
+          term_rounds: capitalPayload.term_rounds,
+          rate_or_cost_bps: capitalPayload.rate_or_cost_bps,
+          cost_source: capitalPayload.cost_source,
+          covenant_min_cash: capitalPayload.covenant_min_cash,
+          fees: capitalPayload.fees,
+          obligation: capitalPayload.obligation,
+          project_entry_id: capitalPayload.project_entry_id ?? null,
+          initiative_id: capitalPayload.initiative_id ?? null,
+          policy_seam_id: capitalPayload.policy_seam_id ?? null,
+          created_round_no: decision.round_no,
+          effective_round_no: decision.round_no + leadTime,
+          maturity_round_no: decision.round_no + leadTime + capitalPayload.term_rounds
+        };
+      }
       const commitment: W4Commitment = {
         commitment_id: `commitment_${decision.decision_id}`,
         decision_id: decision.decision_id,
@@ -807,7 +1025,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         cost:
           decision.kind === "new_project"
             ? Number((decision.payload as { cost?: number }).cost ?? 0)
-            : 0,
+            : capitalAction?.status === "blocked"
+              ? 0
+              : (capitalPayload?.fees ?? 0),
         created_round_no: decision.round_no
       };
       const project =
@@ -816,9 +1036,6 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
               decision.payload as W4CanonicalStrategicDecision["payload"] & Record<string, unknown>
             )
           : null;
-      const leadTime = Number(
-        (decision.payload as { lead_time_rounds?: number }).lead_time_rounds ?? 0
-      );
       const effect: W4StrategicEffect = {
         effect_id: `effect_${decision.decision_id}`,
         commitment_id: commitment.commitment_id,
@@ -827,7 +1044,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         course_id: decision.course_id,
         run_id: decision.run_id,
         team_id: decision.team_id,
-        status: leadTime > 0 ? "pending" : "active",
+        status:
+          capitalAction?.status === "blocked" ? "expired" : leadTime > 0 ? "pending" : "active",
         effective_round_no: decision.round_no + leadTime,
         effect: projectPayload(decision) as unknown as Record<string, unknown>
       };
@@ -839,10 +1057,20 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         run_id: decision.run_id,
         team_id: decision.team_id,
         kind: decision.kind,
-        status: leadTime > 0 ? "in_progress" : "active",
-        current_milestone: leadTime > 0 ? "construction" : "activated",
+        status:
+          capitalAction?.status === "blocked" ? "blocked" : leadTime > 0 ? "in_progress" : "active",
+        current_milestone:
+          capitalAction?.status === "blocked"
+            ? "policy_blocked"
+            : leadTime > 0
+              ? "construction"
+              : "activated",
         milestones:
-          leadTime > 0 ? ["approved", "construction", "activated"] : ["approved", "activated"],
+          capitalAction?.status === "blocked"
+            ? ["approved", "policy_blocked"]
+            : leadTime > 0
+              ? ["approved", "construction", "activated"]
+              : ["approved", "activated"],
         remaining_lead_time_rounds: leadTime,
         activation_round_no: decision.round_no + leadTime,
         ...(decision.kind === "new_project"
@@ -854,8 +1082,15 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       current.commitments.push(commitment);
       current.effects.push(effect);
       current.initiatives.push(initiative);
+      if (capitalAction) current.capitalActions.push(capitalAction);
       await repository.commit(current);
-      return { decision: clone(decision), commitment, effect, initiative };
+      return {
+        decision: clone(decision),
+        commitment,
+        effect,
+        initiative,
+        ...(capitalAction ? { capital_action: clone(capitalAction) } : {})
+      };
     },
 
     async advanceInitiative(
@@ -1328,13 +1563,18 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         .filter((entry) => scopeMatches(scope, entry))
         .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
       const projectPortfolioDigest = digest(projectPortfolioSnapshot);
+      const capitalActionSnapshot = before.capitalActions
+        .filter((action) => scopeMatches(scope, action))
+        .sort((left, right) => left.capital_action_id.localeCompare(right.capital_action_id));
+      const capitalActionDigest = digest(capitalActionSnapshot);
       const stateTransition = settleEnterpriseState({
         opening: opening.state,
         roundNo: scope.round_no,
         commitments: activeCommitments,
         effects: persistentEffects,
         initiatives: before.initiatives.filter((initiative) => scopeMatches(scope, initiative)),
-        project_portfolio: before.projectPortfolio.filter((entry) => scopeMatches(scope, entry))
+        project_portfolio: before.projectPortfolio.filter((entry) => scopeMatches(scope, entry)),
+        capital_actions: capitalActionSnapshot
       });
       const sourceData = stateTransition.closing;
       const closing: W4EnterpriseState = {
@@ -1368,7 +1608,10 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         project_portfolio_entry_ids: projectPortfolioSnapshot.map(
           (entry) => entry.project_entry_id
         ),
-        project_portfolio_snapshot: clone(projectPortfolioSnapshot)
+        project_portfolio_snapshot: clone(projectPortfolioSnapshot),
+        capital_action_digest: capitalActionDigest,
+        capital_action_ids: capitalActionSnapshot.map((action) => action.capital_action_id),
+        capital_action_snapshot: clone(capitalActionSnapshot)
       };
       const outcome: W4OfficialOutcome = {
         official_outcome_id: `outcome_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
@@ -1387,7 +1630,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         settlement_digest: digest({
           opening: input.opening_state_ref,
           closing: closing.state_digest,
-          project_portfolio_digest: projectPortfolioDigest
+          project_portfolio_digest: projectPortfolioDigest,
+          capital_action_digest: capitalActionDigest
         }),
         status: "official"
       };
@@ -1414,6 +1658,22 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           effect.effective_round_no <= scope.round_no
         ) {
           effect.status = "active";
+        }
+      }
+      for (const action of next.capitalActions) {
+        if (!scopeMatches(scope, action)) continue;
+        if (stateTransition.blocked_capital_action_ids.includes(action.capital_action_id)) {
+          action.status = "blocked";
+          action.blocked_reason = "W4_CAPITAL_COVENANT_CONFLICT";
+          continue;
+        }
+        if (scope.round_no >= action.maturity_round_no && action.status !== "blocked") {
+          action.status = "completed";
+        } else if (
+          stateTransition.applied_capital_action_ids.includes(action.capital_action_id) &&
+          action.status === "pending"
+        ) {
+          action.status = "active";
         }
       }
       next.states.push(closing);
@@ -1463,6 +1723,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         ...(outcome.replay_input_manifest.project_portfolio_digest
           ? { project_portfolio_digest: outcome.replay_input_manifest.project_portfolio_digest }
           : {}),
+        ...(outcome.replay_input_manifest.capital_action_digest
+          ? { capital_action_digest: outcome.replay_input_manifest.capital_action_digest }
+          : {}),
         replay_writes_formal_results: false
       };
       return { applied: false, evidence };
@@ -1497,10 +1760,14 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           commitment_ids: outcome.commitment_ids,
           effect_ids: outcome.persistent_effect_ids,
           decision_payload_bindings: outcome.replay_input_manifest.decision_payload_bindings,
-          project_portfolio_snapshot: outcome.replay_input_manifest.project_portfolio_snapshot
+          project_portfolio_snapshot: outcome.replay_input_manifest.project_portfolio_snapshot,
+          capital_action_snapshot: outcome.replay_input_manifest.capital_action_snapshot
         }),
         ...(outcome.replay_input_manifest.project_portfolio_digest
           ? { project_portfolio_digest: outcome.replay_input_manifest.project_portfolio_digest }
+          : {}),
+        ...(outcome.replay_input_manifest.capital_action_digest
+          ? { capital_action_digest: outcome.replay_input_manifest.capital_action_digest }
           : {}),
         replay_writes_formal_results: false
       };
@@ -1546,6 +1813,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         scopeMatches(scope, item)
       );
       const scopedProjectTransactions = current.projectTransactions.filter((item) =>
+        scopeMatches(scope, item)
+      );
+      const scopedCapitalActions = current.capitalActions.filter((item) =>
         scopeMatches(scope, item)
       );
       const latestStrategicDecision = current.decisions
@@ -1673,6 +1943,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         initiatives: clone(scopedInitiatives),
         project_portfolio: clone(scopedProjectPortfolio),
         project_transactions: clone(scopedProjectTransactions),
+        capital_actions: clone(scopedCapitalActions),
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
         latest_strategic_action: latestStrategicDecision

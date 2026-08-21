@@ -265,6 +265,6 @@ describe("Role Workflow executable contracts", () => {
     ).toEqual({
       $ref: "#/components/schemas/W4StrategicActionEnvelope"
     });
-    expect(openapi.components.schemas.W4StrategicActionEnvelope.oneOf).toHaveLength(4);
+    expect(openapi.components.schemas.W4StrategicActionEnvelope.oneOf).toHaveLength(5);
   });
 });

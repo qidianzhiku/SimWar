@@ -6334,6 +6334,14 @@ components:
             version: { type: integer, minimum: 1 }
             payload:
               $ref: "#/components/schemas/W4OrganizationAdjustmentPayload"
+        - type: object
+          additionalProperties: false
+          required: [kind, version, payload]
+          properties:
+            kind: { const: capital_action }
+            version: { type: integer, minimum: 1 }
+            payload:
+              $ref: "#/components/schemas/W4CapitalActionPayload"
     W4NewProjectPayload:
       type: object
       additionalProperties: false
@@ -6421,6 +6429,62 @@ components:
         kpi_hypothesis: { type: string, minLength: 1 }
         unit_name: { type: string, minLength: 1 }
         headcount_delta: { type: integer, not: { const: 0 } }
+    W4CapitalActionPayload:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rationale,
+          lead_time_rounds,
+          reversible,
+          dependencies,
+          kpi_hypothesis,
+          capital_action_kind,
+          principal,
+          term_rounds,
+          rate_or_cost_bps,
+          cost_source,
+          covenant_min_cash,
+          fees,
+          obligation
+        ]
+      properties:
+        rationale: { type: string, minLength: 1 }
+        lead_time_rounds: { type: integer, minimum: 0 }
+        reversible: { type: boolean }
+        dependencies:
+          type: array
+          items: { type: string, minLength: 1 }
+        kpi_hypothesis: { type: string, minLength: 1 }
+        capital_action_kind:
+          type: string
+          enum:
+            [
+              debt,
+              project_finance,
+              working_capital,
+              asset_backed_securitization,
+              initial_public_offering
+            ]
+        principal: { type: number, exclusiveMinimum: 0 }
+        term_rounds: { type: integer, minimum: 1 }
+        rate_or_cost_bps: { type: number, minimum: 0 }
+        cost_source: { type: string, minLength: 1 }
+        covenant_min_cash: { type: number, minimum: 0 }
+        fees: { type: number, minimum: 0 }
+        obligation:
+          type: string
+          enum:
+            [term_debt, project_finance, working_capital_revolver, securitized_receivable, equity]
+        project_entry_id: { type: string, minLength: 1 }
+        initiative_id: { type: string, minLength: 1 }
+        policy_seam_id: { type: string, minLength: 1 }
+      allOf:
+        - if:
+            properties:
+              capital_action_kind: { const: project_finance }
+          then:
+            required: [project_entry_id, initiative_id]
     RoleWorkflowCanonicalDecisionPayload:
       allOf:
         - $ref: "#/components/schemas/RoleWorkflowDecisionPayload"
