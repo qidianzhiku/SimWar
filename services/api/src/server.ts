@@ -8506,7 +8506,7 @@ async function routeRequest(
         course.parameter_set_id
       )
     ]);
-    const [roleSnapshots, projectReadiness, settlements] = await Promise.all([
+    const [roleSnapshots, projectReadiness, projectAssignments, settlements] = await Promise.all([
       Promise.all(
         teams.map(
           async (team) =>
@@ -8527,13 +8527,34 @@ async function routeRequest(
           { tenant_id: context.tenantId, course_id: course.course_id, run_id: run.run_id }
         )
         .catch(() => undefined),
+      runtime.projectLibrary
+        .getAssignmentsForScope(
+          { actor_id: actor.user_id, tenant_id: actor.tenant_id },
+          { course_id: course.course_id, run_id: run.run_id }
+        )
+        .catch(() => undefined),
       runtime.repositoryProvider.facade.settlements.listSettlementResultsForRound(
         context.tenantId,
         run.run_id,
         round.round_id
       )
     ]);
+    const admissionBinding = await runtime.formalRunRuntimeBindingStore.getForRun(
+      context.tenantId,
+      run.run_id
+    );
+    const admission = resolveDecisionAdmissionPolicy({
+      binding: admissionBinding,
+      runCreationAudits: auditLogs.filter(
+        (audit) =>
+          audit.action === "run.create" &&
+          audit.resource_type === "run" &&
+          audit.resource_id === run.run_id
+      )
+    });
     const projectAwareRoundOpsEnabled = Boolean(
+      projectAssignments === undefined ||
+      projectAssignments.length > 0 ||
       projectReadiness?.teams.some((team) => team.project_profile_reference)
     );
     const liveRoundOps = projectAwareRoundOpsEnabled
@@ -8549,8 +8570,10 @@ async function routeRequest(
           ],
           auditLogs,
           course,
+          decisionAdmissionPolicy: admission.policy,
           decisions,
           ...(projectReadiness ? { projectReadiness } : {}),
+          projectReadinessRequired: projectAwareRoundOpsEnabled,
           roleSnapshots: new Map(roleSnapshots),
           round,
           run,

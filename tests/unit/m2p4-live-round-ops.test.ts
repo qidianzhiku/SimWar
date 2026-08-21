@@ -212,6 +212,62 @@ describe("M2-P4 live round operations projection", () => {
     expect(projection.round.blockers).toContain("team-1:canonical_decision_missing");
   });
 
+  it("preserves the legacy direct admission path without requiring role workflow evidence", () => {
+    const directDecision = {
+      ...decision,
+      canonical_source: undefined,
+      merge_commit_id: undefined,
+      status: "validated",
+      team_confirmation_id: undefined
+    } as Decision;
+    const projection = buildM2P4TeacherLiveRoundOps(
+      input({
+        decisionAdmissionPolicy: "LEGACY_DIRECT_EXPLICIT",
+        decisions: [directDecision],
+        projectReadinessRequired: false,
+        roleSnapshots: new Map()
+      })
+    );
+
+    expect(projection.round.lock_ready).toBe(true);
+    expect(projection.teams[0]).toMatchObject({
+      role: { state: "READY", required_role_keys: [] },
+      decision: { state: "READY", canonical_decision_id: "decision-1" }
+    });
+  });
+
+  it("reuses the canonical role-roster invariant and rejects duplicate active seats", () => {
+    const snapshot = roleSnapshot();
+    const duplicateCeo = { ...snapshot.assignments[0]!, assignment_id: "assignment-duplicate" };
+    const projection = buildM2P4TeacherLiveRoundOps(
+      input({
+        roleSnapshots: new Map([
+          [team.team_id, { ...snapshot, assignments: [...snapshot.assignments, duplicateCeo] }]
+        ])
+      })
+    );
+
+    expect(projection.teams[0]?.role.state).toBe("BLOCKED");
+    expect(projection.teams[0]?.role.blockers).toContain("team-1:role_roster_invalid");
+    expect(projection.round.lock_ready).toBe(false);
+  });
+
+  it("fails closed when required Project readiness is unavailable", () => {
+    const projection = buildM2P4TeacherLiveRoundOps(
+      input({
+        projectReadiness: undefined,
+        projectReadinessRequired: true
+      } as Partial<Parameters<typeof buildM2P4TeacherLiveRoundOps>[0]>)
+    );
+
+    expect(projection.teams[0]?.project).toMatchObject({
+      state: "UNKNOWN",
+      blockers: ["project_readiness_unavailable"]
+    });
+    expect(projection.round.lock_ready).toBe(false);
+    expect(projection.session_command.reason).toBe("project_readiness_unavailable");
+  });
+
   it("marks stale role sections and conflicting canonical candidates as blocked", () => {
     const stale = roleSnapshot({
       sections: roleSnapshot().sections.map((section) => ({ ...section, status: "draft" }))

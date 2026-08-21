@@ -24,15 +24,7 @@
         "student_cockpit": { "$ref": "#/$defs/student_projection" },
         "three_part_feedback": { "$ref": "#/$defs/student_projection" },
         "project_context": {
-          "type": "object",
-          "additionalProperties": true,
-          "required": ["schema_version", "exact_scope", "brief_kind", "project_profile_reference"],
-          "properties": {
-            "schema_version": { "const": "m2p4-live-round-ops.v1" },
-            "exact_scope": { "type": "object" },
-            "brief_kind": { "const": "PROJECT_BRIEF" },
-            "project_profile_reference": { "type": "object" }
-          }
+          "$ref": "m2p4-live-round-ops.v1.json#/$defs/student_project_context"
         }
       }
     }

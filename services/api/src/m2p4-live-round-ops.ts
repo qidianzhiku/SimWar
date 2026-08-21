@@ -1,6 +1,7 @@
 import type {
   AuditLog,
   Course,
+  DecisionAdmissionPolicy,
   Decision,
   ProjectAwareCourseReadiness,
   ProjectProfileStudentBrief,
@@ -23,17 +24,15 @@ export interface M2P4TeacherLiveRoundOpsInput {
   actorAllowedActions: PermissionKey[];
   auditLogs: AuditLog[];
   course: Course;
+  decisionAdmissionPolicy?: DecisionAdmissionPolicy | null;
   decisions: Decision[];
   projectReadiness?: ProjectAwareCourseReadiness;
+  projectReadinessRequired?: boolean;
   roleSnapshots: Map<string, RoleWorkflowRepositorySnapshot>;
   round: Round;
   run: Run;
   settlement: SettlementResult | null;
   teams: Team[];
-}
-
-function normalizeRoleKey(roleKey: string): string {
-  return roleKey === "risk" || roleKey === "Quality & Risk" ? "COO" : roleKey;
 }
 
 function unique(values: readonly string[]): string[] {
@@ -88,9 +87,21 @@ function projectReadiness(
 
 function roleReadiness(
   team: Team,
-  snapshot: RoleWorkflowRepositorySnapshot | undefined
+  snapshot: RoleWorkflowRepositorySnapshot | undefined,
+  admissionPolicy: DecisionAdmissionPolicy | null
 ): M2P4RoleReadiness {
-  const required = unique(team.members.map((member) => normalizeRoleKey(member.role_slot)));
+  const required = team.members.some((member) => member.role_slot === "CHRO")
+    ? ["CEO", "CFO", "CMO", "COO", "CHRO"]
+    : ["CEO", "CFO", "CMO", "COO"];
+  if (admissionPolicy === "LEGACY_DIRECT_EXPLICIT") {
+    return {
+      state: "READY",
+      required_role_keys: [],
+      assigned_role_keys: [],
+      missing_role_keys: [],
+      blockers: []
+    };
+  }
   if (!snapshot) {
     return {
       state: "UNKNOWN",
@@ -101,17 +112,24 @@ function roleReadiness(
     };
   }
   const active = snapshot.assignments.filter((assignment) => assignment.status === "active");
-  const assigned = unique(active.map((assignment) => normalizeRoleKey(assignment.role_key)));
+  const assigned = unique(active.map((assignment) => assignment.role_key));
+  const roleCounts = new Map<string, number>();
+  for (const assignment of active) {
+    roleCounts.set(assignment.role_key, (roleCounts.get(assignment.role_key) ?? 0) + 1);
+  }
+  const rosterValid =
+    active.length === required.length && required.every((roleKey) => roleCounts.get(roleKey) === 1);
   const missing = required.filter((roleKey) => !assigned.includes(roleKey));
   const sectionsReady = active.every(
     (assignment) => latestSection(snapshot, assignment)?.status === "ready"
   );
   const blockers = [
+    ...(rosterValid ? [] : [`${team.team_id}:role_roster_invalid`]),
     ...missing.map((roleKey) => `${team.team_id}:role_missing:${roleKey}`),
     ...(sectionsReady ? [] : [`${team.team_id}:role_section_not_ready`])
   ];
   return {
-    state: missing.length === 0 && sectionsReady ? "READY" : "BLOCKED",
+    state: rosterValid && missing.length === 0 && sectionsReady ? "READY" : "BLOCKED",
     required_role_keys: required,
     assigned_role_keys: assigned,
     missing_role_keys: missing,
@@ -121,9 +139,43 @@ function roleReadiness(
 
 function decisionReadiness(
   team: Team,
+  run: Run,
+  round: Round,
   snapshot: RoleWorkflowRepositorySnapshot | undefined,
-  decisions: readonly Decision[]
+  decisions: readonly Decision[],
+  admissionPolicy: DecisionAdmissionPolicy | null
 ): M2P4DecisionReadiness {
+  if (admissionPolicy === "LEGACY_DIRECT_EXPLICIT") {
+    const directDecisions = decisions.filter(
+      (decision) =>
+        decision.tenant_id === run.tenant_id &&
+        decision.run_id === run.run_id &&
+        decision.round_id === round.round_id &&
+        decision.round_no === round.round_no &&
+        decision.team_id === team.team_id &&
+        decision.status === "validated" &&
+        decision.canonical_source === undefined &&
+        decision.merge_commit_id === undefined &&
+        decision.team_confirmation_id === undefined
+    );
+    if (directDecisions.length > 1) {
+      return { state: "CONFLICTING", blockers: [`${team.team_id}:direct_decision_conflicting`] };
+    }
+    if (directDecisions.length === 0) {
+      return { state: "BLOCKED", blockers: [`${team.team_id}:direct_decision_missing`] };
+    }
+    return {
+      state: "READY",
+      canonical_decision_id: directDecisions[0]!.decision_id,
+      blockers: []
+    };
+  }
+  if (admissionPolicy === null) {
+    return {
+      state: "UNKNOWN",
+      blockers: [`${team.team_id}:decision_admission_policy_unavailable`]
+    };
+  }
   if (!snapshot)
     return { state: "UNKNOWN", blockers: [`${team.team_id}:role_workflow_unavailable`] };
   const active = snapshot.assignments.filter((assignment) => assignment.status === "active");
@@ -221,13 +273,22 @@ function scope(input: M2P4TeacherLiveRoundOpsInput): M2P4ExactRoundScope {
 export function buildM2P4TeacherLiveRoundOps(
   input: M2P4TeacherLiveRoundOpsInput
 ): M2P4TeacherLiveRoundOps {
+  const admissionPolicy =
+    input.decisionAdmissionPolicy === undefined
+      ? ("ROLE_WORKFLOW_REQUIRED" as const)
+      : input.decisionAdmissionPolicy;
+  const projectReadinessRequired =
+    input.projectReadinessRequired ?? input.projectReadiness !== undefined;
   const teams = input.teams.map((team): M2P4TeamOperationsReadiness => {
     const project = projectReadiness(team.team_id, input.projectReadiness);
-    const role = roleReadiness(team, input.roleSnapshots.get(team.team_id));
+    const role = roleReadiness(team, input.roleSnapshots.get(team.team_id), admissionPolicy);
     const decision = decisionReadiness(
       team,
+      input.run,
+      input.round,
       input.roleSnapshots.get(team.team_id),
-      input.decisions
+      input.decisions,
+      admissionPolicy
     );
     return {
       exact_scope: { ...scope(input), team_id: team.team_id },
@@ -239,12 +300,13 @@ export function buildM2P4TeacherLiveRoundOps(
       blockers: [...project.blockers, ...role.blockers, ...decision.blockers]
     };
   });
-  const readinessRequired = input.projectReadiness !== undefined;
   const lockReady = teams.every(
     (team) =>
-      team.role.state === "READY" &&
-      team.decision.state === "READY" &&
-      (!readinessRequired || team.project.state === "READY")
+      admissionPolicy !== null &&
+      (admissionPolicy === "LEGACY_DIRECT_EXPLICIT"
+        ? team.decision.state === "READY"
+        : team.role.state === "READY" && team.decision.state === "READY") &&
+      (!projectReadinessRequired || team.project.state === "READY")
   );
   const allowedActions = input.actorAllowedActions.filter(
     (action): action is M2P4TeacherLiveRoundOps["session_command"]["allowed_actions"][number] =>
@@ -285,9 +347,13 @@ export function buildM2P4TeacherLiveRoundOps(
         ? {}
         : {
             reason:
-              primaryAction === "round:lock"
-                ? "canonical_project_role_readiness_required"
-                : "server_action_not_allowed"
+              primaryAction !== "round:lock"
+                ? "server_action_not_allowed"
+                : admissionPolicy === null
+                  ? "decision_admission_policy_unavailable"
+                  : projectReadinessRequired && !input.projectReadiness
+                    ? "project_readiness_unavailable"
+                    : "canonical_project_role_readiness_required"
           })
     },
     round: {

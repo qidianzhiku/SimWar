@@ -40,6 +40,7 @@ const m1ContractFiles = [
   "contracts/schemas/m1-teacher-admin-result-envelope.v1.json",
   "contracts/schemas/m1-teacher-bff-workspace-envelope.v1.json",
   "contracts/schemas/m1-student-bff-cockpit-envelope.v1.json",
+  "contracts/schemas/m2p4-live-round-ops.v1.json",
   "contracts/schemas/m1-public-replay-evidence.v1.json",
   "contracts/fixtures/m1-decision-submit-request.valid.json",
   "contracts/fixtures/m1-decision-submit-request.invalid.json",
@@ -915,6 +916,10 @@ function validateFixtureCases() {
     ajv.addSchema(readJson("contracts/schemas/auth-session.v1.json"));
     ajv.addSchema(readJson("contracts/schemas/settlement-result.v1.json"));
     ajv.addSchema(readJson("contracts/schemas/instructor-intelligence-kit.v1.json"));
+    ajv.addSchema(
+      readJson("contracts/schemas/m2p4-live-round-ops.v1.json"),
+      "m2p4-live-round-ops.v1.json"
+    );
     const validate = ajv.compile(readJson(contractCase.schema));
 
     for (const fixture of contractCase.valid) {
