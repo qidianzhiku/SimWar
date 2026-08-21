@@ -2,17 +2,17 @@
 
 ## Decision
 
-FE-19 and FE-20 are accepted as a bounded frontend/read-model product change for review and post-merge governance closure. The product PR was merged as `42d32f6f3ae512b0cf303f5984ff21a1214163bb` after the final head `2f9c950d7565aca7440b509bcd63690826c7dad2` passed the remote quality, browser-smoke, and CodeQL gates. This is not an authority expansion and is not a production-readiness declaration.
+FE-19 and FE-20 are accepted as a bounded frontend/read-model product change. Product PR #415 was merged as `df36a45998939ba65d170a996413ee3485fd896c` after final head `c890d7f9b8223ca566453b565d71c748148bae90` passed the remote quality, browser-smoke, and CodeQL gates. This is not an authority expansion and is not a production-readiness declaration.
 
 ## Product and provenance
 
 - Repository: `qidianzhiku/SimWar`
-- Product PR: [#411](https://github.com/qidianzhiku/SimWar/pull/411)
-- Product base: `03964a9678e9f5f8dc4eeedc84d246b8f21ddcdd`
-- Final product head before squash merge: `2f9c950d7565aca7440b509bcd63690826c7dad2`
-- Squash merge commit on `master`: `42d32f6f3ae512b0cf303f5984ff21a1214163bb`
-- Final product CI: [CI run 32440069837](https://github.com/qidianzhiku/SimWar/actions/runs/32440069837) — success
-- Final product CodeQL: [CodeQL run 32440069838](https://github.com/qidianzhiku/SimWar/actions/runs/32440069838) — success
+- Product PR: [#415](https://github.com/qidianzhiku/SimWar/pull/415)
+- Product base: `298fcf1236734978501930071124d1f7818ad219`
+- Final product head before merge: `c890d7f9b8223ca566453b565d71c748148bae90`
+- Merge commit on `master`: `df36a45998939ba65d170a996413ee3485fd896c`
+- Final product CI: [CI run 32452935253](https://github.com/qidianzhiku/SimWar/actions/runs/32452935253) — success
+- Final product CodeQL: [CodeQL run 32452935171](https://github.com/qidianzhiku/SimWar/actions/runs/32452935171) — success
 
 ## Protected boundaries
 
@@ -35,16 +35,16 @@ FE-19 and FE-20 are accepted as a bounded frontend/read-model product change for
 
 ## Evidence ledger
 
-| Area                            | Evidence                                                                                                                                           | Result                                                                                                         |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| FE-19 unit                      | `tests/unit/p2b-decision-learning.test.tsx`; publication firewall, six stages, safe W3 response, identity reset, control-character-free reflection | PASS                                                                                                           |
-| FE-20 unit                      | `tests/unit/p2b-teacher-debrief.test.tsx`; five stages, teacher-safe copy, local note boundary, no fabricated cohort rows                          | PASS                                                                                                           |
-| Review regression unit          | P2-B + Student refoundation + PR4 focused unit set                                                                                                 | PASS; 46/46 locally before final CI, with the final remote quality gate also green                             |
-| Existing Student regressions    | `tests/unit/ui-student-refoundation.test.tsx` including D4 publication firewall                                                                    | PASS                                                                                                           |
-| Existing Teacher/W3 regressions | `tests/unit/ui-teacher-refoundation.test.tsx`, `tests/unit/w3-official-consequence-learning.test.ts`                                               | PASS in remote CI                                                                                              |
-| Browser-smoke                   | Core UI, M2 real-BFF journey, PR4 visual/a11y/performance evidence, and comparator                                                                 | PASS in CI run 32440069837                                                                                     |
-| Type/build                      | `npm run typecheck`, Student/Teacher builds, full repository build                                                                                 | PASS in local/remote gates                                                                                     |
-| Full unit suite                 | `npm test`; 1,400 tests across 227 files in final CI run `32440069837`                                                                             | PASS in remote quality gate; a prior load-sensitive ESM startup case required the documented 20s retry locally |
+| Area                            | Evidence                                                                                                                                           | Result                                                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| FE-19 unit                      | `tests/unit/p2b-decision-learning.test.tsx`; publication firewall, six stages, safe W3 response, identity reset, control-character-free reflection | PASS                                                                              |
+| FE-20 unit                      | `tests/unit/p2b-teacher-debrief.test.tsx`; five stages, teacher-safe copy, local note boundary, no fabricated cohort rows                          | PASS                                                                              |
+| Review regression unit          | P2-B + Student refoundation + PR4 focused unit set                                                                                                 | PASS; P2-B final focused set 10/10, with the final remote quality gate also green |
+| Existing Student regressions    | `tests/unit/ui-student-refoundation.test.tsx` including D4 publication firewall                                                                    | PASS                                                                              |
+| Existing Teacher/W3 regressions | `tests/unit/ui-teacher-refoundation.test.tsx`, `tests/unit/w3-official-consequence-learning.test.ts`                                               | PASS in remote CI                                                                 |
+| Browser-smoke                   | Core UI, M2 real-BFF journey, PR4 visual/a11y/performance evidence, P2-B real-BFF, and comparator                                                  | PASS in CI run 32452935253                                                        |
+| Type/build                      | `npm run typecheck`, Student/Teacher builds, full repository build                                                                                 | PASS in local/remote gates                                                        |
+| Full unit suite                 | `npm test`, contract, Postgres replay, typecheck, lint, build, direct-store and bundle gates                                                       | PASS in remote quality job `32452935253`                                          |
 
 The local browser run used custom API/UI ports because port 3100 was occupied by an unrelated local process. That process was not stopped or modified. CI used detached exact-head worktrees, external Playwright stores/evidence roots, and exact SHA checks.
 
@@ -59,6 +59,8 @@ The local browser run used custom API/UI ports because port 3100 was occupied by
 
 ## Security and release posture
 
-`npm run security:audit` reports existing dependency advisories (2 low, 7 high); no audit fix was applied in this frontend-only change. The product is `READY_FOR_REVIEW` and post-merge CI-verified, not `READY_FOR_PRODUCTION`: human usability validation, pilot evidence, production deployment approval, and closure of pre-existing dependency advisories remain outside this change.
+`npm run security:audit` reports existing dependency advisories (2 low, 7 high); no audit fix was applied in this frontend-only change. The product is `POST_MERGE_VERIFIED_NOT_PRODUCTION`: human usability validation, pilot evidence, production deployment approval, and closure of pre-existing dependency advisories remain outside this change.
+
+Post-merge detached validation at `df36a459` performed fresh `npm ci`, typecheck, P2-B unit 10/10, and external-port real-BFF P2-B browser 2/2. The detached worktree was clean and removed after validation. Governance issue #416 was closed as completed.
 
 This governance document is intentionally separate from the product PR and is the post-merge evidence closure for FE-19/FE-20. It does not change application authority, visibility, settlement, replay, tenant, or permission behavior.
