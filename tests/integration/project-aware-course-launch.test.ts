@@ -10,6 +10,8 @@ import { getShanghaiMarketWorldReference } from "../../services/api/src/market-w
 import { createP1Store } from "../../services/api/src/store";
 import {
   M2P3_RUN_ID,
+  M2P3_ROUND_ID,
+  M2P3_PROFILE_ID,
   seedM2P3ProjectAwareLaunchFixture
 } from "../e2e-ui/m2-p3-project-aware-launch-fixture";
 
@@ -161,6 +163,36 @@ describe("Project-aware launch BFF", () => {
       expect(store.w4.decisions).toHaveLength(0);
       expect(store.w4.outcomes).toHaveLength(0);
 
+      const teacherWorkspace = await request<{
+        live_round_ops: {
+          exact_scope: { run_id: string; round_id: string };
+          round: { lock_ready: boolean };
+          teams: Array<{
+            project: { state: string };
+            role: { state: string };
+            decision: { state: string };
+          }>;
+        };
+      }>(baseUrl, `/api/v1/bff/teacher/runs/${M2P3_RUN_ID}/rounds/1/workspace`, {
+        token: teacherToken
+      });
+      expect(teacherWorkspace.status, JSON.stringify(teacherWorkspace.body)).toBe(200);
+      expect(teacherWorkspace.body.data.live_round_ops.exact_scope).toMatchObject({
+        run_id: M2P3_RUN_ID,
+        round_id: M2P3_ROUND_ID
+      });
+      expect(teacherWorkspace.body.data.live_round_ops.round.lock_ready).toBe(false);
+      expect(
+        teacherWorkspace.body.data.live_round_ops.teams.every(
+          (team) => team.project.state === "READY" && team.role.state === "BLOCKED"
+        )
+      ).toBe(true);
+      expect(
+        teacherWorkspace.body.data.live_round_ops.teams.every(
+          (team) => team.decision.state === "BLOCKED"
+        )
+      ).toBe(true);
+
       const concurrent = await Promise.all([
         request<{ status: string }>(
           baseUrl,
@@ -231,6 +263,23 @@ describe("Project-aware launch BFF", () => {
       expect(studentContext.body.data.scope.team_id).toBe("team_alpha");
       expect(JSON.stringify(studentContext.body.data)).not.toMatch(
         /state_true|score|rank|settlement_result|other_team_data/i
+      );
+
+      const studentCockpit = await request<{
+        project_context: {
+          exact_scope: { team_id: string; run_id: string };
+          project_profile_reference: { project_profile_id: string };
+        };
+      }>(baseUrl, `/api/v1/bff/student/runs/${M2P3_RUN_ID}/rounds/1/cockpit`, {
+        token: studentToken
+      });
+      expect(studentCockpit.status, JSON.stringify(studentCockpit.body)).toBe(200);
+      expect(studentCockpit.body.data.project_context).toMatchObject({
+        exact_scope: { team_id: "team_alpha", run_id: M2P3_RUN_ID },
+        project_profile_reference: { project_profile_id: M2P3_PROFILE_ID }
+      });
+      expect(JSON.stringify(studentCockpit.body.data.project_context)).not.toMatch(
+        /state_true|score|rank|settlement_result/i
       );
 
       const studentBetaToken = await login(baseUrl, "student_beta");

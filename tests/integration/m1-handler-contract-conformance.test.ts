@@ -44,6 +44,10 @@ function expectEnvelopeToMatchSchema(schemaFile: string, envelope: unknown): voi
   ajv.addSchema(
     JSON.parse(readFileSync(resolve("contracts/schemas/settlement-result.v1.json"), "utf8"))
   );
+  ajv.addSchema(
+    JSON.parse(readFileSync(resolve("contracts/schemas/m2p4-live-round-ops.v1.json"), "utf8")),
+    "m2p4-live-round-ops.v1.json"
+  );
   const validate = ajv.compile(schema);
 
   expect(validate(envelope), JSON.stringify(validate.errors)).toBe(true);

@@ -32,7 +32,9 @@ import type {
   TenantAdminSummaryDTO,
   ThreePartFeedbackDTO,
   PublishedResultDTO,
-  LearningReportDTO
+  LearningReportDTO,
+  M2P4StudentProjectContext,
+  M2P4TeacherLiveRoundOps
 } from "@simwar/shared-contracts";
 
 export const STUDENT_BFF_FORBIDDEN_FIELDS = [
@@ -167,6 +169,7 @@ export interface TeacherBffProjectionInput {
   run: Run;
   scenario?: ScenarioPackage;
   teams: Team[];
+  liveRoundOps?: M2P4TeacherLiveRoundOps;
 }
 
 export function createTeacherBffWorkspaceDto(
@@ -311,7 +314,8 @@ export function createTeacherBffWorkspaceDto(
     round_control,
     teacher_dashboard,
     teacher_replay_summary,
-    team_monitor
+    team_monitor,
+    ...(input.liveRoundOps ? { live_round_ops: input.liveRoundOps } : {})
   };
 }
 
@@ -322,6 +326,7 @@ export interface StudentBffProjectionInput {
   round: Round;
   run: Run;
   team: Team;
+  projectContext?: M2P4StudentProjectContext;
 }
 
 function createStudentBase(input: StudentBffProjectionInput): StudentBffDtoBase {
@@ -341,7 +346,8 @@ function createStudentBase(input: StudentBffProjectionInput): StudentBffDtoBase 
     run_id: input.run.run_id,
     source_runtime_path: [...STUDENT_RUNTIME_PATHS],
     team_id: input.team.team_id,
-    tenant_id: input.course.tenant_id
+    tenant_id: input.course.tenant_id,
+    ...(input.projectContext ? { project_context: input.projectContext } : {})
   };
 }
 
@@ -393,7 +399,8 @@ export function createStudentBffCockpitDto(input: StudentBffProjectionInput): St
     learning_report,
     published_result,
     student_cockpit,
-    three_part_feedback
+    three_part_feedback,
+    ...(input.projectContext ? { project_context: input.projectContext } : {})
   };
 }
 

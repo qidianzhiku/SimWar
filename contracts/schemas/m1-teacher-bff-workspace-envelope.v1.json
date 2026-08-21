@@ -22,7 +22,10 @@
         "round_control": { "type": "object" },
         "teacher_dashboard": { "type": "object" },
         "teacher_replay_summary": { "type": "object" },
-        "team_monitor": { "type": "object" }
+        "team_monitor": { "type": "object" },
+        "live_round_ops": {
+          "$ref": "m2p4-live-round-ops.v1.json#/$defs/teacher_live_round_ops"
+        }
       }
     }
   }

@@ -22,7 +22,10 @@
         "learning_report": { "$ref": "#/$defs/student_projection" },
         "published_result": { "$ref": "#/$defs/student_projection" },
         "student_cockpit": { "$ref": "#/$defs/student_projection" },
-        "three_part_feedback": { "$ref": "#/$defs/student_projection" }
+        "three_part_feedback": { "$ref": "#/$defs/student_projection" },
+        "project_context": {
+          "$ref": "m2p4-live-round-ops.v1.json#/$defs/student_project_context"
+        }
       }
     }
   },

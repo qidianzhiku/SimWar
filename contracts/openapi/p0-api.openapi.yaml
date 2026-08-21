@@ -2006,7 +2006,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Teacher workspace projection
+          description: Teacher workspace projection. M2-P4 adds the server-owned live_round_ops projection with exact Team Project/Role/Decision readiness, lock/settlement/publication task states, receipts, and the existing W3/P2-B debrief handoff.
           content:
             application/json:
               schema:
@@ -2033,7 +2033,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Student cockpit projection without internal truth or Replay evidence
+          description: Student cockpit projection without internal truth or Replay evidence. M2-P4 adds an optional exact, role-safe project_context; official result and outcome-derived learning remain unavailable before PUBLISHED.
           content:
             application/json:
               schema:
@@ -4734,7 +4734,8 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
         "409":
           description: Tenant, course, or exact reference conflict.
-          content: { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
   /api/v1/bff/{surface}/w4/runs/{runId}/counterfactual:
     post:
@@ -4759,10 +4760,14 @@ paths:
         "200":
           description: Deterministic non-official multi-round fork with explicit no-write flags.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/W4CounterfactualEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W4CounterfactualEnvelope" } }
+            }
         "409":
           description: Source lineage or runtime binding conflict.
-          content: { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
   /api/v1/bff/admin/w4/portfolio:
     get:
@@ -7540,6 +7545,10 @@ components:
       $ref: "../schemas/m1-teacher-bff-workspace-envelope.v1.json"
     M1StudentBffCockpitEnvelope:
       $ref: "../schemas/m1-student-bff-cockpit-envelope.v1.json"
+    M2P4TeacherLiveRoundOps:
+      $ref: "../schemas/m2p4-live-round-ops.v1.json#/$defs/teacher_live_round_ops"
+    M2P4StudentProjectContext:
+      $ref: "../schemas/m2p4-live-round-ops.v1.json#/$defs/student_project_context"
     M1PublicReplayEvidence:
       $ref: "../schemas/m1-public-replay-evidence.v1.json"
     W027StudentDecisionExperienceEnvelope:
@@ -7592,7 +7601,16 @@ components:
       type: object
       additionalProperties: false
       required:
-        [tenant_id, course_id, run_id, team_id, round_id, enterprise_state_id, version, state_digest]
+        [
+          tenant_id,
+          course_id,
+          run_id,
+          team_id,
+          round_id,
+          enterprise_state_id,
+          version,
+          state_digest
+        ]
       properties:
         tenant_id: { type: string, minLength: 1 }
         course_id: { type: string, minLength: 1 }
@@ -7645,7 +7663,17 @@ components:
       type: object
       additionalProperties: false
       required:
-        [source_state_ref, source_outcome_id, decision_ids, horizon_rounds, scenario_package_id, parameter_set_id, engine_id, plugin_ids, seed]
+        [
+          source_state_ref,
+          source_outcome_id,
+          decision_ids,
+          horizon_rounds,
+          scenario_package_id,
+          parameter_set_id,
+          engine_id,
+          plugin_ids,
+          seed
+        ]
       properties:
         source_state_ref: { $ref: "#/components/schemas/W4StateRef" }
         source_outcome_id: { type: string, minLength: 1 }
