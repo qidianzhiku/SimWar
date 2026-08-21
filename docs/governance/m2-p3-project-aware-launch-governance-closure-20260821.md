@@ -17,7 +17,8 @@ Forward source: `origin/master` at
 
 `PASS_WITH_LIMITS` for the authorized M2-P3 project-aware Course launch scope.
 The Product PR was merged after exact-reference readiness, lifecycle, active-Run,
-open-opening-Round, team-set idempotency and OpenAPI review gates were closed.
+open-opening-Round, team-set idempotency and the project-aware path/success
+contract review gates were closed.
 The existing Course, Run, Round, Formal Course binding, W4 initial-state writer,
 Project Library and role-safe Student authority paths remain the sole writers for
 their respective domains. No second Course/Run writer, implicit latest/current
@@ -39,8 +40,10 @@ provider, or model provider was introduced.
   fields remain excluded.
 - Admin audit is tenant-scoped and reads Project Library, readiness and launch
   receipt lineage without becoming a new runtime authority.
-- All five project-aware BFF routes and their request/response/error schemas are
-  declared in `contracts/openapi/p0-api.openapi.yaml`.
+- All five project-aware BFF routes and their request/success schemas are declared
+  in `contracts/openapi/p0-api.openapi.yaml`. The non-2xx entries currently retain
+  descriptive responses without a shared structured error-envelope schema; that
+  contract hardening is explicitly not claimed as complete in this closure.
 
 ## Evidence receipts
 
@@ -71,6 +74,8 @@ independent worktrees.
 - Fresh detached frontend budget receipt reported `status: passed` and
   `failures: []` for Admin, Teacher and Student under the existing budget.
 - The detached worktree was clean and removed after validation.
+- The project-aware contract test verifies all five route declarations and the
+  readiness/blocker vocabulary; it does not claim typed non-2xx error envelopes.
 
 ## Known limits and non-claims
 
@@ -82,6 +87,9 @@ independent worktrees.
   approval or external deployment is claimed.
 - Existing issue #418 remains `PRESERVED_NOT_CONSUMED`; this closure does not
   consume, rewrite or close that issue.
+- Structured non-2xx OpenAPI error envelopes for the five project-aware routes
+  remain a follow-up contract-hardening item and are not a Product PR acceptance
+  claim here.
 - The repository's existing npm audit output reported 2 low and 7 high
   vulnerabilities; no dependency or lockfile change was made by this mission.
 - CodeGraph evidence was retained as structural/tooling evidence; current
