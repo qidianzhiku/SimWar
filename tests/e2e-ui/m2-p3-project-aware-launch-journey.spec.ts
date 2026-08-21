@@ -27,9 +27,9 @@ test("@m2-p3-real completes exact project-aware readiness, launch and safe stude
 
   await page.goto(teacherBaseUrl);
   await signIn(page, "teacher", "教师登录");
-  const teacherPanel = page.getByRole("region", { name: "Project-aware Course launch" });
-  await expect(teacherPanel).toContainText("BLOCKED");
-  await expect(teacherPanel).toContainText("MISSING_ASSIGNMENT");
+  const teacherPanel = page.getByRole("region", { name: "项目开课准备" });
+  await expect(teacherPanel).toContainText("暂不可开课");
+  await expect(teacherPanel).toContainText("缺少项目档案分配");
 
   const projectLibrary = page.getByRole("region", { name: "Project Library and assignment" });
   await projectLibrary.getByLabel("Assignment 队伍").selectOption("team_beta");
@@ -38,17 +38,17 @@ test("@m2-p3-real completes exact project-aware readiness, launch and safe stude
 
   await page.reload();
   await signIn(page, "teacher", "教师登录");
-  const readyPanel = page.getByRole("region", { name: "Project-aware Course launch" });
-  await expect(readyPanel).toContainText("READY");
+  const readyPanel = page.getByRole("region", { name: "项目开课准备" });
+  await expect(readyPanel).toContainText("可开课");
   await expect(readyPanel).toContainText("team_alpha");
   await expect(readyPanel).toContainText("team_beta");
   await expect(readyPanel).toContainText("shanghai-project-m2-p3-browser");
-  await readyPanel.getByRole("button", { name: "Launch project-aware Course" }).click();
-  await expect(readyPanel).toContainText("ACCEPTED");
+  await readyPanel.getByRole("button", { name: "确认并开课" }).click();
+  await expect(readyPanel).toContainText("已接受");
 
   await page.goto(studentBaseUrl);
   await signIn(page, "student", "学员登录");
-  const studentPanel = page.getByRole("region", { name: "Student project-aware context" });
+  const studentPanel = page.getByRole("region", { name: "学生项目上下文" });
   await expect(studentPanel).toContainText("team_alpha");
   await expect(studentPanel).toContainText("CEO");
   await expect(studentPanel).toContainText("M2-P3 Matched Arena");
@@ -61,7 +61,7 @@ test("@m2-p3-real completes exact project-aware readiness, launch and safe stude
   try {
     await betaPage.goto(studentBaseUrl);
     await signIn(betaPage, "student_beta", "学员登录");
-    const betaPanel = betaPage.getByRole("region", { name: "Student project-aware context" });
+    const betaPanel = betaPage.getByRole("region", { name: "学生项目上下文" });
     await expect(betaPanel).toContainText("team_beta");
     await expect(betaPanel).toContainText("M2-P3 Matched Arena");
   } finally {
@@ -70,9 +70,9 @@ test("@m2-p3-real completes exact project-aware readiness, launch and safe stude
 
   await page.goto(adminBaseUrl);
   await signIn(page, "admin", "管理员登录");
-  const auditPanel = page.getByRole("region", { name: "Project-aware launch audit" });
-  await expect(auditPanel).toContainText("READY");
-  await expect(auditPanel).toContainText("Launch receipts");
-  await expect(auditPanel).toContainText("ACCEPTED");
+  const auditPanel = page.getByRole("region", { name: "项目开课审计" });
+  await expect(auditPanel).toContainText("可开课");
+  await expect(auditPanel).toContainText("开课回执");
+  await expect(auditPanel).toContainText("已接受");
   expect(M2P3_RUN_ID).toBe("run_m2_p3_project_aware_browser");
 });
