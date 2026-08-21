@@ -1,23 +1,23 @@
-cycle_id: SIMWAR-M2P3-PROJECT-AWARE-LAUNCH-V5.14-20260821
+cycle_id: SIMWAR-M2P4-LIVE-ROUND-OPS-V5.18-20260821
 stage: L1_PLUS
-status: PRODUCT_AND_GOVERNANCE_CLOSURE_WITH_LIMITS
+status: PRODUCT_MERGED_GOVERNANCE_CLOSURE_PENDING_READBACK
 started_at: "2026-08-21T08:55:56Z"
-product_closed_at: "2026-08-21T13:15:20Z"
-governance_updated_at: "2026-08-21T13:15:20Z"
+product_closed_at: "2026-08-21T18:35:31Z"
+governance_updated_at: "2026-08-21T18:35:31Z"
 repository: qidianzhiku/SimWar
-source_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+source_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
 source_sha_semantics: PRODUCT_MERGE_EXACT_SHA_BEFORE_DOCS_ONLY_GOVERNANCE_CLOSURE
-execution_base_sha: cfd35ddd560dba2da4420f8a7586f234391423fa
-product_evidence_source_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
-product_candidate_sha: 4101cbe4a1cf55585fcb3286e6cbdc6e652eab8d
+execution_base_sha: 969bfd7457ea665946fe59a808694d31e2c815d0
+product_evidence_source_sha: 2ab9b0a0c1f117b9cf048885e77f6a07c88a118e
+product_candidate_sha: 2ab9b0a0c1f117b9cf048885e77f6a07c88a118e
 product_prs:
-  - 426
-product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
-product_merge_tree: 44a653ec3c084df4ced4bdaf3ecd978e24295548
-governance_pr: 428
+  - 434
+product_merge_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
+product_merge_tree: 2d7b092947e9757500a38452040602172fb75fa0
+governance_pr: PENDING_CREATION
 governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
 governance_closure_readback: PENDING_UNTIL_FINAL_DETACHED_READBACK
-current_master_at_readback: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+current_master_at_readback: fbda560081e880bc4a3daf185d3c8e57092ea18a
 current_planning_pointer_disposition: RECONCILED_MUTABLE_CURRENT_POINTER
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
@@ -25,43 +25,43 @@ human_validation: NOT_PERFORMED
 pilot_production: NOT_AUTHORIZED
 automatic_next_start: false
 predecessor:
-  cycle_id: SIMWAR-M2P3-PROJECT-AWARE-LAUNCH-PRIOR-20260821
-  product_pr: 422
-  product_merge_sha: 4d6e4f1077faa9e9096556a0f186900add13bc35
-  governance_pr: 423
-  governance_merge_sha: 95b8616e743e054fa081b506fdc097741e540164
-  completed_product_baseline: 4d6e4f1077faa9e9096556a0f186900add13bc35
-primary_outcome: PROJECT_AWARE_COURSE_LAUNCH_STUDENT_ENTRY_READY
+  cycle_id: SIMWAR-M2P3-PROJECT-AWARE-LAUNCH-V5.14-20260821
+  product_pr: 426
+  product_merge_sha: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+  governance_pr: 428
+  governance_merge_sha: PENDING_UNTIL_GOVERNANCE_READBACK
+  completed_product_baseline: c0ee529ed3bc9d9c61e0df4f7a5e59784ab1bfb1
+primary_outcome: TEACHER_LIVE_ROUND_OPERATIONS_AND_STUDENT_SAFE_PROJECT_RESULT_FLOW
 formal_roles: EXISTING_TEAM_ROLE_WORKFLOW_DECLARATIONS
 scope:
-  - exact ProjectProfile and ProjectAssignment references for Course/Run/Team launch
-  - one unified readiness projection with explicit blocker owner and recovery metadata
-  - formal Course/Run/Round binding and existing W4 initial-state authority retained
-  - matched-arena per-team EnterpriseState isolation under one exact ProjectProfileRef
-  - Student tenant/course/run/team/role/project-safe entry and explicit cross-team denial
-  - tenant-scoped Admin launch and lineage audit projection
+  - exact Course/Run/Round and all-team Project/Role/Decision readiness projection
+  - server-owned live-round lock, settlement preview, publication and handoff status
+  - existing sole Settlement and Publication authorities retained
+  - Student own-team Project context/result firewall and explicit cross-team denial
+  - existing W4 lineage and W3/P2-B teacher-debrief handoff reused
   - no second Course, Run, role, W4, settlement, Replay, provider, model, or successor authority
 validation:
   github_product_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
-  product_pr: PASS_MERGED_426
-  product_merge_fresh_detached: PASS_CLEAN_AT_C0EE529
-  focused_project_aware: PASS_15_TESTS_POST_MERGE
+  product_pr: PASS_MERGED_434
+  product_merge_fresh_detached: PASS_CLEAN_AT_FBDA560
+  focused_live_round_ops: PASS_UNIT_INTEGRATION_AND_DEDICATED_BROWSER
   post_merge_build: PASS
   post_merge_typecheck: PASS
   post_merge_browser: PASS_1_REAL_BFF_TEST_WITH_MOCKS_OFF
-  post_merge_contract: PASS_20_BASELINE_37_M1_29_SCHEMA_GROUPS
+  post_merge_contract: PASS_20_BASELINE_38_M1_29_SCHEMA_GROUPS
   hidden_unicode: PASS
   direct_store_boundary: PASS_NEW_0
-  dual_knowledge_graph: PASS_WITH_LIMITS_CODEGRAPH_UNAVAILABLE_GRAPHIFY_RECONCILED
+  dual_knowledge_graph: PASS_WITH_LIMITS_CODEGRAPH_INDEX_CURRENT_GRAPHIFY_RECONCILED
   local_vault: PASS_BOUNDED_HISTORICAL_REFERENCE_RECEIPT
   competitor_oss_allowlist: PASS_READ_ONLY_RECEIPTS
-  matched_arena: PASS_SAME_PROFILE_DISTINCT_ASSIGNMENTS_AND_W4_STATE_IDS
+  postgres_replay: REMOTE_PASS_LOCAL_ENV_BLOCKED
+  m2p4_teacher_lock_settle_publish: PASS
   issue_418: PRESERVED_NOT_CONSUMED
   planning_pointer: RECONCILED_MUTABLE_CURRENT_POINTER
 known_limits:
-  full_suite: LOCAL_BASELINE_224_FILES_PASS_17_FAILURES_5_WORKER_ERRORS_NOT_RECLASSIFIED
+  full_suite: LOCAL_CONCURRENT_243_FILES_PASS_1_FAILURE_SERIAL_AFFECTED_FILE_147_OF_147
   full_accessibility: NOT_CLAIMED_KNOWN_COLOR_CONTRAST_LIMIT_REMAINS_VISIBLE
-  graph: CODEGRAPH_UNAVAILABLE_CURRENT_INDEX_SOURCE_FALLBACK_GRAPHIFY_RECEIPT_RETAINED
+  graph: GRAPHIFY_PARTIAL_EXTRACTION_CODEGRAPH_INDEX_CURRENT_RECEIPT_RETAINED
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN_BY_AUTOMATED_BROWSER_EVIDENCE
   dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
@@ -78,15 +78,18 @@ invalidation_triggers:
   - student-or-admin-scope-boundary_changed
   - settlement-or-replay-truth-semantics_changed
   - formal-binding-or-w4-state-writer_changed
+  - publication-visibility-or-student-result-firewall_changed
+  - round-lock-settlement-publication-or-context_changed
+  - w3-p2b-debrief-handoff_changed
   - governance-merge-readback-does-not-match-recorded-product-head
 resource_locks:
   status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
   held:
-    - M2P3_PROJECT_AWARE_LAUNCH
-    - M2P3_PRODUCT_PR_426
-    - M2P3_GOVERNANCE_CLOSURE_PR_428
+    - M2P4_LIVE_ROUND_OPERATIONS
+    - M2P4_PRODUCT_PR_434
+    - M2P4_GOVERNANCE_CLOSURE_PENDING
   pending: []
 candidate_backlog:
-  - candidate_id: M2P4-NEXT-PENDING-OWNER-DIRECTION
+  - candidate_id: M2P5-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_OWNER_DIRECTION
     reason: No automatic successor start is authorized; the next wave requires fresh current reality and explicit owner direction.
