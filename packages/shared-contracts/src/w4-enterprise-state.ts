@@ -318,6 +318,22 @@ export interface W4PathEvidence {
   };
 }
 
+export interface W4StrategicActionProjection {
+  decision_id: string;
+  kind: W4StrategicDecisionKind;
+  version: number;
+  admission: Pick<
+    W4DecisionAdmission,
+    "policy" | "authority" | "canonical_decision_id" | "merge_commit_id" | "team_confirmation_id"
+  >;
+  cost: number;
+  lead_time_rounds: number;
+  reversible: boolean;
+  dependencies: string[];
+  kpi_hypothesis: string;
+  known_limits: string[];
+}
+
 export interface W4ProjectionBase {
   scope: Pick<W4ScopeContext, "tenant_id" | "course_id" | "run_id" | "team_id">;
   opening_state_ref: W4StateRef | null;
@@ -326,6 +342,7 @@ export interface W4ProjectionBase {
   initiatives: W4StrategicInitiative[];
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
+  latest_strategic_action: W4StrategicActionProjection | null;
   evidence: W4ReplayEvidence[];
   path_evidence: W4PathEvidence;
 }

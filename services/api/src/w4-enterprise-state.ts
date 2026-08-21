@@ -20,6 +20,7 @@ import type {
   W4StrategicInitiative,
   W4StrategicDecisionKind,
   W4StoreState,
+  W4ProjectionBase,
   Decision
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
@@ -465,6 +466,40 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
     organization: {},
     operating_units: [],
     portfolio: { projects: [], facilities: [] }
+  };
+}
+
+function strategicActionProjection(
+  decision: W4CanonicalStrategicDecision
+): NonNullable<W4ProjectionBase["latest_strategic_action"]> {
+  const payload = decision.payload as unknown as Record<string, unknown>;
+  const hasActionMetadata =
+    typeof payload.reversible === "boolean" &&
+    Array.isArray(payload.dependencies) &&
+    typeof payload.kpi_hypothesis === "string";
+  return {
+    decision_id: decision.decision_id,
+    kind: decision.kind,
+    version: decision.version,
+    admission: {
+      policy: decision.admission.policy,
+      authority: decision.admission.authority,
+      canonical_decision_id: decision.admission.canonical_decision_id,
+      merge_commit_id: decision.admission.merge_commit_id,
+      team_confirmation_id: decision.admission.team_confirmation_id
+    },
+    cost: typeof payload.cost === "number" ? payload.cost : 0,
+    lead_time_rounds: typeof payload.lead_time_rounds === "number" ? payload.lead_time_rounds : 0,
+    reversible: hasActionMetadata ? Boolean(payload.reversible) : false,
+    dependencies: hasActionMetadata
+      ? (payload.dependencies as string[]).map((dependency) => String(dependency))
+      : [],
+    kpi_hypothesis: hasActionMetadata ? String(payload.kpi_hypothesis) : "未提供 KPI 假设",
+    known_limits: hasActionMetadata
+      ? []
+      : [
+          "当前 New Project 历史兼容 payload 未包含 reversible/dependencies/kpi_hypothesis；默认值不代表业务确认。"
+        ]
   };
 }
 
@@ -1111,6 +1146,13 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
       const scopedInitiatives = current.initiatives.filter((item) => scopeMatches(scope, item));
+      const latestStrategicDecision = current.decisions
+        .filter((item) => scopeMatches(scope, item))
+        .sort(
+          (left, right) =>
+            left.round_no - right.round_no || left.decision_id.localeCompare(right.decision_id)
+        )
+        .at(-1);
       const scopedCommitments = current.commitments
         .filter((item) => scopeMatches(scope, item))
         .map(({ commitment_id, kind, status, cost }) => ({ commitment_id, kind, status, cost }));
@@ -1229,6 +1271,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         initiatives: clone(scopedInitiatives),
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
+        latest_strategic_action: latestStrategicDecision
+          ? strategicActionProjection(latestStrategicDecision)
+          : null,
         evidence: clone(scopedEvidence),
         path_evidence: clone(pathEvidence)
       };
