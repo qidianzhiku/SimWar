@@ -196,7 +196,7 @@
   .sw-authority-badge[data-authority="ai-explanation"],
   .sw-authority-badge[data-authority="teacher-comment"]
 ) {
-  color: #1f6b69;
+  color: var(--sw-color-learning-teal);
 }
 
 :where(.sw-authority-badge[data-authority="unknown"]) {

@@ -45,6 +45,7 @@
   --sw-color-surface-base: var(--sw-primitive-color-surface-base);
   --sw-color-surface-white: var(--sw-primitive-color-surface-white);
   --sw-color-surface-border: var(--sw-primitive-color-border);
+
   --sw-color-bg-disabled: color-mix(
     in srgb,
     var(--sw-primitive-color-text-muted) 12%,
