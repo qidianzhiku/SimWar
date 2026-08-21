@@ -30,6 +30,7 @@ import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
+import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import {
@@ -820,6 +821,13 @@ export function App() {
               roundId={latestRound?.round_id}
               roundNo={latestRound?.round_no}
               teamId={team?.team_id}
+            />
+            <ProjectBriefPanel
+              courseId={latestRun?.course_id}
+              runId={latestRun?.run_id}
+              teamId={team?.team_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
             />
           </section>
         ) : null}

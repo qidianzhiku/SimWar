@@ -55,6 +55,11 @@ body {
   min-height: 44px;
 }
 
+.student-shell-content .evidence-note {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .student-shell-content .known-limits-disclosure {
   margin: 0;
 }

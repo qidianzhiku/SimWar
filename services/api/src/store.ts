@@ -51,6 +51,7 @@ import type {
   W5ScenarioDraft,
   W4StoreState
 } from "@simwar/shared-contracts";
+import type { ProjectAssignment, ProjectProfile } from "@simwar/shared-contracts";
 import type { ValidationSessionRecord } from "@simwar/shared-contracts";
 import type { CoursePackageVersion } from "@simwar/shared-contracts";
 import type { FormalRunRuntimeBinding } from "@simwar/shared-contracts";
@@ -106,6 +107,8 @@ export interface SimWarStoreSnapshot {
   parameterSets: ParameterSet[];
   courses: Course[];
   teams: Team[];
+  projectProfiles: ProjectProfile[];
+  projectAssignments: ProjectAssignment[];
   runs: Run[];
   rounds: Round[];
   decisions: Decision[];
@@ -774,6 +777,8 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     parameterSets,
     courses,
     teams,
+    projectProfiles: [],
+    projectAssignments: [],
     runs: [],
     rounds: [],
     decisions: [],
@@ -851,6 +856,8 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     parameterSets: store.parameterSets,
     courses: store.courses,
     teams: store.teams,
+    projectProfiles: store.projectProfiles,
+    projectAssignments: store.projectAssignments,
     runs: store.runs,
     rounds: store.rounds,
     decisions: store.decisions,
@@ -918,6 +925,8 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     permissions: snapshot.permissions ?? seed.permissions,
     userRoles: snapshot.userRoles ?? seed.userRoles,
     rolePermissions: snapshot.rolePermissions ?? seed.rolePermissions,
+    projectProfiles: snapshot.projectProfiles ?? [],
+    projectAssignments: snapshot.projectAssignments ?? [],
     sessions: snapshot.sessions ?? [],
     formalParameterSetApprovalRecords: snapshot.formalParameterSetApprovalRecords ?? [],
     formalParameterSetLifecycleSnapshots: snapshot.formalParameterSetLifecycleSnapshots ?? [],

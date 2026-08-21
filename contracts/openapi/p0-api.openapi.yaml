@@ -882,6 +882,160 @@ paths:
         "409": { description: Stale or conflicting exact reference }
         "422": { description: Invalid or unknown MarketWorldRef }
         "503": { description: Repository or audit recovery is required }
+  /api/v1/bff/teacher/courses/{courseId}/project-library:
+    get:
+      operationId: TEACHER_PROJECT_LIBRARY_GET_V1
+      summary: Read the exact tenant-scoped Project Profile library for a Course.
+      description: Teacher projection of versioned project provenance and safe configuration. Project Profile is not Runtime Authority; exact CoursePackage and FormalRunRuntimeBinding remain authoritative.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Project Profile library projection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request_id, code, message, data]
+                properties:
+                  request_id: { type: string }
+                  code: { type: string }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [course_id, profiles]
+                    properties:
+                      course_id: { type: string }
+                      profiles:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            [
+                              description,
+                              market_world_reference,
+                              project_profile_reference,
+                              readiness,
+                              status,
+                              title,
+                              version
+                            ]
+                          properties:
+                            description: { type: string }
+                            market_world_reference:
+                              $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+                            project_profile_reference:
+                              $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
+                            readiness:
+                              type: array
+                              items: { type: string }
+                            status: { type: string, enum: [DRAFT, VALIDATED, RETIRED] }
+                            successor_of:
+                              $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
+                            title: { type: string }
+                            version: { type: string }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or tenant administrator authority required }
+        "404": { description: Course not found in tenant scope }
+    post:
+      operationId: TEACHER_PROJECT_LIBRARY_CREATE_V1
+      summary: Append one normalized safe Project Profile draft.
+      description: The command accepts a closed normalized object only. Raw source paths, restricted source data and runtime truth fields are rejected.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [project_profile]
+              properties:
+                project_profile:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    [
+                      customer_segment,
+                      description,
+                      geography,
+                      industry,
+                      market_world_reference,
+                      positioning,
+                      project_profile_id,
+                      service_bundle,
+                      starting_capacity,
+                      starting_cash,
+                      template_id,
+                      title,
+                      version
+                    ]
+                  properties:
+                    customer_segment: { type: string }
+                    description: { type: string }
+                    geography: { type: string }
+                    industry: { type: string }
+                    market_world_reference:
+                      $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+                    positioning: { type: string }
+                    project_profile_id: { type: string }
+                    service_bundle: { type: string }
+                    starting_capacity: { type: number, minimum: 0 }
+                    starting_cash: { type: number, minimum: 0 }
+                    template_id: { type: string }
+                    title: { type: string }
+                    version: { type: string }
+      responses:
+        "201":
+          description: Draft Project Profile appended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectProfileEnvelope"
+        "401": { description: Authentication required }
+        "403": { description: Teacher authority required }
+        "409": { description: Duplicate immutable identity }
+        "422": { description: Invalid or unsafe normalized profile }
+  /api/v1/bff/teacher/courses/{courseId}/project-library/{operation}:
+    post:
+      operationId: TEACHER_PROJECT_LIBRARY_COMMAND_V1
+      summary: Validate, clone, create successor, import, or assign an exact Project Profile.
+      description: Operation is append-only and exact-reference based. Assignments are idempotent for the same team/run/profile reference and reject a conflicting reference.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: operation
+          in: path
+          required: true
+          schema: { type: string, enum: [import, validate, clone, successor, retire, assign] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "200": { description: Exact command result or idempotent assignment }
+        "201": { description: New immutable profile or assignment }
+        "401": { description: Authentication required }
+        "403": { description: Tenant or role scope denied }
+        "404": { description: Exact dependency not found }
+        "409": { description: "Lifecycle, history, or assignment conflict" }
+        "422": { description: Invalid exact reference or normalized input }
   /api/v1/bff/teacher/formal-course-bindings/preview:
     post:
       operationId: TEACHER_FORMAL_COURSE_BINDING_PREVIEW_V1
@@ -1468,6 +1622,45 @@ paths:
                 $ref: "#/components/schemas/AdminMarketWorldBindingsEnvelope"
         "401": { description: Authentication required }
         "403": { description: Tenant administrator or platform administrator authority required }
+  /api/v1/bff/admin/project-library:
+    get:
+      operationId: ADMIN_PROJECT_LIBRARY_GET_V1
+      summary: Read tenant-scoped Project Profile and Assignment audit projections.
+      description: Governance projection only; it does not grant runtime or W4 truth-writing authority.
+      security:
+        - SessionBearer: []
+      responses:
+        "200": { description: Tenant-scoped Project Library audit projection }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or platform administrator authority required }
+  /api/v1/bff/student/project-brief:
+    get:
+      operationId: STUDENT_PROJECT_BRIEF_GET_V1
+      summary: Read the assigned role-safe Project Profile brief.
+      description: Student receives only the exact assignment for the supplied Course, Run and Team context. The projection is closed and excludes private source and official outcome data.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: run_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: team_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          {
+            description: "Assigned role-safe Project Profile brief, or null when the current team has no assignment yet"
+          }
+        "401": { description: Authentication required }
+        "403": { description: Student team scope denied }
+        "404": { description: Assignment not found }
   /api/v1/bff/admin/courses/{courseId}/runs/{runId}/lifecycle/{operation}:
     post:
       operationId: SYNTHETIC_RUN_LIFECYCLE_OPERATION_POST_V1
@@ -4326,7 +4519,11 @@ paths:
       responses:
         "200":
           description: Teacher W5 governed model projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5TeacherGovernedModelEnvelope" } } }
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W5TeacherGovernedModelEnvelope" } }
+            }
 
   /api/v1/bff/teacher/w5/scenario-studio/drafts:
     post:
@@ -4341,7 +4538,8 @@ paths:
       responses:
         "201":
           description: W5 draft created.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
 
   /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/validate:
     post:
@@ -4353,7 +4551,8 @@ paths:
       responses:
         "200":
           description: W5 draft validated.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
 
   /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/freeze:
     post:
@@ -4365,7 +4564,8 @@ paths:
       responses:
         "200":
           description: W5 draft frozen.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
 
   /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/bind:
     post:
@@ -4382,7 +4582,8 @@ paths:
       responses:
         "200":
           description: W5 draft exactly bound.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
 
   /api/v1/bff/teacher/w5/scenario-studio/drafts/{draftId}/evaluate:
     post:
@@ -4399,7 +4600,8 @@ paths:
       responses:
         "200":
           description: W5 non-official convergence projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W5MutationEnvelope" } } }
 
   /api/v1/bff/student/w5/convergence:
     get:
@@ -4410,11 +4612,20 @@ paths:
         - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
         - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
         - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
-        - { name: experienceProfile, in: query, required: false, schema: { enum: [STANDARD, ADVANCED] } }
+        - {
+            name: experienceProfile,
+            in: query,
+            required: false,
+            schema: { enum: [STANDARD, ADVANCED] }
+          }
       responses:
         "200":
           description: Role-safe student W5 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W5StudentGovernedModelEnvelope" } } }
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W5StudentGovernedModelEnvelope" } }
+            }
 
 components:
   securitySchemes:
@@ -4432,6 +4643,16 @@ components:
       name: X-Service-Principal
       description: Must identify the service kernel principal for internal settlement.
   schemas:
+    ProjectProfileEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          $ref: "../schemas/project-profile.v1.json"
+        message: { type: string }
+        request_id: { type: string }
     TeachingClosureEnvelope:
       type: object
       required: [code, data, message, request_id]
@@ -5937,7 +6158,16 @@ components:
         code: { type: string }
         data:
           type: object
-          required: [schema_version, course_id, tenant_id, binding_state, available_market_worlds, readiness, known_limits]
+          required:
+            [
+              schema_version,
+              course_id,
+              tenant_id,
+              binding_state,
+              available_market_worlds,
+              readiness,
+              known_limits
+            ]
           properties:
             schema_version: { const: market-world.v1 }
             course_id: { type: string, minLength: 1 }

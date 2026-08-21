@@ -234,7 +234,11 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/student/w4/runs/{runId}/rounds/{roundNo}/portfolio",
   "/api/v1/bff/teacher/w4/runs/{runId}/rounds/{roundNo}/portfolio",
   "/api/v1/bff/admin/w4/runs/{runId}/rounds/{roundNo}/portfolio",
-  "/api/v1/bff/admin/w4/portfolio"
+  "/api/v1/bff/admin/w4/portfolio",
+  "/api/v1/bff/teacher/courses/{courseId}/project-library",
+  "/api/v1/bff/teacher/courses/{courseId}/project-library/{operation}",
+  "/api/v1/bff/student/project-brief",
+  "/api/v1/bff/admin/project-library"
 ];
 
 const schemaCases = [
@@ -389,6 +393,16 @@ const schemaCases = [
     schema: "contracts/schemas/w4-enterprise-state.v1.json",
     valid: ["contracts/fixtures/w4-enterprise-state.valid.json"],
     invalid: ["contracts/fixtures/w4-enterprise-state.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/project-profile.v1.json",
+    valid: ["contracts/fixtures/project-profile.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/project-assignment.v1.json",
+    valid: ["contracts/fixtures/project-assignment.valid.json"],
+    invalid: []
   }
 ];
 

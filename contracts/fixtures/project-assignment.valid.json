@@ -1,0 +1,16 @@
+{
+  "assigned_at": "2026-08-21T00:00:00.000Z",
+  "assigned_by": "usr_teacher",
+  "assignment_id": "project-assignment-001",
+  "course_id": "course_demo",
+  "project_profile_reference": {
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "project_profile_id": "shanghai-project-alpha",
+    "tenant_id": "tenant_demo",
+    "version": "2026-08-21.1"
+  },
+  "run_id": "run_project_library",
+  "schema_version": "project-assignment.v1",
+  "team_id": "team_alpha",
+  "tenant_id": "tenant_demo"
+}
