@@ -84,7 +84,7 @@
 }
 :is(.p2b-metric-grid, .p2b-blocker-grid, .p2b-prep-grid) span,
 .p2b-field > span {
-  color: var(--sw-color-text-subtle);
+  color: var(--sw-color-text-subtle-accessible);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -124,7 +124,7 @@
 .p2b-teachable-card span,
 .p2b-safe-copy,
 .p2b-known-limit {
-  color: var(--sw-color-text-subtle);
+  color: var(--sw-color-text-subtle-accessible);
   font-size: 0.84rem;
   line-height: 1.5;
 }

@@ -62,6 +62,9 @@
   --sw-color-border-transfer: #a6cbc4;
   --sw-color-text-body: #52646e;
   --sw-color-text-subtle: #627d98;
+  /* Figma P2-B muted text is retained above as the visual primitive. Use the
+     AA presentation alias for small text on white/metric surfaces. */
+  --sw-color-text-subtle-accessible: #4b6478;
   --sw-color-text-blocked: #6b5320;
   --sw-color-state-critical: #9f2f2c;
   --sw-color-focus-warm: #d4a72c;

@@ -23,6 +23,7 @@ describe("P2-B Figma token contract", () => {
       "--sw-color-surface-blocked",
       "--sw-color-border-soft",
       "--sw-color-border-input",
+      "--sw-color-text-subtle-accessible",
       "--sw-color-state-critical",
       "--sw-color-focus-warm",
       "--sw-control-min-height"

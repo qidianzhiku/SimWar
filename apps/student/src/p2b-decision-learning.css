@@ -95,7 +95,7 @@
 }
 :is(.p2b-metric-grid, .p2b-compare-grid, .p2b-blocker-grid, .p2b-prep-grid) span,
 .p2b-field > span {
-  color: var(--sw-color-text-subtle);
+  color: var(--sw-color-text-subtle-accessible);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -120,11 +120,11 @@
   display: block;
 }
 .p2b-mechanism-chain span {
-  color: var(--sw-color-text-subtle);
+  color: var(--sw-color-text-subtle-accessible);
   font-size: 0.76rem;
 }
 :is(.p2b-source-note, .p2b-boundary-note, .p2b-known-limit, .p2b-inline-status, .p2b-safe-copy) {
-  color: var(--sw-color-text-subtle);
+  color: var(--sw-color-text-subtle-accessible);
   font-size: 0.84rem;
   line-height: 1.5;
   margin-top: var(--sw-space-12);
