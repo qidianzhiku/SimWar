@@ -61,10 +61,21 @@ function stateValueLabel(value: string | undefined, fallback = "等待中"): str
       {
         ready: "已就绪",
         active: "进行中",
+        in_progress: "进行中",
+        draft: "待开始",
         pending: "待处理",
         blocked: "存在阻塞",
         completed: "已完成",
-        available: "可查看"
+        failed: "处理失败",
+        cancelled: "已取消",
+        available: "可查看",
+        empty: "暂无记录",
+        official: "正式结果",
+        proven: "已验证",
+        not_observed: "尚未观察",
+        approved: "已批准",
+        construction: "建设中",
+        activated: "已启用"
       } as Record<string, string>
     )[value.toLowerCase()] ?? value
   );
