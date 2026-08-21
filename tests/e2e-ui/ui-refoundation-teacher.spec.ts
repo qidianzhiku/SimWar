@@ -904,7 +904,9 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
       new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
     );
   });
-  await expect(page.getByText("服务端未授权此操作：round:start", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("已阻塞").getByText("服务端未授权此操作：round:start", { exact: true })
+  ).toBeVisible();
   await expect.poll(api.getStartRequests).toBe(0);
 
   api.allowStart();
