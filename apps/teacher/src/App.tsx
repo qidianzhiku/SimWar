@@ -103,6 +103,8 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
+const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
@@ -2113,13 +2115,17 @@ export function App() {
                   .map((team) => team.team_id) ?? []
               }
             />
-            <ProjectAwareCourseLaunchPanel
-              baseUrl={API_BASE}
-              courseId={selectedRun?.course_id ?? selectedCourseId ?? undefined}
-              runId={selectedRun?.run_id ?? selectedRunId ?? undefined}
-              tenantId={login.tenantId}
-              token={session.access_token}
-            />
+            {selectedRun &&
+            selectedRun.course_id === PROJECT_AWARE_COURSE_ID &&
+            selectedRun.run_id === PROJECT_AWARE_RUN_ID ? (
+              <ProjectAwareCourseLaunchPanel
+                baseUrl={API_BASE}
+                courseId={selectedRun.course_id}
+                runId={selectedRun.run_id}
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            ) : null}
             <GoldenJourneyWorkbench
               courseId={selectedRun?.course_id ?? selectedCourseId}
               runId={selectedRun?.run_id ?? selectedRunId}

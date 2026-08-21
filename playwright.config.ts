@@ -96,7 +96,13 @@ export default defineConfig({
     {
       command: `npm run dev -w @simwar/teacher -- --host 127.0.0.1 --port ${teacherPort}`,
       env: {
-        VITE_API_BASE_URL: apiBaseUrl
+        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_SIMWAR_PROJECT_AWARE_COURSE_ID:
+          process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE === "true" ? "course_demo" : "",
+        VITE_SIMWAR_PROJECT_AWARE_RUN_ID:
+          process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE === "true"
+            ? "run_m2_p3_project_aware_browser"
+            : ""
       },
       reuseExistingServer: false,
       timeout: 180_000,
@@ -105,7 +111,13 @@ export default defineConfig({
     {
       command: `npm run dev -w @simwar/student -- --host 127.0.0.1 --port ${studentPort}`,
       env: {
-        VITE_API_BASE_URL: apiBaseUrl
+        VITE_API_BASE_URL: apiBaseUrl,
+        VITE_SIMWAR_PROJECT_AWARE_COURSE_ID:
+          process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE === "true" ? "course_demo" : "",
+        VITE_SIMWAR_PROJECT_AWARE_RUN_ID:
+          process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE === "true"
+            ? "run_m2_p3_project_aware_browser"
+            : ""
       },
       reuseExistingServer: false,
       timeout: 180_000,

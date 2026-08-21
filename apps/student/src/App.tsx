@@ -31,7 +31,6 @@ import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
 import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
-import { ProjectAwareStudentContextPanel } from "./ProjectAwareStudentContextPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { isW3ContextAvailable } from "./p2b-w3-context";
@@ -47,7 +46,13 @@ import {
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
+const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
+const ProjectAwareStudentContextPanel = lazy(async () => {
+  const module = await import("./ProjectAwareStudentContextPanel");
+  return { default: module.ProjectAwareStudentContextPanel };
+});
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -834,14 +839,20 @@ export function App() {
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
             />
-            <ProjectAwareStudentContextPanel
-              baseUrl={API_BASE}
-              courseId={latestRun?.course_id}
-              runId={latestRun?.run_id}
-              teamId={team?.team_id}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token ?? ""}
-            />
+            {latestRun &&
+            latestRun.course_id === PROJECT_AWARE_COURSE_ID &&
+            latestRun.run_id === PROJECT_AWARE_RUN_ID ? (
+              <Suspense fallback={<p className="muted">正在载入项目上下文…</p>}>
+                <ProjectAwareStudentContextPanel
+                  baseUrl={API_BASE}
+                  courseId={latestRun.course_id}
+                  runId={latestRun.run_id}
+                  teamId={team?.team_id}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </Suspense>
+            ) : null}
           </section>
         ) : null}
 
