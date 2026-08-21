@@ -223,6 +223,26 @@ describe("Student executive workspace refoundation", () => {
     ).toBe("角色已分配");
   });
 
+  it("keeps the D4 learning report closed before the official result is published", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => {
+      root.render(
+        <StudentLearningReportPanel tenantId="tenant-a" token="student-token" published={false} />
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("正式结果发布后，学习报告才会开放");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
   it("clears Student busy state when an edited login context invalidates a pending sign-in", async () => {
     const pendingLogin = new Promise<Response>(() => undefined);
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => pendingLogin);

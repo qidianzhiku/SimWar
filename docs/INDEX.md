@@ -47,12 +47,19 @@
 
 ## Frontend
 
-| 旧文件名                            | 当前路径                                        | 用途                  |
-| ----------------------------------- | ----------------------------------------------- | --------------------- |
-| `SimWar TEACHER_STUDEN.md`          | `docs/frontend/teacher-student-architecture.md` | 教师端/学员端前端架构 |
-| `SimWar FIGMA_PROTOTYPE_SPEC.md.md` | `docs/frontend/figma-prototype-spec.md`         | Figma 原型规范        |
-| `SimWar I_COMPONENT_LIBRARY.md`     | `docs/frontend/component-library.md`            | UI 组件库             |
-| `SimWar FRONTEND_STATE_FLOW.md`     | `docs/frontend/frontend-state-flow.md`          | 前端状态流            |
+| 旧文件名                            | 当前路径                                                 | 用途                                      |
+| ----------------------------------- | -------------------------------------------------------- | ----------------------------------------- |
+| `SimWar TEACHER_STUDEN.md`          | `docs/frontend/teacher-student-architecture.md`          | 教师端/学员端前端架构                     |
+| `SimWar FIGMA_PROTOTYPE_SPEC.md.md` | `docs/frontend/figma-prototype-spec.md`                  | Figma 原型规范                            |
+| `SimWar I_COMPONENT_LIBRARY.md`     | `docs/frontend/component-library.md`                     | UI 组件库                                 |
+| `SimWar FRONTEND_STATE_FLOW.md`     | `docs/frontend/frontend-state-flow.md`                   | 前端状态流                                |
+| 新增                                | `docs/frontend/p2b-decision-learning-teacher-debrief.md` | P2-B FE-19/FE-20 Figma-to-runtime handoff |
+
+## Governance
+
+| 状态 | 当前路径                                                                      | 用途                      |
+| ---- | ----------------------------------------------------------------------------- | ------------------------- |
+| 新增 | `docs/governance/p2b-decision-learning-teacher-debrief-governance-closure.md` | P2-B 边界、证据与发布状态 |
 
 ## Quality
 

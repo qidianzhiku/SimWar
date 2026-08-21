@@ -53,7 +53,16 @@ const measured = (app, kind) => {
   if (files.length === 0) {
     throw new Error(`No built assets found for ${app}; expected apps/${app}/dist/assets`);
   }
-  const selected = files.filter((file) => file.toLowerCase().endsWith(`.${kind}`));
+  // Measure the initial entry assets only. Lazy route/workbench chunks are
+  // intentionally reported by the runtime/route evidence rather than being
+  // counted twice as initial transfer budget.
+  const selected = files.filter(
+    (file) =>
+      file.toLowerCase().endsWith(`.${kind}`) && /^index-/i.test(file.split(/[\\/]/).pop() ?? "")
+  );
+  if (selected.length === 0) {
+    throw new Error(`No ${kind} entry asset found for ${app}; expected index-* assets`);
+  }
   const rawBytes = selected.reduce((total, file) => total + readFileSync(file).byteLength, 0);
   const gzipBytes = selected.length
     ? selected

@@ -32,6 +32,11 @@ test("Student executive workspace exposes the thirteen real logical locations", 
     page.getByLabel("learner status").getByText("Alpha 康养队", { exact: true })
   ).toBeVisible();
   await expect(page.getByTestId("student-golden-journey")).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "学员决策学习旅程" })).toBeVisible();
+  await expect(
+    page.locator('[data-testid="student-p2b-blocked"], [data-testid="student-p2b-result"]')
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "student learning report" })).toBeVisible();
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 1280, height: 800 },

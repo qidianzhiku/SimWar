@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
@@ -35,6 +44,7 @@ import {
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -324,7 +334,7 @@ export function App() {
   const w5DraftId =
     typeof window === "undefined"
       ? ""
-      : new URLSearchParams(window.location.search).get("w5DraftId") ?? "";
+      : (new URLSearchParams(window.location.search).get("w5DraftId") ?? "");
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -775,7 +785,9 @@ export function App() {
               <h2>受控模型收敛视图</h2>
               {w5Projection ? (
                 <p className="evidence-note">
-                  {w5Projection.visibility} · CAN={w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED={w5Projection.convergence.realized.authority}
+                  {w5Projection.visibility} · CAN=
+                  {w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
+                  {w5Projection.convergence.realized.authority}
                 </p>
               ) : null}
             </div>
@@ -1092,18 +1104,30 @@ export function App() {
             <WorkbenchFrame
               ariaLabel="复盘"
               eyebrow="反馈"
-              title="复盘与建议"
+              title="决策学习与复盘"
               badge={<AuthorityBadge authority="advisory" />}
-              boundary="建议内容仅供学习复盘，不能写入正式决策或结算真值。"
+              boundary="正式结果只读；学习输入与建议不能写入正式决策或结算真值。"
             >
-              <StudentRoleAdvisor
-                apiBase={API_BASE}
-                roundId={latestRound?.round_id}
-                runId={latestRun?.run_id}
-                teamId={team?.team_id}
-                tenantId={login.tenantId}
-                token={activeSession?.access_token ?? ""}
-              />
+              <Suspense fallback={<p className="muted">正在载入学习旅程…</p>}>
+                <StudentDecisionLearningJourney
+                  apiBase={API_BASE}
+                  context={W3_ENABLED ? w3Context : undefined}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                  published={W3_ENABLED && Boolean(myResult)}
+                />
+              </Suspense>
+              <details className="p2b-compatibility-details">
+                <summary>顾问兼容入口（advisory-only）</summary>
+                <StudentRoleAdvisor
+                  apiBase={API_BASE}
+                  roundId={latestRound?.round_id}
+                  runId={latestRun?.run_id}
+                  teamId={team?.team_id}
+                  tenantId={login.tenantId}
+                  token={activeSession?.access_token ?? ""}
+                />
+              </details>
             </WorkbenchFrame>
           </section>
         ) : null}
