@@ -1,7 +1,7 @@
 # SimWar FE-P1 Figma → code map
 
-Figma file: `6ezOykmrZbMbFEYPfIkZ07`  
-Evidence date: 2026-08-21  
+Figma file: `6ezOykmrZbMbFEYPfIkZ07`
+Evidence date: 2026-08-21
 Forward source baseline: `cfd35ddd560dba2da4420f8a7586f234391423fa`
 
 ## Figma structure inspected

@@ -1,9 +1,9 @@
 # SimWar FE-P1 current-reality receipt
 
-Date: 2026-08-21  
-Mission: `SIMWAR-FE-P1-IMPLEMENTATION-CLOSURE-001`  
-Forward baseline: `origin/master` at `cfd35ddd560dba2da4420f8a7586f234391423fa`  
-Implementation branch: `codex/fe-p1-implementation-20260821`  
+Date: 2026-08-21
+Mission: `SIMWAR-FE-P1-IMPLEMENTATION-CLOSURE-001`
+Forward baseline: `origin/master` at `cfd35ddd560dba2da4420f8a7586f234391423fa`
+Implementation branch: `codex/fe-p1-implementation-20260821`
 Worktree: `D:\\codex\\worktrees\\simwar-fe-p1-implementation-20260821`
 
 ## Boundary
