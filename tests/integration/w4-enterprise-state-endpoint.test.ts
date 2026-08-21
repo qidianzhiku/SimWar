@@ -416,4 +416,89 @@ describe("W4 Enterprise State strategic evolution endpoints", () => {
       await once(server, "close");
     }
   });
+
+  it("allows only a teacher to advance a project lifecycle on the existing W4 initiative", async () => {
+    const { server, baseUrl } = await start();
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const student = await login(baseUrl, "student");
+      const created = await request<{ run: { run_id: string } }>(
+        baseUrl,
+        "/api/v1/courses/course_demo/runs",
+        teacher,
+        {}
+      );
+      const activeRunId = created.body.data.run.run_id;
+      const started = await request<{ round_id: string }>(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/start`,
+        teacher,
+        {}
+      );
+      const roundId = started.body.data.round_id;
+      await request(baseUrl, `/api/v1/w4/runs/${activeRunId}/rounds/1/states`, teacher, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        state: {}
+      });
+      const decision = await request<{
+        initiative: { initiative_id: string; project_lifecycle_status: string };
+      }>(baseUrl, `/api/v1/w4/runs/${activeRunId}/rounds/1/strategic-decisions`, student, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        decision: {
+          decision_id: "w4-lifecycle-route-decision",
+          tenant_id: tenantId,
+          course_id: "course_demo",
+          run_id: activeRunId,
+          round_id: roundId,
+          round_no: 1,
+          team_id: "team_alpha",
+          kind: "new_project",
+          version: 1,
+          status: "canonical",
+          payload: {
+            project_name: "Lifecycle route project",
+            cost: 100,
+            cycle_rounds: 2,
+            area: 5000,
+            beds: 50,
+            bed_mix: { standard: 50 },
+            ramp: 0.5,
+            lead_time_rounds: 1
+          }
+        }
+      });
+      expect(decision.status).toBe(201);
+      expect(decision.body.data.initiative.project_lifecycle_status).toBe("Feasibility");
+
+      const lifecyclePath = `/api/v1/w4/runs/${activeRunId}/rounds/1/initiatives/${decision.body.data.initiative.initiative_id}/lifecycle`;
+      const studentAttempt = await request(baseUrl, lifecyclePath, student, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        target: "DueDiligence"
+      });
+      expect(studentAttempt.status).toBe(403);
+
+      const teacherAdvance = await request<{ project_lifecycle_status: string }>(
+        baseUrl,
+        lifecyclePath,
+        teacher,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          target: "DueDiligence"
+        }
+      );
+      expect(teacherAdvance.status).toBe(200);
+      expect(teacherAdvance.body.data.project_lifecycle_status).toBe("DueDiligence");
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
 });

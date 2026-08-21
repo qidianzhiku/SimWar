@@ -1,3 +1,5 @@
+import type { ProjectProfileRef } from "./project-library.js";
+
 export type W4StrategicDecisionKind =
   | "new_project"
   | "product_line_adjustment"
@@ -32,6 +34,32 @@ export type W4InitiativeStatus =
   | "completed"
   | "failed"
   | "cancelled";
+
+export type W4ProjectLifecycleStatus =
+  | "Opportunity"
+  | "Feasibility"
+  | "DueDiligence"
+  | "Negotiation"
+  | "TermSheet"
+  | "Operating"
+  | "Closed"
+  | "Cancelled";
+
+export type W4ProjectOwnershipStatus = "owned" | "sold" | "closed";
+export type W4ProjectTransactionKind =
+  | "project_add"
+  | "project_sale"
+  | "project_closure"
+  | "merger_acquisition";
+export type W4ProjectTransactionPhase =
+  | "Listing"
+  | "Bid"
+  | "DueDiligence"
+  | "Negotiation"
+  | "TermSheet"
+  | "Closing"
+  | "Closed"
+  | "Cancelled";
 
 export interface W4ScopeContext {
   actor_id: string;
@@ -209,7 +237,44 @@ export interface W4StrategicInitiative {
   milestones: string[];
   remaining_lead_time_rounds: number;
   activation_round_no: number;
+  project_lifecycle_status?: W4ProjectLifecycleStatus;
   project: W4NewProjectPayload | null;
+}
+
+export interface W4ProjectPortfolioEntry {
+  project_entry_id: string;
+  initiative_id: string;
+  source_assignment_id: string;
+  project_profile_reference: ProjectProfileRef;
+  project_name: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  lifecycle_status: W4ProjectLifecycleStatus;
+  ownership_status: W4ProjectOwnershipStatus;
+  operating_unit_id: string | null;
+  successor_of_entry_id: string | null;
+  created_round_no: number;
+  updated_round_no: number;
+}
+
+export interface W4ProjectTransaction {
+  transaction_id: string;
+  kind: W4ProjectTransactionKind;
+  phase: W4ProjectTransactionPhase;
+  initiative_id: string;
+  project_entry_id: string;
+  target_project_profile_reference?: ProjectProfileRef;
+  target_project_name?: string;
+  buyer_confirmation_id?: string;
+  seller_confirmation_id?: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  created_round_no: number;
+  updated_round_no: number;
 }
 
 export interface W4PolicySeam {
@@ -260,6 +325,9 @@ export interface W4ReplayInputManifest {
   engine_id: string;
   plugin_ids: string[];
   seed: number;
+  project_portfolio_digest?: string;
+  project_portfolio_entry_ids?: string[];
+  project_portfolio_snapshot?: W4ProjectPortfolioEntry[];
 }
 
 export interface W4ReplayEvidence {
@@ -276,6 +344,7 @@ export interface W4ReplayEvidence {
   decision_payload_bindings: W4DecisionPayloadBinding[];
   persistent_effect_ids: string[];
   path_digest: string;
+  project_portfolio_digest?: string;
   replay_writes_formal_results: false;
 }
 
@@ -340,6 +409,8 @@ export interface W4ProjectionBase {
   closing_state_ref: W4StateRef | null;
   state: W4EnterpriseStateData | null;
   initiatives: W4StrategicInitiative[];
+  project_portfolio: W4ProjectPortfolioEntry[];
+  project_transactions: W4ProjectTransaction[];
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
   latest_strategic_action: W4StrategicActionProjection | null;
@@ -353,6 +424,8 @@ export interface W4StoreState {
   commitments: W4Commitment[];
   effects: W4StrategicEffect[];
   initiatives: W4StrategicInitiative[];
+  projectPortfolio: W4ProjectPortfolioEntry[];
+  projectTransactions: W4ProjectTransaction[];
   policySeams: W4PolicySeam[];
   outcomes: W4OfficialOutcome[];
   replayEvidence: W4ReplayEvidence[];

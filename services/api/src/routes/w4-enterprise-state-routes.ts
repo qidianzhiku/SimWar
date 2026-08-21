@@ -6,7 +6,8 @@ import type {
   W4EnterpriseState,
   W4ReplayInputManifest,
   W4ScopeContext,
-  W4StateRef
+  W4StateRef,
+  ProjectProfileRef
 } from "@simwar/shared-contracts";
 import {
   createEnterpriseStateStrategicEvolutionService,
@@ -31,7 +32,11 @@ interface W4RouteDependencies {
     tenantId: string,
     runId: string,
     roundNo: number
-  ) => Promise<{ round_id: string } | null>;
+  ) => Promise<{ round_id: string; status: string } | null>;
+  resolveProjectAuthority?: (
+    scope: W4ScopeContext,
+    reference: ProjectProfileRef
+  ) => Promise<{ source_assignment_id: string; project_name: string } | null>;
   admitStrategicDecision: (
     scope: W4ScopeContext,
     decision: W4CanonicalStrategicDecision
@@ -105,6 +110,12 @@ async function assertRuntimeScope(
   const team = await dependencies.resolveTeam(tenantId, teamId);
   if (!team) throw new W4EnterpriseStateError("W4_TEAM_NOT_FOUND");
   if (team.course_id !== courseId) throw new W4EnterpriseStateError("W4_TEAM_SCOPE_CONFLICT");
+}
+
+function assertWritableRound(round: { status: string }): void {
+  if (round.status !== "open") {
+    throw new W4EnterpriseStateError("W4_ROUND_READ_ONLY_CONFLICT");
+  }
 }
 
 export async function handleW4EnterpriseStateRoute(
@@ -198,6 +209,18 @@ export async function handleW4EnterpriseStateRoute(
               }
             : null,
           portfolio: latest?.state.portfolio ?? { projects: [], facilities: [] },
+          project_portfolio: current.projectPortfolio.filter(
+            (entry) =>
+              entry.tenant_id === context.tenantId &&
+              entry.course_id === courseId &&
+              entry.run_id === runId
+          ),
+          project_transactions: current.projectTransactions.filter(
+            (transaction) =>
+              transaction.tenant_id === context.tenantId &&
+              transaction.course_id === courseId &&
+              transaction.run_id === runId
+          ),
           operating_units: latest?.state.operating_units ?? [],
           process_information: {
             status: initiatives.some((initiative) => initiative.status === "blocked")
@@ -217,6 +240,7 @@ export async function handleW4EnterpriseStateRoute(
             initiative_id: initiative.initiative_id,
             kind: initiative.kind,
             status: initiative.status,
+            project_lifecycle_status: initiative.project_lifecycle_status ?? null,
             project_name: initiative.project?.project_name ?? null
           }))
         };
@@ -233,6 +257,192 @@ export async function handleW4EnterpriseStateRoute(
       })
     );
     return true;
+  }
+  const lifecycleMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/initiatives\/([^/]+)\/lifecycle$/
+  );
+  if (request.method === "POST" && lifecycleMatch) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const runId = lifecycleMatch[1] ?? "";
+      const roundNo = Number(lifecycleMatch[2]);
+      const initiativeId = lifecycleMatch[3] ?? "";
+      const teamId = String(body.team_id ?? "");
+      const courseId = String(body.course_id ?? "course_demo");
+      const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? round.round_id),
+        roundNo,
+        teamId,
+        courseId
+      );
+      await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
+      const target = String(body.target ?? "") as Parameters<
+        typeof service.advanceProjectLifecycle
+      >[2];
+      const result = await service.advanceProjectLifecycle(scope, initiativeId, target);
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
+  const portfolioProjectMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/portfolio\/projects$/
+  );
+  if (request.method === "POST" && portfolioProjectMatch) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const runId = portfolioProjectMatch[1] ?? "";
+      const roundNo = Number(portfolioProjectMatch[2]);
+      const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? round.round_id),
+        roundNo,
+        String(body.team_id ?? ""),
+        String(body.course_id ?? "course_demo")
+      );
+      await assertRuntimeScope(
+        dependencies,
+        context.tenantId,
+        runId,
+        scope.course_id,
+        scope.team_id
+      );
+      if (!dependencies.resolveProjectAuthority) {
+        throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_REQUIRED");
+      }
+      const reference = body.project_profile_reference as ProjectProfileRef;
+      const authority = await dependencies.resolveProjectAuthority(scope, reference);
+      if (!authority) throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_REQUIRED");
+      const result = await service.addProjectToPortfolio(scope, {
+        project_entry_id: String(body.project_entry_id ?? ""),
+        initiative_id: String(body.initiative_id ?? ""),
+        project_profile_reference: reference,
+        source_assignment_id: authority.source_assignment_id,
+        project_name: authority.project_name
+      });
+      dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
+  const portfolioTransactionMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/portfolio\/transactions(?:\/([^/]+)\/advance)?$/
+  );
+  if (request.method === "POST" && portfolioTransactionMatch) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const runId = portfolioTransactionMatch[1] ?? "";
+      const roundNo = Number(portfolioTransactionMatch[2]);
+      const transactionId = portfolioTransactionMatch[3];
+      const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? round.round_id),
+        roundNo,
+        String(body.team_id ?? ""),
+        String(body.course_id ?? "course_demo")
+      );
+      await assertRuntimeScope(
+        dependencies,
+        context.tenantId,
+        runId,
+        scope.course_id,
+        scope.team_id
+      );
+      if (transactionId) {
+        const result = await service.advanceProjectTransaction(
+          scope,
+          transactionId,
+          String(body.target ?? "") as Parameters<typeof service.advanceProjectTransaction>[2],
+          {
+            ...(body.buyer_confirmation_id
+              ? { buyer_confirmation_id: String(body.buyer_confirmation_id) }
+              : {}),
+            ...(body.seller_confirmation_id
+              ? { seller_confirmation_id: String(body.seller_confirmation_id) }
+              : {})
+          }
+        );
+        dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+        return true;
+      }
+      const kind = String(body.kind ?? "") as Exclude<
+        Parameters<typeof service.createProjectTransaction>[1]["kind"],
+        "project_add"
+      >;
+      const targetReference = body.target_project_profile_reference as
+        | ProjectProfileRef
+        | undefined;
+      if (
+        kind === "merger_acquisition" &&
+        (!dependencies.resolveProjectAuthority || !targetReference)
+      ) {
+        throw new W4EnterpriseStateError("W4_M_AND_A_SUCCESSOR_REQUIRED");
+      }
+      const targetAuthority =
+        targetReference && dependencies.resolveProjectAuthority
+          ? await dependencies.resolveProjectAuthority(scope, targetReference)
+          : null;
+      if (targetReference && !targetAuthority) {
+        throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_REQUIRED");
+      }
+      const result = await service.createProjectTransaction(scope, {
+        transaction_id: String(body.transaction_id ?? ""),
+        kind,
+        initiative_id: String(body.initiative_id ?? ""),
+        project_entry_id: String(body.project_entry_id ?? ""),
+        ...(targetReference ? { target_project_profile_reference: targetReference } : {}),
+        ...(targetAuthority ? { target_project_name: targetAuthority.project_name } : {})
+      });
+      dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
   }
   const route = parseRoundPath(url.pathname, "/api/v1/w4");
   const bffRoute = parseRoundPath(url.pathname, "/api/v1/bff/(?:student|teacher|admin)/w4");
