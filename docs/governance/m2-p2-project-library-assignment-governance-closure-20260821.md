@@ -3,7 +3,8 @@
 ## Closure scope
 
 This document is the docs-only governance closure artifact for Product PR
-[#414](https://github.com/qidianzhiku/SimWar/pull/414). It records the exact
+[#414](https://github.com/qidianzhiku/SimWar/pull/414), tracked by
+[#418](https://github.com/qidianzhiku/SimWar/issues/418). It records the exact
 merged product state, the P0 authority alignment, the remote required-check
 evidence, the fresh detached validation, and the explicit limits that remain
 closed.
@@ -18,6 +19,21 @@ This closure is documentation-only. It is not an authorization for raw-data
 ingestion, provider/model activation, PostgreSQL/RLS activation, Human
 Validation, Pilot, Production, W6, automatic successors, a general release,
 or a full accessibility/WCAG PASS.
+
+## Finding and tracker identity
+
+| Item | Verified value |
+| --- | --- |
+| Finding ID | `M2-P2-PROJECT-LIBRARY-ASSIGNMENT-GOVERNANCE-CLOSURE` |
+| Tracking Issue | [#418](https://github.com/qidianzhiku/SimWar/issues/418) |
+| Tracking Issue state | `OPEN` |
+| Product PR | [#414](https://github.com/qidianzhiku/SimWar/pull/414) |
+| Governance PR | [#417](https://github.com/qidianzhiku/SimWar/pull/417) |
+
+Issue #418 is the durable tracker for this P0 governance finding. It remains
+open because this Product/Governance closure does not authorize or complete
+the separately scoped release, Pilot, Production, Human Validation, W6,
+provider/model, raw-data, PG/RLS, or full accessibility work.
 
 ## Product merge identity
 
@@ -175,9 +191,9 @@ This closure records the following bounded outcome:
    runtime code, contracts, tests, workflows, model/provider configuration,
    database activation, settlement, canonical decisions, or replay truth.
 
-No issue-closing keyword is used by this Governance Closure. A tracker or
-audit issue, if later identified as applicable, must be updated with the merge
-SHA and evidence above rather than inferred closed by this document alone.
+No issue-closing keyword is used by this Governance Closure. Issue #418 is
+updated as the durable tracker and intentionally remains open; it must not be
+inferred closed by this document or by the Product merge alone.
 
 ## Explicitly out of scope
 
@@ -197,8 +213,9 @@ Closure:
 
 ## Closure evidence and cleanup
 
-The product PR, exact head, required checks, merge SHA, exact MarketWorldRef,
-detached validation, inherited limits, and P0 boundary are recorded above.
-After this Governance Closure is merged and read back, only the two temporary
-worktrees created for this task may be removed; the protected shared workspace
-and the Product worktree's pre-existing artifacts remain untouched.
+The tracking Issue, product PR, exact head, required checks, merge SHA, exact
+MarketWorldRef, detached validation, inherited limits, and P0 boundary are
+recorded above. After this Governance Closure is merged and read back, only
+the two temporary worktrees created for this task may be removed; the
+protected shared workspace and the Product worktree's pre-existing artifacts
+remain untouched.
