@@ -871,9 +871,7 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
   ).toBe(0);
   await expect(page.getByText("相关工作台将在服务端上下文就绪后显示。")).toHaveCount(0);
   await expect(
-    page
-      .locator('main > .sw-state-panel[data-state="ready"]')
-      .getByText("服务端未授权此操作：round:start", { exact: true })
+    page.getByLabel("已阻塞").getByText("服务端未授权此操作：round:start", { exact: true })
   ).toBeVisible();
   await expect(
     page
