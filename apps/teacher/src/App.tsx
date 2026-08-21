@@ -69,6 +69,7 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
+import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -2080,12 +2081,20 @@ export function App() {
 
       <TeacherLocation id="teacher-readiness">
         {isTeacher && session ? (
-          <GoldenJourneyWorkbench
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <>
+            <MarketWorldBindingPanel
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            <GoldenJourneyWorkbench
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </>
         ) : null}
       </TeacherLocation>
 

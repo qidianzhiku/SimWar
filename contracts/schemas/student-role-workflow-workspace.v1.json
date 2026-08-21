@@ -7,6 +7,12 @@
   "required": ["schema_version", "context", "assignment"],
   "properties": {
     "schema_version": { "const": "student-role-workflow-workspace.v1" },
+    "market_world_visibility": {
+      "enum": ["PRE_VISIBILITY", "VISIBLE", "STALE", "UNKNOWN"]
+    },
+    "market_brief": {
+      "$ref": "#/$defs/studentMarketBrief"
+    },
     "context": {
       "type": "object",
       "additionalProperties": false,
@@ -322,6 +328,62 @@
           "dissent_note": { "type": "string", "minLength": 1, "maxLength": 280 },
           "acknowledged_at": { "type": "string", "format": "date-time" }
         }
+      }
+    }
+  },
+  "$defs": {
+    "marketWorldRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["market_world_id", "version", "digest"],
+      "properties": {
+        "market_world_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}\\.m[0-9]+\\.[0-9]+$" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessed_at", "source_freshness", "status"],
+      "properties": {
+        "assessed_at": { "type": "string", "format": "date-time" },
+        "source_freshness": { "enum": ["PROJECT_ANCHOR", "UNKNOWN"] },
+        "status": { "enum": ["CURRENT", "STALE", "UNKNOWN"] }
+      }
+    },
+    "studentMarketBrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "brief_kind",
+        "visibility_state",
+        "market_world_reference",
+        "market_world_name",
+        "market_structure",
+        "customer_tensions",
+        "service_landscape",
+        "outside_options",
+        "archetype_context",
+        "key_business_tensions",
+        "freshness",
+        "known_limits"
+      ],
+      "properties": {
+        "schema_version": { "const": "student-market-brief.v1" },
+        "brief_kind": { "const": "SHANGHAI_MARKET_BRIEF" },
+        "visibility_state": { "const": "VISIBLE" },
+        "market_world_reference": { "$ref": "#/$defs/marketWorldRef" },
+        "market_world_name": { "type": "string", "minLength": 1 },
+        "market_structure": { "type": "string", "minLength": 1 },
+        "customer_tensions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "service_landscape": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "outside_options": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "archetype_context": { "type": "string", "minLength": 1 },
+        "key_business_tensions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "freshness": { "$ref": "#/$defs/freshness" },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } }
       }
     }
   }

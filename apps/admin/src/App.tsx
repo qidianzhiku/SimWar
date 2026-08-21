@@ -42,6 +42,7 @@ import {
 } from "./AdminDeliveryTrustWorkspace";
 import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorkspace";
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
+import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 type LoginForm = {
@@ -1062,6 +1063,13 @@ export function App() {
               </article>
             </div>
           </section>
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <MarketWorldAuditPanel
+            apiBase={API_BASE}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
         ) : null}
       </section>
 

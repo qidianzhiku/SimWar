@@ -122,6 +122,10 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
     const { seedRoleWorkflowFixture } = await import("./role-workflow-fixture");
     seedRoleWorkflowFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_M2_MARKET_WORLD === "true") {
+    const { seedM2MarketWorldProductFixture } = await import("./m2-p1-market-world-fixture");
+    seedM2MarketWorldProductFixture(PLAYWRIGHT_STORE_FILE);
+  }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
     seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);

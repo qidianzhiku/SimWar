@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/market-world.v1.json",
+  "title": "Market World Product Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "market_world_reference", "readiness", "known_limits"],
+  "properties": {
+    "schema_version": { "const": "market-world.v1" },
+    "market_world_reference": { "$ref": "#/$defs/marketWorldRef" },
+    "readiness": { "$ref": "#/$defs/readiness" },
+    "known_limits": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "binding_state": {
+      "enum": ["UNBOUND", "BOUND", "STALE", "UNKNOWN", "CONFLICT"]
+    },
+    "course_id": { "type": "string", "minLength": 1 },
+    "tenant_id": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "marketWorldRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["market_world_id", "version", "digest"],
+      "properties": {
+        "market_world_id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "(^|[._:-])(latest|current|default|fallback|next|any)($|[._:-])" }
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}\\.m[0-9]+\\.[0-9]+$"
+        },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessed_at", "source_freshness", "status"],
+      "properties": {
+        "assessed_at": { "type": "string", "format": "date-time" },
+        "source_freshness": { "enum": ["PROJECT_ANCHOR", "UNKNOWN"] },
+        "status": { "enum": ["CURRENT", "STALE", "UNKNOWN"] }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "freshness", "confidence", "uncertainty", "known_limits"],
+      "properties": {
+        "status": { "enum": ["READY_WITH_LIMITS", "STALE", "UNKNOWN"] },
+        "freshness": { "$ref": "#/$defs/freshness" },
+        "confidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["overall", "customer_choice_frame", "geo_market"],
+          "properties": {
+            "overall": { "enum": ["MEDIUM", "LOW", "UNKNOWN"] },
+            "customer_choice_frame": { "enum": ["LOW", "UNKNOWN"] },
+            "geo_market": { "enum": ["MEDIUM", "UNKNOWN"] }
+          }
+        },
+        "uncertainty": { "type": "array", "items": { "type": "string" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

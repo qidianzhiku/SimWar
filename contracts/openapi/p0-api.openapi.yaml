@@ -824,6 +824,64 @@ paths:
           description: Authentication required
         "403":
           description: Teacher authority required
+  /api/v1/bff/teacher/courses/{courseId}/market-world:
+    get:
+      operationId: TEACHER_MARKET_WORLD_GET_V1
+      summary: Read the bounded Market World candidate and exact Course binding state.
+      description: Teacher-safe projection of the productized M2 Shanghai Market World. The response contains no raw source rows, private coefficients, settlement truth, or Scenario/ParameterSet activation.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Teacher Market World projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketWorldTeacherEnvelope"
+        "401": { description: Authentication required }
+        "403": { description: Teacher or tenant administrator authority required }
+        "404": { description: Course not found in tenant scope }
+  /api/v1/bff/teacher/courses/{courseId}/market-world-binding:
+    post:
+      operationId: TEACHER_MARKET_WORLD_BINDING_POST_V1
+      summary: Bind one exact immutable MarketWorldRef to the existing Course authority.
+      description: The operation is idempotent for the same exact reference, rejects stale/unknown/conflicting references, appends a bounded audit entry, and does not create a second Course or Scenario writer.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [market_world_reference]
+              properties:
+                market_world_reference:
+                  $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+      responses:
+        "200":
+          description: Exact binding receipt; repeated exact requests return idempotent true.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketWorldBindingEnvelope"
+        "401": { description: Authentication required }
+        "403": { description: Teacher or tenant administrator authority required }
+        "404": { description: Course not found in tenant scope }
+        "409": { description: Stale or conflicting exact reference }
+        "422": { description: Invalid or unknown MarketWorldRef }
+        "503": { description: Repository or audit recovery is required }
   /api/v1/bff/teacher/formal-course-bindings/preview:
     post:
       operationId: TEACHER_FORMAL_COURSE_BINDING_PREVIEW_V1
@@ -1394,6 +1452,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiErrorEnvelope"
+  /api/v1/bff/admin/market-world-bindings:
+    get:
+      operationId: ADMIN_MARKET_WORLD_BINDINGS_GET_V1
+      summary: Read bounded tenant-scoped Market World binding and readiness projections.
+      description: Admin audit projection only. It reports exact binding state, readiness, source categories, limited archetypes, and known limits; it never exposes raw source rows, private calibration, other-team data, or settlement truth.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Tenant-scoped Market World binding audit projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMarketWorldBindingsEnvelope"
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or platform administrator authority required }
   /api/v1/bff/admin/courses/{courseId}/runs/{runId}/lifecycle/{operation}:
     post:
       operationId: SYNTHETIC_RUN_LIFECYCLE_OPERATION_POST_V1
@@ -5855,6 +5929,61 @@ components:
           type: string
         request_id:
           type: string
+    MarketWorldTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          required: [schema_version, course_id, tenant_id, binding_state, available_market_worlds, readiness, known_limits]
+          properties:
+            schema_version: { const: market-world.v1 }
+            course_id: { type: string, minLength: 1 }
+            tenant_id: { type: string, minLength: 1 }
+            binding_state: { enum: [UNBOUND, BOUND, STALE, UNKNOWN, CONFLICT] }
+            market_world_reference:
+              $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+            available_market_worlds:
+              type: array
+              minItems: 1
+              items:
+                type: object
+                additionalProperties: false
+                required: [market_world_reference, market_world_name, readiness]
+                properties:
+                  market_world_reference:
+                    $ref: "../schemas/market-world.v1.json#/$defs/marketWorldRef"
+                  market_world_name: { type: string, minLength: 1 }
+                  readiness:
+                    $ref: "../schemas/market-world.v1.json#/$defs/readiness"
+            readiness:
+              $ref: "../schemas/market-world.v1.json#/$defs/readiness"
+            known_limits: { type: array, minItems: 1, items: { type: string } }
+          additionalProperties: true
+        message: { type: string }
+        request_id: { type: string }
+    MarketWorldBindingEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          $ref: "../schemas/market-world-binding-receipt.v1.json"
+        message: { type: string }
+        request_id: { type: string }
+    AdminMarketWorldBindingsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          $ref: "../schemas/admin-market-world-bindings.v1.json"
+        message: { type: string }
+        request_id: { type: string }
     RoleWorkflowStudentWorkspaceEnvelope:
       type: object
       additionalProperties: false

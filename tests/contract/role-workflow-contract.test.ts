@@ -37,6 +37,8 @@ const openApiDocument = (): OpenApiDocument =>
 describe("Role Workflow executable contracts", () => {
   it("validates Teacher and Student workspace fixtures and rejects private Student fields", () => {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
+    ajv.addSchema(readJson("contracts/schemas/market-world.v1.json"));
+    ajv.addSchema(readJson("contracts/schemas/student-market-brief.v1.json"));
     const student = ajv.compile(
       readJson("contracts/schemas/student-role-workflow-workspace.v1.json")
     );

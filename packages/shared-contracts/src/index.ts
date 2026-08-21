@@ -7,6 +7,8 @@ export * from "./d6-transfer-evidence.js";
 export * from "./teaching-closure.js";
 export * from "./r3-golden-journey.js";
 export * from "./w027-decision-experience.js";
+export * from "./market-world.js";
+import type { MarketWorldRef } from "./market-world.js";
 
 export type ActorRole =
   | "platform_admin"
@@ -260,6 +262,7 @@ export interface Course {
   scenario_package_id: string;
   parameter_set_id: string;
   created_by: string;
+  market_world_reference?: MarketWorldRef;
 }
 
 export interface TeamMember {

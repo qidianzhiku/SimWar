@@ -57,6 +57,7 @@ import type {
   W4ReplayInputManifest,
   W4ScopeContext
 } from "@simwar/shared-contracts";
+import type { MarketWorldRef } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
 import type {
   ValidationSessionIncident,
@@ -280,6 +281,16 @@ import {
   executeSyntheticRunLifecycleOperation,
   listSyntheticRunLifecycleControls
 } from "./synthetic-run-lifecycle.js";
+import {
+  MarketWorldBindingError,
+  bindMarketWorldToCourse
+} from "./market-world-binding-service.js";
+import {
+  createAdminMarketWorldAuditProjection,
+  createStudentMarketWorldBriefProjection,
+  createTeacherMarketWorldProjection,
+  marketWorldReferenceState
+} from "./market-world-product.js";
 import {
   DEFAULT_TENANT_ID,
   PLATFORM_TENANT_ID,
@@ -1839,6 +1850,21 @@ function matchPath(pathname: string, pattern: RegExp): RegExpMatchArray {
   }
 
   return match;
+}
+
+function parseMarketWorldBindingReference(body: unknown): MarketWorldRef {
+  if (!isRecord(body) || Object.keys(body).some((field) => field !== "market_world_reference")) {
+    throw new HttpError(422, "MARKET_WORLD_REFERENCE_INVALID", "market world binding request invalid");
+  }
+  const value = body.market_world_reference;
+  if (!isRecord(value)) {
+    throw new HttpError(422, "MARKET_WORLD_REFERENCE_INVALID", "market world binding request invalid");
+  }
+  return {
+    digest: value.digest as string,
+    market_world_id: value.market_world_id as string,
+    version: value.version as string
+  };
 }
 
 function clonePublic(input: unknown): Record<string, unknown> {
@@ -5407,6 +5433,68 @@ async function routeRequest(
     return;
   }
 
+  if (
+    request.method === "GET" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/market-world$/.test(url.pathname)
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher market world authority required");
+    }
+    const [, courseId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/market-world$/
+    );
+    const course = await getCourseForRead(runtime, context, courseId ?? "");
+    sendJson(response, 200, createEnvelope(context, createTeacherMarketWorldProjection({ course })));
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/bff\/teacher\/courses\/[^/]+\/market-world-binding$/.test(url.pathname)
+  ) {
+    const context = createContext(runtime, request);
+    const actor = requirePermission(context, "course:create");
+    if (
+      !actorHasAnyRole(actor, ["teacher", "tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "teacher market world authority required");
+    }
+    const [, courseId] = matchPath(
+      url.pathname,
+      /^\/api\/v1\/bff\/teacher\/courses\/([^/]+)\/market-world-binding$/
+    );
+    const reference = parseMarketWorldBindingReference(await readJson<unknown>(request));
+    const receipt = await bindMarketWorldToCourse({
+      appendAudit: async (audit) => {
+        await appendAudit(runtime, {
+          actor,
+          action: audit.action,
+          requestId: context.requestId,
+          resourceId: audit.course_id,
+          resourceType: "course",
+          after: {
+            idempotent: audit.idempotent,
+            market_world_reference: audit.market_world_reference,
+            readiness: audit.readiness
+          }
+        });
+      },
+      courseId: courseId ?? "",
+      courses: runtime.repositoryProvider.facade.courses,
+      reference,
+      tenantId: context.tenantId
+    });
+    sendJson(response, 200, createEnvelope(context, receipt));
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/course-blueprints") {
     await handleTeacherCourseBlueprintCatalog(runtime, request, response);
     return;
@@ -6565,10 +6653,34 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/student/role-workspace") {
     const actor = roleWorkflowActor(context, "student");
+    const scope = roleWorkflowScopeFromUrl(url);
     const data = await executeRoleWorkflow(() =>
-      runtime.roleWorkflow.getStudentWorkspace(actor, roleWorkflowScopeFromUrl(url))
+      runtime.roleWorkflow.getStudentWorkspace(actor, scope)
     );
-    sendJson(response, 200, createEnvelope(context, data));
+    const course = await runtime.repositoryProvider.facade.courses.getCourse(
+      context.tenantId,
+      data.context.course_id
+    );
+    if (!course) {
+      throw new HttpError(404, "COURSE-404-001", "course not found");
+    }
+    const marketBrief = createStudentMarketWorldBriefProjection({ course });
+    const marketState = marketWorldReferenceState(course);
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, {
+        ...data,
+        market_world_visibility: marketBrief
+          ? "VISIBLE"
+          : marketState === "STALE"
+            ? "STALE"
+            : marketState === "UNKNOWN"
+              ? "UNKNOWN"
+              : "PRE_VISIBILITY",
+        ...(marketBrief ? { market_brief: marketBrief } : {})
+      })
+    );
     return;
   }
 
@@ -7957,6 +8069,29 @@ async function routeRequest(
     return;
   }
 
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/market-world-bindings") {
+    const actor = requirePermission(context, "course:read");
+    if (
+      !actorHasAnyRole(actor, ["tenant_admin", "platform_admin"]) ||
+      (actor.tenant_id !== context.tenantId && !actorHasAnyRole(actor, ["platform_admin"]))
+    ) {
+      throw new HttpError(403, "AUTHZ-403-001", "admin market world authority required");
+    }
+    const courses = await runtime.repositoryProvider.facade.courses.listCoursesForTenant(
+      context.tenantId
+    );
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, {
+        courses: courses.map((course) => createAdminMarketWorldAuditProjection({ course })),
+        schema_version: "admin-market-world-bindings.v1",
+        tenant_id: context.tenantId
+      })
+    );
+    return;
+  }
+
   if (request.method === "GET" && url.pathname === "/api/v1/bff/admin/run-lifecycle-controls") {
     const actor = requirePermission(context, "run:lifecycle");
     if (!actorHasAnyRole(actor, ["tenant_admin"]) || actor.tenant_id !== context.tenantId) {
@@ -8898,6 +9033,23 @@ export function createApiServer(
                   error.code === "W5_INVALID_TRANSITION"
                 ? 409
                 : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof MarketWorldBindingError) {
+        const statusCode =
+          error.code === "MARKET_WORLD_COURSE_NOT_FOUND"
+            ? 404
+            : error.code === "MARKET_WORLD_TENANT_SCOPE_VIOLATION"
+              ? 403
+              : error.code === "MARKET_WORLD_BINDING_READ_FAILED" ||
+                  error.code === "MARKET_WORLD_BINDING_RECOVERY_REQUIRED"
+                ? 503
+                : error.code === "MARKET_WORLD_BINDING_CONFLICT" ||
+                    error.code === "MARKET_WORLD_STALE_REFERENCE"
+                  ? 409
+                  : 422;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;
       }

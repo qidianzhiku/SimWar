@@ -697,7 +697,10 @@ function toCourseReadModel(course: Course): RepositoryCourseReadModel {
     status: course.status,
     scenario_package_id: course.scenario_package_id,
     parameter_set_id: course.parameter_set_id,
-    created_by: course.created_by
+    created_by: course.created_by,
+    ...(course.market_world_reference
+      ? { market_world_reference: { ...course.market_world_reference } }
+      : {})
   };
 }
 

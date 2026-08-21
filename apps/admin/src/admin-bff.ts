@@ -1,5 +1,6 @@
 import type {
   ActorRole,
+  AdminMarketWorldBindingsProjection,
   ApiEnvelope,
   PlatformAdminAuthorityDTO,
   SyntheticRunLifecycleControlDTO,
@@ -11,6 +12,7 @@ import type {
 export const TENANT_ADMIN_SUMMARY_PATH = "/api/v1/bff/admin/tenant-summary";
 export const PLATFORM_ADMIN_AUTHORITY_PATH = "/api/v1/bff/admin/platform-authority?scope=platform";
 export const RUN_LIFECYCLE_CONTROLS_PATH = "/api/v1/bff/admin/run-lifecycle-controls";
+export const MARKET_WORLD_BINDINGS_PATH = "/api/v1/bff/admin/market-world-bindings";
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -118,6 +120,26 @@ export async function loadRunLifecycleControls(
     throw new AdminSummaryRequestError(502, "BFF_INVALID_RESPONSE");
   }
   return controls;
+}
+
+export async function loadAdminMarketWorldBindings(
+  token: string,
+  fetcher: Fetcher = fetch
+): Promise<AdminMarketWorldBindingsProjection> {
+  const projection = await requestBff<AdminMarketWorldBindingsProjection>(
+    MARKET_WORLD_BINDINGS_PATH,
+    token,
+    fetcher
+  );
+  if (
+    !projection ||
+    projection.schema_version !== "admin-market-world-bindings.v1" ||
+    typeof projection.tenant_id !== "string" ||
+    !Array.isArray(projection.courses)
+  ) {
+    throw new AdminSummaryRequestError(502, "BFF_INVALID_RESPONSE");
+  }
+  return projection;
 }
 
 export async function executeRunLifecycleOperation(
