@@ -870,7 +870,16 @@ test("Teacher Course OS exposes literal locations and gates the primary command 
     await page.locator("section.teacher-location-target section.teacher-location-target").count()
   ).toBe(0);
   await expect(page.getByText("相关工作台将在服务端上下文就绪后显示。")).toHaveCount(0);
-  await expect(page.getByText("服务端未授权此操作：round:start")).toBeVisible();
+  await expect(
+    page
+      .locator('main > .sw-state-panel[data-state="ready"]')
+      .getByText("服务端未授权此操作：round:start", { exact: true })
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId("teacher-p2b-highest_blocker")
+      .getByText("服务端未授权此操作：round:start", { exact: true })
+  ).toBeVisible();
   await expect(page.locator('main > .sw-state-panel[data-state="ready"]')).toHaveCount(1);
   for (const [selector, locationId] of [
     [".topbar", "teacher-today"],
@@ -962,7 +971,8 @@ test("Teacher keeps the command disabled when the BFF workspace is unavailable",
   const unavailableReason = page.getByText("服务端回合权限加载失败，正式操作已关闭", {
     exact: true
   });
-  await expect(unavailableReason).toHaveCount(3);
+  // The FE-20 blocker stage intentionally mirrors the server-safe error copy.
+  await expect(unavailableReason).toHaveCount(4);
   await expect(
     page.getByLabel("发生错误").getByText("服务端回合权限加载失败，正式操作已关闭", { exact: true })
   ).toBeVisible();
