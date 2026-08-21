@@ -147,8 +147,33 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(host.textContent).toContain("如果当时只改一项");
     expect(host.textContent).toContain("我的经营复盘");
     expect(host.textContent).toContain("下一轮假设");
+    expect(host.querySelector('[data-testid="student-p2b-result-story-cta"]')).not.toBeNull();
     expect(host.textContent).not.toContain("private peer drafts");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("offers a recoverable error state without changing the safe projection contract", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
+    const { host, root } = renderJourney();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[data-testid="student-p2b-error"]')).not.toBeNull();
+    const retry = host.querySelector<HTMLButtonElement>('[data-testid="student-p2b-retry"]');
+    expect(retry).not.toBeNull();
+    expect(retry?.textContent).toContain("重试");
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ data: response }), { status: 200 }));
+    await act(async () => {
+      retry?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.querySelector('[data-testid="student-p2b-result"]')).not.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
@@ -239,9 +264,7 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(reflectionCall).toBeDefined();
     const body = JSON.parse(String(reflectionCall?.[1]?.body)) as { response: string };
     expect(body.response).toContain("判断：先判断结果；学习：再学习机制；下一轮：下一轮验证");
-    expect(
-      [...body.response].some((character) => character.charCodeAt(0) < 0x20)
-    ).toBe(false);
+    expect([...body.response].some((character) => character.charCodeAt(0) < 0x20)).toBe(false);
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
