@@ -7,8 +7,9 @@
 - Fresh read: `2026-08-20T21:34:59-07:00`
 - Starting master after movement: `f64c9ce649eb7b8d5c25490e0aeb4a37d5e92a06`
 - Previous starting master superseded by this read: `eb2314c6601779f720f399a003e623ac85119ef0`
+- Latest live `origin/master` after the subsequent governance merge: `298fcf1236734978501930071124d1f7818ad219`
 - P2-B implementation commit on the new base: `135704a7a09494ddfa5474fdf99647a738327346`
-- Runtime/evidence implementation head before this receipt refresh: `182dd3d50ab044a31b0619ed06678ff897b819a2`
+- Runtime/evidence implementation head before this receipt refresh: `85345fadad34745c573c4325c29ed07d3d4bf0e1`
 - Branch: `codex/fe-p2b-recompile-20260820`
 - Product PR: `#415` (open; not merged)
 - Governance closure: `#416` (open; must remain open until remote gates finish)
@@ -71,8 +72,8 @@ Hot-file ownership preserved:
 ## Evidence and limits
 
 - Focused P2-B unit evidence after the new-base replay: 13/13; TypeScript typecheck passed.
-- Clean exact-head PR4 browser/Axe matrix at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-3061d12-20260820`: 4/4 passed, 20 viewport PNGs, 12 main runtime rows and 4 Lab rows within budget, all BASE/HEAD/actual SHA fields bound to `f64c9ce` → `3061d12`; the later `182dd3d` delta is test-only gate wiring.
-- Dedicated real-BFF P2-B acceptance at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-p2b-clean-3061d12-20260820`: 2/2 passed. It covers Student six stages plus reflection `201`, Teacher five stages and local-only debrief draft, and real `422` error → published recovery; no `page.route`, `fetch` mock, or new writer.
-- Exact visual comparator at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-3061d12-20260820/visual-manifest.json`: `status=passed`, `ready_for_review=true`, 20/20 pairs, automatic threshold enforced (`0.01`, Student override `0.065`), failures `0`. The final tip adds only a static test assertion and is scheduled for exact-head readback.
+- Clean exact-head PR4 browser/Axe matrix at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-85345fa-20260820`: 4/4 passed, 20 viewport PNGs, 12 main runtime rows and 4 Lab rows within budget, all BASE/HEAD/actual SHA fields bound to `298fcf1` → `85345fa`.
+- Dedicated real-BFF P2-B acceptance at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-p2b-clean-85345fa-20260820`: 2/2 passed. It covers Student six stages plus reflection `201`, Teacher five stages and local-only debrief draft, and real `422` error → published recovery; no `page.route`, `fetch` mock, or new writer.
+- Exact visual comparator at `C:/Users/Marshall/AppData/Local/Temp/simwar-p2b-pr4-clean-85345fa-20260820/visual-manifest.json`: `status=passed`, `ready_for_review=true`, 20/20 pairs, automatic threshold enforced (`0.01`, Student override `0.065`), failures `0`.
 - Human visual validation, production deployment, pilot, FE21, and P3 remain outside this mission.
 - Remote CI/CodeQL for the rebased head are required before merge and governance closure.
