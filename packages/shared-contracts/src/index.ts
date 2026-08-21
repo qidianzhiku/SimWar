@@ -10,6 +10,7 @@ export * from "./w027-decision-experience.js";
 export * from "./market-world.js";
 export * from "./project-library.js";
 import type { MarketWorldRef } from "./market-world.js";
+import type { W4StrategicActionEnvelope } from "./w4-enterprise-state.js";
 
 export type ActorRole =
   | "platform_admin"
@@ -332,6 +333,8 @@ export interface DecisionPayload {
   capacity_plan: "contract" | "hold" | "expand";
   cash_buffer_target: number;
   strategy_statement: string;
+  /** Optional formal W4 action projection admitted by RoleWorkflow. */
+  w4_strategic_action?: W4StrategicActionEnvelope;
 }
 
 export interface M1DecisionSubmitRequest {

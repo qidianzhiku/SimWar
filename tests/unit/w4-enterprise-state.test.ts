@@ -164,7 +164,12 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const alphaOutcome = await service.settleRound(scope, {
       opening_state_ref: alphaOpening.state_ref,
       decision_id: null,
-      replay_input_manifest: replayManifest(alphaOpening.state_ref, scope.round_id, scope.round_no, [])
+      replay_input_manifest: replayManifest(
+        alphaOpening.state_ref,
+        scope.round_id,
+        scope.round_no,
+        []
+      )
     });
     const betaOutcome = await service.settleRound(betaScope, {
       opening_state_ref: betaOpening.state_ref,
@@ -232,19 +237,14 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     expect(outcome.replay_input_manifest.decision_payload_bindings).toEqual([binding]);
 
     await expect(
-      service.settleRound(
-        scope,
-        {
-          opening_state_ref: opening.state_ref,
-          decision_id: newProjectDecision.decision_id,
-          replay_input_manifest: {
-            ...outcome.replay_input_manifest,
-            decision_payload_bindings: [
-              { ...binding, decision_payload_digest: "0".repeat(64) }
-            ]
-          }
+      service.settleRound(scope, {
+        opening_state_ref: opening.state_ref,
+        decision_id: newProjectDecision.decision_id,
+        replay_input_manifest: {
+          ...outcome.replay_input_manifest,
+          decision_payload_bindings: [{ ...binding, decision_payload_digest: "0".repeat(64) }]
         }
-      )
+      })
     ).rejects.toMatchObject({ code: "W4_REPLAY_DECISION_BINDING_CONFLICT" });
 
     const replay = await service.replay(scope, settled.outcome_id);
@@ -292,17 +292,44 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     for (const [index, kind] of kinds.entries()) {
       const repository = createInMemoryW4Repository();
       const service = createEnterpriseStateStrategicEvolutionService(repository);
+      const payload =
+        kind === "product_line_adjustment"
+          ? {
+              dependencies: [],
+              kpi_hypothesis: "Product line adoption improves capacity utilization",
+              lead_time_rounds: 1,
+              operation: "update" as const,
+              product_line_id: "core-care",
+              rationale: "bounded framework proof",
+              reversible: true,
+              target_value: `generic-${kind}`
+            }
+          : kind === "positioning_adjustment"
+            ? {
+                dependencies: [],
+                kpi_hypothesis: "Positioning improves qualified demand",
+                lead_time_rounds: 1,
+                positioning: `generic-${kind}`,
+                rationale: "bounded framework proof",
+                reversible: true
+              }
+            : {
+                dependencies: [],
+                headcount_delta: 1,
+                kpi_hypothesis: "Organization change improves delivery",
+                lead_time_rounds: 1,
+                rationale: "bounded framework proof",
+                reversible: true,
+                unit_name: `generic-${kind}`
+              };
       const decision: W4CanonicalStrategicDecision = {
         ...newProjectDecision,
         decision_id: `decision_w4_generic_${index}`,
         kind,
-        payload: { change: `generic-${kind}`, rationale: "bounded framework proof" },
+        payload,
         admission: {
           ...newProjectDecision.admission,
-          decision_payload_digest: createW4DecisionPayloadDigest(kind, {
-            change: `generic-${kind}`,
-            rationale: "bounded framework proof"
-          })
+          decision_payload_digest: createW4DecisionPayloadDigest(kind, payload)
         }
       };
       await service.createInitialState(scope, initialState());
@@ -313,6 +340,27 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       expect(compiled.effect.commitment_id).toBe(compiled.commitment.commitment_id);
       expect(repository.snapshot().outcomes).toHaveLength(0);
     }
+  });
+
+  it("rejects open-ended or unknown-key adjustment payloads", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+    const payload = { change: "legacy-open-payload", rationale: "must be closed" };
+    const decision: W4CanonicalStrategicDecision = {
+      ...newProjectDecision,
+      decision_id: "decision_w4_invalid_adjustment",
+      kind: "positioning_adjustment",
+      payload,
+      admission: {
+        ...newProjectDecision.admission,
+        decision_payload_digest: createW4DecisionPayloadDigest("positioning_adjustment", payload)
+      }
+    };
+
+    await expect(service.commitStrategicDecision(scope, decision)).rejects.toMatchObject({
+      code: "W4_STRATEGIC_ACTION_INVALID"
+    });
   });
 
   it("advances lead time and activates the project only at its governed round", async () => {
@@ -513,9 +561,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     expect(nextSettlement.reexecuted_decision_ids).toEqual([]);
     expect(nextSettlement.persistent_effect_ids.length).toBeGreaterThan(0);
     expect(nextSettlement.closing_state_ref.parent_state_ref).toEqual(next.state_ref);
-    const nextOutcome = repository.snapshot().outcomes.find(
-      (outcome) => outcome.official_outcome_id === nextSettlement.outcome_id
-    );
+    const nextOutcome = repository
+      .snapshot()
+      .outcomes.find((outcome) => outcome.official_outcome_id === nextSettlement.outcome_id);
     expect(nextOutcome?.replay_input_manifest.decision_ids).toEqual([
       newProjectDecision.decision_id
     ]);
@@ -529,7 +577,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       { ...scope, round_id: "round_w4_2", round_no: 2 },
       nextSettlement.outcome_id
     );
-    expect(nextReplay.decision_ids).toEqual(nextReplay.decision_payload_bindings.map((item) => item.decision_id));
+    expect(nextReplay.decision_ids).toEqual(
+      nextReplay.decision_payload_bindings.map((item) => item.decision_id)
+    );
   });
 
   it("normalizes legacy W4 snapshots before enforcing payload bindings", async () => {
@@ -553,8 +603,10 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     delete legacyCommitment.decision_payload_digest;
     const legacyEffect = legacy.effects[0] as unknown as Record<string, unknown>;
     delete legacyEffect.decision_payload_digest;
-    const legacyManifest = legacy.outcomes[0]
-      ?.replay_input_manifest as unknown as Record<string, unknown>;
+    const legacyManifest = legacy.outcomes[0]?.replay_input_manifest as unknown as Record<
+      string,
+      unknown
+    >;
     delete legacyManifest.decision_payload_bindings;
     store.w4 = legacy;
 
@@ -587,9 +639,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       service.settleRound(scope, {
         opening_state_ref: opening.state_ref,
         decision_id: newProjectDecision.decision_id,
-       replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
-         newProjectDecision.decision_id
-       ])
+        replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+          newProjectDecision.decision_id
+        ])
       })
     ).rejects.toMatchObject({ code: "W4_ATOMIC_COMMIT_FAILED" });
     expect(repository.snapshot().outcomes).toHaveLength(0);
@@ -627,9 +679,12 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     const alphaOutcome = await service.settleRound(scope, {
       opening_state_ref: alphaOpening.state_ref,
       decision_id: newProjectDecision.decision_id,
-      replay_input_manifest: replayManifest(alphaOpening.state_ref, scope.round_id, scope.round_no, [
-        newProjectDecision.decision_id
-      ])
+      replay_input_manifest: replayManifest(
+        alphaOpening.state_ref,
+        scope.round_id,
+        scope.round_no,
+        [newProjectDecision.decision_id]
+      )
     });
 
     const betaScope = { ...scope, actor_id: "usr_student_beta", team_id: "team_beta" };
@@ -686,7 +741,9 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       actor_id: "usr_admin",
       role_key: "tenant_admin"
     });
-    expect(tenantAdminProjection.path_evidence.same_current_decision_different_history).toMatchObject({
+    expect(
+      tenantAdminProjection.path_evidence.same_current_decision_different_history
+    ).toMatchObject({
       status: "proven",
       comparison_count: 1
     });

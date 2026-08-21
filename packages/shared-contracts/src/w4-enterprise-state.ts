@@ -99,6 +99,41 @@ export interface W4NewProjectPayload {
   lead_time_rounds: number;
 }
 
+export interface W4AdjustmentMetadata {
+  rationale: string;
+  lead_time_rounds: number;
+  reversible: boolean;
+  dependencies: string[];
+  kpi_hypothesis: string;
+}
+
+export interface W4ProductLineAdjustmentPayload extends W4AdjustmentMetadata {
+  product_line_id: string;
+  operation: "add" | "update" | "remove";
+  target_value: string;
+}
+
+export interface W4PositioningAdjustmentPayload extends W4AdjustmentMetadata {
+  positioning: string;
+}
+
+export interface W4OrganizationAdjustmentPayload extends W4AdjustmentMetadata {
+  unit_name: string;
+  headcount_delta: number;
+}
+
+export type W4StrategicActionPayload =
+  | W4NewProjectPayload
+  | W4ProductLineAdjustmentPayload
+  | W4PositioningAdjustmentPayload
+  | W4OrganizationAdjustmentPayload;
+
+export interface W4StrategicActionEnvelope {
+  kind: W4StrategicDecisionKind;
+  version: number;
+  payload: W4StrategicActionPayload;
+}
+
 export interface W4OperatingUnit {
   operating_unit_id: string;
   name: string;

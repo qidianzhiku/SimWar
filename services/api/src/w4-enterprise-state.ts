@@ -19,7 +19,8 @@ import type {
   W4StrategicEffect,
   W4StrategicInitiative,
   W4StrategicDecisionKind,
-  W4StoreState
+  W4StoreState,
+  Decision
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
 
@@ -207,6 +208,43 @@ export function createW4DecisionPayloadDigest(
   payload: unknown
 ): string {
   return digest({ kind, payload: normalizeDecisionPayload(payload) });
+}
+
+/**
+ * Formal W4 actions are projections of the already admitted RoleWorkflow
+ * Decision. The W4 route may persist its own typed action record for the W4
+ * state machine, but it must never reinterpret a client payload as the
+ * canonical team Decision. The canonical Decision therefore carries an
+ * explicit, versioned W4 action envelope and this comparison is the only
+ * accepted bridge between the two authorities.
+ */
+export function assertFormalW4DecisionMatchesCanonical(
+  submitted: Pick<W4CanonicalStrategicDecision, "kind" | "version" | "payload">,
+  canonical: Pick<Decision, "version" | "payload">
+): void {
+  const canonicalPayload = canonical.payload;
+  const envelope =
+    canonicalPayload && typeof canonicalPayload === "object"
+      ? (canonicalPayload as unknown as Record<string, unknown>).w4_strategic_action
+      : undefined;
+  if (!envelope || typeof envelope !== "object") {
+    throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
+  }
+
+  const action = envelope as {
+    kind?: unknown;
+    version?: unknown;
+    payload?: unknown;
+  };
+  if (
+    action.kind !== submitted.kind ||
+    action.version !== submitted.version ||
+    canonical.version !== submitted.version ||
+    createW4DecisionPayloadDigest(submitted.kind, action.payload) !==
+      createW4DecisionPayloadDigest(submitted.kind, submitted.payload)
+  ) {
+    throw new W4EnterpriseStateError("W4_DECISION_PAYLOAD_BINDING_CONFLICT");
+  }
 }
 
 function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
@@ -431,7 +469,10 @@ function projectPayload(decision: W4CanonicalStrategicDecision): W4EnterpriseSta
 }
 
 function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void {
-  if (decision.kind !== "new_project") return;
+  if (decision.kind !== "new_project") {
+    validateTypedAdjustmentPayload(decision.kind, decision.payload);
+    return;
+  }
   const payload = decision.payload as {
     project_name?: unknown;
     cost?: unknown;
@@ -442,6 +483,22 @@ function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void
     ramp?: unknown;
     lead_time_rounds?: unknown;
   };
+  const expectedKeys = [
+    "area",
+    "bed_mix",
+    "beds",
+    "cost",
+    "cycle_rounds",
+    "lead_time_rounds",
+    "project_name",
+    "ramp"
+  ];
+  if (
+    Object.keys(payload).length !== expectedKeys.length ||
+    Object.keys(payload).some((key) => !expectedKeys.includes(key))
+  ) {
+    throw new W4EnterpriseStateError("W4_NEW_PROJECT_INVALID");
+  }
   const numericFields = [
     "cost",
     "cycle_rounds",
@@ -478,6 +535,71 @@ function validateStrategicDecision(decision: W4CanonicalStrategicDecision): void
     Object.values(payload.bed_mix).some((value) => Number(value) < 0)
   ) {
     throw new W4EnterpriseStateError("W4_NEW_PROJECT_BED_MIX_INVALID");
+  }
+}
+
+function validateTypedAdjustmentPayload(
+  kind: Exclude<W4StrategicDecisionKind, "new_project">,
+  input: unknown
+): void {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  const payload = input as Record<string, unknown>;
+  const commonKeys = [
+    "dependencies",
+    "kpi_hypothesis",
+    "lead_time_rounds",
+    "rationale",
+    "reversible"
+  ];
+  const kindKeys: Record<typeof kind, string[]> = {
+    product_line_adjustment: ["operation", "product_line_id", "target_value"],
+    positioning_adjustment: ["positioning"],
+    organization_adjustment: ["headcount_delta", "unit_name"]
+  };
+  const expectedKeys = [...commonKeys, ...(kindKeys[kind] ?? [])].sort();
+  const actualKeys = Object.keys(payload).sort();
+  if (
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index])
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  if (
+    typeof payload.rationale !== "string" ||
+    payload.rationale.trim() === "" ||
+    typeof payload.kpi_hypothesis !== "string" ||
+    payload.kpi_hypothesis.trim() === "" ||
+    typeof payload.reversible !== "boolean" ||
+    !Number.isInteger(payload.lead_time_rounds) ||
+    Number(payload.lead_time_rounds) < 0 ||
+    !Array.isArray(payload.dependencies) ||
+    payload.dependencies.some((item) => typeof item !== "string" || item.trim() === "")
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+  }
+  if (kind === "product_line_adjustment") {
+    if (
+      typeof payload.product_line_id !== "string" ||
+      payload.product_line_id.trim() === "" ||
+      !["add", "update", "remove"].includes(String(payload.operation)) ||
+      typeof payload.target_value !== "string" ||
+      payload.target_value.trim() === ""
+    ) {
+      throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+    }
+  } else if (kind === "positioning_adjustment") {
+    if (typeof payload.positioning !== "string" || payload.positioning.trim() === "") {
+      throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
+    }
+  } else if (
+    typeof payload.unit_name !== "string" ||
+    payload.unit_name.trim() === "" ||
+    !Number.isInteger(payload.headcount_delta) ||
+    Number(payload.headcount_delta) === 0
+  ) {
+    throw new W4EnterpriseStateError("W4_STRATEGIC_ACTION_INVALID");
   }
 }
 
