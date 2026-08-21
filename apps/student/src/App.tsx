@@ -33,6 +33,7 @@ import { W4EnterpriseStatePanel } from "./W4EnterpriseStatePanel";
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
+import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
   AppShell,
@@ -50,6 +51,7 @@ const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("w3") === "true");
+const W3_ENVIRONMENT_ENABLED = import.meta.env.VITE_SIMWAR_W3_ENABLED === "true";
 
 function readW3QueryContext(): W3OfficialConsequenceContext | undefined {
   if (typeof window === "undefined") return undefined;
@@ -375,8 +377,9 @@ export function App() {
   const isStudentSession = Boolean(session && isStudentSessionAllowed(session.user.roles));
   const w3RoleKey =
     team?.members.find((member) => member.user_id === session?.user.user_id)?.role_slot ?? "CEO";
+  const w3QueryContext = readW3QueryContext();
   const w3Context =
-    readW3QueryContext() ??
+    w3QueryContext ??
     (latestRun && latestRound && team
       ? {
           activity_id: "activity_consequence",
@@ -389,6 +392,7 @@ export function App() {
           tenant_id: login.tenantId
         }
       : undefined);
+  const w3ContextReady = isW3ContextAvailable(w3QueryContext, W3_ENVIRONMENT_ENABLED);
 
   const refresh = useCallback(async () => {
     const requestId = ++refreshIdentity.current;
@@ -1119,10 +1123,10 @@ export function App() {
               <Suspense fallback={<p className="muted">正在载入学习旅程…</p>}>
                 <StudentDecisionLearningJourney
                   apiBase={API_BASE}
-                  context={W3_ENABLED ? w3Context : undefined}
+                  context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
-                  published={W3_ENABLED && Boolean(myResult)}
+                  published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                 />
               </Suspense>
               <details className="p2b-compatibility-details">
@@ -1148,7 +1152,7 @@ export function App() {
           >
             <W3OfficialConsequenceLearningPanel
               apiBase={API_BASE}
-              context={w3Context}
+              context={W3_ENABLED && w3ContextReady ? w3Context : undefined}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
             />

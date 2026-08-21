@@ -9,6 +9,7 @@ import {
   StudentDecisionLearningJourney,
   getStudentLearningGate
 } from "../../apps/student/src/P2BDecisionLearningJourney";
+import { isW3ContextAvailable } from "../../apps/student/src/p2b-w3-context";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -105,6 +106,12 @@ function renderJourney(
 }
 
 describe("P2-B FE-19 student decision learning", () => {
+  it("requires an explicit W3 context unless the feature is enabled by environment", () => {
+    expect(isW3ContextAvailable(undefined, false)).toBe(false);
+    expect(isW3ContextAvailable(context, false)).toBe(true);
+    expect(isW3ContextAvailable(undefined, true)).toBe(true);
+  });
+
   it("freezes the six Figma stages", () => {
     expect(P2B_STUDENT_STAGES).toEqual([
       "result",
