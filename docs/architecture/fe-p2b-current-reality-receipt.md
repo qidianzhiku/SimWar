@@ -9,7 +9,9 @@
 - Previous starting master superseded by this read: `eb2314c6601779f720f399a003e623ac85119ef0`
 - Latest live `origin/master` after the subsequent governance merge: `298fcf1236734978501930071124d1f7818ad219`
 - P2-B implementation commit on the new base: `135704a7a09494ddfa5474fdf99647a738327346`
-- Runtime/evidence implementation head before this receipt refresh: `85345fadad34745c573c4325c29ed07d3d4bf0e1`
+- Runtime implementation commit: `8dff688d621990d3f7392437bfe2d06536f7476b`
+- Real-BFF acceptance/config commit: `b194bbfbace55aed41100cfafb470cee438a1265`
+- Final exact evidence/docs tip used for the clean replay: `85345fadad34745c573c4325c29ed07d3d4bf0e1`
 - Branch: `codex/fe-p2b-recompile-20260820`
 - Product PR: `#415` (open; not merged)
 - Governance closure: `#416` (open; must remain open until remote gates finish)

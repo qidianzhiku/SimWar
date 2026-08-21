@@ -7,7 +7,8 @@
 - `DESIGN_GATE=PASS`
 - `FIGMA_TO_CODE_MAP=PASS`
 - `BFF_BROWSER_ACCEPTANCE=PASS` for the dedicated real-BFF FE-19/FE-20 journey
-- `FINAL_CODE_COMMIT=85345fadad34745c573c4325c29ed07d3d4bf0e1`
+- `FINAL_RUNTIME_COMMIT=8dff688d621990d3f7392437bfe2d06536f7476b`
+- `FINAL_EVIDENCE_HEAD=85345fadad34745c573c4325c29ed07d3d4bf0e1`
 - `UNIT=PASS`
 - `BUILD=PASS`
 - `ROUTE_PERMISSION_BOUNDARY=PASS`
@@ -36,4 +37,4 @@ No service, API, DTO, contract, database, settlement, replay, permission, tenant
 
 Product Design MCP was not callable, CodeGraph/Graphify indexes were unavailable, and Amplitude discovery returned no design-relevant value. The independent design review was completed with the structured fallback using the Figma screenshots, hierarchy, action, cognitive-load, responsive, authority, information-separation, accessibility, language, and precision checks. The clean PR4 matrix did execute Axe; the dedicated P2-B spec is intentionally functional/real-BFF rather than a second visual/Axe matrix. Human design approval, production deployment, pilot, FE21/P3 work and remote CI/CodeQL remain deferred. The Figma file is authoritative for design intent; runtime BFF responses remain authoritative for formal data.
 
-The final focused PR4 run was executed on clean commit `85345fadad34745c573c4325c29ed07d3d4bf0e1` with exact-head checks enabled. The current verification scope is focused unit/typecheck/build/browser/comparator evidence; the full aggregate Vitest, contract, Postgres replay, remote CI and merge gates remain to be run or read back on the published head.
+The final focused PR4 run was executed on clean evidence head `85345fadad34745c573c4325c29ed07d3d4bf0e1` with exact-head checks enabled; the runtime implementation is `8dff688d621990d3f7392437bfe2d06536f7476b` and later tip commits are docs/test-gate-only. The current verification scope is focused unit/typecheck/build/browser/comparator evidence; the full aggregate Vitest, contract, Postgres replay, remote CI and merge gates remain to be run or read back on the published head.
