@@ -171,6 +171,12 @@ const mod04ContractFiles = [
   "contracts/fixtures/model-candidate-registry.invalid.json"
 ];
 
+const mod06ContractFiles = [
+  "contracts/schemas/model-governance-plane.v1.json",
+  "contracts/fixtures/model-governance-plane.valid.json",
+  "contracts/fixtures/model-governance-plane.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -405,6 +411,11 @@ const schemaCases = [
     schema: "contracts/schemas/model-candidate-registry.v1.json",
     valid: ["contracts/fixtures/model-candidate-registry.valid.json"],
     invalid: ["contracts/fixtures/model-candidate-registry.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/model-governance-plane.v1.json",
+    valid: ["contracts/fixtures/model-governance-plane.valid.json"],
+    invalid: ["contracts/fixtures/model-governance-plane.invalid.json"]
   },
   {
     schema: "contracts/schemas/project-profile.v1.json",
@@ -1001,7 +1012,8 @@ export async function runContractValidation(options = {}) {
     ...w027ContractFiles,
     ...w3ContractFiles,
     ...w4ContractFiles,
-    ...mod04ContractFiles
+    ...mod04ContractFiles,
+    ...mod06ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1023,7 +1035,8 @@ export async function runContractValidation(options = {}) {
     ...w027ContractFiles,
     ...w3ContractFiles,
     ...w4ContractFiles,
-    ...mod04ContractFiles
+    ...mod04ContractFiles,
+    ...mod06ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

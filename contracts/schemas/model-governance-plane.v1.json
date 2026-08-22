@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-governance-plane.v1.json",
+  "title": "ModelGovernancePlane",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "authority",
+    "model_specs",
+    "model_versions",
+    "experiments",
+    "calibration_runs",
+    "approvals",
+    "activations",
+    "retirements",
+    "rollbacks"
+  ],
+  "properties": {
+    "schema_version": { "const": "model-governance-plane.v1" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "model_specs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/model_spec" }
+    },
+    "model_versions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/model_version" }
+    },
+    "experiments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/experiment" }
+    },
+    "calibration_runs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/calibration_run" }
+    },
+    "approvals": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/approval" }
+    },
+    "activations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/activation" }
+    },
+    "retirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/retirement" }
+    },
+    "rollbacks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rollback" }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "model_version_reference": {
+      "type": "object",
+      "required": ["model_version_id", "version", "content_digest"],
+      "properties": {
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/version" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "model_spec_reference": {
+      "type": "object",
+      "required": ["model_spec_id", "version", "content_digest"],
+      "properties": {
+        "model_spec_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/version" },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      },
+      "additionalProperties": false
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "authority_id",
+        "sole_writer",
+        "no_implicit_latest",
+        "activation_policy",
+        "provider_calls",
+        "official_truth_writer",
+        "runtime_authority"
+      ],
+      "properties": {
+        "authority_id": { "const": "SIMWAR-MODEL-GOVERNANCE-PLANE" },
+        "sole_writer": { "const": "MAIN_MODEL_GOVERNANCE" },
+        "no_implicit_latest": { "const": true },
+        "activation_policy": { "const": "NOT_AUTHORIZED" },
+        "provider_calls": { "const": 0 },
+        "official_truth_writer": { "const": false },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      },
+      "additionalProperties": false
+    },
+    "model_spec": {
+      "type": "object",
+      "required": [
+        "model_spec_id",
+        "version",
+        "content_digest",
+        "model_family",
+        "feature_mapper_version",
+        "solver_version",
+        "parameter_schema_versions",
+        "status",
+        "created_at",
+        "created_by"
+      ],
+      "properties": {
+        "model_spec_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/version" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_family": {
+          "enum": ["toy_logit", "blp", "rcnl", "w5_governed", "custom"]
+        },
+        "feature_mapper_version": { "type": "string", "minLength": 1 },
+        "solver_version": { "type": "string", "minLength": 1 },
+        "parameter_schema_versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": {
+          "enum": ["DRAFT", "VALIDATED", "FROZEN", "APPROVED", "RETIRED"]
+        },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "created_by": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["artifact_id", "content_digest", "format", "source_ref"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "compatibility": {
+      "type": "object",
+      "required": [
+        "feature_mapper_version",
+        "solver_version",
+        "parameter_schema_versions",
+        "parameter_model_families"
+      ],
+      "properties": {
+        "feature_mapper_version": { "type": "string", "minLength": 1 },
+        "solver_version": { "type": "string", "minLength": 1 },
+        "parameter_schema_versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "parameter_model_families": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_version": {
+      "type": "object",
+      "required": [
+        "model_version_id",
+        "version",
+        "content_digest",
+        "model_spec_reference",
+        "model_family",
+        "artifact",
+        "compatibility",
+        "status",
+        "no_implicit_latest",
+        "created_at",
+        "created_by"
+      ],
+      "properties": {
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/version" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_spec_reference": { "$ref": "#/$defs/model_spec_reference" },
+        "model_family": {
+          "enum": ["toy_logit", "blp", "rcnl", "w5_governed", "custom"]
+        },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "status": {
+          "enum": ["DRAFT", "VALIDATED", "FROZEN", "APPROVED", "ACTIVE", "RETIRED"]
+        },
+        "no_implicit_latest": { "const": true },
+        "supersedes": { "$ref": "#/$defs/model_version_reference" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "created_by": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "experiment": {
+      "type": "object",
+      "required": [
+        "experiment_id",
+        "model_version_reference",
+        "input_digest",
+        "status",
+        "created_at",
+        "created_by"
+      ],
+      "properties": {
+        "experiment_id": { "type": "string", "minLength": 1 },
+        "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["DRAFT", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"] },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "created_by": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "calibration_run": {
+      "type": "object",
+      "required": [
+        "calibration_run_id",
+        "model_version_reference",
+        "input_digest",
+        "status",
+        "started_at"
+      ],
+      "properties": {
+        "calibration_run_id": { "type": "string", "minLength": 1 },
+        "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"] },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "completed_at": { "$ref": "#/$defs/timestamp" },
+        "failure_reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "SUCCEEDED" } } },
+          "then": {
+            "required": ["completed_at", "output_digest"],
+            "properties": {
+              "completed_at": { "$ref": "#/$defs/timestamp" },
+              "output_digest": { "$ref": "#/$defs/digest" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "FAILED" } } },
+          "then": {
+            "required": ["completed_at", "failure_reason"],
+            "properties": {
+              "completed_at": { "$ref": "#/$defs/timestamp" },
+              "failure_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "approval_id",
+        "model_version_reference",
+        "decision",
+        "approved_by",
+        "approved_at",
+        "correlation_id",
+        "evidence_refs"
+      ],
+      "properties": {
+        "approval_id": { "type": "string", "minLength": 1 },
+        "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "decision": { "enum": ["APPROVED", "REJECTED"] },
+        "approved_by": { "type": "string", "minLength": 1 },
+        "approved_at": { "$ref": "#/$defs/timestamp" },
+        "correlation_id": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "activation": {
+      "type": "object",
+      "required": [
+        "activation_id",
+        "model_version_reference",
+        "environment",
+        "status",
+        "runtime_activation",
+        "requested_by",
+        "requested_at",
+        "evidence_refs"
+      ],
+      "properties": {
+        "activation_id": { "type": "string", "minLength": 1 },
+        "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "environment": { "enum": ["OFFLINE", "SHADOW", "INTERNAL"] },
+        "status": { "enum": ["PROPOSED", "APPROVED", "CANCELLED", "ROLLED_BACK"] },
+        "runtime_activation": { "const": false },
+        "requested_by": { "type": "string", "minLength": 1 },
+        "requested_at": { "$ref": "#/$defs/timestamp" },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "retirement": {
+      "type": "object",
+      "required": [
+        "retirement_id",
+        "model_version_reference",
+        "status",
+        "retired_by",
+        "retired_at",
+        "reason"
+      ],
+      "properties": {
+        "retirement_id": { "type": "string", "minLength": 1 },
+        "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "status": { "enum": ["PROPOSED", "RETIRED"] },
+        "retired_by": { "type": "string", "minLength": 1 },
+        "retired_at": { "$ref": "#/$defs/timestamp" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "rollback": {
+      "type": "object",
+      "required": [
+        "rollback_id",
+        "from_model_version_reference",
+        "to_model_version_reference",
+        "status",
+        "runtime_activation",
+        "requested_by",
+        "requested_at",
+        "reason"
+      ],
+      "properties": {
+        "rollback_id": { "type": "string", "minLength": 1 },
+        "from_model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "to_model_version_reference": { "$ref": "#/$defs/model_version_reference" },
+        "status": { "enum": ["PROPOSED", "APPROVED", "EXECUTED", "REJECTED"] },
+        "runtime_activation": { "const": false },
+        "requested_by": { "type": "string", "minLength": 1 },
+        "requested_at": { "$ref": "#/$defs/timestamp" },
+        "executed_at": { "$ref": "#/$defs/timestamp" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "EXECUTED" } } },
+          "then": {
+            "required": ["executed_at"],
+            "properties": { "executed_at": { "$ref": "#/$defs/timestamp" } }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
