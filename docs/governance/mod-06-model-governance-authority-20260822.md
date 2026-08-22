@@ -43,6 +43,15 @@ registry, persistence port, runtime resolver, or route.
 - Activation and rollback records are parseable governance history only and
   require `runtime_activation=false`. The authority contract fixes provider
   calls to zero and official truth writer to false.
+- `assertModelGovernancePlaneIntegrity` rejects duplicate identities and every
+  dangling exact ModelSpec/ModelVersion reference, including `supersedes` and
+  rollback endpoints, for arbitrary plane payloads rather than only fixtures.
+- Empty governance-history collections are valid for a newly initialized plane;
+  retirement proposals require request metadata, while completed retirements
+  require completed-by/time metadata.
+- SemVer validation rejects leading-zero core or numeric prerelease identifiers,
+  empty prerelease segments, and other non-SemVer exact selectors at both the
+  shared-helper and JSON Schema boundaries.
 - The shared writer guard accepts only `MAIN_MODEL_GOVERNANCE` and rejects
   AGT, SH, FE, Teacher, Student, provider, Simulation Core, ParameterSet, and
   frontend writers.
@@ -70,15 +79,15 @@ Replay, lockfile, or formal authority implementation path is in scope.
 
 | Check                                                                                                       | Result                                                             |
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `npx vitest run tests/unit/model-governance.test.ts tests/contract/model-governance-plane-contract.test.ts` | `PASS` — 7 tests                                                   |
+| `npx vitest run tests/unit/model-governance.test.ts tests/contract/model-governance-plane-contract.test.ts` | `PASS` — 8 tests                                                   |
 | `node scripts/check-contracts.mjs`                                                                          | `PASS` — 31 schema/fixture case groups                             |
-| `npm run test:contract`                                                                                     | `PASS` — 31 files / 72 tests                                       |
+| `npm run test:contract`                                                                                     | `PASS` — 31 files / 73 tests                                       |
 | `npm run typecheck`                                                                                         | `PASS`                                                             |
 | `npm run check:hidden-unicode`                                                                              | `PASS`                                                             |
 | `npm run lint`                                                                                              | `PASS`                                                             |
 | MOD-06 scoped `prettier --check`                                                                            | `PASS` — all changed files                                         |
 | `npm run format:check`                                                                                      | `LIMITED` — repository baseline reports 85 existing style warnings |
-| `npm test`                                                                                                  | `PASS` — 247 test files / 1478 tests                               |
+| `npm test`                                                                                                  | `PASS` — 247 test files / 1479 tests                               |
 
 ## Explicit non-proofs and stop boundaries
 
@@ -102,4 +111,4 @@ mission, and the MAIN shared-contract/authority lock.
 The full-repository Prettier result is retained as a baseline limitation; this
 mission did not reformat unrelated files. An earlier full-suite attempt showed
 two transient `fetch failed / bad port` failures; the fresh final rerun passed
-all 247 test files and 1478 tests.
+all 247 test files and 1479 tests.

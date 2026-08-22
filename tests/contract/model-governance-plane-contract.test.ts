@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
+import {
+  assertModelGovernancePlaneIntegrity,
+  type ModelGovernancePlane
+} from "../../packages/shared-contracts/src/model-governance";
 
 const schema = JSON.parse(
   readFileSync(resolve("contracts/schemas/model-governance-plane.v1.json"), "utf8")
@@ -27,6 +31,9 @@ describe("MOD-06 Model Governance Plane contract", () => {
     const validate = ajv.compile(schema);
 
     expect(validate(validFixture), JSON.stringify(validate.errors)).toBe(true);
+    expect(() =>
+      assertModelGovernancePlaneIntegrity(validFixture as ModelGovernancePlane)
+    ).not.toThrow();
     expect(validFixture.authority.authority_id).toBe("SIMWAR-MODEL-GOVERNANCE-PLANE");
     expect(validFixture.authority.sole_writer).toBe("MAIN_MODEL_GOVERNANCE");
     expect(validFixture.authority.no_implicit_latest).toBe(true);
@@ -34,6 +41,33 @@ describe("MOD-06 Model Governance Plane contract", () => {
     expect(validFixture.authority.provider_calls).toBe(0);
     expect(validFixture.authority.official_truth_writer).toBe(false);
     expect(validFixture.authority.runtime_authority).toBe("JSON_INTERNAL_ONLY");
+
+    const emptyPlane = {
+      ...validFixture,
+      activations: [],
+      approvals: [],
+      calibration_runs: [],
+      experiments: [],
+      model_specs: [],
+      model_versions: [],
+      retirements: [],
+      rollbacks: []
+    } as ModelGovernancePlane;
+    expect(validate(emptyPlane), JSON.stringify(validate.errors)).toBe(true);
+    expect(() => assertModelGovernancePlaneIntegrity(emptyPlane)).not.toThrow();
+
+    const proposedRetirementPlane = JSON.parse(JSON.stringify(validFixture));
+    proposedRetirementPlane.retirements = [
+      {
+        model_version_reference: validFixture.model_versions[1].supersedes,
+        retirement_id: "retirement_toy_logit_v2_proposed",
+        requested_at: "2026-08-22T01:05:00Z",
+        requested_by: "model-governance-reviewer",
+        reason: "Candidate retirement pending approval.",
+        status: "PROPOSED"
+      }
+    ];
+    expect(validate(proposedRetirementPlane), JSON.stringify(validate.errors)).toBe(true);
 
     const versions = new Map(
       validFixture.model_versions.map(
@@ -100,5 +134,18 @@ describe("MOD-06 Model Governance Plane contract", () => {
 
     expect(validate(invalidFixture)).toBe(false);
     expect(JSON.stringify(validate.errors)).toMatch(/latest|provider_calls|official_truth_writer/);
+
+    const invalidVersionPlane = JSON.parse(JSON.stringify(validFixture));
+    invalidVersionPlane.model_versions[0].version = "01.0.0";
+    expect(validate(invalidVersionPlane)).toBe(false);
+  });
+
+  it("rejects a dangling exact ModelVersion reference outside the bundled fixture", () => {
+    const danglingPlane = JSON.parse(JSON.stringify(validFixture)) as ModelGovernancePlane;
+    danglingPlane.model_versions[1].supersedes!.content_digest = "f".repeat(64);
+
+    expect(() => assertModelGovernancePlaneIntegrity(danglingPlane)).toThrow(
+      "MODEL_VERSION_REFERENCE_NOT_FOUND"
+    );
   });
 });

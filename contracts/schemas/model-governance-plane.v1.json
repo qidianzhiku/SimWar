@@ -20,42 +20,34 @@
     "authority": { "$ref": "#/$defs/authority" },
     "model_specs": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/model_spec" }
     },
     "model_versions": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/model_version" }
     },
     "experiments": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/experiment" }
     },
     "calibration_runs": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/calibration_run" }
     },
     "approvals": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/approval" }
     },
     "activations": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/activation" }
     },
     "retirements": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/retirement" }
     },
     "rollbacks": {
       "type": "array",
-      "minItems": 1,
       "items": { "$ref": "#/$defs/rollback" }
     }
   },
@@ -70,7 +62,7 @@
     },
     "version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
     },
     "model_version_reference": {
       "type": "object",
@@ -340,22 +332,39 @@
     },
     "retirement": {
       "type": "object",
-      "required": [
-        "retirement_id",
-        "model_version_reference",
-        "status",
-        "retired_by",
-        "retired_at",
-        "reason"
-      ],
+      "required": ["retirement_id", "model_version_reference", "status", "reason"],
       "properties": {
         "retirement_id": { "type": "string", "minLength": 1 },
         "model_version_reference": { "$ref": "#/$defs/model_version_reference" },
         "status": { "enum": ["PROPOSED", "RETIRED"] },
+        "requested_by": { "type": "string", "minLength": 1 },
+        "requested_at": { "$ref": "#/$defs/timestamp" },
         "retired_by": { "type": "string", "minLength": 1 },
         "retired_at": { "$ref": "#/$defs/timestamp" },
         "reason": { "type": "string", "minLength": 1 }
       },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "PROPOSED" } } },
+          "then": {
+            "required": ["requested_by", "requested_at"],
+            "properties": {
+              "requested_by": { "type": "string", "minLength": 1 },
+              "requested_at": { "$ref": "#/$defs/timestamp" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "RETIRED" } } },
+          "then": {
+            "required": ["retired_by", "retired_at"],
+            "properties": {
+              "retired_by": { "type": "string", "minLength": 1 },
+              "retired_at": { "$ref": "#/$defs/timestamp" }
+            }
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "rollback": {

@@ -59,7 +59,17 @@ describe("MOD-06 model governance shared contract", () => {
   });
 
   it("rejects floating or malformed model version references", () => {
-    for (const version of ["latest", "*", "^1.0.0", "~1.0.0", "1", ""]) {
+    for (const version of [
+      "latest",
+      "*",
+      "^1.0.0",
+      "~1.0.0",
+      "1",
+      "",
+      "01.0.0",
+      "1.0.0-alpha..1",
+      "1.0.0-01"
+    ]) {
       expect(() =>
         createModelVersionReference({
           content_digest: digest,

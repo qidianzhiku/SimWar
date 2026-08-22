@@ -30,7 +30,10 @@ export type ModelGovernanceWriter =
 
 export type ModelGovernanceFailureCode =
   | "MODEL_VERSION_REFERENCE_INVALID"
+  | "MODEL_VERSION_REFERENCE_NOT_FOUND"
   | "MODEL_VERSION_INVALID_TRANSITION"
+  | "MODEL_GOVERNANCE_IDENTITY_DUPLICATE"
+  | "MODEL_SPEC_REFERENCE_NOT_FOUND"
   | "MODEL_GOVERNANCE_WRITER_FORBIDDEN";
 
 export interface ModelVersionReference {
@@ -135,14 +138,25 @@ export interface ModelActivation {
   status: "PROPOSED" | "APPROVED" | "CANCELLED" | "ROLLED_BACK";
 }
 
-export interface ModelRetirement {
+interface ModelRetirementBase {
   model_version_reference: ModelVersionReference;
   reason: string;
   retirement_id: string;
-  retired_at: string;
-  retired_by: string;
-  status: "PROPOSED" | "RETIRED";
 }
+
+export type ModelRetirement =
+  | (ModelRetirementBase & {
+      requested_at: string;
+      requested_by: string;
+      status: "PROPOSED";
+    })
+  | (ModelRetirementBase & {
+      requested_at?: string;
+      requested_by?: string;
+      retired_at: string;
+      retired_by: string;
+      status: "RETIRED";
+    });
 
 export interface ModelRollback {
   executed_at?: string;
@@ -193,12 +207,37 @@ function isNonBlankString(value: string): boolean {
   return value.trim().length > 0;
 }
 
+const SEMVER_IDENTIFIER = "(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)";
+const SEMVER_PATTERN = new RegExp(
+  `^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-${SEMVER_IDENTIFIER}(?:\\.${SEMVER_IDENTIFIER})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`
+);
+
 function isExactSemver(value: string): boolean {
-  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(value);
+  return SEMVER_PATTERN.test(value);
 }
 
 function isDigest(value: string): boolean {
   return /^[a-f0-9]{64}$/.test(value);
+}
+
+function modelVersionKey(reference: {
+  content_digest: string;
+  model_version_id: string;
+  version: string;
+}): string {
+  return `${reference.model_version_id}@${reference.version}#${reference.content_digest}`;
+}
+
+function modelVersionIdentityKey(reference: { model_version_id: string; version: string }): string {
+  return `${reference.model_version_id}@${reference.version}`;
+}
+
+function modelSpecKey(reference: ModelSpecReference): string {
+  return `${reference.model_spec_id}@${reference.version}#${reference.content_digest}`;
+}
+
+function modelSpecIdentityKey(reference: ModelSpecReference): string {
+  return `${reference.model_spec_id}@${reference.version}`;
 }
 
 export function createModelVersionReference(
@@ -217,6 +256,64 @@ export function createModelVersionReference(
     model_version_id: input.model_version_id,
     version: input.version
   });
+}
+
+export function assertModelGovernancePlaneIntegrity(plane: ModelGovernancePlane): void {
+  const modelVersionKeys = new Set<string>();
+  const modelVersionIdentityKeys = new Set<string>();
+  for (const version of plane.model_versions) {
+    const identityKey = modelVersionIdentityKey(version);
+    if (modelVersionIdentityKeys.has(identityKey)) {
+      throw new ModelGovernanceError("MODEL_GOVERNANCE_IDENTITY_DUPLICATE");
+    }
+    modelVersionIdentityKeys.add(identityKey);
+    modelVersionKeys.add(modelVersionKey(version));
+  }
+
+  const modelSpecKeys = new Set<string>();
+  const modelSpecIdentityKeys = new Set<string>();
+  for (const spec of plane.model_specs) {
+    const identityKey = modelSpecIdentityKey(spec);
+    if (modelSpecIdentityKeys.has(identityKey)) {
+      throw new ModelGovernanceError("MODEL_GOVERNANCE_IDENTITY_DUPLICATE");
+    }
+    modelSpecIdentityKeys.add(identityKey);
+    modelSpecKeys.add(modelSpecKey(spec));
+  }
+
+  const assertModelVersionReference = (reference: ModelVersionReference): void => {
+    if (!modelVersionKeys.has(modelVersionKey(reference))) {
+      throw new ModelGovernanceError("MODEL_VERSION_REFERENCE_NOT_FOUND");
+    }
+  };
+
+  const assertModelSpecReference = (reference: ModelSpecReference): void => {
+    if (!modelSpecKeys.has(modelSpecKey(reference))) {
+      throw new ModelGovernanceError("MODEL_SPEC_REFERENCE_NOT_FOUND");
+    }
+  };
+
+  for (const version of plane.model_versions) {
+    assertModelSpecReference(version.model_spec_reference);
+    if (version.supersedes) {
+      assertModelVersionReference(version.supersedes);
+    }
+  }
+
+  for (const record of [
+    ...plane.experiments,
+    ...plane.calibration_runs,
+    ...plane.approvals,
+    ...plane.activations,
+    ...plane.retirements
+  ]) {
+    assertModelVersionReference(record.model_version_reference);
+  }
+
+  for (const rollback of plane.rollbacks) {
+    assertModelVersionReference(rollback.from_model_version_reference);
+    assertModelVersionReference(rollback.to_model_version_reference);
+  }
 }
 
 const MODEL_VERSION_TRANSITIONS: Readonly<
