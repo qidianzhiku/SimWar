@@ -7,7 +7,11 @@
 - Initial authenticated `origin/master`: `d7ddfd62254364698819e2f89dbaf9939758084a`
 - Current authenticated pre-merge `origin/master`: `969bfd7457ea665946fe59a808694d31e2c815d0`
 - Product PR #434 head before merge: `2ab9b0a0c1f117b9cf048885e77f6a07c88a118e`
-- Product merge commit and current `origin/master`: `fbda560081e880bc4a3daf185d3c8e57092ea18a`
+- Product merge commit: `fbda560081e880bc4a3daf185d3c8e57092ea18a`
+- Governance PR #435 merge commit and exact governance readback master:
+  `3c101e5c4a4ed431c0b20f88ffc8ee52bb723636`
+- Current master after later unrelated PRs #436-#440:
+  `43ccca6feb0d78dd889b2677dbaee9693ca23f1f`
 
 ## Receipt map
 
@@ -26,7 +30,7 @@
 | BASELINE_FAILURE_FINGERPRINT_REGISTRY | CURRENT_CANDIDATE_RECORDED | [`BASELINE_FAILURE_FINGERPRINT_REGISTRY.md`](./BASELINE_FAILURE_FINGERPRINT_REGISTRY.md) |
 | PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT | PASS | [`PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT.md`](./PRODUCT_EXACT_HEAD_VALIDATION_RECEIPT.md) |
 | POST_MERGE_DETACHED_RECEIPT | PASS_WITH_LIMITS | [`POST_MERGE_DETACHED_RECEIPT.md`](./POST_MERGE_DETACHED_RECEIPT.md) |
-| FINAL_GOVERNANCE_READBACK_RECEIPT | PENDING_GOVERNANCE_CLOSURE | [`FINAL_GOVERNANCE_READBACK_RECEIPT.md`](./FINAL_GOVERNANCE_READBACK_RECEIPT.md) |
+| FINAL_GOVERNANCE_READBACK_RECEIPT | PASS_WITH_LIMITS | [`FINAL_GOVERNANCE_READBACK_RECEIPT.md`](./FINAL_GOVERNANCE_READBACK_RECEIPT.md) |
 
 ## Acceptance summary
 
@@ -37,6 +41,7 @@
 - Current code gates after rebase: typecheck, build, lint, contract, focused regression, hidden Unicode, and direct-store boundary guard passed.
 - Full Vitest post-merge: 243/244 files and 1468/1469 tests passed in concurrent mode; the one shell-metacharacter snapshot subprocess timeout was reproduced as passing in a serial rerun of its affected file (147/147).
 - Security audit: inherited 9 advisories (2 low, 7 high); no dependency mutation was authorized or performed.
+- Governance readback: PASS_WITH_LIMITS at `3c101e5c4a4ed431c0b20f88ffc8ee52bb723636`; resource-lock release recorded after exact merge readback.
 
 ## Explicit non-proofs
 

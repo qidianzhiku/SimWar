@@ -35,9 +35,10 @@ those boundaries.
   `fbda560081e880bc4a3daf185d3c8e57092ea18a`
 - The exact Product merge and detached validation are recorded in
   `docs/evidence/m2p4-live-round-ops-v5.18/POST_MERGE_DETACHED_RECEIPT.md`.
-- The final governance merge SHA and final `origin/master` are read back from
-  GitHub after this docs-only PR merges; this document does not treat a
-  pending merge as proof of that later readback.
+- Governance PR #435 merge commit: `3c101e5c4a4ed431c0b20f88ffc8ee52bb723636`.
+- GitHub `master` and `git ls-remote` matched that SHA at the final governance
+  readback. The final readback receipt records the detached checkout and
+  release event.
 
 ## Delivered Product scope
 
@@ -135,13 +136,12 @@ The complete receipt map is retained in
 
 ## Planning pointer and resource-lock release
 
-The mutable planning pointers are reconciled to M2-P4, Product PR #434 and
-Product merge `fbda560081e880bc4a3daf185d3c8e57092ea18a`. The M2-P4 Product,
-Governance and closure-lane locks are released only by the successful normal
-merge of this docs-only Governance Closure followed by exact GitHub readback
-of the Governance PR and current `origin/master`. No next candidate is
-started automatically; the candidate backlog remains pending explicit owner
-direction.
+The mutable planning pointers are reconciled to M2-P4, Product PR #434,
+Governance PR #435 and Governance merge
+`3c101e5c4a4ed431c0b20f88ffc8ee52bb723636`. The M2-P4 Product, Governance and
+closure-lane locks were released after the successful normal Governance merge
+and exact GitHub readback. No next candidate is started automatically; the
+candidate backlog remains pending explicit owner direction.
 
 Rollback is the normal reviewed revert of Product PR #434. This docs-only
 Governance Closure does not mutate runtime Course, Run, Round, Settlement,

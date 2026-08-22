@@ -1,0 +1,100 @@
+cycle_id: SIMWAR-M2P4-LIVE-ROUND-OPS-V5.18-20260821
+cycle_number: 028
+status: CLOSED_WITH_LIMITS_GOVERNANCE_READBACK_COMPLETE
+started_at: "2026-08-21T08:55:56Z"
+closed_at: "2026-08-21T19:09:29Z"
+repository: qidianzhiku/SimWar
+source_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
+source_sha_semantics: PRODUCT_MERGE_EXACT_SHA_BEFORE_DOCS_ONLY_GOVERNANCE_CLOSURE
+branch: codex/m2-p4-v518-governance-20260821
+head_sha: b0a4ecbdbacb227e2697c6187d32b70cf366afc8
+pr: 435
+merge_sha: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+post_merge_master_sha: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+product_pr: 434
+product_branch: codex/m2-p4-v518-live-round-ops-20260821
+product_candidate_sha: 2ab9b0a0c1f117b9cf048885e77f6a07c88a118e
+product_merge_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
+governance_pr: 435
+governance_branch: codex/m2-p4-v518-governance-20260821
+governance_candidate_sha: b0a4ecbdbacb227e2697c6187d32b70cf366afc8
+governance_merge_sha: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+governance_readback: PASS_CLEAN_AT_3C101E5
+current_master_at_readback: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+reconciliation_base_master_observed: 43ccca6feb0d78dd889b2677dbaee9693ca23f1f
+primary_outcome: TEACHER_LIVE_ROUND_OPERATIONS_AND_STUDENT_SAFE_PROJECT_RESULT_FLOW
+scope:
+  - exact Course/Run/Round and all-team Project/Role/Decision readiness projection
+  - server-owned live-round lock, settlement preview, publication and handoff status
+  - existing sole Settlement and Publication authorities retained
+  - Student own-team Project context/result firewall and explicit cross-team denial
+  - existing W4 lineage and W3/P2-B teacher-debrief handoff reused
+  - no second Course, Run, role, W4, settlement, Replay, provider, model, or successor authority
+evidence_root: docs/evidence/m2p4-live-round-ops-v5.18
+evidence:
+  product_pr_url: https://github.com/qidianzhiku/SimWar/pull/434
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/435
+  final_governance_receipt: docs/evidence/m2p4-live-round-ops-v5.18/FINAL_GOVERNANCE_READBACK_RECEIPT.md
+  evidence_index: docs/evidence/m2p4-live-round-ops-v5.18/M2P4_EVIDENCE_INDEX.md
+  governance_closure_record: docs/governance/m2-p4-live-round-ops-governance-closure-20260821.md
+  fresh_detached_readback: D:/codex/SimWar-m2-p4-v518-final-readback-20260821
+  product_merge_tree: 2d7b092947e9757500a38452040602172fb75fa0
+validation:
+  protected_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
+  product_pr_state: MERGED_434
+  governance_pr_state: MERGED_435
+  product_merge_fresh_detached: PASS_CLEAN_AT_FBDA560
+  governance_merge_fresh_detached: PASS_CLEAN_AT_3C101E5
+  focused_live_round_ops: PASS_UNIT_INTEGRATION_AND_DEDICATED_BROWSER
+  post_merge_build: PASS
+  post_merge_typecheck: PASS
+  post_merge_browser: PASS_1_REAL_BFF_TEST_WITH_MOCKS_OFF
+  post_merge_contract: PASS_20_BASELINE_38_M1_29_SCHEMA_GROUPS
+  hidden_unicode: PASS
+  direct_store_boundary: PASS_NEW_0
+  dual_knowledge_graph: PASS_WITH_LIMITS_CODEGRAPH_INDEX_CURRENT_GRAPHIFY_RECONCILED
+  local_vault: PASS_BOUNDED_HISTORICAL_REFERENCE_RECEIPT
+  competitor_oss: PASS_READ_ONLY_ALLOWLIST_RECEIPTS
+  teacher_lock_settle_publish: PASS
+  student_own_team_and_cross_team: PASS_403
+  postgres_replay: REMOTE_PASS_LOCAL_ENV_BLOCKED
+  ci: PASS_REQUIRED_QUALITY_BROWSER_ANALYZE
+  codeql: PASS
+  browser: PASS_REAL_BFF_AND_PR4_REQUIRED_SMOKE
+  fresh_clone: PASS_CLEAN_EXACT_PRODUCT_AND_GOVERNANCE_READBACK
+known_limits:
+  - full suite local concurrent run had one failure in the affected file and passed when rerun serially; no new product failure was introduced by the governance docs.
+  - full accessibility/WCAG acceptance is not claimed; the known color-contrast limit remains visible.
+  - CodeGraph/Graphify evidence remains bounded by the recorded tool limits.
+  - PostgreSQL is bounded validation only and is not the default runtime authority.
+  - Human Validation and teaching effectiveness are not performed or proven.
+  - inherited dependency advisories remain 2 low and 7 high with no dependency change.
+  - Pilot, Production, release approval, provider/model activation, W6, and automatic successor are not authorized.
+gap_delta:
+  closed:
+    - stale final governance receipt reconciled to the exact merged Governance PR #435 readback.
+    - mutable current-cycle and portfolio pointers reconciled to governance merge and released resource locks.
+    - immutable M2-P4 portfolio history record added.
+  new: []
+  reclassified:
+    - current master advanced after the historical governance readback; 43ccca6 is recorded as a later reconciliation base, not substituted for the 3c101e5 governance event.
+metrics:
+  value_lead_time_hours: null
+  active_engineering_time_hours: null
+  blocked_ratio: null
+  parallel_overlap: null
+  file_conflict_rate: null
+  join_rework_ratio: null
+  owner_touch: null
+  cleanup_residue: 0
+  boundary_breach: 0
+  post_merge_escape: 0
+explicit_non_proofs:
+  - PASS_WITH_LIMITS is not a WCAG/accessibility PASS and does not waive the known color-contrast failure.
+  - Automated browser evidence is not Human Validation and does not prove teaching effectiveness or usability.
+  - Product and governance closure do not create a second Course, Run, RoleWorkflow, W4, Settlement, Replay, provider, or model authority.
+  - No Pilot, Production, W6, provider/model activation, release approval, or automatic successor is authorized.
+  - Issue #418 remains preserved and is not consumed or closed by this mission.
+resource_locks: []
+recommended_next_candidate: M2P5-NEXT-PENDING-OWNER-DIRECTION
+automatic_next_start: false

@@ -1,9 +1,9 @@
 cycle_id: SIMWAR-M2P4-LIVE-ROUND-OPS-V5.18-20260821
 stage: L1_PLUS
-status: PRODUCT_MERGED_GOVERNANCE_CLOSURE_PENDING_READBACK
+status: PRODUCT_AND_GOVERNANCE_CLOSURE_WITH_LIMITS
 started_at: "2026-08-21T08:55:56Z"
 product_closed_at: "2026-08-21T18:35:31Z"
-governance_updated_at: "2026-08-21T18:35:31Z"
+governance_updated_at: "2026-08-21T19:09:29Z"
 repository: qidianzhiku/SimWar
 source_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
 source_sha_semantics: PRODUCT_MERGE_EXACT_SHA_BEFORE_DOCS_ONLY_GOVERNANCE_CLOSURE
@@ -14,10 +14,11 @@ product_prs:
   - 434
 product_merge_sha: fbda560081e880bc4a3daf185d3c8e57092ea18a
 product_merge_tree: 2d7b092947e9757500a38452040602172fb75fa0
-governance_pr: PENDING_CREATION
-governance_closure_merge_sha: PENDING_UNTIL_GOVERNANCE_MERGES
-governance_closure_readback: PENDING_UNTIL_FINAL_DETACHED_READBACK
-current_master_at_readback: fbda560081e880bc4a3daf185d3c8e57092ea18a
+governance_pr: 435
+governance_closure_merge_sha: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+governance_closure_readback: PASS_CLEAN_AT_3C101E5
+current_master_at_readback: 3c101e5c4a4ed431c0b20f88ffc8ee52bb723636
+reconciliation_base_master_observed: 43ccca6feb0d78dd889b2677dbaee9693ca23f1f
 current_planning_pointer_disposition: RECONCILED_MUTABLE_CURRENT_POINTER
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
@@ -83,11 +84,8 @@ invalidation_triggers:
   - w3-p2b-debrief-handoff_changed
   - governance-merge-readback-does-not-match-recorded-product-head
 resource_locks:
-  status: HELD_PENDING_GOVERNANCE_MERGE_READBACK
-  held:
-    - M2P4_LIVE_ROUND_OPERATIONS
-    - M2P4_PRODUCT_PR_434
-    - M2P4_GOVERNANCE_CLOSURE_PENDING
+  status: RELEASED_AFTER_FINAL_GOVERNANCE_READBACK
+  held: []
   pending: []
 candidate_backlog:
   - candidate_id: M2P5-NEXT-PENDING-OWNER-DIRECTION
