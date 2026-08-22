@@ -1,0 +1,210 @@
+{
+  "schema_version": "model-governance-plane.v1",
+  "authority": {
+    "authority_id": "SIMWAR-MODEL-GOVERNANCE-PLANE",
+    "sole_writer": "MAIN_MODEL_GOVERNANCE",
+    "no_implicit_latest": true,
+    "activation_policy": "NOT_AUTHORIZED",
+    "provider_calls": 1,
+    "official_truth_writer": true,
+    "runtime_authority": "JSON_INTERNAL_ONLY"
+  },
+  "model_specs": [
+    {
+      "model_spec_id": "toy_logit_spec",
+      "version": "1.0.0",
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "model_family": "toy_logit",
+      "feature_mapper_version": "feature-mapper@1.0.0",
+      "solver_version": "toy-logit-engine@1.0.0",
+      "parameter_schema_versions": ["parameter-set.v1"],
+      "status": "APPROVED",
+      "created_at": "2026-08-22T00:00:00Z",
+      "created_by": "MAIN_MODEL_GOVERNANCE"
+    }
+  ],
+  "model_versions": [
+    {
+      "model_version_id": "toy_logit_wellness_v1",
+      "version": "1.0.0",
+      "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "model_spec_reference": {
+        "model_spec_id": "toy_logit_spec",
+        "version": "1.0.0",
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "model_family": "toy_logit",
+      "artifact": {
+        "artifact_id": "artifact_toy_logit_v1",
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "format": "typescript-boundary",
+        "source_ref": "services/simulation-core/src/toy-logit-engine.ts"
+      },
+      "compatibility": {
+        "feature_mapper_version": "feature-mapper@1.0.0",
+        "solver_version": "toy-logit-engine@1.0.0",
+        "parameter_schema_versions": ["parameter-set.v1"],
+        "parameter_model_families": ["toy_logit"]
+      },
+      "status": "RETIRED",
+      "no_implicit_latest": true,
+      "created_at": "2026-08-22T00:00:00Z",
+      "created_by": "MAIN_MODEL_GOVERNANCE"
+    },
+    {
+      "model_version_id": "toy_logit_wellness_v2",
+      "version": "2.0.0",
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "model_spec_reference": {
+        "model_spec_id": "toy_logit_spec",
+        "version": "1.0.0",
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "model_family": "toy_logit",
+      "artifact": {
+        "artifact_id": "artifact_toy_logit_v2",
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "format": "typescript-boundary",
+        "source_ref": "services/simulation-core/src/toy-logit-engine.ts"
+      },
+      "compatibility": {
+        "feature_mapper_version": "feature-mapper@1.0.0",
+        "solver_version": "toy-logit-engine@1.0.0",
+        "parameter_schema_versions": ["parameter-set.v1"],
+        "parameter_model_families": ["toy_logit"]
+      },
+      "status": "APPROVED",
+      "no_implicit_latest": true,
+      "supersedes": {
+        "model_version_id": "toy_logit_wellness_v1",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "created_at": "2026-08-22T00:10:00Z",
+      "created_by": "MAIN_MODEL_GOVERNANCE"
+    }
+  ],
+  "experiments": [
+    {
+      "experiment_id": "experiment_toy_logit_v2",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "input_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "output_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "status": "COMPLETED",
+      "created_at": "2026-08-22T00:20:00Z",
+      "created_by": "MAIN_MODEL_GOVERNANCE"
+    }
+  ],
+  "calibration_runs": [
+    {
+      "calibration_run_id": "calibration_toy_logit_v2",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "input_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "output_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "status": "SUCCEEDED",
+      "started_at": "2026-08-22T00:30:00Z",
+      "completed_at": "2026-08-22T00:31:00Z"
+    }
+  ],
+  "approvals": [
+    {
+      "approval_id": "approval_toy_logit_v1",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v1",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "decision": "APPROVED",
+      "approved_by": "model-governance-reviewer",
+      "approved_at": "2026-08-22T00:40:00Z",
+      "correlation_id": "corr_toy_logit_v1",
+      "evidence_refs": ["calibration_toy_logit_v1", "golden_toy_logit_v1"]
+    },
+    {
+      "approval_id": "approval_toy_logit_v2",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "decision": "APPROVED",
+      "approved_by": "model-governance-reviewer",
+      "approved_at": "2026-08-22T00:50:00Z",
+      "correlation_id": "corr_toy_logit_v2",
+      "evidence_refs": ["calibration_toy_logit_v2", "golden_toy_logit_v2"]
+    }
+  ],
+  "activations": [
+    {
+      "activation_id": "activation_toy_logit_v1_rollback",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v1",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "environment": "SHADOW",
+      "status": "ROLLED_BACK",
+      "runtime_activation": false,
+      "requested_by": "model-governance-reviewer",
+      "requested_at": "2026-08-22T01:00:00Z",
+      "evidence_refs": ["rollback_toy_logit_v1_to_v2"]
+    },
+    {
+      "activation_id": "activation_toy_logit_v2_proposed",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "environment": "SHADOW",
+      "status": "PROPOSED",
+      "runtime_activation": false,
+      "requested_by": "model-governance-reviewer",
+      "requested_at": "2026-08-22T01:01:00Z",
+      "evidence_refs": ["calibration_toy_logit_v2"]
+    }
+  ],
+  "retirements": [
+    {
+      "retirement_id": "retirement_toy_logit_v1",
+      "model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v1",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "status": "RETIRED",
+      "retired_by": "model-governance-reviewer",
+      "retired_at": "2026-08-22T01:02:00Z",
+      "reason": "Superseded by an independently identified exact ModelVersion."
+    }
+  ],
+  "rollbacks": [
+    {
+      "rollback_id": "rollback_toy_logit_v1_to_v2",
+      "from_model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v1",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "to_model_version_reference": {
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "status": "EXECUTED",
+      "runtime_activation": false,
+      "requested_by": "model-governance-reviewer",
+      "requested_at": "2026-08-22T01:03:00Z",
+      "executed_at": "2026-08-22T01:04:00Z",
+      "reason": "Contract-only rollback receipt preserves historical identity without runtime activation."
+    }
+  ]
+}

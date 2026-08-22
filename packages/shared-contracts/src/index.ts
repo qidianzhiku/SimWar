@@ -1670,3 +1670,4 @@ export * from "./w020-governed-ai-advisory.js";
 export * from "./validation-session.js";
 export * from "./w5-governed-model.js";
 export * from "./w5-formal-rebase.js";
+export * from "./model-governance.js";
