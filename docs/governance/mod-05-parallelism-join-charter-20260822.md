@@ -1,6 +1,7 @@
 # MOD-05 Parallelism and Join Charter
 
-**Document ID:** `SIMWAR-MOD-05-PARALLELISM-JOIN-CHARTER-20260822`<br>
+**Charter document ID:** `SIMWAR-MOD-05-PARALLELISM-JOIN-CHARTER-20260822`<br>
+**Manifest document ID:** `SIMWAR-MOD-05-PARALLELISM-JOIN-MANIFEST-20260822`<br>
 **Machine manifest:** [`parallelism-join-manifest.json`](../evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json)<br>
 **Manifest version:** `1.0.0`<br>
 **Manifest status:** `PARALLELISM_QUALIFIED`<br>
@@ -156,28 +157,28 @@ The following is the complete `resource_owners` inventory from the manifest. `Pa
     - Release condition: Release after serial merge, post-merge fresh readback, and closure evidence are complete; no lane may self-merge.
     - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master, scope, owner, or lock-contract change.
 
-Every writer owner is unique in the manifest: no shared resource has more than one writer owner. Every active lock must resolve to exactly one machine row and exactly one owner. `RESERVED` is a held boundary, not an available write slot. The 18 manifest lock rows are:
+Every writer owner is unique in the manifest: no shared resource has more than one writer owner. Every active lock must resolve to exactly one machine row and exactly one owner. `RESERVED` is a held boundary, not an available write slot. The 18 manifest lock rows are reproduced below. Each row includes the exact source identity, release condition, and expiry from `lock_matrix`; the reviewer does not need to resolve these fields indirectly through the machine manifest.
 
-| Lock ID | Resource ID | Owner | Mode | Mission |
-| --- | --- | --- | --- | --- |
-| `LOCK-LANE-MAIN` | `LANE-MAIN` | `MAIN` | `WRITE_EXCLUSIVE` | MOD-05 five-lane admission and serial integration control |
-| `LOCK-LANE-SH` | `LANE-SH` | `SH` | `WRITE_EXCLUSIVE` | Bounded Shanghai/scenario/plugin candidate preparation |
-| `LOCK-LANE-MOD` | `LANE-MOD` | `MOD` | `WRITE_EXCLUSIVE` | Bounded model research, registry, and governance evidence preparation |
-| `LOCK-LANE-AGT` | `LANE-AGT` | `AGT` | `WRITE_EXCLUSIVE` | Bounded advisory-only Agent Gateway preparation |
-| `LOCK-LANE-FE` | `LANE-FE` | `FE` | `WRITE_EXCLUSIVE` | Bounded teacher/student UI projection and explanation preparation |
-| `LOCK-MAIN-SHARED-CONTRACTS` | `RES-MAIN-SHARED-CONTRACTS` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for shared contracts and fixtures |
-| `LOCK-MAIN-API-SERVER` | `RES-MAIN-API-SERVER` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for API/server route and service composition |
-| `LOCK-MAIN-SIMULATION-CORE-TRUTH` | `RES-MAIN-SIMULATION-CORE-TRUTH` | `MAIN` | `RESERVED` | Protect the existing single Simulation Core truth boundary |
-| `LOCK-SH-SCENARIO-PLUGIN-ASSETS` | `RES-SH-SCENARIO-PLUGIN-ASSETS` | `SH` | `WRITE_EXCLUSIVE` | Freeze one writer for scenario/plugin candidate assets |
-| `LOCK-MOD-MODEL-RESEARCH-REGISTRY` | `RES-MOD-MODEL-RESEARCH-REGISTRY` | `MOD` | `WRITE_EXCLUSIVE` | Freeze one writer for model research and registry evidence |
-| `LOCK-AGT-GATEWAY-ADVISORY` | `RES-AGT-GATEWAY-ADVISORY` | `AGT` | `WRITE_EXCLUSIVE` | Freeze one writer for advisory-only gateway boundary |
-| `LOCK-FE-TEACHER-STUDENT-UI` | `RES-FE-TEACHER-STUDENT-UI` | `FE` | `WRITE_EXCLUSIVE` | Freeze one writer for teacher/student/shared UI |
-| `LOCK-MAIN-TESTS-CI` | `RES-MAIN-TESTS-CI` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for tests, scripts, and CI workflow changes |
-| `LOCK-MAIN-DATABASE-MIGRATIONS` | `RES-MAIN-DATABASE-MIGRATIONS` | `MAIN` | `RESERVED` | Reserve database and migration surfaces outside MOD-05 scope |
-| `LOCK-MAIN-PROVIDER-PORTS` | `RES-MAIN-PROVIDER-PORTS` | `MAIN` | `RESERVED` | Reserve provider and repository-port surfaces without activation |
-| `LOCK-MOD-05-MANIFEST` | `RES-MOD-05-MANIFEST` | `MOD` | `WRITE_EXCLUSIVE` | MOD-05 Task 1 exact machine manifest |
-| `LOCK-MOD-EVIDENCE-ROOTS` | `RES-MOD-EVIDENCE-ROOTS` | `MOD` | `WRITE_EXCLUSIVE` | Freeze MOD evidence roots and preserve source-bound receipts |
-| `LOCK-MAIN-GITHUB-MERGE-CONTROL` | `RES-MAIN-GITHUB-MERGE-CONTROL` | `MAIN` | `SCHEDULED_EXCLUSIVE` | Reserve serial GitHub merge and Join control |
+| Lock ID | Resource ID | Owner | Mode | Mission | Source SHA | Release condition | Expiry |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `LOCK-LANE-MAIN` | `LANE-MAIN` | `MAIN` | `WRITE_EXCLUSIVE` | MOD-05 five-lane admission and serial integration control | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after MAIN evidence and serial Join controls are closed. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-LANE-SH` | `LANE-SH` | `SH` | `WRITE_EXCLUSIVE` | Bounded Shanghai/scenario/plugin candidate preparation | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after SH candidate evidence is reviewed or the lane is closed without Join. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-LANE-MOD` | `LANE-MOD` | `MOD` | `WRITE_EXCLUSIVE` | Bounded model research, registry, and governance evidence preparation | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after MOD evidence is source-bound and reviewed or the lane is closed without Join. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-LANE-AGT` | `LANE-AGT` | `AGT` | `WRITE_EXCLUSIVE` | Bounded advisory-only Agent Gateway preparation | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after AGT schema, scope, audit, and negative-boundary evidence is reviewed or the lane is closed without Join. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-LANE-FE` | `LANE-FE` | `FE` | `WRITE_EXCLUSIVE` | Bounded teacher/student UI projection and explanation preparation | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after FE projection and interaction evidence is reviewed or the lane is closed without Join. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-SHARED-CONTRACTS` | `RES-MAIN-SHARED-CONTRACTS` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for shared contracts and fixtures | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after contract diff, focused validation, and exact-head evidence are reviewed. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-API-SERVER` | `RES-MAIN-API-SERVER` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for API/server route and service composition | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after route/service diff and truth-boundary review are complete. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-SIMULATION-CORE-TRUTH` | `RES-MAIN-SIMULATION-CORE-TRUTH` | `MAIN` | `RESERVED` | Protect the existing single Simulation Core truth boundary | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release only through a separate owner-approved truth-boundary stage decision. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-SH-SCENARIO-PLUGIN-ASSETS` | `RES-SH-SCENARIO-PLUGIN-ASSETS` | `SH` | `WRITE_EXCLUSIVE` | Freeze one writer for scenario/plugin candidate assets | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after bounded hook and candidate evidence review. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MOD-MODEL-RESEARCH-REGISTRY` | `RES-MOD-MODEL-RESEARCH-REGISTRY` | `MOD` | `WRITE_EXCLUSIVE` | Freeze one writer for model research and registry evidence | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after exact source, license, fallback, expiry, and provider-off review. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-AGT-GATEWAY-ADVISORY` | `RES-AGT-GATEWAY-ADVISORY` | `AGT` | `WRITE_EXCLUSIVE` | Freeze one writer for advisory-only gateway boundary | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after schema, actor/tenant, audit, and no-truth-write evidence review. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-FE-TEACHER-STUDENT-UI` | `RES-FE-TEACHER-STUDENT-UI` | `FE` | `WRITE_EXCLUSIVE` | Freeze one writer for teacher/student/shared UI | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after projection, role-safe UI, and focused/browser evidence review. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-TESTS-CI` | `RES-MAIN-TESTS-CI` | `MAIN` | `WRITE_EXCLUSIVE` | Freeze one writer for tests, scripts, and CI workflow changes | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after focused validation and exact-head CI evidence review. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-DATABASE-MIGRATIONS` | `RES-MAIN-DATABASE-MIGRATIONS` | `MAIN` | `RESERVED` | Reserve database and migration surfaces outside MOD-05 scope | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release only through a separate database stage decision and rollback receipt. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-PROVIDER-PORTS` | `RES-MAIN-PROVIDER-PORTS` | `MAIN` | `RESERVED` | Reserve provider and repository-port surfaces without activation | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release only through explicit provider/adapter authorization and non-dual-write validation. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MOD-05-MANIFEST` | `RES-MOD-05-MANIFEST` | `MOD` | `WRITE_EXCLUSIVE` | MOD-05 Task 1 exact machine manifest | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after the exact MOD-05 manifest path is committed or the task is closed without Join; any further mutation requires a fresh source and lock readback. | `2026-08-29T23:59:59Z` or earlier on current-master, scope, owner, or lock-contract change. |
+| `LOCK-MOD-EVIDENCE-ROOTS` | `RES-MOD-EVIDENCE-ROOTS` | `MOD` | `WRITE_EXCLUSIVE` | Freeze MOD evidence roots and preserve source-bound receipts | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after evidence review and explicit current/non-proof labeling. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
+| `LOCK-MAIN-GITHUB-MERGE-CONTROL` | `RES-MAIN-GITHUB-MERGE-CONTROL` | `MAIN` | `SCHEDULED_EXCLUSIVE` | Reserve serial GitHub merge and Join control | `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` | Release after serial merge and post-merge fresh readback are complete. | `2026-08-29T23:59:59Z` or earlier on current-master or scope change. |
 
 Every lock-matrix row is bound to source SHA `1fbe6eec73c0d234023549834f86c9c1f4d6b8d8` and the manifest expiry `2026-08-29T23:59:59Z` or earlier on current-master or scope change, with the resource-specific exceptions and release conditions stated above and in the manifest.
 
@@ -321,17 +322,20 @@ The manifest’s Merge Barrier also stops on two ready-for-closure PRs, unresolv
 
 ## 9. Non-proofs and source notes
 
-The manifest explicitly does not prove:
+### What the manifest does not prove
 
-- Runtime execution.
-- Future CI success.
-- The absence of unregistered external worktrees.
-- Human Validation.
-- Provider, Pilot, or Production readiness.
-- CodeGraph analysis; `.codegraph/` is absent in the current worktree.
-- Provider, dependency, database, PostgreSQL runtime, or second-writer activation.
-- Mutation authorization beyond a separately declared exact file allowlist.
-- Any change to settlement logic, `SettlementResult`, canonical `Decision`, replay truth/hash inputs, or official Simulation Core authority.
+- This manifest does not prove runtime execution.
+- This manifest does not prove future CI success.
+- This manifest does not prove the absence of unregistered external worktrees.
+- This manifest does not prove Human Validation.
+- This manifest does not prove Provider, Pilot, or Production readiness.
+- This manifest does not prove CodeGraph analysis; `.codegraph/` is absent in the current worktree.
+
+### What the manifest does not activate, authorize, or change
+
+- This manifest does not activate a provider, dependency, database, PostgreSQL runtime, or second writer.
+- This manifest does not authorize mutation beyond a separately declared exact file allowlist.
+- This manifest does not change settlement logic, `SettlementResult`, canonical `Decision`, replay truth/hash inputs, or official Simulation Core authority.
 
 The CodeGraph status is `ABSENT` with claim `NO_CODEGRAPH_ANALYSIS_PERFORMED`; no graph result is asserted. The current source baseline is the manifest’s `origin/master` record, not the older source snapshots or baseline statements that may appear in historical governance receipts.
 
