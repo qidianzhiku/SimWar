@@ -169,7 +169,7 @@
 
   Run `git diff --check`, `git diff --name-only origin/master...HEAD`, and `git status --short`. Expected changed paths are exactly the plan, shared contract, schema, two fixtures, two tests, contract facade, package script, and governance receipt; no runtime, settlement, replay, database, provider, frontend, or lockfile path is present.
 
-- [ ] **Step 4: Commit one small PR**
+- [x] **Step 4: Commit one small PR**
 
   Stage only the named MOD-06 files and commit with `feat: add model governance plane contract`. The PR body must include Summary, Validation, and Scope Notes and must retain exact current-source and no-activation language.
 
