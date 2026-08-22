@@ -1,0 +1,560 @@
+{
+  "registry_id": "SIMWAR-MOD-04-PROVIDER-MODEL-CANDIDATE-REGISTRY",
+  "registry_version": "1.0.0",
+  "status": "RESEARCH_READY_WITH_LIMITS",
+  "as_of": "2026-08-21",
+  "authority": {
+    "source_policy": "OFFICIAL_PRIMARY_ONLY",
+    "activation_policy": "NOT_AUTHORIZED",
+    "provider_calls": 0,
+    "official_truth_writer": false
+  },
+  "benchmark_manifest_ref": {
+    "manifest_id": "SIMWAR-MOD-04-OFFICIAL-RESEARCH-BENCHMARK-20260821",
+    "path": "docs/evidence/mod-04-research-refresh-20260821/benchmark-manifest.json",
+    "content_sha256": "2e39f539484cc141659d483542cbca2b878b696ae05317601fcf0e7480c34320"
+  },
+  "candidates": [
+    {
+      "candidate_id": "pyblp-v1-2-0",
+      "category": "research_library",
+      "name": "PyBLP",
+      "organization": "Jeff Gortmaker / Christopher Conlon",
+      "decision": "ADOPT_RESEARCH_ONLY",
+      "purpose": "Offline BLP and random-coefficients logit reference and differential harness.",
+      "decision_reason": "Official 1.2.0 documentation and MIT repository are available; no production dependency is activated.",
+      "source": {
+        "source_kind": "OFFICIAL_REPO",
+        "primary_url": "https://github.com/jeffgortmaker/pyblp",
+        "secondary_url": "https://pyblp.readthedocs.io/en/stable/",
+        "exact_ref": "v1.2.0@6190bb9c0c3b93521c4fdb9693f31261b3067bd2",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "1.2.0",
+        "status": "EXACT",
+        "source_url": "https://pyblp.readthedocs.io/en/stable/"
+      },
+      "license": {
+        "identifier": "MIT",
+        "status": "VERIFIED_OPEN_SOURCE",
+        "source_url": "https://github.com/jeffgortmaker/pyblp",
+        "notes": "Repository license is MIT; model outputs remain candidate/shadow evidence."
+      },
+      "maintenance": {
+        "status": "RELEASE_OBSERVED",
+        "evidence": "Official release v1.2.0 and documentation were observed on 2026-08-21."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No SimWar latency, accuracy or calibration SLO is adopted."
+      },
+      "hardware_claim": {
+        "status": "NOT_APPLICABLE",
+        "claim": "No SimWar hardware requirement is inferred from the research library."
+      },
+      "fallback": "Existing Simulation Core and deterministic toy-logit path.",
+      "runtime_boundary": {
+        "mode": "RESEARCH_ONLY",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "No calibration dataset, dependency installation or official-result write is included."
+      ]
+    },
+    {
+      "candidate_id": "generative-agents-paper-repo",
+      "category": "research_paper",
+      "name": "Generative Agents: Interactive Simulacra of Human Behavior",
+      "organization": "Stanford HCI / authors",
+      "decision": "ADOPT_RESEARCH_ONLY",
+      "purpose": "Reference memory, reflection and retrieval patterns for future Agent evaluation.",
+      "decision_reason": "Primary paper and official research repository are identifiable; this is not a business truth model.",
+      "source": {
+        "source_kind": "PRIMARY_PAPER",
+        "primary_url": "https://arxiv.org/abs/2304.03442",
+        "secondary_url": "https://github.com/StanfordHCI/genagents",
+        "exact_ref": "arXiv:2304.03442; StanfordHCI/genagents@96854071ef4c2d79c93144c973c7820722d52bab",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "arXiv:2304.03442",
+        "status": "EXACT",
+        "source_url": "https://arxiv.org/abs/2304.03442"
+      },
+      "license": {
+        "identifier": "MIT for official repository; paper rights separate",
+        "status": "RESEARCH_PAPER",
+        "source_url": "https://github.com/StanfordHCI/genagents",
+        "notes": "Repository license does not grant rights to third-party Smallville assets or make the paper a runtime dependency."
+      },
+      "maintenance": {
+        "status": "ACTIVE_OBSERVED",
+        "evidence": "Official repository and primary paper were observed; no SimWar maintenance promise is inferred."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Believability findings are research evidence, not a SimWar product SLO."
+      },
+      "hardware_claim": {
+        "status": "NOT_APPLICABLE",
+        "claim": "No SimWar hardware requirement is inferred."
+      },
+      "fallback": "Fixed advisory/mock path with current role-safe projections.",
+      "runtime_boundary": {
+        "mode": "RESEARCH_ONLY",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "The paper demonstrates a small sandbox and does not prove SimWar course, settlement or privacy behavior."
+      ]
+    },
+    {
+      "candidate_id": "concordia-v2-4-0",
+      "category": "agent_framework",
+      "name": "Concordia",
+      "organization": "Google DeepMind",
+      "decision": "ADOPT_RESEARCH_ONLY",
+      "purpose": "Generative social-simulation architecture comparison for grounded agent experiments.",
+      "decision_reason": "Official v2.4.0 release and Apache-2.0 repository are identifiable, but the framework requires an LLM API.",
+      "source": {
+        "source_kind": "OFFICIAL_REPO",
+        "primary_url": "https://github.com/google-deepmind/concordia/releases/tag/v2.4.0",
+        "secondary_url": "https://github.com/google-deepmind/concordia",
+        "exact_ref": "v2.4.0@702998f57da71f87bf4e607abc1325ee51cca21f",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "2.4.0",
+        "status": "EXACT",
+        "source_url": "https://github.com/google-deepmind/concordia/releases/tag/v2.4.0"
+      },
+      "license": {
+        "identifier": "Apache-2.0",
+        "status": "VERIFIED_OPEN_SOURCE",
+        "source_url": "https://github.com/google-deepmind/concordia",
+        "notes": "Apache-2.0 repository license; external model/API terms remain separate."
+      },
+      "maintenance": {
+        "status": "RELEASE_OBSERVED",
+        "evidence": "Official v2.4.0 release was observed on 2026-08-21."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No SimWar agent quality, latency or social-fidelity SLO is adopted."
+      },
+      "hardware_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "An external LLM API requirement is documented; SimWar hardware sizing is not established."
+      },
+      "fallback": "Provider-off deterministic advisory and existing Simulation Core path.",
+      "runtime_boundary": {
+        "mode": "SHADOW_REFERENCE",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": ["No provider calls, framework dependency or Agent state writer is included."]
+    },
+    {
+      "candidate_id": "agentsociety-main",
+      "category": "agent_framework",
+      "name": "AgentSociety",
+      "organization": "Tsinghua FIB Lab",
+      "decision": "WATCH",
+      "purpose": "Compare social-agent population and experiment design patterns.",
+      "decision_reason": "Apache-2.0 is stated with a commercial-folder exception, but no stable release pin or commercial applicability decision is frozen.",
+      "source": {
+        "source_kind": "OFFICIAL_REPO",
+        "primary_url": "https://github.com/tsinghua-fib-lab/AgentSociety",
+        "exact_ref": "main@13e28b5e67a2a8f2f43d640ebf27859126da622e",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "main@13e28b5e67a2a8f2f43d640ebf27859126da622e",
+        "status": "EXACT",
+        "source_url": "https://github.com/tsinghua-fib-lab/AgentSociety"
+      },
+      "license": {
+        "identifier": "Apache-2.0 except packages/agentsociety/commercial",
+        "status": "VERIFIED_CUSTOM",
+        "source_url": "https://github.com/tsinghua-fib-lab/AgentSociety/blob/main/LICENSE",
+        "notes": "Commercial-folder scope and any downstream model/data terms require separate review."
+      },
+      "maintenance": {
+        "status": "ACTIVE_OBSERVED",
+        "evidence": "Official main branch and AgentSociety 2 documentation were observed."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No SimWar population, quality or cost SLO is adopted."
+      },
+      "hardware_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "The official README requires an LLM API key; SimWar hardware/SLO remains unknown."
+      },
+      "fallback": "Provider-off synthetic profiles and deterministic rule/mock Agent.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "No release tag, provider policy or commercial-folder use decision is frozen."
+      ]
+    },
+    {
+      "candidate_id": "anylogic-8-9-8",
+      "category": "commercial_platform",
+      "name": "AnyLogic",
+      "organization": "The AnyLogic Company",
+      "decision": "REJECT",
+      "purpose": "System-dynamics and agent-based modeling vocabulary comparison only.",
+      "decision_reason": "Official product is proprietary/licensed and is not an approved embedded SimWar runtime dependency.",
+      "source": {
+        "source_kind": "OFFICIAL_DOC",
+        "primary_url": "https://www.anylogic.com/downloads/",
+        "secondary_url": "https://www.anylogic.com/upload/license_agreements/software-licensing-agreement-for-anylogic.pdf",
+        "exact_ref": "8.9.8@2026-02-26",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "8.9.8",
+        "status": "EXACT",
+        "source_url": "https://www.anylogic.com/downloads/"
+      },
+      "license": {
+        "identifier": "PROPRIETARY_LICENSE",
+        "status": "VERIFIED_PROPRIETARY",
+        "source_url": "https://www.anylogic.com/upload/license_agreements/software-licensing-agreement-for-anylogic.pdf",
+        "notes": "License and activation terms are outside the current SimWar dependency boundary."
+      },
+      "maintenance": {
+        "status": "RELEASE_OBSERVED",
+        "evidence": "Official download page reports version 8.9.8 and release date 2026-02-26."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Vendor performance claims are not SimWar SLOs."
+      },
+      "hardware_claim": {
+        "status": "VERIFIED_SOURCE_CLAIM",
+        "claim": "Official page lists tested platforms and general installation recommendations; these are not SimWar requirements."
+      },
+      "fallback": "Pure deterministic shadow transition functions in Simulation Core.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": ["No AnyLogic model, license, binary or runtime is added to the repository."]
+    },
+    {
+      "candidate_id": "capsim-platform",
+      "category": "commercial_platform",
+      "name": "Capsim",
+      "organization": "Capsim",
+      "decision": "WATCH",
+      "purpose": "Commercial business-simulation authoring and delivery pattern comparison.",
+      "decision_reason": "Official terms identify proprietary platform/IP, but no exact redistributable release or runtime license is frozen.",
+      "source": {
+        "source_kind": "OFFICIAL_TERMS",
+        "primary_url": "https://www.capsim.com/terms",
+        "exact_ref": "official terms observed 2026-08-21; product version UNKNOWN",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "UNKNOWN",
+        "status": "UNVERIFIED",
+        "source_url": "https://www.capsim.com/terms"
+      },
+      "license": {
+        "identifier": "PROPRIETARY_PLATFORM_TERMS",
+        "status": "VERIFIED_PROPRIETARY",
+        "source_url": "https://www.capsim.com/terms",
+        "notes": "Official terms describe proprietary platform and IP."
+      },
+      "maintenance": {
+        "status": "UNKNOWN",
+        "evidence": "No exact software release or repository maintenance signal was established."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No vendor product or service SLO is adopted."
+      },
+      "hardware_claim": {
+        "status": "NOT_APPLICABLE",
+        "claim": "No SimWar hardware claim is adopted."
+      },
+      "fallback": "Existing Course and Simulation Core path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "No exact release, source code, dependency license or integration contract is verified."
+      ]
+    },
+    {
+      "candidate_id": "cesim-platform",
+      "category": "commercial_platform",
+      "name": "Cesim Firm",
+      "organization": "Cesim",
+      "decision": "WATCH",
+      "purpose": "Business-simulation scenario and course-delivery pattern comparison.",
+      "decision_reason": "Official product page establishes service capabilities but not an embeddable versioned runtime or redistributable license.",
+      "source": {
+        "source_kind": "OFFICIAL_DOC",
+        "primary_url": "https://www.cesim.com/india/simulations/cesim-firm",
+        "secondary_url": "https://www.cesim.com/about/faq",
+        "exact_ref": "Cesim Firm official product page observed 2026-08-21; version UNKNOWN",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "UNKNOWN",
+        "status": "UNVERIFIED",
+        "source_url": "https://www.cesim.com/india/simulations/cesim-firm"
+      },
+      "license": {
+        "identifier": "COMMERCIAL_SERVICE_TERMS_NOT_REVIEWED",
+        "status": "UNKNOWN",
+        "source_url": "https://www.cesim.com/about/faq",
+        "notes": "No exact software license suitable for dependency adoption was established."
+      },
+      "maintenance": {
+        "status": "UNKNOWN",
+        "evidence": "Product/service page is available; no versioned software maintenance signal was established."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No Cesim product claim is promoted to a SimWar SLO."
+      },
+      "hardware_claim": {
+        "status": "NOT_APPLICABLE",
+        "claim": "No SimWar hardware claim is adopted."
+      },
+      "fallback": "Existing Course, BFF and Simulation Core path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": ["No source runtime, versioned package or compatible license is verified."]
+    },
+    {
+      "candidate_id": "forio-simulations",
+      "category": "commercial_platform",
+      "name": "Forio Simulations",
+      "organization": "Forio Corporation",
+      "decision": "REJECT",
+      "purpose": "Commercial simulation delivery and support pattern comparison only.",
+      "decision_reason": "Official EULA is revocable/non-transferable and allows provider-side service changes; this is not an approved embedded runtime authority.",
+      "source": {
+        "source_kind": "OFFICIAL_TERMS",
+        "primary_url": "https://forio.com/eula",
+        "exact_ref": "EULA last revision 2024-01-01; product version UNKNOWN",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "UNKNOWN",
+        "status": "UNVERIFIED",
+        "source_url": "https://forio.com/eula"
+      },
+      "license": {
+        "identifier": "PROPRIETARY_COMMERCIAL_EULA",
+        "status": "VERIFIED_PROPRIETARY",
+        "source_url": "https://forio.com/eula",
+        "notes": "EULA grants a limited revocable non-transferable access license and retains provider IP."
+      },
+      "maintenance": {
+        "status": "UNKNOWN",
+        "evidence": "EULA provides support terms but no versioned runtime maintenance commitment."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "No Forio service or simulation SLO is adopted."
+      },
+      "hardware_claim": {
+        "status": "NOT_APPLICABLE",
+        "claim": "No SimWar hardware claim is adopted."
+      },
+      "fallback": "Existing SimWar Course and Simulation Core path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": ["No Forio content, credentials, remote service or dependency is introduced."]
+    },
+    {
+      "candidate_id": "qwen3-8b",
+      "category": "language_model",
+      "name": "Qwen3-8B",
+      "organization": "Qwen Team / Alibaba Cloud",
+      "decision": "WATCH",
+      "purpose": "Provider-neutral language-model benchmark candidate for future advisory-only evaluation.",
+      "decision_reason": "Official model card identifies Apache-2.0 and model capabilities, but exact weight revision, local SLO and activation policy remain separate gates.",
+      "source": {
+        "source_kind": "OFFICIAL_DOC",
+        "primary_url": "https://huggingface.co/Qwen/Qwen3-8B",
+        "secondary_url": "https://github.com/QwenLM/Qwen3",
+        "exact_ref": "Qwen/Qwen3-8B model card observed 2026-08-21",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "Qwen3-8B",
+        "status": "EXACT",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-8B"
+      },
+      "license": {
+        "identifier": "Apache-2.0",
+        "status": "VERIFIED_OPEN_SOURCE",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-8B",
+        "notes": "Model card states Apache-2.0; provider, endpoint and deployment terms remain separate."
+      },
+      "maintenance": {
+        "status": "ACTIVE_OBSERVED",
+        "evidence": "Official model card and Qwen3 repository were observed."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Official benchmark/capability descriptions are not SimWar quality or latency SLOs."
+      },
+      "hardware_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Model-card parameter/context information is not a verified SimWar deployment budget."
+      },
+      "fallback": "Provider-off fixed advisory/mock output and deterministic rule path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "No model weights, endpoint, secrets, inference server or real-model call is introduced."
+      ]
+    },
+    {
+      "candidate_id": "deepseek-v3",
+      "category": "language_model",
+      "name": "DeepSeek-V3",
+      "organization": "DeepSeek-AI",
+      "decision": "WATCH",
+      "purpose": "Provider-neutral language-model benchmark candidate for future advisory-only evaluation.",
+      "decision_reason": "Official repository separates MIT code licensing from a model license; hardware and cost requirements need an independent gate.",
+      "source": {
+        "source_kind": "OFFICIAL_REPO",
+        "primary_url": "https://github.com/deepseek-ai/DeepSeek-V3",
+        "exact_ref": "main@9b4e9788e4a3a731f7567338ed15d3ec549ce03b",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "main@9b4e9788e4a3a731f7567338ed15d3ec549ce03b",
+        "status": "EXACT",
+        "source_url": "https://github.com/deepseek-ai/DeepSeek-V3"
+      },
+      "license": {
+        "identifier": "MIT code; DeepSeek Model License for weights",
+        "status": "VERIFIED_CUSTOM",
+        "source_url": "https://github.com/deepseek-ai/DeepSeek-V3",
+        "notes": "Code and model-weight licensing are recorded separately; neither authorizes SimWar activation."
+      },
+      "maintenance": {
+        "status": "ACTIVE_OBSERVED",
+        "evidence": "Official repository and model license were observed."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Official model size/performance descriptions are not SimWar SLOs."
+      },
+      "hardware_claim": {
+        "status": "VERIFIED_SOURCE_CLAIM",
+        "claim": "Official instructions describe multi-node inference; this is not a SimWar hardware approval."
+      },
+      "fallback": "Provider-off deterministic advisory/mock output and current Core path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": [
+        "Model-weight terms, hardware cost, secret handling and provider activation remain unapproved."
+      ]
+    },
+    {
+      "candidate_id": "minicpm5-1b",
+      "category": "language_model",
+      "name": "MiniCPM5-1B",
+      "organization": "OpenBMB",
+      "decision": "WATCH",
+      "purpose": "Small-model/local-resource benchmark candidate for future advisory-only evaluation.",
+      "decision_reason": "Official model card states Apache-2.0 and a 1B on-device model, but no SimWar local SLO or activation token exists.",
+      "source": {
+        "source_kind": "OFFICIAL_DOC",
+        "primary_url": "https://huggingface.co/openbmb/MiniCPM5-1B",
+        "secondary_url": "https://github.com/OpenBMB/MiniCPM",
+        "exact_ref": "openbmb/MiniCPM@719e4fcfabff9b9c16f179c3f2986dfbd6c6047f; model MiniCPM5-1B",
+        "observed_on": "2026-08-21"
+      },
+      "version": {
+        "value": "MiniCPM5-1B",
+        "status": "EXACT",
+        "source_url": "https://huggingface.co/openbmb/MiniCPM5-1B"
+      },
+      "license": {
+        "identifier": "Apache-2.0",
+        "status": "VERIFIED_OPEN_SOURCE",
+        "source_url": "https://huggingface.co/openbmb/MiniCPM5-1B",
+        "notes": "Official model card states repository and weights are Apache-2.0."
+      },
+      "maintenance": {
+        "status": "ACTIVE_OBSERVED",
+        "evidence": "Official model card reports MiniCPM5-1B release and supported formats."
+      },
+      "slo_claim": {
+        "status": "NOT_VERIFIED",
+        "claim": "Official comparison/benchmark language is not a SimWar SLO."
+      },
+      "hardware_claim": {
+        "status": "VERIFIED_SOURCE_CLAIM",
+        "claim": "Official model card describes on-device/resource-constrained use; SimWar hardware/SLO remains unverified."
+      },
+      "fallback": "Provider-off deterministic advisory/mock output and current Core path.",
+      "runtime_boundary": {
+        "mode": "NOT_SELECTED",
+        "activation_status": "NOT_AUTHORIZED",
+        "provider_calls": 0,
+        "official_truth_writer": false
+      },
+      "recheck_after": "2026-09-21",
+      "known_limits": ["No weights, endpoint, dependency or local performance claim is activated."]
+    }
+  ],
+  "known_limits": [
+    "This registry is a research candidate catalog, not a provider or model activation registry.",
+    "External source claims are not SimWar calibration, quality, SLO, hardware or Human Validation evidence.",
+    "No candidate may write official truth, settlement, Enterprise State, score, rank or replay results."
+  ]
+}

@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/model-candidate-registry.v1.json",
+  "title": "ModelCandidateRegistry",
+  "type": "object",
+  "required": [
+    "registry_id",
+    "registry_version",
+    "status",
+    "as_of",
+    "authority",
+    "benchmark_manifest_ref",
+    "candidates",
+    "known_limits"
+  ],
+  "properties": {
+    "registry_id": {
+      "const": "SIMWAR-MOD-04-PROVIDER-MODEL-CANDIDATE-REGISTRY"
+    },
+    "registry_version": { "const": "1.0.0" },
+    "status": {
+      "enum": ["RESEARCH_READY_WITH_LIMITS", "DRAFT", "SUPERSEDED"]
+    },
+    "as_of": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "authority": {
+      "type": "object",
+      "required": ["source_policy", "activation_policy", "provider_calls", "official_truth_writer"],
+      "properties": {
+        "source_policy": { "const": "OFFICIAL_PRIMARY_ONLY" },
+        "activation_policy": { "const": "NOT_AUTHORIZED" },
+        "provider_calls": { "const": 0 },
+        "official_truth_writer": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "benchmark_manifest_ref": {
+      "type": "object",
+      "required": ["manifest_id", "path", "content_sha256"],
+      "properties": {
+        "manifest_id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/candidate" }
+    },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "category",
+        "name",
+        "organization",
+        "decision",
+        "purpose",
+        "source",
+        "version",
+        "license",
+        "maintenance",
+        "slo_claim",
+        "hardware_claim",
+        "fallback",
+        "runtime_boundary",
+        "recheck_after",
+        "known_limits"
+      ],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+        },
+        "category": {
+          "enum": [
+            "research_library",
+            "simulation_framework",
+            "agent_framework",
+            "language_model",
+            "commercial_platform",
+            "research_paper"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "organization": { "type": "string", "minLength": 1 },
+        "decision": {
+          "enum": ["ADOPT_RESEARCH_ONLY", "REJECT", "WATCH"]
+        },
+        "purpose": { "type": "string", "minLength": 1 },
+        "decision_reason": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "object",
+          "required": ["source_kind", "primary_url", "exact_ref", "observed_on"],
+          "properties": {
+            "source_kind": {
+              "enum": ["OFFICIAL_DOC", "OFFICIAL_REPO", "PRIMARY_PAPER", "OFFICIAL_TERMS"]
+            },
+            "primary_url": { "type": "string", "format": "uri" },
+            "secondary_url": { "type": "string", "format": "uri" },
+            "exact_ref": { "type": "string", "minLength": 1 },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "observed_on": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "version": {
+          "type": "object",
+          "required": ["value", "status", "source_url"],
+          "properties": {
+            "value": { "type": "string", "minLength": 1 },
+            "status": { "enum": ["EXACT", "UNVERIFIED"] },
+            "source_url": { "type": "string", "format": "uri" }
+          },
+          "additionalProperties": false
+        },
+        "license": {
+          "type": "object",
+          "required": ["identifier", "status", "source_url", "notes"],
+          "properties": {
+            "identifier": { "type": "string", "minLength": 1 },
+            "status": {
+              "enum": [
+                "VERIFIED_OPEN_SOURCE",
+                "VERIFIED_PROPRIETARY",
+                "VERIFIED_CUSTOM",
+                "RESEARCH_PAPER",
+                "UNKNOWN"
+              ]
+            },
+            "source_url": { "type": "string", "format": "uri" },
+            "notes": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "maintenance": {
+          "type": "object",
+          "required": ["status", "evidence"],
+          "properties": {
+            "status": {
+              "enum": ["ACTIVE_OBSERVED", "RELEASE_OBSERVED", "UNKNOWN", "NOT_APPLICABLE"]
+            },
+            "evidence": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "slo_claim": {
+          "type": "object",
+          "required": ["status", "claim"],
+          "properties": {
+            "status": {
+              "enum": ["VERIFIED_SOURCE_CLAIM", "NOT_VERIFIED", "NOT_APPLICABLE"]
+            },
+            "claim": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "hardware_claim": {
+          "type": "object",
+          "required": ["status", "claim"],
+          "properties": {
+            "status": {
+              "enum": ["VERIFIED_SOURCE_CLAIM", "NOT_VERIFIED", "NOT_APPLICABLE"]
+            },
+            "claim": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "fallback": { "type": "string", "minLength": 1 },
+        "runtime_boundary": {
+          "type": "object",
+          "required": ["mode", "activation_status", "provider_calls", "official_truth_writer"],
+          "properties": {
+            "mode": {
+              "enum": ["RESEARCH_ONLY", "SHADOW_REFERENCE", "NOT_SELECTED"]
+            },
+            "activation_status": { "const": "NOT_AUTHORIZED" },
+            "provider_calls": { "const": 0 },
+            "official_truth_writer": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "recheck_after": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
