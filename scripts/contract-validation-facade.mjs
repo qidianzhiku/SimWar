@@ -165,6 +165,12 @@ const w4ContractFiles = [
   "contracts/fixtures/w4-enterprise-state.invalid.json"
 ];
 
+const mod04ContractFiles = [
+  "contracts/schemas/model-candidate-registry.v1.json",
+  "contracts/fixtures/model-candidate-registry.valid.json",
+  "contracts/fixtures/model-candidate-registry.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -394,6 +400,11 @@ const schemaCases = [
     schema: "contracts/schemas/w4-enterprise-state.v1.json",
     valid: ["contracts/fixtures/w4-enterprise-state.valid.json"],
     invalid: ["contracts/fixtures/w4-enterprise-state.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/model-candidate-registry.v1.json",
+    valid: ["contracts/fixtures/model-candidate-registry.valid.json"],
+    invalid: ["contracts/fixtures/model-candidate-registry.invalid.json"]
   },
   {
     schema: "contracts/schemas/project-profile.v1.json",
@@ -906,6 +917,17 @@ export function createContractAjv() {
     type: "string",
     validate: (value) => !Number.isNaN(Date.parse(value))
   });
+  ajv.addFormat("uri", {
+    type: "string",
+    validate: (value) => {
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  });
   return ajv;
 }
 
@@ -978,7 +1000,8 @@ export async function runContractValidation(options = {}) {
     ...w025ContractFiles,
     ...w027ContractFiles,
     ...w3ContractFiles,
-    ...w4ContractFiles
+    ...w4ContractFiles,
+    ...mod04ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -999,7 +1022,8 @@ export async function runContractValidation(options = {}) {
     ...w025ContractFiles,
     ...w027ContractFiles,
     ...w3ContractFiles,
-    ...w4ContractFiles
+    ...w4ContractFiles,
+    ...mod04ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

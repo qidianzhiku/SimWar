@@ -1,0 +1,72 @@
+{
+  "manifest_id": "SIMWAR-MOD-04-OFFICIAL-RESEARCH-BENCHMARK-20260821",
+  "manifest_version": "1.0.0",
+  "status": "RESEARCH_READY_WITH_LIMITS",
+  "plan_id": "SIMWAR-MOD-AGT-DUAL-TRACK-PLAN-V1.0-20260820",
+  "plan_sha256": "EF2104E90C04A811697749388999E31AE27BCFC457D7804FB765A10C68120260",
+  "baseline": {
+    "repository": "qidianzhiku/SimWar",
+    "master_sha": "b9854f1a8cbebed725caf8f4e1ae4b6409fb4ee2",
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "provider_calls": 0,
+    "official_truth_writer": false
+  },
+  "source_policy": "OFFICIAL_PRIMARY_ONLY",
+  "candidate_modes": ["PROVIDER_OFF", "RESEARCH_ONLY", "SHADOW_REFERENCE"],
+  "cases": [
+    {
+      "case_id": "source-identity-and-license",
+      "purpose": "Every candidate has an official source, exact reference, version and license disposition.",
+      "assertions": ["official_primary_source", "exact_ref", "license_status", "recheck_after"],
+      "expected": "PASS"
+    },
+    {
+      "case_id": "research-only-boundary",
+      "purpose": "Research candidates can inform an offline reference or shadow comparison without becoming a SimWar writer.",
+      "assertions": [
+        "provider_calls_zero",
+        "official_truth_writer_false",
+        "runtime_mode_research_or_shadow"
+      ],
+      "expected": "PASS"
+    },
+    {
+      "case_id": "provider-off-fallback",
+      "purpose": "The current JSON/Core path remains runnable when every candidate is unavailable.",
+      "assertions": ["fallback_to_existing_core", "no_provider_activation", "no_implicit_latest"],
+      "expected": "PASS"
+    },
+    {
+      "case_id": "license-and-maintenance-unknown",
+      "purpose": "Unverified license, release, maintenance, SLO or hardware claims remain WATCH and cannot enter dependencies.",
+      "assertions": [
+        "unknown_claims_are_watch",
+        "commercial_platforms_are_not_runtime_dependencies"
+      ],
+      "expected": "PASS"
+    },
+    {
+      "case_id": "no-marketing-slo-promotion",
+      "purpose": "Vendor benchmark, throughput and hardware statements are recorded as source claims only and are not SimWar SLOs.",
+      "assertions": ["slo_claim_not_promoted", "hardware_claim_not_promoted"],
+      "expected": "PASS"
+    }
+  ],
+  "required_registry_fields": [
+    "candidate_id",
+    "official_source",
+    "exact_version_or_unverified",
+    "license",
+    "purpose",
+    "decision",
+    "fallback",
+    "expiry"
+  ],
+  "non_proofs": [
+    "This manifest does not activate a dependency or Provider.",
+    "This manifest does not prove model quality, calibration, SLO, hardware performance or Human Validation.",
+    "This manifest does not authorize a model to write Settlement, Enterprise State, Score, Rank or Replay truth.",
+    "Research references do not replace current SimWar source, contracts, tests or runtime evidence."
+  ],
+  "recheck_policy": "Re-run on a new current-master baseline, new upstream release, license change, maintenance signal, dependency request or owner baseline replacement."
+}

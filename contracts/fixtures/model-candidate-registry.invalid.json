@@ -1,0 +1,21 @@
+{
+  "registry_id": "SIMWAR-MOD-04-PROVIDER-MODEL-CANDIDATE-REGISTRY",
+  "registry_version": "1.0.0",
+  "status": "RESEARCH_READY_WITH_LIMITS",
+  "as_of": "2026-08-21",
+  "authority": {
+    "source_policy": "OFFICIAL_PRIMARY_ONLY",
+    "activation_policy": "NOT_AUTHORIZED",
+    "provider_calls": 1,
+    "official_truth_writer": true
+  },
+  "benchmark_manifest_ref": {
+    "manifest_id": "SIMWAR-MOD-04-OFFICIAL-RESEARCH-BENCHMARK-20260821",
+    "path": "docs/evidence/mod-04-research-refresh-20260821/benchmark-manifest.json",
+    "content_sha256": "2e39f539484cc141659d483542cbca2b878b696ae05317601fcf0e7480c34320"
+  },
+  "candidates": [],
+  "known_limits": [
+    "invalid fixture intentionally violates provider-off and candidate minimum invariants"
+  ]
+}
