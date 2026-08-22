@@ -297,6 +297,7 @@
       "resource_id": "RES-MAIN-SHARED-CONTRACTS",
       "owner": "MAIN",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "packages/shared-contracts/**",
         "contracts/openapi/**",
@@ -310,13 +311,14 @@
         "package-lock.json",
         "provider configuration or credentials"
       ],
-      "release_condition": "Release after the exact contract allowlist is closed, focused contract validation passes, and the same source SHA is reviewed.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after contract diff, focused validation, and exact-head evidence are reviewed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MAIN-API-SERVER",
       "owner": "MAIN",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": ["services/api/src/**"],
       "read_consumers": ["SH", "MOD", "AGT", "FE"],
       "forbidden_paths": [
@@ -325,13 +327,14 @@
         "provider activation",
         "shared runtime store"
       ],
-      "release_condition": "Release after route/service validation, truth-boundary review, and exact-head CI are recorded.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after route/service diff and truth-boundary review are complete.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MAIN-SIMULATION-CORE-TRUTH",
       "owner": "MAIN",
       "lock_mode": "RESERVED",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "services/simulation-core/src/market.ts",
         "services/simulation-core/src/operations.ts",
@@ -352,13 +355,14 @@
         "replay_hash or truth-hash inputs",
         "provider or database authority activation"
       ],
-      "release_condition": "Release only after an owner-approved stage decision explicitly preserves the single Simulation Core truth boundary; MOD-05 does not release this reservation.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release only through a separate owner-approved truth-boundary stage decision.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-SH-SCENARIO-PLUGIN-ASSETS",
       "owner": "SH",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "plugins/**",
         "services/simulation-core/src/eldercare-*.ts",
@@ -375,8 +379,8 @@
         "SettlementResult or canonical Decision",
         "provider activation"
       ],
-      "release_condition": "Release after scenario/plugin validation confirms bounded hook use, no truth-writer change, and current-source evidence is attached.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after bounded hook and candidate evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MOD-MODEL-RESEARCH-REGISTRY",
@@ -397,13 +401,14 @@
         "package-lock.json",
         "provider activation or real-model calls"
       ],
-      "release_condition": "Release after source identity, version or unverified disposition, license, fallback, expiry, and provider-off boundaries are reviewed.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after exact source, license, fallback, expiry, and provider-off review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-AGT-GATEWAY-ADVISORY",
       "owner": "AGT",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "services/agent-gateway/**",
         "docs/contracts/model-engineering-contract.md",
@@ -417,13 +422,14 @@
         "provider configuration or credentials",
         "SettlementResult, canonical Decision, state_true, score, rank, or replay truth"
       ],
-      "release_condition": "Release after schema, actor/tenant scope, advisory-only output, audit input, and negative truth-write validation are reviewed.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after schema, actor/tenant, audit, and no-truth-write evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-FE-TEACHER-STUDENT-UI",
       "owner": "FE",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "apps/teacher/**",
         "apps/student/**",
@@ -437,13 +443,14 @@
         "official market, finance, scoring, ranking, or settlement calculations",
         "provider activation"
       ],
-      "release_condition": "Release after projection/contract validation, role-safe UI checks, and required browser or focused evidence are recorded.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after projection, role-safe UI, and focused/browser evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MAIN-TESTS-CI",
       "owner": "MAIN",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "tests/**",
         ".github/workflows/**",
@@ -455,13 +462,14 @@
         "runtime or provider configuration",
         "test-only bypass of truth, role, tenant, or replay protections"
       ],
-      "release_condition": "Release after focused validation, hidden-unicode/format checks where applicable, and exact-head CI evidence are attached.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after focused validation and exact-head CI evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MAIN-DATABASE-MIGRATIONS",
       "owner": "MAIN",
       "lock_mode": "RESERVED",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": ["db/**"],
       "read_consumers": ["SH", "MOD", "AGT", "FE"],
       "forbidden_paths": [
@@ -470,13 +478,14 @@
         "durable settlement or recovery authority",
         "runtime database cutover"
       ],
-      "release_condition": "Release only after a separate database stage decision, migration-specific allowlist, and rollback evidence are approved.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release only through a separate database stage decision and rollback receipt.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MAIN-PROVIDER-PORTS",
       "owner": "MAIN",
       "lock_mode": "RESERVED",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "services/api/src/repository-ports.ts",
         "services/api/src/repository-facade.ts",
@@ -491,8 +500,8 @@
         "runtime authority cutover",
         "SettlementResult or replay truth changes"
       ],
-      "release_condition": "Release only after explicit provider/adapter authorization, contract parity validation, and non-dual-write evidence.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release only through explicit provider/adapter authorization and non-dual-write validation.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MOD-EVIDENCE-ROOTS",
@@ -513,8 +522,8 @@
         "db/**",
         "provider activation"
       ],
-      "release_condition": "Release after evidence files are source-bound, scope-reviewed, and explicitly labeled for current proof or non-proof limits.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after evidence review and explicit current/non-proof labeling.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "RES-MOD-05-MANIFEST",
@@ -551,8 +560,8 @@
         "parallel merge execution",
         "merge without exact-head CI or evidence review"
       ],
-      "release_condition": "Release after serial merge, post-merge fresh readback, and closure evidence are complete; no lane may self-merge.",
-      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+      "release_condition": "Release after serial merge and post-merge fresh readback are complete.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
     {
       "resource_id": "LANE-MAIN",
