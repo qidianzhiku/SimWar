@@ -51,7 +51,7 @@ The Simulation Core remains the sole official realization and settlement truth b
 
 ## 3. Shared resource ownership and lock matrix
 
-The following is the complete `resource_owners` inventory from the manifest. `Path boundary` is the allowed path boundary; `Forbidden writes` is the manifest’s forbidden-path or forbidden-authority list. Readers are read consumers, not co-owners.
+The following is the complete `resource_owners` inventory from the manifest: 18 entries consisting of 13 RES-* resource records and five LANE-* governance-only lane-admission records. `Path boundary` is the allowed path boundary; `Forbidden writes` is the manifest’s forbidden-path or forbidden-authority list. Readers are read consumers, not co-owners.
 
 1. **`RES-MAIN-SHARED-CONTRACTS`**
    - Owner / mode: `MAIN` / `WRITE_EXCLUSIVE`
@@ -157,7 +157,57 @@ The following is the complete `resource_owners` inventory from the manifest. `Pa
     - Release condition: Release after serial merge, post-merge fresh readback, and closure evidence are complete; no lane may self-merge.
     - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master, scope, owner, or lock-contract change.
 
-Every writer owner is unique in the manifest: no shared resource has more than one writer owner. Every active lock must resolve to exactly one machine row and exactly one owner. `RESERVED` is a held boundary, not an available write slot. The 18 manifest lock rows are reproduced below. Each row includes the exact source identity, release condition, and expiry from `lock_matrix`; the reviewer does not need to resolve these fields indirectly through the machine manifest.
+14. **`LANE-MAIN`**
+    - Owner / mode: `MAIN` / `WRITE_EXCLUSIVE`
+    - Source SHA: `5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`
+    - Governance-only resource description: Own the current JSON mainline integration boundary, shared contracts, API/server coordination, test and CI coordination, and serial merge control without becoming a new truth writer.
+    - Governance-only path boundary: `services/api/src/**`; `packages/shared-contracts/**`; `contracts/**`; `tests/**`; `.github/workflows/**`; `scripts/**`
+    - Readers: `SH`, `MOD`, `AGT`, `FE`
+    - Forbidden writes: `SettlementResult`; canonical `Decision`; `state_true`; score; rank; replay_hash or truth-hash inputs; official Simulation Core truth-writer topology; provider activation or external model calls; shared runtime-store or database authority
+    - Release condition: Release after MAIN evidence and serial Join controls are closed.
+    - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master or scope change.
+
+15. **`LANE-SH`**
+    - Owner / mode: `SH` / `WRITE_EXCLUSIVE`
+    - Source SHA: `5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`
+    - Governance-only resource description: Prepare Shanghai and eldercare scenario or plugin candidates as bounded inputs to the current core path; SH is not a formal truth writer.
+    - Governance-only path boundary: `plugins/**`; `services/simulation-core/src/eldercare-*.ts`; `docs/architecture/eldercare-*.md`; `docs/product/shanghai-market-world-product-reuse-map.md`
+    - Readers: `MAIN`, `MOD`, `AGT`, `FE`
+    - Forbidden writes: `SettlementResult`; canonical `Decision`; `state_true`; score; rank; replay_hash or truth-hash inputs; official Simulation Core truth-writer topology; direct writes to market, operations, finance, scoring, or enterprise state; provider activation or external model calls
+    - Release condition: Release after SH candidate evidence is reviewed or the lane is closed without Join.
+    - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master or scope change.
+
+16. **`LANE-MOD`**
+    - Owner / mode: `MOD` / `WRITE_EXCLUSIVE`
+    - Source SHA: `5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`
+    - Governance-only resource description: Prepare model research, registry, comparison, and evidence candidates for offline or shadow use; MOD output remains candidate input and never becomes runtime authority.
+    - Governance-only path boundary: `docs/model-governance/**`; `docs/research/**`; `docs/evidence/mod-**`
+    - Readers: `MAIN`, `SH`, `AGT`, `FE`
+    - Forbidden writes: `SettlementResult`; canonical `Decision`; `state_true`; score; rank; replay_hash or truth-hash inputs; official Simulation Core truth-writer topology; provider activation, dependency activation, or real-model calls; model registry promotion to runtime authority
+    - Release condition: Release after MOD evidence is source-bound and reviewed or the lane is closed without Join.
+    - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master or scope change.
+
+17. **`LANE-AGT`**
+    - Owner / mode: `AGT` / `WRITE_EXCLUSIVE`
+    - Source SHA: `5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`
+    - Governance-only resource description: Own the existing Agent Gateway and advisory-only boundary for schema-validated candidate or advisory output and audit inputs; AGT cannot write formal truth.
+    - Governance-only path boundary: `services/agent-gateway/**`; `docs/contracts/model-engineering-contract.md`; `docs/contracts/w020-governed-ai-advisory.md`
+    - Readers: `MAIN`, `SH`, `MOD`, `FE`
+    - Forbidden writes: `SettlementResult`; canonical `Decision`; `state_true`; score; rank; replay_hash or truth-hash inputs; official Simulation Core or Enterprise State writer; direct API/database writes outside the advisory boundary; provider activation or external model calls
+    - Release condition: Release after AGT schema, scope, audit, and negative-boundary evidence is reviewed or the lane is closed without Join.
+    - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master or scope change.
+
+18. **`LANE-FE`**
+    - Owner / mode: `FE` / `WRITE_EXCLUSIVE`
+    - Source SHA: `5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`
+    - Governance-only resource description: Own teacher, student, and shared UI presentation and interaction surfaces that consume structured contracts, safe projections, and advisory explanations.
+    - Governance-only path boundary: `apps/teacher/**`; `apps/student/**`; `packages/ui/**`
+    - Readers: `MAIN`, `SH`, `MOD`, `AGT`
+    - Forbidden writes: `SettlementResult`; canonical `Decision`; `state_true`; score; rank; replay_hash or truth-hash inputs; official Simulation Core or API truth-writer topology; client-side official market, finance, scoring, ranking, or settlement calculation; provider activation or external model calls
+    - Release condition: Release after FE projection and interaction evidence is reviewed or the lane is closed without Join.
+    - Expiry: `2026-08-29T23:59:59Z` or earlier on current-master or scope change.
+
+Every writer owner is unique in the manifest: no shared resource has more than one writer owner. Every active lock must resolve to exactly one machine row and exactly one owner. `RESERVED` is a held boundary, not an available write slot. The 18 manifest lock rows are reproduced below and retained as the complete lock table. Each row includes the exact source identity, release condition, and expiry from `lock_matrix`; the reviewer does not need to resolve these fields indirectly through the machine manifest.
 
 | Lock ID | Resource ID | Owner | Mode | Mission | Source SHA | Release condition | Expiry |
 | --- | --- | --- | --- | --- | --- | --- | --- |

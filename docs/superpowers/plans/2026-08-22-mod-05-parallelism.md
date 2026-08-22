@@ -118,7 +118,13 @@
 
 - [ ] **Step 3: Review truth and lock boundaries**
 
-  Confirm no file under `services/simulation-core/src`, settlement/replay truth paths, database, provider configuration, or frontend runtime was modified. Confirm every shared resource in the manifest has exactly one writer owner.
+  Confirm no file under `services/simulation-core/src`, settlement/replay truth paths, database, provider configuration, or frontend runtime was modified. Confirm every shared resource in the manifest has exactly one writer owner. The lock resolver must iterate every row in lock_matrix, not only IDs referenced by mission_start_contract.locks or parallelism_ledger[*].lock_ids. For each lock row, require exactly one resource_owners row for resource_id; require matching owner and mode; require lock source_sha to equal baseline.master_sha; require lock and owner release_condition/expiry fields to be present; and, when an owner source_sha is declared, require it to match the lock source_sha. The five LANE-* owners must copy their lock-row source_sha, release_condition, and expiry exactly; existing RES-* resource owners remain unchanged because their release conditions are resource-level metadata.
+
+  Run this full-lock validation:
+
+    node -e "const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const m=JSON.parse(fs.readFileSync(p,'utf8')); const failures=[]; for(const lock of m.lock_matrix){const owners=m.resource_owners.filter(r=>r.resource_id===lock.resource_id); if(owners.length!==1){failures.push(lock.lock_id+': owner_count='+owners.length); continue;} const owner=owners[0]; if(lock.owner!==owner.owner||lock.mode!==owner.lock_mode||lock.source_sha!==m.baseline.master_sha||![lock.owner,lock.mode,lock.source_sha,lock.release_condition,lock.expiry,owner.owner,owner.lock_mode,owner.release_condition,owner.expiry].every(Boolean)||(owner.source_sha&&owner.source_sha!==lock.source_sha)) failures.push(lock.lock_id+': unresolved_or_mismatched_lock_owner'); } if(failures.length) throw new Error(failures.join('; ')); console.log('MOD-05 full lock resolution PASS rows='+m.lock_matrix.length+' owners='+m.resource_owners.length)"
+
+  Expected: MOD-05 full lock resolution PASS rows=18 owners=18.
 
 - [ ] **Step 4: Commit only allowlisted files**
 

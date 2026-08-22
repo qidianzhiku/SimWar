@@ -553,6 +553,140 @@
       ],
       "release_condition": "Release after serial merge, post-merge fresh readback, and closure evidence are complete; no lane may self-merge.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "LANE-MAIN",
+      "owner": "MAIN",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
+      "resource_description": "Own the current JSON mainline integration boundary, shared contracts, API/server coordination, test and CI coordination, and serial merge control without becoming a new truth writer.",
+      "allowed_paths": [
+        "services/api/src/**",
+        "packages/shared-contracts/**",
+        "contracts/**",
+        "tests/**",
+        ".github/workflows/**",
+        "scripts/**"
+      ],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "provider activation or external model calls",
+        "shared runtime-store or database authority"
+      ],
+      "release_condition": "Release after MAIN evidence and serial Join controls are closed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "resource_id": "LANE-SH",
+      "owner": "SH",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
+      "resource_description": "Prepare Shanghai and eldercare scenario or plugin candidates as bounded inputs to the current core path; SH is not a formal truth writer.",
+      "allowed_paths": [
+        "plugins/**",
+        "services/simulation-core/src/eldercare-*.ts",
+        "docs/architecture/eldercare-*.md",
+        "docs/product/shanghai-market-world-product-reuse-map.md"
+      ],
+      "read_consumers": ["MAIN", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "direct writes to market, operations, finance, scoring, or enterprise state",
+        "provider activation or external model calls"
+      ],
+      "release_condition": "Release after SH candidate evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "resource_id": "LANE-MOD",
+      "owner": "MOD",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
+      "resource_description": "Prepare model research, registry, comparison, and evidence candidates for offline or shadow use; MOD output remains candidate input and never becomes runtime authority.",
+      "allowed_paths": [
+        "docs/model-governance/**",
+        "docs/research/**",
+        "docs/evidence/mod-**"
+      ],
+      "read_consumers": ["MAIN", "SH", "AGT", "FE"],
+      "forbidden_paths": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "provider activation, dependency activation, or real-model calls",
+        "model registry promotion to runtime authority"
+      ],
+      "release_condition": "Release after MOD evidence is source-bound and reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "resource_id": "LANE-AGT",
+      "owner": "AGT",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
+      "resource_description": "Own the existing Agent Gateway and advisory-only boundary for schema-validated candidate or advisory output and audit inputs; AGT cannot write formal truth.",
+      "allowed_paths": [
+        "services/agent-gateway/**",
+        "docs/contracts/model-engineering-contract.md",
+        "docs/contracts/w020-governed-ai-advisory.md"
+      ],
+      "read_consumers": ["MAIN", "SH", "MOD", "FE"],
+      "forbidden_paths": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core or Enterprise State writer",
+        "direct API/database writes outside the advisory boundary",
+        "provider activation or external model calls"
+      ],
+      "release_condition": "Release after AGT schema, scope, audit, and negative-boundary evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "resource_id": "LANE-FE",
+      "owner": "FE",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
+      "resource_description": "Own teacher, student, and shared UI presentation and interaction surfaces that consume structured contracts, safe projections, and advisory explanations.",
+      "allowed_paths": [
+        "apps/teacher/**",
+        "apps/student/**",
+        "packages/ui/**"
+      ],
+      "read_consumers": ["MAIN", "SH", "MOD", "AGT"],
+      "forbidden_paths": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core or API truth-writer topology",
+        "client-side official market, finance, scoring, ranking, or settlement calculation",
+        "provider activation or external model calls"
+      ],
+      "release_condition": "Release after FE projection and interaction evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     }
   ],
   "mission_start_contract": {
