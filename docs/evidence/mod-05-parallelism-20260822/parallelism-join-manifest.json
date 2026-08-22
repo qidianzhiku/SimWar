@@ -7,7 +7,7 @@
   "plan_sha256": "EF2104E90C04A811697749388999E31AE27BCFC457D7804FB765A10C68120260",
   "baseline": {
     "repository": "qidianzhiku/SimWar",
-    "master_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+    "master_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
     "runtime_authority": "JSON_INTERNAL_ONLY",
     "provider_calls": 0,
     "official_truth_writer": false,
@@ -19,7 +19,7 @@
   "source_evidence": {
     "current_master": {
       "ref": "origin/master",
-      "sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "authority": "CURRENT_SOURCE_BASELINE"
     },
     "v1_plan": {
@@ -382,7 +382,7 @@
       "resource_id": "RES-MOD-MODEL-RESEARCH-REGISTRY",
       "owner": "MOD",
       "lock_mode": "WRITE_EXCLUSIVE",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "docs/model-governance/**",
         "docs/research/**"
@@ -498,7 +498,7 @@
       "resource_id": "RES-MOD-EVIDENCE-ROOTS",
       "owner": "MOD",
       "lock_mode": "WRITE_EXCLUSIVE",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "docs/evidence/mod-04-research-refresh-20260821/**",
         "docs/evidence/mod-05-parallelism-20260822/**",
@@ -520,7 +520,7 @@
       "resource_id": "RES-MOD-05-MANIFEST",
       "owner": "MOD",
       "lock_mode": "WRITE_EXCLUSIVE",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [
         "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
       ],
@@ -542,7 +542,7 @@
       "resource_id": "RES-MAIN-GITHUB-MERGE-CONTROL",
       "owner": "MAIN",
       "lock_mode": "SCHEDULED_EXCLUSIVE",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "allowed_paths": [".github/**"],
       "read_consumers": ["SH", "MOD", "AGT", "FE"],
       "forbidden_paths": [
@@ -569,13 +569,13 @@
       "stop_conditions"
     ],
     "worktree": "A dedicated isolated linked worktree for one lane and one mission; no dirty or shared writer state may be adopted implicitly.",
-    "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+    "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
     "file_allowlist": [
       "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
     ],
     "report_path": ".superpowers/sdd/2026-08-22-mod-05-parallelism/task-1-report.md",
     "tests": [
-      "node -e \"const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.status!=='PARALLELISM_QUALIFIED') throw new Error('wrong gate'); if(x.baseline.master_sha!=='1fbe6eec73c0d234023549834f86c9c1f4d6b8d8') throw new Error('wrong baseline'); if(x.lanes.length!==5) throw new Error('wrong lane count'); if(x.resource_owners.some(r=>!r.owner||!r.lock_mode||!r.release_condition||!r.expiry)) throw new Error('incomplete lock'); console.log('MOD-05 manifest PASS')\""
+      "node -e \"const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.status!=='PARALLELISM_QUALIFIED') throw new Error('wrong gate'); if(x.baseline.master_sha!=='5ebf3a4b0ca4166659b8017f8a03e377f5a3e360') throw new Error('wrong baseline'); if(x.lanes.length!==5) throw new Error('wrong lane count'); if(x.resource_owners.some(r=>!r.owner||!r.lock_mode||!r.release_condition||!r.expiry)) throw new Error('incomplete lock'); console.log('MOD-05 manifest PASS')\""
     ],
     "evidence_root": "docs/evidence/mod-05-parallelism-20260822/",
     "locks": [
@@ -603,7 +603,7 @@
       "owner": "MAIN",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "MOD-05 five-lane admission and serial integration control",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after MAIN evidence and serial Join controls are closed.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -613,7 +613,7 @@
       "owner": "SH",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Bounded Shanghai/scenario/plugin candidate preparation",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after SH candidate evidence is reviewed or the lane is closed without Join.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -623,7 +623,7 @@
       "owner": "MOD",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Bounded model research, registry, and governance evidence preparation",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after MOD evidence is source-bound and reviewed or the lane is closed without Join.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -633,7 +633,7 @@
       "owner": "AGT",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Bounded advisory-only Agent Gateway preparation",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after AGT schema, scope, audit, and negative-boundary evidence is reviewed or the lane is closed without Join.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -643,7 +643,7 @@
       "owner": "FE",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Bounded teacher/student UI projection and explanation preparation",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after FE projection and interaction evidence is reviewed or the lane is closed without Join.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -653,7 +653,7 @@
       "owner": "MAIN",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for shared contracts and fixtures",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after contract diff, focused validation, and exact-head evidence are reviewed.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -663,7 +663,7 @@
       "owner": "MAIN",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for API/server route and service composition",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after route/service diff and truth-boundary review are complete.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -673,7 +673,7 @@
       "owner": "MAIN",
       "mode": "RESERVED",
       "mission": "Protect the existing single Simulation Core truth boundary",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release only through a separate owner-approved truth-boundary stage decision.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -683,7 +683,7 @@
       "owner": "SH",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for scenario/plugin candidate assets",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after bounded hook and candidate evidence review.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -693,7 +693,7 @@
       "owner": "MOD",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for model research and registry evidence",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after exact source, license, fallback, expiry, and provider-off review.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -703,7 +703,7 @@
       "owner": "AGT",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for advisory-only gateway boundary",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after schema, actor/tenant, audit, and no-truth-write evidence review.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -713,7 +713,7 @@
       "owner": "FE",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for teacher/student/shared UI",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after projection, role-safe UI, and focused/browser evidence review.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -723,7 +723,7 @@
       "owner": "MAIN",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze one writer for tests, scripts, and CI workflow changes",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after focused validation and exact-head CI evidence review.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -733,7 +733,7 @@
       "owner": "MAIN",
       "mode": "RESERVED",
       "mission": "Reserve database and migration surfaces outside MOD-05 scope",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release only through a separate database stage decision and rollback receipt.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -743,7 +743,7 @@
       "owner": "MAIN",
       "mode": "RESERVED",
       "mission": "Reserve provider and repository-port surfaces without activation",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release only through explicit provider/adapter authorization and non-dual-write validation.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -753,7 +753,7 @@
       "owner": "MOD",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "MOD-05 Task 1 exact machine manifest",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after the exact MOD-05 manifest path is committed or the task is closed without Join; any further mutation requires a fresh source and lock readback.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
     },
@@ -763,7 +763,7 @@
       "owner": "MOD",
       "mode": "WRITE_EXCLUSIVE",
       "mission": "Freeze MOD evidence roots and preserve source-bound receipts",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after evidence review and explicit current/non-proof labeling.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     },
@@ -773,7 +773,7 @@
       "owner": "MAIN",
       "mode": "SCHEDULED_EXCLUSIVE",
       "mission": "Reserve serial GitHub merge and Join control",
-      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "source_sha": "5ebf3a4b0ca4166659b8017f8a03e377f5a3e360",
       "release_condition": "Release after serial merge and post-merge fresh readback are complete.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
     }

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Current-source baseline is `origin/master@1fbe6eec73c0d234023549834f86c9c1f4d6b8d8`; historical plan snapshots and V9 documents are not current implementation evidence.
+- Current-source baseline is `origin/master@5ebf3a4b0ca4166659b8017f8a03e377f5a3e360`; historical plan snapshots and V9 documents are not current implementation evidence.
 - `automatic_next_start=false`; the charter cannot authorize later mutation tasks, provider activation, Pilot, Production, or Human Validation.
 - Every shared resource has one writer owner; all other lanes are read-only or reserved.
 - No lane may modify settlement logic, `SettlementResult`, canonical Decision, `state_true`, score/rank, replay truth/hash inputs, or the official Simulation Core writer.
@@ -53,7 +53,7 @@
   Run:
 
   ```powershell
-  node -e "const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.status!=='PARALLELISM_QUALIFIED') throw new Error('wrong gate'); if(x.baseline.master_sha!=='1fbe6eec73c0d234023549834f86c9c1f4d6b8d8') throw new Error('wrong baseline'); if(x.lanes.length!==5) throw new Error('wrong lane count'); if(x.resource_owners.some(r=>!r.owner||!r.lock_mode||!r.release_condition||!r.expiry)) throw new Error('incomplete lock'); console.log('MOD-05 manifest PASS')"
+  node -e "const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.status!=='PARALLELISM_QUALIFIED') throw new Error('wrong gate'); if(x.baseline.master_sha!=='5ebf3a4b0ca4166659b8017f8a03e377f5a3e360') throw new Error('wrong baseline'); if(x.lanes.length!==5) throw new Error('wrong lane count'); if(x.resource_owners.some(r=>!r.owner||!r.lock_mode||!r.release_condition||!r.expiry)) throw new Error('incomplete lock'); console.log('MOD-05 manifest PASS')"
   ```
 
   Expected: `MOD-05 manifest PASS`.
