@@ -1,0 +1,969 @@
+{
+  "document_id": "SIMWAR-MOD-05-PARALLELISM-JOIN-MANIFEST-20260822",
+  "manifest_version": "1.0.0",
+  "status": "PARALLELISM_QUALIFIED",
+  "qualification_scope": "GOVERNANCE_MANIFEST_STRUCTURAL_ONLY",
+  "plan_id": "SIMWAR-MOD-AGT-DUAL-TRACK-PLAN-V1.0-20260820",
+  "plan_sha256": "EF2104E90C04A811697749388999E31AE27BCFC457D7804FB765A10C68120260",
+  "baseline": {
+    "repository": "qidianzhiku/SimWar",
+    "master_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "provider_calls": 0,
+    "official_truth_writer": false,
+    "codegraph": "UNAVAILABLE_DOT_CODEGRAPH_ABSENT",
+    "source_policy": "CURRENT_SOURCE_FIRST_NO_V9_OR_STALE_SNAPSHOT_AUTHORITY",
+    "truth_writer_note": "MOD-05 creates no official truth writer; the existing Simulation Core truth boundary remains protected and unchanged."
+  },
+  "automatic_next_start": false,
+  "source_evidence": {
+    "current_master": {
+      "ref": "origin/master",
+      "sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "authority": "CURRENT_SOURCE_BASELINE"
+    },
+    "v1_plan": {
+      "id": "SIMWAR-MOD-AGT-DUAL-TRACK-PLAN-V1.0-20260820",
+      "sha256": "EF2104E90C04A811697749388999E31AE27BCFC457D7804FB765A10C68120260",
+      "authority": "DESIGN_OR_COORDINATION_INPUT_ONLY"
+    },
+    "mod_03": {
+      "path": "docs/governance/mod-agt-document-authority-supersession-register-20260821.md",
+      "status": "MERGED_BASELINE_READ_ONLY",
+      "authority": "CURRENT_SOURCE_REVALIDATION_REQUIRED_FOR_DEPENDENT_MUTATION"
+    },
+    "mod_04": {
+      "path": "docs/evidence/mod-04-research-refresh-20260821/benchmark-manifest.json",
+      "governance_receipt": "docs/governance/mod-04-official-research-refresh-20260821.md",
+      "status": "MERGED_BASELINE_READ_ONLY",
+      "runtime_mode": "JSON_INTERNAL_ONLY",
+      "provider_calls": 0
+    },
+    "codegraph": {
+      "directory": ".codegraph/",
+      "status": "ABSENT",
+      "claim": "NO_CODEGRAPH_ANALYSIS_PERFORMED"
+    }
+  },
+  "lanes": [
+    {
+      "id": "MAIN",
+      "purpose": "Own the current JSON mainline integration boundary, shared contracts, API/server coordination, test and CI coordination, and serial merge control without becoming a new truth writer.",
+      "workspace_rule": "Use one isolated linked worktree and one exact file allowlist per mission; never share a runtime store, database, port, provider selector, or lockfile with another lane.",
+      "write_roots": [
+        "services/api/src/**",
+        "packages/shared-contracts/**",
+        "contracts/**",
+        "tests/**",
+        ".github/workflows/**",
+        "scripts/**"
+      ],
+      "read_roots": [
+        "services/simulation-core/src/**",
+        "plugins/**",
+        "docs/**",
+        "apps/**",
+        "services/agent-gateway/**",
+        "db/**"
+      ],
+      "forbidden_truth_mutations": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "provider activation or external model calls",
+        "shared runtime-store or database authority"
+      ]
+    },
+    {
+      "id": "SH",
+      "purpose": "Prepare Shanghai and eldercare scenario or plugin candidates as bounded inputs to the current core path; SH is not a formal truth writer.",
+      "workspace_rule": "Use a dedicated SH worktree with an exact scenario/plugin allowlist; consume current contracts and source read-only and never share mutable runtime state with MAIN, MOD, AGT, or FE.",
+      "write_roots": [
+        "plugins/**",
+        "services/simulation-core/src/eldercare-*.ts",
+        "docs/architecture/eldercare-*.md",
+        "docs/product/shanghai-market-world-product-reuse-map.md"
+      ],
+      "read_roots": [
+        "services/simulation-core/src/**",
+        "packages/shared-contracts/**",
+        "contracts/**",
+        "docs/architecture/**",
+        "docs/governance/**",
+        "services/api/src/**"
+      ],
+      "forbidden_truth_mutations": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "direct writes to market, operations, finance, scoring, or enterprise state",
+        "provider activation or external model calls"
+      ]
+    },
+    {
+      "id": "MOD",
+      "purpose": "Prepare model research, registry, comparison, and evidence candidates for offline or shadow use; MOD output remains candidate input and never becomes runtime authority.",
+      "workspace_rule": "Use a dedicated MOD worktree with an exact research/evidence allowlist; use official primary sources only where research is authorized and keep all model candidates provider-off and non-deploying.",
+      "write_roots": [
+        "docs/model-governance/**",
+        "docs/research/**",
+        "docs/evidence/mod-**"
+      ],
+      "read_roots": [
+        "contracts/**",
+        "packages/shared-contracts/**",
+        "services/simulation-core/src/**",
+        "services/api/src/**",
+        "services/agent-gateway/**",
+        "docs/governance/**",
+        "docs/architecture/**"
+      ],
+      "forbidden_truth_mutations": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core truth-writer topology",
+        "provider activation, dependency activation, or real-model calls",
+        "model registry promotion to runtime authority"
+      ]
+    },
+    {
+      "id": "AGT",
+      "purpose": "Own the existing Agent Gateway and advisory-only boundary for schema-validated candidate or advisory output and audit inputs; AGT cannot write formal truth.",
+      "workspace_rule": "Use a dedicated AGT worktree with an exact gateway/advisory allowlist; provider selector stays off, runtime stores stay isolated, and API/core/contract authority is read-only unless separately assigned.",
+      "write_roots": [
+        "services/agent-gateway/**",
+        "docs/contracts/model-engineering-contract.md",
+        "docs/contracts/w020-governed-ai-advisory.md"
+      ],
+      "read_roots": [
+        "services/api/src/**",
+        "packages/shared-contracts/**",
+        "contracts/**",
+        "services/simulation-core/src/**",
+        "docs/model-governance/**",
+        "apps/teacher/**",
+        "apps/student/**"
+      ],
+      "forbidden_truth_mutations": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core or Enterprise State writer",
+        "direct API/database writes outside the advisory boundary",
+        "provider activation or external model calls"
+      ]
+    },
+    {
+      "id": "FE",
+      "purpose": "Own teacher, student, and shared UI presentation and interaction surfaces that consume structured contracts, safe projections, and advisory explanations.",
+      "workspace_rule": "Use a dedicated FE worktree with an exact UI allowlist; FE consumes API projections and explanations and never computes or persists official outcomes.",
+      "write_roots": [
+        "apps/teacher/**",
+        "apps/student/**",
+        "packages/ui/**"
+      ],
+      "read_roots": [
+        "apps/admin/**",
+        "packages/shared-contracts/**",
+        "contracts/**",
+        "services/api/src/**",
+        "services/agent-gateway/**",
+        "docs/frontend/**",
+        "docs/architecture/**"
+      ],
+      "forbidden_truth_mutations": [
+        "SettlementResult",
+        "canonical Decision",
+        "state_true",
+        "score",
+        "rank",
+        "replay_hash or truth-hash inputs",
+        "official Simulation Core or API truth-writer topology",
+        "client-side official market, finance, scoring, ranking, or settlement calculation",
+        "provider activation or external model calls"
+      ]
+    }
+  ],
+  "dependency_graph": [
+    {
+      "from": "MAIN",
+      "to": "SH",
+      "kind": "read_contract",
+      "formal_truth_write": false,
+      "description": "SH reads current API, shared-contract, simulation, and governance boundaries before preparing scenario/plugin candidates."
+    },
+    {
+      "from": "MAIN",
+      "to": "MOD",
+      "kind": "read_contract",
+      "formal_truth_write": false,
+      "description": "MOD reads the current source baseline and contracts before preparing research or registry candidates."
+    },
+    {
+      "from": "MAIN",
+      "to": "AGT",
+      "kind": "read_contract",
+      "formal_truth_write": false,
+      "description": "AGT reads the current actor, tenant, schema, audit, and truth-protection boundaries."
+    },
+    {
+      "from": "MAIN",
+      "to": "FE",
+      "kind": "read_contract",
+      "formal_truth_write": false,
+      "description": "FE reads current shared contracts and API projection boundaries."
+    },
+    {
+      "from": "SH",
+      "to": "MAIN",
+      "kind": "candidate_input",
+      "formal_truth_write": false,
+      "description": "Scenario and plugin candidates are reviewed inputs only; MAIN remains the controlled integration path."
+    },
+    {
+      "from": "MOD",
+      "to": "SH",
+      "kind": "candidate_input",
+      "formal_truth_write": false,
+      "description": "Offline model research may inform bounded scenario analysis without activating a model or changing scenario truth."
+    },
+    {
+      "from": "MOD",
+      "to": "AGT",
+      "kind": "candidate_input",
+      "formal_truth_write": false,
+      "description": "Model metadata and research candidates may be consumed by advisory-only work after contract and authority checks."
+    },
+    {
+      "from": "AGT",
+      "to": "FE",
+      "kind": "advisory_output",
+      "formal_truth_write": false,
+      "description": "AGT exposes only schema-validated advisory or candidate output for UI display."
+    },
+    {
+      "from": "MAIN",
+      "to": "FE",
+      "kind": "explanation_projection",
+      "formal_truth_write": false,
+      "description": "FE consumes structured result and explanation projections and does not calculate official outcomes."
+    },
+    {
+      "from": "MAIN",
+      "to": "SH",
+      "kind": "merge_control",
+      "formal_truth_write": false,
+      "description": "MAIN controls cross-track conflict review and serial Join admission for SH."
+    },
+    {
+      "from": "MAIN",
+      "to": "MOD",
+      "kind": "merge_control",
+      "formal_truth_write": false,
+      "description": "MAIN controls evidence review and serial Join admission for MOD."
+    },
+    {
+      "from": "MAIN",
+      "to": "AGT",
+      "kind": "merge_control",
+      "formal_truth_write": false,
+      "description": "MAIN controls advisory-boundary conflict review and serial Join admission for AGT."
+    },
+    {
+      "from": "MAIN",
+      "to": "FE",
+      "kind": "merge_control",
+      "formal_truth_write": false,
+      "description": "MAIN controls UI contract conflict review and serial Join admission for FE."
+    }
+  ],
+  "resource_owners": [
+    {
+      "resource_id": "RES-MAIN-SHARED-CONTRACTS",
+      "owner": "MAIN",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "packages/shared-contracts/**",
+        "contracts/openapi/**",
+        "contracts/schemas/**",
+        "contracts/fixtures/**"
+      ],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "services/simulation-core/src/**",
+        "db/migrations/**",
+        "package-lock.json",
+        "provider configuration or credentials"
+      ],
+      "release_condition": "Release after the exact contract allowlist is closed, focused contract validation passes, and the same source SHA is reviewed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-API-SERVER",
+      "owner": "MAIN",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": ["services/api/src/**"],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "services/simulation-core/src/**",
+        "SettlementResult or canonical Decision writer changes",
+        "provider activation",
+        "shared runtime store"
+      ],
+      "release_condition": "Release after route/service validation, truth-boundary review, and exact-head CI are recorded.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-SIMULATION-CORE-TRUTH",
+      "owner": "MAIN",
+      "lock_mode": "RESERVED",
+      "allowed_paths": [
+        "services/simulation-core/src/market.ts",
+        "services/simulation-core/src/operations.ts",
+        "services/simulation-core/src/finance.ts",
+        "services/simulation-core/src/scoring.ts",
+        "services/simulation-core/src/enterprise-state.ts",
+        "services/simulation-core/src/index.ts",
+        "services/simulation-core/src/types.ts",
+        "services/simulation-core/src/toy-logit-engine.ts",
+        "services/simulation-core/src/w5-governed-convergence.ts"
+      ],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "any new or competing truth writer",
+        "SettlementResult",
+        "state_true",
+        "score or rank",
+        "replay_hash or truth-hash inputs",
+        "provider or database authority activation"
+      ],
+      "release_condition": "Release only after an owner-approved stage decision explicitly preserves the single Simulation Core truth boundary; MOD-05 does not release this reservation.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-SH-SCENARIO-PLUGIN-ASSETS",
+      "owner": "SH",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "plugins/**",
+        "services/simulation-core/src/eldercare-*.ts",
+        "docs/architecture/eldercare-*.md",
+        "docs/product/shanghai-market-world-product-reuse-map.md"
+      ],
+      "read_consumers": ["MAIN", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "services/simulation-core/src/market.ts",
+        "services/simulation-core/src/operations.ts",
+        "services/simulation-core/src/finance.ts",
+        "services/simulation-core/src/scoring.ts",
+        "services/simulation-core/src/enterprise-state.ts",
+        "SettlementResult or canonical Decision",
+        "provider activation"
+      ],
+      "release_condition": "Release after scenario/plugin validation confirms bounded hook use, no truth-writer change, and current-source evidence is attached.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MOD-MODEL-RESEARCH-REGISTRY",
+      "owner": "MOD",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "docs/model-governance/**",
+        "docs/research/**"
+      ],
+      "read_consumers": ["MAIN", "SH", "AGT", "FE"],
+      "forbidden_paths": [
+        "services/simulation-core/src/**",
+        "services/api/src/**",
+        "services/agent-gateway/**",
+        "contracts/schemas/**",
+        "package.json",
+        "package-lock.json",
+        "provider activation or real-model calls"
+      ],
+      "release_condition": "Release after source identity, version or unverified disposition, license, fallback, expiry, and provider-off boundaries are reviewed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-AGT-GATEWAY-ADVISORY",
+      "owner": "AGT",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "services/agent-gateway/**",
+        "docs/contracts/model-engineering-contract.md",
+        "docs/contracts/w020-governed-ai-advisory.md"
+      ],
+      "read_consumers": ["MAIN", "SH", "MOD", "FE"],
+      "forbidden_paths": [
+        "services/api/src/**",
+        "services/simulation-core/src/**",
+        "db/**",
+        "provider configuration or credentials",
+        "SettlementResult, canonical Decision, state_true, score, rank, or replay truth"
+      ],
+      "release_condition": "Release after schema, actor/tenant scope, advisory-only output, audit input, and negative truth-write validation are reviewed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-FE-TEACHER-STUDENT-UI",
+      "owner": "FE",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "apps/teacher/**",
+        "apps/student/**",
+        "packages/ui/**"
+      ],
+      "read_consumers": ["MAIN", "SH", "MOD", "AGT"],
+      "forbidden_paths": [
+        "services/api/src/**",
+        "services/simulation-core/src/**",
+        "db/**",
+        "official market, finance, scoring, ranking, or settlement calculations",
+        "provider activation"
+      ],
+      "release_condition": "Release after projection/contract validation, role-safe UI checks, and required browser or focused evidence are recorded.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-TESTS-CI",
+      "owner": "MAIN",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "tests/**",
+        ".github/workflows/**",
+        "scripts/**"
+      ],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "package-lock.json",
+        "runtime or provider configuration",
+        "test-only bypass of truth, role, tenant, or replay protections"
+      ],
+      "release_condition": "Release after focused validation, hidden-unicode/format checks where applicable, and exact-head CI evidence are attached.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-DATABASE-MIGRATIONS",
+      "owner": "MAIN",
+      "lock_mode": "RESERVED",
+      "allowed_paths": ["db/**"],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "migration execution",
+        "PostgreSQL activation",
+        "durable settlement or recovery authority",
+        "runtime database cutover"
+      ],
+      "release_condition": "Release only after a separate database stage decision, migration-specific allowlist, and rollback evidence are approved.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-PROVIDER-PORTS",
+      "owner": "MAIN",
+      "lock_mode": "RESERVED",
+      "allowed_paths": [
+        "services/api/src/repository-ports.ts",
+        "services/api/src/repository-facade.ts",
+        "services/api/src/repository-provider.ts",
+        "services/api/src/json-repository-adapter.ts",
+        "services/api/src/postgres-repository-adapter.ts"
+      ],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "provider activation",
+        "dual writer or competing registry",
+        "runtime authority cutover",
+        "SettlementResult or replay truth changes"
+      ],
+      "release_condition": "Release only after explicit provider/adapter authorization, contract parity validation, and non-dual-write evidence.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MOD-EVIDENCE-ROOTS",
+      "owner": "MOD",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "allowed_paths": [
+        "docs/evidence/mod-04-research-refresh-20260821/**",
+        "docs/evidence/mod-05-parallelism-20260822/**",
+        "docs/evidence/mod-03-*/**"
+      ],
+      "read_consumers": ["MAIN", "SH", "AGT", "FE"],
+      "forbidden_paths": [
+        "services/**",
+        "apps/**",
+        "packages/**",
+        "contracts/**",
+        "db/**",
+        "provider activation"
+      ],
+      "release_condition": "Release after evidence files are source-bound, scope-reviewed, and explicitly labeled for current proof or non-proof limits.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
+      "resource_id": "RES-MAIN-GITHUB-MERGE-CONTROL",
+      "owner": "MAIN",
+      "lock_mode": "SCHEDULED_EXCLUSIVE",
+      "allowed_paths": [".github/**"],
+      "read_consumers": ["SH", "MOD", "AGT", "FE"],
+      "forbidden_paths": [
+        "force-push",
+        "destructive history rewrite",
+        "parallel merge execution",
+        "merge without exact-head CI or evidence review"
+      ],
+      "release_condition": "Release after serial merge, post-merge fresh readback, and closure evidence are complete; no lane may self-merge.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    }
+  ],
+  "mission_start_contract": {
+    "required_declarations": [
+      "worktree",
+      "source_sha",
+      "file_allowlist",
+      "tests",
+      "evidence_root",
+      "locks",
+      "ports",
+      "runtime_store",
+      "provider_selector",
+      "stop_conditions"
+    ],
+    "worktree": "A dedicated isolated linked worktree for one lane and one mission; no dirty or shared writer state may be adopted implicitly.",
+    "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+    "file_allowlist": [
+      "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
+    ],
+    "report_path": ".superpowers/sdd/2026-08-22-mod-05-parallelism/task-1-report.md",
+    "tests": [
+      "node -e \"const fs=require('fs'); const p='docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json'; const x=JSON.parse(fs.readFileSync(p,'utf8')); if(x.status!=='PARALLELISM_QUALIFIED') throw new Error('wrong gate'); if(x.baseline.master_sha!=='1fbe6eec73c0d234023549834f86c9c1f4d6b8d8') throw new Error('wrong baseline'); if(x.lanes.length!==5) throw new Error('wrong lane count'); if(x.resource_owners.some(r=>!r.owner||!r.lock_mode||!r.release_condition||!r.expiry)) throw new Error('incomplete lock'); console.log('MOD-05 manifest PASS')\""
+    ],
+    "evidence_root": "docs/evidence/mod-05-parallelism-20260822/",
+    "locks": [
+      "LOCK-MOD05-MANIFEST",
+      "LOCK-MOD05-EVIDENCE-ROOT",
+      "LOCK-MOD05-MERGE-CONTROL-RESERVED"
+    ],
+    "ports": "NONE_FOR_TASK_1; any future lane must reserve a unique port and may not share a running service.",
+    "runtime_store": "NO_RUNTIME_START; JSON_INTERNAL_ONLY baseline; any future validation uses an isolated memory or task-local JSON store and never the shared development snapshot.",
+    "provider_selector": "PROVIDER_OFF; provider_calls must remain 0; no implicit latest/current selector and no dependency installation or upgrade.",
+    "stop_conditions": [
+      "Current source SHA changes before validation.",
+      "A path falls outside the exact file allowlist.",
+      "A lock is expired, conflicted, or owned by more than one writer.",
+      "Any change would touch runtime, settlement, replay truth, database, provider, or frontend runtime files outside the allowlist.",
+      "The exact manifest assertion fails.",
+      "A request attempts provider activation, Human Validation, Pilot, Production, automatic successor creation, or a second writer."
+    ],
+    "scope_escape_action": "CANCEL_TRACK_AND_RECOMPILE"
+  },
+  "lock_matrix": [
+    {
+      "lock_id": "LOCK-LANE-MAIN",
+      "resource_id": "LANE-MAIN",
+      "owner": "MAIN",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "MOD-05 five-lane admission and serial integration control",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after MAIN evidence and serial Join controls are closed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-LANE-SH",
+      "resource_id": "LANE-SH",
+      "owner": "SH",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Bounded Shanghai/scenario/plugin candidate preparation",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after SH candidate evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-LANE-MOD",
+      "resource_id": "LANE-MOD",
+      "owner": "MOD",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Bounded model research, registry, and governance evidence preparation",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after MOD evidence is source-bound and reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-LANE-AGT",
+      "resource_id": "LANE-AGT",
+      "owner": "AGT",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Bounded advisory-only Agent Gateway preparation",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after AGT schema, scope, audit, and negative-boundary evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-LANE-FE",
+      "resource_id": "LANE-FE",
+      "owner": "FE",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Bounded teacher/student UI projection and explanation preparation",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after FE projection and interaction evidence is reviewed or the lane is closed without Join.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-SHARED-CONTRACTS",
+      "resource_id": "RES-MAIN-SHARED-CONTRACTS",
+      "owner": "MAIN",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for shared contracts and fixtures",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after contract diff, focused validation, and exact-head evidence are reviewed.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-API-SERVER",
+      "resource_id": "RES-MAIN-API-SERVER",
+      "owner": "MAIN",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for API/server route and service composition",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after route/service diff and truth-boundary review are complete.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-SIMULATION-CORE-TRUTH",
+      "resource_id": "RES-MAIN-SIMULATION-CORE-TRUTH",
+      "owner": "MAIN",
+      "mode": "RESERVED",
+      "mission": "Protect the existing single Simulation Core truth boundary",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release only through a separate owner-approved truth-boundary stage decision.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-SH-SCENARIO-PLUGIN-ASSETS",
+      "resource_id": "RES-SH-SCENARIO-PLUGIN-ASSETS",
+      "owner": "SH",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for scenario/plugin candidate assets",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after bounded hook and candidate evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MOD-MODEL-RESEARCH-REGISTRY",
+      "resource_id": "RES-MOD-MODEL-RESEARCH-REGISTRY",
+      "owner": "MOD",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for model research and registry evidence",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after exact source, license, fallback, expiry, and provider-off review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-AGT-GATEWAY-ADVISORY",
+      "resource_id": "RES-AGT-GATEWAY-ADVISORY",
+      "owner": "AGT",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for advisory-only gateway boundary",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after schema, actor/tenant, audit, and no-truth-write evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-FE-TEACHER-STUDENT-UI",
+      "resource_id": "RES-FE-TEACHER-STUDENT-UI",
+      "owner": "FE",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for teacher/student/shared UI",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after projection, role-safe UI, and focused/browser evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-TESTS-CI",
+      "resource_id": "RES-MAIN-TESTS-CI",
+      "owner": "MAIN",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze one writer for tests, scripts, and CI workflow changes",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after focused validation and exact-head CI evidence review.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-DATABASE-MIGRATIONS",
+      "resource_id": "RES-MAIN-DATABASE-MIGRATIONS",
+      "owner": "MAIN",
+      "mode": "RESERVED",
+      "mission": "Reserve database and migration surfaces outside MOD-05 scope",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release only through a separate database stage decision and rollback receipt.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-PROVIDER-PORTS",
+      "resource_id": "RES-MAIN-PROVIDER-PORTS",
+      "owner": "MAIN",
+      "mode": "RESERVED",
+      "mission": "Reserve provider and repository-port surfaces without activation",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release only through explicit provider/adapter authorization and non-dual-write validation.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MOD-EVIDENCE-ROOTS",
+      "resource_id": "RES-MOD-EVIDENCE-ROOTS",
+      "owner": "MOD",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "Freeze MOD evidence roots and preserve source-bound receipts",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after evidence review and explicit current/non-proof labeling.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MAIN-GITHUB-MERGE-CONTROL",
+      "resource_id": "RES-MAIN-GITHUB-MERGE-CONTROL",
+      "owner": "MAIN",
+      "mode": "SCHEDULED_EXCLUSIVE",
+      "mission": "Reserve serial GitHub merge and Join control",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after serial merge and post-merge fresh readback are complete.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    }
+  ],
+  "merge_barrier": {
+    "cross_track_conflict_scan": "REQUIRED; compare every lane diff and path claim against the current source SHA and all resource owners before Join.",
+    "focused_validation": "REQUIRED for each lane's exact allowlist; a passing manifest parse does not substitute for lane-specific validation.",
+    "exact_head_ci": "REQUIRED; CI must run against the exact candidate head and be read back before serial merge.",
+    "evidence_review": "REQUIRED; review source identity, lock ownership, non-proofs, and truth/provider boundaries.",
+    "post_merge_fresh_readback": "REQUIRED; re-read master, merged head, changed paths, required checks, and lock validity after merge.",
+    "required_order": [
+      "cross_track_conflict_scan",
+      "focused_validation",
+      "exact_head_ci",
+      "evidence_review",
+      "post_merge_fresh_readback"
+    ],
+    "stop_conditions": [
+      "two_ready_for_closure_prs",
+      "unresolved_cross_track_conflict",
+      "more_than_one_writer_for_a_shared_resource",
+      "exact_head_ci_pending_or_failed",
+      "evidence_review_missing_or_scope_unbound",
+      "post_merge_fresh_readback_missing",
+      "truth, provider, database, or runtime-authority boundary change"
+    ],
+    "two_ready_for_closure_prs": "STOP_SERIAL_CLOSURE_AND_RECOMPILE_PORTFOLIO"
+  },
+  "join_order": [
+    {
+      "order": 1,
+      "stage": "BASELINE_FREEZE",
+      "required_evidence": [
+        "origin/master exact SHA",
+        "V1.0 plan ID and SHA-256",
+        "MOD-03 and MOD-04 baseline paths",
+        "CodeGraph absence receipt"
+      ],
+      "failure_action": "PAUSE_ALL_LANES_AND_REAUTHENTICATE_CURRENT_SOURCE"
+    },
+    {
+      "order": 2,
+      "stage": "LANE_ADMISSION",
+      "required_evidence": [
+        "lane ID",
+        "isolated worktree",
+        "exact file allowlist",
+        "unique owner and lock IDs",
+        "ports, runtime store, provider selector, and expiry declarations"
+      ],
+      "failure_action": "CANCEL_TRACK_AND_RECOMPILE"
+    },
+    {
+      "order": 3,
+      "stage": "MISSION_START",
+      "required_evidence": [
+        "mission_start_contract complete",
+        "source SHA matches baseline",
+        "no scope escape"
+      ],
+      "failure_action": "DO_NOT_MUTATE_AND_CANCEL_TRACK_AND_RECOMPILE"
+    },
+    {
+      "order": 4,
+      "stage": "PARALLEL_EXECUTION",
+      "required_evidence": [
+        "lane-local diff",
+        "lane-local validation output",
+        "no shared runtime or port collision",
+        "candidate/advisory/projection output classification"
+      ],
+      "failure_action": "PAUSE_AFFECTED_LANE_AND_INVALIDATE_UNBOUND_EVIDENCE"
+    },
+    {
+      "order": 5,
+      "stage": "PRE_JOIN_EVIDENCE",
+      "required_evidence": [
+        "source-bound evidence root",
+        "forbidden-path scan",
+        "truth/provider non-write receipt"
+      ],
+      "failure_action": "REJECT_JOIN_PACKAGE_AND_RECOMPILE_LOCKS"
+    },
+    {
+      "order": 6,
+      "stage": "CROSS_TRACK_CONFLICT_SCAN",
+      "required_evidence": [
+        "all lane diffs",
+        "resource owner comparison",
+        "path overlap result",
+        "authority/writer overlap result"
+      ],
+      "failure_action": "STOP_AND_CANCEL_CONFLICTING_TRACKS"
+    },
+    {
+      "order": 7,
+      "stage": "FOCUSED_VALIDATION",
+      "required_evidence": [
+        "lane-specific test command and output",
+        "contract/schema/projection checks where applicable",
+        "no provider activation"
+      ],
+      "failure_action": "KEEP_LANE_OUT_OF_JOIN_AND_REPAIR_WITHIN_ALLOWLIST_ONLY"
+    },
+    {
+      "order": 8,
+      "stage": "EXACT_HEAD_CI",
+      "required_evidence": [
+        "candidate head SHA",
+        "required CI check results at that SHA",
+        "no pending required check treated as pass"
+      ],
+      "failure_action": "BLOCK_MERGE_AND_KEEP_PR_OR_BRANCH_RECOVERABLE"
+    },
+    {
+      "order": 9,
+      "stage": "EVIDENCE_REVIEW",
+      "required_evidence": [
+        "manifest/charter mapping",
+        "owner and expiry review",
+        "explicit non-proofs",
+        "scope and truth-boundary review"
+      ],
+      "failure_action": "REJECT_CLOSURE_AND_RECOMPILE_PORTFOLIO"
+    },
+    {
+      "order": 10,
+      "stage": "SERIAL_MERGE",
+      "required_evidence": [
+        "one approved closure slot",
+        "one ready PR at a time",
+        "merge-control lock held by MAIN"
+      ],
+      "failure_action": "CLOSE_OR_REVERT_RECOVERABLY_WITHOUT_FORCE_PUSH"
+    },
+    {
+      "order": 11,
+      "stage": "POST_MERGE_READBACK",
+      "required_evidence": [
+        "fresh master SHA",
+        "fresh changed-path readback",
+        "post-merge required-check state",
+        "lock expiry and next-start state"
+      ],
+      "failure_action": "INVALIDATE_PENDING_JOIN_EVIDENCE_AND_RECOMPILE_PORTFOLIO"
+    }
+  ],
+  "rollback_policy": {
+    "allowed": [
+      "Close an unmerged branch or PR without deleting unrelated work.",
+      "Revert a merged change with a new reviewable revert commit.",
+      "Use a recoverable branch/PR closure path and preserve the evidence receipt."
+    ],
+    "forbidden": [
+      "destructive reset",
+      "git reset --hard as a rollback mechanism",
+      "force-push",
+      "history rewrite",
+      "destructive deletion or overwrite of another lane's files"
+    ],
+    "truth_boundary": "Rollback must not rewrite historical official results, replay truth, audit evidence, or another owner's work."
+  },
+  "expiry_policy": {
+    "rule": "An expired lock pauses its lane, invalidates pending Join evidence, and requires portfolio and lock recompilation before any restart.",
+    "expired_lock_action": "PAUSE_LANE",
+    "pending_join_evidence": "INVALIDATE",
+    "recompile_required": "PORTFOLIO_AND_LOCK_RECOMPILATION",
+    "no_silent_continue": true,
+    "triggers": [
+      "current master SHA changes",
+      "owner, path, mission, port, provider, or runtime-store declaration changes",
+      "lock expiry timestamp passes",
+      "a second writer or unregistered worktree is detected",
+      "a required check or evidence receipt becomes stale"
+    ]
+  },
+  "parallelism_ledger": [
+    {
+      "mission": "MOD-03",
+      "lane": "MOD",
+      "write_scope": [
+        "docs/governance/mod-agt-document-authority-supersession-register-20260821.md"
+      ],
+      "lock_ids": ["LOCK-MOD-MODEL-RESEARCH-REGISTRY", "LOCK-MOD-EVIDENCE-ROOTS"],
+      "conflict_scan": "MERGED_BASELINE_READ_ONLY; revalidate dependent work against current master before mutation.",
+      "validation": "MOD-03 authority/supersession receipt is the bounded baseline; no runtime/provider mutation is inferred.",
+      "merge_barrier": "MERGED_BASELINE; no automatic successor authority.",
+      "state": "MERGED_BASELINE_READ_ONLY"
+    },
+    {
+      "mission": "MOD-04",
+      "lane": "MOD",
+      "write_scope": [
+        "docs/evidence/mod-04-research-refresh-20260821/benchmark-manifest.json",
+        "docs/evidence/mod-04-research-refresh-20260821/official-source-ledger.md",
+        "docs/governance/mod-04-official-research-refresh-20260821.md"
+      ],
+      "lock_ids": ["LOCK-MOD-MODEL-RESEARCH-REGISTRY", "LOCK-MOD-EVIDENCE-ROOTS"],
+      "conflict_scan": "MERGED BASELINE READ ONLY; provider-off, research-only, and no-dependency-activation boundaries remain binding.",
+      "validation": "Benchmark manifest and MOD-04 governance receipt provide the bounded research baseline; no runtime/provider mutation is inferred.",
+      "merge_barrier": "MERGED_BASELINE; no automatic model or provider activation.",
+      "state": "MERGED_BASELINE_READ_ONLY"
+    },
+    {
+      "mission": "MOD-05",
+      "lane": "MOD",
+      "write_scope": [
+        "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
+      ],
+      "lock_ids": ["LOCK-MOD-EVIDENCE-ROOTS", "LOCK-MOD05-MANIFEST"],
+      "conflict_scan": "REQUIRED_BEFORE_JOIN_NOT_PERFORMED",
+      "validation": "Task 1 exact Node JSON assertion is required; report output must be recorded separately.",
+      "merge_barrier": "REQUIRED_BEFORE_JOIN_NOT_PERFORMED",
+      "state": "TASK_1_LOCAL_EVIDENCE_ONLY"
+    }
+  ],
+  "non_proof": [
+    "This manifest does not prove runtime execution.",
+    "This manifest does not prove future CI success.",
+    "This manifest does not prove the absence of unregistered external worktrees.",
+    "This manifest does not prove Human Validation.",
+    "This manifest does not prove Provider, Pilot, or Production readiness.",
+    "This manifest does not prove CodeGraph analysis; .codegraph/ is absent in the current worktree.",
+    "This manifest does not activate a provider, dependency, database, PostgreSQL runtime, or second writer.",
+    "This manifest does not authorize mutation beyond a separately declared exact file allowlist.",
+    "This manifest does not change settlement logic, SettlementResult, canonical Decision, replay truth/hash inputs, or official Simulation Core authority."
+  ]
+}
