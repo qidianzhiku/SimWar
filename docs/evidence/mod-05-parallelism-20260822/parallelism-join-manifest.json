@@ -382,6 +382,7 @@
       "resource_id": "RES-MOD-MODEL-RESEARCH-REGISTRY",
       "owner": "MOD",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
       "allowed_paths": [
         "docs/model-governance/**",
         "docs/research/**"
@@ -497,6 +498,7 @@
       "resource_id": "RES-MOD-EVIDENCE-ROOTS",
       "owner": "MOD",
       "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
       "allowed_paths": [
         "docs/evidence/mod-04-research-refresh-20260821/**",
         "docs/evidence/mod-05-parallelism-20260822/**",
@@ -515,9 +517,32 @@
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
     },
     {
+      "resource_id": "RES-MOD-05-MANIFEST",
+      "owner": "MOD",
+      "lock_mode": "WRITE_EXCLUSIVE",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "allowed_paths": [
+        "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
+      ],
+      "read_consumers": ["MAIN", "SH", "AGT", "FE"],
+      "forbidden_paths": [
+        "docs/superpowers/plans/2026-08-22-mod-05-parallelism.md",
+        "docs/governance/mod-05-parallelism-join-charter-20260822.md",
+        "services/**",
+        "apps/**",
+        "packages/**",
+        "contracts/**",
+        "db/**",
+        "provider activation"
+      ],
+      "release_condition": "Release after the exact MOD-05 manifest path is committed or the task is closed without Join; any further mutation requires a fresh source and lock readback.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
+    },
+    {
       "resource_id": "RES-MAIN-GITHUB-MERGE-CONTROL",
       "owner": "MAIN",
       "lock_mode": "SCHEDULED_EXCLUSIVE",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
       "allowed_paths": [".github/**"],
       "read_consumers": ["SH", "MOD", "AGT", "FE"],
       "forbidden_paths": [
@@ -554,9 +579,9 @@
     ],
     "evidence_root": "docs/evidence/mod-05-parallelism-20260822/",
     "locks": [
-      "LOCK-MOD05-MANIFEST",
-      "LOCK-MOD05-EVIDENCE-ROOT",
-      "LOCK-MOD05-MERGE-CONTROL-RESERVED"
+      "LOCK-MOD-05-MANIFEST",
+      "LOCK-MOD-EVIDENCE-ROOTS",
+      "LOCK-MAIN-GITHUB-MERGE-CONTROL"
     ],
     "ports": "NONE_FOR_TASK_1; any future lane must reserve a unique port and may not share a running service.",
     "runtime_store": "NO_RUNTIME_START; JSON_INTERNAL_ONLY baseline; any future validation uses an isolated memory or task-local JSON store and never the shared development snapshot.",
@@ -721,6 +746,16 @@
       "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
       "release_condition": "Release only through explicit provider/adapter authorization and non-dual-write validation.",
       "expiry": "2026-08-29T23:59:59Z or earlier on current-master or scope change."
+    },
+    {
+      "lock_id": "LOCK-MOD-05-MANIFEST",
+      "resource_id": "RES-MOD-05-MANIFEST",
+      "owner": "MOD",
+      "mode": "WRITE_EXCLUSIVE",
+      "mission": "MOD-05 Task 1 exact machine manifest",
+      "source_sha": "1fbe6eec73c0d234023549834f86c9c1f4d6b8d8",
+      "release_condition": "Release after the exact MOD-05 manifest path is committed or the task is closed without Join; any further mutation requires a fresh source and lock readback.",
+      "expiry": "2026-08-29T23:59:59Z or earlier on current-master, scope, owner, or lock-contract change."
     },
     {
       "lock_id": "LOCK-MOD-EVIDENCE-ROOTS",
@@ -948,7 +983,7 @@
       "write_scope": [
         "docs/evidence/mod-05-parallelism-20260822/parallelism-join-manifest.json"
       ],
-      "lock_ids": ["LOCK-MOD-EVIDENCE-ROOTS", "LOCK-MOD05-MANIFEST"],
+      "lock_ids": ["LOCK-MOD-EVIDENCE-ROOTS", "LOCK-MOD-05-MANIFEST"],
       "conflict_scan": "REQUIRED_BEFORE_JOIN_NOT_PERFORMED",
       "validation": "Task 1 exact Node JSON assertion is required; report output must be recorded separately.",
       "merge_barrier": "REQUIRED_BEFORE_JOIN_NOT_PERFORMED",
