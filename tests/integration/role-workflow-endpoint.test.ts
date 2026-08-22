@@ -532,6 +532,53 @@ describe("Role Workflow HTTP boundary", () => {
         team_confirmation_id: confirmation.body.data.team_confirmation_id
       });
 
+      store.formalRunRuntimeBindings.push(
+        createPolicyBinding(scope.run_id, "ROLE_WORKFLOW_REQUIRED")
+      );
+      const w4BeforeFormalMismatch = structuredClone(store.w4);
+      const mismatchedW4Decision = await request<unknown>(
+        baseUrl,
+        `/api/v1/w4/runs/${scope.run_id}/rounds/1/strategic-decisions`,
+        {
+          body: {
+            course_id: "course_demo",
+            round_id: scope.round_id,
+            team_id: scope.team_id,
+            decision: {
+              decision_id: "w4-formal-payload-mismatch",
+              tenant_id: "tenant_demo",
+              course_id: "course_demo",
+              run_id: scope.run_id,
+              round_id: scope.round_id,
+              round_no: 1,
+              team_id: scope.team_id,
+              kind: "new_project",
+              version: 1,
+              status: "canonical",
+              payload: {
+                project_name: "Unconfirmed W4 project",
+                cost: 300,
+                cycle_rounds: 3,
+                area: 12000,
+                beds: 120,
+                bed_mix: { standard: 120 },
+                ramp: 0.4,
+                lead_time_rounds: 2
+              }
+            }
+          },
+          method: "POST",
+          token: tokens.get("role_ceo")
+        }
+      );
+      expect(mismatchedW4Decision.status).toBe(409);
+      expect(mismatchedW4Decision.body.data).toMatchObject({
+        code: "W4_DECISION_PAYLOAD_BINDING_CONFLICT"
+      });
+      expect(store.w4).toEqual(w4BeforeFormalMismatch);
+      expect(store.decisions).toHaveLength(1);
+      store.formalRunRuntimeBindings.pop();
+
       const ceoTrace = await request<StudentDecisionTraceDTO>(
         baseUrl,
         `/api/v1/bff/student/role-workspace/decision-trace?run_id=${scope.run_id}&round_id=${scope.round_id}&team_id=${scope.team_id}`,
