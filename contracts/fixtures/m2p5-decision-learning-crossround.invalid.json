@@ -1,0 +1,27 @@
+{
+  "schema_version": "m2p5-decision-learning-crossround.v1",
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "visibility": "student_safe",
+  "exact_scope": {
+    "activity_id": "activity_consequence",
+    "course_id": "course_m2p5",
+    "role_key": "CEO",
+    "round_id": "round_m2p5_1",
+    "round_no": 1,
+    "run_id": "run_m2p5",
+    "team_id": "team_alpha",
+    "tenant_id": "tenant_demo"
+  },
+  "official_consequence": { "state_true": { "cash_flow": 1 } },
+  "learning": {
+    "gate": "READY",
+    "reflection_status": "SUBMITTED",
+    "teacher_confirmation_status": "CONFIRMED",
+    "evidence_selection_status": "SELECTED",
+    "student_learning_report_status": "CONFIRMED",
+    "next_round_hypothesis_status": "READY"
+  },
+  "project_context": { "status": "RESOLVED" },
+  "cross_round": { "status": "ENTRY_READY", "entry_status": "OPEN", "blocker_codes": [] },
+  "known_limits": ["invalid"]
+}

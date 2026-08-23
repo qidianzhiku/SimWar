@@ -1152,6 +1152,7 @@ export function App() {
                   tenantId={login.tenantId}
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
+                  crossRoundEnabled={W3_ENABLED && w3ContextReady}
                 />
               </Suspense>
               <details className="p2b-compatibility-details">

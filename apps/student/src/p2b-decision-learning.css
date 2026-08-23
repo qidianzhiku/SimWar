@@ -185,6 +185,18 @@
 .p2b-teachable-card span {
   color: var(--sw-color-text-body);
 }
+.p2b-cross-round-card {
+  background: var(--sw-color-surface-metric);
+  border: 1px solid var(--sw-color-border-teal);
+  border-radius: var(--sw-radius-12);
+  display: grid;
+  gap: var(--sw-space-8);
+  margin-top: var(--sw-space-14);
+  padding: var(--sw-space-14);
+}
+.p2b-cross-round-card strong {
+  color: var(--p2b-ink);
+}
 .p2b-compatibility-details {
   border-top: 1px solid var(--sw-color-border-soft);
   margin-top: 2px;

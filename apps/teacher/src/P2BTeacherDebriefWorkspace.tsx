@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type {
+  M2P5DecisionLearningResponse,
   W3OfficialConsequenceContext,
   W3OfficialConsequenceRecord,
   W3OfficialConsequenceResponse
@@ -22,6 +23,7 @@ type Props = {
   response?: W3OfficialConsequenceResponse;
   blockerSummary?: string;
   teamCount?: number;
+  crossRoundEnabled?: boolean;
 };
 
 type WorkspaceState =
@@ -29,6 +31,11 @@ type WorkspaceState =
   | { phase: "empty"; message: string }
   | { phase: "ready"; record: W3OfficialConsequenceRecord }
   | { phase: "stale"; record: W3OfficialConsequenceRecord }
+  | { phase: "error"; message: string };
+
+type CrossRoundState =
+  | { phase: "idle" | "loading" }
+  | { phase: "ready"; data: M2P5DecisionLearningResponse }
   | { phase: "error"; message: string };
 
 function contextQuery(context: W3OfficialConsequenceContext): string {
@@ -44,7 +51,8 @@ export function TeacherDebriefWorkspace({
   context,
   response,
   blockerSummary = "当前没有可用的回合阻断",
-  teamCount = 0
+  teamCount = 0,
+  crossRoundEnabled = false
 }: Props) {
   const [state, setState] = useState<WorkspaceState>(
     response ? { phase: "ready", record: response.record } : { phase: "idle" }
@@ -52,6 +60,7 @@ export function TeacherDebriefWorkspace({
   const [note, setNote] = useState("");
   const [retryNonce, setRetryNonce] = useState(0);
   const [teachableMode, setTeachableMode] = useState<"ask" | "show" | "listen">("ask");
+  const [crossRound, setCrossRound] = useState<CrossRoundState>({ phase: "idle" });
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
   const identityKey = `${tenantId}:${token}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
@@ -104,6 +113,40 @@ export function TeacherDebriefWorkspace({
       });
     return () => controller.abort();
   }, [apiBase, context, response, retryNonce, tenantId, token]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!crossRoundEnabled || !context || !token || !tenantId) {
+      setCrossRound({ phase: "idle" });
+      return () => controller.abort();
+    }
+    setCrossRound({ phase: "loading" });
+    fetch(
+      `${apiBase}/api/v1/bff/teacher/m2p5/runs/${encodeURIComponent(context.run_id)}/rounds/${context.round_no}/decision-learning?${contextQuery(context)}`,
+      {
+        headers: { authorization: `Bearer ${token}`, "x-tenant-id": tenantId },
+        signal: controller.signal
+      }
+    )
+      .then(async (result) => {
+        const envelope = (await result.json()) as {
+          data?: M2P5DecisionLearningResponse;
+          message?: string;
+        };
+        if (!result.ok || !envelope.data || !envelope.data.cross_round) {
+          throw new Error(envelope.message ?? "教师跨回合学习投影读取失败");
+        }
+        setCrossRound({ phase: "ready", data: envelope.data });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setCrossRound({
+          phase: "error",
+          message: error instanceof Error ? error.message : "教师跨回合学习投影读取失败"
+        });
+      });
+    return () => controller.abort();
+  }, [apiBase, context, crossRoundEnabled, tenantId, token]);
 
   const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
 
@@ -334,6 +377,39 @@ export function TeacherDebriefWorkspace({
           <div className="p2b-known-limit">
             仅保存 teacher-safe debrief draft；不写入 canonical Decision 或正式结算。
           </div>
+          {crossRound.phase === "ready" ? (
+            <div className="p2b-cross-round-card" data-testid="teacher-m2p5-cross-round">
+              <span className="p2b-stage-kicker">M2-P5 · CROSS-ROUND HANDOFF</span>
+              <strong>
+                {crossRound.data.cross_round.entry_status === "OPEN"
+                  ? "下一回合已开放，Student 可进入精确上下文"
+                  : crossRound.data.cross_round.status === "READY_TO_CONTINUE"
+                    ? "学习与状态链已就绪，等待现有 Round authority"
+                    : "跨回合入口被前置条件阻断"}
+              </strong>
+              <p>
+                ProjectProfile：{crossRound.data.project_context.title ?? "未解析"} · 学习门禁：
+                {crossRound.data.learning.gate}
+              </p>
+              <p>
+                Closing：
+                {crossRound.data.cross_round.predecessor_closing_state_ref?.enterprise_state_id ??
+                  "未提供"}
+                {crossRound.data.cross_round.next_round?.source_closing_state_ref
+                  ? ` → Opening：${crossRound.data.cross_round.next_round.source_closing_state_ref.enterprise_state_id}`
+                  : ""}
+              </p>
+              {crossRound.data.cross_round.blocker_codes.length > 0 ? (
+                <p className="p2b-known-limit">
+                  阻断：{crossRound.data.cross_round.blocker_codes.join(" / ")}
+                </p>
+              ) : null}
+            </div>
+          ) : crossRound.phase === "error" ? (
+            <p className="p2b-known-limit" role="status">
+              跨回合入口暂不可用：{crossRound.message}
+            </p>
+          ) : null}
         </article>
       </div>
     </section>

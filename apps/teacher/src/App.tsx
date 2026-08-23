@@ -775,6 +775,21 @@ export function App() {
           tenant_id: login.tenantId
         }
       : undefined);
+  const teacherConfirmationScope = useMemo(
+    () =>
+      selectedRun && selectedRound && w3Team
+        ? {
+            activity_id: "activity_consequence",
+            course_id: selectedRun.course_id,
+            role_key: w3RoleKey,
+            round_id: selectedRound.round_id,
+            round_no: selectedRound.round_no,
+            run_id: selectedRun.run_id,
+            team_id: w3Team.team_id
+          }
+        : undefined,
+    [selectedRound, selectedRun, w3RoleKey, w3Team]
+  );
   const hasDecision = useMemo(() => {
     if (!selectedRun || !selectedRound || !state) {
       return false;
@@ -2236,7 +2251,11 @@ export function App() {
           />
         ) : null}
         {isTeacher && session ? (
-          <TeacherConfirmationWorkbench tenantId={login.tenantId} token={session.access_token} />
+          <TeacherConfirmationWorkbench
+            {...(teacherConfirmationScope ? { initialScope: teacherConfirmationScope } : {})}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
         ) : null}
       </TeacherLocation>
       <TeacherLocation id="teacher-reports">
@@ -3282,6 +3301,7 @@ export function App() {
               apiBase={API_BASE}
               context={W3_ENABLED ? w3Context : undefined}
               blockerSummary={blockerSummary}
+              crossRoundEnabled={W3_ENABLED}
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}

@@ -3432,6 +3432,8 @@ paths:
         - { name: team_id, in: query, required: true, schema: { type: string } }
         - { name: role_key, in: query, required: true, schema: { type: string } }
         - { name: activity_id, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: false, schema: { type: string } }
+        - { name: round_no, in: query, required: false, schema: { type: integer, minimum: 1 } }
       responses:
         "200":
           description: Teacher-safe unified teaching closure projection.
@@ -4516,6 +4518,74 @@ paths:
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
+  /api/v1/bff/student/m2p5/runs/{runId}/rounds/{roundNo}/decision-learning:
+    get:
+      operationId: STUDENT_M2P5_DECISION_LEARNING_CROSSROUND_GET_V1
+      summary: Read the exact student-safe project-aware decision learning cross-round projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+        - { name: roundNo, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Exact student-safe cross-round projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/M2P5DecisionLearningEnvelope" }
+        "403":
+          description: Student team scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Published result is required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid exact context
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/teacher/m2p5/runs/{runId}/rounds/{roundNo}/decision-learning:
+    get:
+      operationId: TEACHER_M2P5_DECISION_LEARNING_CROSSROUND_GET_V1
+      summary: Read the exact teacher-safe project-aware decision learning cross-round projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string } }
+        - { name: roundNo, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: activity_id, in: query, required: true, schema: { type: string } }
+        - { name: course_id, in: query, required: true, schema: { type: string } }
+        - { name: role_key, in: query, required: true, schema: { type: string } }
+        - { name: round_id, in: query, required: true, schema: { type: string } }
+        - { name: round_no, in: query, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: run_id, in: query, required: true, schema: { type: string } }
+        - { name: team_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Exact teacher-safe cross-round projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/M2P5DecisionLearningEnvelope" }
+        "403":
+          description: Teacher scope required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "409":
+          description: Published result is required
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+        "422":
+          description: Invalid exact context
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
   /api/v1/w4/runs/{runId}/rounds/{roundNo}/states:
     post:
       operationId: W4_ENTERPRISE_STATE_INITIAL_CREATE_V1
@@ -5239,6 +5309,17 @@ components:
         record: { $ref: "../schemas/w3-official-consequence-learning.v1.json" }
         runtime_authority: { const: JSON_INTERNAL_ONLY }
         visibility: { enum: [student_safe, teacher_safe] }
+    M2P5DecisionLearningEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/M2P5DecisionLearningResponse" }
+        message: { type: string }
+        request_id: { type: string }
+    M2P5DecisionLearningResponse:
+      $ref: "../schemas/m2p5-decision-learning-crossround.v1.json"
     W3CounterfactualInput:
       type: object
       additionalProperties: false

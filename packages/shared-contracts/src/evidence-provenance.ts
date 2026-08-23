@@ -1,6 +1,10 @@
 export const D2_EVIDENCE_SCHEMA_VERSION = "evidence-provenance.v1" as const;
 
-export const D2_ELIGIBLE_EVENT_TYPES = ["section_ready", "merge_created", "team_confirmed"] as const;
+export const D2_ELIGIBLE_EVENT_TYPES = [
+  "section_ready",
+  "merge_created",
+  "team_confirmed"
+] as const;
 export type D2EligibleEventType = (typeof D2_ELIGIBLE_EVENT_TYPES)[number];
 
 export const D2_PROVENANCE_RELATIONS = ["derived_from", "supported_by"] as const;
@@ -31,6 +35,8 @@ export interface D2BoundedContext {
   readonly role_key: string;
   readonly run_id: string;
   readonly team_id: string;
+  readonly round_id?: string;
+  readonly round_no?: number;
 }
 
 export interface D2EvidenceArtifactVersion {
@@ -81,6 +87,8 @@ export interface D2EvidenceQuery {
   readonly team_id: string;
   readonly role_key: string;
   readonly activity_id: string;
+  readonly round_id?: string;
+  readonly round_no?: number;
 }
 
 export interface D2EvidenceListDto {
@@ -125,7 +133,12 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isIdentity(value: unknown): value is string {
-  return typeof value === "string" && value.trim() === value && ID_PATTERN.test(value) && !RESERVED.test(value);
+  return (
+    typeof value === "string" &&
+    value.trim() === value &&
+    ID_PATTERN.test(value) &&
+    !RESERVED.test(value)
+  );
 }
 
 function isVersion(value: unknown): value is string {
@@ -156,7 +169,14 @@ function refsMatch(left: D2ExactRef, right: D2ExactRef): boolean {
 export function isD2ExactRef(value: unknown): value is D2ExactRef {
   return (
     isRecord(value) &&
-    hasOnlyKeys(value, ["content_digest", "discriminator", "resource_id", "resource_type", "tenant_id", "version"]) &&
+    hasOnlyKeys(value, [
+      "content_digest",
+      "discriminator",
+      "resource_id",
+      "resource_type",
+      "tenant_id",
+      "version"
+    ]) &&
     value.discriminator === "exact_ref" &&
     isDigest(value.content_digest) &&
     isIdentity(value.resource_id) &&
@@ -167,10 +187,26 @@ export function isD2ExactRef(value: unknown): value is D2ExactRef {
 }
 
 function isBoundedContext(value: unknown): value is D2BoundedContext {
+  if (!isRecord(value)) return false;
+  const allowed = [
+    "activity_id",
+    "course_id",
+    "role_key",
+    "run_id",
+    "team_id",
+    "round_id",
+    "round_no"
+  ];
+  if (Object.keys(value).some((key) => !allowed.includes(key))) return false;
   return (
-    isRecord(value) &&
-    hasOnlyKeys(value, ["activity_id", "course_id", "role_key", "run_id", "team_id"]) &&
-    [value.activity_id, value.course_id, value.role_key, value.run_id, value.team_id].every(isIdentity)
+    [value.activity_id, value.course_id, value.role_key, value.run_id, value.team_id].every(
+      isIdentity
+    ) &&
+    (value.round_id === undefined || isIdentity(value.round_id)) &&
+    (value.round_no === undefined ||
+      (typeof value.round_no === "number" &&
+        Number.isInteger(value.round_no) &&
+        value.round_no >= 1))
   );
 }
 
@@ -191,9 +227,22 @@ export function isD2EvidenceArtifactVersion(value: unknown): value is D2Evidence
   if (
     !isRecord(value) ||
     !hasOnlyKeys(value, [
-      "artifact_digest", "artifact_kind", "artifact_ref", "captured_at", "captured_by", "context",
-      "course_package_ref", "discriminator", "idempotency_key", "known_limits", "learning_goal_ref",
-      "rubric_ref", "schema_version", "source_event_ref", "transformation_rule_ref", "visibility"
+      "artifact_digest",
+      "artifact_kind",
+      "artifact_ref",
+      "captured_at",
+      "captured_by",
+      "context",
+      "course_package_ref",
+      "discriminator",
+      "idempotency_key",
+      "known_limits",
+      "learning_goal_ref",
+      "rubric_ref",
+      "schema_version",
+      "source_event_ref",
+      "transformation_rule_ref",
+      "visibility"
     ]) ||
     value.discriminator !== "d2_evidence_artifact_version" ||
     value.schema_version !== D2_EVIDENCE_SCHEMA_VERSION ||
@@ -209,7 +258,9 @@ export function isD2EvidenceArtifactVersion(value: unknown): value is D2Evidence
     !isIdentity(value.idempotency_key) ||
     !Array.isArray(value.known_limits) ||
     value.known_limits.length === 0 ||
-    value.known_limits.some((limit) => typeof limit !== "string" || limit.trim() !== limit || limit.length === 0) ||
+    value.known_limits.some(
+      (limit) => typeof limit !== "string" || limit.trim() !== limit || limit.length === 0
+    ) ||
     !isD2ExactRef(value.course_package_ref) ||
     value.course_package_ref.resource_type !== "course_package_version" ||
     !isD2ExactRef(value.learning_goal_ref) ||
@@ -238,7 +289,14 @@ export function isD2EvidenceArtifactVersion(value: unknown): value is D2Evidence
 export function isD2SourceEventDto(value: unknown): value is D2SourceEventDto {
   return (
     isRecord(value) &&
-    hasOnlyKeys(value, ["created_at", "event_id", "event_type", "eligibility", "source_event_ref", "scope"]) &&
+    hasOnlyKeys(value, [
+      "created_at",
+      "event_id",
+      "event_type",
+      "eligibility",
+      "source_event_ref",
+      "scope"
+    ]) &&
     isTimestamp(value.created_at) &&
     isIdentity(value.event_id) &&
     D2_ELIGIBLE_EVENT_TYPES.includes(value.event_type as D2EligibleEventType) &&
@@ -247,14 +305,22 @@ export function isD2SourceEventDto(value: unknown): value is D2SourceEventDto {
     value.source_event_ref.resource_type === "role_workflow_event" &&
     isRecord(value.scope) &&
     hasOnlyKeys(value.scope, ["course_id", "role_key", "run_id", "team_id"]) &&
-    [value.scope.course_id, value.scope.role_key, value.scope.run_id, value.scope.team_id].every(isIdentity)
+    [value.scope.course_id, value.scope.role_key, value.scope.run_id, value.scope.team_id].every(
+      isIdentity
+    )
   );
 }
 
 export function isD2CaptureReceipt(value: unknown): value is D2CaptureReceipt {
   if (
     !isRecord(value) ||
-    !hasOnlyKeys(value, ["data", "formal_truth_write", "known_limits", "request_id", "schema_version"]) ||
+    !hasOnlyKeys(value, [
+      "data",
+      "formal_truth_write",
+      "known_limits",
+      "request_id",
+      "schema_version"
+    ]) ||
     value.formal_truth_write !== false ||
     value.schema_version !== D2_EVIDENCE_SCHEMA_VERSION ||
     !isIdentity(value.request_id) ||
@@ -269,5 +335,7 @@ export function isD2CaptureReceipt(value: unknown): value is D2CaptureReceipt {
   ) {
     return false;
   }
-  return value.known_limits.every((limit) => typeof limit === "string" && limit.trim() === limit && limit.length > 0);
+  return value.known_limits.every(
+    (limit) => typeof limit === "string" && limit.trim() === limit && limit.length > 0
+  );
 }

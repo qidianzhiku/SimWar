@@ -148,11 +148,13 @@ import { handleTransferResearchDesignRoute } from "./routes/transfer-research-de
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
+import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
+import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
 import {
   W027DecisionExperienceError,
   W027DecisionExperienceService,
@@ -389,6 +391,7 @@ interface ApiRuntime {
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
+  m2p5DecisionLearning: M2P5DecisionLearningCrossRoundService;
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
   projectLibrary: ProjectLibraryService;
@@ -698,6 +701,103 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const w4EnterpriseStateService = createEnterpriseStateStrategicEvolutionService(
     w4EnterpriseStateRepository
   );
+  const m2p5DecisionLearning = new M2P5DecisionLearningCrossRoundService({
+    getExactRound: (tenantId, runId, roundNo) =>
+      repositoryProvider.facade.rounds
+        .listRoundsForRun(tenantId, runId)
+        .then((rounds) => rounds.find((round) => round.round_no === roundNo) ?? null),
+    getNextRound: (tenantId, runId, roundNo) =>
+      repositoryProvider.facade.rounds
+        .listRoundsForRun(tenantId, runId)
+        .then((rounds) => rounds.find((round) => round.round_no === roundNo) ?? null),
+    getOfficialConsequence: (actor, context, surface) =>
+      w3OfficialConsequence.getConsequence(actor, context, surface),
+    getLearningReport: async (actor, context, surface) => {
+      const reports =
+        surface === "student"
+          ? await studentLearningReports.listStudent({
+              tenant_id: actor.tenant_id,
+              user_id: actor.user_id,
+              ...(actor.team_id ? { team_id: actor.team_id } : {})
+            })
+          : await studentLearningReports.listPreview({
+              tenant_id: actor.tenant_id,
+              user_id: actor.user_id
+            });
+      return reports.reports.find(
+        (report) =>
+          report.context.course_id === context.course_id &&
+          report.context.run_id === context.run_id &&
+          report.context.team_id === context.team_id &&
+          report.context.role_key === context.role_key &&
+          report.context.round_id === context.round_id &&
+          report.context.round_no === context.round_no
+      );
+    },
+    getProjectContext: async ({ actor, context, surface }) => {
+      if (surface === "student") {
+        const brief = await projectLibrary.getStudentBrief({
+          course_id: context.course_id,
+          run_id: context.run_id,
+          team_id: context.team_id,
+          tenant_id: context.tenant_id,
+          user_id: actor.user_id
+        });
+        return {
+          status: "RESOLVED" as const,
+          project_profile_reference: brief.project_profile_reference,
+          student_brief: brief,
+          title: brief.title
+        };
+      }
+      const assignments = await projectLibrary.getAssignmentsForScope(
+        { actor_id: actor.user_id, tenant_id: actor.tenant_id },
+        { course_id: context.course_id, run_id: context.run_id, team_ids: [context.team_id] }
+      );
+      if (assignments.length !== 1) throw new Error("PROJECT_ASSIGNMENT_EXACT_REQUIRED");
+      const assignment = assignments[0]!;
+      const profile = await projectLibrary.getByReference(
+        context.tenant_id,
+        assignment.project_profile_reference
+      );
+      if (!profile) throw new Error("PROJECT_PROFILE_EXACT_REQUIRED");
+      return {
+        status: "RESOLVED" as const,
+        project_profile_reference: assignment.project_profile_reference,
+        title: profile.title
+      };
+    },
+    getW4Projection: async ({ actor, context }) => {
+      const projection = await w4EnterpriseStateService.getProjection({
+        actor_id: actor.user_id,
+        activity_id: context.activity_id,
+        course_id: context.course_id,
+        role_key: context.role_key,
+        run_id: context.run_id,
+        round_id: context.round_id,
+        round_no: context.round_no,
+        team_id: context.team_id,
+        tenant_id: context.tenant_id
+      });
+      return {
+        opening_state_ref: projection.opening_state_ref,
+        closing_state_ref: projection.closing_state_ref
+      };
+    },
+    validateNextRoundOpening: async ({ actor, context, next_round, opening_state_ref }) =>
+      w4EnterpriseStateService.createNextRoundOpening({
+        actor_id: actor.user_id,
+        activity_id: context.activity_id,
+        course_id: context.course_id,
+        opening_state_ref,
+        role_key: context.role_key,
+        round_id: next_round.round_id,
+        round_no: next_round.round_no,
+        run_id: context.run_id,
+        team_id: context.team_id,
+        tenant_id: context.tenant_id
+      })
+  });
   const projectLibrary = new ProjectLibraryService(store);
   const ensureFormalRunOpen = async (
     _actor: {
@@ -760,6 +860,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     roleWorkflow,
     w027DecisionExperience,
     w3OfficialConsequence,
+    m2p5DecisionLearning,
     w4EnterpriseStateRepository,
     w4EnterpriseStateService,
     projectLibrary,
@@ -4874,6 +4975,13 @@ function parseD2EvidenceIdentity(value: unknown): string {
   return value;
 }
 
+function parseD2EvidenceRoundNo(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw d2EvidenceRequestError();
+  }
+  return value;
+}
+
 function parseD2EvidenceRef(
   value: unknown,
   tenantId: string,
@@ -4915,9 +5023,17 @@ function parseD2EvidenceQuery(url: URL): D2EvidenceQuery {
     course_id: url.searchParams.get("course_id"),
     role_key: url.searchParams.get("role_key"),
     run_id: url.searchParams.get("run_id"),
-    team_id: url.searchParams.get("team_id")
+    team_id: url.searchParams.get("team_id"),
+    round_id: url.searchParams.get("round_id") ?? undefined,
+    round_no: url.searchParams.has("round_no")
+      ? Number(url.searchParams.get("round_no"))
+      : undefined
   };
-  Object.values(values).forEach((value) => parseD2EvidenceIdentity(value));
+  [values.activity_id, values.course_id, values.role_key, values.run_id, values.team_id].forEach(
+    (value) => parseD2EvidenceIdentity(value)
+  );
+  if (values.round_id !== undefined) parseD2EvidenceIdentity(values.round_id);
+  if (values.round_no !== undefined) parseD2EvidenceRoundNo(values.round_no);
   return values as D2EvidenceQuery;
 }
 
@@ -4997,7 +5113,7 @@ async function handleD2EvidenceRoute(
       url.pathname === "/api/v1/bff/teacher/evidence-artifacts/capture"
     ) {
       const body = await readJson<Record<string, unknown>>(request, { requiredObject: true });
-      assertOnlyD2EvidenceFields(body, [
+      const requiredCaptureFields = [
         "activity_id",
         "course_id",
         "course_package_ref",
@@ -5007,6 +5123,11 @@ async function handleD2EvidenceRoute(
         "run_id",
         "source_event_id",
         "team_id"
+      ] as const;
+      assertOnlyD2EvidenceFields(body, [
+        ...requiredCaptureFields,
+        ...(Object.hasOwn(body, "round_id") ? ["round_id"] : []),
+        ...(Object.hasOwn(body, "round_no") ? ["round_no"] : [])
       ]);
       const input: D2EvidenceCaptureInput = {
         activity_id: parseD2EvidenceIdentity(body.activity_id),
@@ -5022,6 +5143,10 @@ async function handleD2EvidenceRoute(
           "learning_goal_version"
         ),
         role_key: parseD2EvidenceIdentity(body.role_key),
+        ...(body.round_id === undefined
+          ? {}
+          : { round_id: parseD2EvidenceIdentity(body.round_id) }),
+        ...(body.round_no === undefined ? {} : { round_no: parseD2EvidenceRoundNo(body.round_no) }),
         rubric_ref: parseD2EvidenceRef(body.rubric_ref, context.tenantId, "rubric_version"),
         run_id: parseD2EvidenceIdentity(body.run_id),
         source_event_id: parseD2EvidenceIdentity(body.source_event_id),
@@ -6263,6 +6388,24 @@ async function routeRequest(
             seed: runtimeInputs.formalRuntimeBinding?.binding.seed ?? run.seed
           };
         }
+      }
+    )
+  )
+    return;
+
+  if (
+    await handleM2P5DecisionLearningRoute(
+      runtime.m2p5DecisionLearning,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        createEnvelope: (routeContext, payload) =>
+          createEnvelope(routeContext as RequestContext, payload),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        sendJson
       }
     )
   )

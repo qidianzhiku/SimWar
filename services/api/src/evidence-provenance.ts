@@ -302,7 +302,9 @@ export class EvidenceCaptureCommandService {
       course_id: snapshot.course!.course_id,
       role_key: identity(input.role_key, "role_key"),
       run_id: input.run_id,
-      team_id: input.team_id
+      team_id: input.team_id,
+      ...(input.round_id ? { round_id: identity(input.round_id, "round_id") } : {}),
+      ...(input.round_no !== undefined ? { round_no: input.round_no } : {})
     };
     const idempotencyKey = digest({
       context,
@@ -443,7 +445,9 @@ export class EvidenceCaptureCommandService {
       artifact.context.run_id === query.run_id &&
       artifact.context.team_id === query.team_id &&
       artifact.context.role_key === query.role_key &&
-      artifact.context.activity_id === query.activity_id
+      artifact.context.activity_id === query.activity_id &&
+      (query.round_id === undefined || artifact.context.round_id === query.round_id) &&
+      (query.round_no === undefined || artifact.context.round_no === query.round_no)
     );
   }
 
@@ -456,6 +460,10 @@ export class EvidenceCaptureCommandService {
       query.role_key,
       query.activity_id
     ].forEach((value) => identity(value, "scope"));
+    if (query.round_id !== undefined) identity(query.round_id, "round_id");
+    if (query.round_no !== undefined && (!Number.isInteger(query.round_no) || query.round_no < 1)) {
+      throw new D2EvidenceError("D2_EVIDENCE_INPUT_INVALID");
+    }
     if ("source_event_id" in query) identity(query.source_event_id, "source_event_id");
     if ("course_package_ref" in query) {
       if (

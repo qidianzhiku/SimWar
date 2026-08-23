@@ -64,6 +64,7 @@ export default defineConfig({
         SIMWAR_ENV: "test",
         SIMWAR_PLAYWRIGHT_M2_MARKET_WORLD: process.env.SIMWAR_PLAYWRIGHT_M2_MARKET_WORLD ?? "false",
         SIMWAR_PLAYWRIGHT_M2P4: process.env.SIMWAR_PLAYWRIGHT_M2P4 ?? "false",
+        SIMWAR_PLAYWRIGHT_M2P5: process.env.SIMWAR_PLAYWRIGHT_M2P5 ?? "false",
         SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE:
           process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE ?? "false",
         SIMWAR_PLAYWRIGHT_W3:

@@ -130,6 +130,18 @@
   font-size: 0.84rem;
   line-height: 1.5;
 }
+.p2b-cross-round-card {
+  background: var(--sw-color-surface-metric);
+  border: 1px solid var(--sw-color-border-teal);
+  border-radius: var(--sw-radius-12);
+  display: grid;
+  gap: var(--sw-space-8);
+  margin-top: var(--sw-space-14);
+  padding: var(--sw-space-14);
+}
+.p2b-cross-round-card strong {
+  color: var(--p2b-ink);
+}
 .p2b-field {
   display: grid;
   gap: var(--sw-space-8);
