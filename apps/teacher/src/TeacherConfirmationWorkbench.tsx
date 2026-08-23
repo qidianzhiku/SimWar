@@ -42,6 +42,8 @@ type Scope = {
   team_id: string;
   role_key: string;
   activity_id: string;
+  round_id?: string;
+  round_no?: number;
 };
 type RefFields = { resource_id: string; version: string; content_digest: string };
 
@@ -185,7 +187,15 @@ export function TeacherConfirmationWorkbench({
     () => selectedRubricData?.criteria.find((criterion) => criterion.criterion_id === criterionId),
     [criterionId, selectedRubricData]
   );
-  const scopeReady = Object.values(scope).every((value) => value.trim().length > 0);
+  const scopeReady = [
+    scope.activity_id,
+    scope.course_id,
+    scope.role_key,
+    scope.run_id,
+    scope.team_id,
+    scope.round_id,
+    scope.round_no
+  ].every((value) => value === undefined || String(value).trim().length > 0);
   const formReady = Boolean(
     selectedPackageData &&
     selectedGoalData &&
@@ -283,7 +293,9 @@ export function TeacherConfirmationWorkbench({
         course_id: scope.course_id,
         run_id: scope.run_id,
         team_id: scope.team_id,
-        role_key: scope.role_key
+        role_key: scope.role_key,
+        ...(scope.round_id ? { round_id: scope.round_id } : {}),
+        ...(scope.round_no ? { round_no: scope.round_no } : {})
       },
       criterion_decisions: [{ criterion_id: criterionId, level_ordinal: Number(levelOrdinal) }],
       teacher_feedback: feedback,
@@ -302,7 +314,9 @@ export function TeacherConfirmationWorkbench({
           course_id: scope.course_id,
           run_id: scope.run_id,
           team_id: scope.team_id,
-          role_key: scope.role_key
+          role_key: scope.role_key,
+          ...(scope.round_id ? { round_id: scope.round_id } : {}),
+          ...(scope.round_no ? { round_no: scope.round_no } : {})
         },
         digest,
         token,

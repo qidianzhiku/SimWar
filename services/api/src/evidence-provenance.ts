@@ -205,7 +205,8 @@ export class EvidenceCaptureCommandService {
     const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
       run_id: query.run_id,
       team_id: query.team_id,
-      tenant_id: tenantId
+      tenant_id: tenantId,
+      ...(query.round_id ? { round_id: query.round_id } : {})
     });
     this.assertScope(snapshot, tenantId, query);
     const events = snapshot.events
@@ -215,6 +216,7 @@ export class EvidenceCaptureCommandService {
         )
       )
       .filter((event) => eventMatchesRole(snapshot, event, query.role_key))
+      .filter((event) => query.round_id === undefined || event.round_id === query.round_id)
       .map((event) => this.toSourceEvent(event, snapshot.course!.course_id, query));
     const artifacts = (await this.dependencies.repository.listEvidenceArtifacts(tenantId)).filter(
       (artifact) => this.matchesContext(artifact, query)
@@ -241,7 +243,8 @@ export class EvidenceCaptureCommandService {
     const snapshot = await this.dependencies.roleWorkflow.readRoleWorkflow({
       run_id: input.run_id,
       team_id: input.team_id,
-      tenant_id: actor.tenant_id
+      tenant_id: actor.tenant_id,
+      ...(input.round_id ? { round_id: input.round_id } : {})
     });
     this.assertScope(snapshot, actor.tenant_id, input);
     const event = snapshot.events.find((candidate) => candidate.event_id === input.source_event_id);
@@ -256,7 +259,8 @@ export class EvidenceCaptureCommandService {
     if (
       event.tenant_id !== actor.tenant_id ||
       event.run_id !== input.run_id ||
-      event.team_id !== input.team_id
+      event.team_id !== input.team_id ||
+      (input.round_id !== undefined && event.round_id !== input.round_id)
     ) {
       throw new D2EvidenceError("D2_EVIDENCE_SCOPE_VIOLATION");
     }
@@ -302,7 +306,10 @@ export class EvidenceCaptureCommandService {
       course_id: snapshot.course!.course_id,
       role_key: identity(input.role_key, "role_key"),
       run_id: input.run_id,
-      team_id: input.team_id
+      team_id: input.team_id,
+      ...(snapshot.round && input.round_id
+        ? { round_id: snapshot.round.round_id, round_no: snapshot.round.round_no }
+        : {})
     };
     const idempotencyKey = digest({
       context,
@@ -443,7 +450,9 @@ export class EvidenceCaptureCommandService {
       artifact.context.run_id === query.run_id &&
       artifact.context.team_id === query.team_id &&
       artifact.context.role_key === query.role_key &&
-      artifact.context.activity_id === query.activity_id
+      artifact.context.activity_id === query.activity_id &&
+      (query.round_id === undefined || artifact.context.round_id === query.round_id) &&
+      (query.round_no === undefined || artifact.context.round_no === query.round_no)
     );
   }
 
@@ -456,6 +465,13 @@ export class EvidenceCaptureCommandService {
       query.role_key,
       query.activity_id
     ].forEach((value) => identity(value, "scope"));
+    if (query.round_id !== undefined) identity(query.round_id, "round_id");
+    if (query.round_no !== undefined && (!Number.isInteger(query.round_no) || query.round_no < 1)) {
+      throw new D2EvidenceError("D2_EVIDENCE_INPUT_INVALID");
+    }
+    if ((query.round_id === undefined) !== (query.round_no === undefined)) {
+      throw new D2EvidenceError("D2_EVIDENCE_INPUT_INVALID");
+    }
     if ("source_event_id" in query) identity(query.source_event_id, "source_event_id");
     if ("course_package_ref" in query) {
       if (
@@ -488,7 +504,11 @@ export class EvidenceCaptureCommandService {
       snapshot.run.course_id !== query.course_id ||
       snapshot.team.course_id !== query.course_id ||
       snapshot.run.tenant_id !== tenantId ||
-      snapshot.team.tenant_id !== tenantId
+      snapshot.team.tenant_id !== tenantId ||
+      (query.round_id !== undefined &&
+        (!snapshot.round ||
+          snapshot.round.round_id !== query.round_id ||
+          snapshot.round.round_no !== query.round_no))
     ) {
       throw new D2EvidenceError("D2_EVIDENCE_SCOPE_VIOLATION");
     }

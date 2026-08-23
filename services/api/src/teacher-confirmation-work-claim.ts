@@ -9,7 +9,7 @@ export type TeacherConfirmationClaimStatus = "CLAIMED" | "RELEASED" | "EXPIRED";
 export interface TeacherConfirmationWorkClaim {
   readonly claim_id: string;
   readonly tenant_id: string;
-  readonly context: { course_id: string; run_id: string; team_id: string; role_key: string };
+  readonly context: TeacherConfirmationContext;
   readonly evidence_set_digest: string;
   readonly claimed_by: string;
   readonly claimed_at: string;
@@ -52,7 +52,14 @@ function key(
 }
 
 function canonicalContext(context: TeacherConfirmationWorkClaim["context"]): string {
-  return JSON.stringify([context.course_id, context.run_id, context.team_id, context.role_key]);
+  return JSON.stringify([
+    context.course_id,
+    context.run_id,
+    context.team_id,
+    context.role_key,
+    context.round_id ?? null,
+    context.round_no ?? null
+  ]);
 }
 
 export class TeacherConfirmationWorkClaimService {
@@ -144,7 +151,9 @@ export class TeacherConfirmationWorkClaimService {
         current.context.course_id !== context.course_id ||
         current.context.run_id !== context.run_id ||
         current.context.team_id !== context.team_id ||
-        current.context.role_key !== context.role_key
+        current.context.role_key !== context.role_key ||
+        current.context.round_id !== context.round_id ||
+        current.context.round_no !== context.round_no
       ) {
         continue;
       }

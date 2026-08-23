@@ -12,8 +12,22 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
-type EvidenceSurfaceState = "IDLE" | "LOADING" | "EMPTY" | "READY" | "STALE" | "FORBIDDEN" | "ERROR";
-type CaptureSurfaceState = "IDLE" | "LOADING" | "GENERATED" | "REUSED" | "DUPLICATE" | "FORBIDDEN" | "ERROR";
+type EvidenceSurfaceState =
+  | "IDLE"
+  | "LOADING"
+  | "EMPTY"
+  | "READY"
+  | "STALE"
+  | "FORBIDDEN"
+  | "ERROR";
+type CaptureSurfaceState =
+  | "IDLE"
+  | "LOADING"
+  | "GENERATED"
+  | "REUSED"
+  | "DUPLICATE"
+  | "FORBIDDEN"
+  | "ERROR";
 
 type EvidenceScope = D2EvidenceQuery;
 
@@ -125,7 +139,9 @@ export function EvidenceWorkbench({
   });
   const packages = availablePackages;
   const [design, setDesign] = useState<LearningDesignListDto>(EMPTY_DESIGN);
-  const [referenceState, setReferenceState] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">("IDLE");
+  const [referenceState, setReferenceState] = useState<"IDLE" | "LOADING" | "READY" | "ERROR">(
+    "IDLE"
+  );
   const [surfaceState, setSurfaceState] = useState<EvidenceSurfaceState>("IDLE");
   const [captureState, setCaptureState] = useState<CaptureSurfaceState>("IDLE");
   const [evidence, setEvidence] = useState<D2EvidenceListDto | null>(null);
@@ -194,10 +210,15 @@ export function EvidenceWorkbench({
       ),
     [design.rubrics, selectedRubricKey]
   );
-  const selectedEvent = evidence?.eligible_events.find((event) => event.event_id === selectedEventId);
-  const scopeComplete = Object.values(scope).every((value) => value.trim().length > 0);
+  const selectedEvent = evidence?.eligible_events.find(
+    (event) => event.event_id === selectedEventId
+  );
+  const scopeComplete = Object.values(scope).every(
+    (value) => value === undefined || String(value).trim().length > 0
+  );
   const refsComplete = Boolean(selectedPackage && selectedGoal && selectedRubric);
-  const canCapture = surfaceState === "READY" && scopeComplete && refsComplete && Boolean(selectedEvent);
+  const canCapture =
+    surfaceState === "READY" && scopeComplete && refsComplete && Boolean(selectedEvent);
 
   const updateScope = useCallback(
     (key: keyof EvidenceScope, value: string) => {
@@ -225,7 +246,9 @@ export function EvidenceWorkbench({
       });
       const data = await readEnvelope<D2EvidenceListDto>(response);
       setEvidence(data);
-      setSurfaceState(data.eligible_events.length === 0 && data.artifacts.length === 0 ? "EMPTY" : "READY");
+      setSurfaceState(
+        data.eligible_events.length === 0 && data.artifacts.length === 0 ? "EMPTY" : "READY"
+      );
     } catch (error) {
       setSurfaceState(evidenceErrorState(error));
       setErrorMessage(error instanceof Error ? error.message : "Evidence read failed");
@@ -233,12 +256,17 @@ export function EvidenceWorkbench({
   }, [scope, scopeComplete, tenantId, token]);
 
   async function captureEvidence() {
-    if (!canCapture || !selectedPackage || !selectedGoal || !selectedRubric || !selectedEvent) return;
+    if (!canCapture || !selectedPackage || !selectedGoal || !selectedRubric || !selectedEvent)
+      return;
     setCaptureState("LOADING");
     setErrorMessage("");
     const body = {
       ...scope,
-      course_package_ref: exactRef("course_package_version", selectedPackage.course_package_reference.course_package_id, selectedPackage.course_package_reference),
+      course_package_ref: exactRef(
+        "course_package_version",
+        selectedPackage.course_package_reference.course_package_id,
+        selectedPackage.course_package_reference
+      ),
       learning_goal_ref: exactRef("learning_goal_version", selectedGoal.goal_id, selectedGoal),
       role_key: scope.role_key,
       rubric_ref: exactRef("rubric_version", selectedRubric.rubric_id, selectedRubric),
@@ -261,13 +289,18 @@ export function EvidenceWorkbench({
   }
 
   return (
-    <section className="candidate-surface d2-evidence-workbench" aria-label="Teacher D2 Evidence Workbench">
+    <section
+      className="candidate-surface d2-evidence-workbench"
+      aria-label="Teacher D2 Evidence Workbench"
+    >
       <div className="candidate-heading">
         <div>
           <p className="eyebrow">L1+ Program D · D2</p>
           <h2>Evidence &amp; Provenance Workbench</h2>
         </div>
-        <span className="d2-status" role="status">{statusLabel(surfaceState)}</span>
+        <span className="d2-status" role="status">
+          {statusLabel(surfaceState)}
+        </span>
       </div>
       <p className="evidence-note">
         Capture only eligible role/activity events into immutable teacher-only evidence. Exact
@@ -304,7 +337,8 @@ export function EvidenceWorkbench({
                 key={`${candidate.course_package_reference.course_package_id}:${candidate.course_package_reference.version}`}
                 value={`${candidate.course_package_reference.course_package_id}:${candidate.course_package_reference.version}`}
               >
-                {candidate.course_package_reference.course_package_id} / {candidate.course_package_reference.version}
+                {candidate.course_package_reference.course_package_id} /{" "}
+                {candidate.course_package_reference.version}
               </option>
             ))}
           </select>
@@ -321,7 +355,10 @@ export function EvidenceWorkbench({
           >
             <option value="">Select exact goal</option>
             {design.learning_goals.map((goal) => (
-              <option key={`${goal.goal_id}:${goal.version}`} value={`${goal.goal_id}:${goal.version}`}>
+              <option
+                key={`${goal.goal_id}:${goal.version}`}
+                value={`${goal.goal_id}:${goal.version}`}
+              >
                 {goal.goal_id} / {goal.version} ({goal.status})
               </option>
             ))}
@@ -339,7 +376,10 @@ export function EvidenceWorkbench({
           >
             <option value="">Select exact rubric</option>
             {design.rubrics.map((rubric) => (
-              <option key={`${rubric.rubric_id}:${rubric.version}`} value={`${rubric.rubric_id}:${rubric.version}`}>
+              <option
+                key={`${rubric.rubric_id}:${rubric.version}`}
+                value={`${rubric.rubric_id}:${rubric.version}`}
+              >
                 {rubric.rubric_id} / {rubric.version} ({rubric.status})
               </option>
             ))}
@@ -348,38 +388,92 @@ export function EvidenceWorkbench({
       </div>
 
       <div className="d2-actions">
-        <button className="secondary" disabled={referenceState === "LOADING"} onClick={() => void loadReferences()}>
+        <button
+          className="secondary"
+          disabled={referenceState === "LOADING"}
+          onClick={() => void loadReferences()}
+        >
           Load exact references
         </button>
-        <button className="secondary" disabled={!scopeComplete || surfaceState === "LOADING"} onClick={() => void loadEvidence()}>
+        <button
+          className="secondary"
+          disabled={!scopeComplete || surfaceState === "LOADING"}
+          onClick={() => void loadEvidence()}
+        >
           Load eligible events
         </button>
-        <button className="primary" disabled={!canCapture || captureState === "LOADING"} onClick={() => void captureEvidence()}>
+        <button
+          className="primary"
+          disabled={!canCapture || captureState === "LOADING"}
+          onClick={() => void captureEvidence()}
+        >
           Generate Evidence
         </button>
-        {referenceState === "LOADING" ? <span className="muted">Loading exact references...</span> : null}
-        {referenceState === "ERROR" ? <span className="readiness-message">{errorMessage}</span> : null}
+        {referenceState === "LOADING" ? (
+          <span className="muted">Loading exact references...</span>
+        ) : null}
+        {referenceState === "ERROR" ? (
+          <span className="readiness-message">{errorMessage}</span>
+        ) : null}
       </div>
 
-      {surfaceState === "STALE" ? <p className="d2-state d2-state-stale" role="status">Scope or exact reference changed. Reload before capture.</p> : null}
-      {surfaceState === "FORBIDDEN" ? <p className="d2-state d2-state-error" role="alert">This teacher scope is forbidden.</p> : null}
-      {surfaceState === "ERROR" ? <p className="d2-state d2-state-error" role="alert">{errorMessage || "Evidence read failed."}</p> : null}
-      {surfaceState === "EMPTY" ? <p className="d2-state" role="status">No eligible events or generated evidence in this exact scope.</p> : null}
-      {captureState === "DUPLICATE" ? <p className="d2-state d2-state-warning" role="alert">Deterministic duplicate/conflict: no second authority record was created.</p> : null}
-      {captureState === "FORBIDDEN" ? <p className="d2-state d2-state-error" role="alert">Evidence capture is forbidden for this actor or scope.</p> : null}
-      {captureState === "ERROR" ? <p className="d2-state d2-state-error" role="alert">{errorMessage || "Evidence capture failed."}</p> : null}
+      {surfaceState === "STALE" ? (
+        <p className="d2-state d2-state-stale" role="status">
+          Scope or exact reference changed. Reload before capture.
+        </p>
+      ) : null}
+      {surfaceState === "FORBIDDEN" ? (
+        <p className="d2-state d2-state-error" role="alert">
+          This teacher scope is forbidden.
+        </p>
+      ) : null}
+      {surfaceState === "ERROR" ? (
+        <p className="d2-state d2-state-error" role="alert">
+          {errorMessage || "Evidence read failed."}
+        </p>
+      ) : null}
+      {surfaceState === "EMPTY" ? (
+        <p className="d2-state" role="status">
+          No eligible events or generated evidence in this exact scope.
+        </p>
+      ) : null}
+      {captureState === "DUPLICATE" ? (
+        <p className="d2-state d2-state-warning" role="alert">
+          Deterministic duplicate/conflict: no second authority record was created.
+        </p>
+      ) : null}
+      {captureState === "FORBIDDEN" ? (
+        <p className="d2-state d2-state-error" role="alert">
+          Evidence capture is forbidden for this actor or scope.
+        </p>
+      ) : null}
+      {captureState === "ERROR" ? (
+        <p className="d2-state d2-state-error" role="alert">
+          {errorMessage || "Evidence capture failed."}
+        </p>
+      ) : null}
       {captureState === "GENERATED" || captureState === "REUSED" ? (
         <article className="d2-receipt" aria-label="D2 evidence capture receipt">
-          <strong>{captureState === "GENERATED" ? "Evidence generated" : "Existing evidence reused"}</strong>
+          <strong>
+            {captureState === "GENERATED" ? "Evidence generated" : "Existing evidence reused"}
+          </strong>
           <span>formal_truth_write: false</span>
-          {receipt ? <code>{artifactSummary(receipt.data.artifact)} / {receipt.data.artifact.artifact_digest}</code> : null}
+          {receipt ? (
+            <code>
+              {artifactSummary(receipt.data.artifact)} / {receipt.data.artifact.artifact_digest}
+            </code>
+          ) : null}
         </article>
       ) : null}
 
       {evidence?.eligible_events.length ? (
         <label className="field-label d2-event-select">
           <span>Eligible source event</span>
-          <select aria-label="D2 eligible source event" value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)}>
+          <select
+            aria-label="D2 eligible source event"
+            value={selectedEventId}
+            onChange={(event) => setSelectedEventId(event.target.value)}
+          >
             <option value="">Select eligible event</option>
             {evidence.eligible_events.map((event) => (
               <option key={event.event_id} value={event.event_id}>
@@ -393,9 +487,14 @@ export function EvidenceWorkbench({
       {selectedEvent ? (
         <article className="d2-source-card">
           <span>Eligible source event</span>
-          <strong>{selectedEvent.event_type} / {selectedEvent.event_id}</strong>
+          <strong>
+            {selectedEvent.event_type} / {selectedEvent.event_id}
+          </strong>
           <code>{refLabel(selectedEvent.source_event_ref)}</code>
-          <small>Scope: {selectedEvent.scope.course_id} / {selectedEvent.scope.run_id} / {selectedEvent.scope.team_id} / {selectedEvent.scope.role_key}</small>
+          <small>
+            Scope: {selectedEvent.scope.course_id} / {selectedEvent.scope.run_id} /{" "}
+            {selectedEvent.scope.team_id} / {selectedEvent.scope.role_key}
+          </small>
         </article>
       ) : null}
 
@@ -411,14 +510,21 @@ export function EvidenceWorkbench({
               <small>Source event: {refLabel(artifact.source_event_ref)}</small>
               <small>Goal: {refLabel(artifact.learning_goal_ref)}</small>
               <small>Rubric: {refLabel(artifact.rubric_ref)}</small>
-              <small>Captured by: {artifact.captured_by} / {artifact.captured_at}</small>
+              <small>
+                Captured by: {artifact.captured_by} / {artifact.captured_at}
+              </small>
               <details>
                 <summary>Inspect provenance edges</summary>
-                {(evidence.provenance_edges.filter((edge) => edge.target_ref.content_digest === artifact.artifact_digest)).map((edge) => (
-                  <code key={`${edge.relation}-${edge.source_ref.content_digest}`} className="d2-edge">
-                    {edge.relation}: {refLabel(edge.source_ref)}
-                  </code>
-                ))}
+                {evidence.provenance_edges
+                  .filter((edge) => edge.target_ref.content_digest === artifact.artifact_digest)
+                  .map((edge) => (
+                    <code
+                      key={`${edge.relation}-${edge.source_ref.content_digest}`}
+                      className="d2-edge"
+                    >
+                      {edge.relation}: {refLabel(edge.source_ref)}
+                    </code>
+                  ))}
               </details>
             </article>
           ))}
@@ -428,12 +534,17 @@ export function EvidenceWorkbench({
       <div className="known-limits d2-known-limits">
         <strong>Known Limits</strong>
         <ul>
-          {(evidence?.known_limits.length ? evidence.known_limits : [
-            "JSON_INTERNAL_ONLY is the active runtime authority.",
-            "D2 does not write Truth, SettlementResult, Score, Rank, or Replay authority.",
-            "D2 evidence is teacher-only; Student evidence routes are not implemented.",
-            "RoleWorkflowEvent has no native activity_id; activity scope is request-bounded."
-          ]).map((limit) => <li key={limit}>{limit}</li>)}
+          {(evidence?.known_limits.length
+            ? evidence.known_limits
+            : [
+                "JSON_INTERNAL_ONLY is the active runtime authority.",
+                "D2 does not write Truth, SettlementResult, Score, Rank, or Replay authority.",
+                "D2 evidence is teacher-only; Student evidence routes are not implemented.",
+                "RoleWorkflowEvent has no native activity_id; activity scope is request-bounded."
+              ]
+          ).map((limit) => (
+            <li key={limit}>{limit}</li>
+          ))}
         </ul>
       </div>
     </section>

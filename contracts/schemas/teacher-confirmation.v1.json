@@ -276,7 +276,9 @@
         "course_id": { "$ref": "#/$defs/Identity" },
         "run_id": { "$ref": "#/$defs/Identity" },
         "team_id": { "$ref": "#/$defs/Identity" },
-        "role_key": { "$ref": "#/$defs/Identity" }
+        "role_key": { "$ref": "#/$defs/Identity" },
+        "round_id": { "$ref": "#/$defs/Identity" },
+        "round_no": { "type": "integer", "minimum": 1 }
       }
     },
     "CriterionDecision": {

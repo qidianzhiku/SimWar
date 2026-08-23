@@ -30,6 +30,8 @@ export interface StudentLearningReportContext {
   readonly run_id: string;
   readonly team_id: string;
   readonly role_key: string;
+  readonly round_id?: string;
+  readonly round_no?: number;
 }
 
 export interface StudentLearningReportCriterionResult {
@@ -164,10 +166,16 @@ export function isStudentLearningReportExactRef(
 }
 
 function isContext(value: unknown): value is StudentLearningReportContext {
+  if (!isRecord(value)) return false;
+  const allowed = ["course_id", "run_id", "team_id", "role_key", "round_id", "round_no"];
+  if (Object.keys(value).some((key) => !allowed.includes(key))) return false;
   return (
-    isRecord(value) &&
-    hasOnlyKeys(value, ["course_id", "run_id", "team_id", "role_key"]) &&
-    [value.course_id, value.run_id, value.team_id, value.role_key].every(isIdentity)
+    [value.course_id, value.run_id, value.team_id, value.role_key].every(isIdentity) &&
+    (value.round_id === undefined || isIdentity(value.round_id)) &&
+    (value.round_no === undefined ||
+      (typeof value.round_no === "number" &&
+        Number.isInteger(value.round_no) &&
+        value.round_no >= 1))
   );
 }
 

@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/m2p5-decision-learning-crossround.v1.json",
+  "title": "M2-P5 Project-Aware Decision Learning Cross-Round Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_authority",
+    "visibility",
+    "exact_scope",
+    "official_consequence",
+    "learning",
+    "project_context",
+    "cross_round",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "m2p5-decision-learning-crossround.v1" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "visibility": { "enum": ["student_safe", "teacher_safe"] },
+    "exact_scope": { "$ref": "#/$defs/context" },
+    "official_consequence": {
+      "type": "object",
+      "required": ["record"],
+      "properties": {
+        "state_true": false,
+        "replay_hash": false,
+        "record": {
+          "type": "object",
+          "required": ["publication"],
+          "properties": {
+            "publication": {
+              "type": "object",
+              "required": ["status"],
+              "properties": { "status": { "const": "PUBLISHED" } }
+            }
+          }
+        }
+      }
+    },
+    "learning": { "$ref": "#/$defs/learning" },
+    "learning_report": { "type": "object" },
+    "project_context": { "$ref": "#/$defs/projectContext" },
+    "cross_round": { "$ref": "#/$defs/crossRound" },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/safeText" } }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])"
+      }
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "^[^<>\\u0000-\\u001F\\u007F]+$"
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activity_id",
+        "course_id",
+        "role_key",
+        "round_id",
+        "round_no",
+        "run_id",
+        "team_id",
+        "tenant_id"
+      ],
+      "properties": {
+        "activity_id": { "$ref": "#/$defs/identity" },
+        "course_id": { "$ref": "#/$defs/identity" },
+        "role_key": { "$ref": "#/$defs/identity" },
+        "round_id": { "$ref": "#/$defs/identity" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "$ref": "#/$defs/identity" },
+        "team_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "project_profile_id": { "$ref": "#/$defs/identity" },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "enterprise_state_id",
+        "version",
+        "state_digest"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "course_id": { "$ref": "#/$defs/identity" },
+        "run_id": { "$ref": "#/$defs/identity" },
+        "team_id": { "$ref": "#/$defs/identity" },
+        "round_id": { "$ref": "#/$defs/identity" },
+        "enterprise_state_id": { "$ref": "#/$defs/identity" },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate",
+        "reflection_status",
+        "teacher_confirmation_status",
+        "evidence_selection_status",
+        "student_learning_report_status",
+        "next_round_hypothesis_status"
+      ],
+      "properties": {
+        "gate": { "enum": ["BLOCKED", "READY"] },
+        "reflection_status": { "enum": ["MISSING", "SUBMITTED"] },
+        "teacher_confirmation_status": { "enum": ["MISSING", "DRAFT", "CONFIRMED"] },
+        "evidence_selection_status": { "enum": ["NOT_SELECTED", "SELECTED"] },
+        "student_learning_report_status": { "enum": ["MISSING", "CONFIRMED"] },
+        "teacher_confirmation_ref": { "type": "object" },
+        "student_learning_report_ref": { "type": "object" },
+        "next_round_hypothesis_status": { "enum": ["BLOCKED", "READY"] }
+      }
+    },
+    "projectContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["RESOLVED", "BLOCKED"] },
+        "project_profile_reference": { "$ref": "#/$defs/exactRef" },
+        "title": { "$ref": "#/$defs/safeText" },
+        "student_brief": { "type": "object" },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/safeText" } }
+      }
+    },
+    "crossRound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "entry_status", "blocker_codes"],
+      "properties": {
+        "status": { "enum": ["BLOCKED", "READY_TO_CONTINUE", "ENTRY_READY"] },
+        "entry_status": { "enum": ["NOT_CREATED", "DRAFT", "OPEN", "BLOCKED"] },
+        "blocker_codes": { "type": "array", "items": { "$ref": "#/$defs/identity" } },
+        "predecessor_closing_state_ref": { "$ref": "#/$defs/stateRef" },
+        "next_round": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["round_id", "round_no", "status"],
+          "properties": {
+            "round_id": { "$ref": "#/$defs/identity" },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "status": { "enum": ["draft", "open", "locked", "settled", "published"] },
+            "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+            "source_closing_state_ref": { "$ref": "#/$defs/stateRef" }
+          }
+        }
+      }
+    }
+  }
+}

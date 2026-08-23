@@ -87,9 +87,16 @@ export function loadTeacherEvidence(
     team_id: string;
     role_key: string;
     activity_id: string;
+    round_id?: string;
+    round_no?: number;
   }
 ): Promise<D2EvidenceListDto> {
-  const query = new URLSearchParams(scope);
+  const query = new URLSearchParams(
+    Object.entries(scope).reduce<Record<string, string>>((values, [key, value]) => {
+      if (value !== undefined) values[key] = String(value);
+      return values;
+    }, {})
+  );
   return fetch(`${API_BASE}/api/v1/bff/teacher/evidence?${query.toString()}`, {
     headers: headers(token, tenantId)
   }).then((response) => read<D2EvidenceListDto>(response));
@@ -161,7 +168,14 @@ export function reviseTeacherConfirmation(
 }
 
 export function claimTeacherConfirmationWork(
-  context: { course_id: string; run_id: string; team_id: string; role_key: string },
+  context: {
+    course_id: string;
+    run_id: string;
+    team_id: string;
+    role_key: string;
+    round_id?: string;
+    round_no?: number;
+  },
   evidenceSetDigest: string,
   token: string,
   tenantId: string
