@@ -195,7 +195,9 @@ export function EvidenceWorkbench({
     [design.rubrics, selectedRubricKey]
   );
   const selectedEvent = evidence?.eligible_events.find((event) => event.event_id === selectedEventId);
-  const scopeComplete = Object.values(scope).every((value) => value.trim().length > 0);
+  const scopeComplete = Object.values(scope).every(
+    (value) => value === undefined || String(value).trim().length > 0
+  );
   const refsComplete = Boolean(selectedPackage && selectedGoal && selectedRubric);
   const canCapture = surfaceState === "READY" && scopeComplete && refsComplete && Boolean(selectedEvent);
 

@@ -2246,6 +2246,7 @@ export function App() {
             availablePackages={
               coursePackageList.phase === "READY" ? coursePackageList.packages : []
             }
+            {...(teacherConfirmationScope ? { initialScope: teacherConfirmationScope } : {})}
             tenantId={login.tenantId}
             token={session.access_token}
           />

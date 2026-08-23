@@ -290,4 +290,58 @@ describe("D2 evidence provenance endpoint", () => {
       await once(server, "close");
     }
   });
+
+  it("binds round-scoped evidence to the source event and exact round", async () => {
+    const store = await seedD2Authority();
+    store.rounds.push({
+      round_id: "round_d2_1",
+      round_no: 1,
+      run_id: "run_d2",
+      status: "published",
+      tenant_id: tenantId
+    });
+    store.roleWorkflowEvents[0] = {
+      ...store.roleWorkflowEvents[0]!,
+      round_id: "round_d2_1"
+    };
+    const { baseUrl, server } = await startServer(store);
+    try {
+      const teacher = await login(baseUrl, "teacher");
+      const packageDigestValue = store.coursePackageLifecycleSnapshots.at(-1)?.content_digest;
+      const goalDigestValue = store.learningGoalVersions.at(-1)?.content_digest;
+      const rubricDigestValue = store.rubricVersions.at(-1)?.content_digest;
+      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue) throw new Error("D2 seed incomplete");
+      const headers = {
+        authorization: `Bearer ${teacher}`,
+        "content-type": "application/json",
+        "x-tenant-id": tenantId
+      };
+      const exactBody = {
+        ...captureBody(packageDigestValue, goalDigestValue, rubricDigestValue),
+        round_id: "round_d2_1",
+        round_no: 1
+      };
+      const exact = await fetch(`${baseUrl}/api/v1/bff/teacher/evidence-artifacts/capture`, {
+        body: JSON.stringify(exactBody),
+        headers,
+        method: "POST"
+      });
+      expect(exact.status).toBe(201);
+      expect((await exact.json()).data.data.artifact.context).toMatchObject({
+        round_id: "round_d2_1",
+        round_no: 1
+      });
+
+      const wrongRound = await fetch(`${baseUrl}/api/v1/bff/teacher/evidence-artifacts/capture`, {
+        body: JSON.stringify({ ...exactBody, round_id: "round_d2_2", round_no: 2 }),
+        headers,
+        method: "POST"
+      });
+      expect(wrongRound.status).toBe(403);
+      expect(store.evidenceArtifacts).toHaveLength(1);
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
 });

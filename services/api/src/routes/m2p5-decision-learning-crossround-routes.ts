@@ -77,16 +77,18 @@ export async function handleM2P5DecisionLearningRoute(
   helpers: M2P5RouteHelpers
 ): Promise<boolean> {
   if (!isM2P5DecisionLearningRoute(request.method, url)) return false;
+  const match =
+    /^\/api\/v1\/bff\/(student|teacher)\/m2p5\/runs\/([^/]+)\/rounds\/(\d+)\/decision-learning$/.exec(
+      url.pathname
+    );
+  if (!match?.[1] || !match[2] || !match[3]) {
+    throw new M2P5DecisionLearningError("M2P5_CONTEXT_INVALID");
+  }
+  const surface = match[1] as "student" | "teacher";
+  // Authentication/authorization errors must reach the server's normal HTTP
+  // error mapper instead of being flattened into a projection validation error.
+  const actor = surface === "student" ? helpers.requireStudent() : helpers.requireTeacher();
   try {
-    const match =
-      /^\/api\/v1\/bff\/(student|teacher)\/m2p5\/runs\/([^/]+)\/rounds\/(\d+)\/decision-learning$/.exec(
-        url.pathname
-      );
-    if (!match?.[1] || !match[2] || !match[3]) {
-      throw new M2P5DecisionLearningError("M2P5_CONTEXT_INVALID");
-    }
-    const surface = match[1] as "student" | "teacher";
-    const actor = surface === "student" ? helpers.requireStudent() : helpers.requireTeacher();
     const result = await service.getJourney({
       actor,
       context: contextFromUrl(url, context.tenantId, identity(match[2]), Number(match[3])),

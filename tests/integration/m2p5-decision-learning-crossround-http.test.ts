@@ -198,4 +198,17 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
+
+  it("preserves the normal authentication failure status", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/v1/bff/student/m2p5/runs/${M2P5_RUN_ID}/rounds/1/decision-learning?${contextQuery()}`,
+        { headers: { "x-tenant-id": M2P5_TENANT_ID } }
+      );
+      expect(response.status).toBe(401);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
 });
