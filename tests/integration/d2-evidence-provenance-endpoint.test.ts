@@ -112,8 +112,21 @@ async function seedD2Authority(): Promise<SimWarStore> {
   });
   const rubricDraft = await design.createRubricDraft(actor, {
     course_package_reference: publishedPackageReference,
-    criteria: [{ criterion_id: "criterion_d2", levels: [{ description: "traceable", label: "ready", ordinal: 1 }], prompt: "Trace?" }],
-    learning_goal_references: [{ content_digest: goal.content_digest, goal_id: goal.goal_id, tenant_id: tenantId, version: goal.version }],
+    criteria: [
+      {
+        criterion_id: "criterion_d2",
+        levels: [{ description: "traceable", label: "ready", ordinal: 1 }],
+        prompt: "Trace?"
+      }
+    ],
+    learning_goal_references: [
+      {
+        content_digest: goal.content_digest,
+        goal_id: goal.goal_id,
+        tenant_id: tenantId,
+        version: goal.version
+      }
+    ],
     rubric_id: "rubric_d2",
     title: "D2 rubric",
     version: "1.0.0"
@@ -167,7 +180,11 @@ async function seedD2Authority(): Promise<SimWarStore> {
   return store;
 }
 
-function captureBody(packageDigestValue: string, goalDigestValue: string, rubricDigestValue: string) {
+function captureBody(
+  packageDigestValue: string,
+  goalDigestValue: string,
+  rubricDigestValue: string
+) {
   return {
     activity_id: "activity_d2",
     course_id: "course_demo",
@@ -212,7 +229,8 @@ describe("D2 evidence provenance endpoint", () => {
       const packageDigestValue = store.coursePackageLifecycleSnapshots.at(-1)?.content_digest;
       const goalDigestValue = store.learningGoalVersions.at(-1)?.content_digest;
       const rubricDigestValue = store.rubricVersions.at(-1)?.content_digest;
-      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue) throw new Error("D2 seed incomplete");
+      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue)
+        throw new Error("D2 seed incomplete");
       const headers = {
         authorization: `Bearer ${teacher}`,
         "content-type": "application/json",
@@ -223,7 +241,10 @@ describe("D2 evidence provenance endpoint", () => {
         { headers }
       );
       expect(listed.status).toBe(200);
-      const listBody = (await listed.json()) as ApiEnvelope<{ eligible_events: unknown[]; artifacts: unknown[] }>;
+      const listBody = (await listed.json()) as ApiEnvelope<{
+        eligible_events: unknown[];
+        artifacts: unknown[];
+      }>;
       expect(listBody.data.eligible_events).toHaveLength(1);
       expect(listBody.data.artifacts).toHaveLength(0);
 
@@ -265,25 +286,32 @@ describe("D2 evidence provenance endpoint", () => {
       const packageDigestValue = store.coursePackageLifecycleSnapshots.at(-1)?.content_digest;
       const goalDigestValue = store.learningGoalVersions.at(-1)?.content_digest;
       const rubricDigestValue = store.rubricVersions.at(-1)?.content_digest;
-      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue) throw new Error("D2 seed incomplete");
+      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue)
+        throw new Error("D2 seed incomplete");
       const headers = {
         authorization: `Bearer ${teacher}`,
         "content-type": "application/json",
         "x-tenant-id": tenantId
       };
       const extraField = await fetch(`${baseUrl}/api/v1/bff/teacher/evidence-artifacts/capture`, {
-        body: JSON.stringify({ ...captureBody(packageDigestValue, goalDigestValue, rubricDigestValue), private_payload: { secret: true } }),
+        body: JSON.stringify({
+          ...captureBody(packageDigestValue, goalDigestValue, rubricDigestValue),
+          private_payload: { secret: true }
+        }),
         headers,
         method: "POST"
       });
       expect(extraField.status).toBe(422);
       const wrongTenant = captureBody(packageDigestValue, goalDigestValue, rubricDigestValue);
       wrongTenant.learning_goal_ref.tenant_id = "tenant_other";
-      const tenantResponse = await fetch(`${baseUrl}/api/v1/bff/teacher/evidence-artifacts/capture`, {
-        body: JSON.stringify(wrongTenant),
-        headers,
-        method: "POST"
-      });
+      const tenantResponse = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/evidence-artifacts/capture`,
+        {
+          body: JSON.stringify(wrongTenant),
+          headers,
+          method: "POST"
+        }
+      );
       expect(tenantResponse.status).toBe(422);
     } finally {
       server.close();
@@ -310,7 +338,8 @@ describe("D2 evidence provenance endpoint", () => {
       const packageDigestValue = store.coursePackageLifecycleSnapshots.at(-1)?.content_digest;
       const goalDigestValue = store.learningGoalVersions.at(-1)?.content_digest;
       const rubricDigestValue = store.rubricVersions.at(-1)?.content_digest;
-      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue) throw new Error("D2 seed incomplete");
+      if (!packageDigestValue || !goalDigestValue || !rubricDigestValue)
+        throw new Error("D2 seed incomplete");
       const headers = {
         authorization: `Bearer ${teacher}`,
         "content-type": "application/json",
