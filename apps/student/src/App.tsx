@@ -25,6 +25,7 @@ import type {
   W5GovernedModelStudentProjection,
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
+import { OperatingWorldBrief } from "./OperatingWorldBrief";
 import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
@@ -347,6 +348,10 @@ export function App() {
     typeof window === "undefined"
       ? ""
       : (new URLSearchParams(window.location.search).get("w5DraftId") ?? "");
+  const operatingWorldDraftId =
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("operatingWorldDraftId") ?? "");
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -805,6 +810,20 @@ export function App() {
                 </p>
               ) : null}
             </div>
+          </section>
+        ) : null}
+
+        {hasStudentSurface && operatingWorldDraftId ? (
+          <section id="student-operating-world-brief" className="student-location" aria-label="Operating World Brief">
+            <OperatingWorldBrief
+              apiBase={API_BASE}
+              courseId={latestRun?.course_id}
+              draftId={operatingWorldDraftId}
+              roundNo={latestRound?.round_no}
+              runId={latestRun?.run_id}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
           </section>
         ) : null}
 

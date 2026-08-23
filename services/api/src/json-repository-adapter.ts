@@ -36,6 +36,8 @@ import type {
   W027DecisionExperienceRepositoryPort
 } from "./repository-ports.js";
 import type { ValidationSessionRepositoryPort } from "./repository-ports.js";
+import type { OperatingWorldDraft } from "@simwar/shared-contracts";
+import type { OperatingWorldPersistence } from "./operating-world-service.js";
 import {
   assertValidationSessionRecord,
   type ValidationSessionRecord
@@ -172,6 +174,31 @@ export function createJsonW5GovernedModelPersistence(
       } catch (error) {
         drafts.splice(0, drafts.length, ...previousDrafts);
         store.auditLogs.splice(0, store.auditLogs.length, ...previousAuditLogs);
+        throw error;
+      }
+    }
+  };
+}
+
+/** JSON persistence for SH-M3 Operating World governance-plane drafts. */
+export function createJsonOperatingWorldPersistence(store: SimWarStore): OperatingWorldPersistence {
+  const drafts = store.operatingWorldDrafts ?? (store.operatingWorldDrafts = []);
+  return {
+    listDrafts() {
+      return clone(drafts);
+    },
+    commitDraft(draft: OperatingWorldDraft) {
+      const previous = clone(drafts);
+      const index = drafts.findIndex(
+        (candidate) =>
+          candidate.tenant_id === draft.tenant_id && candidate.draft_id === draft.draft_id
+      );
+      if (index >= 0) drafts[index] = clone(draft);
+      else drafts.push(clone(draft));
+      try {
+        store.persist();
+      } catch (error) {
+        drafts.splice(0, drafts.length, ...previous);
         throw error;
       }
     }

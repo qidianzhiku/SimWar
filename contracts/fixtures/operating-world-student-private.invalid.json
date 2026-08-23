@@ -1,0 +1,18 @@
+{
+  "brief": {
+    "construction_cost_range": [108000, 132000],
+    "construction_cycle_range": [2, 4],
+    "demand_outlook": 0.6,
+    "financing_environment": 0.68,
+    "known_limits": ["教学场景输入，不等同于总体估计"],
+    "service_capacity": 100,
+    "source_ref": "private://raw-source",
+    "visible_policy": "sh-policy-default-v1",
+    "wage_pressure": 0.08,
+    "workforce_supply": 120
+  },
+  "binding_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "mission_id": "SIMWAR-SH-M3-W5-OPERATING-WORLD-MACRO-R2-20260823",
+  "operation_id": "SH_M3_STUDENT_OPERATING_WORLD_BRIEF_GET_V1",
+  "visibility": "ROLE_SAFE_STUDENT"
+}

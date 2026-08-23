@@ -7,7 +7,8 @@ import type {
   W4ReplayInputManifest,
   W4ScopeContext,
   W4StateRef,
-  ProjectProfileRef
+  ProjectProfileRef,
+  OperatingWorldOfficialConsumerInput
 } from "@simwar/shared-contracts";
 import {
   createEnterpriseStateStrategicEvolutionService,
@@ -37,6 +38,13 @@ interface W4RouteDependencies {
     scope: W4ScopeContext,
     reference: ProjectProfileRef
   ) => Promise<{ source_assignment_id: string; project_name: string } | null>;
+  resolveOperatingWorldConsumer?: (
+    tenantId: string,
+    draftId: string,
+    courseId: string,
+    runId: string,
+    roundNo: number
+  ) => Promise<OperatingWorldOfficialConsumerInput | null>;
   admitStrategicDecision: (
     scope: W4ScopeContext,
     decision: W4CanonicalStrategicDecision
@@ -48,6 +56,35 @@ interface W4RouteDependencies {
 }
 
 const ACTIVITY_ID = "w4-enterprise-state-strategic-evolution";
+
+/**
+ * The only Operating World -> W4 bridge. It enriches a canonical capital
+ * decision before the existing W4 admission and sole writer run; it does not
+ * persist anything itself and cannot turn a preview/shadow input into truth.
+ */
+export function applyOperatingWorldConsumerToDecision(
+  decision: W4CanonicalStrategicDecision,
+  consumer: OperatingWorldOfficialConsumerInput
+): W4CanonicalStrategicDecision {
+  if (
+    consumer.effect_class !== "OFFICIAL_CONSUMER_ELIGIBLE" ||
+    consumer.consumer_ref !== "W4_CAPITAL_ACTION_OR_NEW_PROJECT_ADMISSION" ||
+    decision.kind !== "capital_action" ||
+    !decision.payload ||
+    typeof decision.payload !== "object"
+  ) {
+    throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+  }
+  return {
+    ...decision,
+    payload: {
+      ...decision.payload,
+      cost_source: `operating-world:${consumer.source_binding_digest}`,
+      lead_time_rounds: consumer.construction_cycle,
+      rate_or_cost_bps: Math.round(consumer.capital_cost * 10000)
+    }
+  };
+}
 
 function routeScope(
   context: RouteContext,
@@ -734,9 +771,28 @@ export async function handleW4EnterpriseStateRoute(
     }
 
     if (request.method === "POST" && operation === "strategic-decisions") {
-      const decision = body.decision as Parameters<typeof service.commitStrategicDecision>[1];
+      let decision = body.decision as Parameters<typeof service.commitStrategicDecision>[1];
       if (!decision || typeof decision !== "object")
         throw new W4EnterpriseStateError("W4_DECISION_REQUIRED");
+      const operatingWorldDraftId = String(body.operating_world_draft_id ?? "").trim();
+      if (operatingWorldDraftId) {
+        const consumer = await dependencies.resolveOperatingWorldConsumer?.(
+          context.tenantId,
+          operatingWorldDraftId,
+          scope.course_id,
+          scope.run_id,
+          scope.round_no
+        );
+        if (
+          !consumer ||
+          decision.kind !== "capital_action" ||
+          !decision.payload ||
+          typeof decision.payload !== "object"
+        ) {
+          throw new W4EnterpriseStateError("W4_DECISION_ADMISSION_REQUIRED");
+        }
+        decision = applyOperatingWorldConsumerToDecision(decision, consumer);
+      }
       const admission = await dependencies.admitStrategicDecision(scope, decision);
       const compiled = await service.commitStrategicDecision(scope, {
         ...decision,

@@ -1,0 +1,347 @@
+{
+  "$id": "https://simwar.local/contracts/operating-world.v1.json",
+  "title": "SimWar SH-M3 Operating World",
+  "oneOf": [
+    { "$ref": "#/$defs/teacherProjection" },
+    { "$ref": "#/$defs/studentProjection" },
+    { "$ref": "#/$defs/previewReceipt" },
+    { "$ref": "#/$defs/adminAudit" },
+    { "$ref": "#/$defs/draft" }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "info": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confidence",
+        "demand_signal",
+        "freshness",
+        "known_limits",
+        "source_category",
+        "source_ref"
+      ],
+      "properties": {
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] },
+        "demand_signal": { "type": "number", "minimum": 0, "maximum": 1 },
+        "freshness": { "enum": ["CURRENT", "STALE", "UNKNOWN"] },
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "source_category": {
+          "enum": ["LOCAL_DATA", "OFFICIAL_PRIMARY", "SYNTHETIC", "ASSUMPTION", "TEACHER_INPUT"]
+        },
+        "source_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "families": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SH-16", "SH-17", "SH-18", "SH-19"],
+      "properties": {
+        "SH-16": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "info",
+            "quality_target",
+            "recovery_lag",
+            "recruitment_pressure",
+            "service_capacity",
+            "staffing_floor",
+            "turnover_pressure",
+            "wage_pressure",
+            "workforce_supply"
+          ],
+          "properties": {
+            "info": { "$ref": "#/$defs/info" },
+            "quality_target": { "type": "number", "minimum": 0, "maximum": 1 },
+            "recovery_lag": { "type": "number", "minimum": 0 },
+            "recruitment_pressure": { "type": "number", "minimum": 0, "maximum": 1 },
+            "service_capacity": { "type": "number", "minimum": 0 },
+            "staffing_floor": { "type": "number", "minimum": 0 },
+            "turnover_pressure": { "type": "number", "minimum": 0, "maximum": 1 },
+            "wage_pressure": { "type": "number", "minimum": 0, "maximum": 1 },
+            "workforce_supply": { "type": "number", "minimum": 0 }
+          }
+        },
+        "SH-17": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "approved_capacity_max",
+            "approved_capacity_min",
+            "capital_cost",
+            "construction_cost",
+            "construction_cycle",
+            "covenant_tightness",
+            "credit_availability",
+            "financing_availability",
+            "info"
+          ],
+          "properties": {
+            "approved_capacity_max": { "type": "number", "minimum": 0 },
+            "approved_capacity_min": { "type": "number", "minimum": 0 },
+            "capital_cost": { "type": "number", "minimum": 0, "maximum": 1 },
+            "construction_cost": { "type": "number", "minimum": 0 },
+            "construction_cycle": { "type": "number", "minimum": 0 },
+            "covenant_tightness": { "type": "number", "minimum": 0, "maximum": 1 },
+            "credit_availability": { "type": "number", "minimum": 0, "maximum": 1 },
+            "financing_availability": { "type": "number", "minimum": 0, "maximum": 1 },
+            "info": { "$ref": "#/$defs/info" }
+          }
+        },
+        "SH-18": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "economic_cycle",
+            "effective_time",
+            "info",
+            "policy_pack_ref",
+            "priority",
+            "shock_ref",
+            "visibility"
+          ],
+          "properties": {
+            "economic_cycle": { "type": "string", "minLength": 1 },
+            "effective_time": { "type": "string", "minLength": 1 },
+            "info": { "$ref": "#/$defs/info" },
+            "policy_pack_ref": { "type": "string", "minLength": 1 },
+            "priority": { "enum": ["low", "normal", "high"] },
+            "shock_ref": { "type": "string", "minLength": 1 },
+            "visibility": { "enum": ["STUDENT_SAFE", "TEACHER_ONLY"] }
+          }
+        },
+        "SH-19": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "info",
+            "market_node_ref",
+            "portfolio_constraints",
+            "project_option_compatibility",
+            "project_slot_ref"
+          ],
+          "properties": {
+            "info": { "$ref": "#/$defs/info" },
+            "market_node_ref": { "type": "string", "minLength": 1 },
+            "portfolio_constraints": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "project_option_compatibility": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "project_slot_ref": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_digest",
+        "binding_id",
+        "course_id",
+        "model_version_ref",
+        "no_implicit_latest",
+        "parameter_set_reference",
+        "round_no",
+        "run_id",
+        "scenario_package_reference",
+        "seed",
+        "status",
+        "tenant_id"
+      ],
+      "properties": {
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "binding_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "model_version_ref": { "type": "string", "minLength": 1 },
+        "no_implicit_latest": { "const": true },
+        "parameter_set_reference": { "$ref": "#/$defs/reference" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioReference" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "status": { "const": "BOUND" },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "scenarioReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "type": "string" },
+        "tenant_id": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "course_id",
+        "created_by",
+        "draft_id",
+        "families",
+        "model_version_ref",
+        "seed",
+        "status",
+        "tenant_id",
+        "title",
+        "updated_at"
+      ],
+      "properties": {
+        "binding": { "anyOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "course_id": { "type": "string" },
+        "created_by": { "type": "string" },
+        "draft_id": { "type": "string" },
+        "families": { "$ref": "#/$defs/families" },
+        "model_version_ref": { "type": "string" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["DRAFT", "VALIDATED", "FROZEN", "BOUND"] },
+        "tenant_id": { "type": "string" },
+        "title": { "type": "string" },
+        "updated_at": { "type": "string" }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["drafts", "known_limits", "mission_id", "operation_id"],
+      "properties": {
+        "drafts": { "type": "array", "items": { "$ref": "#/$defs/draft" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "mission_id": { "const": "SIMWAR-SH-M3-W5-OPERATING-WORLD-MACRO-R2-20260823" },
+        "operation_id": { "const": "SH_M3_TEACHER_OPERATING_WORLD_STUDIO_GET_V1" }
+      }
+    },
+    "studentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["brief", "binding_digest", "mission_id", "operation_id", "visibility"],
+      "properties": {
+        "brief": { "$ref": "#/$defs/studentBrief" },
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "mission_id": { "const": "SIMWAR-SH-M3-W5-OPERATING-WORLD-MACRO-R2-20260823" },
+        "operation_id": { "const": "SH_M3_STUDENT_OPERATING_WORLD_BRIEF_GET_V1" },
+        "visibility": { "const": "ROLE_SAFE_STUDENT" }
+      }
+    },
+    "studentBrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "construction_cost_range",
+        "construction_cycle_range",
+        "demand_outlook",
+        "financing_environment",
+        "known_limits",
+        "service_capacity",
+        "visible_policy",
+        "wage_pressure",
+        "workforce_supply"
+      ],
+      "properties": {
+        "construction_cost_range": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "construction_cycle_range": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "demand_outlook": { "type": "number", "minimum": 0, "maximum": 1 },
+        "financing_environment": { "type": "number", "minimum": 0, "maximum": 1 },
+        "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "service_capacity": { "type": "number", "minimum": 0 },
+        "visible_policy": { "type": "string", "minLength": 1 },
+        "wage_pressure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "workforce_supply": { "type": "number", "minimum": 0 }
+      }
+    },
+    "previewReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_ref",
+        "diagnostics",
+        "effect_class",
+        "input_digest",
+        "known_limits",
+        "no_official_write",
+        "parameter_delta",
+        "predicted_outputs",
+        "preview_digest",
+        "preview_id",
+        "scenario_variant",
+        "seed",
+        "uncertainty"
+      ],
+      "properties": {
+        "consumer_ref": { "const": "W4_CAPITAL_ACTION_OR_NEW_PROJECT_ADMISSION" },
+        "diagnostics": { "type": "array" },
+        "effect_class": {
+          "enum": ["OFFICIAL_CONSUMER_ELIGIBLE", "SHADOW_ONLY", "INFORMATION_ONLY", "BLOCKED"]
+        },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "known_limits": { "type": "array" },
+        "no_official_write": { "const": true },
+        "parameter_delta": { "type": "object" },
+        "predicted_outputs": { "type": "object" },
+        "preview_digest": { "$ref": "#/$defs/digest" },
+        "preview_id": { "type": "string" },
+        "scenario_variant": { "enum": ["LOW", "BASE", "HIGH"] },
+        "seed": { "type": "integer" },
+        "uncertainty": { "type": "object" }
+      }
+    },
+    "adminAudit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "draft_id",
+        "effect_class",
+        "freshness",
+        "known_limits",
+        "readiness",
+        "stale_or_conflict"
+      ],
+      "properties": {
+        "binding": { "anyOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "draft_id": { "type": "string" },
+        "effect_class": {
+          "enum": ["OFFICIAL_CONSUMER_ELIGIBLE", "SHADOW_ONLY", "INFORMATION_ONLY", "BLOCKED"]
+        },
+        "freshness": { "type": "object" },
+        "known_limits": { "type": "array" },
+        "readiness": { "enum": ["DRAFT", "VALIDATED", "FROZEN", "BOUND"] },
+        "stale_or_conflict": { "type": "boolean" }
+      }
+    }
+  }
+}

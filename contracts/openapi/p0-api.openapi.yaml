@@ -4970,6 +4970,202 @@ paths:
                 { schema: { $ref: "#/components/schemas/W5StudentGovernedModelEnvelope" } }
             }
 
+  /api/v1/bff/teacher/operating-world/studio:
+    get:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_STUDIO_GET_V1
+      summary: Read the tenant/course-scoped Operating World Studio.
+      security:
+        - SessionBearer: []
+      parameters:
+        - in: query
+          name: courseId
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Teacher Operating World projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldTeacherEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+
+  /api/v1/bff/teacher/operating-world/drafts:
+    post:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_DRAFT_CREATE_V1
+      summary: Create a complete SH-16~SH-19 Operating World draft.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperatingWorldDraftCreateRequest" }
+      responses:
+        "201":
+          description: Created governance-plane draft.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldMutationEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "422": { description: Complete family payload and provenance required }
+
+  /api/v1/bff/teacher/operating-world/drafts/{draftId}/validate:
+    post:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_DRAFT_VALIDATE_V1
+      summary: Validate an Operating World draft.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: path, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Validated draft.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldMutationEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "404": { description: Draft not found }
+        "409": { description: Invalid lifecycle transition }
+
+  /api/v1/bff/teacher/operating-world/drafts/{draftId}/preview:
+    post:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_DRAFT_PREVIEW_V1
+      summary: Generate a deterministic non-official Operating World preview receipt.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: path, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperatingWorldActionRequest" }
+      responses:
+        "200":
+          description: Preview receipt with no official write.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldMutationEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "404": { description: Draft not found }
+        "409": { description: Preview is not valid for the current lifecycle }
+
+  /api/v1/bff/teacher/operating-world/drafts/{draftId}/freeze:
+    post:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_DRAFT_FREEZE_V1
+      summary: Freeze a validated Operating World draft.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: path, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Frozen draft.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldMutationEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "404": { description: Draft not found }
+        "409": { description: Draft must be validated before freezing }
+
+  /api/v1/bff/teacher/operating-world/drafts/{draftId}/bind:
+    post:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_DRAFT_BIND_V1
+      summary: Bind a frozen Operating World draft to an exact Run and Round.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: path, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperatingWorldExactBindingRequest" }
+      responses:
+        "200":
+          description: Exact immutable binding.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldMutationEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "404": { description: Draft or Run not found }
+        "409": { description: Binding conflict or draft not frozen }
+        "422": { description: Exact versioned references required }
+
+  /api/v1/bff/teacher/operating-world/drafts/{draftId}/official-consumer:
+    get:
+      operationId: SH_M3_TEACHER_OPERATING_WORLD_OFFICIAL_CONSUMER_GET_V1
+      summary: Read the W4-eligible Operating World consumer input for an exact Run and Round.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: path, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: runId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: roundNo, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Official-consumer-eligible W4 input.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldOfficialConsumerEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or course scope denied }
+        "404": { description: Draft not found }
+        "409": { description: Exact binding required }
+        "422": { description: Stale or unknown official source }
+
+  /api/v1/bff/student/operating-world/brief:
+    get:
+      operationId: SH_M3_STUDENT_OPERATING_WORLD_BRIEF_GET_V1
+      summary: Read the role-safe Operating World brief for the enrolled student.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: runId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: roundNo, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Role-safe Student Operating World projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldStudentEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student enrollment or exact scope denied }
+        "404": { description: Draft not found }
+        "409": { description: Exact binding required }
+
+  /api/v1/bff/admin/operating-world/audit:
+    get:
+      operationId: SH_M3_ADMIN_OPERATING_WORLD_AUDIT_GET_V1
+      summary: Read the tenant-scoped Operating World audit projection.
+      security:
+        - SessionBearer: []
+      parameters:
+        - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
+        - { in: query, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin Operating World audit projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperatingWorldAdminEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin or teacher audit authority required }
+        "404": { description: Draft not found }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -7833,3 +8029,98 @@ components:
         round_no: { type: integer, minimum: 1 }
         experience_profile: { enum: [STANDARD, ADVANCED] }
         model_plane: { enum: [OFF, ON] }
+    OperatingWorldTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/operating-world.v1.json#/$defs/teacherProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    OperatingWorldStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/operating-world.v1.json#/$defs/studentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    OperatingWorldAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/operating-world.v1.json#/$defs/adminAudit" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    OperatingWorldOfficialConsumerEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              capital_cost,
+              construction_cost,
+              construction_cycle,
+              credit_availability,
+              effect_class,
+              source_binding_digest,
+              consumer_ref
+            ]
+          properties:
+            capital_cost: { type: number, minimum: 0, maximum: 1 }
+            construction_cost: { type: number, minimum: 0 }
+            construction_cycle: { type: number, minimum: 0 }
+            credit_availability: { type: number, minimum: 0, maximum: 1 }
+            effect_class: { const: OFFICIAL_CONSUMER_ELIGIBLE }
+            source_binding_digest: { $ref: "../schemas/operating-world.v1.json#/$defs/digest" }
+            consumer_ref: { const: W4_CAPITAL_ACTION_OR_NEW_PROJECT_ADMISSION }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    OperatingWorldMutationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          properties:
+            draft: { $ref: "../schemas/operating-world.v1.json#/$defs/draft" }
+            receipt: { $ref: "../schemas/operating-world.v1.json#/$defs/previewReceipt" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    OperatingWorldDraftCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [course_id, families]
+      properties:
+        course_id: { type: string, minLength: 1 }
+        families: { $ref: "../schemas/operating-world.v1.json#/$defs/families" }
+        seed: { type: integer, minimum: 0 }
+        title: { type: string }
+    OperatingWorldActionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        variant: { enum: [LOW, BASE, HIGH] }
+        run_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        seed: { type: integer, minimum: 0 }
+    OperatingWorldExactBindingRequest:
+      type: object
+      additionalProperties: false
+      required: [run_id, round_no]
+      properties:
+        run_id: { type: string, minLength: 1 }
+        round_no: { type: integer, minimum: 1 }
+        seed: { type: integer, minimum: 0 }

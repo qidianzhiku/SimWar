@@ -100,6 +100,7 @@ import { getApiHealthPayload } from "./health.js";
 import {
   createJsonFormalScenarioAuthorityPersistence,
   createJsonGovernedAdvisoryRepositoryPort,
+  createJsonOperatingWorldPersistence,
   createJsonW5GovernedModelPersistence,
   createJsonW027DecisionExperienceRepositoryPort,
   type JsonFormalScenarioAuthorityPersistence
@@ -152,6 +153,7 @@ import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
+import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
@@ -194,6 +196,7 @@ import {
 } from "./course-report-query-service.js";
 import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-routes.js";
 import { W5GovernedModelError, W5GovernedModelService } from "./w5-governed-model-service.js";
+import { OperatingWorldError, OperatingWorldService } from "./operating-world-service.js";
 import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
@@ -397,6 +400,7 @@ interface ApiRuntime {
   projectLibrary: ProjectLibraryService;
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
+  operatingWorld: OperatingWorldService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
     context: RequestContext
@@ -697,6 +701,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     undefined,
     createJsonW5GovernedModelPersistence(store)
   );
+  const operatingWorld = new OperatingWorldService(
+    undefined,
+    createJsonOperatingWorldPersistence(store)
+  );
   const w4EnterpriseStateRepository = createJsonW4Repository(store);
   const w4EnterpriseStateService = createEnterpriseStateStrategicEvolutionService(
     w4EnterpriseStateRepository
@@ -878,6 +886,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       repositoryProvider
     }),
     w5GovernedModel,
+    operatingWorld,
     instructorAssets: new InstructorAssetRegistry(
       {
         captureAuditCheckpoint: () => captureInstructorAssetAuditCheckpoint(store),
@@ -5651,6 +5660,31 @@ async function routeRequest(
   const courseReportRoute = isCourseReportRoute(request.method, url);
 
   if (
+    await handleOperatingWorldRoute(runtime.operatingWorld, request, response, url, {
+      actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+      createContext: (incoming) => createContext(runtime, incoming),
+      createEnvelope: (context, data, message) =>
+        createEnvelope(context as RequestContext, data, message),
+      readJson,
+      repository: runtime.repositoryProvider.facade,
+      resolveExactReferences: async (tenantId, run) => {
+        const binding = await runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
+        return binding
+          ? {
+              parameter_set_reference: { ...binding.parameter_set_reference },
+              scenario_package_reference: { ...binding.scenario_package_reference }
+            }
+          : null;
+      },
+      requirePermission: (context, permission) =>
+        requirePermission(context as RequestContext, permission),
+      sendJson
+    })
+  ) {
+    return;
+  }
+
+  if (
     await handleW5GovernedModelRoute(runtime.w5GovernedModel, request, response, url, {
       actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
       createContext: (incoming) => createContext(runtime, incoming),
@@ -6190,6 +6224,22 @@ async function routeRequest(
             source_assignment_id: assignment.assignment_id,
             project_name: profile.title
           };
+        },
+        resolveOperatingWorldConsumer: async (tenantId, draftId, courseId, runId, roundNo) => {
+          return runtime.operatingWorld.getOfficialConsumerInput(
+            {
+              actor_id: context.actor?.user_id ?? "w4-operating-world",
+              role: "teacher",
+              tenant_id: tenantId
+            },
+            {
+              activity_id: "sh-m3-operating-world",
+              course_id: courseId,
+              run_id: runId,
+              round_no: roundNo
+            },
+            draftId
+          );
         },
         admitStrategicDecision: async (scope, decision): Promise<W4DecisionAdmission> => {
           const run = await runtime.repositoryProvider.facade.runs.getRun(
@@ -9883,6 +9933,22 @@ export function createApiServer(
 
       if (error instanceof W4EnterpriseStateError) {
         sendError(response, fallbackContext, new HttpError(409, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof OperatingWorldError) {
+        const statusCode =
+          error.code === "OW_DRAFT_NOT_FOUND"
+            ? 404
+            : error.code === "OW_SCOPE_CONFLICT" || error.code === "OW_ROLE_FORBIDDEN"
+              ? 403
+              : error.code === "OW_INVALID_TRANSITION" ||
+                  error.code === "OW_DRAFT_NOT_VALIDATED" ||
+                  error.code === "OW_DRAFT_NOT_FROZEN" ||
+                  error.code === "OW_BINDING_CONFLICT"
+                ? 409
+                : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;
       }
 

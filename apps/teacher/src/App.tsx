@@ -78,6 +78,7 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
+import { OperatingWorldStudio } from "./OperatingWorldStudio";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -2186,6 +2187,16 @@ export function App() {
         </div>
         {isTeacher && session ? (
           <W5GovernedModelStudio
+            apiBase={API_BASE}
+            courseId={selectedRun?.course_id ?? selectedCourseId}
+            runId={selectedRun?.run_id ?? selectedRunId}
+            roundNo={selectedRound?.round_no}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {isTeacher && session ? (
+          <OperatingWorldStudio
             apiBase={API_BASE}
             courseId={selectedRun?.course_id ?? selectedCourseId}
             runId={selectedRun?.run_id ?? selectedRunId}
