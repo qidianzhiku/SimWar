@@ -544,7 +544,8 @@ export async function handleW4EnterpriseStateRoute(
   if (request.method === "POST" && counterfactualMatch) {
     try {
       const surface = counterfactualMatch[1] ?? "teacher";
-      const actor = surface === "student" ? dependencies.requireStudent() : dependencies.requireTeacher();
+      const actor =
+        surface === "student" ? dependencies.requireStudent() : dependencies.requireTeacher();
       const body = await dependencies.readJson<Record<string, unknown>>(request);
       const sourceStateRef = body.source_state_ref as W4StateRef;
       if (!sourceStateRef || typeof sourceStateRef !== "object") {
@@ -562,13 +563,7 @@ export async function handleW4EnterpriseStateRoute(
         sourceTeamId,
         courseId
       );
-      await assertRuntimeScope(
-        dependencies,
-        context.tenantId,
-        runId,
-        courseId,
-        sourceTeamId
-      );
+      await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, sourceTeamId);
       const result = await service.counterfactual(scope, {
         source_state_ref: sourceStateRef,
         source_outcome_id: String(body.source_outcome_id ?? ""),

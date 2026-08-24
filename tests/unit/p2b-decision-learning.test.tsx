@@ -98,7 +98,9 @@ const response = {
           effect_direction: "constrains"
         }
       ],
-      constraints: ["Only the existing W4 capital-action admission consumer may apply this effect."],
+      constraints: [
+        "Only the existing W4 capital-action admission consumer may apply this effect."
+      ],
       known_limits: ["Bounded public projection."],
       source_classification: "OFFICIAL_CONSUMER_ELIGIBLE",
       official_delta: "WHITELISTED_ONLY",

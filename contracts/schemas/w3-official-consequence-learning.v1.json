@@ -349,7 +349,15 @@
     "operatingWorldEffect": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["family", "key", "classification", "input_bucket", "consumer", "outcome_field", "effect_direction"],
+      "required": [
+        "family",
+        "key",
+        "classification",
+        "input_bucket",
+        "consumer",
+        "outcome_field",
+        "effect_direction"
+      ],
       "properties": {
         "family": { "const": "SH-17" },
         "key": { "const": "capital_cost" },

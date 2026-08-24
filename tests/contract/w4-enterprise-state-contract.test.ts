@@ -86,9 +86,7 @@ describe("W4 Enterprise State contract", () => {
       known_limits: ["non-official"]
     };
     expect(validate(valid)).toBe(true);
-    expect(
-      validate({ ...valid, official_state_writes: true })
-    ).toBe(false);
+    expect(validate({ ...valid, official_state_writes: true })).toBe(false);
 
     const openapi = readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8");
     expect(openapi).toContain("/api/v1/bff/teacher/w4/runs/{runId}/matched-arena:");
@@ -96,6 +94,8 @@ describe("W4 Enterprise State contract", () => {
     expect(openapi).toContain("#/components/schemas/W4CounterfactualEnvelope");
     expect(openapi).toContain("#/components/schemas/W4SettlementEnvelope");
     expect(openapi).toContain("W4ReplayInputManifest:");
-    expect(openapi).toContain("operating_world_binding_digest: { type: string, pattern: \"^[a-f0-9]{64}$\" }");
+    expect(openapi).toContain(
+      'operating_world_binding_digest: { type: string, pattern: "^[a-f0-9]{64}$" }'
+    );
   });
 });

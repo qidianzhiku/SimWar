@@ -10,7 +10,12 @@ import type {
   W4StateRef
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
-import { createP1Store, DEFAULT_TENANT_ID, OTHER_TENANT_ID, type SimWarStore } from "../../services/api/src/store";
+import {
+  createP1Store,
+  DEFAULT_TENANT_ID,
+  OTHER_TENANT_ID,
+  type SimWarStore
+} from "../../services/api/src/store";
 
 const tenantId = DEFAULT_TENANT_ID;
 const courseId = "course_demo";

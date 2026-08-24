@@ -588,15 +588,14 @@ export class W3OfficialConsequenceLearningService {
         settlement.replay_hash
       )
     } as W3OfficialConsequenceRecord["source"];
-    const operatingWorldConsequence =
-      await this.dependencies.operatingWorldConsequence?.getTrace({
-        actor,
-        context,
-        decision,
-        settlement,
-        publication,
-        surface
-      });
+    const operatingWorldConsequence = await this.dependencies.operatingWorldConsequence?.getTrace({
+      actor,
+      context,
+      decision,
+      settlement,
+      publication,
+      surface
+    });
     const record: W3OfficialConsequenceRecord = {
       causal_debrief: {
         label: "model_conditioned_association",

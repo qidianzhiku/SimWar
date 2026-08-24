@@ -814,7 +814,11 @@ export function App() {
         ) : null}
 
         {hasStudentSurface && operatingWorldDraftId ? (
-          <section id="student-operating-world-brief" className="student-location" aria-label="Operating World Brief">
+          <section
+            id="student-operating-world-brief"
+            className="student-location"
+            aria-label="Operating World Brief"
+          >
             <OperatingWorldBrief
               apiBase={API_BASE}
               courseId={latestRun?.course_id}

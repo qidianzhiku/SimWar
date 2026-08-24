@@ -291,18 +291,10 @@ export async function handleOperatingWorldRoute(
           course_id: courseId,
           ...(runId ? { run_id: runId } : {}),
           ...(roundNo !== undefined && Number.isSafeInteger(roundNo) ? { round_no: roundNo } : {}),
-          ...(audit.binding?.binding_digest
-            ? { binding_digest: audit.binding.binding_digest }
-            : {})
+          ...(audit.binding?.binding_digest ? { binding_digest: audit.binding.binding_digest } : {})
         })
       : undefined;
-    send(
-      deps,
-      context,
-      response,
-      200,
-      w4Replay ? { ...audit, w4_replay: w4Replay } : audit
-    );
+    send(deps, context, response, 200, w4Replay ? { ...audit, w4_replay: w4Replay } : audit);
     return true;
   }
 

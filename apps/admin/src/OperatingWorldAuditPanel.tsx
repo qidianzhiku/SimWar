@@ -27,16 +27,13 @@ export function OperatingWorldAuditPanel({
     const query = new URLSearchParams({ courseId, draftId });
     if (runId) query.set("runId", runId);
     if (Number.isSafeInteger(roundNo)) query.set("roundNo", String(roundNo));
-    void fetch(
-      `${apiBase}/api/v1/bff/admin/operating-world/audit?${query.toString()}`,
-      {
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-          "x-tenant-id": tenantId
-        }
+    void fetch(`${apiBase}/api/v1/bff/admin/operating-world/audit?${query.toString()}`, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        "x-tenant-id": tenantId
       }
-    )
+    })
       .then(async (response) => {
         const envelope = (await response.json()) as ApiEnvelope<OperatingWorldAdminAudit>;
         if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);

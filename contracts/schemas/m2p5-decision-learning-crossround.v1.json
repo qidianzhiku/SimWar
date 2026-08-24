@@ -122,10 +122,23 @@
                     }
                   }
                 },
-                "constraints": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/safeText" } },
-                "known_limits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/safeText" } },
+                "constraints": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/safeText" }
+                },
+                "known_limits": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/safeText" }
+                },
                 "source_classification": {
-                  "enum": ["OFFICIAL_CONSUMER_ELIGIBLE", "SHADOW_ONLY", "INFORMATION_ONLY", "BLOCKED"]
+                  "enum": [
+                    "OFFICIAL_CONSUMER_ELIGIBLE",
+                    "SHADOW_ONLY",
+                    "INFORMATION_ONLY",
+                    "BLOCKED"
+                  ]
                 },
                 "official_delta": { "enum": ["NONE", "WHITELISTED_ONLY"] },
                 "writes_official_state": { "const": false },

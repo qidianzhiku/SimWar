@@ -192,7 +192,8 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
                 <p className="muted">该输入没有产生官方 W4 或 Settlement 变化。</p>
               )}
               <small>
-                写入官方状态：{String(record.operating_world_consequence_trace.writes_official_state)} · AI：
+                写入官方状态：
+                {String(record.operating_world_consequence_trace.writes_official_state)} · AI：
                 {String(record.operating_world_consequence_trace.ai_generated)}
               </small>
             </article>

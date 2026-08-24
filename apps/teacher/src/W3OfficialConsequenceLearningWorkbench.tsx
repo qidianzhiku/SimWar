@@ -186,7 +186,10 @@ export function W3OfficialConsequenceLearningWorkbench(props: Props) {
             </small>
           </div>
           {record.operating_world_consequence_trace ? (
-            <article className="candidate-surface" aria-label="Operating World consequence trace teacher">
+            <article
+              className="candidate-surface"
+              aria-label="Operating World consequence trace teacher"
+            >
               <h3>Operating World → W4 → Replay 后果链</h3>
               <p>
                 分类：{record.operating_world_consequence_trace.source_classification} · Delta：
@@ -194,7 +197,8 @@ export function W3OfficialConsequenceLearningWorkbench(props: Props) {
                 {record.operating_world_consequence_trace.replay_relevant_digest}
               </p>
               <p>
-                W4 action：{record.operating_world_consequence_trace.w4_action_ref ?? "无"} · Replay manifest：
+                W4 action：{record.operating_world_consequence_trace.w4_action_ref ?? "无"} · Replay
+                manifest：
                 {record.operating_world_consequence_trace.w4_replay_manifest_ref ?? "无"}
               </p>
               <ul>

@@ -32,7 +32,13 @@ const response = {
     operating_world_consequence_trace: {
       schema_version: "operating-world-consequence-trace.v1",
       trace_id: "operating_world_trace_teacher_1",
-      scope: { tenant_id: "tenant-001", course_id: "course-001", run_id: "run-001", round_no: 3, team_id: "team-001" },
+      scope: {
+        tenant_id: "tenant-001",
+        course_id: "course-001",
+        run_id: "run-001",
+        round_no: 3,
+        team_id: "team-001"
+      },
       operating_world_binding_digest: "c".repeat(64),
       canonical_decision_ref: "decision-001",
       w4_action_ref: "capital-action-001",

@@ -366,10 +366,7 @@ export function StudentDecisionLearningJourney({
               </div>
             </div>
             {record.operating_world_consequence_trace ? (
-              <div
-                className="p2b-known-limit"
-                data-testid="student-p2b-operating-world-trace"
-              >
+              <div className="p2b-known-limit" data-testid="student-p2b-operating-world-trace">
                 Operating World 后果链：{record.operating_world_consequence_trace.official_delta} ·
                 {record.operating_world_consequence_trace.allowed_effects.length > 0
                   ? record.operating_world_consequence_trace.allowed_effects

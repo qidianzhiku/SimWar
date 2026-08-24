@@ -75,8 +75,8 @@ describe("SH-M3 W5 R3 control-plane reconciliation", () => {
     expect(projectOperatingWorldConsequenceTrace(trace, "student")).not.toHaveProperty(
       "w4_replay_manifest_ref"
     );
-    expect(readFileSync(resolve(root, "services/api/src/operating-world-service.ts"), "utf8")).toContain(
-      "class OperatingWorldService"
-    );
+    expect(
+      readFileSync(resolve(root, "services/api/src/operating-world-service.ts"), "utf8")
+    ).toContain("class OperatingWorldService");
   });
 });

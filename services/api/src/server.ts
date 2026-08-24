@@ -5747,13 +5747,7 @@ async function routeRequest(
             }
           : null;
       },
-      getW4ReplayAudit: async ({
-        tenant_id,
-        course_id,
-        run_id,
-        round_no,
-        binding_digest
-      }) => {
+      getW4ReplayAudit: async ({ tenant_id, course_id, run_id, round_no, binding_digest }) => {
         if (!run_id || !Number.isSafeInteger(round_no) || !binding_digest) {
           return { status: "NOT_PROVEN" as const };
         }
@@ -5768,7 +5762,9 @@ async function routeRequest(
               outcome.replay_input_manifest.operating_world_binding_digest === binding_digest
           );
         if (outcomes.length !== 1) {
-          return { status: outcomes.length === 0 ? ("NOT_FOUND" as const) : ("NOT_PROVEN" as const) };
+          return {
+            status: outcomes.length === 0 ? ("NOT_FOUND" as const) : ("NOT_PROVEN" as const)
+          };
         }
         const outcome = outcomes[0];
         if (!outcome) return { status: "NOT_PROVEN" as const };
