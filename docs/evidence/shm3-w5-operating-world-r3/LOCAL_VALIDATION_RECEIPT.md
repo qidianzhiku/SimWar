@@ -8,7 +8,7 @@ This receipt records the local evidence for the R3 candidate. It does not author
 
 - Worktree: `D:\codex\worktrees\simwar-shm3-w5-operating-world-r3-20260823`
 - Branch: `codex/simwar-shm3-w5-operating-world-r3-20260823`
-- Verified source head before this documentation-only receipt commit: `81606653c1092d811e474acec08924a4aa3698b8`
+- Verified source head before this documentation-only receipt update: `0ec35a65c3b5a57433d923ab4d20232ad7cd6da8`
 - Prior R3 implementation commit: `066bc0fd2a17d5457244c3ef6242fc93be26efd2`
 - R2 candidate baseline carried forward: `5e378cb6707ba033e5d9e0552b3a2c53287f6dc2`
 - Original primary objective: `SimWar_SHM3_W5_OperatingWorld_Consequence_Replay_R3_Codex产品级宏任务提示词_V1.0_20260823.docx`
@@ -41,6 +41,7 @@ This receipt records the local evidence for the R3 candidate. It does not author
 | `npm run check:hidden-unicode` | passed; no hidden Unicode control characters |
 | `npm run check:direct-store-boundaries` | passed; new unapproved runtime direct store access `0`, stale/broad/duplicate/unsupported `0` |
 | `npm run security:audit` | exit `0` at `--audit-level=critical`; report contains 9 existing vulnerabilities (2 low, 7 high) |
+| `$env:SIMWAR_PLAYWRIGHT_API_PORT='38100'; $env:SIMWAR_PLAYWRIGHT_ADMIN_PORT='38103'; $env:SIMWAR_PLAYWRIGHT_TEACHER_PORT='38101'; $env:SIMWAR_PLAYWRIGHT_STUDENT_PORT='38102'; npx playwright test tests/e2e-ui/operating-world.spec.ts --project=chromium` | 1 test passed; real API/Admin/Teacher/Student web servers, no mocked target routes; 50.3 seconds |
 | `git diff --cached --check` before commit | passed after removing evidence-file EOF whitespace |
 
 The real HTTP evidence includes exact Operating World bind → W4 capital action → W4 settle → replay manifest digest, real W3 Student/Teacher BFF trace projection, Admin replay audit, mismatch fail-closed behavior, cross-tenant denial, and SettlementResult non-mutation.
@@ -49,7 +50,7 @@ The real HTTP evidence includes exact Operating World bind → W4 capital action
 
 - The full `npm test -- --reporter=dot` aggregate was not green: 255 files passed and 5 files failed; 1499 tests passed and 11 failed. The failures were in `tests/integration/shared-contracts-built-esm-startup.test.ts`, three `tests/unit/pr4-visual-baseline-capture.test.ts` cases, three `tests/unit/store-snapshot-persistence.test.ts` cases, `tests/unit/ui-pr4-integration.test.tsx`, and `tests/unit/ui-teacher-refoundation.test.tsx`, involving 5000 ms timeouts or child-process `status=null`. No R3-focused test failed.
 - `npm run format:check` was not green: Prettier reported 114 files, including pre-existing repository files and R3-touched files. No full-repository formatting rewrite was performed.
-- Dedicated real-BFF Playwright execution was not run because the bounded local verification did not start the dedicated API/Teacher/Student/Admin fixture servers. The e2e test changes are structural and remain browser-runtime `NOT_PROVEN`.
+- The default Playwright port `127.0.0.1:3100` was not usable in this Windows session (`listen EACCES`); the same real-BFF test was rerun on isolated high ports and passed. The default-port failure is retained as an environment note, not as a product failure.
 - CodeGraph was not available in the isolated R3 worktree; no stale graph result is used as current source evidence.
 - Real local Shanghai data provenance, PostgreSQL runtime, Pilot, Production, Provider/model activation, and Human Validation are outside this candidate and remain unproven.
 

@@ -138,7 +138,7 @@
 - [x] **Step 1: Add failing integration cases** for M1–M7 metamorphic properties and cross-scope/recovery matrix.
 - [x] **Step 2: Run the failing cases** and capture the first failure fingerprint.
 - [x] **Step 3: Implement only missing fail-closed guards or deterministic projection joins.**
-- [ ] **Step 4: Run focused integration tests and real-BFF Playwright** with no mocked target routes. Playwright execution remains `NOT_PROVEN` because the bounded local run did not start the dedicated UI/API fixture servers.
+- [x] **Step 4: Run focused integration tests and real-BFF Playwright** with no mocked target routes. The real-BFF Playwright test passed 1/1 on isolated high ports (`38100` API, `38101` Teacher, `38102` Student, `38103` Admin); default `3100` was unavailable with Windows `listen EACCES`.
 
 ### Task 6: Local verification, review, and bounded handoff
 
@@ -154,6 +154,6 @@
 
 - [x] **Step 1: Run focused tests, contract gate, typecheck, lint, build, hidden-unicode, direct-store boundary, and applicable full local suite once.**
 - [x] **Step 2: Run exact-head local review and inspect `git diff --check`, status, and changed-file allowlist.**
-- [ ] **Step 3: Run the verification-before-completion checklist and request a read-only code review when callable.**
-- [ ] **Step 4: Create one explicit-scope local Conventional Commit only after all local gates pass.** The local suite has known baseline failures and format warnings, so this remains a bounded local candidate commit rather than a clean aggregate gate.
+- [x] **Step 3: Run the verification-before-completion checklist and request a read-only code review when callable.** The checklist and internal exact-head/diff review were completed; an external PR review was not callable without an authorized remote PR.
+- [x] **Step 4: Create explicit-scope local Conventional Commits after implementation and evidence review.** The implementation and evidence are in explicit-scope local Conventional Commits; the local suite has known baseline failures and format warnings, so this remains a bounded local candidate rather than a clean aggregate gate.
 - [x] **Step 5: Record remote Product PR/required checks/merge/post-merge as `NOT_AUTHORIZED` unless the current user message supplies the required Owner Envelope; do not invent a successor task.**
