@@ -78,7 +78,6 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
-import { OperatingWorldStudio } from "./OperatingWorldStudio";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -107,6 +106,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
+const OperatingWorldStudio = lazy(() =>
+  import("./OperatingWorldStudio").then(({ OperatingWorldStudio: Component }) => ({
+    default: Component
+  }))
+);
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -2196,14 +2200,16 @@ export function App() {
           />
         ) : null}
         {isTeacher && session ? (
-          <OperatingWorldStudio
-            apiBase={API_BASE}
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            roundNo={selectedRound?.round_no}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入 Operating World…</p>}>
+            <OperatingWorldStudio
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              roundNo={selectedRound?.round_no}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </section>
 
