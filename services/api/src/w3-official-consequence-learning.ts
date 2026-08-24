@@ -21,6 +21,7 @@ import {
   type W3OfficialConsequenceContext,
   type W3OfficialConsequenceRecord,
   type W3OfficialConsequenceResponse,
+  type OperatingWorldConsequenceTrace,
   type W3ReflectionCommandInput,
   type W3ReflectionProjection
 } from "@simwar/shared-contracts";
@@ -116,6 +117,17 @@ export interface W3IdGenerator {
 
 export type W3RoundContext = W3OfficialConsequenceContext;
 
+export interface W3OperatingWorldConsequenceProvider {
+  getTrace(input: {
+    readonly actor: W3Actor;
+    readonly context: W3RoundContext;
+    readonly decision: Decision;
+    readonly settlement: SettlementResult;
+    readonly publication: W3OfficialConsequenceRecord["publication"];
+    readonly surface: W3Surface;
+  }): Promise<OperatingWorldConsequenceTrace | undefined>;
+}
+
 interface RunLike {
   readonly course_id: string;
   readonly parameter_set_id: string;
@@ -180,6 +192,7 @@ export class W3OfficialConsequenceLearningService {
       readonly evidence: W3EvidenceRepository;
       readonly idGenerator: W3IdGenerator;
       readonly now?: () => string;
+      readonly operatingWorldConsequence?: W3OperatingWorldConsequenceProvider;
       readonly reports: W3ReportProjection;
       readonly repository: W3Repository;
     }
@@ -556,6 +569,34 @@ export class W3OfficialConsequenceLearningService {
     );
     const publicationStatus = round.status === "published" ? "PUBLISHED" : "SETTLED_UNPUBLISHED";
     const publishedAt = publicationTimestamp(publicationAudits);
+    const publication = {
+      ...(round.status === "published" && publishedAt ? { published_at: publishedAt } : {}),
+      status: publicationStatus
+    } as W3OfficialConsequenceRecord["publication"];
+    const source = {
+      canonical_decision_ref: exactRef(
+        "canonical_decision",
+        decision.decision_id,
+        actor.tenant_id,
+        hash(decision)
+      ),
+      round_ref: exactRef("round", round.round_id, actor.tenant_id, hash(round)),
+      settlement_ref: exactRef(
+        "settlement_result",
+        settlement.settlement_result_id,
+        actor.tenant_id,
+        settlement.replay_hash
+      )
+    } as W3OfficialConsequenceRecord["source"];
+    const operatingWorldConsequence =
+      await this.dependencies.operatingWorldConsequence?.getTrace({
+        actor,
+        context,
+        decision,
+        settlement,
+        publication,
+        surface
+      });
     const record: W3OfficialConsequenceRecord = {
       causal_debrief: {
         label: "model_conditioned_association",
@@ -587,6 +628,9 @@ export class W3OfficialConsequenceLearningService {
               ? "DRAFT"
               : "MISSING"
       },
+      ...(operatingWorldConsequence
+        ? { operating_world_consequence: operatingWorldConsequence }
+        : {}),
       ...(hypothesis ? { next_round_hypothesis: hypothesis } : {}),
       official_result: {
         outcome_label:
@@ -596,29 +640,12 @@ export class W3OfficialConsequenceLearningService {
         score: teamResult.state_obs.score,
         team_id: teamResult.team_id
       },
-      publication: {
-        ...(round.status === "published" && publishedAt ? { published_at: publishedAt } : {}),
-        status: publicationStatus
-      },
+      publication,
       ...(reflection ? { reflection } : {}),
       record_id: recordId(context),
       runtime_authority: "JSON_INTERNAL_ONLY",
       schema_version: "w3-official-consequence-learning.v1",
-      source: {
-        canonical_decision_ref: exactRef(
-          "canonical_decision",
-          decision.decision_id,
-          actor.tenant_id,
-          hash(decision)
-        ),
-        round_ref: exactRef("round", round.round_id, actor.tenant_id, hash(round)),
-        settlement_ref: exactRef(
-          "settlement_result",
-          settlement.settlement_result_id,
-          actor.tenant_id,
-          settlement.replay_hash
-        )
-      }
+      source
     };
     if (!isW3OfficialConsequenceRecord(record)) {
       throw new W3OfficialConsequenceLearningError("W3_OUTPUT_INVALID");

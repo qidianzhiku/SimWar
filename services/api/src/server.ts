@@ -156,6 +156,11 @@ import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
+import {
+  createOperatingWorldConsequenceTrace,
+  projectOperatingWorldConsequenceTrace,
+  resolveOperatingWorldBindingDigest
+} from "./operating-world-consequence-trace.js";
 import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
 import {
   W027DecisionExperienceError,
@@ -664,10 +669,80 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           })()),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
   });
+  const w4EnterpriseStateRepository = createJsonW4Repository(store);
+  const w4EnterpriseStateService = createEnterpriseStateStrategicEvolutionService(
+    w4EnterpriseStateRepository
+  );
   const w3OfficialConsequence = new W3OfficialConsequenceLearningService({
     confirmations: teacherConfirmations,
     evidence: repositoryProvider.ports.evidenceProvenance,
     idGenerator: repositoryProvider.idGenerator,
+    operatingWorldConsequence: {
+      getTrace: async ({ context, decision, settlement, publication, surface }) => {
+        const snapshot = w4EnterpriseStateRepository.snapshot();
+        const action = snapshot.capitalActions.find(
+          (candidate) =>
+            candidate.tenant_id === context.tenant_id &&
+            candidate.course_id === context.course_id &&
+            candidate.run_id === context.run_id &&
+            candidate.team_id === context.team_id &&
+            candidate.created_round_no === context.round_no &&
+            candidate.decision_id === decision.decision_id &&
+            resolveOperatingWorldBindingDigest(candidate.cost_source) !== undefined
+        );
+        const outcome = snapshot.outcomes.find(
+          (candidate) =>
+            candidate.tenant_id === context.tenant_id &&
+            candidate.course_id === context.course_id &&
+            candidate.run_id === context.run_id &&
+            candidate.team_id === context.team_id &&
+            candidate.round_id === context.round_id &&
+            candidate.round_no === context.round_no
+        );
+        const manifest = outcome?.replay_input_manifest;
+        const bindingDigest = resolveOperatingWorldBindingDigest(action?.cost_source);
+        if (
+          !action ||
+          !manifest ||
+          !bindingDigest ||
+          manifest.operating_world_binding_digest !== bindingDigest
+        ) {
+          return undefined;
+        }
+        const trace = createOperatingWorldConsequenceTrace({
+          scope: {
+            tenant_id: context.tenant_id,
+            course_id: context.course_id,
+            run_id: context.run_id,
+            round_no: context.round_no,
+            team_id: context.team_id
+          },
+          operating_world_binding_digest: bindingDigest,
+          canonical_decision_ref: decision.decision_id,
+          settlement_result_ref: {
+            content_digest: settlement.replay_hash,
+            discriminator: "exact_ref",
+            resource_id: settlement.settlement_result_id,
+            resource_type: "settlement_result",
+            tenant_id: context.tenant_id,
+            version: "1.0.0"
+          },
+          replay_relevant_digest: settlement.replay_hash,
+          publication,
+          source_classification: "OFFICIAL_CONSUMER_ELIGIBLE",
+          w4_action: {
+            capital_action_id: action.capital_action_id,
+            cost_source: action.cost_source,
+            rate_or_cost_bps: action.rate_or_cost_bps
+          },
+          w4_replay_manifest: {
+            manifest_id: manifest.manifest_id,
+            operating_world_binding_digest: manifest.operating_world_binding_digest
+          }
+        });
+        return projectOperatingWorldConsequenceTrace(trace, surface);
+      }
+    },
     reports: studentLearningReports,
     repository: repositoryProvider.facade
   });
@@ -704,10 +779,6 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const operatingWorld = new OperatingWorldService(
     undefined,
     createJsonOperatingWorldPersistence(store)
-  );
-  const w4EnterpriseStateRepository = createJsonW4Repository(store);
-  const w4EnterpriseStateService = createEnterpriseStateStrategicEvolutionService(
-    w4EnterpriseStateRepository
   );
   const m2p5DecisionLearning = new M2P5DecisionLearningCrossRoundService({
     getExactRound: (tenantId, runId, roundNo) =>
@@ -6419,6 +6490,26 @@ async function routeRequest(
           });
           const runtimeInputs = await resolveRunRuntimeInputs(runtime, scope.tenant_id, run);
           if (!runtimeInputs) throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
+          const operatingWorldBindingDigests = [
+            ...new Set(
+              runtime.w4EnterpriseStateRepository
+                .snapshot()
+                .capitalActions.filter(
+                  (action) =>
+                    action.tenant_id === scope.tenant_id &&
+                    action.course_id === scope.course_id &&
+                    action.run_id === scope.run_id &&
+                    action.team_id === scope.team_id &&
+                    action.created_round_no === scope.round_no &&
+                    decisionIds.includes(action.decision_id)
+                )
+                .map((action) => resolveOperatingWorldBindingDigest(action.cost_source))
+                .filter((digest): digest is string => digest !== undefined)
+            )
+          ];
+          if (operatingWorldBindingDigests.length > 1) {
+            throw new W4EnterpriseStateError("W4_REPLAY_MANIFEST_INVALID");
+          }
           return {
             manifest_id: `manifest_${scope.run_id}_${scope.team_id}_${scope.round_no}`,
             tenant_id: scope.tenant_id,
@@ -6435,7 +6526,10 @@ async function routeRequest(
               runtimeInputs.formalRuntimeBinding?.binding.engine_reference.engine_id ??
               "toy_logit_wellness_v1",
             plugin_ids: [...runtimeInputs.scenario.plugin_package_ids],
-            seed: runtimeInputs.formalRuntimeBinding?.binding.seed ?? run.seed
+            seed: runtimeInputs.formalRuntimeBinding?.binding.seed ?? run.seed,
+            ...(operatingWorldBindingDigests[0]
+              ? { operating_world_binding_digest: operatingWorldBindingDigests[0] }
+              : {})
           };
         }
       }

@@ -395,6 +395,8 @@ export interface W4ReplayInputManifest {
   engine_id: string;
   plugin_ids: string[];
   seed: number;
+  /** Optional exact Operating World binding carried by the existing W4 replay manifest. */
+  operating_world_binding_digest?: string;
   project_portfolio_digest?: string;
   project_portfolio_entry_ids?: string[];
   project_portfolio_snapshot?: W4ProjectPortfolioEntry[];

@@ -1,3 +1,8 @@
+import {
+  isOperatingWorldConsequenceTrace,
+  type OperatingWorldConsequenceTrace
+} from "./operating-world-consequence-trace.js";
+
 export const W3_OFFICIAL_CONSEQUENCE_SCHEMA_VERSION =
   "w3-official-consequence-learning.v1" as const;
 
@@ -125,6 +130,7 @@ export interface W3OfficialConsequenceRecord {
   readonly evidence_selection?: W3EvidenceSelectionProjection;
   readonly known_limits: readonly string[];
   readonly learning: W3LearningProjection;
+  readonly operating_world_consequence?: OperatingWorldConsequenceTrace;
   readonly next_round_hypothesis?: W3NextRoundHypothesis;
   readonly official_result: W3OfficialResultProjection;
   readonly publication: {
@@ -219,6 +225,7 @@ export function isW3OfficialConsequenceRecord(
     "evidence_selection",
     "known_limits",
     "learning",
+    "operating_world_consequence",
     "next_round_hypothesis",
     "official_result",
     "publication",
@@ -246,6 +253,11 @@ export function isW3OfficialConsequenceRecord(
     return false;
   }
   if (value.counterfactual !== undefined && !isCounterfactual(value.counterfactual)) return false;
+  if (
+    value.operating_world_consequence !== undefined &&
+    !isOperatingWorldConsequenceTrace(value.operating_world_consequence)
+  )
+    return false;
   if (value.reflection !== undefined && !isReflection(value.reflection)) return false;
   if (value.evidence_selection !== undefined && !isEvidenceSelection(value.evidence_selection))
     return false;
