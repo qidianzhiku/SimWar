@@ -45,8 +45,28 @@ import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
+import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const OPERATING_WORLD_DRAFT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("operatingWorldDraftId") ?? "");
+const OPERATING_WORLD_COURSE_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("courseId") ?? "");
+const OPERATING_WORLD_RUN_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("runId") ?? "");
+const OPERATING_WORLD_ROUND_NO =
+  typeof window === "undefined"
+    ? undefined
+    : (() => {
+        const value = new URLSearchParams(window.location.search).get("roundNo");
+        return value ? Number(value) : undefined;
+      })();
 type LoginForm = {
   tenantId: string;
   username: string;
@@ -1069,6 +1089,20 @@ export function App() {
         {session && hasAdminSummaryRole ? (
           <MarketWorldAuditPanel
             apiBase={API_BASE}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session && hasAdminSummaryRole && OPERATING_WORLD_DRAFT_ID ? (
+          <OperatingWorldAuditPanel
+            apiBase={API_BASE}
+            courseId={OPERATING_WORLD_COURSE_ID}
+            draftId={OPERATING_WORLD_DRAFT_ID}
+            {...(OPERATING_WORLD_RUN_ID ? { runId: OPERATING_WORLD_RUN_ID } : {})}
+            {...(OPERATING_WORLD_ROUND_NO !== undefined &&
+            Number.isSafeInteger(OPERATING_WORLD_ROUND_NO)
+              ? { roundNo: OPERATING_WORLD_ROUND_NO }
+              : {})}
             tenantId={login.tenantId}
             token={session.access_token}
           />

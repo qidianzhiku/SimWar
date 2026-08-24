@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { Decision, Round, Run, Team } from "@simwar/shared-contracts";
 import type { SettlementEngineOutput } from "../../services/simulation-core/src/types";
 import { describe, expect, it } from "vitest";
@@ -140,5 +142,15 @@ describe("R7-B scenario lifecycle compatibility with Golden M1 and replay bounda
     expect(JSON.stringify(officialResult)).toBe(before);
     expect(JSON.stringify(evidence.public_view)).not.toContain("state_true");
     expect(JSON.stringify(evidence.public_view)).not.toContain("private_replay");
+  });
+
+  it("keeps the Operating World consequence trace outside the Golden M1 replay writer", () => {
+    const traceSource = readFileSync(
+      resolve("services/api/src/operating-world-consequence-trace.ts"),
+      "utf8"
+    );
+    expect(traceSource).toContain("projection");
+    expect(traceSource).not.toContain("buildReplayHash(");
+    expect(traceSource).not.toContain("SettlementResult");
   });
 });

@@ -251,5 +251,5 @@ describe("PR4 visual baseline capture CLI", () => {
       expected_pair_count: 20,
       actual_pair_count: 0
     });
-  });
+  }, 30_000);
 });

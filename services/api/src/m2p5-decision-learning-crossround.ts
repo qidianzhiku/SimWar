@@ -5,6 +5,7 @@ import type {
   M2P5NextRoundProjection,
   M2P5ProjectContextProjection,
   M2P5DecisionLearningSurface,
+  OperatingWorldConsequenceTrace,
   Round,
   StudentLearningReport,
   W3OfficialConsequenceContext,
@@ -18,6 +19,7 @@ const KNOWN_LIMITS = [
   "M2-P5 is a read-only composition of existing W3, D3, D4, W4, Project, and Round authorities.",
   "Learning, counterfactual, and project projections never write canonical Decision, Settlement, EnterpriseState, or official Round truth.",
   "Counterfactuals remain non-official, exact-context, one-change evidence only.",
+  "Operating World consequence traces are inherited from W3 as read-only projections; M2-P5 never creates or writes them.",
   "JSON_INTERNAL_ONLY is the active runtime authority; durable recovery and Human Validation are not proven.",
   "PostgreSQL, Pilot, Production, provider/model activation, and W6 are outside this mission."
 ] as const;
@@ -108,6 +110,24 @@ function assertContext(context: M2P5DecisionLearningContext): void {
     !identity(context.tenant_id)
   ) {
     throw new M2P5DecisionLearningError("M2P5_CONTEXT_INVALID");
+  }
+}
+
+function assertInheritedOperatingWorldTrace(
+  trace: OperatingWorldConsequenceTrace | undefined,
+  context: M2P5DecisionLearningContext
+): void {
+  if (!trace) return;
+  if (
+    trace.scope.tenant_id !== context.tenant_id ||
+    trace.scope.course_id !== context.course_id ||
+    trace.scope.run_id !== context.run_id ||
+    trace.scope.round_no !== context.round_no ||
+    trace.scope.team_id !== context.team_id ||
+    trace.writes_official_state !== false ||
+    trace.ai_generated !== false
+  ) {
+    throw new M2P5DecisionLearningError("M2P5_OUTPUT_INVALID");
   }
 }
 
@@ -290,6 +310,10 @@ export class M2P5DecisionLearningCrossRoundService {
       input.actor,
       input.context,
       input.surface
+    );
+    assertInheritedOperatingWorldTrace(
+      official.record.operating_world_consequence_trace,
+      input.context
     );
     if (official.record.publication.status !== "PUBLISHED") {
       throw new M2P5DecisionLearningError("M2P5_OFFICIAL_RESULT_NOT_PUBLISHED");

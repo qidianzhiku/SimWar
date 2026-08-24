@@ -365,6 +365,18 @@ export function StudentDecisionLearningJourney({
                 <p>解释保持为 model-conditioned association。</p>
               </div>
             </div>
+            {record.operating_world_consequence_trace ? (
+              <div className="p2b-known-limit" data-testid="student-p2b-operating-world-trace">
+                Operating World 后果链：{record.operating_world_consequence_trace.official_delta} ·
+                {record.operating_world_consequence_trace.allowed_effects.length > 0
+                  ? record.operating_world_consequence_trace.allowed_effects
+                      .map((effect) => `${effect.family}/${effect.key} ${effect.effect_direction}`)
+                      .join("；")
+                  : "未产生官方 W4 变化"}
+                <br />
+                该链路来自确定性系统事实，不是 AI 因果证明，也不写入官方状态。
+              </div>
+            ) : null}
           </article>
 
           <article className="p2b-stage" data-testid="student-p2b-what_if">
@@ -471,6 +483,11 @@ export function StudentDecisionLearningJourney({
               </strong>
               <span>{record.next_round_hypothesis?.basis ?? "当前学习报告尚未生成"}</span>
             </div>
+            {record.operating_world_consequence_trace ? (
+              <div className="p2b-known-limit" data-testid="student-p2b-transfer-trace">
+                下一轮验证线索：{record.operating_world_consequence_trace.constraints.join("；")}
+              </div>
+            ) : null}
             {crossRound.phase === "ready" ? (
               <div className="p2b-cross-round-card" data-testid="student-m2p5-cross-round">
                 <span className="p2b-stage-kicker">M2-P5 · CROSS-ROUND ENTRY</span>

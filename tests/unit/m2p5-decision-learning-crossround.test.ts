@@ -62,6 +62,30 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
         },
         teacher_confirmation_status: "CONFIRMED" as const
       },
+      operating_world_consequence_trace: {
+        schema_version: "operating-world-consequence-trace.v1",
+        trace_id: "operating_world_trace_m2p5",
+        scope: {
+          tenant_id: context.tenant_id,
+          course_id: context.course_id,
+          run_id: context.run_id,
+          round_no: context.round_no,
+          team_id: context.team_id
+        },
+        operating_world_binding_digest: "a".repeat(64),
+        canonical_decision_ref: "decision_m2p5",
+        settlement_result_ref: "settlement_m2p5",
+        replay_relevant_digest: "e".repeat(64),
+        publication: { status: "PUBLISHED" as const },
+        allowed_effects: [],
+        constraints: ["bounded"],
+        known_limits: ["projection only"],
+        source_classification: "SHADOW_ONLY" as const,
+        official_delta: "NONE" as const,
+        writes_official_state: false as const,
+        causal_authority: "DETERMINISTIC_SYSTEM_FACTS" as const,
+        ai_generated: false as const
+      },
       next_round_hypothesis: {
         basis: "confirmed",
         hypothesis: "test one bounded change",
@@ -185,6 +209,9 @@ describe("M2-P5 decision learning cross-round composition", () => {
     expect(result.learning.gate).toBe("READY");
     expect(result.project_context.status).toBe("RESOLVED");
     expect(result.cross_round.status).toBe("ENTRY_READY");
+    expect(result.official_consequence.record.operating_world_consequence_trace?.trace_id).toBe(
+      "operating_world_trace_m2p5"
+    );
     expect(result.cross_round.next_round?.source_closing_state_ref).toEqual(
       result.cross_round.predecessor_closing_state_ref
     );

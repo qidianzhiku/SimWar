@@ -72,6 +72,42 @@ const response = {
       next_round_hypothesis_status: "READY",
       teacher_confirmation_status: "CONFIRMED"
     },
+    operating_world_consequence_trace: {
+      schema_version: "operating-world-consequence-trace.v1",
+      trace_id: "operating_world_trace_run_3_team_1",
+      scope: {
+        tenant_id: context.tenant_id,
+        course_id: context.course_id,
+        run_id: context.run_id,
+        round_no: context.round_no,
+        team_id: context.team_id
+      },
+      operating_world_binding_digest: "c".repeat(64),
+      canonical_decision_ref: "decision-001",
+      settlement_result_ref: "settlement-001",
+      replay_relevant_digest: "d".repeat(64),
+      publication: { status: "PUBLISHED" },
+      allowed_effects: [
+        {
+          family: "SH-17",
+          key: "capital_cost",
+          classification: "OFFICIAL_CONSUMER_ELIGIBLE",
+          input_bucket: "0.25-0.50",
+          consumer: "W4_CAPITAL_ACTION_OR_NEW_PROJECT_ADMISSION",
+          outcome_field: "rate_or_cost_bps",
+          effect_direction: "constrains"
+        }
+      ],
+      constraints: [
+        "Only the existing W4 capital-action admission consumer may apply this effect."
+      ],
+      known_limits: ["Bounded public projection."],
+      source_classification: "OFFICIAL_CONSUMER_ELIGIBLE",
+      official_delta: "WHITELISTED_ONLY",
+      writes_official_state: false,
+      causal_authority: "DETERMINISTIC_SYSTEM_FACTS",
+      ai_generated: false
+    },
     known_limits: ["机制解释不是因果证明"],
     source: {} as never,
     context,
@@ -154,6 +190,8 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(host.textContent).toContain("如果当时只改一项");
     expect(host.textContent).toContain("我的经营复盘");
     expect(host.textContent).toContain("下一轮假设");
+    expect(host.querySelector('[data-testid="student-p2b-operating-world-trace"]')).not.toBeNull();
+    expect(host.textContent).toContain("Operating World 后果链：WHITELISTED_ONLY");
     expect(host.querySelector('[data-testid="student-p2b-result-story-cta"]')).not.toBeNull();
     expect(host.textContent).not.toContain("private peer drafts");
     expect(fetchSpy).toHaveBeenCalledTimes(1);

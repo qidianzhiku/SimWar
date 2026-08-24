@@ -251,10 +251,24 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/courses/{courseId}/project-library",
   "/api/v1/bff/teacher/courses/{courseId}/project-library/{operation}",
   "/api/v1/bff/student/project-brief",
-  "/api/v1/bff/admin/project-library"
+  "/api/v1/bff/admin/project-library",
+  "/api/v1/bff/teacher/operating-world/studio",
+  "/api/v1/bff/teacher/operating-world/drafts",
+  "/api/v1/bff/teacher/operating-world/drafts/{draftId}/validate",
+  "/api/v1/bff/teacher/operating-world/drafts/{draftId}/preview",
+  "/api/v1/bff/teacher/operating-world/drafts/{draftId}/freeze",
+  "/api/v1/bff/teacher/operating-world/drafts/{draftId}/bind",
+  "/api/v1/bff/teacher/operating-world/drafts/{draftId}/official-consumer",
+  "/api/v1/bff/student/operating-world/brief",
+  "/api/v1/bff/admin/operating-world/audit"
 ];
 
 const schemaCases = [
+  {
+    schema: "contracts/schemas/operating-world.v1.json",
+    valid: ["contracts/fixtures/operating-world-student.valid.json"],
+    invalid: ["contracts/fixtures/operating-world-student-private.invalid.json"]
+  },
   {
     schema: "contracts/schemas/m1-auth-session-envelope.v1.json",
     valid: ["contracts/fixtures/m1-auth-session-envelope.valid.json"],

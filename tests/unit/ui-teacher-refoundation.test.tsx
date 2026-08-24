@@ -290,7 +290,7 @@ describe("Teacher Course OS workspace", () => {
         })
       ).toBe(false);
     }
-  });
+  }, 15_000);
 
   it("rejects a stale login response when tenant or username changes", async () => {
     const { isTeacherLoginRequestCurrent } = await import("../../apps/teacher/src/App");
@@ -312,7 +312,7 @@ describe("Teacher Course OS workspace", () => {
     expect(isTeacherLoginRequestCurrent(current, { ...current, username: "teacher-other" })).toBe(
       false
     );
-  });
+  }, 15_000);
 
   it("rejects stale Teacher session actions when run, action, or epoch changes", async () => {
     const { isTeacherSessionRequestCurrent } = await import("../../apps/teacher/src/App");

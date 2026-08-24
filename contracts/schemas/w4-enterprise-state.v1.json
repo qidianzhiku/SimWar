@@ -114,6 +114,7 @@
         "engine_id": { "type": "string", "minLength": 1 },
         "plugin_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "seed": { "type": "integer", "minimum": 0 },
+        "operating_world_binding_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "project_portfolio_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "project_portfolio_entry_ids": {
           "type": "array",

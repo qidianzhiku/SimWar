@@ -34,6 +34,117 @@
               "type": "object",
               "required": ["status"],
               "properties": { "status": { "const": "PUBLISHED" } }
+            },
+            "operating_world_consequence_trace": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "trace_id",
+                "scope",
+                "operating_world_binding_digest",
+                "canonical_decision_ref",
+                "settlement_result_ref",
+                "replay_relevant_digest",
+                "publication",
+                "allowed_effects",
+                "constraints",
+                "known_limits",
+                "source_classification",
+                "official_delta",
+                "writes_official_state",
+                "causal_authority",
+                "ai_generated"
+              ],
+              "properties": {
+                "schema_version": { "const": "operating-world-consequence-trace.v1" },
+                "trace_id": { "$ref": "#/$defs/identity" },
+                "scope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["tenant_id", "course_id", "run_id", "round_no", "team_id"],
+                  "properties": {
+                    "tenant_id": { "$ref": "#/$defs/identity" },
+                    "course_id": { "$ref": "#/$defs/identity" },
+                    "run_id": { "$ref": "#/$defs/identity" },
+                    "round_no": { "type": "integer", "minimum": 1 },
+                    "team_id": { "$ref": "#/$defs/identity" }
+                  }
+                },
+                "operating_world_binding_digest": { "$ref": "#/$defs/digest" },
+                "canonical_decision_ref": { "$ref": "#/$defs/identity" },
+                "w4_action_ref": { "$ref": "#/$defs/identity" },
+                "w4_replay_manifest_ref": { "$ref": "#/$defs/identity" },
+                "settlement_result_ref": { "$ref": "#/$defs/identity" },
+                "replay_relevant_digest": { "$ref": "#/$defs/digest" },
+                "publication": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["status"],
+                  "properties": {
+                    "status": { "enum": ["SETTLED_UNPUBLISHED", "PUBLISHED"] },
+                    "published_at": { "type": "string" }
+                  }
+                },
+                "allowed_effects": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "family",
+                      "key",
+                      "classification",
+                      "input_bucket",
+                      "consumer",
+                      "outcome_field",
+                      "effect_direction"
+                    ],
+                    "properties": {
+                      "family": { "const": "SH-17" },
+                      "key": { "const": "capital_cost" },
+                      "classification": {
+                        "enum": [
+                          "OFFICIAL_CONSUMER_ELIGIBLE",
+                          "SHADOW_ONLY",
+                          "INFORMATION_ONLY",
+                          "BLOCKED"
+                        ]
+                      },
+                      "input_bucket": {
+                        "enum": ["0.00-0.25", "0.25-0.50", "0.50-0.75", "0.75-1.00", "UNKNOWN"]
+                      },
+                      "consumer": { "const": "W4_CAPITAL_ACTION_OR_NEW_PROJECT_ADMISSION" },
+                      "outcome_field": { "const": "rate_or_cost_bps" },
+                      "effect_direction": {
+                        "enum": ["constrains", "increases", "decreases", "unchanged"]
+                      }
+                    }
+                  }
+                },
+                "constraints": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/safeText" }
+                },
+                "known_limits": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/$defs/safeText" }
+                },
+                "source_classification": {
+                  "enum": [
+                    "OFFICIAL_CONSUMER_ELIGIBLE",
+                    "SHADOW_ONLY",
+                    "INFORMATION_ONLY",
+                    "BLOCKED"
+                  ]
+                },
+                "official_delta": { "enum": ["NONE", "WHITELISTED_ONLY"] },
+                "writes_official_state": { "const": false },
+                "causal_authority": { "const": "DETERMINISTIC_SYSTEM_FACTS" },
+                "ai_generated": { "const": false }
+              }
             }
           }
         }

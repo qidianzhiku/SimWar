@@ -29,6 +29,32 @@ const response = {
       next_round_hypothesis_status: "READY",
       teacher_confirmation_status: "CONFIRMED"
     },
+    operating_world_consequence_trace: {
+      schema_version: "operating-world-consequence-trace.v1",
+      trace_id: "operating_world_trace_teacher_1",
+      scope: {
+        tenant_id: "tenant-001",
+        course_id: "course-001",
+        run_id: "run-001",
+        round_no: 3,
+        team_id: "team-001"
+      },
+      operating_world_binding_digest: "c".repeat(64),
+      canonical_decision_ref: "decision-001",
+      w4_action_ref: "capital-action-001",
+      w4_replay_manifest_ref: "manifest-001",
+      settlement_result_ref: "settlement-001",
+      replay_relevant_digest: "d".repeat(64),
+      publication: { status: "PUBLISHED" },
+      allowed_effects: [],
+      constraints: ["Teacher-safe"],
+      known_limits: ["Bounded"],
+      source_classification: "OFFICIAL_CONSUMER_ELIGIBLE",
+      official_delta: "WHITELISTED_ONLY",
+      writes_official_state: false,
+      causal_authority: "DETERMINISTIC_SYSTEM_FACTS",
+      ai_generated: false
+    },
     known_limits: ["机制解释不是因果证明"],
     source: {} as never,
     context: {} as never,
@@ -82,6 +108,9 @@ describe("P2-B FE-20 teacher debrief", () => {
     expect(markup).toContain('data-testid="teacher-p2b-teachable-show"');
     expect(markup).toContain('data-testid="teacher-p2b-teachable-listen"');
     expect(markup).toContain('data-testid="teacher-p2b-prep-blocker"');
+    expect(markup).toContain('data-testid="teacher-p2b-operating-world-trace"');
+    expect(markup).toContain("capital-action-001");
+    expect(markup).toContain("manifest-001");
     expect(markup).not.toContain(">A<");
     expect(markup).not.toContain(">B<");
     expect(markup).not.toContain("private peer drafts");

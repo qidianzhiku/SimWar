@@ -40,6 +40,9 @@ describe("W3 official consequence and decision learning contract", () => {
     expect(openApi.components?.schemas?.W3OfficialConsequenceEnvelope?.properties?.data?.$ref).toBe(
       "#/components/schemas/W3OfficialConsequenceResponse"
     );
+    expect(openApi.components?.schemas?.OperatingWorldConsequenceTrace?.$ref).toBe(
+      "../schemas/operating-world-consequence-trace.v1.json"
+    );
     expect(
       openApi.components?.schemas?.W3OfficialConsequenceResponse?.properties?.record?.$ref
     ).toBe("../schemas/w3-official-consequence-learning.v1.json");

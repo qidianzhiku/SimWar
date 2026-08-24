@@ -185,6 +185,36 @@ export function W3OfficialConsequenceLearningWorkbench(props: Props) {
               {record.source.round_ref.resource_id} / {record.source.settlement_ref.resource_id}
             </small>
           </div>
+          {record.operating_world_consequence_trace ? (
+            <article
+              className="candidate-surface"
+              aria-label="Operating World consequence trace teacher"
+            >
+              <h3>Operating World → W4 → Replay 后果链</h3>
+              <p>
+                分类：{record.operating_world_consequence_trace.source_classification} · Delta：
+                {record.operating_world_consequence_trace.official_delta} · Settlement digest：
+                {record.operating_world_consequence_trace.replay_relevant_digest}
+              </p>
+              <p>
+                W4 action：{record.operating_world_consequence_trace.w4_action_ref ?? "无"} · Replay
+                manifest：
+                {record.operating_world_consequence_trace.w4_replay_manifest_ref ?? "无"}
+              </p>
+              <ul>
+                {record.operating_world_consequence_trace.allowed_effects.map((effect) => (
+                  <li key={`${effect.family}-${effect.key}`}>
+                    {effect.family}/{effect.key} · {effect.input_bucket} · {effect.outcome_field} ·{" "}
+                    {effect.effect_direction}
+                  </li>
+                ))}
+              </ul>
+              <small>
+                仅由确定性系统事实生成；写入官方状态：
+                {String(record.operating_world_consequence_trace.writes_official_state)}
+              </small>
+            </article>
+          ) : null}
           {record.publication.status === "PUBLISHED" ? (
             <div className="workspace">
               <article className="candidate-surface" aria-label="bounded counterfactual">
