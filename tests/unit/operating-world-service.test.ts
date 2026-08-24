@@ -274,4 +274,82 @@ describe("OperatingWorldService", () => {
       rmSync(directory, { force: true, recursive: true });
     }
   });
+
+  it("fails closed when a scope has more than one bound Operating World draft", () => {
+    const service = new OperatingWorldService({ now: () => "2026-08-23T00:00:00.000Z" });
+    const first = service.createDraft(actor, scope, validInput()).draft;
+    service.validateDraft(actor, scope, first.draft_id);
+    service.freezeDraft(actor, scope, first.draft_id);
+    service.bindDraft(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      first.draft_id,
+      bindInput()
+    );
+
+    const second = service.createDraft(actor, scope, validInput()).draft;
+    service.validateDraft(actor, scope, second.draft_id);
+    service.freezeDraft(actor, scope, second.draft_id);
+    service.bindDraft(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      second.draft_id,
+      bindInput()
+    );
+
+    expect(() =>
+      service.getOfficialConsumerInputForScope(
+        actor,
+        { ...scope, run_id: "run_demo", round_no: 1 },
+        first.draft_id
+      )
+    ).toThrow(new OperatingWorldError("OW_EXACT_BINDING_REQUIRED"));
+  });
+
+  it("restores the in-memory draft when validation, freeze, or bind persistence fails", () => {
+    let failPersistence = false;
+    const service = new OperatingWorldService(
+      { now: () => "2026-08-23T00:00:00.000Z" },
+      {
+        listDrafts: () => [],
+        commitDraft: () => {
+          if (failPersistence) throw new Error("persistence failure");
+        }
+      }
+    );
+    const created = service.createDraft(actor, scope, validInput()).draft;
+
+    failPersistence = true;
+    expect(() => service.validateDraft(actor, scope, created.draft_id)).toThrow(
+      "persistence failure"
+    );
+    expect(service.getDraft(actor, scope, created.draft_id).status).toBe("DRAFT");
+
+    failPersistence = false;
+    service.validateDraft(actor, scope, created.draft_id);
+    failPersistence = true;
+    expect(() => service.freezeDraft(actor, scope, created.draft_id)).toThrow(
+      "persistence failure"
+    );
+    expect(service.getDraft(actor, scope, created.draft_id).status).toBe("VALIDATED");
+
+    failPersistence = false;
+    service.freezeDraft(actor, scope, created.draft_id);
+    failPersistence = true;
+    expect(() =>
+      service.bindDraft(
+        actor,
+        { ...scope, run_id: "run_demo", round_no: 1 },
+        created.draft_id,
+        bindInput()
+      )
+    ).toThrow("persistence failure");
+    const restored = service.getDraft(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      created.draft_id
+    );
+    expect(restored.status).toBe("FROZEN");
+    expect(restored.binding).toBeNull();
+  });
 });

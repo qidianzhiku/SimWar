@@ -438,11 +438,12 @@ export class OperatingWorldService {
     draftId: string
   ): { draft: OperatingWorldDraft } {
     const draft = this.mutableDraft(actor, scope, draftId);
+    const previous = clone(draft);
     if (draft.status !== "DRAFT") throw new OperatingWorldError("OW_INVALID_TRANSITION");
     validateFamilies(draft.families);
     draft.status = "VALIDATED";
     draft.updated_at = this.clock.now();
-    this.commit(draft);
+    this.commitWithRollback(draft, previous);
     return { draft: clone(draft) };
   }
 
@@ -511,10 +512,11 @@ export class OperatingWorldService {
     draftId: string
   ): { draft: OperatingWorldDraft } {
     const draft = this.mutableDraft(actor, scope, draftId);
+    const previous = clone(draft);
     if (draft.status !== "VALIDATED") throw new OperatingWorldError("OW_DRAFT_NOT_VALIDATED");
     draft.status = "FROZEN";
     draft.updated_at = this.clock.now();
-    this.commit(draft);
+    this.commitWithRollback(draft, previous);
     return { draft: clone(draft) };
   }
 
@@ -525,6 +527,7 @@ export class OperatingWorldService {
     input: OperatingWorldBindInput
   ): { draft: OperatingWorldDraft } {
     const draft = this.mutableDraft(actor, scope, draftId);
+    const previous = clone(draft);
     if (draft.status === "BOUND" && draft.binding) {
       if (scope.run_id !== input.run_id || scope.round_no !== input.round_no) {
         throw new OperatingWorldError("OW_BINDING_CONFLICT");
@@ -552,7 +555,7 @@ export class OperatingWorldService {
     draft.model_version_ref = input.model_version_ref;
     draft.status = "BOUND";
     draft.updated_at = this.clock.now();
-    this.commit(draft);
+    this.commitWithRollback(draft, previous);
     return { draft: clone(draft) };
   }
 
@@ -675,6 +678,32 @@ export class OperatingWorldService {
     };
   }
 
+  getOfficialConsumerInputForScope(
+    actor: OperatingWorldServiceActor,
+    scope: OperatingWorldServiceScope,
+    requestedDraftId?: string
+  ): OperatingWorldOfficialConsumerInput {
+    this.assertTeacher(actor);
+    if (!scope.run_id || !Number.isSafeInteger(scope.round_no)) {
+      throw new OperatingWorldError("OW_EXACT_BINDING_REQUIRED");
+    }
+    const matches = [...this.drafts.values()].filter(
+      (draft) =>
+        draft.tenant_id === actor.tenant_id &&
+        draft.course_id === scope.course_id &&
+        draft.status === "BOUND" &&
+        draft.binding?.run_id === scope.run_id &&
+        draft.binding?.round_no === scope.round_no
+    );
+    if (
+      matches.length !== 1 ||
+      (requestedDraftId !== undefined && matches[0]?.draft_id !== requestedDraftId)
+    ) {
+      throw new OperatingWorldError("OW_EXACT_BINDING_REQUIRED");
+    }
+    return this.getOfficialConsumerInput(actor, scope, matches[0]!.draft_id);
+  }
+
   private bindingWithoutDigest(
     actor: OperatingWorldServiceActor,
     draft: OperatingWorldDraft,
@@ -722,6 +751,15 @@ export class OperatingWorldService {
 
   private commit(draft: OperatingWorldDraft): void {
     this.persistence?.commitDraft(clone(draft));
+  }
+
+  private commitWithRollback(draft: OperatingWorldDraft, previous: OperatingWorldDraft): void {
+    try {
+      this.commit(draft);
+    } catch (error) {
+      this.drafts.set(draft.draft_id, previous);
+      throw error;
+    }
   }
 }
 

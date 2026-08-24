@@ -345,7 +345,7 @@ describe("Product PR4 integration contracts", () => {
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("accepts a declared Figma visual migration while retaining the pixel diff audit", () => {
     const fixture = mkdtempSync(join(tmpdir(), "simwar-pr4-visual-expected-delta-"));

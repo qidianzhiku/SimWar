@@ -680,16 +680,20 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     operatingWorldConsequence: {
       getTrace: async ({ context, decision, settlement, publication, surface }) => {
         const snapshot = w4EnterpriseStateRepository.snapshot();
-        const action = snapshot.capitalActions.find(
-          (candidate) =>
+        const action = snapshot.capitalActions.find((candidate) => {
+          const w4Decision = snapshot.decisions.find(
+            (item) => item.decision_id === candidate.decision_id
+          );
+          return (
             candidate.tenant_id === context.tenant_id &&
             candidate.course_id === context.course_id &&
             candidate.run_id === context.run_id &&
             candidate.team_id === context.team_id &&
             candidate.created_round_no === context.round_no &&
-            candidate.decision_id === decision.decision_id &&
+            w4Decision?.admission.canonical_decision_id === decision.decision_id &&
             resolveOperatingWorldBindingDigest(candidate.cost_source) !== undefined
-        );
+          );
+        });
         const outcome = snapshot.outcomes.find(
           (candidate) =>
             candidate.tenant_id === context.tenant_id &&
@@ -6325,8 +6329,14 @@ async function routeRequest(
             project_name: profile.title
           };
         },
-        resolveOperatingWorldConsumer: async (tenantId, draftId, courseId, runId, roundNo) => {
-          return runtime.operatingWorld.getOfficialConsumerInput(
+        resolveOperatingWorldConsumer: async (
+          tenantId,
+          requestedDraftId,
+          courseId,
+          runId,
+          roundNo
+        ) => {
+          return runtime.operatingWorld.getOfficialConsumerInputForScope(
             {
               actor_id: context.actor?.user_id ?? "w4-operating-world",
               role: "teacher",
@@ -6338,7 +6348,7 @@ async function routeRequest(
               run_id: runId,
               round_no: roundNo
             },
-            draftId
+            requestedDraftId
           );
         },
         admitStrategicDecision: async (scope, decision): Promise<W4DecisionAdmission> => {

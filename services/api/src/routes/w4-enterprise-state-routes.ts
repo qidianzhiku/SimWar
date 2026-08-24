@@ -40,7 +40,7 @@ interface W4RouteDependencies {
   ) => Promise<{ source_assignment_id: string; project_name: string } | null>;
   resolveOperatingWorldConsumer?: (
     tenantId: string,
-    draftId: string,
+    requestedDraftId: string,
     courseId: string,
     runId: string,
     roundNo: number

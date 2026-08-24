@@ -11,11 +11,13 @@ import type {
   TeacherConfirmationVersion,
   W3OfficialConsequenceResponse,
   W4CapitalAction,
+  W4CanonicalStrategicDecision,
   W4OfficialOutcome,
   W4StateRef
 } from "@simwar/shared-contracts";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { createW4DecisionPayloadDigest } from "../../services/api/src/w4-enterprise-state";
 
 const tenantId = "tenant_demo";
 const courseId = "course_demo";
@@ -142,7 +144,6 @@ function seedFixture(store: SimWarStore): void {
   };
   store.settlementResults.push(result);
   const bindingDigest = "a".repeat(64);
-  const decisionPayloadDigest = "b".repeat(64);
   const stateRef: W4StateRef = {
     tenant_id: tenantId,
     course_id: courseId,
@@ -155,8 +156,8 @@ function seedFixture(store: SimWarStore): void {
   };
   const capitalAction: W4CapitalAction = {
     capital_action_id: "capital_action_w3_endpoint",
-    decision_id: "decision_w3_endpoint",
-    decision_payload_digest: decisionPayloadDigest,
+    decision_id: "w4_decision_w3_endpoint",
+    decision_payload_digest: "",
     tenant_id: tenantId,
     course_id: courseId,
     run_id: runId,
@@ -177,6 +178,44 @@ function seedFixture(store: SimWarStore): void {
     effective_round_no: 1,
     maturity_round_no: 3
   };
+  const w4DecisionPayload: W4CanonicalStrategicDecision["payload"] = {
+    rationale: "W3 endpoint fixture W4 admission",
+    lead_time_rounds: 0,
+    reversible: false,
+    dependencies: [],
+    kpi_hypothesis: "bounded official consequence join",
+    capital_action_kind: "debt",
+    principal: capitalAction.principal,
+    term_rounds: capitalAction.term_rounds,
+    rate_or_cost_bps: capitalAction.rate_or_cost_bps,
+    cost_source: capitalAction.cost_source,
+    covenant_min_cash: capitalAction.covenant_min_cash,
+    fees: capitalAction.fees,
+    obligation: capitalAction.obligation
+  };
+  const w4Decision: W4CanonicalStrategicDecision = {
+    decision_id: capitalAction.decision_id,
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    round_id: roundId,
+    round_no: 1,
+    team_id: teamId,
+    kind: "capital_action",
+    version: 1,
+    status: "canonical",
+    payload: w4DecisionPayload,
+    admission: {
+      policy: "ROLE_WORKFLOW_REQUIRED",
+      authority: "formal_run_runtime_binding",
+      canonical_decision_id: "decision_w3_endpoint",
+      merge_commit_id: "merge_w3_endpoint",
+      team_confirmation_id: "confirmation_w3_endpoint",
+      decision_payload_digest: createW4DecisionPayloadDigest("capital_action", w4DecisionPayload)
+    }
+  };
+  capitalAction.decision_payload_digest = w4Decision.admission.decision_payload_digest;
+  store.w4.decisions.push(w4Decision);
   const outcome: W4OfficialOutcome = {
     official_outcome_id: "w4_outcome_w3_endpoint",
     tenant_id: tenantId,
@@ -198,9 +237,12 @@ function seedFixture(store: SimWarStore): void {
       team_id: teamId,
       round_id: roundId,
       opening_state_ref: stateRef,
-      decision_ids: ["decision_w3_endpoint"],
+      decision_ids: [capitalAction.decision_id],
       decision_payload_bindings: [
-        { decision_id: "decision_w3_endpoint", decision_payload_digest: decisionPayloadDigest }
+        {
+          decision_id: capitalAction.decision_id,
+          decision_payload_digest: capitalAction.decision_payload_digest
+        }
       ],
       scenario_package_id: course.scenario_package_id,
       parameter_set_id: course.parameter_set_id,

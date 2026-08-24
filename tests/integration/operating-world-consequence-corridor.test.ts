@@ -6,10 +6,12 @@ import type {
   AuthSession,
   SettlementResult,
   W4CapitalAction,
+  W4CanonicalStrategicDecision,
   W4OfficialOutcome,
   W4StateRef
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
+import { createW4DecisionPayloadDigest } from "../../services/api/src/w4-enterprise-state";
 import {
   createP1Store,
   DEFAULT_TENANT_ID,
@@ -113,6 +115,43 @@ function seedCorridor(store: SimWarStore): void {
     validation_report: [],
     version: 1
   });
+  const w4DecisionPayload: W4CanonicalStrategicDecision["payload"] = {
+    rationale: "R3 consequence corridor W4 admission",
+    lead_time_rounds: 0,
+    reversible: false,
+    dependencies: [],
+    kpi_hypothesis: "bounded official consequence join",
+    capital_action_kind: "debt",
+    principal: 250,
+    term_rounds: 2,
+    rate_or_cost_bps: 550,
+    cost_source: `operating-world:${bindingDigest}`,
+    covenant_min_cash: 500,
+    fees: 5,
+    obligation: "term_debt"
+  };
+  const w4Decision: W4CanonicalStrategicDecision = {
+    decision_id: "w4_decision_r3_corridor",
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    round_id: roundId,
+    round_no: 1,
+    team_id: teamId,
+    kind: "capital_action",
+    version: 1,
+    status: "canonical",
+    payload: w4DecisionPayload,
+    admission: {
+      policy: "ROLE_WORKFLOW_REQUIRED",
+      authority: "formal_run_runtime_binding",
+      canonical_decision_id: "decision_r3_corridor",
+      merge_commit_id: "merge_r3_corridor",
+      team_confirmation_id: "confirmation_r3_corridor",
+      decision_payload_digest: createW4DecisionPayloadDigest("capital_action", w4DecisionPayload)
+    }
+  };
+  store.w4.decisions.push(w4Decision);
   const settlement: SettlementResult = {
     parameter_set_id: course.parameter_set_id,
     replay_hash: "c".repeat(64),
@@ -167,8 +206,8 @@ function seedCorridor(store: SimWarStore): void {
   };
   const capitalAction: W4CapitalAction = {
     capital_action_id: "capital_action_r3_corridor",
-    decision_id: "decision_r3_corridor",
-    decision_payload_digest: "b".repeat(64),
+    decision_id: w4Decision.decision_id,
+    decision_payload_digest: w4Decision.admission.decision_payload_digest,
     tenant_id: tenantId,
     course_id: courseId,
     run_id: runId,
@@ -210,9 +249,12 @@ function seedCorridor(store: SimWarStore): void {
       team_id: teamId,
       round_id: roundId,
       opening_state_ref: stateRef,
-      decision_ids: ["decision_r3_corridor"],
+      decision_ids: [w4Decision.decision_id],
       decision_payload_bindings: [
-        { decision_id: "decision_r3_corridor", decision_payload_digest: "b".repeat(64) }
+        {
+          decision_id: w4Decision.decision_id,
+          decision_payload_digest: w4Decision.admission.decision_payload_digest
+        }
       ],
       scenario_package_id: course.scenario_package_id,
       parameter_set_id: course.parameter_set_id,

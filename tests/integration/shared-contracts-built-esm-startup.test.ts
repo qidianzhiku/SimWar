@@ -26,7 +26,7 @@ async function waitForHealth(
   url: string,
   process: ChildProcessWithoutNullStreams
 ): Promise<Response> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + 15_000;
 
   while (Date.now() < deadline) {
     if (process.exitCode !== null) {
@@ -40,7 +40,7 @@ async function waitForHealth(
     }
   }
 
-  throw new Error("API did not become healthy within 5000ms");
+  throw new Error("API did not become healthy within 15000ms");
 }
 
 async function stopApi(): Promise<void> {

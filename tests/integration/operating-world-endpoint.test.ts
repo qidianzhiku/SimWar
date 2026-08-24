@@ -104,6 +104,80 @@ async function api<T>(
 }
 
 describe("SH-M3 Operating World real BFF", () => {
+  it("fails closed when a learner tries to select among multiple bound drafts", async () => {
+    const { baseUrl, server } = await startServer();
+    try {
+      const teacher = await login(baseUrl, "teacher", "teacher");
+      const student = await login(baseUrl, "student", "student");
+      const createAndBind = async (title: string) => {
+        const created = await api<ApiEnvelope<{ draft: { draft_id: string } }>>(
+          baseUrl,
+          "/api/v1/bff/teacher/operating-world/drafts",
+          teacher.access_token,
+          "POST",
+          { course_id: "course_demo", families: defaultFamilies(), title }
+        );
+        expect(created.status).toBe(201);
+        const draftId = created.body.data.draft.draft_id;
+        const validated = await api<Record<string, unknown>>(
+          baseUrl,
+          `/api/v1/bff/teacher/operating-world/drafts/${draftId}/validate?courseId=course_demo`,
+          teacher.access_token,
+          "POST"
+        );
+        expect(validated.status).toBe(200);
+        const frozen = await api<Record<string, unknown>>(
+          baseUrl,
+          `/api/v1/bff/teacher/operating-world/drafts/${draftId}/freeze?courseId=course_demo`,
+          teacher.access_token,
+          "POST"
+        );
+        expect(frozen.status).toBe(200);
+        const bound = await api<Record<string, unknown>>(
+          baseUrl,
+          `/api/v1/bff/teacher/operating-world/drafts/${draftId}/bind?courseId=course_demo`,
+          teacher.access_token,
+          "POST",
+          { run_id: "run_operating_world_demo", round_no: 1, seed: 20260823 }
+        );
+        expect(bound.status).toBe(200);
+        return draftId;
+      };
+
+      const firstDraftId = await createAndBind("Operating World duplicate A");
+      await createAndBind("Operating World duplicate B");
+      const response = await api<ApiEnvelope<unknown>>(
+        baseUrl,
+        "/api/v1/w4/runs/run_operating_world_demo/rounds/1/strategic-decisions",
+        student.access_token,
+        "POST",
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: "round_operating_world_demo_1",
+          operating_world_draft_id: firstDraftId,
+          decision: {
+            decision_id: "ambiguous-operating-world-decision",
+            tenant_id: DEFAULT_TENANT_ID,
+            course_id: "course_demo",
+            run_id: "run_operating_world_demo",
+            round_id: "round_operating_world_demo_1",
+            round_no: 1,
+            team_id: "team_alpha",
+            kind: "capital_action",
+            version: 1,
+            status: "canonical",
+            payload: {}
+          }
+        }
+      );
+      expect(response.status).toBe(422);
+      expect(response.body.code).toBe("OW_EXACT_BINDING_REQUIRED");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("runs Teacher validate/preview/freeze/bind, Student brief, Admin audit, W4 consumer projection and recovery guards", async () => {
     const { baseUrl, server, store } = await startServer();
     try {
