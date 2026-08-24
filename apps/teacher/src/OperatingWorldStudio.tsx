@@ -142,6 +142,7 @@ export function OperatingWorldStudio({
           创建 Operating World 草稿
         </button>
         <button
+          aria-label="Validate Operating World"
           disabled={busy || !draft || draft.status !== "DRAFT"}
           onClick={() => void act("validate")}
         >

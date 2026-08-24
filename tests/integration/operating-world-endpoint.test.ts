@@ -244,15 +244,15 @@ describe("SH-M3 Operating World real BFF", () => {
             status: "canonical",
             payload: {
               rationale: "Operating World W4 admission",
-              lead_time_rounds: 0,
+              lead_time_rounds: 3,
               reversible: false,
               dependencies: [],
               kpi_hypothesis: "controlled expansion",
               capital_action_kind: "debt",
               principal: 250,
               term_rounds: 2,
-              rate_or_cost_bps: 100,
-              cost_source: "raw-input-must-be-replaced",
+              rate_or_cost_bps: 550,
+              cost_source: `operating-world:${bound.body.data.draft.binding.binding_digest}`,
               covenant_min_cash: 500,
               fees: 5,
               obligation: "term_debt"
@@ -286,6 +286,12 @@ describe("SH-M3 Operating World real BFF", () => {
       expect(adminAudit.status).toBe(200);
       expect(adminAudit.body.data.readiness).toBe("BOUND");
       expect(adminAudit.body.data.binding).toBeTruthy();
+      const mismatchedAdminAudit = await api<Record<string, unknown>>(
+        baseUrl,
+        `/api/v1/bff/admin/operating-world/audit?courseId=course_demo&draftId=${draftId}&runId=${activeRunId}&roundNo=2`,
+        admin.access_token
+      );
+      expect(mismatchedAdminAudit.status).toBe(422);
 
       const canonicalRoundDecision = await api<Record<string, unknown>>(
         baseUrl,

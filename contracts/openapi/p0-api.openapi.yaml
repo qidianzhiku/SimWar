@@ -5157,6 +5157,9 @@ paths:
       parameters:
         - { in: query, name: courseId, required: true, schema: { type: string, minLength: 1 } }
         - { in: query, name: draftId, required: true, schema: { type: string, minLength: 1 } }
+        # runId and roundNo must be supplied together when an exact bound audit is requested.
+        - { in: query, name: runId, required: false, schema: { type: string, minLength: 1 } }
+        - { in: query, name: roundNo, required: false, schema: { type: integer, minimum: 1 } }
       responses:
         "200":
           description: Admin Operating World audit projection.

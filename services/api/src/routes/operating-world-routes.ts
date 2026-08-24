@@ -284,13 +284,24 @@ export async function handleOperatingWorldRoute(
     const runId = url.searchParams.get("runId") ?? undefined;
     const roundValue = url.searchParams.get("roundNo");
     const roundNo = roundValue ? Number(roundValue) : undefined;
-    const audit = service.getAdminAudit(serviceActor(actor), scope(courseId), draft);
+    if (
+      (runId !== undefined) !== (roundNo !== undefined) ||
+      (runId !== undefined && !runId.trim()) ||
+      (roundNo !== undefined && (!Number.isSafeInteger(roundNo) || roundNo < 1))
+    ) {
+      throw new OperatingWorldError("OW_EXACT_BINDING_REQUIRED");
+    }
+    const auditScope =
+      runId !== undefined && roundNo !== undefined
+        ? scope(courseId, { run_id: runId, round_no: roundNo })
+        : scope(courseId);
+    const audit = service.getAdminAudit(serviceActor(actor), auditScope, draft);
     const w4Replay = deps.getW4ReplayAudit
       ? await deps.getW4ReplayAudit({
           tenant_id: context.tenantId,
           course_id: courseId,
-          ...(runId ? { run_id: runId } : {}),
-          ...(roundNo !== undefined && Number.isSafeInteger(roundNo) ? { round_no: roundNo } : {}),
+          ...(runId !== undefined ? { run_id: runId } : {}),
+          ...(roundNo !== undefined ? { round_no: roundNo } : {}),
           ...(audit.binding?.binding_digest ? { binding_digest: audit.binding.binding_digest } : {})
         })
       : undefined;

@@ -290,7 +290,7 @@ test("Teacher can create and validate a D1 LearningGoalVersion without score sem
     .selectOption("course_package_d1_alternate:1.0.0");
   await page.getByRole("button", { name: "Create Goal DRAFT" }).click();
   await expect(page.getByText("DRAFT", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Validate" }).click();
+  await page.getByRole("button", { name: "Validate", exact: true }).click();
   await expect(page.getByText("VALIDATED", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("PUBLISHED", { exact: true })).toBeVisible();

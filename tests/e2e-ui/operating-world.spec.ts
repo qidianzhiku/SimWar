@@ -67,7 +67,7 @@ test("SH-M3 Operating World real BFF journey uses Teacher/Student/Admin surfaces
   await expect(studio).toBeVisible();
   await studio.getByRole("button", { name: "创建 Operating World 草稿" }).click();
   await expect(studio.getByText(/Draft: operating_world_draft_/)).toBeVisible();
-  await studio.getByRole("button", { name: "Validate" }).click();
+  await studio.getByRole("button", { name: "Validate Operating World" }).click();
   await studio.getByRole("button", { name: "BASE Preview" }).click();
   await expect(studio.getByText(/no_official_write=true/)).toBeVisible();
   await studio.getByRole("button", { name: "Freeze" }).click();

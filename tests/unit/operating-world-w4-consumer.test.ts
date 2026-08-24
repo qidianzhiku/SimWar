@@ -12,7 +12,7 @@ import {
   defaultFamilies,
   OperatingWorldService
 } from "../../services/api/src/operating-world-service";
-import { applyOperatingWorldConsumerToDecision } from "../../services/api/src/routes/w4-enterprise-state-routes";
+import { assertOperatingWorldConsumerForDecision } from "../../services/api/src/routes/w4-enterprise-state-routes";
 
 const operatingActor = { actor_id: "teacher", role: "teacher" as const, tenant_id: "tenant_demo" };
 const operatingScope = { activity_id: "sh-m3-operating-world", course_id: "course_demo" };
@@ -67,15 +67,15 @@ describe("Operating World W4 sole-writer bridge", () => {
     };
     const payload = {
       rationale: "use governed capital environment",
-      lead_time_rounds: 0,
+      lead_time_rounds: consumer.construction_cycle,
       reversible: false,
       dependencies: ["canonical-admission"],
       kpi_hypothesis: "preserve project liquidity",
       capital_action_kind: "debt" as const,
       principal: 500,
       term_rounds: 2,
-      rate_or_cost_bps: 100,
-      cost_source: "teacher-input",
+      rate_or_cost_bps: Math.round(consumer.capital_cost * 10000),
+      cost_source: `operating-world:${consumer.source_binding_digest}`,
       covenant_min_cash: 500,
       fees: 10,
       obligation: "term_debt" as const
@@ -101,14 +101,21 @@ describe("Operating World W4 sole-writer bridge", () => {
         decision_payload_digest: createW4DecisionPayloadDigest("capital_action", payload)
       }
     };
-    const enriched = applyOperatingWorldConsumerToDecision(base, consumer);
+    const validated = assertOperatingWorldConsumerForDecision(base, consumer);
+    expect(validated).toBe(base);
+    expect(() =>
+      assertOperatingWorldConsumerForDecision(
+        { ...base, payload: { ...base.payload, rate_or_cost_bps: 100 } },
+        consumer
+      )
+    ).toThrowError("W4_DECISION_ADMISSION_REQUIRED");
     const committed = await createEnterpriseStateStrategicEvolutionService(
       createInMemoryW4Repository()
     ).commitStrategicDecision(scope, {
-      ...enriched,
+      ...validated,
       admission: {
-        ...enriched.admission,
-        decision_payload_digest: createW4DecisionPayloadDigest("capital_action", enriched.payload)
+        ...validated.admission,
+        decision_payload_digest: createW4DecisionPayloadDigest("capital_action", validated.payload)
       }
     });
     expect(committed.capital_action?.rate_or_cost_bps).toBe(550);

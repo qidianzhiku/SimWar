@@ -319,6 +319,18 @@
         "uncertainty": { "type": "object" }
       }
     },
+    "w4ReplayAudit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "manifest_id": { "type": "string", "minLength": 1 },
+        "official_outcome_id": { "type": "string", "minLength": 1 },
+        "settlement_digest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["FOUND", "NOT_FOUND", "NOT_PROVEN"] }
+      }
+    },
     "adminAudit": {
       "type": "object",
       "additionalProperties": false,
@@ -340,7 +352,8 @@
         "freshness": { "type": "object" },
         "known_limits": { "type": "array" },
         "readiness": { "enum": ["DRAFT", "VALIDATED", "FROZEN", "BOUND"] },
-        "stale_or_conflict": { "type": "boolean" }
+        "stale_or_conflict": { "type": "boolean" },
+        "w4_replay": { "$ref": "#/$defs/w4ReplayAudit" }
       }
     }
   }

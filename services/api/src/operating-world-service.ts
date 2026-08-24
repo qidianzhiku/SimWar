@@ -611,6 +611,14 @@ export class OperatingWorldService {
       throw new OperatingWorldError("OW_ROLE_FORBIDDEN");
     }
     const draft = this.getDraft(actor, scope, draftId);
+    if (
+      (scope.run_id !== undefined || scope.round_no !== undefined) &&
+      (!draft.binding ||
+        draft.binding.run_id !== scope.run_id ||
+        draft.binding.round_no !== scope.round_no)
+    ) {
+      throw new OperatingWorldError("OW_EXACT_BINDING_REQUIRED");
+    }
     const freshness = {
       "SH-16": draft.families["SH-16"].info.freshness,
       "SH-17": draft.families["SH-17"].info.freshness,
