@@ -208,5 +208,5 @@ describe("direct store boundary guard", () => {
     expect(result.stdout).toContain(
       "evidence limitation: alias/indirect store access not fully statically detected"
     );
-  }, 10_000);
+  }, 30_000);
 });

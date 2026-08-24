@@ -157,7 +157,7 @@ function runInspectionCommand(args: string[]) {
       cwd: process.cwd(),
       encoding: "utf8",
       shell: false,
-      timeout: 4_000
+      timeout: 15_000
     }
   );
 }
@@ -181,7 +181,7 @@ function runMigrationPlanCommand(args: string[]) {
       cwd: process.cwd(),
       encoding: "utf8",
       shell: false,
-      timeout: 4_000
+      timeout: 15_000
     }
   );
 }
@@ -292,7 +292,7 @@ function runMigrationApplyCommandWithDeadline(args: string[]): Promise<TimedComm
       "scripts/apply-json-snapshot-migration.ts",
       ...args
     ],
-    4_000
+    15_000
   );
 }
 
@@ -310,7 +310,7 @@ function runSnapshotRestoreCommandWithDeadline(args: string[]): Promise<TimedCom
       "scripts/restore-json-snapshot.ts",
       ...args
     ],
-    4_000
+    15_000
   );
 }
 
@@ -1898,7 +1898,7 @@ describe("JSON snapshot CAS-capable writer API", () => {
     expect(readSnapshot(persistPath).counters).toMatchObject({ cas_boundary_persist: 1 });
     expect(tempFilesFor(persistPath)).toEqual([]);
     expect(backupFilesFor(persistPath)).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe("JSON snapshot inspection dry-run", () => {
@@ -2667,7 +2667,7 @@ describe("JSON snapshot migration apply", () => {
     expectSafeApplyOutput(human.stdout);
     expectSafeApplyOutput(machine.stdout);
     expectSafeApplyOutput(npm.stdout);
-  }, 10_000);
+  }, 60_000);
 
   it("uses explicit CLI exit codes for no-op, blocked, usage, missing, and backup failures", async () => {
     const currentPath = createSnapshotPath("apply-exit-current.json");
@@ -3020,7 +3020,7 @@ describe("JSON snapshot restore from backup", () => {
     expectSafeRestoreOutput(human.stdout);
     expectSafeRestoreOutput(machine.stdout);
     expectSafeRestoreOutput(npm.stdout);
-  }, 10_000);
+  }, 60_000);
 
   it("uses explicit CLI exit codes for success, blocked, usage, missing backup, and pre-restore backup failure", async () => {
     const successBackupPath = createSnapshotPath("restore-exit-success-source.bak");

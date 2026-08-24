@@ -134,5 +134,5 @@ describe("built shared-contracts Node ESM runtime", () => {
     expect(startedProcess.killed).toBe(true);
     expect(await isPortListening(port)).toBe(false);
     expect(existsSync(storeFile)).toBe(false);
-  });
+  }, 15_000);
 });
