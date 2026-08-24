@@ -172,16 +172,16 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
               {record.source.settlement_ref.resource_id}
             </small>
           </div>
-          {record.operating_world_consequence ? (
+          {record.operating_world_consequence_trace ? (
             <article className="candidate-surface" aria-label="Operating World consequence trace">
               <strong>Operating World 后果链（学员安全投影）</strong>
               <p>
-                官方变化：{record.operating_world_consequence.official_delta} · 因果权限：
-                {record.operating_world_consequence.causal_authority}
+                官方变化：{record.operating_world_consequence_trace.official_delta} · 因果权限：
+                {record.operating_world_consequence_trace.causal_authority}
               </p>
-              {record.operating_world_consequence.allowed_effects.length > 0 ? (
+              {record.operating_world_consequence_trace.allowed_effects.length > 0 ? (
                 <ul>
-                  {record.operating_world_consequence.allowed_effects.map((effect) => (
+                  {record.operating_world_consequence_trace.allowed_effects.map((effect) => (
                     <li key={`${effect.family}-${effect.key}`}>
                       {effect.family}/{effect.key} · 输入桶 {effect.input_bucket} · 结果字段{" "}
                       {effect.outcome_field} · {effect.effect_direction}
@@ -192,8 +192,8 @@ export function W3OfficialConsequenceLearningPanel(props: Props) {
                 <p className="muted">该输入没有产生官方 W4 或 Settlement 变化。</p>
               )}
               <small>
-                写入官方状态：{String(record.operating_world_consequence.writes_official_state)} · AI：
-                {String(record.operating_world_consequence.ai_generated)}
+                写入官方状态：{String(record.operating_world_consequence_trace.writes_official_state)} · AI：
+                {String(record.operating_world_consequence_trace.ai_generated)}
               </small>
             </article>
           ) : null}

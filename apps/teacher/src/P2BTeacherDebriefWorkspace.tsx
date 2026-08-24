@@ -377,6 +377,15 @@ export function TeacherDebriefWorkspace({
           <div className="p2b-known-limit">
             仅保存 teacher-safe debrief draft；不写入 canonical Decision 或正式结算。
           </div>
+          {record?.operating_world_consequence_trace ? (
+            <div className="p2b-known-limit" data-testid="teacher-p2b-operating-world-trace">
+              Operating World → W4 → Replay：
+              {record.operating_world_consequence_trace.official_delta} · W4 action=
+              {record.operating_world_consequence_trace.w4_action_ref ?? "未提供"} · manifest=
+              {record.operating_world_consequence_trace.w4_replay_manifest_ref ?? "未提供"} ·
+              settlement digest={record.operating_world_consequence_trace.replay_relevant_digest}
+            </div>
+          ) : null}
           {crossRound.phase === "ready" ? (
             <div className="p2b-cross-round-card" data-testid="teacher-m2p5-cross-round">
               <span className="p2b-stage-kicker">M2-P5 · CROSS-ROUND HANDOFF</span>

@@ -34,7 +34,7 @@
     "known_limits": { "type": "array", "items": { "$ref": "#/$defs/safeText" }, "minItems": 1 },
     "learning": { "$ref": "#/$defs/learning" },
     "next_round_hypothesis": { "$ref": "#/$defs/hypothesis" },
-    "operating_world_consequence": { "$ref": "#/$defs/operatingWorldConsequence" },
+    "operating_world_consequence_trace": { "$ref": "#/$defs/operatingWorldConsequence" },
     "official_result": { "$ref": "#/$defs/officialResult" },
     "publication": {
       "type": "object",

@@ -9,7 +9,10 @@ import type {
   Decision,
   SettlementResult,
   TeacherConfirmationVersion,
-  W3OfficialConsequenceResponse
+  W3OfficialConsequenceResponse,
+  W4CapitalAction,
+  W4OfficialOutcome,
+  W4StateRef
 } from "@simwar/shared-contracts";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store, type SimWarStore } from "../../services/api/src/store";
@@ -138,6 +141,79 @@ function seedFixture(store: SimWarStore): void {
     tenant_id: tenantId
   };
   store.settlementResults.push(result);
+  const bindingDigest = "a".repeat(64);
+  const decisionPayloadDigest = "b".repeat(64);
+  const stateRef: W4StateRef = {
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    team_id: teamId,
+    round_id: roundId,
+    enterprise_state_id: "state_w3_endpoint",
+    version: 1,
+    state_digest: "d".repeat(64)
+  };
+  const capitalAction: W4CapitalAction = {
+    capital_action_id: "capital_action_w3_endpoint",
+    decision_id: "decision_w3_endpoint",
+    decision_payload_digest: decisionPayloadDigest,
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    team_id: teamId,
+    kind: "debt",
+    status: "active",
+    principal: 250,
+    term_rounds: 2,
+    rate_or_cost_bps: 550,
+    cost_source: `operating-world:${bindingDigest}`,
+    covenant_min_cash: 500,
+    fees: 5,
+    obligation: "term_debt",
+    project_entry_id: null,
+    initiative_id: null,
+    policy_seam_id: null,
+    created_round_no: 1,
+    effective_round_no: 1,
+    maturity_round_no: 3
+  };
+  const outcome: W4OfficialOutcome = {
+    official_outcome_id: "w4_outcome_w3_endpoint",
+    tenant_id: tenantId,
+    course_id: courseId,
+    run_id: runId,
+    team_id: teamId,
+    round_id: roundId,
+    round_no: 1,
+    opening_state_ref: stateRef,
+    closing_state_ref: { ...stateRef, enterprise_state_id: "state_w3_endpoint_closed" },
+    commitment_ids: [],
+    persistent_effect_ids: [],
+    reexecuted_decision_ids: [],
+    replay_input_manifest: {
+      manifest_id: "manifest_w3_endpoint",
+      tenant_id: tenantId,
+      course_id: courseId,
+      run_id: runId,
+      team_id: teamId,
+      round_id: roundId,
+      opening_state_ref: stateRef,
+      decision_ids: ["decision_w3_endpoint"],
+      decision_payload_bindings: [
+        { decision_id: "decision_w3_endpoint", decision_payload_digest: decisionPayloadDigest }
+      ],
+      scenario_package_id: course.scenario_package_id,
+      parameter_set_id: course.parameter_set_id,
+      engine_id: "toy_logit_wellness_v1",
+      plugin_ids: [],
+      seed: 2031,
+      operating_world_binding_digest: bindingDigest
+    },
+    settlement_digest: result.replay_hash,
+    status: "official"
+  };
+  store.w4.capitalActions.push(capitalAction);
+  store.w4.outcomes.push(outcome);
   store.auditLogs.push({
     action: "round.publish",
     actor_id: "usr_teacher",
@@ -262,8 +338,9 @@ function commandContext() {
 
 describe("W3 official consequence BFF endpoint", () => {
   it("keeps student-safe output, published reflection, and one-change retry conflict bounded", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, server, store } = await startServer();
     try {
+      const settlementBefore = structuredClone(store.settlementResults[0]);
       const teacherToken = await login(baseUrl, "teacher");
       const studentToken = await login(baseUrl, "student");
       const student = await request<W3OfficialConsequenceResponse>(
@@ -275,6 +352,30 @@ describe("W3 official consequence BFF endpoint", () => {
       expect(student.body.data.visibility).toBe("student_safe");
       expect(JSON.stringify(student.body.data)).not.toContain("state_true");
       expect(JSON.stringify(student.body.data)).not.toContain("replay_hash");
+      expect(student.body.data.record.operating_world_consequence_trace).toMatchObject({
+        official_delta: "WHITELISTED_ONLY",
+        source_classification: "OFFICIAL_CONSUMER_ELIGIBLE",
+        writes_official_state: false,
+        causal_authority: "DETERMINISTIC_SYSTEM_FACTS",
+        replay_relevant_digest: "c".repeat(64)
+      });
+      expect(student.body.data.record.operating_world_consequence_trace).not.toHaveProperty(
+        "w4_action_ref"
+      );
+      expect(student.body.data.record.operating_world_consequence_trace).not.toHaveProperty(
+        "w4_replay_manifest_ref"
+      );
+
+      const teacher = await request<W3OfficialConsequenceResponse>(
+        baseUrl,
+        `/api/v1/bff/teacher/w3/consequence?${contextQuery}`,
+        { token: teacherToken }
+      );
+      expect(teacher.status).toBe(200);
+      expect(teacher.body.data.record.operating_world_consequence_trace).toMatchObject({
+        w4_action_ref: "capital_action_w3_endpoint",
+        w4_replay_manifest_ref: "manifest_w3_endpoint"
+      });
 
       const reflection = await request<W3OfficialConsequenceResponse>(
         baseUrl,
@@ -325,6 +426,7 @@ describe("W3 official consequence BFF endpoint", () => {
       );
       expect(conflict.status).toBe(409);
       expect(conflict.body.code).toBe("W3_COUNTERFACTUAL_CONFLICT");
+      expect(store.settlementResults[0]).toEqual(settlementBefore);
     } finally {
       await stopServer(server);
     }

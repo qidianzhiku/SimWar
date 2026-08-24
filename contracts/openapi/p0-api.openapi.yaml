@@ -4679,7 +4679,8 @@ paths:
       responses:
         "200":
           description: Official Outcome and Closing State reference.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/W4SettlementEnvelope" } } }
         "409":
           description: Atomic write or state conflict.
           content:
@@ -5505,6 +5506,8 @@ components:
         record: { $ref: "../schemas/w3-official-consequence-learning.v1.json" }
         runtime_authority: { const: JSON_INTERNAL_ONLY }
         visibility: { enum: [student_safe, teacher_safe] }
+    OperatingWorldConsequenceTrace:
+      $ref: "../schemas/operating-world-consequence-trace.v1.json"
     M2P5DecisionLearningEnvelope:
       type: object
       additionalProperties: false
@@ -7856,6 +7859,78 @@ components:
         data: { type: object, additionalProperties: true }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
+    W4SettlementEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/W4SettlementResult" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W4SettlementResult:
+      type: object
+      additionalProperties: false
+      required: [closing_state_ref, outcome_id, persistent_effect_ids, reexecuted_decision_ids]
+      properties:
+        closing_state_ref: { $ref: "#/components/schemas/W4StateRef" }
+        outcome_id: { type: string, minLength: 1 }
+        persistent_effect_ids: { type: array, items: { type: string } }
+        reexecuted_decision_ids: { type: array, items: { type: string } }
+    W4OfficialOutcome:
+      description: Stored W4 official outcome; the replay manifest is nested in this existing value object.
+      type: object
+      additionalProperties: false
+      required: [official_outcome_id, replay_input_manifest, settlement_digest, status]
+      properties:
+        official_outcome_id: { type: string, minLength: 1 }
+        replay_input_manifest: { $ref: "#/components/schemas/W4ReplayInputManifest" }
+        settlement_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        status: { const: official }
+    W4ReplayInputManifest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          manifest_id,
+          tenant_id,
+          course_id,
+          run_id,
+          team_id,
+          round_id,
+          opening_state_ref,
+          decision_ids,
+          decision_payload_bindings,
+          scenario_package_id,
+          parameter_set_id,
+          engine_id,
+          plugin_ids,
+          seed
+        ]
+      properties:
+        manifest_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        course_id: { type: string, minLength: 1 }
+        run_id: { type: string, minLength: 1 }
+        team_id: { type: string, minLength: 1 }
+        round_id: { type: string, minLength: 1 }
+        opening_state_ref: { $ref: "#/components/schemas/W4StateRef" }
+        decision_ids: { type: array, items: { type: string } }
+        decision_payload_bindings:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [decision_id, decision_payload_digest]
+            properties:
+              decision_id: { type: string, minLength: 1 }
+              decision_payload_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        scenario_package_id: { type: string, minLength: 1 }
+        parameter_set_id: { type: string, minLength: 1 }
+        engine_id: { type: string, minLength: 1 }
+        plugin_ids: { type: array, items: { type: string, minLength: 1 } }
+        seed: { type: integer, minimum: 0 }
+        operating_world_binding_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
     W4CounterfactualEnvelope:
       type: object
       additionalProperties: false

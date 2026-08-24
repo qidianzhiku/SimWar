@@ -5,17 +5,30 @@ interface Props {
   apiBase: string;
   courseId?: string;
   draftId: string;
+  runId?: string;
+  roundNo?: number;
   tenantId: string;
   token: string;
 }
 
-export function OperatingWorldAuditPanel({ apiBase, courseId, draftId, tenantId, token }: Props) {
+export function OperatingWorldAuditPanel({
+  apiBase,
+  courseId,
+  draftId,
+  runId,
+  roundNo,
+  tenantId,
+  token
+}: Props) {
   const [audit, setAudit] = useState<OperatingWorldAdminAudit | null>(null);
   const [notice, setNotice] = useState("等待 Operating World 审计上下文");
   useEffect(() => {
     if (!courseId || !draftId || !token) return;
+    const query = new URLSearchParams({ courseId, draftId });
+    if (runId) query.set("runId", runId);
+    if (Number.isSafeInteger(roundNo)) query.set("roundNo", String(roundNo));
     void fetch(
-      `${apiBase}/api/v1/bff/admin/operating-world/audit?courseId=${encodeURIComponent(courseId)}&draftId=${encodeURIComponent(draftId)}`,
+      `${apiBase}/api/v1/bff/admin/operating-world/audit?${query.toString()}`,
       {
         headers: {
           authorization: `Bearer ${token}`,
@@ -32,7 +45,7 @@ export function OperatingWorldAuditPanel({ apiBase, courseId, draftId, tenantId,
       .catch((error: unknown) =>
         setNotice(error instanceof Error ? error.message : "Admin 审计加载失败")
       );
-  }, [apiBase, courseId, draftId, tenantId, token]);
+  }, [apiBase, courseId, draftId, runId, roundNo, tenantId, token]);
   return (
     <section className="operating-world-audit" aria-label="Admin Operating World audit">
       <p className="eyebrow">SH-M3 · read-only audit</p>
@@ -70,6 +83,14 @@ export function OperatingWorldAuditPanel({ apiBase, courseId, draftId, tenantId,
               .join(" · ")}
           </p>
           <p className="evidence-note">Known Limits: {audit.known_limits.join(" · ")}</p>
+          {audit.w4_replay ? (
+            <p data-testid="operating-world-w4-replay-audit" className="evidence-note">
+              W4 Replay：{audit.w4_replay.status} · Manifest=
+              {audit.w4_replay.manifest_id ?? "未确认"} · Outcome=
+              {audit.w4_replay.official_outcome_id ?? "未确认"} · Settlement digest=
+              {audit.w4_replay.settlement_digest ?? "未确认"}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="evidence-note">{notice}</p>

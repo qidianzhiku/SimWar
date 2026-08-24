@@ -38,10 +38,10 @@
 - Consumes: R2 commit `5e378cb6707ba033e5d9e0552b3a2c53287f6dc2`, current R2 source, current W5/W4/W3 contracts, and exact file status.
 - Produces: explicit `PORT_AS_IS`, `PORT_PATCH`, `NESTED_VALUE_OBJECT`, `PROJECTION_ONLY`, `DROP_DUPLICATE`, and `NOT_PROVEN` classifications with no second lifecycle/store/registry claim.
 
-- [ ] **Step 1: Write the characterization test** asserting that the R2 Operating World service/store remains the single lifecycle for its draft and that R3 trace code is projection-only.
-- [ ] **Step 2: Run the characterization test** with `npx vitest run tests/unit/operating-world-r3-control-plane.test.ts`; record the current expected failure for the not-yet-created R3 evidence artifacts.
-- [ ] **Step 3: Write the source-backed port map and reconciliation receipt** with exact commit, changed files, allowed carry-forward, R3 patch points, and unresolved structural limits.
-- [ ] **Step 4: Run the characterization test again** and commit only the evidence and test files.
+- [x] **Step 1: Write the characterization test** asserting that the R2 Operating World service/store remains the single lifecycle for its draft and that R3 trace code is projection-only.
+- [x] **Step 2: Run the characterization test** with `npx vitest run tests/unit/operating-world-r3-control-plane.test.ts`; record the current expected failure for the not-yet-created R3 evidence artifacts.
+- [x] **Step 3: Write the source-backed port map and reconciliation receipt** with exact commit, changed files, allowed carry-forward, R3 patch points, and unresolved structural limits.
+- [x] **Step 4: Run the characterization test again** and commit only the evidence and test files.
 
 ### Task 2: Exact Operating World binding in the existing W4 replay manifest
 
@@ -60,11 +60,11 @@
 - Consumes: existing `W4ReplayInputManifest`, `assertSettlementReady`, W4 canonical capital action, and existing `resolveOperatingWorldConsumer` bridge.
 - Produces: optional `operating_world_binding_digest?: string` on the existing W4 manifest; the field is populated only when the existing W4 capital action has `cost_source=operating-world:<digest>` and remains absent for non-Operating-World, Preview, Shadow, Information, stale, or blocked inputs.
 
-- [ ] **Step 1: Write failing tests** for exact digest propagation, stale/unsupported omission, and no mutation of `SettlementResult` or `replay_hash`.
-- [ ] **Step 2: Run the focused tests** and confirm they fail because the manifest has no Operating World digest seam.
-- [ ] **Step 3: Add the optional shared-contract/schema/OpenAPI field** without changing required fields or historical normalization bytes.
-- [ ] **Step 4: Extend the existing W4 `assertSettlementReady` dependency seam** to resolve the exact digest from the existing W4 action/manifest authority; do not create a new store or writer.
-- [ ] **Step 5: Run focused unit/contract tests** and verify all existing W4 replay tests remain green.
+- [x] **Step 1: Write failing tests** for exact digest propagation, stale/unsupported omission, and no mutation of `SettlementResult` or `replay_hash`.
+- [x] **Step 2: Run the focused tests** and confirm they fail because the manifest has no Operating World digest seam.
+- [x] **Step 3: Add the optional shared-contract/schema/OpenAPI field** without changing required fields or historical normalization bytes.
+- [x] **Step 4: Extend the existing W4 `assertSettlementReady` dependency seam** to resolve the exact digest from the existing W4 action/manifest authority; do not create a new store or writer.
+- [x] **Step 5: Run focused unit/contract tests** and verify all existing W4 replay tests remain green.
 
 ### Task 3: Deterministic role-safe Operating World Consequence Trace
 
@@ -86,12 +86,12 @@
 - Consumes: exact W4 manifest/action, canonical Decision ref, settlement/result ref, publication timestamp/status, and the R2 Operating World binding digest.
 - Produces: optional `operating_world_consequence_trace` with safe scope, binding digest/ref, canonical/W4/settlement/replay refs, allowed effect list, constraints, known limits, safe classification, `writes_official_state:false`, `causal_authority:"DETERMINISTIC_SYSTEM_FACTS"`, and `ai_generated:false`.
 
-- [ ] **Step 1: Write failing pure-function tests** for the official SH-17 capital-cost path, shadow/information/blocked zero-delta paths, deterministic same-input parity, and forbidden-field rejection.
-- [ ] **Step 2: Run the focused tests** and confirm the trace helper/type is absent or the W3 record lacks the new projection.
-- [ ] **Step 3: Implement the minimal pure deterministic trace builder**; expose only bounded input buckets and public effect direction, never private coefficients or raw source paths.
-- [ ] **Step 4: Extend W3 record validation and JSON Schema** with an optional strict trace object, preserving the existing W3 record schema version and existing authority fields.
-- [ ] **Step 5: Wire W3 `buildRecord` through a read-only dependency** that resolves the already-committed W4/Operating World evidence; Student receives the safe projection only after publication, Teacher receives governed detail, and missing official evidence fails closed rather than fabricating a trace.
-- [ ] **Step 6: Run unit and contract tests** for the trace and existing W3 behavior.
+- [x] **Step 1: Write failing pure-function tests** for the official SH-17 capital-cost path, shadow/information/blocked zero-delta paths, deterministic same-input parity, and forbidden-field rejection.
+- [x] **Step 2: Run the focused tests** and confirm the trace helper/type is absent or the W3 record lacks the new projection.
+- [x] **Step 3: Implement the minimal pure deterministic trace builder**; expose only bounded input buckets and public effect direction, never private coefficients or raw source paths.
+- [x] **Step 4: Extend W3 record validation and JSON Schema** with an optional strict trace object, preserving the existing W3 record schema version and existing authority fields.
+- [x] **Step 5: Wire W3 `buildRecord` through a read-only dependency** that resolves the already-committed W4/Operating World evidence; Student receives the safe projection only after publication, Teacher receives governed detail, and missing official evidence fails closed rather than fabricating a trace.
+- [x] **Step 6: Run unit and contract tests** for the trace and existing W3 behavior.
 
 ### Task 4: W3/M2-P5/Teacher/Student/Admin product projections
 
@@ -114,10 +114,10 @@
 - Consumes: the shared W3 trace projection and existing role/context routes.
 - Produces: Student post-publish safe trace and reflection handoff, Teacher exact governed trace/debrief, and Admin read-only exact binding → W4 manifest → official result/replay audit; pre-publish Student trace remains unavailable.
 
-- [ ] **Step 1: Write failing projection/browser assertions** for publication firewall, Student forbidden fields, Teacher governed effect visibility, Admin exact digest visibility, and reflection/business-truth separation.
-- [ ] **Step 2: Run focused tests** and confirm the current projections do not expose the R3 trace.
-- [ ] **Step 3: Add only projection rendering and server wiring**; do not add frontend authority, direct settle routes, or local truth calculations.
-- [ ] **Step 4: Run focused UI/unit tests** and verify stale context clears the trace.
+- [x] **Step 1: Write failing projection/browser assertions** for publication firewall, Student forbidden fields, Teacher governed effect visibility, Admin exact digest visibility, and reflection/business-truth separation.
+- [x] **Step 2: Run focused tests** and confirm the current projections do not expose the R3 trace.
+- [x] **Step 3: Add only projection rendering and server wiring**; do not add frontend authority, direct settle routes, or local truth calculations.
+- [x] **Step 4: Run focused UI/unit tests** and verify stale context clears the trace.
 
 ### Task 5: Security, metamorphic, recovery, and real-BFF corridor
 
@@ -135,10 +135,10 @@
 - Consumes: real API/BFF routes, existing fixtures, existing JSON runtime, and the Task 2–4 contracts.
 - Produces: evidence for exact bind → W4 action/admission → W4 official state/replay manifest → existing Settlement → Publish → W3 trace; cross-tenant/course/run/round/team/role denial; duplicate/conflict/stale/cache/restart handling; and route mocks count zero for the new corridor.
 
-- [ ] **Step 1: Add failing integration cases** for M1–M7 metamorphic properties and cross-scope/recovery matrix.
-- [ ] **Step 2: Run the failing cases** and capture the first failure fingerprint.
-- [ ] **Step 3: Implement only missing fail-closed guards or deterministic projection joins.**
-- [ ] **Step 4: Run focused integration tests and real-BFF Playwright** with no mocked target routes.
+- [x] **Step 1: Add failing integration cases** for M1–M7 metamorphic properties and cross-scope/recovery matrix.
+- [x] **Step 2: Run the failing cases** and capture the first failure fingerprint.
+- [x] **Step 3: Implement only missing fail-closed guards or deterministic projection joins.**
+- [ ] **Step 4: Run focused integration tests and real-BFF Playwright** with no mocked target routes. Playwright execution remains `NOT_PROVEN` because the bounded local run did not start the dedicated UI/API fixture servers.
 
 ### Task 6: Local verification, review, and bounded handoff
 
@@ -152,8 +152,8 @@
 - Consumes: all prior task artifacts, exact worktree/branch state, and repository quality commands.
 - Produces: local evidence with `VERIFIED`, `NOT_PROVEN`, `NOT_AUTHORIZED`, and `BLOCKED` classifications; explicit files/tests/commands; no remote claim.
 
-- [ ] **Step 1: Run focused tests, contract gate, typecheck, lint, build, hidden-unicode, direct-store boundary, and applicable full local suite once.**
-- [ ] **Step 2: Run exact-head local review and inspect `git diff --check`, status, and changed-file allowlist.**
+- [x] **Step 1: Run focused tests, contract gate, typecheck, lint, build, hidden-unicode, direct-store boundary, and applicable full local suite once.**
+- [x] **Step 2: Run exact-head local review and inspect `git diff --check`, status, and changed-file allowlist.**
 - [ ] **Step 3: Run the verification-before-completion checklist and request a read-only code review when callable.**
-- [ ] **Step 4: Create one explicit-scope local Conventional Commit only after all local gates pass.**
-- [ ] **Step 5: Record remote Product PR/required checks/merge/post-merge as `NOT_AUTHORIZED` unless the current user message supplies the required Owner Envelope; do not invent a successor task.**
+- [ ] **Step 4: Create one explicit-scope local Conventional Commit only after all local gates pass.** The local suite has known baseline failures and format warnings, so this remains a bounded local candidate commit rather than a clean aggregate gate.
+- [x] **Step 5: Record remote Product PR/required checks/merge/post-merge as `NOT_AUTHORIZED` unless the current user message supplies the required Owner Envelope; do not invent a successor task.**

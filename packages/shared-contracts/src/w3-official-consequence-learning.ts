@@ -130,7 +130,7 @@ export interface W3OfficialConsequenceRecord {
   readonly evidence_selection?: W3EvidenceSelectionProjection;
   readonly known_limits: readonly string[];
   readonly learning: W3LearningProjection;
-  readonly operating_world_consequence?: OperatingWorldConsequenceTrace;
+  readonly operating_world_consequence_trace?: OperatingWorldConsequenceTrace;
   readonly next_round_hypothesis?: W3NextRoundHypothesis;
   readonly official_result: W3OfficialResultProjection;
   readonly publication: {
@@ -225,7 +225,7 @@ export function isW3OfficialConsequenceRecord(
     "evidence_selection",
     "known_limits",
     "learning",
-    "operating_world_consequence",
+    "operating_world_consequence_trace",
     "next_round_hypothesis",
     "official_result",
     "publication",
@@ -254,8 +254,8 @@ export function isW3OfficialConsequenceRecord(
   }
   if (value.counterfactual !== undefined && !isCounterfactual(value.counterfactual)) return false;
   if (
-    value.operating_world_consequence !== undefined &&
-    !isOperatingWorldConsequenceTrace(value.operating_world_consequence)
+    value.operating_world_consequence_trace !== undefined &&
+    !isOperatingWorldConsequenceTrace(value.operating_world_consequence_trace)
   )
     return false;
   if (value.reflection !== undefined && !isReflection(value.reflection)) return false;

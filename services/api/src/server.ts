@@ -5747,6 +5747,39 @@ async function routeRequest(
             }
           : null;
       },
+      getW4ReplayAudit: async ({
+        tenant_id,
+        course_id,
+        run_id,
+        round_no,
+        binding_digest
+      }) => {
+        if (!run_id || !Number.isSafeInteger(round_no) || !binding_digest) {
+          return { status: "NOT_PROVEN" as const };
+        }
+        const outcomes = runtime.w4EnterpriseStateRepository
+          .snapshot()
+          .outcomes.filter(
+            (outcome) =>
+              outcome.tenant_id === tenant_id &&
+              outcome.course_id === course_id &&
+              outcome.run_id === run_id &&
+              outcome.round_no === round_no &&
+              outcome.replay_input_manifest.operating_world_binding_digest === binding_digest
+          );
+        if (outcomes.length !== 1) {
+          return { status: outcomes.length === 0 ? ("NOT_FOUND" as const) : ("NOT_PROVEN" as const) };
+        }
+        const outcome = outcomes[0];
+        if (!outcome) return { status: "NOT_PROVEN" as const };
+        return {
+          binding_digest,
+          manifest_id: outcome.replay_input_manifest.manifest_id,
+          official_outcome_id: outcome.official_outcome_id,
+          settlement_digest: outcome.settlement_digest,
+          status: "FOUND" as const
+        };
+      },
       requirePermission: (context, permission) =>
         requirePermission(context as RequestContext, permission),
       sendJson

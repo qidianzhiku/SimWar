@@ -105,7 +105,7 @@ test("SH-M3 Operating World real BFF journey uses Teacher/Student/Admin surfaces
   expect(JSON.stringify(studentBody)).not.toContain("source_ref");
 
   await page.goto(
-    `${adminBaseUrl}?courseId=course_demo&operatingWorldDraftId=${encodeURIComponent(draftId ?? "")}`
+    `${adminBaseUrl}?courseId=course_demo&operatingWorldDraftId=${encodeURIComponent(draftId ?? "")}&runId=${encodeURIComponent(run.body.data.run.run_id)}&roundNo=1`
   );
   await page.getByLabel("tenant").fill(tenantId);
   await page.getByLabel("username").fill("admin");
@@ -115,4 +115,7 @@ test("SH-M3 Operating World real BFF journey uses Teacher/Student/Admin surfaces
   await expect(audit).toBeVisible();
   await expect(audit.getByText(/Readiness/)).toBeVisible();
   await expect(audit.getByText("BOUND", { exact: true })).toBeVisible();
+  await expect(audit.getByTestId("operating-world-w4-replay-audit")).toContainText(
+    /W4 Replay：(FOUND|NOT_FOUND|NOT_PROVEN)/
+  );
 });

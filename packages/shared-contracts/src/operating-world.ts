@@ -223,6 +223,14 @@ export interface OperatingWorldStudentProjection {
   visibility: "ROLE_SAFE_STUDENT";
 }
 
+export interface OperatingWorldW4ReplayAudit {
+  binding_digest?: string;
+  manifest_id?: string;
+  official_outcome_id?: string;
+  settlement_digest?: string;
+  status: "FOUND" | "NOT_FOUND" | "NOT_PROVEN";
+}
+
 export interface OperatingWorldAdminAudit {
   binding: OperatingWorldExactBinding | null;
   draft_id: string;
@@ -231,4 +239,5 @@ export interface OperatingWorldAdminAudit {
   known_limits: readonly string[];
   readiness: OperatingWorldDraftStatus;
   stale_or_conflict: boolean;
+  w4_replay?: OperatingWorldW4ReplayAudit;
 }

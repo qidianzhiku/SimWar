@@ -629,7 +629,7 @@ export class W3OfficialConsequenceLearningService {
               : "MISSING"
       },
       ...(operatingWorldConsequence
-        ? { operating_world_consequence: operatingWorldConsequence }
+        ? { operating_world_consequence_trace: operatingWorldConsequence }
         : {}),
       ...(hypothesis ? { next_round_hypothesis: hypothesis } : {}),
       official_result: {

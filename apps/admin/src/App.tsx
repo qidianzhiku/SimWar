@@ -52,6 +52,15 @@ const OPERATING_WORLD_DRAFT_ID =
   typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("operatingWorldDraftId") ?? "";
 const OPERATING_WORLD_COURSE_ID =
   typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("courseId") ?? "";
+const OPERATING_WORLD_RUN_ID =
+  typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("runId") ?? "";
+const OPERATING_WORLD_ROUND_NO =
+  typeof window === "undefined"
+    ? undefined
+    : (() => {
+        const value = new URLSearchParams(window.location.search).get("roundNo");
+        return value ? Number(value) : undefined;
+      })();
 type LoginForm = {
   tenantId: string;
   username: string;
@@ -1083,6 +1092,10 @@ export function App() {
             apiBase={API_BASE}
             courseId={OPERATING_WORLD_COURSE_ID}
             draftId={OPERATING_WORLD_DRAFT_ID}
+            {...(OPERATING_WORLD_RUN_ID ? { runId: OPERATING_WORLD_RUN_ID } : {})}
+            {...(OPERATING_WORLD_ROUND_NO !== undefined && Number.isSafeInteger(OPERATING_WORLD_ROUND_NO)
+              ? { roundNo: OPERATING_WORLD_ROUND_NO }
+              : {})}
             tenantId={login.tenantId}
             token={session.access_token}
           />

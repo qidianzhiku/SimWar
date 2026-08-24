@@ -245,6 +245,7 @@ describe("round lock and publish characterization", () => {
       const settlement = await settleRound(baseUrl, run.run_id);
       expect(settlement.status).toBe(200);
       expect(settlement.body.data.replay_hash).toHaveLength(64);
+      const w4BeforePublish = structuredClone(store.w4);
 
       const response = await request<Round>(
         baseUrl,
@@ -291,6 +292,7 @@ describe("round lock and publish characterization", () => {
         status: "published",
         replay_hash: settlement.body.data.replay_hash
       });
+      expect(store.w4).toEqual(w4BeforePublish);
     } finally {
       await stopServer(server);
     }

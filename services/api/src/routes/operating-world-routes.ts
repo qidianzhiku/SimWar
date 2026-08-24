@@ -6,7 +6,8 @@ import type {
   ParameterSetReference,
   PermissionKey,
   Run,
-  ScenarioPackageReference
+  ScenarioPackageReference,
+  OperatingWorldW4ReplayAudit
 } from "@simwar/shared-contracts";
 import {
   createParameterSetReference,
@@ -46,6 +47,13 @@ interface RouteDependencies {
     parameter_set_reference: ParameterSetReference;
     scenario_package_reference: ScenarioPackageReference;
   } | null>;
+  getW4ReplayAudit?: (input: {
+    tenant_id: string;
+    course_id: string;
+    run_id?: string;
+    round_no?: number;
+    binding_digest?: string;
+  }) => Promise<OperatingWorldW4ReplayAudit>;
   requirePermission(context: RouteContext, permission: PermissionKey): CurrentUser;
   sendJson(response: ServerResponse, statusCode: number, body: unknown): void;
 }
@@ -273,12 +281,27 @@ export async function handleOperatingWorldRoute(
     const draft = url.searchParams.get("draftId") ?? "";
     if (!courseId || !draft) throw new OperatingWorldError("OW_EXACT_BINDING_REQUIRED");
     await resolveCourse(deps, context.tenantId, courseId);
+    const runId = url.searchParams.get("runId") ?? undefined;
+    const roundValue = url.searchParams.get("roundNo");
+    const roundNo = roundValue ? Number(roundValue) : undefined;
+    const audit = service.getAdminAudit(serviceActor(actor), scope(courseId), draft);
+    const w4Replay = deps.getW4ReplayAudit
+      ? await deps.getW4ReplayAudit({
+          tenant_id: context.tenantId,
+          course_id: courseId,
+          ...(runId ? { run_id: runId } : {}),
+          ...(roundNo !== undefined && Number.isSafeInteger(roundNo) ? { round_no: roundNo } : {}),
+          ...(audit.binding?.binding_digest
+            ? { binding_digest: audit.binding.binding_digest }
+            : {})
+        })
+      : undefined;
     send(
       deps,
       context,
       response,
       200,
-      service.getAdminAudit(serviceActor(actor), scope(courseId), draft)
+      w4Replay ? { ...audit, w4_replay: w4Replay } : audit
     );
     return true;
   }

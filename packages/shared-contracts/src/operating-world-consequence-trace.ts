@@ -51,6 +51,7 @@ export function isOperatingWorldConsequenceTrace(
   value: unknown
 ): value is OperatingWorldConsequenceTrace {
   if (!isRecord(value)) return false;
+  const scope = isRecord(value.scope) ? value.scope : undefined;
   const keys = [
     "schema_version",
     "trace_id",
@@ -75,13 +76,14 @@ export function isOperatingWorldConsequenceTrace(
   if (
     value.schema_version !== OPERATING_WORLD_CONSEQUENCE_TRACE_SCHEMA_VERSION ||
     !isIdentity(value.trace_id) ||
-    !isRecord(value.scope) ||
-    !isIdentity(value.scope.tenant_id) ||
-    !isIdentity(value.scope.course_id) ||
-    !isIdentity(value.scope.run_id) ||
-    !Number.isInteger(value.scope.round_no) ||
-    value.scope.round_no < 1 ||
-    !isIdentity(value.scope.team_id) ||
+    !scope ||
+    !isIdentity(scope.tenant_id) ||
+    !isIdentity(scope.course_id) ||
+    !isIdentity(scope.run_id) ||
+    typeof scope.round_no !== "number" ||
+    !Number.isInteger(scope.round_no) ||
+    scope.round_no < 1 ||
+    !isIdentity(scope.team_id) ||
     !isDigest(value.operating_world_binding_digest) ||
     !isIdentity(value.canonical_decision_ref) ||
     !isIdentity(value.settlement_result_ref) ||
@@ -108,7 +110,7 @@ export function isOperatingWorldConsequenceTrace(
   );
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

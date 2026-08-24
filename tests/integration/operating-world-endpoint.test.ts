@@ -287,6 +287,74 @@ describe("SH-M3 Operating World real BFF", () => {
       expect(adminAudit.body.data.readiness).toBe("BOUND");
       expect(adminAudit.body.data.binding).toBeTruthy();
 
+      const canonicalRoundDecision = await api<Record<string, unknown>>(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/decisions`,
+        student.access_token,
+        "POST",
+        {
+          team_id: "team_alpha",
+          decision_payload: {
+            pricing: { base_price: 12000 },
+            marketing_budget: 10,
+            service_quality_budget: 10,
+            capacity_plan: "hold",
+            cash_buffer_target: 0.3,
+            strategy_statement: "Operating World consequence replay admission"
+          }
+        }
+      );
+      expect(canonicalRoundDecision.status).toBe(201);
+      const locked = await api<Record<string, unknown>>(
+        baseUrl,
+        `/api/v1/runs/${activeRunId}/rounds/1/lock`,
+        teacher.access_token,
+        "POST",
+        {}
+      );
+      expect(locked.status).toBe(200);
+      const w4Settled = await api<{ outcome_id: string }>(
+        baseUrl,
+        `/api/v1/w4/runs/${activeRunId}/rounds/1/settle`,
+        teacher.access_token,
+        "POST",
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: activeRoundId,
+          opening_state_ref: w4Initial.body.data.state_ref,
+          decision_id: "operating-world-w4-capital-action-1"
+        }
+      );
+      expect(w4Settled.status, JSON.stringify(w4Settled.body)).toBe(200);
+      const w4Outcome = store.w4.outcomes.find(
+        (outcome) => outcome.official_outcome_id === w4Settled.body.data.outcome_id
+      );
+      expect(w4Outcome?.replay_input_manifest.operating_world_binding_digest).toBe(
+        bound.body.data.draft.binding.binding_digest
+      );
+      const adminReplayAudit = await api<
+        ApiEnvelope<{
+          w4_replay: {
+            manifest_id?: string;
+            official_outcome_id?: string;
+            settlement_digest?: string;
+            status: string;
+          };
+        }>
+      >(
+        baseUrl,
+        `/api/v1/bff/admin/operating-world/audit?courseId=course_demo&draftId=${draftId}&runId=${activeRunId}&roundNo=1`,
+        admin.access_token
+      );
+      expect(adminReplayAudit.status).toBe(200);
+      expect(adminReplayAudit.body.data.w4_replay).toMatchObject({
+        manifest_id: w4Outcome?.replay_input_manifest.manifest_id,
+        official_outcome_id: w4Outcome?.official_outcome_id,
+        settlement_digest: w4Outcome?.settlement_digest,
+        status: "FOUND"
+      });
+
       const previewAfterFreeze = await api<Record<string, unknown>>(
         baseUrl,
         `/api/v1/bff/teacher/operating-world/drafts/${draftId}/preview?courseId=course_demo`,

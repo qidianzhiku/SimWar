@@ -133,5 +133,7 @@ export function projectOperatingWorldConsequenceTrace(
     w4_replay_manifest_ref: _w4ReplayManifestRef,
     ...studentTrace
   } = trace;
+  void _w4ActionRef;
+  void _w4ReplayManifestRef;
   return structuredClone(studentTrace);
 }
