@@ -1006,6 +1006,7 @@ export function App() {
         if (reauthContext) {
           setContextRecoveryState("READY");
           storeReauthContext(null);
+          setReauthContext(null);
         }
       } catch (error) {
         if (

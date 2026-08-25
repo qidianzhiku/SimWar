@@ -512,6 +512,12 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
   await expect(
     page.getByLabel("Student role workflow").getByText("CEO", { exact: true }).first()
   ).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("REAUTH_REQUIRED").first()).toBeVisible();
+  await signIn(page, "student", fixtureUsers[0][0]);
+  await expect(
+    page.getByLabel("Student role workflow").getByText("CEO", { exact: true }).first()
+  ).toBeVisible();
 });
 
 test("Role workflow stays within the mobile Teacher and Student viewports", async ({ page }) => {

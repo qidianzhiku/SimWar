@@ -1,3 +1,16 @@
+/**
+ * Versioned, non-secret navigation context for the current re-auth contract.
+ *
+ * Lifecycle: a verified workspace may store this payload in browser
+ * sessionStorage; a full reload loses the in-memory AuthSession and exposes
+ * REAUTH_REQUIRED; existing login then revalidates tenant, user, role/slot,
+ * and every course/run/team/round component before restoring the workspace.
+ *
+ * Security boundary: this payload never contains credentials, bearer tokens,
+ * passwords, JWTs, or refresh tokens. Cross-tenant, cross-user/role, stale,
+ * missing, or unauthorized contexts fail closed with the caller's explicit
+ * CONTEXT_UNAUTHORIZED or CONTEXT_NOT_FOUND/CONTEXT_STALE state.
+ */
 export const REAUTH_CONTEXT_STORAGE_KEY = "simwar.reauth-context.v1";
 
 export interface ReauthContext {

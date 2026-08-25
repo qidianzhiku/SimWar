@@ -600,7 +600,9 @@ export function App() {
       setWorkspacePhase("ready");
       if (reauthContext) {
         setContextRecoveryState("READY");
-        clearStoredReauthContext();
+        // Keep the verified non-secret navigation context so the next full
+        // reload still requires explicit reauthentication for this context.
+        writeStoredReauthContext(reauthContext);
       }
     } catch (error) {
       if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
@@ -805,7 +807,11 @@ export function App() {
     ["决策", submittedDecision ? `v${submittedDecision.version}` : "草稿"],
     ["BFF", studentStatusCopy(cockpit?.student_cockpit.evidence_label, "等待服务端投影")]
   ];
-  const hasStudentSurface = Boolean(session && isStudentSession);
+  const hasStudentSurface = Boolean(
+    session &&
+    isStudentSession &&
+    (contextRecoveryState === "NONE" || contextRecoveryState === "READY")
+  );
   const activeSession = session && isStudentSession ? session : null;
   const visibleNavigationItems = hasStudentSurface
     ? STUDENT_NAVIGATION_ITEMS
