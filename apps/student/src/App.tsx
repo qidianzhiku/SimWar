@@ -518,7 +518,6 @@ export function App() {
       );
 
       if (reauthContext && (!nextRun || !nextRound)) {
-        setState(studentState);
         setCockpit(null);
         setWorkspacePhase("error");
         setContextRecoveryState("CONTEXT_STALE");
@@ -527,7 +526,6 @@ export function App() {
       }
 
       if (reauthContext && (!nextTeam || nextTeam.team_id !== reauthContext.team_id)) {
-        setState(studentState);
         setCockpit(null);
         setWorkspacePhase("error");
         setContextRecoveryState("CONTEXT_UNAUTHORIZED");
@@ -547,7 +545,6 @@ export function App() {
             : []
         });
         if (identityValidation.status !== "RESTORE_ALLOWED") {
-          setState(studentState);
           setCockpit(null);
           setWorkspacePhase("error");
           setContextRecoveryState("CONTEXT_UNAUTHORIZED");
