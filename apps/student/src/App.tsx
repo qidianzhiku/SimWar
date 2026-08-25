@@ -13,6 +13,7 @@ import {
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
+  isSameReauthBusinessContext,
   parseReauthContext,
   serializeReauthContext,
   validateReauthIdentity,
@@ -248,9 +249,13 @@ function studentStatusCopy(value: string | undefined, fallback: string): ReactNo
 /**
  * The legacy demo-state route is retained only as a bootstrap source because
  * no student bootstrap BFF exists yet. Keep the in-memory projection bounded
- * to the authenticated learner's current run, round, team, and decision.
+ * to the authenticated learner's selected team and selected run. During
+ * re-authentication, the saved course/run/round is the only permitted target.
  */
-export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
+export function projectStudentBootstrapState(
+  source: P0DemoState,
+  preferredContext?: Pick<ReauthContext, "course_id" | "run_id" | "round_id" | "round_no">
+): P0DemoState {
   const ownTeam = source.teams.find(
     (candidate) => candidate.team_id === source.current_user.team_id
   );
@@ -263,18 +268,48 @@ export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
   if (source.latest_result?.results.some((result) => result.team_id === ownTeamId)) {
     learnerOwnedRunIds.add(source.latest_result.run_id);
   }
-  const latestRun = ownTeam
-    ? source.runs
+  const visibleRuns = ownTeam
+    ? source.runs.filter(
+        (run) =>
+          run.tenant_id === source.current_user.tenant_id &&
+          (run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
+      )
+    : [];
+  const selectedRun = preferredContext
+    ? visibleRuns.find(
+        (run) =>
+          run.run_id === preferredContext.run_id && run.course_id === preferredContext.course_id
+      )
+    : visibleRuns
         .slice()
         .reverse()
-        .find((run) => run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
-    : undefined;
-  const latestRound = latestRun
+        .find((run) => run.course_id === ownTeam?.course_id || learnerOwnedRunIds.has(run.run_id));
+  const selectedRunRounds = selectedRun
     ? source.rounds
-        .filter((round) => round.run_id === latestRun.run_id)
-        .sort((left, right) => left.round_no - right.round_no)
-        .at(-1)
-    : undefined;
+        .filter(
+          (round) =>
+            round.tenant_id === source.current_user.tenant_id && round.run_id === selectedRun.run_id
+        )
+        .sort((left, right) => {
+          if (preferredContext) {
+            const leftPreferred =
+              left.round_id === preferredContext.round_id &&
+              left.round_no === preferredContext.round_no;
+            const rightPreferred =
+              right.round_id === preferredContext.round_id &&
+              right.round_no === preferredContext.round_no;
+            if (leftPreferred !== rightPreferred) return leftPreferred ? -1 : 1;
+          }
+          return right.round_no - left.round_no;
+        })
+    : [];
+  const selectedRound = preferredContext
+    ? selectedRunRounds.find(
+        (round) =>
+          round.round_id === preferredContext.round_id &&
+          round.round_no === preferredContext.round_no
+      )
+    : selectedRunRounds[0];
   const { tenants, users, roles, permissions, latest_result, audit_logs, ...safeSource } = source;
   void tenants;
   void users;
@@ -285,16 +320,16 @@ export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
   return {
     ...safeSource,
     courses: source.courses.filter(
-      (course) => course.course_id === (latestRun?.course_id ?? ownTeam?.course_id)
+      (course) => course.course_id === (selectedRun?.course_id ?? ownTeam?.course_id)
     ),
     teams: ownTeam ? [ownTeam] : [],
-    runs: latestRun ? [latestRun] : [],
-    rounds: latestRound ? [latestRound] : [],
+    runs: selectedRun ? [selectedRun] : [],
+    rounds: selectedRound ? [selectedRound] : [],
     decisions: source.decisions.filter(
       (candidate) =>
         candidate.team_id === ownTeamId &&
-        candidate.run_id === latestRun?.run_id &&
-        candidate.round_no === latestRound?.round_no
+        candidate.run_id === selectedRun?.run_id &&
+        candidate.round_no === selectedRound?.round_no
     ),
     audit_logs: []
   };
@@ -467,22 +502,27 @@ export function App() {
       };
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
-      const studentState = projectStudentBootstrapState(nextState);
+      const studentState = projectStudentBootstrapState(nextState, reauthContext ?? undefined);
       const nextRun = reauthContext
-        ? studentState.runs.find((run) => run.run_id === reauthContext.run_id)
+        ? studentState.runs.find(
+            (run) =>
+              run.run_id === reauthContext.run_id && run.course_id === reauthContext.course_id
+          )
         : studentState.runs.at(-1);
       const nextRound = nextRun
         ? reauthContext
           ? studentState.rounds.find(
               (round) =>
                 round.run_id === nextRun.run_id &&
-                (round.round_id === reauthContext.round_id ||
-                  round.round_no === reauthContext.round_no)
+                round.round_id === reauthContext.round_id &&
+                round.round_no === reauthContext.round_no
             )
           : studentState.rounds.find((round) => round.run_id === nextRun.run_id)
         : undefined;
       const nextTeam = studentState.teams.find(
-        (candidate) => candidate.team_id === studentState.current_user.team_id
+        (candidate) =>
+          candidate.tenant_id === login.tenantId &&
+          candidate.team_id === studentState.current_user.team_id
       );
 
       if (reauthContext && (!nextRun || !nextRound)) {
@@ -503,6 +543,27 @@ export function App() {
         return;
       }
 
+      if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          tenant_id: studentState.current_user.tenant_id,
+          user_id: studentState.current_user.user_id,
+          roles: session.user.roles,
+          role_slots: nextTeam
+            ? nextTeam.members
+                .filter((member) => member.user_id === session.user.user_id)
+                .map((member) => member.role_slot)
+            : []
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setState(studentState);
+          setCockpit(null);
+          setWorkspacePhase("error");
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
+
       setState(studentState);
 
       if (!nextRun || !nextRound) {
@@ -517,6 +578,18 @@ export function App() {
         auth
       );
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+      if (
+        reauthContext &&
+        (nextCockpit.student_cockpit.tenant_id !== login.tenantId ||
+          !isSameReauthBusinessContext(reauthContext, nextCockpit.student_cockpit))
+      ) {
+        setState(studentState);
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_STALE");
+        setNotice("CONTEXT_NOT_FOUND");
+        return;
+      }
       setCockpit(nextCockpit);
       if (w5DraftId) {
         try {
@@ -627,6 +700,8 @@ export function App() {
 
   useEffect(() => {
     if (!session || !isStudentSession || !latestRun || !latestRound || !team) return;
+    const member = team.members.find((candidate) => candidate.user_id === session.user.user_id);
+    if (!member) return;
     const route =
       typeof window === "undefined"
         ? "/"
@@ -635,7 +710,7 @@ export function App() {
       schema_version: 1,
       tenant_id: session.user.tenant_id,
       user_id: session.user.user_id,
-      role: w3RoleKey,
+      role: member.role_slot,
       course_id: latestRun.course_id,
       run_id: latestRun.run_id,
       team_id: team.team_id,
@@ -822,9 +897,9 @@ export function App() {
                           ? "CONTEXT_UNAUTHORIZED：当前登录身份无权恢复此上下文。"
                           : contextRecoveryState === "CONTEXT_STALE"
                             ? "CONTEXT_NOT_FOUND：保存的回合上下文已失效，请选择有效的授权入口。"
-                      : noticeCopy.compatibility
-                        ? noticeCopy.primary
-                        : "请登录后查看当前学员工作区。"}{" "}
+                            : noticeCopy.compatibility
+                              ? noticeCopy.primary
+                              : "请登录后查看当前学员工作区。"}{" "}
                     <span className="compatibility-copy">
                       not signed in ·{" "}
                       {notice.startsWith("登录上下文已更改")
@@ -835,7 +910,7 @@ export function App() {
                             ? "CONTEXT_UNAUTHORIZED"
                             : contextRecoveryState === "CONTEXT_STALE"
                               ? "CONTEXT_NOT_FOUND"
-                        : (noticeCopy.compatibility ?? "ready")}
+                              : (noticeCopy.compatibility ?? "ready")}
                     </span>
                   </>
                 }

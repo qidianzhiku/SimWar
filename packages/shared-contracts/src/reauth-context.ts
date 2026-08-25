@@ -18,6 +18,7 @@ export interface ReauthIdentity {
   tenant_id: string;
   user_id: string;
   roles: readonly string[];
+  role_slots?: readonly string[];
 }
 
 export type ReauthIdentityValidation =
@@ -98,8 +99,10 @@ export function validateReauthIdentity(
     context.role === "teacher"
       ? identity.roles.includes("teacher")
       : context.role === "student" || context.role === "learner"
-        ? identity.roles.some((role) => role === "student" || role === "learner" || role === "team_captain")
-        : true;
+        ? identity.roles.some(
+            (role) => role === "student" || role === "learner" || role === "team_captain"
+          )
+        : identity.role_slots === undefined || identity.role_slots.includes(context.role);
 
   if (context.user_id !== identity.user_id || !roleMatches) {
     return { status: "CONTEXT_UNAUTHORIZED", reason: "USER_OR_ROLE_MISMATCH" };

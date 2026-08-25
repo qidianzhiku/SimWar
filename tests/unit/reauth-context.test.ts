@@ -52,6 +52,16 @@ describe("reauth exact-context contract", () => {
         roles: ["learner", "student"]
       })
     ).toEqual({ status: "CONTEXT_UNAUTHORIZED", reason: "USER_OR_ROLE_MISMATCH" });
+
+    const roleSlotIdentity = {
+      tenant_id: "tenant_demo",
+      user_id: "student_ceo",
+      roles: ["learner"],
+      role_slots: ["CFO"]
+    } as Parameters<typeof validateReauthIdentity>[1];
+    expect(
+      validateReauthIdentity({ ...context, user_id: "student_ceo", role: "CEO" }, roleSlotIdentity)
+    ).toEqual({ status: "CONTEXT_UNAUTHORIZED", reason: "USER_OR_ROLE_MISMATCH" });
   });
 
   it("requires every business context component to match", () => {
@@ -70,6 +80,24 @@ describe("reauth exact-context contract", () => {
         run_id: "run_001",
         team_id: "team_alpha",
         round_id: "round_001",
+        round_no: 1
+      })
+    ).toBe(false);
+    expect(
+      isSameReauthBusinessContext(context, {
+        course_id: "course_other",
+        run_id: "run_001",
+        team_id: "team_role_workflow_browser_0",
+        round_id: "round_001",
+        round_no: 1
+      })
+    ).toBe(false);
+    expect(
+      isSameReauthBusinessContext(context, {
+        course_id: "course_demo",
+        run_id: "run_001",
+        team_id: "team_role_workflow_browser_0",
+        round_id: "round_other",
         round_no: 1
       })
     ).toBe(false);

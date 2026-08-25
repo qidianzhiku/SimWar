@@ -13,6 +13,7 @@ import {
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
+  isSameReauthBusinessContext,
   parseReauthContext,
   serializeReauthContext,
   validateReauthIdentity,
@@ -893,12 +894,12 @@ export function App() {
         }
         throw error;
       }
-      const nextCourseId = selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
-      const nextRun = selectVisibleRun(
-        nextState,
-        preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId,
-        nextCourseId
-      );
+      const nextCourseId =
+        reauthContext?.course_id ?? selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
+      const restoredRunId =
+        reauthContext?.run_id ??
+        (preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId);
+      const nextRun = selectVisibleRun(nextState, restoredRunId, nextCourseId);
       const nextRound = nextRun
         ? selectTeacherRound(
             getTeacherRunRounds(nextState.rounds, nextRun.run_id, login.tenantId || undefined),
@@ -907,18 +908,23 @@ export function App() {
         : undefined;
       const restoredTeam = reauthContext
         ? nextState.teams.find(
-            (team) => team.course_id === nextRun?.course_id && team.team_id === reauthContext.team_id
+            (team) =>
+              team.tenant_id === login.tenantId &&
+              team.course_id === nextRun?.course_id &&
+              team.team_id === reauthContext.team_id
           )
         : undefined;
-      if (
-        reauthContext &&
-        (!nextRun ||
-          !nextRound ||
-          nextRun.run_id !== reauthContext.run_id ||
-          nextRun.course_id !== reauthContext.course_id ||
-          nextRound.round_id !== reauthContext.round_id ||
-          nextRound.round_no !== reauthContext.round_no)
-      ) {
+      const exactRestoredContext =
+        reauthContext && nextRun && nextRound && restoredTeam
+          ? isSameReauthBusinessContext(reauthContext, {
+              course_id: nextRun.course_id,
+              run_id: nextRun.run_id,
+              team_id: restoredTeam.team_id,
+              round_id: nextRound.round_id,
+              round_no: nextRound.round_no
+            })
+          : false;
+      if (reauthContext && !exactRestoredContext) {
         setState(nextState);
         setWorkspace(null);
         setWorkspaceLoadState("error");

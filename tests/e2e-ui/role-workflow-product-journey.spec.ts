@@ -488,6 +488,30 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
   await expect(
     finalTeacherWorkflow.getByText("Team confirmation: confirmed", { exact: true })
   ).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("REAUTH_REQUIRED").first()).toBeVisible();
+  await signIn(page, "teacher", "teacher");
+  await expect(
+    page.getByLabel("Role workflow monitor").getByRole("heading", { name: "角色协作进度" })
+  ).toBeVisible();
+  await expect(page.getByLabel("Role workflow monitor").getByLabel("角色流程队伍")).toHaveValue(
+    fixtureTeamId
+  );
+
+  await page.goto(studentBaseUrl);
+  await page.evaluate(() => sessionStorage.removeItem("simwar.reauth-context.v1"));
+  await page.reload();
+  await signIn(page, "student", fixtureUsers[0][0]);
+  const restoredStudentWorkflow = page.getByLabel("Student role workflow");
+  await expect(restoredStudentWorkflow.getByText("本角色已记录：ACKNOWLEDGED")).toBeVisible();
+  await expect(restoredStudentWorkflow.getByText("CEO", { exact: true }).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("REAUTH_REQUIRED").first()).toBeVisible();
+  await signIn(page, "student", fixtureUsers[0][0]);
+  await expect(
+    page.getByLabel("Student role workflow").getByText("CEO", { exact: true }).first()
+  ).toBeVisible();
 });
 
 test("Role workflow stays within the mobile Teacher and Student viewports", async ({ page }) => {
