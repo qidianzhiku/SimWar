@@ -1,9 +1,9 @@
 cycle_id: SIMWAR-SH-M2-P5-DECISION-LEARNING-CROSSROUND-V5.22-20260823
 stage: L1_PLUS
-status: PRODUCT_MERGED_GOVERNANCE_CLOSURE_IN_PROGRESS_WITH_LIMITS
+status: PRODUCT_AND_GOVERNANCE_CLOSED_WITH_LIMITS
 started_at: "2026-08-23T09:41:54Z"
 product_closed_at: "2026-08-23T11:38:48Z"
-governance_updated_at: PENDING_UNTIL_FINAL_GOVERNANCE_READBACK
+governance_updated_at: "2026-08-23T12:16:15Z"
 repository: qidianzhiku/SimWar
 source_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
 source_sha_semantics: PRODUCT_MERGE_EXACT_SHA_BEFORE_DOCS_ONLY_GOVERNANCE_CLOSURE
@@ -14,12 +14,13 @@ product_prs:
   - 442
 product_merge_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
 product_merge_tree: bbc0bb1d8fb8244219b3b03a0bd18d975a449d8d
-governance_pr: PENDING_UNTIL_CREATED
-governance_closure_merge_sha: PENDING_UNTIL_FINAL_GOVERNANCE_READBACK
-governance_closure_readback: PENDING_UNTIL_FINAL_GOVERNANCE_READBACK
-current_master_at_readback: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
-reconciliation_base_master_observed: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
-current_planning_pointer_disposition: RECONCILED_TO_M2P5_PRODUCT_PENDING_GOVERNANCE_READBACK
+governance_pr: 443
+governance_closure_merge_sha: da6ce87562faaca00a15e6001ea2bdd8ce6b96a6
+governance_closure_readback: PASS_EXACT_PR_443_MERGE_READBACK
+current_master_at_readback: af86a57090d37e71f133d6017539fdec698c7c7e
+current_tree_at_readback: c108aaa2e535bed860049e3cf6a9f900295ac1bc
+reconciliation_base_master_observed: af86a57090d37e71f133d6017539fdec698c7c7e
+current_planning_pointer_disposition: RECONCILED_TO_M2P5_GOVERNANCE_CLOSURE_RESOURCE_LOCKS_RELEASED
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 human_validation: NOT_PERFORMED
@@ -65,7 +66,7 @@ explicit_non_proofs:
   - Product and governance closure do not create a second Course, Run, RoleWorkflow, W4, Settlement, Replay, provider, or model authority.
   - Automated browser evidence is not Human Validation and does not prove teaching effectiveness or usability.
   - PASS_WITH_LIMITS is not a WCAG/accessibility PASS and does not waive the known color-contrast failure.
-  - Issue #418 remains preserved and is not consumed or closed by this mission.
+  - "Issue #418 remains preserved and is not consumed or closed by this mission."
   - No Pilot, Production, W6, provider/model activation, release approval, or automatic successor is authorized.
 invalidation_triggers:
   - project-aware-course-run-role-or-profile-authority_changed
@@ -77,9 +78,10 @@ invalidation_triggers:
   - w3-p2b-debrief-handoff_changed
   - governance-merge-readback-does-not-match-recorded-product-head
 resource_locks:
-  status: HELD_GOVERNANCE_CLOSURE_PENDING_FINAL_READBACK
-  held: [M2P5-PRODUCT, M2P5-GOVERNANCE-CLOSURE]
-  pending: [FINAL_MASTER_READBACK]
+  status: RELEASED_SEMANTIC_PENDING_CARRIER_PERSISTENCE
+  held: []
+  pending: [CARRIER_PERSISTENCE_OWNER_AUTHORIZATION_REQUIRED]
+carrier_persistence: PATCH_READY_OWNER_AUTHORIZATION_REQUIRED
 candidate_backlog:
   - candidate_id: M2P6-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_OWNER_DIRECTION

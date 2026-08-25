@@ -1,19 +1,20 @@
-portfolio_version: 21
+portfolio_version: 22
 document_id: SIMWAR-L1PLUS-PORTFOLIO-REGISTER
-generated_at: "2026-08-23T12:04:46Z"
+generated_at: "2026-08-25T07:57:19Z"
 repository: qidianzhiku/SimWar
 default_branch: master
-assessment_source_anchor_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
+assessment_source_anchor_sha: af86a57090d37e71f133d6017539fdec698c7c7e
 product_evidence_source_sha: e6134ce9a28d2546df514f4b2a728b2f524e1204
-current_master_at_readback: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
-reconciliation_base_master_observed: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
-governance_closure_merge_sha: PENDING_UNTIL_FINAL_GOVERNANCE_READBACK
-portfolio_current_master_lag: GOVERNANCE_CLOSURE_PENDING_FINAL_READBACK
-current_planning_pointer_disposition: RECONCILED_TO_M2P5_PRODUCT_PENDING_GOVERNANCE_READBACK
+current_master_at_readback: af86a57090d37e71f133d6017539fdec698c7c7e
+current_tree_at_readback: c108aaa2e535bed860049e3cf6a9f900295ac1bc
+reconciliation_base_master_observed: af86a57090d37e71f133d6017539fdec698c7c7e
+governance_closure_merge_sha: da6ce87562faaca00a15e6001ea2bdd8ce6b96a6
+portfolio_current_master_lag: RECONCILED_TO_CURRENT_MASTER_PR444_WITH_SEMANTIC_LOCK_RELEASE
+current_planning_pointer_disposition: RECONCILED_TO_M2P5_GOVERNANCE_CLOSURE_RESOURCE_LOCKS_RELEASED
 runtime_authority: JSON_INTERNAL_ONLY
 postgres_application_runtime: NOT_ACTIVATED
 l1_status: SIMWAR-L1_AUTOMATED_ENGINEERING_APPLICATION_VALIDATION_COMPLETE
-l1_plus_status: M2P5_PRODUCT_MERGED_GOVERNANCE_CLOSURE_IN_PROGRESS_WITH_LIMITS
+l1_plus_status: M2P5_PRODUCT_AND_GOVERNANCE_CLOSED_WITH_LIMITS
 wip_policy:
   mainline: 1
   shared_support_code: 1
@@ -23,7 +24,7 @@ selected:
   mainline:
     candidate_id: CAND-M2P5-DECISION-LEARNING-CROSSROUND-V5.22
     capability_id: M2P5-DECISION-LEARNING-CROSSROUND
-    status: PRODUCT_MERGED_GOVERNANCE_CLOSURE_IN_PROGRESS_WITH_LIMITS
+    status: PRODUCT_AND_GOVERNANCE_CLOSED_WITH_LIMITS
     product_prs: [442]
     product_candidate_sha: e6134ce9a28d2546df514f4b2a728b2f524e1204
     product_merge_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
@@ -40,9 +41,9 @@ selected:
     candidate_id: NONE
     status: NONE
   closure:
-    status: GOVERNANCE_CLOSURE_IN_PROGRESS
-    governance_pr: PENDING_UNTIL_CREATED
-    governance_merge_sha: PENDING_UNTIL_FINAL_GOVERNANCE_READBACK
+    status: GOVERNANCE_CLOSURE_MERGED_WITH_LIMITS
+    governance_pr: 443
+    governance_merge_sha: da6ce87562faaca00a15e6001ea2bdd8ce6b96a6
     governance_pr_budget: 1
 closed_capabilities:
   - capability_id: W020-GOVERNED-AI-ADVISORY-MOCK
@@ -116,9 +117,10 @@ historical_governance_reconciliations:
     resource_lock_state: W025_GOVERNANCE_LOCK_HELD_PENDING_REMEDIATION_MERGE
     automatic_next_start: false
 resource_locks:
-  status: HELD_GOVERNANCE_CLOSURE_PENDING_FINAL_READBACK
-  held: [M2P5-PRODUCT, M2P5-GOVERNANCE-CLOSURE]
-  pending: [FINAL_MASTER_READBACK]
+  status: RELEASED_SEMANTIC_PENDING_CARRIER_PERSISTENCE
+  held: []
+  pending: [CARRIER_PERSISTENCE_OWNER_AUTHORIZATION_REQUIRED]
+carrier_persistence: PATCH_READY_OWNER_AUTHORIZATION_REQUIRED
 candidate_backlog:
   - candidate_id: M2P6-NEXT-PENDING-OWNER-DIRECTION
     status: NOT_STARTED_PENDING_OWNER_DIRECTION
@@ -126,7 +128,7 @@ candidate_backlog:
 blocked_candidates: []
 evidence:
   product_pr_url: https://github.com/qidianzhiku/SimWar/pull/442
-  governance_pr_url: PENDING_UNTIL_CREATED
+  governance_pr_url: https://github.com/qidianzhiku/SimWar/pull/443
   product_candidate_sha: e6134ce9a28d2546df514f4b2a728b2f524e1204
   product_merge_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
   product_merge_tree: bbc0bb1d8fb8244219b3b03a0bd18d975a449d8d
@@ -136,7 +138,7 @@ evidence:
 validation:
   product_github_checks: PASS_QUALITY_BROWSER_ANALYZE_CODEQL
   product_pr_state: MERGED_442
-  current_master: EXACT_2FE9650_PRODUCT_MERGE_READBACK
+  current_master: EXACT_AF86_CURRENT_MASTER_READBACK
   focused_decision_learning_crossround: PASS_UNIT_INTEGRATION_AND_DEDICATED_BROWSER
   browser: PASS_1_REAL_BFF_TEST_MOCKS_OFF_ISOLATED_PORTS
   contract: PASS_33_FILES_79_TESTS
@@ -145,7 +147,12 @@ validation:
   hidden_unicode: PASS
   prompt_allowlist_identity: PENDING_NOT_FOUND_IN_ATTACHED_DOWNLOADS
   postgres_runtime: NOT_ACTIVATED
-  governance_readback: PENDING_FINAL_GOVERNANCE_READBACK
+  governance_readback: PASS_EXACT_PR_443_MERGE_READBACK
+  resource_lock_ownership: PASS_M2P5_SEMANTIC_RELEASE
+  carrier_persistence: PATCH_READY_OWNER_AUTHORIZATION_REQUIRED
+  latest_product_pr: 444
+  latest_product_merge_sha: af86a57090d37e71f133d6017539fdec698c7c7e
+  latest_product_merge_tree: c108aaa2e535bed860049e3cf6a9f900295ac1bc
   human_validation: NOT_PERFORMED
   teaching_effectiveness: NOT_PROVEN
 known_limits:
