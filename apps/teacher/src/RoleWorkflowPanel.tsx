@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   RoleId,
@@ -54,6 +54,7 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
   const [workspace, setWorkspace] = useState<TeacherRoleWorkflowWorkspaceDTO | null>(null);
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
+  const teamSelectionInitialized = useRef(false);
   const selectedTeam = props.teams.find((team) => team.team_id === selectedTeamId);
   const teamIdentity = props.teams.map((team) => team.team_id).join("|");
   const teamMembers = (selectedTeam?.members ?? []).filter((member) => member.role_slot !== "risk");
@@ -87,7 +88,9 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
   }, [teamIdentity, props.initialTeamId, props.teams]);
 
   useEffect(() => {
-    if (selectedTeamId) props.onTeamChange?.(selectedTeamId);
+    if (!selectedTeamId) return;
+    if (teamSelectionInitialized.current) props.onTeamChange?.(selectedTeamId);
+    teamSelectionInitialized.current = true;
   }, [props.onTeamChange, selectedTeamId]);
 
   const refresh = useCallback(async () => {
