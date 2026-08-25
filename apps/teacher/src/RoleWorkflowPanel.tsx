@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   RoleId,
@@ -13,6 +13,8 @@ interface RoleWorkflowPanelProps {
   active: boolean;
   courseId: string | undefined;
   disabled: boolean;
+  initialTeamId?: string | undefined;
+  onTeamChange?: (teamId: string) => void;
   roundId: string | undefined;
   runId: string | undefined;
   teams: Team[];
@@ -44,10 +46,16 @@ async function roleWorkflowRequest<T>(
 }
 
 export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
-  const [selectedTeamId, setSelectedTeamId] = useState(props.teams[0]?.team_id ?? "");
+  const [selectedTeamId, setSelectedTeamId] = useState(
+    props.initialTeamId && props.teams.some((team) => team.team_id === props.initialTeamId)
+      ? props.initialTeamId
+      : (props.teams[0]?.team_id ?? "")
+  );
   const [workspace, setWorkspace] = useState<TeacherRoleWorkflowWorkspaceDTO | null>(null);
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
+  const onTeamChangeRef = useRef(props.onTeamChange);
+  onTeamChangeRef.current = props.onTeamChange;
   const selectedTeam = props.teams.find((team) => team.team_id === selectedTeamId);
   const teamIdentity = props.teams.map((team) => team.team_id).join("|");
   const teamMembers = (selectedTeam?.members ?? []).filter((member) => member.role_slot !== "risk");
@@ -74,9 +82,11 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
     setSelectedTeamId((current) =>
       props.teams.some((team) => team.team_id === current)
         ? current
-        : (props.teams[0]?.team_id ?? "")
+        : props.initialTeamId && props.teams.some((team) => team.team_id === props.initialTeamId)
+          ? props.initialTeamId
+          : (props.teams[0]?.team_id ?? "")
     );
-  }, [teamIdentity, props.teams]);
+  }, [teamIdentity, props.initialTeamId, props.teams]);
 
   const refresh = useCallback(async () => {
     if (!props.active || !props.token || !props.runId || !props.roundId || !selectedTeam) {
@@ -171,7 +181,11 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
             <select
               aria-label="角色流程队伍"
               disabled={busy || props.disabled}
-              onChange={(event) => setSelectedTeamId(event.target.value)}
+              onChange={(event) => {
+                const nextTeamId = event.target.value;
+                setSelectedTeamId(nextTeamId);
+                onTeamChangeRef.current?.(nextTeamId);
+              }}
               value={selectedTeamId}
             >
               {props.teams.map((team) => (

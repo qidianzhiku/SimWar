@@ -10,8 +10,15 @@ import {
 } from "react";
 import {
   getKnownLimitsProjection,
+  isSameReauthPrincipal,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
-  M1_TEACHING_PRODUCT_PACKAGE
+  M1_TEACHING_PRODUCT_PACKAGE,
+  REAUTH_CONTEXT_STORAGE_KEY,
+  isSameReauthBusinessContext,
+  parseReauthContext,
+  serializeReauthContext,
+  validateReauthIdentity,
+  type ReauthContext
 } from "@simwar/shared-contracts";
 import { StatePanel } from "@simwar/ui";
 import type {
@@ -55,7 +62,11 @@ import {
   type TeacherCourseBlueprintStudioPreview,
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
-import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
+const RoleWorkflowPanel = lazy(() =>
+  import("./RoleWorkflowPanel").then(({ RoleWorkflowPanel: Component }) => ({
+    default: Component
+  }))
+);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -103,6 +114,28 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+function readStoredReauthContext(): ReauthContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseReauthContext(window.sessionStorage.getItem(REAUTH_CONTEXT_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function storeReauthContext(context: ReauthContext | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (context) {
+      window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+    } else {
+      window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
+    }
+  } catch {
+    // No credential is stored; a storage failure must not introduce a token fallback.
+  }
+}
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
@@ -558,7 +591,11 @@ export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("ready");
+  const [reauthContext, setReauthContext] = useState<ReauthContext | null>(readStoredReauthContext);
+  const [notice, setNotice] = useState(() => (reauthContext ? "REAUTH_REQUIRED" : "ready"));
+  const [contextRecoveryState, setContextRecoveryState] = useState<
+    "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+  >(() => (reauthContext ? "REAUTH_REQUIRED" : "NONE"));
   const [showLearningDesign, setShowLearningDesign] = useState(false);
   const [scenarioReadinessForm, setScenarioReadinessForm] = useState<ScenarioReadinessForm>(
     EMPTY_SCENARIO_READINESS_FORM
@@ -815,12 +852,14 @@ export function App() {
       }
 
       const requestedRunId =
-        preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
+        preferredRunId === undefined
+          ? (reauthContext?.run_id ?? selectedRunIdRef.current ?? "")
+          : (preferredRunId ?? "");
       const requestedRoundId =
         preferredRoundId !== undefined
           ? (preferredRoundId ?? "")
           : preferredRunId === undefined || requestedRunId === (selectedRunIdRef.current ?? "")
-            ? (selectedRoundIdRef.current ?? "")
+            ? (reauthContext?.round_id ?? selectedRoundIdRef.current ?? "")
             : "";
       if (preferredRunId !== undefined && requestedRunId !== (selectedRunIdRef.current ?? "")) {
         invalidateTeacherContext(login, requestedRunId, session);
@@ -853,18 +892,54 @@ export function App() {
         }
         throw error;
       }
-      const nextCourseId = selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
-      const nextRun = selectVisibleRun(
-        nextState,
-        preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId,
-        nextCourseId
-      );
+      const nextCourseId =
+        reauthContext?.course_id ?? selectedCourseIdRef.current ?? selectInitialCourseId(nextState);
+      const restoredRunId =
+        reauthContext?.run_id ??
+        (preferredRunId === undefined ? selectedRunIdRef.current : preferredRunId);
+      const nextRun = selectVisibleRun(nextState, restoredRunId, nextCourseId);
       const nextRound = nextRun
         ? selectTeacherRound(
             getTeacherRunRounds(nextState.rounds, nextRun.run_id, login.tenantId || undefined),
             requestedRoundId || null
           )
         : undefined;
+      const restoredTeam = reauthContext
+        ? nextState.teams.find(
+            (team) =>
+              team.course_id === nextRun?.course_id &&
+              team.team_id === reauthContext.team_id &&
+              (team.tenant_id === login.tenantId ||
+                (team.tenant_id === undefined && reauthContext.tenant_id === login.tenantId))
+          )
+        : undefined;
+      const exactRestoredContext =
+        reauthContext && nextRun && nextRound && restoredTeam
+          ? isSameReauthBusinessContext(reauthContext, {
+              course_id: nextRun.course_id,
+              run_id: nextRun.run_id,
+              team_id: restoredTeam.team_id,
+              round_id: nextRound.round_id,
+              round_no: nextRound.round_no
+            })
+          : false;
+      const failContextRecovery = (
+        recoveryState: "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+      ): void => {
+        setState(nextState);
+        setWorkspace(null);
+        setWorkspaceLoadState("error");
+        setContextRecoveryState(recoveryState);
+        setNotice(recoveryState === "CONTEXT_STALE" ? "CONTEXT_NOT_FOUND" : recoveryState);
+      };
+      if (reauthContext && !restoredTeam) {
+        failContextRecovery("CONTEXT_UNAUTHORIZED");
+        return;
+      }
+      if (reauthContext && !exactRestoredContext) {
+        failContextRecovery("CONTEXT_STALE");
+        return;
+      }
       const resolvedIdentity: TeacherWorkspaceRequestIdentity = {
         ...requestIdentity,
         runId: nextRun?.run_id ?? "",
@@ -928,6 +1003,11 @@ export function App() {
         }
         setWorkspace(nextWorkspace);
         setWorkspaceLoadState("ready");
+        if (reauthContext) {
+          setContextRecoveryState("READY");
+          storeReauthContext(null);
+          setReauthContext(null);
+        }
       } catch (error) {
         if (
           !isTeacherWorkspaceRequestCurrent(resolvedIdentity, {
@@ -941,7 +1021,7 @@ export function App() {
         throw error;
       }
     },
-    [login.tenantId, session]
+    [login.tenantId, reauthContext, session]
   );
 
   const refreshTeacherCoursePackages = useCallback(async () => {
@@ -1148,6 +1228,29 @@ export function App() {
       ) {
         return;
       }
+      const nextIdentity = {
+        tenant_id: nextSession.user.tenant_id,
+        user_id: nextSession.user.user_id,
+        roles: nextSession.user.roles
+      };
+      const explicitSameTenantIdentitySwitch =
+        reauthContext &&
+        !isSameReauthPrincipal(reauthContext, nextIdentity) &&
+        reauthContext.tenant_id === nextIdentity.tenant_id;
+      if (explicitSameTenantIdentitySwitch) {
+        storeReauthContext(null);
+        setReauthContext(null);
+        setContextRecoveryState("NONE");
+      } else if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          ...nextIdentity
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
       setLogin(nextLogin);
       setSession(nextSession);
       teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
@@ -1179,6 +1282,27 @@ export function App() {
         setBusy(false);
       }
     }
+  }
+
+  function persistTeacherContext(teamId: string): void {
+    if (!session || !selectedRun || !selectedRound || !teamId) return;
+    const route =
+      typeof window === "undefined"
+        ? "/"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    storeReauthContext({
+      schema_version: 1,
+      tenant_id: session.user.tenant_id,
+      user_id: session.user.user_id,
+      role: "teacher",
+      course_id: selectedRun.course_id,
+      run_id: selectedRun.run_id,
+      team_id: teamId,
+      round_id: selectedRound.round_id,
+      round_no: selectedRound.round_no,
+      route,
+      view: "role-workflow-monitor"
+    });
   }
 
   useEffect(() => {
@@ -1649,6 +1773,10 @@ export function App() {
       if (!isCurrentTeacherContext(requestIdentity)) return;
       selectedRunIdRef.current = created.run.run_id;
       setSelectedRunId(created.run.run_id);
+      // Creating a new run is an explicit business-context transition. Do not
+      // restore the previous run after a reload of the post-create workspace.
+      storeReauthContext(null);
+      setReauthContext(null);
       setNotice("formal Run created");
       setBusy(false);
       await refresh(created.run.run_id);
@@ -1690,6 +1818,10 @@ export function App() {
     if (!isCurrentTeacherContext(requestIdentity)) return;
     selectedRunIdRef.current = created.run.run_id;
     setSelectedRunId(created.run.run_id);
+    // Creating a new run is an explicit business-context transition. Do not
+    // restore the previous run after a reload of the post-create workspace.
+    storeReauthContext(null);
+    setReauthContext(null);
     setNotice("run created");
     setBusy(false);
     await refresh(created.run.run_id);
@@ -3255,19 +3387,28 @@ export function App() {
           />
         ) : null}
         {session ? (
-          <RoleWorkflowPanel
-            active={selectedRound?.status === "open"}
-            courseId={selectedRun?.course_id}
-            disabled={busy || selectedRound?.status !== "open"}
-            roundId={selectedRound?.round_id}
-            runId={selectedRun?.run_id}
-            teams={
-              state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ??
-              []
-            }
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入角色协作工作区…</p>}>
+            <RoleWorkflowPanel
+              active={
+                selectedRound?.status === "open" &&
+                contextRecoveryState !== "CONTEXT_STALE" &&
+                contextRecoveryState !== "CONTEXT_UNAUTHORIZED"
+              }
+              courseId={selectedRun?.course_id}
+              disabled={busy || selectedRound?.status !== "open"}
+              initialTeamId={reauthContext?.team_id}
+              onTeamChange={persistTeacherContext}
+              roundId={selectedRound?.round_id}
+              runId={selectedRun?.run_id}
+              teams={
+                state?.teams.filter(
+                  (candidate) => candidate.course_id === selectedRun?.course_id
+                ) ?? []
+              }
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session ? (
           <W027DecisionExperiencePanel

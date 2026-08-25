@@ -11,7 +11,13 @@ import {
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
-  M1_TEACHING_PRODUCT_PACKAGE
+  M1_TEACHING_PRODUCT_PACKAGE,
+  REAUTH_CONTEXT_STORAGE_KEY,
+  isSameReauthBusinessContext,
+  parseReauthContext,
+  serializeReauthContext,
+  validateReauthIdentity,
+  type ReauthContext
 } from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
@@ -46,6 +52,33 @@ import {
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+function readStoredReauthContext(): ReauthContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseReauthContext(window.sessionStorage.getItem(REAUTH_CONTEXT_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredReauthContext(context: ReauthContext): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+  } catch {
+    // A storage failure must not turn a safe re-auth flow into a secret-persistence fallback.
+  }
+}
+
+function clearStoredReauthContext(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
+  } catch {
+    // Best effort only; no credential is stored here.
+  }
+}
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
@@ -216,9 +249,13 @@ function studentStatusCopy(value: string | undefined, fallback: string): ReactNo
 /**
  * The legacy demo-state route is retained only as a bootstrap source because
  * no student bootstrap BFF exists yet. Keep the in-memory projection bounded
- * to the authenticated learner's current run, round, team, and decision.
+ * to the authenticated learner's selected team and selected run. During
+ * re-authentication, the saved course/run/round is the only permitted target.
  */
-export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
+export function projectStudentBootstrapState(
+  source: P0DemoState,
+  preferredContext?: Pick<ReauthContext, "course_id" | "run_id" | "round_id" | "round_no">
+): P0DemoState {
   const ownTeam = source.teams.find(
     (candidate) => candidate.team_id === source.current_user.team_id
   );
@@ -237,11 +274,31 @@ export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
         .reverse()
         .find((run) => run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
     : undefined;
-  const latestRound = latestRun
-    ? source.rounds
-        .filter((round) => round.run_id === latestRun.run_id)
-        .sort((left, right) => left.round_no - right.round_no)
-        .at(-1)
+  const selectedRun = preferredContext
+    ? source.runs.find(
+        (run) =>
+          run.tenant_id === source.current_user.tenant_id &&
+          run.run_id === preferredContext.run_id &&
+          run.course_id === preferredContext.course_id
+      )
+    : latestRun;
+  const selectedRound = selectedRun
+    ? preferredContext
+      ? source.rounds.find(
+          (round) =>
+            round.tenant_id === source.current_user.tenant_id &&
+            round.run_id === selectedRun.run_id &&
+            round.round_id === preferredContext.round_id &&
+            round.round_no === preferredContext.round_no
+        )
+      : source.rounds
+          .filter(
+            (round) =>
+              round.tenant_id === source.current_user.tenant_id &&
+              round.run_id === selectedRun.run_id
+          )
+          .sort((left, right) => right.round_no - left.round_no)
+          .at(0)
     : undefined;
   const { tenants, users, roles, permissions, latest_result, audit_logs, ...safeSource } = source;
   void tenants;
@@ -253,16 +310,16 @@ export function projectStudentBootstrapState(source: P0DemoState): P0DemoState {
   return {
     ...safeSource,
     courses: source.courses.filter(
-      (course) => course.course_id === (latestRun?.course_id ?? ownTeam?.course_id)
+      (course) => course.course_id === (selectedRun?.course_id ?? ownTeam?.course_id)
     ),
     teams: ownTeam ? [ownTeam] : [],
-    runs: latestRun ? [latestRun] : [],
-    rounds: latestRound ? [latestRound] : [],
+    runs: selectedRun ? [selectedRun] : [],
+    rounds: selectedRound ? [selectedRound] : [],
     decisions: source.decisions.filter(
       (candidate) =>
         candidate.team_id === ownTeamId &&
-        candidate.run_id === latestRun?.run_id &&
-        candidate.round_no === latestRound?.round_no
+        candidate.run_id === selectedRun?.run_id &&
+        candidate.round_no === selectedRound?.round_no
     ),
     audit_logs: []
   };
@@ -327,7 +384,15 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("等待服务端状态");
+  const [notice, setNotice] = useState(() =>
+    readStoredReauthContext() ? "REAUTH_REQUIRED" : "等待服务端状态"
+  );
+  const [reauthContext, setReauthContext] = useState<ReauthContext | null>(() =>
+    readStoredReauthContext()
+  );
+  const [contextRecoveryState, setContextRecoveryState] = useState<
+    "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+  >(() => (readStoredReauthContext() ? "REAUTH_REQUIRED" : "NONE"));
   const [w5Projection, setW5Projection] = useState<W5GovernedModelStudentProjection | null>(null);
   const [workspacePhase, setWorkspacePhase] = useState<
     "idle" | "loading" | "empty" | "ready" | "error"
@@ -429,11 +494,64 @@ export function App() {
       };
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
-      const studentState = projectStudentBootstrapState(nextState);
-      const nextRun = studentState.runs.at(-1);
+      const studentState = projectStudentBootstrapState(nextState, reauthContext ?? undefined);
+      const nextRun = reauthContext
+        ? studentState.runs.find(
+            (run) =>
+              run.run_id === reauthContext.run_id && run.course_id === reauthContext.course_id
+          )
+        : studentState.runs.at(-1);
       const nextRound = nextRun
-        ? studentState.rounds.find((round) => round.run_id === nextRun.run_id)
+        ? reauthContext
+          ? studentState.rounds.find(
+              (round) =>
+                round.run_id === nextRun.run_id &&
+                round.round_id === reauthContext.round_id &&
+                round.round_no === reauthContext.round_no
+            )
+          : studentState.rounds.find((round) => round.run_id === nextRun.run_id)
         : undefined;
+      const nextTeam = studentState.teams.find(
+        (candidate) =>
+          candidate.tenant_id === login.tenantId &&
+          candidate.team_id === studentState.current_user.team_id
+      );
+
+      if (reauthContext && (!nextRun || !nextRound)) {
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_STALE");
+        setNotice("CONTEXT_NOT_FOUND");
+        return;
+      }
+
+      if (reauthContext && (!nextTeam || nextTeam.team_id !== reauthContext.team_id)) {
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+        setNotice("CONTEXT_UNAUTHORIZED");
+        return;
+      }
+
+      if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          tenant_id: studentState.current_user.tenant_id,
+          user_id: studentState.current_user.user_id,
+          roles: session.user.roles,
+          role_slots: nextTeam
+            ? nextTeam.members
+                .filter((member) => member.user_id === session.user.user_id)
+                .map((member) => member.role_slot)
+            : []
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setCockpit(null);
+          setWorkspacePhase("error");
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
 
       setState(studentState);
 
@@ -449,6 +567,18 @@ export function App() {
         auth
       );
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
+      if (
+        reauthContext &&
+        (nextCockpit.student_cockpit.tenant_id !== login.tenantId ||
+          !isSameReauthBusinessContext(reauthContext, nextCockpit.student_cockpit))
+      ) {
+        setState(studentState);
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_STALE");
+        setNotice("CONTEXT_NOT_FOUND");
+        return;
+      }
       setCockpit(nextCockpit);
       if (w5DraftId) {
         try {
@@ -465,13 +595,19 @@ export function App() {
         setW5Projection(null);
       }
       setWorkspacePhase("ready");
+      if (reauthContext) {
+        setContextRecoveryState("READY");
+        // Keep the verified non-secret navigation context so the next full
+        // reload still requires explicit reauthentication for this context.
+        writeStoredReauthContext(reauthContext);
+      }
     } catch (error) {
       if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
         return;
       setWorkspacePhase("error");
       throw error;
     }
-  }, [isStudentSession, login.tenantId, session, w5DraftId]);
+  }, [isStudentSession, login.tenantId, reauthContext, session, w5DraftId]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     authIdentity.current += 1;
@@ -514,6 +650,22 @@ export function App() {
         signal: controller.signal
       });
       if (requestId !== authIdentity.current) return;
+      if (reauthContext && reauthContext.user_id !== nextSession.user.user_id) {
+        clearStoredReauthContext();
+        setReauthContext(null);
+        setContextRecoveryState("NONE");
+      } else if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          tenant_id: nextSession.user.tenant_id,
+          user_id: nextSession.user.user_id,
+          roles: nextSession.user.roles
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
       setLogin(nextLogin);
       setSession(nextSession);
       setNotice(
@@ -540,6 +692,29 @@ export function App() {
       refreshIdentity.current += 1;
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!session || !isStudentSession || !latestRun || !latestRound || !team) return;
+    const member = team.members.find((candidate) => candidate.user_id === session.user.user_id);
+    if (!member) return;
+    const route =
+      typeof window === "undefined"
+        ? "/"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    writeStoredReauthContext({
+      schema_version: 1,
+      tenant_id: session.user.tenant_id,
+      user_id: session.user.user_id,
+      role: member.role_slot,
+      course_id: latestRun.course_id,
+      run_id: latestRun.run_id,
+      team_id: team.team_id,
+      round_id: latestRound.round_id,
+      round_no: latestRound.round_no,
+      route,
+      view: "student-role-workspace"
+    });
+  }, [isStudentSession, latestRound, latestRun, session, team, w3RoleKey]);
 
   async function submitDecision(): Promise<void> {
     const allowedActions = cockpit?.decision_form.allowed_actions ?? [];
@@ -629,7 +804,11 @@ export function App() {
     ["决策", submittedDecision ? `v${submittedDecision.version}` : "草稿"],
     ["BFF", studentStatusCopy(cockpit?.student_cockpit.evidence_label, "等待服务端投影")]
   ];
-  const hasStudentSurface = Boolean(session && isStudentSession);
+  const hasStudentSurface = Boolean(
+    session &&
+    isStudentSession &&
+    (contextRecoveryState === "NONE" || contextRecoveryState === "READY")
+  );
   const activeSession = session && isStudentSession ? session : null;
   const visibleNavigationItems = hasStudentSurface
     ? STUDENT_NAVIGATION_ITEMS
@@ -711,14 +890,26 @@ export function App() {
                   <>
                     {notice.startsWith("登录上下文已更改")
                       ? "登录上下文已更改，请重新登录。"
-                      : noticeCopy.compatibility
-                        ? noticeCopy.primary
-                        : "请登录后查看当前学员工作区。"}{" "}
+                      : contextRecoveryState === "REAUTH_REQUIRED"
+                        ? "REAUTH_REQUIRED：刷新后请重新登录以恢复已验证业务上下文。"
+                        : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                          ? "CONTEXT_UNAUTHORIZED：当前登录身份无权恢复此上下文。"
+                          : contextRecoveryState === "CONTEXT_STALE"
+                            ? "CONTEXT_NOT_FOUND：保存的回合上下文已失效，请选择有效的授权入口。"
+                            : noticeCopy.compatibility
+                              ? noticeCopy.primary
+                              : "请登录后查看当前学员工作区。"}{" "}
                     <span className="compatibility-copy">
                       not signed in ·{" "}
                       {notice.startsWith("登录上下文已更改")
                         ? "context changed"
-                        : (noticeCopy.compatibility ?? "ready")}
+                        : contextRecoveryState === "REAUTH_REQUIRED"
+                          ? "REAUTH_REQUIRED"
+                          : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                            ? "CONTEXT_UNAUTHORIZED"
+                            : contextRecoveryState === "CONTEXT_STALE"
+                              ? "CONTEXT_NOT_FOUND"
+                              : (noticeCopy.compatibility ?? "ready")}
                     </span>
                   </>
                 }
@@ -736,7 +927,13 @@ export function App() {
                 {workspacePhase === "error" ? (
                   <StatePanel
                     status="error"
-                    message="学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+                    message={
+                      contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                        ? "CONTEXT_UNAUTHORIZED：不会跨租户或跨角色恢复。"
+                        : contextRecoveryState === "CONTEXT_STALE"
+                          ? "CONTEXT_NOT_FOUND：不会静默切换到最新或默认回合。"
+                          : "学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+                    }
                     recoveryAction="重新加载学员工作区"
                     onRecover={() => void refresh().catch(() => undefined)}
                   />

@@ -37,6 +37,9 @@ export const TEACHER_WORKSPACE_ERROR_REASON = "服务端回合权限加载失败
 
 const TEACHER_NOTICE_LABELS: Record<string, string> = {
   ready: "就绪",
+  REAUTH_REQUIRED: "REAUTH_REQUIRED：需要重新认证",
+  CONTEXT_UNAUTHORIZED: "CONTEXT_UNAUTHORIZED：当前身份无权恢复该上下文",
+  CONTEXT_NOT_FOUND: "CONTEXT_NOT_FOUND：保存的业务上下文不可用",
   "signed in": "已登录",
   "not signed in": "尚未登录",
   "context changed": "上下文已切换",
