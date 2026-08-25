@@ -906,9 +906,10 @@ export function App() {
       const restoredTeam = reauthContext
         ? nextState.teams.find(
             (team) =>
-              team.tenant_id === login.tenantId &&
               team.course_id === nextRun?.course_id &&
-              team.team_id === reauthContext.team_id
+              team.team_id === reauthContext.team_id &&
+              (team.tenant_id === login.tenantId ||
+                (team.tenant_id === undefined && reauthContext.tenant_id === login.tenantId))
           )
         : undefined;
       const exactRestoredContext =
