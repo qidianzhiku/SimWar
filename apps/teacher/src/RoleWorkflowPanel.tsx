@@ -13,6 +13,8 @@ interface RoleWorkflowPanelProps {
   active: boolean;
   courseId: string | undefined;
   disabled: boolean;
+  initialTeamId?: string | undefined;
+  onTeamChange?: (teamId: string) => void;
   roundId: string | undefined;
   runId: string | undefined;
   teams: Team[];
@@ -44,7 +46,11 @@ async function roleWorkflowRequest<T>(
 }
 
 export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
-  const [selectedTeamId, setSelectedTeamId] = useState(props.teams[0]?.team_id ?? "");
+  const [selectedTeamId, setSelectedTeamId] = useState(
+    props.initialTeamId && props.teams.some((team) => team.team_id === props.initialTeamId)
+      ? props.initialTeamId
+      : (props.teams[0]?.team_id ?? "")
+  );
   const [workspace, setWorkspace] = useState<TeacherRoleWorkflowWorkspaceDTO | null>(null);
   const [notice, setNotice] = useState("ready");
   const [busy, setBusy] = useState(false);
@@ -74,9 +80,15 @@ export function RoleWorkflowPanel(props: RoleWorkflowPanelProps) {
     setSelectedTeamId((current) =>
       props.teams.some((team) => team.team_id === current)
         ? current
-        : (props.teams[0]?.team_id ?? "")
+        : props.initialTeamId && props.teams.some((team) => team.team_id === props.initialTeamId)
+          ? props.initialTeamId
+          : (props.teams[0]?.team_id ?? "")
     );
-  }, [teamIdentity, props.teams]);
+  }, [teamIdentity, props.initialTeamId, props.teams]);
+
+  useEffect(() => {
+    if (selectedTeamId) props.onTeamChange?.(selectedTeamId);
+  }, [props.onTeamChange, selectedTeamId]);
 
   const refresh = useCallback(async () => {
     if (!props.active || !props.token || !props.runId || !props.roundId || !selectedTeam) {

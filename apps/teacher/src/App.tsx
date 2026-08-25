@@ -11,7 +11,12 @@ import {
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
-  M1_TEACHING_PRODUCT_PACKAGE
+  M1_TEACHING_PRODUCT_PACKAGE,
+  REAUTH_CONTEXT_STORAGE_KEY,
+  parseReauthContext,
+  serializeReauthContext,
+  validateReauthIdentity,
+  type ReauthContext
 } from "@simwar/shared-contracts";
 import { StatePanel } from "@simwar/ui";
 import type {
@@ -103,6 +108,33 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+function readStoredReauthContext(): ReauthContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseReauthContext(window.sessionStorage.getItem(REAUTH_CONTEXT_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredReauthContext(context: ReauthContext): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+  } catch {
+    // No credential is stored; a storage failure must not introduce a token fallback.
+  }
+}
+
+function clearStoredReauthContext(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
+  } catch {
+    // Best effort only; the next login still requires explicit authentication.
+  }
+}
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
@@ -558,7 +590,13 @@ export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("ready");
+  const [notice, setNotice] = useState(() =>
+    readStoredReauthContext() ? "REAUTH_REQUIRED" : "ready"
+  );
+  const [reauthContext] = useState<ReauthContext | null>(() => readStoredReauthContext());
+  const [contextRecoveryState, setContextRecoveryState] = useState<
+    "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+  >(() => (readStoredReauthContext() ? "REAUTH_REQUIRED" : "NONE"));
   const [showLearningDesign, setShowLearningDesign] = useState(false);
   const [scenarioReadinessForm, setScenarioReadinessForm] = useState<ScenarioReadinessForm>(
     EMPTY_SCENARIO_READINESS_FORM
@@ -815,12 +853,14 @@ export function App() {
       }
 
       const requestedRunId =
-        preferredRunId === undefined ? (selectedRunIdRef.current ?? "") : (preferredRunId ?? "");
+        preferredRunId === undefined
+          ? (reauthContext?.run_id ?? selectedRunIdRef.current ?? "")
+          : (preferredRunId ?? "");
       const requestedRoundId =
         preferredRoundId !== undefined
           ? (preferredRoundId ?? "")
           : preferredRunId === undefined || requestedRunId === (selectedRunIdRef.current ?? "")
-            ? (selectedRoundIdRef.current ?? "")
+            ? (reauthContext?.round_id ?? selectedRoundIdRef.current ?? "")
             : "";
       if (preferredRunId !== undefined && requestedRunId !== (selectedRunIdRef.current ?? "")) {
         invalidateTeacherContext(login, requestedRunId, session);
@@ -865,6 +905,35 @@ export function App() {
             requestedRoundId || null
           )
         : undefined;
+      const restoredTeam = reauthContext
+        ? nextState.teams.find(
+            (team) => team.course_id === nextRun?.course_id && team.team_id === reauthContext.team_id
+          )
+        : undefined;
+      if (
+        reauthContext &&
+        (!nextRun ||
+          !nextRound ||
+          nextRun.run_id !== reauthContext.run_id ||
+          nextRun.course_id !== reauthContext.course_id ||
+          nextRound.round_id !== reauthContext.round_id ||
+          nextRound.round_no !== reauthContext.round_no)
+      ) {
+        setState(nextState);
+        setWorkspace(null);
+        setWorkspaceLoadState("error");
+        setContextRecoveryState("CONTEXT_STALE");
+        setNotice("CONTEXT_NOT_FOUND");
+        return;
+      }
+      if (reauthContext && !restoredTeam) {
+        setState(nextState);
+        setWorkspace(null);
+        setWorkspaceLoadState("error");
+        setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+        setNotice("CONTEXT_UNAUTHORIZED");
+        return;
+      }
       const resolvedIdentity: TeacherWorkspaceRequestIdentity = {
         ...requestIdentity,
         runId: nextRun?.run_id ?? "",
@@ -928,6 +997,10 @@ export function App() {
         }
         setWorkspace(nextWorkspace);
         setWorkspaceLoadState("ready");
+        if (reauthContext) {
+          setContextRecoveryState("READY");
+          clearStoredReauthContext();
+        }
       } catch (error) {
         if (
           !isTeacherWorkspaceRequestCurrent(resolvedIdentity, {
@@ -941,7 +1014,7 @@ export function App() {
         throw error;
       }
     },
-    [login.tenantId, session]
+    [login.tenantId, reauthContext, session]
   );
 
   const refreshTeacherCoursePackages = useCallback(async () => {
@@ -1148,6 +1221,18 @@ export function App() {
       ) {
         return;
       }
+      if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          tenant_id: nextSession.user.tenant_id,
+          user_id: nextSession.user.user_id,
+          roles: nextSession.user.roles
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
       setLogin(nextLogin);
       setSession(nextSession);
       teacherSessionIdentityRef.current = buildTeacherSessionIdentity(
@@ -1179,6 +1264,27 @@ export function App() {
         setBusy(false);
       }
     }
+  }
+
+  function persistTeacherContext(teamId: string): void {
+    if (!session || !selectedRun || !selectedRound || !teamId) return;
+    const route =
+      typeof window === "undefined"
+        ? "/"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    writeStoredReauthContext({
+      schema_version: 1,
+      tenant_id: session.user.tenant_id,
+      user_id: session.user.user_id,
+      role: "teacher",
+      course_id: selectedRun.course_id,
+      run_id: selectedRun.run_id,
+      team_id: teamId,
+      round_id: selectedRound.round_id,
+      round_no: selectedRound.round_no,
+      route,
+      view: "role-workflow-monitor"
+    });
   }
 
   useEffect(() => {
@@ -3256,9 +3362,15 @@ export function App() {
         ) : null}
         {session ? (
           <RoleWorkflowPanel
-            active={selectedRound?.status === "open"}
+            active={
+              selectedRound?.status === "open" &&
+              contextRecoveryState !== "CONTEXT_STALE" &&
+              contextRecoveryState !== "CONTEXT_UNAUTHORIZED"
+            }
             courseId={selectedRun?.course_id}
             disabled={busy || selectedRound?.status !== "open"}
+            initialTeamId={reauthContext?.team_id}
+            onTeamChange={persistTeacherContext}
             roundId={selectedRound?.round_id}
             runId={selectedRun?.run_id}
             teams={

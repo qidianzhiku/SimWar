@@ -383,6 +383,11 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     fixtureUsers[0]
   ] as const) {
     await page.goto(studentBaseUrl);
+    // Each role is an independent authenticated operator in this fixture. Clear only the
+    // non-secret re-auth navigation context before switching identities; this is not a
+    // refresh-recovery path and must not be treated as cross-role restoration.
+    await page.evaluate(() => sessionStorage.removeItem("simwar.reauth-context.v1"));
+    await page.reload();
     await signIn(page, "student", username);
     const studentWorkflow = page.getByLabel("Student role workflow");
     await expect(studentWorkflow.getByRole("heading", { name: "角色工作区" })).toBeVisible();
@@ -446,6 +451,8 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
     fixtureUsers[4]
   ] as const) {
     await page.goto(studentBaseUrl);
+    await page.evaluate(() => sessionStorage.removeItem("simwar.reauth-context.v1"));
+    await page.reload();
     await signIn(page, "student", username);
     const studentWorkflow = page.getByLabel("Student role workflow");
     await expect(studentWorkflow.getByText("已提出方案", { exact: true })).toBeVisible();
@@ -460,6 +467,8 @@ test("@role-workflow-real Teacher assigns a role and Student confirms one safe t
   }
 
   await page.goto(studentBaseUrl);
+  await page.evaluate(() => sessionStorage.removeItem("simwar.reauth-context.v1"));
+  await page.reload();
   await signIn(page, "student", fixtureUsers[0][0]);
   const captainWorkflow = page.getByLabel("Student role workflow");
   await expect(captainWorkflow.getByText("本角色已记录：ACKNOWLEDGED")).toBeVisible();

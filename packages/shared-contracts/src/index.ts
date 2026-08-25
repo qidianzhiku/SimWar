@@ -11,6 +11,7 @@ export * from "./market-world.js";
 export * from "./project-library.js";
 export * from "./m2p5-decision-learning-crossround.js";
 export * from "./operating-world-consequence-trace.js";
+export * from "./reauth-context.js";
 import type { MarketWorldRef } from "./market-world.js";
 import type { W4StrategicActionEnvelope } from "./w4-enterprise-state.js";
 import type { M2P4StudentProjectContext, M2P4TeacherLiveRoundOps } from "./m2p4-live-round-ops.js";

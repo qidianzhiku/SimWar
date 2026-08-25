@@ -11,7 +11,12 @@ import {
 import {
   getKnownLimitsProjection,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
-  M1_TEACHING_PRODUCT_PACKAGE
+  M1_TEACHING_PRODUCT_PACKAGE,
+  REAUTH_CONTEXT_STORAGE_KEY,
+  parseReauthContext,
+  serializeReauthContext,
+  validateReauthIdentity,
+  type ReauthContext
 } from "@simwar/shared-contracts";
 import type {
   ApiEnvelope,
@@ -46,6 +51,33 @@ import {
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+
+function readStoredReauthContext(): ReauthContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return parseReauthContext(window.sessionStorage.getItem(REAUTH_CONTEXT_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredReauthContext(context: ReauthContext): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+  } catch {
+    // A storage failure must not turn a safe re-auth flow into a secret-persistence fallback.
+  }
+}
+
+function clearStoredReauthContext(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
+  } catch {
+    // Best effort only; no credential is stored here.
+  }
+}
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
 const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ?? "";
 const StudentDecisionLearningJourney = lazy(() => import("./P2BDecisionLearningJourney"));
@@ -327,7 +359,13 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [decision, setDecision] = useState<DecisionPayload>(defaultDecision);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("等待服务端状态");
+  const [notice, setNotice] = useState(() =>
+    readStoredReauthContext() ? "REAUTH_REQUIRED" : "等待服务端状态"
+  );
+  const [reauthContext] = useState<ReauthContext | null>(() => readStoredReauthContext());
+  const [contextRecoveryState, setContextRecoveryState] = useState<
+    "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+  >(() => (readStoredReauthContext() ? "REAUTH_REQUIRED" : "NONE"));
   const [w5Projection, setW5Projection] = useState<W5GovernedModelStudentProjection | null>(null);
   const [workspacePhase, setWorkspacePhase] = useState<
     "idle" | "loading" | "empty" | "ready" | "error"
@@ -430,10 +468,40 @@ export function App() {
       const nextState = await apiRequest<P0DemoState>("/api/v1/demo-state", auth);
       if (!isCurrentStudentRequest(requestId, refreshIdentity.current)) return;
       const studentState = projectStudentBootstrapState(nextState);
-      const nextRun = studentState.runs.at(-1);
+      const nextRun = reauthContext
+        ? studentState.runs.find((run) => run.run_id === reauthContext.run_id)
+        : studentState.runs.at(-1);
       const nextRound = nextRun
-        ? studentState.rounds.find((round) => round.run_id === nextRun.run_id)
+        ? reauthContext
+          ? studentState.rounds.find(
+              (round) =>
+                round.run_id === nextRun.run_id &&
+                (round.round_id === reauthContext.round_id ||
+                  round.round_no === reauthContext.round_no)
+            )
+          : studentState.rounds.find((round) => round.run_id === nextRun.run_id)
         : undefined;
+      const nextTeam = studentState.teams.find(
+        (candidate) => candidate.team_id === studentState.current_user.team_id
+      );
+
+      if (reauthContext && (!nextRun || !nextRound)) {
+        setState(studentState);
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_STALE");
+        setNotice("CONTEXT_NOT_FOUND");
+        return;
+      }
+
+      if (reauthContext && (!nextTeam || nextTeam.team_id !== reauthContext.team_id)) {
+        setState(studentState);
+        setCockpit(null);
+        setWorkspacePhase("error");
+        setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+        setNotice("CONTEXT_UNAUTHORIZED");
+        return;
+      }
 
       setState(studentState);
 
@@ -465,13 +533,17 @@ export function App() {
         setW5Projection(null);
       }
       setWorkspacePhase("ready");
+      if (reauthContext) {
+        setContextRecoveryState("READY");
+        clearStoredReauthContext();
+      }
     } catch (error) {
       if (controller.signal.aborted || !isCurrentStudentRequest(requestId, refreshIdentity.current))
         return;
       setWorkspacePhase("error");
       throw error;
     }
-  }, [isStudentSession, login.tenantId, session, w5DraftId]);
+  }, [isStudentSession, login.tenantId, reauthContext, session, w5DraftId]);
 
   function updateLogin(field: keyof LoginForm, value: string): void {
     authIdentity.current += 1;
@@ -514,6 +586,18 @@ export function App() {
         signal: controller.signal
       });
       if (requestId !== authIdentity.current) return;
+      if (reauthContext) {
+        const identityValidation = validateReauthIdentity(reauthContext, {
+          tenant_id: nextSession.user.tenant_id,
+          user_id: nextSession.user.user_id,
+          roles: nextSession.user.roles
+        });
+        if (identityValidation.status !== "RESTORE_ALLOWED") {
+          setContextRecoveryState("CONTEXT_UNAUTHORIZED");
+          setNotice("CONTEXT_UNAUTHORIZED");
+          return;
+        }
+      }
       setLogin(nextLogin);
       setSession(nextSession);
       setNotice(
@@ -540,6 +624,27 @@ export function App() {
       refreshIdentity.current += 1;
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!session || !isStudentSession || !latestRun || !latestRound || !team) return;
+    const route =
+      typeof window === "undefined"
+        ? "/"
+        : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    writeStoredReauthContext({
+      schema_version: 1,
+      tenant_id: session.user.tenant_id,
+      user_id: session.user.user_id,
+      role: w3RoleKey,
+      course_id: latestRun.course_id,
+      run_id: latestRun.run_id,
+      team_id: team.team_id,
+      round_id: latestRound.round_id,
+      round_no: latestRound.round_no,
+      route,
+      view: "student-role-workspace"
+    });
+  }, [isStudentSession, latestRound, latestRun, session, team, w3RoleKey]);
 
   async function submitDecision(): Promise<void> {
     const allowedActions = cockpit?.decision_form.allowed_actions ?? [];
@@ -711,6 +816,12 @@ export function App() {
                   <>
                     {notice.startsWith("登录上下文已更改")
                       ? "登录上下文已更改，请重新登录。"
+                      : contextRecoveryState === "REAUTH_REQUIRED"
+                        ? "REAUTH_REQUIRED：刷新后请重新登录以恢复已验证业务上下文。"
+                        : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                          ? "CONTEXT_UNAUTHORIZED：当前登录身份无权恢复此上下文。"
+                          : contextRecoveryState === "CONTEXT_STALE"
+                            ? "CONTEXT_NOT_FOUND：保存的回合上下文已失效，请选择有效的授权入口。"
                       : noticeCopy.compatibility
                         ? noticeCopy.primary
                         : "请登录后查看当前学员工作区。"}{" "}
@@ -718,6 +829,12 @@ export function App() {
                       not signed in ·{" "}
                       {notice.startsWith("登录上下文已更改")
                         ? "context changed"
+                        : contextRecoveryState === "REAUTH_REQUIRED"
+                          ? "REAUTH_REQUIRED"
+                          : contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                            ? "CONTEXT_UNAUTHORIZED"
+                            : contextRecoveryState === "CONTEXT_STALE"
+                              ? "CONTEXT_NOT_FOUND"
                         : (noticeCopy.compatibility ?? "ready")}
                     </span>
                   </>
@@ -736,7 +853,13 @@ export function App() {
                 {workspacePhase === "error" ? (
                   <StatePanel
                     status="error"
-                    message="学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+                    message={
+                      contextRecoveryState === "CONTEXT_UNAUTHORIZED"
+                        ? "CONTEXT_UNAUTHORIZED：不会跨租户或跨角色恢复。"
+                        : contextRecoveryState === "CONTEXT_STALE"
+                          ? "CONTEXT_NOT_FOUND：不会静默切换到最新或默认回合。"
+                          : "学员服务端投影加载失败；不会使用旧上下文或客户端推断。"
+                    }
                     recoveryAction="重新加载学员工作区"
                     onRecover={() => void refresh().catch(() => undefined)}
                   />
