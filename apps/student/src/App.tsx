@@ -387,7 +387,9 @@ export function App() {
   const [notice, setNotice] = useState(() =>
     readStoredReauthContext() ? "REAUTH_REQUIRED" : "等待服务端状态"
   );
-  const [reauthContext] = useState<ReauthContext | null>(() => readStoredReauthContext());
+  const [reauthContext, setReauthContext] = useState<ReauthContext | null>(() =>
+    readStoredReauthContext()
+  );
   const [contextRecoveryState, setContextRecoveryState] = useState<
     "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
   >(() => (readStoredReauthContext() ? "REAUTH_REQUIRED" : "NONE"));
@@ -649,7 +651,11 @@ export function App() {
         signal: controller.signal
       });
       if (requestId !== authIdentity.current) return;
-      if (reauthContext) {
+      if (reauthContext && reauthContext.user_id !== nextSession.user.user_id) {
+        clearStoredReauthContext();
+        setReauthContext(null);
+        setContextRecoveryState("NONE");
+      } else if (reauthContext) {
         const identityValidation = validateReauthIdentity(reauthContext, {
           tenant_id: nextSession.user.tenant_id,
           user_id: nextSession.user.user_id,

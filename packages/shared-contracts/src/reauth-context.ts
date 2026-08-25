@@ -111,6 +111,18 @@ export function validateReauthIdentity(
   return { status: "RESTORE_ALLOWED" };
 }
 
+/**
+ * Re-auth navigation state belongs only to the same authenticated principal.
+ * A same-tenant login as a different user is an explicit identity switch, not
+ * a request to restore the previous user's business context.
+ */
+export function isSameReauthPrincipal(
+  context: ReauthContext,
+  identity: Pick<ReauthIdentity, "tenant_id" | "user_id">
+): boolean {
+  return context.tenant_id === identity.tenant_id && context.user_id === identity.user_id;
+}
+
 export function isSameReauthBusinessContext(
   context: ReauthContext,
   observed: ReauthBusinessContext

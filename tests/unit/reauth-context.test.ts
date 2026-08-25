@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isSameReauthBusinessContext,
+  isSameReauthPrincipal,
   parseReauthContext,
   validateReauthIdentity,
   type ReauthContext
@@ -35,6 +36,30 @@ describe("reauth exact-context contract", () => {
         roles: ["teacher"]
       })
     ).toEqual({ status: "RESTORE_ALLOWED" });
+  });
+
+  it("distinguishes explicit same-tenant identity switches from reauth recovery", () => {
+    expect(
+      isSameReauthPrincipal(context, {
+        tenant_id: "tenant_demo",
+        user_id: "teacher",
+        roles: ["teacher"]
+      })
+    ).toBe(true);
+    expect(
+      isSameReauthPrincipal(context, {
+        tenant_id: "tenant_demo",
+        user_id: "another-user",
+        roles: ["learner"]
+      })
+    ).toBe(false);
+    expect(
+      isSameReauthPrincipal(context, {
+        tenant_id: "tenant_other",
+        user_id: "teacher",
+        roles: ["teacher"]
+      })
+    ).toBe(false);
   });
 
   it("blocks cross-tenant and cross-role restoration", () => {

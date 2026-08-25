@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   getKnownLimitsProjection,
+  isSameReauthPrincipal,
   M1_TEACHING_OFFICIAL_RESULT_LABEL,
   M1_TEACHING_PRODUCT_PACKAGE,
   REAUTH_CONTEXT_STORAGE_KEY,
@@ -590,7 +591,7 @@ export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
-  const [reauthContext] = useState<ReauthContext | null>(readStoredReauthContext);
+  const [reauthContext, setReauthContext] = useState<ReauthContext | null>(readStoredReauthContext);
   const [notice, setNotice] = useState(() => (reauthContext ? "REAUTH_REQUIRED" : "ready"));
   const [contextRecoveryState, setContextRecoveryState] = useState<
     "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
@@ -1226,11 +1227,22 @@ export function App() {
       ) {
         return;
       }
-      if (reauthContext) {
+      const nextIdentity = {
+        tenant_id: nextSession.user.tenant_id,
+        user_id: nextSession.user.user_id,
+        roles: nextSession.user.roles
+      };
+      const explicitSameTenantIdentitySwitch =
+        reauthContext &&
+        !isSameReauthPrincipal(reauthContext, nextIdentity) &&
+        reauthContext.tenant_id === nextIdentity.tenant_id;
+      if (explicitSameTenantIdentitySwitch) {
+        storeReauthContext(null);
+        setReauthContext(null);
+        setContextRecoveryState("NONE");
+      } else if (reauthContext) {
         const identityValidation = validateReauthIdentity(reauthContext, {
-          tenant_id: nextSession.user.tenant_id,
-          user_id: nextSession.user.user_id,
-          roles: nextSession.user.roles
+          ...nextIdentity
         });
         if (identityValidation.status !== "RESTORE_ALLOWED") {
           setContextRecoveryState("CONTEXT_UNAUTHORIZED");
@@ -1760,6 +1772,10 @@ export function App() {
       if (!isCurrentTeacherContext(requestIdentity)) return;
       selectedRunIdRef.current = created.run.run_id;
       setSelectedRunId(created.run.run_id);
+      // Creating a new run is an explicit business-context transition. Do not
+      // restore the previous run after a reload of the post-create workspace.
+      storeReauthContext(null);
+      setReauthContext(null);
       setNotice("formal Run created");
       setBusy(false);
       await refresh(created.run.run_id);
@@ -1801,6 +1817,10 @@ export function App() {
     if (!isCurrentTeacherContext(requestIdentity)) return;
     selectedRunIdRef.current = created.run.run_id;
     setSelectedRunId(created.run.run_id);
+    // Creating a new run is an explicit business-context transition. Do not
+    // restore the previous run after a reload of the post-create workspace.
+    storeReauthContext(null);
+    setReauthContext(null);
     setNotice("run created");
     setBusy(false);
     await refresh(created.run.run_id);
