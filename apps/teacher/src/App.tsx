@@ -61,7 +61,11 @@ import {
   type TeacherCourseBlueprintStudioPreview,
   type ScenarioReadinessResponse
 } from "./scenario-readiness";
-import { RoleWorkflowPanel } from "./RoleWorkflowPanel";
+const RoleWorkflowPanel = lazy(() =>
+  import("./RoleWorkflowPanel").then(({ RoleWorkflowPanel: Component }) => ({
+    default: Component
+  }))
+);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -119,21 +123,16 @@ function readStoredReauthContext(): ReauthContext | null {
   }
 }
 
-function writeStoredReauthContext(context: ReauthContext): void {
+function storeReauthContext(context: ReauthContext | null): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+    if (context) {
+      window.sessionStorage.setItem(REAUTH_CONTEXT_STORAGE_KEY, serializeReauthContext(context));
+    } else {
+      window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
+    }
   } catch {
     // No credential is stored; a storage failure must not introduce a token fallback.
-  }
-}
-
-function clearStoredReauthContext(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(REAUTH_CONTEXT_STORAGE_KEY);
-  } catch {
-    // Best effort only; the next login still requires explicit authentication.
   }
 }
 const PROJECT_AWARE_COURSE_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID ?? "";
@@ -591,13 +590,11 @@ export function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState(() =>
-    readStoredReauthContext() ? "REAUTH_REQUIRED" : "ready"
-  );
-  const [reauthContext] = useState<ReauthContext | null>(() => readStoredReauthContext());
+  const [reauthContext] = useState<ReauthContext | null>(readStoredReauthContext);
+  const [notice, setNotice] = useState(() => (reauthContext ? "REAUTH_REQUIRED" : "ready"));
   const [contextRecoveryState, setContextRecoveryState] = useState<
     "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
-  >(() => (readStoredReauthContext() ? "REAUTH_REQUIRED" : "NONE"));
+  >(() => (reauthContext ? "REAUTH_REQUIRED" : "NONE"));
   const [showLearningDesign, setShowLearningDesign] = useState(false);
   const [scenarioReadinessForm, setScenarioReadinessForm] = useState<ScenarioReadinessForm>(
     EMPTY_SCENARIO_READINESS_FORM
@@ -924,20 +921,21 @@ export function App() {
               round_no: nextRound.round_no
             })
           : false;
-      if (reauthContext && !exactRestoredContext) {
+      const failContextRecovery = (
+        recoveryState: "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
+      ): void => {
         setState(nextState);
         setWorkspace(null);
         setWorkspaceLoadState("error");
-        setContextRecoveryState("CONTEXT_STALE");
-        setNotice("CONTEXT_NOT_FOUND");
+        setContextRecoveryState(recoveryState);
+        setNotice(recoveryState === "CONTEXT_STALE" ? "CONTEXT_NOT_FOUND" : recoveryState);
+      };
+      if (reauthContext && !restoredTeam) {
+        failContextRecovery("CONTEXT_UNAUTHORIZED");
         return;
       }
-      if (reauthContext && !restoredTeam) {
-        setState(nextState);
-        setWorkspace(null);
-        setWorkspaceLoadState("error");
-        setContextRecoveryState("CONTEXT_UNAUTHORIZED");
-        setNotice("CONTEXT_UNAUTHORIZED");
+      if (reauthContext && !exactRestoredContext) {
+        failContextRecovery("CONTEXT_STALE");
         return;
       }
       const resolvedIdentity: TeacherWorkspaceRequestIdentity = {
@@ -1005,7 +1003,7 @@ export function App() {
         setWorkspaceLoadState("ready");
         if (reauthContext) {
           setContextRecoveryState("READY");
-          clearStoredReauthContext();
+          storeReauthContext(null);
         }
       } catch (error) {
         if (
@@ -1278,7 +1276,7 @@ export function App() {
       typeof window === "undefined"
         ? "/"
         : `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    writeStoredReauthContext({
+    storeReauthContext({
       schema_version: 1,
       tenant_id: session.user.tenant_id,
       user_id: session.user.user_id,
@@ -3367,25 +3365,28 @@ export function App() {
           />
         ) : null}
         {session ? (
-          <RoleWorkflowPanel
-            active={
-              selectedRound?.status === "open" &&
-              contextRecoveryState !== "CONTEXT_STALE" &&
-              contextRecoveryState !== "CONTEXT_UNAUTHORIZED"
-            }
-            courseId={selectedRun?.course_id}
-            disabled={busy || selectedRound?.status !== "open"}
-            initialTeamId={reauthContext?.team_id}
-            onTeamChange={persistTeacherContext}
-            roundId={selectedRound?.round_id}
-            runId={selectedRun?.run_id}
-            teams={
-              state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ??
-              []
-            }
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入角色协作工作区…</p>}>
+            <RoleWorkflowPanel
+              active={
+                selectedRound?.status === "open" &&
+                contextRecoveryState !== "CONTEXT_STALE" &&
+                contextRecoveryState !== "CONTEXT_UNAUTHORIZED"
+              }
+              courseId={selectedRun?.course_id}
+              disabled={busy || selectedRound?.status !== "open"}
+              initialTeamId={reauthContext?.team_id}
+              onTeamChange={persistTeacherContext}
+              roundId={selectedRound?.round_id}
+              runId={selectedRun?.run_id}
+              teams={
+                state?.teams.filter(
+                  (candidate) => candidate.course_id === selectedRun?.course_id
+                ) ?? []
+              }
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session ? (
           <W027DecisionExperiencePanel

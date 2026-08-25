@@ -268,48 +268,38 @@ export function projectStudentBootstrapState(
   if (source.latest_result?.results.some((result) => result.team_id === ownTeamId)) {
     learnerOwnedRunIds.add(source.latest_result.run_id);
   }
-  const visibleRuns = ownTeam
-    ? source.runs.filter(
-        (run) =>
-          run.tenant_id === source.current_user.tenant_id &&
-          (run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
-      )
-    : [];
-  const selectedRun = preferredContext
-    ? visibleRuns.find(
-        (run) =>
-          run.run_id === preferredContext.run_id && run.course_id === preferredContext.course_id
-      )
-    : visibleRuns
+  const latestRun = ownTeam
+    ? source.runs
         .slice()
         .reverse()
-        .find((run) => run.course_id === ownTeam?.course_id || learnerOwnedRunIds.has(run.run_id));
-  const selectedRunRounds = selectedRun
-    ? source.rounds
-        .filter(
-          (round) =>
-            round.tenant_id === source.current_user.tenant_id && round.run_id === selectedRun.run_id
-        )
-        .sort((left, right) => {
-          if (preferredContext) {
-            const leftPreferred =
-              left.round_id === preferredContext.round_id &&
-              left.round_no === preferredContext.round_no;
-            const rightPreferred =
-              right.round_id === preferredContext.round_id &&
-              right.round_no === preferredContext.round_no;
-            if (leftPreferred !== rightPreferred) return leftPreferred ? -1 : 1;
-          }
-          return right.round_no - left.round_no;
-        })
-    : [];
-  const selectedRound = preferredContext
-    ? selectedRunRounds.find(
-        (round) =>
-          round.round_id === preferredContext.round_id &&
-          round.round_no === preferredContext.round_no
+        .find((run) => run.course_id === ownTeam.course_id || learnerOwnedRunIds.has(run.run_id))
+    : undefined;
+  const selectedRun = preferredContext
+    ? source.runs.find(
+        (run) =>
+          run.tenant_id === source.current_user.tenant_id &&
+          run.run_id === preferredContext.run_id &&
+          run.course_id === preferredContext.course_id
       )
-    : selectedRunRounds[0];
+    : latestRun;
+  const selectedRound = selectedRun
+    ? preferredContext
+      ? source.rounds.find(
+          (round) =>
+            round.tenant_id === source.current_user.tenant_id &&
+            round.run_id === selectedRun.run_id &&
+            round.round_id === preferredContext.round_id &&
+            round.round_no === preferredContext.round_no
+        )
+      : source.rounds
+          .filter(
+            (round) =>
+              round.tenant_id === source.current_user.tenant_id &&
+              round.run_id === selectedRun.run_id
+          )
+          .sort((left, right) => right.round_no - left.round_no)
+          .at(0)
+    : undefined;
   const { tenants, users, roles, permissions, latest_result, audit_logs, ...safeSource } = source;
   void tenants;
   void users;
