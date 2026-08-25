@@ -1,0 +1,87 @@
+schema_version: 1
+cycle_id: SIMWAR-SH-M2-P5-DECISION-LEARNING-CROSSROUND-V5.22-20260823
+cycle_number: 029
+status: CLOSED_WITH_LIMITS_GOVERNANCE_READBACK_COMPLETE
+historical_classification: IMMUTABLE_HISTORICAL_EVIDENCE
+started_at: "2026-08-23T09:41:54Z"
+closed_at: "2026-08-23T12:16:15Z"
+repository: qidianzhiku/SimWar
+source_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
+source_sha_semantics: PRODUCT_MERGE_EXACT_SHA_BEFORE_DOCS_ONLY_GOVERNANCE_CLOSURE
+branch: codex/m2-p5-v522-decision-learning-20260823
+head_sha: e6134ce9a28d2546df514f4b2a728b2f524e1204
+pr: 442
+merge_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
+post_merge_master_sha: da6ce87562faaca00a15e6001ea2bdd8ce6b96a6
+mainline_candidate: CAND-M2P5-DECISION-LEARNING-CROSSROUND-V5.22
+product_pr: 442
+product_merge_sha: 2fe9650ee7299cc5c506a75741bdeb97eda3e4b4
+product_merge_tree: bbc0bb1d8fb8244219b3b03a0bd18d975a449d8d
+governance_pr: 443
+governance_pr_state: MERGED
+governance_merge_sha: da6ce87562faaca00a15e6001ea2bdd8ce6b96a6
+governance_readback: PASS_EXACT_PR_443_MERGE_READBACK
+subsequent_repository_product_anchor:
+  product_pr: 444
+  merge_sha: af86a57090d37e71f133d6017539fdec698c7c7e
+  merge_tree: c108aaa2e535bed860049e3cf6a9f900295ac1bc
+  classification: SUBSEQUENT_REPOSITORY_PRODUCT_ANCHOR
+primary_outcome: TEACHER_AND_SCOPED_STUDENT_EXACT_DECISION_LEARNING_CROSSROUND_ENTRY
+scope:
+  - exact Course/Run/Round/Team decision-learning projection for Teacher and scoped Student
+  - confirmed-only D4 learning handoff and exact W3 consequence reference
+  - exact Project Library provenance and W4 Closing-to-Opening lineage
+  - read-only next-round entry projection with explicit blocked prerequisites
+  - no second Decision, Settlement, Round, Publication, Learning, W4, provider, model, or successor authority
+formal_roles: EXISTING_TEAM_ROLE_WORKFLOW_DECLARATIONS
+runtime_authority: JSON_INTERNAL_ONLY
+human_validation: NOT_PERFORMED
+pilot: NOT_AUTHORIZED
+production: NOT_AUTHORIZED
+resource_locks: []
+validation:
+  focused: PASS_UNIT_INTEGRATION_AND_DEDICATED_BROWSER
+  affected: PASS_BUILD_TYPECHECK_BROWSER_CONTRACT
+  full: LOCAL_CONCURRENT_TIMEOUT_LIMIT_REMOTE_QUALITY_PASS
+  ci: PASS_QUALITY_BROWSER_ANALYZE_CODEQL_ON_EXACT_HEAD
+  codeql: PASS
+  browser: PASS_1_REAL_BFF_TEST_WITH_MOCKS_OFF_ISOLATED_PORTS
+  fresh_clone: PASS_CLEAN_AT_2FE9650
+  product_pr: PASS_MERGED_442
+  governance_pr: PASS_MERGED_443
+  subsequent_anchor_readback: PASS_PR444_AF86_C108
+  hidden_unicode: PASS
+  human_validation: NOT_PERFORMED
+  pilot_production: NOT_AUTHORIZED
+evidence_root: docs/evidence/m2p5-decision-learning-crossround
+closure_evidence_refs:
+  - docs/evidence/m2p5-decision-learning-crossround/M2P5_EVIDENCE_INDEX.md
+  - docs/evidence/m2p5-decision-learning-crossround/POST_MERGE_DETACHED_RECEIPT.md
+  - docs/planning/current-cycle.yaml
+  - docs/planning/l1-plus-portfolio-register.yaml
+  - https://github.com/qidianzhiku/SimWar/pull/442
+  - https://github.com/qidianzhiku/SimWar/pull/443
+known_limits:
+  full_suite: LOCAL_CONCURRENT_TIMEOUT_LIMIT_REMOTE_QUALITY_PASS
+  accessibility: NOT_FULL_WCAG_PASS
+  dependency_advisories: 2_LOW_7_HIGH_INHERITED_NO_DEPENDENCY_CHANGE
+  prompt_allowlist: PENDING_ALLOWLIST_PACK_IDENTITY
+  teaching_effectiveness: NOT_PROVEN_BY_AUTOMATED_BROWSER_EVIDENCE
+  successor: NO_AUTOMATIC_SUCCESSOR_OWNER_DIRECTION_REQUIRED
+gap_delta:
+  closed:
+    - M2P5_IMMUTABLE_PORTFOLIO_HISTORY_ARCHIVE
+    - CURRENT_CARRIER_RECONCILED_TO_PR444
+  new: []
+  reclassified:
+    - M2P5_CURRENT_POINTER_FROM_GOVERNANCE_CLOSURE_TO_HISTORICAL_ARCHIVE_PLUS_PR444_ANCHOR
+explicit_non_proofs:
+  - PR444 is not the M2-P5 Product PR; M2-P5 Product PR remains 442 and Governance PR remains 443.
+  - Automated browser evidence is not Human Validation and does not prove teaching effectiveness or usability.
+  - No Pilot, Production, provider/model activation, or automatic successor is authorized.
+recommended_next_candidate: M2P6-NEXT-PENDING-OWNER-DIRECTION
+closing_carrier_digest: 2ae4d5f0d5913f07fce27db597726d366e223bba95980c8891c04c33847bebf4
+source_anchor_sha: af86a57090d37e71f133d6017539fdec698c7c7e
+archive_created_at: "2026-08-25T09:23:45Z"
+immutable: true
+automatic_next_start: false
