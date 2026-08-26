@@ -3,7 +3,10 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
-import type { W3OfficialConsequenceResponse } from "@simwar/shared-contracts";
+import type {
+  M2P5DecisionLearningResponse,
+  W3OfficialConsequenceResponse
+} from "@simwar/shared-contracts";
 import {
   P2B_STUDENT_STAGES,
   StudentDecisionLearningJourney,
@@ -120,6 +123,66 @@ const response = {
   visibility: "student_safe"
 } as unknown as W3OfficialConsequenceResponse;
 
+const exactRef = (
+  resourceType: "canonical_decision" | "round" | "settlement_result",
+  resourceId: string,
+  digest: string
+) => ({
+  content_digest: digest.repeat(64),
+  discriminator: "exact_ref" as const,
+  resource_id: resourceId,
+  resource_type: resourceType,
+  tenant_id: context.tenant_id,
+  version: "1.0.0"
+});
+
+const crossRoundResponse = {
+  schema_version: "m2p5-decision-learning-crossround.v1",
+  runtime_authority: "JSON_INTERNAL_ONLY",
+  visibility: "student_safe",
+  exact_scope: context,
+  official_consequence: response,
+  learning: { gate: "READY" },
+  project_context: { status: "RESOLVED", title: "Shanghai care project" },
+  cross_round: {
+    status: "ENTRY_READY",
+    entry_status: "OPEN",
+    blocker_codes: []
+  },
+  learning_loop: {
+    schema_version: "m2p6-teacher-debrief-learning-transfer.v1",
+    status: "READY",
+    exact_context: context,
+    canonical_decision_ref: exactRef("canonical_decision", "decision-001", "a"),
+    published_consequence_ref: {
+      record_id: "w3-record-001",
+      round_ref: exactRef("round", context.round_id, "b"),
+      settlement_ref: exactRef("settlement_result", "settlement-001", "c")
+    },
+    teacher_confirmation_status: "CONFIRMED",
+    teacher_debrief_availability: "AVAILABLE",
+    student_learning_report_status: "CONFIRMED",
+    reflection_status: "SUBMITTED",
+    what_if_availability: "AVAILABLE",
+    transfer_status: "READY",
+    next_opening_state_readiness: "ENTRY_READY",
+    blockers: [],
+    allowed_actions: ["REVIEW_NON_OFFICIAL_WHAT_IF", "REVIEW_TRANSFER", "ENTER_NEXT_ROUND"],
+    recovery_state: "EXACT_CONTEXT_RESTORED",
+    source_receipts: [
+      exactRef("canonical_decision", "decision-001", "a"),
+      exactRef("round", context.round_id, "b"),
+      exactRef("settlement_result", "settlement-001", "c")
+    ],
+    provenance_refs: [
+      exactRef("canonical_decision", "decision-001", "a"),
+      exactRef("round", context.round_id, "b"),
+      exactRef("settlement_result", "settlement-001", "c")
+    ]
+  },
+  known_limits: ["Human Validation is not performed."]
+} as unknown as M2P5DecisionLearningResponse;
+
 function renderJourney(
   props: Partial<React.ComponentProps<typeof StudentDecisionLearningJourney>>
 ) {
@@ -195,6 +258,180 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(host.querySelector('[data-testid="student-p2b-result-story-cta"]')).not.toBeNull();
     expect(host.textContent).not.toContain("private peer drafts");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("renders the governed student M2P6 transfer and recovered opening state", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const data = String(input).includes("/m2p5/") ? crossRoundResponse : response;
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    });
+    const { host, root } = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const region = host.querySelector('[data-testid="student-m2p6-learning-loop"]');
+    expect(region).not.toBeNull();
+    expect(region?.textContent).toContain(
+      "Published Consequence → D4 → mechanism → Reflection → What-if → Transfer → Next Opening"
+    );
+    expect(region?.textContent).toContain("ENTRY_READY");
+    expect(region?.textContent).toContain("ENTER_NEXT_ROUND");
+    expect(host.querySelector('[data-testid="student-m2p6-recovery"]')?.textContent).toContain(
+      "EXACT_CONTEXT_RESTORED"
+    );
+    for (const forbidden of [
+      "state_true",
+      "decision_batch_hash",
+      "json_runtime_source_digest",
+      "canonical_evidence_digest",
+      "replay_input_manifest",
+      "authority_diagnostics",
+      "teacher_confirmation_ref"
+    ]) {
+      expect(region?.textContent).not.toContain(forbidden);
+    }
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it.each(["BLOCKED", "CONFLICT", "UNKNOWN"] as const)(
+    "maps the server %s learning-loop state literally",
+    async (status) => {
+      const data = {
+        ...crossRoundResponse,
+        learning_loop: {
+          ...crossRoundResponse.learning_loop,
+          status,
+          blockers: status === "BLOCKED" ? ["REFLECTION_REQUIRED"] : [`${status}_EVIDENCE`]
+        }
+      } as M2P5DecisionLearningResponse;
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+        async (input) =>
+          new Response(
+            JSON.stringify({ data: String(input).includes("/m2p5/") ? data : response }),
+            {
+              status: 200
+            }
+          )
+      );
+      const { host, root } = renderJourney({ crossRoundEnabled: true });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const region = host.querySelector('[data-testid="student-m2p6-learning-loop"]');
+      expect(region?.getAttribute("data-status")).toBe(status);
+      expect(region?.textContent).toContain(status);
+      expect(region?.textContent).toContain(data.learning_loop.blockers[0]!);
+      root.unmount();
+      host.remove();
+      fetchSpy.mockRestore();
+    }
+  );
+
+  it("shows explicit M2P6 loading and error network states", async () => {
+    let resolveProjection: ((value: Response) => void) | undefined;
+    const pendingProjection = new Promise<Response>((resolve) => {
+      resolveProjection = resolve;
+    });
+    const loadingFetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/m2p5/")) return pendingProjection;
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const loading = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      loading.host
+        .querySelector('[data-testid="student-m2p6-learning-loop"]')
+        ?.getAttribute("data-phase")
+    ).toBe("loading");
+    await act(async () => {
+      resolveProjection?.(
+        new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 })
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    loading.root.unmount();
+    loading.host.remove();
+    loadingFetch.mockRestore();
+
+    const errorFetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/m2p5/")) throw new Error("m2p6 network down");
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const failed = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const errorRegion = failed.host.querySelector('[data-testid="student-m2p6-learning-loop"]');
+    expect(errorRegion?.getAttribute("data-phase")).toBe("error");
+    expect(errorRegion?.textContent).toContain("m2p6 network down");
+    failed.root.unmount();
+    failed.host.remove();
+    errorFetch.mockRestore();
+  });
+
+  it("retains the previous safe M2P6 response during a same-identity refetch", async () => {
+    let resolveRefresh: ((value: Response) => void) | undefined;
+    const pendingRefresh = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/m2p5/")) {
+        if (url.startsWith("http://api-alt.test")) return pendingRefresh;
+        return new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const { host, root } = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-phase")
+    ).toBe("ready");
+
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api-alt.test"
+          tenantId={context.tenant_id}
+          token="token"
+          context={{ ...context }}
+          published
+          crossRoundEnabled
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const staleRegion = host.querySelector('[data-testid="student-m2p6-learning-loop"]');
+    expect(staleRegion?.getAttribute("data-phase")).toBe("stale");
+    expect(staleRegion?.textContent).toContain("STALE");
+    expect(staleRegion?.textContent).toContain("EXACT_CONTEXT_RESTORED");
+
+    await act(async () => {
+      resolveRefresh?.(new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-phase")
+    ).toBe("ready");
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();
