@@ -512,7 +512,7 @@ describe("W3 exact-round learning reads", () => {
     const reportB = report(confirmationB, "report_round_2");
     const service = learningReadService([confirmationA, confirmationB], [reportB, reportA]);
 
-    const result = await service.getConsequence(
+    const result = await service.getConsequenceExact(
       { roles: ["teacher"], tenant_id: "tenant_w3", user_id: "usr_teacher" },
       { ...learningContext, ...roundOne },
       "teacher"

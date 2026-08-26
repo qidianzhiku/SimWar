@@ -794,7 +794,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         .listRoundsForRun(tenantId, runId)
         .then((rounds) => rounds.find((round) => round.round_no === roundNo) ?? null),
     getOfficialConsequence: (actor, context, surface) =>
-      w3OfficialConsequence.getConsequence(actor, context, surface),
+      w3OfficialConsequence.getConsequenceExact(actor, context, surface),
     getLearningReport: async (actor, context, surface) => {
       const reports =
         surface === "student"

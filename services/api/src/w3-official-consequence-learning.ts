@@ -205,7 +205,24 @@ export class W3OfficialConsequenceLearningService {
     context: W3RoundContext,
     surface: W3Surface
   ): Promise<W3OfficialConsequenceResponse> {
-    const record = await this.buildRecord(actor, context, surface);
+    return this.getConsequenceWithEvidenceScope(actor, context, surface, "legacy_compatible");
+  }
+
+  async getConsequenceExact(
+    actor: W3Actor,
+    context: W3RoundContext,
+    surface: W3Surface
+  ): Promise<W3OfficialConsequenceResponse> {
+    return this.getConsequenceWithEvidenceScope(actor, context, surface, "exact_round");
+  }
+
+  private async getConsequenceWithEvidenceScope(
+    actor: W3Actor,
+    context: W3RoundContext,
+    surface: W3Surface,
+    evidenceScope: "exact_round" | "legacy_compatible"
+  ): Promise<W3OfficialConsequenceResponse> {
+    const record = await this.buildRecord(actor, context, surface, evidenceScope);
     if (surface === "student" && record.publication.status !== "PUBLISHED") {
       throw new W3OfficialConsequenceLearningError(
         "W3_OFFICIAL_RESULT_NOT_PUBLISHED",
@@ -477,7 +494,8 @@ export class W3OfficialConsequenceLearningService {
   private async buildRecord(
     actor: W3Actor,
     context: W3RoundContext,
-    surface: W3Surface
+    surface: W3Surface,
+    evidenceScope: "exact_round" | "legacy_compatible" = "legacy_compatible"
   ): Promise<W3OfficialConsequenceRecord> {
     const run = await this.dependencies.repository.runs.getRun(actor.tenant_id, context.run_id);
     const rounds = await this.dependencies.repository.rounds.listRoundsForRun(
@@ -544,9 +562,10 @@ export class W3OfficialConsequenceLearningService {
     const recordAudits = audits.filter((audit) => audit.after?.record_id === recordId(context));
     const confirmation = latestConfirmation(
       await this.dependencies.confirmations.list(actor.tenant_id),
-      context
+      context,
+      evidenceScope
     );
-    const report = await this.findReport(actor, context, surface);
+    const report = await this.findReport(actor, context, surface, evidenceScope);
     const selection = latestAfter<W3EvidenceSelectionProjection>(
       recordAudits,
       "w3.evidence.select",
@@ -668,7 +687,8 @@ export class W3OfficialConsequenceLearningService {
   private async findReport(
     actor: W3Actor,
     context: W3RoundContext,
-    surface: W3Surface
+    surface: W3Surface,
+    evidenceScope: "exact_round" | "legacy_compatible"
   ): Promise<StudentLearningReport | undefined> {
     const data =
       surface === "student"
@@ -687,8 +707,9 @@ export class W3OfficialConsequenceLearningService {
         report.context.run_id === context.run_id &&
         report.context.team_id === context.team_id &&
         report.context.role_key === context.role_key &&
-        report.context.round_id === context.round_id &&
-        report.context.round_no === context.round_no
+        (evidenceScope === "legacy_compatible" ||
+          (report.context.round_id === context.round_id &&
+            report.context.round_no === context.round_no))
     );
   }
 
@@ -807,7 +828,8 @@ function latestDecision(decisions: readonly Decision[], teamId: string): Decisio
 
 function latestConfirmation(
   confirmations: readonly TeacherConfirmationVersion[],
-  context: W3RoundContext
+  context: W3RoundContext,
+  evidenceScope: "exact_round" | "legacy_compatible"
 ): TeacherConfirmationVersion | undefined {
   return confirmations
     .filter(
@@ -816,8 +838,9 @@ function latestConfirmation(
         confirmation.context.run_id === context.run_id &&
         confirmation.context.team_id === context.team_id &&
         confirmation.context.role_key === context.role_key &&
-        confirmation.context.round_id === context.round_id &&
-        confirmation.context.round_no === context.round_no
+        (evidenceScope === "legacy_compatible" ||
+          (confirmation.context.round_id === context.round_id &&
+            confirmation.context.round_no === context.round_no))
     )
     .sort((left, right) =>
       left.confirmation_ref.version.localeCompare(right.confirmation_ref.version)
