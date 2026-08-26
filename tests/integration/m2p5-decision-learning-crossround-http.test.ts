@@ -13,6 +13,7 @@ import {
   M2P5_CONFIRMATION_ID,
   M2P5_ROUND_1_ID,
   M2P5_ROUND_2_CONFIRMATION_ID,
+  M2P5_ROUND_2_EVIDENCE_ID,
   M2P5_ROUND_2_ID,
   M2P5_RUN_ID,
   M2P5_TEAM_ID,
@@ -148,6 +149,19 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
             confirmation.confirmation_ref.resource_id === M2P5_ROUND_2_CONFIRMATION_ID
         )
       ).toBe(true);
+      expect(store.teacherConfirmationVersions[0]?.confirmation_ref.resource_id).toBe(
+        M2P5_ROUND_2_CONFIRMATION_ID
+      );
+      const roundTwoArtifact = store.evidenceArtifacts.find(
+        (artifact) => artifact.artifact_ref.resource_id === M2P5_ROUND_2_EVIDENCE_ID
+      );
+      expect(roundTwoArtifact?.context).toMatchObject({
+        round_id: M2P5_ROUND_2_ID,
+        round_no: 2
+      });
+      expect(store.teacherConfirmationVersions[0]?.evidence_refs[0]?.resource_id).toBe(
+        M2P5_ROUND_2_EVIDENCE_ID
+      );
 
       const context = {
         activity_id: "activity_consequence",
@@ -187,6 +201,23 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
         { ...reflectionInput, response: "Conflicting reuse of the same idempotency key." }
       );
       expect(conflictingReflection.status).toBe(409);
+      expect(conflictingReflection.body.code).toBe("W3_IDEMPOTENCY_CONFLICT");
+      const reflectionAudits = store.auditLogs.filter(
+        (audit) => audit.action === "w3.reflection.save"
+      );
+      expect(reflectionAudits).toHaveLength(1);
+      expect(
+        (
+          reflectionAudits[0]?.after as
+            | { reflection?: { ai_used?: boolean; reflection_id?: string } }
+            | undefined
+        )?.reflection
+      ).toMatchObject({
+        ai_used: false,
+        reflection_id: (
+          reflection.body.data as { record?: { reflection?: { reflection_id?: string } } }
+        ).record?.reflection?.reflection_id
+      });
 
       const counterfactual = await post(
         baseUrl,
@@ -296,7 +327,16 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       expect(studentJourney.body.data.known_limits.join(" ")).toContain(
         "provider/model activation"
       );
-      expect(store.decisions.filter((decision) => decision.round_no === 2)).toHaveLength(0);
+      expect(
+        store.auditLogs.filter((audit) => /(?:model|provider|advisory)/i.test(audit.action))
+      ).toHaveLength(0);
+      expect(
+        store.decisions.filter(
+          (decision) =>
+            decision.canonical_source === "role_merge_commit" &&
+            (decision.round_no === 2 || decision.round_id === M2P5_ROUND_2_ID)
+        )
+      ).toHaveLength(0);
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -327,7 +367,8 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       const wrongTenant = await getJourney(baseUrl, "student", studentToken, {
         headerTenantId: "tenant_other"
       });
-      expect([401, 403]).toContain(wrongTenant.status);
+      expect(wrongTenant.status).toBe(403);
+      expect(wrongTenant.body.data).toBeUndefined();
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -358,6 +399,20 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       });
       expect(missingRound.status).toBe(404);
       expect(missingRound.body.code).toBe("M2P5_ROUND_NOT_FOUND");
+
+      const wrongRun = await getJourney(baseUrl, "student", studentToken, {
+        pathRunId: "run_missing_exact",
+        query: { run_id: "run_missing_exact" }
+      });
+      expect(wrongRun.status).toBe(404);
+      expect(wrongRun.body.code).toBe("M2P5_ROUND_NOT_FOUND");
+
+      const wrongCourse = await getJourney(baseUrl, "student", studentToken, {
+        query: { course_id: "course_other_exact" }
+      });
+      expect(wrongCourse.status).toBe(422);
+      expect(wrongCourse.body.code).toBe("M2P5_OUTPUT_INVALID");
+      expect(wrongCourse.body.data).toBeUndefined();
 
       const roundTwo = store.rounds.find((round) => round.round_id === M2P5_ROUND_2_ID);
       expect(roundTwo).toBeDefined();

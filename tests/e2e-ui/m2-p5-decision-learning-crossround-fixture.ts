@@ -31,6 +31,7 @@ export const M2P5_PROFILE_ID = "shanghai-project-m2-p5-browser";
 export const M2P5_PROFILE_VERSION = "2026-08-23.1";
 export const M2P5_PROFILE_DIGEST = "e".repeat(64);
 export const M2P5_EVIDENCE_ID = "m2p5-evidence-consequence";
+export const M2P5_ROUND_2_EVIDENCE_ID = "m2p5-evidence-consequence-round-2";
 export const M2P5_CONFIRMATION_ID = "m2p5-confirmation-consequence";
 export const M2P5_ROUND_2_CONFIRMATION_ID = "m2p5-confirmation-consequence-round-2";
 export const M2P5_TENANT_ID = "tenant_demo";
@@ -274,6 +275,41 @@ function addCoreScenario(store: SimWarStore): void {
     target_ref: evidenceRef
   };
   store.evidenceProvenanceEdges.push(edge);
+  const roundTwoCreatedAt = "2026-08-23T11:00:00.000Z";
+  const roundTwoEvidenceDigest = "b".repeat(64);
+  const roundTwoRoleEvent: RoleWorkflowEvent = {
+    ...roleEvent,
+    created_at: roundTwoCreatedAt,
+    event_id: "m2p5-role-event-ready-round-2",
+    resource_id: "m2p5-role-section-round-2"
+  };
+  const roundTwoEventRef = ref("role_workflow_event", roundTwoRoleEvent.event_id);
+  const roundTwoEvidenceRef = ref(
+    "evidence_artifact",
+    M2P5_ROUND_2_EVIDENCE_ID,
+    roundTwoEvidenceDigest
+  );
+  const roundTwoArtifact: D2EvidenceArtifactVersion = {
+    ...artifact,
+    artifact_digest: roundTwoEvidenceDigest,
+    artifact_ref: roundTwoEvidenceRef,
+    captured_at: roundTwoCreatedAt,
+    context: {
+      ...artifact.context,
+      round_id: M2P5_ROUND_2_ID,
+      round_no: 2
+    },
+    idempotency_key: "m2p5-evidence-round-2-idempotency",
+    source_event_ref: roundTwoEventRef
+  };
+  store.roleWorkflowEvents.push(roundTwoRoleEvent);
+  store.evidenceArtifacts.push(roundTwoArtifact);
+  store.evidenceProvenanceEdges.push({
+    discriminator: "d2_provenance_edge",
+    relation: "derived_from",
+    source_ref: roundTwoEventRef,
+    target_ref: roundTwoEvidenceRef
+  });
   const confirmationRef = ref("teacher_confirmation_version", M2P5_CONFIRMATION_ID);
   const confirmation: TeacherConfirmationVersion = {
     audit_receipt: {
@@ -315,7 +351,7 @@ function addCoreScenario(store: SimWarStore): void {
       action: "teacher_confirmation.confirm",
       actor_id: "usr_teacher",
       audit_id: "m2p5-confirmation-round-2-audit",
-      recorded_at: "2026-08-23T11:00:00.000Z",
+      recorded_at: roundTwoCreatedAt,
       request_id: "m2p5-confirmation-round-2-request"
     },
     confirmation_ref: ref(
@@ -329,11 +365,12 @@ function addCoreScenario(store: SimWarStore): void {
       round_id: M2P5_ROUND_2_ID,
       round_no: 2
     },
-    created_at: "2026-08-23T11:00:00.000Z",
+    created_at: roundTwoCreatedAt,
+    evidence_refs: [roundTwoEvidenceRef],
     idempotency_key: "m2p5-confirmation-round-2-idempotency",
     teacher_feedback: "Newer Round 2 confirmation must never satisfy the Round 1 learning loop."
   };
-  store.teacherConfirmationVersions.push(roundTwoConfirmation);
+  store.teacherConfirmationVersions.unshift(roundTwoConfirmation);
 }
 
 function w4Scope(roundNo: number, roundId: string): W4ScopeContext {
