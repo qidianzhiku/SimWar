@@ -391,7 +391,7 @@ describe("P2-B FE-19 student decision learning", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("/m2p5/")) {
-        if (url.startsWith("http://api-alt.test")) return pendingRefresh;
+        if (new URL(url).origin === "http://api-alt.test") return pendingRefresh;
         return new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 });
       }
       return new Response(JSON.stringify({ data: response }), { status: 200 });
