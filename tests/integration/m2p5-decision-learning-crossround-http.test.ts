@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import type {
   ApiEnvelope,
   AuthSession,
-  M2P5DecisionLearningResponse
+  M2P5DecisionLearningResponse,
+  StudentLearningReportListDto
 } from "@simwar/shared-contracts";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store } from "../../services/api/src/store";
@@ -161,6 +162,24 @@ describe("M2-P5 decision-learning cross-round real BFF", () => {
       });
       expect(store.teacherConfirmationVersions[0]?.evidence_refs[0]?.resource_id).toBe(
         M2P5_ROUND_2_EVIDENCE_ID
+      );
+      const d4Response = await fetch(`${baseUrl}/api/v1/bff/teacher/learning-reports`, {
+        headers: requestHeaders(teacherToken)
+      });
+      expect(d4Response.status).toBe(200);
+      const d4Reports = (await d4Response.json()) as ApiEnvelope<StudentLearningReportListDto>;
+      const roundOneD4 = d4Reports.data.reports.find((report) => report.context.round_no === 1);
+      const roundTwoD4 = d4Reports.data.reports.find((report) => report.context.round_no === 2);
+      expect(roundOneD4?.teacher_confirmation_ref.resource_id).toBe(M2P5_CONFIRMATION_ID);
+      expect(roundTwoD4).toMatchObject({
+        context: { round_id: M2P5_ROUND_2_ID, round_no: 2 },
+        teacher_confirmation_ref: { resource_id: M2P5_ROUND_2_CONFIRMATION_ID }
+      });
+      expect(beforeTeacher.body.data.learning_report?.report_ref.resource_id).toBe(
+        roundOneD4?.report_ref.resource_id
+      );
+      expect(beforeTeacher.body.data.learning_report?.report_ref.resource_id).not.toBe(
+        roundTwoD4?.report_ref.resource_id
       );
 
       const context = {
