@@ -1,8 +1,8 @@
 # Local Validation Receipt — SH-M3 W5 Operating World Consequence Replay R3
 
-Receipt status: `PRODUCT_PR_REMEDIATION_READY_FOR_REMOTE_GATES_WITH_LIMITS`
+Receipt status: `PRODUCT_MERGED_WITH_LIMITS_GOVERNANCE_CLOSURE_PENDING`
 
-This receipt records the local evidence for the R3 candidate after same-PR review remediation. The current Owner Envelope authorizes the bounded remote phase, but does not authorize Provider, production, release, Pilot, Human Validation, or a second truth/settlement writer.
+This receipt records the local evidence for the R3 candidate after same-PR review remediation. The remote Product PR and exact merge readback are now complete. The separate docs-only Governance Closure is recorded in `docs/governance/shm3-w5-operating-world-r3-governance-closure-20260826.md`. Provider, production, release, Pilot, Human Validation, and a second truth/settlement writer remain outside scope.
 
 ## Identity and scope
 
@@ -68,10 +68,18 @@ The real HTTP evidence includes exact Operating World bind → W4 capital action
 
 ## REMOTE PHASE STATUS
 
-- Product PR #444 has been created. Same-PR review remediation is committed locally at `cee74870763919f697f6c7e353c8a6a3b1b8d505`; final push, required-check rerun, review-thread resolution, ordinary merge, and detached post-merge verification remain pending.
-- The current Owner Envelope explicitly authorizes those bounded actions for this single Mission; it does not authorize force push, branch-protection bypass, secrets/OAuth changes, Provider/model activation, PostgreSQL runtime/RLS cutover, Pilot, Production/release, Human Validation, a second truth/settlement writer, or an automatic successor Mission.
+- Product PR #444 was the single Product PR. Its final head was `2b8d4c0a726780c4d68fb8a0b093a579a9e2f87a`, and it merged normally into `master` at `af86a57090d37e71f133d6017539fdec698c7c7e` on `2026-08-24T07:16:52Z`.
+- The required PR checks were successful: `quality` and `browser-smoke` in CI run `32699797409`, `Analyze JavaScript and TypeScript` in CodeQL run `32699797468`, and the CodeQL check run `97349276415`.
+- All four historical Codex review threads are resolved; one is outdated and all are marked `isResolved=true`. No blocking review thread remains.
+- Exact merge detached verification at `af86a57090d37e71f133d6017539fdec698c7c7e` passed `npm ci`, prerequisite builds, the nine-file R3 focused suite (20/20), `@simwar/ui` build, and the real-BFF Operating World Playwright journey (1/1) on isolated high ports.
+- Fresh latest-master verification at `89d3c852f538dfe421a5c150113f182a96b2c770` passed full build, contract gate (35 files/82 tests), typecheck, lint, hidden-Unicode, direct-store boundary, critical security audit, full bounded Vitest (261 files/1518 tests), and the real-BFF Operating World journey (1/1).
+- This update is documentation-only and does not change Product Truth, Settlement, replay hash semantics, or runtime authority. The current Owner Envelope does not authorize force push, branch-protection/admin bypass, secrets/OAuth changes, Provider/model activation, PostgreSQL runtime/RLS cutover, Pilot, Production/release, Human Validation, a second truth/settlement writer, or an automatic successor Mission.
 
 ## NOT_PROVEN
 
-- GitHub CI/CodeQL status, PR review closure, merge commit, and post-merge detached verification are remote-phase evidence still pending.
-- The receipt remains candidate evidence only; it does not convert local validation into activation, Pilot, Production, or release readiness.
+- The two user-referenced R3 DOCX files were not present at their supplied paths or in the searched local attachment/download roots; exact DOCX-governed acceptance remains `NOT_PROVEN`. This closure is source-backed by the repository plan, current code, tests, and Git readback.
+- Repository-wide `npm run format:check` remains red on 79 pre-existing files; no unrelated formatting rewrite was included.
+- The dependency audit still reports 9 inherited non-critical vulnerabilities (2 low, 7 high); the critical-threshold command passes.
+- CodeGraph was unavailable in the isolated R3 worktrees. No graph result is used as current source proof.
+- Real Shanghai data provenance/calibration, PostgreSQL runtime/RLS, Provider/model activation, Human Validation, Pilot, Production, and release readiness remain unproven and unauthorized.
+- The receipt remains bounded evidence; the separate docs-only Governance Closure must merge before governance closure is final.
