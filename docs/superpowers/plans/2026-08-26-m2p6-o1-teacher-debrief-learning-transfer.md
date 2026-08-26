@@ -31,12 +31,14 @@
 ### Task 1: Correct the exact-round D3/D4 read seam
 
 **Files:**
+
 - Modify: `services/api/src/w3-official-consequence-learning.ts`
 - Modify: `services/api/src/teaching-closure-query.ts`
 - Test: `tests/unit/w3-official-consequence-learning.test.ts`
 - Test: `tests/unit/teaching-closure-query.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `W3OfficialConsequenceContext`, `TeacherConfirmationContext.round_id`, `TeacherConfirmationContext.round_no`, and `StudentLearningReport.context.round_id/round_no`.
 - Produces: `TeachingClosureQueryService.getExact(actor, context)` where `context` is `TeachingClosureContext & { round_id: string; round_no: number }`; W3 confirmation/report lookup that requires both exact round fields.
 
@@ -88,7 +90,7 @@ Expected: the new tests fail because current W3 `latestConfirmation`/`findReport
 In W3, require these six fields for confirmation and report matching:
 
 ```ts
-course_id, run_id, team_id, role_key, round_id, round_no
+(course_id, run_id, team_id, role_key, round_id, round_no);
 ```
 
 Do not change `TeacherConfirmationCommandService`, its repository port, its append behavior, or W3 audit writes.
@@ -129,6 +131,7 @@ git commit -m "fix: bind learning reads to exact round"
 ### Task 2: Add the derived M2P6 learning-loop contract and service projection
 
 **Files:**
+
 - Modify: `packages/shared-contracts/src/m2p5-decision-learning-crossround.ts`
 - Modify: `services/api/src/m2p5-decision-learning-crossround.ts`
 - Modify: `services/api/src/server.ts`
@@ -141,6 +144,7 @@ git commit -m "fix: bind learning reads to exact round"
 - Test: `tests/integration/m2p5-decision-learning-crossround-route.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 `TeachingClosureQueryService.getExact`, existing M2P5 exact round check, W3 response, D4 report, Project projection, W4 closing/opening lineage.
 - Produces: required `learning_loop` field on `M2P5DecisionLearningResponse` with nested schema version `m2p6-teacher-debrief-learning-transfer.v1`.
 
@@ -244,10 +248,7 @@ In `createRuntime`, provide:
 
 ```ts
 getTeachingClosure: (actor, context) =>
-  teachingClosure.getExact(
-    { actor_id: actor.user_id, tenant_id: actor.tenant_id },
-    context
-  )
+  teachingClosure.getExact({ actor_id: actor.user_id, tenant_id: actor.tenant_id }, context);
 ```
 
 Do not add a route or instantiate another Teaching Closure service.
@@ -276,6 +277,7 @@ git commit -m "feat: project exact-round learning loop"
 ### Task 3: Present the governed teacher and student learning-loop states
 
 **Files:**
+
 - Modify: `apps/teacher/src/P2BTeacherDebriefWorkspace.tsx`
 - Modify: `apps/student/src/P2BDecisionLearningJourney.tsx`
 - Modify: `apps/teacher/src/p2b-teacher-debrief.css`
@@ -284,6 +286,7 @@ git commit -m "feat: project exact-round learning loop"
 - Test: `tests/unit/p2b-decision-learning.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 2 `M2P5DecisionLearningResponse.learning_loop` from the existing M2P5 GET.
 - Produces: role-safe UI states and stable test IDs `teacher-m2p6-learning-loop`, `student-m2p6-learning-loop`, `teacher-m2p6-recovery`, and `student-m2p6-recovery`.
 
@@ -341,12 +344,14 @@ git commit -m "feat: expose governed learning transfer journey"
 ### Task 4: Prove real-BFF security, recovery, and exact-head acceptance
 
 **Files:**
+
 - Modify: `tests/integration/m2p5-decision-learning-crossround-http.test.ts`
 - Modify: `tests/e2e-ui/m2-p5-decision-learning-crossround-fixture.ts`
 - Modify: `tests/e2e-ui/m2-p5-decision-learning-crossround.spec.ts`
 - Create: `docs/evidence/m2p6-o1-teacher-debrief-learning-transfer/M2P6_O1_EVIDENCE_INDEX.md`
 
 **Interfaces:**
+
 - Consumes: Tasks 1–3 exact-round service, contract, Role BFF, and UI.
 - Produces: real HTTP/browser evidence with no target-route interception, plus exact-head validation index.
 
@@ -431,11 +436,13 @@ git commit -m "test: prove exact learning loop recovery"
 ### Task 5: Independent review, Product PR, and local handoff
 
 **Files:**
+
 - Create/update only external evidence under `C:\Temp\SIMWAR-MAIN-M2P6-O1-PRODUCT-EXECUTION-20260826`.
 - Create archive under `D:\DcodexSimWar-reference\SimWar-Codex-Handoffs\MAIN-M2P6-O1-TEACHER-DEBRIEF-AND-LEARNING-TRANSFER-<timestamp>`.
 - Update canonical Mission Memory through its existing CLI/mechanism under `D:\DcodexSimWar-reference\_mission-memory`; do not create a second root.
 
 **Interfaces:**
+
 - Consumes: final reviewed branch and exact validation receipts.
 - Produces: one pushed Product branch, exactly one Product PR, H2 result, verified handoff archive, and `PRODUCT_PR_READY_FOR_OWNER_MERGE_DECISION` or same-mission rework.
 
