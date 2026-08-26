@@ -437,6 +437,72 @@ describe("P2-B FE-19 student decision learning", () => {
     fetchSpy.mockRestore();
   });
 
+  it("ignores an old-identity M2P6 response that resolves after the new identity", async () => {
+    let resolveOldIdentity: ((value: Response) => void) | undefined;
+    const oldIdentityResponse = new Promise<Response>((resolve) => {
+      resolveOldIdentity = resolve;
+    });
+    const nextContext = {
+      ...context,
+      round_id: "round-004",
+      round_no: 4
+    } as const;
+    const nextData = {
+      ...crossRoundResponse,
+      exact_scope: nextContext,
+      learning_loop: {
+        ...crossRoundResponse.learning_loop,
+        status: "BLOCKED",
+        exact_context: nextContext,
+        blockers: ["NEW_IDENTITY_CONTEXT"]
+      }
+    } as M2P5DecisionLearningResponse;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/m2p5/") && url.includes("/rounds/3/")) return oldIdentityResponse;
+      if (url.includes("/m2p5/")) {
+        return new Response(JSON.stringify({ data: nextData }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const { host, root } = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      root.render(
+        <StudentDecisionLearningJourney
+          apiBase="http://api.test"
+          tenantId={nextContext.tenant_id}
+          token="token"
+          context={nextContext}
+          published
+          crossRoundEnabled
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("NEW_IDENTITY_CONTEXT");
+
+    await act(async () => {
+      resolveOldIdentity?.(
+        new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 })
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(host.textContent).toContain("NEW_IDENTITY_CONTEXT");
+    expect(
+      host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-status")
+    ).toBe("BLOCKED");
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
   it("offers a recoverable error state without changing the safe projection contract", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
     const { host, root } = renderJourney();

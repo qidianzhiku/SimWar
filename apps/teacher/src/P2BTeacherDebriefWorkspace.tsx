@@ -63,6 +63,7 @@ export function TeacherDebriefWorkspace({
   const [crossRound, setCrossRound] = useState<CrossRoundState>({ phase: "idle" });
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
+  const crossRoundRequestEpochRef = useRef(0);
   const identityKey = `${tenantId}:${token}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
@@ -119,6 +120,7 @@ export function TeacherDebriefWorkspace({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestEpoch = ++crossRoundRequestEpochRef.current;
     if (!crossRoundEnabled || !context || !token || !tenantId) {
       setCrossRound({ phase: "idle" });
       return () => controller.abort();
@@ -138,6 +140,7 @@ export function TeacherDebriefWorkspace({
           data?: M2P5DecisionLearningResponse;
           message?: string;
         };
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
         if (
           !result.ok ||
           !envelope.data ||
@@ -151,6 +154,7 @@ export function TeacherDebriefWorkspace({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
         setCrossRound({
           phase: "error",
           message: error instanceof Error ? error.message : "教师跨回合学习投影读取失败"

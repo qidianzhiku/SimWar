@@ -73,6 +73,7 @@ export function StudentDecisionLearningJourney({
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(undefined);
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
   const requestEpochRef = useRef(0);
+  const crossRoundRequestEpochRef = useRef(0);
   const identityKey = `${tenantId}:${token}:${published}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
@@ -134,6 +135,7 @@ export function StudentDecisionLearningJourney({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestEpoch = ++crossRoundRequestEpochRef.current;
     if (!crossRoundEnabled || !published || !context || !token || !tenantId) {
       setCrossRound({ phase: "idle" });
       return () => controller.abort();
@@ -153,6 +155,7 @@ export function StudentDecisionLearningJourney({
           data?: M2P5DecisionLearningResponse;
           message?: string;
         };
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
         if (
           !response.ok ||
           !envelope.data ||
@@ -166,6 +169,7 @@ export function StudentDecisionLearningJourney({
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
         setCrossRound({
           phase: "error",
           message: safeMessage(error)
