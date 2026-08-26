@@ -1,6 +1,9 @@
 import type { ProjectProfileRef, ProjectProfileStudentBrief } from "./project-library.js";
 import type { StudentLearningReport } from "./student-learning-report.js";
-import type { W3OfficialConsequenceResponse } from "./w3-official-consequence-learning.js";
+import type {
+  W3ExactRef,
+  W3OfficialConsequenceResponse
+} from "./w3-official-consequence-learning.js";
 import type { W4StateRef } from "./w4-enterprise-state.js";
 
 export const M2P5_DECISION_LEARNING_SCHEMA_VERSION =
@@ -10,6 +13,20 @@ export type M2P5DecisionLearningSurface = "student" | "teacher";
 export type M2P5LearningGate = "BLOCKED" | "READY";
 export type M2P5CrossRoundStatus = "BLOCKED" | "READY_TO_CONTINUE" | "ENTRY_READY";
 export type M2P5EntryStatus = "NOT_CREATED" | "DRAFT" | "OPEN" | "BLOCKED";
+export type M2P6LearningLoopStatus = "READY" | "BLOCKED" | "CONFLICT" | "UNKNOWN";
+export type M2P6DebriefAvailability = "AVAILABLE" | "BLOCKED" | "UNKNOWN";
+export type M2P6WhatIfAvailability = "AVAILABLE" | "NOT_GENERATED" | "BLOCKED";
+export type M2P6TransferStatus = "READY" | "BLOCKED";
+export type M2P6NextOpeningReadiness = "ENTRY_READY" | "READY_TO_CONTINUE" | "BLOCKED";
+export type M2P6LearningLoopAction =
+  | "REVIEW_EVIDENCE"
+  | "USE_EXISTING_D3_CONFIRMATION"
+  | "PREPARE_DEBRIEF"
+  | "CREATE_NON_OFFICIAL_WHAT_IF"
+  | "REVIEW_NON_OFFICIAL_WHAT_IF"
+  | "SUBMIT_AI_OFF_REFLECTION"
+  | "REVIEW_TRANSFER"
+  | "ENTER_NEXT_ROUND";
 
 export interface M2P5DecisionLearningContext {
   readonly activity_id: string;
@@ -57,6 +74,31 @@ export interface M2P5CrossRoundProjection {
   readonly next_round?: M2P5NextRoundProjection;
 }
 
+export interface M2P6LearningLoopProjection {
+  readonly schema_version: "m2p6-teacher-debrief-learning-transfer.v1";
+  readonly status: M2P6LearningLoopStatus;
+  readonly exact_context: M2P5DecisionLearningContext;
+  readonly canonical_decision_ref: W3ExactRef;
+  readonly published_consequence_ref: {
+    readonly record_id: string;
+    readonly round_ref: W3ExactRef;
+    readonly settlement_ref: W3ExactRef;
+  };
+  readonly teacher_confirmation_status: "MISSING" | "DRAFT" | "CONFIRMED";
+  readonly teacher_confirmation_ref?: W3ExactRef;
+  readonly teacher_debrief_availability: M2P6DebriefAvailability;
+  readonly student_learning_report_status: "MISSING" | "CONFIRMED";
+  readonly reflection_status: "MISSING" | "SUBMITTED";
+  readonly what_if_availability: M2P6WhatIfAvailability;
+  readonly transfer_status: M2P6TransferStatus;
+  readonly next_opening_state_readiness: M2P6NextOpeningReadiness;
+  readonly blockers: readonly string[];
+  readonly allowed_actions: readonly M2P6LearningLoopAction[];
+  readonly recovery_state: "EXACT_CONTEXT_RESTORED";
+  readonly source_receipts: readonly W3ExactRef[];
+  readonly provenance_refs: readonly W3ExactRef[];
+}
+
 export interface M2P5DecisionLearningResponse {
   readonly schema_version: typeof M2P5_DECISION_LEARNING_SCHEMA_VERSION;
   readonly runtime_authority: "JSON_INTERNAL_ONLY";
@@ -67,5 +109,6 @@ export interface M2P5DecisionLearningResponse {
   readonly learning_report?: StudentLearningReport;
   readonly project_context: M2P5ProjectContextProjection;
   readonly cross_round: M2P5CrossRoundProjection;
+  readonly learning_loop: M2P6LearningLoopProjection;
   readonly known_limits: readonly string[];
 }
