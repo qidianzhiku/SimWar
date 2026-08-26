@@ -4,7 +4,7 @@
 
 - Task: `MAIN-M2P6-O1-TEACHER-DEBRIEF-AND-LEARNING-TRANSFER`
 - Execution instance: `PRODUCT-EXECUTION-01`
-- Candidate status at this receipt: `SEMANTIC_CANDIDATE_VALIDATED_PRE_PR`
+- Candidate status at this receipt: `SEMANTIC_CANDIDATE_VALIDATED_PR_REWORK`
 - Intended legal stop: `PRODUCT_PR_READY_FOR_OWNER_MERGE_DECISION`
 - Implementation pattern: `DERIVED_CROSS_ROLE_LEARNING_LOOP_PROJECTION`
 - Formal writer mutation count: `0`
@@ -30,16 +30,17 @@ This document freezes the validated semantic candidate before the evidence-only 
 | Original admitted base               | `89d3c852f538dfe421a5c150113f182a96b2c770`                                |
 | H1 delta-rebound base master         | `4a608dafe006340e96283222be5dadd2d23952d9`                                |
 | H1 delta-rebound base tree           | `dc78ffe43c9c625e28a8cfac70f0d30adcae6a14`                                |
-| Semantic candidate head              | `2e9768c638f60ce1364af0e206a134999419b286`                                |
-| Semantic candidate tree              | `b9e7d063768322ca3106d2202887be1c39ee089e`                                |
-| Semantic candidate commits           | `12`                                                                      |
+| Semantic candidate head              | `8ad7e099687f2c730c4d72ce0efe6c1374eb188f`                                |
+| Semantic candidate tree              | `fa04f09b10fac8568e437cb98669aca15746bdbf`                                |
+| Product implementation/test commits  | `13`                                                                      |
+| Branch commits at candidate          | `14`                                                                      |
 | Semantic changed files               | `24`                                                                      |
-| Changed-file manifest SHA-256        | `20b271efbdaae227213ff0e59e73da317aafcf83728d7566cd041f23ba9ea1e3`        |
+| Changed-file manifest SHA-256        | `6e6daa0b78cf68f00e9f70369a64859a8cdd0709379161b0aacf8a9e2e07d91a`        |
 | Source manifest files / SHA-256      | `9` / `f5ada842f1cb84da1fb35f04c11748d48da778c9da777df444f813f6afd62135`  |
 | Contract manifest files / SHA-256    | `5` / `be79602b11e22c1ab2f01e3ff8559998dffd6c049edf4d54a993a7d447bee896`  |
-| Test manifest files / SHA-256        | `10` / `0387e27d6442e4ab61a051457ffa35fc74f51a8bd32b400d03a5df306c6240f9` |
+| Test manifest files / SHA-256        | `10` / `8016e1a28b5d848ff48d9e3b1980d47d9ba9a46757098b74e053d5980b0b26d9` |
 
-Manifest digests are SHA-256 hashes of UTF-8, LF-delimited rows in sorted path order, where each row is `<file SHA-256><two spaces><repository-relative path>`. `source` covers changed files under `apps/`, `packages/`, and `services/`; `contract` covers changed files under `contracts/` and `packages/shared-contracts/`; `test` covers changed files under `tests/`.
+Manifest digests are SHA-256 hashes of UTF-8, LF-delimited rows in sorted path order, where each row is `<file SHA-256><two spaces><repository-relative path>`. The 24-file semantic manifest excludes this self-referential evidence index. `source` covers changed files under `apps/`, `packages/`, and `services/`; `contract` covers changed files under `contracts/` and `packages/shared-contracts/`; `test` covers changed files under `tests/`.
 
 `H1_DELTA_REBIND` was completed after `origin/master` advanced by two governance-documentation commits. Those commits had no path overlap with this Product diff and did not change the O1 semantic boundary. The branch was rebased without conflict onto `4a608dafe006340e96283222be5dadd2d23952d9`. No H1 writer rebind was triggered: the admitted read-only projection was retained, formal writer mutation stayed at zero, and no store, registry, DB, Provider, settlement, Replay hash, canonical-decision admission, or truth-writing authority changed.
 
@@ -105,24 +106,25 @@ Known architectural cost: the W3 service temporarily exposes compatible and exac
 
 ## Validation fingerprint
 
-| Gate                               | Result                                | Evidence / limit                                                                                                                                                          |
-| ---------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Focused baseline                   | `PASS`                                | `9/9` files and `25/25` tests after the repository-declared build prerequisite.                                                                                           |
-| Focused exact/legacy compatibility | `PASS`                                | `5/5` files and `24/24` tests. Unqualified legacy evidence is rejected by the exact entrypoint; explicit wrong-round evidence is rejected by both entrypoints.            |
-| Hidden Unicode                     | `PASS`                                | `npm run check:hidden-unicode`.                                                                                                                                           |
-| Full repository format gate        | `FAIL_BASELINE_DEBT`                  | `npm run format:check` reports 87 pre-existing/unrelated files, including ignored SDD content. No full-repository format PASS is claimed.                                 |
-| Changed-file formatting            | `PASS`                                | Prettier check on the exact changed-file list after formatting the plan document.                                                                                         |
-| Lint                               | `PASS`                                | `npm run lint`.                                                                                                                                                           |
-| Typecheck                          | `PASS`                                | `npm run typecheck`.                                                                                                                                                      |
-| Direct-store boundary              | `PASS`                                | `59` approved legacy exceptions; `0` new unapproved runtime direct-store accesses; alias/indirect analysis remains a documented tool limitation.                          |
-| Security audit                     | `PASS_WITH_KNOWN_DEPENDENCY_FINDINGS` | Command exits zero at the repository's critical threshold; npm reports `9` known vulnerabilities (`2 low`, `7 high`). No dependency or audit-fix mutation was authorized. |
-| Full unit/integration suite        | `PASS`                                | Exact semantic head: `261/261` test files and `1543/1543` tests.                                                                                                          |
-| Contract suite                     | `PASS`                                | `35/35` files and `83/83` tests; contract conformance gate validates 20 baseline files, 38 M1 contract files, and 32 schema/fixture case groups.                          |
-| Full build                         | `PASS`                                | Shared contracts, agent gateway, simulation core, API, UI, Admin, Teacher, and Student workspaces build successfully.                                                     |
-| Real Role BFF browser              | `PASS_WITH_WARNINGS`                  | Chromium `1/1`; no target-route mocks/retries. Node `DEP0190` and `NO_COLOR`/`FORCE_COLOR` warnings remain, so warning-free is not claimed.                               |
-| Human Validation                   | `NOT_PERFORMED`                       | Browser and SOV-A evidence are synthetic/machine validation only.                                                                                                         |
+| Gate                               | Result                                | Evidence / limit                                                                                                                                                                                                  |
+| ---------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused baseline                   | `PASS`                                | `9/9` files and `25/25` tests after the repository-declared build prerequisite.                                                                                                                                   |
+| Focused exact/legacy compatibility | `PASS`                                | `5/5` files and `24/24` tests. Unqualified legacy evidence is rejected by the exact entrypoint; explicit wrong-round evidence is rejected by both entrypoints.                                                    |
+| Hidden Unicode                     | `PASS`                                | `npm run check:hidden-unicode`.                                                                                                                                                                                   |
+| Full repository format gate        | `FAIL_BASELINE_DEBT`                  | `npm run format:check` reports 87 pre-existing/unrelated files, including ignored SDD content. No full-repository format PASS is claimed.                                                                         |
+| Changed-file formatting            | `PASS`                                | Prettier check on the exact changed-file list after formatting the plan document.                                                                                                                                 |
+| Lint                               | `PASS`                                | `npm run lint`.                                                                                                                                                                                                   |
+| Typecheck                          | `PASS`                                | `npm run typecheck`.                                                                                                                                                                                              |
+| Direct-store boundary              | `PASS`                                | `59` approved legacy exceptions; `0` new unapproved runtime direct-store accesses; alias/indirect analysis remains a documented tool limitation.                                                                  |
+| Security audit                     | `PASS_WITH_KNOWN_DEPENDENCY_FINDINGS` | Command exits zero at the repository's critical threshold; npm reports `9` known vulnerabilities (`2 low`, `7 high`). No dependency or audit-fix mutation was authorized.                                         |
+| Full unit/integration suite        | `PASS`                                | Exact semantic head: `261/261` test files and `1543/1543` tests.                                                                                                                                                  |
+| Contract suite                     | `PASS`                                | `35/35` files and `83/83` tests; contract conformance gate validates 20 baseline files, 38 M1 contract files, and 32 schema/fixture case groups.                                                                  |
+| Full build                         | `PASS`                                | Shared contracts, agent gateway, simulation core, API, UI, Admin, Teacher, and Student workspaces build successfully.                                                                                             |
+| Real Role BFF browser              | `PASS_WITH_WARNINGS`                  | Chromium `1/1`; no target-route mocks/retries. Node `DEP0190` and `NO_COLOR`/`FORCE_COLOR` warnings remain, so warning-free is not claimed.                                                                       |
+| CodeQL PR rework                   | `LOCAL_FIX_PASS_REMOTE_RERUN_PENDING` | Initial PR head raised one high alert on an incomplete URL-prefix assertion in a unit test. The test now compares the parsed URL origin exactly; its `15/15` suite, lint, typecheck, and formatting pass locally. |
+| Human Validation                   | `NOT_PERFORMED`                       | Browser and SOV-A evidence are synthetic/machine validation only.                                                                                                                                                 |
 
-`npm run quality` is not a current repository command and is therefore `NOT_AVAILABLE`, not PASS. The Product PR's remote `quality`, `browser-smoke`, and `Analyze JavaScript and TypeScript` checks remain `NOT_RECORDED` until the PR exists.
+`npm run quality` is not a current repository command and is therefore `NOT_AVAILABLE`, not PASS. Product PR `#448` exists; remote checks on the CodeQL-remediation head remain `NOT_RECORDED` until that head is pushed and the checks complete.
 
 ## Evidence locations
 
@@ -138,17 +140,14 @@ Known architectural cost: the W3 service temporarily exposes compatible and exac
 
 ## Candidate-freeze limits and next gates
 
-At this receipt, `PRODUCT_PR`, remote required checks, H2, local handoff archive, and Product Mission Memory ingest are `NOT_RECORDED`. They must not be represented as zero or PASS.
+At this receipt, `PRODUCT_PR` is `#448`. The required checks on the updated CodeQL-remediation head, H2, local handoff archive, and Product Mission Memory ingest are `NOT_RECORDED`. They must not be represented as zero or PASS.
 
 The next legal sequence is:
 
-1. commit this evidence-only delta;
-2. run final changed-file formatting and repository consistency checks;
-3. perform an independent whole-branch review;
-4. push the existing Product branch without force and open exactly one Product PR;
-5. wait for `quality`, `browser-smoke`, and `Analyze JavaScript and TypeScript` on the exact PR head;
-6. run H2 from a fresh checkout with fresh ports, fixtures, and browser context;
-7. write and hash the local handoff archive and pre-merge Mission Memory lineage;
-8. stop at `OWNER_MERGE_AUTHORIZATION_REQUIRED` without merging.
+1. commit this evidence update and non-force push the existing Product branch;
+2. wait for `quality`, `browser-smoke`, `Analyze JavaScript and TypeScript`, and the aggregate CodeQL result on the updated exact PR head;
+3. run H2 from a fresh checkout with fresh ports, fixtures, and browser context;
+4. write and hash the local handoff archive and pre-merge Mission Memory lineage;
+5. stop at `OWNER_MERGE_AUTHORIZATION_REQUIRED` without merging.
 
-Any semantic source change after `2e9768c638f60ce1364af0e206a134999419b286` invalidates this freeze and requires same-mission rework plus a new semantic candidate fingerprint.
+Any semantic source change after `8ad7e099687f2c730c4d72ce0efe6c1374eb188f` invalidates this freeze and requires same-mission rework plus a new semantic candidate fingerprint.
