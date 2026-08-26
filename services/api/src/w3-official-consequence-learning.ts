@@ -686,7 +686,9 @@ export class W3OfficialConsequenceLearningService {
         report.context.course_id === context.course_id &&
         report.context.run_id === context.run_id &&
         report.context.team_id === context.team_id &&
-        report.context.role_key === context.role_key
+        report.context.role_key === context.role_key &&
+        report.context.round_id === context.round_id &&
+        report.context.round_no === context.round_no
     );
   }
 
@@ -813,7 +815,9 @@ function latestConfirmation(
         confirmation.context.course_id === context.course_id &&
         confirmation.context.run_id === context.run_id &&
         confirmation.context.team_id === context.team_id &&
-        confirmation.context.role_key === context.role_key
+        confirmation.context.role_key === context.role_key &&
+        confirmation.context.round_id === context.round_id &&
+        confirmation.context.round_no === context.round_no
     )
     .sort((left, right) =>
       left.confirmation_ref.version.localeCompare(right.confirmation_ref.version)

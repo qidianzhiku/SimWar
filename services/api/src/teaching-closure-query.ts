@@ -11,6 +11,11 @@ import type { StudentLearningReportProjectionService } from "./student-learning-
 import type { TeacherConfirmationQueryService } from "./teacher-confirmation-query.js";
 import type { TeacherConfirmationWorkClaimService } from "./teacher-confirmation-work-claim.js";
 
+export type TeachingClosureExactRoundContext = TeachingClosureContext & {
+  readonly round_id: string;
+  readonly round_no: number;
+};
+
 const KNOWN_LIMITS = [
   "D2 evidence is teacher-only and is not learning confirmation or final grading.",
   "D3 confirmation is teacher-only and is not final grading.",
@@ -38,6 +43,18 @@ function sameContext(
   );
 }
 
+function sameExactRoundContext(
+  left: Pick<TeachingClosureContext, "course_id" | "run_id" | "team_id" | "role_key"> & {
+    readonly round_id?: string;
+    readonly round_no?: number;
+  },
+  right: TeachingClosureExactRoundContext
+): boolean {
+  return (
+    sameContext(left, right) && left.round_id === right.round_id && left.round_no === right.round_no
+  );
+}
+
 function versionNumber(version: string): number {
   const match = /^(\d+)\.0\.0$/.exec(version);
   return match ? Number(match[1]) : 0;
@@ -45,10 +62,16 @@ function versionNumber(version: string): number {
 
 function latestConfirmation(
   records: readonly TeacherConfirmationVersion[],
-  context: TeachingClosureContext
+  context: TeachingClosureContext,
+  exactScope?: { readonly context: TeachingClosureExactRoundContext; readonly tenant_id: string }
 ): TeacherConfirmationVersion | undefined {
   return records
-    .filter((record) => sameContext(record.context, context))
+    .filter((record) =>
+      exactScope
+        ? sameExactRoundContext(record.context, exactScope.context) &&
+          record.confirmation_ref.tenant_id === exactScope.tenant_id
+        : sameContext(record.context, context)
+    )
     .sort(
       (left, right) =>
         versionNumber(left.confirmation_ref.version) - versionNumber(right.confirmation_ref.version)
@@ -74,12 +97,41 @@ export class TeachingClosureQueryService {
     if (!isTeachingClosureContext(context)) {
       throw new TeachingClosureQueryError("W019_CONTEXT_INVALID");
     }
+    return this.build(actor, context);
+  }
+
+  async getExact(
+    actor: { readonly actor_id: string; readonly tenant_id: string },
+    context: TeachingClosureExactRoundContext
+  ): Promise<TeachingClosureDto> {
+    if (!isTeachingClosureExactRoundContext(context)) {
+      throw new TeachingClosureQueryError("W019_CONTEXT_INVALID");
+    }
+    const baseContext: TeachingClosureContext = {
+      activity_id: context.activity_id,
+      course_id: context.course_id,
+      role_key: context.role_key,
+      run_id: context.run_id,
+      team_id: context.team_id
+    };
+    return this.build(actor, baseContext, context);
+  }
+
+  private async build(
+    actor: { readonly actor_id: string; readonly tenant_id: string },
+    context: TeachingClosureContext,
+    exactContext?: TeachingClosureExactRoundContext
+  ): Promise<TeachingClosureDto> {
     const evidence = await this.dependencies.evidence.listTeacherEvidence(
       actor.tenant_id,
       context as D2EvidenceQuery
     );
     const confirmationList = await this.dependencies.confirmations.listTeacher(actor.tenant_id);
-    const confirmation = latestConfirmation(confirmationList.confirmations, context);
+    const confirmation = latestConfirmation(
+      confirmationList.confirmations,
+      context,
+      exactContext ? { context: exactContext, tenant_id: actor.tenant_id } : undefined
+    );
     const claim = this.dependencies.claims.findByContext(
       actor.tenant_id,
       {
@@ -107,7 +159,12 @@ export class TeachingClosureQueryService {
       tenant_id: actor.tenant_id,
       user_id: actor.actor_id
     });
-    const preview = previews.reports.find((report) => sameContext(report.context, context));
+    const preview = previews.reports.find((report) =>
+      exactContext
+        ? sameExactRoundContext(report.context, exactContext) &&
+          report.student_scope.tenant_id === actor.tenant_id
+        : sameContext(report.context, context)
+    );
     if (preview) {
       outcomeStatus = "CONFIRMED";
       criterionCount = preview.learning_evidence.criterion_results.length;
@@ -184,5 +241,35 @@ function isTeachingClosureContext(value: unknown): value is TeachingClosureConte
           item
         )
     )
+  );
+}
+
+function isTeachingClosureExactRoundContext(
+  value: unknown
+): value is TeachingClosureExactRoundContext {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  const baseContext = {
+    activity_id: candidate.activity_id,
+    course_id: candidate.course_id,
+    role_key: candidate.role_key,
+    run_id: candidate.run_id,
+    team_id: candidate.team_id
+  };
+  return (
+    Object.keys(candidate).length === 7 &&
+    ["activity_id", "course_id", "role_key", "run_id", "team_id", "round_id", "round_no"].every(
+      (key) => Object.prototype.hasOwnProperty.call(candidate, key)
+    ) &&
+    isTeachingClosureContext(baseContext) &&
+    typeof candidate.round_id === "string" &&
+    candidate.round_id.trim() === candidate.round_id &&
+    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/.test(candidate.round_id) &&
+    !/(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i.test(
+      candidate.round_id
+    ) &&
+    typeof candidate.round_no === "number" &&
+    Number.isInteger(candidate.round_no) &&
+    candidate.round_no > 0
   );
 }
