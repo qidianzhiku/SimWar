@@ -493,6 +493,79 @@ describe("W3 counterfactual firewall", () => {
 });
 
 describe("W3 exact-round learning reads", () => {
+  it("keeps unqualified legacy evidence out of the exact-round entrypoint", async () => {
+    const qualifiedConfirmation = confirmation(
+      "confirmation_legacy",
+      { round_id: "round_w3", round_no: 1 },
+      "1.0.0",
+      "2026-08-18T00:00:00.000Z"
+    );
+    const legacyConfirmation: TeacherConfirmationVersion = {
+      ...qualifiedConfirmation,
+      context: learningContext
+    };
+    const service = learningReadService(
+      [legacyConfirmation],
+      [report(legacyConfirmation, "report_legacy")]
+    );
+    const actor = {
+      roles: ["teacher"] as const,
+      tenant_id: "tenant_w3",
+      user_id: "usr_teacher"
+    };
+    const context = {
+      ...learningContext,
+      round_id: "round_w3",
+      round_no: 1
+    } as const;
+
+    const legacyResult = await service.getConsequence(actor, context, "teacher");
+    const exactResult = await service.getConsequenceExact(actor, context, "teacher");
+
+    expect(legacyResult.record.learning.teacher_confirmation_status).toBe("CONFIRMED");
+    expect(legacyResult.record.learning.teacher_confirmation_ref?.resource_id).toBe(
+      "confirmation_legacy"
+    );
+    expect(legacyResult.record.learning.student_learning_report_ref?.resource_id).toBe(
+      "report_legacy"
+    );
+    expect(exactResult.record.learning.teacher_confirmation_status).toBe("MISSING");
+    expect(exactResult.record.learning.teacher_confirmation_ref).toBeUndefined();
+    expect(exactResult.record.learning.student_learning_report_ref).toBeUndefined();
+  });
+
+  it("rejects explicitly wrong-round evidence in both entrypoints", async () => {
+    const wrongRoundConfirmation = confirmation(
+      "confirmation_wrong_round",
+      { round_id: "round_w3_2", round_no: 2 },
+      "9.0.0",
+      "2026-08-19T00:00:00.000Z"
+    );
+    const service = learningReadService(
+      [wrongRoundConfirmation],
+      [report(wrongRoundConfirmation, "report_wrong_round")]
+    );
+    const actor = {
+      roles: ["teacher"] as const,
+      tenant_id: "tenant_w3",
+      user_id: "usr_teacher"
+    };
+    const context = {
+      ...learningContext,
+      round_id: "round_w3",
+      round_no: 1
+    } as const;
+
+    const legacyResult = await service.getConsequence(actor, context, "teacher");
+    const exactResult = await service.getConsequenceExact(actor, context, "teacher");
+
+    for (const result of [legacyResult, exactResult]) {
+      expect(result.record.learning.teacher_confirmation_status).toBe("MISSING");
+      expect(result.record.learning.teacher_confirmation_ref).toBeUndefined();
+      expect(result.record.learning.student_learning_report_ref).toBeUndefined();
+    }
+  });
+
   it("selects the confirmation and learning report for the requested exact round", async () => {
     const roundOne = { round_id: "round_w3", round_no: 1 } as const;
     const roundTwo = { round_id: "round_w3_2", round_no: 2 } as const;

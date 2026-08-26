@@ -707,9 +707,7 @@ export class W3OfficialConsequenceLearningService {
         report.context.run_id === context.run_id &&
         report.context.team_id === context.team_id &&
         report.context.role_key === context.role_key &&
-        (evidenceScope === "legacy_compatible" ||
-          (report.context.round_id === context.round_id &&
-            report.context.round_no === context.round_no))
+        roundEvidenceMatches(report.context, context, evidenceScope)
     );
   }
 
@@ -838,14 +836,26 @@ function latestConfirmation(
         confirmation.context.run_id === context.run_id &&
         confirmation.context.team_id === context.team_id &&
         confirmation.context.role_key === context.role_key &&
-        (evidenceScope === "legacy_compatible" ||
-          (confirmation.context.round_id === context.round_id &&
-            confirmation.context.round_no === context.round_no))
+        roundEvidenceMatches(confirmation.context, context, evidenceScope)
     )
     .sort((left, right) =>
       left.confirmation_ref.version.localeCompare(right.confirmation_ref.version)
     )
     .at(-1);
+}
+
+function roundEvidenceMatches(
+  candidate: { readonly round_id?: string; readonly round_no?: number },
+  context: W3RoundContext,
+  evidenceScope: "exact_round" | "legacy_compatible"
+): boolean {
+  if (evidenceScope === "exact_round") {
+    return candidate.round_id === context.round_id && candidate.round_no === context.round_no;
+  }
+  return (
+    (candidate.round_id === undefined || candidate.round_id === context.round_id) &&
+    (candidate.round_no === undefined || candidate.round_no === context.round_no)
+  );
 }
 
 function latestAfter<T>(audits: readonly AuditLog[], action: string, key: string): T | undefined {
