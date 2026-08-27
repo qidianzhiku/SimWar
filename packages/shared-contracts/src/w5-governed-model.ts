@@ -4,7 +4,7 @@ import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 import type { W5FormalRebaseClassification } from "./w5-formal-rebase.js";
 
 export const W5_GOVERNED_MODEL_SCHEMA_VERSION = "w5-governed-model.v1" as const;
-export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.0.0" as const;
+export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.1.0" as const;
 
 export type W5DraftStatus = "DRAFT" | "VALIDATED" | "FROZEN" | "BOUND";
 export type W5ExperienceProfile = "STANDARD" | "ADVANCED";
@@ -114,7 +114,36 @@ export interface W5ExactRuntimeBinding {
   tenant_id: string;
 }
 
+/**
+ * Bounded, non-official demand candidate projection.  It contains only
+ * aggregate candidate output; cohort attributes, parameter values and
+ * artifact digests stay outside the student-facing shape.
+ */
+export interface W5GovernedDemandCandidateProjection {
+  authority_flags: {
+    official_truth_write: false;
+    provider_calls: 0;
+    settlement_write: false;
+  };
+  candidate_digest: string;
+  consumer_binding_digest: string;
+  exact_binding: true;
+  feature_ownership: readonly ["ideal_lancaster_fit", "huff_spatial_weight"];
+  market_count: number;
+  market_ids: readonly string[];
+  markets: readonly {
+    market_id: string;
+    outside_option_share: number;
+    products: readonly { candidate_share: number; product_id: string }[];
+  }[];
+  model_family: "IDEAL_POINT_LANCASTER_HUFF_SPATIAL";
+  model_version_id: string;
+  source_plane: "GOVERNED_DEMAND_CANDIDATE";
+  status: "FALLBACK" | "PASS";
+}
+
 export interface W5DemandRealizationProjection {
+  candidate: W5GovernedDemandCandidateProjection;
   readiness: "READY_WITH_LIMITS";
   lineage: {
     data_classification: W5DataClassification;

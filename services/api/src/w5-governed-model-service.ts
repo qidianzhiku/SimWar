@@ -7,6 +7,7 @@ import type {
   W5ConvergenceProjection,
   W5GovernedModelAdminProjection,
   W5DataClassification,
+  W5GovernedDemandCandidateProjection,
   W5ExactRuntimeBinding,
   W5GovernedModelStudentProjection,
   W5GovernedModelTeacherProjection,
@@ -18,8 +19,19 @@ import type {
   W5SecurityDimensionEvidence,
   W5ExperienceProfile
 } from "@simwar/shared-contracts";
+import {
+  createDefaultEldercareModelInput,
+  createDemandBinding,
+  createDemandModelVersion,
+  createGenericDemandMarket,
+  createShanghaiDemandMarket,
+  evaluateDemandRuntime,
+  type DemandExactBinding,
+  type DemandMarket,
+  type GovernedDemandRuntimeOutput
+} from "@simwar/simulation-core";
 import { evaluateW5CoreRealization } from "@simwar/simulation-core";
-import { createDefaultEldercareModelInput } from "@simwar/simulation-core";
+import { W5_MODEL_VERSION_REF } from "@simwar/shared-contracts";
 
 export interface W5ServiceActor {
   actor_id: string;
@@ -73,6 +85,7 @@ export class W5GovernedModelError extends Error {
       | "W5_PARAMETER_MAPPING_DRAFT"
       | "W5_SCOPE_CONFLICT"
       | "W5_EXACT_BINDING_REQUIRED"
+      | "W5_MODEL_VERSION_REBIND_REQUIRED"
   ) {
     super(code);
     this.name = "W5GovernedModelError";
@@ -230,8 +243,8 @@ const PARAMETER_DESCRIPTORS: readonly W5ParameterDescriptor[] = [
 const DEFAULT_KNOWN_LIMITS = [
   "Shanghai evidence is synthetic/assumption-labelled; reality calibration is not proven.",
   "WANT and CAN are candidates/constraints and never write official truth.",
-  "BLP/RCNL and Ideal Point/Lancaster are not executable in the current runtime and are not active claims.",
-  "Huff/Spatial and Marketing remain missing/research candidates, not official producers.",
+  "The O3 Ideal/Lancaster and Huff/Spatial runtime is a deterministic synthetic candidate, not calibrated production truth.",
+  "BLP/RCNL and PyBLP remain offline/reference-only; no provider is activated.",
   "System Dynamics is shadow-only and does not integrate W4 persistent state.",
   "Human Validation A/B was not performed; this evidence can only be HV-B-ready.",
   "JSON_INTERNAL_ONLY remains the active runtime authority; Postgres/RLS is not active."
@@ -244,26 +257,27 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
     {
       economic_meaning: "relative preference fit",
       feature_id: "preference_fit",
-      primary_producer: "deferred_model_registry",
-      source_ref: "No executable Ideal Point/Lancaster artifact in current source",
+      primary_producer: "o3_governed_demand_candidate",
+      source_ref:
+        "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
       unit: "index",
-      visibility: "shadow"
+      visibility: "approved_view"
     },
     {
       economic_meaning: "latent demand and diversion candidate",
       feature_id: "latent_demand",
-      primary_producer: "deferred_model_registry",
-      source_ref: "No executable BLP/RCNL artifact or active adapter in current source",
-      unit: "households",
-      visibility: "shadow"
+      primary_producer: "o3_governed_demand_candidate",
+      source_ref: "services/simulation-core/src/model-candidates/governed-demand/runtime.ts",
+      unit: "candidate_share",
+      visibility: "approved_view"
     },
     {
       economic_meaning: "spatial access and catchment candidate",
       feature_id: "spatial_access",
-      primary_producer: "huff_spatial_choice_candidate",
-      source_ref: "W5 shadow candidate adapter",
+      primary_producer: "o3_governed_demand_candidate",
+      source_ref: "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts",
       unit: "access_index",
-      visibility: "shadow"
+      visibility: "approved_view"
     },
     {
       economic_meaning: "service capacity",
@@ -306,25 +320,27 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
   model_family: "eldercare_core_model_v1",
   model_family_readiness: [
     {
-      activation_claim: "DEFERRED",
-      classification: "DEFERRED",
+      activation_claim: "SYNTHETIC_HEURISTIC",
+      classification: "NOT_CALIBRATED",
       family: "IDEAL_POINT_LANCASTER",
-      invocation_proven: false,
-      known_limit: "No executable artifact, invocation, or calibration is present."
+      invocation_proven: true,
+      known_limit:
+        "Deterministic candidate invocation is proven; calibration and official settlement authority are not claimed."
     },
     {
-      activation_claim: "MISSING",
-      classification: "MISSING",
+      activation_claim: "RESEARCH",
+      classification: "RESEARCH",
       family: "BLP_RCNL",
       invocation_proven: false,
-      known_limit: "No executable artifact, dependency, invocation, or calibration is present."
+      known_limit: "Offline PyBLP/reference-only; no runtime invocation or provider activation."
     },
     {
-      activation_claim: "MISSING",
-      classification: "MISSING",
+      activation_claim: "SYNTHETIC_HEURISTIC",
+      classification: "NOT_CALIBRATED",
       family: "HUFF_SPATIAL",
-      invocation_proven: false,
-      known_limit: "No executable spatial-choice artifact or invocation is present."
+      invocation_proven: true,
+      known_limit:
+        "Deterministic candidate invocation is proven; Shanghai calibration is not proven."
     },
     {
       activation_claim: "SHADOW",
@@ -348,7 +364,7 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
       known_limit: "Simulation Core projection only; formal settlement truth is not written."
     }
   ],
-  model_version_ref: "eldercare_w5_governed_v1@1.0.0",
+  model_version_ref: W5_MODEL_VERSION_REF,
   no_implicit_latest: true,
   status: "APPROVED",
   visibility: {
@@ -358,6 +374,69 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
   }
 };
 
+const O3_DEMAND_MODEL_VERSION = createDemandModelVersion({
+  coefficients: {
+    ideal_fit: 2.2,
+    intercept: 0.1,
+    price: -0.15,
+    quality: 0.4,
+    spatial: 0.8
+  },
+  model_version_id: "o3-governed-demand-v1",
+  source_ref: "services/simulation-core/src/model-candidates/governed-demand",
+  version: "1.0.0"
+});
+
+function createO3DemandMarket(
+  binding: W5ExactRuntimeBinding,
+  values: Readonly<Record<string, boolean | number | string>>
+): DemandMarket {
+  const marketId = `market:${binding.scenario_package_reference.scenario_package_id}:${binding.parameter_set_reference.parameter_set_id}:v1`;
+  const customerDemand = typeof values.customer_demand === "number" ? values.customer_demand : 180;
+  const scenarioId = binding.scenario_package_reference.scenario_package_id.toLowerCase();
+  return scenarioId.includes("generic")
+    ? createGenericDemandMarket({ customer_demand: customerDemand, market_id: marketId })
+    : createShanghaiDemandMarket({ customer_demand: customerDemand, market_id: marketId });
+}
+
+function projectDemandCandidate(
+  runtime: GovernedDemandRuntimeOutput,
+  binding: DemandExactBinding
+): W5GovernedDemandCandidateProjection {
+  const markets = runtime.markets.map((market) => ({
+    market_id: market.market_id,
+    outside_option_share: market.outside_option_share,
+    products: market.products.map((product) => ({
+      candidate_share: product.candidate_share,
+      product_id: product.product_id
+    }))
+  }));
+  const marketIds = markets.map((market) => market.market_id);
+  const sharedBinding = Object.fromEntries(
+    Object.entries(binding).filter(([key]) => key !== "binding_digest" && key !== "team_id")
+  );
+  return {
+    authority_flags: runtime.authority_flags,
+    candidate_digest: digest({
+      binding: sharedBinding,
+      market_ids: marketIds,
+      markets,
+      model_version_id: runtime.model_version_ref.model_version_id,
+      version: runtime.model_version_ref.version
+    }),
+    consumer_binding_digest: runtime.replay_input_digest,
+    exact_binding: true,
+    feature_ownership: ["ideal_lancaster_fit", "huff_spatial_weight"],
+    market_count: markets.length,
+    market_ids: marketIds,
+    markets,
+    model_family: "IDEAL_POINT_LANCASTER_HUFF_SPATIAL",
+    model_version_id: runtime.model_version_ref.model_version_id,
+    source_plane: "GOVERNED_DEMAND_CANDIDATE",
+    status: runtime.status
+  };
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -366,7 +445,7 @@ function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
       .map(([key, child]) => `${JSON.stringify(key)}:${stableStringify(child)}`)
       .join(",")}}`;
   }
@@ -701,7 +780,13 @@ export class W5GovernedModelService {
     ) {
       throw new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED");
     }
+    if (binding.model_version_ref !== this.modelVersion.model_version_ref) {
+      throw new W5GovernedModelError("W5_MODEL_VERSION_REBIND_REQUIRED");
+    }
     const values = draft.parameter_values;
+    const consumerTeam =
+      scope.team_id ?? (actor.role === "teacher" ? "shared-governed-market" : null);
+    if (!consumerTeam) throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
     const baseInput = createDefaultEldercareModelInput();
     const input = {
       ...baseInput,
@@ -720,9 +805,34 @@ export class W5GovernedModelService {
     const core = evaluateW5CoreRealization(input);
     const security = securityContext(actor, scope);
     const planeOff = options.model_plane === "OFF";
-    const demandCandidate = planeOff
-      ? 0
-      : Math.round(core.metrics.market.demand_index * (1 + Number(values.aging_rate)) * 100) / 100;
+    const demandMarket = createO3DemandMarket(binding, values);
+    const o3Binding = createDemandBinding({
+      artifact_digest: O3_DEMAND_MODEL_VERSION.artifact.content_digest,
+      artifact_id: O3_DEMAND_MODEL_VERSION.artifact.artifact_id,
+      course_id: binding.course_id,
+      model_version: O3_DEMAND_MODEL_VERSION.version,
+      model_version_id: O3_DEMAND_MODEL_VERSION.model_version_id,
+      parameter_set_id: binding.parameter_set_reference.parameter_set_id,
+      round_no: binding.round_no,
+      run_id: binding.run_id,
+      scenario_id: binding.scenario_package_reference.scenario_package_id,
+      seed: binding.seed,
+      team_id: consumerTeam,
+      tenant_id: binding.tenant_id
+    });
+    const candidateRuntime = evaluateDemandRuntime({
+      exact_binding: o3Binding,
+      markets: [demandMarket],
+      model_version: O3_DEMAND_MODEL_VERSION,
+      plane: planeOff ? "OFF" : "ON"
+    });
+    const candidateMarket = candidateRuntime.markets[0];
+    const demandCandidate = candidateMarket
+      ? Math.round(
+          Number(values.customer_demand) * (1 - candidateMarket.outside_option_share) * 100
+        ) / 100
+      : 0;
+    const demandCandidateProjection = projectDemandCandidate(candidateRuntime, o3Binding);
     const eligible =
       core.metrics.operations.service_capacity > 0 && core.metrics.quality.care_quality_index > 0;
     const realizedDigest = digest({
@@ -732,6 +842,7 @@ export class W5GovernedModelService {
     });
     const demandRealization = {
       readiness: "READY_WITH_LIMITS" as const,
+      candidate: demandCandidateProjection,
       lineage: {
         data_classification: draft.data_classification,
         exact_binding: true as const,

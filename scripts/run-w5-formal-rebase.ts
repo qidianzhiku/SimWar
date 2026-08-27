@@ -60,11 +60,26 @@ const convergencePath = resolve(
   workspaceRoot,
   "services/simulation-core/src/w5-governed-convergence.ts"
 );
+const candidateRuntimePath = resolve(
+  workspaceRoot,
+  "services/simulation-core/src/model-candidates/governed-demand/runtime.ts"
+);
+const idealLancasterPath = resolve(
+  workspaceRoot,
+  "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts"
+);
+const huffSpatialPath = resolve(
+  workspaceRoot,
+  "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts"
+);
 const runnerPath = resolve(workspaceRoot, "services/api/src/w5-formal-rebase.ts");
 if (
   !existsSync(packageLockPath) ||
   !existsSync(coreModelPath) ||
   !existsSync(convergencePath) ||
+  !existsSync(candidateRuntimePath) ||
+  !existsSync(idealLancasterPath) ||
+  !existsSync(huffSpatialPath) ||
   !existsSync(runnerPath)
 ) {
   throw new Error("W5_FORMAL_REBASE_REQUIRED_ARTIFACT_MISSING");
@@ -76,6 +91,9 @@ const environmentFingerprint = [
   `package_lock_sha256=${sha256File(packageLockPath)}`,
   `core_model_sha256=${sha256File(coreModelPath)}`,
   `convergence_sha256=${sha256File(convergencePath)}`,
+  `candidate_runtime_sha256=${sha256File(candidateRuntimePath)}`,
+  `ideal_lancaster_sha256=${sha256File(idealLancasterPath)}`,
+  `huff_spatial_sha256=${sha256File(huffSpatialPath)}`,
   `runner_sha256=${sha256File(runnerPath)}`
 ].join(";");
 
@@ -91,10 +109,13 @@ const context = {
     "simwar.w5.capacity.v1": sha256File(coreModelPath),
     "simwar.w5.core_realized.v1": sha256File(convergencePath),
     "simwar.w5.finance.v1": sha256File(coreModelPath),
+    "simwar.w5.ideal_point_lancaster.v1": sha256File(idealLancasterPath),
     "simwar.w5.quality_risk.v1": sha256File(coreModelPath),
     "simwar.w5.shanghai.v1": sha256File(coreModelPath),
     "simwar.w5.synthetic_want.v1": sha256File(runnerPath),
-    "simwar.w5.workforce.v1": sha256File(coreModelPath)
+    "simwar.w5.workforce.v1": sha256File(coreModelPath),
+    "simwar.w5.huff_spatial.v1": sha256File(huffSpatialPath),
+    "simwar.w5.governed_demand_runtime.v1": sha256File(candidateRuntimePath)
   }
 };
 

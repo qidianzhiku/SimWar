@@ -62,6 +62,7 @@ export interface W5AuthorityCensusEntry {
   fallback: string;
   formal_writer: string;
   family: W5FormalRebaseModelFamily;
+  invocation_proven: boolean;
   input_schema: string;
   input_unit: string;
   known_limits: readonly string[];

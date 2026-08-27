@@ -117,6 +117,26 @@ export {
 export { evaluateW5CoreRealization } from "./w5-governed-convergence.js";
 export type { W5CoreRealization } from "./w5-governed-convergence.js";
 export {
+  calculateHuffSpatialWeights,
+  calculateIdealLancasterFit,
+  createDemandBinding,
+  createDemandModelVersion,
+  DemandCandidateError,
+  evaluateDemandRuntime,
+  createGenericDemandMarket,
+  createShanghaiDemandMarket
+} from "./model-candidates/governed-demand/index.js";
+export type {
+  DemandBindingInput,
+  DemandCandidateMarketOutput,
+  DemandCandidateProductOutput,
+  DemandExactBinding,
+  DemandMarket,
+  DemandModelVersion,
+  GovernedDemandRuntimeInput,
+  GovernedDemandRuntimeOutput
+} from "./model-candidates/governed-demand/index.js";
+export {
   assertHistoricalScenarioArtifactNotBindable,
   projectHistoricalScenarioArtifactForStudent,
   resolveHistoricalScenarioArtifactForRun

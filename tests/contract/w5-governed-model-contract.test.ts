@@ -46,7 +46,7 @@ describe("W5 governed model contract", () => {
     expect(validate(convergence), JSON.stringify(validate.errors)).toBe(true);
     const student = service.projectStudent(
       { actor_id: "usr_student", role: "learner", tenant_id: "tenant_demo" },
-      { ...scope, round_no: 1, run_id: "run_demo" },
+      { ...scope, round_no: 1, run_id: "run_demo", team_id: "team_demo" },
       frozen.draft_id,
       "STANDARD"
     );

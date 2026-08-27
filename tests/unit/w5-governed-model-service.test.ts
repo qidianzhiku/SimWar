@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { W5_MODEL_VERSION_REF } from "../../packages/shared-contracts/src";
+import { W5_MODEL_VERSION_REF, type W5ScenarioDraft } from "../../packages/shared-contracts/src";
 import {
   W5GovernedModelError,
   W5GovernedModelService,
@@ -245,6 +245,48 @@ describe("W5GovernedModelService", () => {
         "STANDARD"
       )
     ).toThrow(new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED"));
+  });
+
+  it("rejects a persisted binding from an older model version before evaluating the current O3 artifact", () => {
+    const original = service();
+    const created = original.createDraft(actor, scope, {}).draft;
+    const validated = original.validateDraft(actor, scope, created.draft_id).draft;
+    const frozen = original.freezeDraft(actor, scope, validated.draft_id).draft;
+    const bound = original.bindDraft(actor, scope, frozen.draft_id, {
+      run_id: "run_demo",
+      round_no: 1,
+      seed: 42,
+      parameter_set_reference: {
+        content_digest: "a".repeat(64),
+        parameter_set_id: "param_toy_approved_1",
+        version: "1.0.0"
+      },
+      scenario_package_reference: {
+        content_digest: "b".repeat(64),
+        scenario_package_id: "scenario_eldercare_demo",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    });
+    const legacyDraft = JSON.parse(JSON.stringify(bound.draft)) as W5ScenarioDraft;
+    legacyDraft.exact_runtime_binding!.model_version_ref =
+      "eldercare_w5_governed_v1@1.0.0" as typeof W5_MODEL_VERSION_REF;
+    const reloaded = new W5GovernedModelService(
+      { now: () => "2026-08-20T12:30:00.000Z" },
+      {
+        listDrafts: () => [legacyDraft],
+        commitDraft: () => undefined
+      }
+    );
+
+    expect(() =>
+      reloaded.evaluate(
+        actor,
+        { ...scope, run_id: "run_demo", round_no: 1 },
+        legacyDraft.draft_id,
+        "STANDARD"
+      )
+    ).toThrow(new W5GovernedModelError("W5_MODEL_VERSION_REBIND_REQUIRED"));
   });
 
   it("fails closed on a cross-tenant security context", () => {

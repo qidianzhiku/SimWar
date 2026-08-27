@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { W5_MODEL_VERSION_REF } from "../../packages/shared-contracts/src";
 import {
   buildW5AuthorityCensus,
   freezeW5CurrentBaseline,
@@ -29,6 +30,20 @@ describe("W5 formal rebase evidence", () => {
     expect(census.entries.find((entry) => entry.family === "BLP_RCNL")?.classification).toBe(
       "MISSING"
     );
+    expect(census.entries.find((entry) => entry.family === "IDEAL_POINT_LANCASTER")).toMatchObject({
+      classification: "CURRENT",
+      actual_invocation_path: expect.stringContaining("evaluateDemandRuntime"),
+      code_path: "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
+      invocation_proven: true,
+      visibility: "SYNTHETIC_HEURISTIC"
+    });
+    expect(census.entries.find((entry) => entry.family === "HUFF_SPATIAL")).toMatchObject({
+      classification: "CURRENT",
+      actual_invocation_path: expect.stringContaining("evaluateDemandRuntime"),
+      code_path: "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts",
+      invocation_proven: true,
+      visibility: "SYNTHETIC_HEURISTIC"
+    });
     expect(census.entries.find((entry) => entry.family === "SYNTHETIC_WANT")?.classification).toBe(
       "CURRENT"
     );
@@ -62,6 +77,9 @@ describe("W5 formal rebase evidence", () => {
       manifest.records.find((record) => record.kind === "ZERO_SIGNAL_FALLBACK")
         ?.fallback_continues_core
     ).toBe(true);
+    expect(manifest.records.find((record) => record.kind === "GOLDEN")?.notes).toContain(
+      "O3 Ideal Point/Lancaster and Huff/Spatial candidate runtime executed with AI/provider OFF and no official truth write."
+    );
     expect(manifest.drift_labels).toEqual([
       "CODE_DRIFT",
       "DATA_DRIFT",
@@ -78,7 +96,7 @@ describe("W5 formal rebase evidence", () => {
 
     expect(baseline.status).toBe("PASS_WITH_LIMITS");
     expect(baseline.identity).toEqual({
-      model_version: "eldercare_w5_governed_v1@1.0.0",
+      model_version: W5_MODEL_VERSION_REF,
       parameter_digest: expect.stringMatching(/^[a-f0-9]{64}$/),
       scenario: "r7a-shanghai-eldercare-core-scenario-v2",
       seed: 20260726
@@ -88,7 +106,8 @@ describe("W5 formal rebase evidence", () => {
     expect(baseline.shanghai.provenance).toBe("SYNTHETIC_ASSUMPTION_NOT_CALIBRATED");
     expect(baseline.standard_advanced_parity).toBe(true);
     expect(baseline.model_families.BLP_RCNL.classification).toBe("MISSING");
-    expect(baseline.model_families.IDEAL_POINT_LANCASTER.classification).toBe("DEFERRED");
+    expect(baseline.model_families.IDEAL_POINT_LANCASTER.classification).toBe("CURRENT");
+    expect(baseline.model_families.HUFF_SPATIAL.classification).toBe("CURRENT");
   });
 
   it("rejects unverifiable or stale evidence timestamps", () => {

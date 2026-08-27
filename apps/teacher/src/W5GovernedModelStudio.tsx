@@ -65,6 +65,10 @@ function convergenceRows(convergence: W5ConvergenceProjection | null): Array<[st
     [
       "Shadow",
       `${convergence.shadow.plane} · overwrite=${convergence.shadow.overwrites_official_result}`
+    ],
+    [
+      "Demand candidate",
+      `${convergence.demand_realization.candidate.status} · ${convergence.demand_realization.candidate.market_count} market`
     ]
   ];
 }
@@ -354,6 +358,27 @@ export function W5GovernedModelStudio({
                 </li>
               ))}
             </ul>
+            <div className="w5-demand-candidate" aria-label="O3 governed demand candidate">
+              <strong style={breakableTextStyle}>
+                O3 candidate · {convergence.demand_realization.candidate.source_plane} · digest=
+                {convergence.demand_realization.candidate.candidate_digest}
+              </strong>
+              {convergence.demand_realization.candidate.markets.map((market) => (
+                <div key={market.market_id}>
+                  <span style={breakableTextStyle}>
+                    Market {market.market_id} · outside option=
+                    {market.outside_option_share.toFixed(4)}
+                  </span>
+                  <ul>
+                    {market.products.map((product) => (
+                      <li key={product.product_id} style={breakableTextStyle}>
+                        {product.product_id}: candidate share={product.candidate_share.toFixed(4)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </section>
           <p className="evidence-note" style={breakableTextStyle}>
             Known limits: {convergence.known_limits.join(" · ")}
