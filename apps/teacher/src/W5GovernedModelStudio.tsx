@@ -339,6 +339,22 @@ export function W5GovernedModelStudio({
           <p className="evidence-note" style={breakableTextStyle}>
             REALIZED digest: {convergence.realized.replay_relevant_digest}
           </p>
+          <section
+            className="w5-demand-realization-explanation"
+            aria-label="W5 demand realization explanation"
+          >
+            <strong style={breakableTextStyle}>
+              Demand readiness: {convergence.demand_realization.readiness} · exact round{" "}
+              {convergence.demand_realization.lineage.round_no}
+            </strong>
+            <ul>
+              {convergence.demand_realization.explanation.map((item) => (
+                <li key={item.stage} style={breakableTextStyle}>
+                  {item.stage}: {item.summary} · official={item.official ? "true" : "false"}
+                </li>
+              ))}
+            </ul>
+          </section>
           <p className="evidence-note" style={breakableTextStyle}>
             Known limits: {convergence.known_limits.join(" · ")}
           </p>

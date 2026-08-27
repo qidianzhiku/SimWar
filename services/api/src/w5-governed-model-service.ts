@@ -5,6 +5,7 @@ import type {
   ParameterSetReference,
   ScenarioPackageReference,
   W5ConvergenceProjection,
+  W5GovernedModelAdminProjection,
   W5DataClassification,
   W5ExactRuntimeBinding,
   W5GovernedModelStudentProjection,
@@ -501,6 +502,28 @@ export class W5GovernedModelService {
     };
   }
 
+  getAdminProjection(actor: W5ServiceActor, scope: W5ServiceScope): W5GovernedModelAdminProjection {
+    this.assertTenant(actor, scope);
+    return {
+      authority: {
+        ai_provider: "OFF",
+        formal_truth_writer: "SIMULATION_CORE",
+        repository_provider: "JSON_INTERNAL_ONLY",
+        writes_formal_truth: false
+      },
+      known_limits: [...DEFAULT_KNOWN_LIMITS],
+      model_version: clone(this.modelVersion),
+      operation_id: "W5_ADMIN_GOVERNED_MODEL_AUDIT_GET_V1",
+      parameter_descriptors: clone(PARAMETER_DESCRIPTORS),
+      drafts: [...this.drafts.values()]
+        .filter(
+          (draft) => draft.tenant_id === actor.tenant_id && draft.course_id === scope.course_id
+        )
+        .map(clone),
+      security: securityContext(actor, scope)
+    };
+  }
+
   createDraft(
     actor: W5ServiceActor,
     scope: W5ServiceScope,
@@ -707,6 +730,59 @@ export class W5GovernedModelService {
       core: core.replay_relevant_digest,
       model_version_ref: this.modelVersion.model_version_ref
     });
+    const demandRealization = {
+      readiness: "READY_WITH_LIMITS" as const,
+      lineage: {
+        data_classification: draft.data_classification,
+        exact_binding: true as const,
+        model_version_ref: this.modelVersion.model_version_ref,
+        round_no: binding.round_no
+      },
+      mechanism: {
+        want: {
+          candidate_value: demandCandidate,
+          official: false as const,
+          source_plane: "SYNTHETIC_HEURISTIC" as const
+        },
+        can: {
+          constraints: [
+            `capacity=${core.metrics.operations.service_capacity}`,
+            `workforce=${values.caregiver_supply}`,
+            `quality=${core.metrics.quality.care_quality_index}`,
+            "eligibility=license_and_staffing"
+          ],
+          eligible,
+          official: false as const,
+          source_plane: "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY" as const
+        },
+        realized: {
+          authority: core.authority,
+          official: true as const,
+          replay_relevant_digest: realizedDigest,
+          writes_formal_result: false as const
+        }
+      },
+      explanation: [
+        {
+          official: false,
+          stage: "WANT" as const,
+          summary:
+            "Synthetic demand candidate expresses latent demand only; it is not official truth."
+        },
+        {
+          official: false,
+          stage: "CAN" as const,
+          summary: "Capacity, workforce, quality and eligibility constrain what can be served."
+        },
+        {
+          official: true,
+          stage: "REALIZED" as const,
+          summary:
+            "Simulation Core produces the realized projection; this read/evaluation path does not write a formal result."
+        }
+      ],
+      known_limits: [...DEFAULT_KNOWN_LIMITS]
+    };
     return {
       can: {
         constraints: [
@@ -719,6 +795,7 @@ export class W5GovernedModelService {
         official: false,
         source_plane: "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY"
       },
+      demand_realization: demandRealization,
       experience_profile: experienceProfile,
       fallback: {
         applied: planeOff,
@@ -770,6 +847,7 @@ export class W5GovernedModelService {
     return {
       convergence: {
         can: convergence.can,
+        demand_realization: convergence.demand_realization,
         experience_profile: convergence.experience_profile,
         fallback: convergence.fallback,
         known_limits: convergence.known_limits,

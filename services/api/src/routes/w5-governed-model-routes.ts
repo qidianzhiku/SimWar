@@ -26,6 +26,7 @@ import {
 const ACTIVITY_ID = "w5-governed-model-studio";
 const TEACHER_PREFIX = "/api/v1/bff/teacher/w5";
 const STUDENT_PREFIX = "/api/v1/bff/student/w5";
+const ADMIN_PREFIX = "/api/v1/bff/admin/w5";
 
 interface W5RouteContext {
   requestId: string;
@@ -175,7 +176,21 @@ function assertTeacher(deps: W5RouteDependencies, context: W5RouteContext): Curr
 
 function assertStudent(deps: W5RouteDependencies, context: W5RouteContext): CurrentUser {
   const actor = deps.requirePermission(context, "course:read");
-  if (!deps.actorHasAnyRole(actor, ["learner", "student"]) || actor.tenant_id !== context.tenantId) {
+  if (
+    !deps.actorHasAnyRole(actor, ["learner", "student"]) ||
+    actor.tenant_id !== context.tenantId
+  ) {
+    throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
+  }
+  return actor;
+}
+
+function assertAdmin(deps: W5RouteDependencies, context: W5RouteContext): CurrentUser {
+  const actor = deps.requirePermission(context, "course:read");
+  if (
+    !deps.actorHasAnyRole(actor, ["tenant_admin"]) ||
+    actor.tenant_id !== context.tenantId
+  ) {
     throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
   }
   return actor;
@@ -194,6 +209,7 @@ function send<TData>(
 export function isW5GovernedModelRoute(method: string | undefined, url: URL): boolean {
   if (method === "GET" && url.pathname === `${TEACHER_PREFIX}/governed-model`) return true;
   if (method === "GET" && url.pathname === `${STUDENT_PREFIX}/convergence`) return true;
+  if (method === "GET" && url.pathname === `${ADMIN_PREFIX}/governed-model`) return true;
   return (
     method === "POST" &&
     (url.pathname === `${TEACHER_PREFIX}/scenario-studio/drafts` ||
@@ -214,11 +230,30 @@ export async function handleW5GovernedModelRoute(
   if (!isW5GovernedModelRoute(request.method, url)) return false;
 
   const context = deps.createContext(request);
+  if (request.method === "GET" && url.pathname === `${ADMIN_PREFIX}/governed-model`) {
+    const actor = assertAdmin(deps, context);
+    const courseId = url.searchParams.get("courseId") ?? "";
+    await resolveCourse(deps, context.tenantId, courseId);
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getAdminProjection(serviceActor(actor), scope(courseId))
+    );
+    return true;
+  }
   if (request.method === "GET" && url.pathname === `${TEACHER_PREFIX}/governed-model`) {
     const actor = assertTeacher(deps, context);
     const courseId = url.searchParams.get("courseId") ?? "";
     await resolveCourse(deps, context.tenantId, courseId);
-    send(deps, context, response, 200, service.getTeacherProjection(serviceActor(actor), scope(courseId)));
+    send(
+      deps,
+      context,
+      response,
+      200,
+      service.getTeacherProjection(serviceActor(actor), scope(courseId))
+    );
     return true;
   }
 
@@ -241,7 +276,13 @@ export async function handleW5GovernedModelRoute(
     if (isRecord(body.parameters)) {
       input.parameters = body.parameters as NonNullable<W5CreateDraftInput["parameters"]>;
     }
-    send(deps, context, response, 201, service.createDraft(serviceActor(actor), scope(courseId), input));
+    send(
+      deps,
+      context,
+      response,
+      201,
+      service.createDraft(serviceActor(actor), scope(courseId), input)
+    );
     return true;
   }
 
@@ -267,11 +308,23 @@ export async function handleW5GovernedModelRoute(
       ...(roundNo !== undefined ? { round_no: roundNo } : {})
     });
     if (action === "validate") {
-      send(deps, context, response, 200, service.validateDraft(serviceActor(actor), serviceScope, draftId));
+      send(
+        deps,
+        context,
+        response,
+        200,
+        service.validateDraft(serviceActor(actor), serviceScope, draftId)
+      );
       return true;
     }
     if (action === "freeze") {
-      send(deps, context, response, 200, service.freezeDraft(serviceActor(actor), serviceScope, draftId));
+      send(
+        deps,
+        context,
+        response,
+        200,
+        service.freezeDraft(serviceActor(actor), serviceScope, draftId)
+      );
       return true;
     }
     if (!run || roundNo === undefined) throw new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED");
@@ -283,7 +336,13 @@ export async function handleW5GovernedModelRoute(
         run_id: run.run_id,
         seed: integer(bodyValue.seed) ? bodyValue.seed : run.seed
       };
-      send(deps, context, response, 200, service.bindDraft(serviceActor(actor), serviceScope, draftId, input));
+      send(
+        deps,
+        context,
+        response,
+        200,
+        service.bindDraft(serviceActor(actor), serviceScope, draftId, input)
+      );
       return true;
     }
     const profile = parseProfile(bodyValue.experience_profile);

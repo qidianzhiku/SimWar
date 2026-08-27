@@ -5,7 +5,8 @@
   "oneOf": [
     { "$ref": "#/$defs/teacherProjection" },
     { "$ref": "#/$defs/studentProjection" },
-    { "$ref": "#/$defs/convergence" }
+    { "$ref": "#/$defs/convergence" },
+    { "$ref": "#/$defs/adminProjection" }
   ],
   "$defs": {
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
@@ -232,6 +233,7 @@
       "additionalProperties": false,
       "required": [
         "can",
+        "demand_realization",
         "experience_profile",
         "fallback",
         "known_limits",
@@ -245,6 +247,7 @@
       ],
       "properties": {
         "can": { "type": "object" },
+        "demand_realization": { "$ref": "#/$defs/demandRealization" },
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
         "fallback": { "type": "object" },
         "known_limits": { "type": "array", "items": { "type": "string" } },
@@ -255,6 +258,86 @@
         "security": { "$ref": "#/$defs/security" },
         "shadow": { "type": "object" },
         "want": { "type": "object" }
+      }
+    },
+    "demandRealization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["explanation", "known_limits", "lineage", "mechanism", "readiness"],
+      "properties": {
+        "readiness": { "const": "READY_WITH_LIMITS" },
+        "lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["data_classification", "exact_binding", "model_version_ref", "round_no"],
+          "properties": {
+            "data_classification": {
+              "enum": ["REALITY", "SYNTHETIC", "ASSUMPTION", "STRESS_TEST"]
+            },
+            "exact_binding": { "const": true },
+            "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+            "round_no": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "mechanism": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["can", "realized", "want"],
+          "properties": {
+            "want": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["candidate_value", "official", "source_plane"],
+              "properties": {
+                "candidate_value": { "type": "number", "minimum": 0 },
+                "official": { "const": false },
+                "source_plane": { "const": "SYNTHETIC_HEURISTIC" }
+              }
+            },
+            "can": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["constraints", "eligible", "official", "source_plane"],
+              "properties": {
+                "constraints": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "eligible": { "type": "boolean" },
+                "official": { "const": false },
+                "source_plane": { "const": "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY" }
+              }
+            },
+            "realized": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "authority",
+                "official",
+                "replay_relevant_digest",
+                "writes_formal_result"
+              ],
+              "properties": {
+                "authority": { "const": "SIMULATION_CORE" },
+                "official": { "const": true },
+                "replay_relevant_digest": { "$ref": "#/$defs/digest" },
+                "writes_formal_result": { "const": false }
+              }
+            }
+          }
+        },
+        "explanation": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["official", "stage", "summary"],
+            "properties": {
+              "official": { "type": "boolean" },
+              "stage": { "enum": ["WANT", "CAN", "REALIZED"] },
+              "summary": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
       }
     },
     "teacherProjection": {
@@ -277,6 +360,43 @@
         "security": { "$ref": "#/$defs/security" }
       }
     },
+    "adminProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "known_limits",
+        "model_version",
+        "operation_id",
+        "parameter_descriptors",
+        "drafts",
+        "security"
+      ],
+      "properties": {
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ai_provider",
+            "formal_truth_writer",
+            "repository_provider",
+            "writes_formal_truth"
+          ],
+          "properties": {
+            "ai_provider": { "const": "OFF" },
+            "formal_truth_writer": { "const": "SIMULATION_CORE" },
+            "repository_provider": { "const": "JSON_INTERNAL_ONLY" },
+            "writes_formal_truth": { "const": false }
+          }
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "model_version": { "$ref": "#/$defs/modelVersion" },
+        "operation_id": { "const": "W5_ADMIN_GOVERNED_MODEL_AUDIT_GET_V1" },
+        "parameter_descriptors": { "type": "array", "items": { "$ref": "#/$defs/descriptor" } },
+        "drafts": { "type": "array", "items": { "$ref": "#/$defs/draft" } },
+        "security": { "$ref": "#/$defs/security" }
+      }
+    },
     "studentProjection": {
       "type": "object",
       "additionalProperties": false,
@@ -293,6 +413,7 @@
       "additionalProperties": false,
       "required": [
         "can",
+        "demand_realization",
         "experience_profile",
         "fallback",
         "known_limits",
@@ -304,6 +425,7 @@
       ],
       "properties": {
         "can": { "type": "object" },
+        "demand_realization": { "$ref": "#/$defs/demandRealization" },
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
         "fallback": { "type": "object" },
         "known_limits": { "type": "array", "items": { "type": "string" } },

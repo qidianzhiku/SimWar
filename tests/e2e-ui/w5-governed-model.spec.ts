@@ -40,7 +40,11 @@ test("W5 Teacher Studio binds one exact run and Student receives a role-safe pro
   request
 }) => {
   const teacherToken = await login(request, "teacher");
-  const run = await apiPost<{ run: Run }>(request, "/api/v1/courses/course_demo/runs", teacherToken);
+  const run = await apiPost<{ run: Run }>(
+    request,
+    "/api/v1/courses/course_demo/runs",
+    teacherToken
+  );
   expect(run.response.ok()).toBe(true);
   const runId = run.body.data.run.run_id;
   const started = await apiPost<{ round_id: string }>(
@@ -66,12 +70,15 @@ test("W5 Teacher Studio binds one exact run and Student receives a role-safe pro
   await expect(studio.getByText("已精确绑定")).toBeVisible();
   await studio.getByRole("button", { name: "Standard 评估" }).click();
   await expect(studio.getByText(/SIMULATION_CORE/)).toBeVisible();
+  await expect(studio.getByText(/Demand readiness: READY_WITH_LIMITS/)).toBeVisible();
 
   const projection = await request.get(
     `${apiBaseUrl}/api/v1/bff/teacher/w5/governed-model?courseId=course_demo`,
     { headers: { authorization: `Bearer ${teacherToken}`, "x-tenant-id": tenantId } }
   );
-  const projectionBody = (await projection.json()) as ApiEnvelope<{ drafts: Array<{ draft_id: string }> }>;
+  const projectionBody = (await projection.json()) as ApiEnvelope<{
+    drafts: Array<{ draft_id: string }>;
+  }>;
   expect(projection.ok()).toBe(true);
   const draftId = projectionBody.data.drafts.at(-1)?.draft_id;
   expect(draftId).toBeTruthy();
@@ -94,5 +101,6 @@ test("W5 Teacher Studio binds one exact run and Student receives a role-safe pro
   const studentPanel = page.getByRole("region", { name: "W5 governed model convergence" });
   await expect(studentPanel).toBeVisible();
   await expect(studentPanel.getByText("SIMULATION_CORE", { exact: false })).toBeVisible();
+  await expect(studentPanel.getByText("READY_WITH_LIMITS", { exact: false })).toBeVisible();
   await expect(studentPanel.getByText("ROLE_SAFE_STUDENT", { exact: false })).toBeVisible();
 });
