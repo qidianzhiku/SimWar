@@ -1337,6 +1337,133 @@ paths:
         "401": { description: "Authentication required" }
         "403": { description: "Teacher authority required" }
         "422": { description: "Reference unavailable, cross-tenant, or not in DRAFT state" }
+  /api/v1/bff/teacher/scenario-studio:
+    get:
+      operationId: TEACHER_SCENARIO_STUDIO_CATALOG_V1
+      summary: List exact approved sources and the current explicit model version for the Teacher Scenario Studio.
+      description: Read-only catalog. The Studio never selects an implicit latest source and provider activation remains OFF.
+      security:
+        - SessionBearer: []
+      responses:
+        "200": { description: "Teacher-only Scenario Studio catalog" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+  /api/v1/bff/teacher/scenario-studio/drafts:
+    post:
+      operationId: TEACHER_SCENARIO_STUDIO_DRAFT_CREATE_V1
+      summary: Create a coupled Teacher Scenario Studio DRAFT.
+      description: Creates one C5 teaching/configuration aggregate through the existing CoursePackage writer. Source authorities are not rewritten and custom parameters remain draft-only.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherScenarioStudioDraftInput"
+      responses:
+        "201":
+          description: "Exact Teacher Scenario Studio DRAFT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherScenarioStudioEnvelope"
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "422": { description: "Invalid exact references or configuration" }
+  /api/v1/bff/teacher/scenario-studio/drafts/preview:
+    post:
+      operationId: TEACHER_SCENARIO_STUDIO_PREVIEW_V1
+      summary: Preview an exact Teacher Scenario Studio candidate with role-safe fields.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherScenarioStudioReferenceInput"
+      responses:
+        "200": { description: "Teacher-only role-safe preview" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "404": { description: "Exact candidate not found" }
+  /api/v1/bff/teacher/scenario-studio/drafts/{coursePackageId}/versions/{version}/validate:
+    post:
+      operationId: TEACHER_SCENARIO_STUDIO_VALIDATE_V1
+      summary: Validate one exact coupled Scenario Studio candidate.
+      security:
+        - SessionBearer: []
+      parameters:
+        - {
+            name: coursePackageId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - { name: version, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherScenarioStudioReferenceInput"
+      responses:
+        "200": { description: "Coupled candidate validated" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "409": { description: "Source, compatibility, model, or lifecycle gate blocked" }
+  /api/v1/bff/teacher/scenario-studio/drafts/{coursePackageId}/versions/{version}/freeze:
+    post:
+      operationId: TEACHER_SCENARIO_STUDIO_FREEZE_V1
+      summary: Freeze one validated exact Scenario Studio candidate.
+      security:
+        - SessionBearer: []
+      parameters:
+        - {
+            name: coursePackageId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - { name: version, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherScenarioStudioReferenceInput"
+      responses:
+        "200": { description: "Candidate frozen through the existing CoursePackage lifecycle" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "409": { description: "Candidate lifecycle is not VALIDATED" }
+  /api/v1/bff/teacher/scenario-studio/drafts/{coursePackageId}/versions/{version}/activate:
+    post:
+      operationId: TEACHER_SCENARIO_STUDIO_ACTIVATE_V1
+      summary: Activate one frozen exact bundle through existing Course and formal authority writers.
+      description: Creates a draft Course with exact Blueprint, ScenarioPackage, ParameterSet, and engine binding. Run activation remains the existing Run writer's next explicit action.
+      security:
+        - SessionBearer: []
+      parameters:
+        - {
+            name: coursePackageId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
+        - { name: version, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherScenarioStudioReferenceInput"
+      responses:
+        "201": { description: "Draft Course activated from exact bundle" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Teacher authority required" }
+        "409": { description: "Candidate lifecycle or formal binding gate blocked" }
   /api/v1/formal-authority/course-blueprints:
     post:
       operationId: FORMAL_COURSE_BLUEPRINT_DRAFT_CREATE_V1
@@ -5947,6 +6074,25 @@ components:
         title:
           type: string
           minLength: 1
+    TeacherScenarioStudioDraftInput:
+      $ref: "../schemas/teacher-scenario-studio.v1.json#/$defs/draftInput"
+    TeacherScenarioStudioReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [course_package_reference]
+      properties:
+        course_package_reference:
+          $ref: "#/components/schemas/CoursePackageVersionReferenceInput"
+    TeacherScenarioStudioEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        message: { type: string, minLength: 1 }
+        request_id: { type: string, minLength: 1 }
+        data:
+          $ref: "../schemas/teacher-scenario-studio.v1.json#/$defs/draft"
     FormalParameterSetBindingReferenceInput:
       type: object
       additionalProperties: false

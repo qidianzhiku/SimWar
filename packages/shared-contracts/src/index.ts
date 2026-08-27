@@ -9,6 +9,7 @@ export * from "./r3-golden-journey.js";
 export * from "./w027-decision-experience.js";
 export * from "./market-world.js";
 export * from "./project-library.js";
+export * from "./teacher-scenario-studio.js";
 export * from "./m2p5-decision-learning-crossround.js";
 export * from "./operating-world-consequence-trace.js";
 export * from "./reauth-context.js";

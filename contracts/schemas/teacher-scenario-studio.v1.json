@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/teacher-scenario-studio.v1.json",
+  "title": "TeacherScenarioStudio",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+      ]
+    },
+    "blueprintReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_blueprint_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "course_blueprint_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        }
+      }
+    },
+    "scenarioReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        }
+      }
+    },
+    "parameterReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "custom_parameters",
+        "experience_profile",
+        "model_version_ref",
+        "module_configuration",
+        "schema_version"
+      ],
+      "properties": {
+        "custom_parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "values"],
+          "properties": {
+            "mode": { "const": "DRAFT_ONLY" },
+            "values": { "$ref": "#/$defs/jsonValue" }
+          }
+        },
+        "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
+        "model_version_ref": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        },
+        "module_configuration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capital",
+            "environment",
+            "funding",
+            "policy_shocks",
+            "project_template",
+            "workforce"
+          ],
+          "properties": {
+            "capital": { "$ref": "#/$defs/module" },
+            "environment": { "$ref": "#/$defs/module" },
+            "funding": { "$ref": "#/$defs/module" },
+            "policy_shocks": { "$ref": "#/$defs/module" },
+            "project_template": { "$ref": "#/$defs/module" },
+            "workforce": { "$ref": "#/$defs/module" }
+          }
+        },
+        "schema_version": { "const": "teacher-scenario-studio.v1" }
+      }
+    },
+    "coursePackageReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "course_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        }
+      }
+    },
+    "draftInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_blueprint_reference",
+        "course_package_id",
+        "description",
+        "parameter_set_reference",
+        "scenario_package_reference",
+        "studio_configuration",
+        "title",
+        "version"
+      ],
+      "properties": {
+        "course_blueprint_reference": { "$ref": "#/$defs/blueprintReference" },
+        "course_package_id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterReference" },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioReference" },
+        "studio_configuration": { "$ref": "#/$defs/configuration" },
+        "title": { "type": "string", "minLength": 1 },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "pattern": "latest|default|current" }
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_package_reference",
+        "operation_id",
+        "status",
+        "studio_configuration",
+        "title"
+      ],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/coursePackageReference" },
+        "operation_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["DRAFT", "VALIDATED", "FROZEN", "ACTIVATED"] },
+        "studio_configuration": { "$ref": "#/$defs/configuration" },
+        "title": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -80,6 +80,9 @@ function cloneDraft(version: CoursePackageVersion): CoursePackageVersionDraftInp
     description: version.description,
     parameter_set_reference: structuredClone(version.parameter_set_reference),
     scenario_package_reference: structuredClone(version.scenario_package_reference),
+    ...(version.studio_configuration
+      ? { studio_configuration: structuredClone(version.studio_configuration) }
+      : {}),
     title: version.title,
     version: version.version
   };
@@ -123,6 +126,13 @@ export class CoursePackageCommandService {
     } catch (error) {
       this.mapRegistryError(error, "COURSE_PACKAGE_DUPLICATE_VERSION");
     }
+  }
+
+  async getByReference(
+    tenantId: string,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion | null> {
+    return this.registry.getByReference(tenantId, reference);
   }
 
   async validate(

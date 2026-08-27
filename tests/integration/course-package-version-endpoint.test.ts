@@ -278,6 +278,20 @@ describe("CoursePackageVersion endpoints", () => {
         ...exported.body.data.course_package_version,
         course_package_id: "course_package_endpoint_import",
         description: "Imported teaching-only package.",
+        studio_configuration: {
+          custom_parameters: { mode: "DRAFT_ONLY", values: { custom_rate: 1.2 } },
+          experience_profile: "STANDARD",
+          model_version_ref: "toy_logit_wellness_v1@0.1.0",
+          module_configuration: {
+            capital: { enabled: true },
+            environment: { region: "generic" },
+            funding: { enabled: true },
+            policy_shocks: { enabled: false },
+            project_template: { template_id: "generic" },
+            workforce: { enabled: true }
+          },
+          schema_version: "teacher-scenario-studio.v1"
+        },
         title: "Endpoint import"
       };
       const imported = await requestJson<ApiEnvelope<{ status: string }>>(
@@ -295,7 +309,10 @@ describe("CoursePackageVersion endpoints", () => {
         }
       );
       expect(imported.status).toBe(201);
-      expect(imported.body.data.status).toBe("DRAFT");
+      expect(imported.body.data).toMatchObject({
+        status: "DRAFT",
+        studio_configuration: importedDraft.studio_configuration
+      });
       const cloned = await requestJson<ApiEnvelope<{ status: string }>>(
         `${baseUrl}${COURSE_PACKAGE_BASE}/clone`,
         {
@@ -501,7 +518,9 @@ describe("CoursePackageVersion endpoints", () => {
       expect(response.status).toBe(500);
       expect(response.body.code).toBe("COURSE_PACKAGE_EXPORT_AUDIT_FAILED");
       expect(response.body.message).toBe("course package export could not be completed");
-      expect(JSON.stringify(response.body)).not.toContain("forced_course_package_export_audit_failure");
+      expect(JSON.stringify(response.body)).not.toContain(
+        "forced_course_package_export_audit_failure"
+      );
       expect(store.coursePackageLifecycleSnapshots).toEqual(snapshotsBeforeFailedExport);
     } finally {
       await stopServer(server);

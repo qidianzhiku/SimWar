@@ -67,9 +67,7 @@ const RoleWorkflowPanel = lazy(() =>
     default: Component
   }))
 );
-const O4CrossRoundDynamicsPanel = lazy(() =>
-  import("@simwar/ui/o4-cross-round-dynamics-panel")
-);
+const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -148,6 +146,11 @@ const PROJECT_AWARE_RUN_ID = import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID ??
 const TeacherDebriefWorkspace = lazy(() => import("./P2BTeacherDebriefWorkspace"));
 const OperatingWorldStudio = lazy(() =>
   import("./OperatingWorldStudio").then(({ OperatingWorldStudio: Component }) => ({
+    default: Component
+  }))
+);
+const TeacherScenarioStudio = lazy(() =>
+  import("./TeacherScenarioStudio").then(({ TeacherScenarioStudio: Component }) => ({
     default: Component
   }))
 );
@@ -2315,6 +2318,13 @@ export function App() {
               tenantId={login.tenantId}
               token={session.access_token}
             />
+            <Suspense fallback={<p className="muted">正在载入教师场景工作室…</p>}>
+              <TeacherScenarioStudio
+                apiBase={API_BASE}
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            </Suspense>
           </>
         ) : null}
       </TeacherLocation>

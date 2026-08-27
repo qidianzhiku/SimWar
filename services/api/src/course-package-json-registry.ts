@@ -132,18 +132,18 @@ function isParameterSetReference(value: CoursePackageVersion["parameter_set_refe
 }
 
 export function calculateCoursePackageContentDigest(input: CoursePackageVersionDraftInput): string {
+  const digestInput = {
+    course_blueprint_reference: input.course_blueprint_reference,
+    course_package_id: input.course_package_id,
+    description: input.description,
+    parameter_set_reference: input.parameter_set_reference,
+    scenario_package_reference: input.scenario_package_reference,
+    ...(input.studio_configuration ? { studio_configuration: input.studio_configuration } : {}),
+    title: input.title,
+    version: input.version
+  };
   return createHash("sha256")
-    .update(
-      canonicalize({
-        course_blueprint_reference: input.course_blueprint_reference,
-        course_package_id: input.course_package_id,
-        description: input.description,
-        parameter_set_reference: input.parameter_set_reference,
-        scenario_package_reference: input.scenario_package_reference,
-        title: input.title,
-        version: input.version
-      })
-    )
+    .update(canonicalize(digestInput as never))
     .digest("hex");
 }
 

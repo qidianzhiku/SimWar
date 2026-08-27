@@ -144,6 +144,10 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
       await import("./m2-p5-decision-learning-crossround-fixture");
     await seedM2P5DecisionLearningFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_TSS === "true") {
+    const { seedTeacherScenarioStudioFixture } = await import("./teacher-scenario-studio-fixture");
+    await seedTeacherScenarioStudioFixture(PLAYWRIGHT_STORE_FILE);
+  }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
     seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);
