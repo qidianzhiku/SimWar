@@ -1125,7 +1125,7 @@ export function App() {
             token={session.access_token}
           />
         ) : null}
-        {session && hasAdminSummaryRole ? (
+        {session && isTenantAdmin ? (
           <W5GovernedModelAuditPanel
             apiBase={API_BASE}
             courseId={W5_AUDIT_COURSE_ID}
