@@ -794,7 +794,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         .listRoundsForRun(tenantId, runId)
         .then((rounds) => rounds.find((round) => round.round_no === roundNo) ?? null),
     getOfficialConsequence: (actor, context, surface) =>
-      w3OfficialConsequence.getConsequence(actor, context, surface),
+      w3OfficialConsequence.getConsequenceExact(actor, context, surface),
     getLearningReport: async (actor, context, surface) => {
       const reports =
         surface === "student"
@@ -850,6 +850,19 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         title: profile.title
       };
     },
+    getTeachingClosure: (actor, context) =>
+      teachingClosure.getExact(
+        { actor_id: actor.user_id, tenant_id: actor.tenant_id },
+        {
+          activity_id: context.activity_id,
+          course_id: context.course_id,
+          role_key: context.role_key,
+          round_id: context.round_id,
+          round_no: context.round_no,
+          run_id: context.run_id,
+          team_id: context.team_id
+        }
+      ),
     getW4Projection: async ({ actor, context }) => {
       const projection = await w4EnterpriseStateService.getProjection({
         actor_id: actor.user_id,

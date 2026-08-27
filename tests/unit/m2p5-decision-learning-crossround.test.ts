@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type {
   M2P5DecisionLearningContext,
-  M2P5DecisionLearningResponse
+  M2P5DecisionLearningResponse,
+  TeachingClosureDto
 } from "@simwar/shared-contracts";
 import {
   M2P5DecisionLearningCrossRoundService,
@@ -19,7 +20,35 @@ const context: M2P5DecisionLearningContext = {
   tenant_id: "tenant_demo"
 };
 
-function fixtureDependencies(): M2P5DecisionLearningDependencies {
+type DependenciesWithTeachingClosure = M2P5DecisionLearningDependencies & {
+  readonly getTeachingClosure: () => Promise<TeachingClosureDto>;
+};
+
+type ExpectedLearningLoop = {
+  readonly schema_version: "m2p6-teacher-debrief-learning-transfer.v1";
+  readonly status: "READY" | "BLOCKED" | "CONFLICT" | "UNKNOWN";
+  readonly teacher_debrief_availability: "AVAILABLE" | "BLOCKED" | "UNKNOWN";
+  readonly student_learning_report_status: "MISSING" | "CONFIRMED";
+  readonly reflection_status: "MISSING" | "SUBMITTED";
+  readonly what_if_availability: "AVAILABLE" | "NOT_GENERATED" | "BLOCKED";
+  readonly transfer_status: "READY" | "BLOCKED";
+  readonly next_opening_state_readiness: "ENTRY_READY" | "READY_TO_CONTINUE" | "BLOCKED";
+  readonly blockers: readonly string[];
+  readonly allowed_actions: readonly string[];
+  readonly recovery_state: "EXACT_CONTEXT_RESTORED";
+  readonly teacher_confirmation_ref?: unknown;
+  readonly source_receipts: readonly unknown[];
+  readonly provenance_refs: readonly unknown[];
+};
+
+function learningLoop(result: M2P5DecisionLearningResponse): ExpectedLearningLoop {
+  return (result as M2P5DecisionLearningResponse & { learning_loop: ExpectedLearningLoop })
+    .learning_loop;
+}
+
+function fixtureDependencies(
+  overrides: Partial<DependenciesWithTeachingClosure> = {}
+): DependenciesWithTeachingClosure {
   const closing = {
     tenant_id: context.tenant_id,
     course_id: context.course_id,
@@ -47,6 +76,30 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
         statements: ["bounded"]
       },
       context,
+      counterfactual: {
+        causal_label: "causal_not_proven" as const,
+        changed_field: "capacity_plan" as const,
+        changed_value_digest: "1".repeat(64),
+        comparison: {
+          official_score: 80,
+          counterfactual_score: 82,
+          score_delta: 2,
+          official_rank: 1,
+          counterfactual_rank: 1,
+          rank_delta: 0
+        },
+        counterfactual_id: "counterfactual_m2p5",
+        exact_context_ref: {
+          content_digest: "d".repeat(64),
+          discriminator: "exact_ref" as const,
+          resource_id: context.round_id,
+          resource_type: "round" as const,
+          tenant_id: context.tenant_id,
+          version: "1.0.0"
+        },
+        official: false as const,
+        original_value_digest: "2".repeat(64)
+      },
       decision_story: { consequence_summary: "published", decision_summary: "canonical" },
       known_limits: [],
       learning: {
@@ -57,6 +110,14 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
           discriminator: "exact_ref" as const,
           resource_id: "report_m2p5",
           resource_type: "student_learning_report" as const,
+          tenant_id: context.tenant_id,
+          version: "1.0.0"
+        },
+        teacher_confirmation_ref: {
+          content_digest: "3".repeat(64),
+          discriminator: "exact_ref" as const,
+          resource_id: "confirmation_m2p5",
+          resource_type: "teacher_confirmation_version" as const,
           tenant_id: context.tenant_id,
           version: "1.0.0"
         },
@@ -142,7 +203,7 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
   ) => Promise<infer T>
     ? T
     : never;
-  return {
+  const dependencies: DependenciesWithTeachingClosure = {
     getExactRound: async () => ({
       round_id: context.round_id,
       round_no: 1,
@@ -170,6 +231,14 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
           resource_type: "student_learning_report",
           tenant_id: context.tenant_id,
           version: "1.0.0"
+        },
+        teacher_confirmation_ref: {
+          content_digest: "3".repeat(64),
+          discriminator: "exact_ref",
+          resource_id: "confirmation_m2p5",
+          resource_type: "teacher_confirmation_version",
+          tenant_id: context.tenant_id,
+          version: "1.0.0"
         }
       }) as never,
     getProjectContext: async () => ({
@@ -182,6 +251,43 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
       },
       title: "Shanghai care project"
     }),
+    getTeachingClosure: async () => ({
+      context: {
+        activity_id: context.activity_id,
+        course_id: context.course_id,
+        role_key: context.role_key,
+        run_id: context.run_id,
+        team_id: context.team_id
+      },
+      course_report_available: true,
+      export_formats: ["json", "markdown"],
+      known_limits: ["read only"],
+      queue_item: {
+        claim_status: "AVAILABLE",
+        confirmation_status: "CONFIRMED",
+        context: {
+          activity_id: context.activity_id,
+          course_id: context.course_id,
+          role_key: context.role_key,
+          run_id: context.run_id,
+          team_id: context.team_id
+        },
+        eligible_event_count: 1,
+        evidence_count: 1,
+        known_limits: ["read only"],
+        missing: [],
+        outcome_status: "CONFIRMED"
+      },
+      runtime_authority: "JSON_INTERNAL_ONLY",
+      schema_version: "teaching-closure.v1",
+      student_safe_preview: {
+        criterion_count: 1,
+        evidence_count: 1,
+        next_focus: "transfer",
+        status: "CONFIRMED",
+        visibility: "student_safe"
+      }
+    }),
     getW4Projection: async () => ({
       closing_state_ref: closing,
       opening_state_ref: null
@@ -191,6 +297,7 @@ function fixtureDependencies(): M2P5DecisionLearningDependencies {
       source_closing_state_ref: closing
     })
   };
+  return { ...dependencies, ...overrides };
 }
 
 describe("M2-P5 decision learning cross-round composition", () => {
@@ -215,6 +322,18 @@ describe("M2-P5 decision learning cross-round composition", () => {
     expect(result.cross_round.next_round?.source_closing_state_ref).toEqual(
       result.cross_round.predecessor_closing_state_ref
     );
+    expect(learningLoop(result)).toMatchObject({
+      schema_version: "m2p6-teacher-debrief-learning-transfer.v1",
+      status: "READY",
+      teacher_debrief_availability: "AVAILABLE",
+      student_learning_report_status: "CONFIRMED",
+      reflection_status: "SUBMITTED",
+      what_if_availability: "AVAILABLE",
+      transfer_status: "READY",
+      next_opening_state_readiness: "ENTRY_READY",
+      blockers: [],
+      recovery_state: "EXACT_CONTEXT_RESTORED"
+    });
     expect(JSON.stringify(result)).not.toContain("state_true");
     expect(JSON.stringify(result)).not.toContain("replay_hash");
   });
@@ -246,5 +365,206 @@ describe("M2-P5 decision learning cross-round composition", () => {
     expect(result.learning.student_learning_report_status).toBe("MISSING");
     expect(result.learning.gate).toBe("BLOCKED");
     expect(result.cross_round.status).toBe("BLOCKED");
+    expect(learningLoop(result)).toMatchObject({
+      status: "CONFLICT",
+      blockers: ["STUDENT_LEARNING_REPORT_EXACT_CONTEXT_CONFLICT"]
+    });
+  });
+
+  it("blocks transfer when the required AI-off reflection is missing", async () => {
+    const base = fixtureDependencies();
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return { ...official, record: { ...official.record, reflection: undefined } };
+      }
+    });
+    const result = await service.getJourney({
+      actor: { roles: ["teacher"], tenant_id: context.tenant_id, user_id: "usr_teacher" },
+      context,
+      surface: "teacher"
+    });
+
+    expect(learningLoop(result)).toMatchObject({
+      status: "BLOCKED",
+      reflection_status: "MISSING",
+      transfer_status: "BLOCKED"
+    });
+    expect(learningLoop(result).blockers).toContain("REFLECTION_REQUIRED");
+  });
+
+  it("reports UNKNOWN when the exact teacher debrief read is unavailable", async () => {
+    const service = new M2P5DecisionLearningCrossRoundService(
+      fixtureDependencies({
+        getTeachingClosure: async () => {
+          throw new Error("TEACHING_CLOSURE_UNAVAILABLE");
+        }
+      })
+    );
+    const result = await service.getJourney({
+      actor: { roles: ["teacher"], tenant_id: context.tenant_id, user_id: "usr_teacher" },
+      context,
+      surface: "teacher"
+    });
+
+    expect(learningLoop(result)).toMatchObject({
+      status: "UNKNOWN",
+      teacher_debrief_availability: "UNKNOWN"
+    });
+    expect(learningLoop(result).blockers).toContain("TEACHING_CLOSURE_UNAVAILABLE");
+  });
+
+  it("reports CONFLICT when W4 closing and opening lineage do not match", async () => {
+    const base = fixtureDependencies();
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      validateNextRoundOpening: async (input) => {
+        const valid = await base.validateNextRoundOpening(input);
+        return {
+          ...valid,
+          source_closing_state_ref: {
+            ...valid.source_closing_state_ref,
+            state_digest: "9".repeat(64)
+          }
+        };
+      }
+    });
+    const result = await service.getJourney({
+      actor: { roles: ["teacher"], tenant_id: context.tenant_id, user_id: "usr_teacher" },
+      context,
+      surface: "teacher"
+    });
+
+    expect(learningLoop(result)).toMatchObject({
+      status: "CONFLICT",
+      next_opening_state_readiness: "BLOCKED"
+    });
+    expect(learningLoop(result).blockers).toContain("W4_CLOSING_OPENING_LINEAGE_CONFLICT");
+  });
+
+  it("keeps the student learning loop free of teacher-only references", async () => {
+    let teachingClosureCalls = 0;
+    const base = fixtureDependencies({
+      getTeachingClosure: async () => {
+        teachingClosureCalls += 1;
+        throw new Error("student must not call Teaching Closure");
+      }
+    });
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return { ...official, visibility: "student_safe" as const };
+      }
+    });
+    const result = await service.getJourney({
+      actor: {
+        roles: ["student"],
+        team_id: context.team_id,
+        tenant_id: context.tenant_id,
+        user_id: "usr_student"
+      },
+      context,
+      surface: "student"
+    });
+
+    const serialized = JSON.stringify(result);
+    const learningSurface = JSON.stringify({
+      learning: result.learning,
+      learning_loop: learningLoop(result)
+    });
+    expect(teachingClosureCalls).toBe(0);
+    expect(learningLoop(result).allowed_actions).toContain("ENTER_NEXT_ROUND");
+    expect(learningLoop(result).teacher_confirmation_ref).toBeUndefined();
+    expect(result.learning.teacher_confirmation_ref).toBeUndefined();
+    expect(learningSurface).not.toContain('"teacher_confirmation_ref"');
+    expect(serialized).not.toContain("decision_batch_hash");
+    expect(serialized).not.toContain("json_runtime_source_digest");
+    expect(serialized).not.toContain("canonical_evidence_digest");
+    expect(serialized).not.toContain("replay_input_manifest");
+    expect(serialized).not.toContain("authority_diagnostics");
+  });
+
+  it("does not allow student entry while the transfer gate is not ready", async () => {
+    const base = fixtureDependencies();
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return {
+          ...official,
+          visibility: "student_safe" as const,
+          record: { ...official.record, counterfactual: undefined }
+        }
+      },
+    });
+
+    const result = await service.getJourney({
+      actor: {
+        roles: ["student"],
+        team_id: context.team_id,
+        tenant_id: context.tenant_id,
+        user_id: "usr_student"
+      },
+      context,
+      surface: "student"
+    });
+
+    expect(learningLoop(result).status).toBe("BLOCKED");
+    expect(learningLoop(result).allowed_actions).not.toContain("ENTER_NEXT_ROUND");
+    expect(learningLoop(result).blockers).toContain("WHAT_IF_REQUIRED");
+  });
+
+  it("fails closed when the inherited official consequence is not bound to the exact round", async () => {
+    const base = fixtureDependencies();
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return {
+          ...official,
+          record: {
+            ...official.record,
+            context: { ...official.record.context, round_id: "round_m2p5_other" }
+          }
+        };
+      }
+    });
+
+    await expect(
+      service.getJourney({
+        actor: { roles: ["teacher"], tenant_id: context.tenant_id, user_id: "usr_teacher" },
+        context,
+        surface: "teacher"
+      })
+    ).rejects.toMatchObject({ code: "M2P5_OUTPUT_INVALID" });
+  });
+
+  it("rejects a forbidden truth key inherited from any read model", async () => {
+    const base = fixtureDependencies();
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return {
+          ...official,
+          record: { ...official.record, state_true: { cash_flow: 1 } }
+        } as never;
+      }
+    });
+
+    await expect(
+      service.getJourney({
+        actor: { roles: ["teacher"], tenant_id: context.tenant_id, user_id: "usr_teacher" },
+        context,
+        surface: "teacher"
+      })
+    ).rejects.toMatchObject({ code: "M2P5_OUTPUT_INVALID" });
   });
 });

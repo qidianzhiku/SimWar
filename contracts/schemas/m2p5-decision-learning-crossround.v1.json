@@ -13,6 +13,7 @@
     "learning",
     "project_context",
     "cross_round",
+    "learning_loop",
     "known_limits"
   ],
   "properties": {
@@ -154,6 +155,7 @@
     "learning_report": { "type": "object" },
     "project_context": { "$ref": "#/$defs/projectContext" },
     "cross_round": { "$ref": "#/$defs/crossRound" },
+    "learning_loop": { "$ref": "#/$defs/learningLoop" },
     "known_limits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/safeText" } }
   },
   "$defs": {
@@ -165,6 +167,74 @@
       }
     },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "w3ExactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "discriminator",
+        "resource_id",
+        "resource_type",
+        "tenant_id",
+        "version"
+      ],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "discriminator": { "const": "exact_ref" },
+        "resource_id": { "$ref": "#/$defs/identity" },
+        "resource_type": {
+          "enum": [
+            "canonical_decision",
+            "course",
+            "evidence_artifact",
+            "learning_goal_version",
+            "round",
+            "run",
+            "settlement_result",
+            "student_learning_report",
+            "teacher_confirmation_version",
+            "transformation_rule"
+          ]
+        },
+        "tenant_id": { "$ref": "#/$defs/identity" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+      }
+    },
+    "canonicalDecisionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/w3ExactRef" },
+        {
+          "type": "object",
+          "properties": { "resource_type": { "const": "canonical_decision" } }
+        }
+      ]
+    },
+    "roundExactRef": {
+      "allOf": [
+        { "$ref": "#/$defs/w3ExactRef" },
+        { "type": "object", "properties": { "resource_type": { "const": "round" } } }
+      ]
+    },
+    "settlementExactRef": {
+      "allOf": [
+        { "$ref": "#/$defs/w3ExactRef" },
+        {
+          "type": "object",
+          "properties": { "resource_type": { "const": "settlement_result" } }
+        }
+      ]
+    },
+    "teacherConfirmationExactRef": {
+      "allOf": [
+        { "$ref": "#/$defs/w3ExactRef" },
+        {
+          "type": "object",
+          "properties": {
+            "resource_type": { "const": "teacher_confirmation_version" }
+          }
+        }
+      ]
+    },
     "safeText": {
       "type": "string",
       "minLength": 1,
@@ -285,6 +355,90 @@
             "source_closing_state_ref": { "$ref": "#/$defs/stateRef" }
           }
         }
+      }
+    },
+    "learningLoop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "exact_context",
+        "canonical_decision_ref",
+        "published_consequence_ref",
+        "teacher_confirmation_status",
+        "teacher_debrief_availability",
+        "student_learning_report_status",
+        "reflection_status",
+        "what_if_availability",
+        "transfer_status",
+        "next_opening_state_readiness",
+        "blockers",
+        "allowed_actions",
+        "recovery_state",
+        "source_receipts",
+        "provenance_refs"
+      ],
+      "properties": {
+        "schema_version": { "const": "m2p6-teacher-debrief-learning-transfer.v1" },
+        "status": { "enum": ["READY", "BLOCKED", "CONFLICT", "UNKNOWN"] },
+        "exact_context": { "$ref": "#/$defs/context" },
+        "canonical_decision_ref": { "$ref": "#/$defs/canonicalDecisionRef" },
+        "published_consequence_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["record_id", "round_ref", "settlement_ref"],
+          "properties": {
+            "record_id": { "$ref": "#/$defs/identity" },
+            "round_ref": { "$ref": "#/$defs/roundExactRef" },
+            "settlement_ref": { "$ref": "#/$defs/settlementExactRef" }
+          }
+        },
+        "teacher_confirmation_status": { "enum": ["MISSING", "DRAFT", "CONFIRMED"] },
+        "teacher_confirmation_ref": { "$ref": "#/$defs/teacherConfirmationExactRef" },
+        "teacher_debrief_availability": { "enum": ["AVAILABLE", "BLOCKED", "UNKNOWN"] },
+        "student_learning_report_status": { "enum": ["MISSING", "CONFIRMED"] },
+        "reflection_status": { "enum": ["MISSING", "SUBMITTED"] },
+        "what_if_availability": { "enum": ["AVAILABLE", "NOT_GENERATED", "BLOCKED"] },
+        "transfer_status": { "enum": ["READY", "BLOCKED"] },
+        "next_opening_state_readiness": {
+          "enum": ["ENTRY_READY", "READY_TO_CONTINUE", "BLOCKED"]
+        },
+        "blockers": { "type": "array", "items": { "$ref": "#/$defs/identity" } },
+        "allowed_actions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "REVIEW_EVIDENCE",
+              "USE_EXISTING_D3_CONFIRMATION",
+              "PREPARE_DEBRIEF",
+              "CREATE_NON_OFFICIAL_WHAT_IF",
+              "REVIEW_NON_OFFICIAL_WHAT_IF",
+              "SUBMIT_AI_OFF_REFLECTION",
+              "REVIEW_TRANSFER",
+              "ENTER_NEXT_ROUND"
+            ]
+          }
+        },
+        "recovery_state": { "const": "EXACT_CONTEXT_RESTORED" },
+        "source_receipts": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/w3ExactRef" }
+        },
+        "provenance_refs": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/w3ExactRef" }
+        },
+        "state_true": false,
+        "replay_hash": false,
+        "replay_input_manifest": false,
+        "decision_batch_hash": false,
+        "json_runtime_source_digest": false,
+        "canonical_evidence_digest": false,
+        "authority_diagnostics": false
       }
     }
   }

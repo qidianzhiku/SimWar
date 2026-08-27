@@ -197,6 +197,55 @@
 .p2b-cross-round-card strong {
   color: var(--p2b-ink);
 }
+.p2b-learning-loop {
+  background: var(--sw-color-surface-white);
+  border: 1px solid var(--sw-color-border-teal);
+  border-left: 5px solid var(--sw-color-learning-teal);
+  border-radius: var(--sw-radius-12);
+  display: grid;
+  gap: var(--sw-space-10);
+  margin-top: var(--sw-space-12);
+  min-width: 0;
+  padding: var(--sw-space-14);
+}
+.p2b-learning-loop[data-status="BLOCKED"],
+.p2b-learning-loop[data-status="UNKNOWN"] {
+  border-left-color: var(--sw-color-focus-warm);
+}
+.p2b-learning-loop[data-status="CONFLICT"],
+.p2b-learning-loop[data-phase="error"] {
+  border-left-color: var(--sw-color-state-critical);
+}
+.p2b-learning-loop-grid {
+  display: grid;
+  gap: var(--sw-space-8);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.p2b-learning-loop-grid > div {
+  background: var(--sw-color-surface-metric);
+  border-radius: var(--sw-radius-10);
+  display: grid;
+  gap: var(--sw-space-4);
+  min-width: 0;
+  padding: var(--sw-space-10);
+}
+.p2b-learning-loop-grid span {
+  color: var(--sw-color-text-subtle-accessible);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.p2b-learning-loop-grid strong,
+.p2b-learning-loop p {
+  overflow-wrap: anywhere;
+}
+.p2b-learning-loop-stale,
+.p2b-learning-loop-recovery {
+  color: var(--sw-color-learning-teal) !important;
+  font-weight: 700;
+}
+.p2b-learning-loop--network {
+  margin-top: var(--sw-space-14);
+}
 .p2b-compatibility-details {
   border-top: 1px solid var(--sw-color-border-soft);
   margin-top: 2px;
@@ -221,6 +270,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .p2b-student-journey .p2b-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .p2b-learning-loop-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .p2b-stage-heading {

@@ -12,7 +12,7 @@
     "team_id": "team_alpha",
     "tenant_id": "tenant_demo"
   },
-  "official_consequence": { "state_true": { "cash_flow": 1 } },
+  "official_consequence": { "record": { "publication": { "status": "PUBLISHED" } } },
   "learning": {
     "gate": "READY",
     "reflection_status": "SUBMITTED",
@@ -23,5 +23,109 @@
   },
   "project_context": { "status": "RESOLVED" },
   "cross_round": { "status": "ENTRY_READY", "entry_status": "OPEN", "blocker_codes": [] },
+  "learning_loop": {
+    "schema_version": "m2p6-teacher-debrief-learning-transfer.v1",
+    "status": "BLOCKED",
+    "exact_context": {
+      "activity_id": "activity_consequence",
+      "course_id": "course_m2p5",
+      "role_key": "CEO",
+      "round_id": "round_m2p5_1",
+      "round_no": 1,
+      "run_id": "run_m2p5",
+      "team_id": "team_alpha",
+      "tenant_id": "tenant_demo"
+    },
+    "canonical_decision_ref": {
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "discriminator": "exact_ref",
+      "resource_id": "decision_m2p5",
+      "resource_type": "canonical_decision",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "published_consequence_ref": {
+      "record_id": "w3_m2p5",
+      "round_ref": {
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "discriminator": "exact_ref",
+        "resource_id": "round_m2p5_1",
+        "resource_type": "round",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "settlement_ref": {
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "discriminator": "exact_ref",
+        "resource_id": "settlement_m2p5",
+        "resource_type": "settlement_result",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      }
+    },
+    "teacher_confirmation_status": "CONFIRMED",
+    "teacher_debrief_availability": "BLOCKED",
+    "student_learning_report_status": "CONFIRMED",
+    "reflection_status": "SUBMITTED",
+    "what_if_availability": "AVAILABLE",
+    "transfer_status": "BLOCKED",
+    "next_opening_state_readiness": "BLOCKED",
+    "blockers": ["TEACHER_DEBRIEF_REQUIRED"],
+    "allowed_actions": [],
+    "recovery_state": "FALLBACK_CONTEXT",
+    "json_runtime_source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_receipts": [
+      {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "discriminator": "exact_ref",
+        "resource_id": "decision_m2p5",
+        "resource_type": "canonical_decision",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      {
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "discriminator": "exact_ref",
+        "resource_id": "round_m2p5_1",
+        "resource_type": "round",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      {
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "discriminator": "exact_ref",
+        "resource_id": "settlement_m2p5",
+        "resource_type": "settlement_result",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      }
+    ],
+    "provenance_refs": [
+      {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "discriminator": "exact_ref",
+        "resource_id": "decision_m2p5",
+        "resource_type": "canonical_decision",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      {
+        "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "discriminator": "exact_ref",
+        "resource_id": "round_m2p5_1",
+        "resource_type": "round",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      {
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "discriminator": "exact_ref",
+        "resource_id": "settlement_m2p5",
+        "resource_type": "settlement_result",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      }
+    ]
+  },
   "known_limits": ["invalid"]
 }

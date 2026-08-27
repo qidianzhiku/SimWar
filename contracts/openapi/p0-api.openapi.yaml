@@ -4521,7 +4521,8 @@ paths:
   /api/v1/bff/student/m2p5/runs/{runId}/rounds/{roundNo}/decision-learning:
     get:
       operationId: STUDENT_M2P5_DECISION_LEARNING_CROSSROUND_GET_V1
-      summary: Read the exact student-safe project-aware decision learning cross-round projection.
+      summary: Read the exact student-safe M2P6 learning loop on the existing M2P5 projection.
+      description: Returns the existing exact-scope M2P5 response with the required read-only M2P6 Decision-to-Next-Opening learning loop; no command or formal-state authority is added.
       security: [{ SessionBearer: [] }]
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string } }
@@ -4555,7 +4556,8 @@ paths:
   /api/v1/bff/teacher/m2p5/runs/{runId}/rounds/{roundNo}/decision-learning:
     get:
       operationId: TEACHER_M2P5_DECISION_LEARNING_CROSSROUND_GET_V1
-      summary: Read the exact teacher-safe project-aware decision learning cross-round projection.
+      summary: Read the exact teacher-safe M2P6 learning loop on the existing M2P5 projection.
+      description: Returns the existing exact-scope M2P5 response with the required read-only M2P6 Decision-to-Next-Opening learning loop; no command or formal-state authority is added.
       security: [{ SessionBearer: [] }]
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string } }

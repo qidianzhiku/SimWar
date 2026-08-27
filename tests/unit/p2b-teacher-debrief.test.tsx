@@ -1,13 +1,32 @@
 /** @vitest-environment jsdom */
 
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import type { W3OfficialConsequenceResponse } from "@simwar/shared-contracts";
+import { describe, expect, it, vi } from "vitest";
+import type {
+  M2P5DecisionLearningResponse,
+  W3OfficialConsequenceResponse
+} from "@simwar/shared-contracts";
 import {
   P2B_TEACHER_STAGES,
   TeacherDebriefWorkspace
 } from "../../apps/teacher/src/P2BTeacherDebriefWorkspace";
+
+(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+const context = {
+  activity_id: "activity-consequence",
+  course_id: "course-001",
+  role_key: "CEO",
+  round_id: "round-003",
+  round_no: 3,
+  run_id: "run-001",
+  team_id: "team-001",
+  tenant_id: "tenant-001"
+} as const;
 
 const response = {
   record: {
@@ -57,7 +76,7 @@ const response = {
     },
     known_limits: ["机制解释不是因果证明"],
     source: {} as never,
-    context: {} as never,
+    context,
     record_id: "w3-record-001",
     runtime_authority: "JSON_INTERNAL_ONLY",
     schema_version: "w3-official-consequence-learning.v1"
@@ -66,6 +85,66 @@ const response = {
   runtime_authority: "JSON_INTERNAL_ONLY",
   visibility: "teacher_safe"
 } as unknown as W3OfficialConsequenceResponse;
+
+const exactRef = (
+  resourceType: "canonical_decision" | "round" | "settlement_result",
+  resourceId: string,
+  digest: string
+) => ({
+  content_digest: digest.repeat(64),
+  discriminator: "exact_ref" as const,
+  resource_id: resourceId,
+  resource_type: resourceType,
+  tenant_id: context.tenant_id,
+  version: "1.0.0"
+});
+
+const crossRoundResponse = {
+  schema_version: "m2p5-decision-learning-crossround.v1",
+  runtime_authority: "JSON_INTERNAL_ONLY",
+  visibility: "teacher_safe",
+  exact_scope: context,
+  official_consequence: response,
+  learning: { gate: "READY" },
+  project_context: { status: "RESOLVED", title: "Shanghai care project" },
+  cross_round: {
+    status: "ENTRY_READY",
+    entry_status: "OPEN",
+    blocker_codes: []
+  },
+  learning_loop: {
+    schema_version: "m2p6-teacher-debrief-learning-transfer.v1",
+    status: "READY",
+    exact_context: context,
+    canonical_decision_ref: exactRef("canonical_decision", "decision-001", "a"),
+    published_consequence_ref: {
+      record_id: "w3-record-001",
+      round_ref: exactRef("round", context.round_id, "b"),
+      settlement_ref: exactRef("settlement_result", "settlement-001", "c")
+    },
+    teacher_confirmation_status: "CONFIRMED",
+    teacher_debrief_availability: "AVAILABLE",
+    student_learning_report_status: "CONFIRMED",
+    reflection_status: "SUBMITTED",
+    what_if_availability: "AVAILABLE",
+    transfer_status: "READY",
+    next_opening_state_readiness: "ENTRY_READY",
+    blockers: [],
+    allowed_actions: ["PREPARE_DEBRIEF", "REVIEW_TRANSFER"],
+    recovery_state: "EXACT_CONTEXT_RESTORED",
+    source_receipts: [
+      exactRef("canonical_decision", "decision-001", "a"),
+      exactRef("round", context.round_id, "b"),
+      exactRef("settlement_result", "settlement-001", "c")
+    ],
+    provenance_refs: [
+      exactRef("canonical_decision", "decision-001", "a"),
+      exactRef("round", context.round_id, "b"),
+      exactRef("settlement_result", "settlement-001", "c")
+    ]
+  },
+  known_limits: ["Human Validation is not performed."]
+} as unknown as M2P5DecisionLearningResponse;
 
 describe("P2-B FE-20 teacher debrief", () => {
   it("freezes the five Figma stages", () => {
@@ -115,5 +194,44 @@ describe("P2-B FE-20 teacher debrief", () => {
     expect(markup).not.toContain(">B<");
     expect(markup).not.toContain("private peer drafts");
     expect(markup).not.toContain("Exact Ref JSON 数组");
+  });
+
+  it("renders the governed teacher M2P6 chain as read-only server state", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const data = String(input).includes("/m2p5/") ? crossRoundResponse : response;
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <TeacherDebriefWorkspace
+          apiBase="http://api.test"
+          tenantId={context.tenant_id}
+          token="token"
+          context={context}
+          crossRoundEnabled
+        />
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const region = host.querySelector('[data-testid="teacher-m2p6-learning-loop"]');
+    expect(region).not.toBeNull();
+    expect(region?.textContent).toContain(
+      "Published Consequence → Evidence → D3 → Debrief → Transfer"
+    );
+    expect(region?.textContent).toContain("READY");
+    expect(region?.textContent).toContain("PREPARE_DEBRIEF");
+    expect(region?.textContent).toContain("decision-001");
+    expect(region?.querySelectorAll("button")).toHaveLength(0);
+    expect(host.querySelector('[data-testid="teacher-m2p6-recovery"]')?.textContent).toContain(
+      "EXACT_CONTEXT_RESTORED"
+    );
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
   });
 });

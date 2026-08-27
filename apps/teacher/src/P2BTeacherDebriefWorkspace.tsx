@@ -35,7 +35,7 @@ type WorkspaceState =
 
 type CrossRoundState =
   | { phase: "idle" | "loading" }
-  | { phase: "ready"; data: M2P5DecisionLearningResponse }
+  | { phase: "ready" | "stale"; data: M2P5DecisionLearningResponse }
   | { phase: "error"; message: string };
 
 function contextQuery(context: W3OfficialConsequenceContext): string {
@@ -62,6 +62,8 @@ export function TeacherDebriefWorkspace({
   const [teachableMode, setTeachableMode] = useState<"ask" | "show" | "listen">("ask");
   const [crossRound, setCrossRound] = useState<CrossRoundState>({ phase: "idle" });
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(response?.record);
+  const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
+  const crossRoundRequestEpochRef = useRef(0);
   const identityKey = `${tenantId}:${token}:${context ? contextQuery(context) : ""}`;
   const previousIdentityKey = useRef<string | null>(null);
 
@@ -69,6 +71,8 @@ export function TeacherDebriefWorkspace({
     if (previousIdentityKey.current && previousIdentityKey.current !== identityKey) {
       setNote("");
       recordRef.current = undefined;
+      crossRoundRef.current = undefined;
+      setCrossRound({ phase: "idle" });
     }
     previousIdentityKey.current = identityKey;
   }, [identityKey]);
@@ -116,11 +120,14 @@ export function TeacherDebriefWorkspace({
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestEpoch = ++crossRoundRequestEpochRef.current;
     if (!crossRoundEnabled || !context || !token || !tenantId) {
       setCrossRound({ phase: "idle" });
       return () => controller.abort();
     }
-    setCrossRound({ phase: "loading" });
+    setCrossRound(
+      crossRoundRef.current ? { phase: "stale", data: crossRoundRef.current } : { phase: "loading" }
+    );
     fetch(
       `${apiBase}/api/v1/bff/teacher/m2p5/runs/${encodeURIComponent(context.run_id)}/rounds/${context.round_no}/decision-learning?${contextQuery(context)}`,
       {
@@ -133,13 +140,21 @@ export function TeacherDebriefWorkspace({
           data?: M2P5DecisionLearningResponse;
           message?: string;
         };
-        if (!result.ok || !envelope.data || !envelope.data.cross_round) {
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
+        if (
+          !result.ok ||
+          !envelope.data ||
+          !envelope.data.cross_round ||
+          !envelope.data.learning_loop
+        ) {
           throw new Error(envelope.message ?? "教师跨回合学习投影读取失败");
         }
+        crossRoundRef.current = envelope.data;
         setCrossRound({ phase: "ready", data: envelope.data });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestEpoch !== crossRoundRequestEpochRef.current) return;
         setCrossRound({
           phase: "error",
           message: error instanceof Error ? error.message : "教师跨回合学习投影读取失败"
@@ -386,7 +401,7 @@ export function TeacherDebriefWorkspace({
               settlement digest={record.operating_world_consequence_trace.replay_relevant_digest}
             </div>
           ) : null}
-          {crossRound.phase === "ready" ? (
+          {crossRound.phase === "ready" || crossRound.phase === "stale" ? (
             <div className="p2b-cross-round-card" data-testid="teacher-m2p5-cross-round">
               <span className="p2b-stage-kicker">M2-P5 · CROSS-ROUND HANDOFF</span>
               <strong>
@@ -413,11 +428,84 @@ export function TeacherDebriefWorkspace({
                   阻断：{crossRound.data.cross_round.blocker_codes.join(" / ")}
                 </p>
               ) : null}
+              <section
+                className="p2b-learning-loop"
+                data-testid="teacher-m2p6-learning-loop"
+                data-phase={crossRound.phase}
+                data-status={crossRound.data.learning_loop.status}
+                aria-label="教师 M2P6 学习闭环"
+              >
+                <span className="p2b-stage-kicker">M2P6 · GOVERNED LEARNING LOOP</span>
+                <strong>Published Consequence → Evidence → D3 → Debrief → Transfer</strong>
+                {crossRound.phase === "stale" ? (
+                  <p className="p2b-learning-loop-stale" role="status">
+                    STALE · 正在刷新同一精确身份；保留上一份安全投影。
+                  </p>
+                ) : null}
+                <div className="p2b-learning-loop-grid">
+                  <div>
+                    <span>服务端状态</span>
+                    <strong>{crossRound.data.learning_loop.status}</strong>
+                  </div>
+                  <div>
+                    <span>精确上下文</span>
+                    <strong>
+                      {crossRound.data.learning_loop.exact_context.course_id} /{" "}
+                      {crossRound.data.learning_loop.exact_context.run_id} /{" "}
+                      {crossRound.data.learning_loop.exact_context.team_id} / R
+                      {crossRound.data.learning_loop.exact_context.round_no}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>复盘 / 迁移</span>
+                    <strong>
+                      {crossRound.data.learning_loop.teacher_debrief_availability} /{" "}
+                      {crossRound.data.learning_loop.transfer_status}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>下一开放状态</span>
+                    <strong>{crossRound.data.learning_loop.next_opening_state_readiness}</strong>
+                  </div>
+                </div>
+                <p>
+                  允许动作（只读投影）：
+                  {crossRound.data.learning_loop.allowed_actions.length > 0
+                    ? crossRound.data.learning_loop.allowed_actions.join(" / ")
+                    : "无"}
+                </p>
+                {crossRound.data.learning_loop.blockers.length > 0 ? (
+                  <p className="p2b-known-limit">
+                    学习闭环阻断：{crossRound.data.learning_loop.blockers.join(" / ")}
+                  </p>
+                ) : null}
+                <p>
+                  Receipt：
+                  {crossRound.data.learning_loop.source_receipts[0]?.resource_id ?? "未提供"}
+                </p>
+                <p data-testid="teacher-m2p6-recovery" className="p2b-learning-loop-recovery">
+                  Recovery：{crossRound.data.learning_loop.recovery_state}
+                </p>
+              </section>
+            </div>
+          ) : crossRound.phase === "loading" ? (
+            <div
+              className="p2b-learning-loop p2b-learning-loop--network"
+              data-testid="teacher-m2p6-learning-loop"
+              data-phase="loading"
+              role="status"
+            >
+              LOADING · 正在读取精确 M2P6 学习闭环。
             </div>
           ) : crossRound.phase === "error" ? (
-            <p className="p2b-known-limit" role="status">
-              跨回合入口暂不可用：{crossRound.message}
-            </p>
+            <div
+              className="p2b-learning-loop p2b-learning-loop--network"
+              data-testid="teacher-m2p6-learning-loop"
+              data-phase="error"
+              role="status"
+            >
+              ERROR · 跨回合入口暂不可用：{crossRound.message}
+            </div>
           ) : null}
         </article>
       </div>
