@@ -17,6 +17,12 @@ function readJson<T = unknown>(path: string): T {
   return JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 }
 
+function compileCoursePackageSchema() {
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addSchema(readJson("contracts/schemas/teacher-scenario-studio.v1.json"));
+  return ajv.compile(readJson("contracts/schemas/course-package-version.v1.json"));
+}
+
 interface OpenApiOperation {
   requestBody?: { content?: { "application/json"?: { schema?: { $ref?: string } } } };
   responses?: Record<
@@ -37,9 +43,7 @@ interface OpenApiDocument {
 
 describe("CoursePackageVersion contract freeze", () => {
   it("accepts the immutable teaching package fixture and rejects truth, student, and open references", () => {
-    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
-      readJson("contracts/schemas/course-package-version.v1.json")
-    );
+    const validate = compileCoursePackageSchema();
     const valid = readJson<Record<string, unknown>>(
       "contracts/fixtures/course-package-version.valid.json"
     );
@@ -108,9 +112,7 @@ describe("CoursePackageVersion contract freeze", () => {
   });
 
   it("keeps the valid fixture semantically valid and rejects schema-valid whitespace that runtime rejects", () => {
-    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
-      readJson("contracts/schemas/course-package-version.v1.json")
-    );
+    const validate = compileCoursePackageSchema();
     const valid = readJson<CoursePackageVersion>(
       "contracts/fixtures/course-package-version.valid.json"
     );
@@ -152,6 +154,38 @@ describe("CoursePackageVersion contract freeze", () => {
     expect(openApi.components.schemas.CoursePackageVersion?.$ref).toBe(
       "../schemas/course-package-version.v1.json"
     );
+  });
+
+  it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {
+    const validate = compileCoursePackageSchema();
+    const valid = readJson<CoursePackageVersion>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const studio_configuration = {
+      custom_parameters: { mode: "DRAFT_ONLY", values: { custom_rate: 1.2 } },
+      experience_profile: "STANDARD",
+      model_version_ref: "toy_logit_wellness_v1@0.1.0",
+      module_configuration: {
+        capital: { enabled: true },
+        environment: { region: "generic" },
+        funding: { enabled: true },
+        policy_shocks: { enabled: false },
+        project_template: { template_id: "generic" },
+        workforce: { enabled: true }
+      },
+      schema_version: "teacher-scenario-studio.v1"
+    } as const;
+    const candidate: CoursePackageVersion = {
+      ...valid,
+      content_digest: calculateCoursePackageContentDigest({
+        ...valid,
+        studio_configuration
+      }),
+      studio_configuration
+    };
+
+    expect(validate(candidate)).toBe(true);
+    expect(() => assertValidCoursePackageVersion(candidate)).not.toThrow();
   });
 
   it("freezes one aggregate shape with safe admin and teacher projections", () => {

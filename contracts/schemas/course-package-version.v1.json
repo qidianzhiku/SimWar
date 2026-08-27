@@ -32,6 +32,7 @@
     "description": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
     "parameter_set_reference": { "$ref": "#/$defs/parameter_set_reference" },
     "scenario_package_reference": { "$ref": "#/$defs/scenario_package_reference" },
+    "studio_configuration": { "$ref": "teacher-scenario-studio.v1.json#/$defs/configuration" },
     "schema_version": { "const": "course-package-version.v1" },
     "status": { "enum": ["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"] },
     "tenant_id": { "$ref": "#/$defs/exact_identity" },

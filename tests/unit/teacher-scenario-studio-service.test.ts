@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
+  Course,
   CourseBlueprintReference,
   ParameterSetReference,
   ScenarioPackageReference,
@@ -128,21 +129,29 @@ function createPorts(overrides: { modelVersionRef?: string; scenarioFamily?: str
   return { commandSources, sources };
 }
 
-function createService(overrides: Parameters<typeof createPorts>[0] = {}) {
+function createDefaultActivateCourse() {
+  return vi.fn(
+    async ({ title }: { title: string }): Promise<Course> => ({
+      course_id: "course_tss_001",
+      created_by: "usr_teacher",
+      parameter_set_id: parameterReference.parameter_set_id,
+      scenario_package_id: scenarioReference.scenario_package_id,
+      status: "draft",
+      tenant_id: tenantId,
+      title
+    })
+  );
+}
+
+function createService(
+  overrides: Parameters<typeof createPorts>[0] = {},
+  activateCourse: (input: { title: string }) => Promise<Course> = createDefaultActivateCourse()
+) {
   const { commandSources, sources } = createPorts(overrides);
   const coursePackages = new CoursePackageCommandService(
     new CoursePackageJsonRegistry({ now: () => "2026-08-27T20:00:00.000Z" }),
     commandSources
   );
-  const activateCourse = vi.fn(async ({ title }: { title: string }) => ({
-    course_id: "course_tss_001",
-    created_by: "usr_teacher",
-    parameter_set_id: parameterReference.parameter_set_id,
-    scenario_package_id: scenarioReference.scenario_package_id,
-    status: "draft" as const,
-    tenant_id: tenantId,
-    title
-  }));
   return {
     activateCourse,
     service: new TeacherScenarioStudioService({
@@ -242,5 +251,19 @@ describe("TeacherScenarioStudioService", () => {
     ).rejects.toEqual(
       new TeacherScenarioStudioError("TEACHER_SCENARIO_STUDIO_CUSTOM_PARAMETER_INVALID")
     );
+  });
+
+  it("preserves unexpected activation failures for the HTTP infrastructure boundary", async () => {
+    const unexpected = new Error("forced_activation_infrastructure_failure");
+    const activateCourse = vi.fn(async () => {
+      throw unexpected;
+    });
+    const { service } = createService({}, activateCourse);
+    const actor = { actor_id: "usr_teacher", tenant_id: tenantId };
+    const created = await service.createDraft(actor, draft);
+    await service.validate(actor, created.course_package_reference);
+    const frozen = await service.freeze(actor, created.course_package_reference);
+
+    await expect(service.activate(actor, frozen.course_package_reference)).rejects.toBe(unexpected);
   });
 });

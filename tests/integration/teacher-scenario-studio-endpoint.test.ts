@@ -13,7 +13,8 @@ import type {
 import { CourseBlueprintCommandService } from "../../services/api/src/course-blueprint-authority";
 import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
-import { createApiServer } from "../../services/api/src/server";
+import { createJsonRepositoryProvider } from "../../services/api/src/repository-provider";
+import { createApiServer, type CreateApiServerOptions } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 async function requestJson<T>(
@@ -55,9 +56,11 @@ async function login(baseUrl: string, username: string): Promise<AuthSession> {
   return response.body.data;
 }
 
-async function startServer(): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
+async function startServer(
+  configure?: (store: SimWarStore) => CreateApiServerOptions
+): Promise<{ baseUrl: string; server: Server; store: SimWarStore }> {
   const store = createP1Store();
-  const server = createApiServer(store);
+  const server = createApiServer(store, configure?.(store));
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
@@ -341,6 +344,94 @@ describe("Teacher Scenario Studio real BFF", () => {
         }
       );
       expect(implicitLatest.status).toBe(422);
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
+
+  it("compensates a failed validate audit without leaving a partial lifecycle transition", async () => {
+    let rejectTransitionAudit = false;
+    const { baseUrl, server, store } = await startServer((configuredStore) => {
+      const provider = createJsonRepositoryProvider({ store: configuredStore });
+      return {
+        repositoryProvider: {
+          ...provider,
+          facade: {
+            ...provider.facade,
+            auditLogs: {
+              ...provider.facade.auditLogs,
+              appendAuditLog: async (auditLog) => {
+                if (
+                  rejectTransitionAudit &&
+                  auditLog.action === "teacher_scenario_studio.validate"
+                ) {
+                  throw new Error("forced_teacher_scenario_studio_validate_audit_failure");
+                }
+                await provider.facade.auditLogs.appendAuditLog(auditLog);
+              }
+            }
+          }
+        }
+      };
+    });
+    try {
+      const references = await seedApprovedSources(store);
+      const teacher = await login(baseUrl, "teacher");
+      const headers = {
+        authorization: `Bearer ${teacher.access_token}`,
+        "content-type": "application/json",
+        "x-tenant-id": DEFAULT_TENANT_ID
+      };
+      const created = await requestJson<ApiEnvelope<TeacherScenarioStudioDraftDto>>(
+        `${baseUrl}/api/v1/bff/teacher/scenario-studio/drafts`,
+        {
+          body: {
+            ...references,
+            course_package_id: "course_package_tss_validate_audit_failure",
+            description: "The validate transition must roll back when auditing fails.",
+            studio_configuration: {
+              custom_parameters: { mode: "DRAFT_ONLY", values: {} },
+              experience_profile: "STANDARD",
+              model_version_ref: "toy_logit_wellness_v1@0.1.0",
+              module_configuration: {
+                capital: {},
+                environment: {},
+                funding: {},
+                policy_shocks: {},
+                project_template: {},
+                workforce: {}
+              },
+              schema_version: "teacher-scenario-studio.v1"
+            },
+            title: "Validate audit failure candidate",
+            version: "1.0.0"
+          },
+          headers,
+          method: "POST"
+        }
+      );
+      expect(created.status).toBe(201);
+      const reference = created.body.data.course_package_reference;
+      const snapshotsBeforeFailure = structuredClone(store.coursePackageLifecycleSnapshots);
+      rejectTransitionAudit = true;
+
+      const failed = await requestJson<{ code: string; message: string }>(
+        `${baseUrl}/api/v1/bff/teacher/scenario-studio/drafts/${reference.course_package_id}/versions/${reference.version}/validate`,
+        { body: { course_package_reference: reference }, headers, method: "POST" }
+      );
+
+      expect(failed.status).toBe(500);
+      expect(failed.body.code).toBe("COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED");
+      expect(failed.body.message).toBe("course package request could not be completed");
+      expect(store.coursePackageLifecycleSnapshots).toEqual(snapshotsBeforeFailure);
+      expect(
+        store.coursePackageLifecycleSnapshots.some(
+          (candidate) =>
+            candidate.course_package_id === reference.course_package_id &&
+            candidate.status === "VALIDATED"
+        )
+      ).toBe(false);
     } finally {
       server.close();
       await once(server, "close");

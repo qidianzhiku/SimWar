@@ -2620,20 +2620,40 @@ function parseTeacherScenarioStudioReference(
 }
 
 function teacherScenarioStudioHttpError(error: unknown): HttpError {
+  if (error instanceof TeacherFormalCourseBindingError) {
+    return new HttpError(
+      409,
+      "TEACHER_SCENARIO_STUDIO_ACTIVATION_CONFLICT",
+      "teacher scenario studio activation conflicts with the formal course binding"
+    );
+  }
+  if (error instanceof TeacherCourseBlueprintError) {
+    return new HttpError(
+      error.code === "TEACHER_COURSE_BLUEPRINT_COMPENSATION_FAILED" ? 500 : 409,
+      error.code === "TEACHER_COURSE_BLUEPRINT_COMPENSATION_FAILED"
+        ? "TEACHER_SCENARIO_STUDIO_ACTIVATION_FAILED"
+        : "TEACHER_SCENARIO_STUDIO_ACTIVATION_CONFLICT",
+      error.code === "TEACHER_COURSE_BLUEPRINT_COMPENSATION_FAILED"
+        ? "teacher scenario studio activation failed"
+        : "teacher scenario studio activation conflicts with the formal course binding"
+    );
+  }
   if (!(error instanceof TeacherScenarioStudioError)) throw error;
   const statusCode =
     error.code === "TEACHER_SCENARIO_STUDIO_NOT_FOUND"
       ? 404
       : error.code === "TEACHER_SCENARIO_STUDIO_TENANT_SCOPE_VIOLATION"
         ? 403
-        : [
-              "TEACHER_SCENARIO_STUDIO_LIFECYCLE_INVALID",
-              "TEACHER_SCENARIO_STUDIO_COMPATIBILITY_MISMATCH",
-              "TEACHER_SCENARIO_STUDIO_MODEL_VERSION_MISMATCH",
-              "TEACHER_SCENARIO_STUDIO_SOURCE_NOT_BINDABLE"
-            ].includes(error.code)
-          ? 409
-          : 422;
+        : error.code === "TEACHER_SCENARIO_STUDIO_ACTIVATION_FAILED"
+          ? 500
+          : [
+                "TEACHER_SCENARIO_STUDIO_LIFECYCLE_INVALID",
+                "TEACHER_SCENARIO_STUDIO_COMPATIBILITY_MISMATCH",
+                "TEACHER_SCENARIO_STUDIO_MODEL_VERSION_MISMATCH",
+                "TEACHER_SCENARIO_STUDIO_SOURCE_NOT_BINDABLE"
+              ].includes(error.code)
+            ? 409
+            : 422;
   return new HttpError(statusCode, error.code, "teacher scenario studio command rejected");
 }
 
@@ -2680,20 +2700,21 @@ async function handleTeacherScenarioStudioDraftCreate(
 ): Promise<void> {
   const context = createContext(runtime, request);
   const { actor, studioActor } = requireTeacherScenarioStudioActor(context);
+  const draft = parseTeacherScenarioStudioDraft(await readJson(request), context.tenantId);
   try {
-    const result = await runtime.teacherScenarioStudio.createDraft(
-      studioActor,
-      parseTeacherScenarioStudioDraft(await readJson(request), context.tenantId)
+    const result = await executeAuditedTeacherScenarioStudioMutation(
+      runtime,
+      () => runtime.teacherScenarioStudio.createDraft(studioActor, draft),
+      (created) => ({
+        actor,
+        action: "teacher_scenario_studio.draft_create",
+        after: clonePublic(created),
+        requestId: context.requestId,
+        resourceId: `${created.course_package_reference.course_package_id}:${created.course_package_reference.version}`,
+        resourceType: "teacher_scenario_studio_draft",
+        tenantId: context.tenantId
+      })
     );
-    await appendAudit(runtime, {
-      actor,
-      action: "teacher_scenario_studio.draft_create",
-      after: clonePublic(result),
-      requestId: context.requestId,
-      resourceId: `${result.course_package_reference.course_package_id}:${result.course_package_reference.version}`,
-      resourceType: "teacher_scenario_studio_draft",
-      tenantId: context.tenantId
-    });
     sendJson(response, 201, createEnvelope(context, result));
   } catch (error) {
     throw teacherScenarioStudioHttpError(error);
@@ -2745,21 +2766,36 @@ async function handleTeacherScenarioStudioTransition(
   }
   try {
     const operation = match[3];
-    const result =
-      operation === "validate"
-        ? await runtime.teacherScenarioStudio.validate(studioActor, reference)
-        : operation === "freeze"
-          ? await runtime.teacherScenarioStudio.freeze(studioActor, reference)
-          : await runtime.teacherScenarioStudio.activate(studioActor, reference);
-    await appendAudit(runtime, {
-      actor,
-      action: `teacher_scenario_studio.${operation}`,
-      after: clonePublic(result),
-      requestId: context.requestId,
-      resourceId: `${reference.course_package_id}:${reference.version}`,
-      resourceType: "teacher_scenario_studio_draft",
-      tenantId: context.tenantId
-    });
+    if (operation === "activate") {
+      const result = await runtime.teacherScenarioStudio.activate(studioActor, reference);
+      await appendAudit(runtime, {
+        actor,
+        action: "teacher_scenario_studio.activate",
+        after: clonePublic(result),
+        requestId: context.requestId,
+        resourceId: `${reference.course_package_id}:${reference.version}`,
+        resourceType: "teacher_scenario_studio_draft",
+        tenantId: context.tenantId
+      });
+      sendJson(response, 201, createEnvelope(context, result));
+      return;
+    }
+    const result = await executeAuditedTeacherScenarioStudioMutation(
+      runtime,
+      async () =>
+        operation === "validate"
+          ? await runtime.teacherScenarioStudio.validate(studioActor, reference)
+          : await runtime.teacherScenarioStudio.freeze(studioActor, reference),
+      (transitioned) => ({
+        actor,
+        action: `teacher_scenario_studio.${operation}`,
+        after: clonePublic(transitioned),
+        requestId: context.requestId,
+        resourceId: `${reference.course_package_id}:${reference.version}`,
+        resourceType: "teacher_scenario_studio_draft",
+        tenantId: context.tenantId
+      })
+    );
     sendJson(response, operation === "activate" ? 201 : 200, createEnvelope(context, result));
   } catch (error) {
     throw teacherScenarioStudioHttpError(error);
@@ -4871,7 +4907,7 @@ function assertOnlyCoursePackageFields(
   expected: readonly string[]
 ): void {
   const keys = Object.keys(value);
-  if (keys.length !== expected.length || keys.some((key) => !expected.includes(key))) {
+  if (keys.some((key) => !expected.includes(key))) {
     throw coursePackageRequestError();
   }
 }
@@ -5022,6 +5058,7 @@ function parseCoursePackageDraft(value: unknown, tenantId: string): CoursePackag
     "description",
     "parameter_set_reference",
     "scenario_package_reference",
+    "studio_configuration",
     "title",
     "version"
   ]);
@@ -5037,9 +5074,23 @@ function parseCoursePackageDraft(value: unknown, tenantId: string): CoursePackag
       value.scenario_package_reference,
       tenantId
     ),
+    ...(value.studio_configuration !== undefined
+      ? { studio_configuration: parseCoursePackageStudioConfiguration(value.studio_configuration) }
+      : {}),
     title: requireCoursePackageText(value.title),
     version: requireCoursePackageExactVersion(value.version)
   };
+}
+
+function parseCoursePackageStudioConfiguration(value: unknown): TeacherScenarioStudioConfiguration {
+  try {
+    return parseTeacherScenarioStudioConfiguration(value);
+  } catch (error) {
+    if (error instanceof HttpError && error.code === "TEACHER_SCENARIO_STUDIO_INPUT_INVALID") {
+      throw coursePackageRequestError();
+    }
+    throw error;
+  }
 }
 
 function parseCoursePackageVersionReference(
@@ -5093,6 +5144,7 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
     "scenario_package_reference",
     "schema_version",
     "status",
+    "studio_configuration",
     "tenant_id",
     "title",
     "version"
@@ -5111,6 +5163,9 @@ function parseCoursePackageImportedVersion(value: unknown, tenantId: string): Co
       description: value.description,
       parameter_set_reference: value.parameter_set_reference,
       scenario_package_reference: value.scenario_package_reference,
+      ...(value.studio_configuration !== undefined
+        ? { studio_configuration: value.studio_configuration }
+        : {}),
       title: value.title,
       version: value.version
     },
@@ -5185,6 +5240,30 @@ async function executeAuditedCoursePackageCommand<T>(
       runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
     } catch {
       // The generic response below remains safe when the retry cannot persist.
+    }
+    throw new HttpError(
+      500,
+      "COURSE_PACKAGE_AUDIT_COMPENSATION_FAILED",
+      "course package request could not be completed"
+    );
+  }
+  return result;
+}
+
+async function executeAuditedTeacherScenarioStudioMutation<T>(
+  runtime: ApiRuntime,
+  command: () => Promise<T>,
+  audit: (result: T) => Parameters<typeof appendAudit>[1]
+): Promise<T> {
+  const checkpoint = runtime.coursePackageCommands.captureAuditCheckpointForCompensation();
+  const result = await command();
+  try {
+    await appendAudit(runtime, audit(result));
+  } catch {
+    try {
+      runtime.coursePackageCommands.restoreAuditCheckpointAfterFailure(checkpoint);
+    } catch {
+      // Keep the external error generic if compensation persistence also fails.
     }
     throw new HttpError(
       500,

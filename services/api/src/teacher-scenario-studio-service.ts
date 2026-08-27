@@ -483,31 +483,27 @@ export class TeacherScenarioStudioService {
     if (current.status !== "AVAILABLE") {
       throw new TeacherScenarioStudioError("TEACHER_SCENARIO_STUDIO_LIFECYCLE_INVALID");
     }
-    try {
-      const course = await this.dependencies.activateCourse({
-        actor_id: actor.actor_id,
+    const course = await this.dependencies.activateCourse({
+      actor_id: actor.actor_id,
+      course_blueprint_reference: clone(current.course_blueprint_reference),
+      scenario_package_reference: clone(current.scenario_package_reference),
+      tenant_id: actor.tenant_id,
+      title: current.title
+    });
+    return {
+      activation: {
+        run_activation: "DEFERRED_TO_EXISTING_RUN_WRITER",
+        status: "ACTIVATED",
+        writer: "EXISTING_COURSE_AND_FORMAL_AUTHORITY_BINDING_WRITERS"
+      },
+      course,
+      operation_id: "TEACHER_SCENARIO_STUDIO_ACTIVATE_V1",
+      source_references: {
         course_blueprint_reference: clone(current.course_blueprint_reference),
-        scenario_package_reference: clone(current.scenario_package_reference),
-        tenant_id: actor.tenant_id,
-        title: current.title
-      });
-      return {
-        activation: {
-          run_activation: "DEFERRED_TO_EXISTING_RUN_WRITER",
-          status: "ACTIVATED",
-          writer: "EXISTING_COURSE_AND_FORMAL_AUTHORITY_BINDING_WRITERS"
-        },
-        course,
-        operation_id: "TEACHER_SCENARIO_STUDIO_ACTIVATE_V1",
-        source_references: {
-          course_blueprint_reference: clone(current.course_blueprint_reference),
-          parameter_set_reference: clone(current.parameter_set_reference),
-          scenario_package_reference: clone(current.scenario_package_reference)
-        }
-      };
-    } catch {
-      throw new TeacherScenarioStudioError("TEACHER_SCENARIO_STUDIO_ACTIVATION_FAILED");
-    }
+        parameter_set_reference: clone(current.parameter_set_reference),
+        scenario_package_reference: clone(current.scenario_package_reference)
+      }
+    };
   }
 
   private async getOwned(
