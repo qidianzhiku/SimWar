@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { W4PathEvidence } from "@simwar/shared-contracts";
+import type { W4PathEvidence, W4StrategicPortfolioProjection } from "@simwar/shared-contracts";
 
 void import("@simwar/ui/w4-commercial.css");
 
@@ -49,6 +49,7 @@ type Portfolio = {
     team_paths: Array<{
       team_id: string;
       path_evidence: W4PathEvidence;
+      strategic_portfolio: W4StrategicPortfolioProjection;
       process_information: { status: string; activity_id: string };
       outcome_information: {
         status: string;
@@ -262,6 +263,18 @@ export function W4EnterprisePortfolioPanel({
                 path.path_evidence.same_current_decision_different_history.status,
                 "未观察"
               )}
+            </li>
+          ))
+        )}
+      </ul>
+      <ul className="sw-w4-list" aria-label="治理项目组合候选">
+        {portfolios.flatMap((portfolio) =>
+          portfolio.team_paths.map((path) => (
+            <li key={portfolio.run_id + ":" + path.team_id + ":strategic-portfolio"}>
+              {portfolio.run_id} / {path.team_id} · {path.strategic_portfolio.portfolio_id} · 项目{" "}
+              {path.strategic_portfolio.members.length} 个 · 资本约束{" "}
+              {stateValueLabel(path.strategic_portfolio.constraints.status)} · 未覆盖成本{" "}
+              {path.strategic_portfolio.constraints.unfunded_project_cost} · derived，非正式状态写入
             </li>
           ))
         )}

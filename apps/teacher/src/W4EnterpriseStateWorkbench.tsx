@@ -270,6 +270,35 @@ export function W4EnterpriseStateWorkbench({
           )}
         </div>
       </div>
+      {projection?.strategic_portfolio ? (
+        <section className="sw-w4-panel__note" aria-label="治理战略项目组合">
+          <strong>治理战略项目组合</strong>
+          <p>
+            {projection.strategic_portfolio.portfolio_id} ·{" "}
+            {projection.strategic_portfolio.members.length} 个项目 ·{" "}
+            {stateValueLabel(projection.strategic_portfolio.constraints.status)}
+          </p>
+          <ul className="sw-w4-list" aria-label="项目组合成员">
+            {projection.strategic_portfolio.members.map((member) => (
+              <li key={member.project_entry_id}>
+                {member.project_name} · {member.project_profile_reference.project_profile_id} ·{" "}
+                {member.lifecycle_status} · ramp {member.ramp ?? "—"} · 激活回合{" "}
+                {member.activation_round_no ?? "—"} · 前置{" "}
+                {member.dependency_project_entry_ids.join("、") || "无"}
+              </li>
+            ))}
+          </ul>
+          <div>
+            计划成本 {projection.strategic_portfolio.constraints.total_project_cost} · 已分配资本{" "}
+            {projection.strategic_portfolio.constraints.allocated_capital_principal} · 未覆盖成本{" "}
+            {projection.strategic_portfolio.constraints.unfunded_project_cost}
+          </div>
+          <div>
+            正式状态权威：{projection.strategic_portfolio.persistence.official_state_authority} ·
+            历史决策不重入：否 · 组合为 derived projection
+          </div>
+        </section>
+      ) : null}
       <section className="sw-w4-panel__note" aria-label="教师策略工作台">
         <div>
           <strong>教师策略工作台</strong> · 只读连接过程、结果与可解释的路径证据。

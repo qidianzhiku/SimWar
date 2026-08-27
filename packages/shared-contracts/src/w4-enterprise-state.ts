@@ -1,4 +1,5 @@
 import type { ProjectProfileRef } from "./project-library.js";
+import type { W4StrategicPortfolioProjection } from "./strategic-portfolio.js";
 
 export type W4StrategicDecisionKind =
   | "new_project"
@@ -307,6 +308,10 @@ export interface W4StrategicInitiative {
   milestones: string[];
   remaining_lead_time_rounds: number;
   activation_round_no: number;
+  /** Round in which the governed initiative was created; absent only on legacy snapshots. */
+  created_round_no?: number;
+  source_assignment_id?: string;
+  project_profile_reference?: ProjectProfileRef;
   project_lifecycle_status?: W4ProjectLifecycleStatus;
   project: W4NewProjectPayload | null;
 }
@@ -325,6 +330,8 @@ export interface W4ProjectPortfolioEntry {
   ownership_status: W4ProjectOwnershipStatus;
   operating_unit_id: string | null;
   successor_of_entry_id: string | null;
+  /** Governance-plane dependency references used by derived portfolio projections. */
+  dependency_project_entry_ids?: string[];
   created_round_no: number;
   updated_round_no: number;
 }
@@ -336,6 +343,7 @@ export interface W4ProjectTransaction {
   initiative_id: string;
   project_entry_id: string;
   target_project_profile_reference?: ProjectProfileRef;
+  target_source_assignment_id?: string;
   target_project_name?: string;
   buyer_confirmation_id?: string;
   seller_confirmation_id?: string;
@@ -552,6 +560,7 @@ export interface W4ProjectionBase {
   project_portfolio: W4ProjectPortfolioEntry[];
   project_transactions: W4ProjectTransaction[];
   capital_actions: W4CapitalAction[];
+  strategic_portfolio: W4StrategicPortfolioProjection;
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
   latest_strategic_action: W4StrategicActionProjection | null;

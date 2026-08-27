@@ -35,6 +35,9 @@ import type {
   W4CounterfactualEvidence,
   W4CounterfactualInput,
   W4CounterfactualRoundEvidence,
+  W4StrategicPortfolioAllocation,
+  W4StrategicPortfolioMember,
+  W4StrategicPortfolioProjection,
   Decision
 } from "@simwar/shared-contracts";
 import type { SimWarStore } from "./store.js";
@@ -217,6 +220,7 @@ export interface W4ProjectPortfolioInput {
   project_profile_reference: W4ProjectPortfolioEntry["project_profile_reference"];
   source_assignment_id: string;
   project_name: string;
+  dependency_project_entry_ids?: string[];
 }
 
 export interface W4ProjectTransactionInput {
@@ -225,6 +229,7 @@ export interface W4ProjectTransactionInput {
   initiative_id: string;
   project_entry_id: string;
   target_project_profile_reference?: W4ProjectPortfolioEntry["project_profile_reference"];
+  target_source_assignment_id?: string;
   target_project_name?: string;
 }
 
@@ -276,6 +281,103 @@ async function commitW4Mutation(
 
 function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+/**
+ * Builds the M3 product projection from existing W4 records. This function is
+ * deliberately pure: the W4 Enterprise State service remains the only writer
+ * and Simulation Core remains the only official state/settlement authority.
+ */
+export function buildW4StrategicPortfolioProjection(
+  scope: W4ScopeContext,
+  input: {
+    latest_state: Pick<W4EnterpriseState, "state"> | null;
+    opening_state_ref: W4StateRef | null;
+    closing_state_ref: W4StateRef | null;
+    next_opening_state_ref: W4StateRef | null;
+    members: W4StrategicPortfolioMember[];
+    allocations: W4StrategicPortfolioAllocation[];
+  }
+): W4StrategicPortfolioProjection {
+  const exactScope = {
+    tenant_id: scope.tenant_id,
+    course_id: scope.course_id,
+    run_id: scope.run_id,
+    team_id: scope.team_id,
+    round_no: scope.round_no
+  };
+  const members = input.members
+    .map((member) => ({
+      ...clone(member),
+      dependency_project_entry_ids: [...member.dependency_project_entry_ids].sort()
+    }))
+    .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
+  const allocations = input.allocations
+    .map((allocation) => ({
+      ...clone(allocation),
+      capital_action_ids: [...allocation.capital_action_ids].sort()
+    }))
+    .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
+  const totalProjectCost = allocations.reduce((sum, item) => sum + item.project_cost, 0);
+  const allocatedCapitalPrincipal = allocations.reduce(
+    (sum, item) => sum + item.allocated_capital_principal,
+    0
+  );
+  const unfundedProjectCost = allocations.reduce((sum, item) => sum + item.unfunded_project_cost, 0);
+  const cashAvailable = input.latest_state?.state.cash ?? null;
+  const covenantMinCash = input.latest_state?.state.capital?.covenant_min_cash ?? 0;
+  const constraintStatus =
+    cashAvailable !== null && cashAvailable < covenantMinCash
+      ? "BREACHED"
+      : unfundedProjectCost > 0
+        ? "UNFUNDED"
+        : "WITHIN_LIMIT";
+  const dependencyProjectEntryIds = [
+    ...new Set(members.flatMap((member) => member.dependency_project_entry_ids))
+  ].sort();
+  const constraints = {
+    status: constraintStatus,
+    cash_available: cashAvailable,
+    covenant_min_cash: covenantMinCash,
+    total_project_cost: totalProjectCost,
+    allocated_capital_principal: allocatedCapitalPrincipal,
+    unfunded_project_cost: unfundedProjectCost,
+    dependency_project_entry_ids: dependencyProjectEntryIds
+  } as const;
+  const persistence = {
+    official_state_authority: "W4_ENTERPRISE_STATE_SERVICE" as const,
+    opening_state_ref: clone(input.opening_state_ref),
+    closing_state_ref: clone(input.closing_state_ref),
+    next_opening_state_ref: clone(input.next_opening_state_ref),
+    historical_decision_reentry: false as const
+  };
+  const portfolioId = `portfolio:${scope.tenant_id}:${scope.course_id}:${scope.run_id}:${scope.team_id}`;
+  const portfolioDigest = digest({
+    schema_version: "w4-strategic-portfolio.v1",
+    exact_scope: exactScope,
+    members,
+    allocations,
+    constraints,
+    persistence
+  });
+  return {
+    schema_version: "w4-strategic-portfolio.v1",
+    candidate_status: "DERIVED",
+    portfolio_id: portfolioId,
+    portfolio_ref: { ...exactScope, portfolio_digest: portfolioDigest },
+    exact_scope: exactScope,
+    members,
+    allocations,
+    constraints,
+    persistence,
+    writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE",
+    known_limits: [
+      "Portfolio is a deterministic read projection; it does not create a second enterprise state.",
+      "Official realized outcomes and Closing-to-Opening persistence remain owned by W4 Enterprise State and Simulation Core.",
+      "Capital allocation is recognized only from scoped, non-blocked W4 capital actions; no implicit funding is inferred.",
+      "Project ramp is surfaced from the governed initiative as bounded metadata; no unprovided ramp economics are inferred by this projection."
+    ]
+  };
 }
 
 function normalizeDecisionPayload(value: unknown): unknown {
@@ -1138,6 +1240,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
               : ["approved", "activated"],
         remaining_lead_time_rounds: leadTime,
         activation_round_no: decision.round_no + leadTime,
+        created_round_no: decision.round_no,
         ...(decision.kind === "new_project"
           ? { project_lifecycle_status: leadTime > 0 ? "Feasibility" : "Operating" }
           : {}),
@@ -1201,10 +1304,26 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       ) {
         throw new W4EnterpriseStateError("W4_PROJECT_PORTFOLIO_INPUT_INVALID");
       }
+      const dependencyProjectEntryIds = [...new Set(input.dependency_project_entry_ids ?? [])];
+      if (
+        dependencyProjectEntryIds.some(
+          (dependencyId) => typeof dependencyId !== "string" || !dependencyId.trim()
+        ) || dependencyProjectEntryIds.includes(input.project_entry_id)
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_PORTFOLIO_INPUT_INVALID");
+      }
       if (
         current.projectPortfolio.some((entry) => entry.project_entry_id === input.project_entry_id)
       ) {
         throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
+      }
+      if (
+        current.projectPortfolio.some(
+          (entry) =>
+            entry.source_assignment_id === input.source_assignment_id && scopeMatches(scope, entry)
+        )
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_ALREADY_BOUND");
       }
       const initiative = current.initiatives.find(
         (item) =>
@@ -1214,7 +1333,31 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           item.project !== null
       );
       if (!initiative) throw new W4EnterpriseStateError("W4_PROJECT_INITIATIVE_REQUIRED");
+      if (
+        (initiative.source_assignment_id &&
+          initiative.source_assignment_id !== input.source_assignment_id) ||
+        (initiative.project_profile_reference &&
+          !projectProfileReferencesEqual(
+            initiative.project_profile_reference,
+            input.project_profile_reference
+          ))
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_SCOPE_CONFLICT");
+      }
+      if (
+        dependencyProjectEntryIds.some(
+          (dependencyId) =>
+            !current.projectPortfolio.some(
+              (entry) =>
+                entry.project_entry_id === dependencyId && scopeMatches(scope, entry)
+            )
+        )
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_DEPENDENCY_SCOPE_CONFLICT");
+      }
       assertProjectProfileReference(scope, input.project_profile_reference);
+      initiative.source_assignment_id = input.source_assignment_id;
+      initiative.project_profile_reference = clone(input.project_profile_reference);
       initiative.project_lifecycle_status = "Opportunity";
       const entry: W4ProjectPortfolioEntry = {
         project_entry_id: input.project_entry_id,
@@ -1230,6 +1373,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         ownership_status: "owned",
         operating_unit_id: null,
         successor_of_entry_id: null,
+        dependency_project_entry_ids: dependencyProjectEntryIds,
         created_round_no: scope.round_no,
         updated_round_no: scope.round_no
       };
@@ -1276,7 +1420,11 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         throw new W4EnterpriseStateError("W4_PROJECT_NOT_OWNED");
       }
       if (input.kind === "merger_acquisition") {
-        if (!input.target_project_profile_reference || !input.target_project_name?.trim()) {
+        if (
+          !input.target_project_profile_reference ||
+          !input.target_source_assignment_id?.trim() ||
+          !input.target_project_name?.trim()
+        ) {
           throw new W4EnterpriseStateError("W4_M_AND_A_SUCCESSOR_REQUIRED");
         }
         assertProjectProfileReference(scope, input.target_project_profile_reference);
@@ -1289,6 +1437,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         project_entry_id: input.project_entry_id,
         ...(input.target_project_profile_reference
           ? { target_project_profile_reference: clone(input.target_project_profile_reference) }
+          : {}),
+        ...(input.target_source_assignment_id
+          ? { target_source_assignment_id: input.target_source_assignment_id }
           : {}),
         ...(input.target_project_name ? { target_project_name: input.target_project_name } : {}),
         tenant_id: scope.tenant_id,
@@ -1399,6 +1550,15 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
             milestones: ["approved", "activated"],
             remaining_lead_time_rounds: 0,
             activation_round_no: scope.round_no,
+            created_round_no: scope.round_no,
+            ...(transaction.target_source_assignment_id
+              ? { source_assignment_id: transaction.target_source_assignment_id }
+              : {}),
+            ...(transaction.target_project_profile_reference
+              ? {
+                  project_profile_reference: clone(transaction.target_project_profile_reference)
+                }
+              : {}),
             project_lifecycle_status: "Opportunity",
             project: {
               ...clone(sourceInitiative.project),
@@ -1412,6 +1572,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
             project_profile_reference: clone(
               transaction.target_project_profile_reference ?? entry.project_profile_reference
             ),
+            ...(transaction.target_source_assignment_id
+              ? { source_assignment_id: transaction.target_source_assignment_id }
+              : {}),
             project_name: transaction.target_project_name ?? entry.project_name,
             lifecycle_status: "Opportunity",
             ownership_status: "owned",
@@ -2111,6 +2274,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const outcomes = current.outcomes.filter((item) => scopeMatches(scope, item));
       const currentOutcome = outcomes.find((item) => item.round_id === scope.round_id);
       const latestOutcome = outcomes
+        .filter((item) => item.round_no <= scope.round_no)
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
       const latestState = current.states
@@ -2119,32 +2283,37 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
             state.tenant_id === scope.tenant_id &&
             state.course_id === scope.course_id &&
             state.run_id === scope.run_id &&
-            state.team_id === scope.team_id
+            state.team_id === scope.team_id &&
+            state.round_no <= scope.round_no
         )
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
-      const scopedInitiatives = current.initiatives.filter((item) => scopeMatches(scope, item));
+      const scopedInitiatives = current.initiatives.filter(
+        (item) =>
+          scopeMatches(scope, item) &&
+          (item.created_round_no === undefined || item.created_round_no <= scope.round_no)
+      );
       const scopedProjectPortfolio = current.projectPortfolio.filter((item) =>
-        scopeMatches(scope, item)
+        scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
       const scopedProjectTransactions = current.projectTransactions.filter((item) =>
-        scopeMatches(scope, item)
+        scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
       const scopedCapitalActions = current.capitalActions.filter((item) =>
-        scopeMatches(scope, item)
+        scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
       const latestStrategicDecision = current.decisions
-        .filter((item) => scopeMatches(scope, item))
+        .filter((item) => scopeMatches(scope, item) && item.round_no <= scope.round_no)
         .sort(
           (left, right) =>
             left.round_no - right.round_no || left.decision_id.localeCompare(right.decision_id)
         )
         .at(-1);
       const scopedCommitments = current.commitments
-        .filter((item) => scopeMatches(scope, item))
+        .filter((item) => scopeMatches(scope, item) && item.created_round_no <= scope.round_no)
         .map(({ commitment_id, kind, status, cost }) => ({ commitment_id, kind, status, cost }));
       const scopedEffects = current.effects
-        .filter((item) => scopeMatches(scope, item))
+        .filter((item) => scopeMatches(scope, item) && item.effective_round_no <= scope.round_no)
         .map(({ effect_id, status, effective_round_no }) => ({
           effect_id,
           status,
@@ -2244,6 +2413,57 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           comparison_count: alternativeHistoryCount
         }
       };
+      const strategicPortfolioMembers: W4StrategicPortfolioMember[] = scopedProjectPortfolio.map(
+        (entry) => {
+          const initiative = scopedInitiatives.find(
+            (candidate) => candidate.initiative_id === entry.initiative_id
+          );
+          return {
+            project_entry_id: entry.project_entry_id,
+            initiative_id: entry.initiative_id,
+            project_profile_reference: clone(entry.project_profile_reference),
+            project_name: entry.project_name,
+            source_assignment_id: entry.source_assignment_id,
+            lifecycle_status: entry.lifecycle_status,
+            ownership_status: entry.ownership_status,
+            ramp: initiative?.project?.ramp ?? null,
+            activation_round_no: initiative?.activation_round_no ?? null,
+            dependency_project_entry_ids: [...(entry.dependency_project_entry_ids ?? [])]
+          };
+        }
+      );
+      const strategicPortfolioAllocations: W4StrategicPortfolioAllocation[] =
+        scopedProjectPortfolio.map((entry) => {
+          const initiative = scopedInitiatives.find(
+            (candidate) => candidate.initiative_id === entry.initiative_id
+          );
+          const projectActions = scopedCapitalActions.filter(
+            (action) =>
+              action.project_entry_id === entry.project_entry_id && action.status !== "blocked"
+          );
+          const projectCost = initiative?.project?.cost ?? 0;
+          const allocatedCapitalPrincipal = projectActions.reduce(
+            (sum, action) => sum + action.principal,
+            0
+          );
+          return {
+            project_entry_id: entry.project_entry_id,
+            project_cost: projectCost,
+            allocated_capital_principal: allocatedCapitalPrincipal,
+            unfunded_project_cost: Math.max(0, projectCost - allocatedCapitalPrincipal),
+            capital_action_ids: projectActions.map((action) => action.capital_action_id)
+          };
+        });
+      const strategicPortfolio = buildW4StrategicPortfolioProjection(scope, {
+        latest_state: latestState ?? null,
+        opening_state_ref:
+          currentOutcome?.opening_state_ref ?? latestOutcome?.closing_state_ref ?? null,
+        closing_state_ref: currentOutcome?.closing_state_ref ?? null,
+        next_opening_state_ref:
+          currentOutcome?.closing_state_ref ?? latestOutcome?.closing_state_ref ?? null,
+        members: strategicPortfolioMembers,
+        allocations: strategicPortfolioAllocations
+      });
       return {
         scope: {
           tenant_id: scope.tenant_id,
@@ -2259,6 +2479,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         project_portfolio: clone(scopedProjectPortfolio),
         project_transactions: clone(scopedProjectTransactions),
         capital_actions: clone(scopedCapitalActions),
+        strategic_portfolio: strategicPortfolio,
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
         latest_strategic_action: latestStrategicDecision

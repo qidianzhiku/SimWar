@@ -132,7 +132,7 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
     ).rejects.toMatchObject({ code: "PROJECT_PROFILE_IMPORT_INVALID" });
   });
 
-  it("assigns exactly once, rejects conflicting refs, and supports matched arena isolation", async () => {
+  it("assigns each exact ref idempotently, supports multiple refs, and preserves arena isolation", async () => {
     const store = seedRunAndSecondTeam();
     const service = new ProjectLibraryService(store);
     const profile = await service.createDraft(actor, {
@@ -140,6 +140,14 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
       project_profile: draftInput()
     });
     await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(profile) });
+    const secondProfile = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("shanghai-project-beta", "2026-08-21.2")
+    });
+    await service.validate(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(secondProfile)
+    });
 
     const first = await service.assign(actor, {
       course_id: "course_demo",
@@ -159,11 +167,18 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
       run_id: "run_project_library",
       team_id: "team_beta"
     });
+    const secondProject = await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(secondProfile),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
 
     expect(first.idempotent).toBe(false);
     expect(repeated.idempotent).toBe(true);
     expect(secondTeam.assignment.team_id).toBe("team_beta");
-    expect(store.projectAssignments).toHaveLength(2);
+    expect(secondProject.idempotent).toBe(false);
+    expect(store.projectAssignments).toHaveLength(3);
     await expect(
       service.assign(actor, {
         course_id: "course_demo",
@@ -174,6 +189,43 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
         }),
         run_id: "run_project_library",
         team_id: "team_alpha"
+      })
+    ).rejects.toMatchObject({ code: "PROJECT_PROFILE_NOT_FOUND" });
+  });
+
+  it("fails closed when a Student brief omits the exact profile in a multi-project team", async () => {
+    const store = seedRunAndSecondTeam();
+    const service = new ProjectLibraryService(store);
+    const first = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("multi-project-one", "2026-08-21.1")
+    });
+    const second = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("multi-project-two", "2026-08-21.2")
+    });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(first) });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(second) });
+    await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(first),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+    await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(second),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+
+    await expect(
+      service.getStudentBrief({
+        course_id: "course_demo",
+        run_id: "run_project_library",
+        team_id: "team_alpha",
+        tenant_id: "tenant_demo",
+        user_id: "usr_student"
       })
     ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_CONFLICT" });
   });

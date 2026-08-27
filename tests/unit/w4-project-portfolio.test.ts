@@ -115,7 +115,7 @@ describe("W4 governed project portfolio", () => {
       project_entry_id: "portfolio-entry-2",
       initiative_id: second.initiative.initiative_id,
       project_profile_reference: profileRef("profile-2"),
-      source_assignment_id: "assignment-baseline",
+      source_assignment_id: "assignment-project-two",
       project_name: "Project Two"
     });
 
@@ -245,12 +245,24 @@ describe("W4 governed project portfolio", () => {
       project_name: "Target Project"
     });
 
+    await expect(
+      service.createProjectTransaction(scope, {
+        transaction_id: "transaction-mna-missing-assignment",
+        kind: "merger_acquisition",
+        initiative_id: compiled.initiative.initiative_id,
+        project_entry_id: "portfolio-target",
+        target_project_profile_reference: profileRef("profile-successor"),
+        target_project_name: "Acquired Project"
+      })
+    ).rejects.toMatchObject({ code: "W4_M_AND_A_SUCCESSOR_REQUIRED" });
+
     const transaction = await service.createProjectTransaction(scope, {
       transaction_id: "transaction-mna-1",
       kind: "merger_acquisition",
       initiative_id: compiled.initiative.initiative_id,
       project_entry_id: "portfolio-target",
       target_project_profile_reference: profileRef("profile-successor"),
+      target_source_assignment_id: "assignment-successor",
       target_project_name: "Acquired Project"
     });
     expect(transaction.phase).toBe("Listing");
@@ -301,6 +313,46 @@ describe("W4 governed project portfolio", () => {
         .projectPortfolio.find((entry) => entry.project_entry_id === successor?.project_entry_id)
         ?.operating_unit_id
     ).toBe(`operating-unit-${successor?.project_entry_id}`);
+  });
+
+  it("does not expose future-round portfolio members in an earlier-round projection", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+    const compiled = await service.commitStrategicDecision(
+      scope,
+      decision("decision-future-portfolio", "Future Project")
+    );
+    await service.addProjectToPortfolio(scope, {
+      project_entry_id: "portfolio-future",
+      initiative_id: compiled.initiative.initiative_id,
+      project_profile_reference: profileRef("profile-future"),
+      source_assignment_id: "assignment-future",
+      project_name: "Future Project"
+    });
+
+    const future = repository.snapshot();
+    future.initiatives = future.initiatives.map((initiative) => ({
+      ...initiative,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    future.projectPortfolio = future.projectPortfolio.map((entry) => ({
+      ...entry,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    future.projectTransactions = future.projectTransactions.map((transaction) => ({
+      ...transaction,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    repository.replace(future);
+
+    const projection = await service.getProjection(scope);
+    expect(projection.project_portfolio).toEqual([]);
+    expect(projection.initiatives).toEqual([]);
+    expect(projection.strategic_portfolio.members).toEqual([]);
   });
 
   it("does not allow Operating before the initiative lead time has elapsed", async () => {

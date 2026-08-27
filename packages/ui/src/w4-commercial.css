@@ -17,6 +17,12 @@
   padding: clamp(var(--sw-space-18, 18px), 3vw, var(--sw-space-24, 24px));
 }
 
+:where(.sw-w4-panel > *) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 :where(.sw-w4-panel--admin) {
   background: var(--sw-w4-warm);
 }

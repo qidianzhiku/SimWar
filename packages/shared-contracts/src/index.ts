@@ -327,6 +327,7 @@ export interface RoundContinuationResult {
 export * from "./validation-environment-launch.js";
 export * from "./w3-official-consequence-learning.js";
 export * from "./w4-enterprise-state.js";
+export * from "./strategic-portfolio.js";
 export * from "./project-aware-course-launch.js";
 export * from "./m2p4-live-round-ops.js";
 

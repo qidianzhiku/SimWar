@@ -207,6 +207,7 @@ export async function handleW4EnterpriseStateRoute(
             return {
               team_id: teamId,
               path_evidence: teamProjection.path_evidence,
+              strategic_portfolio: teamProjection.strategic_portfolio,
               process_information: {
                 status: teamProjection.initiatives.some(
                   (initiative) => initiative.status === "blocked"
@@ -377,6 +378,13 @@ export async function handleW4EnterpriseStateRoute(
         throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_REQUIRED");
       }
       const reference = body.project_profile_reference as ProjectProfileRef;
+      const dependencyInput = body.dependency_project_entry_ids;
+      if (
+        dependencyInput !== undefined &&
+        (!Array.isArray(dependencyInput) || dependencyInput.some((item) => typeof item !== "string"))
+      ) {
+        throw new W4EnterpriseStateError("W4_PROJECT_PORTFOLIO_INPUT_INVALID");
+      }
       const authority = await dependencies.resolveProjectAuthority(scope, reference);
       if (!authority) throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_REQUIRED");
       const result = await service.addProjectToPortfolio(scope, {
@@ -384,7 +392,10 @@ export async function handleW4EnterpriseStateRoute(
         initiative_id: String(body.initiative_id ?? ""),
         project_profile_reference: reference,
         source_assignment_id: authority.source_assignment_id,
-        project_name: authority.project_name
+        project_name: authority.project_name,
+        ...(dependencyInput !== undefined
+          ? { dependency_project_entry_ids: dependencyInput as string[] }
+          : {})
       });
       dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
       return true;
@@ -472,6 +483,9 @@ export async function handleW4EnterpriseStateRoute(
         initiative_id: String(body.initiative_id ?? ""),
         project_entry_id: String(body.project_entry_id ?? ""),
         ...(targetReference ? { target_project_profile_reference: targetReference } : {}),
+        ...(targetAuthority
+          ? { target_source_assignment_id: targetAuthority.source_assignment_id }
+          : {}),
         ...(targetAuthority ? { target_project_name: targetAuthority.project_name } : {})
       });
       dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));

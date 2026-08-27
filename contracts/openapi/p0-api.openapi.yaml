@@ -4863,7 +4863,7 @@ paths:
       responses:
         "200":
           description: Student-safe W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
 
   /api/v1/bff/teacher/w4/runs/{runId}/rounds/{roundNo}/portfolio:
     get:
@@ -4879,7 +4879,7 @@ paths:
       responses:
         "200":
           description: Teacher W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
 
   /api/v1/bff/admin/w4/runs/{runId}/rounds/{roundNo}/portfolio:
     get:
@@ -4895,7 +4895,7 @@ paths:
       responses:
         "200":
           description: Admin W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4Envelope" } } }
+          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
 
   /api/v1/bff/teacher/w4/runs/{runId}/matched-arena:
     get:
@@ -8111,7 +8111,25 @@ components:
       required: [code, data, message, request_id]
       properties:
         code: { type: string }
-        data: { type: object, additionalProperties: true }
+        data:
+          type: object
+          additionalProperties: true
+          properties:
+            strategic_portfolio: { $ref: "#/components/schemas/W4StrategicPortfolioProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W4PortfolioProjectionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+          required: [strategic_portfolio]
+          properties:
+            strategic_portfolio: { $ref: "#/components/schemas/W4StrategicPortfolioProjection" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W4SettlementEnvelope:
@@ -8243,6 +8261,9 @@ components:
         project_profile_reference: { $ref: "#/components/schemas/W4ProjectProfileRef" }
         round_id: { type: string, minLength: 1 }
         team_id: { type: string, minLength: 1 }
+        dependency_project_entry_ids:
+          type: array
+          items: { type: string, minLength: 1 }
     W4ProjectTransactionCreateRequest:
       type: object
       additionalProperties: false
@@ -8257,6 +8278,8 @@ components:
         team_id: { type: string, minLength: 1 }
         transaction_id: { type: string, minLength: 1 }
         target_project_profile_reference: { $ref: "#/components/schemas/W4ProjectProfileRef" }
+    W4StrategicPortfolioProjection:
+      $ref: "../schemas/strategic-portfolio.v1.json"
     W4ProjectTransactionAdvanceRequest:
       type: object
       additionalProperties: false

@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/strategic-portfolio.v1.json",
+  "title": "W4 Governed Strategic Portfolio Projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "portfolio_id",
+    "portfolio_ref",
+    "exact_scope",
+    "members",
+    "allocations",
+    "constraints",
+    "persistence",
+    "writer_authority",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "w4-strategic-portfolio.v1" },
+    "candidate_status": { "const": "DERIVED" },
+    "portfolio_id": { "type": "string", "minLength": 1 },
+    "portfolio_ref": { "$ref": "#/$defs/portfolioRef" },
+    "exact_scope": { "$ref": "#/$defs/exactScope" },
+    "members": { "type": "array", "items": { "$ref": "#/$defs/member" } },
+    "allocations": { "type": "array", "items": { "$ref": "#/$defs/allocation" } },
+    "constraints": { "$ref": "#/$defs/constraints" },
+    "persistence": { "$ref": "#/$defs/persistence" },
+    "writer_authority": { "const": "SOLE_W4_ENTERPRISE_STATE_SERVICE" },
+    "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "exactScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "round_no"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "portfolioRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "round_no", "portfolio_digest"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "portfolio_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "projectProfileReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9-]{8,}$" },
+        "project_profile_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_entry_id",
+        "initiative_id",
+        "source_assignment_id",
+        "project_profile_reference",
+        "project_name",
+        "lifecycle_status",
+        "ownership_status",
+        "ramp",
+        "activation_round_no",
+        "dependency_project_entry_ids"
+      ],
+      "properties": {
+        "project_entry_id": { "type": "string", "minLength": 1 },
+        "initiative_id": { "type": "string", "minLength": 1 },
+        "source_assignment_id": { "type": "string", "minLength": 1 },
+        "project_profile_reference": { "$ref": "#/$defs/projectProfileReference" },
+        "project_name": { "type": "string", "minLength": 1 },
+        "lifecycle_status": {
+          "enum": [
+            "Opportunity",
+            "Feasibility",
+            "DueDiligence",
+            "Negotiation",
+            "TermSheet",
+            "Operating",
+            "Closed",
+            "Cancelled"
+          ]
+        },
+        "ownership_status": { "enum": ["owned", "sold", "closed"] },
+        "ramp": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "activation_round_no": { "type": ["integer", "null"], "minimum": 1 },
+        "dependency_project_entry_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_entry_id",
+        "project_cost",
+        "allocated_capital_principal",
+        "unfunded_project_cost",
+        "capital_action_ids"
+      ],
+      "properties": {
+        "project_entry_id": { "type": "string", "minLength": 1 },
+        "project_cost": { "type": "number", "minimum": 0 },
+        "allocated_capital_principal": { "type": "number", "minimum": 0 },
+        "unfunded_project_cost": { "type": "number", "minimum": 0 },
+        "capital_action_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "cash_available",
+        "covenant_min_cash",
+        "total_project_cost",
+        "allocated_capital_principal",
+        "unfunded_project_cost",
+        "dependency_project_entry_ids"
+      ],
+      "properties": {
+        "status": { "enum": ["WITHIN_LIMIT", "UNFUNDED", "BREACHED"] },
+        "cash_available": { "type": ["number", "null"] },
+        "covenant_min_cash": { "type": "number", "minimum": 0 },
+        "total_project_cost": { "type": "number", "minimum": 0 },
+        "allocated_capital_principal": { "type": "number", "minimum": 0 },
+        "unfunded_project_cost": { "type": "number", "minimum": 0 },
+        "dependency_project_entry_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "stateRef": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "enterprise_state_id",
+        "version",
+        "state_digest"
+      ],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "enterprise_state_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parent_state_ref": {
+          "anyOf": [
+            { "$ref": "#/$defs/stateRef" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official_state_authority",
+        "opening_state_ref",
+        "closing_state_ref",
+        "next_opening_state_ref",
+        "historical_decision_reentry"
+      ],
+      "properties": {
+        "official_state_authority": { "const": "W4_ENTERPRISE_STATE_SERVICE" },
+        "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "closing_state_ref": { "$ref": "#/$defs/stateRef" },
+        "next_opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "historical_decision_reentry": { "const": false }
+      }
+    }
+  }
+}
