@@ -6,7 +6,8 @@ import {
 import type {
   W4CanonicalStrategicDecision,
   W4EnterpriseState,
-  W4OfficialOutcome
+  W4OfficialOutcome,
+  W4StateRef
 } from "@simwar/shared-contracts";
 
 const scope = {
@@ -50,9 +51,48 @@ function state(
   };
 }
 
-function decision(teamId: string): W4CanonicalStrategicDecision {
+function stateRef(value: W4EnterpriseState): W4StateRef {
   return {
-    decision_id: `decision-${teamId}-3`,
+    tenant_id: value.tenant_id,
+    course_id: value.course_id,
+    run_id: value.run_id,
+    team_id: value.team_id,
+    round_id: value.round_id,
+    enterprise_state_id: value.enterprise_state_id,
+    version: value.version,
+    state_digest: value.state_digest,
+    parent_state_ref: value.parent_state_ref
+  };
+}
+
+function officialOutcome(
+  opening: W4EnterpriseState,
+  closing: W4EnterpriseState
+): W4OfficialOutcome {
+  return {
+    official_outcome_id: `outcome-${closing.team_id}-${closing.round_no}`,
+    ...scope,
+    team_id: closing.team_id,
+    round_id: closing.round_id,
+    round_no: closing.round_no,
+    opening_state_ref: stateRef(opening),
+    closing_state_ref: stateRef(closing),
+    commitment_ids: [],
+    persistent_effect_ids: [],
+    reexecuted_decision_ids: [],
+    replay_input_manifest: {} as W4OfficialOutcome["replay_input_manifest"],
+    settlement_digest: `digest-${closing.team_id}-${closing.round_no}`,
+    status: "official"
+  };
+}
+
+function decision(
+  teamId: string,
+  payloadDigest = "a".repeat(64),
+  suffix = "3"
+): W4CanonicalStrategicDecision {
+  return {
+    decision_id: `decision-${teamId}-${suffix}`,
     ...scope,
     team_id: teamId,
     round_id: "round-3",
@@ -64,10 +104,10 @@ function decision(teamId: string): W4CanonicalStrategicDecision {
     admission: {
       policy: "canonical_decision_required",
       authority: "team_confirmation",
-      canonical_decision_id: `canonical-${teamId}-3`,
-      merge_commit_id: `merge-${teamId}-3`,
-      team_confirmation_id: `confirmation-${teamId}-3`,
-      decision_payload_digest: "a".repeat(64)
+      canonical_decision_id: `canonical-${teamId}-${suffix}`,
+      merge_commit_id: `merge-${teamId}-${suffix}`,
+      team_confirmation_id: `confirmation-${teamId}-${suffix}`,
+      decision_payload_digest: payloadDigest
     }
   };
 }
@@ -140,5 +180,92 @@ describe("O4 cross-round dynamics differential", () => {
         decisions: []
       })
     ).toThrowError(new O4CrossRoundDynamicsError("O4_DUPLICATE_STATE"));
+  });
+
+  it("resolves the official closing state when an opening state shares its round number", () => {
+    const alphaOpening = state("team_alpha", 1, 1000, 10, ["base"], "value");
+    const alphaClosing = {
+      ...state("team_alpha", 1, 950, 11, ["base"], "value"),
+      enterprise_state_id: "state-team_alpha-1-closing",
+      version: 2,
+      parent_state_ref: stateRef(alphaOpening)
+    };
+    const betaOpening = state("team_beta", 1, 1000, 10, ["base"], "value");
+    const betaClosing = {
+      ...state("team_beta", 1, 975, 10, ["base"], "value"),
+      enterprise_state_id: "state-team_beta-1-closing",
+      version: 2,
+      parent_state_ref: stateRef(betaOpening)
+    };
+    const candidate = buildO4CrossRoundDynamicsCandidate({
+      ...scope,
+      states: [
+        alphaOpening,
+        alphaClosing,
+        state("team_alpha", 2, 900, 12, ["base", "alpha-expansion"], "value"),
+        state("team_alpha", 3, 850, 14, ["base", "alpha-expansion"], "premium"),
+        betaOpening,
+        betaClosing,
+        state("team_beta", 2, 980, 10, ["base"], "value"),
+        state("team_beta", 3, 940, 10, ["base"], "premium")
+      ],
+      outcomes: [
+        officialOutcome(alphaOpening, alphaClosing),
+        officialOutcome(betaOpening, betaClosing)
+      ],
+      decisions: [decision("team_alpha"), decision("team_beta")]
+    });
+
+    expect(candidate.team_paths[0]?.rounds[0]?.closing_state_ref?.enterprise_state_id).toBe(
+      alphaClosing.enterprise_state_id
+    );
+    expect(candidate.team_paths[0]?.rounds[0]?.opening_state_ref?.enterprise_state_id).toBe(
+      alphaOpening.enterprise_state_id
+    );
+  });
+
+  it("does not treat team identity as a historical differential", () => {
+    const states = [
+      state("team_alpha", 1, 1000, 10, ["base"], "value"),
+      state("team_alpha", 2, 900, 12, ["base", "expansion"], "value"),
+      state("team_alpha", 3, 850, 14, ["base", "expansion"], "premium"),
+      state("team_beta", 1, 1000, 10, ["base"], "value"),
+      state("team_beta", 2, 900, 12, ["base", "expansion"], "value"),
+      state("team_beta", 3, 850, 14, ["base", "expansion"], "premium")
+    ];
+    const candidate = buildO4CrossRoundDynamicsCandidate({
+      ...scope,
+      states,
+      outcomes: [],
+      decisions: [decision("team_alpha"), decision("team_beta")]
+    });
+
+    expect(candidate.team_paths[0]?.history_digest).toBe(candidate.team_paths[1]?.history_digest);
+    expect(candidate.pair_differentials[0]?.history_different).toBe(false);
+    expect(candidate.status).toBe("OBSERVED_DIFFERENTIAL");
+  });
+
+  it("compares the complete deterministic current-round decision set", () => {
+    const states = [
+      state("team_alpha", 1, 1000, 10, ["base"], "value"),
+      state("team_alpha", 2, 900, 12, ["base", "expansion"], "value"),
+      state("team_alpha", 3, 850, 14, ["base", "expansion"], "premium"),
+      state("team_beta", 1, 1000, 10, ["base"], "value"),
+      state("team_beta", 2, 980, 10, ["base"], "value"),
+      state("team_beta", 3, 940, 10, ["base"], "premium")
+    ];
+    const candidate = buildO4CrossRoundDynamicsCandidate({
+      ...scope,
+      states,
+      outcomes: [],
+      decisions: [
+        decision("team_alpha", "a".repeat(64), "first"),
+        decision("team_alpha", "b".repeat(64), "second"),
+        decision("team_beta", "a".repeat(64), "first"),
+        decision("team_beta", "c".repeat(64), "second")
+      ]
+    });
+
+    expect(candidate.pair_differentials[0]?.current_decision_match).toBe("DIFFERENT");
   });
 });

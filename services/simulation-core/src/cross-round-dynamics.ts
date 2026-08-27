@@ -134,32 +134,80 @@ function sameRef(left: W4StateRef, right: W4StateRef): boolean {
   );
 }
 
-function outcomeForState(
-  outcomes: readonly W4OfficialOutcome[],
-  state: W4EnterpriseState
-): W4OfficialOutcome | undefined {
-  return outcomes.find(
-    (outcome) =>
-      outcome.tenant_id === state.tenant_id &&
-      outcome.course_id === state.course_id &&
-      outcome.run_id === state.run_id &&
-      outcome.team_id === state.team_id &&
-      outcome.round_id === state.round_id &&
-      outcome.round_no === state.round_no &&
-      sameRef(outcome.closing_state_ref, stateRef(state))
-  );
+interface ResolvedRoundState {
+  readonly state: W4EnterpriseState;
+  readonly outcome?: W4OfficialOutcome;
 }
 
-function decisionFingerprint(decision: W4CanonicalStrategicDecision | undefined): string | null {
-  if (!decision) return null;
-  return `${decision.kind}:${decision.admission.decision_payload_digest}`;
+function resolveRoundState(
+  states: readonly W4EnterpriseState[],
+  outcomes: readonly W4OfficialOutcome[],
+  scope: Pick<O4CrossRoundDynamicsCoreInput, "tenant_id" | "course_id" | "run_id">,
+  teamId: string,
+  roundNo: number
+): ResolvedRoundState {
+  const candidates = states.filter(
+    (state) => state.team_id === teamId && state.round_no === roundNo
+  );
+  if (candidates.length === 0) {
+    throw new O4CrossRoundDynamicsError("O4_INSUFFICIENT_HISTORY");
+  }
+  const officialOutcomes = outcomes.filter(
+    (outcome) =>
+      outcome.tenant_id === scope.tenant_id &&
+      outcome.course_id === scope.course_id &&
+      outcome.run_id === scope.run_id &&
+      outcome.team_id === teamId &&
+      outcome.round_no === roundNo
+  );
+  if (officialOutcomes.length > 1) {
+    throw new O4CrossRoundDynamicsError("O4_INVALID_INPUT");
+  }
+  const outcome = officialOutcomes[0];
+  if (outcome) {
+    const closingState = candidates.find((state) =>
+      sameRef(outcome.closing_state_ref, stateRef(state))
+    );
+    if (!closingState) {
+      throw new O4CrossRoundDynamicsError("O4_INVALID_INPUT");
+    }
+    return { state: closingState, outcome };
+  }
+  if (candidates.length !== 1) {
+    throw new O4CrossRoundDynamicsError("O4_DUPLICATE_STATE");
+  }
+  return { state: candidates[0]! };
+}
+
+function decisionSetFingerprint(
+  decisions: readonly W4CanonicalStrategicDecision[],
+  scope: Pick<O4CrossRoundDynamicsCoreInput, "tenant_id" | "course_id" | "run_id">,
+  teamId: string,
+  roundNo: number
+): string | null {
+  const decisionSet = decisions
+    .filter(
+      (decision) =>
+        decision.tenant_id === scope.tenant_id &&
+        decision.course_id === scope.course_id &&
+        decision.run_id === scope.run_id &&
+        decision.team_id === teamId &&
+        decision.round_no === roundNo
+    )
+    .map((decision) => ({
+      kind: decision.kind,
+      version: decision.version,
+      decision_payload_digest: decision.admission.decision_payload_digest
+    }))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return decisionSet.length === 0 ? null : digest(decisionSet);
 }
 
 function pairDifferential(
   left: O4TeamDynamicsPath,
   right: O4TeamDynamicsPath,
-  leftDecision: W4CanonicalStrategicDecision | undefined,
-  rightDecision: W4CanonicalStrategicDecision | undefined,
+  leftDecisionFingerprint: string | null,
+  rightDecisionFingerprint: string | null,
   targetRoundNo: number
 ): O4PairDifferential {
   const leftRound = left.rounds.find((item) => item.round_no === targetRoundNo);
@@ -167,12 +215,10 @@ function pairDifferential(
   if (!leftRound?.metrics || !rightRound?.metrics) {
     throw new O4CrossRoundDynamicsError("O4_INVALID_INPUT");
   }
-  const leftFingerprint = decisionFingerprint(leftDecision);
-  const rightFingerprint = decisionFingerprint(rightDecision);
   const currentDecisionMatch =
-    leftFingerprint === null || rightFingerprint === null
+    leftDecisionFingerprint === null || rightDecisionFingerprint === null
       ? "NOT_OBSERVED"
-      : leftFingerprint === rightFingerprint
+      : leftDecisionFingerprint === rightDecisionFingerprint
         ? "MATCHED"
         : "DIFFERENT";
   const cash = leftRound.metrics.cash - rightRound.metrics.cash;
@@ -243,34 +289,39 @@ export function buildO4CrossRoundDynamicsCandidate(
   const byTeam = new Map<string, W4EnterpriseState[]>();
   for (const state of scopedStates) {
     const teamStates = byTeam.get(state.team_id) ?? [];
-    if (teamStates.some((item) => item.round_no === state.round_no)) {
-      throw new O4CrossRoundDynamicsError("O4_DUPLICATE_STATE");
-    }
     teamStates.push(state);
     byTeam.set(state.team_id, teamStates);
+  }
+  for (const [teamId, teamStates] of byTeam) {
+    const roundNos = [...new Set(teamStates.map((state) => state.round_no))];
+    for (const roundNo of roundNos) {
+      if (teamStates.filter((state) => state.round_no === roundNo).length > 1) {
+        resolveRoundState(teamStates, input.outcomes, input, teamId, roundNo);
+      }
+    }
   }
   const availableRoundNos = scopedStates.map((state) => state.round_no);
   const targetRoundNo =
     input.target_round_no ?? Math.max(...availableRoundNos, 0);
   const requiredRoundNos = [targetRoundNo - 2, targetRoundNo - 1, targetRoundNo];
   const eligibleTeams = [...byTeam.entries()]
-    .filter(([, states]) => requiredRoundNos.every((roundNo) => states.some((s) => s.round_no === roundNo)))
+    .filter(([, states]) =>
+      requiredRoundNos.every((roundNo) => states.some((s) => s.round_no === roundNo))
+    )
     .sort(([left], [right]) => left.localeCompare(right));
   if (targetRoundNo < 3 || eligibleTeams.length < 2) {
     throw new O4CrossRoundDynamicsError("O4_INSUFFICIENT_HISTORY");
   }
 
   const paths: O4TeamDynamicsPath[] = eligibleTeams.map(([teamId, states]) => {
-    const sortedStates = states.slice().sort((left, right) => left.round_no - right.round_no);
-    const selectedStates = requiredRoundNos.map((roundNo) => {
-      const state = sortedStates.find((candidate) => candidate.round_no === roundNo);
-      if (!state) throw new O4CrossRoundDynamicsError("O4_INSUFFICIENT_HISTORY");
-      return state;
-    });
-    const rounds: O4RoundDynamicsRecord[] = selectedStates.map((state) => {
+    const resolvedRounds = requiredRoundNos.map((roundNo) =>
+      resolveRoundState(states, input.outcomes, input, teamId, roundNo)
+    );
+    const rounds: O4RoundDynamicsRecord[] = resolvedRounds.map(
+      ({ state, outcome }, index) => {
       const currentMetrics = metrics(state);
-      const previousState = sortedStates.find((candidate) => candidate.round_no === state.round_no - 1);
-      const outcome = outcomeForState(input.outcomes, state);
+      const previousMetrics =
+        index > 0 ? metrics(resolvedRounds[index - 1]!.state) : undefined;
       return {
         round_no: state.round_no,
         round_id: state.round_id,
@@ -281,20 +332,19 @@ export function buildO4CrossRoundDynamicsCandidate(
             : {}),
         closing_state_ref: stateRef(state),
         metrics: currentMetrics,
-        carryover_factors: carryoverFactors(
-          currentMetrics,
-          previousState ? metrics(previousState) : undefined
-        )
+        carryover_factors: carryoverFactors(currentMetrics, previousMetrics)
       };
-    });
+      }
+    );
     return {
       team_id: teamId,
       history_digest: digest(
         rounds.map((round) => ({
           round_no: round.round_no,
-          round_id: round.round_id,
-          closing_state_ref: round.closing_state_ref,
-          metrics: round.metrics
+          metrics: round.metrics,
+          carryover_factors: round.carryover_factors.map(
+            ({ kind, direction, magnitude }) => ({ kind, direction, magnitude })
+          )
         }))
       ),
       round_count: rounds.length,
@@ -311,22 +361,8 @@ export function buildO4CrossRoundDynamicsCandidate(
         pairDifferential(
           left,
           right,
-          input.decisions.find(
-            (decision) =>
-              decision.tenant_id === input.tenant_id &&
-              decision.course_id === input.course_id &&
-              decision.run_id === input.run_id &&
-              decision.team_id === left.team_id &&
-              decision.round_no === targetRoundNo
-          ),
-          input.decisions.find(
-            (decision) =>
-              decision.tenant_id === input.tenant_id &&
-              decision.course_id === input.course_id &&
-              decision.run_id === input.run_id &&
-              decision.team_id === right.team_id &&
-              decision.round_no === targetRoundNo
-          ),
+          decisionSetFingerprint(input.decisions, input, left.team_id, targetRoundNo),
+          decisionSetFingerprint(input.decisions, input, right.team_id, targetRoundNo),
           targetRoundNo
         )
       );
