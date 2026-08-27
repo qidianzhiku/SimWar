@@ -68,7 +68,13 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
-const W5_AUDIT_COURSE_ID = OPERATING_WORLD_COURSE_ID || "course_demo";
+
+export function getW5AuditCourseId(courseId: string): string | null {
+  const normalized = courseId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+const W5_AUDIT_COURSE_ID = getW5AuditCourseId(OPERATING_WORLD_COURSE_ID) ?? "";
 type LoginForm = {
   tenantId: string;
   username: string;
@@ -1125,7 +1131,7 @@ export function App() {
             token={session.access_token}
           />
         ) : null}
-        {session && isTenantAdmin ? (
+        {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
           <W5GovernedModelAuditPanel
             apiBase={API_BASE}
             courseId={W5_AUDIT_COURSE_ID}

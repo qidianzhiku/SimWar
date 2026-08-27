@@ -188,7 +188,7 @@ function assertStudent(deps: W5RouteDependencies, context: W5RouteContext): Curr
 function assertAdmin(deps: W5RouteDependencies, context: W5RouteContext): CurrentUser {
   const actor = deps.requirePermission(context, "course:read");
   if (
-    !deps.actorHasAnyRole(actor, ["tenant_admin", "platform_admin"]) ||
+    !deps.actorHasAnyRole(actor, ["tenant_admin"]) ||
     actor.tenant_id !== context.tenantId
   ) {
     throw new W5GovernedModelError("W5_SCOPE_CONFLICT");

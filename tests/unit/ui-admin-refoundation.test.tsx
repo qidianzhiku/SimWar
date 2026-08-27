@@ -162,6 +162,14 @@ describe("Admin Delivery & Trust workspace", () => {
     }
   });
 
+  it("requires an explicit course before rendering the W5 tenant audit surface", async () => {
+    const { getW5AuditCourseId } = await import("../../apps/admin/src/App");
+
+    expect(getW5AuditCourseId("")).toBeNull();
+    expect(getW5AuditCourseId("   ")).toBeNull();
+    expect(getW5AuditCourseId("course_demo")).toBe("course_demo");
+  });
+
   it("maps Admin identity and CoursePackage failures to Chinese primary copy", async () => {
     const { coursePackageStatusLabel, getAdminVisibleErrorMessage } =
       await import("../../apps/admin/src/App");

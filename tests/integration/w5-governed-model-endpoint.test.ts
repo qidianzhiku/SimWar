@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { request as nodeRequest } from "node:http";
 import { describe, expect, it } from "vitest";
-import type { ApiEnvelope, AuthSession, Round, Run } from "../../packages/shared-contracts/src";
+import type { ApiEnvelope, AuthSession, Course, Round, Run } from "../../packages/shared-contracts/src";
 import { W5_MODEL_VERSION_REF } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, OTHER_TENANT_ID, createP1Store } from "../../services/api/src/store";
@@ -248,6 +248,37 @@ describe("W5 governed model BFF", () => {
         OTHER_TENANT_ID
       );
       expect(crossTenant.status).toBe(403);
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
+
+  it("does not expose the tenant-scoped admin projection to a platform admin", async () => {
+    const { baseUrl, server, store } = await startServer();
+    try {
+      const platformCourse: Course = {
+        course_id: "course_platform_audit",
+        created_by: "usr_platform",
+        parameter_set_id: "param_toy_approved_1",
+        scenario_package_id: "scenario_eldercare_demo",
+        status: "published",
+        tenant_id: "tenant_platform",
+        title: "Platform audit fixture"
+      };
+      store.courses.push(platformCourse);
+
+      const platform = await login(baseUrl, "platform", "platform", "tenant_platform");
+      const response = await api<ApiEnvelope<Record<string, unknown>>>(
+        baseUrl,
+        `/api/v1/bff/admin/w5/governed-model?courseId=${platformCourse.course_id}`,
+        platform.access_token,
+        "GET",
+        undefined,
+        "tenant_platform"
+      );
+
+      expect(response.status).toBe(403);
     } finally {
       server.close();
       await once(server, "close");
