@@ -157,6 +157,56 @@ describe("W5GovernedModelService", () => {
     expect(evaluated.realized.authority).toBe("SIMULATION_CORE");
   });
 
+  it("exposes a governed demand realization explanation without adding an official writer", () => {
+    const governed = service();
+    const draft = governed.createDraft(actor, scope, {}).draft;
+    const validated = governed.validateDraft(actor, scope, draft.draft_id).draft;
+    const frozen = governed.freezeDraft(actor, scope, validated.draft_id).draft;
+    governed.bindDraft(actor, scope, frozen.draft_id, {
+      run_id: "run_demo",
+      round_no: 1,
+      seed: 42,
+      parameter_set_reference: {
+        content_digest: "a".repeat(64),
+        parameter_set_id: "param_toy_approved_1",
+        version: "1.0.0"
+      },
+      scenario_package_reference: {
+        content_digest: "b".repeat(64),
+        scenario_package_id: "scenario_eldercare_demo",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    });
+
+    const projection = governed.evaluate(
+      actor,
+      { ...scope, run_id: "run_demo", round_no: 1 },
+      frozen.draft_id,
+      "STANDARD"
+    ) as unknown as {
+      demand_realization?: {
+        readiness: string;
+        mechanism: {
+          want: { official: boolean };
+          can: { official: boolean };
+          realized: { authority: string; official: boolean; writes_formal_result: boolean };
+        };
+        lineage: { exact_binding: boolean; model_version_ref: string; round_no: number };
+      };
+    };
+
+    expect(projection.demand_realization).toMatchObject({
+      readiness: "READY_WITH_LIMITS",
+      mechanism: {
+        want: { official: false },
+        can: { official: false },
+        realized: { authority: "SIMULATION_CORE", official: true, writes_formal_result: false }
+      },
+      lineage: { exact_binding: true, model_version_ref: W5_MODEL_VERSION_REF, round_no: 1 }
+    });
+  });
+
   it("fails closed when evaluation is unbound or the exact run/round does not match", () => {
     const governed = service();
     const created = governed.createDraft(actor, scope, {}).draft;

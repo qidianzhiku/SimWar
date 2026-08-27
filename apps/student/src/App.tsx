@@ -1000,11 +1000,27 @@ export function App() {
               <p className="eyebrow">W5 · role-safe student projection</p>
               <h2>受控模型收敛视图</h2>
               {w5Projection ? (
-                <p className="evidence-note">
-                  {w5Projection.visibility} · CAN=
-                  {w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
-                  {w5Projection.convergence.realized.authority}
-                </p>
+                <>
+                  <p className="evidence-note">
+                    {w5Projection.visibility} ·{" "}
+                    {w5Projection.convergence.demand_realization.readiness} · CAN=
+                    {w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
+                    {w5Projection.convergence.realized.authority}
+                  </p>
+                  <section aria-label="W5 demand realization explanation">
+                    <h3>需求如何实现</h3>
+                    <ul>
+                      {w5Projection.convergence.demand_realization.explanation.map((item) => (
+                        <li key={item.stage}>
+                          {item.stage}: {item.summary}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="evidence-note">
+                      限制：{w5Projection.convergence.demand_realization.known_limits.join(" · ")}
+                    </p>
+                  </section>
+                </>
               ) : null}
             </div>
           </section>

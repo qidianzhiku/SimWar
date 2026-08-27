@@ -114,6 +114,41 @@ export interface W5ExactRuntimeBinding {
   tenant_id: string;
 }
 
+export interface W5DemandRealizationProjection {
+  readiness: "READY_WITH_LIMITS";
+  lineage: {
+    data_classification: W5DataClassification;
+    exact_binding: true;
+    model_version_ref: typeof W5_MODEL_VERSION_REF;
+    round_no: number;
+  };
+  mechanism: {
+    want: {
+      candidate_value: number;
+      official: false;
+      source_plane: "SYNTHETIC_HEURISTIC";
+    };
+    can: {
+      constraints: readonly string[];
+      eligible: boolean;
+      official: false;
+      source_plane: "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY";
+    };
+    realized: {
+      authority: "SIMULATION_CORE";
+      official: true;
+      replay_relevant_digest: string;
+      writes_formal_result: false;
+    };
+  };
+  explanation: readonly {
+    official: boolean;
+    stage: "WANT" | "CAN" | "REALIZED";
+    summary: string;
+  }[];
+  known_limits: readonly string[];
+}
+
 export interface W5ScenarioDraft {
   course_id: string;
   created_by: string;
@@ -145,6 +180,7 @@ export interface W5ConvergenceProjection {
     official: false;
     source_plane: "CAPACITY_WORKFORCE_QUALITY_ELIGIBILITY";
   };
+  demand_realization: W5DemandRealizationProjection;
   experience_profile: W5ExperienceProfile;
   fallback: {
     applied: boolean;
@@ -194,10 +230,26 @@ export interface W5GovernedModelTeacherProjection {
   security: W5SecurityContext;
 }
 
+export interface W5GovernedModelAdminProjection {
+  authority: {
+    ai_provider: "OFF";
+    formal_truth_writer: "SIMULATION_CORE";
+    repository_provider: "JSON_INTERNAL_ONLY";
+    writes_formal_truth: false;
+  };
+  known_limits: readonly string[];
+  model_version: W5ModelVersion;
+  operation_id: "W5_ADMIN_GOVERNED_MODEL_AUDIT_GET_V1";
+  parameter_descriptors: readonly W5ParameterDescriptor[];
+  drafts: readonly W5ScenarioDraft[];
+  security: W5SecurityContext;
+}
+
 export interface W5GovernedModelStudentProjection {
   convergence: Pick<
     W5ConvergenceProjection,
     | "can"
+    | "demand_realization"
     | "experience_profile"
     | "fallback"
     | "known_limits"

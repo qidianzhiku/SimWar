@@ -4973,6 +4973,24 @@ paths:
                 { schema: { $ref: "#/components/schemas/W5StudentGovernedModelEnvelope" } }
             }
 
+  /api/v1/bff/admin/w5/governed-model:
+    get:
+      operationId: W5_ADMIN_GOVERNED_MODEL_AUDIT_GET_V1
+      summary: Read the tenant-scoped W5 model and realization audit projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Read-only administrator model governance projection.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W5AdminGovernedModelEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator or platform administrator role required }
+
   /api/v1/bff/teacher/operating-world/studio:
     get:
       operationId: SH_M3_TEACHER_OPERATING_WORLD_STUDIO_GET_V1
@@ -8065,6 +8083,15 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/studentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    W5AdminGovernedModelEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/adminProjection" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W5MutationEnvelope:

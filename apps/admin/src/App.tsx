@@ -46,6 +46,7 @@ import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
+import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const OPERATING_WORLD_DRAFT_ID =
@@ -67,6 +68,7 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
+const W5_AUDIT_COURSE_ID = OPERATING_WORLD_COURSE_ID || "course_demo";
 type LoginForm = {
   tenantId: string;
   username: string;
@@ -1119,6 +1121,14 @@ export function App() {
             baseUrl={API_BASE}
             courseId={import.meta.env.VITE_SIMWAR_PROJECT_AWARE_COURSE_ID}
             runId={import.meta.env.VITE_SIMWAR_PROJECT_AWARE_RUN_ID}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <W5GovernedModelAuditPanel
+            apiBase={API_BASE}
+            courseId={W5_AUDIT_COURSE_ID}
             tenantId={login.tenantId}
             token={session.access_token}
           />
