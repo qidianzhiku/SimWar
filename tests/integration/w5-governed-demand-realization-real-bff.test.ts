@@ -6,7 +6,10 @@ import type {
   AuthSession,
   Round,
   Run,
-  User
+  User,
+  W5ConvergenceProjection,
+  W5GovernedModelAdminProjection,
+  W5GovernedModelStudentProjection
 } from "../../packages/shared-contracts/src";
 import { W5_MODEL_VERSION_REF } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
@@ -187,14 +190,14 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
       const matrix: Array<{ draftId: string; roundNo: number; team: "alpha" | "beta" }> = [];
       for (const roundNo of [1, 2, 3]) {
         const draftId = await lifecycleDraft(baseUrl, teacherToken, runId, roundNo);
-        const standard = await api<ApiEnvelope<{ convergence: Record<string, any> }>>(
+        const standard = await api<ApiEnvelope<{ convergence: W5ConvergenceProjection }>>(
           baseUrl,
           `/api/v1/bff/teacher/w5/scenario-studio/drafts/${draftId}/evaluate`,
           teacherToken,
           "POST",
           { experience_profile: "STANDARD", round_no: roundNo, run_id: runId }
         );
-        const advanced = await api<ApiEnvelope<{ convergence: Record<string, any> }>>(
+        const advanced = await api<ApiEnvelope<{ convergence: W5ConvergenceProjection }>>(
           baseUrl,
           `/api/v1/bff/teacher/w5/scenario-studio/drafts/${draftId}/evaluate`,
           teacherToken,
@@ -225,7 +228,7 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
           ["alpha", alphaStudentToken],
           ["beta", betaStudentToken]
         ] as const) {
-          const student = await api<ApiEnvelope<Record<string, any>>>(
+          const student = await api<ApiEnvelope<W5GovernedModelStudentProjection>>(
             baseUrl,
             `/api/v1/bff/student/w5/convergence?draftId=${draftId}&runId=${runId}&roundNo=${roundNo}`,
             token
@@ -247,9 +250,11 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
       expect(new Set(matrix.map((item) => item.roundNo))).toEqual(new Set([1, 2, 3]));
       expect(new Set(matrix.map((item) => item.team))).toEqual(new Set(["alpha", "beta"]));
 
-      const adminProjection = await api<
-        ApiEnvelope<{ drafts: unknown[]; authority: Record<string, any> }>
-      >(baseUrl, "/api/v1/bff/admin/w5/governed-model?courseId=course_demo", adminToken);
+      const adminProjection = await api<ApiEnvelope<W5GovernedModelAdminProjection>>(
+        baseUrl,
+        "/api/v1/bff/admin/w5/governed-model?courseId=course_demo",
+        adminToken
+      );
       expect(adminProjection.status).toBe(200);
       expect(adminProjection.body.data.drafts).toHaveLength(3);
       expect(adminProjection.body.data.authority).toEqual({
