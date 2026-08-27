@@ -824,6 +824,8 @@ export function App() {
     mode: "JSON_INTERNAL_ONLY"
   };
   const noticeCopy = getStudentNoticeCopy(notice);
+  const w5Convergence = w5Projection?.convergence;
+  const w5Demand = w5Convergence?.demand_realization;
 
   return (
     <AppShell
@@ -995,32 +997,16 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <section id="student-w5-governed-model" aria-label="W5 受控模型">
+          <section>
             <div role="region" aria-label="W5 governed model convergence">
-              <p className="eyebrow">W5 · role-safe student projection</p>
-              <h2>受控模型收敛视图</h2>
-              {w5Projection ? (
-                <>
-                  <p className="evidence-note">
-                    {w5Projection.visibility} ·{" "}
-                    {w5Projection.convergence.demand_realization.readiness} · CAN=
-                    {w5Projection.convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
-                    {w5Projection.convergence.realized.authority}
-                  </p>
-                  <section aria-label="W5 demand realization explanation">
-                    <h3>需求如何实现</h3>
-                    <ul>
-                      {w5Projection.convergence.demand_realization.explanation.map((item) => (
-                        <li key={item.stage}>
-                          {item.stage}: {item.summary}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="evidence-note">
-                      限制：{w5Projection.convergence.demand_realization.known_limits.join(" · ")}
-                    </p>
-                  </section>
-                </>
+              {w5Projection && w5Convergence && w5Demand ? (
+                <p className="evidence-note">
+                  {w5Projection.visibility} · {w5Demand.readiness} · CAN=
+                  {w5Convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
+                  {w5Convergence.realized.authority} ·{" "}
+                  {w5Demand.explanation.map((item) => `${item.stage}: ${item.summary}`).join(" · ")} · 限制：
+                  {w5Demand.known_limits.join(" · ")}
+                </p>
               ) : null}
             </div>
           </section>
