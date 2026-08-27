@@ -51,8 +51,9 @@ import {
   WorkbenchFrame
 } from "@simwar/ui";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1003,11 +1004,14 @@ export function App() {
         {hasStudentSurface ? (
           <section>
             <div role="region" aria-label="W5 governed model convergence">
-              {w5Projection && w5Convergence && w5Demand ? (
-                <Suspense fallback={null}>
+              <Suspense fallback={null}>
+                {w5Projection && w5Convergence && w5Demand ? (
                   <W5DemandConvergencePanel projection={w5Projection} />
-                </Suspense>
-              ) : null}
+                ) : null}
+                <O4CrossRoundDynamicsFeature
+                  c={[activeSession, latestRun, team, login.tenantId]}
+                />
+              </Suspense>
             </div>
           </section>
         ) : null}

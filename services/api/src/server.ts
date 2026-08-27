@@ -150,6 +150,7 @@ import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
+import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
@@ -162,6 +163,7 @@ import {
   resolveOperatingWorldBindingDigest
 } from "./operating-world-consequence-trace.js";
 import { M2P5DecisionLearningCrossRoundService } from "./m2p5-decision-learning-crossround.js";
+import { O4CrossRoundDynamicsService } from "./o4-cross-round-dynamics.js";
 import {
   W027DecisionExperienceError,
   W027DecisionExperienceService,
@@ -400,6 +402,7 @@ interface ApiRuntime {
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
   m2p5DecisionLearning: M2P5DecisionLearningCrossRoundService;
+  o4CrossRoundDynamics: O4CrossRoundDynamicsService;
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
   projectLibrary: ProjectLibraryService;
@@ -894,6 +897,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         tenant_id: context.tenant_id
       })
   });
+  const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
+    getRun: (tenantId, runId) =>
+      repositoryProvider.facade.runs.getRun(tenantId, runId).then((run) =>
+        run ? { course_id: run.course_id } : null
+      ),
+    readW4State: () => w4EnterpriseStateRepository.snapshot()
+  });
   const projectLibrary = new ProjectLibraryService(store);
   const ensureFormalRunOpen = async (
     _actor: {
@@ -957,6 +967,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w027DecisionExperience,
     w3OfficialConsequence,
     m2p5DecisionLearning,
+    o4CrossRoundDynamics,
     w4EnterpriseStateRepository,
     w4EnterpriseStateService,
     projectLibrary,
@@ -6285,6 +6296,25 @@ async function routeRequest(
   }
 
   const context = createContext(runtime, request);
+
+  if (
+    await handleO4CrossRoundDynamicsRoute(
+      runtime.o4CrossRoundDynamics,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context),
+        requireAdmin: () => requireD4Admin(context),
+        sendJson
+      }
+    )
+  )
+    return;
 
   if (
     await handleW4EnterpriseStateRoute(

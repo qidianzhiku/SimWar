@@ -1675,3 +1675,4 @@ export * from "./w5-governed-model.js";
 export * from "./operating-world.js";
 export * from "./w5-formal-rebase.js";
 export * from "./model-governance.js";
+export * from "./o4-cross-round-dynamics.js";

@@ -67,6 +67,9 @@ const RoleWorkflowPanel = lazy(() =>
     default: Component
   }))
 );
+const O4CrossRoundDynamicsPanel = lazy(() =>
+  import("@simwar/ui/o4-cross-round-dynamics-panel")
+);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -114,6 +117,10 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4_ENABLED =
+  import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("o4") === "true");
 
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -2330,6 +2337,18 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {O4_ENABLED && isTeacher && session && selectedRun ? (
+          <Suspense fallback={<p className="muted">正在载入 O4 跨回合动力…</p>}>
+            <O4CrossRoundDynamicsPanel
+              apiBase={API_BASE}
+              courseId={selectedRun.course_id}
+              runId={selectedRun.run_id}
+              surface="teacher"
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {isTeacher && session ? (
           <Suspense fallback={<p className="muted">正在载入 Operating World…</p>}>

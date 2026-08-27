@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@simwar/shared-contracts": "0.1.0"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,10 +17,14 @@
     "./p2b-tokens.css": "./src/p2b-tokens.css",
     "./styles.css": "./src/styles.css",
     "./project-aware.css": "./src/project-aware.css",
+    "./o4-cross-round-dynamics-panel": {
+      "types": "./dist/components/O4CrossRoundDynamicsPanel.d.ts",
+      "default": "./dist/components/O4CrossRoundDynamicsPanel.js"
+    },
     "./w4-commercial.css": "./src/w4-commercial.css"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json",
     "dev:lab": "vite lab --host 127.0.0.1 --port 3004",
     "verify:lab": "node ../../scripts/verify-ui-lab-build.mjs",
     "build:lab": "vite build lab --outDir ../dist/lab --base ./ --emptyOutDir && npm run verify:lab"

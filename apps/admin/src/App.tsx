@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getKnownLimitsProjection } from "@simwar/shared-contracts";
 import type {
   ActorRole,
@@ -48,7 +48,15 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 
+const O4CrossRoundDynamicsPanel = lazy(() =>
+  import("@simwar/ui/o4-cross-round-dynamics-panel")
+);
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4_ENABLED =
+  import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("o4") === "true");
 const OPERATING_WORLD_DRAFT_ID =
   typeof window === "undefined"
     ? ""
@@ -1138,6 +1146,22 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {O4_ENABLED &&
+        session &&
+        hasAdminSummaryRole &&
+        OPERATING_WORLD_COURSE_ID &&
+        OPERATING_WORLD_RUN_ID ? (
+          <Suspense fallback={<p className="muted">正在载入 O4 跨回合动力…</p>}>
+            <O4CrossRoundDynamicsPanel
+              apiBase={API_BASE}
+              courseId={OPERATING_WORLD_COURSE_ID}
+              runId={OPERATING_WORLD_RUN_ID}
+              surface="admin"
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </section>
 

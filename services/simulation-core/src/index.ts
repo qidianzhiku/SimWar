@@ -15,6 +15,11 @@ export { calculateMarketDemand } from "./market.js";
 export { calculateOperations } from "./operations.js";
 export { buildTeamSettlements, calculateScore } from "./scoring.js";
 export { settleEnterpriseState } from "./enterprise-state.js";
+export {
+  buildO4CrossRoundDynamicsCandidate,
+  O4CrossRoundDynamicsError
+} from "./cross-round-dynamics.js";
+export type { O4CrossRoundDynamicsCoreInput } from "./cross-round-dynamics.js";
 export type {
   EnterpriseStateSettlementInput,
   EnterpriseStateSettlementOutput
