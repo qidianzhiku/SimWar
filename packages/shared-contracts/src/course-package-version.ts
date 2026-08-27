@@ -1,6 +1,7 @@
 import type { CourseBlueprintReference } from "./index.js";
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
+import type { TeacherScenarioStudioConfiguration } from "./teacher-scenario-studio.js";
 
 export const COURSE_PACKAGE_VERSION_SCHEMA_VERSION = "course-package-version.v1" as const;
 
@@ -43,6 +44,8 @@ export interface CoursePackageVersionDraftInput {
   description: string;
   parameter_set_reference: ParameterSetReference;
   scenario_package_reference: ScenarioPackageReference;
+  /** Optional C5 extension used by the unified Teacher Scenario Studio. */
+  studio_configuration?: TeacherScenarioStudioConfiguration;
   title: string;
   version: string;
 }

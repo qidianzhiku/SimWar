@@ -67,9 +67,7 @@ const RoleWorkflowPanel = lazy(() =>
     default: Component
   }))
 );
-const O4CrossRoundDynamicsPanel = lazy(() =>
-  import("@simwar/ui/o4-cross-round-dynamics-panel")
-);
+const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -92,6 +90,7 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
+import { TeacherScenarioStudio } from "./TeacherScenarioStudio";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -2312,6 +2311,11 @@ export function App() {
             <GoldenJourneyWorkbench
               courseId={selectedRun?.course_id ?? selectedCourseId}
               runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            <TeacherScenarioStudio
+              apiBase={API_BASE}
               tenantId={login.tenantId}
               token={session.access_token}
             />

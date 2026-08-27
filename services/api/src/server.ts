@@ -71,6 +71,11 @@ import type {
 import type { MarketWorldRef } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
 import type {
+  TeacherScenarioStudioConfiguration,
+  TeacherScenarioStudioDraftInput,
+  TeacherScenarioStudioJsonValue
+} from "@simwar/shared-contracts";
+import type {
   ValidationSessionIncident,
   ValidationSessionObservation,
   ValidationSessionParticipant
@@ -205,6 +210,11 @@ import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-ro
 import { W5GovernedModelError, W5GovernedModelService } from "./w5-governed-model-service.js";
 import { OperatingWorldError, OperatingWorldService } from "./operating-world-service.js";
 import {
+  TeacherScenarioStudioError,
+  TeacherScenarioStudioService,
+  type TeacherScenarioStudioActor
+} from "./teacher-scenario-studio-service.js";
+import {
   CourseBlueprintAuthorityError,
   CourseBlueprintCommandService,
   type CourseBlueprintAuthorityActor,
@@ -270,6 +280,7 @@ import {
   resolveFormalCanonicalDecisionSet
 } from "./canonical-decision-admission.js";
 import { resolveFormalRuntimeInputsForActiveRun } from "./formal-runtime-input-resolver.js";
+import { getActiveJsonRuntimeEngineProfile } from "./formal-runtime-input-resolver.js";
 import {
   createFormalBoundRun,
   ensureFormalRunRuntimeBindingForActiveRun
@@ -372,6 +383,7 @@ interface ApiRuntime {
   formalCourseBlueprints: CourseBlueprintCommandService;
   coursePackageCommands: CoursePackageCommandService;
   coursePackageQueries: CoursePackageQueryService;
+  teacherScenarioStudio: TeacherScenarioStudioService;
   courseReports: CourseReportQueryService;
   learningDesignCommands: LearningDesignCommandService;
   learningDesignQueries: LearningDesignQueryService;
@@ -787,6 +799,67 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     undefined,
     createJsonOperatingWorldPersistence(store)
   );
+  const teacherScenarioStudio = new TeacherScenarioStudioService({
+    activateCourse: async (input) => {
+      const readiness = await resolveTeacherCourseBlueprintReadiness(formalCourseBlueprints, {
+        course_blueprint_reference: input.course_blueprint_reference,
+        formal_course: {
+          authorities: formalRunBindingAuthorities,
+          scenario_package_reference: input.scenario_package_reference,
+          tenant_id: input.tenant_id
+        }
+      });
+      const course = {
+        course_id: nextId(store, "course", "course"),
+        created_by: input.actor_id,
+        parameter_set_id: readiness.formal_course_binding.parameter_set_reference.parameter_set_id,
+        scenario_package_id:
+          readiness.formal_course_binding.scenario_package_reference.scenario_package_id,
+        status: "draft" as const,
+        tenant_id: input.tenant_id,
+        title: input.title
+      };
+      const created = await createTeacherCourseFromBlueprint(formalCourseBlueprints, {
+        bindingStore: courseBlueprintBindingStore,
+        course,
+        course_blueprint_reference: input.course_blueprint_reference,
+        formalCourse: {
+          authorities: formalRunBindingAuthorities,
+          bindingStore: formalCourseAuthorityBindingStore,
+          persistence: repositoryProvider.facade.courses,
+          scenario_package_reference: input.scenario_package_reference,
+          tenant_id: input.tenant_id
+        },
+        formal_course: {
+          authorities: formalRunBindingAuthorities,
+          scenario_package_reference: input.scenario_package_reference,
+          tenant_id: input.tenant_id
+        }
+      });
+      return created.course;
+    },
+    coursePackages: coursePackageCommands,
+    modelVersionRef: getActiveJsonRuntimeEngineProfile().model_version_ref,
+    sources: {
+      courseBlueprints: formalCourseBlueprints,
+      parameterSets: formalAuthorityRuntime.parameterSets,
+      scenarioPackages: {
+        assertBindable: (tenantId, reference) =>
+          formalAuthorityRuntime.scenarioPackages.assertBindable(tenantId, reference),
+        getByReference: async (tenantId, reference) => {
+          const scenario = await formalAuthorityRuntime.scenarioPackages.getByReference(
+            tenantId,
+            reference
+          );
+          return scenario?.status === "APPROVED"
+            ? (scenario as ScenarioPackageAuthorityReadProjection)
+            : null;
+        },
+        listApprovedForTenant: (tenantId) =>
+          formalAuthorityRuntime.scenarioPackages.listApprovedForTenant(tenantId)
+      }
+    }
+  });
   const m2p5DecisionLearning = new M2P5DecisionLearningCrossRoundService({
     getExactRound: (tenantId, runId, roundNo) =>
       repositoryProvider.facade.rounds
@@ -899,9 +972,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   });
   const o4CrossRoundDynamics = new O4CrossRoundDynamicsService({
     getRun: (tenantId, runId) =>
-      repositoryProvider.facade.runs.getRun(tenantId, runId).then((run) =>
-        run ? { course_id: run.course_id } : null
-      ),
+      repositoryProvider.facade.runs
+        .getRun(tenantId, runId)
+        .then((run) => (run ? { course_id: run.course_id } : null)),
     readW4State: () => w4EnterpriseStateRepository.snapshot()
   });
   const projectLibrary = new ProjectLibraryService(store);
@@ -938,6 +1011,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalCourseBlueprints,
     coursePackageCommands,
     coursePackageQueries,
+    teacherScenarioStudio,
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
     evidenceCapture,
@@ -2398,6 +2472,298 @@ function toTeacherCourseBlueprintHttpError(error: unknown): HttpError {
     );
   }
   return courseBlueprintAuthorityHttpError(error);
+}
+
+function teacherScenarioStudioRequestError(): HttpError {
+  return new HttpError(
+    422,
+    "TEACHER_SCENARIO_STUDIO_INPUT_INVALID",
+    "teacher scenario studio request is invalid"
+  );
+}
+
+function assertOnlyTeacherScenarioStudioKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[]
+): void {
+  const keys = Object.keys(value);
+  if (keys.length !== expected.length || keys.some((key) => !expected.includes(key))) {
+    throw teacherScenarioStudioRequestError();
+  }
+}
+
+function parseTeacherScenarioStudioConfiguration(
+  value: unknown
+): TeacherScenarioStudioConfiguration {
+  if (!isRecord(value)) throw teacherScenarioStudioRequestError();
+  assertOnlyTeacherScenarioStudioKeys(value, [
+    "custom_parameters",
+    "experience_profile",
+    "model_version_ref",
+    "module_configuration",
+    "schema_version"
+  ]);
+  if (!isRecord(value.custom_parameters) || !isRecord(value.module_configuration)) {
+    throw teacherScenarioStudioRequestError();
+  }
+  assertOnlyTeacherScenarioStudioKeys(value.custom_parameters, ["mode", "values"]);
+  assertOnlyTeacherScenarioStudioKeys(value.module_configuration, [
+    "capital",
+    "environment",
+    "funding",
+    "policy_shocks",
+    "project_template",
+    "workforce"
+  ]);
+  const moduleConfiguration = value.module_configuration;
+  const moduleValue = (key: string): Record<string, unknown> => {
+    const candidate = moduleConfiguration[key];
+    if (!isRecord(candidate)) throw teacherScenarioStudioRequestError();
+    return candidate;
+  };
+  return {
+    custom_parameters: {
+      mode: requireBodyString(value.custom_parameters.mode) as "DRAFT_ONLY",
+      values: value.custom_parameters
+        .values as TeacherScenarioStudioConfiguration["custom_parameters"]["values"]
+    },
+    experience_profile: requireBodyString(value.experience_profile) as "STANDARD" | "ADVANCED",
+    model_version_ref: requireBodyString(value.model_version_ref),
+    module_configuration: {
+      capital: moduleValue("capital") as Readonly<Record<string, TeacherScenarioStudioJsonValue>>,
+      environment: moduleValue("environment") as Readonly<
+        Record<string, TeacherScenarioStudioJsonValue>
+      >,
+      funding: moduleValue("funding") as Readonly<Record<string, TeacherScenarioStudioJsonValue>>,
+      policy_shocks: moduleValue("policy_shocks") as Readonly<
+        Record<string, TeacherScenarioStudioJsonValue>
+      >,
+      project_template: moduleValue("project_template") as Readonly<
+        Record<string, TeacherScenarioStudioJsonValue>
+      >,
+      workforce: moduleValue("workforce") as Readonly<
+        Record<string, TeacherScenarioStudioJsonValue>
+      >
+    },
+    schema_version: requireBodyString(value.schema_version) as "teacher-scenario-studio.v1"
+  };
+}
+
+function parseTeacherScenarioStudioDraft(
+  value: unknown,
+  tenantId: string
+): TeacherScenarioStudioDraftInput {
+  if (!isRecord(value)) throw teacherScenarioStudioRequestError();
+  assertOnlyTeacherScenarioStudioKeys(value, [
+    "course_blueprint_reference",
+    "course_package_id",
+    "description",
+    "parameter_set_reference",
+    "scenario_package_reference",
+    "studio_configuration",
+    "title",
+    "version"
+  ]);
+  try {
+    return {
+      course_blueprint_reference: parseCoursePackageCourseBlueprintReference(
+        value.course_blueprint_reference,
+        tenantId
+      ),
+      course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
+      description: requireCoursePackageText(value.description),
+      parameter_set_reference: parseCoursePackageParameterSetReference(
+        value.parameter_set_reference
+      ),
+      scenario_package_reference: parseCoursePackageScenarioPackageReference(
+        value.scenario_package_reference,
+        tenantId
+      ),
+      studio_configuration: parseTeacherScenarioStudioConfiguration(value.studio_configuration),
+      title: requireCoursePackageText(value.title),
+      version: requireCoursePackageExactVersion(value.version)
+    };
+  } catch (error) {
+    if (error instanceof HttpError && error.code === "TEACHER_SCENARIO_STUDIO_INPUT_INVALID") {
+      throw error;
+    }
+    throw teacherScenarioStudioRequestError();
+  }
+}
+
+function parseTeacherScenarioStudioReference(
+  value: unknown,
+  tenantId: string
+): CoursePackageVersionReference {
+  try {
+    if (isRecord(value) && Object.hasOwn(value, "tenant_id")) {
+      assertOnlyTeacherScenarioStudioKeys(value, [
+        "content_digest",
+        "course_package_id",
+        "tenant_id",
+        "version"
+      ]);
+      if (requireCoursePackageExactIdentity(value.tenant_id) !== tenantId) {
+        throw teacherScenarioStudioRequestError();
+      }
+      return {
+        content_digest: requireCoursePackageDigest(value.content_digest),
+        course_package_id: requireCoursePackageExactIdentity(value.course_package_id),
+        tenant_id: tenantId,
+        version: requireCoursePackageExactVersion(value.version)
+      };
+    }
+    return parseCoursePackageVersionReference(value, tenantId);
+  } catch {
+    throw teacherScenarioStudioRequestError();
+  }
+}
+
+function teacherScenarioStudioHttpError(error: unknown): HttpError {
+  if (!(error instanceof TeacherScenarioStudioError)) throw error;
+  const statusCode =
+    error.code === "TEACHER_SCENARIO_STUDIO_NOT_FOUND"
+      ? 404
+      : error.code === "TEACHER_SCENARIO_STUDIO_TENANT_SCOPE_VIOLATION"
+        ? 403
+        : [
+              "TEACHER_SCENARIO_STUDIO_LIFECYCLE_INVALID",
+              "TEACHER_SCENARIO_STUDIO_COMPATIBILITY_MISMATCH",
+              "TEACHER_SCENARIO_STUDIO_MODEL_VERSION_MISMATCH",
+              "TEACHER_SCENARIO_STUDIO_SOURCE_NOT_BINDABLE"
+            ].includes(error.code)
+          ? 409
+          : 422;
+  return new HttpError(statusCode, error.code, "teacher scenario studio command rejected");
+}
+
+function requireTeacherScenarioStudioActor(context: RequestContext): {
+  actor: CurrentUser;
+  studioActor: TeacherScenarioStudioActor;
+} {
+  const actor = requirePermission(context, "course:create");
+  if (!actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+  }
+  return {
+    actor,
+    studioActor: { actor_id: actor.user_id, tenant_id: context.tenantId }
+  };
+}
+
+async function handleTeacherScenarioStudioCatalog(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  requirePermission(context, "course:read");
+  const actor = context.actor;
+  if (!actor || !actorHasAnyRole(actor, ["teacher"]) || actor.tenant_id !== context.tenantId) {
+    throw new HttpError(403, "AUTHZ-403-001", "teacher authority required");
+  }
+  try {
+    sendJson(
+      response,
+      200,
+      createEnvelope(context, await runtime.teacherScenarioStudio.getCatalog(context.tenantId))
+    );
+  } catch (error) {
+    throw teacherScenarioStudioHttpError(error);
+  }
+}
+
+async function handleTeacherScenarioStudioDraftCreate(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  const { actor, studioActor } = requireTeacherScenarioStudioActor(context);
+  try {
+    const result = await runtime.teacherScenarioStudio.createDraft(
+      studioActor,
+      parseTeacherScenarioStudioDraft(await readJson(request), context.tenantId)
+    );
+    await appendAudit(runtime, {
+      actor,
+      action: "teacher_scenario_studio.draft_create",
+      after: clonePublic(result),
+      requestId: context.requestId,
+      resourceId: `${result.course_package_reference.course_package_id}:${result.course_package_reference.version}`,
+      resourceType: "teacher_scenario_studio_draft",
+      tenantId: context.tenantId
+    });
+    sendJson(response, 201, createEnvelope(context, result));
+  } catch (error) {
+    throw teacherScenarioStudioHttpError(error);
+  }
+}
+
+async function handleTeacherScenarioStudioPreview(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  const context = createContext(runtime, request);
+  requireTeacherScenarioStudioActor(context);
+  const body = await readJson(request);
+  if (!isRecord(body)) throw teacherScenarioStudioRequestError();
+  assertOnlyTeacherScenarioStudioKeys(body, ["course_package_reference"]);
+  try {
+    const result = await runtime.teacherScenarioStudio.preview(
+      { actor_id: context.actor!.user_id, tenant_id: context.tenantId },
+      parseTeacherScenarioStudioReference(body.course_package_reference, context.tenantId)
+    );
+    sendJson(response, 200, createEnvelope(context, result));
+  } catch (error) {
+    throw teacherScenarioStudioHttpError(error);
+  }
+}
+
+async function handleTeacherScenarioStudioTransition(
+  runtime: ApiRuntime,
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL
+): Promise<void> {
+  const context = createContext(runtime, request);
+  const { actor, studioActor } = requireTeacherScenarioStudioActor(context);
+  const match = url.pathname.match(
+    /^\/api\/v1\/bff\/teacher\/scenario-studio\/drafts\/([^/]+)\/versions\/([^/]+)\/(validate|freeze|activate)$/
+  );
+  if (!match?.[1] || !match[2] || !match[3]) throw new HttpError(404, "ROUTE-404-001", "not found");
+  const body = await readJson(request);
+  if (!isRecord(body)) throw teacherScenarioStudioRequestError();
+  assertOnlyTeacherScenarioStudioKeys(body, ["course_package_reference"]);
+  const reference = parseTeacherScenarioStudioReference(
+    body.course_package_reference,
+    context.tenantId
+  );
+  if (reference.course_package_id !== match[1] || reference.version !== match[2]) {
+    throw teacherScenarioStudioRequestError();
+  }
+  try {
+    const operation = match[3];
+    const result =
+      operation === "validate"
+        ? await runtime.teacherScenarioStudio.validate(studioActor, reference)
+        : operation === "freeze"
+          ? await runtime.teacherScenarioStudio.freeze(studioActor, reference)
+          : await runtime.teacherScenarioStudio.activate(studioActor, reference);
+    await appendAudit(runtime, {
+      actor,
+      action: `teacher_scenario_studio.${operation}`,
+      after: clonePublic(result),
+      requestId: context.requestId,
+      resourceId: `${reference.course_package_id}:${reference.version}`,
+      resourceType: "teacher_scenario_studio_draft",
+      tenantId: context.tenantId
+    });
+    sendJson(response, operation === "activate" ? 201 : 200, createEnvelope(context, result));
+  } catch (error) {
+    throw teacherScenarioStudioHttpError(error);
+  }
 }
 
 async function handleTeacherCourseBlueprintCatalog(
@@ -6205,6 +6571,34 @@ async function routeRequest(
 
   if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/course-blueprints") {
     await handleTeacherCourseBlueprintCatalog(runtime, request, response);
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/v1/bff/teacher/scenario-studio") {
+    await handleTeacherScenarioStudioCatalog(runtime, request, response);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/v1/bff/teacher/scenario-studio/drafts") {
+    await handleTeacherScenarioStudioDraftCreate(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    url.pathname === "/api/v1/bff/teacher/scenario-studio/drafts/preview"
+  ) {
+    await handleTeacherScenarioStudioPreview(runtime, request, response);
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    /^\/api\/v1\/bff\/teacher\/scenario-studio\/drafts\/[^/]+\/versions\/[^/]+\/(validate|freeze|activate)$/.test(
+      url.pathname
+    )
+  ) {
+    await handleTeacherScenarioStudioTransition(runtime, request, response, url);
     return;
   }
 
