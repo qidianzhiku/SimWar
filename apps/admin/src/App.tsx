@@ -32,7 +32,7 @@ import { CourseReportBuilder } from "./CourseReportBuilder";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
-import { AuthorityBadge } from "@simwar/ui";
+import { AuthorityBadge, O4CrossRoundDynamicsPanel } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
   AdminEnvironmentRecoveryLimit,
@@ -49,6 +49,10 @@ import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4_ENABLED =
+  import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("o4") === "true");
 const OPERATING_WORLD_DRAFT_ID =
   typeof window === "undefined"
     ? ""
@@ -1135,6 +1139,20 @@ export function App() {
           <W5GovernedModelAuditPanel
             apiBase={API_BASE}
             courseId={W5_AUDIT_COURSE_ID}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {O4_ENABLED &&
+        session &&
+        hasAdminSummaryRole &&
+        OPERATING_WORLD_COURSE_ID &&
+        OPERATING_WORLD_RUN_ID ? (
+          <O4CrossRoundDynamicsPanel
+            apiBase={API_BASE}
+            courseId={OPERATING_WORLD_COURSE_ID}
+            runId={OPERATING_WORLD_RUN_ID}
+            surface="admin"
             tenantId={login.tenantId}
             token={session.access_token}
           />

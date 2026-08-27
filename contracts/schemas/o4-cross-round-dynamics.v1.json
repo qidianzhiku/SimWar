@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/o4-cross-round-dynamics.v1.json",
+  "title": "O4 Governed Cross-Round Dynamics Differential",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "runtime_authority", "visibility", "exact_scope", "candidate", "provenance", "authority", "known_limits"],
+  "properties": {
+    "schema_version": { "const": "o4-cross-round-dynamics.v1" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "visibility": { "enum": ["teacher_safe", "student_safe", "admin_safe"] },
+    "exact_scope": { "$ref": "#/$defs/scope" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "target_round_no"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "target_round_no": { "type": "integer", "minimum": 3 }
+      }
+    },
+    "stateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "course_id", "run_id", "team_id", "round_id", "enterprise_state_id", "version", "state_digest"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "enterprise_state_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parent_state_ref": { "anyOf": [{ "$ref": "#/$defs/stateRef" }, { "type": "null" }] }
+      }
+    },
+    "factor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "direction", "explanation"],
+      "properties": {
+        "kind": { "enum": ["CASH_POSITION", "CAPACITY_POSITION", "PORTFOLIO_COMMITMENT", "ORGANIZATION_SCALE", "POSITIONING_CONTINUITY"] },
+        "direction": { "enum": ["INCREASED", "DECREASED", "UNCHANGED"] },
+        "magnitude": { "type": "number", "minimum": 0 },
+        "explanation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cash", "capacity", "portfolio_count", "operating_unit_count", "positioning"],
+      "properties": {
+        "cash": { "type": "number" },
+        "capacity": { "type": "number" },
+        "portfolio_count": { "type": "integer", "minimum": 0 },
+        "operating_unit_count": { "type": "integer", "minimum": 0 },
+        "positioning": { "type": "string" }
+      }
+    },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round_no", "round_id", "carryover_factors"],
+      "properties": {
+        "round_no": { "type": "integer", "minimum": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "closing_state_ref": { "$ref": "#/$defs/stateRef" },
+        "metrics": { "$ref": "#/$defs/metrics" },
+        "carryover_factors": { "type": "array", "items": { "$ref": "#/$defs/factor" }, "minItems": 5, "maxItems": 5 }
+      }
+    },
+    "teamPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_id", "history_digest", "round_count", "rounds"],
+      "properties": {
+        "team_id": { "type": "string", "minLength": 1 },
+        "history_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "round_count": { "type": "integer", "minimum": 3 },
+        "rounds": { "type": "array", "items": { "$ref": "#/$defs/round" }, "minItems": 3 }
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left_team_id", "right_team_id", "target_round_no", "current_decision_match", "history_different", "outcome_differential", "explanatory_factors"],
+      "properties": {
+        "left_team_id": { "type": "string", "minLength": 1 },
+        "right_team_id": { "type": "string", "minLength": 1 },
+        "target_round_no": { "type": "integer", "minimum": 3 },
+        "current_decision_match": { "enum": ["MATCHED", "DIFFERENT", "NOT_OBSERVED"] },
+        "history_different": { "type": "boolean" },
+        "outcome_differential": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cash", "capacity", "portfolio_count", "operating_unit_count"],
+          "properties": {
+            "cash": { "type": "number" },
+            "capacity": { "type": "number" },
+            "portfolio_count": { "type": "integer" },
+            "operating_unit_count": { "type": "integer" }
+          }
+        },
+        "explanatory_factors": { "type": "array", "items": { "$ref": "#/$defs/factor" }, "minItems": 5, "maxItems": 5 }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "status", "horizon_rounds", "source_team_count", "source_state_ref_count", "team_paths", "pair_differentials"],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["PROVEN", "OBSERVED_DIFFERENTIAL"] },
+        "horizon_rounds": { "const": 3 },
+        "source_team_count": { "type": "integer", "minimum": 1 },
+        "source_state_ref_count": { "type": "integer", "minimum": 0 },
+        "team_paths": { "type": "array", "items": { "$ref": "#/$defs/teamPath" }, "minItems": 1 },
+        "pair_differentials": { "type": "array", "items": { "$ref": "#/$defs/pair" } }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "state_ref_count", "official_outcome_count", "source_decision_count", "replay_writes_formal_results"],
+      "properties": {
+        "source": { "const": "W4_ENTERPRISE_STATE_READ_MODEL" },
+        "state_ref_count": { "type": "integer", "minimum": 0 },
+        "official_outcome_count": { "type": "integer", "minimum": 0 },
+        "source_decision_count": { "type": "integer", "minimum": 0 },
+        "replay_writes_formal_results": { "const": false }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_writer", "official_truth_write", "settlement_write", "replay_write", "provider_calls"],
+      "properties": {
+        "candidate_writer": { "const": "SIMULATION_CORE_READ_ONLY" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "replay_write": { "const": false },
+        "provider_calls": { "const": 0 }
+      }
+    }
+  }
+}

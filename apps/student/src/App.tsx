@@ -46,12 +46,17 @@ import {
   AuthorityBadge,
   ContextBar,
   KnownLimitBanner,
+  O4CrossRoundDynamicsPanel,
   RoleNavigation,
   StatePanel,
   WorkbenchFrame
 } from "@simwar/ui";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4_ENABLED =
+  import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("o4") === "true");
 
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -1010,6 +1015,18 @@ export function App() {
               ) : null}
             </div>
           </section>
+        ) : null}
+
+        {O4_ENABLED && hasStudentSurface && activeSession && latestRun && team ? (
+          <O4CrossRoundDynamicsPanel
+            apiBase={API_BASE}
+            courseId={latestRun.course_id}
+            runId={latestRun.run_id}
+            surface="student"
+            teamId={team.team_id}
+            tenantId={login.tenantId}
+            token={activeSession.access_token}
+          />
         ) : null}
 
         {hasStudentSurface && operatingWorldDraftId ? (

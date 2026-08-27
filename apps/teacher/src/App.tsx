@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { StatePanel } from "@simwar/ui";
+import { O4CrossRoundDynamicsPanel, StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -114,6 +114,10 @@ import {
 } from "./round-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const O4_ENABLED =
+  import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("o4") === "true");
 
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -2327,6 +2331,16 @@ export function App() {
             courseId={selectedRun?.course_id ?? selectedCourseId}
             runId={selectedRun?.run_id ?? selectedRunId}
             roundNo={selectedRound?.round_no}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {O4_ENABLED && isTeacher && session && selectedRun ? (
+          <O4CrossRoundDynamicsPanel
+            apiBase={API_BASE}
+            courseId={selectedRun.course_id}
+            runId={selectedRun.run_id}
+            surface="teacher"
             tenantId={login.tenantId}
             token={session.access_token}
           />

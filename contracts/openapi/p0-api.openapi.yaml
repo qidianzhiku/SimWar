@@ -5190,6 +5190,81 @@ paths:
         "403": { description: Admin or teacher audit authority required }
         "404": { description: Draft not found }
 
+  /api/v1/bff/teacher/o4/runs/{runId}/cross-round-dynamics:
+    get:
+      operationId: TEACHER_O4_CROSS_ROUND_DYNAMICS_GET_V1
+      summary: Read the exact teacher-safe governed cross-round dynamics differential.
+      description: Returns a deterministic, read-only three-round differential over existing W4 enterprise state records. It does not write official truth, settlement results, or replay truth.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: course_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: round_no, in: query, required: false, schema: { type: integer, minimum: 3 } }
+      responses:
+        "200":
+          description: Exact teacher-safe cross-round dynamics candidate.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/O4CrossRoundDynamicsEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Teacher role or exact course scope denied }
+        "404": { description: Run not found }
+        "409":
+          { description: Three-round history is insufficient or contains duplicate state records }
+        "422": { description: Exact context is invalid }
+
+  /api/v1/bff/student/o4/runs/{runId}/cross-round-dynamics:
+    get:
+      operationId: STUDENT_O4_CROSS_ROUND_DYNAMICS_GET_V1
+      summary: Read the authenticated-team-safe governed cross-round dynamics projection.
+      description: Returns the same deterministic candidate with peer paths, raw metrics, exact state references, outcome references, and decision provenance removed from the Student projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: course_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: round_no, in: query, required: false, schema: { type: integer, minimum: 3 } }
+      responses:
+        "200":
+          description: Exact authenticated-team-safe cross-round dynamics candidate.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/O4CrossRoundDynamicsEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Student team or exact course scope denied }
+        "404": { description: Run not found }
+        "409":
+          { description: Three-round history is insufficient or contains duplicate state records }
+        "422": { description: Exact context is invalid }
+
+  /api/v1/bff/admin/o4/runs/{runId}/cross-round-dynamics:
+    get:
+      operationId: ADMIN_O4_CROSS_ROUND_DYNAMICS_GET_V1
+      summary: Read the tenant-safe governed cross-round dynamics audit projection.
+      description: Returns the deterministic differential and its bounded provenance for tenant-scoped audit. It is read-only and cannot write official truth, settlement results, or replay truth.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: runId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - { name: course_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: round_no, in: query, required: false, schema: { type: integer, minimum: 3 } }
+      responses:
+        "200":
+          description: Exact tenant-safe cross-round dynamics audit candidate.
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/O4CrossRoundDynamicsEnvelope" } }
+            }
+        "401": { description: Authentication required }
+        "403": { description: Admin role or exact course scope denied }
+        "404": { description: Run not found }
+        "409":
+          { description: Three-round history is insufficient or contains duplicate state records }
+        "422": { description: Exact context is invalid }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -5542,6 +5617,17 @@ components:
         request_id: { type: string }
     M2P5DecisionLearningResponse:
       $ref: "../schemas/m2p5-decision-learning-crossround.v1.json"
+    O4CrossRoundDynamicsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { const: OK }
+        data: { $ref: "#/components/schemas/O4CrossRoundDynamicsResponse" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    O4CrossRoundDynamicsResponse:
+      $ref: "../schemas/o4-cross-round-dynamics.v1.json"
     W3CounterfactualInput:
       type: object
       additionalProperties: false

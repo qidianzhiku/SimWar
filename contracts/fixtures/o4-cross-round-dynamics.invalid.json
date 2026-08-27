@@ -1,0 +1,10 @@
+{
+  "schema_version": "o4-cross-round-dynamics.v1",
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "visibility": "teacher_safe",
+  "exact_scope": { "tenant_id": "tenant_o4", "course_id": "course_o4", "run_id": "run_o4", "target_round_no": 3 },
+  "candidate": { "candidate_id": "bad", "status": "PROVEN", "horizon_rounds": 3, "source_team_count": 1, "source_state_ref_count": 0, "team_paths": [], "pair_differentials": [] },
+  "provenance": { "source": "W4_ENTERPRISE_STATE_READ_MODEL", "state_ref_count": 0, "official_outcome_count": 0, "source_decision_count": 0, "replay_writes_formal_results": false },
+  "authority": { "candidate_writer": "SIMULATION_CORE_READ_ONLY", "official_truth_write": true, "settlement_write": false, "replay_write": false, "provider_calls": 0 },
+  "known_limits": ["invalid authority"]
+}
