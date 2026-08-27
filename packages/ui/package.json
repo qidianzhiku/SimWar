@@ -20,7 +20,7 @@
     "./w4-commercial.css": "./src/w4-commercial.css"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json",
     "dev:lab": "vite lab --host 127.0.0.1 --port 3004",
     "verify:lab": "node ../../scripts/verify-ui-lab-build.mjs",
     "build:lab": "vite build lab --outDir ../dist/lab --base ./ --emptyOutDir && npm run verify:lab"
