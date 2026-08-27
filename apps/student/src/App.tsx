@@ -90,6 +90,10 @@ const ProjectAwareStudentContextPanel = lazy(async () => {
   const module = await import("./ProjectAwareStudentContextPanel");
   return { default: module.ProjectAwareStudentContextPanel };
 });
+const W5DemandConvergencePanel = lazy(async () => {
+  const module = await import("./W5DemandCandidatePanel");
+  return { default: module.W5DemandConvergencePanel };
+});
 const W3_ENABLED =
   import.meta.env.VITE_SIMWAR_W3_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -1000,24 +1004,9 @@ export function App() {
           <section>
             <div role="region" aria-label="W5 governed model convergence">
               {w5Projection && w5Convergence && w5Demand ? (
-                <>
-                  <p className="evidence-note">
-                    {w5Projection.visibility} · {w5Demand.readiness} · CAN=
-                    {w5Convergence.can.eligible ? "eligible" : "blocked"} · REALIZED=
-                    {w5Convergence.realized.authority} ·{" "}
-                    {w5Demand.explanation.map((item) => `${item.stage}: ${item.summary}`).join(" · ")} · 限制：
-                    {w5Demand.known_limits.join(" · ")}
-                  </p>
-                  <p className="evidence-note" data-testid="student-governed-demand-candidate">
-                    受控需求候选：{w5Demand.candidate.status} · 市场数={w5Demand.candidate.market_count} ·
-                    {w5Demand.candidate.markets
-                      .map(
-                        (market) =>
-                          `${market.market_id} outside=${market.outside_option_share.toFixed(4)}`
-                      )
-                      .join(" · ")} · 该候选不写入正式真值，REALIZED 仍由 Simulation Core 负责。
-                  </p>
-                </>
+                <Suspense fallback={null}>
+                  <W5DemandConvergencePanel projection={w5Projection} />
+                </Suspense>
               ) : null}
             </div>
           </section>
