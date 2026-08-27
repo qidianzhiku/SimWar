@@ -261,7 +261,7 @@
           }
         },
         "model_family": { "type": "string" },
-        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.1.0" },
         "no_implicit_latest": { "const": true },
         "status": { "const": "APPROVED" },
         "visibility": { "type": "object" }
@@ -291,7 +291,7 @@
         "data_classification": { "enum": ["REALITY", "SYNTHETIC", "ASSUMPTION", "STRESS_TEST"] },
         "draft_id": { "type": "string" },
         "exact_runtime_binding": { "type": ["object", "null"] },
-        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.1.0" },
         "parameter_descriptors": { "type": "array", "items": { "$ref": "#/$defs/descriptor" } },
         "parameter_values": { "type": "object" },
         "seed": { "type": "integer" },
@@ -324,7 +324,7 @@
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
         "fallback": { "type": "object" },
         "known_limits": { "type": "array", "items": { "type": "string" } },
-        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.1.0" },
         "provenance": { "type": "object" },
         "realized": { "type": "object" },
         "replay": { "type": "object" },
@@ -349,7 +349,7 @@
               "enum": ["REALITY", "SYNTHETIC", "ASSUMPTION", "STRESS_TEST"]
             },
             "exact_binding": { "const": true },
-            "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+            "model_version_ref": { "const": "eldercare_w5_governed_v1@1.1.0" },
             "round_no": { "type": "integer", "minimum": 1 }
           }
         },
@@ -503,7 +503,7 @@
         "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
         "fallback": { "type": "object" },
         "known_limits": { "type": "array", "items": { "type": "string" } },
-        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.0.0" },
+        "model_version_ref": { "const": "eldercare_w5_governed_v1@1.1.0" },
         "realized": { "type": "object" },
         "replay": { "type": "object" },
         "shadow": { "type": "object" },

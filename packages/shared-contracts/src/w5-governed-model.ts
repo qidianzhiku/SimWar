@@ -4,7 +4,7 @@ import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 import type { W5FormalRebaseClassification } from "./w5-formal-rebase.js";
 
 export const W5_GOVERNED_MODEL_SCHEMA_VERSION = "w5-governed-model.v1" as const;
-export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.0.0" as const;
+export const W5_MODEL_VERSION_REF = "eldercare_w5_governed_v1@1.1.0" as const;
 
 export type W5DraftStatus = "DRAFT" | "VALIDATED" | "FROZEN" | "BOUND";
 export type W5ExperienceProfile = "STANDARD" | "ADVANCED";

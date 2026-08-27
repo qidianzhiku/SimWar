@@ -12,7 +12,11 @@ import type {
   W5ReproductionRecord
 } from "@simwar/shared-contracts";
 import {
+  createDemandBinding,
+  createDemandModelVersion,
+  createShanghaiDemandMarket,
   createDefaultEldercareModelInput,
+  evaluateDemandRuntime,
   evaluateW5CoreRealization,
   type EldercareModelInput
 } from "@simwar/simulation-core";
@@ -26,10 +30,23 @@ const DRIFT_LABELS: readonly W5FormalRebaseDriftLabel[] = [
   "EXPECTED_MODEL_DIFFERENCE"
 ];
 
+const O3_DEMAND_MODEL_VERSION = createDemandModelVersion({
+  coefficients: {
+    ideal_fit: 2.2,
+    intercept: 0.1,
+    price: -0.15,
+    quality: 0.4,
+    spatial: 0.8
+  },
+  model_version_id: "o3-governed-demand-v1",
+  source_ref: "services/simulation-core/src/model-candidates/governed-demand",
+  version: "1.0.0"
+});
+
 const KNOWN_LIMITS = [
   "BLP/RCNL has no executable artifact, invocation, calibration, or active adapter in this repository.",
-  "Ideal Point/Lancaster has no executable artifact, invocation, calibration, or active adapter in this repository.",
-  "Huff/Spatial and Marketing are not current runtime producers.",
+  "Ideal Point/Lancaster and Huff/Spatial are deterministic synthetic candidates; calibration and official settlement authority are not proven.",
+  "Marketing is not a current runtime producer; outreach remains a Simulation Core input.",
   "WANT is a synthetic heuristic and is never official truth.",
   "System Dynamics is shadow-only and cannot overwrite the Simulation Core projection.",
   "Shanghai inputs are synthetic/assumption-labelled and not calibrated to external reality.",
@@ -120,7 +137,8 @@ const coreEntryDefaults = {
   solver_evaluator: "evaluateEldercareCoreRound",
   symbol: "evaluateEldercareCoreRound",
   version: "eldercare_core_model_v1@1.0.0",
-  visibility: "CURRENT_CORE" as const
+  visibility: "CURRENT_CORE" as const,
+  invocation_proven: true
 };
 
 export function buildW5AuthorityCensus(context: W5FormalRebaseContext): W5AuthorityCensus {
@@ -140,6 +158,7 @@ export function buildW5AuthorityCensus(context: W5FormalRebaseContext): W5Author
       environment: "NONE_PROVEN",
       fallback: "deterministic Simulation Core",
       formal_writer: "none",
+      invocation_proven: false,
       input_schema: "NOT_PROVEN",
       input_unit: "NOT_PROVEN",
       known_limits: [reason],
@@ -154,24 +173,70 @@ export function buildW5AuthorityCensus(context: W5FormalRebaseContext): W5Author
     });
 
   const entries: W5AuthorityCensusEntry[] = [
-    missing(
-      "IDEAL_POINT_LANCASTER",
-      "DEFERRED",
-      "No executable Ideal Point/Lancaster artifact or invocation is present; do not expose as active.",
-      "RESEARCH"
-    ),
+    entry(context, "IDEAL_POINT_LANCASTER", "CURRENT", {
+      actual_invocation_path:
+        "W5GovernedModelService.evaluate -> evaluateDemandRuntime -> calculateIdealLancasterFit",
+      code_path: "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
+      consumer: "W5 governed demand candidate / role-safe teacher and student projections",
+      data_refs: [
+        "DemandCohort.ideal_attributes",
+        "DemandProduct.attributes",
+        "synthetic-golden://o3-governed-demand/ideal-lancaster-v1"
+      ],
+      environment: "Node.js pure function; AI/provider OFF; no external provider",
+      fallback: "DEMAND candidate plane OFF -> current W5 synthetic WANT",
+      formal_writer: "none; candidate projection only, official_truth_write=false",
+      invocation_proven: true,
+      input_schema: "DemandCohort + DemandProduct",
+      input_unit: "bounded product/cohort attributes",
+      known_limits: [
+        "Deterministic synthetic candidate invocation is proven; calibration and official settlement authority are not proven."
+      ],
+      output_schema: "IdealLancasterResult",
+      output_unit: "dimensionless fit score",
+      primary_producer:
+        "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts::calculateIdealLancasterFit",
+      seed: 20260726,
+      solver_evaluator: "evaluateDemandRuntime -> evaluateMarket",
+      symbol: "calculateIdealLancasterFit",
+      version: "o3-governed-demand-v1@1.0.0",
+      visibility: "SYNTHETIC_HEURISTIC"
+    }),
     missing(
       "BLP_RCNL",
       "MISSING",
       "No executable BLP/RCNL artifact, dependency, invocation, calibration, or active adapter is present.",
       "MISSING"
     ),
-    missing(
-      "HUFF_SPATIAL",
-      "MISSING",
-      "No executable Huff/Spatial choice artifact or invocation is present.",
-      "MISSING"
-    ),
+    entry(context, "HUFF_SPATIAL", "CURRENT", {
+      actual_invocation_path:
+        "W5GovernedModelService.evaluate -> evaluateDemandRuntime -> calculateHuffSpatialWeights",
+      code_path: "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts",
+      consumer: "W5 governed demand candidate / role-safe teacher and student projections",
+      data_refs: [
+        "DemandMarket.products.distance",
+        "DemandMarket.products.attractiveness",
+        "synthetic-golden://o3-governed-demand/huff-spatial-v1"
+      ],
+      environment: "Node.js pure function; AI/provider OFF; no external provider",
+      fallback: "DEMAND candidate plane OFF -> current W5 synthetic WANT",
+      formal_writer: "none; candidate projection only, official_truth_write=false",
+      invocation_proven: true,
+      input_schema: "DemandMarket",
+      input_unit: "bounded distance and attractiveness values",
+      known_limits: [
+        "Deterministic synthetic candidate invocation is proven; Shanghai calibration and official settlement authority are not proven."
+      ],
+      output_schema: "HuffSpatialResult",
+      output_unit: "normalized spatial weight",
+      primary_producer:
+        "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts::calculateHuffSpatialWeights",
+      seed: 20260726,
+      solver_evaluator: "evaluateDemandRuntime -> evaluateMarket",
+      symbol: "calculateHuffSpatialWeights",
+      version: "o3-governed-demand-v1@1.0.0",
+      visibility: "SYNTHETIC_HEURISTIC"
+    }),
     entry(context, "CAPACITY", "CURRENT", {
       ...coreEntryDefaults,
       consumer: "Simulation Core operations metrics",
@@ -224,6 +289,7 @@ export function buildW5AuthorityCensus(context: W5FormalRebaseContext): W5Author
       environment: "not executed by official W5 path",
       fallback: "deterministic Simulation Core",
       formal_writer: "none",
+      invocation_proven: false,
       input_schema: "candidate shadow input",
       input_unit: "scenario values",
       known_limits: ["Shadow-only; cannot overwrite official output."],
@@ -412,13 +478,57 @@ export function reproduceW5ModelBaseline(
   const core = evaluateW5CoreRealization(input);
   const want = syntheticWantCandidate(input);
   const can = canConstraints(input);
+  const o3Binding = createDemandBinding({
+    artifact_digest: O3_DEMAND_MODEL_VERSION.artifact.content_digest,
+    artifact_id: O3_DEMAND_MODEL_VERSION.artifact.artifact_id,
+    course_id: "course_formal_rebase",
+    model_version: O3_DEMAND_MODEL_VERSION.version,
+    model_version_id: O3_DEMAND_MODEL_VERSION.model_version_id,
+    parameter_set_id: "param_formal_rebase",
+    round_no: 1,
+    run_id: "run_formal_rebase",
+    scenario_id: input.scenario_id,
+    seed: input.seed,
+    team_id: "team_formal_rebase",
+    tenant_id: "tenant_formal_rebase"
+  });
+  const o3Runtime = evaluateDemandRuntime({
+    exact_binding: o3Binding,
+    markets: [
+      createShanghaiDemandMarket({
+        customer_demand: 180,
+        market_id: `market:${input.scenario_id}:formal-rebase`
+      })
+    ],
+    model_version: O3_DEMAND_MODEL_VERSION,
+    plane: "ON"
+  });
+  if (o3Runtime.status !== "PASS") throw new Error("W5_FORMAL_REBASE_O3_ACTIVATION_FAILED");
+  const o3Activation = {
+    artifact_digest: O3_DEMAND_MODEL_VERSION.artifact.content_digest,
+    artifact_id: O3_DEMAND_MODEL_VERSION.artifact.artifact_id,
+    binding_digest: o3Binding.binding_digest,
+    feature_ownership: o3Runtime.lineage.feature_ownership,
+    model_version_id: o3Runtime.model_version_ref.model_version_id,
+    source_files: [
+      "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
+      "services/simulation-core/src/model-candidates/governed-demand/huff-spatial.ts",
+      "services/simulation-core/src/model-candidates/governed-demand/runtime.ts"
+    ],
+    status: o3Runtime.status,
+    market_ids: o3Runtime.markets.map((market) => market.market_id),
+    official_truth_write: o3Runtime.authority_flags.official_truth_write,
+    settlement_write: o3Runtime.authority_flags.settlement_write,
+    provider_calls: o3Runtime.authority_flags.provider_calls
+  };
   const golden = record(
     context,
     "GOLDEN",
-    { can, input, want },
-    { core, can, want, writes_formal_result: false },
+    { can, input, want, o3_activation: o3Activation },
+    { core, can, want, o3_activation: o3Activation, writes_formal_result: false },
     [
-      "Core model, synthetic WANT, CAN constraints, and REALIZED projection executed in one bounded run."
+      "Core model, synthetic WANT, CAN constraints, and REALIZED projection executed in one bounded run.",
+      "O3 Ideal Point/Lancaster and Huff/Spatial candidate runtime executed with AI/provider OFF and no official truth write."
     ]
   );
 

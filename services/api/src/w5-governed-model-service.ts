@@ -31,6 +31,7 @@ import {
   type GovernedDemandRuntimeOutput
 } from "@simwar/simulation-core";
 import { evaluateW5CoreRealization } from "@simwar/simulation-core";
+import { W5_MODEL_VERSION_REF } from "@simwar/shared-contracts";
 
 export interface W5ServiceActor {
   actor_id: string;
@@ -84,6 +85,7 @@ export class W5GovernedModelError extends Error {
       | "W5_PARAMETER_MAPPING_DRAFT"
       | "W5_SCOPE_CONFLICT"
       | "W5_EXACT_BINDING_REQUIRED"
+      | "W5_MODEL_VERSION_REBIND_REQUIRED"
   ) {
     super(code);
     this.name = "W5GovernedModelError";
@@ -256,7 +258,8 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
       economic_meaning: "relative preference fit",
       feature_id: "preference_fit",
       primary_producer: "o3_governed_demand_candidate",
-      source_ref: "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
+      source_ref:
+        "services/simulation-core/src/model-candidates/governed-demand/ideal-lancaster.ts",
       unit: "index",
       visibility: "approved_view"
     },
@@ -321,7 +324,8 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
       classification: "NOT_CALIBRATED",
       family: "IDEAL_POINT_LANCASTER",
       invocation_proven: true,
-      known_limit: "Deterministic candidate invocation is proven; calibration and official settlement authority are not claimed."
+      known_limit:
+        "Deterministic candidate invocation is proven; calibration and official settlement authority are not claimed."
     },
     {
       activation_claim: "RESEARCH",
@@ -335,7 +339,8 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
       classification: "NOT_CALIBRATED",
       family: "HUFF_SPATIAL",
       invocation_proven: true,
-      known_limit: "Deterministic candidate invocation is proven; Shanghai calibration is not proven."
+      known_limit:
+        "Deterministic candidate invocation is proven; Shanghai calibration is not proven."
     },
     {
       activation_claim: "SHADOW",
@@ -359,7 +364,7 @@ const DEFAULT_MODEL_VERSION: W5ModelVersion = {
       known_limit: "Simulation Core projection only; formal settlement truth is not written."
     }
   ],
-  model_version_ref: "eldercare_w5_governed_v1@1.0.0",
+  model_version_ref: W5_MODEL_VERSION_REF,
   no_implicit_latest: true,
   status: "APPROVED",
   visibility: {
@@ -775,8 +780,12 @@ export class W5GovernedModelService {
     ) {
       throw new W5GovernedModelError("W5_EXACT_BINDING_REQUIRED");
     }
+    if (binding.model_version_ref !== this.modelVersion.model_version_ref) {
+      throw new W5GovernedModelError("W5_MODEL_VERSION_REBIND_REQUIRED");
+    }
     const values = draft.parameter_values;
-    const consumerTeam = scope.team_id ?? (actor.role === "teacher" ? "shared-governed-market" : null);
+    const consumerTeam =
+      scope.team_id ?? (actor.role === "teacher" ? "shared-governed-market" : null);
     if (!consumerTeam) throw new W5GovernedModelError("W5_SCOPE_CONFLICT");
     const baseInput = createDefaultEldercareModelInput();
     const input = {
@@ -820,9 +829,7 @@ export class W5GovernedModelService {
     const candidateMarket = candidateRuntime.markets[0];
     const demandCandidate = candidateMarket
       ? Math.round(
-          Number(values.customer_demand) *
-            (1 - candidateMarket.outside_option_share) *
-            100
+          Number(values.customer_demand) * (1 - candidateMarket.outside_option_share) * 100
         ) / 100
       : 0;
     const demandCandidateProjection = projectDemandCandidate(candidateRuntime, o3Binding);
