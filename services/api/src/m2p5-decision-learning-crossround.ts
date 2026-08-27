@@ -432,7 +432,9 @@ function learningLoopProjection(input: {
       allowedActions.push("REVIEW_NON_OFFICIAL_WHAT_IF");
     }
     if (transferReady) allowedActions.push("REVIEW_TRANSFER");
-    if (nextOpeningReadiness === "ENTRY_READY") allowedActions.push("ENTER_NEXT_ROUND");
+    if (transferReady && nextOpeningReadiness === "ENTRY_READY") {
+      allowedActions.push("ENTER_NEXT_ROUND");
+    }
   }
 
   const publicRefs: W3ExactRef[] = [

@@ -69,6 +69,7 @@ export function StudentDecisionLearningJourney({
   const [reflectionNotice, setReflectionNotice] = useState("");
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [crossRoundRetryNonce, setCrossRoundRetryNonce] = useState(0);
   const [crossRound, setCrossRound] = useState<CrossRoundState>({ phase: "idle" });
   const recordRef = useRef<W3OfficialConsequenceRecord | undefined>(undefined);
   const crossRoundRef = useRef<M2P5DecisionLearningResponse | undefined>(undefined);
@@ -176,7 +177,7 @@ export function StudentDecisionLearningJourney({
         });
       });
     return () => controller.abort();
-  }, [apiBase, context, crossRoundEnabled, published, tenantId, token]);
+  }, [apiBase, context, crossRoundEnabled, crossRoundRetryNonce, published, tenantId, token]);
 
   const record = state.phase === "ready" || state.phase === "stale" ? state.record : undefined;
 
@@ -212,6 +213,7 @@ export function StudentDecisionLearningJourney({
         throw new Error(envelope.message ?? "学习草稿保存失败");
       }
       requestEpochRef.current += 1;
+      setCrossRoundRetryNonce((current) => current + 1);
       recordRef.current = envelope.data.record;
       setState({ phase: "ready", record: envelope.data.record });
       setReflectionNotice("学习草稿已保存；它不会进入正式结算。");

@@ -389,9 +389,9 @@ describe("P2-B FE-19 student decision learning", () => {
       resolveRefresh = resolve;
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = String(input);
-      if (url.includes("/m2p5/")) {
-        if (new URL(url).origin === "http://api-alt.test") return pendingRefresh;
+      const requestUrl = new URL(String(input), "http://api.test");
+      if (requestUrl.pathname.includes("/m2p5/")) {
+        if (requestUrl.origin === "http://api-alt.test") return pendingRefresh;
         return new Response(JSON.stringify({ data: crossRoundResponse }), { status: 200 });
       }
       return new Response(JSON.stringify({ data: response }), { status: 200 });
@@ -432,6 +432,80 @@ describe("P2-B FE-19 student decision learning", () => {
     expect(
       host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-phase")
     ).toBe("ready");
+    root.unmount();
+    host.remove();
+    fetchSpy.mockRestore();
+  });
+
+  it("refreshes the M2P6 projection after saving a reflection", async () => {
+    let crossRoundCalls = 0;
+    const blockedCrossRound = {
+      ...crossRoundResponse,
+      learning_loop: {
+        ...crossRoundResponse.learning_loop,
+        status: "BLOCKED",
+        reflection_status: "MISSING",
+        what_if_availability: "NOT_GENERATED",
+        transfer_status: "BLOCKED",
+        blockers: ["REFLECTION_REQUIRED"],
+        allowed_actions: ["SUBMIT_AI_OFF_REFLECTION"]
+      }
+    } as M2P5DecisionLearningResponse;
+    const submittedResponse = {
+      ...response,
+      record: {
+        ...response.record,
+        reflection: {
+          ai_used: false,
+          advisory_only: true,
+          prompt_id: "w3-reflection-off-v1",
+          reflection_id: "reflection-001",
+          response: "已提交复盘",
+          status: "SUBMITTED"
+        }
+      }
+    } as W3OfficialConsequenceResponse;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const requestUrl = new URL(String(input), "http://api.test");
+      if (requestUrl.pathname.includes("/m2p5/")) {
+        crossRoundCalls += 1;
+        const data = crossRoundCalls === 1 ? blockedCrossRound : crossRoundResponse;
+        return new Response(JSON.stringify({ data }), { status: 200 });
+      }
+      if (requestUrl.pathname.endsWith("/w3/reflection")) {
+        return new Response(JSON.stringify({ data: submittedResponse }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: response }), { status: 200 });
+    });
+    const { host, root } = renderJourney({ crossRoundEnabled: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(crossRoundCalls).toBe(1);
+    expect(
+      host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-status")
+    ).toBe("BLOCKED");
+
+    const judgment = host.querySelector<HTMLTextAreaElement>("#student-p2b-reflection-judgment");
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    act(() => {
+      setValue?.call(judgment, "提交复盘");
+      judgment?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const submit = host.querySelector<HTMLButtonElement>(
+      '[data-testid="student-p2b-reflection"] button[type="submit"]'
+    );
+    await act(async () => {
+      submit?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(crossRoundCalls).toBe(2);
+    expect(
+      host.querySelector('[data-testid="student-m2p6-learning-loop"]')?.getAttribute("data-status")
+    ).toBe("READY");
     root.unmount();
     host.remove();
     fetchSpy.mockRestore();

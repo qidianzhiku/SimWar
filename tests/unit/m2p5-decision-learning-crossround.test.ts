@@ -488,6 +488,37 @@ describe("M2-P5 decision learning cross-round composition", () => {
     expect(serialized).not.toContain("authority_diagnostics");
   });
 
+  it("does not allow student entry while the transfer gate is not ready", async () => {
+    const base = fixtureDependencies();
+    const getOfficialConsequence = base.getOfficialConsequence;
+    const service = new M2P5DecisionLearningCrossRoundService({
+      ...base,
+      getOfficialConsequence: async (...args) => {
+        const official = await getOfficialConsequence(...args);
+        return {
+          ...official,
+          visibility: "student_safe" as const,
+          record: { ...official.record, counterfactual: undefined }
+        }
+      },
+    });
+
+    const result = await service.getJourney({
+      actor: {
+        roles: ["student"],
+        team_id: context.team_id,
+        tenant_id: context.tenant_id,
+        user_id: "usr_student"
+      },
+      context,
+      surface: "student"
+    });
+
+    expect(learningLoop(result).status).toBe("BLOCKED");
+    expect(learningLoop(result).allowed_actions).not.toContain("ENTER_NEXT_ROUND");
+    expect(learningLoop(result).blockers).toContain("WHAT_IF_REQUIRED");
+  });
+
   it("fails closed when the inherited official consequence is not bound to the exact round", async () => {
     const base = fixtureDependencies();
     const getOfficialConsequence = base.getOfficialConsequence;
