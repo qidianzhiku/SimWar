@@ -376,7 +376,11 @@ export async function handleW5GovernedModelRoute(
       200,
       service.projectStudent(
         serviceActor(actor),
-        scope(run.course_id, { round_no: roundNo, run_id: runId }),
+        scope(run.course_id, {
+          round_no: roundNo,
+          run_id: runId,
+          team_id: enrolledTeam.team_id
+        }),
         draftId,
         parseProfile(url.searchParams.get("experienceProfile"))
       )

@@ -94,7 +94,7 @@ async function lifecycleDraft(
     "/api/v1/bff/teacher/w5/scenario-studio/drafts",
     teacherToken,
     "POST",
-    { course_id: "course_demo", title: `O2 round ${roundNo} governed demand` }
+    { course_id: "course_demo", title: `O3 round ${roundNo} governed demand` }
   );
   expect(created.status).toBe(201);
   const draftId = created.body.data.draft.draft_id;
@@ -129,7 +129,7 @@ async function lifecycleDraft(
   return draftId;
 }
 
-describe("W5 O2 governed demand realization real-BFF acceptance", () => {
+describe("W5 O3 governed demand realization real-BFF acceptance", () => {
   it("covers three exact rounds across two teams with no mock or second truth writer", async () => {
     const store = createP1Store();
     const server = createApiServer(store);
@@ -149,15 +149,15 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
         adminToken,
         "POST",
         {
-          display_name: "O2 Beta Student",
-          email: "o2-beta-student@demo.simwar.local",
-          password: "o2-beta-student",
+           display_name: "O3 Beta Student",
+           email: "o3-beta-student@demo.simwar.local",
+           password: "o3-beta-student",
           roles: ["learner"],
-          username: "o2_beta_student"
+          username: "o3_beta_student"
         }
       );
       expect(betaUser.status).toBe(201);
-      const betaStudentToken = await login(baseUrl, "o2_beta_student", "o2-beta-student");
+      const betaStudentToken = await login(baseUrl, "o3_beta_student", "o3-beta-student");
 
       const createdRun = await api<ApiEnvelope<{ run: Run; round: Round }>>(
         baseUrl,
@@ -169,7 +169,7 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
       const runId = createdRun.body.data.run.run_id;
       for (const roundNo of [2, 3]) {
         store.rounds.push({
-          round_id: `round_o2_real_bff_${roundNo}`,
+          round_id: `round_o3_real_bff_${roundNo}`,
           round_no: roundNo,
           run_id: runId,
           status: "open",
@@ -182,12 +182,14 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
         "/api/v1/courses/course_demo/teams",
         teacherToken,
         "POST",
-        { captain_user_id: betaUser.body.data.user_id, name: "O2 Beta Team" }
+        { captain_user_id: betaUser.body.data.user_id, name: "O3 Beta Team" }
       );
       expect(betaTeam.status).toBe(201);
       expect(betaTeam.body.data.team_id).toMatch(/^team_/);
 
       const matrix: Array<{ draftId: string; roundNo: number; team: "alpha" | "beta" }> = [];
+      const candidateDigestByRound = new Map<number, string>();
+      const consumerBindingDigestByRound = new Map<number, string>();
       for (const roundNo of [1, 2, 3]) {
         const draftId = await lifecycleDraft(baseUrl, teacherToken, runId, roundNo);
         const standard = await api<ApiEnvelope<{ convergence: W5ConvergenceProjection }>>(
@@ -219,6 +221,16 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
           official: true,
           writes_formal_result: false
         });
+        expect(standardProjection.demand_realization.candidate).toMatchObject({
+          exact_binding: true,
+          market_count: 1,
+          model_family: "IDEAL_POINT_LANCASTER_HUFF_SPATIAL",
+          source_plane: "GOVERNED_DEMAND_CANDIDATE",
+          status: "PASS"
+        });
+        expect(standardProjection.demand_realization.candidate.candidate_digest).toBe(
+          advancedProjection.demand_realization.candidate.candidate_digest
+        );
         expect(standardProjection.realized.replay_relevant_digest).toBe(
           advancedProjection.realized.replay_relevant_digest
         );
@@ -238,6 +250,26 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
             "READY_WITH_LIMITS"
           );
           expect(student.body.data.convergence.demand_realization.lineage.round_no).toBe(roundNo);
+          const candidate = student.body.data.convergence.demand_realization.candidate;
+          expect(candidate.status).toBe("PASS");
+          expect(candidate.market_count).toBe(1);
+          expect(candidate.consumer_binding_digest).toMatch(/^[a-f0-9]{64}$/);
+          expect(candidate.markets[0]?.outside_option_share).toBeGreaterThan(0);
+          expect(candidate.authority_flags).toEqual({
+            official_truth_write: false,
+            provider_calls: 0,
+            settlement_write: false
+          });
+          if (team === "alpha") candidateDigestByRound.set(roundNo, candidate.candidate_digest);
+          else expect(candidate.candidate_digest).toBe(candidateDigestByRound.get(roundNo));
+          expect(student.body.data.security.team).toBeTruthy();
+          if (team === "alpha") {
+            consumerBindingDigestByRound.set(roundNo, candidate.consumer_binding_digest);
+          } else {
+            expect(candidate.consumer_binding_digest).not.toBe(
+              consumerBindingDigestByRound.get(roundNo)
+            );
+          }
           expect(student.body.data.convergence.realized.authority).toBe("SIMULATION_CORE");
           expect(JSON.stringify(student.body.data)).not.toContain("parameter_values");
           expect(JSON.stringify(student.body.data)).not.toContain("content_digest");
@@ -249,6 +281,7 @@ describe("W5 O2 governed demand realization real-BFF acceptance", () => {
       expect(matrix).toHaveLength(6);
       expect(new Set(matrix.map((item) => item.roundNo))).toEqual(new Set([1, 2, 3]));
       expect(new Set(matrix.map((item) => item.team))).toEqual(new Set(["alpha", "beta"]));
+      expect(candidateDigestByRound.size).toBe(3);
 
       const adminProjection = await api<ApiEnvelope<W5GovernedModelAdminProjection>>(
         baseUrl,

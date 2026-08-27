@@ -10,6 +10,79 @@
   ],
   "$defs": {
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "demandCandidateProduct": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_share", "product_id"],
+      "properties": {
+        "candidate_share": { "type": "number", "minimum": 0, "maximum": 1 },
+        "product_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "demandCandidateMarket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["market_id", "outside_option_share", "products"],
+      "properties": {
+        "market_id": { "type": "string", "minLength": 1 },
+        "outside_option_share": { "type": "number", "minimum": 0, "maximum": 1 },
+        "products": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/demandCandidateProduct" }
+        }
+      }
+    },
+    "demandCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_flags",
+        "candidate_digest",
+        "consumer_binding_digest",
+        "exact_binding",
+        "feature_ownership",
+        "market_count",
+        "market_ids",
+        "markets",
+        "model_family",
+        "model_version_id",
+        "source_plane",
+        "status"
+      ],
+      "properties": {
+        "authority_flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["official_truth_write", "provider_calls", "settlement_write"],
+          "properties": {
+            "official_truth_write": { "const": false },
+            "provider_calls": { "const": 0 },
+            "settlement_write": { "const": false }
+          }
+        },
+        "candidate_digest": { "$ref": "#/$defs/digest" },
+        "consumer_binding_digest": { "$ref": "#/$defs/digest" },
+        "exact_binding": { "const": true },
+        "feature_ownership": {
+          "type": "array",
+          "items": { "enum": ["ideal_lancaster_fit", "huff_spatial_weight"] },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "market_count": { "type": "integer", "minimum": 0 },
+        "market_ids": { "type": "array", "minItems": 0, "items": { "type": "string" } },
+        "markets": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "$ref": "#/$defs/demandCandidateMarket" }
+        },
+        "model_family": { "const": "IDEAL_POINT_LANCASTER_HUFF_SPATIAL" },
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "source_plane": { "const": "GOVERNED_DEMAND_CANDIDATE" },
+        "status": { "enum": ["FALLBACK", "PASS"] }
+      }
+    },
     "security": {
       "type": "object",
       "additionalProperties": false,
@@ -263,8 +336,9 @@
     "demandRealization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["explanation", "known_limits", "lineage", "mechanism", "readiness"],
+      "required": ["candidate", "explanation", "known_limits", "lineage", "mechanism", "readiness"],
       "properties": {
+        "candidate": { "$ref": "#/$defs/demandCandidate" },
         "readiness": { "const": "READY_WITH_LIMITS" },
         "lineage": {
           "type": "object",
