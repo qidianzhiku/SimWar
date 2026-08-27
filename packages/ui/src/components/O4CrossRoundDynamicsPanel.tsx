@@ -155,3 +155,5 @@ export function O4CrossRoundDynamicsPanel(props: O4CrossRoundDynamicsPanelProps)
     </section>
   );
 }
+
+export default O4CrossRoundDynamicsPanel;

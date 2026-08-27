@@ -17,6 +17,10 @@
     "./p2b-tokens.css": "./src/p2b-tokens.css",
     "./styles.css": "./src/styles.css",
     "./project-aware.css": "./src/project-aware.css",
+    "./o4-cross-round-dynamics-panel": {
+      "types": "./dist/components/O4CrossRoundDynamicsPanel.d.ts",
+      "default": "./dist/components/O4CrossRoundDynamicsPanel.js"
+    },
     "./w4-commercial.css": "./src/w4-commercial.css"
   },
   "scripts": {

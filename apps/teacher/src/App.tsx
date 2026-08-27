@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { O4CrossRoundDynamicsPanel, StatePanel } from "@simwar/ui";
+import { StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -66,6 +66,9 @@ const RoleWorkflowPanel = lazy(() =>
   import("./RoleWorkflowPanel").then(({ RoleWorkflowPanel: Component }) => ({
     default: Component
   }))
+);
+const O4CrossRoundDynamicsPanel = lazy(() =>
+  import("@simwar/ui/o4-cross-round-dynamics-panel")
 );
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
@@ -2336,14 +2339,16 @@ export function App() {
           />
         ) : null}
         {O4_ENABLED && isTeacher && session && selectedRun ? (
-          <O4CrossRoundDynamicsPanel
-            apiBase={API_BASE}
-            courseId={selectedRun.course_id}
-            runId={selectedRun.run_id}
-            surface="teacher"
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入 O4 跨回合动力…</p>}>
+            <O4CrossRoundDynamicsPanel
+              apiBase={API_BASE}
+              courseId={selectedRun.course_id}
+              runId={selectedRun.run_id}
+              surface="teacher"
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {isTeacher && session ? (
           <Suspense fallback={<p className="muted">正在载入 Operating World…</p>}>

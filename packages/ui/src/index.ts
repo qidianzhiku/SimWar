@@ -9,8 +9,6 @@ export { ContextBar } from "./components/ContextBar.js";
 export type { ContextBarProps, ServerContext, ServerContextKey } from "./components/ContextBar.js";
 export { KnownLimitBanner } from "./components/KnownLimitBanner.js";
 export type { KnownLimitBannerProps } from "./components/KnownLimitBanner.js";
-export { O4CrossRoundDynamicsPanel } from "./components/O4CrossRoundDynamicsPanel.js";
-export type { O4CrossRoundDynamicsPanelProps } from "./components/O4CrossRoundDynamicsPanel.js";
 export { ReceiptPanel } from "./components/ReceiptPanel.js";
 export type { Receipt, ReceiptPanelProps } from "./components/ReceiptPanel.js";
 export { RoleNavigation } from "./components/RoleNavigation.js";
