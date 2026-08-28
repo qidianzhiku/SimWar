@@ -90,6 +90,7 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
+import { ShanghaiFullVerticalTeacherPanel } from "./ShanghaiFullVerticalPanel";
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -116,6 +117,10 @@ import {
 import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiDraftId") ?? "");
 const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -790,9 +795,8 @@ export function App() {
         selectedRoundId
       )
     : undefined;
-  const teacherTeamsForRun = state?.teams.filter(
-    (candidate) => candidate.course_id === selectedRun?.course_id
-  ) ?? [];
+  const teacherTeamsForRun =
+    state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? [];
   const activeTeacherTeamId = resolveActiveTeacherTeamId(
     teacherTeamsForRun,
     selectedTeacherTeamId,
@@ -2357,6 +2361,17 @@ export function App() {
             courseId={selectedRun?.course_id ?? selectedCourseId}
             runId={selectedRun?.run_id ?? selectedRunId}
             roundNo={selectedRound?.round_no}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {isTeacher && session ? (
+          <ShanghaiFullVerticalTeacherPanel
+            apiBase={API_BASE}
+            courseId={selectedRun?.course_id ?? selectedCourseId}
+            draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID || undefined}
+            roundNo={selectedRound?.round_no}
+            runId={selectedRun?.run_id ?? selectedRunId}
             tenantId={login.tenantId}
             token={session.access_token}
           />

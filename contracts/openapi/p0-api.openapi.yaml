@@ -5207,6 +5207,65 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator or platform administrator role required }
 
+  /api/v1/bff/teacher/shanghai/full-vertical:
+    get:
+      operationId: MAIN_SH_FV_O1_TEACHER_FULL_VERTICAL_GET_V1
+      summary: Read the exact-bound Shanghai full-vertical Teacher projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: draftId, in: query, required: false, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: false, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: false, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Teacher scenario configuration and governed preview.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiFullVerticalTeacherEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or course scope denied }
+        "422": { description: Exact binding is required or invalid }
+
+  /api/v1/bff/student/shanghai/full-vertical:
+    get:
+      operationId: MAIN_SH_FV_O1_STUDENT_FULL_VERTICAL_GET_V1
+      summary: Read the enrolled student's role-safe Shanghai full-vertical projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Role-safe Student decision, result and learning projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiFullVerticalStudentEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student enrollment or scope denied }
+        "422": { description: Exact binding is required or invalid }
+
+  /api/v1/bff/admin/shanghai/full-vertical:
+    get:
+      operationId: MAIN_SH_FV_O1_ADMIN_FULL_VERTICAL_GET_V1
+      summary: Read the tenant-safe Shanghai full-vertical audit projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: draftId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Tenant-safe administrator provenance and audit projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiFullVerticalAdminEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "422": { description: Exact binding is required or invalid }
+
   /api/v1/bff/teacher/operating-world/studio:
     get:
       operationId: SH_M3_TEACHER_OPERATING_WORLD_STUDIO_GET_V1
@@ -8481,6 +8540,33 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/w5-governed-model.v1.json#/$defs/adminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ShanghaiFullVerticalTeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-full-vertical.v1.json#/$defs/teacher" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ShanghaiFullVerticalStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-full-vertical.v1.json#/$defs/student" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ShanghaiFullVerticalAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-full-vertical.v1.json#/$defs/admin" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W5MutationEnvelope:

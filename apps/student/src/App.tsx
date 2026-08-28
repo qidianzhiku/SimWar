@@ -36,6 +36,7 @@ import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
+import { ShanghaiFullVerticalStudentPanel } from "./ShanghaiFullVerticalPanel";
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -1013,6 +1014,18 @@ export function App() {
           </section>
         ) : null}
 
+        {hasStudentSurface ? (
+          <ShanghaiFullVerticalStudentPanel
+            apiBase={API_BASE}
+            courseId={latestRun?.course_id}
+            draftId={w5DraftId}
+            roundNo={latestRound?.round_no}
+            runId={latestRun?.run_id}
+            tenantId={login.tenantId}
+            token={activeSession?.access_token ?? ""}
+          />
+        ) : null}
+
         {hasStudentSurface && operatingWorldDraftId ? (
           <section
             id="student-operating-world-brief"
@@ -1377,11 +1390,8 @@ export function App() {
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
-                    latestRun && latestRound && [
-                      latestRun.course_id,
-                      latestRun.run_id,
-                      latestRound.round_no
-                    ]
+                    latestRun &&
+                    latestRound && [latestRun.course_id, latestRun.run_id, latestRound.round_no]
                   }
                 />
               </Suspense>

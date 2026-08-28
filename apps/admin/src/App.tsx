@@ -47,10 +47,9 @@ import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
+import { ShanghaiFullVerticalAdminPanel } from "./ShanghaiFullVerticalPanel";
 
-const O4CrossRoundDynamicsPanel = lazy(() =>
-  import("@simwar/ui/o4-cross-round-dynamics-panel")
-);
+const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const O4_ENABLED =
@@ -76,6 +75,11 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
+
+const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiDraftId") ?? "");
 
 export function getW5AuditCourseId(courseId: string): string | null {
   const normalized = courseId.trim();
@@ -1143,6 +1147,22 @@ export function App() {
           <W5GovernedModelAuditPanel
             apiBase={API_BASE}
             courseId={W5_AUDIT_COURSE_ID}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session &&
+        isTenantAdmin &&
+        W5_AUDIT_COURSE_ID &&
+        SHANGHAI_FULL_VERTICAL_DRAFT_ID &&
+        OPERATING_WORLD_RUN_ID &&
+        Number.isSafeInteger(OPERATING_WORLD_ROUND_NO) ? (
+          <ShanghaiFullVerticalAdminPanel
+            apiBase={API_BASE}
+            courseId={W5_AUDIT_COURSE_ID}
+            draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
+            roundNo={OPERATING_WORLD_ROUND_NO}
+            runId={OPERATING_WORLD_RUN_ID}
             tenantId={login.tenantId}
             token={session.access_token}
           />
