@@ -106,14 +106,6 @@ export function ShanghaiFullVerticalTeacherPanel({
       .then((data) => {
         if (active) {
           setProjection(data);
-          if (!selectedDraftId && runId && roundNo !== undefined) {
-            const boundDraft = data.teacher_projection.drafts.find(
-              (candidate) =>
-                candidate.exact_runtime_binding?.run_id === runId &&
-                candidate.exact_runtime_binding?.round_no === roundNo
-            );
-            if (boundDraft) setSelectedDraftId(boundDraft.draft_id);
-          }
         }
       })
       .catch((reason: unknown) => {

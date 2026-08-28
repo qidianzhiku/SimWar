@@ -136,7 +136,16 @@
         "journey": { "$ref": "#/$defs/journey" },
         "known_limits": { "type": "array", "items": { "type": "string" } },
         "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
-        "projection": { "type": "object" },
+        "projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "convergence": { "type": "object" },
+            "operation_id": { "const": "W5_STUDENT_GOVERNED_MODEL_PROJECTION_GET_V1" },
+            "security": { "type": "object" },
+            "visibility": { "const": "ROLE_SAFE_STUDENT" }
+          }
+        },
         "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
         "status": { "const": "READY_WITH_LIMITS" },
         "surface": { "const": "STUDENT" },

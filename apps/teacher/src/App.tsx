@@ -600,6 +600,7 @@ export function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [selectedShanghaiDraftId, setSelectedShanghaiDraftId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -1485,6 +1486,10 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
+    setSelectedShanghaiDraftId(null);
+  }, [selectedCourseId, selectedRunId, selectedRoundId]);
+
+  useEffect(() => {
     setSelectedCourseBlueprint(null);
     setCourseBlueprintReadiness(null);
     if (!session) {
@@ -2356,6 +2361,7 @@ export function App() {
             <W5GovernedModelStudio
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
+              onDraftChange={setSelectedShanghaiDraftId}
               runId={selectedRun?.run_id ?? selectedRunId}
               roundNo={selectedRound?.round_no}
               tenantId={login.tenantId}
@@ -2368,6 +2374,7 @@ export function App() {
             <ShanghaiFullVerticalTeacherPanel
               apiBase={API_BASE}
               courseId={selectedRun?.course_id ?? selectedCourseId}
+              draftId={selectedShanghaiDraftId}
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
               tenantId={login.tenantId}
