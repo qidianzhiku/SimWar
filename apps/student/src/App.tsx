@@ -39,6 +39,7 @@ import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearn
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
+import { resolveM4SourceRoundNo } from "./m4-source-round";
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
@@ -439,6 +440,7 @@ export function App() {
   const latestRound = latestRun
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
+  const m4SourceRoundNo = resolveM4SourceRoundNo(state?.rounds ?? [], latestRun?.run_id);
   const team = state?.teams.find((candidate) => candidate.team_id === state.current_user.team_id);
   const publishedResult = cockpit?.published_result;
   const myResult = publishedResult?.redacted_result;
@@ -1377,11 +1379,9 @@ export function App() {
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
-                    latestRun && latestRound && [
-                      latestRun.course_id,
-                      latestRun.run_id,
-                      latestRound.round_no
-                    ]
+                    latestRun && m4SourceRoundNo !== undefined
+                      ? [latestRun.course_id, latestRun.run_id, m4SourceRoundNo]
+                      : undefined
                   }
                 />
               </Suspense>
