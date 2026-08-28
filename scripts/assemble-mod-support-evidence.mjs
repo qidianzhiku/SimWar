@@ -1,12 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -87,18 +80,6 @@ function prepareSafeOutputRoot() {
   }
 
   if (existsSync(target)) {
-    const stat = lstatSync(target);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_NON_DIRECTORY");
-    }
-    const marker = join(target, OUTPUT_MARKER);
-    if (
-      !existsSync(marker) ||
-      !lstatSync(marker).isFile() ||
-      readFileSync(marker, "utf8") !== OUTPUT_MARKER_CONTENT
-    ) {
-      throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_UNOWNED_DIRECTORY");
-    }
     throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_EXISTING_DIRECTORY_USE_NEW_PATH");
   } else if (
     !/^simwar-mod-support-evidence(?:-[A-Za-z0-9][A-Za-z0-9-]*)?$/u.test(basename(target))
