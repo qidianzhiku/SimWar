@@ -6,6 +6,11 @@ import type {
   Run,
   ScenarioPackage
 } from "@simwar/shared-contracts";
+import {
+  createShanghaiFullVerticalBindingEvidenceV1,
+  type ShanghaiFullVerticalBindingEvidenceV1,
+  type ShanghaiFullVerticalFormalReferencesV1
+} from "@simwar/shared-contracts";
 import type { R7CReleaseCandidate } from "@simwar/simulation-core";
 
 export const COURSE_DELIVERY_SYNTHETIC_CLASSIFICATION_V1 = [
@@ -47,6 +52,7 @@ export interface CourseDeliveryBlueprintV1 {
   approval_reference: string;
   freeze_reference: string;
   run_binding_reference: string;
+  formal_identity_binding: ShanghaiFullVerticalBindingEvidenceV1;
   audit_reference: "course_delivery_state_machine_audit_v1";
 }
 
@@ -165,6 +171,7 @@ export function createCourseDeliveryBlueprintV1(input: {
   parameterSet: ParameterSet;
   pluginPackageId: string;
   pluginVersion: string;
+  formalBinding: ShanghaiFullVerticalFormalReferencesV1;
   releaseCandidate: R7CReleaseCandidate;
   runBindingReference: string;
   scenarioPackage: ScenarioPackage;
@@ -199,6 +206,45 @@ export function createCourseDeliveryBlueprintV1(input: {
   }
 
   const asset = input.releaseCandidate.compiled_record.asset;
+  if (
+    input.course.course_id !== input.formalBinding.course_id ||
+    input.course.tenant_id !== input.formalBinding.tenant_id ||
+    input.scenarioPackage.scenario_package_id !==
+      input.formalBinding.scenario_package.scenario_package_id ||
+    input.scenarioPackage.tenant_id !== input.formalBinding.scenario_package.tenant_id ||
+    input.scenarioPackage.version !== input.formalBinding.scenario_package.version ||
+    input.parameterSet.parameter_set_id !== input.formalBinding.parameter_set.parameter_set_id ||
+    input.parameterSet.version !== input.formalBinding.parameter_set.version ||
+    input.parameterSet.seed !== input.formalBinding.parameter_set_seed ||
+    input.pluginVersion !== input.releaseCandidate.compiled_record.plugin_version ||
+    !input.formalBinding.plugin_releases.some(
+      (release) => release.plugin_package_id === input.pluginPackageId
+    )
+  ) {
+    throw new CourseDeliveryProductizationError(
+      "COURSE_DELIVERY_FORMAL_BINDING_OBJECT_MISMATCH",
+      "formal references must match the supplied Course, ScenarioPackage, ParameterSet and plugin"
+    );
+  }
+
+  const formalIdentityBinding = createShanghaiFullVerticalBindingEvidenceV1({
+    candidate: {
+      compiler_version: input.releaseCandidate.compiled_record.compiler_version,
+      course_id: input.releaseCandidate.course_id,
+      parameter_set_id: asset.parameter_set.parameter_set_id,
+      parameter_set_seed: asset.parameter_set.seed,
+      parameter_set_version: asset.parameter_set.version,
+      plugin_package_ids: asset.scenario_package.plugin_package_ids,
+      plugin_version: input.releaseCandidate.compiled_record.plugin_version,
+      scenario_family_version: input.releaseCandidate.compiled_record.template_version,
+      scenario_package_id: asset.scenario_package.scenario_package_id,
+      scenario_package_version: asset.scenario_package.version,
+      scenario_version: input.releaseCandidate.compiled_record.scenario_version,
+      tenant_id: input.releaseCandidate.tenant_id
+    },
+    formal: input.formalBinding
+  });
+
   return {
     approval_reference: input.approvalReference,
     audit_reference: "course_delivery_state_machine_audit_v1",
@@ -206,6 +252,7 @@ export function createCourseDeliveryBlueprintV1(input: {
     course_objective: "Scenario-driven synthetic course delivery and learning evidence",
     engine_version: "toy_logit_wellness_v1@current",
     feature_mapper_version: input.releaseCandidate.compiled_record.compiler_version,
+    formal_identity_binding: formalIdentityBinding,
     freeze_reference:
       input.releaseCandidate.compiled_record.frozen_asset_hash ??
       input.releaseCandidate.release_evidence_hash,

@@ -50,10 +50,10 @@ The guard keeps Learning Evidence out of formal settlement truth. It uses existi
 | scenario asset versions         | `scenario_asset_id`, `scenario_version`, `template_version`, `variant_version`                                                       |
 | runtime binding                 | `scenario_package_id`, `parameter_set_id`, `plugin_package_id`, `plugin_version`, `engine_version`, `feature_mapper_version`, `seed` |
 | delivery plan                   | `course_objective`, `round_plan`, `team_plan`, `role_plan`, `visibility_plan`                                                        |
-| governance references           | `approval_reference`, `freeze_reference`, `run_binding_reference`, `audit_reference`, `known_limits_reference`                       |
+| governance references           | `approval_reference`, `freeze_reference`, `run_binding_reference`, `formal_identity_binding`, `audit_reference`, `known_limits_reference` |
 | learning evidence               | `LEARNING_EVIDENCE_ONLY`, `NOT_SETTLEMENT_INPUT`, `NOT_FORMAL_TRUTH`, `NOT_AUTOMATIC_GRADE`, `NOT_AI_DECISION`                       |
 
-The blueprint rejects tenant mismatch, non-approved `ScenarioPackage`, non-approved `ParameterSet`, and plugins not listed by the scenario package.
+The blueprint rejects tenant mismatch, non-approved `ScenarioPackage`, non-approved `ParameterSet`, plugins not listed by the scenario package, and any mismatch between the candidate identity and the supplied formal references, including the ParameterSet seed. `formal_identity_binding.digest_status=REFERENCE_ONLY_NOT_REHASHED` means the reference digests have not been rehashed against artifact bytes in this pure contract; it is not a digest verification claim.
 
 ## State Transition Guard
 
