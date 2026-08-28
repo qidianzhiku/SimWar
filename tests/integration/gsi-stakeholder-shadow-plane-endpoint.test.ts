@@ -110,6 +110,8 @@ function receipt(): GSIReceipt {
 describe("GSI stakeholder shadow plane BFF routes", () => {
   it("routes Teacher create, Student role-safe read, and Admin audit separately", async () => {
     const created = receipt();
+    let adminTenantId: string | undefined;
+    let adminCandidateId: string | undefined;
     const studentProjection: GSIStudentProjection = {
       surface: "student",
       role_key: "CEO",
@@ -121,18 +123,26 @@ describe("GSI stakeholder shadow plane BFF routes", () => {
     const service = {
       createCandidate: async () => created,
       getStudentProjection: async () => studentProjection,
-      getAdminProjection: async () => ({
-        surface: "admin",
-        tenant_id: "tenant_demo",
-        binding: request.binding,
-        plane_mode: "OFF",
-        provider: "OFF",
-        resolver_digest: "b".repeat(64),
-        signal_digest: "c".repeat(64),
-        candidate_digest: "d".repeat(64),
-        writes_official_truth: false,
-        known_limits: ["Provider OFF."]
-      }),
+      getAdminProjection: async (
+        _actor: CurrentUser,
+        tenantId: string,
+        candidateId: string
+      ) => {
+        adminTenantId = tenantId;
+        adminCandidateId = candidateId;
+        return {
+          surface: "admin",
+          tenant_id: "tenant_selected",
+          binding: request.binding,
+          plane_mode: "OFF",
+          provider: "OFF",
+          resolver_digest: "b".repeat(64),
+          signal_digest: "c".repeat(64),
+          candidate_digest: "d".repeat(64),
+          writes_official_truth: false,
+          known_limits: ["Provider OFF."]
+        };
+      },
       getTeacherReceipt: async () => created
     } as unknown as GSIStakeholderShadowPlaneService;
     const helpers = {
@@ -180,12 +190,14 @@ describe("GSI stakeholder shadow plane BFF routes", () => {
         { method: "GET" } as never,
         current as never,
         new URL("http://localhost/api/v1/bff/admin/gsi/audit?candidate_id=gsi_candidate_001"),
-        { requestId: "req_3", tenantId: "tenant_demo", actor: teacher },
+        { requestId: "req_3", tenantId: "tenant_selected", actor: teacher },
         helpers
       )
     ).toBe(true);
     expect(current.statusCode).toBe(200);
     expect(current.body).toContain("writes_official_truth");
+    expect(adminTenantId).toBe("tenant_selected");
+    expect(adminCandidateId).toBe("gsi_candidate_001");
   });
 
   it("handles only the exact GSI paths and rejects an unsupported method", async () => {

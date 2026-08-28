@@ -75,4 +75,27 @@ describe("GSI deterministic resolver", () => {
       new GSIStakeholderShadowPlaneError("GSI_INPUT_INVALID")
     );
   });
+
+  it("orders proposal identifiers without depending on the runtime locale", () => {
+    const result = resolveGSIProposal([
+      {
+        proposal_id: "ä",
+        stakeholder_type: "customer",
+        intent: "protect_demand",
+        priority: 0.8,
+        influence: 0.4,
+        summary: "Customers value predictable service."
+      },
+      {
+        proposal_id: "z",
+        stakeholder_type: "regulator",
+        intent: "reduce_regulatory_risk",
+        priority: 0.6,
+        influence: -0.2,
+        summary: "Regulatory review may slow expansion."
+      }
+    ]);
+
+    expect(result.accepted_proposal_ids).toEqual(["z", "ä"]);
+  });
 });

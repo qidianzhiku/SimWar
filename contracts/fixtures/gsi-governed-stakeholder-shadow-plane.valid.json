@@ -11,9 +11,9 @@
       "scenario_version": "1.0.0",
       "parameter_set_id": "parameter_demo",
       "parameter_set_version": "1.0.0",
-      "model_version_id": "model_demo",
+      "model_version_id": "gsi-stakeholder-resolver-v1",
       "model_version": "1.0.0",
-      "model_artifact_id": "artifact_demo",
+      "model_artifact_id": "artifact:gsi-stakeholder-resolver-v1:1.0.0",
       "model_artifact_version": "1.0.0"
     },
     "plane_mode": "OFF",
@@ -54,9 +54,9 @@
       "scenario_version": "1.0.0",
       "parameter_set_id": "parameter_demo",
       "parameter_set_version": "1.0.0",
-      "model_version_id": "model_demo",
+      "model_version_id": "gsi-stakeholder-resolver-v1",
       "model_version": "1.0.0",
-      "model_artifact_id": "artifact_demo",
+      "model_artifact_id": "artifact:gsi-stakeholder-resolver-v1:1.0.0",
       "model_artifact_version": "1.0.0"
     },
     "plane_mode": "OFF",

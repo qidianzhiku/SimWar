@@ -1,6 +1,12 @@
+import type { AuditLog, CoachOutput, ModelCallLog, W020AdvisoryContext } from "./index.js";
+
 export const GSI_STAKEHOLDER_SHADOW_SCHEMA_VERSION = "gsi.governed.stakeholder.shadow.v1" as const;
 export const GSI_RESOLVER_VERSION = "gsi-deterministic-resolver-v1" as const;
 export const GSI_PROVIDER = "OFF" as const;
+export const GSI_MODEL_VERSION_ID = "gsi-stakeholder-resolver-v1" as const;
+export const GSI_MODEL_VERSION = "1.0.0" as const;
+export const GSI_MODEL_ARTIFACT_ID = "artifact:gsi-stakeholder-resolver-v1:1.0.0" as const;
+export const GSI_MODEL_ARTIFACT_VERSION = "1.0.0" as const;
 
 export const GSI_STAKEHOLDER_TYPES = [
   "customer",
@@ -105,6 +111,9 @@ export interface GSIAdminProjection {
   surface: "admin";
   tenant_id: string;
   binding: GSIExactBinding;
+  context_digest: string;
+  model_call_log_id: string;
+  audit_log_id: string;
   plane_mode: GSIPlaneMode;
   provider: typeof GSI_PROVIDER;
   resolver_digest: string;
@@ -139,6 +148,10 @@ export interface GSIRecord {
   idempotency_key: string;
   request_digest: string;
   request: GSIRequest;
+  context: W020AdvisoryContext;
+  coach_output: CoachOutput;
+  model_call_log: ModelCallLog;
+  audit_log: AuditLog;
   resolver: GSIResolverResult;
   teacher_projection: GSITeacherProjection;
   student_projection: GSIStudentProjection;

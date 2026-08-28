@@ -91,7 +91,7 @@ export async function handleGSIStakeholderShadowPlaneRoute(
     if (request.method === "GET" && url.pathname === `${ADMIN_PREFIX}/audit`) {
       const id = url.searchParams.get("candidate_id");
       if (!id) throw new GSIStakeholderShadowPlaneError("GSI_INPUT_INVALID");
-      const projection = await service.getAdminProjection(context.actor, id);
+      const projection = await service.getAdminProjection(context.actor, context.tenantId, id);
       helpers.sendJson(response, 200, helpers.createEnvelope(context, projection));
       return true;
     }

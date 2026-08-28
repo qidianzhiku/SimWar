@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { CurrentUser, GSIRecord, GSIRequest } from "@simwar/shared-contracts";
+import {
+  GSI_MODEL_ARTIFACT_ID,
+  GSI_MODEL_ARTIFACT_VERSION,
+  GSI_MODEL_VERSION,
+  GSI_MODEL_VERSION_ID,
+  type CurrentUser,
+  type GSIRecord,
+  type GSIRequest
+} from "@simwar/shared-contracts";
 import {
   GSIStakeholderShadowPlaneError,
   GSIStakeholderShadowPlaneService
@@ -22,6 +30,14 @@ const student: CurrentUser = {
   user_id: "usr_student"
 };
 
+const platformAdmin: CurrentUser = {
+  display_name: "Platform Admin",
+  permissions: ["course:read"],
+  roles: ["platform_admin"],
+  tenant_id: "tenant_platform",
+  user_id: "usr_platform_admin"
+};
+
 const request: GSIRequest = {
   discriminator: "gsi_stakeholder_shadow_request",
   binding: {
@@ -34,10 +50,10 @@ const request: GSIRequest = {
     scenario_version: "1.0.0",
     parameter_set_id: "parameter_demo",
     parameter_set_version: "1.0.0",
-    model_version_id: "model_demo",
-    model_version: "1.0.0",
-    model_artifact_id: "artifact_demo",
-    model_artifact_version: "1.0.0"
+    model_version_id: GSI_MODEL_VERSION_ID,
+    model_version: GSI_MODEL_VERSION,
+    model_artifact_id: GSI_MODEL_ARTIFACT_ID,
+    model_artifact_version: GSI_MODEL_ARTIFACT_VERSION
   },
   plane_mode: "OFF",
   publication_status: "PUBLISHED",
@@ -56,7 +72,13 @@ const request: GSIRequest = {
 
 const snapshot = {
   course: { course_id: "course_001", tenant_id: "tenant_demo" },
-  run: { run_id: "run_001", course_id: "course_001", tenant_id: "tenant_demo" },
+  run: {
+    run_id: "run_001",
+    course_id: "course_001",
+    parameter_set_id: "parameter_demo",
+    scenario_package_id: "scenario_demo",
+    tenant_id: "tenant_demo"
+  },
   round: { round_id: "round_001", run_id: "run_001", tenant_id: "tenant_demo" },
   team: { team_id: "team_001", course_id: "course_001", tenant_id: "tenant_demo" },
   assignments: [
@@ -73,7 +95,8 @@ function service(
   records: GSIRecord[] = [],
   append = async (record: GSIRecord) => {
     records.push(structuredClone(record));
-  }
+  },
+  workflowSnapshot = snapshot
 ) {
   return new GSIStakeholderShadowPlaneService({
     repository: {
@@ -82,7 +105,10 @@ function service(
         structuredClone(records.find((record) => record.candidate_id === candidateId) ?? null),
       append
     },
-    roleWorkflow: { readRoleWorkflow: () => snapshot, commitRoleWorkflow: () => undefined },
+    roleWorkflow: {
+      readRoleWorkflow: () => workflowSnapshot,
+      commitRoleWorkflow: () => undefined
+    },
     exactReferences: {
       getScenarioPackage: async () => ({
         scenario_package_id: "scenario_demo",
@@ -122,6 +148,39 @@ describe("GSI candidate persistence and scope", () => {
     expect(records[0]?.request.binding.team_id).toBe("team_001");
     expect(generated.formal_truth_write).toBe(false);
     expect(generated.writes_official_truth).toBe(false);
+  });
+
+  it("persists the role-safe context, coach output, and model call log with the candidate", async () => {
+    const records: GSIRecord[] = [];
+    const instance = service(records);
+
+    await instance.createCandidate(teacher, request, "req_audit_1");
+
+    const persisted = records[0] as GSIRecord & {
+      context?: { context_digest?: string; run_id?: string };
+      coach_output?: { model_call_log_id?: string };
+      model_call_log?: { model_call_log_id?: string; provider?: string };
+      audit_log?: {
+        action?: string;
+        request_id?: string;
+        after?: { context_digest?: string; model_call_log_id?: string };
+      };
+    };
+    expect(persisted.context).toMatchObject({ run_id: "run_001" });
+    expect(persisted.context?.context_digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(persisted.coach_output?.model_call_log_id).toMatch(/^model_call_/);
+    expect(persisted.model_call_log).toMatchObject({
+      model_call_log_id: persisted.coach_output?.model_call_log_id,
+      provider: "deterministic-mock"
+    });
+    expect(persisted.audit_log).toMatchObject({
+      action: "gsi.candidate.create",
+      request_id: "req_audit_1",
+      after: {
+        context_digest: persisted.context?.context_digest,
+        model_call_log_id: persisted.model_call_log?.model_call_log_id
+      }
+    });
   });
 
   it("rejects changed content for an existing idempotency key", async () => {
@@ -173,5 +232,53 @@ describe("GSI candidate persistence and scope", () => {
         "req_5"
       )
     ).rejects.toMatchObject({ code: "GSI_CONTEXT_NOT_FOUND" });
+  });
+
+  it("rejects a candidate when its run is bound to different scenario or parameter resources", async () => {
+    const mismatchedSnapshot = {
+      ...snapshot,
+      run: { ...snapshot.run, parameter_set_id: "parameter_other" }
+    } as never;
+    const instance = service([], undefined, mismatchedSnapshot);
+
+    await expect(instance.createCandidate(teacher, request, "req_run_binding_1")).rejects.toMatchObject({
+      code: "GSI_CONTEXT_NOT_FOUND"
+    });
+  });
+
+  it("rejects model and artifact references that are not the governed deterministic identity", async () => {
+    const forgedBindingRequest = {
+      ...request,
+      binding: {
+        ...request.binding,
+        model_artifact_id: "artifact:forged-model:9.9.9",
+        model_artifact_version: "9.9.9",
+        model_version: "9.9.9",
+        model_version_id: "forged-model"
+      }
+    };
+    const instance = service([]);
+
+    await expect(
+      instance.createCandidate(teacher, forgedBindingRequest, "req_model_binding_1")
+    ).rejects.toMatchObject({ code: "GSI_CONTEXT_NOT_FOUND" });
+  });
+
+  it("lets a platform admin read a candidate through an explicit selected tenant context", async () => {
+    const records: GSIRecord[] = [];
+    const instance = service(records);
+    const created = await instance.createCandidate(teacher, request, "req_admin_1");
+
+    const projection = await instance.getAdminProjection(
+      platformAdmin,
+      "tenant_demo",
+      created.candidate_id
+    );
+
+    expect(projection.tenant_id).toBe("tenant_demo");
+    expect(projection.binding.run_id).toBe("run_001");
+    expect(projection.context_digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(projection.model_call_log_id).toMatch(/^model_call_/);
+    expect(projection.audit_log_id).toMatch(/^gsi_audit_/);
   });
 });

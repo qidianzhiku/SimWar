@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import {
   GSI_RESOLVER_VERSION,
+  GSI_MODEL_ARTIFACT_ID,
+  GSI_MODEL_ARTIFACT_VERSION,
+  GSI_MODEL_VERSION,
+  GSI_MODEL_VERSION_ID,
   isGSIRequest,
   type CurrentUser,
   type GSIAbstention,
@@ -89,6 +93,15 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function compareStableStrings(left: string, right: string): number {
+  const length = Math.min(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = left.charCodeAt(index) - right.charCodeAt(index);
+    if (difference !== 0) return difference;
+  }
+  return left.length - right.length;
+}
+
 function isTeacherLike(actor: GSIActor): boolean {
   return actor.roles.some((role) => ["teacher", "tenant_admin", "platform_admin"].includes(role));
 }
@@ -121,6 +134,8 @@ function assertContext(binding: GSIExactBinding, snapshot: RoleWorkflowRepositor
     snapshot.run?.run_id === binding.run_id &&
     snapshot.run.course_id === binding.course_id &&
     snapshot.run.tenant_id === binding.tenant_id &&
+    snapshot.run.scenario_package_id === binding.scenario_package_id &&
+    snapshot.run.parameter_set_id === binding.parameter_set_id &&
     snapshot.round?.round_id === binding.round_id &&
     snapshot.round.run_id === binding.run_id &&
     snapshot.round.tenant_id === binding.tenant_id &&
@@ -137,6 +152,14 @@ async function assertExactReferences(
     getParameterSet: ParameterSetRepositoryPort["getParameterSet"];
   }
 ): Promise<void> {
+  if (
+    binding.model_version_id !== GSI_MODEL_VERSION_ID ||
+    binding.model_version !== GSI_MODEL_VERSION ||
+    binding.model_artifact_id !== GSI_MODEL_ARTIFACT_ID ||
+    binding.model_artifact_version !== GSI_MODEL_ARTIFACT_VERSION
+  ) {
+    throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+  }
   const [scenario, parameterSet] = await Promise.all([
     exactReferences.getScenarioPackage(binding.tenant_id, binding.scenario_package_id),
     exactReferences.getParameterSet(binding.tenant_id, binding.parameter_set_id)
@@ -202,7 +225,7 @@ export function resolveGSIProposal(proposals: readonly GSIProposal[]): GSIResolv
     throw new GSIStakeholderShadowPlaneError("GSI_INPUT_INVALID");
   }
   const sorted = [...proposals].sort((left, right) =>
-    left.proposal_id.localeCompare(right.proposal_id)
+    compareStableStrings(left.proposal_id, right.proposal_id)
   );
   const accepted: string[] = [];
   const signals: GSISignal[] = [];
@@ -325,11 +348,34 @@ export class GSIStakeholderShadowPlaneService {
         return this.receipt(sameIdempotency, requestId, "reused");
       }
       const resolver = resolveGSIProposal(request.proposals);
+      const advisoryContext = safeW020Context(actor, request.binding, snapshot);
       const gatewayResult = this.gateway.generate({
-        context: safeW020Context(actor, request.binding, snapshot),
+        context: advisoryContext,
         surface: "teacher_debrief"
       });
       const createdAt = this.now();
+      const modelCallLog = { ...clone(gatewayResult.model_call_log), created_at: createdAt };
+      const auditLog = {
+        action: "gsi.candidate.create",
+        actor_id: actor.user_id,
+        actor_role: actor.roles.includes("platform_admin")
+          ? "platform_admin"
+          : actor.roles.includes("tenant_admin")
+            ? "tenant_admin"
+            : "teacher",
+        after: {
+          context_digest: advisoryContext.context_digest,
+          model_call_log_id: modelCallLog.model_call_log_id,
+          provider: "OFF",
+          writes_official_truth: false
+        },
+        audit_id: `gsi_audit_${candidateId}`,
+        created_at: createdAt,
+        request_id: requestId,
+        resource_id: candidateId,
+        resource_type: "gsi_stakeholder_shadow_candidate",
+        tenant_id: actor.tenant_id
+      } as const;
       const knownLimits = [...KNOWN_LIMITS];
       const activeAssignment = snapshot.assignments.find(
         (assignment) => assignment.status === "active"
@@ -356,6 +402,9 @@ export class GSIStakeholderShadowPlaneService {
         surface: "admin",
         tenant_id: actor.tenant_id,
         binding: clone(request.binding),
+        context_digest: advisoryContext.context_digest,
+        model_call_log_id: modelCallLog.model_call_log_id,
+        audit_log_id: auditLog.audit_id,
         plane_mode: request.plane_mode,
         provider: "OFF",
         resolver_digest: resolver.resolver_digest,
@@ -372,6 +421,10 @@ export class GSIStakeholderShadowPlaneService {
         idempotency_key: request.idempotency_key,
         request_digest: requestDigest,
         request: clone(request),
+        context: clone(advisoryContext),
+        coach_output: clone(gatewayResult.coach_output),
+        model_call_log: modelCallLog,
+        audit_log: auditLog,
         resolver,
         teacher_projection: teacherProjection,
         student_projection: studentProjection,
@@ -420,11 +473,21 @@ export class GSIStakeholderShadowPlaneService {
     });
   }
 
-  async getAdminProjection(actor: GSIActor, candidateId: string): Promise<GSIAdminProjection> {
+  async getAdminProjection(
+    actor: GSIActor,
+    tenantId: string,
+    candidateId: string
+  ): Promise<GSIAdminProjection> {
     if (!actor.roles.some((role) => ["tenant_admin", "platform_admin"].includes(role))) {
       throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
     }
-    const record = await this.getRecord(actor.tenant_id, candidateId);
+    if (!tenantId || (actor.tenant_id !== tenantId && !actor.roles.includes("platform_admin"))) {
+      throw new GSIStakeholderShadowPlaneError("GSI_FORBIDDEN");
+    }
+    const record = await this.getRecord(tenantId, candidateId);
+    if (record.admin_projection.tenant_id !== tenantId) {
+      throw new GSIStakeholderShadowPlaneError("GSI_CONTEXT_NOT_FOUND");
+    }
     return clone(record.admin_projection);
   }
 
