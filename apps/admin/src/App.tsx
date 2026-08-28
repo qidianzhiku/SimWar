@@ -47,7 +47,7 @@ import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
-import { ShanghaiFullVerticalAdminPanel } from "./ShanghaiFullVerticalPanel";
+const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 
@@ -1157,15 +1157,17 @@ export function App() {
         SHANGHAI_FULL_VERTICAL_DRAFT_ID &&
         OPERATING_WORLD_RUN_ID &&
         Number.isSafeInteger(OPERATING_WORLD_ROUND_NO) ? (
-          <ShanghaiFullVerticalAdminPanel
-            apiBase={API_BASE}
-            courseId={W5_AUDIT_COURSE_ID}
-            draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
-            roundNo={OPERATING_WORLD_ROUND_NO}
-            runId={OPERATING_WORLD_RUN_ID}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入上海全纵向产品链…</p>}>
+            <ShanghaiFullVerticalAdminPanel
+              apiBase={API_BASE}
+              courseId={W5_AUDIT_COURSE_ID}
+              draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
+              roundNo={OPERATING_WORLD_ROUND_NO}
+              runId={OPERATING_WORLD_RUN_ID}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {O4_ENABLED &&
         session &&

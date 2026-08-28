@@ -388,3 +388,5 @@ export function W5GovernedModelStudio({
     </section>
   );
 }
+
+export default W5GovernedModelStudio;

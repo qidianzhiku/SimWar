@@ -124,3 +124,5 @@ export function ShanghaiFullVerticalStudentPanel({
     </section>
   );
 }
+
+export default ShanghaiFullVerticalStudentPanel;

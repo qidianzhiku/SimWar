@@ -132,3 +132,5 @@ export function ShanghaiFullVerticalAdminPanel({
     </section>
   );
 }
+
+export default ShanghaiFullVerticalAdminPanel;

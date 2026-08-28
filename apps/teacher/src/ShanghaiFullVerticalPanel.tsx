@@ -29,6 +29,12 @@ async function load(
   return envelope.data;
 }
 
+function readConfiguredDraftId(): string | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("shanghaiDraftId")?.trim();
+  return value ? value : null;
+}
+
 export function ShanghaiFullVerticalTeacherPanel({
   apiBase,
   courseId,
@@ -40,7 +46,9 @@ export function ShanghaiFullVerticalTeacherPanel({
 }: Props) {
   const [projection, setProjection] = useState<ShanghaiFullVerticalTeacherProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(draftId ?? null);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
+    () => draftId ?? readConfiguredDraftId()
+  );
 
   useEffect(() => {
     if (draftId !== undefined) setSelectedDraftId(draftId);
@@ -169,3 +177,5 @@ export function ShanghaiFullVerticalTeacherPanel({
     </section>
   );
 }
+
+export default ShanghaiFullVerticalTeacherPanel;

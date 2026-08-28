@@ -89,8 +89,8 @@ import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceL
 import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
-import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
-import { ShanghaiFullVerticalTeacherPanel } from "./ShanghaiFullVerticalPanel";
+const W5GovernedModelStudio = lazy(() => import("./W5GovernedModelStudio"));
+const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -117,10 +117,6 @@ import {
 import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
-  typeof window === "undefined"
-    ? ""
-    : (new URLSearchParams(window.location.search).get("shanghaiDraftId") ?? "");
 const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -2356,36 +2352,37 @@ export function App() {
           <h2 id="teacher-w5-governed-model-heading">W5 受控模型</h2>
         </div>
         {isTeacher && session ? (
-          <W5GovernedModelStudio
-            apiBase={API_BASE}
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            roundNo={selectedRound?.round_no}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
-        ) : null}
-        {isTeacher && session ? (
-          <ShanghaiFullVerticalTeacherPanel
-            apiBase={API_BASE}
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID || undefined}
-            roundNo={selectedRound?.round_no}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
-        ) : null}
-        {O4_ENABLED && isTeacher && session && selectedRun ? (
-          <Suspense fallback={<p className="muted">正在载入 O4 跨回合动力…</p>}>
-            <O4CrossRoundDynamicsPanel
+          <Suspense fallback={<p className="muted">正在载入 W5 受控模型…</p>}>
+            <W5GovernedModelStudio
               apiBase={API_BASE}
-              courseId={selectedRun.course_id}
-              runId={selectedRun.run_id}
-              surface="teacher"
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              roundNo={selectedRound?.round_no}
               tenantId={login.tenantId}
               token={session.access_token}
             />
+          </Suspense>
+        ) : null}
+        {isTeacher && session ? (
+          <Suspense fallback={<p className="muted">正在载入受控教学扩展…</p>}>
+            <ShanghaiFullVerticalTeacherPanel
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              roundNo={selectedRound?.round_no}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            {O4_ENABLED && selectedRun ? (
+              <O4CrossRoundDynamicsPanel
+                apiBase={API_BASE}
+                courseId={selectedRun.course_id}
+                runId={selectedRun.run_id}
+                surface="teacher"
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            ) : null}
           </Suspense>
         ) : null}
         {isTeacher && session ? (
