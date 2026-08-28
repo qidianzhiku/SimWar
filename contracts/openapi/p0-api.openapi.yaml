@@ -749,6 +749,103 @@ paths:
           description: Run context not found or out of scope
         "503":
           description: Scenario candidate provider capability unavailable
+  /api/v1/bff/teacher/runs/{runId}/scenario-selection-readiness:
+    get:
+      operationId: R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1
+      summary: Read the Teacher-safe readiness projection for an exact run, ScenarioPackage and ParameterSet.
+      description: Read-only Teacher BFF projection through the repository facade. It does not assign or activate a ScenarioPackage, mutate a ParameterSet, execute Replay, settle a round, expose student data, or return formal truth.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: scenarioPackageId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: parameterSetId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Exact Teacher-safe read-only readiness projection.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - operation_id
+                  - tenant_id
+                  - course_id
+                  - run_id
+                  - scenario_package_id
+                  - parameter_set_id
+                  - eligible
+                  - readiness_status
+                  - compatibility_status
+                  - provenance_status
+                  - qa_status
+                  - license_status
+                  - calibration_status
+                  - runtime_adapter_status
+                  - no_go_reasons
+                  - evidence_freshness
+                  - explicit_non_proofs
+                properties:
+                  operation_id:
+                    type: string
+                    const: R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1
+                  tenant_id: { type: string }
+                  course_id: { type: string }
+                  run_id: { type: string }
+                  scenario_package_id: { type: string }
+                  parameter_set_id: { type: string }
+                  eligible: { type: boolean }
+                  readiness_status:
+                    type: string
+                    enum: [BLOCKED, READY]
+                  compatibility_status: { type: string }
+                  provenance_status: { type: string }
+                  qa_status: { type: string }
+                  license_status: { type: string }
+                  calibration_status: { type: string }
+                  runtime_adapter_status: { type: string }
+                  no_go_reasons:
+                    type: array
+                    items: { type: string }
+                  evidence_freshness:
+                    type: object
+                    additionalProperties: false
+                    required: [collected_at, expires_at, is_expired]
+                    properties:
+                      collected_at:
+                        type:
+                          - string
+                          - "null"
+                      expires_at:
+                        type:
+                          - string
+                          - "null"
+                      is_expired: { type: boolean }
+                  explicit_non_proofs:
+                    type: array
+                    items: { type: string }
+        "400":
+          description: Invalid or duplicate exact query identifiers.
+        "401":
+          description: Authentication required.
+        "403":
+          description: Teacher authority required.
+        "404":
+          description: Run, ScenarioPackage or ParameterSet context not found or out of scope.
+        "409":
+          description: Readiness implementation gate is blocked.
+        "500":
+          description: Internal error with a redacted endpoint-specific error envelope.
   /api/v1/bff/teacher/formal-scenario-package-catalog:
     get:
       operationId: TEACHER_FORMAL_SCENARIO_PACKAGE_CATALOG_GET_V1

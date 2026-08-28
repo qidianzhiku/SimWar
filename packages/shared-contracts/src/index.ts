@@ -1650,10 +1650,12 @@ export function actorHasPermission(actor: CurrentUser, permission: PermissionKey
 
 export * from "./scenario-factory.js";
 export * from "./scenario-alignment.js";
+export * from "./shanghai-full-vertical-binding.js";
 export * from "./role-workflow.js";
 export * from "./team-divergence.js";
 export * from "./fresh-learner-admission.js";
 export * from "./scenario-selection.js";
+export * from "./r7-teacher-scenario-selection-readiness.js";
 export * from "./teacher-formal-scenario-package-catalog.js";
 export * from "./teacher-formal-course-binding.js";
 export * from "./teacher-confirmation.js";
