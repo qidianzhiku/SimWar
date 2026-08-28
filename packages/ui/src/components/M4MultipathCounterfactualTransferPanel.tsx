@@ -17,11 +17,49 @@ export interface M4MultipathCounterfactualTransferPanelProps {
   token: string;
 }
 
-function loadPath(props: M4MultipathCounterfactualTransferPanelProps): string {
+interface M4SourceResult {
+  run_id: string;
+  round_no: number;
+  status: string;
+}
+
+interface M4DemoState {
+  latest_result?: M4SourceResult;
+}
+
+export function resolveM4SourceRoundNo(
+  result: M4SourceResult | undefined,
+  runId: string
+): number | undefined {
+  return result?.run_id === runId && result.status === "published" ? result.round_no : undefined;
+}
+
+function requestHeaders(props: M4MultipathCounterfactualTransferPanelProps): HeadersInit {
+  return {
+    authorization: `Bearer ${props.token}`,
+    "content-type": "application/json",
+    "x-tenant-id": props.tenantId
+  };
+}
+
+async function loadSourceRoundNo(
+  props: M4MultipathCounterfactualTransferPanelProps
+): Promise<number> {
+  const response = await fetch(`${props.apiBase}/api/v1/demo-state`, {
+    headers: requestHeaders(props)
+  });
+  const envelope = (await response.json()) as ApiEnvelope<M4DemoState>;
+  if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+  const sourceRoundNo = resolveM4SourceRoundNo(envelope.data.latest_result, props.runId);
+  if (sourceRoundNo === undefined) throw new Error("M4_OFFICIAL_OUTCOME_REQUIRED");
+  return sourceRoundNo;
+}
+
+function loadPath(props: M4MultipathCounterfactualTransferPanelProps, roundNo: number): string {
   const query = new URLSearchParams({
     course_id: props.courseId,
     ...(props.teamId ? { team_id: props.teamId } : {}),
-    ...(props.roundNo ? { round_no: String(props.roundNo) } : {})
+    round_no: String(roundNo)
   });
   return `/api/v1/bff/${props.surface}/w4/runs/${encodeURIComponent(props.runId)}/multipath-counterfactual-transfer?${query.toString()}`;
 }
@@ -29,12 +67,9 @@ function loadPath(props: M4MultipathCounterfactualTransferPanelProps): string {
 async function loadCandidate(
   props: M4MultipathCounterfactualTransferPanelProps
 ): Promise<M4MultipathCounterfactualResponse> {
-  const response = await fetch(`${props.apiBase}${loadPath(props)}`, {
-    headers: {
-      authorization: `Bearer ${props.token}`,
-      "content-type": "application/json",
-      "x-tenant-id": props.tenantId
-    }
+  const sourceRoundNo = await loadSourceRoundNo(props);
+  const response = await fetch(`${props.apiBase}${loadPath(props, sourceRoundNo)}`, {
+    headers: requestHeaders(props)
   });
   const envelope = (await response.json()) as ApiEnvelope<M4MultipathCounterfactualResponse>;
   if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);

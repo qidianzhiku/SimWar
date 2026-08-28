@@ -3507,12 +3507,12 @@ export function App() {
               tenantId={login.tenantId}
               token={session.access_token}
               m4Context={
-                selectedRun && selectedRound && selectedResult?.status === "published"
+                selectedRun && selectedRound
                   ? [
                       selectedRun.course_id,
                       selectedRun.run_id,
                       activeTeacherTeamId,
-                      selectedResult.round_no
+                      selectedRound.round_no
                     ]
                   : undefined
               }

@@ -408,7 +408,6 @@ export function App() {
     return "#student-role-mission";
   });
   const refreshIdentity = useRef(0);
-  const [m4SourceRoundNo, setM4SourceRoundNo] = useState<number | undefined>(undefined);
   const refreshController = useRef<AbortController | null>(null);
   const authIdentity = useRef(0);
   const authController = useRef<AbortController | null>(null);
@@ -506,10 +505,6 @@ export function App() {
               run.run_id === reauthContext.run_id && run.course_id === reauthContext.course_id
           )
         : studentState.runs.at(-1);
-      const nextM4SourceRoundNo =
-        nextState.latest_result?.run_id !== nextRun?.run_id
-          ? undefined
-          : nextState.latest_result?.round_no;
       const nextRound = nextRun
         ? reauthContext
           ? studentState.rounds.find(
@@ -562,7 +557,6 @@ export function App() {
         }
       }
 
-      setM4SourceRoundNo(nextM4SourceRoundNo);
       setState(studentState);
 
       if (!nextRun || !nextRound) {
@@ -1383,9 +1377,11 @@ export function App() {
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
-                    m4SourceRoundNo
-                      ? [latestRun!.course_id, latestRun!.run_id, m4SourceRoundNo]
-                      : undefined
+                    latestRun && latestRound && [
+                      latestRun.course_id,
+                      latestRun.run_id,
+                      latestRound.round_no
+                    ]
                   }
                 />
               </Suspense>
