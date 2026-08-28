@@ -145,6 +145,16 @@ export interface ProjectAssignmentInput {
   team_id: string;
 }
 
+export interface StudentProjectBriefContext {
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  tenant_id: string;
+  user_id: string;
+  /** Required when the team has more than one exact project assignment. */
+  assignment_id?: string;
+}
+
 export interface ProjectAssignmentResult {
   assignment: ProjectAssignment;
   idempotent: boolean;

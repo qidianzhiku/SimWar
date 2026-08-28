@@ -72,6 +72,7 @@ function seedProfile(store: SimWarStore, ref: ProjectProfileRef, title: string):
 describe("W4 governed project portfolio endpoints", () => {
   it("binds ProjectProfile/Assignment authority, exposes role-safe projection, and gates teacher mutations", async () => {
     const store = createP1Store();
+    store.courses[0]!.market_world_reference = getShanghaiMarketWorldReference();
     const firstRef: ProjectProfileRef = {
       content_digest: "1".padStart(64, "a"),
       project_profile_id: "w4-profile-1",
@@ -111,34 +112,19 @@ describe("W4 governed project portfolio endpoints", () => {
       );
       expect(started.status).toBe(200);
       const roundId = started.body.data.round_id;
-      const assignment: ProjectAssignment = {
-        assigned_at: new Date().toISOString(),
-        assigned_by: "teacher",
-        assignment_id: `assignment-${runId}`,
-        course_id: "course_demo",
-        project_profile_reference: firstRef,
-        run_id: runId,
-        schema_version: "project-assignment.v1",
-        team_id: "team_alpha",
-        tenant_id: tenantId
-      };
-      store.projectAssignments.push(assignment);
+      const firstAssignment = await request<{
+        assignment: ProjectAssignment;
+        idempotent: boolean;
+      }>(
+        baseUrl,
+        "/api/v1/bff/teacher/courses/course_demo/project-library/assign",
+        teacher,
+        { course_id: "course_demo", project_profile_ref: firstRef, run_id: runId, team_id: "team_alpha" }
+      );
+      expect(firstAssignment.status, JSON.stringify(firstAssignment.body)).toBe(200);
+      expect(firstAssignment.body.data.idempotent).toBe(false);
+      const firstAssignmentId = firstAssignment.body.data.assignment.assignment_id;
 
-      const initial = await request(baseUrl, `/api/v1/w4/runs/${runId}/rounds/1/states`, teacher, {
-        course_id: "course_demo",
-        team_id: "team_alpha",
-        round_id: roundId,
-        state: {
-          cash: 1000,
-          capacity: 100,
-          product_lines: ["core-care"],
-          positioning: "trusted-care",
-          organization: { team_size: 4 },
-          operating_units: [],
-          portfolio: { projects: [], facilities: [] }
-        }
-      });
-      expect(initial.status).toBe(201);
       const decision = await request<{ initiative: { initiative_id: string } }>(
         baseUrl,
         `/api/v1/w4/runs/${runId}/rounds/1/strategic-decisions`,
@@ -192,6 +178,24 @@ describe("W4 governed project portfolio endpoints", () => {
       });
       expect(added.status, JSON.stringify(added.body)).toBe(201);
       expect(added.body.data.project_entry_id).toBe("w4-entry-1");
+      expect(
+        store.w4.initiatives.find(
+          (initiative) => initiative.initiative_id === decision.body.data.initiative.initiative_id
+        )
+      ).toMatchObject({
+        source_assignment_id: firstAssignmentId,
+        project_profile_reference: firstRef
+      });
+      const duplicateAssignment = await request(baseUrl, addPath, teacher, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        initiative_id: decision.body.data.initiative.initiative_id,
+        project_entry_id: "w4-entry-duplicate-assignment",
+        project_profile_reference: firstRef
+      });
+      expect(duplicateAssignment.status).toBe(422);
+      expect(duplicateAssignment.body.message).toBe("W4_PROJECT_ASSIGNMENT_ALREADY_BOUND");
       const unassignedProfile = await request(baseUrl, addPath, teacher, {
         course_id: "course_demo",
         team_id: "team_alpha",
@@ -202,16 +206,158 @@ describe("W4 governed project portfolio endpoints", () => {
       });
       expect(unassignedProfile.status).toBe(422);
       expect(unassignedProfile.body.message).toBe("W4_PROJECT_ASSIGNMENT_REQUIRED");
+      const secondAssignment = await request<{
+        assignment: ProjectAssignment;
+        idempotent: boolean;
+      }>(
+        baseUrl,
+        "/api/v1/bff/teacher/courses/course_demo/project-library/assign",
+        teacher,
+        {
+          course_id: "course_demo",
+          project_profile_ref: successorRef,
+          run_id: runId,
+          team_id: "team_alpha"
+        }
+      );
+      expect(secondAssignment.status, JSON.stringify(secondAssignment.body)).toBe(200);
+      expect(secondAssignment.body.data.idempotent).toBe(false);
+      const secondAssignmentId = secondAssignment.body.data.assignment.assignment_id;
 
-      const projection = await request<{ project_portfolio: Array<{ project_entry_id: string }> }>(
+      const secondDecision = await request<{ initiative: { initiative_id: string } }>(
+        baseUrl,
+        `/api/v1/w4/runs/${runId}/rounds/1/strategic-decisions`,
+        student,
+        {
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          decision: {
+            decision_id: `w4-portfolio-decision-${runId}-second`,
+            tenant_id: tenantId,
+            course_id: "course_demo",
+            run_id: runId,
+            round_id: roundId,
+            round_no: 1,
+            team_id: "team_alpha",
+            kind: "new_project",
+            version: 1,
+            status: "canonical",
+            payload: {
+              project_name: "W4 Project Two",
+              cost: 300,
+              cycle_rounds: 3,
+              area: 7000,
+              beds: 70,
+              bed_mix: { standard: 70 },
+              ramp: 0.25,
+              lead_time_rounds: 2
+            }
+          }
+        }
+      );
+      expect(secondDecision.status).toBe(201);
+      const secondAdded = await request<{ project_entry_id: string }>(baseUrl, addPath, teacher, {
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: roundId,
+        initiative_id: secondDecision.body.data.initiative.initiative_id,
+        project_entry_id: "w4-entry-2",
+        project_profile_reference: successorRef,
+        dependency_project_entry_ids: ["w4-entry-1"]
+      });
+      expect(secondAdded.status, JSON.stringify(secondAdded.body)).toBe(201);
+
+      const projection = await request<{
+        project_portfolio: Array<{ project_entry_id: string }>;
+        strategic_portfolio: {
+          candidate_status: string;
+          portfolio_id: string;
+          portfolio_ref: { portfolio_digest: string };
+          members: Array<{
+            project_entry_id: string;
+            project_profile_reference: ProjectProfileRef;
+            ramp: number;
+            activation_round_no: number;
+            dependency_project_entry_ids: string[];
+          }>;
+          allocations: Array<{
+            project_entry_id: string;
+            project_cost: number;
+            allocated_capital_principal: number;
+            unfunded_project_cost: number;
+          }>;
+          constraints: {
+            status: string;
+            total_project_cost: number;
+            allocated_capital_principal: number;
+            unfunded_project_cost: number;
+          };
+          persistence: {
+            official_state_authority: string;
+            historical_decision_reentry: false;
+          };
+          writer_authority: string;
+        };
+      }>(
         baseUrl,
         `/api/v1/bff/student/w4/runs/${runId}/rounds/1/portfolio?round_id=${roundId}&team_id=team_alpha&course_id=course_demo`,
         student
       );
       expect(projection.status).toBe(200);
       expect(projection.body.data.project_portfolio.map((entry) => entry.project_entry_id)).toEqual(
-        ["w4-entry-1"]
+        ["w4-entry-1", "w4-entry-2"]
       );
+      expect(projection.body.data.strategic_portfolio).toMatchObject({
+        candidate_status: "DERIVED",
+        portfolio_id: `portfolio:${tenantId}:course_demo:${runId}:team_alpha`,
+        writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE",
+        persistence: {
+          official_state_authority: "W4_ENTERPRISE_STATE_SERVICE",
+          historical_decision_reentry: false
+        },
+        constraints: {
+          status: "UNFUNDED",
+          total_project_cost: 400,
+          allocated_capital_principal: 0,
+          unfunded_project_cost: 400
+        }
+      });
+      expect(projection.body.data.strategic_portfolio.portfolio_ref.portfolio_digest).toMatch(
+        /^[a-f0-9]{64}$/
+      );
+      expect(projection.body.data.strategic_portfolio.members).toEqual([
+        expect.objectContaining({
+          project_entry_id: "w4-entry-1",
+          project_profile_reference: firstRef,
+          source_assignment_id: firstAssignmentId,
+          ramp: 0.5,
+          activation_round_no: 1,
+          dependency_project_entry_ids: []
+        }),
+        expect.objectContaining({
+          project_entry_id: "w4-entry-2",
+          project_profile_reference: successorRef,
+          source_assignment_id: secondAssignmentId,
+          ramp: 0.25,
+          activation_round_no: 3,
+          dependency_project_entry_ids: ["w4-entry-1"]
+        })
+      ]);
+      expect(projection.body.data.strategic_portfolio.allocations).toEqual([
+        expect.objectContaining({
+          project_entry_id: "w4-entry-1",
+          project_cost: 100,
+          allocated_capital_principal: 0,
+          unfunded_project_cost: 100
+        }),
+        expect.objectContaining({
+          project_entry_id: "w4-entry-2",
+          project_cost: 300,
+          allocated_capital_principal: 0,
+          unfunded_project_cost: 300
+        })
+      ]);
     } finally {
       server.close();
       await once(server, "close");

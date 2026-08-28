@@ -1,0 +1,40 @@
+{
+  "schema_version": "w4-strategic-portfolio.v1",
+  "candidate_status": "DERIVED",
+  "portfolio_id": "portfolio:tenant_demo:course_demo:run_demo:team_alpha",
+  "portfolio_ref": {
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_demo",
+    "team_id": "team_alpha",
+    "round_no": 1,
+    "portfolio_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "exact_scope": {
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_demo",
+    "team_id": "team_alpha",
+    "round_no": 1
+  },
+  "members": [],
+  "allocations": [],
+  "constraints": {
+    "status": "WITHIN_LIMIT",
+    "cash_available": 1000,
+    "covenant_min_cash": 0,
+    "total_project_cost": 0,
+    "allocated_capital_principal": 0,
+    "unfunded_project_cost": 0,
+    "dependency_project_entry_ids": []
+  },
+  "persistence": {
+    "official_state_authority": "W4_ENTERPRISE_STATE_SERVICE",
+    "opening_state_ref": null,
+    "closing_state_ref": null,
+    "next_opening_state_ref": null,
+    "historical_decision_reentry": false
+  },
+  "writer_authority": "SOLE_W4_ENTERPRISE_STATE_SERVICE",
+  "known_limits": ["Derived projection only."]
+}

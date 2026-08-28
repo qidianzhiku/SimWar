@@ -274,6 +274,31 @@ export function W4EnterpriseStatePanel({
           </div>
         </div>
       ) : null}
+      {projection?.strategic_portfolio ? (
+        <section className="sw-w4-panel__note" aria-label="我的项目组合">
+          <strong>我的项目组合</strong>
+          <p>
+            {projection.strategic_portfolio.members.length} 个项目 ·{" "}
+            {stateValueLabel(projection.strategic_portfolio.constraints.status)}
+          </p>
+          <ul className="sw-w4-list" aria-label="项目组合成员">
+            {projection.strategic_portfolio.members.map((member) => (
+              <li key={member.project_entry_id}>
+                {member.project_name} · {member.lifecycle_status} · ramp {member.ramp ?? "—"} ·
+                激活回合 {member.activation_round_no ?? "—"}
+              </li>
+            ))}
+          </ul>
+          <div>
+            组合计划成本 {projection.strategic_portfolio.constraints.total_project_cost} · 未覆盖成本{" "}
+            {projection.strategic_portfolio.constraints.unfunded_project_cost}
+          </div>
+          <div>
+            正式状态仍由 {projection.strategic_portfolio.persistence.official_state_authority}{" "}
+            结算；本组合不是第二条写入路径。
+          </div>
+        </section>
+      ) : null}
       {projection?.latest_strategic_action ? (
         <div className="sw-w4-panel__note" aria-label="承诺回执">
           <div>

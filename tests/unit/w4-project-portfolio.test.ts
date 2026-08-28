@@ -115,7 +115,7 @@ describe("W4 governed project portfolio", () => {
       project_entry_id: "portfolio-entry-2",
       initiative_id: second.initiative.initiative_id,
       project_profile_reference: profileRef("profile-2"),
-      source_assignment_id: "assignment-baseline",
+      source_assignment_id: "assignment-project-two",
       project_name: "Project Two"
     });
 
@@ -227,6 +227,11 @@ describe("W4 governed project portfolio", () => {
     expect(
       repository.snapshot().outcomes[0]?.replay_input_manifest.project_portfolio_snapshot
     ).toHaveLength(2);
+
+    const roundOneProjection = await service.getProjection(scope);
+    expect(roundOneProjection.strategic_portfolio.constraints.cash_available).toBe(
+      closing?.state.cash
+    );
   });
 
   it("requires the governed M&A phases and dual confirmation before creating an ownership successor", async () => {
@@ -245,12 +250,48 @@ describe("W4 governed project portfolio", () => {
       project_name: "Target Project"
     });
 
+    const secondCompiled = await service.commitStrategicDecision(
+      scope,
+      decision("decision-mna-existing-target", "Existing Target Project")
+    );
+    await service.addProjectToPortfolio(scope, {
+      project_entry_id: "portfolio-existing-target",
+      initiative_id: secondCompiled.initiative.initiative_id,
+      project_profile_reference: profileRef("profile-existing-target"),
+      source_assignment_id: "assignment-existing-target",
+      project_name: "Existing Target Project"
+    });
+
+    await expect(
+      service.createProjectTransaction(scope, {
+        transaction_id: "transaction-mna-missing-assignment",
+        kind: "merger_acquisition",
+        initiative_id: compiled.initiative.initiative_id,
+        project_entry_id: "portfolio-target",
+        target_project_profile_reference: profileRef("profile-successor"),
+        target_project_name: "Acquired Project"
+      })
+    ).rejects.toMatchObject({ code: "W4_M_AND_A_SUCCESSOR_REQUIRED" });
+
+    await expect(
+      service.createProjectTransaction(scope, {
+        transaction_id: "transaction-mna-duplicate-target",
+        kind: "merger_acquisition",
+        initiative_id: compiled.initiative.initiative_id,
+        project_entry_id: "portfolio-target",
+        target_project_profile_reference: profileRef("profile-existing-target"),
+        target_source_assignment_id: "assignment-existing-target",
+        target_project_name: "Existing Target Project"
+      })
+    ).rejects.toMatchObject({ code: "W4_PROJECT_ASSIGNMENT_ALREADY_BOUND" });
+
     const transaction = await service.createProjectTransaction(scope, {
       transaction_id: "transaction-mna-1",
       kind: "merger_acquisition",
       initiative_id: compiled.initiative.initiative_id,
       project_entry_id: "portfolio-target",
       target_project_profile_reference: profileRef("profile-successor"),
+      target_source_assignment_id: "assignment-successor",
       target_project_name: "Acquired Project"
     });
     expect(transaction.phase).toBe("Listing");
@@ -301,6 +342,122 @@ describe("W4 governed project portfolio", () => {
         .projectPortfolio.find((entry) => entry.project_entry_id === successor?.project_entry_id)
         ?.operating_unit_id
     ).toBe(`operating-unit-${successor?.project_entry_id}`);
+  });
+
+  it("does not expose future-round portfolio members in an earlier-round projection", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    await service.createInitialState(scope, initialState());
+    const compiled = await service.commitStrategicDecision(
+      scope,
+      decision("decision-future-portfolio", "Future Project")
+    );
+    await service.addProjectToPortfolio(scope, {
+      project_entry_id: "portfolio-future",
+      initiative_id: compiled.initiative.initiative_id,
+      project_profile_reference: profileRef("profile-future"),
+      source_assignment_id: "assignment-future",
+      project_name: "Future Project"
+    });
+
+    const future = repository.snapshot();
+    future.initiatives = future.initiatives.map((initiative) => ({
+      ...initiative,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    future.projectPortfolio = future.projectPortfolio.map((entry) => ({
+      ...entry,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    future.projectTransactions = future.projectTransactions.map((transaction) => ({
+      ...transaction,
+      created_round_no: 2,
+      updated_round_no: 2
+    }));
+    repository.replace(future);
+
+    const projection = await service.getProjection(scope);
+    expect(projection.project_portfolio).toEqual([]);
+    expect(projection.initiatives).toEqual([]);
+    expect(projection.strategic_portfolio.members).toEqual([]);
+  });
+
+  it("uses the exact round replay snapshot for an earlier projection after later mutation", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+    const compiled = await service.commitStrategicDecision(
+      scope,
+      decision("decision-as-of-portfolio", "As Of Project")
+    );
+    await service.addProjectToPortfolio(scope, {
+      project_entry_id: "portfolio-as-of",
+      initiative_id: compiled.initiative.initiative_id,
+      project_profile_reference: profileRef("profile-as-of"),
+      source_assignment_id: "assignment-as-of",
+      project_name: "As Of Project"
+    });
+    for (const target of [
+      "Feasibility",
+      "DueDiligence",
+      "Negotiation",
+      "TermSheet",
+      "Operating"
+    ] as const) {
+      await service.advanceProjectLifecycle(scope, compiled.initiative.initiative_id, target);
+    }
+    const decisionRecord = repository
+      .snapshot()
+      .decisions.find((item) => item.decision_id === "decision-as-of-portfolio");
+    if (!decisionRecord) throw new Error("as-of decision missing");
+    const roundOne = await service.settleRound(scope, {
+      opening_state_ref: opening.state_ref,
+      decision_id: decisionRecord.decision_id,
+      replay_input_manifest: {
+        manifest_id: "manifest-as-of-portfolio-1",
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        round_id: scope.round_id,
+        opening_state_ref: opening.state_ref,
+        decision_ids: [decisionRecord.decision_id],
+        decision_payload_bindings: [
+          {
+            decision_id: decisionRecord.decision_id,
+            decision_payload_digest: decisionRecord.admission.decision_payload_digest
+          }
+        ],
+        scenario_package_id: "scenario-as-of",
+        parameter_set_id: "parameters-as-of",
+        engine_id: "engine-as-of",
+        plugin_ids: [],
+        seed: 1
+      }
+    });
+    const roundTwoScope = {
+      ...scope,
+      round_id: "round-as-of-2",
+      round_no: 2
+    };
+    await service.createNextRoundOpening({
+      ...roundTwoScope,
+      opening_state_ref: roundOne.closing_state_ref
+    });
+    const closure = await service.createProjectTransaction(roundTwoScope, {
+      transaction_id: "transaction-as-of-closure",
+      kind: "project_closure",
+      initiative_id: compiled.initiative.initiative_id,
+      project_entry_id: "portfolio-as-of"
+    });
+    await service.advanceProjectTransaction(roundTwoScope, closure.transaction_id, "Closing");
+    await service.advanceProjectTransaction(roundTwoScope, closure.transaction_id, "Closed");
+
+    const roundOneProjection = await service.getProjection(scope);
+    expect(roundOneProjection.strategic_portfolio.members[0]?.lifecycle_status).toBe("Operating");
+    expect(roundOneProjection.strategic_portfolio.members[0]?.ownership_status).toBe("owned");
   });
 
   it("does not allow Operating before the initiative lead time has elapsed", async () => {

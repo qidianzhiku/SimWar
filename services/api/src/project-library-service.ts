@@ -36,6 +36,7 @@ export interface StudentProjectBriefContext {
   team_id: string;
   tenant_id: string;
   user_id: string;
+  assignment_id?: string;
 }
 
 export class ProjectLibraryError extends Error {
@@ -460,22 +461,17 @@ export class ProjectLibraryService {
             candidate.course_id === course.course_id
         );
         if (!run || !team) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_SCOPE_VIOLATION");
-        const existing = this.store.projectAssignments.find(
+        const scopedAssignments = this.store.projectAssignments.filter(
           (assignment) =>
             assignment.tenant_id === actor.tenant_id &&
             assignment.course_id === course.course_id &&
             assignment.run_id === input.run_id &&
             assignment.team_id === input.team_id
         );
-        if (
-          existing &&
-          !sameProfileReference(
-            existing.project_profile_reference,
-            normalizeReference(input.project_profile_ref)
-          )
-        ) {
-          throw new ProjectLibraryError("PROJECT_ASSIGNMENT_CONFLICT");
-        }
+        const normalizedReference = normalizeReference(input.project_profile_ref);
+        const existing = scopedAssignments.find((assignment) =>
+          sameProfileReference(assignment.project_profile_reference, normalizedReference)
+        );
         const profile = await this.requireOwned(actor, input.project_profile_ref, course.course_id);
         if (profile.status === "RETIRED")
           throw new ProjectLibraryError("PROJECT_ASSIGNMENT_RETIRED");
@@ -598,14 +594,30 @@ export class ProjectLibraryService {
     if (!team || !team.members.some((member) => member.user_id === context.user_id)) {
       throw new ProjectLibraryError("PROJECT_ASSIGNMENT_SCOPE_VIOLATION");
     }
-    const assignment = this.store.projectAssignments.find(
+    const assignments = this.store.projectAssignments.filter(
       (candidate) =>
         candidate.tenant_id === context.tenant_id &&
         candidate.course_id === context.course_id &&
         candidate.run_id === context.run_id &&
         candidate.team_id === context.team_id
     );
-    if (!assignment) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_NOT_FOUND");
+    if (assignments.length === 0) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_NOT_FOUND");
+    const assignmentId = context.assignment_id?.trim();
+    if (context.assignment_id !== undefined && !assignmentId) {
+      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_REFERENCE_INVALID");
+    }
+    const assignment = assignmentId
+      ? assignments.find((candidate) => candidate.assignment_id === assignmentId)
+      : assignments.length === 1
+        ? assignments[0]
+        : undefined;
+    if (!assignment) {
+      throw new ProjectLibraryError(
+        assignments.length > 1
+          ? "PROJECT_ASSIGNMENT_CONFLICT"
+          : "PROJECT_ASSIGNMENT_NOT_FOUND"
+      );
+    }
     const profile = await this.getByReference(
       context.tenant_id,
       assignment.project_profile_reference
