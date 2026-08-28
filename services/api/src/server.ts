@@ -105,6 +105,7 @@ import { getApiHealthPayload } from "./health.js";
 import {
   createJsonFormalScenarioAuthorityPersistence,
   createJsonGovernedAdvisoryRepositoryPort,
+  createJsonGSIStakeholderRepositoryPort,
   createJsonOperatingWorldPersistence,
   createJsonW5GovernedModelPersistence,
   createJsonW027DecisionExperienceRepositoryPort,
@@ -153,6 +154,7 @@ import { InMemoryTransferResearchDesignRegistry } from "./transfer-research-desi
 import { handleTransferResearchDesignRoute } from "./routes/transfer-research-design-routes.js";
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
+import { handleGSIStakeholderShadowPlaneRoute } from "./routes/gsi-stakeholder-shadow-plane-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
 import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
@@ -164,6 +166,7 @@ import { handleShanghaiFullVerticalRoute } from "./routes/shanghai-full-vertical
 import { ShanghaiFullVerticalService } from "./shanghai-full-vertical-service.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
+import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import {
   createOperatingWorldConsequenceTrace,
@@ -414,6 +417,7 @@ interface ApiRuntime {
   instructorAssets: InstructorAssetRegistry;
   goldenJourney: GoldenJourneyIntegrationService;
   governedAdvisory: GovernedAdvisoryService;
+  gsiStakeholder: GSIStakeholderShadowPlaneService;
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
@@ -680,6 +684,15 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       repositoryProvider.ports.governedAdvisories ??
       createJsonGovernedAdvisoryRepositoryPort(store),
     roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
+  const gsiStakeholder = new GSIStakeholderShadowPlaneService({
+    repository:
+      repositoryProvider.ports.gsiStakeholders ?? createJsonGSIStakeholderRepositoryPort(store),
+    roleWorkflow: repositoryProvider.ports.roleWorkflow,
+    exactReferences: {
+      getScenarioPackage: repositoryProvider.ports.scenarios.getScenarioPackage,
+      getParameterSet: repositoryProvider.ports.parameterSets.getParameterSet
+    }
   });
 
   const w027DecisionExperience = new W027DecisionExperienceService({
@@ -1094,6 +1107,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     ),
     goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
     governedAdvisory,
+    gsiStakeholder,
     validationSessions,
     ...(validationEnvironmentLaunch
       ? {
@@ -7295,6 +7309,36 @@ async function routeRequest(
     return;
 
   if (await handleD2EvidenceRoute(runtime, request, response, url, context)) return;
+
+  if (
+    url.pathname.startsWith("/api/v1/bff/student/gsi") ||
+    url.pathname.startsWith("/api/v1/bff/teacher/gsi") ||
+    url.pathname.startsWith("/api/v1/bff/admin/gsi")
+  ) {
+    if (
+      await handleGSIStakeholderShadowPlaneRoute(
+        runtime.gsiStakeholder,
+        request,
+        response,
+        url,
+        {
+          requestId: context.requestId,
+          tenantId: context.tenantId,
+          actor: requireActor(context)
+        },
+        {
+          readJson: (incoming) => readJson(incoming),
+          sendJson,
+          createEnvelope: (routeContext, payload) =>
+            createEnvelope(routeContext as RequestContext, payload),
+          requireStudent: () => requireD4Student(context),
+          requireTeacher: () => requireD4Teacher(context),
+          requireAdmin: () => requireD4Admin(context)
+        }
+      )
+    )
+      return;
+  }
 
   if (
     url.pathname.startsWith("/api/v1/bff/student/advisors") ||
