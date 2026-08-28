@@ -1009,17 +1009,24 @@ export function App() {
                   <W5DemandConvergencePanel projection={w5Projection} />
                 ) : null}
                 <O4CrossRoundDynamicsFeature c={[activeSession, latestRun, team, login.tenantId]} />
-                <ShanghaiFullVerticalStudentPanel
-                  apiBase={API_BASE}
-                  courseId={latestRun?.course_id}
-                  draftId={w5DraftId}
-                  roundNo={latestRound?.round_no}
-                  runId={latestRun?.run_id}
-                  tenantId={login.tenantId}
-                  token={activeSession?.access_token ?? ""}
-                />
               </Suspense>
             </div>
+          </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <section>
+            <Suspense fallback={null}>
+              <ShanghaiFullVerticalStudentPanel
+                apiBase={API_BASE}
+                courseId={latestRun?.course_id}
+                draftId={w5DraftId}
+                roundNo={latestRound?.round_no}
+                runId={latestRun?.run_id}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
+            </Suspense>
           </section>
         ) : null}
 
