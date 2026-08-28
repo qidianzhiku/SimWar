@@ -1,0 +1,110 @@
+{
+  "schema_version": "simwar.shanghai.full-vertical.v1",
+  "mission_id": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL",
+  "teacher": {
+    "binding": {
+      "binding_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "binding_id": "w5_binding_w5_draft_1",
+      "course_id": "course_demo",
+      "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+      "no_implicit_latest": true,
+      "parameter_set_reference": { "parameter_set_id": "param_demo", "version": "1.0.0" },
+      "round_no": 1,
+      "run_id": "run_demo",
+      "scenario_package_reference": {
+        "scenario_package_id": "scenario_shanghai_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "seed": 42,
+      "status": "BOUND",
+      "tenant_id": "tenant_demo"
+    },
+    "exact_context": {
+      "course_id": "course_demo",
+      "draft_id": "w5_draft_1",
+      "round_no": 1,
+      "run_id": "run_demo"
+    },
+    "journey": {
+      "admin_audit": "READY",
+      "exact_binding": true,
+      "student_projection": "READY",
+      "teacher_preview": "READY"
+    },
+    "known_limits": ["synthetic Shanghai scenario"],
+    "mission_id": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL",
+    "preview": { "realized": { "authority": "SIMULATION_CORE" } },
+    "schema_version": "simwar.shanghai.full-vertical.v1",
+    "status": "READY_WITH_LIMITS",
+    "surface": "TEACHER",
+    "teacher_projection": { "operation_id": "W5_TEACHER_GOVERNED_MODEL_STUDIO_GET_V1" }
+  },
+  "student": {
+    "context": {
+      "course_id": "course_demo",
+      "draft_id": "w5_draft_1",
+      "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+      "round_no": 1,
+      "run_id": "run_demo"
+    },
+    "journey": {
+      "admin_audit": "READY",
+      "exact_binding": true,
+      "student_projection": "READY",
+      "teacher_preview": "READY"
+    },
+    "known_limits": ["student receives bounded projection"],
+    "mission_id": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL",
+    "projection": { "visibility": "ROLE_SAFE_STUDENT" },
+    "schema_version": "simwar.shanghai.full-vertical.v1",
+    "status": "READY_WITH_LIMITS",
+    "surface": "STUDENT"
+  },
+  "admin": {
+    "admin_projection": { "operation_id": "W5_ADMIN_GOVERNED_MODEL_AUDIT_GET_V1" },
+    "binding": {
+      "binding_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "binding_id": "w5_binding_w5_draft_1",
+      "course_id": "course_demo",
+      "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+      "no_implicit_latest": true,
+      "parameter_set_reference": { "parameter_set_id": "param_demo", "version": "1.0.0" },
+      "round_no": 1,
+      "run_id": "run_demo",
+      "scenario_package_reference": {
+        "scenario_package_id": "scenario_shanghai_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "seed": 42,
+      "status": "BOUND",
+      "tenant_id": "tenant_demo"
+    },
+    "exact_context": {
+      "course_id": "course_demo",
+      "draft_id": "w5_draft_1",
+      "round_no": 1,
+      "run_id": "run_demo"
+    },
+    "journey": {
+      "admin_audit": "READY",
+      "exact_binding": true,
+      "student_projection": "READY",
+      "teacher_preview": "READY"
+    },
+    "known_limits": ["synthetic Shanghai scenario"],
+    "mission_id": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL",
+    "preview": {
+      "can": { "eligible": true },
+      "demand_realization": { "readiness": "READY_WITH_LIMITS" },
+      "known_limits": ["synthetic"],
+      "realized": { "authority": "SIMULATION_CORE" },
+      "replay": { "differential": "NON_OFFICIAL" },
+      "want": { "official": false }
+    },
+    "schema_version": "simwar.shanghai.full-vertical.v1",
+    "status": "READY_WITH_LIMITS",
+    "surface": "ADMIN"
+  }
+}
