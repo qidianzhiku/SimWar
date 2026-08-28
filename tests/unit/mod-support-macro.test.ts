@@ -44,6 +44,14 @@ describe("MOD continuous six-macro candidate compiler", () => {
       );
       expect(result.known_limits.length).toBeGreaterThan(0);
       expect(() => assertModMacroResult(result)).not.toThrow();
+      if (macroKey !== "R4" && macroKey !== "R6") {
+        expect(
+          result.mjp.fixtures.every((fixture) => {
+            const evidence = fixture.result.execution_evidence as Record<string, unknown>;
+            return evidence.runner_version === "mod-mjp-runner.v1" && evidence.executed === true;
+          })
+        ).toBe(true);
+      }
     }
   });
 
@@ -124,6 +132,39 @@ describe("MOD continuous six-macro candidate compiler", () => {
     expect(() => assertModMacroResult(result)).not.toThrow();
   });
 
+  it("rejects a fixture whose claimed execution evidence does not match its input", () => {
+    const request = createDefaultModMacroRequest("R2");
+    const original = request.mjp_fixtures[0]!;
+    const tamperedResult = {
+      ...original.result,
+      execution_evidence: {
+        ...(original.result.execution_evidence as Record<string, unknown>),
+        executed: false
+      }
+    };
+    const tamperedFixture = {
+      ...original,
+      result: tamperedResult,
+      result_digest: stableDigest(tamperedResult)
+    };
+    expect(() =>
+      compileModMacro({
+        ...request,
+        mjp_fixtures: [tamperedFixture, ...request.mjp_fixtures.slice(1)]
+      })
+    ).toThrow("MOD_MJP_FIXTURE_INVALID");
+  });
+
+  it("requires all five experiment families before R3 can enter State B", () => {
+    const request = createDefaultModMacroRequest("R3");
+    const incomplete = request.experiment_variants.filter(
+      (variant) => variant.family !== "FINANCE"
+    );
+    expect(() => compileModMacro({ ...request, experiment_variants: incomplete })).toThrow(
+      "MOD_EXPERIMENT_VARIANT_INVALID"
+    );
+  });
+
   it("abstains on conflicting, stale, and out-of-domain stakeholder signals", () => {
     const request = createDefaultModMacroRequest("R2");
     const result = compileModMacro({
@@ -145,6 +186,57 @@ describe("MOD continuous six-macro candidate compiler", () => {
     expect(JSON.stringify(result.candidate)).not.toMatch(/recommendation|score|rank/i);
   });
 
+  it("produces one bounded, deduplicated shadow response per stakeholder signal", () => {
+    const request = createDefaultModMacroRequest("R2");
+    const result = compileModMacro({
+      ...request,
+      stakeholder_signals: [
+        ...request.stakeholder_signals,
+        { ...request.stakeholder_signals[0], signal_id: "signal-customer-family-duplicate" }
+      ]
+    });
+    const candidate = result.candidate as {
+      diagnostic_responses: Array<Record<string, unknown>>;
+      abstentions: Array<Record<string, unknown>>;
+      double_count_guard: string;
+      official_influence: number;
+    };
+    expect(candidate.double_count_guard).toBe("ON");
+    expect(candidate.official_influence).toBe(0);
+    expect(candidate.diagnostic_responses).toHaveLength(5);
+    expect(candidate.abstentions).toContainEqual(
+      expect.objectContaining({ reason: "DUPLICATE_STAKEHOLDER_ABSTENTION" })
+    );
+    for (const response of candidate.diagnostic_responses) {
+      expect(response.bounded_diagnostic_delta).toBeGreaterThanOrEqual(-0.25);
+      expect(response.bounded_diagnostic_delta).toBeLessThanOrEqual(0.25);
+      expect(response.unit).toBe("bounded diagnostic delta");
+    }
+  });
+
+  it("builds a reproducible five-family executive experiment manifest", () => {
+    const result = compileModMacro(createDefaultModMacroRequest("R3", { fresh_need_proof: true }));
+    const candidate = result.candidate as {
+      families_covered: string[];
+      experiment_history_manifest: Array<Record<string, unknown>>;
+      variants: Array<Record<string, unknown>>;
+      reproducibility: Record<string, unknown>;
+      comparison_scope: string;
+    };
+    expect(candidate.families_covered).toEqual(["WANT", "CAN", "DYNAMICS", "FINANCE", "PORTFOLIO"]);
+    expect(candidate.experiment_history_manifest).toEqual(
+      result.exact_binding.refs.map((ref) => expect.objectContaining(ref))
+    );
+    expect(candidate.variants.length).toBeGreaterThanOrEqual(5);
+    expect(
+      candidate.variants.some(
+        (variant) => variant.execution_status === "ABSTAINED_UNKNOWN_FEASIBILITY"
+      )
+    ).toBe(true);
+    expect(candidate.reproducibility).toMatchObject({ replayable: true, official: false });
+    expect(candidate.comparison_scope).toBe("WANT_CAN_DYNAMICS_FINANCE_PORTFOLIO");
+  });
+
   it("keeps regional transfer rights, expiry, and calibration limits explicit", () => {
     const result = compileModMacro(createDefaultModMacroRequest("R5", { fresh_need_proof: true }));
 
@@ -156,6 +248,42 @@ describe("MOD continuous six-macro candidate compiler", () => {
       calibration_status: "NOT_CALIBRATED"
     });
     expect(result.candidate.expiry).toBe("2027-08-28");
+    expect(result.candidate).toMatchObject({
+      model_card: {
+        calibration_status: "NOT_CALIBRATED",
+        official_recommendation: false
+      },
+      public_safe_harness: expect.arrayContaining([
+        expect.objectContaining({ comparison: "SAME_MODEL_DIFFERENT_REGION" }),
+        expect.objectContaining({ comparison: "SAME_REGION_DIFFERENT_MODEL_VERSION" })
+      ])
+    });
+    expect(result.candidate.compatibility_matrix as Array<unknown>).toHaveLength(2);
+  });
+
+  it("records R1 reuse proof and R6 lifecycle gates without creating an activation writer", () => {
+    const r1 = compileModMacro(createDefaultModMacroRequest("R1"));
+    expect(r1.candidate).toMatchObject({
+      reuse_status: "CURRENT_MAIN_CAPABILITY_REUSED_WITH_LOCAL_EVIDENCE",
+      consumer_evidence: {
+        consumer_id: "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL",
+        route_mode: "READ_ONLY_COMPOSITION"
+      }
+    });
+
+    const r6 = compileModMacro(createDefaultModMacroRequest("R6", { fresh_need_proof: true }));
+    expect(r6.candidate).toMatchObject({
+      activation_allowed: false,
+      rollback_receipt: { runtime_activation: false, formal_writer: "NONE" },
+      lifecycle: [
+        "REFERENCE",
+        "ELIGIBLE",
+        "CALIBRATION_CANDIDATE",
+        "QUALIFIED_WITH_LIMITS",
+        "EXPIRED",
+        "ROLLBACK_READY"
+      ]
+    });
   });
 
   it("fails closed for restricted, unknown, or expired regional transfer inputs", () => {

@@ -1,21 +1,21 @@
-# MOD 连续六轮 Support 宏任务候选编译器
+# MOD 连续六轮候选能力编译与验证包
 
 ## 范围
 
-`@simwar/mod-support` 是一个离线、纯确定性的 MOD support lane compiler。它把 R1–R6 的结构化输入编译为 `mod-support-macro.v1` candidate/evidence envelope，供 MAIN 后续做消费者、需求和 Join 复核。它不是新的行业内核、运行时、Registry、ParameterSet writer 或 Model Governance writer。
+`@simwar/mod-support` 是一个离线、纯确定性的 MOD lane capability compiler。它把 R1–R6 的结构化输入编译为 `mod-support-macro.v1` candidate/evidence envelope，并为 R2/R3/R5 执行可复核的影子/候选计算；R1 记录当前 MAIN-SH-FV 能力的复用证明。它不是新的行业内核、运行时、Registry、ParameterSet writer 或 Model Governance writer。
 
 当前实现只依赖结构化输入和 Node `sha256`，不读取真实企业数据、不调用 Provider、不写 JSON store/数据库/API route，不触碰 SettlementResult、正式评分、排名或 Replay truth hash。所有结果显式带 `provider=OFF`、`runtime_authority=JSON_INTERNAL_ONLY`、`official_truth_write=false`、`settlement_write=false`、`parameter_set_formal_write=false`、`replay_truth_write=false`。
 
 ## 六宏状态
 
-| 宏  | State B candidate                              | 最小 MJP fixture | 当前条件                                                                                      |
-| --- | ---------------------------------------------- | ---------------: | --------------------------------------------------------------------------------------------- |
-| R1  | `FullVerticalModelBindingCandidate`            |               12 | 默认 `JOIN_WITH_LIMITS`；现实资格保持 `NOT_CALIBRATED`，回退 `CORE_ELDERCARE_V1`              |
-| R2  | `StakeholderModelResponseShadowCandidate`      |               15 | 五类 stakeholder 信号的 bounded diagnostic delta；冲突、过期、OOD 明确 abstain                |
-| R3  | `ExecutiveExperimentManifest`                  |               18 | WANT/CAN/dynamics/finance/portfolio 的可比非官方 variants；不产生正式建议                     |
-| R4  | `RobustnessRegimeCandidate`                    |               18 | 只有结构化、exact-bound、time-limited 的 `fresh_need_proof` 才执行；否则 `SKIP_TOMBSTONED`    |
-| R5  | `RegionalTransferModelCandidate`               |               16 | Shanghai→synthetic public-safe Hangzhou compatibility envelope；rights/expiry/OOD fail-closed |
-| R6  | `RecalibrationDriftRollbackLifecycleCandidate` |               15 | 只有结构化、exact-bound、time-limited 的 `fresh_need_proof` 才执行；否则 `SKIP_TOMBSTONED`    |
+| 宏  | State B candidate                              | 最小 MJP fixture | 当前条件                                                                                              |
+| --- | ---------------------------------------------- | ---------------: | ----------------------------------------------------------------------------------------------------- |
+| R1  | `FullVerticalModelBindingCandidate`            |               12 | 复用当前 MAIN-SH-FV 只读组合服务；exact binding 与现实资格仍保持 `NOT_CALIBRATED`                     |
+| R2  | `StakeholderModelResponseShadowCandidate`      |               15 | 五类 stakeholder 信号的 bounded diagnostic delta；去重、冲突、过期、OOD 明确 abstain                  |
+| R3  | `ExecutiveExperimentManifest`                  |               18 | 五个实验族的可复现 shadow envelope；未知/不可行显式不执行，不产生正式建议                             |
+| R4  | `RobustnessRegimeCandidate`                    |               18 | 只有结构化、exact-bound、time-limited 的 `fresh_need_proof` 才执行；否则 `SKIP_TOMBSTONED`            |
+| R5  | `RegionalTransferModelCandidate`               |               16 | Shanghai→synthetic public-safe Hangzhou compatibility/version envelope；rights/expiry/OOD fail-closed |
+| R6  | `RecalibrationDriftRollbackLifecycleCandidate` |               15 | 只有结构化、exact-bound、time-limited 的 `fresh_need_proof` 才执行；否则 `SKIP_TOMBSTONED`            |
 
 条件宏的 tombstone 是能力复用和需求治理证据，不代表 State B 已实现，也不表示 calibrated、eligible、activated 或 production-ready。
 
@@ -31,7 +31,7 @@
 
 ### MJP fixture evidence
 
-每个结果的 `mjp.fixtures` 都保存结构化 fixture input、fixture result 及两者的 SHA-256。只有 supplied 且 digest 可复核的 input/result pairs 达到该宏门槛时才允许 `mjp.status=PASS`；不足时结果为 `EVIDENCE_INSUFFICIENT`/`SKIP`，不会用阈值或占位 ID 冒充执行证据。该门禁只代表本地确定性 fixture 验证，不等同于正式校准。
+每个结果的 `mjp.fixtures` 都保存结构化 fixture input、fixture result 及两者的 SHA-256。fixture result 必须包含 `mod-mjp-runner.v1` 的执行证据，并由编译前校验按相同 input 重放；篡改执行标记、digest 或输出会拒绝整个 request。只有可复核的 input/result pairs 达到该宏门槛时才允许 `mjp.status=PASS`；不足时结果为 `EVIDENCE_INSUFFICIENT`/`SKIP`，不会用阈值或占位 ID 冒充执行证据。该门禁只代表本地确定性 fixture 验证，不等同于正式校准。
 
 ### Role safety
 
@@ -43,9 +43,11 @@ MOD support compiler 的唯一写入者身份是 `MOD_SUPPORT_CANDIDATE_COMPILER
 
 Evidence assembler 只允许写入专用的新目录：新目录必须使用 `simwar-mod-support-evidence-*` 命名并写入精确 ownership marker；任何既有目录（即使带 marker）都拒绝复用。仓库根目录、仓库内路径、文件系统根、文件和未拥有目录均拒绝，assembler 不执行递归删除。
 
-## 复用与限制
+## 具体能力与复用边界
 
-实现复用当前仓库已存在的 W5/M8 exact-reference/qualification 语义、W4/O4 cross-round candidate 语义、D6/M4 transfer/provenance 语义和 MOD-06 model governance 的 provider-off/no-activation 边界；没有复制这些 authority 的 writer 或 runtime。当前实现没有新增前端面或 API route，因为现有 MAIN consumer seam 尚未证明允许该 candidate 进入产品运行路径；这属于明确的 integration limit，而不是伪造 full product completion。
+实现复用当前仓库已存在的 MAIN-SH-FV 只读组合服务、W5/M8 exact-reference/qualification 语义、W4/O4 cross-round candidate 语义、D6/M4 transfer/provenance 语义和 MOD-06 model governance 的 provider-off/no-activation 边界；没有复制这些 authority 的 writer 或 runtime。R2 仅生成去重后的诊断影子响应，R3 仅生成五实验族的非官方比较 envelope，R5 仅生成 public-safe 区域/版本兼容性 envelope。当前主线没有被证明存在 STK、ESL、RT 的可消费运行时 seam，所以这些输出保持 lane-local candidate/diagnostic，不声称已经接入产品运行路径；这是能力边界，而不是把候选包装成正式 Truth。
+
+R1 的 `consumer_evidence` 指向当前已存在的 `ShanghaiFullVerticalService.requireExactBinding` 与 `isShanghaiFullVerticalBound` 只读守卫；R4/R6 在没有当前结构化 fresh Need proof 时是显式 capability tombstone。所有 MJP fixture 都是 synthetic-only、可重放的结构化执行证据；所有输出仍不具备 `MODEL_CALIBRATED`、official recommendation 或 activation 含义。
 
 ## 接入前置条件
 

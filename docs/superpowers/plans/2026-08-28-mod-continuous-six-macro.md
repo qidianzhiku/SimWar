@@ -2,7 +2,7 @@
 
 ## 目标
 
-在不创建第二 Truth/Settlement/Runtime/Registry/Model-Governance writer 的前提下，交付一个独立的 `@simwar/mod-support` 候选编译包。该包将六个 MOD 宏任务统一编译为可审计、可复现、可 Join 的 candidate/evidence 结果：
+在不创建第二 Truth/Settlement/Runtime/Registry/Model-Governance writer 的前提下，交付一个独立的 `@simwar/mod-support` 候选能力编译包。该包将六个 MOD 宏任务统一编译为可审计、可复现、可 Join 的 candidate/evidence 结果，并对 R2/R3/R5 执行 lane-local 的确定性影子计算：
 
 - R1 Full Vertical Model Binding Reality Qualification
 - R2 Stakeholder Model Response Shadow
@@ -11,12 +11,12 @@
 - R5 Regional Model Portability Version Evolution
 - R6 Recalibration Drift Rollback Lifecycle（仅有 fresh Need proof 时执行，否则 tombstone）
 
-实现必须是 candidate-only、provider-off、JSON-only、exact-ref、no-implicit-latest，并保留 role-safe projection、conflict/OOD/expiry/fallback、non-write 和 replay/non-overwrite 证据。
+实现必须是 candidate-only、provider-off、JSON-only、exact-ref、no-implicit-latest，并保留 role-safe projection、conflict/OOD/expiry/fallback、non-write 和 replay/non-overwrite 证据。R1 只能复用当前 MAIN-SH-FV 只读绑定证据；R4/R6 没有 fresh Need proof 时必须 tombstone。
 
 ## 当前边界与复用
 
 - 复用仓库既有的 W5/M8 qualification、W4/O4 dynamics、D6/M4 transfer、model-governance 与 Shanghai full-vertical 绑定概念；不复制这些正式 authority 或 runtime。
-- 新包不写 `packages/shared-contracts` 的 index，不新增 API route，不修改 `services/simulation-core`、`services/api`、Settlement、Replay hash 或任何现有 authority writer。
+- 新包不写 `packages/shared-contracts` 的 index，不新增 API route，不修改 `services/simulation-core`、`services/api`、Settlement、Replay hash 或任何现有 authority writer；当前没有被证明可安全接入的 STK/ESL/RT 产品 seam，因此 R2/R3/R5 保持离线候选/影子输出。
 - 只新增 lane-owned `packages/mod-support`、一个专用 JSON Schema/fixture、专用 unit/contract tests 和说明文档；根 `tsconfig.build.json` 与根 `package.json` 只做最小 workspace build wiring。
 - 不将当前 #455/#456 的历史快照当作当前完成证据；最终报告只绑定执行时 fresh `HEAD`/tree/PR 状态。
 

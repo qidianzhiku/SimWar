@@ -11,7 +11,7 @@ npx prettier --check packages/mod-support/src/index.ts packages/mod-support/pack
 git diff --check
 ```
 
-单元测试覆盖：六宏 State A→State B、可复核 fixture input/result pairs 与 MJP thresholds、exact ref/floating token 拒绝、R4/R6 tombstone、结构化 fresh Need proof 的 issuer/scope/source/expiry/digest 绑定及 request-time freshness、R2 conflict/stale/OOD abstention、R5 rights/expiry/calibration limits、Student visibility、authority firewall、stable digest，以及 evidence assembler ownership-marker 防递归删除。契约测试使用 Ajv 2020 验证 canonical fixture 与所有六宏生成结果，并拒绝 `official_truth_write=true` 的漂移。
+单元测试覆盖：六宏 State A→State B、MJP runner 执行证据与 input/result digest 重放、exact ref/floating token 拒绝、R4/R6 tombstone、结构化 fresh Need proof 的 issuer/scope/source/expiry/digest 绑定及 request-time freshness、R1 MAIN 复用证明、R2 去重/conflict/stale/OOD abstention、R3 五实验族/未知与不可行 fail-closed、R5 双向兼容/版本差异/rights/expiry/calibration limits、R6 lifecycle gates、Student visibility、authority firewall、stable digest，以及 evidence assembler ownership-marker 防递归删除。契约测试使用 Ajv 2020 验证 canonical fixture 与所有六宏生成结果，并拒绝 `official_truth_write=true` 的漂移。
 
 ## 全仓库门禁解释
 

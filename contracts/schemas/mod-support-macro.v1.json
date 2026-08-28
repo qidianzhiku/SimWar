@@ -203,7 +203,13 @@
         "fixture_id": { "type": "string", "minLength": 1 },
         "macro_key": { "enum": ["R1", "R2", "R3", "R4", "R5", "R6"] },
         "input": { "type": "object" },
-        "result": { "type": "object" },
+        "result": {
+          "type": "object",
+          "required": ["execution_evidence"],
+          "properties": {
+            "execution_evidence": { "type": "object", "minProperties": 1 }
+          }
+        },
         "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "result_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
