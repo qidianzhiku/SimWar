@@ -1,0 +1,152 @@
+import { describe, expect, it } from "vitest";
+import {
+  MOD_MACRO_KEYS,
+  assertModMacroResult,
+  compileModMacro,
+  createDefaultModMacroRequest,
+  createExactRef,
+  type ModMacroKey,
+  type ModMacroRequest
+} from "../../packages/mod-support/src/index";
+
+const macroKeys = [...MOD_MACRO_KEYS] as ModMacroKey[];
+
+describe("MOD continuous six-macro candidate compiler", () => {
+  it("compiles every macro into a State A to State B, joinable, non-write result", () => {
+    for (const macroKey of macroKeys) {
+      const result = compileModMacro(
+        createDefaultModMacroRequest(macroKey, { fresh_need_proof: true })
+      );
+
+      expect(result.schema_version).toBe("mod-support-macro.v1");
+      expect(result.state_transition.from).toBe("STATE_A");
+      expect(result.state_transition.to).toBe("STATE_B");
+      expect(["JOIN", "JOIN_WITH_LIMITS"]).toContain(result.status);
+      expect(result.join_request.consumer_ready).toBe(false);
+      expect(result.join_request.join_gate).toBe("MAIN_REVIEW_REQUIRED");
+      expect(result.exact_binding.no_implicit_latest).toBe(true);
+      expect(result.exact_binding.refs.length).toBeGreaterThanOrEqual(4);
+      expect(result.authority).toEqual({
+        candidate_writer: "MOD_SUPPORT_CANDIDATE_COMPILER",
+        formal_writer: "NONE",
+        official_truth_write: false,
+        settlement_write: false,
+        parameter_set_formal_write: false,
+        replay_truth_write: false,
+        provider: "OFF",
+        runtime_authority: "JSON_INTERNAL_ONLY"
+      });
+      expect(result.mjp.fixture_count).toBeGreaterThanOrEqual(result.mjp.minimum_fixture_count);
+      expect(result.known_limits.length).toBeGreaterThan(0);
+      expect(() => assertModMacroResult(result)).not.toThrow();
+    }
+  });
+
+  it("rejects floating references before any candidate is compiled", () => {
+    expect(() =>
+      createExactRef({
+        resource_id: "model-version-1",
+        resource_type: "model_version",
+        version: "latest",
+        content_digest: "a".repeat(64)
+      })
+    ).toThrow("MOD_EXACT_REF_INVALID");
+
+    const request = createDefaultModMacroRequest("R1");
+    const drifted = {
+      ...request,
+      exact_refs: [
+        {
+          ...request.exact_refs[0],
+          version: "current"
+        }
+      ]
+    } as ModMacroRequest;
+    expect(() => compileModMacro(drifted)).toThrow("MOD_EXACT_REF_INVALID");
+  });
+
+  it("turns conditional R4 and R6 into explicit tombstones without fresh need proof", () => {
+    for (const macroKey of ["R4", "R6"] as const) {
+      const result = compileModMacro(createDefaultModMacroRequest(macroKey));
+
+      expect(result.status).toBe("SKIP_TOMBSTONED");
+      expect(result.state_transition.to).toBe("TOMBSTONED");
+      expect(result.candidate).toMatchObject({
+        execution: "SKIPPED",
+        reason: "NO_FRESH_NEED_PROOF"
+      });
+      expect(result.mjp.fixture_count).toBe(0);
+      expect(result.mjp.status).toBe("SKIP");
+      expect(result.join_request.join_gate).toBe("FRESH_NEED_PROOF_REQUIRED");
+    }
+  });
+
+  it("requires a bound, time-limited, digested proof object for conditional execution", () => {
+    const request = createDefaultModMacroRequest("R4", { fresh_need_proof: true });
+    expect(request.fresh_need_proof).not.toBeNull();
+    const proof = request.fresh_need_proof!;
+    expect(proof.authority).toBe("MAIN_NEED_REVIEW");
+    expect(proof.source_refs.length).toBeGreaterThan(0);
+    expect(proof.content_digest).toMatch(/^[a-f0-9]{64}$/);
+
+    const invalidProof = { ...proof, source_refs: [] };
+    expect(() => compileModMacro({ ...request, fresh_need_proof: invalidProof })).toThrow(
+      "MOD_FRESH_NEED_PROOF_INVALID"
+    );
+  });
+
+  it("abstains on conflicting, stale, and out-of-domain stakeholder signals", () => {
+    const request = createDefaultModMacroRequest("R2");
+    const result = compileModMacro({
+      ...request,
+      stakeholder_signals: request.stakeholder_signals.map((signal, index) =>
+        index === 0
+          ? { ...signal, quality: "CONFLICT" }
+          : index === 1
+            ? { ...signal, quality: "STALE" }
+            : index === 2
+              ? { ...signal, quality: "OUT_OF_DOMAIN" }
+              : signal
+      )
+    });
+
+    expect(result.candidate).toMatchObject({ official_influence: 0 });
+    expect(result.candidate.abstentions).toHaveLength(3);
+    expect(result.evidence.conflicts).toHaveLength(1);
+    expect(JSON.stringify(result.candidate)).not.toMatch(/recommendation|score|rank/i);
+  });
+
+  it("keeps regional transfer rights, expiry, and calibration limits explicit", () => {
+    const result = compileModMacro(createDefaultModMacroRequest("R5", { fresh_need_proof: true }));
+
+    expect(result.candidate).toMatchObject({
+      target_region: "hangzhou",
+      rights_status: "PUBLIC_SAFE",
+      compatibility_status: "COMPATIBLE_WITH_LIMITS",
+      out_of_domain_action: "FAIL_CLOSED",
+      calibration_status: "NOT_CALIBRATED"
+    });
+    expect(result.candidate.expiry).toBe("2027-08-28");
+  });
+
+  it("keeps student projections free of private truth and formal result fields", () => {
+    for (const macroKey of macroKeys) {
+      const result = compileModMacro(
+        createDefaultModMacroRequest(macroKey, { fresh_need_proof: true })
+      );
+      const studentProjection = JSON.stringify(result.role_visibility.student);
+      expect(studentProjection).not.toMatch(
+        /state_true|market_share|revenue|profit|cash_flow|score|rank|settlement|raw|secret|private/i
+      );
+    }
+  });
+
+  it("is deterministic for the same structured inputs", () => {
+    const request = createDefaultModMacroRequest("R3", { fresh_need_proof: true });
+    const first = compileModMacro(request);
+    const second = compileModMacro(structuredClone(request));
+
+    expect(first).toEqual(second);
+    expect(first.candidate_digest).toMatch(/^[a-f0-9]{64}$/);
+  });
+});

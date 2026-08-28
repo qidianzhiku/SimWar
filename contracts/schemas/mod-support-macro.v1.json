@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/mod-support-macro.v1.json",
+  "title": "MOD Support Candidate Macro",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "candidate_type",
+    "candidate_digest",
+    "status",
+    "state_transition",
+    "exact_binding",
+    "candidate",
+    "evidence",
+    "mjp",
+    "role_visibility",
+    "authority",
+    "join_request",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "mod-support-macro.v1" },
+    "macro_key": { "enum": ["R1", "R2", "R3", "R4", "R5", "R6"] },
+    "mission_id": { "type": "string", "minLength": 1 },
+    "candidate_type": { "type": "string", "minLength": 1 },
+    "candidate_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": { "enum": ["JOIN", "JOIN_WITH_LIMITS", "SKIP_TOMBSTONED", "EVIDENCE_INSUFFICIENT"] },
+    "state_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": { "from": { "const": "STATE_A" }, "to": { "enum": ["STATE_B", "TOMBSTONED"] } }
+    },
+    "exact_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_digest", "no_implicit_latest", "refs"],
+      "properties": {
+        "binding_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "no_implicit_latest": { "const": true },
+        "refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exactRef" } }
+      }
+    },
+    "candidate": { "type": "object" },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputs", "transformations", "conflicts", "differential"],
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "role"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/exactRef" },
+              "role": {
+                "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+              }
+            }
+          }
+        },
+        "transformations": { "type": "array", "items": { "$ref": "#/$defs/transformation" } },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["signal_id", "reason"],
+            "properties": { "signal_id": { "type": "string" }, "reason": { "type": "string" } }
+          }
+        },
+        "differential": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "replay_truth_write", "official_result_overwrite"],
+          "properties": {
+            "mode": { "const": "NON_OFFICIAL" },
+            "replay_truth_write": { "const": false },
+            "official_result_overwrite": { "const": false }
+          }
+        }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "fixture_count", "minimum_fixture_count", "fixture_ids"],
+      "properties": {
+        "status": { "enum": ["PASS", "SKIP"] },
+        "fixture_count": { "type": "integer", "minimum": 0 },
+        "minimum_fixture_count": { "type": "integer", "minimum": 0 },
+        "fixture_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "role_visibility": { "$ref": "#/$defs/roleVisibility" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "formal_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "replay_truth_write",
+        "provider",
+        "runtime_authority"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "MOD_SUPPORT_CANDIDATE_COMPILER" },
+        "formal_writer": { "const": "NONE" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "replay_truth_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "join_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_id",
+        "need_by",
+        "consumer_ready",
+        "exact_binding_required",
+        "join_gate",
+        "requested_status"
+      ],
+      "properties": {
+        "consumer_id": { "type": "string", "minLength": 1 },
+        "need_by": { "type": "string", "minLength": 1 },
+        "consumer_ready": { "const": false },
+        "exact_binding_required": { "const": true },
+        "join_gate": { "enum": ["MAIN_REVIEW_REQUIRED", "FRESH_NEED_PROOF_REQUIRED"] },
+        "requested_status": {
+          "enum": ["JOIN", "JOIN_WITH_LIMITS", "SKIP_TOMBSTONED", "EVIDENCE_INSUFFICIENT"]
+        }
+      }
+    },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "resource_type", "version", "content_digest"],
+      "properties": {
+        "resource_id": { "type": "string", "minLength": 1 },
+        "resource_type": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "rule",
+        "assumption",
+        "output",
+        "unit",
+        "time_scope",
+        "geography",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "input": { "type": "array", "items": { "type": "string" } },
+        "rule": { "type": "string" },
+        "assumption": { "type": "string" },
+        "output": { "type": "string" },
+        "unit": { "type": "string" },
+        "time_scope": { "type": "string" },
+        "geography": { "type": "string" },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string" }
+      }
+    },
+    "roleView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "roleVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/roleView" },
+        "student": { "$ref": "#/$defs/roleView" },
+        "admin": { "$ref": "#/$defs/roleView" }
+      }
+    }
+  }
+}
