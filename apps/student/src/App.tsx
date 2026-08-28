@@ -1376,10 +1376,12 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
-                  m4Context={
-                    latestRun && latestRound
-                      ? [latestRun.course_id, latestRun.run_id, latestRound.round_no]
-                      : undefined
+                  m4={
+                    latestRun && latestRound && [
+                      latestRun.course_id,
+                      latestRun.run_id,
+                      latestRound.round_no
+                    ]
                   }
                 />
               </Suspense>

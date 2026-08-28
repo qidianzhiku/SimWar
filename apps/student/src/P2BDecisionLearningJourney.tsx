@@ -30,7 +30,7 @@ type Props = {
   context?: W3OfficialConsequenceContext | undefined;
   published: boolean;
   crossRoundEnabled?: boolean;
-  m4Context?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
+  m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
 };
 
 type JourneyState =
@@ -63,7 +63,7 @@ export function StudentDecisionLearningJourney({
   context,
   published,
   crossRoundEnabled = false,
-  m4Context
+  m4
 }: Props) {
   const [state, setState] = useState<JourneyState>({
     phase: getStudentLearningGate(published) === "blocked" ? "blocked" : "idle"
@@ -615,12 +615,12 @@ export function StudentDecisionLearningJourney({
           </article>
         </div>
       ) : null}
-      {m4Context ? (
+      {m4 ? (
         <M4MultipathCounterfactualTransferPanel
           apiBase={apiBase}
-          courseId={m4Context[0]}
-          runId={m4Context[1]}
-          roundNo={m4Context[2]}
+          courseId={m4[0]}
+          runId={m4[1]}
+          roundNo={m4[2]}
           surface="student"
           tenantId={tenantId}
           token={token}
