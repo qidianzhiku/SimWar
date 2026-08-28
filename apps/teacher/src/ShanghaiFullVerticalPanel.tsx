@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ApiEnvelope, ShanghaiFullVerticalTeacherProjection } from "@simwar/shared-contracts";
 
 interface Props {
@@ -49,6 +49,17 @@ export function ShanghaiFullVerticalTeacherPanel({
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
     () => draftId ?? readConfiguredDraftId()
   );
+  const contextRef = useRef<{
+    courseId: string | null;
+    roundNo: number | null;
+    runId: string | null;
+    initialized: boolean;
+  }>({
+    courseId: null,
+    roundNo: null,
+    runId: null,
+    initialized: false
+  });
 
   useEffect(() => {
     if (draftId !== undefined) setSelectedDraftId(draftId);
@@ -57,6 +68,26 @@ export function ShanghaiFullVerticalTeacherPanel({
   useEffect(() => {
     let active = true;
     if (!courseId || !token) {
+      setProjection(null);
+      setError(null);
+      return () => {
+        active = false;
+      };
+    }
+    const previousContext = contextRef.current;
+    const contextChanged =
+      previousContext.initialized &&
+      (previousContext.courseId !== courseId ||
+        previousContext.runId !== (runId ?? null) ||
+        previousContext.roundNo !== (roundNo ?? null));
+    contextRef.current = {
+      courseId,
+      initialized: true,
+      roundNo: roundNo ?? null,
+      runId: runId ?? null
+    };
+    if (contextChanged) {
+      setSelectedDraftId(null);
       setProjection(null);
       setError(null);
       return () => {
