@@ -102,6 +102,31 @@ describe("Shanghai full vertical candidate binding", () => {
     );
   });
 
+  it("snapshots nested formal references before returning evidence", () => {
+    const formalInput: ShanghaiFullVerticalFormalReferencesV1 = {
+      ...formal,
+      parameter_set: { ...formal.parameter_set },
+      plugin_releases: formal.plugin_releases.map((release) => ({ ...release })),
+      scenario_package: { ...formal.scenario_package }
+    };
+    const evidence = createShanghaiFullVerticalBindingEvidenceV1({
+      candidate,
+      formal: formalInput
+    });
+
+    formalInput.parameter_set.version = "2.0.0";
+    formalInput.plugin_releases[0]!.version = "2.0.0";
+    formalInput.scenario_package.version = "2.0.0";
+
+    expect(evidence.formal_references.parameter_set.version).toBe("1.0.0");
+    expect(evidence.formal_references.plugin_releases[0]?.version).toBe("1.0.0");
+    expect(evidence.formal_references.scenario_package.version).toBe("1.0.0");
+    expect(Object.isFrozen(evidence)).toBe(true);
+    expect(Object.isFrozen(evidence.formal_references)).toBe(true);
+    expect(Object.isFrozen(evidence.formal_references.parameter_set)).toBe(true);
+    expect(Object.isFrozen(evidence.formal_references.plugin_releases)).toBe(true);
+  });
+
   it.each([
     ["tenant_id", { formal: { ...formal, tenant_id: "tenant_other" } }, "TENANT_SCOPE_MISMATCH"],
     [

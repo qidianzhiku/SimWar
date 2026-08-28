@@ -137,21 +137,28 @@ export function createShanghaiFullVerticalBindingEvidenceV1(input: {
     throw new Error(`SHANGHAI_FULL_VERTICAL_BINDING_INVALID:${validation.issues.join(",")}`);
   }
 
-  return {
-    candidate: {
-      ...input.candidate,
-      plugin_package_ids: [...input.candidate.plugin_package_ids]
-    },
+  const candidate = Object.freeze({
+    ...input.candidate,
+    plugin_package_ids: Object.freeze([...input.candidate.plugin_package_ids])
+  });
+  const formalReferences = Object.freeze({
+    ...input.formal,
+    parameter_set: Object.freeze({ ...input.formal.parameter_set }),
+    plugin_releases: Object.freeze(
+      input.formal.plugin_releases.map((release) => Object.freeze({ ...release }))
+    ),
+    scenario_package: Object.freeze({ ...input.formal.scenario_package })
+  });
+
+  return Object.freeze({
+    candidate,
     digest_status: "REFERENCE_ONLY_NOT_REHASHED",
-    formal_references: {
-      ...input.formal,
-      plugin_releases: [...input.formal.plugin_releases]
-    },
+    formal_references: formalReferences,
     formal_truth_write: false,
     parameter_set_write: false,
     runtime_activation: false,
     schema_version: SHANGHAI_FULL_VERTICAL_BINDING_SCHEMA_VERSION,
     settlement_write: false,
     status: "BOUND"
-  };
+  });
 }

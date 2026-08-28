@@ -213,6 +213,7 @@ export function createCourseDeliveryBlueprintV1(input: {
       input.formalBinding.scenario_package.scenario_package_id ||
     input.scenarioPackage.tenant_id !== input.formalBinding.scenario_package.tenant_id ||
     input.scenarioPackage.version !== input.formalBinding.scenario_package.version ||
+    input.parameterSet.tenant_id !== input.formalBinding.tenant_id ||
     input.parameterSet.parameter_set_id !== input.formalBinding.parameter_set.parameter_set_id ||
     input.parameterSet.version !== input.formalBinding.parameter_set.version ||
     input.parameterSet.seed !== input.formalBinding.parameter_set_seed ||
@@ -229,14 +230,14 @@ export function createCourseDeliveryBlueprintV1(input: {
 
   const formalIdentityBinding = createShanghaiFullVerticalBindingEvidenceV1({
     candidate: {
-      compiler_version: input.releaseCandidate.compiled_record.compiler_version,
+      compiler_version: input.releaseCandidate.scenario_factory_compiler_version,
       course_id: input.releaseCandidate.course_id,
       parameter_set_id: asset.parameter_set.parameter_set_id,
       parameter_set_seed: asset.parameter_set.seed,
       parameter_set_version: asset.parameter_set.version,
       plugin_package_ids: asset.scenario_package.plugin_package_ids,
       plugin_version: input.releaseCandidate.compiled_record.plugin_version,
-      scenario_family_version: input.releaseCandidate.compiled_record.template_version,
+      scenario_family_version: input.releaseCandidate.scenario_family_version,
       scenario_package_id: asset.scenario_package.scenario_package_id,
       scenario_package_version: asset.scenario_package.version,
       scenario_version: input.releaseCandidate.compiled_record.scenario_version,

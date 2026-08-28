@@ -154,6 +154,8 @@ export interface R7CScenarioValidationReport {
 }
 
 export interface R7CReleaseCandidate {
+  scenario_factory_compiler_version: typeof R7C_SCENARIO_FACTORY_COMPILER_VERSION;
+  scenario_family_version: typeof R7C_SCENARIO_FACTORY_TEMPLATE_VERSION;
   release_candidate_id: string;
   status: "RELEASE_CANDIDATE" | "BOUND_TO_RUN";
   tenant_id: string;
@@ -639,6 +641,8 @@ export function createR7CReleaseCandidate(
       status: "RELEASE_CANDIDATE",
       variant_id: frozen.variant.variant_id
     }),
+    scenario_factory_compiler_version: R7C_SCENARIO_FACTORY_COMPILER_VERSION,
+    scenario_family_version: R7C_SCENARIO_FACTORY_TEMPLATE_VERSION,
     status: "RELEASE_CANDIDATE",
     tenant_id: frozen.tenant_id,
     variant_id: frozen.variant.variant_id
@@ -662,13 +666,13 @@ export function bindR7CReleaseCandidateToRun(
     ...candidate,
     compiled_record: boundRecord,
     run_binding: {
-      compiler_version: R7C_SCENARIO_FACTORY_COMPILER_VERSION,
+      compiler_version: candidate.scenario_factory_compiler_version,
       mutation_allowed: false,
       parameter_set_id: boundRecord.asset.parameter_set.parameter_set_id,
       parameter_set_version: boundRecord.asset.parameter_set.version,
       plugin_package_ids: boundRecord.asset.scenario_package.plugin_package_ids,
       run_id: options.run_id,
-      scenario_family_version: R7C_SCENARIO_FACTORY_TEMPLATE_VERSION,
+      scenario_family_version: candidate.scenario_family_version,
       scenario_package_id: boundRecord.asset.scenario_package.scenario_package_id,
       scenario_package_version: boundRecord.asset.scenario_package.version
     },

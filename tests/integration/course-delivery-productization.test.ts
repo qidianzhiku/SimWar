@@ -301,6 +301,48 @@ describe("Course Delivery Productization V1", () => {
         settlement_write: false,
         status: "BOUND"
       });
+      expect(blueprint.formal_identity_binding.candidate).toMatchObject({
+        compiler_version: "r7c.shanghai.scenario-factory.compiler.v2",
+        scenario_family_version: "r7c.shanghai.scenario-family.v2"
+      });
+
+      expect(() =>
+        createCourseDeliveryBlueprintV1({
+          approvalReference: releaseCandidate.release_candidate_id,
+          course,
+          knownLimitsReference: "docs/quality/r5-r6-course-delivery-learning-evidence.md",
+          parameterSet: { ...parameterSet, tenant_id: "tenant_other" },
+          pluginPackageId: scenarioPackage.plugin_package_ids[0] ?? "plugin_wellness_eldercare_v1",
+          pluginVersion: releaseCandidate.compiled_record.plugin_version,
+          formalBinding: {
+            course_id: course.course_id,
+            parameter_set: {
+              content_digest: "b".repeat(64),
+              parameter_set_id: parameterSet.parameter_set_id,
+              version: parameterSet.version
+            },
+            parameter_set_seed: parameterSet.seed,
+            plugin_releases: [
+              {
+                content_digest: "c".repeat(64),
+                plugin_package_id: scenarioPackage.plugin_package_ids[0]!,
+                version: "1.0.0"
+              }
+            ],
+            scenario_package: {
+              content_digest: "a".repeat(64),
+              scenario_package_id: scenarioPackage.scenario_package_id,
+              tenant_id: scenarioPackage.tenant_id,
+              version: scenarioPackage.version
+            },
+            tenant_id: course.tenant_id
+          },
+          releaseCandidate,
+          scenarioPackage,
+          teacherScope: "tenant_demo:course_delivery_teacher",
+          runBindingReference: "pending"
+        })
+      ).toThrow(/COURSE_DELIVERY_FORMAL_BINDING_OBJECT_MISMATCH/);
 
       expect(() =>
         createCourseDeliveryBlueprintV1({
