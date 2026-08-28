@@ -53,19 +53,6 @@ function buildHashes(exclude = new Set()) {
     .join("\n");
 }
 
-function safeNoWrite() {
-  return {
-    candidate_writer: "MOD_SUPPORT_CANDIDATE_COMPILER",
-    formal_writer: "NONE",
-    official_truth_write: false,
-    settlement_write: false,
-    parameter_set_formal_write: false,
-    replay_truth_write: false,
-    provider: "OFF",
-    runtime_authority: "JSON_INTERNAL_ONLY"
-  };
-}
-
 function currentReality() {
   return {
     captured_at: "2026-08-28T00:00:00.000Z",
