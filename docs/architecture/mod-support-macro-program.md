@@ -41,7 +41,7 @@ Teacher 可见 candidate、provenance、conflicts 和 known limits；Admin 只�
 
 MOD support compiler 的唯一写入者身份是 `MOD_SUPPORT_CANDIDATE_COMPILER`，其 formal writer 是 `NONE`。`candidate_digest` 只证明候选 envelope 自身的确定性，不是正式 Replay truth hash。MAIN 仍需重新验证消费者 exact binding、Need-by、rights、expiry、visibility、non-overwrite 和运行时接入条件。
 
-Evidence assembler 只允许写入专用目录：新目录必须使用 `simwar-mod-support-evidence-*` 命名，既有目录必须带精确 ownership marker；仓库根目录、仓库内路径、文件系统根、文件和未拥有目录均在递归清理前拒绝。
+Evidence assembler 只允许写入专用的新目录：新目录必须使用 `simwar-mod-support-evidence-*` 命名并写入精确 ownership marker；任何既有目录（即使带 marker）都拒绝复用。仓库根目录、仓库内路径、文件系统根、文件和未拥有目录均拒绝，assembler 不执行递归删除。
 
 ## 复用与限制
 

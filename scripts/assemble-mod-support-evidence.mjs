@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  rmSync,
   writeFileSync
 } from "node:fs";
 import { basename, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
@@ -100,7 +99,7 @@ function prepareSafeOutputRoot() {
     ) {
       throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_UNOWNED_DIRECTORY");
     }
-    rmSync(target, { recursive: true, force: true });
+    throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_EXISTING_DIRECTORY_USE_NEW_PATH");
   } else if (
     !/^simwar-mod-support-evidence(?:-[A-Za-z0-9][A-Za-z0-9-]*)?$/u.test(basename(target))
   ) {
