@@ -1,0 +1,93 @@
+{
+  "schema_version": "m4-multipath-counterfactual-transfer.v1",
+  "runtime_authority": "JSON_INTERNAL_ONLY",
+  "visibility": "teacher_safe",
+  "exact_binding": {
+    "source_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_m4",
+      "team_id": "team_alpha",
+      "round_id": "round_1",
+      "enterprise_state_id": "state_1",
+      "version": 1,
+      "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "source_outcome_id": "outcome_1",
+    "horizon_rounds": 1,
+    "scenario_package_id": "scenario_m4",
+    "parameter_set_id": "parameters_m4",
+    "engine_id": "toy_logit_wellness_v1",
+    "plugin_ids": ["plugin_wellness_stub"],
+    "seed": 77
+  },
+  "official_path": {
+    "officiality": "OFFICIAL",
+    "unchanged": true,
+    "outcome_id": "outcome_1",
+    "opening_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_m4",
+      "team_id": "team_alpha",
+      "round_id": "round_0",
+      "enterprise_state_id": "state_0",
+      "version": 1,
+      "state_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "closing_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_m4",
+      "team_id": "team_alpha",
+      "round_id": "round_1",
+      "enterprise_state_id": "state_1",
+      "version": 1,
+      "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "decision_ids": ["official_decision"],
+    "replay_writes_formal_results": true
+  },
+  "lineage": {
+    "source_round_id": "round_1",
+    "source_section_ids": [],
+    "preserved_dissent_role_keys": [],
+    "resolution_status": "PROPOSED",
+    "history_event_types": [],
+    "historical_decision_reentry_blocked": true
+  },
+  "paths": [],
+  "teacher_debrief": {
+    "available": true,
+    "learning_points": ["invalid"],
+    "apply_to_next_round": false
+  },
+  "student_transfer": {
+    "role_safe": true,
+    "visible_path_ids": [],
+    "explanation": "invalid",
+    "excluded_fields": ["raw_counterfactual_state"]
+  },
+  "transfer": {
+    "status": "READY",
+    "apply_to_next_round": false,
+    "source_official_state_ref": {
+      "tenant_id": "tenant_demo",
+      "course_id": "course_demo",
+      "run_id": "run_m4",
+      "team_id": "team_alpha",
+      "round_id": "round_1",
+      "enterprise_state_id": "state_1",
+      "version": 1,
+      "state_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "invariants": {
+    "official_decision_writes": false,
+    "official_settlement_writes": false,
+    "official_state_writes": false,
+    "apply_to_next_round": false,
+    "replay_writes_formal_results": false
+  },
+  "known_limits": ["invalid"]
+}

@@ -4873,7 +4873,11 @@ paths:
       responses:
         "200":
           description: Student-safe W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } }
+            }
 
   /api/v1/bff/teacher/w4/runs/{runId}/rounds/{roundNo}/portfolio:
     get:
@@ -4889,7 +4893,11 @@ paths:
       responses:
         "200":
           description: Teacher W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } }
+            }
 
   /api/v1/bff/admin/w4/runs/{runId}/rounds/{roundNo}/portfolio:
     get:
@@ -4905,7 +4913,11 @@ paths:
       responses:
         "200":
           description: Admin W4 projection.
-          content: { application/json: { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } } }
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/W4PortfolioProjectionEnvelope" } }
+            }
 
   /api/v1/bff/teacher/w4/runs/{runId}/matched-arena:
     get:
@@ -4976,6 +4988,73 @@ paths:
             }
         "409":
           description: Source lineage or runtime binding conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+
+  /api/v1/bff/{surface}/w4/runs/{runId}/multipath-counterfactual-transfer:
+    get:
+      operationId: M4_MULTIPATH_COUNTERFACTUAL_TRANSFER_DISCOVER_GET_V1
+      summary: Discover bounded exact-history alternative paths for the current official W4 outcome.
+      description: Read-only discovery selects only existing scoped decisions with committed W4 evidence; if fewer than two exist, the service returns a bounded unavailable error.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: surface
+          in: path
+          required: true
+          schema: { type: string, enum: [student, teacher] }
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+        - name: team_id
+          in: query
+          required: false
+          schema: { type: string, minLength: 1 }
+        - name: round_no
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Discovered exact-bound multi-path evidence and role-safe transfer projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/M4MultipathCounterfactualEnvelope" }
+        "409":
+          description: Official source, role lineage, or minimum path discovery conflict.
+          content:
+            { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
+    post:
+      operationId: M4_MULTIPATH_COUNTERFACTUAL_TRANSFER_POST_V1
+      summary: Compare two or three exact-history non-official paths and project governed transfer learning.
+      description: The official path remains unchanged. Alternative paths are deterministic evidence only and cannot write settlement, EnterpriseState, score/rank, publication, or next-round truth.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - name: surface
+          in: path
+          required: true
+          schema: { type: string, enum: [student, teacher] }
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/M4MultipathCounterfactualRequest" }
+      responses:
+        "200":
+          description: Exact-bound multi-path evidence with teacher detail or student-safe transfer projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/M4MultipathCounterfactualEnvelope" }
+        "409":
+          description: Exact source, runtime, tenant/team, role-lineage, or official re-entry conflict.
           content:
             { application/json: { schema: { $ref: "#/components/schemas/ApiErrorEnvelope" } } }
 
@@ -8221,6 +8300,51 @@ components:
       properties:
         code: { type: string }
         data: { $ref: "../schemas/w4-counterfactual.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    M4MultipathCounterfactualRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          source_state_ref,
+          source_outcome_id,
+          paths,
+          horizon_rounds,
+          scenario_package_id,
+          parameter_set_id,
+          engine_id,
+          plugin_ids,
+          seed
+        ]
+      properties:
+        source_state_ref: { $ref: "#/components/schemas/W4StateRef" }
+        source_outcome_id: { type: string, minLength: 1 }
+        paths:
+          type: array
+          minItems: 2
+          maxItems: 3
+          items:
+            type: object
+            additionalProperties: false
+            required: [path_id, label, decision_ids]
+            properties:
+              path_id: { type: string, minLength: 1 }
+              label: { type: string, minLength: 1 }
+              decision_ids: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
+        horizon_rounds: { type: integer, minimum: 1, maximum: 8 }
+        scenario_package_id: { type: string, minLength: 1 }
+        parameter_set_id: { type: string, minLength: 1 }
+        engine_id: { type: string, minLength: 1 }
+        plugin_ids: { type: array, items: { type: string, minLength: 1 } }
+        seed: { type: integer, minimum: 0 }
+    M4MultipathCounterfactualEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/m4-multipath-counterfactual-transfer.v1.json" }
         message: { type: string }
         request_id: { type: string, minLength: 1 }
     W4ProjectProfileRef:

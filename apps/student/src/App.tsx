@@ -52,7 +52,6 @@ import {
 } from "@simwar/ui";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
-
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -1008,9 +1007,7 @@ export function App() {
                 {w5Projection && w5Convergence && w5Demand ? (
                   <W5DemandConvergencePanel projection={w5Projection} />
                 ) : null}
-                <O4CrossRoundDynamicsFeature
-                  c={[activeSession, latestRun, team, login.tenantId]}
-                />
+                <O4CrossRoundDynamicsFeature c={[activeSession, latestRun, team, login.tenantId]} />
               </Suspense>
             </div>
           </section>
@@ -1379,6 +1376,13 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
+                  m4={
+                    latestRun && latestRound && [
+                      latestRun.course_id,
+                      latestRun.run_id,
+                      latestRound.round_no
+                    ]
+                  }
                 />
               </Suspense>
               <details className="p2b-compatibility-details">

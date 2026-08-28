@@ -157,6 +157,7 @@ import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequen
 import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
 import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
 import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-routes.js";
+import { handleM4MultipathCounterfactualTransferRoute } from "./routes/m4-multipath-counterfactual-transfer-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
@@ -310,6 +311,7 @@ import {
   W4EnterpriseStateError,
   type W4Repository
 } from "./w4-enterprise-state.js";
+import { createM4MultipathCounterfactualTransferService } from "./m4-multipath-counterfactual-transfer.js";
 import {
   SyntheticRunLifecycleError,
   assertRunLifecycleAllowsProgress,
@@ -417,6 +419,9 @@ interface ApiRuntime {
   o4CrossRoundDynamics: O4CrossRoundDynamicsService;
   w4EnterpriseStateRepository: W4Repository;
   w4EnterpriseStateService: ReturnType<typeof createEnterpriseStateStrategicEvolutionService>;
+  m4MultipathCounterfactualTransfer: ReturnType<
+    typeof createM4MultipathCounterfactualTransferService
+  >;
   projectLibrary: ProjectLibraryService;
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
@@ -780,6 +785,15 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           )
         : Promise.resolve(undefined)
   });
+  const m4MultipathCounterfactualTransfer = createM4MultipathCounterfactualTransferService({
+    roleWorkflow: repositoryProvider.ports.roleWorkflow,
+    w4Repository: w4EnterpriseStateRepository,
+    w4Service: w4EnterpriseStateService,
+    readRound: async ({ tenant_id, run_id, round_id }) =>
+      (await repositoryProvider.facade.rounds.listRoundsForRun(tenant_id, run_id)).find(
+        (round) => round.round_id === round_id
+      )
+  });
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
   const formalCourseAuthorityBindingStore = new FormalCourseAuthorityBindingStore(store);
@@ -1044,6 +1058,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     o4CrossRoundDynamics,
     w4EnterpriseStateRepository,
     w4EnterpriseStateService,
+    m4MultipathCounterfactualTransfer,
     projectLibrary,
     projectAwareCourseLaunch: new ProjectAwareCourseLaunchService({
       formalCourseAuthorityBindingStore,
@@ -6784,6 +6799,25 @@ async function routeRequest(
         requireTeacher: () => requireD4Teacher(context),
         requireAdmin: () => requireD4Admin(context),
         sendJson
+      }
+    )
+  )
+    return;
+
+  if (
+    await handleM4MultipathCounterfactualTransferRoute(
+      runtime.m4MultipathCounterfactualTransfer,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireStudent: () => requireD4Student(context),
+        requireTeacher: () => requireD4Teacher(context)
       }
     )
   )

@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/m4-multipath-counterfactual-transfer.v1.json",
+  "title": "M4 Governed Multi-Path Counterfactual Transfer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_authority",
+    "visibility",
+    "exact_binding",
+    "official_path",
+    "lineage",
+    "paths",
+    "teacher_debrief",
+    "student_transfer",
+    "transfer",
+    "invariants",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "m4-multipath-counterfactual-transfer.v1" },
+    "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+    "visibility": { "enum": ["student_safe", "teacher_safe"] },
+    "exact_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_state_ref",
+        "source_outcome_id",
+        "horizon_rounds",
+        "scenario_package_id",
+        "parameter_set_id",
+        "engine_id",
+        "plugin_ids",
+        "seed"
+      ],
+      "properties": {
+        "source_state_ref": { "$ref": "#/$defs/stateRef" },
+        "source_outcome_id": { "type": "string", "minLength": 1 },
+        "horizon_rounds": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "engine_id": { "type": "string", "minLength": 1 },
+        "plugin_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "official_path": { "$ref": "#/$defs/officialPath" },
+    "lineage": { "$ref": "#/$defs/lineage" },
+    "paths": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "oneOf": [{ "$ref": "#/$defs/teacherPath" }, { "$ref": "#/$defs/studentPath" }]
+      }
+    },
+    "teacher_debrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "learning_points", "apply_to_next_round"],
+      "properties": {
+        "available": { "const": true },
+        "learning_points": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "exact_next_opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "apply_to_next_round": { "const": false }
+      }
+    },
+    "student_transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_safe", "visible_path_ids", "explanation", "excluded_fields"],
+      "properties": {
+        "role_safe": { "const": true },
+        "visible_path_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "explanation": { "type": "string", "minLength": 1 },
+        "excluded_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "apply_to_next_round", "source_official_state_ref"],
+      "properties": {
+        "status": { "const": "READY" },
+        "apply_to_next_round": { "const": false },
+        "source_official_state_ref": { "$ref": "#/$defs/stateRef" }
+      }
+    },
+    "invariants": { "$ref": "#/$defs/invariants" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "stateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "enterprise_state_id",
+        "version",
+        "state_digest"
+      ],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "enterprise_state_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parent_state_ref": {
+          "anyOf": [{ "$ref": "#/$defs/stateRef" }, { "type": "null" }]
+        }
+      }
+    },
+    "officialPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "officiality",
+        "unchanged",
+        "outcome_id",
+        "opening_state_ref",
+        "closing_state_ref",
+        "decision_ids",
+        "replay_writes_formal_results"
+      ],
+      "properties": {
+        "officiality": { "const": "OFFICIAL" },
+        "unchanged": { "const": true },
+        "outcome_id": { "type": "string", "minLength": 1 },
+        "opening_state_ref": { "$ref": "#/$defs/stateRef" },
+        "closing_state_ref": { "$ref": "#/$defs/stateRef" },
+        "decision_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "replay_writes_formal_results": { "const": false }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_round_id",
+        "source_section_ids",
+        "preserved_dissent_role_keys",
+        "resolution_status",
+        "history_event_types",
+        "historical_decision_reentry_blocked"
+      ],
+      "properties": {
+        "source_round_id": { "type": "string", "minLength": 1 },
+        "source_section_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "merge_commit_id": { "type": "string", "minLength": 1 },
+        "resolution_id": { "type": "string", "minLength": 1 },
+        "preserved_dissent_role_keys": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "resolution_status": { "enum": ["NOT_PRESENT", "PROPOSED"] },
+        "history_event_types": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "historical_decision_reentry_blocked": { "const": true }
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changed_paths", "changed_path_count", "interpretation"],
+      "properties": {
+        "changed_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "changed_path_count": { "type": "integer", "minimum": 0 },
+        "interpretation": { "const": "DETERMINISTIC_STATE_TRANSITION_DIFFERENTIAL" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "cash_delta",
+        "capacity_delta",
+        "product_line_count_delta",
+        "operating_unit_count_delta",
+        "project_count_delta",
+        "facility_count_delta",
+        "terminal_state_ref",
+        "terminal_state_digest"
+      ],
+      "properties": {
+        "baseline": { "const": "OFFICIAL_SOURCE_CLOSING_STATE" },
+        "cash_delta": { "type": "number" },
+        "capacity_delta": { "type": "number" },
+        "product_line_count_delta": { "type": "integer" },
+        "operating_unit_count_delta": { "type": "integer" },
+        "project_count_delta": { "type": "integer" },
+        "facility_count_delta": { "type": "integer" },
+        "terminal_state_ref": { "$ref": "#/$defs/stateRef" },
+        "terminal_state_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "commonPath": {
+      "type": "object",
+      "required": [
+        "path_id",
+        "label",
+        "officiality",
+        "decision_ids",
+        "path_digest",
+        "mechanism_differential",
+        "outcome_differential"
+      ],
+      "properties": {
+        "path_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "officiality": { "const": "NON_OFFICIAL" },
+        "decision_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "path_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "mechanism_differential": { "$ref": "#/$defs/mechanism" },
+        "outcome_differential": { "$ref": "#/$defs/outcome" }
+      }
+    },
+    "teacherPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path_id",
+        "label",
+        "officiality",
+        "decision_ids",
+        "path_digest",
+        "mechanism_differential",
+        "outcome_differential",
+        "decision_payload_bindings",
+        "rounds"
+      ],
+      "properties": {
+        "path_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "officiality": { "const": "NON_OFFICIAL" },
+        "decision_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "path_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "mechanism_differential": { "$ref": "#/$defs/mechanism" },
+        "outcome_differential": { "$ref": "#/$defs/outcome" },
+        "decision_payload_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["decision_id", "decision_payload_digest"],
+            "properties": {
+              "decision_id": { "type": "string", "minLength": 1 },
+              "decision_payload_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+          }
+        },
+        "rounds": { "type": "array", "minItems": 1, "items": { "type": "object" } }
+      }
+    },
+    "studentPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path_id",
+        "label",
+        "officiality",
+        "decision_ids",
+        "path_digest",
+        "mechanism_differential",
+        "outcome_differential"
+      ],
+      "properties": {
+        "path_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "officiality": { "const": "NON_OFFICIAL" },
+        "decision_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "path_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "mechanism_differential": { "$ref": "#/$defs/mechanism" },
+        "outcome_differential": { "$ref": "#/$defs/outcome" }
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official_decision_writes",
+        "official_settlement_writes",
+        "official_state_writes",
+        "apply_to_next_round",
+        "replay_writes_formal_results"
+      ],
+      "properties": {
+        "official_decision_writes": { "const": false },
+        "official_settlement_writes": { "const": false },
+        "official_state_writes": { "const": false },
+        "apply_to_next_round": { "const": false },
+        "replay_writes_formal_results": { "const": false }
+      }
+    }
+  }
+}

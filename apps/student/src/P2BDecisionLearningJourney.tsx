@@ -5,6 +5,7 @@ import type {
   W3OfficialConsequenceRecord,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
+import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-decision-learning.css";
 
 export const P2B_STUDENT_STAGES = [
@@ -29,6 +30,7 @@ type Props = {
   context?: W3OfficialConsequenceContext | undefined;
   published: boolean;
   crossRoundEnabled?: boolean;
+  m4?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
 };
 
 type JourneyState =
@@ -60,7 +62,8 @@ export function StudentDecisionLearningJourney({
   tenantId,
   context,
   published,
-  crossRoundEnabled = false
+  crossRoundEnabled = false,
+  m4
 }: Props) {
   const [state, setState] = useState<JourneyState>({
     phase: getStudentLearningGate(published) === "blocked" ? "blocked" : "idle"
@@ -611,6 +614,17 @@ export function StudentDecisionLearningJourney({
             <div className="p2b-known-limit">当前边界：{record.known_limits.join(" / ")}</div>
           </article>
         </div>
+      ) : null}
+      {m4 ? (
+        <M4MultipathCounterfactualTransferPanel
+          apiBase={apiBase}
+          courseId={m4[0]}
+          runId={m4[1]}
+          roundNo={m4[2]}
+          surface="student"
+          tenantId={tenantId}
+          token={token}
+        />
       ) : null}
     </section>
   );
