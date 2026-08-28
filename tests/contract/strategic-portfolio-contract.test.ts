@@ -48,6 +48,38 @@ describe("W4 strategic portfolio contract", () => {
     expect(validate(valid)).toBe(true);
   });
 
+  it("rejects a project profile reference with a non-canonical digest", () => {
+    const validate = new Ajv2020({ strict: true, validateFormats: false }).compile(
+      readJson("contracts/schemas/strategic-portfolio.v1.json")
+    );
+    const valid = readJson<Record<string, unknown> & { members: Array<Record<string, unknown>> }>(
+      "contracts/fixtures/strategic-portfolio.valid.json"
+    );
+    const invalid = structuredClone(valid);
+    invalid.members = [
+      {
+        project_entry_id: "entry-1",
+        initiative_id: "initiative-1",
+        source_assignment_id: "assignment-1",
+        project_profile_reference: {
+          content_digest: "a".repeat(64),
+          project_profile_id: "profile-1",
+          tenant_id: "tenant_demo",
+          version: "2026-08-21.1"
+        },
+        project_name: "Project One",
+        lifecycle_status: "Opportunity",
+        ownership_status: "owned",
+        ramp: 0.5,
+        activation_round_no: 1,
+        dependency_project_entry_ids: []
+      }
+    ];
+    const reference = invalid.members[0]?.project_profile_reference as Record<string, unknown>;
+    reference.content_digest = "dead-beef";
+    expect(validate(invalid)).toBe(false);
+  });
+
   it("binds the portfolio projection and dependency input to the existing W4 OpenAPI surface", () => {
     const openApi = readFileSync("contracts/openapi/p0-api.openapi.yaml", "utf8");
     expect(openApi).toContain(

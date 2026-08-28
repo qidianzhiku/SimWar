@@ -36,6 +36,7 @@ export interface StudentProjectBriefContext {
   team_id: string;
   tenant_id: string;
   user_id: string;
+  assignment_id?: string;
 }
 
 export class ProjectLibraryError extends Error {
@@ -601,9 +602,22 @@ export class ProjectLibraryService {
         candidate.team_id === context.team_id
     );
     if (assignments.length === 0) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_NOT_FOUND");
-    if (assignments.length > 1) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_CONFLICT");
-    const assignment = assignments[0];
-    if (!assignment) throw new ProjectLibraryError("PROJECT_ASSIGNMENT_NOT_FOUND");
+    const assignmentId = context.assignment_id?.trim();
+    if (context.assignment_id !== undefined && !assignmentId) {
+      throw new ProjectLibraryError("PROJECT_ASSIGNMENT_REFERENCE_INVALID");
+    }
+    const assignment = assignmentId
+      ? assignments.find((candidate) => candidate.assignment_id === assignmentId)
+      : assignments.length === 1
+        ? assignments[0]
+        : undefined;
+    if (!assignment) {
+      throw new ProjectLibraryError(
+        assignments.length > 1
+          ? "PROJECT_ASSIGNMENT_CONFLICT"
+          : "PROJECT_ASSIGNMENT_NOT_FOUND"
+      );
+    }
     const profile = await this.getByReference(
       context.tenant_id,
       assignment.project_profile_reference

@@ -7982,6 +7982,7 @@ async function routeRequest(
     const courseId = url.searchParams.get("course_id") ?? "";
     const runId = url.searchParams.get("run_id") ?? "";
     const teamId = url.searchParams.get("team_id") ?? "";
+    const assignmentId = url.searchParams.get("assignment_id")?.trim();
     if (!courseId || !runId || !teamId) {
       throw new HttpError(
         422,
@@ -7996,7 +7997,8 @@ async function routeRequest(
         run_id: runId,
         team_id: teamId,
         tenant_id: actor.tenant_id,
-        user_id: actor.actor_id
+        user_id: actor.actor_id,
+        ...(assignmentId ? { assignment_id: assignmentId } : {})
       });
     } catch (error) {
       if (
@@ -8015,6 +8017,7 @@ async function routeRequest(
     const courseId = url.searchParams.get("course_id")?.trim() ?? "";
     const runId = url.searchParams.get("run_id")?.trim() ?? "";
     const teamId = url.searchParams.get("team_id")?.trim() ?? "";
+    const assignmentId = url.searchParams.get("assignment_id")?.trim();
     if (!courseId || !runId || !teamId) {
       throw new HttpError(
         422,
@@ -8044,7 +8047,8 @@ async function routeRequest(
         run_id: runId,
         team_id: teamId,
         tenant_id: actor.tenant_id,
-        user_id: actor.actor_id
+        user_id: actor.actor_id,
+        ...(assignmentId ? { assignment_id: assignmentId } : {})
       });
       sendJson(
         response,

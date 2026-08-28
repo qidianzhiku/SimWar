@@ -124,6 +124,10 @@
           "type": "array",
           "items": { "type": "object" }
         },
+        "project_initiative_snapshot": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
         "capital_action_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "capital_action_ids": {
           "type": "array",

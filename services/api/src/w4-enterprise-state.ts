@@ -543,7 +543,7 @@ function assertProjectProfileReference(
     reference.tenant_id !== scope.tenant_id ||
     !reference.project_profile_id.trim() ||
     !reference.version.trim() ||
-    !/^[a-f0-9-]{8,}$/.test(reference.content_digest)
+    !/^[a-f0-9]{64}$/.test(reference.content_digest)
   ) {
     throw new W4EnterpriseStateError("W4_PROJECT_PROFILE_REFERENCE_INVALID");
   }
@@ -676,6 +676,8 @@ function assertReplayInputManifest(
         manifest.project_portfolio_entry_ids.some((entryId) => typeof entryId !== "string"))) ||
     (manifest.project_portfolio_snapshot !== undefined &&
       !Array.isArray(manifest.project_portfolio_snapshot)) ||
+    (manifest.project_initiative_snapshot !== undefined &&
+      !Array.isArray(manifest.project_initiative_snapshot)) ||
     (manifest.capital_action_digest !== undefined &&
       !/^[a-f0-9]{64}$/.test(manifest.capital_action_digest)) ||
     (manifest.capital_action_ids !== undefined &&
@@ -1428,6 +1430,15 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           throw new W4EnterpriseStateError("W4_M_AND_A_SUCCESSOR_REQUIRED");
         }
         assertProjectProfileReference(scope, input.target_project_profile_reference);
+        if (
+          current.projectPortfolio.some(
+            (entry) =>
+              scopeMatches(scope, entry) &&
+              entry.source_assignment_id === input.target_source_assignment_id
+          )
+        ) {
+          throw new W4EnterpriseStateError("W4_PROJECT_ASSIGNMENT_ALREADY_BOUND");
+        }
       }
       const transaction: W4ProjectTransaction = {
         transaction_id: input.transaction_id,
@@ -1792,6 +1803,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         .filter((entry) => scopeMatches(scope, entry))
         .sort((left, right) => left.project_entry_id.localeCompare(right.project_entry_id));
       const projectPortfolioDigest = digest(projectPortfolioSnapshot);
+      const projectInitiativeSnapshot = before.initiatives
+        .filter((initiative) => scopeMatches(scope, initiative))
+        .sort((left, right) => left.initiative_id.localeCompare(right.initiative_id));
       const capitalActionSnapshot = before.capitalActions
         .filter((action) => scopeMatches(scope, action))
         .sort((left, right) => left.capital_action_id.localeCompare(right.capital_action_id));
@@ -1838,6 +1852,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           (entry) => entry.project_entry_id
         ),
         project_portfolio_snapshot: clone(projectPortfolioSnapshot),
+        project_initiative_snapshot: clone(projectInitiativeSnapshot),
         capital_action_digest: capitalActionDigest,
         capital_action_ids: capitalActionSnapshot.map((action) => action.capital_action_id),
         capital_action_snapshot: clone(capitalActionSnapshot)
@@ -1990,6 +2005,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           effect_ids: outcome.persistent_effect_ids,
           decision_payload_bindings: outcome.replay_input_manifest.decision_payload_bindings,
           project_portfolio_snapshot: outcome.replay_input_manifest.project_portfolio_snapshot,
+          project_initiative_snapshot:
+            outcome.replay_input_manifest.project_initiative_snapshot,
           capital_action_snapshot: outcome.replay_input_manifest.capital_action_snapshot
         }),
         ...(outcome.replay_input_manifest.project_portfolio_digest
@@ -2288,18 +2305,24 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         )
         .slice()
         .sort((left, right) => right.round_no - left.round_no)[0];
-      const scopedInitiatives = current.initiatives.filter(
+      const initiativeSource =
+        currentOutcome?.replay_input_manifest.project_initiative_snapshot ?? current.initiatives;
+      const scopedInitiatives = initiativeSource.filter(
         (item) =>
           scopeMatches(scope, item) &&
           (item.created_round_no === undefined || item.created_round_no <= scope.round_no)
       );
-      const scopedProjectPortfolio = current.projectPortfolio.filter((item) =>
+      const portfolioSource =
+        currentOutcome?.replay_input_manifest.project_portfolio_snapshot ?? current.projectPortfolio;
+      const scopedProjectPortfolio = portfolioSource.filter((item) =>
         scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
       const scopedProjectTransactions = current.projectTransactions.filter((item) =>
         scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
-      const scopedCapitalActions = current.capitalActions.filter((item) =>
+      const capitalActionSource =
+        currentOutcome?.replay_input_manifest.capital_action_snapshot ?? current.capitalActions;
+      const scopedCapitalActions = capitalActionSource.filter((item) =>
         scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
       const latestStrategicDecision = current.decisions
@@ -2455,7 +2478,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           };
         });
       const strategicPortfolio = buildW4StrategicPortfolioProjection(scope, {
-        latest_state: latestState ?? null,
+        latest_state: (currentClosingState ?? latestState) ?? null,
         opening_state_ref:
           currentOutcome?.opening_state_ref ?? latestOutcome?.closing_state_ref ?? null,
         closing_state_ref: currentOutcome?.closing_state_ref ?? null,

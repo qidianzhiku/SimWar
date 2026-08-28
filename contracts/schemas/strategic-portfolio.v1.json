@@ -61,7 +61,7 @@
       "additionalProperties": false,
       "required": ["content_digest", "project_profile_id", "tenant_id", "version"],
       "properties": {
-        "content_digest": { "type": "string", "pattern": "^[a-f0-9-]{8,}$" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "project_profile_id": { "type": "string", "minLength": 1 },
         "tenant_id": { "type": "string", "minLength": 1 },
         "version": { "type": "string", "minLength": 1 }

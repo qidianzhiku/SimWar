@@ -408,6 +408,7 @@ export interface W4ReplayInputManifest {
   project_portfolio_digest?: string;
   project_portfolio_entry_ids?: string[];
   project_portfolio_snapshot?: W4ProjectPortfolioEntry[];
+  project_initiative_snapshot?: W4StrategicInitiative[];
   capital_action_digest?: string;
   capital_action_ids?: string[];
   capital_action_snapshot?: W4CapitalAction[];

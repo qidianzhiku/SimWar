@@ -230,6 +230,43 @@ describe("ProjectProfile / ProjectAssignment authority", () => {
     ).rejects.toMatchObject({ code: "PROJECT_ASSIGNMENT_CONFLICT" });
   });
 
+  it("resolves a multi-project Student brief only with an exact assignment selector", async () => {
+    const store = seedRunAndSecondTeam();
+    const service = new ProjectLibraryService(store);
+    const first = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("selector-project-one", "2026-08-21.1")
+    });
+    const second = await service.createDraft(actor, {
+      course_id: "course_demo",
+      project_profile: draftInput("selector-project-two", "2026-08-21.2")
+    });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(first) });
+    await service.validate(actor, { course_id: "course_demo", project_profile_ref: ref(second) });
+    const firstAssignment = await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(first),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+    await service.assign(actor, {
+      course_id: "course_demo",
+      project_profile_ref: ref(second),
+      run_id: "run_project_library",
+      team_id: "team_alpha"
+    });
+
+    const brief = await service.getStudentBrief({
+      course_id: "course_demo",
+      run_id: "run_project_library",
+      team_id: "team_alpha",
+      tenant_id: "tenant_demo",
+      user_id: "usr_student",
+      assignment_id: firstAssignment.assignment.assignment_id
+    });
+    expect(brief.project_profile_reference).toEqual(ref(first));
+  });
+
   it("serializes concurrent assignment requests for one Run and Team", async () => {
     const store = seedRunAndSecondTeam();
     const service = new ProjectLibraryService(store);
