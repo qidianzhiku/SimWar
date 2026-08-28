@@ -3,23 +3,21 @@ import {
   createR7RuntimeAdapterPreparationPackage,
   createR7ScenarioFactorySeedPackage,
   createR7ScenarioParameterShadowReplayAlignmentPackage,
+  R7_TEACHER_SCENARIO_SELECTION_READINESS_EXPLICIT_NON_PROOFS as SHARED_R7_READINESS_NON_PROOFS,
+  R7_TEACHER_SCENARIO_SELECTION_READINESS_OPERATION_ID as SHARED_R7_READINESS_OPERATION_ID,
   validateR7BffEndpointImplementationGate,
   type ParameterSet,
   type R7TeacherScenarioPackageCandidatesDto,
+  type R7TeacherScenarioSelectionReadinessDto,
   type Run,
   type ScenarioPackage
 } from "@simwar/shared-contracts";
 
 export const R7_TEACHER_SCENARIO_SELECTION_READINESS_OPERATION_ID =
-  "R7_TEACHER_SCENARIO_SELECTION_READINESS_GET_V1" as const;
+  SHARED_R7_READINESS_OPERATION_ID;
 
-export const R7_TEACHER_SCENARIO_SELECTION_READINESS_EXPLICIT_NON_PROOFS = [
-  "SCENARIO_RUNTIME_NOT_ACTIVATED",
-  "PARAMETERSET_NOT_MUTATED",
-  "REPLAY_NOT_EXECUTED",
-  "SETTLEMENT_NOT_EXECUTED",
-  "ENDPOINT_RESPONSE_NOT_FORMAL_TRUTH"
-] as const;
+export const R7_TEACHER_SCENARIO_SELECTION_READINESS_EXPLICIT_NON_PROOFS =
+  SHARED_R7_READINESS_NON_PROOFS;
 
 export type R7TeacherScenarioSelectionGateStatus = "FAIL" | "UNKNOWN";
 
@@ -33,29 +31,7 @@ export class R7TeacherScenarioSelectionGateBlockedError extends Error {
   }
 }
 
-export interface R7TeacherScenarioSelectionReadinessProjection {
-  operation_id: typeof R7_TEACHER_SCENARIO_SELECTION_READINESS_OPERATION_ID;
-  tenant_id: string;
-  course_id: string;
-  run_id: string;
-  scenario_package_id: string;
-  parameter_set_id: string;
-  eligible: boolean;
-  readiness_status: "BLOCKED" | "READY";
-  compatibility_status: string;
-  provenance_status: string;
-  qa_status: string;
-  license_status: string;
-  calibration_status: string;
-  runtime_adapter_status: string;
-  no_go_reasons: string[];
-  evidence_freshness: {
-    collected_at: string | null;
-    expires_at: string | null;
-    is_expired: boolean;
-  };
-  explicit_non_proofs: typeof R7_TEACHER_SCENARIO_SELECTION_READINESS_EXPLICIT_NON_PROOFS;
-}
+export type R7TeacherScenarioSelectionReadinessProjection = R7TeacherScenarioSelectionReadinessDto;
 
 export interface R7TeacherScenarioSelectionReadinessInput {
   implementationGate?: unknown;
