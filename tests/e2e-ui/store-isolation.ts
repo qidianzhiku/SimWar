@@ -148,6 +148,11 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
     const { seedTeacherScenarioStudioFixture } = await import("./teacher-scenario-studio-fixture");
     await seedTeacherScenarioStudioFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_M4 === "true") {
+    const { seedM4MultipathCounterfactualTransferFixture } =
+      await import("./m4-multipath-counterfactual-transfer-fixture");
+    await seedM4MultipathCounterfactualTransferFixture(PLAYWRIGHT_STORE_FILE);
+  }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
     seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);
