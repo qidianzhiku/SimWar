@@ -68,11 +68,6 @@ const RoleWorkflowPanel = lazy(() =>
   }))
 );
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
-const M4MultipathCounterfactualTransferPanel = lazy(() =>
-  import("@simwar/ui/m4-multipath-counterfactual-transfer-panel").then(
-    ({ M4MultipathCounterfactualTransferPanel: Component }) => ({ default: Component })
-  )
-);
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { InstructorIntelligencePanel } from "./InstructorIntelligencePanel";
 import {
@@ -3498,23 +3493,17 @@ export function App() {
               teamCount={teamMonitor?.visible_state?.team_count ?? teamMonitor?.teams?.length ?? 0}
               tenantId={login.tenantId}
               token={session.access_token}
-            />
-          </Suspense>
-        ) : null}
-        {isTeacher && session && selectedRun && selectedRound ? (
-          <Suspense fallback={<p className="muted">正在载入多路径反事实转移…</p>}>
-            <M4MultipathCounterfactualTransferPanel
-              apiBase={API_BASE}
-              courseId={selectedRun.course_id}
-              runId={selectedRun.run_id}
-              roundNo={selectedRound.round_no}
-              surface="teacher"
-              teamId={
-                state?.teams.find((candidate) => candidate.course_id === selectedRun.course_id)
-                  ?.team_id ?? ""
+              m4Context={
+                selectedRun && selectedRound
+                  ? [
+                      selectedRun.course_id,
+                      selectedRun.run_id,
+                      state?.teams.find(
+                        (candidate) => candidate.course_id === selectedRun.course_id
+                      )?.team_id ?? ""
+                    ]
+                  : undefined
               }
-              tenantId={login.tenantId}
-              token={session.access_token}
             />
           </Suspense>
         ) : null}

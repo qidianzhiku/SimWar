@@ -52,12 +52,6 @@ import {
 } from "@simwar/ui";
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
-const M4MultipathCounterfactualTransferPanel = lazy(() =>
-  import("@simwar/ui/m4-multipath-counterfactual-transfer-panel").then(
-    ({ M4MultipathCounterfactualTransferPanel: Component }) => ({ default: Component })
-  )
-);
-
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
@@ -1382,18 +1376,7 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
-                />
-              </Suspense>
-              <Suspense fallback={<p className="muted">正在载入多路径反事实转移…</p>}>
-                <M4MultipathCounterfactualTransferPanel
-                  apiBase={API_BASE}
-                  courseId={latestRun?.course_id ?? ""}
-                  runId={latestRun?.run_id ?? ""}
-                  roundNo={latestRound?.round_no ?? 1}
-                  surface="student"
-                  teamId={team?.team_id ?? ""}
-                  tenantId={login.tenantId}
-                  token={activeSession?.access_token ?? ""}
+                  m4Context={latestRun ? [latestRun.course_id, latestRun.run_id] : undefined}
                 />
               </Suspense>
               <details className="p2b-compatibility-details">

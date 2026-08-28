@@ -5,6 +5,7 @@ import type {
   W3OfficialConsequenceRecord,
   W3OfficialConsequenceResponse
 } from "@simwar/shared-contracts";
+import M4MultipathCounterfactualTransferPanel from "@simwar/ui/m4-multipath-counterfactual-transfer-panel";
 import "./p2b-teacher-debrief.css";
 
 export const P2B_TEACHER_STAGES = [
@@ -24,6 +25,7 @@ type Props = {
   blockerSummary?: string;
   teamCount?: number;
   crossRoundEnabled?: boolean;
+  m4Context?: readonly [courseId: string, runId: string, teamId: string] | undefined;
 };
 
 type WorkspaceState =
@@ -52,7 +54,8 @@ export function TeacherDebriefWorkspace({
   response,
   blockerSummary = "当前没有可用的回合阻断",
   teamCount = 0,
-  crossRoundEnabled = false
+  crossRoundEnabled = false,
+  m4Context
 }: Props) {
   const [state, setState] = useState<WorkspaceState>(
     response ? { phase: "ready", record: response.record } : { phase: "idle" }
@@ -509,6 +512,17 @@ export function TeacherDebriefWorkspace({
           ) : null}
         </article>
       </div>
+      {m4Context ? (
+        <M4MultipathCounterfactualTransferPanel
+          apiBase={apiBase}
+          courseId={m4Context[0]}
+          runId={m4Context[1]}
+          surface="teacher"
+          teamId={m4Context[2]}
+          tenantId={tenantId}
+          token={token}
+        />
+      ) : null}
     </section>
   );
 }
