@@ -30,7 +30,7 @@ type Props = {
   context?: W3OfficialConsequenceContext | undefined;
   published: boolean;
   crossRoundEnabled?: boolean;
-  m4Context?: readonly [courseId: string, runId: string] | undefined;
+  m4Context?: readonly [courseId: string, runId: string, roundNo: number] | undefined;
 };
 
 type JourneyState =
@@ -620,6 +620,7 @@ export function StudentDecisionLearningJourney({
           apiBase={apiBase}
           courseId={m4Context[0]}
           runId={m4Context[1]}
+          roundNo={m4Context[2]}
           surface="student"
           tenantId={tenantId}
           token={token}

@@ -788,7 +788,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const m4MultipathCounterfactualTransfer = createM4MultipathCounterfactualTransferService({
     roleWorkflow: repositoryProvider.ports.roleWorkflow,
     w4Repository: w4EnterpriseStateRepository,
-    w4Service: w4EnterpriseStateService
+    w4Service: w4EnterpriseStateService,
+    readRound: async ({ tenant_id, run_id, round_id }) =>
+      (await repositoryProvider.facade.rounds.listRoundsForRun(tenant_id, run_id)).find(
+        (round) => round.round_id === round_id
+      )
   });
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);

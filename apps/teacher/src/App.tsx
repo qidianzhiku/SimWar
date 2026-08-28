@@ -113,6 +113,7 @@ import {
   isTeacherRoundWorkspaceForContext,
   selectTeacherRound
 } from "./round-context";
+import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 const O4_ENABLED =
@@ -602,6 +603,9 @@ export function App() {
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
   const [reauthContext, setReauthContext] = useState<ReauthContext | null>(readStoredReauthContext);
+  const [selectedTeacherTeamId, setSelectedTeacherTeamId] = useState<string | null>(
+    () => reauthContext?.team_id ?? null
+  );
   const [notice, setNotice] = useState(() => (reauthContext ? "REAUTH_REQUIRED" : "ready"));
   const [contextRecoveryState, setContextRecoveryState] = useState<
     "NONE" | "REAUTH_REQUIRED" | "READY" | "CONTEXT_UNAUTHORIZED" | "CONTEXT_STALE"
@@ -786,6 +790,14 @@ export function App() {
         selectedRoundId
       )
     : undefined;
+  const teacherTeamsForRun = state?.teams.filter(
+    (candidate) => candidate.course_id === selectedRun?.course_id
+  ) ?? [];
+  const activeTeacherTeamId = resolveActiveTeacherTeamId(
+    teacherTeamsForRun,
+    selectedTeacherTeamId,
+    reauthContext?.team_id
+  );
   const latestResult = state?.latest_result;
   const selectedResult = latestResult?.run_id === selectedRun?.run_id ? latestResult : undefined;
   const resultRows = workspace?.teacher_replay_summary.authorized_result_snapshot ?? [];
@@ -1296,6 +1308,7 @@ export function App() {
 
   function persistTeacherContext(teamId: string): void {
     if (!session || !selectedRun || !selectedRound || !teamId) return;
+    setSelectedTeacherTeamId(teamId);
     const route =
       typeof window === "undefined"
         ? "/"
@@ -3425,7 +3438,7 @@ export function App() {
               }
               courseId={selectedRun?.course_id}
               disabled={busy || selectedRound?.status !== "open"}
-              initialTeamId={reauthContext?.team_id}
+              initialTeamId={activeTeacherTeamId}
               onTeamChange={persistTeacherContext}
               roundId={selectedRound?.round_id}
               runId={selectedRun?.run_id}
@@ -3498,9 +3511,8 @@ export function App() {
                   ? [
                       selectedRun.course_id,
                       selectedRun.run_id,
-                      state?.teams.find(
-                        (candidate) => candidate.course_id === selectedRun.course_id
-                      )?.team_id ?? ""
+                      activeTeacherTeamId,
+                      selectedRound.round_no
                     ]
                   : undefined
               }

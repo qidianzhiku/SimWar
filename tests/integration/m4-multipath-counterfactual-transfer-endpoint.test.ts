@@ -149,6 +149,13 @@ describe("M4 multi-path counterfactual transfer real BFF", () => {
       seed: 79,
       status: "active"
     });
+    store.rounds.push({
+      round_id: "m4-round-1",
+      tenant_id: tenantId,
+      run_id: runId,
+      round_no: 1,
+      status: "published"
+    });
     const repository = createJsonW4Repository(store);
     const w4 = createEnterpriseStateStrategicEvolutionService(repository);
     const firstScope = scope();
@@ -289,6 +296,24 @@ describe("M4 multi-path counterfactual transfer real BFF", () => {
       expect(student.data.paths[0]).not.toHaveProperty("rounds");
       expect(student.data.student_transfer.role_safe).toBe(true);
       expect(JSON.stringify(student.data)).not.toContain("do not send");
+
+      store.rounds[0]!.status = "settled";
+      const unpublishedStudentResponse = await fetch(
+        `${baseUrl}/api/v1/bff/student/w4/runs/${runId}/multipath-counterfactual-transfer`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${studentToken}`,
+            "content-type": "application/json",
+            "x-tenant-id": tenantId
+          },
+          body: JSON.stringify(body)
+        }
+      );
+      expect(unpublishedStudentResponse.status).toBe(409);
+      expect((await unpublishedStudentResponse.json()).message).toBe(
+        "M4_SOURCE_ROUND_NOT_PUBLISHED"
+      );
       expect(store.w4).toEqual(before);
     } finally {
       server.close();

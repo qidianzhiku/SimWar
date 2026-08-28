@@ -1376,7 +1376,11 @@ export function App() {
                   token={activeSession?.access_token ?? ""}
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
-                  m4Context={latestRun ? [latestRun.course_id, latestRun.run_id] : undefined}
+                  m4Context={
+                    latestRun && latestRound
+                      ? [latestRun.course_id, latestRun.run_id, latestRound.round_no]
+                      : undefined
+                  }
                 />
               </Suspense>
               <details className="p2b-compatibility-details">

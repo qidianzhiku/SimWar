@@ -25,7 +25,7 @@ type Props = {
   blockerSummary?: string;
   teamCount?: number;
   crossRoundEnabled?: boolean;
-  m4Context?: readonly [courseId: string, runId: string, teamId: string] | undefined;
+  m4Context?: readonly [courseId: string, runId: string, teamId: string, roundNo: number] | undefined;
 };
 
 type WorkspaceState =
@@ -517,6 +517,7 @@ export function TeacherDebriefWorkspace({
           apiBase={apiBase}
           courseId={m4Context[0]}
           runId={m4Context[1]}
+          roundNo={m4Context[3]}
           surface="teacher"
           teamId={m4Context[2]}
           tenantId={tenantId}

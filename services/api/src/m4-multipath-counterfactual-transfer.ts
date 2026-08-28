@@ -11,6 +11,7 @@ import type {
   W4CounterfactualEvidence,
   W4CounterfactualInput,
   W4EnterpriseStateData,
+  Round,
   W4ScopeContext,
   W4StateRef
 } from "@simwar/shared-contracts";
@@ -42,6 +43,11 @@ export interface M4MultipathCounterfactualTransferDependencies {
   w4Repository: W4Repository;
   w4Service: W4Service;
   roleWorkflow: Pick<RoleWorkflowRepositoryPort, "readRoleWorkflow">;
+  readRound: (input: {
+    tenant_id: string;
+    run_id: string;
+    round_id: string;
+  }) => Promise<Round | undefined>;
 }
 
 function clone<T>(value: T): T {
@@ -92,7 +98,29 @@ function scoped(
 }
 
 function pathSignature(path: M4CounterfactualPathInput): string {
-  return JSON.stringify({ decision_ids: [...path.decision_ids] });
+  return JSON.stringify({ decision_ids: canonicalDecisionIds(path.decision_ids) });
+}
+
+function canonicalDecisionIds(decisionIds: readonly string[]): string[] {
+  return [...new Set(decisionIds)].sort((left, right) => left.localeCompare(right));
+}
+
+function officialDecisionIdsForHorizon(
+  current: ReturnType<W4Repository["snapshot"]>,
+  scope: W4ScopeContext,
+  sourceRoundNo: number,
+  horizonRounds: number
+): Set<string> {
+  return new Set(
+    current.outcomes
+      .filter(
+        (outcome) =>
+          scoped(scope, outcome) &&
+          outcome.round_no >= sourceRoundNo &&
+          outcome.round_no <= sourceRoundNo + horizonRounds
+      )
+      .flatMap((outcome) => outcome.replay_input_manifest.decision_ids)
+  );
 }
 
 function buildLineage(
@@ -205,21 +233,28 @@ export class M4MultipathCounterfactualTransferService {
     surface: M4MultipathSurface
   ): Promise<M4MultipathCounterfactualResponse> {
     const current = this.dependencies.w4Repository.snapshot();
-    const latestOutcome = current.outcomes
-      .filter((candidate) => scoped(scope, candidate))
-      .slice()
-      .sort((left, right) => right.round_no - left.round_no)[0];
-    if (!latestOutcome) {
+    const sourceOutcome = current.outcomes.find(
+      (candidate) =>
+        scoped(scope, candidate) &&
+        candidate.round_no === scope.round_no &&
+        (!scope.round_id || candidate.round_id === scope.round_id)
+    );
+    if (!sourceOutcome) {
       throw new M4MultipathCounterfactualTransferError("M4_OFFICIAL_OUTCOME_REQUIRED");
     }
     const sourceState = current.states.find(
       (candidate) =>
-        scoped(scope, candidate) && exactStateRef(candidate, latestOutcome.closing_state_ref)
+        scoped(scope, candidate) && exactStateRef(candidate, sourceOutcome.closing_state_ref)
     );
     if (!sourceState) {
       throw new M4MultipathCounterfactualTransferError("M4_SOURCE_STATE_CONFLICT");
     }
-    const officialDecisionIds = new Set(latestOutcome.replay_input_manifest.decision_ids);
+    const officialDecisionIds = officialDecisionIdsForHorizon(
+      current,
+      scope,
+      sourceState.round_no,
+      1
+    );
     const candidates = current.decisions
       .filter(
         (candidate) =>
@@ -239,12 +274,12 @@ export class M4MultipathCounterfactualTransferService {
     if (candidates.length < 2) {
       throw new M4MultipathCounterfactualTransferError("M4_DEFAULT_PATHS_UNAVAILABLE");
     }
-    const manifest = latestOutcome.replay_input_manifest;
+    const manifest = sourceOutcome.replay_input_manifest;
     return this.create(
       scope,
       {
-        source_state_ref: clone(latestOutcome.closing_state_ref),
-        source_outcome_id: latestOutcome.official_outcome_id,
+        source_state_ref: clone(sourceOutcome.closing_state_ref),
+        source_outcome_id: sourceOutcome.official_outcome_id,
         paths: candidates.slice(0, 3).map((candidate, index) => ({
           path_id: `discovered_path_${index + 1}`,
           label: `替代路径 ${index + 1}`,
@@ -280,6 +315,22 @@ export class M4MultipathCounterfactualTransferService {
     if (!sourceOutcome || !exactStateRef(sourceState, sourceOutcome.closing_state_ref)) {
       throw new M4MultipathCounterfactualTransferError("M4_SOURCE_OUTCOME_LINEAGE_CONFLICT");
     }
+    if (surface === "student") {
+      const sourceRound = await this.dependencies.readRound({
+        tenant_id: scope.tenant_id,
+        run_id: scope.run_id,
+        round_id: sourceState.round_id
+      });
+      if (
+        !sourceRound ||
+        sourceRound.tenant_id !== scope.tenant_id ||
+        sourceRound.run_id !== scope.run_id ||
+        sourceRound.round_id !== sourceState.round_id ||
+        sourceRound.status !== "published"
+      ) {
+        throw new M4MultipathCounterfactualTransferError("M4_SOURCE_ROUND_NOT_PUBLISHED");
+      }
+    }
     const sourceManifest = sourceOutcome.replay_input_manifest;
     if (
       sourceManifest.scenario_package_id !== input.scenario_package_id ||
@@ -314,9 +365,15 @@ export class M4MultipathCounterfactualTransferService {
       throw new M4MultipathCounterfactualTransferError("M4_ROLE_LINEAGE_REQUIRED");
     }
 
-    const officialDecisionIds = new Set(sourceManifest.decision_ids);
+    const officialDecisionIds = officialDecisionIdsForHorizon(
+      current,
+      scope,
+      sourceState.round_no,
+      input.horizon_rounds
+    );
     const pathSignatures = new Set<string>();
     const pathIds = new Set<string>();
+    const normalizedPaths: M4CounterfactualPathInput[] = [];
     for (const path of input.paths) {
       if (!path.path_id.trim() || !path.label.trim() || pathIds.has(path.path_id)) {
         throw new M4MultipathCounterfactualTransferError("M4_PATH_ID_INVALID");
@@ -329,18 +386,23 @@ export class M4MultipathCounterfactualTransferService {
       ) {
         throw new M4MultipathCounterfactualTransferError("M4_PATH_DECISIONS_REQUIRED");
       }
-      if (path.decision_ids.some((decisionId) => officialDecisionIds.has(decisionId))) {
+      const normalizedPath = {
+        ...path,
+        decision_ids: canonicalDecisionIds(path.decision_ids)
+      };
+      if (normalizedPath.decision_ids.some((decisionId) => officialDecisionIds.has(decisionId))) {
         throw new M4MultipathCounterfactualTransferError("M4_OFFICIAL_DECISION_REENTRY_BLOCKED");
       }
-      const signature = pathSignature(path);
+      const signature = pathSignature(normalizedPath);
       if (pathSignatures.has(signature)) {
         throw new M4MultipathCounterfactualTransferError("M4_PATHS_NOT_DISTINCT");
       }
       pathSignatures.add(signature);
+      normalizedPaths.push(normalizedPath);
     }
 
     const evidence = await Promise.all(
-      input.paths.map((path) =>
+      normalizedPaths.map((path) =>
         this.dependencies.w4Service.counterfactual(scope, {
           source_state_ref: clone(input.source_state_ref),
           source_outcome_id: input.source_outcome_id,
@@ -354,7 +416,7 @@ export class M4MultipathCounterfactualTransferService {
         } satisfies W4CounterfactualInput)
       )
     );
-    const teacherPaths = input.paths.map((path, index) => teacherPath(path, evidence[index]!));
+    const teacherPaths = normalizedPaths.map((path, index) => teacherPath(path, evidence[index]!));
     const pathDigests = teacherPaths.map((path) => path.path_digest);
     if (new Set(pathDigests).size !== pathDigests.length) {
       throw new M4MultipathCounterfactualTransferError("M4_PATHS_NOT_DISTINCT");

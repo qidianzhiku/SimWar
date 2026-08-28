@@ -14,6 +14,7 @@ import type {
   W4CanonicalStrategicDecision,
   W4EnterpriseState,
   W4ReplayInputManifest,
+  RoundStatus,
   W4ScopeContext,
   W4StateRef
 } from "../../packages/shared-contracts/src";
@@ -227,7 +228,7 @@ function roleWorkflowSnapshot(sourceRoundId: string): RoleWorkflowRepositorySnap
   } as unknown as RoleWorkflowRepositorySnapshot;
 }
 
-async function arrange() {
+async function arrange(sourceRoundStatus: RoundStatus = "published") {
   const repository = createInMemoryW4Repository();
   const w4 = createEnterpriseStateStrategicEvolutionService(repository);
   const firstScope = scope();
@@ -261,7 +262,14 @@ async function arrange() {
   const service = createM4MultipathCounterfactualTransferService({
     roleWorkflow,
     w4Repository: repository,
-    w4Service: w4
+    w4Service: w4,
+    readRound: async () => ({
+      round_id: official.closing_state_ref.round_id,
+      tenant_id: tenantId,
+      run_id: runId,
+      round_no: 1,
+      status: sourceRoundStatus
+    })
   });
   const input: M4MultipathCounterfactualInput = {
     source_state_ref: official.closing_state_ref,
@@ -332,6 +340,82 @@ describe("M4 governed multi-path counterfactual transfer", () => {
     expect(student.transfer.apply_to_next_round).toBe(false);
   });
 
+  it("does not expose a student counterfactual before the source round is published", async () => {
+    const arranged = await arrange("settled");
+
+    await expect(
+      arranged.service.create(arranged.secondScope, arranged.input, "student")
+    ).rejects.toMatchObject<M4MultipathCounterfactualTransferError>({
+      code: "M4_SOURCE_ROUND_NOT_PUBLISHED"
+    });
+  });
+
+  it("does not substitute the latest outcome when the requested round has no official outcome", async () => {
+    const arranged = await arrange();
+
+    await expect(
+      arranged.service.createDefault(scope(2, "round_2"), "teacher")
+    ).rejects.toMatchObject<M4MultipathCounterfactualTransferError>({
+      code: "M4_OFFICIAL_OUTCOME_REQUIRED"
+    });
+  });
+
+  it("rejects decisions consumed by any official outcome in the requested horizon", async () => {
+    const arranged = await arrange();
+    const snapshot = arranged.repository.snapshot();
+    const sourceOutcome = snapshot.outcomes[0]!;
+    snapshot.outcomes.push({
+      ...structuredClone(sourceOutcome),
+      official_outcome_id: "outcome_m4_div_run_team_alpha_2",
+      round_id: "round_2",
+      round_no: 2,
+      replay_input_manifest: {
+        ...structuredClone(sourceOutcome.replay_input_manifest),
+        manifest_id: "manifest_round_2",
+        round_id: "round_2",
+        decision_ids: ["counter_path_a"],
+        decision_payload_bindings: [
+          {
+            decision_id: "counter_path_a",
+            decision_payload_digest: "a".repeat(64)
+          }
+        ]
+      }
+    });
+    arranged.repository.replace(snapshot);
+
+    await expect(
+      arranged.service.create(arranged.secondScope, arranged.input, "teacher")
+    ).rejects.toMatchObject<M4MultipathCounterfactualTransferError>({
+      code: "M4_OFFICIAL_DECISION_REENTRY_BLOCKED"
+    });
+  });
+
+  it("treats paths with the same decision set as non-distinct regardless of order", async () => {
+    const arranged = await arrange();
+    const input: M4MultipathCounterfactualInput = {
+      ...arranged.input,
+      paths: [
+        {
+          path_id: "path_a",
+          label: "组合路径 A",
+          decision_ids: ["counter_path_a", "counter_path_b"]
+        },
+        {
+          path_id: "path_b",
+          label: "组合路径 B",
+          decision_ids: ["counter_path_b", "counter_path_a"]
+        }
+      ]
+    };
+
+    await expect(
+      arranged.service.create(arranged.secondScope, input, "teacher")
+    ).rejects.toMatchObject<M4MultipathCounterfactualTransferError>({
+      code: "M4_PATHS_NOT_DISTINCT"
+    });
+  });
+
   it("fails closed for path-count, official re-entry, runtime, and role-lineage mismatches", async () => {
     const arranged = await arrange();
     const cases: Array<[string, M4MultipathCounterfactualInput, string]> = [
@@ -392,7 +476,14 @@ describe("M4 governed multi-path counterfactual transfer", () => {
         }
       },
       w4Repository: arranged.repository,
-      w4Service: arranged.w4Service
+      w4Service: arranged.w4Service,
+      readRound: async () => ({
+        round_id: arranged.official.closing_state_ref.round_id,
+        tenant_id: tenantId,
+        run_id: runId,
+        round_no: 1,
+        status: "published"
+      })
     });
     await expect(
       noLineageService.create(arranged.secondScope, arranged.input, "teacher")

@@ -23,6 +23,7 @@ interface M4RouteDependencies {
 }
 
 function errorStatus(error: M4MultipathCounterfactualTransferError): number {
+  if (error.code === "M4_SOURCE_ROUND_NOT_PUBLISHED") return 409;
   if (error.code.includes("SCOPE") || error.code.includes("RUNTIME")) return 409;
   if (error.code.includes("LINEAGE") || error.code.includes("REENTRY")) return 409;
   return 400;
