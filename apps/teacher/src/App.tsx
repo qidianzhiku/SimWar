@@ -26,6 +26,7 @@ import type {
   AuthSession,
   CoursePackageVersionCloneInput,
   CoursePackageVersionTeacherDto,
+  GSIExactBinding,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
@@ -94,6 +95,7 @@ const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVertic
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
+import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -825,6 +827,29 @@ export function App() {
   const w3Team = state?.teams.find(
     (candidate) => candidate.course_id === (selectedRun?.course_id ?? selectedCourseId)
   );
+  const gsiTeam =
+    teacherTeamsForRun.find((candidate) => candidate.team_id === activeTeacherTeamId) ??
+    teacherTeamsForRun[0];
+  const gsiBinding: GSIExactBinding | undefined =
+    selectedRun && selectedRound && gsiTeam
+      ? {
+          tenant_id: login.tenantId,
+          course_id: selectedRun.course_id,
+          run_id: selectedRun.run_id,
+          round_id: selectedRound.round_id,
+          team_id: gsiTeam.team_id,
+          scenario_package_id: selectedRun.scenario_package_id,
+          scenario_version:
+            workspace?.course_workspace?.scenario_reference?.scenario_version ?? "1.0.0",
+          parameter_set_id: selectedRun.parameter_set_id,
+          parameter_set_version:
+            workspace?.course_workspace?.scenario_reference?.parameter_set_version ?? "1.0.0",
+          model_version_id: "gsi-stakeholder-resolver-v1",
+          model_version: "1.0.0",
+          model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
+          model_artifact_version: "1.0.0"
+        }
+      : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
   const w3Context =
     readW3QueryContext() ??
@@ -2403,6 +2428,14 @@ export function App() {
               token={session.access_token}
             />
           </Suspense>
+        ) : null}
+        {isTeacher && session && gsiBinding ? (
+          <GovernedStakeholderIntelligenceWorkspace
+            apiBase={API_BASE}
+            binding={gsiBinding}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
         ) : null}
       </section>
 

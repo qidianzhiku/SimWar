@@ -32,6 +32,7 @@ import type {
   TeacherConfirmationAppendCommand,
   TeacherConfirmationRepositoryPort,
   GovernedAdvisoryRepositoryPort,
+  GSIStakeholderRepositoryPort,
   W027DecisionExperienceCommitCommand,
   W027DecisionExperienceRepositoryPort
 } from "./repository-ports.js";
@@ -65,6 +66,7 @@ import {
 import type { SimWarStore } from "./store.js";
 import type { W5GovernedModelPersistence } from "./w5-governed-model-service.js";
 import type { W5ScenarioDraft } from "@simwar/shared-contracts";
+import type { GSIRecord } from "@simwar/shared-contracts";
 import {
   createSettlementBusinessKey,
   createSettlementFingerprint
@@ -138,6 +140,35 @@ export function createJsonGovernedAdvisoryRepositoryPort(
     },
     async append(record) {
       const records = store.governedAdvisoryRecords ?? (store.governedAdvisoryRecords = []);
+      const previous = clone(records);
+      records.push(clone(record));
+      try {
+        store.persist();
+      } catch (error) {
+        records.splice(0, records.length, ...previous);
+        throw error;
+      }
+    }
+  };
+}
+
+export function createJsonGSIStakeholderRepositoryPort(
+  store: SimWarStore
+): GSIStakeholderRepositoryPort {
+  return {
+    async list(tenantId) {
+      return clone(
+        (store.gsiStakeholderRecords ?? []).filter((record) => record.tenant_id === tenantId)
+      );
+    },
+    async get(tenantId, candidateId) {
+      const record = (store.gsiStakeholderRecords ?? []).find(
+        (candidate) => candidate.tenant_id === tenantId && candidate.candidate_id === candidateId
+      );
+      return record ? clone(record) : null;
+    },
+    async append(record: GSIRecord) {
+      const records = store.gsiStakeholderRecords ?? (store.gsiStakeholderRecords = []);
       const previous = clone(records);
       records.push(clone(record));
       try {
@@ -1530,6 +1561,7 @@ export function createJsonRepositoryPorts(
     evidenceProvenance: createJsonEvidenceProvenanceRepositoryPort(store),
     teacherConfirmations: createJsonTeacherConfirmationRepositoryPort(store),
     governedAdvisories: createJsonGovernedAdvisoryRepositoryPort(store),
+    gsiStakeholders: createJsonGSIStakeholderRepositoryPort(store),
     validationSessions: createJsonValidationSessionRepositoryPort(store)
   };
 }

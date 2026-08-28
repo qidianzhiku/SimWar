@@ -43,6 +43,7 @@ import type {
   D2ProvenanceEdge,
   TeacherConfirmationVersion,
   W020AdvisoryRecord,
+  GSIRecord,
   W027PrivateJudgment,
   W027ResolutionV2,
   W027ResolutionAcknowledgement,
@@ -143,6 +144,7 @@ export interface SimWarStoreSnapshot {
   evidenceProvenanceEdges: D2ProvenanceEdge[];
   teacherConfirmationVersions: TeacherConfirmationVersion[];
   governedAdvisoryRecords?: W020AdvisoryRecord[];
+  gsiStakeholderRecords?: GSIRecord[];
   validationSessions: ValidationSessionRecord[];
   w027RoleRosters: W027RoleRoster[];
   w027PrivateJudgments: W027PrivateJudgment[];
@@ -814,6 +816,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     evidenceProvenanceEdges: [],
     teacherConfirmationVersions: [],
     governedAdvisoryRecords: [],
+    gsiStakeholderRecords: [],
     validationSessions: [],
     w027RoleRosters: [],
     w027PrivateJudgments: [],
@@ -897,6 +900,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     evidenceProvenanceEdges: store.evidenceProvenanceEdges,
     teacherConfirmationVersions: store.teacherConfirmationVersions,
     governedAdvisoryRecords: store.governedAdvisoryRecords ?? [],
+    gsiStakeholderRecords: store.gsiStakeholderRecords ?? [],
     validationSessions: store.validationSessions,
     w027RoleRosters: store.w027RoleRosters,
     w027PrivateJudgments: store.w027PrivateJudgments,
@@ -963,6 +967,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     evidenceProvenanceEdges: snapshot.evidenceProvenanceEdges ?? [],
     teacherConfirmationVersions: snapshot.teacherConfirmationVersions ?? [],
     governedAdvisoryRecords: snapshot.governedAdvisoryRecords ?? [],
+    gsiStakeholderRecords: snapshot.gsiStakeholderRecords ?? [],
     validationSessions: snapshot.validationSessions ?? [],
     w027RoleRosters: snapshot.w027RoleRosters ?? [],
     w027PrivateJudgments: snapshot.w027PrivateJudgments ?? [],

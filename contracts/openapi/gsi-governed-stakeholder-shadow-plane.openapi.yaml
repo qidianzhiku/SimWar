@@ -1,0 +1,122 @@
+openapi: 3.1.0
+info:
+  title: SimWar Governed Stakeholder Shadow Plane
+  version: 1.0.0
+paths:
+  /api/v1/bff/teacher/gsi/candidates:
+    post:
+      summary: Create a bounded Provider-OFF GSI candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GSIRequest"
+      responses:
+        "201":
+          description: Candidate receipt
+  /api/v1/bff/teacher/gsi/candidates/{candidateId}:
+    get:
+      summary: Read Teacher-safe GSI diagnostics
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      responses:
+        "200":
+          description: Teacher-safe receipt
+  /api/v1/bff/student/gsi/candidates/{candidateId}:
+    get:
+      summary: Read published role-safe GSI projection
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      responses:
+        "200":
+          description: Student-safe projection
+  /api/v1/bff/admin/gsi/audit:
+    get:
+      summary: Read tenant-safe GSI provenance
+      parameters:
+        - in: query
+          name: candidate_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Admin-safe projection
+components:
+  parameters:
+    CandidateId:
+      in: path
+      name: candidateId
+      required: true
+      schema:
+        type: string
+  schemas:
+    GSIRequest:
+      type: object
+      additionalProperties: false
+      required: [discriminator, binding, plane_mode, publication_status, proposals, idempotency_key]
+      properties:
+        discriminator:
+          const: gsi_stakeholder_shadow_request
+        binding:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              tenant_id,
+              course_id,
+              run_id,
+              round_id,
+              team_id,
+              scenario_package_id,
+              scenario_version,
+              parameter_set_id,
+              parameter_set_version,
+              model_version_id,
+              model_version,
+              model_artifact_id,
+              model_artifact_version
+            ]
+          properties:
+            tenant_id: { type: string }
+            course_id: { type: string }
+            run_id: { type: string }
+            round_id: { type: string }
+            team_id: { type: string }
+            scenario_package_id: { type: string }
+            scenario_version: { type: string }
+            parameter_set_id: { type: string }
+            parameter_set_version: { type: string }
+            model_version_id: { type: string }
+            model_version: { type: string }
+            model_artifact_id: { type: string }
+            model_artifact_version: { type: string }
+        plane_mode: { enum: [OFF, SHADOW] }
+        publication_status: { enum: [DRAFT, PUBLISHED] }
+        proposals:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [proposal_id, stakeholder_type, intent, priority, influence, summary]
+            properties:
+              proposal_id: { type: string }
+              stakeholder_type: { enum: [customer, regulator, bank, employee, media] }
+              intent:
+                {
+                  enum:
+                    [
+                      protect_demand,
+                      reduce_regulatory_risk,
+                      preserve_liquidity,
+                      retain_workforce,
+                      protect_reputation
+                    ]
+                }
+              priority: { type: number, minimum: 0, maximum: 1 }
+              influence: { type: number, minimum: -1, maximum: 1 }
+              summary: { type: string, minLength: 1, maxLength: 240 }
+        idempotency_key: { type: string }

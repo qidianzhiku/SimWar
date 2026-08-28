@@ -26,6 +26,7 @@ import type {
   TeamConfirmation,
   TeacherConfirmationVersion,
   W020AdvisoryRecord,
+  GSIRecord,
   W027PrivateJudgment,
   W027ResolutionV2,
   W027ResolutionAcknowledgement,
@@ -428,6 +429,13 @@ export interface GovernedAdvisoryRepositoryPort {
   append(record: W020AdvisoryRecord): Promise<void>;
 }
 
+/** GSI-only candidate persistence; it shares the JSON store and cannot write formal truth. */
+export interface GSIStakeholderRepositoryPort {
+  list(tenantId: RepositoryId): Promise<GSIRecord[]>;
+  get(tenantId: RepositoryId, candidateId: RepositoryId): Promise<GSIRecord | null>;
+  append(record: GSIRecord): Promise<void>;
+}
+
 /** W023-only L4 session/evidence persistence; it cannot write formal truth. */
 export interface ValidationSessionRepositoryPort {
   list(tenantId: RepositoryId): Promise<ValidationSessionRecord[]>;
@@ -567,5 +575,6 @@ export interface SimWarRepositoryPorts {
   evidenceProvenance: EvidenceProvenanceRepositoryPort;
   teacherConfirmations?: TeacherConfirmationRepositoryPort;
   governedAdvisories?: GovernedAdvisoryRepositoryPort;
+  gsiStakeholders?: GSIStakeholderRepositoryPort;
   validationSessions?: ValidationSessionRepositoryPort;
 }

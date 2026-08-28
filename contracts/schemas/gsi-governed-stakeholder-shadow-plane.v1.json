@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/gsi-governed-stakeholder-shadow-plane.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request", "receipt"],
+  "properties": {
+    "request": { "$ref": "#/$defs/request" },
+    "receipt": { "$ref": "#/$defs/receipt" }
+  },
+  "$defs": {
+    "exactString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!latest$)(?!default$)\\S(?:.*\\S)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "round_id",
+        "team_id",
+        "scenario_package_id",
+        "scenario_version",
+        "parameter_set_id",
+        "parameter_set_version",
+        "model_version_id",
+        "model_version",
+        "model_artifact_id",
+        "model_artifact_version"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/exactString" },
+        "course_id": { "$ref": "#/$defs/exactString" },
+        "run_id": { "$ref": "#/$defs/exactString" },
+        "round_id": { "$ref": "#/$defs/exactString" },
+        "team_id": { "$ref": "#/$defs/exactString" },
+        "scenario_package_id": { "$ref": "#/$defs/exactString" },
+        "scenario_version": { "$ref": "#/$defs/exactString" },
+        "parameter_set_id": { "$ref": "#/$defs/exactString" },
+        "parameter_set_version": { "$ref": "#/$defs/exactString" },
+        "model_version_id": { "$ref": "#/$defs/exactString" },
+        "model_version": { "$ref": "#/$defs/exactString" },
+        "model_artifact_id": { "$ref": "#/$defs/exactString" },
+        "model_artifact_version": { "$ref": "#/$defs/exactString" }
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_id", "stakeholder_type", "intent", "priority", "influence", "summary"],
+      "properties": {
+        "proposal_id": { "$ref": "#/$defs/exactString" },
+        "stakeholder_type": {
+          "enum": ["customer", "regulator", "bank", "employee", "media"]
+        },
+        "intent": {
+          "enum": [
+            "protect_demand",
+            "reduce_regulatory_risk",
+            "preserve_liquidity",
+            "retain_workforce",
+            "protect_reputation"
+          ]
+        },
+        "priority": { "type": "number", "minimum": 0, "maximum": 1 },
+        "influence": { "type": "number", "minimum": -1, "maximum": 1 },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "binding",
+        "plane_mode",
+        "publication_status",
+        "proposals",
+        "idempotency_key"
+      ],
+      "properties": {
+        "discriminator": { "const": "gsi_stakeholder_shadow_request" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "plane_mode": { "enum": ["OFF", "SHADOW"] },
+        "publication_status": { "enum": ["DRAFT", "PUBLISHED"] },
+        "proposals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/proposal" }
+        },
+        "idempotency_key": { "$ref": "#/$defs/exactString" }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "stakeholder_type",
+        "intent",
+        "bounded_value",
+        "source_proposal_count"
+      ],
+      "properties": {
+        "signal_id": { "$ref": "#/$defs/exactString" },
+        "stakeholder_type": {
+          "enum": ["customer", "regulator", "bank", "employee", "media"]
+        },
+        "intent": {
+          "enum": [
+            "protect_demand",
+            "reduce_regulatory_risk",
+            "preserve_liquidity",
+            "retain_workforce",
+            "protect_reputation"
+          ]
+        },
+        "bounded_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "source_proposal_count": { "type": "integer", "minimum": 1, "maximum": 5 }
+      }
+    },
+    "abstention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_id", "reason"],
+      "properties": {
+        "proposal_id": { "$ref": "#/$defs/exactString" },
+        "reason": { "enum": ["non_finite", "out_of_bounds", "duplicate"] }
+      }
+    },
+    "resolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolver_version",
+        "accepted_proposal_ids",
+        "signals",
+        "abstentions",
+        "outside_option",
+        "candidate_value",
+        "resolver_digest",
+        "signal_digest",
+        "candidate_digest"
+      ],
+      "properties": {
+        "resolver_version": { "const": "gsi-deterministic-resolver-v1" },
+        "accepted_proposal_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/exactString" },
+          "maxItems": 5
+        },
+        "signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal" },
+          "maxItems": 5
+        },
+        "abstentions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/abstention" },
+          "maxItems": 5
+        },
+        "outside_option": { "type": "number", "minimum": 0, "maximum": 1 },
+        "candidate_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "resolver_digest": { "$ref": "#/$defs/digest" },
+        "signal_digest": { "$ref": "#/$defs/digest" },
+        "candidate_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "summary", "advisory_text", "known_limits"],
+      "properties": {
+        "surface": { "const": "teacher" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "advisory_text": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "known_limits": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "status",
+        "request_id",
+        "candidate_id",
+        "request_digest",
+        "binding",
+        "plane_mode",
+        "publication_status",
+        "resolver",
+        "teacher_projection",
+        "formal_truth_write",
+        "writes_official_truth",
+        "provider",
+        "known_limits"
+      ],
+      "properties": {
+        "discriminator": { "const": "gsi_stakeholder_shadow_receipt" },
+        "status": { "enum": ["generated", "reused"] },
+        "request_id": { "$ref": "#/$defs/exactString" },
+        "candidate_id": { "$ref": "#/$defs/exactString" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "plane_mode": { "enum": ["OFF", "SHADOW"] },
+        "publication_status": { "enum": ["DRAFT", "PUBLISHED"] },
+        "resolver": { "$ref": "#/$defs/resolver" },
+        "teacher_projection": { "$ref": "#/$defs/teacherProjection" },
+        "formal_truth_write": { "const": false },
+        "writes_official_truth": { "const": false },
+        "provider": { "const": "OFF" },
+        "known_limits": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    }
+  }
+}

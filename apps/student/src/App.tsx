@@ -40,6 +40,7 @@ const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVertic
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
+import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
@@ -54,6 +55,10 @@ import {
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const GSI_CANDIDATE_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("gsiCandidateId") ?? "");
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1012,6 +1017,15 @@ export function App() {
               </Suspense>
             </div>
           </section>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <GovernedStakeholderIntelligenceProjection
+            apiBase={API_BASE}
+            candidateId={GSI_CANDIDATE_ID}
+            tenantId={login.tenantId}
+            token={activeSession?.access_token ?? ""}
+          />
         ) : null}
 
         {hasStudentSurface ? (
