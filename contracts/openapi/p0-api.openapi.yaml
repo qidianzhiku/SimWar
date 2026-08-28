@@ -1143,6 +1143,11 @@ paths:
           in: query
           required: false
           schema: { type: string, minLength: 1 }
+        - name: assignment_id
+          in: query
+          required: false
+          description: Exact ProjectAssignment identity required when the team has multiple project assignments.
+          schema: { type: string, minLength: 1 }
       responses:
         "200":
           description: Role-safe project-aware student context
@@ -4863,11 +4868,6 @@ paths:
         - name: round_id
           in: query
           required: false
-          schema: { type: string, minLength: 1 }
-        - name: assignment_id
-          in: query
-          required: false
-          description: Exact ProjectAssignment identity required when the team has multiple project assignments.
           schema: { type: string, minLength: 1 }
           description: Exact runtime round identity used for the projection scope.
       responses:
