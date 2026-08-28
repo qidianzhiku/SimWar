@@ -39,7 +39,6 @@ import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearn
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
-import { resolveM4SourceRoundNo } from "./m4-source-round";
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
@@ -409,6 +408,7 @@ export function App() {
     return "#student-role-mission";
   });
   const refreshIdentity = useRef(0);
+  const [m4SourceRoundNo, setM4SourceRoundNo] = useState<number | undefined>(undefined);
   const refreshController = useRef<AbortController | null>(null);
   const authIdentity = useRef(0);
   const authController = useRef<AbortController | null>(null);
@@ -440,7 +440,6 @@ export function App() {
   const latestRound = latestRun
     ? state?.rounds.find((round) => round.run_id === latestRun.run_id)
     : undefined;
-  const m4SourceRoundNo = resolveM4SourceRoundNo(state?.rounds ?? [], latestRun?.run_id);
   const team = state?.teams.find((candidate) => candidate.team_id === state.current_user.team_id);
   const publishedResult = cockpit?.published_result;
   const myResult = publishedResult?.redacted_result;
@@ -507,6 +506,10 @@ export function App() {
               run.run_id === reauthContext.run_id && run.course_id === reauthContext.course_id
           )
         : studentState.runs.at(-1);
+      const nextM4SourceRoundNo =
+        nextState.latest_result?.run_id !== nextRun?.run_id
+          ? undefined
+          : nextState.latest_result?.round_no;
       const nextRound = nextRun
         ? reauthContext
           ? studentState.rounds.find(
@@ -559,6 +562,7 @@ export function App() {
         }
       }
 
+      setM4SourceRoundNo(nextM4SourceRoundNo);
       setState(studentState);
 
       if (!nextRun || !nextRound) {
@@ -1379,8 +1383,8 @@ export function App() {
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
-                    latestRun && m4SourceRoundNo !== undefined
-                      ? [latestRun.course_id, latestRun.run_id, m4SourceRoundNo]
+                    m4SourceRoundNo
+                      ? [latestRun!.course_id, latestRun!.run_id, m4SourceRoundNo]
                       : undefined
                   }
                 />
