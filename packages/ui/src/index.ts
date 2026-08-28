@@ -17,6 +17,8 @@ export { StatePanel } from "./components/StatePanel.js";
 export type { StatePanelProps, StateStatus } from "./components/StatePanel.js";
 export { WorkbenchFrame } from "./workbenches/WorkbenchFrame.js";
 export type { WorkbenchFrameProps } from "./workbenches/WorkbenchFrame.js";
+export { M4MultipathCounterfactualTransferPanel } from "./components/M4MultipathCounterfactualTransferPanel.js";
+export type { M4MultipathCounterfactualTransferPanelProps } from "./components/M4MultipathCounterfactualTransferPanel.js";
 export { CourseReportWorkbench } from "./workbenches/CourseReportWorkbench.js";
 export type {
   CourseReportData,
