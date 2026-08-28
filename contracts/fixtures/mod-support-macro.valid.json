@@ -1,0 +1,65 @@
+{
+  "schema_version": "mod-support-macro.v1",
+  "macro_key": "R4",
+  "mission_id": "SIMWAR-MOD-ESL-O2-ROBUSTNESS-UNCERTAINTY-TRADEOFF-MACRO-01-20260828",
+  "candidate_type": "RobustnessRegimeCandidate",
+  "candidate_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "SKIP_TOMBSTONED",
+  "state_transition": { "from": "STATE_A", "to": "TOMBSTONED" },
+  "exact_binding": {
+    "binding_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "no_implicit_latest": true,
+    "refs": [
+      {
+        "resource_id": "source-register",
+        "resource_type": "source_register",
+        "version": "1.0.0",
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ]
+  },
+  "candidate": { "execution": "SKIPPED", "reason": "NO_FRESH_NEED_PROOF", "tombstone": true },
+  "evidence": {
+    "inputs": [],
+    "transformations": [],
+    "conflicts": [],
+    "differential": {
+      "mode": "NON_OFFICIAL",
+      "replay_truth_write": false,
+      "official_result_overwrite": false
+    }
+  },
+  "mjp": {
+    "status": "SKIP",
+    "fixture_count": 0,
+    "minimum_fixture_count": 0,
+    "fixture_ids": [],
+    "fixtures": []
+  },
+  "role_visibility": {
+    "teacher": { "visibility": "TEACHER_ONLY", "fields": ["candidate", "known_limits"] },
+    "student": { "visibility": "STUDENT_SAFE", "fields": ["candidate_type", "known_limits"] },
+    "admin": { "visibility": "INTERNAL_RESEARCH_ONLY", "fields": ["authority", "audit"] }
+  },
+  "authority": {
+    "candidate_writer": "MOD_SUPPORT_CANDIDATE_COMPILER",
+    "formal_writer": "NONE",
+    "official_truth_write": false,
+    "settlement_write": false,
+    "parameter_set_formal_write": false,
+    "replay_truth_write": false,
+    "provider": "OFF",
+    "runtime_authority": "JSON_INTERNAL_ONLY"
+  },
+  "join_request": {
+    "consumer_id": "MAIN-ESL-O1-EXECUTIVE-STRATEGY-LAB",
+    "need_by": "MAIN-ESL robustness and uncertainty evidence, only after fresh Need proof",
+    "consumer_ready": false,
+    "exact_binding_required": true,
+    "join_gate": "FRESH_NEED_PROOF_REQUIRED",
+    "requested_status": "SKIP_TOMBSTONED"
+  },
+  "known_limits": [
+    "Tombstone is not a State B implementation and requires a fresh Need proof before execution."
+  ]
+}
