@@ -5,13 +5,13 @@
 ```text
 npm run build -w @simwar/mod-support
 npm run typecheck
-npx vitest run tests/unit/mod-support-macro.test.ts tests/contract/mod-support-macro-contract.test.ts
+npx vitest run tests/unit/mod-support-macro.test.ts tests/unit/mod-support-evidence-safety.test.ts tests/contract/mod-support-macro-contract.test.ts
 npm run lint -- packages/mod-support/src/index.ts tests/unit/mod-support-macro.test.ts tests/contract/mod-support-macro-contract.test.ts
 npx prettier --check packages/mod-support/src/index.ts packages/mod-support/package.json packages/mod-support/tsconfig.json contracts/schemas/mod-support-macro.v1.json contracts/fixtures/mod-support-macro.valid.json tests/unit/mod-support-macro.test.ts tests/contract/mod-support-macro-contract.test.ts docs/architecture/mod-support-macro-program.md docs/quality/mod-support-macro-verification.md
 git diff --check
 ```
 
-单元测试覆盖：六宏 State A→State B、MJP thresholds、exact ref/floating token 拒绝、R4/R6 tombstone、结构化 fresh Need proof 的 issuer/scope/source/expiry/digest 绑定、R2 conflict/stale/OOD abstention、R5 rights/expiry/calibration limits、Student visibility、authority firewall 和 stable digest。契约测试使用 Ajv 2020 验证 canonical fixture 与所有六宏生成结果，并拒绝 `official_truth_write=true` 的漂移。
+单元测试覆盖：六宏 State A→State B、可复核 fixture input/result pairs 与 MJP thresholds、exact ref/floating token 拒绝、R4/R6 tombstone、结构化 fresh Need proof 的 issuer/scope/source/expiry/digest 绑定及 request-time freshness、R2 conflict/stale/OOD abstention、R5 rights/expiry/calibration limits、Student visibility、authority firewall、stable digest，以及 evidence assembler ownership-marker 防递归删除。契约测试使用 Ajv 2020 验证 canonical fixture 与所有六宏生成结果，并拒绝 `official_truth_write=true` 的漂移。
 
 ## 全仓库门禁解释
 

@@ -29,6 +29,10 @@
 
 每条变换都记录 input、rule、assumption、output、unit、time scope、geography、confidence 和 provenance。默认输入为 synthetic-only，confidence 为 LOW，不把 unsupported claim 提升为事实；`conflicts` 只显式登记，不静默合并。
 
+### MJP fixture evidence
+
+每个结果的 `mjp.fixtures` 都保存结构化 fixture input、fixture result 及两者的 SHA-256。只有 supplied 且 digest 可复核的 input/result pairs 达到该宏门槛时才允许 `mjp.status=PASS`；不足时结果为 `EVIDENCE_INSUFFICIENT`/`SKIP`，不会用阈值或占位 ID 冒充执行证据。该门禁只代表本地确定性 fixture 验证，不等同于正式校准。
+
 ### Role safety
 
 Teacher 可见 candidate、provenance、conflicts 和 known limits；Admin 只获得治理/绑定/审计字段；Student projection 只暴露 candidate type、bounded diagnostic、confidence 和 known limits。Student projection 不含 `state_true`、市场份额、收入、利润、现金流、评分、排名、结算、raw、secret 或 private 字段。
@@ -36,6 +40,8 @@ Teacher 可见 candidate、provenance、conflicts 和 known limits；Admin 只�
 ### Sole-authority firewall
 
 MOD support compiler 的唯一写入者身份是 `MOD_SUPPORT_CANDIDATE_COMPILER`，其 formal writer 是 `NONE`。`candidate_digest` 只证明候选 envelope 自身的确定性，不是正式 Replay truth hash。MAIN 仍需重新验证消费者 exact binding、Need-by、rights、expiry、visibility、non-overwrite 和运行时接入条件。
+
+Evidence assembler 只允许写入专用目录：新目录必须使用 `simwar-mod-support-evidence-*` 命名，既有目录必须带精确 ownership marker；仓库根目录、仓库内路径、文件系统根、文件和未拥有目录均在递归清理前拒绝。
 
 ## 复用与限制
 

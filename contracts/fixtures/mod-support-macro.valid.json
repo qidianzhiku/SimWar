@@ -29,7 +29,13 @@
       "official_result_overwrite": false
     }
   },
-  "mjp": { "status": "SKIP", "fixture_count": 0, "minimum_fixture_count": 0, "fixture_ids": [] },
+  "mjp": {
+    "status": "SKIP",
+    "fixture_count": 0,
+    "minimum_fixture_count": 0,
+    "fixture_ids": [],
+    "fixtures": []
+  },
   "role_visibility": {
     "teacher": { "visibility": "TEACHER_ONLY", "fields": ["candidate", "known_limits"] },
     "student": { "visibility": "STUDENT_SAFE", "fields": ["candidate_type", "known_limits"] },

@@ -111,6 +111,15 @@ export interface ModLifecycleEvent {
   readonly receipt_ref: string;
 }
 
+export interface ModMjpFixtureEvidence {
+  readonly fixture_id: string;
+  readonly macro_key: ModMacroKey;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly result: Readonly<Record<string, unknown>>;
+  readonly input_digest: string;
+  readonly result_digest: string;
+}
+
 export interface ModFreshNeedProof {
   readonly proof_id: string;
   readonly macro_key: ModMacroKey;
@@ -136,6 +145,7 @@ export interface ModMacroRequest {
   readonly experiment_variants: readonly ModExperimentVariant[];
   readonly regional_target: ModRegionalTarget;
   readonly lifecycle_events: readonly ModLifecycleEvent[];
+  readonly mjp_fixtures: readonly ModMjpFixtureEvidence[];
 }
 
 export interface ModTransformationRecord {
@@ -191,6 +201,7 @@ export interface ModMacroResult {
     readonly fixture_count: number;
     readonly minimum_fixture_count: number;
     readonly fixture_ids: readonly string[];
+    readonly fixtures: readonly ModMjpFixtureEvidence[];
   };
   readonly role_visibility: ModRoleVisibility;
   readonly authority: {
@@ -208,7 +219,10 @@ export interface ModMacroResult {
     readonly need_by: string;
     readonly consumer_ready: false;
     readonly exact_binding_required: true;
-    readonly join_gate: "MAIN_REVIEW_REQUIRED" | "FRESH_NEED_PROOF_REQUIRED";
+    readonly join_gate:
+      | "MAIN_REVIEW_REQUIRED"
+      | "FRESH_NEED_PROOF_REQUIRED"
+      | "REGIONAL_RIGHTS_AND_EXPIRY_REQUIRED";
     readonly requested_status: ModMacroStatus;
   };
   readonly known_limits: readonly string[];
@@ -245,6 +259,37 @@ function isExactRef(value: unknown): value is ModExactRef {
     !RESERVED_REFERENCE_TOKEN.test(value.version) &&
     DIGEST_PATTERN.test(value.content_digest)
   );
+}
+
+function isMjpFixtureEvidence(
+  value: unknown,
+  macro_key?: ModMacroKey
+): value is ModMjpFixtureEvidence {
+  if (
+    !isRecord(value) ||
+    typeof value.fixture_id !== "string" ||
+    typeof value.macro_key !== "string" ||
+    !isRecord(value.input) ||
+    !isRecord(value.result) ||
+    typeof value.input_digest !== "string" ||
+    typeof value.result_digest !== "string" ||
+    !isSafeIdentity(value.fixture_id) ||
+    !MOD_MACRO_KEYS.includes(value.macro_key as ModMacroKey) ||
+    (macro_key !== undefined && value.macro_key !== macro_key) ||
+    !DIGEST_PATTERN.test(value.input_digest) ||
+    !DIGEST_PATTERN.test(value.result_digest) ||
+    value.input_digest !== stableDigest(value.input) ||
+    value.result_digest !== stableDigest(value.result) ||
+    value.input.macro_key !== value.macro_key ||
+    value.result.macro_key !== value.macro_key ||
+    value.result.fixture_id !== value.fixture_id ||
+    value.result.validation !== "PASSED" ||
+    value.result.official_truth_write !== false ||
+    value.result.settlement_write !== false
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function stableStringify(value: unknown): string {
@@ -393,8 +438,39 @@ export function createDefaultModMacroRequest(
         to: "QUALIFIED_WITH_LIMITS",
         receipt_ref: "mod-source-register"
       }
-    ]
+    ],
+    mjp_fixtures: createDefaultMjpFixtures(macro_key)
   };
+}
+
+function createDefaultMjpFixtures(macro_key: ModMacroKey): readonly ModMjpFixtureEvidence[] {
+  return Array.from({ length: MACRO_CONFIG[macro_key].minimum_fixture_count }, (_, index) => {
+    const fixture_id = `${macro_key.toLowerCase()}-fixture-${String(index + 1).padStart(2, "0")}`;
+    const input = {
+      fixture_id,
+      macro_key,
+      case_index: index + 1,
+      source_classification: "SYNTHETIC_ONLY",
+      bounded: true
+    };
+    const result = {
+      fixture_id,
+      macro_key,
+      validation: "PASSED",
+      execution: "DETERMINISTIC_LOCAL_FIXTURE",
+      candidate_only: true,
+      official_truth_write: false,
+      settlement_write: false
+    };
+    return Object.freeze({
+      fixture_id,
+      macro_key,
+      input,
+      result,
+      input_digest: stableDigest(input),
+      result_digest: stableDigest(result)
+    });
+  });
 }
 
 function createFreshNeedProof(
@@ -429,8 +505,18 @@ function assertRequest(input: ModMacroRequest): void {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(input.requested_at)) {
     throw new Error("MOD_REQUEST_TIMESTAMP_INVALID");
   }
-  if (!Number.isFinite(Date.parse(input.regional_target.expiry))) {
+  const requestedAt = Date.parse(input.requested_at);
+  const regionalExpiry = Date.parse(input.regional_target.expiry);
+  if (!Number.isFinite(requestedAt) || !Number.isFinite(regionalExpiry)) {
     throw new Error("MOD_REGION_EXPIRY_INVALID");
+  }
+  if (
+    !Array.isArray(input.mjp_fixtures) ||
+    !input.mjp_fixtures.every((fixture) => isMjpFixtureEvidence(fixture, input.macro_key)) ||
+    new Set(input.mjp_fixtures.map((fixture) => fixture.fixture_id)).size !==
+      input.mjp_fixtures.length
+  ) {
+    throw new Error("MOD_MJP_FIXTURE_INVALID");
   }
   if (input.fresh_need_proof !== null) {
     if (
@@ -440,7 +526,9 @@ function assertRequest(input: ModMacroRequest): void {
       input.fresh_need_proof.source_refs.some(
         (proofRef) =>
           !input.exact_refs.some((ref) => stableStringify(ref) === stableStringify(proofRef))
-      )
+      ) ||
+      requestedAt < Date.parse(input.fresh_need_proof.issued_at) ||
+      requestedAt > Date.parse(input.fresh_need_proof.expires_at)
     ) {
       throw new Error("MOD_FRESH_NEED_PROOF_INVALID");
     }
@@ -470,6 +558,8 @@ function isFreshNeedProof(value: unknown): value is ModFreshNeedProof {
     !value.source_refs.every(isExactRef) ||
     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value.issued_at) ||
     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value.expires_at) ||
+    !Number.isFinite(Date.parse(value.issued_at)) ||
+    !Number.isFinite(Date.parse(value.expires_at)) ||
     Date.parse(value.expires_at) <= Date.parse(value.issued_at) ||
     !DIGEST_PATTERN.test(value.content_digest)
   ) {
@@ -521,13 +611,6 @@ function transformation(
     confidence: "LOW",
     provenance: "MOD_SUPPORT_SYNTHETIC_ONLY"
   };
-}
-
-function fixtureIds(count: number, macro_key: ModMacroKey): readonly string[] {
-  return Array.from(
-    { length: count },
-    (_, index) => `${macro_key.toLowerCase()}-fixture-${String(index + 1).padStart(2, "0")}`
-  );
 }
 
 function baseCandidate(input: ModMacroRequest): Record<string, unknown> {
@@ -682,6 +765,12 @@ function buildCandidate(input: ModMacroRequest): {
   if (input.macro_key === "R5") {
     const modelRef = input.exact_refs[2];
     if (!modelRef) throw new Error("MOD_EXACT_REF_INVALID");
+    const rightsIssue =
+      input.regional_target.rights_status !== "PUBLIC_SAFE"
+        ? "REGIONAL_RIGHTS_NOT_PUBLIC_SAFE"
+        : Date.parse(input.regional_target.expiry) < Date.parse(input.requested_at)
+          ? "REGIONAL_TRANSFER_EXPIRED_BEFORE_REQUEST"
+          : null;
     return {
       candidate: {
         ...candidate,
@@ -690,31 +779,31 @@ function buildCandidate(input: ModMacroRequest): {
         geography_scope: input.regional_target.geography_scope,
         rights_status: input.regional_target.rights_status,
         expiry: input.regional_target.expiry,
-        compatibility_status: "COMPATIBLE_WITH_LIMITS",
         compatibility_matrix: [
           {
             source_model_version: modelRef.version,
             target_model_version: "1.0.0",
-            status: "COMPATIBLE_WITH_LIMITS",
+            status: rightsIssue === null ? "COMPATIBLE_WITH_LIMITS" : "NOT_JOINABLE",
             digest: modelRef.content_digest
           }
         ],
         out_of_domain_action: "FAIL_CLOSED",
         calibration_status: "NOT_CALIBRATED",
         spatial_feature_status: "NOT_MATERIAL",
-        fallback: "SOURCE_SCENARIO_CANDIDATE"
+        fallback: "SOURCE_SCENARIO_CANDIDATE",
+        regional_transfer_allowed: rightsIssue === null,
+        compatibility_status: rightsIssue === null ? "COMPATIBLE_WITH_LIMITS" : "NOT_JOINABLE"
       },
       transformations,
-      conflicts:
-        input.regional_target.rights_status !== "PUBLIC_SAFE"
-          ? [
-              {
-                signal_id: input.regional_target.region_id,
-                reason: "REGIONAL_RIGHTS_NOT_PUBLIC_SAFE"
-              }
-            ]
-          : [],
-      status: "JOIN_WITH_LIMITS",
+      conflicts: rightsIssue
+        ? [
+            {
+              signal_id: input.regional_target.region_id,
+              reason: rightsIssue
+            }
+          ]
+        : [],
+      status: rightsIssue === null ? "JOIN_WITH_LIMITS" : "EVIDENCE_INSUFFICIENT",
       state_to: "STATE_B"
     };
   }
@@ -752,6 +841,15 @@ export function compileModMacro(input: ModMacroRequest): ModMacroResult {
   assertRequest(input);
   const config = MACRO_CONFIG[input.macro_key];
   const built = buildCandidate(input);
+  const fixtureReady = input.mjp_fixtures.length >= config.minimum_fixture_count;
+  const resultStatus: ModMacroStatus =
+    built.status === "SKIP_TOMBSTONED"
+      ? built.status
+      : built.status === "EVIDENCE_INSUFFICIENT" || !fixtureReady
+        ? "EVIDENCE_INSUFFICIENT"
+        : built.status;
+  const emittedFixtures = resultStatus === "JOIN_WITH_LIMITS" || resultStatus === "JOIN";
+  const mjpFixtures = emittedFixtures ? input.mjp_fixtures : [];
   const exactBinding = {
     binding_digest: stableDigest({
       macro_key: input.macro_key,
@@ -766,7 +864,7 @@ export function compileModMacro(input: ModMacroRequest): ModMacroResult {
     macro_key: input.macro_key,
     mission_id: input.mission_id,
     candidate_type: config.candidate_type,
-    status: built.status,
+    status: resultStatus,
     state_transition: { from: "STATE_A" as const, to: built.state_to },
     exact_binding: exactBinding,
     candidate: built.candidate,
@@ -784,13 +882,11 @@ export function compileModMacro(input: ModMacroRequest): ModMacroResult {
       }
     },
     mjp: {
-      status: built.status === "SKIP_TOMBSTONED" ? ("SKIP" as const) : ("PASS" as const),
-      fixture_count: built.status === "SKIP_TOMBSTONED" ? 0 : config.minimum_fixture_count,
-      minimum_fixture_count: built.status === "SKIP_TOMBSTONED" ? 0 : config.minimum_fixture_count,
-      fixture_ids: fixtureIds(
-        built.status === "SKIP_TOMBSTONED" ? 0 : config.minimum_fixture_count,
-        input.macro_key
-      )
+      status: emittedFixtures ? ("PASS" as const) : ("SKIP" as const),
+      fixture_count: mjpFixtures.length,
+      minimum_fixture_count: resultStatus === "SKIP_TOMBSTONED" ? 0 : config.minimum_fixture_count,
+      fixture_ids: mjpFixtures.map((fixture) => fixture.fixture_id),
+      fixtures: mjpFixtures
     },
     role_visibility: roleVisibility(),
     authority: {
@@ -811,13 +907,20 @@ export function compileModMacro(input: ModMacroRequest): ModMacroResult {
       join_gate:
         built.status === "SKIP_TOMBSTONED"
           ? ("FRESH_NEED_PROOF_REQUIRED" as const)
-          : ("MAIN_REVIEW_REQUIRED" as const),
-      requested_status: built.status
+          : built.status === "EVIDENCE_INSUFFICIENT" && input.macro_key === "R5"
+            ? ("REGIONAL_RIGHTS_AND_EXPIRY_REQUIRED" as const)
+            : ("MAIN_REVIEW_REQUIRED" as const),
+      requested_status: resultStatus
     },
     known_limits: [
       "Candidate-only support evidence; no formal Truth, Settlement, ParameterSet, Model Governance, Registry, or Runtime write.",
       "Provider is OFF and all values are synthetic or reference-only; calibration is not proven.",
-      "MAIN must revalidate exact binding, consumer need, role visibility, rights, expiry, and non-overwrite semantics before any integration."
+      "MAIN must revalidate exact binding, consumer need, role visibility, rights, expiry, and non-overwrite semantics before any integration.",
+      ...(resultStatus === "EVIDENCE_INSUFFICIENT"
+        ? [
+            "MJP PASS is withheld until the configured number of verifiable fixture input/result pairs is supplied."
+          ]
+        : [])
     ]
   } satisfies Omit<ModMacroResult, "candidate_digest">;
   const candidate_digest = stableDigest(resultWithoutDigest);
@@ -840,14 +943,39 @@ export function assertModMacroResult(value: ModMacroResult): void {
   ) {
     throw new Error("MOD_RESULT_AUTHORITY_OR_BINDING_INVALID");
   }
-  if (value.status === "SKIP_TOMBSTONED") {
-    if (value.state_transition.to !== "TOMBSTONED" || value.mjp.fixture_count !== 0)
-      throw new Error("MOD_TOMBSTONE_INVALID");
-  } else if (
-    value.state_transition.to !== "STATE_B" ||
-    value.mjp.fixture_count < value.mjp.minimum_fixture_count
+  if (
+    !Array.isArray(value.mjp.fixtures) ||
+    !value.mjp.fixtures.every((fixture) => isMjpFixtureEvidence(fixture, value.macro_key)) ||
+    value.mjp.fixture_count !== value.mjp.fixtures.length ||
+    value.mjp.fixture_ids.length !== value.mjp.fixtures.length ||
+    value.mjp.fixture_ids.some(
+      (fixtureId, index) => fixtureId !== value.mjp.fixtures[index]?.fixture_id
+    )
   ) {
-    throw new Error("MOD_STATE_B_OR_MJP_INVALID");
+    throw new Error("MOD_MJP_FIXTURE_INVALID");
+  }
+  if (value.status === "SKIP_TOMBSTONED") {
+    if (
+      value.state_transition.to !== "TOMBSTONED" ||
+      value.mjp.status !== "SKIP" ||
+      value.mjp.fixture_count !== 0
+    )
+      throw new Error("MOD_TOMBSTONE_INVALID");
+  } else {
+    if (value.state_transition.to !== "STATE_B") throw new Error("MOD_STATE_B_OR_MJP_INVALID");
+    if (value.status === "EVIDENCE_INSUFFICIENT") {
+      if (value.mjp.status !== "SKIP" || value.mjp.fixture_count !== 0) {
+        throw new Error("MOD_STATE_B_OR_MJP_INVALID");
+      }
+    } else if (
+      value.mjp.status !== "PASS" ||
+      value.mjp.fixture_count < value.mjp.minimum_fixture_count
+    ) {
+      throw new Error("MOD_STATE_B_OR_MJP_INVALID");
+    }
+  }
+  if (value.join_request.requested_status !== value.status) {
+    throw new Error("MOD_JOIN_STATUS_INVALID");
   }
   const student = JSON.stringify(value.role_visibility.student);
   if (

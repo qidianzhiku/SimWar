@@ -5,6 +5,7 @@ import {
   compileModMacro,
   createDefaultModMacroRequest,
   createExactRef,
+  stableDigest,
   type ModMacroKey,
   type ModMacroRequest
 } from "../../packages/mod-support/src/index";
@@ -37,6 +38,10 @@ describe("MOD continuous six-macro candidate compiler", () => {
         runtime_authority: "JSON_INTERNAL_ONLY"
       });
       expect(result.mjp.fixture_count).toBeGreaterThanOrEqual(result.mjp.minimum_fixture_count);
+      expect(result.mjp.fixture_count).toBe(result.mjp.fixtures.length);
+      expect(result.mjp.fixture_ids).toEqual(
+        result.mjp.fixtures.map((fixture) => fixture.fixture_id)
+      );
       expect(result.known_limits.length).toBeGreaterThan(0);
       expect(() => assertModMacroResult(result)).not.toThrow();
     }
@@ -93,6 +98,30 @@ describe("MOD continuous six-macro candidate compiler", () => {
     expect(() => compileModMacro({ ...request, fresh_need_proof: invalidProof })).toThrow(
       "MOD_FRESH_NEED_PROOF_INVALID"
     );
+
+    const staleProofBase = {
+      ...proof,
+      issued_at: "2020-01-01T00:00:00.000Z",
+      expires_at: "2020-02-01T00:00:00.000Z"
+    };
+    const staleProof = {
+      ...staleProofBase,
+      content_digest: stableDigest(staleProofBase)
+    };
+    expect(() => compileModMacro({ ...request, fresh_need_proof: staleProof })).toThrow(
+      "MOD_FRESH_NEED_PROOF_INVALID"
+    );
+  });
+
+  it("withholds MJP PASS when verifiable fixture input/result pairs are missing", () => {
+    const request = createDefaultModMacroRequest("R1");
+    const result = compileModMacro({ ...request, mjp_fixtures: [] });
+
+    expect(result.status).toBe("EVIDENCE_INSUFFICIENT");
+    expect(result.mjp.status).toBe("SKIP");
+    expect(result.mjp.fixture_count).toBe(0);
+    expect(result.join_request.requested_status).toBe("EVIDENCE_INSUFFICIENT");
+    expect(() => assertModMacroResult(result)).not.toThrow();
   });
 
   it("abstains on conflicting, stale, and out-of-domain stakeholder signals", () => {
@@ -127,6 +156,26 @@ describe("MOD continuous six-macro candidate compiler", () => {
       calibration_status: "NOT_CALIBRATED"
     });
     expect(result.candidate.expiry).toBe("2027-08-28");
+  });
+
+  it("fails closed for restricted, unknown, or expired regional transfer inputs", () => {
+    const request = createDefaultModMacroRequest("R5", { fresh_need_proof: true });
+    for (const regional_target of [
+      { ...request.regional_target, rights_status: "RESTRICTED" as const },
+      { ...request.regional_target, rights_status: "UNKNOWN" as const },
+      { ...request.regional_target, expiry: "2020-01-01" }
+    ]) {
+      const result = compileModMacro({ ...request, regional_target });
+
+      expect(result.status).toBe("EVIDENCE_INSUFFICIENT");
+      expect(result.mjp.status).toBe("SKIP");
+      expect(result.join_request.join_gate).toBe("REGIONAL_RIGHTS_AND_EXPIRY_REQUIRED");
+      expect(result.candidate).toMatchObject({
+        compatibility_status: "NOT_JOINABLE",
+        regional_transfer_allowed: false,
+        out_of_domain_action: "FAIL_CLOSED"
+      });
+    }
   });
 
   it("keeps student projections free of private truth and formal result fields", () => {

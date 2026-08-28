@@ -89,12 +89,13 @@
     "mjp": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "fixture_count", "minimum_fixture_count", "fixture_ids"],
+      "required": ["status", "fixture_count", "minimum_fixture_count", "fixture_ids", "fixtures"],
       "properties": {
         "status": { "enum": ["PASS", "SKIP"] },
         "fixture_count": { "type": "integer", "minimum": 0 },
         "minimum_fixture_count": { "type": "integer", "minimum": 0 },
-        "fixture_ids": { "type": "array", "items": { "type": "string" } }
+        "fixture_ids": { "type": "array", "items": { "type": "string" } },
+        "fixtures": { "type": "array", "items": { "$ref": "#/$defs/mjpFixture" } }
       }
     },
     "role_visibility": { "$ref": "#/$defs/roleVisibility" },
@@ -138,7 +139,13 @@
         "need_by": { "type": "string", "minLength": 1 },
         "consumer_ready": { "const": false },
         "exact_binding_required": { "const": true },
-        "join_gate": { "enum": ["MAIN_REVIEW_REQUIRED", "FRESH_NEED_PROOF_REQUIRED"] },
+        "join_gate": {
+          "enum": [
+            "MAIN_REVIEW_REQUIRED",
+            "FRESH_NEED_PROOF_REQUIRED",
+            "REGIONAL_RIGHTS_AND_EXPIRY_REQUIRED"
+          ]
+        },
         "requested_status": {
           "enum": ["JOIN", "JOIN_WITH_LIMITS", "SKIP_TOMBSTONED", "EVIDENCE_INSUFFICIENT"]
         }
@@ -186,6 +193,19 @@
         "geography": { "type": "string" },
         "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
         "provenance": { "type": "string" }
+      }
+    },
+    "mjpFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_id", "macro_key", "input", "result", "input_digest", "result_digest"],
+      "properties": {
+        "fixture_id": { "type": "string", "minLength": 1 },
+        "macro_key": { "enum": ["R1", "R2", "R3", "R4", "R5", "R6"] },
+        "input": { "type": "object" },
+        "result": { "type": "object" },
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "result_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
       }
     },
     "roleView": {

@@ -1,12 +1,23 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from "node:fs";
+import { basename, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = resolve(process.cwd());
 const output = resolve(process.argv[2] ?? "mod-support-evidence");
 const prReconciliationPath = process.argv[3] ? resolve(process.argv[3]) : null;
 const engine = await import("../packages/mod-support/dist/index.js");
+const OUTPUT_MARKER = ".simwar-mod-support-evidence-root";
+const OUTPUT_MARKER_CONTENT =
+  '{"owner":"simwar-mod-support-evidence-assembler","schema_version":1}\n';
 
 function git(...args) {
   const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
@@ -53,6 +64,53 @@ function buildHashes(exclude = new Set()) {
     .join("\n");
 }
 
+function pathKey(path) {
+  return resolve(path).replaceAll("\\", "/").toLowerCase();
+}
+
+function isWithin(base, target) {
+  const child = relative(resolve(base), resolve(target));
+  return child === "" || (child !== ".." && !child.startsWith(`..${sep}`) && !isAbsolute(child));
+}
+
+function prepareSafeOutputRoot() {
+  const repositoryRoot = resolve(root);
+  const target = resolve(output);
+  const targetKey = pathKey(target);
+  if (targetKey === pathKey(repositoryRoot)) {
+    throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_REPOSITORY_ROOT");
+  }
+  if (targetKey === pathKey(parse(target).root)) {
+    throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_FILESYSTEM_ROOT");
+  }
+  if (isWithin(repositoryRoot, target)) {
+    throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_INSIDE_REPOSITORY");
+  }
+
+  if (existsSync(target)) {
+    const stat = lstatSync(target);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_NON_DIRECTORY");
+    }
+    const marker = join(target, OUTPUT_MARKER);
+    if (
+      !existsSync(marker) ||
+      !lstatSync(marker).isFile() ||
+      readFileSync(marker, "utf8") !== OUTPUT_MARKER_CONTENT
+    ) {
+      throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_UNOWNED_DIRECTORY");
+    }
+    rmSync(target, { recursive: true, force: true });
+  } else if (
+    !/^simwar-mod-support-evidence(?:-[A-Za-z0-9][A-Za-z0-9-]*)?$/u.test(basename(target))
+  ) {
+    throw new Error("MOD_EVIDENCE_OUTPUT_REJECTED_UNNAMED_DIRECTORY");
+  }
+
+  mkdirSync(target, { recursive: true });
+  writeFileSync(join(target, OUTPUT_MARKER), OUTPUT_MARKER_CONTENT, "utf8");
+}
+
 function currentReality() {
   return {
     captured_at: "2026-08-28T00:00:00.000Z",
@@ -91,8 +149,7 @@ const prReconciliation =
         known_limits: ["Supply fresh gh PR readback before treating Product PR or merge as proven."]
       };
 
-if (existsSync(output)) rmSync(output, { recursive: true, force: true });
-mkdirSync(output, { recursive: true });
+prepareSafeOutputRoot();
 
 const reality = currentReality();
 writeJson("PROGRAM-CONTROLLER/01-CURRENT-REALITY.json", reality);
