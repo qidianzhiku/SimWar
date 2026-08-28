@@ -9,6 +9,7 @@ import type {
 interface Props {
   apiBase: string;
   courseId?: string | null | undefined;
+  onDraftChange?: (draftId: string | null) => void;
   roundNo?: number | undefined;
   runId?: string | null | undefined;
   tenantId: string;
@@ -84,6 +85,7 @@ const breakableTextStyle = {
 export function W5GovernedModelStudio({
   apiBase,
   courseId,
+  onDraftChange,
   roundNo,
   runId,
   tenantId,
@@ -99,6 +101,7 @@ export function W5GovernedModelStudio({
     if (!courseId || !token) {
       setProjection(null);
       setSelectedDraftId(null);
+      onDraftChange?.(null);
       setNotice("需要课程和教师登录上下文");
       return;
     }
@@ -110,17 +113,17 @@ export function W5GovernedModelStudio({
         `/api/v1/bff/teacher/w5/governed-model?courseId=${encodeURIComponent(courseId)}`
       );
       setProjection(data);
-      setSelectedDraftId((current) =>
-        current && data.drafts.some((draft) => draft.draft_id === current)
+      setSelectedDraftId((current) => {
+        return current && data.drafts.some((draft) => draft.draft_id === current)
           ? current
-          : (data.drafts.at(-1)?.draft_id ?? null)
-      );
+          : (data.drafts.at(-1)?.draft_id ?? null);
+      });
       setNotice(data.drafts.length ? "Studio 已加载" : "尚未创建 W5 草稿");
     } catch (error) {
       setProjection(null);
       setNotice(error instanceof Error ? error.message : "W5 Studio 加载失败");
     }
-  }, [apiBase, courseId, tenantId, token]);
+  }, [apiBase, courseId, onDraftChange, tenantId, token]);
 
   useEffect(() => {
     void refresh();
@@ -129,6 +132,10 @@ export function W5GovernedModelStudio({
   useEffect(() => {
     setConvergence(null);
   }, [courseId, roundNo, runId, selectedDraftId]);
+
+  useEffect(() => {
+    onDraftChange?.(selectedDraftId);
+  }, [onDraftChange, selectedDraftId]);
 
   const draft = useMemo(
     () => projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null,
@@ -282,7 +289,10 @@ export function W5GovernedModelStudio({
             当前草稿
             <select
               value={selectedDraftId ?? ""}
-              onChange={(event) => setSelectedDraftId(event.target.value || null)}
+              onChange={(event) => {
+                const nextDraftId = event.target.value || null;
+                setSelectedDraftId(nextDraftId);
+              }}
             >
               <option value="">请选择</option>
               {projection.drafts.map((candidate) => (
@@ -388,3 +398,5 @@ export function W5GovernedModelStudio({
     </section>
   );
 }
+
+export default W5GovernedModelStudio;

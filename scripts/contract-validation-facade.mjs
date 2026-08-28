@@ -177,6 +177,11 @@ const mod06ContractFiles = [
   "contracts/fixtures/model-governance-plane.invalid.json"
 ];
 
+const shanghaiFullVerticalContractFiles = [
+  "contracts/schemas/shanghai-full-vertical.v1.json",
+  "contracts/fixtures/shanghai-full-vertical.valid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -260,10 +265,18 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/teacher/operating-world/drafts/{draftId}/bind",
   "/api/v1/bff/teacher/operating-world/drafts/{draftId}/official-consumer",
   "/api/v1/bff/student/operating-world/brief",
-  "/api/v1/bff/admin/operating-world/audit"
+  "/api/v1/bff/admin/operating-world/audit",
+  "/api/v1/bff/teacher/shanghai/full-vertical",
+  "/api/v1/bff/student/shanghai/full-vertical",
+  "/api/v1/bff/admin/shanghai/full-vertical"
 ];
 
 const schemaCases = [
+  {
+    schema: "contracts/schemas/shanghai-full-vertical.v1.json",
+    valid: ["contracts/fixtures/shanghai-full-vertical.valid.json"],
+    invalid: []
+  },
   {
     schema: "contracts/schemas/operating-world.v1.json",
     valid: ["contracts/fixtures/operating-world-student.valid.json"],
@@ -1027,7 +1040,8 @@ export async function runContractValidation(options = {}) {
     ...w3ContractFiles,
     ...w4ContractFiles,
     ...mod04ContractFiles,
-    ...mod06ContractFiles
+    ...mod06ContractFiles,
+    ...shanghaiFullVerticalContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1050,7 +1064,8 @@ export async function runContractValidation(options = {}) {
     ...w3ContractFiles,
     ...w4ContractFiles,
     ...mod04ContractFiles,
-    ...mod06ContractFiles
+    ...mod06ContractFiles,
+    ...shanghaiFullVerticalContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }

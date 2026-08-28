@@ -89,7 +89,8 @@ import { W3OfficialConsequenceLearningWorkbench } from "./W3OfficialConsequenceL
 import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
-import { W5GovernedModelStudio } from "./W5GovernedModelStudio";
+const W5GovernedModelStudio = lazy(() => import("./W5GovernedModelStudio"));
+const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
@@ -599,6 +600,7 @@ export function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [selectedShanghaiDraftId, setSelectedShanghaiDraftId] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [login, setLogin] = useState<LoginForm>(EMPTY_LOGIN);
   const [busy, setBusy] = useState(false);
@@ -790,9 +792,8 @@ export function App() {
         selectedRoundId
       )
     : undefined;
-  const teacherTeamsForRun = state?.teams.filter(
-    (candidate) => candidate.course_id === selectedRun?.course_id
-  ) ?? [];
+  const teacherTeamsForRun =
+    state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? [];
   const activeTeacherTeamId = resolveActiveTeacherTeamId(
     teacherTeamsForRun,
     selectedTeacherTeamId,
@@ -1483,6 +1484,10 @@ export function App() {
         }
       });
   }, [session]);
+
+  useEffect(() => {
+    setSelectedShanghaiDraftId(null);
+  }, [selectedCourseId, selectedRunId, selectedRoundId]);
 
   useEffect(() => {
     setSelectedCourseBlueprint(null);
@@ -2352,25 +2357,39 @@ export function App() {
           <h2 id="teacher-w5-governed-model-heading">W5 受控模型</h2>
         </div>
         {isTeacher && session ? (
-          <W5GovernedModelStudio
-            apiBase={API_BASE}
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            roundNo={selectedRound?.round_no}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
-        ) : null}
-        {O4_ENABLED && isTeacher && session && selectedRun ? (
-          <Suspense fallback={<p className="muted">正在载入 O4 跨回合动力…</p>}>
-            <O4CrossRoundDynamicsPanel
+          <Suspense fallback={<p className="muted">正在载入 W5 受控模型…</p>}>
+            <W5GovernedModelStudio
               apiBase={API_BASE}
-              courseId={selectedRun.course_id}
-              runId={selectedRun.run_id}
-              surface="teacher"
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              onDraftChange={setSelectedShanghaiDraftId}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              roundNo={selectedRound?.round_no}
               tenantId={login.tenantId}
               token={session.access_token}
             />
+          </Suspense>
+        ) : null}
+        {isTeacher && session ? (
+          <Suspense fallback={<p className="muted">正在载入受控教学扩展…</p>}>
+            <ShanghaiFullVerticalTeacherPanel
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              draftId={selectedShanghaiDraftId}
+              roundNo={selectedRound?.round_no}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            {O4_ENABLED && selectedRun ? (
+              <O4CrossRoundDynamicsPanel
+                apiBase={API_BASE}
+                courseId={selectedRun.course_id}
+                runId={selectedRun.run_id}
+                surface="teacher"
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            ) : null}
           </Suspense>
         ) : null}
         {isTeacher && session ? (
