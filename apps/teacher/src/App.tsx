@@ -840,10 +840,10 @@ export function App() {
           team_id: gsiTeam.team_id,
           scenario_package_id: selectedRun.scenario_package_id,
           scenario_version:
-            workspace?.course_workspace.scenario_reference.scenario_version ?? "1.0.0",
+            workspace?.course_workspace?.scenario_reference?.scenario_version ?? "1.0.0",
           parameter_set_id: selectedRun.parameter_set_id,
           parameter_set_version:
-            workspace?.course_workspace.scenario_reference.parameter_set_version ?? "1.0.0",
+            workspace?.course_workspace?.scenario_reference?.parameter_set_version ?? "1.0.0",
           model_version_id: "gsi-stakeholder-resolver-v1",
           model_version: "1.0.0",
           model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
