@@ -910,3 +910,5 @@ export function StudentRoleWorkflowPanel(props: StudentRoleWorkflowPanelProps) {
     </section>
   );
 }
+
+export default StudentRoleWorkflowPanel;

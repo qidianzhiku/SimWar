@@ -32,10 +32,11 @@ import type {
   W3OfficialConsequenceContext
 } from "@simwar/shared-contracts";
 import { OperatingWorldBrief } from "./OperatingWorldBrief";
-import { StudentRoleWorkflowPanel } from "./StudentRoleWorkflowPanel";
+const StudentRoleWorkflowPanel = lazy(() => import("./StudentRoleWorkflowPanel"));
 import { W027DecisionExperiencePanel } from "./W027DecisionExperiencePanel";
 import { StudentLearningReportPanel } from "./StudentLearningReport";
 import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearningPanel";
+const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
@@ -1013,6 +1014,22 @@ export function App() {
           </section>
         ) : null}
 
+        {hasStudentSurface ? (
+          <section>
+            <Suspense fallback={null}>
+              <ShanghaiFullVerticalStudentPanel
+                apiBase={API_BASE}
+                courseId={latestRun?.course_id}
+                draftId={w5DraftId}
+                roundNo={latestRound?.round_no}
+                runId={latestRun?.run_id}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
+            </Suspense>
+          </section>
+        ) : null}
+
         {hasStudentSurface && operatingWorldDraftId ? (
           <section
             id="student-operating-world-brief"
@@ -1086,16 +1103,18 @@ export function App() {
 
         {hasStudentSurface ? (
           <section id="student-private-draft" className="student-location" aria-label="个人草稿">
-            <StudentRoleWorkflowPanel
-              active={latestRound?.status === "open"}
-              roundId={latestRound?.round_id}
-              runId={latestRun?.run_id}
-              teamId={team?.team_id}
-              tenantId={login.tenantId}
-              token={activeSession?.access_token}
-              activeRoleKeys={team ? team.members.map((member) => member.role_slot) : []}
-              onAvailabilityChange={setRoleWorkflowAvailability}
-            />
+            <Suspense fallback={<p className="muted">正在载入个人角色草稿…</p>}>
+              <StudentRoleWorkflowPanel
+                active={latestRound?.status === "open"}
+                roundId={latestRound?.round_id}
+                runId={latestRun?.run_id}
+                teamId={team?.team_id}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token}
+                activeRoleKeys={team ? team.members.map((member) => member.role_slot) : []}
+                onAvailabilityChange={setRoleWorkflowAvailability}
+              />
+            </Suspense>
           </section>
         ) : null}
 
@@ -1377,11 +1396,8 @@ export function App() {
                   published={W3_ENABLED && w3ContextReady && Boolean(myResult)}
                   crossRoundEnabled={W3_ENABLED && w3ContextReady}
                   m4={
-                    latestRun && latestRound && [
-                      latestRun.course_id,
-                      latestRun.run_id,
-                      latestRound.round_no
-                    ]
+                    latestRun &&
+                    latestRound && [latestRun.course_id, latestRun.run_id, latestRound.round_no]
                   }
                 />
               </Suspense>

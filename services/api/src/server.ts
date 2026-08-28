@@ -160,6 +160,8 @@ import { handleW4EnterpriseStateRoute } from "./routes/w4-enterprise-state-route
 import { handleM4MultipathCounterfactualTransferRoute } from "./routes/m4-multipath-counterfactual-transfer-routes.js";
 import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-environment-launch-routes.js";
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
+import { handleShanghaiFullVerticalRoute } from "./routes/shanghai-full-vertical-routes.js";
+import { ShanghaiFullVerticalService } from "./shanghai-full-vertical-service.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
@@ -425,6 +427,7 @@ interface ApiRuntime {
   projectLibrary: ProjectLibraryService;
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
+  shanghaiFullVertical: ShanghaiFullVerticalService;
   operatingWorld: OperatingWorldService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
@@ -809,6 +812,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     undefined,
     createJsonW5GovernedModelPersistence(store)
   );
+  const shanghaiFullVertical = new ShanghaiFullVerticalService(w5GovernedModel);
   const operatingWorld = new OperatingWorldService(
     undefined,
     createJsonOperatingWorldPersistence(store)
@@ -1074,6 +1078,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       repositoryProvider
     }),
     w5GovernedModel,
+    shanghaiFullVertical,
     operatingWorld,
     instructorAssets: new InstructorAssetRegistry(
       {
@@ -6263,6 +6268,30 @@ async function routeRequest(
           settlement_digest: outcome.settlement_digest,
           status: "FOUND" as const
         };
+      },
+      requirePermission: (context, permission) =>
+        requirePermission(context as RequestContext, permission),
+      sendJson
+    })
+  ) {
+    return;
+  }
+
+  if (
+    await handleShanghaiFullVerticalRoute(runtime.shanghaiFullVertical, request, response, url, {
+      actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+      createContext: (incoming) => createContext(runtime, incoming),
+      createEnvelope: (context, data, message) =>
+        createEnvelope(context as RequestContext, data, message),
+      repository: runtime.repositoryProvider.facade,
+      resolveExactReferences: async (tenantId, run) => {
+        const binding = await runtime.formalRunRuntimeBindingStore.getForRun(tenantId, run.run_id);
+        return binding
+          ? {
+              parameter_set_reference: { ...binding.parameter_set_reference },
+              scenario_package_reference: { ...binding.scenario_package_reference }
+            }
+          : null;
       },
       requirePermission: (context, permission) =>
         requirePermission(context as RequestContext, permission),

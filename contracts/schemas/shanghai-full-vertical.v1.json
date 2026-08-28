@@ -1,0 +1,184 @@
+{
+  "$id": "https://simwar.local/contracts/shanghai-full-vertical.v1.json",
+  "title": "SimWar MAIN Shanghai Full Vertical v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mission_id", "teacher", "student", "admin"],
+  "properties": {
+    "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
+    "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
+    "teacher": { "$ref": "#/$defs/teacher" },
+    "student": { "$ref": "#/$defs/student" },
+    "admin": { "$ref": "#/$defs/admin" }
+  },
+  "$defs": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["course_id", "draft_id", "round_no", "run_id"],
+      "properties": {
+        "course_id": { "type": "string", "minLength": 1 },
+        "draft_id": { "type": ["string", "null"] },
+        "round_no": { "type": ["integer", "null"], "minimum": 1 },
+        "run_id": { "type": ["string", "null"] }
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admin_audit", "exact_binding", "student_projection", "teacher_preview"],
+      "properties": {
+        "admin_audit": { "enum": ["READY", "BLOCKED"] },
+        "exact_binding": { "type": "boolean" },
+        "student_projection": { "enum": ["READY", "BLOCKED"] },
+        "teacher_preview": { "enum": ["READY", "BLOCKED"] }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "binding_digest",
+        "binding_id",
+        "course_id",
+        "model_version_ref",
+        "no_implicit_latest",
+        "parameter_set_reference",
+        "round_no",
+        "run_id",
+        "scenario_package_reference",
+        "seed",
+        "status",
+        "tenant_id"
+      ],
+      "properties": {
+        "binding_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "binding_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "model_version_ref": { "type": "string", "minLength": 1 },
+        "no_implicit_latest": { "const": true },
+        "parameter_set_reference": { "type": "object" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "scenario_package_reference": { "type": "object" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "status": { "const": "BOUND" },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["journey", "known_limits", "mission_id", "schema_version", "status", "surface"],
+      "properties": {
+        "journey": { "$ref": "#/$defs/journey" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
+        "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
+        "status": { "enum": ["NOT_READY", "READY_WITH_LIMITS"] },
+        "surface": { "enum": ["TEACHER", "STUDENT", "ADMIN"] }
+      }
+    },
+    "teacher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding",
+        "exact_context",
+        "journey",
+        "known_limits",
+        "mission_id",
+        "preview",
+        "schema_version",
+        "status",
+        "surface",
+        "teacher_projection"
+      ],
+      "properties": {
+        "binding": { "anyOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "exact_context": { "$ref": "#/$defs/context" },
+        "journey": { "$ref": "#/$defs/journey" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
+        "preview": { "anyOf": [{ "type": "object" }, { "type": "null" }] },
+        "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
+        "status": { "enum": ["NOT_READY", "READY_WITH_LIMITS"] },
+        "surface": { "const": "TEACHER" },
+        "teacher_projection": { "type": "object" }
+      }
+    },
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "journey",
+        "known_limits",
+        "mission_id",
+        "projection",
+        "schema_version",
+        "status",
+        "surface"
+      ],
+      "properties": {
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["course_id", "draft_id", "model_version_ref", "round_no", "run_id"],
+          "properties": {
+            "course_id": { "type": "string", "minLength": 1 },
+            "draft_id": { "type": "string", "minLength": 1 },
+            "model_version_ref": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "run_id": { "type": "string", "minLength": 1 }
+          }
+        },
+        "journey": { "$ref": "#/$defs/journey" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
+        "projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "convergence": { "type": "object" },
+            "operation_id": { "const": "W5_STUDENT_GOVERNED_MODEL_PROJECTION_GET_V1" },
+            "security": { "type": "object" },
+            "visibility": { "const": "ROLE_SAFE_STUDENT" }
+          }
+        },
+        "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
+        "status": { "const": "READY_WITH_LIMITS" },
+        "surface": { "const": "STUDENT" },
+        "private_parameter_values": { "not": {} }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admin_projection",
+        "binding",
+        "exact_context",
+        "journey",
+        "known_limits",
+        "mission_id",
+        "preview",
+        "schema_version",
+        "status",
+        "surface"
+      ],
+      "properties": {
+        "admin_projection": { "type": "object" },
+        "binding": { "$ref": "#/$defs/binding" },
+        "exact_context": { "$ref": "#/$defs/context" },
+        "journey": { "$ref": "#/$defs/journey" },
+        "known_limits": { "type": "array", "items": { "type": "string" } },
+        "mission_id": { "const": "MAIN-SH-FV-O1-GOVERNED-SHANGHAI-FULL-VERTICAL" },
+        "preview": { "type": "object" },
+        "schema_version": { "const": "simwar.shanghai.full-vertical.v1" },
+        "status": { "const": "READY_WITH_LIMITS" },
+        "surface": { "const": "ADMIN" }
+      }
+    }
+  }
+}
