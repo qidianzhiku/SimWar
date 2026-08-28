@@ -403,7 +403,7 @@ writeJson("PRE-ARCHIVE-LINT.json", {
 });
 writeJson("ARCHIVE-VERIFICATION.json", {
   status: "DIRECTORY_READY_FOR_ZIP",
-  member_count: relativeMembers().length,
+  member_count: relativeMembers().length + 1,
   sha256sums_excludes: ["SHA256SUMS.txt", "PRE-ARCHIVE-LINT.json", "ARCHIVE-VERIFICATION.json"],
   external_zip_sha256_required: true,
   zip_testzip_required: true,
