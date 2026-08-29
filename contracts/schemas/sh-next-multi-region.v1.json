@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-multi-region.v1.json",
+  "title": "Shanghai M2 Multi-region Capital Sequencing Candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "state_transition",
+    "source_freeze",
+    "spatial_tooling",
+    "city_regions",
+    "scenarios",
+    "project_slots",
+    "optimizer",
+    "golden_variants",
+    "schema_portability",
+    "consumer",
+    "authority",
+    "mjp",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-multi-region.v1" },
+    "macro_key": { "const": "M2" },
+    "mission_id": { "const": "SH-ESL-NEXT-02-MULTIREGION-CAPITAL-SEQUENCING-WORLD" },
+    "state_transition": { "const": { "from": "STATE_A", "to": "STATE_B" } },
+    "source_freeze": {
+      "type": "object",
+      "required": [
+        "status",
+        "official_source_ids",
+        "conflict_ledger_ids",
+        "unsupported_claims_are_facts"
+      ],
+      "properties": {
+        "status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" },
+        "official_source_ids": { "type": "array", "minItems": 5 },
+        "conflict_ledger_ids": { "type": "array", "minItems": 1 },
+        "unsupported_claims_are_facts": { "const": false }
+      }
+    },
+    "spatial_tooling": {
+      "type": "object",
+      "required": ["duckdb_spatial", "h3", "osmnx", "fallback"],
+      "properties": {
+        "duckdb_spatial": { "const": "TOOL_NOT_RUN" },
+        "h3": { "const": "TOOL_NOT_RUN" },
+        "osmnx": { "const": "TOOL_NOT_RUN" },
+        "fallback": { "const": "USED" }
+      }
+    },
+    "city_regions": { "type": "array", "minItems": 5 },
+    "scenarios": { "type": "array", "minItems": 3 },
+    "project_slots": { "type": "array", "minItems": 5 },
+    "optimizer": {
+      "type": "object",
+      "required": ["method", "candidates", "official_decision_write"],
+      "properties": {
+        "method": { "const": "DETERMINISTIC_BOUNDED_ENUMERATION" },
+        "candidates": { "type": "array", "minItems": 3 },
+        "official_decision_write": { "const": false }
+      }
+    },
+    "golden_variants": { "type": "array", "minItems": 3 },
+    "schema_portability": {
+      "type": "object",
+      "required": [
+        "schema_id",
+        "supports_second_city_stub",
+        "shanghai_constants_in_kernel",
+        "city_identity_is_asset_data"
+      ],
+      "properties": {
+        "schema_id": { "const": "sh-next-multi-region.v1" },
+        "supports_second_city_stub": { "const": true },
+        "shanghai_constants_in_kernel": { "const": false },
+        "city_identity_is_asset_data": { "const": true }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "required": ["classification", "consumer_ready", "formal_join", "exact_binding_required"]
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "provider"
+      ],
+      "properties": {
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "required": ["status", "city_id", "project_id"],
+      "properties": { "status": { "const": "PASS" } }
+    },
+    "known_limits": { "type": "array", "minItems": 1 },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
