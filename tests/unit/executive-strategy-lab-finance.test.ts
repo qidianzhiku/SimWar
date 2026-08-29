@@ -528,6 +528,44 @@ describe("projectESLFinance", () => {
     expect(first.stress_regimes.every((regime) => regime.feasibility === "FEASIBLE")).toBe(true);
   });
 
+  it("re-evaluates debt service coverage under the funding shock", () => {
+    const result = projectESLFinance(
+      input({ accounting_basis: accounting({ operating_cash_flow: 101, amortization: 99 }) })
+    );
+    const funding = result.stress_regimes.find(
+      (regime) => regime.regime_id === "FUNDING_COVENANT_PRESSURE"
+    );
+
+    expect(result.dscr).toMatchObject({ ratio: 101 / 99, status: "KNOWN" });
+    expect(funding).toMatchObject({
+      feasibility: "INFEASIBLE",
+      binding_constraints: expect.arrayContaining(["DSCR_BELOW_MINIMUM_COVERAGE"]),
+      why_not_feasible: expect.arrayContaining(["资金压力下债务服务覆盖率低于最低 1.0x 约束。"])
+    });
+  });
+
+  it("fails the funding shock closed when its coverage basis is unavailable", () => {
+    const result = projectESLFinance(
+      input({
+        accounting_basis: accounting({ operating_cash_flow: 100, amortization: 10 }),
+        source_state: state(1000, false),
+        source_state_ref: stateRef("state-open", stateDigest(state(1000, false))),
+        source_state_scope: stateScope(stateRef("state-open", stateDigest(state(1000, false)))),
+        terminal_state: null,
+        terminal_state_ref: null,
+        terminal_state_scope: null
+      })
+    );
+    const funding = result.stress_regimes.find(
+      (regime) => regime.regime_id === "FUNDING_COVENANT_PRESSURE"
+    );
+
+    expect(funding).toMatchObject({
+      feasibility: "UNKNOWN",
+      binding_constraints: expect.arrayContaining(["FUNDING_SHOCK_DSCR_BASIS_UNKNOWN"])
+    });
+  });
+
   it("makes downside shocks worsen a negative observed cash delta", () => {
     const result = projectESLFinance(
       input({

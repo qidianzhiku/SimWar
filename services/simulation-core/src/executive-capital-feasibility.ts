@@ -308,7 +308,18 @@ function unknownProjection(
     source_refs: sourceRefs,
     unknown_reason: "FINANCE_INPUT_VALIDATION_FAILED"
   };
-  const stressRegimes = createStressRegimes("UNKNOWN", [], unknownCash, unknownCash, sourceRefs);
+  const stressRegimes = createStressRegimes(
+    "UNKNOWN",
+    [],
+    unknownCash,
+    unknownCash,
+    sourceRefs,
+    unknownCash,
+    unknownCash,
+    null,
+    "UNKNOWN",
+    false
+  );
   const studentView = studentProjection("UNKNOWN", unknownCash, unknownCash, stressRegimes, [
     "FINANCE_INPUT_VALIDATION_FAILED"
   ]);
@@ -383,6 +394,8 @@ function createStressRegimes(
   baseCashFlow: ESLFinanceBasis,
   baseLiquidity: ESLFinanceBasis,
   sourceRefs: string[],
+  baseOperatingCashFlow: ESLFinanceBasis,
+  baseDebtService: ESLFinanceBasis,
   debtPrincipal: number | null = null,
   baseCovenant: ESLFinanceCovenantStatus = "UNKNOWN",
   demandShockBasisAvailable = true
@@ -436,6 +449,15 @@ function createStressRegimes(
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null && fundingAdjustment !== null
       ? stressedCash(baseCashFlow.amount - fundingAdjustment, "FUNDING_COVENANT_PRESSURE_SHOCK")
       : stressedCash(null, "DEBT_PRINCIPAL_OR_BASE_CASH_FLOW_UNKNOWN");
+  const fundingShockDscr =
+    fundingAdjustment !== null &&
+    fundingAdjustment > 0 &&
+    baseOperatingCashFlow.status === "KNOWN" &&
+    baseOperatingCashFlow.amount !== null &&
+    baseDebtService.status === "KNOWN" &&
+    baseDebtService.amount !== null
+      ? baseOperatingCashFlow.amount / (baseDebtService.amount + fundingAdjustment)
+      : null;
   return [
     {
       id: "DEMAND_PRICE_DOWNSIDE" as const,
@@ -479,6 +501,13 @@ function createStressRegimes(
           : "WORKFORCE_SHOCK_OPERATING_BASIS_UNKNOWN"
       );
     }
+    const fundingShockDscrBasisUnknown =
+      id === "FUNDING_COVENANT_PRESSURE" &&
+      (fundingAdjustment === null || (fundingAdjustment > 0 && fundingShockDscr === null));
+    const fundingShockDscrBelowMinimum =
+      id === "FUNDING_COVENANT_PRESSURE" && fundingShockDscr !== null && fundingShockDscr < 1;
+    if (fundingShockDscrBasisUnknown) constraints.push("FUNDING_SHOCK_DSCR_BASIS_UNKNOWN");
+    if (fundingShockDscrBelowMinimum) constraints.push("DSCR_BELOW_MINIMUM_COVERAGE");
     const whyNotFeasible: string[] = [];
     if (stressedLiquidityBreach) whyNotFeasible.push("压力情景下最低现金约束被突破。");
     if (operatingShockBasisUnknown) {
@@ -487,6 +516,12 @@ function createStressRegimes(
           ? "需求冲击无法与融资现金流区分，压力情景不可判定。"
           : "劳动力压力无法与融资现金流区分，压力情景不可判定。"
       );
+    }
+    if (fundingShockDscrBasisUnknown) {
+      whyNotFeasible.push("资金压力下债务服务覆盖率基础不可判定。");
+    }
+    if (fundingShockDscrBelowMinimum) {
+      whyNotFeasible.push("资金压力下债务服务覆盖率低于最低 1.0x 约束。");
     }
     if (!whyNotFeasible.length && baseFeasibility === "INFEASIBLE") {
       whyNotFeasible.push("基础情景已触发资本或现金约束，压力情景不得恢复为可行。");
@@ -500,7 +535,12 @@ function createStressRegimes(
       cash_flow: cash,
       liquidity_headroom: liquidity,
       covenant_status: covenant,
-      feasibility: stressFeasibility(baseFeasibility, covenant, cash.status === "KNOWN"),
+      feasibility:
+        fundingShockDscrBelowMinimum
+          ? "INFEASIBLE"
+          : fundingShockDscrBasisUnknown && baseFeasibility !== "INFEASIBLE"
+            ? "UNKNOWN"
+            : stressFeasibility(baseFeasibility, covenant, cash.status === "KNOWN"),
       binding_constraints: [...new Set(constraints)].sort(),
       why_not_feasible: whyNotFeasible
     };
@@ -838,6 +878,8 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     cashFlow,
     liquidity,
     sourceRefs,
+    operatingCashFlow,
+    debtService,
     debtPrincipal.amount,
     covenant,
     input.capital_actions.length === 0
