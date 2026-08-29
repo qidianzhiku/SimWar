@@ -66,6 +66,7 @@ describe("W4 Enterprise State contract", () => {
       plugin_ids: ["plugin_1"],
       seed: 7,
       horizon_rounds: 1,
+      capital_actions: [],
       rounds: [
         {
           round_no: 2,

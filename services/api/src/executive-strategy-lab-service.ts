@@ -200,7 +200,7 @@ function pathFromM4(
     terminal_state_scope: terminalStateRef ? stateScope(terminalStateRef) : null,
     terminal_state: clone(terminalState),
     path_cash_delta: candidate.outcome_differential.cash_delta,
-    capital_actions: clone(projection.capital_actions)
+    capital_actions: clone(candidate.capital_actions)
   });
   return {
     path_id: candidate.path_id,

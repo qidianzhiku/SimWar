@@ -202,6 +202,7 @@ function teacherPath(
     officiality: "NON_OFFICIAL",
     decision_ids: [...evidence.decision_ids],
     decision_payload_bindings: clone(evidence.decision_payload_bindings),
+    capital_actions: clone(evidence.capital_actions),
     path_digest: digest({ path_id: input.path_id, evidence }),
     rounds: clone(evidence.rounds),
     mechanism_differential: {

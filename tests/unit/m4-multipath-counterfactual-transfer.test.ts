@@ -11,6 +11,7 @@ import {
 import type { M4MultipathCounterfactualInput } from "../../packages/shared-contracts/src/m4-multipath-counterfactual-transfer";
 import type {
   RoleWorkflowRepositorySnapshot,
+  W4CapitalAction,
   W4CanonicalStrategicDecision,
   W4EnterpriseState,
   W4ReplayInputManifest,
@@ -297,6 +298,46 @@ async function arrange(sourceRoundStatus: RoundStatus = "published") {
 }
 
 describe("M4 governed multi-path counterfactual transfer", () => {
+  it("returns selected capital actions as non-official path bindings", async () => {
+    const arranged = await arrange();
+    const snapshot = arranged.repository.snapshot();
+    const selectedDecision = snapshot.decisions.find(
+      (candidate) => candidate.decision_id === "counter_path_a"
+    );
+    expect(selectedDecision).toBeDefined();
+    const selectedAction: W4CapitalAction = {
+      capital_action_id: "counterfactual-capital-action",
+      decision_id: "counter_path_a",
+      decision_payload_digest: selectedDecision!.admission.decision_payload_digest,
+      tenant_id: tenantId,
+      course_id: courseId,
+      run_id: runId,
+      team_id: teamId,
+      kind: "debt",
+      status: "active",
+      principal: 200,
+      term_rounds: 3,
+      rate_or_cost_bps: 500,
+      cost_source: "m4-test",
+      covenant_min_cash: 500,
+      fees: 5,
+      obligation: "term_debt",
+      project_entry_id: null,
+      initiative_id: null,
+      policy_seam_id: null,
+      created_round_no: 2,
+      effective_round_no: 2,
+      maturity_round_no: 5
+    };
+    snapshot.capitalActions.push(selectedAction);
+    arranged.repository.replace(snapshot);
+
+    const teacher = await arranged.service.create(arranged.secondScope, arranged.input, "teacher");
+
+    expect(teacher.paths[0]?.capital_actions).toEqual([{ ...selectedAction, status: "pending" }]);
+    expect(teacher.paths[1]?.capital_actions).toEqual([]);
+  });
+
   it("returns two deterministic non-official paths, preserves lineage, and never writes truth", async () => {
     const arranged = await arrange();
     const before = arranged.repository.snapshot();

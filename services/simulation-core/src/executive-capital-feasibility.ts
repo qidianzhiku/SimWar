@@ -321,10 +321,12 @@ function stressCovenant(
 
 function stressFeasibility(
   base: ESLFinanceFeasibility,
-  covenant: ESLFinanceCovenantStatus
+  covenant: ESLFinanceCovenantStatus,
+  cashFlowKnown = true
 ): ESLFinanceFeasibility {
   if (covenant === "BREACHED") return "INFEASIBLE";
   if (base === "INFEASIBLE") return "INFEASIBLE";
+  if (!cashFlowKnown) return "UNKNOWN";
   return base === "FEASIBLE" ? "FEASIBLE" : "UNKNOWN";
 }
 
@@ -335,7 +337,8 @@ function createStressRegimes(
   baseLiquidity: ESLFinanceBasis,
   sourceRefs: string[],
   debtPrincipal: number | null = null,
-  baseCovenant: ESLFinanceCovenantStatus = "UNKNOWN"
+  baseCovenant: ESLFinanceCovenantStatus = "UNKNOWN",
+  demandShockBasisAvailable = true
 ): ESLFinanceStressRegime[] {
   const stressedCash = (amount: number | null, reason: string) =>
     basis(amount, CURRENCY_UNIT, sourceRefs, "HORIZON", reason);
@@ -358,12 +361,17 @@ function createStressRegimes(
     );
   };
   const demandCash =
-    baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
+    demandShockBasisAvailable && baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
       ? stressedCash(
           scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.2 : 0.8),
           "DEMAND_PRICE_DOWNSIDE_SHOCK"
         )
-      : stressedCash(null, "BASE_CASH_FLOW_UNKNOWN");
+      : stressedCash(
+          null,
+          demandShockBasisAvailable
+            ? "BASE_CASH_FLOW_UNKNOWN"
+            : "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+        );
   const workforceCash =
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
       ? stressedCash(
@@ -393,27 +401,36 @@ function createStressRegimes(
       cash: fundingCash
     }
   ].map(({ id, shock, cash }) => {
-    const liquidity = stressedLiquidity(cash);
+    const demandShockBasisUnknown = id === "DEMAND_PRICE_DOWNSIDE" && !demandShockBasisAvailable;
+    const liquidity = demandShockBasisUnknown
+      ? basis(null, CURRENCY_UNIT, sourceRefs, "ROUND", "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE")
+      : stressedLiquidity(cash);
     const covenant = stressCovenant(liquidity, baseCovenant);
     const constraints = [...baseConstraints];
     const stressedLiquidityBreach =
       liquidity.status === "KNOWN" && liquidity.amount !== null && liquidity.amount < 0;
     if (stressedLiquidityBreach) constraints.push("STRESSED_MINIMUM_CASH_BREACH");
+    if (demandShockBasisUnknown) constraints.push("DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN");
+    const whyNotFeasible: string[] = [];
+    if (stressedLiquidityBreach) whyNotFeasible.push("压力情景下最低现金约束被突破。");
+    if (demandShockBasisUnknown) {
+      whyNotFeasible.push("需求冲击无法与融资现金流区分，压力情景不可判定。");
+    }
+    if (!whyNotFeasible.length && baseFeasibility === "INFEASIBLE") {
+      whyNotFeasible.push("基础情景已触发资本或现金约束，压力情景不得恢复为可行。");
+    }
+    if (!whyNotFeasible.length && baseFeasibility === "UNKNOWN") {
+      whyNotFeasible.push("基础资本/债务服务输入不足，压力情景不可判定。");
+    }
     return {
       regime_id: id,
       shock,
       cash_flow: cash,
       liquidity_headroom: liquidity,
       covenant_status: covenant,
-      feasibility: stressFeasibility(baseFeasibility, covenant),
+      feasibility: stressFeasibility(baseFeasibility, covenant, cash.status === "KNOWN"),
       binding_constraints: [...new Set(constraints)].sort(),
-      why_not_feasible: stressedLiquidityBreach
-        ? ["压力情景下最低现金约束被突破。"]
-        : baseFeasibility === "INFEASIBLE"
-          ? ["基础情景已触发资本或现金约束，压力情景不得恢复为可行。"]
-          : baseFeasibility === "UNKNOWN"
-            ? ["基础资本/债务服务输入不足，压力情景不可判定。"]
-            : []
+      why_not_feasible: whyNotFeasible
     };
   });
 }
@@ -668,6 +685,9 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     dscr.status === "UNKNOWN" && !(debtService.status === "KNOWN" && debtService.amount === 0)
       ? "DSCR_BASIS_UNKNOWN"
       : null,
+    dscr.status === "KNOWN" && dscr.ratio !== null && dscr.ratio < 1
+      ? "DSCR_BELOW_MINIMUM_COVERAGE"
+      : null,
     capitalBudgetUtilization.status === "UNKNOWN" &&
     (input.accounting_basis === undefined || capex.status === "UNKNOWN")
       ? "CAPITAL_BUDGET_BASIS_UNKNOWN"
@@ -677,7 +697,9 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   ].filter((item): item is string => item !== null);
   if (covenant === "BREACHED") constraints.push("COVENANT_MIN_CASH_BREACH");
   const feasibility: ESLFinanceFeasibility =
-    covenant === "BREACHED" || constraints.includes("CAPITAL_BUDGET_EXCEEDED")
+    covenant === "BREACHED" ||
+    constraints.includes("CAPITAL_BUDGET_EXCEEDED") ||
+    constraints.includes("DSCR_BELOW_MINIMUM_COVERAGE")
       ? "INFEASIBLE"
       : constraints.length > 0
         ? "UNKNOWN"
@@ -689,16 +711,19 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     liquidity,
     sourceRefs,
     debtPrincipal.amount,
-    covenant
+    covenant,
+    input.capital_actions.length === 0
   );
   const whyNotFeasible =
     covenant === "BREACHED"
       ? ["已知最低现金约束被突破。"]
       : constraints.includes("CAPITAL_BUDGET_EXCEEDED")
         ? ["资本支出超过已绑定的资本预算。"]
-        : constraints.length > 0
-          ? ["当前 W4/M4 契约没有提供完整的资本预算、经营成本或债务服务基础。"]
-          : [];
+        : constraints.includes("DSCR_BELOW_MINIMUM_COVERAGE")
+          ? ["债务服务覆盖率低于最低 1.0x 约束。"]
+          : constraints.length > 0
+            ? ["当前 W4/M4 契约没有提供完整的资本预算、经营成本或债务服务基础。"]
+            : [];
   const knownLimits = [
     ...(input.accounting_basis
       ? []
@@ -706,7 +731,12 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
           "CAPEX/OPEX/OPERATING_CASH_FLOW/AMORTIZATION/CAPITAL_BUDGET 基础在当前 W4/M4 契约中不完整。"
         ]),
     "该投影只消费一次 M4 path_cash_delta，不写入任何正式真值。",
-    "压力情景为确定性诊断，不代表真实概率或正式结算。"
+    "压力情景为确定性诊断，不代表真实概率或正式结算。",
+    ...(input.capital_actions.length > 0
+      ? [
+          "需求/价格压力无法从包含融资行动的 path_cash_delta 中隔离，相关压力现金流与流动性标记为 UNKNOWN。"
+        ]
+      : [])
   ];
   return {
     official: false,

@@ -1,5 +1,6 @@
 import type {
   RoleKey,
+  W4CapitalAction,
   W4CounterfactualRoundEvidence,
   W4DecisionPayloadBinding,
   W4StateRef
@@ -63,6 +64,7 @@ export interface M4TeacherPathProjection {
   officiality: "NON_OFFICIAL";
   decision_ids: string[];
   decision_payload_bindings: W4DecisionPayloadBinding[];
+  capital_actions: W4CapitalAction[];
   path_digest: string;
   rounds: W4CounterfactualRoundEvidence[];
   mechanism_differential: M4MechanismDifferential;

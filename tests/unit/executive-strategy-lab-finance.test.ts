@@ -255,6 +255,71 @@ describe("projectESLFinance", () => {
     expect(result.feasibility).toBe("UNKNOWN");
   });
 
+  it("rejects known debt-service coverage below the governed minimum", () => {
+    const result = projectESLFinance(
+      input({
+        accounting_basis: accounting({ operating_cash_flow: 40, amortization: 40 })
+      })
+    );
+
+    expect(result.dscr).toMatchObject({ ratio: 2 / 3, status: "KNOWN" });
+    expect(result.liquidity_headroom).toMatchObject({ amount: 650, status: "KNOWN" });
+    expect(result.feasibility).toBe("INFEASIBLE");
+    expect(result.binding_constraints).toContain("DSCR_BELOW_MINIMUM_COVERAGE");
+    expect(result.why_not_feasible).toContain("债务服务覆盖率低于最低 1.0x 约束。");
+    expect(result.stress_regimes.every((regime) => regime.feasibility === "INFEASIBLE")).toBe(true);
+    expect(
+      result.stress_regimes.every((regime) =>
+        regime.binding_constraints.includes("DSCR_BELOW_MINIMUM_COVERAGE")
+      )
+    ).toBe(true);
+  });
+
+  it("does not treat financing proceeds as demand cash-flow performance", () => {
+    const result = projectESLFinance(
+      input({
+        capital_actions: [
+          {
+            capital_action_id: "capital-action-demand-shock",
+            decision_id: "decision-demand-shock",
+            decision_payload_digest: "1".repeat(64),
+            tenant_id: "tenant-esl",
+            course_id: "course-esl",
+            run_id: "run-esl",
+            team_id: "team-esl",
+            kind: "debt",
+            status: "active",
+            principal: 1_000,
+            term_rounds: 3,
+            rate_or_cost_bps: 500,
+            cost_source: "test",
+            covenant_min_cash: 600,
+            fees: 10,
+            obligation: "term_debt",
+            project_entry_id: null,
+            initiative_id: null,
+            policy_seam_id: null,
+            created_round_no: 2,
+            effective_round_no: 2,
+            maturity_round_no: 5
+          }
+        ],
+        path_cash_delta: 1_000
+      })
+    );
+
+    const demand = result.stress_regimes[0]!;
+    expect(demand.cash_flow).toMatchObject({
+      amount: null,
+      status: "UNKNOWN",
+      unknown_reason: "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+    });
+    expect(demand.liquidity_headroom).toMatchObject({ amount: null, status: "UNKNOWN" });
+    expect(demand.feasibility).toBe("UNKNOWN");
+    expect(demand.binding_constraints).toContain("DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN");
+    expect(demand.why_not_feasible).toContain("需求冲击无法与融资现金流区分，压力情景不可判定。");
+  });
+
   it("fails closed when a state scope does not match its exact reference", () => {
     const result = projectESLFinance(
       input({

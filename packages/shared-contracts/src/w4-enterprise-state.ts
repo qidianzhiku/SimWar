@@ -527,6 +527,7 @@ export interface W4CounterfactualEvidence {
   plugin_ids: string[];
   seed: number;
   horizon_rounds: number;
+  capital_actions: W4CapitalAction[];
   rounds: W4CounterfactualRoundEvidence[];
   official_decision_writes: false;
   official_settlement_writes: false;

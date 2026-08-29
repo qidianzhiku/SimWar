@@ -3,6 +3,7 @@ import type {
   CurrentUser,
   ESLAlternativePath,
   M4MultipathCounterfactualResponse,
+  W4CapitalAction,
   W4ProjectionBase
 } from "@simwar/shared-contracts";
 import {
@@ -118,6 +119,33 @@ function projection(): W4ProjectionBase {
   };
 }
 
+function m4CapitalAction(): W4CapitalAction {
+  return {
+    capital_action_id: "m4-capital-action",
+    decision_id: "decision_a",
+    decision_payload_digest: "1".repeat(64),
+    tenant_id: "tenant_demo",
+    course_id: "course_demo",
+    run_id: "run_demo",
+    team_id: "team_alpha",
+    kind: "debt",
+    status: "active",
+    principal: 300,
+    term_rounds: 3,
+    rate_or_cost_bps: 500,
+    cost_source: "m4-test",
+    covenant_min_cash: 500,
+    fees: 5,
+    obligation: "term_debt",
+    project_entry_id: null,
+    initiative_id: null,
+    policy_seam_id: null,
+    created_round_no: 2,
+    effective_round_no: 2,
+    maturity_round_no: 5
+  };
+}
+
 function m4Response(): M4MultipathCounterfactualResponse {
   return {
     schema_version: "m4-multipath-counterfactual-transfer.v1",
@@ -157,6 +185,7 @@ function m4Response(): M4MultipathCounterfactualResponse {
         officiality: "NON_OFFICIAL",
         decision_ids: ["decision_a"],
         decision_payload_bindings: [],
+        capital_actions: [m4CapitalAction()],
         path_digest: "c".repeat(64),
         rounds: [],
         mechanism_differential: {
@@ -182,6 +211,7 @@ function m4Response(): M4MultipathCounterfactualResponse {
         officiality: "NON_OFFICIAL",
         decision_ids: ["decision_b"],
         decision_payload_bindings: [],
+        capital_actions: [],
         path_digest: "e".repeat(64),
         rounds: [],
         mechanism_differential: {
@@ -267,6 +297,9 @@ describe("Executive Strategy Lab service", () => {
       source_ref: "services/simulation-core/src/executive-capital-feasibility.ts",
       model_version_id: "esl-finance-projector"
     });
+    expect(firstPath.finance_feasibility.source_refs).toContain(
+      "w4_capital_action:m4-capital-action@" + "1".repeat(64)
+    );
   });
 
   it("redacts decision and source provenance for the assigned Student", async () => {

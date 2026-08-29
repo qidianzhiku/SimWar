@@ -2258,6 +2258,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         plugin_ids: [...input.plugin_ids],
         seed: input.seed,
         horizon_rounds: input.horizon_rounds,
+        capital_actions: clone(selectedCapitalActions),
         rounds,
         official_decision_writes: false,
         official_settlement_writes: false,

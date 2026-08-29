@@ -259,7 +259,8 @@
         "mechanism_differential",
         "outcome_differential",
         "decision_payload_bindings",
-        "rounds"
+        "rounds",
+        "capital_actions"
       ],
       "properties": {
         "path_id": { "type": "string", "minLength": 1 },
@@ -286,7 +287,8 @@
             }
           }
         },
-        "rounds": { "type": "array", "minItems": 1, "items": { "type": "object" } }
+        "rounds": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+        "capital_actions": { "type": "array", "items": { "$ref": "#/$defs/capitalAction" } }
       }
     },
     "studentPath": {
@@ -313,6 +315,75 @@
         "path_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "mechanism_differential": { "$ref": "#/$defs/mechanism" },
         "outcome_differential": { "$ref": "#/$defs/outcome" }
+      }
+    },
+    "capitalAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capital_action_id",
+        "decision_id",
+        "decision_payload_digest",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "kind",
+        "status",
+        "principal",
+        "term_rounds",
+        "rate_or_cost_bps",
+        "cost_source",
+        "covenant_min_cash",
+        "fees",
+        "obligation",
+        "project_entry_id",
+        "initiative_id",
+        "policy_seam_id",
+        "created_round_no",
+        "effective_round_no",
+        "maturity_round_no"
+      ],
+      "properties": {
+        "capital_action_id": { "type": "string", "minLength": 1 },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "decision_payload_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "debt",
+            "project_finance",
+            "working_capital",
+            "asset_backed_securitization",
+            "initial_public_offering"
+          ]
+        },
+        "status": { "enum": ["pending", "active", "blocked", "completed"] },
+        "blocked_reason": { "type": "string", "minLength": 1 },
+        "principal": { "type": "number", "minimum": 0 },
+        "term_rounds": { "type": "integer", "minimum": 1 },
+        "rate_or_cost_bps": { "type": "number", "minimum": 0 },
+        "cost_source": { "type": "string", "minLength": 1 },
+        "covenant_min_cash": { "type": "number", "minimum": 0 },
+        "fees": { "type": "number", "minimum": 0 },
+        "obligation": {
+          "enum": [
+            "term_debt",
+            "project_finance",
+            "working_capital_revolver",
+            "securitized_receivable",
+            "equity"
+          ]
+        },
+        "project_entry_id": { "type": ["string", "null"] },
+        "initiative_id": { "type": ["string", "null"] },
+        "policy_seam_id": { "type": ["string", "null"] },
+        "created_round_no": { "type": "integer", "minimum": 1 },
+        "effective_round_no": { "type": "integer", "minimum": 1 },
+        "maturity_round_no": { "type": "integer", "minimum": 1 }
       }
     },
     "invariants": {
