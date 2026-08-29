@@ -41,6 +41,7 @@ export class ExecutiveStrategyLabError extends Error {
       | "ESL_INPUT_INVALID"
       | "ESL_FORBIDDEN"
       | "ESL_RUN_NOT_FOUND"
+      | "ESL_ROUND_NOT_FOUND"
       | "ESL_CONTEXT_CONFLICT"
       | "ESL_OFFICIAL_BASELINE_REQUIRED"
       | "ESL_PATHS_REQUIRED"
@@ -61,10 +62,21 @@ type RunReference = {
   scenario_package_id?: string;
   parameter_set_id?: string;
 };
+type RoundReference = {
+  tenant_id: string;
+  run_id: string;
+  round_id: string;
+  round_no: number;
+};
 type M4Paths = Extract<M4MultipathCounterfactualResponse["paths"], readonly unknown[]>;
 
 export interface ExecutiveStrategyLabServiceDependencies {
   readonly getRun: (tenantId: string, runId: string) => Promise<RunReference | null>;
+  readonly getRound: (
+    tenantId: string,
+    runId: string,
+    roundId: string
+  ) => Promise<RoundReference | null>;
   readonly getW4Projection: (scope: W4ScopeContext) => Promise<W4ProjectionBase>;
   readonly getO4Candidate?: (
     request: O4CrossRoundDynamicsRequest
@@ -79,6 +91,7 @@ interface CanonicalCandidate {
   teacher: ESLTeacherProjection;
   student: ESLStudentProjection;
   admin: ESLAdminProjection;
+  created_by: string;
 }
 
 function clone<T>(value: T): T {
@@ -252,14 +265,24 @@ function redactedStudent(response: ESLResponse, roleKey: string | undefined): ES
     ]
   };
   const result: ESLResponse = {
-    ...clone(response),
+    schema_version: response.schema_version,
+    candidate_id: response.candidate_id,
     surface: "student",
+    exact_binding: clone(response.exact_binding),
+    official_baseline: {
+      officiality: response.official_baseline.officiality,
+      outcome_id: response.official_baseline.outcome_id,
+      state_ref: null,
+      summary: response.official_baseline.summary
+    },
     paths: safePaths.map((path) => ({ ...path, decision_ids: [] })),
+    mechanisms: [],
+    transfer: clone(response.transfer),
     source_refs: { official_outcome_id: null, o4_candidate_digest: null, m4_candidate_digests: [] },
+    authority: clone(response.authority),
+    known_limits: clone(response.known_limits),
     student_projection: student
   };
-  delete result.teacher_projection;
-  delete result.admin_projection;
   return result;
 }
 
@@ -299,6 +322,20 @@ export class ExecutiveStrategyLabService {
     assertActorScope(actor, request.exact_binding);
     const run = await this.dependencies.getRun(actor.tenant_id, request.exact_binding.run_id);
     if (!run) throw new ExecutiveStrategyLabError("ESL_RUN_NOT_FOUND");
+    const round = await this.dependencies.getRound(
+      actor.tenant_id,
+      request.exact_binding.run_id,
+      request.exact_binding.round_id
+    );
+    if (!round) throw new ExecutiveStrategyLabError("ESL_ROUND_NOT_FOUND");
+    if (
+      round.tenant_id !== request.exact_binding.tenant_id ||
+      round.run_id !== request.exact_binding.run_id ||
+      round.round_id !== request.exact_binding.round_id ||
+      round.round_no !== request.exact_binding.round_no
+    ) {
+      throw new ExecutiveStrategyLabError("ESL_CONTEXT_CONFLICT");
+    }
     if (
       run.course_id !== request.exact_binding.course_id ||
       (run.scenario_package_id &&
@@ -402,7 +439,8 @@ export class ExecutiveStrategyLabService {
       response,
       teacher,
       student,
-      admin
+      admin,
+      created_by: actor.user_id
     };
     const existing = this.candidates.get(response.candidate_id);
     if (existing && canonicalize(existing.request) !== canonicalize(request)) {
@@ -449,7 +487,7 @@ export class ExecutiveStrategyLabService {
       throw new ExecutiveStrategyLabError("ESL_FORBIDDEN");
     }
     const candidate = this.getCandidate(actor.tenant_id, candidateId);
-    return redactedAdmin(candidate.response, actor.user_id);
+    return redactedAdmin(candidate.response, candidate.created_by);
   }
 
   private getCandidate(tenantId: string, candidateId: string): CanonicalCandidate {

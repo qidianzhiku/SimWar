@@ -824,6 +824,19 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           }
         : null;
     },
+    getRound: async (tenantId, runId, roundId) => {
+      const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)).find(
+        (candidate) => candidate.round_id === roundId
+      );
+      return round
+        ? {
+            tenant_id: round.tenant_id,
+            run_id: round.run_id,
+            round_id: round.round_id,
+            round_no: round.round_no
+          }
+        : null;
+    },
     getW4Projection: (scope) => w4EnterpriseStateService.getProjection(scope, { allowEmptyRound: true }),
     getO4Candidate: (input) => o4CrossRoundDynamics.getCandidate(input),
     createM4Candidate: (scope, input, surface) =>

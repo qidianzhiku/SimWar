@@ -235,6 +235,12 @@ function service() {
       scenario_package_id: "scenario_demo",
       parameter_set_id: "parameter_demo"
     }),
+    getRound: async () => ({
+      tenant_id: "tenant_demo",
+      run_id: "run_demo",
+      round_id: "round_demo_1",
+      round_no: 1
+    }),
     getW4Projection: async () => projection(),
     createM4Candidate: async () => m4Response(),
     roleWorkflow: {
@@ -272,12 +278,51 @@ describe("Executive Strategy Lab service", () => {
     expect(projection.student_projection?.role_key).toBe("CEO");
     expect(projection.paths.every((path) => path.decision_ids.length === 0)).toBe(true);
     expect(projection.source_refs.m4_candidate_digests).toEqual([]);
+    expect(projection.official_baseline.state_ref).toBeNull();
+    expect(projection.official_baseline).not.toHaveProperty("state_summary");
+    expect(projection.official_baseline).not.toHaveProperty("changed_paths");
     expect(projection).not.toHaveProperty("teacher_projection");
+  });
+
+  it("keeps the original creator in the Admin audit projection", async () => {
+    const instance = service();
+    const candidate = await instance.createCandidate(teacher, request);
+    const admin: CurrentUser = {
+      display_name: "Admin",
+      permissions: ["course:read"],
+      roles: ["tenant_admin"],
+      tenant_id: "tenant_demo",
+      user_id: "usr_admin"
+    };
+
+    const projection = await instance.getAdmin(admin, candidate.candidate_id);
+
+    expect(projection.admin_projection?.audit.generated_by).toBe("usr_teacher");
+  });
+
+  it("rejects a nonexistent exact round before W4 fallback can run", async () => {
+    const failing = new ExecutiveStrategyLabService({
+      getRun: async () => ({ course_id: "course_demo" }),
+      getRound: async () => null,
+      getW4Projection: async () => projection(),
+      createM4Candidate: async () => m4Response(),
+      roleWorkflow: { readRoleWorkflow: async () => ({ assignments: [] }) as never }
+    });
+
+    await expect(failing.createCandidate(teacher, request)).rejects.toEqual(
+      new ExecutiveStrategyLabError("ESL_ROUND_NOT_FOUND")
+    );
   });
 
   it("rejects a missing official baseline instead of fabricating a product candidate", async () => {
     const failing = new ExecutiveStrategyLabService({
       getRun: async () => ({ course_id: "course_demo" }),
+      getRound: async () => ({
+        tenant_id: "tenant_demo",
+        run_id: "run_demo",
+        round_id: "round_demo_1",
+        round_no: 1
+      }),
       getW4Projection: async () => ({
         ...projection(),
         closing_state_ref: null,

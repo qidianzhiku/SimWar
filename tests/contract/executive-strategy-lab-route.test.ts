@@ -171,4 +171,38 @@ describe("Executive Strategy Lab routes", () => {
     ).toBe(true);
     expect(calls).toEqual(["create", "student", "admin"]);
   });
+
+  it("preserves HTTP authentication status codes from the shared server guards", async () => {
+    const current = response();
+    const authError = Object.assign(new Error("authentication required"), {
+      statusCode: 401,
+      code: "AUTH-401-001"
+    });
+    const helpers = {
+      readJson: async () => ({}),
+      sendJson: (_response: unknown, status: number, body: unknown) => {
+        current.statusCode = status;
+        current.body = JSON.stringify(body);
+      },
+      createEnvelope: (_context: unknown, payload: unknown) => ({ code: "OK", data: payload }),
+      requireTeacher: () => {
+        throw authError;
+      },
+      requireStudent: () => student,
+      requireAdmin: () => ({ ...teacher, roles: ["tenant_admin"] as const })
+    };
+
+    expect(
+      await handleExecutiveStrategyLabRoute(
+        {} as ExecutiveStrategyLabService,
+        { method: "POST" } as never,
+        current as never,
+        new URL("http://localhost/api/v1/bff/teacher/esl/strategy-lab"),
+        { requestId: "req-auth", tenantId: "tenant_demo" },
+        helpers
+      )
+    ).toBe(true);
+    expect(current.statusCode).toBe(401);
+    expect(current.body).toContain("AUTH-401-001");
+  });
 });

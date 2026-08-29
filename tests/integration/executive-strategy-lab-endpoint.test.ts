@@ -300,11 +300,12 @@ describe("Executive Strategy Lab real BFF", () => {
       const admin = (await adminResponse.json()) as ApiEnvelope<{
         surface: string;
         paths: unknown[];
-        admin_projection?: { audit: { no_write: boolean } };
+        admin_projection?: { audit: { no_write: boolean; generated_by: string } };
       }>;
       expect(admin.data.surface).toBe("admin");
       expect(admin.data.paths).toEqual([]);
       expect(admin.data.admin_projection?.audit.no_write).toBe(true);
+      expect(admin.data.admin_projection?.audit.generated_by).toBe("usr_teacher");
       expect(store.w4).toEqual(before);
     } finally {
       server.close();

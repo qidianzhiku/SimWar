@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import type { ESLExactBinding, ESLResponse } from "@simwar/shared-contracts";
+import { useEffect, useState, type FormEvent } from "react";
+import type { ESLExactBinding, ESLPathRequest, ESLResponse } from "@simwar/shared-contracts";
 
 export interface ExecutiveStrategyLabWorkspaceProps {
   apiBase: string;
@@ -8,22 +8,14 @@ export interface ExecutiveStrategyLabWorkspaceProps {
   token: string;
 }
 
-const DEFAULT_PATHS = [
-  {
-    path_id: "path_priority_investment",
-    label: "优先投资路径",
-    decision_ids: ["decision_priority_investment"]
-  },
-  {
-    path_id: "path_cash_protection",
-    label: "现金保护路径",
-    decision_ids: ["decision_cash_protection"]
-  }
-] as const;
-
 interface Envelope {
   data?: ESLResponse;
   error?: { message?: string };
+}
+
+interface M4PathEnvelope {
+  data?: { paths?: ESLPathRequest[] };
+  error?: { message?: string; code?: string };
 }
 
 export function ExecutiveStrategyLabWorkspace({
@@ -34,11 +26,59 @@ export function ExecutiveStrategyLabWorkspace({
 }: ExecutiveStrategyLabWorkspaceProps) {
   const [hypothesis, setHypothesis] = useState("下一轮先验证服务质量与现金缓冲的平衡。 ".trim());
   const [result, setResult] = useState<ESLResponse | null>(null);
+  const [availablePaths, setAvailablePaths] = useState<ESLPathRequest[] | null>(null);
+  const [pathsBusy, setPathsBusy] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setPathsBusy(true);
+    setAvailablePaths(null);
+    setError(null);
+    const query = new URLSearchParams({
+      course_id: binding.course_id,
+      team_id: binding.team_id,
+      round_id: binding.round_id,
+      round_no: String(binding.round_no)
+    });
+    void fetch(
+      `${apiBase}/api/v1/bff/teacher/w4/runs/${encodeURIComponent(binding.run_id)}/multipath-counterfactual-transfer?${query.toString()}`,
+      {
+        headers: {
+          authorization: `Bearer ${token}`,
+          "x-tenant-id": tenantId
+        }
+      }
+    )
+      .then(async (response) => {
+        const payload = (await response.json()) as M4PathEnvelope;
+        if (!response.ok || !payload.data?.paths || payload.data.paths.length < 2) {
+          throw new Error(
+            payload.error?.message ?? "当前 exact run 没有足够的真实替代决策路径"
+          );
+        }
+        if (!cancelled) setAvailablePaths(payload.data.paths.slice(0, 3));
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : "真实替代决策路径加载失败");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPathsBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, binding.course_id, binding.run_id, binding.team_id, binding.round_id, binding.round_no, tenantId, token]);
+
   async function createLab(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!availablePaths || availablePaths.length < 2) {
+      setError("当前 exact run 没有可用于 ESL 的真实替代决策路径");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -52,7 +92,7 @@ export function ExecutiveStrategyLabWorkspace({
         body: JSON.stringify({
           discriminator: "esl_strategy_lab_request",
           exact_binding: binding,
-          paths: DEFAULT_PATHS,
+          paths: availablePaths,
           transfer_hypothesis: hypothesis.trim(),
           idempotency_key: `esl-ui:${binding.run_id}:${binding.round_id}:${binding.team_id}`
         })
@@ -76,7 +116,9 @@ export function ExecutiveStrategyLabWorkspace({
           <p className="eyebrow">ESL · governed executive strategy</p>
           <h3>Executive Strategy Lab</h3>
         </div>
-        <span className="technical-compatibility">official baseline + bounded alternatives</span>
+        <span className="technical-compatibility">
+          {pathsBusy ? "discovering exact alternatives" : "official baseline + bounded alternatives"}
+        </span>
       </div>
       <p className="lifecycle-boundary">
         在同一个精确运行上下文中，把官方 W4 基线、2 条受界定的 NON_OFFICIAL
@@ -104,10 +146,14 @@ export function ExecutiveStrategyLabWorkspace({
           />
         </label>
         <p className="lifecycle-status">
-          将比较：{DEFAULT_PATHS.map((path) => path.label).join("、")}。
+          将比较：
+          {availablePaths?.map((path) => path.label).join("、") ?? "等待当前 run 的真实路径"}。
         </p>
-        <button type="submit" disabled={busy || !hypothesis.trim()}>
-          {busy ? "正在组合策略实验室…" : "打开 Executive Strategy Lab"}
+        <button
+          type="submit"
+          disabled={busy || pathsBusy || !availablePaths || availablePaths.length < 2 || !hypothesis.trim()}
+        >
+          {pathsBusy ? "正在发现真实替代路径…" : busy ? "正在组合策略实验室…" : "打开 Executive Strategy Lab"}
         </button>
       </form>
       {error ? (

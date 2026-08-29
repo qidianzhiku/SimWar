@@ -34,6 +34,7 @@ function status(error: ExecutiveStrategyLabError): number {
     case "ESL_FORBIDDEN":
       return 403;
     case "ESL_RUN_NOT_FOUND":
+    case "ESL_ROUND_NOT_FOUND":
     case "ESL_NOT_FOUND":
       return 404;
     case "ESL_OFFICIAL_BASELINE_REQUIRED":
@@ -45,16 +46,47 @@ function status(error: ExecutiveStrategyLabError): number {
   }
 }
 
+interface HttpLikeError {
+  readonly statusCode: number;
+  readonly code: string;
+  readonly message: string;
+  readonly details?: unknown;
+}
+
+function isHttpLikeError(error: unknown): error is HttpLikeError {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as Partial<HttpLikeError>;
+  return (
+    typeof candidate.statusCode === "number" &&
+    Number.isInteger(candidate.statusCode) &&
+    candidate.statusCode >= 400 &&
+    candidate.statusCode <= 599 &&
+    typeof candidate.code === "string" &&
+    typeof candidate.message === "string"
+  );
+}
+
 function sendError(
   response: ServerResponse,
   context: ESLRouteContext,
   helpers: ESLRouteHelpers,
   error: unknown
 ): void {
-  const mapped =
-    error instanceof ExecutiveStrategyLabError
-      ? error
-      : new ExecutiveStrategyLabError("ESL_OUTPUT_INVALID");
+  if (isHttpLikeError(error)) {
+    helpers.sendJson(
+      response,
+      error.statusCode,
+      helpers.createEnvelope(context, {
+        code: error.code,
+        message: error.message,
+        ...(Array.isArray(error.details) ? { details: error.details } : {})
+      })
+    );
+    return;
+  }
+  const mapped = error instanceof ExecutiveStrategyLabError
+    ? error
+    : new ExecutiveStrategyLabError("ESL_OUTPUT_INVALID");
   helpers.sendJson(
     response,
     status(mapped),
