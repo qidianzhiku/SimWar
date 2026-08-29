@@ -1,0 +1,760 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/schemas/shanghai-productization.v1.json",
+  "title": "Generic Scenario Productization Candidate Spine",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "authority",
+    "catalog",
+    "course_package",
+    "enterprise_delivery",
+    "model_binding",
+    "no_implicit_latest",
+    "portfolio",
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": { "const": "scenario-productization.v1" },
+    "no_implicit_latest": { "const": true },
+    "authority": { "$ref": "#/$defs/authority" },
+    "catalog": { "$ref": "#/$defs/catalog" },
+    "model_binding": { "$ref": "#/$defs/modelBinding" },
+    "course_package": { "$ref": "#/$defs/coursePackage" },
+    "enterprise_delivery": { "$ref": "#/$defs/enterpriseDelivery" },
+    "portfolio": { "$ref": "#/$defs/portfolio" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exactVersion": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "(^|[._:-])(latest|current|default|fallback|next|unresolved|any)([._:-]|$)|[xX*]"
+      }
+    },
+    "scenarioReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "parameterReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "modelReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "model_version_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_id", "required_schema_version", "status", "supported_profiles"],
+      "properties": {
+        "engine_id": { "type": "string", "minLength": 1 },
+        "required_schema_version": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["COMPATIBLE", "INCOMPATIBLE", "UNKNOWN"] },
+        "supported_profiles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["STANDARD", "ADVANCED"] }
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collected_at", "expires_at", "status"],
+      "properties": {
+        "collected_at": { "type": ["string", "null"] },
+        "expires_at": { "type": ["string", "null"] },
+        "status": { "enum": ["FRESH", "STALE", "UNKNOWN"] }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["calibrated", "evidence_refs", "reason", "status"],
+      "properties": {
+        "calibrated": { "const": false },
+        "evidence_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "reason": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["ELIGIBLE", "NOT_ELIGIBLE", "STALE", "UNKNOWN"] }
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["copy_allowed", "expires_at", "fork_allowed", "license_status", "territory"],
+      "properties": {
+        "copy_allowed": { "type": "boolean" },
+        "expires_at": { "type": ["string", "null"] },
+        "fork_allowed": { "type": "boolean" },
+        "license_status": { "enum": ["VALID", "EXPIRED", "WITHDRAWN", "UNKNOWN"] },
+        "territory": { "type": "string", "minLength": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "confidence",
+        "geography",
+        "provenance",
+        "sensitivity",
+        "source_date",
+        "source_ref",
+        "source_type",
+        "time_scope",
+        "usage_status"
+      ],
+      "properties": {
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] },
+        "geography": { "type": "string", "minLength": 1 },
+        "provenance": { "enum": ["PRIMARY", "SECONDARY", "SYNTHETIC", "INTERNAL", "UNKNOWN"] },
+        "sensitivity": { "enum": ["PUBLIC_SAFE", "INTERNAL_ONLY", "RESTRICTED"] },
+        "source_date": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "source_type": { "enum": ["OFFICIAL", "RESEARCH", "PROJECT", "SYNTHETIC", "UNKNOWN"] },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "usage_status": { "enum": ["APPROVED", "REVIEW_REQUIRED", "UNKNOWN"] }
+      }
+    },
+    "governanceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_authority",
+        "model_reference_status",
+        "parameter_authority",
+        "parameter_reference_status",
+        "tenant_id"
+      ],
+      "properties": {
+        "model_authority": { "const": "MAIN_MODEL_GOVERNANCE" },
+        "model_reference_status": { "const": "EXACT_REFERENCE_PRESENT" },
+        "parameter_authority": { "const": "MAIN_PARAMETER_SET_AUTHORITY" },
+        "parameter_reference_status": { "const": "EXACT_REFERENCE_PRESENT" },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "qualificationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibrated",
+        "effective_at",
+        "expires_at",
+        "pack_digest",
+        "pack_id",
+        "status",
+        "verification"
+      ],
+      "properties": {
+        "calibrated": { "const": false },
+        "effective_at": { "type": "string", "minLength": 1 },
+        "expires_at": { "type": ["string", "null"] },
+        "pack_digest": { "$ref": "#/$defs/digest" },
+        "pack_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["ELIGIBLE", "NOT_ELIGIBLE", "STALE", "UNKNOWN"] },
+        "verification": { "const": "UPSTREAM_PACK_REFERENCE" }
+      }
+    },
+    "evidencePartition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["advisory", "counterfactual", "learning", "outcome", "process"],
+      "properties": {
+        "advisory": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "counterfactual": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "learning": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "outcome": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "process": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "featureEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "geography",
+        "period",
+        "provenance",
+        "source_date",
+        "source_digest",
+        "source_expires_at",
+        "source_ref",
+        "unit",
+        "value_digest"
+      ],
+      "properties": {
+        "feature_id": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "period": { "type": "string", "minLength": 1 },
+        "provenance": { "enum": ["PRIMARY", "SECONDARY", "SYNTHETIC", "INTERNAL", "UNKNOWN"] },
+        "source_date": { "type": "string", "minLength": 1 },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "source_expires_at": { "type": ["string", "null"] },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "value_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ood", "uq", "why_not_bind"],
+      "properties": {
+        "ood": { "type": "boolean" },
+        "uq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["confidence", "interval"],
+          "properties": {
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "interval": { "type": "string", "minLength": 1 }
+          }
+        },
+        "why_not_bind": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "severity"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["ERROR", "WARNING"] }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_id", "role_label", "visibility"],
+      "properties": {
+        "role_id": { "type": "string", "minLength": 1 },
+        "role_label": { "type": "string", "minLength": 1 },
+        "visibility": { "enum": ["TEACHER", "STUDENT", "ADMIN"] }
+      }
+    },
+    "mainBindingRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "exact_course_package_reference",
+        "formal_activation",
+        "model_evidence_binding_digest",
+        "status"
+      ],
+      "properties": {
+        "authority": { "const": "MAIN_COURSE_PACKAGE_AUTHORITY" },
+        "exact_course_package_reference": { "$ref": "#/$defs/courseReference" },
+        "formal_activation": { "const": false },
+        "model_evidence_binding_digest": { "$ref": "#/$defs/digest" },
+        "status": { "const": "CANDIDATE_ONLY" }
+      }
+    },
+    "rightsGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_actions",
+        "copy_allowed",
+        "expires_at",
+        "fork_allowed",
+        "grant_id",
+        "license_status",
+        "territory",
+        "tenant_id"
+      ],
+      "properties": {
+        "allowed_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["VIEW", "COPY", "FORK", "DELIVER"] }
+        },
+        "copy_allowed": { "type": "boolean" },
+        "expires_at": { "type": ["string", "null"] },
+        "fork_allowed": { "type": "boolean" },
+        "grant_id": { "type": "string", "minLength": 1 },
+        "license_status": { "enum": ["VALID", "EXPIRED", "WITHDRAWN", "UNKNOWN"] },
+        "territory": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deliveryConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "course_package_reference",
+        "delivery_id",
+        "expires_at",
+        "participant_count",
+        "rights",
+        "sponsor_id",
+        "tenant_id",
+        "territory"
+      ],
+      "properties": {
+        "course_package_reference": { "$ref": "#/$defs/courseReference" },
+        "delivery_id": { "type": "string", "minLength": 1 },
+        "expires_at": { "type": ["string", "null"] },
+        "participant_count": { "type": "integer", "minimum": 1 },
+        "rights": { "$ref": "#/$defs/rightsGrant" },
+        "sponsor_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "territory": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sponsorSafeAggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_metrics",
+        "delivery_id",
+        "forbidden_fields",
+        "participant_count",
+        "privacy_status",
+        "sponsor_id",
+        "tenant_id"
+      ],
+      "properties": {
+        "allowed_metrics": { "type": "object", "additionalProperties": { "type": "number" } },
+        "delivery_id": { "type": "string", "minLength": 1 },
+        "forbidden_fields": {
+          "const": ["state_true", "private_judgment", "other_team_data", "model_coefficients"]
+        },
+        "participant_count": { "type": "integer", "minimum": 5 },
+        "privacy_status": { "const": "SMALL_CELL_SAFE" },
+        "sponsor_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deliveryReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_event_id",
+        "delivery_id",
+        "formal_entitlement_activation",
+        "sponsor_safe_aggregate",
+        "status",
+        "tenant_id"
+      ],
+      "properties": {
+        "audit_event_id": { "type": "string", "minLength": 1 },
+        "delivery_id": { "type": "string", "minLength": 1 },
+        "formal_entitlement_activation": { "const": false },
+        "sponsor_safe_aggregate": { "$ref": "#/$defs/sponsorSafeAggregate" },
+        "status": { "enum": ["READY", "BLOCKED"] },
+        "tenant_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "copyCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "copied_at",
+        "destination_tenant_id",
+        "lineage",
+        "new_reference",
+        "operation",
+        "raw_source_data_copied",
+        "status"
+      ],
+      "properties": {
+        "copied_at": { "type": "string", "minLength": 1 },
+        "destination_tenant_id": { "type": "string", "minLength": 1 },
+        "lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_catalog_entry_id", "source_reference"],
+          "properties": {
+            "source_catalog_entry_id": { "type": "string", "minLength": 1 },
+            "source_reference": { "$ref": "#/$defs/courseReference" }
+          }
+        },
+        "new_reference": { "$ref": "#/$defs/courseReference" },
+        "operation": { "enum": ["COPY", "FORK"] },
+        "raw_source_data_copied": { "const": false },
+        "status": { "enum": ["COPY_CANDIDATE", "FORK_CANDIDATE"] }
+      }
+    },
+    "courseReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "course_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "course_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formal_activation",
+        "formal_consumer_join_count",
+        "parameter_set_formal_write_count",
+        "provider_calls",
+        "truth_mutation_count"
+      ],
+      "properties": {
+        "formal_activation": { "const": false },
+        "formal_consumer_join_count": { "const": 0 },
+        "parameter_set_formal_write_count": { "const": 0 },
+        "provider_calls": { "const": 0 },
+        "truth_mutation_count": { "const": 0 }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_entry_id",
+        "compatibility",
+        "compatibility_status",
+        "consumer_readiness",
+        "experience_profiles",
+        "freshness",
+        "freshness_status",
+        "geography",
+        "known_limits",
+        "qualification",
+        "qualification_status",
+        "rights",
+        "rights_status",
+        "scenario_reference",
+        "schema_version",
+        "source",
+        "tenant_id",
+        "theme",
+        "title"
+      ],
+      "properties": {
+        "catalog_entry_id": { "type": "string", "minLength": 1 },
+        "schema_version": { "const": "scenario-productization.v1" },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "theme": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "consumer_readiness": { "enum": ["C1_NAMED_FORWARD", "C2_PLATFORM_REUSE"] },
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "scenario_reference": { "$ref": "#/$defs/scenarioReference" },
+        "qualification_status": { "enum": ["ELIGIBLE", "NOT_ELIGIBLE", "STALE", "UNKNOWN"] },
+        "rights_status": { "enum": ["VALID", "EXPIRED", "WITHDRAWN", "UNKNOWN"] },
+        "freshness_status": { "enum": ["FRESH", "STALE", "UNKNOWN"] },
+        "compatibility_status": { "enum": ["COMPATIBLE", "INCOMPATIBLE", "UNKNOWN"] },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "freshness": { "$ref": "#/$defs/freshness" },
+        "qualification": { "$ref": "#/$defs/qualification" },
+        "rights": { "$ref": "#/$defs/rights" },
+        "source": { "$ref": "#/$defs/source" },
+        "experience_profiles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["STANDARD", "ADVANCED"] }
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries", "tenant_id"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "entries": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/catalogEntry" } }
+      }
+    },
+    "modelBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formal_activation",
+        "binding_digest",
+        "calibration_status",
+        "candidate_writer",
+        "formal_join",
+        "governance_context",
+        "model_version_reference",
+        "no_implicit_latest",
+        "parameter_set_reference",
+        "provider_calls",
+        "qualification_evidence",
+        "scenario_reference",
+        "status",
+        "truth_write",
+        "replay_truth_write"
+      ],
+      "properties": {
+        "scenario_reference": { "$ref": "#/$defs/scenarioReference" },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/featureEvidence" } },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "calibration_status": { "const": "NOT_CALIBRATED" },
+        "candidate_writer": { "const": "SH_PRODUCTIZATION_CANDIDATE_COMPILER" },
+        "formal_join": { "const": false },
+        "governance_context": { "$ref": "#/$defs/governanceContext" },
+        "model_version_reference": { "$ref": "#/$defs/modelReference" },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterReference" },
+        "status": { "enum": ["ELIGIBLE_CANDIDATE", "NOT_ELIGIBLE"] },
+        "no_implicit_latest": { "const": true },
+        "formal_activation": { "const": false },
+        "truth_write": { "const": false },
+        "provider_calls": { "const": 0 },
+        "qualification_evidence": { "$ref": "#/$defs/qualificationEvidence" },
+        "replay_truth_write": { "const": false }
+      }
+    },
+    "coursePackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_digest",
+        "formal_course_package_activation",
+        "debrief_prompts",
+        "evidence_partition",
+        "known_limits",
+        "main_binding_request",
+        "model_evidence_binding_digest",
+        "modules",
+        "package_id",
+        "profiles",
+        "readiness",
+        "rounds",
+        "roles",
+        "schema_version",
+        "tenant_id",
+        "title",
+        "transfer_prompts",
+        "what_if_prompts",
+        "version"
+      ],
+      "properties": {
+        "package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/exactVersion" },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "formal_course_package_activation": { "const": false },
+        "schema_version": { "const": "scenario-productization.v1" },
+        "debrief_prompts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "transfer_prompts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "what_if_prompts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "model_evidence_binding_digest": { "$ref": "#/$defs/digest" },
+        "main_binding_request": { "$ref": "#/$defs/mainBindingRequest" },
+        "evidence_partition": { "$ref": "#/$defs/evidencePartition" },
+        "roles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/role" } },
+        "modules": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["module_id", "round_ids"],
+            "properties": {
+              "module_id": { "type": "string" },
+              "title": { "type": "string", "minLength": 1 },
+              "objective": { "type": "string", "minLength": 1 },
+              "round_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+          }
+        },
+        "rounds": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "round_id",
+              "round_no",
+              "scenario_reference",
+              "parameter_set_reference",
+              "model_version_reference",
+              "seed"
+            ],
+            "properties": {
+              "round_id": { "type": "string" },
+              "round_no": { "type": "integer", "minimum": 1 },
+              "scenario_reference": { "$ref": "#/$defs/scenarioReference" },
+              "parameter_set_reference": { "$ref": "#/$defs/parameterReference" },
+              "model_version_reference": { "$ref": "#/$defs/modelReference" },
+              "seed": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "profiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["STANDARD", "ADVANCED"],
+          "properties": {
+            "STANDARD": { "$ref": "#/$defs/profile" },
+            "ADVANCED": { "$ref": "#/$defs/profile" }
+          }
+        },
+        "readiness": {
+          "type": "object",
+          "required": ["status", "reasons"],
+          "properties": {
+            "status": { "enum": ["READY", "BLOCKED"] },
+            "reasons": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_depth", "experience_profile", "shared_kernel_id"],
+      "properties": {
+        "content_depth": { "enum": ["CORE", "EXTENDED"] },
+        "experience_profile": { "enum": ["STANDARD", "ADVANCED"] },
+        "shared_kernel_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "enterpriseDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "copy_destination_tenant_id",
+        "copy_status",
+        "formal_entitlement_activation",
+        "privacy_status",
+        "source_reference",
+        "tenant_id"
+      ],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "copy_destination_tenant_id": { "type": "string", "minLength": 1 },
+        "copy_status": { "const": "COPY_CANDIDATE" },
+        "source_reference": { "$ref": "#/$defs/courseReference" },
+        "formal_entitlement_activation": { "const": false },
+        "privacy_status": { "const": "SMALL_CELL_SAFE" },
+        "copy_candidate": { "$ref": "#/$defs/copyCandidate" },
+        "delivery_configuration": { "$ref": "#/$defs/deliveryConfiguration" },
+        "delivery_receipt": { "$ref": "#/$defs/deliveryReceipt" }
+      }
+    },
+    "portfolio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_status",
+        "historical_reference",
+        "no_implicit_latest",
+        "package_reference",
+        "release_gate",
+        "rollback_dry_run",
+        "tenant_id",
+        "withdrawal_deletes_history"
+      ],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "current_status": {
+          "enum": ["READY", "RELEASE_CANDIDATE", "DEPRECATED", "WITHDRAWN", "RETIRED"]
+        },
+        "package_reference": { "$ref": "#/$defs/courseReference" },
+        "historical_reference": { "$ref": "#/$defs/courseReference" },
+        "no_implicit_latest": { "const": true },
+        "release_gate": { "const": "FORMAL_RELEASE_REQUIRED" },
+        "rollback_dry_run": { "const": true },
+        "withdrawal_deletes_history": { "const": false },
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "portfolio_id": { "type": "string", "minLength": 1 },
+        "schema_version": { "const": "scenario-productization.v1" },
+        "withdrawn": { "type": "boolean" },
+        "compatibility_impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["affected_consumers", "changed_references", "status"],
+          "properties": {
+            "affected_consumers": { "type": "array", "items": { "type": "string" } },
+            "changed_references": { "type": "array", "items": { "type": "string" } },
+            "status": { "enum": ["NONE", "REVIEW_REQUIRED", "BLOCKED"] }
+          }
+        },
+        "historical_references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["content_digest", "package_id", "status", "version"],
+            "properties": {
+              "content_digest": { "$ref": "#/$defs/digest" },
+              "package_id": { "type": "string", "minLength": 1 },
+              "status": {
+                "enum": [
+                  "DRAFT",
+                  "QUALIFIED",
+                  "READY",
+                  "RELEASE_CANDIDATE",
+                  "DEPRECATED",
+                  "WITHDRAWN",
+                  "RETIRED"
+                ]
+              },
+              "version": { "$ref": "#/$defs/exactVersion" }
+            }
+          }
+        },
+        "rollback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dry_run", "target_reference"],
+          "properties": {
+            "dry_run": { "const": true },
+            "target_reference": {
+              "anyOf": [{ "$ref": "#/$defs/courseReference" }, { "type": "null" }]
+            }
+          }
+        }
+      }
+    }
+  }
+}
