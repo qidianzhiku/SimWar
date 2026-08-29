@@ -119,6 +119,33 @@ function stateScopeMatches(ref: W4StateRef, scope: ESLFinanceStateScope): boolea
   );
 }
 
+function stateIdentityMatches(left: W4StateRef, right: W4StateRef): boolean {
+  return (
+    left.tenant_id === right.tenant_id &&
+    left.course_id === right.course_id &&
+    left.run_id === right.run_id &&
+    left.team_id === right.team_id &&
+    left.round_id === right.round_id &&
+    left.enterprise_state_id === right.enterprise_state_id &&
+    left.version === right.version &&
+    left.state_digest === right.state_digest
+  );
+}
+
+function terminalLineageContainsSource(terminal: W4StateRef, source: W4StateRef): boolean {
+  let ancestor = terminal.parent_state_ref;
+  const visited = new Set<string>();
+  while (ancestor !== undefined && ancestor !== null) {
+    if (!validStateRef(ancestor)) return false;
+    if (stateIdentityMatches(ancestor, source)) return true;
+    const key = `${ancestor.enterprise_state_id}@${ancestor.version}@${ancestor.state_digest}`;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    ancestor = ancestor.parent_state_ref;
+  }
+  return false;
+}
+
 function stateDataDigest(state: W4EnterpriseStateData): string {
   return createHash("sha256").update(JSON.stringify(state), "utf8").digest("hex");
 }
@@ -523,6 +550,28 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
       stateDataDigest(input.terminal_state!) !== input.terminal_state_ref.state_digest
     ) {
       reasons.push("TERMINAL_STATE_REF_MISMATCH");
+    }
+  }
+  if (
+    validStateRef(input.source_state_ref) &&
+    hasTerminalRef &&
+    validStateRef(input.terminal_state_ref)
+  ) {
+    const sourceRef = input.source_state_ref;
+    const terminalRef = input.terminal_state_ref;
+    if (
+      sourceRef.tenant_id !== terminalRef.tenant_id ||
+      sourceRef.course_id !== terminalRef.course_id ||
+      sourceRef.run_id !== terminalRef.run_id ||
+      sourceRef.team_id !== terminalRef.team_id
+    ) {
+      reasons.push("SOURCE_TERMINAL_SCOPE_MISMATCH");
+    }
+    if (
+      terminalRef.parent_state_ref !== undefined &&
+      !terminalLineageContainsSource(terminalRef, sourceRef)
+    ) {
+      reasons.push("TERMINAL_STATE_LINEAGE_MISMATCH");
     }
   }
   if (!finite(input.path_cash_delta)) reasons.push("NONFINITE_PATH_CASH_DELTA");

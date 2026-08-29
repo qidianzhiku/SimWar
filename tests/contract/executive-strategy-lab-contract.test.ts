@@ -390,6 +390,23 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(unknownWithNumber)).toBe(false);
   });
 
+  it("requires at least one finance projection source reference", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const missingSourceRefs = structuredClone(fixture) as Record<string, unknown>;
+    const finance = (missingSourceRefs.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    finance.source_refs = [];
+
+    expect(validate(missingSourceRefs)).toBe(false);
+    expect(isESLResponse(missingSourceRefs)).toBe(false);
+  });
+
   it("binds root path shape to the declared response surface", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")

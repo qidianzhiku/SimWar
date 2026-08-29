@@ -360,6 +360,42 @@ describe("projectESLFinance", () => {
     expect(result.feasibility).toBe("UNKNOWN");
   });
 
+  it("fails closed when terminal evidence crosses the source invariant scope", () => {
+    const base = input();
+    const terminalStateRef = {
+      ...base.terminal_state_ref!,
+      tenant_id: "tenant-other"
+    };
+    const result = projectESLFinance(
+      input({
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("SOURCE_TERMINAL_SCOPE_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
+  it("fails closed when a supplied terminal lineage does not reach the source state", () => {
+    const base = input();
+    const terminalStateRef = {
+      ...base.terminal_state_ref!,
+      parent_state_ref: stateRef("unrelated-parent", "d".repeat(64))
+    };
+    const result = projectESLFinance(
+      input({
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("TERMINAL_STATE_LINEAGE_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
   it("reports only the verified built-in calculator identity", () => {
     const result = projectESLFinance(input());
 

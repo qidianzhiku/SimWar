@@ -538,7 +538,7 @@ function financeProjection(value: unknown): boolean {
     financeNoWrite(projection.no_write) &&
     financeModel(projection.model) &&
     digest(projection.input_digest) &&
-    stringArray(projection.source_refs) &&
+    stringArray(projection.source_refs, 1) &&
     financeBasis(projection.capex) &&
     financeBasis(projection.opex) &&
     capital !== null &&
