@@ -151,22 +151,43 @@ export interface ESLAdminProjection {
   }>;
 }
 
-export interface ESLResponse {
+interface ESLResponseBase {
   schema_version: typeof ESL_SCHEMA_VERSION;
   candidate_id: string;
-  surface: ESLSurface;
   exact_binding: ESLExactBinding;
   official_baseline: ESLOfficialBaseline;
-  paths: Array<ESLAlternativePath | ESLStudentAlternativePath>;
   mechanisms: ESLMechanism[];
   transfer: ESLTransferHypothesis;
   source_refs: ESLSourceRefs;
   authority: ESLAuthority;
   known_limits: string[];
-  teacher_projection?: ESLTeacherProjection;
-  student_projection?: ESLStudentProjection;
-  admin_projection?: ESLAdminProjection;
 }
+
+export interface ESLTeacherResponse extends ESLResponseBase {
+  surface: "teacher";
+  paths: ESLAlternativePath[];
+  teacher_projection: ESLTeacherProjection;
+  student_projection?: never;
+  admin_projection?: never;
+}
+
+export interface ESLStudentResponse extends ESLResponseBase {
+  surface: "student";
+  paths: ESLStudentAlternativePath[];
+  teacher_projection?: never;
+  student_projection: ESLStudentProjection;
+  admin_projection?: never;
+}
+
+export interface ESLAdminResponse extends ESLResponseBase {
+  surface: "admin";
+  paths: ESLAlternativePath[];
+  teacher_projection?: never;
+  student_projection?: never;
+  admin_projection: ESLAdminProjection;
+}
+
+export type ESLResponse = ESLTeacherResponse | ESLStudentResponse | ESLAdminResponse;
 
 const BANNED_ID =
   /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;

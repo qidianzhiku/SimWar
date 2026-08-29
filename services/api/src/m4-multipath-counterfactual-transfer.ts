@@ -5,6 +5,7 @@ import type {
   M4MultipathCounterfactualResponse,
   M4MultipathSurface,
   M4RoleLineageProjection,
+  M4TeacherSafeCounterfactualResponse,
   M4StudentPathProjection,
   M4TeacherPathProjection,
   RoleKey,
@@ -432,10 +433,9 @@ export class M4MultipathCounterfactualTransferService {
     const officialDecisionIdsForProjection = [...sourceManifest.decision_ids];
     const commonChangedPaths = changedPaths(evidence);
 
-    return {
-      schema_version: "m4-multipath-counterfactual-transfer.v1",
-      runtime_authority: "JSON_INTERNAL_ONLY",
-      visibility: surface === "teacher" ? "teacher_safe" : "student_safe",
+    const commonResponse = {
+      schema_version: "m4-multipath-counterfactual-transfer.v1" as const,
+      runtime_authority: "JSON_INTERNAL_ONLY" as const,
       exact_binding: {
         source_state_ref: clone(input.source_state_ref),
         source_outcome_id: input.source_outcome_id,
@@ -456,7 +456,6 @@ export class M4MultipathCounterfactualTransferService {
         replay_writes_formal_results: false
       },
       lineage: roleLineage,
-      paths: surface === "teacher" ? teacherPaths : teacherPaths.map(studentPath),
       teacher_debrief: {
         available: true,
         learning_points: [
@@ -499,7 +498,10 @@ export class M4MultipathCounterfactualTransferService {
         "Role dissent is preserved as bounded lineage; Student receives role keys only, without note content.",
         "The JSON runtime is the only active runtime; PostgreSQL/RLS and external providers remain off."
       ]
-    };
+    } satisfies Omit<M4TeacherSafeCounterfactualResponse, "visibility" | "paths">;
+    return surface === "teacher"
+      ? { ...commonResponse, visibility: "teacher_safe", paths: teacherPaths }
+      : { ...commonResponse, visibility: "student_safe", paths: teacherPaths.map(studentPath) };
   }
 }
 

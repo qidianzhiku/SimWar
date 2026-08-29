@@ -453,4 +453,18 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(studentWithTeacherProjection)).toBe(false);
     expect(validate(teacherWithStudentProjection)).toBe(false);
   });
+
+  it("keeps shared response paths discriminated by surface", () => {
+    const validTeacher = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as ESLResponse;
+
+    if (validTeacher.surface === "teacher") {
+      expect(validTeacher.paths.every((path) => Array.isArray(path.decision_ids))).toBe(true);
+    } else if (validTeacher.surface === "student") {
+      expect(validTeacher.paths.every((path) => !Object.hasOwn(path, "decision_ids"))).toBe(true);
+    } else {
+      expect(validTeacher.paths.every((path) => Array.isArray(path.decision_ids))).toBe(true);
+    }
+  });
 });

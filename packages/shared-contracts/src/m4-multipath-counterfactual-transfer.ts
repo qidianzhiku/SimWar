@@ -114,10 +114,9 @@ export interface M4MultipathInvariantProjection {
   replay_writes_formal_results: false;
 }
 
-export interface M4MultipathCounterfactualResponse {
+interface M4MultipathCounterfactualResponseBase {
   schema_version: typeof M4_MULTIPATH_COUNTERFACTUAL_TRANSFER_SCHEMA_VERSION;
   runtime_authority: "JSON_INTERNAL_ONLY";
-  visibility: "student_safe" | "teacher_safe";
   exact_binding: {
     source_state_ref: W4StateRef;
     source_outcome_id: string;
@@ -130,7 +129,6 @@ export interface M4MultipathCounterfactualResponse {
   };
   official_path: M4OfficialPathProjection;
   lineage: M4RoleLineageProjection;
-  paths: M4TeacherPathProjection[] | M4StudentPathProjection[];
   teacher_debrief: M4TeacherDebriefProjection;
   student_transfer: M4StudentTransferProjection;
   transfer: {
@@ -141,3 +139,19 @@ export interface M4MultipathCounterfactualResponse {
   invariants: M4MultipathInvariantProjection;
   known_limits: string[];
 }
+
+export interface M4TeacherSafeCounterfactualResponse
+  extends M4MultipathCounterfactualResponseBase {
+  visibility: "teacher_safe";
+  paths: M4TeacherPathProjection[];
+}
+
+export interface M4StudentSafeCounterfactualResponse
+  extends M4MultipathCounterfactualResponseBase {
+  visibility: "student_safe";
+  paths: M4StudentPathProjection[];
+}
+
+export type M4MultipathCounterfactualResponse =
+  | M4TeacherSafeCounterfactualResponse
+  | M4StudentSafeCounterfactualResponse;

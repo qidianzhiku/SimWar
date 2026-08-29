@@ -11,9 +11,11 @@ import {
   type ESLMechanism,
   type ESLOfficialBaseline,
   type ESLRequest,
-  type ESLResponse,
+  type ESLAdminResponse,
   type ESLSourceRefs,
+  type ESLStudentResponse,
   type ESLStudentProjection,
+  type ESLTeacherResponse,
   type ESLTeacherProjection,
   type ESLTransferHypothesis,
   type O4CrossRoundDynamicsResponse,
@@ -88,7 +90,7 @@ export interface ExecutiveStrategyLabServiceDependencies {
 
 interface CanonicalCandidate {
   request: ESLRequest;
-  response: ESLResponse;
+  response: ESLTeacherResponse;
   teacher: ESLTeacherProjection;
   student: ESLStudentProjection;
   admin: ESLAdminProjection;
@@ -262,9 +264,11 @@ function transfer(request: ESLRequest): ESLTransferHypothesis {
   };
 }
 
-function redactedStudent(response: ESLResponse, roleKey: string | undefined): ESLResponse {
-  const safePaths: ESLStudentAlternativePath[] = response.paths.map((path) => {
-    const fullPath = path as ESLAlternativePath;
+function redactedStudent(
+  response: ESLTeacherResponse,
+  roleKey: string | undefined
+): ESLStudentResponse {
+  const safePaths: ESLStudentAlternativePath[] = response.paths.map((fullPath) => {
     return {
       path_id: fullPath.path_id,
       label: fullPath.label,
@@ -295,7 +299,7 @@ function redactedStudent(response: ESLResponse, roleKey: string | undefined): ES
       "official_settlement_write"
     ]
   };
-  const result: ESLResponse = {
+  const result: ESLStudentResponse = {
     schema_version: response.schema_version,
     candidate_id: response.candidate_id,
     surface: "student",
@@ -317,7 +321,7 @@ function redactedStudent(response: ESLResponse, roleKey: string | undefined): ES
   return result;
 }
 
-function redactedAdmin(response: ESLResponse, actorId: string): ESLResponse {
+function redactedAdmin(response: ESLTeacherResponse, actorId: string): ESLAdminResponse {
   const admin: ESLAdminProjection = {
     surface: "admin",
     tenant_id: response.exact_binding.tenant_id,
@@ -331,7 +335,7 @@ function redactedAdmin(response: ESLResponse, actorId: string): ESLResponse {
       recovery: "REPLAY_REQUEST_WITH_EXACT_BINDING"
     },
     finance_models: response.paths.map((path) => {
-      const finance = (path as ESLAlternativePath).finance_feasibility;
+      const finance = path.finance_feasibility;
       return {
         path_id: path.path_id,
         model: clone(finance.model),
@@ -340,15 +344,20 @@ function redactedAdmin(response: ESLResponse, actorId: string): ESLResponse {
       };
     })
   };
-  const result: ESLResponse = {
-    ...clone(response),
+  const result: ESLAdminResponse = {
+    schema_version: response.schema_version,
+    candidate_id: response.candidate_id,
     surface: "admin",
+    exact_binding: clone(response.exact_binding),
+    official_baseline: clone(response.official_baseline),
     paths: [],
     mechanisms: [],
+    transfer: clone(response.transfer),
+    source_refs: clone(response.source_refs),
+    authority: clone(response.authority),
+    known_limits: clone(response.known_limits),
     admin_projection: admin
   };
-  delete result.teacher_projection;
-  delete result.student_projection;
   return result;
 }
 
@@ -357,7 +366,7 @@ export class ExecutiveStrategyLabService {
 
   constructor(private readonly dependencies: ExecutiveStrategyLabServiceDependencies) {}
 
-  async createCandidate(actor: ESLActor, request: ESLRequest): Promise<ESLResponse> {
+  async createCandidate(actor: ESLActor, request: ESLRequest): Promise<ESLTeacherResponse> {
     if (!isESLRequest(request)) throw new ExecutiveStrategyLabError("ESL_INPUT_INVALID");
     assertActorScope(actor, request.exact_binding);
     const run = await this.dependencies.getRun(actor.tenant_id, request.exact_binding.run_id);
@@ -434,22 +443,8 @@ export class ExecutiveStrategyLabService {
       o4_candidate_digest: o4CandidateDigest,
       m4_candidate_digests: paths.map((path) => path.path_digest)
     };
-    const response: ESLResponse = {
-      schema_version: ESL_SCHEMA_VERSION,
-      candidate_id: `esl_candidate_${digest({ request, baseline, paths }).slice(0, 16)}`,
-      surface: "teacher",
-      exact_binding: clone(request.exact_binding),
-      official_baseline: baseline,
-      paths,
-      mechanisms: mechanisms(paths),
-      transfer: transfer(request),
-      source_refs: sourceRefs,
-      authority: authority(),
-      known_limits: [
-        ...KNOWN_LIMITS,
-        ...new Set(paths.flatMap((path) => path.finance_feasibility.known_limits))
-      ]
-    };
+    const responseMechanisms = mechanisms(paths);
+    const responseTransfer = transfer(request);
     const teacher: ESLTeacherProjection = {
       surface: "teacher",
       available_actions: [
@@ -461,8 +456,25 @@ export class ExecutiveStrategyLabService {
       ],
       official_baseline: clone(baseline),
       paths: clone(paths),
-      mechanisms: clone(response.mechanisms),
-      transfer: clone(response.transfer)
+      mechanisms: clone(responseMechanisms),
+      transfer: clone(responseTransfer)
+    };
+    const response: ESLTeacherResponse = {
+      schema_version: ESL_SCHEMA_VERSION,
+      candidate_id: `esl_candidate_${digest({ request, baseline, paths }).slice(0, 16)}`,
+      surface: "teacher",
+      exact_binding: clone(request.exact_binding),
+      official_baseline: baseline,
+      paths,
+      mechanisms: responseMechanisms,
+      transfer: responseTransfer,
+      source_refs: sourceRefs,
+      authority: authority(),
+      known_limits: [
+        ...KNOWN_LIMITS,
+        ...new Set(paths.flatMap((path) => path.finance_feasibility.known_limits))
+      ],
+      teacher_projection: teacher
     };
     const workflow = await this.dependencies.roleWorkflow.readRoleWorkflow({
       tenant_id: actor.tenant_id,
@@ -488,18 +500,18 @@ export class ExecutiveStrategyLabService {
       throw new ExecutiveStrategyLabError("ESL_DUPLICATE_CONFLICT");
     }
     this.candidates.set(response.candidate_id, canonical);
-    return { ...clone(response), teacher_projection: clone(teacher) };
+    return clone(response);
   }
 
-  async getTeacher(actor: ESLActor, candidateId: string): Promise<ESLResponse> {
+  async getTeacher(actor: ESLActor, candidateId: string): Promise<ESLTeacherResponse> {
     const candidate = this.getCandidate(actor.tenant_id, candidateId);
     if (!actor.roles.some((role) => ["teacher", "tenant_admin", "platform_admin"].includes(role))) {
       throw new ExecutiveStrategyLabError("ESL_FORBIDDEN");
     }
-    return { ...clone(candidate.response), teacher_projection: clone(candidate.teacher) };
+    return clone(candidate.response);
   }
 
-  async getStudent(actor: ESLActor, candidateId: string): Promise<ESLResponse> {
+  async getStudent(actor: ESLActor, candidateId: string): Promise<ESLStudentResponse> {
     if (
       !actor.team_id ||
       !actor.roles.some((role) => ["student", "learner", "team_captain"].includes(role))
@@ -523,7 +535,7 @@ export class ExecutiveStrategyLabService {
     return redactedStudent(candidate.response, assignment.role_key);
   }
 
-  async getAdmin(actor: ESLActor, candidateId: string): Promise<ESLResponse> {
+  async getAdmin(actor: ESLActor, candidateId: string): Promise<ESLAdminResponse> {
     if (!actor.roles.some((role) => ["tenant_admin", "platform_admin"].includes(role))) {
       throw new ExecutiveStrategyLabError("ESL_FORBIDDEN");
     }

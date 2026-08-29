@@ -2414,9 +2414,15 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           .map((effect) => effect.effect_id),
         portfolio_hierarchy: {
           group_tenant_id: scope.tenant_id,
-          portfolio_projects: [...(latestState?.state.portfolio.projects ?? [])],
-          portfolio_facilities: [...(latestState?.state.portfolio.facilities ?? [])],
-          operating_unit_ids: (latestState?.state.operating_units ?? []).map(
+          portfolio_projects: [
+            ...((currentOutcome ? currentClosingState : latestState)?.state.portfolio.projects ?? [])
+          ],
+          portfolio_facilities: [
+            ...((currentOutcome ? currentClosingState : latestState)?.state.portfolio.facilities ?? [])
+          ],
+          operating_unit_ids: (
+            (currentOutcome ? currentClosingState : latestState)?.state.operating_units ?? []
+          ).map(
             (unit) => unit.operating_unit_id
           )
         },

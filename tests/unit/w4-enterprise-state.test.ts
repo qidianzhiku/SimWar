@@ -823,6 +823,11 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
     expect(projection.closing_state_ref).toEqual(outcome.closing_state_ref);
     expect(projection.state).toEqual(closing?.state);
     expect(projection.state).not.toEqual(opening.state);
+    expect(projection.path_evidence.portfolio_hierarchy).toMatchObject({
+      portfolio_projects: closing?.state.portfolio.projects,
+      portfolio_facilities: closing?.state.portfolio.facilities,
+      operating_unit_ids: closing?.state.operating_units.map((unit) => unit.operating_unit_id)
+    });
   });
 });
 
