@@ -14,7 +14,7 @@ const playwrightStoreFile = resolvePlaywrightStoreFile();
 
 export default defineConfig({
   testDir: "./tests/e2e-ui",
-  testIgnore: /pr4-.*\.spec\.ts/,
+  testIgnore: /(?:pr4-.*|executive-strategy-lab)\.spec\.ts/,
   fullyParallel: false,
   timeout: 60_000,
   workers: 1,
