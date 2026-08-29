@@ -27,9 +27,7 @@
       "type": "array",
       "minItems": 0,
       "maxItems": 3,
-      "items": {
-        "oneOf": [{ "$ref": "#/$defs/alternativePath" }, { "$ref": "#/$defs/studentPath" }]
-      }
+      "items": {}
     },
     "mechanisms": {
       "type": "array",
@@ -47,6 +45,21 @@
     "student_projection": { "$ref": "#/$defs/studentProjection" },
     "admin_projection": { "$ref": "#/$defs/adminProjection" }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "surface": { "const": "student" } } },
+      "then": {
+        "properties": {
+          "paths": { "type": "array", "items": { "$ref": "#/$defs/studentPath" } }
+        }
+      },
+      "else": {
+        "properties": {
+          "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } }
+        }
+      }
+    }
+  ],
   "$defs": {
     "id": {
       "type": "string",

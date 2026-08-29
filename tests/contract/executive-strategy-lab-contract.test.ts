@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import Ajv2020 from "ajv/dist/2020.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   isESLRequest,
   isESLResponse,
@@ -98,5 +101,19 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(response)).toBe(true);
     expect(JSON.stringify(response)).not.toContain("state_true");
     expect(JSON.stringify(response)).not.toContain("settlement_result");
+  });
+
+  it("binds root path shape to the declared response surface", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const validTeacher = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const invalidStudent = { ...validTeacher, surface: "student" };
+
+    expect(validate(validTeacher)).toBe(true);
+    expect(validate(invalidStudent)).toBe(false);
   });
 });

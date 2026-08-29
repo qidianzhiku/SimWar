@@ -269,10 +269,18 @@ describe("projectESLFinance", () => {
 
     expect(result.capex.time_period).toBe("ROUND");
     expect(result.opex.time_period).toBe("ROUND");
+    expect(result.debt.interest_paid.time_period).toBe("HORIZON");
     expect(result.debt.amortization.time_period).toBe("ROUND");
-    expect(result.debt.debt_service.time_period).toBe("ROUND");
+    expect(result.debt.debt_service).toMatchObject({
+      amount: null,
+      status: "UNKNOWN",
+      time_period: "HORIZON",
+      unknown_reason: "INTEREST_OR_AMORTIZATION_PERIOD_MISMATCH"
+    });
     expect(result.dscr.numerator.time_period).toBe("ROUND");
-    expect(result.dscr.denominator.time_period).toBe("ROUND");
+    expect(result.dscr.denominator).toMatchObject({ amount: null, status: "UNKNOWN" });
+    expect(result.feasibility).toBe("UNKNOWN");
+    expect(result.binding_constraints).toContain("DEBT_SERVICE_BASIS_UNKNOWN");
     expect(result.capital_budget_utilization.time_period).toBe("ROUND");
   });
 

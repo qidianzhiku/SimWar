@@ -506,19 +506,26 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     interestPaid.status === "KNOWN" &&
     interestPaid.amount !== null &&
     amortization.status === "KNOWN" &&
-    amortization.amount !== null
+    amortization.amount !== null &&
+    interestPaid.time_period === amortization.time_period
       ? basis(
           interestPaid.amount + amortization.amount,
           CURRENCY_UNIT,
           [...interestPaid.source_refs, ...amortization.source_refs],
-          accountingTimePeriod
+          interestPaid.time_period
         )
       : basis(
           null,
           CURRENCY_UNIT,
           [...interestPaid.source_refs, ...amortization.source_refs],
-          accountingTimePeriod,
-          "INTEREST_OR_AMORTIZATION_BASIS_UNAVAILABLE"
+          interestPaid.time_period,
+          interestPaid.status === "KNOWN" &&
+            interestPaid.amount !== null &&
+            amortization.status === "KNOWN" &&
+            amortization.amount !== null &&
+            interestPaid.time_period !== amortization.time_period
+            ? "INTEREST_OR_AMORTIZATION_PERIOD_MISMATCH"
+            : "INTEREST_OR_AMORTIZATION_BASIS_UNAVAILABLE"
         );
   const operatingCashFlow = basis(
     input.accounting_basis?.operating_cash_flow ?? null,
