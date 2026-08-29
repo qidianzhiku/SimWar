@@ -156,6 +156,45 @@ function assertWritableRound(round: { status: string }): void {
   }
 }
 
+function projectCapitalLifecycleForSurface(
+  surface: "teacher" | "student" | "admin",
+  lifecycle: Awaited<ReturnType<ReturnType<typeof createEnterpriseStateStrategicEvolutionService>["getCapitalLifecycleReceipt"]>>
+): unknown {
+  if (surface !== "student") return lifecycle;
+  return {
+    lifecycle_id: lifecycle.lifecycle_id,
+    tenant_id: lifecycle.tenant_id,
+    course_id: lifecycle.course_id,
+    run_id: lifecycle.run_id,
+    team_id: lifecycle.team_id,
+    round_id: lifecycle.round_id,
+    round_no: lifecycle.round_no,
+    instrument: lifecycle.instrument,
+    status: lifecycle.status,
+    principal: lifecycle.principal,
+    cost_bps: lifecycle.cost_bps,
+    fee: lifecycle.fee,
+    term_rounds: lifecycle.term_rounds,
+    covenant_min_cash: lifecycle.covenant_min_cash,
+    source_digest: lifecycle.source_digest,
+    official_outcome_id: lifecycle.official_outcome_id,
+    failure_reason: lifecycle.failure_reason,
+    transition_history: lifecycle.transition_history.map((transition) => ({
+      transition_no: transition.transition_no,
+      status: transition.status,
+      round_no: transition.round_no
+    })),
+    writer_authority: lifecycle.writer_authority,
+    explanation: {
+      mechanism: "The governed capital lifecycle is evaluated before the existing W4 settlement path.",
+      limits: [
+        "This projection is role-safe and does not expose approval actors or command identifiers.",
+        "Official cash and settlement effects come only from the existing W4 Enterprise State service."
+      ]
+    }
+  };
+}
+
 export async function handleW4EnterpriseStateRoute(
   repository: W4Repository,
   request: IncomingMessage,
@@ -266,6 +305,12 @@ export async function handleW4EnterpriseStateRoute(
               action.course_id === courseId &&
               action.run_id === runId
           ),
+          capital_lifecycles: current.capitalLifecycles?.filter(
+            (lifecycle) =>
+              lifecycle.tenant_id === context.tenantId &&
+              lifecycle.course_id === courseId &&
+              lifecycle.run_id === runId
+          ) ?? [],
           operating_units: latest?.state.operating_units ?? [],
           process_information: {
             status: initiatives.some((initiative) => initiative.status === "blocked")
@@ -333,6 +378,155 @@ export async function handleW4EnterpriseStateRoute(
       >[2];
       const result = await service.advanceProjectLifecycle(scope, initiativeId, target);
       dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
+  const capitalLifecycleProposalMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/capital-lifecycles\/propose$/
+  );
+  const capitalLifecycleCommandMatch = url.pathname.match(
+    /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/capital-lifecycles\/([^/]+)\/(approve|execute|close|withdraw|default)$/
+  );
+  if (request.method === "POST" && (capitalLifecycleProposalMatch || capitalLifecycleCommandMatch)) {
+    try {
+      const actor = dependencies.requireTeacher();
+      const body = await dependencies.readJson<Record<string, unknown>>(request);
+      const runId = capitalLifecycleProposalMatch?.[1] ?? capitalLifecycleCommandMatch?.[1] ?? "";
+      const roundNo = Number(
+        capitalLifecycleProposalMatch?.[2] ?? capitalLifecycleCommandMatch?.[2] ?? "0"
+      );
+      const lifecycleId = capitalLifecycleCommandMatch?.[3];
+      const command = capitalLifecycleCommandMatch?.[4];
+      const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      assertWritableRound(round);
+      const courseId = String(body.course_id ?? "course_demo");
+      const teamId = String(body.team_id ?? "");
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        String(body.round_id ?? round.round_id),
+        roundNo,
+        teamId,
+        courseId
+      );
+      await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
+      let result;
+      if (capitalLifecycleProposalMatch) {
+        result = await service.proposeCapitalLifecycle(scope, {
+          command_id: String(body.command_id ?? ""),
+          lifecycle_id: String(body.lifecycle_id ?? ""),
+          decision_id: String(body.decision_id ?? ""),
+          instrument: String(body.instrument ?? "") as Parameters<
+            typeof service.proposeCapitalLifecycle
+          >[1]["instrument"],
+          principal: Number(body.principal),
+          cost_bps: Number(body.cost_bps),
+          fee: Number(body.fee),
+          term_rounds: Number(body.term_rounds),
+          covenant_min_cash: Number(body.covenant_min_cash),
+          source_digest: String(body.source_digest ?? "")
+        });
+        dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
+        return true;
+      }
+      if (!lifecycleId || !command) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+      const commandId = String(body.command_id ?? "");
+      if (command === "approve") {
+        result = await service.approveCapitalLifecycle(scope, lifecycleId, commandId);
+      } else if (command === "execute") {
+        result = await service.executeCapitalLifecycle(
+          scope,
+          lifecycleId,
+          String(body.decision_id ?? ""),
+          commandId
+        );
+      } else if (command === "close") {
+        result = await service.closeCapitalLifecycle(
+          scope,
+          lifecycleId,
+          String(body.official_outcome_id ?? ""),
+          commandId
+        );
+      } else if (command === "withdraw") {
+        result = await service.withdrawCapitalLifecycle(
+          scope,
+          lifecycleId,
+          commandId,
+          String(body.reason ?? "")
+        );
+      } else {
+        result = await service.recordCapitalDefault(
+          scope,
+          lifecycleId,
+          commandId,
+          String(body.reason ?? "")
+        );
+      }
+      dependencies.sendJson(response, 200, dependencies.createEnvelope(context, result));
+      return true;
+    } catch (error) {
+      if (error instanceof W4EnterpriseStateError) {
+        dependencies.sendJson(
+          response,
+          errorStatus(error),
+          dependencies.createEnvelope(context, null, error.code)
+        );
+        return true;
+      }
+      throw error;
+    }
+  }
+  const capitalLifecycleProjectionMatch = url.pathname.match(
+    /^\/api\/v1\/bff\/(student|teacher|admin)\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/capital-lifecycles\/([^/]+)$/
+  );
+  if (request.method === "GET" && capitalLifecycleProjectionMatch) {
+    try {
+      const surface = capitalLifecycleProjectionMatch[1] as "student" | "teacher" | "admin";
+      const actor =
+        surface === "student"
+          ? dependencies.requireStudent()
+          : surface === "admin"
+            ? dependencies.requireAdmin()
+            : dependencies.requireTeacher();
+      const runId = capitalLifecycleProjectionMatch[2] ?? "";
+      const roundNo = Number(capitalLifecycleProjectionMatch[3]);
+      const lifecycleId = capitalLifecycleProjectionMatch[4] ?? "";
+      const courseId = url.searchParams.get("course_id") ?? "course_demo";
+      const teamId = url.searchParams.get("team_id") ?? actor.team_id ?? "";
+      const runtimeRound = await dependencies.resolveRound(context.tenantId, runId, roundNo);
+      if (!runtimeRound) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      const requestedRoundId = url.searchParams.get("round_id") ?? runtimeRound.round_id;
+      if (requestedRoundId !== runtimeRound.round_id) {
+        throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      }
+      await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
+      const scope = routeScope(
+        context,
+        actor,
+        runId,
+        requestedRoundId,
+        roundNo,
+        teamId,
+        courseId
+      );
+      const lifecycle = await service.getCapitalLifecycleReceipt(scope, lifecycleId);
+      dependencies.sendJson(
+        response,
+        200,
+        dependencies.createEnvelope(context, projectCapitalLifecycleForSurface(surface, lifecycle))
+      );
       return true;
     } catch (error) {
       if (error instanceof W4EnterpriseStateError) {
@@ -674,6 +868,9 @@ export async function handleW4EnterpriseStateRoute(
         surface === "student"
           ? {
               ...projection,
+              capital_lifecycles: projection.capital_lifecycles.map((lifecycle) =>
+                projectCapitalLifecycleForSurface("student", lifecycle)
+              ),
               state: projection.state
                 ? {
                     capacity: projection.state.capacity,

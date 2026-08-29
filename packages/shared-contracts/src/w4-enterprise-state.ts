@@ -295,6 +295,67 @@ export interface W4CapitalAction {
   maturity_round_no: number;
 }
 
+export type W4CapitalLifecycleInstrument =
+  | "loan"
+  | "refinancing"
+  | "m_and_a"
+  | "abs"
+  | "ipo";
+
+export type W4CapitalLifecycleStatus =
+  | "ELIGIBLE"
+  | "PROPOSED"
+  | "APPROVED"
+  | "EXECUTING"
+  | "CLOSED"
+  | "WITHDRAWN"
+  | "DEFAULTED";
+
+export interface W4CapitalLifecycleProposal {
+  command_id: string;
+  lifecycle_id: string;
+  decision_id: string;
+  instrument: W4CapitalLifecycleInstrument;
+  principal: number;
+  cost_bps: number;
+  fee: number;
+  term_rounds: number;
+  covenant_min_cash: number;
+  source_digest: string;
+}
+
+export interface W4CapitalLifecycleTransition {
+  transition_no: number;
+  status: W4CapitalLifecycleStatus;
+  actor_id: string;
+  command_id: string;
+  round_id: string;
+  round_no: number;
+}
+
+export interface W4CapitalLifecycle {
+  lifecycle_id: string;
+  tenant_id: string;
+  course_id: string;
+  run_id: string;
+  team_id: string;
+  round_id: string;
+  round_no: number;
+  instrument: W4CapitalLifecycleInstrument;
+  status: W4CapitalLifecycleStatus;
+  principal: number;
+  cost_bps: number;
+  fee: number;
+  term_rounds: number;
+  covenant_min_cash: number;
+  decision_id: string;
+  source_digest: string;
+  official_outcome_id: string | null;
+  failure_reason: string | null;
+  transition_history: W4CapitalLifecycleTransition[];
+  writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE";
+}
+
 export interface W4StrategicInitiative {
   initiative_id: string;
   commitment_id: string;
@@ -561,6 +622,7 @@ export interface W4ProjectionBase {
   project_portfolio: W4ProjectPortfolioEntry[];
   project_transactions: W4ProjectTransaction[];
   capital_actions: W4CapitalAction[];
+  capital_lifecycles: W4CapitalLifecycle[];
   strategic_portfolio: W4StrategicPortfolioProjection;
   commitments: Array<Pick<W4Commitment, "commitment_id" | "kind" | "status" | "cost">>;
   effects: Array<Pick<W4StrategicEffect, "effect_id" | "status" | "effective_round_no">>;
@@ -578,6 +640,7 @@ export interface W4StoreState {
   projectPortfolio: W4ProjectPortfolioEntry[];
   projectTransactions: W4ProjectTransaction[];
   capitalActions: W4CapitalAction[];
+  capitalLifecycles?: W4CapitalLifecycle[];
   policySeams: W4PolicySeam[];
   outcomes: W4OfficialOutcome[];
   replayEvidence: W4ReplayEvidence[];

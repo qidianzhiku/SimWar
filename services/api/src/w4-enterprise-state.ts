@@ -28,6 +28,10 @@ import type {
   W4CapitalActionPayload,
   W4CapitalActionStatus,
   W4CapitalObligation,
+  W4CapitalLifecycle,
+  W4CapitalLifecycleProposal,
+  W4CapitalLifecycleStatus,
+  W4CapitalLifecycleInstrument,
   W4StoreState,
   W4ProjectionBase,
   W4MatchedProjectArena,
@@ -281,6 +285,121 @@ async function commitW4Mutation(
 
 function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+const CAPITAL_LIFECYCLE_INSTRUMENTS: W4CapitalLifecycleInstrument[] = [
+  "loan",
+  "refinancing",
+  "m_and_a",
+  "abs",
+  "ipo"
+];
+
+const CAPITAL_LIFECYCLE_STATUSES: W4CapitalLifecycleStatus[] = [
+  "ELIGIBLE",
+  "PROPOSED",
+  "APPROVED",
+  "EXECUTING",
+  "CLOSED",
+  "WITHDRAWN",
+  "DEFAULTED"
+];
+
+function capitalLifecycles(snapshot: W4StoreState): W4CapitalLifecycle[] {
+  return snapshot.capitalLifecycles ?? [];
+}
+
+function assertCapitalLifecycleRound(snapshot: W4StoreState, scope: W4ScopeContext): void {
+  const exactScopeStates = snapshot.states.filter(
+    (state) =>
+      state.tenant_id === scope.tenant_id &&
+      state.course_id === scope.course_id &&
+      state.run_id === scope.run_id &&
+      state.team_id === scope.team_id
+  );
+  if (exactScopeStates.some((state) => state.round_no === scope.round_no)) return;
+  if (exactScopeStates.some((state) => state.round_no < scope.round_no)) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_ROUND_CONFLICT");
+  }
+  throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_SCOPE_CONFLICT");
+}
+
+function validateCapitalLifecycleProposal(
+  snapshot: W4StoreState,
+  scope: W4ScopeContext,
+  input: W4CapitalLifecycleProposal
+): void {
+  assertCapitalLifecycleRound(snapshot, scope);
+  if (
+    !input.command_id.trim() ||
+    !input.lifecycle_id.trim() ||
+    !input.decision_id.trim() ||
+    !CAPITAL_LIFECYCLE_INSTRUMENTS.includes(input.instrument) ||
+    !input.source_digest.trim() ||
+    !Number.isFinite(input.principal) ||
+    input.principal < 0 ||
+    !Number.isFinite(input.cost_bps) ||
+    input.cost_bps < 0 ||
+    !Number.isFinite(input.fee) ||
+    input.fee < 0 ||
+    !Number.isInteger(input.term_rounds) ||
+    input.term_rounds < 1 ||
+    !Number.isFinite(input.covenant_min_cash) ||
+    input.covenant_min_cash < 0
+  ) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+  }
+  const decision = snapshot.decisions.find(
+    (candidate) =>
+      candidate.decision_id === input.decision_id &&
+      candidate.kind === "capital_action" &&
+      scopeMatches(scope, candidate)
+  );
+  if (!decision) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_DECISION_REQUIRED");
+  const payload = decision.payload as unknown as Record<string, unknown>;
+  if (
+    Number(payload.principal) !== input.principal ||
+    Number(payload.rate_or_cost_bps) !== input.cost_bps ||
+    Number(payload.fees) !== input.fee ||
+    Number(payload.term_rounds) !== input.term_rounds ||
+    Number(payload.covenant_min_cash) !== input.covenant_min_cash
+  ) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_DECISION_REQUIRED");
+  }
+}
+
+function findCapitalLifecycle(
+  snapshot: W4StoreState,
+  scope: W4ScopeContext,
+  lifecycleId: string
+): W4CapitalLifecycle {
+  const lifecycle = capitalLifecycles(snapshot).find(
+    (candidate) => candidate.lifecycle_id === lifecycleId && scopeMatches(scope, candidate)
+  );
+  if (!lifecycle) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_NOT_FOUND");
+  return lifecycle;
+}
+
+function appendCapitalLifecycleTransition(
+  lifecycle: W4CapitalLifecycle,
+  scope: W4ScopeContext,
+  commandId: string,
+  status: W4CapitalLifecycleStatus,
+  reason?: string
+): void {
+  if (!CAPITAL_LIFECYCLE_STATUSES.includes(status)) {
+    throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+  }
+  lifecycle.status = status;
+  lifecycle.transition_history.push({
+    transition_no: lifecycle.transition_history.length + 1,
+    status,
+    actor_id: scope.actor_id,
+    command_id: commandId,
+    round_id: scope.round_id,
+    round_no: scope.round_no
+  });
+  if (status === "WITHDRAWN" || status === "DEFAULTED") lifecycle.failure_reason = reason ?? null;
 }
 
 /**
@@ -1666,6 +1785,183 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       return clone(initiative);
     },
 
+    async proposeCapitalLifecycle(
+      scope: W4ScopeContext,
+      input: W4CapitalLifecycleProposal
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      validateCapitalLifecycleProposal(current, scope, input);
+      const existingCommand = capitalLifecycles(current).find((lifecycle) =>
+        lifecycle.transition_history.some((transition) => transition.command_id === input.command_id)
+      );
+      if (existingCommand) return clone(existingCommand);
+      if (capitalLifecycles(current).some((lifecycle) => lifecycle.lifecycle_id === input.lifecycle_id)) {
+        throw new W4EnterpriseStateError("W4_DUPLICATE_COMMAND");
+      }
+      const before = clone(current);
+      const lifecycle: W4CapitalLifecycle = {
+        lifecycle_id: input.lifecycle_id,
+        tenant_id: scope.tenant_id,
+        course_id: scope.course_id,
+        run_id: scope.run_id,
+        team_id: scope.team_id,
+        round_id: scope.round_id,
+        round_no: scope.round_no,
+        instrument: input.instrument,
+        status: "ELIGIBLE",
+        principal: input.principal,
+        cost_bps: input.cost_bps,
+        fee: input.fee,
+        term_rounds: input.term_rounds,
+        covenant_min_cash: input.covenant_min_cash,
+        decision_id: input.decision_id,
+        source_digest: digest({
+          scope: {
+            tenant_id: scope.tenant_id,
+            course_id: scope.course_id,
+            run_id: scope.run_id,
+            team_id: scope.team_id,
+            round_id: scope.round_id,
+            round_no: scope.round_no
+          },
+          proposal: input
+        }),
+        official_outcome_id: null,
+        failure_reason: null,
+        transition_history: [],
+        writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE"
+      };
+      appendCapitalLifecycleTransition(lifecycle, scope, input.command_id, "ELIGIBLE");
+      appendCapitalLifecycleTransition(lifecycle, scope, input.command_id, "PROPOSED");
+      if (!current.capitalLifecycles) current.capitalLifecycles = [];
+      current.capitalLifecycles.push(lifecycle);
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async approveCapitalLifecycle(
+      scope: W4ScopeContext,
+      lifecycleId: string,
+      commandId: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      const lifecycle = findCapitalLifecycle(current, scope, lifecycleId);
+      const prior = lifecycle.transition_history.find((transition) => transition.command_id === commandId);
+      if (prior) return clone(lifecycle);
+      if (lifecycle.status !== "PROPOSED") {
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_TRANSITION_INVALID");
+      }
+      const before = clone(current);
+      appendCapitalLifecycleTransition(lifecycle, scope, commandId, "APPROVED");
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async executeCapitalLifecycle(
+      scope: W4ScopeContext,
+      lifecycleId: string,
+      decisionId: string,
+      commandId: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      const lifecycle = findCapitalLifecycle(current, scope, lifecycleId);
+      const prior = lifecycle.transition_history.find((transition) => transition.command_id === commandId);
+      if (prior) return clone(lifecycle);
+      if (lifecycle.status !== "APPROVED" || lifecycle.decision_id !== decisionId) {
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_TRANSITION_INVALID");
+      }
+      const decision = current.decisions.find(
+        (candidate) =>
+          candidate.decision_id === decisionId &&
+          candidate.kind === "capital_action" &&
+          scopeMatches(scope, candidate)
+      );
+      if (!decision) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_DECISION_REQUIRED");
+      const before = clone(current);
+      appendCapitalLifecycleTransition(lifecycle, scope, commandId, "EXECUTING");
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async closeCapitalLifecycle(
+      scope: W4ScopeContext,
+      lifecycleId: string,
+      officialOutcomeId: string,
+      commandId: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      const lifecycle = findCapitalLifecycle(current, scope, lifecycleId);
+      const prior = lifecycle.transition_history.find((transition) => transition.command_id === commandId);
+      if (prior) return clone(lifecycle);
+      if (lifecycle.status !== "EXECUTING") {
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_TRANSITION_INVALID");
+      }
+      const outcome = current.outcomes.find(
+        (candidate) =>
+          candidate.official_outcome_id === officialOutcomeId && scopeMatches(scope, candidate)
+      );
+      if (!outcome) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_OUTCOME_REQUIRED");
+      const before = clone(current);
+      lifecycle.official_outcome_id = outcome.official_outcome_id;
+      appendCapitalLifecycleTransition(lifecycle, scope, commandId, "CLOSED");
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async withdrawCapitalLifecycle(
+      scope: W4ScopeContext,
+      lifecycleId: string,
+      commandId: string,
+      reason: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      const lifecycle = findCapitalLifecycle(current, scope, lifecycleId);
+      const prior = lifecycle.transition_history.find((transition) => transition.command_id === commandId);
+      if (prior) return clone(lifecycle);
+      if (!["PROPOSED", "APPROVED", "EXECUTING"].includes(lifecycle.status)) {
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_TRANSITION_INVALID");
+      }
+      if (!reason.trim()) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+      const before = clone(current);
+      appendCapitalLifecycleTransition(lifecycle, scope, commandId, "WITHDRAWN", reason);
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async recordCapitalDefault(
+      scope: W4ScopeContext,
+      lifecycleId: string,
+      commandId: string,
+      reason: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      const lifecycle = findCapitalLifecycle(current, scope, lifecycleId);
+      const prior = lifecycle.transition_history.find((transition) => transition.command_id === commandId);
+      if (prior) return clone(lifecycle);
+      if (lifecycle.status !== "EXECUTING") {
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_TRANSITION_INVALID");
+      }
+      if (!reason.trim()) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+      const before = clone(current);
+      appendCapitalLifecycleTransition(lifecycle, scope, commandId, "DEFAULTED", reason);
+      await commitW4Mutation(repository, before, current);
+      return clone(lifecycle);
+    },
+
+    async getCapitalLifecycleReceipt(
+      scope: W4ScopeContext,
+      lifecycleId: string
+    ): Promise<W4CapitalLifecycle> {
+      const current = repository.snapshot();
+      assertCapitalLifecycleRound(current, scope);
+      return clone(findCapitalLifecycle(current, scope, lifecycleId));
+    },
+
     async createPolicySeam(
       scope: W4ScopeContext,
       input: {
@@ -2325,6 +2621,9 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
       const scopedCapitalActions = capitalActionSource.filter((item) =>
         scopeMatches(scope, item) && item.created_round_no <= scope.round_no
       );
+      const scopedCapitalLifecycles = capitalLifecycles(current).filter(
+        (item) => scopeMatches(scope, item) && item.round_no <= scope.round_no
+      );
       const latestStrategicDecision = current.decisions
         .filter((item) => scopeMatches(scope, item) && item.round_no <= scope.round_no)
         .sort(
@@ -2503,6 +2802,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         project_portfolio: clone(scopedProjectPortfolio),
         project_transactions: clone(scopedProjectTransactions),
         capital_actions: clone(scopedCapitalActions),
+        capital_lifecycles: clone(scopedCapitalLifecycles),
         strategic_portfolio: strategicPortfolio,
         commitments: clone(scopedCommitments),
         effects: clone(scopedEffects),
