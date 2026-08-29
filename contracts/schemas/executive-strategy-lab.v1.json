@@ -1,0 +1,393 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/executive-strategy-lab.v1.json",
+  "title": "SimWar Governed Executive Strategy Lab",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "surface",
+    "exact_binding",
+    "official_baseline",
+    "paths",
+    "mechanisms",
+    "transfer",
+    "source_refs",
+    "authority",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "main-esl-o1.v1" },
+    "candidate_id": { "$ref": "#/$defs/id" },
+    "surface": { "enum": ["teacher", "student", "admin"] },
+    "exact_binding": { "$ref": "#/$defs/exactBinding" },
+    "official_baseline": { "$ref": "#/$defs/officialBaseline" },
+    "paths": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/alternativePath" }
+    },
+    "mechanisms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mechanism" }
+    },
+    "transfer": { "$ref": "#/$defs/transfer" },
+    "source_refs": { "$ref": "#/$defs/sourceRefs" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "teacher_projection": { "$ref": "#/$defs/teacherProjection" },
+    "student_projection": { "$ref": "#/$defs/studentProjection" },
+    "admin_projection": { "$ref": "#/$defs/adminProjection" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])"
+      }
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exactBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "round_no",
+        "scenario_package_id",
+        "scenario_version",
+        "parameter_set_id",
+        "parameter_set_version",
+        "model_version_id",
+        "model_version",
+        "model_artifact_id",
+        "model_artifact_version",
+        "engine_id",
+        "plugin_ids",
+        "seed"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/id" },
+        "course_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "team_id": { "$ref": "#/$defs/id" },
+        "round_id": { "$ref": "#/$defs/id" },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "scenario_package_id": { "$ref": "#/$defs/id" },
+        "scenario_version": { "$ref": "#/$defs/id" },
+        "parameter_set_id": { "$ref": "#/$defs/id" },
+        "parameter_set_version": { "$ref": "#/$defs/id" },
+        "model_version_id": { "$ref": "#/$defs/id" },
+        "model_version": { "$ref": "#/$defs/id" },
+        "model_artifact_id": { "$ref": "#/$defs/id" },
+        "model_artifact_version": { "$ref": "#/$defs/id" },
+        "engine_id": { "$ref": "#/$defs/id" },
+        "plugin_ids": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/id" } },
+        "seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "stateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "enterprise_state_id",
+        "version",
+        "state_digest"
+      ],
+      "properties": {
+        "tenant_id": { "$ref": "#/$defs/id" },
+        "course_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "team_id": { "$ref": "#/$defs/id" },
+        "round_id": { "$ref": "#/$defs/id" },
+        "enterprise_state_id": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "state_digest": { "$ref": "#/$defs/digest" },
+        "parent_state_ref": {
+          "anyOf": [{ "$ref": "#/$defs/stateRef" }, { "type": "null" }]
+        }
+      }
+    },
+    "officialBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["officiality", "outcome_id", "state_ref", "summary"],
+      "properties": {
+        "officiality": { "const": "OFFICIAL" },
+        "outcome_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "state_ref": { "anyOf": [{ "$ref": "#/$defs/stateRef" }, { "type": "null" }] },
+        "summary": { "type": "string", "minLength": 1 },
+        "state_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cash",
+            "capacity",
+            "product_line_count",
+            "operating_unit_count",
+            "project_count"
+          ],
+          "properties": {
+            "cash": { "type": "number" },
+            "capacity": { "type": "number" },
+            "product_line_count": { "type": "integer", "minimum": 0 },
+            "operating_unit_count": { "type": "integer", "minimum": 0 },
+            "project_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "changed_paths": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "alternativePath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path_id",
+        "label",
+        "officiality",
+        "decision_ids",
+        "path_digest",
+        "changed_paths",
+        "outcome",
+        "mechanism_ids"
+      ],
+      "properties": {
+        "path_id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "officiality": { "const": "NON_OFFICIAL" },
+        "decision_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "path_digest": { "$ref": "#/$defs/digest" },
+        "changed_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cash_delta",
+            "capacity_delta",
+            "project_count_delta",
+            "terminal_state_digest"
+          ],
+          "properties": {
+            "cash_delta": { "type": "number" },
+            "capacity_delta": { "type": "number" },
+            "project_count_delta": { "type": "integer" },
+            "terminal_state_digest": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "mechanism_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mechanism_id", "label", "explanation", "evidence_path_ids", "uncertainty"],
+      "properties": {
+        "mechanism_id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "explanation": { "type": "string", "minLength": 1 },
+        "evidence_path_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "uncertainty": { "const": "OBSERVED_DIFFERENTIAL_ONLY" }
+      }
+    },
+    "transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "statement", "evidence_path_ids", "applies_to_next_round"],
+      "properties": {
+        "status": { "const": "DRAFT" },
+        "statement": { "type": "string", "minLength": 1 },
+        "evidence_path_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "applies_to_next_round": { "const": false }
+      }
+    },
+    "sourceRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["official_outcome_id", "o4_candidate_digest", "m4_candidate_digests"],
+      "properties": {
+        "official_outcome_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "o4_candidate_digest": { "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "m4_candidate_digests": { "type": "array", "items": { "$ref": "#/$defs/digest" } }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_authority",
+        "official_realized_source",
+        "writer_authority",
+        "formal_truth_write",
+        "settlement_write",
+        "replay_truth_write",
+        "provider"
+      ],
+      "properties": {
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+        "official_realized_source": { "const": "SIMULATION_CORE" },
+        "writer_authority": { "const": "SOLE_W4_ENTERPRISE_STATE_SERVICE" },
+        "formal_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "replay_truth_write": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "teacherProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "available_actions",
+        "official_baseline",
+        "paths",
+        "mechanisms",
+        "transfer"
+      ],
+      "properties": {
+        "surface": { "const": "teacher" },
+        "available_actions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "official_baseline": { "$ref": "#/$defs/officialBaseline" },
+        "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } },
+        "mechanisms": { "type": "array", "items": { "$ref": "#/$defs/mechanism" } },
+        "transfer": { "$ref": "#/$defs/transfer" }
+      }
+    },
+    "studentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "role_safe",
+        "official_baseline",
+        "paths",
+        "transfer",
+        "excluded_fields"
+      ],
+      "properties": {
+        "surface": { "const": "student" },
+        "role_safe": { "const": true },
+        "role_key": { "type": "string", "minLength": 1 },
+        "official_baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["officiality", "outcome_id", "summary"],
+          "properties": {
+            "officiality": { "const": "OFFICIAL" },
+            "outcome_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+            "summary": { "type": "string", "minLength": 1 }
+          }
+        },
+        "paths": { "type": "array", "items": { "$ref": "#/$defs/studentPath" } },
+        "transfer": { "$ref": "#/$defs/transfer" },
+        "excluded_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "studentPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_id", "label", "officiality", "path_digest", "changed_paths", "outcome"],
+      "properties": {
+        "path_id": { "$ref": "#/$defs/id" },
+        "label": { "type": "string", "minLength": 1 },
+        "officiality": { "const": "NON_OFFICIAL" },
+        "path_digest": { "$ref": "#/$defs/digest" },
+        "changed_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "outcome": { "$ref": "#/$defs/alternativePath/properties/outcome" }
+      }
+    },
+    "adminProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "tenant_id",
+        "exact_binding",
+        "source_refs",
+        "officiality_counts",
+        "audit"
+      ],
+      "properties": {
+        "surface": { "const": "admin" },
+        "tenant_id": { "$ref": "#/$defs/id" },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "source_refs": { "$ref": "#/$defs/sourceRefs" },
+        "officiality_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["official", "non_official"],
+          "properties": {
+            "official": { "const": 1 },
+            "non_official": { "type": "integer", "minimum": 0, "maximum": 3 }
+          }
+        },
+        "audit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidate_id", "generated_by", "no_write", "recovery"],
+          "properties": {
+            "candidate_id": { "$ref": "#/$defs/id" },
+            "generated_by": { "$ref": "#/$defs/id" },
+            "no_write": { "const": true },
+            "recovery": { "const": "REPLAY_REQUEST_WITH_EXACT_BINDING" }
+          }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "exact_binding",
+        "paths",
+        "transfer_hypothesis",
+        "idempotency_key"
+      ],
+      "properties": {
+        "discriminator": { "const": "esl_strategy_lab_request" },
+        "exact_binding": { "$ref": "#/$defs/exactBinding" },
+        "paths": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path_id", "label", "decision_ids"],
+            "properties": {
+              "path_id": { "$ref": "#/$defs/id" },
+              "label": { "type": "string", "minLength": 1 },
+              "decision_ids": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": { "$ref": "#/$defs/id" }
+              }
+            }
+          }
+        },
+        "transfer_hypothesis": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "idempotency_key": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

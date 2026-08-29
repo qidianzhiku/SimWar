@@ -163,8 +163,8 @@ export async function seedM4MultipathCounterfactualTransferFixture(
     replay_input_manifest: manifest(initial.state_ref, officialDecision)
   });
   const secondScope = scope(2, M4_BROWSER_ROUND_2_ID);
-  await w4.commitStrategicDecision(secondScope, decision("m4-browser-path-a", 2, 125));
-  await w4.commitStrategicDecision(secondScope, decision("m4-browser-path-b", 2, 275));
+  await w4.commitStrategicDecision(secondScope, decision("decision_priority_investment", 2, 125));
+  await w4.commitStrategicDecision(secondScope, decision("decision_cash_protection", 2, 275));
 
   store.roleDecisionSections.push({
     section_id: "m4-browser-section-ceo",

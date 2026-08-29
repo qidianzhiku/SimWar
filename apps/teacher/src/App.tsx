@@ -27,6 +27,7 @@ import type {
   CoursePackageVersionCloneInput,
   CoursePackageVersionTeacherDto,
   GSIExactBinding,
+  ESLExactBinding,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
@@ -96,6 +97,13 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
+const ExecutiveStrategyLabWorkspace = lazy(() =>
+  import("./ExecutiveStrategyLabWorkspace").then(
+    ({ ExecutiveStrategyLabWorkspace: Component }) => ({
+      default: Component
+    })
+  )
+);
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -788,12 +796,22 @@ export function App() {
   const latestRun = courseRuns.at(-1);
   const latestRound = latestRun ? getRunRound(state!, latestRun.run_id) : undefined;
   const selectedRun = state ? selectVisibleRun(state, selectedRunId, selectedCourseId) : undefined;
+  const selectedRunRounds = selectedRun
+    ? getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined)
+    : [];
   const selectedRound = selectedRun
-    ? selectTeacherRound(
-        getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined),
-        selectedRoundId
-      )
+    ? selectTeacherRound(selectedRunRounds, selectedRoundId)
     : undefined;
+  const eslSourceRound =
+    selectedRound?.status === "published"
+      ? selectedRound
+      : selectedRunRounds
+          .filter(
+            (round) =>
+              round.status === "published" &&
+              (selectedRound === undefined || round.round_no <= selectedRound.round_no)
+          )
+          .at(-1);
   const teacherTeamsForRun =
     state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? [];
   const activeTeacherTeamId = resolveActiveTeacherTeamId(
@@ -848,6 +866,17 @@ export function App() {
           model_version: "1.0.0",
           model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
           model_artifact_version: "1.0.0"
+        }
+      : undefined;
+  const eslBinding: ESLExactBinding | undefined =
+    gsiBinding && eslSourceRound
+      ? {
+          ...gsiBinding,
+          round_id: eslSourceRound.round_id,
+          round_no: eslSourceRound.round_no,
+          engine_id: "toy_logit_wellness_v1",
+          plugin_ids: ["plugin_wellness_stub"],
+          seed: 79
         }
       : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
@@ -2436,6 +2465,16 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {isTeacher && session && eslBinding ? (
+          <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab…</p>}>
+            <ExecutiveStrategyLabWorkspace
+              apiBase={API_BASE}
+              binding={eslBinding}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </section>
 

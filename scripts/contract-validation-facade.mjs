@@ -182,6 +182,12 @@ const shanghaiFullVerticalContractFiles = [
   "contracts/fixtures/shanghai-full-vertical.valid.json"
 ];
 
+const executiveStrategyLabContractFiles = [
+  "contracts/schemas/executive-strategy-lab.v1.json",
+  "contracts/fixtures/executive-strategy-lab.valid.json",
+  "contracts/fixtures/executive-strategy-lab.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -268,7 +274,11 @@ const requiredOpenApiPaths = [
   "/api/v1/bff/admin/operating-world/audit",
   "/api/v1/bff/teacher/shanghai/full-vertical",
   "/api/v1/bff/student/shanghai/full-vertical",
-  "/api/v1/bff/admin/shanghai/full-vertical"
+  "/api/v1/bff/admin/shanghai/full-vertical",
+  "/api/v1/bff/teacher/esl/strategy-lab",
+  "/api/v1/bff/teacher/esl/candidates/{candidateId}",
+  "/api/v1/bff/student/esl/candidates/{candidateId}",
+  "/api/v1/bff/admin/esl/audit"
 ];
 
 const schemaCases = [
@@ -453,6 +463,11 @@ const schemaCases = [
     schema: "contracts/schemas/project-assignment.v1.json",
     valid: ["contracts/fixtures/project-assignment.valid.json"],
     invalid: []
+  },
+  {
+    schema: "contracts/schemas/executive-strategy-lab.v1.json",
+    valid: ["contracts/fixtures/executive-strategy-lab.valid.json"],
+    invalid: ["contracts/fixtures/executive-strategy-lab.invalid.json"]
   }
 ];
 
@@ -939,6 +954,37 @@ function assertW3OpenApiBindings(openApi) {
   );
 }
 
+function assertESLOpenApiBindings(openApi) {
+  assert(
+    jsonContentSchema(
+      openApi?.paths?.["/api/v1/bff/teacher/esl/strategy-lab"]?.post?.responses?.["201"]
+    )?.$ref === schemaRef("ExecutiveStrategyLabEnvelope"),
+    "ESL teacher create must reference ExecutiveStrategyLabEnvelope."
+  );
+  for (const path of [
+    "/api/v1/bff/teacher/esl/candidates/{candidateId}",
+    "/api/v1/bff/student/esl/candidates/{candidateId}",
+    "/api/v1/bff/admin/esl/audit"
+  ]) {
+    assert(openApi?.paths?.[path]?.get, `Missing ESL read operation: ${path}`);
+    assert(
+      jsonContentSchema(openApi.paths[path].get.responses?.["200"])?.$ref ===
+        schemaRef("ExecutiveStrategyLabEnvelope"),
+      `ESL read operation must reference ExecutiveStrategyLabEnvelope: ${path}`
+    );
+  }
+  assert(
+    openApi.components?.schemas?.ExecutiveStrategyLabEnvelope?.properties?.data?.$ref ===
+      "../schemas/executive-strategy-lab.v1.json",
+    "ESL envelope must reference its JSON Schema artifact."
+  );
+  assert(
+    openApi.components?.schemas?.ExecutiveStrategyLabRequest?.$ref ===
+      "../schemas/executive-strategy-lab.v1.json#/$defs/request",
+    "ESL request must reference its request definition."
+  );
+}
+
 function formatAjvErrors(validate) {
   return validate.errors
     ?.map((error) => `${error.instancePath || "/"} ${error.message ?? "schema error"}`)
@@ -1041,7 +1087,8 @@ export async function runContractValidation(options = {}) {
     ...w4ContractFiles,
     ...mod04ContractFiles,
     ...mod06ContractFiles,
-    ...shanghaiFullVerticalContractFiles
+    ...shanghaiFullVerticalContractFiles,
+    ...executiveStrategyLabContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1065,7 +1112,8 @@ export async function runContractValidation(options = {}) {
     ...w4ContractFiles,
     ...mod04ContractFiles,
     ...mod06ContractFiles,
-    ...shanghaiFullVerticalContractFiles
+    ...shanghaiFullVerticalContractFiles,
+    ...executiveStrategyLabContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
@@ -1084,6 +1132,7 @@ export async function runContractValidation(options = {}) {
   assertW022OpenApiBindings(openApi);
   assertW023OpenApiBindings(openApi);
   assertW3OpenApiBindings(openApi);
+  assertESLOpenApiBindings(openApi);
   assertFrontendDoesNotUseInternalRoutes();
   validateFixtureCases();
   assertStudentFixtureDoesNotExposePrivateFields();
