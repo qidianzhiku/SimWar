@@ -41,7 +41,13 @@ import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
-import { ExecutiveStrategyLabProjection } from "./ExecutiveStrategyLabProjection";
+const ExecutiveStrategyLabProjection = lazy(() =>
+  import("./ExecutiveStrategyLabProjection").then(
+    ({ ExecutiveStrategyLabProjection: Component }) => ({
+      default: Component
+    })
+  )
+);
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
@@ -1034,12 +1040,14 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <ExecutiveStrategyLabProjection
-            apiBase={API_BASE}
-            candidateId={ESL_CANDIDATE_ID}
-            tenantId={login.tenantId}
-            token={activeSession?.access_token ?? ""}
-          />
+          <Suspense fallback={<p className="muted">正在载入 Student Strategy Lab projection…</p>}>
+            <ExecutiveStrategyLabProjection
+              apiBase={API_BASE}
+              candidateId={ESL_CANDIDATE_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </Suspense>
         ) : null}
 
         {hasStudentSurface ? (

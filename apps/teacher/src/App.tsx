@@ -97,7 +97,13 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
-import { ExecutiveStrategyLabWorkspace } from "./ExecutiveStrategyLabWorkspace";
+const ExecutiveStrategyLabWorkspace = lazy(() =>
+  import("./ExecutiveStrategyLabWorkspace").then(
+    ({ ExecutiveStrategyLabWorkspace: Component }) => ({
+      default: Component
+    })
+  )
+);
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -2450,12 +2456,14 @@ export function App() {
           />
         ) : null}
         {isTeacher && session && eslBinding ? (
-          <ExecutiveStrategyLabWorkspace
-            apiBase={API_BASE}
-            binding={eslBinding}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab…</p>}>
+            <ExecutiveStrategyLabWorkspace
+              apiBase={API_BASE}
+              binding={eslBinding}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </section>
 
