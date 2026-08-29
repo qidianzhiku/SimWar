@@ -318,6 +318,18 @@ describe("projectESLFinance", () => {
     expect(demand.feasibility).toBe("UNKNOWN");
     expect(demand.binding_constraints).toContain("DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN");
     expect(demand.why_not_feasible).toContain("需求冲击无法与融资现金流区分，压力情景不可判定。");
+    const workforce = result.stress_regimes[1]!;
+    expect(workforce.cash_flow).toMatchObject({
+      amount: null,
+      status: "UNKNOWN",
+      unknown_reason: "WORKFORCE_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+    });
+    expect(workforce.liquidity_headroom).toMatchObject({ amount: null, status: "UNKNOWN" });
+    expect(workforce.feasibility).toBe("UNKNOWN");
+    expect(workforce.binding_constraints).toContain("WORKFORCE_SHOCK_OPERATING_BASIS_UNKNOWN");
+    expect(workforce.why_not_feasible).toContain(
+      "劳动力压力无法与融资现金流区分，压力情景不可判定。"
+    );
   });
 
   it("fails closed when a state scope does not match its exact reference", () => {

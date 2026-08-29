@@ -592,26 +592,30 @@ export async function handleW4EnterpriseStateRoute(
       });
       const safeResult =
         surface === "student"
-          ? {
-              ...result,
-              rounds: result.rounds.map((round) => ({
-                ...round,
-                opening_state: {
-                  capacity: round.opening_state.capacity,
-                  product_lines: round.opening_state.product_lines,
-                  positioning: round.opening_state.positioning,
-                  operating_units: round.opening_state.operating_units,
-                  portfolio: round.opening_state.portfolio
-                },
-                closing_state: {
-                  capacity: round.closing_state.capacity,
-                  product_lines: round.closing_state.product_lines,
-                  positioning: round.closing_state.positioning,
-                  operating_units: round.closing_state.operating_units,
-                  portfolio: round.closing_state.portfolio
-                }
-              }))
-            }
+          ? (() => {
+              const { capital_actions: _capitalActions, ...studentResult } = result;
+              void _capitalActions;
+              return {
+                ...studentResult,
+                rounds: result.rounds.map((round) => ({
+                  ...round,
+                  opening_state: {
+                    capacity: round.opening_state.capacity,
+                    product_lines: round.opening_state.product_lines,
+                    positioning: round.opening_state.positioning,
+                    operating_units: round.opening_state.operating_units,
+                    portfolio: round.opening_state.portfolio
+                  },
+                  closing_state: {
+                    capacity: round.closing_state.capacity,
+                    product_lines: round.closing_state.product_lines,
+                    positioning: round.closing_state.positioning,
+                    operating_units: round.closing_state.operating_units,
+                    portfolio: round.closing_state.portfolio
+                  }
+                }))
+              };
+            })()
           : result;
       dependencies.sendJson(response, 200, dependencies.createEnvelope(context, safeResult));
       return true;

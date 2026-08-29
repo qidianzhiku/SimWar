@@ -373,12 +373,17 @@ function createStressRegimes(
             : "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
         );
   const workforceCash =
-    baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
+    demandShockBasisAvailable && baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
       ? stressedCash(
           scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.1 : 0.9),
           "WORKFORCE_CAPACITY_PRESSURE_SHOCK"
         )
-      : stressedCash(null, "BASE_CASH_FLOW_UNKNOWN");
+      : stressedCash(
+          null,
+          demandShockBasisAvailable
+            ? "BASE_CASH_FLOW_UNKNOWN"
+            : "WORKFORCE_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+        );
   const fundingAdjustment = debtPrincipal !== null ? debtPrincipal * 0.02 : null;
   const fundingCash =
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null && fundingAdjustment !== null
@@ -401,20 +406,40 @@ function createStressRegimes(
       cash: fundingCash
     }
   ].map(({ id, shock, cash }) => {
-    const demandShockBasisUnknown = id === "DEMAND_PRICE_DOWNSIDE" && !demandShockBasisAvailable;
-    const liquidity = demandShockBasisUnknown
-      ? basis(null, CURRENCY_UNIT, sourceRefs, "ROUND", "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE")
+    const operatingShockBasisUnknown =
+      (id === "DEMAND_PRICE_DOWNSIDE" || id === "WORKFORCE_CAPACITY_PRESSURE") &&
+      !demandShockBasisAvailable;
+    const liquidity = operatingShockBasisUnknown
+      ? basis(
+          null,
+          CURRENCY_UNIT,
+          sourceRefs,
+          "ROUND",
+          id === "DEMAND_PRICE_DOWNSIDE"
+            ? "DEMAND_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+            : "WORKFORCE_SHOCK_OPERATING_BASIS_UNAVAILABLE"
+        )
       : stressedLiquidity(cash);
     const covenant = stressCovenant(liquidity, baseCovenant);
     const constraints = [...baseConstraints];
     const stressedLiquidityBreach =
       liquidity.status === "KNOWN" && liquidity.amount !== null && liquidity.amount < 0;
     if (stressedLiquidityBreach) constraints.push("STRESSED_MINIMUM_CASH_BREACH");
-    if (demandShockBasisUnknown) constraints.push("DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN");
+    if (operatingShockBasisUnknown) {
+      constraints.push(
+        id === "DEMAND_PRICE_DOWNSIDE"
+          ? "DEMAND_SHOCK_OPERATING_BASIS_UNKNOWN"
+          : "WORKFORCE_SHOCK_OPERATING_BASIS_UNKNOWN"
+      );
+    }
     const whyNotFeasible: string[] = [];
     if (stressedLiquidityBreach) whyNotFeasible.push("压力情景下最低现金约束被突破。");
-    if (demandShockBasisUnknown) {
-      whyNotFeasible.push("需求冲击无法与融资现金流区分，压力情景不可判定。");
+    if (operatingShockBasisUnknown) {
+      whyNotFeasible.push(
+        id === "DEMAND_PRICE_DOWNSIDE"
+          ? "需求冲击无法与融资现金流区分，压力情景不可判定。"
+          : "劳动力压力无法与融资现金流区分，压力情景不可判定。"
+      );
     }
     if (!whyNotFeasible.length && baseFeasibility === "INFEASIBLE") {
       whyNotFeasible.push("基础情景已触发资本或现金约束，压力情景不得恢复为可行。");
@@ -734,7 +759,7 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     "压力情景为确定性诊断，不代表真实概率或正式结算。",
     ...(input.capital_actions.length > 0
       ? [
-          "需求/价格压力无法从包含融资行动的 path_cash_delta 中隔离，相关压力现金流与流动性标记为 UNKNOWN。"
+          "需求/劳动力压力无法从包含融资行动的 path_cash_delta 中隔离，相关压力现金流与流动性标记为 UNKNOWN。"
         ]
       : [])
   ];
