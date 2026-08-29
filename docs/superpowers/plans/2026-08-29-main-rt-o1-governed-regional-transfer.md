@@ -108,5 +108,23 @@ to excluding `regional-transfer-product-journey.spec.ts` from the default core
 config while retaining it in `playwright.rt-o1.config.ts`. Before that push,
 both configurations must be checked with Playwright `--list`, the dedicated RT
 journey must pass, and the full local `test:e2e:ui:core` command must pass. No
-further push, waiver, rerun-only workaround, or gate bypass is authorized after
-this extension.
+further push was planned after this extension; the PR4 guard result is recorded
+below before the final convergence decision.
+
+### PR4 guard alignment extension
+
+Push 4 failed before any browser process started because
+`ui-pr4-integration.test.tsx` intentionally pins the exact default `testIgnore`
+expression. The production configuration behaved correctly in a full local
+core run, but the guard still expected the pre-RT expression. A local rerun
+reproduced exactly one failed assertion out of 57 PR4 unit tests, with all other
+tests green.
+
+Updating the guard to require the new RT-specific exclusion preserves its
+original independence contract; it does not skip a PR4 test, relax a security
+check, or alter browser behavior. Under Prompt paragraphs 76, 77, and 95, one
+fifth and final non-force push is bounded to this guard expectation and this
+Mission record. It requires `test:unit:pr4`, typecheck, lint, the dedicated RT
+journey, and the full local `test:e2e:ui:core` evidence already bound to the
+unchanged Playwright configuration. No further push, waiver, rerun-only
+workaround, or gate bypass is authorized after push 5.

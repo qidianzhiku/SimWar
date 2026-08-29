@@ -735,7 +735,9 @@ describe("Product PR4 integration contracts", () => {
     expect(packageJson.scripts["capture:pr4:baseline"]).toBe(
       "node scripts/capture-pr4-visual-baseline.mjs"
     );
-    expect(configSource).toContain("testIgnore: /(?:pr4-.*|executive-strategy-lab)\\.spec\\.ts/");
+    expect(configSource).toContain(
+      "testIgnore: /(?:pr4-.*|executive-strategy-lab|regional-transfer-product-journey)\\.spec\\.ts/"
+    );
     expect(configSource).not.toContain("PR4_CONFIG_LAB");
     expect(configSource).not.toContain("pr4EvidenceRoot");
     expect(pr4ConfigSource).toContain('process.env.PR4_W3_FIXTURE === "true"');
