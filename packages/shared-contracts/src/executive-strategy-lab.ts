@@ -317,6 +317,16 @@ function digest(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 }
 
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonical(object[key])}`)
+    .join(",")}}`;
+}
+
 function financeUnit(value: unknown): boolean {
   return ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"].includes(String(value));
 }
@@ -1024,6 +1034,16 @@ function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
   return response.paths.every(alternativePath);
 }
 
+function responsePathsMatchProjection(response: Record<string, unknown>): boolean {
+  const projection =
+    response.surface === "teacher"
+      ? record(response.teacher_projection)
+      : response.surface === "student"
+        ? record(response.student_projection)
+        : null;
+  return projection !== null && canonical(response.paths) === canonical(projection.paths);
+}
+
 export function isESLResponse(value: unknown): value is ESLResponse {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const response = value as Record<string, unknown>;
@@ -1035,6 +1055,7 @@ export function isESLResponse(value: unknown): value is ESLResponse {
     officialBaseline(response.official_baseline) &&
     responseSurfaceBoundary(response) &&
     responsePathsMatchSurface(response) &&
+    responsePathsMatchProjection(response) &&
     Array.isArray(response.mechanisms) &&
     response.mechanisms.every(mechanism) &&
     transfer(response.transfer) &&

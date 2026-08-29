@@ -252,6 +252,7 @@ describe("Executive Strategy Lab contract", () => {
         }
       ]
     };
+    studentProjection.paths = responseWithStudentFinance.paths;
     expect(isESLResponse(responseWithStudentFinance)).toBe(true);
   });
 
@@ -510,5 +511,51 @@ describe("Executive Strategy Lab contract", () => {
     } else {
       expect(validTeacher.paths.every((path) => Array.isArray(path.decision_ids))).toBe(true);
     }
+  });
+
+  it("requires root paths to match the selected surface projection", () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown> & {
+      paths: unknown[];
+      teacher_projection: Record<string, unknown>;
+    };
+    expect(isESLResponse(fixture)).toBe(true);
+    const aligned = structuredClone(fixture) as typeof fixture;
+    aligned.teacher_projection.paths = aligned.paths;
+    expect(isESLResponse(aligned)).toBe(true);
+
+    const mismatched = structuredClone(aligned) as typeof fixture;
+    const projectionPaths = [
+      ...(mismatched.teacher_projection.paths as Array<Record<string, unknown>>)
+    ];
+    mismatched.teacher_projection.paths = projectionPaths;
+    projectionPaths[0] = { ...projectionPaths[0], label: "不一致的投影路径" };
+    expect(isESLResponse(mismatched)).toBe(false);
+  });
+
+  it("requires each finance stress regime exactly once in the JSON Schema", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const duplicateFullRegime = structuredClone(fixture) as Record<string, unknown>;
+    const fullFinance = (duplicateFullRegime.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const fullStress = fullFinance.stress_regimes as Array<Record<string, unknown>>;
+    fullStress[1] = { ...fullStress[1], regime_id: fullStress[0].regime_id };
+    expect(validate(duplicateFullRegime)).toBe(false);
+
+    const duplicateStudentRegime = structuredClone(fixture) as Record<string, unknown>;
+    const studentFinance = (duplicateStudentRegime.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const studentView = studentFinance.student_view as Record<string, unknown>;
+    const studentStress = studentView.stress_regimes as Array<Record<string, unknown>>;
+    studentStress[1] = { ...studentStress[1], regime_id: studentStress[0].regime_id };
+    expect(validate(duplicateStudentRegime)).toBe(false);
   });
 });

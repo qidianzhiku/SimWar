@@ -649,7 +649,7 @@
         "mechanism_ids": ["mechanism_fixture_cash", "mechanism_fixture_capital"],
         "finance_feasibility": {
           "official": false,
-          "validation": { "status": "UNKNOWN", "reasons": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"] },
+          "validation": { "status": "VALID", "reasons": [] },
           "no_write": {
             "enterprise_state": false,
             "settlement_result": false,
@@ -675,260 +675,229 @@
           "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "source_refs": ["fixture:finance"],
           "capex": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 100,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "opex": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 50,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "capital": {
             "debt_principal": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 400,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "equity_proceeds": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 800,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "working_capital": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 500,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "ROUND",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             }
           },
           "debt": {
             "principal": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 400,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "interest_paid": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 20,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "amortization": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 40,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
             "debt_service": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 60,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting", "fixture:state"]
             }
           },
           "cash_flow": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 250,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:finance"]
           },
           "liquidity_headroom": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 650,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "ROUND",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:state"]
           },
           "dscr": {
-            "ratio": null,
-            "status": "UNKNOWN",
+            "ratio": 3,
+            "status": "KNOWN",
             "numerator": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 180,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
             "denominator": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 60,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "capital_budget_utilization": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 0.4,
+            "status": "KNOWN",
             "unit": "RATIO",
             "currency": "NOT_APPLICABLE",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
-          "covenant_status": "UNKNOWN",
-          "feasibility": "UNKNOWN",
-          "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-          "why_not_feasible": ["Fixture 不包含可用于正式结算的完整财务基础。"],
+          "covenant_status": "WITHIN_LIMIT",
+          "feasibility": "FEASIBLE",
+          "binding_constraints": [],
+          "why_not_feasible": [],
           "stress_regimes": [
             {
               "regime_id": "DEMAND_PRICE_DOWNSIDE",
-              "shock": "需求压力诊断基础不可用。",
+              "shock": "需求与价格现金流下行 20%；确定性诊断。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 200,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 600,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             },
             {
               "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
-              "shock": "劳动力压力诊断基础不可用。",
+              "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 225,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 625,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             },
             {
               "regime_id": "FUNDING_COVENANT_PRESSURE",
-              "shock": "资金压力诊断基础不可用。",
+              "shock": "资金成本上升 200 bps；仅在已知债务本金时计算。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 242,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 642,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             }
           ],
-          "assumptions": ["Fixture 不代表正式结算。"],
-          "uncertainty": ["财务基础不可用。"],
-          "known_limits": ["Fixture 仅用于契约验证。"],
+          "assumptions": ["压力情景为确定性候选诊断。"],
+          "uncertainty": ["NON_OFFICIAL 候选投影。"],
+          "known_limits": ["该投影不得覆盖正式结算。"],
           "student_view": {
             "official": false,
             "role_safe": true,
-            "feasibility": "UNKNOWN",
-            "cash_flow": {
-              "amount": null,
-              "status": "UNKNOWN",
-              "unit": "SIMWAR_CURRENCY",
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
-            },
-            "liquidity_headroom": {
-              "amount": null,
-              "status": "UNKNOWN",
-              "unit": "SIMWAR_CURRENCY",
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
-            },
-            "capital_tradeoff_summary": "该 fixture 不提供完整财务基础，因此可行性保持 UNKNOWN。",
+            "feasibility": "FEASIBLE",
+            "cash_flow": { "amount": 250, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+            "liquidity_headroom": { "amount": 650, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+            "capital_tradeoff_summary": "当前已知输入下通过资本可行性检查。",
             "stress_regimes": [
               {
                 "regime_id": "DEMAND_PRICE_DOWNSIDE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               },
               {
                 "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               },
               {
                 "regime_id": "FUNDING_COVENANT_PRESSURE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               }
             ],
             "excluded_fields": ["source_refs", "model", "debt_schedule"]
@@ -951,7 +920,7 @@
         "mechanism_ids": ["mechanism_fixture_cash", "mechanism_fixture_project"],
         "finance_feasibility": {
           "official": false,
-          "validation": { "status": "UNKNOWN", "reasons": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"] },
+          "validation": { "status": "VALID", "reasons": [] },
           "no_write": {
             "enterprise_state": false,
             "settlement_result": false,
@@ -977,260 +946,229 @@
           "input_digest": "1111111111111111111111111111111111111111111111111111111111111111",
           "source_refs": ["fixture:finance"],
           "capex": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 100,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "opex": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 50,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "capital": {
             "debt_principal": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 400,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "equity_proceeds": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 800,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "working_capital": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 500,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "ROUND",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             }
           },
           "debt": {
             "principal": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 400,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "interest_paid": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 20,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:state"]
             },
             "amortization": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 40,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
             "debt_service": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 60,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting", "fixture:state"]
             }
           },
           "cash_flow": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 225,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:finance"]
           },
           "liquidity_headroom": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 625,
+            "status": "KNOWN",
             "unit": "SIMWAR_CURRENCY",
-            "currency": "UNKNOWN",
+            "currency": "SIMWAR_UNITS",
             "time_period": "ROUND",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:state"]
           },
           "dscr": {
-            "ratio": null,
-            "status": "UNKNOWN",
+            "ratio": 3,
+            "status": "KNOWN",
             "numerator": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 180,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
             "denominator": {
-              "amount": null,
-              "status": "UNKNOWN",
+              "amount": 60,
+              "status": "KNOWN",
               "unit": "SIMWAR_CURRENCY",
-              "currency": "UNKNOWN",
+              "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["fixture:finance"],
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+              "source_refs": ["fixture:accounting"]
             },
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
           "capital_budget_utilization": {
-            "amount": null,
-            "status": "UNKNOWN",
+            "amount": 0.4,
+            "status": "KNOWN",
             "unit": "RATIO",
             "currency": "NOT_APPLICABLE",
             "time_period": "HORIZON",
-            "source_refs": ["fixture:finance"],
-            "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+            "source_refs": ["fixture:accounting"]
           },
-          "covenant_status": "UNKNOWN",
-          "feasibility": "UNKNOWN",
-          "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-          "why_not_feasible": ["Fixture 不包含可用于正式结算的完整财务基础。"],
+          "covenant_status": "WITHIN_LIMIT",
+          "feasibility": "FEASIBLE",
+          "binding_constraints": [],
+          "why_not_feasible": [],
           "stress_regimes": [
             {
               "regime_id": "DEMAND_PRICE_DOWNSIDE",
-              "shock": "需求压力诊断基础不可用。",
+              "shock": "需求与价格现金流下行 20%；确定性诊断。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 180,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 580,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             },
             {
               "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
-              "shock": "劳动力压力诊断基础不可用。",
+              "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 202.5,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 602.5,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             },
             {
               "regime_id": "FUNDING_COVENANT_PRESSURE",
-              "shock": "资金压力诊断基础不可用。",
+              "shock": "资金成本上升 200 bps；仅在已知债务本金时计算。",
               "cash_flow": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 217,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "HORIZON",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:finance"]
               },
               "liquidity_headroom": {
-                "amount": null,
-                "status": "UNKNOWN",
+                "amount": 617,
+                "status": "KNOWN",
                 "unit": "SIMWAR_CURRENCY",
-                "currency": "UNKNOWN",
+                "currency": "SIMWAR_UNITS",
                 "time_period": "ROUND",
-                "source_refs": ["fixture:finance"],
-                "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
+                "source_refs": ["fixture:state"]
               },
-              "covenant_status": "UNKNOWN",
-              "feasibility": "UNKNOWN",
-              "binding_constraints": ["FIXTURE_FINANCE_BASIS_UNAVAILABLE"],
-              "why_not_feasible": ["Fixture 财务基础不可用。"]
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE",
+              "binding_constraints": [],
+              "why_not_feasible": []
             }
           ],
-          "assumptions": ["Fixture 不代表正式结算。"],
-          "uncertainty": ["财务基础不可用。"],
-          "known_limits": ["Fixture 仅用于契约验证。"],
+          "assumptions": ["压力情景为确定性候选诊断。"],
+          "uncertainty": ["NON_OFFICIAL 候选投影。"],
+          "known_limits": ["该投影不得覆盖正式结算。"],
           "student_view": {
             "official": false,
             "role_safe": true,
-            "feasibility": "UNKNOWN",
-            "cash_flow": {
-              "amount": null,
-              "status": "UNKNOWN",
-              "unit": "SIMWAR_CURRENCY",
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
-            },
-            "liquidity_headroom": {
-              "amount": null,
-              "status": "UNKNOWN",
-              "unit": "SIMWAR_CURRENCY",
-              "unknown_reason": "FIXTURE_FINANCE_BASIS_UNAVAILABLE"
-            },
-            "capital_tradeoff_summary": "该 fixture 不提供完整财务基础，因此可行性保持 UNKNOWN。",
+            "feasibility": "FEASIBLE",
+            "cash_flow": { "amount": 225, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+            "liquidity_headroom": { "amount": 625, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+            "capital_tradeoff_summary": "当前已知输入下通过资本可行性检查。",
             "stress_regimes": [
               {
                 "regime_id": "DEMAND_PRICE_DOWNSIDE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               },
               {
                 "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               },
               {
                 "regime_id": "FUNDING_COVENANT_PRESSURE",
-                "covenant_status": "UNKNOWN",
-                "feasibility": "UNKNOWN"
+                "covenant_status": "WITHIN_LIMIT",
+                "feasibility": "FEASIBLE"
               }
             ],
             "excluded_fields": ["source_refs", "model", "debt_schedule"]

@@ -699,7 +699,36 @@
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
-          "items": { "$ref": "#/$defs/financeStudentStressRegime" }
+          "items": { "$ref": "#/$defs/financeStudentStressRegime" },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "DEMAND_PRICE_DOWNSIDE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "WORKFORCE_CAPACITY_PRESSURE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "FUNDING_COVENANT_PRESSURE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
         },
         "excluded_fields": {
           "type": "array",
@@ -865,7 +894,36 @@
           "type": "array",
           "minItems": 3,
           "maxItems": 3,
-          "items": { "$ref": "#/$defs/financeStressRegime" }
+          "items": { "$ref": "#/$defs/financeStressRegime" },
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "DEMAND_PRICE_DOWNSIDE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "WORKFORCE_CAPACITY_PRESSURE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "required": ["regime_id"],
+                "properties": { "regime_id": { "const": "FUNDING_COVENANT_PRESSURE" } }
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ]
         },
         "assumptions": {
           "type": "array",
