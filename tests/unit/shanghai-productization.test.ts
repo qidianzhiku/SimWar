@@ -185,6 +185,51 @@ describe("Shanghai M7–M12 productization spine", () => {
     ).toThrowError(new ProductizationError("DIGEST_MISMATCH"));
   });
 
+  it("matches catalog versions by exact reference and uses the service clock for expiry", () => {
+    const service = new ShanghaiProductizationService({ now: () => fixedNow });
+    const versionOne = entry("scenario-versioned", {
+      scenario_reference: scenarioReference("scenario-versioned", "tenant-shanghai", "1.0.0", "a")
+    });
+    const versionTwo = entry("scenario-versioned", {
+      scenario_reference: scenarioReference("scenario-versioned", "tenant-shanghai", "2.0.0", "b")
+    });
+    const catalog = service.compileScenarioCatalog([versionOne, versionTwo]);
+    expect(
+      service.selectScenarioCatalogEntry(catalog, {
+        catalog_entry_id: versionTwo.catalog_entry_id,
+        expected_reference: versionTwo.scenario_reference,
+        selected_at: fixedNow,
+        selected_by: "teacher-1",
+        tenant_id: "tenant-shanghai"
+      }).selected_reference
+    ).toEqual(versionTwo.scenario_reference);
+
+    const expiredService = new ShanghaiProductizationService({
+      now: () => "2026-10-01T00:00:00.000Z"
+    });
+    const expiring = entry("scenario-clock", {
+      rights: { ...entry("rights").rights, expires_at: "2026-09-01T00:00:00.000Z" }
+    });
+    expect(() =>
+      expiredService.selectScenarioCatalogEntry(expiredService.compileScenarioCatalog([expiring]), {
+        catalog_entry_id: expiring.catalog_entry_id,
+        expected_reference: expiring.scenario_reference,
+        selected_at: "2026-08-01T00:00:00.000Z",
+        selected_by: "teacher-1",
+        tenant_id: "tenant-shanghai"
+      })
+    ).toThrowError(new ProductizationError("RIGHTS_BLOCKED"));
+    expect(() =>
+      service.selectScenarioCatalogEntry(catalog, {
+        catalog_entry_id: versionOne.catalog_entry_id,
+        expected_reference: versionOne.scenario_reference,
+        selected_at: "not-a-timestamp",
+        selected_by: "teacher-1",
+        tenant_id: "tenant-shanghai"
+      })
+    ).toThrowError(new ProductizationError("CATALOG_ENTRY_INVALID"));
+  });
+
   it("creates exact-base drafts, forks without overwrite, compares, validates, and freezes", () => {
     const service = new ShanghaiProductizationService({ now: () => fixedNow });
     const base = entry("scenario-shanghai");
@@ -339,6 +384,12 @@ describe("Shanghai M7–M12 productization spine", () => {
         geography: "Beijing"
       }).diagnostics.why_not_bind
     ).toContain("EVIDENCE_GEOGRAPHY_MISMATCH");
+    const missingRequiredFeature = service.bindModelEvidence({
+      ...input,
+      unit_requirements: { demand: "people", capacity: "beds" }
+    });
+    expect(missingRequiredFeature.status).toBe("NOT_ELIGIBLE");
+    expect(missingRequiredFeature.diagnostics.why_not_bind).toContain("EVIDENCE_MISSING:capacity");
   });
 
   it("assembles a two-module three-round package and keeps Standard/Advanced on one kernel", () => {
@@ -494,6 +545,15 @@ describe("Shanghai M7–M12 productization spine", () => {
       false
     );
     expect(() =>
+      service.createDeliveryReceipt(config, { ...aggregate, sponsor_id: "sponsor-other" })
+    ).toThrowError(new ProductizationError("TENANT_SCOPE_VIOLATION"));
+    expect(() =>
+      service.createDeliveryReceipt(config, {
+        ...aggregate,
+        allowed_metrics: { state_true: 1 }
+      })
+    ).toThrowError(new ProductizationError("SPONSOR_DATA_BLOCKED"));
+    expect(() =>
       service.copyCoursePackage(catalog, {
         actor_tenant_id: "tenant-other",
         catalog_entry_id: "catalog-shanghai",
@@ -503,6 +563,24 @@ describe("Shanghai M7–M12 productization spine", () => {
         new_version: "1.0.0"
       })
     ).toThrowError(new ProductizationError("TENANT_SCOPE_VIOLATION"));
+
+    const expiredRightsService = new ShanghaiProductizationService({
+      now: () => "2026-10-01T00:00:00.000Z"
+    });
+    const expiredRightsCatalog = expiredRightsService.registerEnterpriseCourse({
+      ...catalog,
+      rights: { ...catalog.rights, expires_at: "2026-09-01T00:00:00.000Z" }
+    });
+    expect(() =>
+      expiredRightsService.copyCoursePackage(expiredRightsCatalog, {
+        actor_tenant_id: "tenant-destination",
+        catalog_entry_id: "catalog-shanghai",
+        copied_at: "2026-08-01T00:00:00.000Z",
+        destination_tenant_id: "tenant-destination",
+        new_course_package_id: "course-expired-copy",
+        new_version: "1.0.0"
+      })
+    ).toThrowError(new ProductizationError("RIGHTS_BLOCKED"));
 
     expect(() =>
       service.createDeliveryConfiguration({
@@ -575,6 +653,19 @@ describe("Shanghai M7–M12 productization spine", () => {
       }).status
     ).toBe("BLOCKED");
     expect(withdrawn.current_status).toBe("WITHDRAWN");
+
+    const blocked = service.createPortfolioCandidate({
+      compatibility_impact: {
+        affected_consumers: ["MAIN Course Factory"],
+        changed_references: ["model:changed"],
+        status: "BLOCKED"
+      },
+      package_reference: ref,
+      portfolio_id: "portfolio-blocked",
+      tenant_id: ref.tenant_id
+    });
+    expect(blocked.current_status).toBe("DRAFT");
+    expect(service.resolveHistoricalPortfolioVersion(blocked, ref).status).toBe("DRAFT");
   });
 
   it("uses canonical ordering for deterministic candidate digests", () => {

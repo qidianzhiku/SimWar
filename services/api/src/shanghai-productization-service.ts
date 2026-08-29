@@ -515,25 +515,23 @@ export class ShanghaiProductizationService {
   ): ScenarioCatalogSelectionReceipt {
     if (!request || !request.catalog_entry_id || !request.expected_reference)
       fail("EXACT_REFERENCE_REQUIRED");
-    const entry = catalog.entries.find(
+    if (request.tenant_id !== catalog.tenant_id) fail("TENANT_SCOPE_VIOLATION");
+    assertScenarioReference(request.expected_reference, request.tenant_id);
+    const candidates = catalog.entries.filter(
       (candidate) => candidate.catalog_entry_id === request.catalog_entry_id
     );
-    if (!entry) fail("NOT_FOUND");
-    if (request.tenant_id !== catalog.tenant_id || entry.tenant_id !== request.tenant_id)
-      fail("TENANT_SCOPE_VIOLATION");
-    assertScenarioReference(request.expected_reference, request.tenant_id);
-    if (!sameScenarioReference(entry.scenario_reference, request.expected_reference))
-      fail("DIGEST_MISMATCH");
+    if (candidates.length === 0) fail("NOT_FOUND");
+    const entry = candidates.find((candidate) =>
+      sameScenarioReference(candidate.scenario_reference, request.expected_reference)
+    );
+    if (!entry) fail("DIGEST_MISMATCH");
+    if (entry.tenant_id !== request.tenant_id) fail("TENANT_SCOPE_VIOLATION");
+    if (!isValidTimestamp(request.selected_at)) fail("CATALOG_ENTRY_INVALID");
+    const now = this.now();
     if (entry.qualification.status !== "ELIGIBLE") fail("QUALIFICATION_BLOCKED");
-    if (
-      entry.rights.license_status !== "VALID" ||
-      isExpired(entry.rights.expires_at, request.selected_at)
-    )
+    if (entry.rights.license_status !== "VALID" || isExpired(entry.rights.expires_at, now))
       fail("RIGHTS_BLOCKED");
-    if (
-      entry.freshness.status !== "FRESH" ||
-      isExpired(entry.freshness.expires_at, request.selected_at)
-    )
+    if (entry.freshness.status !== "FRESH" || isExpired(entry.freshness.expires_at, now))
       fail("FRESHNESS_BLOCKED");
     if (entry.compatibility.status !== "COMPATIBLE") fail("COMPATIBILITY_BLOCKED");
     return deepFreeze({
@@ -751,6 +749,17 @@ export class ShanghaiProductizationService {
         severity: "ERROR"
       });
       whyNotBind.push("EVIDENCE_MISSING");
+    }
+    const evidenceFeatureIds = new Set(input.evidence.map((evidence) => evidence.feature_id));
+    for (const featureId of Object.keys(input.unit_requirements)) {
+      if (!evidenceFeatureIds.has(featureId)) {
+        findings.push({
+          code: "EVIDENCE_MISSING",
+          message: `Evidence for required feature ${featureId} is missing.`,
+          severity: "ERROR"
+        });
+        whyNotBind.push(`EVIDENCE_MISSING:${featureId}`);
+      }
     }
     for (const evidence of input.evidence) {
       if (
@@ -1044,7 +1053,8 @@ export class ShanghaiProductizationService {
       input.destination_tenant_id !== entry.tenant_id
     )
       fail("TENANT_SCOPE_VIOLATION");
-    assertRightsGrant(entry.rights, input.copied_at, operation);
+    if (!isValidTimestamp(input.copied_at)) fail("CATALOG_ENTRY_INVALID");
+    assertRightsGrant(entry.rights, this.now(), operation);
     assertCourseReference(entry.course_package_reference);
     if (!nonBlank(input.new_course_package_id) || !exactVersion(input.new_version))
       fail("EXACT_REFERENCE_REQUIRED");
@@ -1123,9 +1133,28 @@ export class ShanghaiProductizationService {
     if (
       aggregate.tenant_id !== configuration.tenant_id ||
       aggregate.delivery_id !== configuration.delivery_id ||
-      aggregate.participant_count !== configuration.participant_count
+      aggregate.participant_count !== configuration.participant_count ||
+      aggregate.sponsor_id !== configuration.sponsor_id
     )
       fail("TENANT_SCOPE_VIOLATION");
+    if (
+      !aggregate.allowed_metrics ||
+      typeof aggregate.allowed_metrics !== "object" ||
+      Array.isArray(aggregate.allowed_metrics)
+    )
+      fail("SPONSOR_DATA_BLOCKED");
+    const validatedAggregate = this.createSponsorSafeAggregate(
+      configuration,
+      aggregate.allowed_metrics
+    );
+    if (
+      aggregate.privacy_status !== validatedAggregate.privacy_status ||
+      stableProductizationDigest(aggregate.allowed_metrics) !==
+        stableProductizationDigest(validatedAggregate.allowed_metrics) ||
+      stableProductizationDigest(aggregate.forbidden_fields) !==
+        stableProductizationDigest(validatedAggregate.forbidden_fields)
+    )
+      fail("SPONSOR_DATA_BLOCKED");
     return deepFreeze({
       audit_event_id: `delivery-audit:${stableProductizationDigest({ configuration, aggregate }).slice(0, 16)}`,
       delivery_id: configuration.delivery_id,
@@ -1139,11 +1168,13 @@ export class ShanghaiProductizationService {
   createPortfolioCandidate(input: PortfolioCreateInput): ScenarioCoursePortfolioCandidate {
     assertCourseReference(input.package_reference, input.tenant_id);
     if (!nonBlank(input.portfolio_id)) fail("CATALOG_ENTRY_INVALID");
+    const initialStatus: ScenarioCoursePortfolioStatus =
+      input.compatibility_impact.status === "BLOCKED" ? "DRAFT" : "READY";
     const historical = [
       {
         content_digest: input.package_reference.content_digest,
         package_id: input.package_reference.course_package_id,
-        status: "READY" as const,
+        status: initialStatus,
         version: input.package_reference.version
       }
     ];

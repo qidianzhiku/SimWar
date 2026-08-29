@@ -510,8 +510,7 @@
         "scenario_reference",
         "status",
         "truth_write",
-        "replay_truth_write",
-        "why_not_bind"
+        "replay_truth_write"
       ],
       "properties": {
         "scenario_reference": { "$ref": "#/$defs/scenarioReference" },
@@ -526,7 +525,6 @@
         "model_version_reference": { "$ref": "#/$defs/modelReference" },
         "parameter_set_reference": { "$ref": "#/$defs/parameterReference" },
         "status": { "enum": ["ELIGIBLE_CANDIDATE", "NOT_ELIGIBLE"] },
-        "why_not_bind": { "type": "array", "items": { "type": "string" } },
         "no_implicit_latest": { "const": true },
         "formal_activation": { "const": false },
         "truth_write": { "const": false },

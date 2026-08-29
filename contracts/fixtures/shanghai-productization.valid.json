@@ -239,7 +239,6 @@
     },
     "findings": [],
     "status": "ELIGIBLE_CANDIDATE",
-    "why_not_bind": [],
     "no_implicit_latest": true,
     "formal_activation": false,
     "truth_write": false,
