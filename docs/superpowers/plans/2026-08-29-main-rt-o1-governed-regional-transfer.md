@@ -66,3 +66,28 @@ provider, database, workflow or unrelated frontend refactor is in scope.
   authority predicate is green, then run detached post-merge H3.
 - Stop after H3 at `COMPLETE`, `COMPLETE_WITH_LIMITS`,
   `PLATFORM_NONWAIVABLE_HOLD`, or `P0_AUTHORITY_HOLD`; do not start a successor.
+
+## Bounded same-mission remote convergence extension
+
+The first candidate push exposed CI build-order and bundle-budget findings; the
+second push fixed those findings and made `quality` and the CodeQL analysis job
+green, but `browser-smoke` still exposed five concrete integration regressions.
+Local commit `5e249d24df1f23c51280eeb27e824f1850b85f2e` isolates the RT journey from
+unrelated Teacher and Student startup paths and is verified by the dedicated RT
+journey plus the affected inherited browser specs.
+
+The second remote analysis also classified a new high-severity CodeQL flow at
+`formal-course-authority-binding.ts:88`. Exact source readback shows that the
+production file is unchanged; the flow is introduced by the new RT integration
+fixture passing formal Scenario runtime outputs into the binding-digest helper
+within the same process that performs password-based login. The focused repair
+keeps the production digest and all security checks intact, seeds exact approved
+fixture snapshots directly, and retains the real BFF route journey.
+
+Prompt paragraph 77 permits a bounded extension when additional cycles are
+justified by an exact root cause. Accordingly, one third and final non-force
+push is authorized for these two focused same-mission repairs only. It must not
+change settlement, replay, canonical truth, workflow, provider, database,
+security policy, or unrelated product behavior. If the resulting remote checks
+do not satisfy the Machine Merge Gate, the mission stops at the applicable hold
+status without another push, waiver, or gate bypass.

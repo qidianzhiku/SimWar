@@ -16,7 +16,8 @@ import { CourseBlueprintBindingStore } from "../../services/api/src/course-bluep
 import { createFormalCourseAuthorityBinding } from "../../services/api/src/formal-course-authority-binding";
 import { FormalCourseAuthorityBindingStore } from "../../services/api/src/formal-course-authority-binding-store";
 import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api/src/json-repository-adapter";
-import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
+import type { ParameterSetVersion } from "../../services/api/src/parameter-set-authority";
+import type { ScenarioPackageVersion } from "../../services/api/src/scenario-package-authority";
 import { createApiServer } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, createP1Store, type SimWarStore } from "../../services/api/src/store";
 
@@ -65,49 +66,52 @@ async function seedApprovedSources(store: SimWarStore): Promise<{
   scenario: RegionalTransferCandidateInput["scenario_package_reference"];
 }> {
   const persistence = createJsonFormalScenarioAuthorityPersistence(store);
-  const formal = createJsonFormalScenarioAuthorityRuntime(persistence);
   const actor = {
     actor_id: "usr_platform",
     capabilities: ["course_blueprint:manage", "parameter_set:manage", "scenario_package:manage"],
     correlation_id: "rt_o1_endpoint_seed",
     tenant_id: DEFAULT_TENANT_ID
   };
-  const parameterDraft = await formal.parameterSets.createDraft(actor, {
-    compatibility_metadata: { engine_family: "toy_logit" },
-    model_version_ref: "toy_logit_wellness_v1@0.1.0",
+  const parameterReference = {
+    content_digest: "d".repeat(64),
     parameter_set_id: "parameter_rt_o1_endpoint",
+    version: "1.0.0"
+  };
+  const parameterApproved: ParameterSetVersion = {
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content_digest: parameterReference.content_digest,
+    model_version_ref: "toy_logit_wellness_v1@0.1.0",
+    parameter_set_id: parameterReference.parameter_set_id,
     parameter_values: { base_capacity: 120 },
+    reference: parameterReference,
     schema_version: "parameter-set.v1",
+    status: "APPROVED",
+    tenant_id: DEFAULT_TENANT_ID,
+    version: parameterReference.version
+  };
+  const scenarioReference = {
+    content_digest: "e".repeat(64),
+    scenario_package_id: "scenario_rt_o1_endpoint",
     tenant_id: DEFAULT_TENANT_ID,
     version: "1.0.0"
-  });
-  const parameterValidated = await formal.parameterSets.validate(actor, parameterDraft.reference);
-  const parameterFrozen = await formal.parameterSets.freeze(actor, parameterValidated.reference);
-  const parameterApproved = await formal.parameterSets.approve(
-    actor,
-    parameterFrozen.reference,
-    "rt_o1_parameter_approval"
-  );
-
-  const scenarioDraft = await formal.scenarioPackages.createDraft(actor, {
+  };
+  const scenarioApproved: ScenarioPackageVersion = {
     artifact_policy: { mode: "INLINE", retention: "IMMUTABLE" },
     compatibility_metadata: { scenario_family: "wellness" },
     content: { rounds: 1 },
+    content_digest: scenarioReference.content_digest,
     metadata: { title: "RT-O1 endpoint scenario" },
-    parameter_set_reference: parameterApproved.version.reference,
+    parameter_set_reference: parameterReference,
     plugin_dependencies: [],
-    scenario_package_id: "scenario_rt_o1_endpoint",
+    reference: scenarioReference,
+    scenario_package_id: scenarioReference.scenario_package_id,
     schema_version: "scenario-package.v1",
+    status: "APPROVED",
     tenant_id: DEFAULT_TENANT_ID,
-    version: "1.0.0"
-  });
-  const scenarioValidated = await formal.scenarioPackages.validate(actor, scenarioDraft.reference);
-  const scenarioFrozen = await formal.scenarioPackages.freeze(actor, scenarioValidated.reference);
-  const scenarioApproved = await formal.scenarioPackages.approve(
-    actor,
-    scenarioFrozen.reference,
-    "rt_o1_scenario_approval"
-  );
+    version: scenarioReference.version
+  };
+  store.formalParameterSetLifecycleSnapshots.push(parameterApproved);
+  store.formalScenarioPackageLifecycleSnapshots.push(scenarioApproved);
 
   const blueprints = new CourseBlueprintCommandService(persistence.createCourseBlueprintRegistry());
   const blueprintDraft = await blueprints.createDraft(actor, {
@@ -145,8 +149,8 @@ async function seedApprovedSources(store: SimWarStore): Promise<{
 
   const course = store.courses.find((candidate) => candidate.course_id === "course_demo");
   if (!course) throw new Error("seed_course_missing");
-  course.parameter_set_id = parameterApproved.version.reference.parameter_set_id;
-  course.scenario_package_id = scenarioApproved.version.reference.scenario_package_id;
+  course.parameter_set_id = parameterReference.parameter_set_id;
+  course.scenario_package_id = scenarioReference.scenario_package_id;
   new CourseBlueprintBindingStore(store).append(
     createCourseBlueprintBinding({
       binding_schema_version: "course-blueprint-binding.v1",
@@ -157,22 +161,34 @@ async function seedApprovedSources(store: SimWarStore): Promise<{
   );
   const formalCourseBinding = await createFormalCourseAuthorityBinding({
     authorities: {
-      parameterSets: formal.parameterSets,
-      plugins: formal.pluginReleases,
-      scenarios: formal.scenarioPackages
+      parameterSets: {
+        assertBindable: async (_tenantId, reference) => {
+          if (reference.content_digest !== parameterReference.content_digest) throw new Error();
+        },
+        getByReference: async () => parameterApproved
+      },
+      plugins: {
+        resolveAvailableForNewBinding: async () => null
+      },
+      scenarios: {
+        assertBindable: async (_tenantId, reference) => {
+          if (reference.content_digest !== scenarioReference.content_digest) throw new Error();
+        },
+        getByReference: async () => scenarioApproved
+      }
     },
     course_id: course.course_id,
     engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
-    parameter_set_reference: parameterApproved.version.reference,
-    scenario_package_reference: scenarioApproved.version.reference,
+    parameter_set_reference: parameterReference,
+    scenario_package_reference: scenarioReference,
     tenant_id: DEFAULT_TENANT_ID
   });
   new FormalCourseAuthorityBindingStore(store).append(formalCourseBinding);
   store.runs.push({
     course_id: course.course_id,
-    parameter_set_id: parameterApproved.version.reference.parameter_set_id,
+    parameter_set_id: parameterReference.parameter_set_id,
     run_id: "run_rt_o1_endpoint",
-    scenario_package_id: scenarioApproved.version.reference.scenario_package_id,
+    scenario_package_id: scenarioReference.scenario_package_id,
     seed: 20260829,
     status: "active",
     tenant_id: DEFAULT_TENANT_ID
@@ -200,8 +216,8 @@ async function seedApprovedSources(store: SimWarStore): Promise<{
   });
   return {
     blueprint: blueprintApproved.version.reference,
-    parameter: parameterApproved.version.reference,
-    scenario: scenarioApproved.version.reference
+    parameter: parameterReference,
+    scenario: scenarioReference
   };
 }
 
