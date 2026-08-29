@@ -196,6 +196,65 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(studentWithTeacherProjection)).toBe(false);
   });
 
+  it("rejects teacher finance provenance and incomplete projections on the student surface", () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown> & {
+      official_baseline: {
+        officiality: "OFFICIAL";
+        outcome_id: string | null;
+        summary: string;
+      };
+      paths: Array<Record<string, unknown>>;
+      transfer: unknown;
+      teacher_projection?: unknown;
+    };
+    const pathWithoutIds = { ...fixture.paths[0] };
+    delete pathWithoutIds.decision_ids;
+    delete pathWithoutIds.mechanism_ids;
+    const teacherFinance = pathWithoutIds.finance_feasibility;
+    const studentProjection = {
+      surface: "student" as const,
+      role_safe: true as const,
+      official_baseline: {
+        officiality: fixture.official_baseline.officiality,
+        outcome_id: fixture.official_baseline.outcome_id,
+        summary: fixture.official_baseline.summary
+      },
+      paths: [],
+      transfer: fixture.transfer,
+      excluded_fields: ["source_refs", "model", "debt_schedule"]
+    };
+    const responseWithTeacherFinance = {
+      ...fixture,
+      surface: "student" as const,
+      paths: [{ ...pathWithoutIds, finance_feasibility: teacherFinance }],
+      student_projection: studentProjection
+    };
+    delete responseWithTeacherFinance.teacher_projection;
+
+    expect(isESLResponse(responseWithTeacherFinance)).toBe(false);
+
+    const responseWithIncompleteProjection = {
+      ...responseWithTeacherFinance,
+      paths: [],
+      student_projection: { surface: "student" }
+    };
+    expect(isESLResponse(responseWithIncompleteProjection)).toBe(false);
+
+    const teacherFinanceRecord = teacherFinance as Record<string, unknown>;
+    const responseWithStudentFinance = {
+      ...responseWithTeacherFinance,
+      paths: [
+        {
+          ...pathWithoutIds,
+          finance_feasibility: teacherFinanceRecord.student_view
+        }
+      ]
+    };
+    expect(isESLResponse(responseWithStudentFinance)).toBe(true);
+  });
+
   it("binds root path shape to the declared response surface", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")

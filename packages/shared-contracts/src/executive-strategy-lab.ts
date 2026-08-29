@@ -275,6 +275,198 @@ function projectionHasSurface(value: unknown, surface: ESLSurface): boolean {
   );
 }
 
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[] = []
+): boolean {
+  const allowed = new Set([...required, ...optional]);
+  return (
+    required.every((key) => Object.hasOwn(value, key)) &&
+    Object.keys(value).every((key) => allowed.has(key))
+  );
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function finiteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function digest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function financeUnit(value: unknown): boolean {
+  return ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"].includes(String(value));
+}
+
+function financeStatus(value: unknown): boolean {
+  return value === "KNOWN" || value === "UNKNOWN";
+}
+
+function financeFeasibility(value: unknown): boolean {
+  return value === "FEASIBLE" || value === "INFEASIBLE" || value === "UNKNOWN";
+}
+
+function financeCovenantStatus(value: unknown): boolean {
+  return value === "WITHIN_LIMIT" || value === "BREACHED" || value === "UNKNOWN";
+}
+
+function stringArray(value: unknown, minimum = 0): value is string[] {
+  return (
+    Array.isArray(value) && value.length >= minimum && value.every((item) => nonEmptyString(item))
+  );
+}
+
+function financeDisplayValue(value: unknown): boolean {
+  const display = record(value);
+  return (
+    display !== null &&
+    hasExactKeys(display, ["amount", "status", "unit"]) &&
+    (display.amount === null || finiteNumber(display.amount)) &&
+    financeStatus(display.status) &&
+    financeUnit(display.unit)
+  );
+}
+
+function financeStudentStressRegime(value: unknown): boolean {
+  const regime = record(value);
+  return (
+    regime !== null &&
+    hasExactKeys(regime, ["regime_id", "covenant_status", "feasibility"]) &&
+    ["DEMAND_PRICE_DOWNSIDE", "WORKFORCE_CAPACITY_PRESSURE", "FUNDING_COVENANT_PRESSURE"].includes(
+      String(regime.regime_id)
+    ) &&
+    financeCovenantStatus(regime.covenant_status) &&
+    financeFeasibility(regime.feasibility)
+  );
+}
+
+function financeStudentProjection(value: unknown): boolean {
+  const projection = record(value);
+  if (
+    projection === null ||
+    !hasExactKeys(projection, [
+      "official",
+      "role_safe",
+      "feasibility",
+      "cash_flow",
+      "liquidity_headroom",
+      "capital_tradeoff_summary",
+      "stress_regimes",
+      "excluded_fields"
+    ])
+  ) {
+    return false;
+  }
+  const stressRegimes = projection.stress_regimes;
+  return (
+    projection.official === false &&
+    projection.role_safe === true &&
+    financeFeasibility(projection.feasibility) &&
+    financeDisplayValue(projection.cash_flow) &&
+    financeDisplayValue(projection.liquidity_headroom) &&
+    nonEmptyString(projection.capital_tradeoff_summary) &&
+    Array.isArray(stressRegimes) &&
+    stressRegimes.length === 3 &&
+    stressRegimes.every(financeStudentStressRegime) &&
+    new Set(stressRegimes.map((regime) => (record(regime) as Record<string, unknown>).regime_id))
+      .size === stressRegimes.length &&
+    stringArray(projection.excluded_fields, 1)
+  );
+}
+
+function studentOfficialBaseline(value: unknown): boolean {
+  const baseline = record(value);
+  return (
+    baseline !== null &&
+    hasExactKeys(baseline, ["officiality", "outcome_id", "summary"]) &&
+    baseline.officiality === "OFFICIAL" &&
+    (baseline.outcome_id === null || exactId(baseline.outcome_id)) &&
+    nonEmptyString(baseline.summary)
+  );
+}
+
+function transfer(value: unknown): boolean {
+  const transferValue = record(value);
+  return (
+    transferValue !== null &&
+    hasExactKeys(transferValue, [
+      "status",
+      "statement",
+      "evidence_path_ids",
+      "applies_to_next_round"
+    ]) &&
+    transferValue.status === "DRAFT" &&
+    nonEmptyString(transferValue.statement) &&
+    stringArray(transferValue.evidence_path_ids) &&
+    transferValue.applies_to_next_round === false
+  );
+}
+
+function studentAlternativePath(value: unknown): boolean {
+  const path = record(value);
+  const outcome = record(path?.outcome);
+  return (
+    path !== null &&
+    hasExactKeys(path, [
+      "path_id",
+      "label",
+      "officiality",
+      "path_digest",
+      "changed_paths",
+      "outcome",
+      "finance_feasibility"
+    ]) &&
+    exactId(path.path_id) &&
+    nonEmptyString(path.label) &&
+    path.officiality === "NON_OFFICIAL" &&
+    digest(path.path_digest) &&
+    stringArray(path.changed_paths) &&
+    outcome !== null &&
+    hasExactKeys(outcome, [
+      "cash_delta",
+      "capacity_delta",
+      "project_count_delta",
+      "terminal_state_digest"
+    ]) &&
+    finiteNumber(outcome.cash_delta) &&
+    finiteNumber(outcome.capacity_delta) &&
+    finiteNumber(outcome.project_count_delta) &&
+    digest(outcome.terminal_state_digest) &&
+    financeStudentProjection(path.finance_feasibility)
+  );
+}
+
+function studentProjection(value: unknown): boolean {
+  const projection = record(value);
+  return (
+    projection !== null &&
+    hasExactKeys(
+      projection,
+      ["surface", "role_safe", "official_baseline", "paths", "transfer", "excluded_fields"],
+      ["role_key"]
+    ) &&
+    projection.surface === "student" &&
+    projection.role_safe === true &&
+    (projection.role_key === undefined || exactId(projection.role_key)) &&
+    studentOfficialBaseline(projection.official_baseline) &&
+    Array.isArray(projection.paths) &&
+    projection.paths.every(studentAlternativePath) &&
+    transfer(projection.transfer) &&
+    stringArray(projection.excluded_fields, 1)
+  );
+}
+
 function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
   const surface = response.surface;
   const hasTeacherProjection = response.teacher_projection !== undefined;
@@ -290,9 +482,7 @@ function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
   }
   if (surface === "student") {
     return (
-      projectionHasSurface(response.student_projection, "student") &&
-      !hasTeacherProjection &&
-      !hasAdminProjection
+      studentProjection(response.student_projection) && !hasTeacherProjection && !hasAdminProjection
     );
   }
   if (surface === "admin") {
@@ -307,6 +497,9 @@ function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
 
 function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
   if (!Array.isArray(response.paths)) return false;
+  if (response.surface === "student") {
+    return response.paths.every(studentAlternativePath);
+  }
   return response.paths.every((path) => {
     if (!path || typeof path !== "object" || Array.isArray(path)) return false;
     const item = path as Record<string, unknown>;
@@ -318,9 +511,6 @@ function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
       Boolean(item.finance_feasibility) &&
       (item.finance_feasibility as Record<string, unknown>).official === false;
     if (!commonPath) return false;
-    if (response.surface === "student") {
-      return !Object.hasOwn(item, "decision_ids") && !Object.hasOwn(item, "mechanism_ids");
-    }
     return Array.isArray(item.decision_ids) && Array.isArray(item.mechanism_ids);
   });
 }
