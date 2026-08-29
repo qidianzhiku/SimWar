@@ -1,0 +1,411 @@
+{
+  "schema_version": "scenario-productization.v1",
+  "no_implicit_latest": true,
+  "authority": {
+    "formal_activation": false,
+    "formal_consumer_join_count": 0,
+    "parameter_set_formal_write_count": 0,
+    "provider_calls": 0,
+    "truth_mutation_count": 0
+  },
+  "catalog": {
+    "tenant_id": "tenant-shanghai",
+    "entries": [
+      {
+        "catalog_entry_id": "scenario-shanghai",
+        "schema_version": "scenario-productization.v1",
+        "theme": "eldercare operations",
+        "consumer_readiness": "C1_NAMED_FORWARD",
+        "known_limits": ["candidate-only", "not-calibrated"],
+        "compatibility": {
+          "engine_id": "simulation-core",
+          "required_schema_version": "scenario-productization.v1",
+          "status": "COMPATIBLE",
+          "supported_profiles": ["STANDARD", "ADVANCED"]
+        },
+        "freshness": {
+          "collected_at": "2026-08-29T00:00:00.000Z",
+          "expires_at": null,
+          "status": "FRESH"
+        },
+        "qualification": {
+          "calibrated": false,
+          "evidence_refs": ["m5-reality-qualification-candidate"],
+          "reason": "candidate upstream evidence only",
+          "status": "ELIGIBLE"
+        },
+        "rights": {
+          "copy_allowed": true,
+          "expires_at": null,
+          "fork_allowed": true,
+          "license_status": "VALID",
+          "territory": "CN"
+        },
+        "source": {
+          "confidence": "MEDIUM",
+          "geography": "Shanghai",
+          "provenance": "SYNTHETIC",
+          "sensitivity": "PUBLIC_SAFE",
+          "source_date": "2026-08-29",
+          "source_ref": "fixture:shanghai-productization",
+          "source_type": "SYNTHETIC",
+          "time_scope": "2026",
+          "usage_status": "APPROVED"
+        },
+        "tenant_id": "tenant-shanghai",
+        "title": "Shanghai Executive Eldercare",
+        "geography": "Shanghai",
+        "scenario_reference": {
+          "scenario_package_id": "scenario-shanghai",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "qualification_status": "ELIGIBLE",
+        "rights_status": "VALID",
+        "freshness_status": "FRESH",
+        "compatibility_status": "COMPATIBLE",
+        "experience_profiles": ["STANDARD", "ADVANCED"]
+      },
+      {
+        "catalog_entry_id": "scenario-suzhou",
+        "schema_version": "scenario-productization.v1",
+        "theme": "regional portability",
+        "consumer_readiness": "C2_PLATFORM_REUSE",
+        "known_limits": ["qualification-unknown", "candidate-only"],
+        "compatibility": {
+          "engine_id": "simulation-core",
+          "required_schema_version": "scenario-productization.v1",
+          "status": "UNKNOWN",
+          "supported_profiles": ["STANDARD"]
+        },
+        "freshness": {
+          "collected_at": "2026-08-29T00:00:00.000Z",
+          "expires_at": null,
+          "status": "FRESH"
+        },
+        "qualification": {
+          "calibrated": false,
+          "evidence_refs": ["fixture:qualification-unknown"],
+          "reason": "qualification not proven",
+          "status": "UNKNOWN"
+        },
+        "rights": {
+          "copy_allowed": true,
+          "expires_at": null,
+          "fork_allowed": false,
+          "license_status": "VALID",
+          "territory": "CN"
+        },
+        "source": {
+          "confidence": "LOW",
+          "geography": "Suzhou",
+          "provenance": "SYNTHETIC",
+          "sensitivity": "PUBLIC_SAFE",
+          "source_date": "2026-08-29",
+          "source_ref": "fixture:suzhou-portability-stub",
+          "source_type": "SYNTHETIC",
+          "time_scope": "2026",
+          "usage_status": "REVIEW_REQUIRED"
+        },
+        "tenant_id": "tenant-shanghai",
+        "title": "Suzhou Portability Stub",
+        "geography": "Suzhou",
+        "scenario_reference": {
+          "scenario_package_id": "scenario-suzhou",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "qualification_status": "UNKNOWN",
+        "rights_status": "VALID",
+        "freshness_status": "FRESH",
+        "compatibility_status": "UNKNOWN",
+        "experience_profiles": ["STANDARD"]
+      },
+      {
+        "catalog_entry_id": "scenario-synthetic-stub",
+        "schema_version": "scenario-productization.v1",
+        "theme": "synthetic validation",
+        "consumer_readiness": "C2_PLATFORM_REUSE",
+        "known_limits": ["stale", "not-eligible", "candidate-only"],
+        "compatibility": {
+          "engine_id": "simulation-core",
+          "required_schema_version": "scenario-productization.v1",
+          "status": "COMPATIBLE",
+          "supported_profiles": ["STANDARD"]
+        },
+        "freshness": {
+          "collected_at": "2026-01-01T00:00:00.000Z",
+          "expires_at": "2026-02-01T00:00:00.000Z",
+          "status": "STALE"
+        },
+        "qualification": {
+          "calibrated": false,
+          "evidence_refs": ["fixture:synthetic-stub"],
+          "reason": "synthetic stub is not eligible",
+          "status": "NOT_ELIGIBLE"
+        },
+        "rights": {
+          "copy_allowed": true,
+          "expires_at": null,
+          "fork_allowed": false,
+          "license_status": "VALID",
+          "territory": "CN"
+        },
+        "source": {
+          "confidence": "LOW",
+          "geography": "Synthetic",
+          "provenance": "SYNTHETIC",
+          "sensitivity": "PUBLIC_SAFE",
+          "source_date": "2026-08-29",
+          "source_ref": "fixture:synthetic-stub",
+          "source_type": "SYNTHETIC",
+          "time_scope": "2026",
+          "usage_status": "APPROVED"
+        },
+        "tenant_id": "tenant-shanghai",
+        "title": "Synthetic City Stub",
+        "geography": "Synthetic",
+        "scenario_reference": {
+          "scenario_package_id": "scenario-synthetic-stub",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "qualification_status": "NOT_ELIGIBLE",
+        "rights_status": "VALID",
+        "freshness_status": "STALE",
+        "compatibility_status": "COMPATIBLE",
+        "experience_profiles": ["STANDARD"]
+      }
+    ]
+  },
+  "model_binding": {
+    "binding_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "calibration_status": "NOT_CALIBRATED",
+    "candidate_writer": "SH_PRODUCTIZATION_CANDIDATE_COMPILER",
+    "formal_join": false,
+    "governance_context": {
+      "model_authority": "MAIN_MODEL_GOVERNANCE",
+      "model_reference_status": "EXACT_REFERENCE_PRESENT",
+      "parameter_authority": "MAIN_PARAMETER_SET_AUTHORITY",
+      "parameter_reference_status": "EXACT_REFERENCE_PRESENT",
+      "tenant_id": "tenant-shanghai"
+    },
+    "scenario_reference": {
+      "scenario_package_id": "scenario-shanghai",
+      "tenant_id": "tenant-shanghai",
+      "version": "1.0.0",
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "model_version_reference": {
+      "model_version_id": "model-spatial",
+      "version": "1.0.0",
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "parameter_set_reference": {
+      "parameter_set_id": "parameter-wellness",
+      "version": "1.0.0",
+      "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "qualification_evidence": {
+      "calibrated": false,
+      "effective_at": "2026-08-29T00:00:00.000Z",
+      "expires_at": null,
+      "pack_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "pack_id": "m5-reality-qualification-candidate",
+      "status": "ELIGIBLE",
+      "verification": "UPSTREAM_PACK_REFERENCE"
+    },
+    "evidence": [
+      {
+        "feature_id": "demand",
+        "geography": "Shanghai",
+        "period": "2026",
+        "provenance": "SYNTHETIC",
+        "source_date": "2026-08-29T00:00:00.000Z",
+        "source_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+        "source_expires_at": null,
+        "source_ref": "fixture:evidence:demand",
+        "unit": "people",
+        "value_digest": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    ],
+    "diagnostics": {
+      "ood": false,
+      "uq": { "confidence": 0.8, "interval": "candidate-only; no calibrated interval" },
+      "why_not_bind": []
+    },
+    "findings": [],
+    "status": "ELIGIBLE_CANDIDATE",
+    "why_not_bind": [],
+    "no_implicit_latest": true,
+    "formal_activation": false,
+    "truth_write": false,
+    "replay_truth_write": false,
+    "provider_calls": 0
+  },
+  "course_package": {
+    "package_id": "course-shanghai-executive",
+    "tenant_id": "tenant-shanghai",
+    "version": "1.0.0",
+    "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "formal_course_package_activation": false,
+    "schema_version": "scenario-productization.v1",
+    "debrief_prompts": ["What changed?"],
+    "transfer_prompts": ["Transfer to Suzhou."],
+    "what_if_prompts": ["What if capacity is constrained?"],
+    "known_limits": ["candidate-only", "not-calibrated"],
+    "model_evidence_binding_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "main_binding_request": {
+      "authority": "MAIN_COURSE_PACKAGE_AUTHORITY",
+      "exact_course_package_reference": {
+        "course_package_id": "course-shanghai-executive",
+        "tenant_id": "tenant-shanghai",
+        "version": "1.0.0",
+        "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "formal_activation": false,
+      "model_evidence_binding_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "status": "CANDIDATE_ONLY"
+    },
+    "evidence_partition": {
+      "advisory": ["advisory:1"],
+      "counterfactual": ["what-if:1"],
+      "learning": ["learning:1"],
+      "outcome": ["outcome:1"],
+      "process": ["process:1"]
+    },
+    "roles": [
+      { "role_id": "teacher", "role_label": "Teacher", "visibility": "TEACHER" },
+      { "role_id": "student", "role_label": "Student", "visibility": "STUDENT" }
+    ],
+    "title": "Shanghai Executive Lab",
+    "modules": [
+      {
+        "module_id": "module-1",
+        "title": "Market",
+        "objective": "Read the market",
+        "round_ids": ["round-1", "round-2"]
+      },
+      {
+        "module_id": "module-2",
+        "title": "Operations",
+        "objective": "Operate safely",
+        "round_ids": ["round-3"]
+      }
+    ],
+    "rounds": [
+      {
+        "round_id": "round-1",
+        "round_no": 1,
+        "scenario_reference": {
+          "scenario_package_id": "scenario-shanghai",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "parameter_set_reference": {
+          "parameter_set_id": "parameter-wellness",
+          "version": "1.0.0",
+          "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "model_version_reference": {
+          "model_version_id": "model-spatial",
+          "version": "1.0.0",
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "seed": 101
+      },
+      {
+        "round_id": "round-2",
+        "round_no": 2,
+        "scenario_reference": {
+          "scenario_package_id": "scenario-shanghai",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "parameter_set_reference": {
+          "parameter_set_id": "parameter-wellness",
+          "version": "1.0.0",
+          "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "model_version_reference": {
+          "model_version_id": "model-spatial",
+          "version": "1.0.0",
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "seed": 102
+      },
+      {
+        "round_id": "round-3",
+        "round_no": 3,
+        "scenario_reference": {
+          "scenario_package_id": "scenario-shanghai",
+          "tenant_id": "tenant-shanghai",
+          "version": "1.0.0",
+          "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "parameter_set_reference": {
+          "parameter_set_id": "parameter-wellness",
+          "version": "1.0.0",
+          "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        },
+        "model_version_reference": {
+          "model_version_id": "model-spatial",
+          "version": "1.0.0",
+          "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "seed": 103
+      }
+    ],
+    "profiles": {
+      "STANDARD": {
+        "content_depth": "CORE",
+        "experience_profile": "STANDARD",
+        "shared_kernel_id": "simulation-core"
+      },
+      "ADVANCED": {
+        "content_depth": "EXTENDED",
+        "experience_profile": "ADVANCED",
+        "shared_kernel_id": "simulation-core"
+      }
+    },
+    "readiness": { "status": "READY", "reasons": [] }
+  },
+  "enterprise_delivery": {
+    "tenant_id": "tenant-destination",
+    "copy_destination_tenant_id": "tenant-destination",
+    "copy_status": "COPY_CANDIDATE",
+    "source_reference": {
+      "course_package_id": "course-shanghai-executive",
+      "tenant_id": "tenant-shanghai",
+      "version": "1.0.0",
+      "content_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    "formal_entitlement_activation": false,
+    "privacy_status": "SMALL_CELL_SAFE"
+  },
+  "portfolio": {
+    "tenant_id": "tenant-destination",
+    "current_status": "WITHDRAWN",
+    "package_reference": {
+      "course_package_id": "course-shanghai-copy",
+      "tenant_id": "tenant-destination",
+      "version": "1.0.0",
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "historical_reference": {
+      "course_package_id": "course-shanghai-copy",
+      "tenant_id": "tenant-destination",
+      "version": "1.0.0",
+      "content_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "no_implicit_latest": true,
+    "release_gate": "FORMAL_RELEASE_REQUIRED",
+    "rollback_dry_run": true,
+    "withdrawal_deletes_history": false
+  }
+}
