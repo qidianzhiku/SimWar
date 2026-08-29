@@ -57,6 +57,24 @@ describe("M5 reality qualification and holdout observatory", () => {
     expect(pack.holdout.leakage_count).toBe(0);
     expect(pack.holdout.leakage_ids).toEqual([]);
     expect(pack.holdout.leakage_proof).toBe("EXACT_SOURCE_AND_PERIOD_PARTITION_NO_OVERLAP");
+    const observations = new Map(pack.observations.map((item) => [item.observation_id, item]));
+    const trainingKeys = new Set(
+      pack.holdout.training_observation_ids.map((id) => {
+        const observation = observations.get(id);
+        return `${observation?.source_id}:${observation?.period}`;
+      })
+    );
+    const holdoutKeys = new Set(
+      pack.holdout.holdout_observation_ids.map((id) => {
+        const observation = observations.get(id);
+        return `${observation?.source_id}:${observation?.period}`;
+      })
+    );
+    expect([...trainingKeys].filter((key) => holdoutKeys.has(key))).toEqual([]);
+
+    const leaked = buildM5RealityQualificationPack();
+    leaked.holdout.training_observation_ids.push("SH-M5-OBS-OPS");
+    expect(validateM5RealityQualification(leaked)).toContain("m5_holdout_leakage_nonzero");
     expect(pack.rgi.every((item) => item.computable === false && item.value === null)).toBe(true);
     expect(pack.rgi.every((item) => item.status === "NOT_COMPUTABLE")).toBe(true);
   });
@@ -71,6 +89,13 @@ describe("M5 reality qualification and holdout observatory", () => {
     expect(golden.settlement_write).toBe(false);
     expect(golden.truth_hash_exclusion).toContain("qualification_candidate");
     expect(/^[a-f0-9]{64}$/.test(golden.digest)).toBe(true);
+  });
+
+  it("binds replay identity to candidate content instead of identifiers alone", () => {
+    const pack = buildM5RealityQualificationPack();
+    pack.observations[0]!.value = 0.99;
+
+    expect(validateM5RealityQualification(pack)).toContain("m5_replay_input_digest_mismatch");
   });
 
   it("records source, feature, range, model, and scenario drift for M6", () => {

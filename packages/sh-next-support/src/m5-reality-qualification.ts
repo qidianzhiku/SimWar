@@ -75,8 +75,8 @@ export interface M5HoldoutEvidence {
   training_observation_ids: string[];
   holdout_observation_ids: string[];
   overlap_keys: string[];
-  leakage_count: 0;
-  leakage_ids: [];
+  leakage_count: number;
+  leakage_ids: string[];
   leakage_proof: "EXACT_SOURCE_AND_PERIOD_PARTITION_NO_OVERLAP";
   status: "NOT_ELIGIBLE";
   known_limit: string;
@@ -425,6 +425,137 @@ function createQuality(sources: SourceAsset[]): M5SourceQualityAssessment[] {
   }));
 }
 
+type HoldoutLeakage = {
+  overlap_keys: string[];
+  leakage_ids: string[];
+  missing_observation_ids: string[];
+};
+
+function holdoutKey(observation: Observation): string {
+  return `${observation.source_id}:${observation.period}`;
+}
+
+function computeHoldoutLeakage(
+  observations: Observation[],
+  holdout: Pick<M5HoldoutEvidence, "training_observation_ids" | "holdout_observation_ids">
+): HoldoutLeakage {
+  const byId = new Map(observations.map((item) => [item.observation_id, item]));
+  const missing_observation_ids: string[] = [];
+  const collect = (ids: string[]) => {
+    const byKey = new Map<string, string[]>();
+    for (const id of ids) {
+      const observation = byId.get(id);
+      if (!observation) {
+        missing_observation_ids.push(id);
+        continue;
+      }
+      const idsForKey = byKey.get(holdoutKey(observation)) ?? [];
+      idsForKey.push(id);
+      byKey.set(holdoutKey(observation), idsForKey);
+    }
+    return byKey;
+  };
+  const trainingByKey = collect(holdout.training_observation_ids);
+  const holdoutByKey = collect(holdout.holdout_observation_ids);
+  const overlap_keys = [...trainingByKey.keys()].filter((key) => holdoutByKey.has(key)).sort();
+  const leakage_ids = overlap_keys
+    .flatMap((key) => [...(trainingByKey.get(key) ?? []), ...(holdoutByKey.get(key) ?? [])])
+    .sort();
+  return {
+    overlap_keys,
+    leakage_ids,
+    missing_observation_ids: [...new Set(missing_observation_ids)].sort()
+  };
+}
+
+function createHoldout(observations: Observation[], holdoutSourceId: string): M5HoldoutEvidence {
+  const training_observation_ids = observations
+    .filter((item) => item.source_id !== holdoutSourceId)
+    .map((item) => item.observation_id);
+  const holdout_observation_ids = observations
+    .filter((item) => item.source_id === holdoutSourceId)
+    .map((item) => item.observation_id);
+  const leakage = computeHoldoutLeakage(observations, {
+    training_observation_ids,
+    holdout_observation_ids
+  });
+  return {
+    holdout_id: "SH-M5-HOLDOUT-TEMPORAL-SOURCE-PARTITION",
+    partition_rule: "TEMPORAL_SOURCE_EXACT_PARTITION",
+    training_observation_ids,
+    holdout_observation_ids,
+    overlap_keys: leakage.overlap_keys,
+    leakage_count: leakage.overlap_keys.length,
+    leakage_ids: leakage.leakage_ids,
+    leakage_proof: "EXACT_SOURCE_AND_PERIOD_PARTITION_NO_OVERLAP",
+    status: "NOT_ELIGIBLE",
+    known_limit:
+      "The partition proves no leakage in the candidate ledger; it does not create missing real-world evidence."
+  };
+}
+
+function replayInputFor(
+  pack: Pick<
+    M5RealityQualificationPack,
+    | "sources"
+    | "source_quality"
+    | "observations"
+    | "features"
+    | "transformations"
+    | "conflict_ledger"
+    | "eligibility"
+    | "holdout"
+    | "rgi"
+    | "drift_ledger"
+  >
+) {
+  return {
+    algorithm: "DETERMINISTIC_QUALIFICATION_REPLAY_V1" as const,
+    fixed_seed: 2026082905 as const,
+    sources: pack.sources,
+    source_quality: pack.source_quality,
+    observations: pack.observations,
+    features: pack.features,
+    transformations: pack.transformations,
+    conflict_ledger: pack.conflict_ledger,
+    eligibility: pack.eligibility,
+    holdout: pack.holdout,
+    rgi: pack.rgi,
+    drift_ledger: pack.drift_ledger
+  };
+}
+
+function packageDigestFor(
+  pack: Pick<
+    M5RealityQualificationPack,
+    | "schema_version"
+    | "sources"
+    | "source_quality"
+    | "observations"
+    | "features"
+    | "transformations"
+    | "conflict_ledger"
+    | "eligibility"
+    | "holdout"
+    | "rgi"
+    | "drift_ledger"
+  >
+): string {
+  return stableDigest({
+    schema_version: pack.schema_version,
+    sources: pack.sources,
+    source_quality: pack.source_quality,
+    observations: pack.observations,
+    features: pack.features,
+    transformations: pack.transformations,
+    conflict_ledger: pack.conflict_ledger,
+    eligibility: pack.eligibility,
+    holdout: pack.holdout,
+    rgi: pack.rgi,
+    drift_ledger: pack.drift_ledger
+  });
+}
+
 export function classifyM5Qualification(input: M5QualificationGateInput): M5QualificationStatus {
   if (input.holdout_leakage_count > 0) return "NOT_ELIGIBLE";
   if (input.replay_only) return "READY";
@@ -524,40 +655,45 @@ export function buildM5RealityQualificationPack(): M5RealityQualificationPack {
         "two bounded candidate values are retained as a conflict fixture; no silent average or winner is selected"
     }
   ];
-  const holdout: M5HoldoutEvidence = {
-    holdout_id: "SH-M5-HOLDOUT-TEMPORAL-SOURCE-PARTITION",
-    partition_rule: "TEMPORAL_SOURCE_EXACT_PARTITION",
-    training_observation_ids: ["SH-M5-OBS-DEMAND-A", "SH-M5-OBS-SPATIAL", "SH-M5-OBS-OPS"],
-    holdout_observation_ids: [
-      "SH-M5-OBS-DEMAND-B",
-      "SH-M5-OBS-FINANCE",
-      "SH-M5-OBS-CUSTOMER",
-      "SH-M5-OBS-BEHAVIOR"
-    ],
-    overlap_keys: [],
-    leakage_count: 0,
-    leakage_ids: [],
-    leakage_proof: "EXACT_SOURCE_AND_PERIOD_PARTITION_NO_OVERLAP",
-    status: "NOT_ELIGIBLE",
-    known_limit:
-      "The partition proves no leakage in the candidate ledger; it does not create missing real-world evidence."
-  };
-  const replayInput = {
-    algorithm: "DETERMINISTIC_QUALIFICATION_REPLAY_V1",
-    fixed_seed: 2026082905,
-    source_ids: sources.map((item) => item.source_id),
-    observation_ids: observations.map((item) => item.observation_id),
-    feature_ids: features.map((item) => item.feature_id),
-    holdout_id: holdout.holdout_id
-  };
+  const source_quality = createQuality(sources);
+  const eligibility = createEligibility();
+  const rgi = createRGI(sources);
+  const drift_ledger = createDriftLedger();
+  const holdoutSourceId = sources.find((item) =>
+    item.source_id.includes("CIVIL-AFFAIRS")
+  )?.source_id;
+  if (!holdoutSourceId) throw new Error("M5_HOLDOUT_SOURCE_NOT_FOUND");
+  const holdout = createHoldout(observations, holdoutSourceId);
+  const replayInput = replayInputFor({
+    sources,
+    source_quality,
+    observations,
+    features,
+    transformations,
+    conflict_ledger,
+    eligibility,
+    holdout,
+    rgi,
+    drift_ledger
+  });
+  const package_digest = packageDigestFor({
+    schema_version: M5_SCHEMA_VERSION,
+    sources,
+    source_quality,
+    observations,
+    features,
+    transformations,
+    conflict_ledger,
+    eligibility,
+    holdout,
+    rgi,
+    drift_ledger
+  });
   const goldenContent = {
     golden_id: "SH-M5-GOLDEN-REFERENCE-REPLAY-V1" as const,
     fixed_seed: 2026082905 as const,
     input_digest: stableDigest(replayInput),
-    package_digest: stableDigest({
-      schema_version: M5_SCHEMA_VERSION,
-      source_ids: replayInput.source_ids
-    }),
+    package_digest,
     expected_directions: [
       "conflicted demand remains UNKNOWN for qualification",
       "unretrieved domain evidence does not produce a RealityGap value",
@@ -597,12 +733,12 @@ export function buildM5RealityQualificationPack(): M5RealityQualificationPack {
       unsupported_claims_are_facts: false
     },
     sources,
-    source_quality: createQuality(sources),
+    source_quality,
     observations,
     features,
     transformations,
     conflict_ledger,
-    eligibility: createEligibility(),
+    eligibility,
     status_examples: [
       {
         qualification_id: "SH-M5-STATUS-REPLAY",
@@ -648,9 +784,9 @@ export function buildM5RealityQualificationPack(): M5RealityQualificationPack {
       }
     ],
     holdout,
-    rgi: createRGI(sources),
+    rgi,
     golden_replay,
-    drift_ledger: createDriftLedger(),
+    drift_ledger,
     replay,
     overall_status: "NOT_ELIGIBLE",
     role_visibility: {
@@ -751,11 +887,18 @@ export function validateM5RealityQualification(pack: M5RealityQualificationPack)
     issues.push("m5_conflict_resolution_invalid");
   if (pack.eligibility.some((item) => item.eligible_for_calibration || item.eligible_for_holdout))
     issues.push("m5_calibration_eligibility_claim_invalid");
+  const holdoutLeakage = computeHoldoutLeakage(pack.observations, pack.holdout);
+  if (holdoutLeakage.missing_observation_ids.length > 0)
+    issues.push("m5_holdout_observation_reference_invalid");
   if (
-    pack.holdout.leakage_count !== 0 ||
-    pack.holdout.leakage_ids.length !== 0 ||
-    pack.holdout.overlap_keys.length !== 0
+    holdoutLeakage.overlap_keys.length !== pack.holdout.overlap_keys.length ||
+    holdoutLeakage.overlap_keys.some((key, index) => key !== pack.holdout.overlap_keys[index]) ||
+    holdoutLeakage.leakage_ids.length !== pack.holdout.leakage_ids.length ||
+    holdoutLeakage.leakage_ids.some((id, index) => id !== pack.holdout.leakage_ids[index]) ||
+    holdoutLeakage.overlap_keys.length !== pack.holdout.leakage_count
   )
+    issues.push("m5_holdout_ledger_not_derived");
+  if (holdoutLeakage.overlap_keys.length > 0 || holdoutLeakage.leakage_ids.length > 0)
     issues.push("m5_holdout_leakage_nonzero");
   if (
     pack.rgi.some(
@@ -768,6 +911,12 @@ export function validateM5RealityQualification(pack: M5RealityQualificationPack)
   );
   if (stableDigest(goldenContent) !== pack.golden_replay.digest)
     issues.push("m5_golden_digest_mismatch");
+  if (stableDigest(replayInputFor(pack)) !== pack.replay.input_digest)
+    issues.push("m5_replay_input_digest_mismatch");
+  if (pack.golden_replay.input_digest !== pack.replay.input_digest)
+    issues.push("m5_golden_replay_input_not_bound");
+  if (pack.golden_replay.package_digest !== packageDigestFor(pack))
+    issues.push("m5_replay_package_digest_mismatch");
   if (pack.golden_replay.formal_result_overwritten || pack.golden_replay.settlement_write)
     issues.push("m5_replay_overwrite_enabled");
   if (
