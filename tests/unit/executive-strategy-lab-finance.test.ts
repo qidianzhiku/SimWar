@@ -621,6 +621,32 @@ describe("projectESLFinance", () => {
     expect(result.binding_constraints).not.toContain("DSCR_BASIS_UNKNOWN");
   });
 
+  it("keeps cumulative source interest unknown without terminal evidence", () => {
+    const source = state(1000);
+    source.capital = capital({ debt_principal: 100, interest_paid: 55 });
+    const sourceStateRef = stateRef("state-open", stateDigest(source));
+    const result = projectESLFinance(
+      input({
+        source_state: source,
+        source_state_ref: sourceStateRef,
+        source_state_scope: stateScope(sourceStateRef),
+        terminal_state_ref: null,
+        terminal_state_scope: null,
+        terminal_state: null,
+        accounting_basis: accounting({ amortization: 10, operating_cash_flow: 100 })
+      })
+    );
+
+    expect(result.debt.interest_paid).toMatchObject({
+      amount: null,
+      status: "UNKNOWN",
+      unknown_reason: "INTEREST_PAID_NOT_PRESENT"
+    });
+    expect(result.debt.debt_service.status).toBe("UNKNOWN");
+    expect(result.dscr).toMatchObject({ ratio: null, status: "UNKNOWN" });
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
   it("keeps known zero payments feasible across a round-scoped accounting basis", () => {
     const source = state(1000);
     source.capital = capital({ debt_principal: 100, interest_paid: 0 });

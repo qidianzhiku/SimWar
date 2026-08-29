@@ -596,6 +596,7 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     input.terminal_state === null
       ? null
       : capitalNumber(input.terminal_state.capital, "interest_paid");
+  const hasCompleteTerminalEvidence = hasTerminalRef && hasTerminalState && hasTerminalScope;
   if (
     hasTerminalRef &&
     input.terminal_state !== null &&
@@ -685,11 +686,9 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     "WORKING_CAPITAL_NOT_PRESENT"
   );
   const interestPaid = basis(
-    input.terminal_state === null
-      ? capitalNumber(capital, "interest_paid")
-      : sourceInterestPaid !== null && terminalInterestPaid !== null
-        ? terminalInterestPaid - sourceInterestPaid
-        : null,
+    hasCompleteTerminalEvidence && sourceInterestPaid !== null && terminalInterestPaid !== null
+      ? terminalInterestPaid - sourceInterestPaid
+      : null,
     CURRENCY_UNIT,
     sourceRefs,
     "HORIZON",
