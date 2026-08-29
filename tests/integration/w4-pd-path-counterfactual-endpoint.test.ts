@@ -338,9 +338,11 @@ describe("W4 P-D real BFF boundaries", () => {
       );
       expect(studentCounterfactual.status).toBe(200);
       const studentEvidence = (await studentCounterfactual.json()) as ApiEnvelope<{
+        surface: string;
         rounds: Array<{ closing_state: { cash?: number } }>;
         capital_actions?: unknown;
       }>;
+      expect(studentEvidence.data.surface).toBe("student");
       expect(studentEvidence.data.rounds[0]?.closing_state.cash).toBeUndefined();
       expect(studentEvidence.data).not.toHaveProperty("capital_actions");
       expect(store.w4.states).toHaveLength(beforeCounts.states);

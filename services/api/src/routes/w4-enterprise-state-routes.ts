@@ -579,17 +579,21 @@ export async function handleW4EnterpriseStateRoute(
         courseId
       );
       await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, sourceTeamId);
-      const result = await service.counterfactual(scope, {
-        source_state_ref: sourceStateRef,
-        source_outcome_id: String(body.source_outcome_id ?? ""),
-        decision_ids: Array.isArray(body.decision_ids) ? body.decision_ids.map(String) : [],
-        horizon_rounds: Number(body.horizon_rounds),
-        scenario_package_id: String(body.scenario_package_id ?? ""),
-        parameter_set_id: String(body.parameter_set_id ?? ""),
-        engine_id: String(body.engine_id ?? ""),
-        plugin_ids: Array.isArray(body.plugin_ids) ? body.plugin_ids.map(String) : [],
-        seed: Number(body.seed)
-      });
+      const result = await service.counterfactual(
+        scope,
+        {
+          source_state_ref: sourceStateRef,
+          source_outcome_id: String(body.source_outcome_id ?? ""),
+          decision_ids: Array.isArray(body.decision_ids) ? body.decision_ids.map(String) : [],
+          horizon_rounds: Number(body.horizon_rounds),
+          scenario_package_id: String(body.scenario_package_id ?? ""),
+          parameter_set_id: String(body.parameter_set_id ?? ""),
+          engine_id: String(body.engine_id ?? ""),
+          plugin_ids: Array.isArray(body.plugin_ids) ? body.plugin_ids.map(String) : [],
+          seed: Number(body.seed)
+        },
+        surface === "student" ? "student" : "teacher"
+      );
       const safeResult =
         surface === "student"
           ? (() => {

@@ -53,6 +53,7 @@ describe("W4 Enterprise State contract", () => {
       state_digest: "a".repeat(64)
     };
     const valid = {
+      surface: "teacher",
       counterfactual_id: "counterfactual_1",
       source_outcome_id: "outcome_1",
       source_state_ref: stateRef,
@@ -87,6 +88,13 @@ describe("W4 Enterprise State contract", () => {
       known_limits: ["non-official"]
     };
     expect(validate(valid)).toBe(true);
+    const student = structuredClone(valid) as typeof valid & {
+      capital_actions?: unknown;
+    };
+    student.surface = "student";
+    delete student.capital_actions;
+    expect(validate(student)).toBe(true);
+    expect(validate({ ...student, capital_actions: [] })).toBe(false);
     expect(validate({ ...valid, official_state_writes: true })).toBe(false);
 
     const openapi = readFileSync(resolve("contracts/openapi/p0-api.openapi.yaml"), "utf8");

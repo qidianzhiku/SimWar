@@ -108,6 +108,30 @@
       "items": { "type": "string", "minLength": 1 }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "visibility": { "const": "teacher_safe" } } },
+      "then": {
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/teacherPath" }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "visibility": { "const": "student_safe" } } },
+      "then": {
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/studentPath" }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "stateRef": {
       "type": "object",

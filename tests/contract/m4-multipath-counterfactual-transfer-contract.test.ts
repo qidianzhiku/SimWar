@@ -17,6 +17,17 @@ describe("M4 multi-path counterfactual transfer contract", () => {
     );
     expect(validate(valid)).toBe(true);
     expect(validate(invalid)).toBe(false);
+    const teacherPaths = (valid as { paths: Array<Record<string, unknown>> }).paths.map(
+      (path, index) => ({
+        ...path,
+        decision_payload_bindings: [
+          { decision_id: `decision_teacher_${index}`, decision_payload_digest: "1".repeat(64) }
+        ],
+        rounds: [{}],
+        capital_actions: []
+      })
+    );
+    expect(validate({ ...(valid as Record<string, unknown>), paths: teacherPaths })).toBe(false);
     expect(JSON.stringify(valid)).not.toContain("raw_counterfactual_state:");
     expect(JSON.stringify(valid)).toContain('"officiality":"OFFICIAL"');
     expect(JSON.stringify(valid)).toContain('"official_decision_writes":false');

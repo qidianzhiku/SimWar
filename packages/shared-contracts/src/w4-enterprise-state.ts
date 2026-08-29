@@ -516,6 +516,7 @@ export interface W4CounterfactualRoundEvidence {
 }
 
 export interface W4CounterfactualEvidence {
+  surface: "student" | "teacher";
   counterfactual_id: string;
   source_outcome_id: string;
   source_state_ref: W4StateRef;

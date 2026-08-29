@@ -2098,7 +2098,8 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
 
     async counterfactual(
       scope: W4ScopeContext,
-      input: W4CounterfactualInput
+      input: W4CounterfactualInput,
+      surface: "student" | "teacher" = "teacher"
     ): Promise<W4CounterfactualEvidence> {
       const current = repository.snapshot();
       const sourceState = current.states.find(
@@ -2234,6 +2235,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         openingRef = closingRef;
       }
       const evidence: W4CounterfactualEvidence = {
+        surface,
         counterfactual_id: `counterfactual_${digest({
           source_state_ref: input.source_state_ref,
           source_outcome_id: input.source_outcome_id,

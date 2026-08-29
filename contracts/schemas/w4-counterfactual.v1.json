@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "surface",
     "counterfactual_id",
     "source_outcome_id",
     "source_state_ref",
@@ -16,7 +17,6 @@
     "plugin_ids",
     "seed",
     "horizon_rounds",
-    "capital_actions",
     "rounds",
     "official_decision_writes",
     "official_settlement_writes",
@@ -26,6 +26,7 @@
     "known_limits"
   ],
   "properties": {
+    "surface": { "enum": ["student", "teacher"] },
     "counterfactual_id": { "type": "string", "minLength": 1 },
     "source_outcome_id": { "type": "string", "minLength": 1 },
     "source_state_ref": { "$ref": "#/$defs/stateRef" },
@@ -54,6 +55,19 @@
     "replay_writes_formal_results": { "const": false },
     "known_limits": { "type": "array", "items": { "type": "string", "minLength": 1 } }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "surface": { "const": "teacher" } } },
+      "then": {
+        "required": ["capital_actions"],
+        "properties": { "capital_actions": { "type": "array" } }
+      }
+    },
+    {
+      "if": { "properties": { "surface": { "const": "student" } } },
+      "then": { "not": { "required": ["capital_actions"] } }
+    }
+  ],
   "$defs": {
     "stateRef": {
       "type": "object",
