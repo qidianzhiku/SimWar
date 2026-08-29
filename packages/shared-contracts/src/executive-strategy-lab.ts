@@ -623,7 +623,13 @@ function financeStressConclusionIdentities(value: unknown): boolean {
   if (regime === null || liquidity === null) return false;
   if (liquidity.status === "KNOWN") {
     if (!finiteNumber(liquidity.amount)) return false;
-    if (liquidity.amount < 0 && regime.covenant_status !== "BREACHED") return false;
+    if (
+      liquidity.amount < 0 &&
+      (regime.covenant_status !== "BREACHED" ||
+        !hasFinanceConstraint(bindingConstraints, "COVENANT_MIN_CASH_BREACH"))
+    ) {
+      return false;
+    }
   } else if (liquidity.status === "UNKNOWN" && regime.covenant_status === "WITHIN_LIMIT") {
     return false;
   }

@@ -600,6 +600,35 @@ describe("projectESLFinance", () => {
     expect(first.stress_regimes.every((regime) => regime.feasibility === "FEASIBLE")).toBe(true);
   });
 
+  it("uses the canonical covenant constraint when a stress regime breaches minimum cash", () => {
+    const terminalState = state(650);
+    const terminalStateRef = stateRef(
+      "state-close",
+      stateDigest(terminalState),
+      input().source_state_ref
+    );
+    const result = projectESLFinance(
+      input({
+        path_cash_delta: -350,
+        terminal_state: terminalState,
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
+    const demand = result.stress_regimes.find(
+      (regime) => regime.regime_id === "DEMAND_PRICE_DOWNSIDE"
+    );
+
+    expect(result.feasibility).toBe("FEASIBLE");
+    expect(demand).toMatchObject({
+      covenant_status: "BREACHED",
+      feasibility: "INFEASIBLE",
+      liquidity_headroom: { amount: -20, status: "KNOWN" },
+      binding_constraints: expect.arrayContaining(["COVENANT_MIN_CASH_BREACH"])
+    });
+    expect(demand?.binding_constraints).not.toContain("STRESSED_MINIMUM_CASH_BREACH");
+  });
+
   it("re-evaluates debt service coverage under the funding shock", () => {
     const result = projectESLFinance(
       input({ accounting_basis: accounting({ operating_cash_flow: 101, amortization: 99 }) })

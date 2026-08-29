@@ -696,6 +696,63 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(duplicateStudentRegime)).toBe(false);
   });
 
+  it("binds a stressed minimum-cash breach to the canonical covenant constraint", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const invalid = structuredClone(fixture) as Record<string, unknown>;
+    const finance = (invalid.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const demand = (finance.stress_regimes as Array<Record<string, unknown>>)[0];
+    demand.liquidity_headroom = {
+      ...(demand.liquidity_headroom as Record<string, unknown>),
+      amount: -1
+    };
+    demand.covenant_status = "BREACHED";
+    demand.feasibility = "INFEASIBLE";
+    demand.binding_constraints = ["STRESSED_MINIMUM_CASH_BREACH"];
+    demand.why_not_feasible = ["压力情景下最低现金约束被突破。"];
+
+    expect(validate(invalid)).toBe(false);
+    expect(isESLResponse(invalid)).toBe(false);
+
+    const valid = structuredClone(invalid) as Record<string, unknown>;
+    const validFinance = (valid.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const validDemand = (validFinance.stress_regimes as Array<Record<string, unknown>>)[0];
+    validDemand.binding_constraints = ["COVENANT_MIN_CASH_BREACH"];
+    const studentView = validFinance.student_view as Record<string, unknown>;
+    const studentDemand = (studentView.stress_regimes as Array<Record<string, unknown>>)[0];
+    studentDemand.covenant_status = "BREACHED";
+    studentDemand.feasibility = "INFEASIBLE";
+    const teacherPaths = (valid.teacher_projection as Record<string, unknown>).paths as Array<
+      Record<string, unknown>
+    >;
+    const teacherFinance = teacherPaths[0].finance_feasibility as Record<string, unknown>;
+    const teacherDemand = (teacherFinance.stress_regimes as Array<Record<string, unknown>>)[0];
+    teacherDemand.liquidity_headroom = {
+      ...(teacherDemand.liquidity_headroom as Record<string, unknown>),
+      amount: -1
+    };
+    teacherDemand.covenant_status = "BREACHED";
+    teacherDemand.feasibility = "INFEASIBLE";
+    teacherDemand.binding_constraints = ["COVENANT_MIN_CASH_BREACH"];
+    teacherDemand.why_not_feasible = ["压力情景下最低现金约束被突破。"];
+    const teacherStudentView = teacherFinance.student_view as Record<string, unknown>;
+    const teacherStudentDemand = (
+      teacherStudentView.stress_regimes as Array<Record<string, unknown>>
+    )[0];
+    teacherStudentDemand.covenant_status = "BREACHED";
+    teacherStudentDemand.feasibility = "INFEASIBLE";
+
+    expect(validate(valid)).toBe(true);
+    expect(isESLResponse(valid)).toBe(true);
+  });
+
   it("rejects contradictory VALID finance conclusions and student mirrors", () => {
     const fixture = JSON.parse(
       readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")

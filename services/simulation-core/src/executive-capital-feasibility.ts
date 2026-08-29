@@ -543,7 +543,7 @@ function createStressRegimes(
     const constraints = [...baseConstraints];
     const stressedLiquidityBreach =
       liquidity.status === "KNOWN" && liquidity.amount !== null && liquidity.amount < 0;
-    if (stressedLiquidityBreach) constraints.push("STRESSED_MINIMUM_CASH_BREACH");
+    if (stressedLiquidityBreach) constraints.push("COVENANT_MIN_CASH_BREACH");
     if (operatingShockBasisUnknown) {
       constraints.push(
         id === "DEMAND_PRICE_DOWNSIDE"
