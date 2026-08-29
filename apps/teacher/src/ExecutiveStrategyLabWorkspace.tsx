@@ -14,6 +14,8 @@ interface Envelope {
 }
 
 interface M4PathEnvelope {
+  code?: string;
+  message?: string;
   data?: { paths?: ESLPathRequest[] };
   error?: { message?: string; code?: string };
 }
@@ -64,7 +66,9 @@ export function ExecutiveStrategyLabWorkspace({
     );
     const payload = (await response.json()) as M4PathEnvelope;
     if (!response.ok || !payload.data?.paths || payload.data.paths.length < 2) {
-      throw new Error(payload.error?.message ?? "当前 exact run 没有足够的真实替代决策路径");
+      throw new Error(
+        `${payload.error?.code ?? payload.message ?? payload.code ?? "M4_PATH_DISCOVERY_FAILED"}: ${payload.error?.message ?? payload.message ?? "当前 exact run 没有足够的真实替代决策路径"}`
+      );
     }
     return payload.data.paths.slice(0, 3);
   }

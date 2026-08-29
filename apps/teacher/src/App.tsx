@@ -796,12 +796,22 @@ export function App() {
   const latestRun = courseRuns.at(-1);
   const latestRound = latestRun ? getRunRound(state!, latestRun.run_id) : undefined;
   const selectedRun = state ? selectVisibleRun(state, selectedRunId, selectedCourseId) : undefined;
+  const selectedRunRounds = selectedRun
+    ? getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined)
+    : [];
   const selectedRound = selectedRun
-    ? selectTeacherRound(
-        getTeacherRunRounds(state?.rounds ?? [], selectedRun.run_id, login.tenantId || undefined),
-        selectedRoundId
-      )
+    ? selectTeacherRound(selectedRunRounds, selectedRoundId)
     : undefined;
+  const eslSourceRound =
+    selectedRound?.status === "published"
+      ? selectedRound
+      : selectedRunRounds
+          .filter(
+            (round) =>
+              round.status === "published" &&
+              (selectedRound === undefined || round.round_no <= selectedRound.round_no)
+          )
+          .at(-1);
   const teacherTeamsForRun =
     state?.teams.filter((candidate) => candidate.course_id === selectedRun?.course_id) ?? [];
   const activeTeacherTeamId = resolveActiveTeacherTeamId(
@@ -859,10 +869,11 @@ export function App() {
         }
       : undefined;
   const eslBinding: ESLExactBinding | undefined =
-    gsiBinding && selectedRound
+    gsiBinding && eslSourceRound
       ? {
           ...gsiBinding,
-          round_no: selectedRound.round_no,
+          round_id: eslSourceRound.round_id,
+          round_no: eslSourceRound.round_no,
           engine_id: "toy_logit_wellness_v1",
           plugin_ids: ["plugin_wellness_stub"],
           seed: 79
