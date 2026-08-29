@@ -27,6 +27,7 @@ import type {
   CoursePackageVersionCloneInput,
   CoursePackageVersionTeacherDto,
   GSIExactBinding,
+  ESLExactBinding,
   P0DemoState,
   R7TeacherScenarioPackageCandidateDto,
   R7TeacherScenarioPackageCandidatesDto,
@@ -96,6 +97,7 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
+import { ExecutiveStrategyLabWorkspace } from "./ExecutiveStrategyLabWorkspace";
 import {
   getTeacherNoticeLabel,
   getTeacherRoundAction,
@@ -848,6 +850,16 @@ export function App() {
           model_version: "1.0.0",
           model_artifact_id: "artifact:gsi-stakeholder-resolver-v1:1.0.0",
           model_artifact_version: "1.0.0"
+        }
+      : undefined;
+  const eslBinding: ESLExactBinding | undefined =
+    gsiBinding && selectedRound
+      ? {
+          ...gsiBinding,
+          round_no: selectedRound.round_no,
+          engine_id: "toy_logit_wellness_v1",
+          plugin_ids: ["plugin_wellness_stub"],
+          seed: 79
         }
       : undefined;
   const w3RoleKey = w3Team?.members[0]?.role_slot ?? "CEO";
@@ -2433,6 +2445,14 @@ export function App() {
           <GovernedStakeholderIntelligenceWorkspace
             apiBase={API_BASE}
             binding={gsiBinding}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {isTeacher && session && eslBinding ? (
+          <ExecutiveStrategyLabWorkspace
+            apiBase={API_BASE}
+            binding={eslBinding}
             tenantId={login.tenantId}
             token={session.access_token}
           />

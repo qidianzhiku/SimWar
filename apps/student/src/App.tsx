@@ -41,6 +41,7 @@ import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
+import { ExecutiveStrategyLabProjection } from "./ExecutiveStrategyLabProjection";
 import { isW3ContextAvailable } from "./p2b-w3-context";
 import {
   AllowedActionButton,
@@ -59,6 +60,10 @@ const GSI_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("gsiCandidateId") ?? "");
+const ESL_CANDIDATE_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("eslCandidateId") ?? "");
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1023,6 +1028,15 @@ export function App() {
           <GovernedStakeholderIntelligenceProjection
             apiBase={API_BASE}
             candidateId={GSI_CANDIDATE_ID}
+            tenantId={login.tenantId}
+            token={activeSession?.access_token ?? ""}
+          />
+        ) : null}
+
+        {hasStudentSurface ? (
+          <ExecutiveStrategyLabProjection
+            apiBase={API_BASE}
+            candidateId={ESL_CANDIDATE_ID}
             tenantId={login.tenantId}
             token={activeSession?.access_token ?? ""}
           />

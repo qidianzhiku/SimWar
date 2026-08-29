@@ -48,6 +48,7 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
+import { ExecutiveStrategyLabAuditPanel } from "./ExecutiveStrategyLabAuditPanel";
 const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
@@ -1146,6 +1147,13 @@ export function App() {
         ) : null}
         {session && hasAdminSummaryRole ? (
           <GovernedStakeholderIntelligenceAuditPanel
+            apiBase={API_BASE}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <ExecutiveStrategyLabAuditPanel
             apiBase={API_BASE}
             tenantId={login.tenantId}
             token={session.access_token}

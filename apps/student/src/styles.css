@@ -813,3 +813,33 @@ textarea {
 .role-workflow-actions button {
   min-height: 44px;
 }
+
+.esl-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.esl-path-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.esl-path-list article {
+  background: #f8fbfc;
+  border: 1px solid #d8e3e7;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.esl-path-list h5,
+.esl-path-list p {
+  margin-top: 0;
+}
+
+@media (max-width: 820px) {
+  .esl-path-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

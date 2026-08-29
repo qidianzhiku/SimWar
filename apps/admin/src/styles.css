@@ -1012,3 +1012,38 @@ label {
   border-color: var(--sw-color-surface-border);
   border-radius: var(--sw-radius-card);
 }
+
+.esl-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.esl-binding-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.esl-binding-list > div {
+  background: #f8fbfc;
+  border: 1px solid #d8e3e7;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.esl-binding-list dt {
+  color: #52646e;
+  font-size: 0.8rem;
+}
+
+.esl-binding-list dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.esl-form input {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}

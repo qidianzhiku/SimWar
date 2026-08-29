@@ -155,6 +155,7 @@ import { handleTransferResearchDesignRoute } from "./routes/transfer-research-de
 import { handleGoldenJourneyRoute } from "./routes/golden-journey-routes.js";
 import { handleW020AdvisoryRoute } from "./routes/w020-advisory-routes.js";
 import { handleGSIStakeholderShadowPlaneRoute } from "./routes/gsi-stakeholder-shadow-plane-routes.js";
+import { handleExecutiveStrategyLabRoute } from "./routes/executive-strategy-lab-routes.js";
 import { handleW3OfficialConsequenceRoute } from "./routes/w3-official-consequence-learning-routes.js";
 import { handleM2P5DecisionLearningRoute } from "./routes/m2p5-decision-learning-crossround-routes.js";
 import { handleO4CrossRoundDynamicsRoute } from "./routes/o4-cross-round-dynamics-routes.js";
@@ -167,6 +168,7 @@ import { ShanghaiFullVerticalService } from "./shanghai-full-vertical-service.js
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
+import { ExecutiveStrategyLabService } from "./executive-strategy-lab-service.js";
 import { W3OfficialConsequenceLearningService } from "./w3-official-consequence-learning.js";
 import {
   createOperatingWorldConsequenceTrace,
@@ -418,6 +420,7 @@ interface ApiRuntime {
   goldenJourney: GoldenJourneyIntegrationService;
   governedAdvisory: GovernedAdvisoryService;
   gsiStakeholder: GSIStakeholderShadowPlaneService;
+  executiveStrategyLab: ExecutiveStrategyLabService;
   validationSessions: ValidationSessionControlPlane;
   w027DecisionExperience: W027DecisionExperienceService;
   w3OfficialConsequence: W3OfficialConsequenceLearningService;
@@ -810,6 +813,23 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
         (round) => round.round_id === round_id
       )
   });
+  const executiveStrategyLab = new ExecutiveStrategyLabService({
+    getRun: async (tenantId, runId) => {
+      const run = await repositoryProvider.facade.runs.getRun(tenantId, runId);
+      return run
+        ? {
+            course_id: run.course_id,
+            scenario_package_id: run.scenario_package_id,
+            parameter_set_id: run.parameter_set_id
+          }
+        : null;
+    },
+    getW4Projection: (scope) => w4EnterpriseStateService.getProjection(scope, { allowEmptyRound: true }),
+    getO4Candidate: (input) => o4CrossRoundDynamics.getCandidate(input),
+    createM4Candidate: (scope, input, surface) =>
+      m4MultipathCounterfactualTransfer.create(scope, input, surface),
+    roleWorkflow: repositoryProvider.ports.roleWorkflow
+  });
   const validationSessions = new ValidationSessionControlPlane(repositoryProvider);
   const courseBlueprintBindingStore = new CourseBlueprintBindingStore(store);
   const formalCourseAuthorityBindingStore = new FormalCourseAuthorityBindingStore(store);
@@ -1108,6 +1128,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     goldenJourney: new GoldenJourneyIntegrationService({ repositoryProvider, store }),
     governedAdvisory,
     gsiStakeholder,
+    executiveStrategyLab,
     validationSessions,
     ...(validationEnvironmentLaunch
       ? {
@@ -7339,6 +7360,26 @@ async function routeRequest(
     )
       return;
   }
+
+  if (
+    await handleExecutiveStrategyLabRoute(
+      runtime.executiveStrategyLab,
+      request,
+      response,
+      url,
+      { requestId: context.requestId, tenantId: context.tenantId },
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireTeacher: () => requireD4Teacher(context),
+        requireStudent: () => requireD4Student(context),
+        requireAdmin: () => requireD4Admin(context)
+      }
+    )
+  )
+    return;
 
   if (
     url.pathname.startsWith("/api/v1/bff/student/advisors") ||

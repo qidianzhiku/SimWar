@@ -138,6 +138,89 @@ body {
   text-decoration: none;
 }
 
+.esl-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.esl-form,
+.esl-binding-list,
+.esl-card-grid,
+.esl-path-list {
+  display: grid;
+  gap: 12px;
+}
+
+.esl-form textarea,
+.esl-form input {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.esl-binding-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.esl-binding-list > div,
+.esl-card-grid article,
+.esl-path-list article {
+  background: var(--sw-color-surface-muted, #f7fafb);
+  border: 1px solid var(--sw-color-surface-border, #d8e3e7);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.esl-binding-list dt {
+  color: #52646e;
+  font-size: 0.8rem;
+}
+
+.esl-binding-list dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.esl-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.esl-result-header,
+.esl-result-header code {
+  overflow-wrap: anywhere;
+}
+
+.esl-result-header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.esl-result h4,
+.esl-result h5,
+.esl-result p {
+  margin-top: 0;
+}
+
+.esl-badge {
+  border: 1px solid var(--sw-color-brand-primary-accessible, #1b5e4d);
+  border-radius: 999px;
+  color: var(--sw-color-brand-primary-accessible, #1b5e4d);
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+@media (max-width: 820px) {
+  .esl-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .golden-journey-card,
 .golden-journey-receipt {
   border: 1px solid #d8dfe2;
