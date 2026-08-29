@@ -84,7 +84,11 @@ import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
 import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
-import { RegionalTransferWorkbench } from "./features/regional-transfer-workbench";
+const RegionalTransferWorkbench = lazy(() =>
+  import("./features/regional-transfer-workbench").then(({ RegionalTransferWorkbench: Component }) => ({
+    default: Component
+  }))
+);
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
@@ -2566,14 +2570,16 @@ export function App() {
           />
         ) : null}
         {isTeacher && session ? (
-          <RegionalTransferWorkbench
-            apiBase={API_BASE}
-            courseId={selectedRun?.course_id ?? selectedCourseId}
-            roundNo={selectedRound?.round_no}
-            runId={selectedRun?.run_id ?? selectedRunId}
-            tenantId={login.tenantId}
-            token={session.access_token}
-          />
+          <Suspense fallback={<p className="muted">正在载入区域迁移工作台…</p>}>
+            <RegionalTransferWorkbench
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              roundNo={selectedRound?.round_no}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
       </TeacherLocation>
 
