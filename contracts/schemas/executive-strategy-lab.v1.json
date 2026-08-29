@@ -91,7 +91,7 @@
         "else": {
           "required": ["admin_projection"],
           "properties": {
-            "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } },
+            "paths": { "type": "array", "maxItems": 0 },
             "admin_projection": { "$ref": "#/$defs/adminProjection" }
           },
           "not": {
@@ -444,7 +444,11 @@
         "unit": { "enum": ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] },
         "currency": { "enum": ["SIMWAR_UNITS", "NOT_APPLICABLE", "UNKNOWN"] },
         "time_period": { "enum": ["ROUND", "HORIZON"] },
-        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "unknown_reason": { "type": "string", "minLength": 1 }
       },
       "allOf": [
@@ -554,6 +558,30 @@
         "debt_service": { "$ref": "#/$defs/financeBasis" }
       }
     },
+    "knownFinanceBasis": {
+      "allOf": [
+        { "$ref": "#/$defs/financeBasis" },
+        {
+          "type": "object",
+          "required": ["amount", "status"],
+          "properties": {
+            "amount": { "type": "number" },
+            "status": { "const": "KNOWN" }
+          }
+        }
+      ]
+    },
+    "positiveKnownFinanceBasis": {
+      "allOf": [
+        { "$ref": "#/$defs/knownFinanceBasis" },
+        {
+          "type": "object",
+          "properties": {
+            "amount": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      ]
+    },
     "financeDscr": {
       "type": "object",
       "additionalProperties": false,
@@ -582,6 +610,15 @@
             "properties": {
               "ratio": { "type": "null" },
               "unknown_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "KNOWN" } } },
+          "then": {
+            "properties": {
+              "numerator": { "$ref": "#/$defs/knownFinanceBasis" },
+              "denominator": { "$ref": "#/$defs/positiveKnownFinanceBasis" }
             }
           }
         }

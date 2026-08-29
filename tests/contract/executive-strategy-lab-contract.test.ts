@@ -334,6 +334,48 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(unknownWithNumber)).toBe(false);
   });
 
+  it("requires known DSCR to bind known positive bases and their ratio", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const unknownNumerator = structuredClone(fixture) as Record<string, unknown>;
+    const unknownNumeratorFinance = (unknownNumerator.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const unknownNumeratorDscr = unknownNumeratorFinance.dscr as Record<string, unknown>;
+    unknownNumeratorDscr.numerator = {
+      ...(unknownNumeratorDscr.numerator as Record<string, unknown>),
+      amount: null,
+      status: "UNKNOWN",
+      unknown_reason: "NUMERATOR_BASIS_UNAVAILABLE"
+    };
+    expect(validate(unknownNumerator)).toBe(false);
+    expect(isESLResponse(unknownNumerator)).toBe(false);
+
+    const zeroDenominator = structuredClone(fixture) as Record<string, unknown>;
+    const zeroDenominatorFinance = (zeroDenominator.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const zeroDenominatorDscr = zeroDenominatorFinance.dscr as Record<string, unknown>;
+    zeroDenominatorDscr.denominator = {
+      ...(zeroDenominatorDscr.denominator as Record<string, unknown>),
+      amount: 0
+    };
+    expect(validate(zeroDenominator)).toBe(false);
+    expect(isESLResponse(zeroDenominator)).toBe(false);
+
+    const mismatchedRatio = structuredClone(fixture) as Record<string, unknown>;
+    const mismatchedRatioFinance = (mismatchedRatio.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const mismatchedRatioDscr = mismatchedRatioFinance.dscr as Record<string, unknown>;
+    mismatchedRatioDscr.ratio = 99;
+    expect(validate(mismatchedRatio)).toBe(true);
+    expect(isESLResponse(mismatchedRatio)).toBe(false);
+  });
+
   it("enforces finance unit, currency, and status coupling", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
@@ -406,6 +448,24 @@ describe("Executive Strategy Lab contract", () => {
 
     expect(validate(missingSourceRefs)).toBe(false);
     expect(isESLResponse(missingSourceRefs)).toBe(false);
+  });
+
+  it("requires at least one source reference on every finance basis", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const missingBasisSourceRefs = structuredClone(fixture) as Record<string, unknown>;
+    const finance = (missingBasisSourceRefs.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const capex = finance.capex as Record<string, unknown>;
+    capex.source_refs = [];
+
+    expect(validate(missingBasisSourceRefs)).toBe(false);
+    expect(isESLResponse(missingBasisSourceRefs)).toBe(false);
   });
 
   it("binds unknown finance validation to unknown conclusions", () => {
@@ -532,6 +592,51 @@ describe("Executive Strategy Lab contract", () => {
     mismatched.teacher_projection.paths = projectionPaths;
     projectionPaths[0] = { ...projectionPaths[0], label: "不一致的投影路径" };
     expect(isESLResponse(mismatched)).toBe(false);
+  });
+
+  it("accepts admin responses with an empty root path list", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const admin = structuredClone(fixture) as Record<string, unknown>;
+    const sourcePaths = fixture.paths as Array<Record<string, unknown>>;
+    admin.surface = "admin";
+    admin.paths = [];
+    delete admin.teacher_projection;
+    admin.admin_projection = {
+      surface: "admin",
+      tenant_id: (fixture.exact_binding as Record<string, unknown>).tenant_id,
+      exact_binding: fixture.exact_binding,
+      source_refs: fixture.source_refs,
+      officiality_counts: { official: 1, non_official: sourcePaths.length },
+      audit: {
+        candidate_id: fixture.candidate_id,
+        generated_by: "usr_admin",
+        no_write: true,
+        recovery: "REPLAY_REQUEST_WITH_EXACT_BINDING"
+      },
+      finance_models: sourcePaths.map((path) => {
+        const finance = path.finance_feasibility as Record<string, unknown>;
+        return {
+          path_id: path.path_id,
+          model: finance.model,
+          input_digest: finance.input_digest,
+          source_refs: finance.source_refs
+        };
+      })
+    };
+
+    expect(validate(admin)).toBe(true);
+    expect(isESLResponse(admin)).toBe(true);
+
+    const adminWithRootPaths = structuredClone(admin) as Record<string, unknown>;
+    adminWithRootPaths.paths = sourcePaths;
+    expect(validate(adminWithRootPaths)).toBe(false);
+    expect(isESLResponse(adminWithRootPaths)).toBe(false);
   });
 
   it("requires each finance stress regime exactly once in the JSON Schema", () => {

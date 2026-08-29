@@ -395,7 +395,7 @@ function financeBasis(value: unknown): boolean {
     !["SIMWAR_UNITS", "NOT_APPLICABLE", "UNKNOWN"].includes(String(basis.currency)) ||
     !financeCurrency(basis.unit, basis.status, basis.currency) ||
     !["ROUND", "HORIZON"].includes(String(basis.time_period)) ||
-    !stringArray(basis.source_refs)
+    !stringArray(basis.source_refs, 1)
   ) {
     return false;
   }
@@ -486,6 +486,20 @@ function unknownFinanceBasis(value: unknown): boolean {
 
 function financeDscr(value: unknown): boolean {
   const dscr = record(value);
+  const numerator = record(dscr?.numerator);
+  const denominator = record(dscr?.denominator);
+  const knownBasesMatchRatio =
+    dscr?.status !== "KNOWN" ||
+    (numerator !== null &&
+      denominator !== null &&
+      numerator.status === "KNOWN" &&
+      denominator.status === "KNOWN" &&
+      finiteNumber(numerator.amount) &&
+      finiteNumber(denominator.amount) &&
+      Number(denominator.amount) > 0 &&
+      finiteNumber(dscr.ratio) &&
+      Math.abs(Number(dscr.ratio) - Number(numerator.amount) / Number(denominator.amount)) <=
+        Math.max(1, Math.abs(Number(dscr.ratio))) * 1e-9);
   return (
     dscr !== null &&
     hasExactKeys(
@@ -497,7 +511,8 @@ function financeDscr(value: unknown): boolean {
     financeStatus(dscr.status) &&
     financeBasis(dscr.numerator) &&
     financeBasis(dscr.denominator) &&
-    stringArray(dscr.source_refs) &&
+    stringArray(dscr.source_refs, 1) &&
+    knownBasesMatchRatio &&
     (dscr.status === "KNOWN"
       ? finiteNumber(dscr.ratio)
       : dscr.ratio === null && nonEmptyString(dscr.unknown_reason))
@@ -1035,6 +1050,9 @@ function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
 }
 
 function responsePathsMatchProjection(response: Record<string, unknown>): boolean {
+  if (response.surface === "admin") {
+    return Array.isArray(response.paths) && response.paths.length === 0;
+  }
   const projection =
     response.surface === "teacher"
       ? record(response.teacher_projection)
