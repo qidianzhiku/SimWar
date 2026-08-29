@@ -853,3 +853,4 @@ export function projectM1ForStudent(pack: M1ExecutiveSeasonPack): M1StudentProje
 }
 
 export * from "./m2-capital-sequencing.js";
+export * from "./m3-operating-stress.js";
