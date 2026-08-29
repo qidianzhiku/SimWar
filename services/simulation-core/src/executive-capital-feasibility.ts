@@ -504,8 +504,6 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     "AMORTIZATION_SCHEDULE_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
   const knownZeroDebtService =
-    debtPrincipal.status === "KNOWN" &&
-    debtPrincipal.amount === 0 &&
     interestPaid.status === "KNOWN" &&
     interestPaid.amount === 0 &&
     amortization.status === "KNOWN" &&

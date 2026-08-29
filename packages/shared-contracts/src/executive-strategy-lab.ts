@@ -266,6 +266,65 @@ function stateRef(value: unknown): value is W4StateRef {
   );
 }
 
+function projectionHasSurface(value: unknown, surface: ESLSurface): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).surface === surface
+  );
+}
+
+function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
+  const surface = response.surface;
+  const hasTeacherProjection = response.teacher_projection !== undefined;
+  const hasStudentProjection = response.student_projection !== undefined;
+  const hasAdminProjection = response.admin_projection !== undefined;
+
+  if (surface === "teacher") {
+    return (
+      projectionHasSurface(response.teacher_projection, "teacher") &&
+      !hasStudentProjection &&
+      !hasAdminProjection
+    );
+  }
+  if (surface === "student") {
+    return (
+      projectionHasSurface(response.student_projection, "student") &&
+      !hasTeacherProjection &&
+      !hasAdminProjection
+    );
+  }
+  if (surface === "admin") {
+    return (
+      projectionHasSurface(response.admin_projection, "admin") &&
+      !hasTeacherProjection &&
+      !hasStudentProjection
+    );
+  }
+  return false;
+}
+
+function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
+  if (!Array.isArray(response.paths)) return false;
+  return response.paths.every((path) => {
+    if (!path || typeof path !== "object" || Array.isArray(path)) return false;
+    const item = path as Record<string, unknown>;
+    const commonPath =
+      exactId(item.path_id) &&
+      item.officiality === "NON_OFFICIAL" &&
+      typeof item.path_digest === "string" &&
+      /^[a-f0-9]{64}$/.test(item.path_digest) &&
+      Boolean(item.finance_feasibility) &&
+      (item.finance_feasibility as Record<string, unknown>).official === false;
+    if (!commonPath) return false;
+    if (response.surface === "student") {
+      return !Object.hasOwn(item, "decision_ids") && !Object.hasOwn(item, "mechanism_ids");
+    }
+    return Array.isArray(item.decision_ids) && Array.isArray(item.mechanism_ids);
+  });
+}
+
 export function isESLResponse(value: unknown): value is ESLResponse {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const response = value as Record<string, unknown>;
@@ -283,18 +342,8 @@ export function isESLResponse(value: unknown): value is ESLResponse {
     (baseline.outcome_id === null || exactId(baseline.outcome_id)) &&
     (baseline.state_ref === null || stateRef(baseline.state_ref)) &&
     typeof baseline.summary === "string" &&
-    Array.isArray(response.paths) &&
-    response.paths.every((path) => {
-      const item = path as Record<string, unknown>;
-      return (
-        exactId(item.path_id) &&
-        item.officiality === "NON_OFFICIAL" &&
-        typeof item.path_digest === "string" &&
-        /^[a-f0-9]{64}$/.test(item.path_digest) &&
-        Boolean(item.finance_feasibility) &&
-        (item.finance_feasibility as Record<string, unknown>).official === false
-      );
-    }) &&
+    responseSurfaceBoundary(response) &&
+    responsePathsMatchSurface(response) &&
     Array.isArray(response.mechanisms) &&
     transfer?.status === "DRAFT" &&
     typeof transfer.statement === "string" &&

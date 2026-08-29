@@ -96,11 +96,104 @@ describe("Executive Strategy Lab contract", () => {
         replay_truth_write: false,
         provider: "OFF"
       },
-      known_limits: ["测试限制"]
+      known_limits: ["测试限制"],
+      teacher_projection: {
+        surface: "teacher",
+        available_actions: [],
+        official_baseline: {
+          officiality: "OFFICIAL",
+          outcome_id: "outcome_demo",
+          state_ref: null,
+          summary: "官方基线已解析。"
+        },
+        paths: [],
+        mechanisms: [],
+        transfer: {
+          status: "DRAFT",
+          statement: request.transfer_hypothesis,
+          evidence_path_ids: [],
+          applies_to_next_round: false
+        }
+      }
     };
     expect(isESLResponse(response)).toBe(true);
     expect(JSON.stringify(response)).not.toContain("state_true");
     expect(JSON.stringify(response)).not.toContain("settlement_result");
+  });
+
+  it("enforces response-surface projection and path isolation in the runtime guard", () => {
+    const teacherResponse: ESLResponse = {
+      schema_version: "main-esl-o2p.v1",
+      candidate_id: "esl_candidate_1234567890abcdef",
+      surface: "teacher",
+      exact_binding: request.exact_binding,
+      official_baseline: {
+        officiality: "OFFICIAL",
+        outcome_id: "outcome_demo",
+        state_ref: null,
+        summary: "官方基线已解析。"
+      },
+      paths: [],
+      mechanisms: [],
+      transfer: {
+        status: "DRAFT",
+        statement: request.transfer_hypothesis,
+        evidence_path_ids: [],
+        applies_to_next_round: false
+      },
+      source_refs: {
+        official_outcome_id: "outcome_demo",
+        o4_candidate_digest: null,
+        m4_candidate_digests: []
+      },
+      authority: {
+        runtime_authority: "JSON_INTERNAL_ONLY",
+        official_realized_source: "SIMULATION_CORE",
+        writer_authority: "SOLE_W4_ENTERPRISE_STATE_SERVICE",
+        formal_truth_write: false,
+        settlement_write: false,
+        replay_truth_write: false,
+        provider: "OFF"
+      },
+      known_limits: ["测试限制"],
+      teacher_projection: {
+        surface: "teacher",
+        available_actions: [],
+        official_baseline: {
+          officiality: "OFFICIAL",
+          outcome_id: "outcome_demo",
+          state_ref: null,
+          summary: "官方基线已解析。"
+        },
+        paths: [],
+        mechanisms: [],
+        transfer: {
+          status: "DRAFT",
+          statement: request.transfer_hypothesis,
+          evidence_path_ids: [],
+          applies_to_next_round: false
+        }
+      }
+    };
+    const studentWithTeacherProjection = {
+      ...teacherResponse,
+      surface: "student" as const,
+      student_projection: {
+        surface: "student" as const,
+        role_safe: true as const,
+        official_baseline: {
+          officiality: "OFFICIAL" as const,
+          outcome_id: "outcome_demo",
+          summary: "官方基线已解析。"
+        },
+        paths: [],
+        transfer: teacherResponse.transfer,
+        excluded_fields: ["decision_ids"]
+      }
+    };
+
+    expect(isESLResponse(teacherResponse)).toBe(true);
+    expect(isESLResponse(studentWithTeacherProjection)).toBe(false);
   });
 
   it("binds root path shape to the declared response surface", () => {

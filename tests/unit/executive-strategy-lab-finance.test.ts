@@ -301,9 +301,9 @@ describe("projectESLFinance", () => {
     expect(result.binding_constraints).not.toContain("DSCR_BASIS_UNKNOWN");
   });
 
-  it("keeps a known zero debt service feasible across a round-scoped accounting basis", () => {
+  it("keeps known zero payments feasible across a round-scoped accounting basis", () => {
     const source = state(1000);
-    source.capital = capital({ debt_principal: 0, interest_paid: 0 });
+    source.capital = capital({ debt_principal: 100, interest_paid: 0 });
     const result = projectESLFinance(
       input({
         source_state: source,
