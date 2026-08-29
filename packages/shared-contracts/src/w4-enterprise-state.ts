@@ -515,8 +515,7 @@ export interface W4CounterfactualRoundEvidence {
   changed_paths: string[];
 }
 
-export interface W4CounterfactualEvidence {
-  surface: "student" | "teacher";
+export interface W4CounterfactualEvidenceCommon {
   counterfactual_id: string;
   source_outcome_id: string;
   source_state_ref: W4StateRef;
@@ -528,7 +527,6 @@ export interface W4CounterfactualEvidence {
   plugin_ids: string[];
   seed: number;
   horizon_rounds: number;
-  capital_actions: W4CapitalAction[];
   rounds: W4CounterfactualRoundEvidence[];
   official_decision_writes: false;
   official_settlement_writes: false;
@@ -537,6 +535,20 @@ export interface W4CounterfactualEvidence {
   replay_writes_formal_results: false;
   known_limits: string[];
 }
+
+export interface W4TeacherCounterfactualEvidence extends W4CounterfactualEvidenceCommon {
+  surface: "teacher";
+  capital_actions: W4CapitalAction[];
+}
+
+export interface W4StudentCounterfactualEvidence extends W4CounterfactualEvidenceCommon {
+  surface: "student";
+  capital_actions?: never;
+}
+
+export type W4CounterfactualEvidence =
+  | W4TeacherCounterfactualEvidence
+  | W4StudentCounterfactualEvidence;
 
 export interface W4StrategicActionProjection {
   decision_id: string;

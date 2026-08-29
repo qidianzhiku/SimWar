@@ -304,7 +304,7 @@ describe("projectESLFinance", () => {
             maturity_round_no: 5
           }
         ],
-        path_cash_delta: 1_000
+        path_cash_delta: 250
       })
     );
 
@@ -330,6 +330,19 @@ describe("projectESLFinance", () => {
     expect(workforce.why_not_feasible).toContain(
       "劳动力压力无法与融资现金流区分，压力情景不可判定。"
     );
+  });
+
+  it("fails closed when path cash delta does not match the bound terminal state", () => {
+    const result = projectESLFinance(input({ path_cash_delta: 249 }));
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("PATH_CASH_DELTA_MISMATCH");
+    expect(result.cash_flow).toMatchObject({
+      amount: null,
+      status: "UNKNOWN",
+      unknown_reason: "FINANCE_INPUT_VALIDATION_FAILED"
+    });
+    expect(result.feasibility).toBe("UNKNOWN");
   });
 
   it("fails closed when a state scope does not match its exact reference", () => {
@@ -379,7 +392,14 @@ describe("projectESLFinance", () => {
   });
 
   it("makes downside shocks worsen a negative observed cash delta", () => {
-    const result = projectESLFinance(input({ path_cash_delta: -100 }));
+    const result = projectESLFinance(
+      input({
+        path_cash_delta: -100,
+        terminal_state_ref: null,
+        terminal_state_scope: null,
+        terminal_state: null
+      })
+    );
 
     expect(result.stress_regimes.map((regime) => regime.cash_flow.amount)).toEqual([
       -120, -110, -108
@@ -533,7 +553,8 @@ describe("projectESLFinance", () => {
       input({
         terminal_state: terminalState,
         terminal_state_ref: terminalStateRef,
-        terminal_state_scope: stateScope(terminalStateRef)
+        terminal_state_scope: stateScope(terminalStateRef),
+        path_cash_delta: -500
       })
     );
 

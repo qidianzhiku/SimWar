@@ -32,6 +32,7 @@ import type {
   W4ProjectionBase,
   W4MatchedProjectArena,
   W4MatchedArenaTeamPath,
+  W4CounterfactualEvidenceCommon,
   W4CounterfactualEvidence,
   W4CounterfactualInput,
   W4CounterfactualRoundEvidence,
@@ -2234,8 +2235,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         openingStateData = closingState;
         openingRef = closingRef;
       }
-      const evidence: W4CounterfactualEvidence = {
-        surface,
+      const commonEvidence: W4CounterfactualEvidenceCommon = {
         counterfactual_id: `counterfactual_${digest({
           source_state_ref: input.source_state_ref,
           source_outcome_id: input.source_outcome_id,
@@ -2260,7 +2260,6 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         plugin_ids: [...input.plugin_ids],
         seed: input.seed,
         horizon_rounds: input.horizon_rounds,
-        capital_actions: clone(selectedCapitalActions),
         rounds,
         official_decision_writes: false,
         official_settlement_writes: false,
@@ -2273,6 +2272,10 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           "No score, rank, or publication projection is calculated by this evidence path."
         ]
       };
+      const evidence: W4CounterfactualEvidence =
+        surface === "teacher"
+          ? { ...commonEvidence, surface: "teacher", capital_actions: clone(selectedCapitalActions) }
+          : { ...commonEvidence, surface: "student" };
       return evidence;
     },
 

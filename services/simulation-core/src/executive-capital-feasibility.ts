@@ -526,6 +526,15 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     }
   }
   if (!finite(input.path_cash_delta)) reasons.push("NONFINITE_PATH_CASH_DELTA");
+  if (
+    input.terminal_state !== null &&
+    finite(input.source_state.cash) &&
+    finite(input.terminal_state.cash) &&
+    finite(input.path_cash_delta) &&
+    input.path_cash_delta !== input.terminal_state.cash - input.source_state.cash
+  ) {
+    reasons.push("PATH_CASH_DELTA_MISMATCH");
+  }
   if (!validAccountingBasis(input.accounting_basis)) reasons.push("INVALID_ACCOUNTING_BASIS");
   if (
     !validState(input.source_state) ||

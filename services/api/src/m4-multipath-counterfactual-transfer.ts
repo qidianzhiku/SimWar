@@ -12,6 +12,7 @@ import type {
   W4CounterfactualInput,
   W4EnterpriseStateData,
   Round,
+  W4TeacherCounterfactualEvidence,
   W4ScopeContext,
   W4StateRef
 } from "@simwar/shared-contracts";
@@ -193,7 +194,7 @@ function outcomeDifferential(source: W4EnterpriseStateData, evidence: W4Counterf
 
 function teacherPath(
   input: M4CounterfactualPathInput,
-  evidence: W4CounterfactualEvidence
+  evidence: W4TeacherCounterfactualEvidence
 ): M4TeacherPathProjection {
   const mechanisms = changedPaths([evidence]);
   return {
@@ -414,10 +415,16 @@ export class M4MultipathCounterfactualTransferService {
           engine_id: input.engine_id,
           plugin_ids: [...input.plugin_ids],
           seed: input.seed
-        } satisfies W4CounterfactualInput)
+        } satisfies W4CounterfactualInput, "teacher")
       )
     );
-    const teacherPaths = normalizedPaths.map((path, index) => teacherPath(path, evidence[index]!));
+    const teacherPaths = normalizedPaths.map((path, index) => {
+      const teacherEvidence = evidence[index];
+      if (!teacherEvidence || teacherEvidence.surface !== "teacher") {
+        throw new M4MultipathCounterfactualTransferError("M4_TEACHER_EVIDENCE_REQUIRED");
+      }
+      return teacherPath(path, teacherEvidence);
+    });
     const pathDigests = teacherPaths.map((path) => path.path_digest);
     if (new Set(pathDigests).size !== pathDigests.length) {
       throw new M4MultipathCounterfactualTransferError("M4_PATHS_NOT_DISTINCT");
