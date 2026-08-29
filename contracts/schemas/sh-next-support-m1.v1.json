@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-support-m1.v1.json",
+  "title": "Shanghai Next M1 Executive Strategy Season Candidate",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "state_transition",
+    "sources",
+    "observations",
+    "features",
+    "transformations",
+    "scenarios",
+    "episodes",
+    "role_visibility",
+    "consumer",
+    "authority",
+    "mjp",
+    "main_handoff",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-support.v1" },
+    "macro_key": { "const": "M1" },
+    "mission_id": { "const": "SH-ESL-NEXT-01-SHANGHAI-EXECUTIVE-STRATEGY-EXPERIMENT-SEASON" },
+    "state_transition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } }
+    },
+    "sources": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/source" } },
+    "observations": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/observation" } },
+    "features": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/feature" } },
+    "transformations": { "type": "array", "minItems": 4 },
+    "scenarios": { "type": "array", "minItems": 4 },
+    "episodes": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/episode" } },
+    "role_visibility": { "type": "object", "required": ["teacher", "student", "admin"] },
+    "consumer": {
+      "type": "object",
+      "required": [
+        "classification",
+        "consumer_id",
+        "consumer_ready",
+        "formal_join",
+        "exact_binding_required"
+      ],
+      "properties": {
+        "classification": { "const": "C1" },
+        "consumer_id": { "const": "MAIN-ESL-O1-EXECUTIVE-STRATEGY-LAB" },
+        "consumer_ready": { "const": false },
+        "formal_join": { "const": false },
+        "exact_binding_required": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "provider"
+      ],
+      "properties": {
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "required": ["status", "episode_id"],
+      "properties": { "status": { "const": "PASS" } }
+    },
+    "main_handoff": {
+      "type": "object",
+      "required": ["status"],
+      "properties": { "status": { "const": "JOIN_WITH_LIMITS" } }
+    },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "source_date",
+        "geography",
+        "time_scope",
+        "provenance",
+        "license_or_usage_status",
+        "confidence",
+        "sensitivity",
+        "role_visibility",
+        "derived_from",
+        "hash"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_date": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "minLength": 1 },
+        "license_or_usage_status": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "role_visibility": { "type": "string", "minLength": 1 },
+        "derived_from": { "type": "array" },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "observation_id",
+        "source_id",
+        "location",
+        "period",
+        "basis",
+        "unit",
+        "geography",
+        "data_type",
+        "value",
+        "confidence",
+        "expiry"
+      ],
+      "properties": {
+        "observation_id": { "type": "string" },
+        "source_id": { "type": "string" },
+        "location": { "type": "string" },
+        "period": { "type": "string" },
+        "basis": { "type": "string" },
+        "unit": { "type": "string" },
+        "geography": { "type": "string" },
+        "data_type": { "type": "string" },
+        "value": {},
+        "confidence": { "type": "string" },
+        "expiry": { "type": "string" }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "required": [
+        "feature_id",
+        "name",
+        "value",
+        "unit",
+        "range",
+        "source_ids",
+        "temporal_scope",
+        "geography",
+        "confidence",
+        "possible_mod_consumer",
+        "calibration_evidence",
+        "visibility"
+      ],
+      "properties": {
+        "feature_id": { "type": "string" },
+        "name": { "type": "string" },
+        "value": {},
+        "unit": { "type": "string" },
+        "range": { "type": "object" },
+        "source_ids": { "type": "array", "minItems": 1 },
+        "temporal_scope": { "type": "string" },
+        "geography": { "type": "string" },
+        "confidence": { "type": "string" },
+        "possible_mod_consumer": { "type": "string" },
+        "calibration_evidence": { "enum": ["NONE", "NOT_PROVEN"] },
+        "visibility": { "type": "string" }
+      }
+    },
+    "episode": {
+      "type": "object",
+      "required": [
+        "episode_id",
+        "scenario_ref",
+        "decision_context",
+        "process",
+        "outcome_candidate",
+        "learning_evidence",
+        "counterfactual",
+        "loop",
+        "ai_mode",
+        "final_ranking_prefilled"
+      ],
+      "properties": {
+        "episode_id": { "type": "string" },
+        "scenario_ref": {
+          "type": "object",
+          "required": [
+            "scenario_id",
+            "parameter_set_id",
+            "model_ref",
+            "course_id",
+            "run_id",
+            "seed",
+            "exact_refs"
+          ]
+        },
+        "decision_context": {
+          "type": "object",
+          "required": ["situation", "options", "correct_answer_supplied", "student_private_truth"]
+        },
+        "process": { "type": "object" },
+        "outcome_candidate": { "type": "object" },
+        "learning_evidence": { "type": "object" },
+        "counterfactual": { "type": "object" },
+        "loop": { "const": ["Decision", "Outcome", "Debrief", "What-if", "Transfer"] },
+        "ai_mode": { "const": "OFF" },
+        "final_ranking_prefilled": { "const": false }
+      }
+    }
+  }
+}
