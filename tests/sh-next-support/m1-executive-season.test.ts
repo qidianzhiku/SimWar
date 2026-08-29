@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildM1ExecutiveSeason, validateM1ExecutiveSeason } from "@simwar/sh-next-support";
+import {
+  buildM1ExecutiveSeason,
+  projectM1ForStudent,
+  validateM1ExecutiveSeason
+} from "@simwar/sh-next-support";
 
 describe("M1 Shanghai executive strategy season", () => {
   it("builds four complete episodes with an exact-bound decision loop", () => {
@@ -61,5 +65,46 @@ describe("M1 Shanghai executive strategy season", () => {
     expect(first.consumer.classification).toBe("C1");
     expect(first.pack_digest).toBe(second.pack_digest);
     expect(validateM1ExecutiveSeason(first)).toEqual([]);
+  });
+
+  it("rejects a tampered pack whose digest no longer matches its content", () => {
+    const pack = buildM1ExecutiveSeason();
+    const tampered = structuredClone(pack);
+    tampered.episodes[0]!.title = "tampered title";
+
+    expect(validateM1ExecutiveSeason(tampered)).toContain("m1_pack_digest_mismatch");
+  });
+
+  it("returns a filtered student projection without teacher or admin material", () => {
+    const projection = projectM1ForStudent(buildM1ExecutiveSeason());
+
+    expect(projection.visibility).toBe("STUDENT_SAFE");
+    expect(projection.episodes).toHaveLength(4);
+    for (const episode of projection.episodes) {
+      expect(episode).not.toHaveProperty("teacher_hook");
+      expect(episode).not.toHaveProperty("private_truth");
+      expect(episode).not.toHaveProperty("final_ranking");
+      expect(episode.visible_fields).toEqual([
+        "situation",
+        "options",
+        "own_rationale",
+        "candidate_outcome",
+        "reflection"
+      ]);
+    }
+  });
+
+  it("keeps every exact reference within the frozen source file line count", () => {
+    const pack = buildM1ExecutiveSeason();
+    const refs = [
+      ...pack.episodes.flatMap((episode) => episode.scenario_ref.exact_refs),
+      ...pack.scenarios.flatMap((scenario) => scenario.exact_refs),
+      ...pack.main_handoff.exact_refs
+    ];
+
+    expect(refs.find((ref) => ref.ref_id === "shanghai-full-vertical.v1")?.line_end).toBe(85);
+    expect(refs.find((ref) => ref.ref_id === "strategic-portfolio.v1")?.line_end).toBe(82);
+    expect(refs.find((ref) => ref.ref_id === "r7-scenario-factory")?.line_end).toBe(362);
+    expect(refs.find((ref) => ref.ref_id === "eldercare-scenario-compiler")?.line_end).toBe(184);
   });
 });

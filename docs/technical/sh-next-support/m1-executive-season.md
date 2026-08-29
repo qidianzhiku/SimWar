@@ -26,8 +26,8 @@ binding.
 
 ## Role and authority safety
 
-- Student projection exposes the situation, options, own rationale, candidate
-  outcome direction, and reflection prompts only.
+- `projectM1ForStudent` exposes the situation, options, own rationale,
+  candidate outcome direction, and reflection prompts only.
 - Teacher-only facilitation and unpublished notes are not included in the
   student projection.
 - The pack has no official truth, settlement, or formal ParameterSet write.

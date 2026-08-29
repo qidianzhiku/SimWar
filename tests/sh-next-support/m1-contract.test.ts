@@ -14,4 +14,20 @@ describe("M1 JSON contract", () => {
     expect(validate(buildM1ExecutiveSeason())).toBe(true);
     expect(validate.errors).toBeNull();
   });
+
+  it("rejects formal outcome fields in an externally supplied candidate", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve(process.cwd(), "contracts/schemas/sh-next-support-m1.v1.json"), "utf8")
+    ) as object;
+    const validate = new Ajv2020({ strict: false }).compile(schema);
+    const candidate = buildM1ExecutiveSeason();
+    candidate.episodes[0]!.outcome_candidate = {
+      authority: "CANDIDATE",
+      observable_directions: ["safe"],
+      final_score: 1
+    } as never;
+
+    expect(validate(candidate)).toBe(false);
+    expect(validate.errors?.some((error) => error.keyword === "additionalProperties")).toBe(true);
+  });
 });

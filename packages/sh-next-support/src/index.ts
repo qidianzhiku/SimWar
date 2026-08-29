@@ -206,6 +206,22 @@ export interface M1ExecutiveSeasonPack {
   pack_digest: string;
 }
 
+export interface M1StudentEpisodeProjection {
+  episode_id: string;
+  title: string;
+  objective: string;
+  situation: string;
+  options: string[];
+  candidate_outcome: string[];
+  reflection: string[];
+  visible_fields: ["situation", "options", "own_rationale", "candidate_outcome", "reflection"];
+}
+
+export interface M1StudentProjection {
+  visibility: "STUDENT_SAFE";
+  episodes: M1StudentEpisodeProjection[];
+}
+
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
@@ -259,35 +275,35 @@ const M1_REFS = {
     "strategic-portfolio.v1",
     "packages/shared-contracts/src/strategic-portfolio.ts",
     1,
-    113
+    82
   ),
   fullVertical: exactRef(
     "CONTRACT",
     "shanghai-full-vertical.v1",
     "packages/shared-contracts/src/shanghai-full-vertical.ts",
     1,
-    180
+    85
   ),
   scenarioFactory: exactRef(
     "CONTRACT",
     "r7-scenario-factory",
     "packages/shared-contracts/src/scenario-factory.ts",
     1,
-    220
+    362
   ),
   compiler: exactRef(
     "CODE",
     "eldercare-scenario-compiler",
     "services/simulation-core/src/eldercare-scenario-compiler.ts",
     1,
-    240
+    184
   ),
   integration: exactRef(
     "TEST",
     "shanghai-full-vertical-endpoint",
     "tests/integration/shanghai-full-vertical-endpoint.test.ts",
     1,
-    220
+    190
   )
 } as const;
 
@@ -779,6 +795,8 @@ export function buildM1ExecutiveSeason(): M1ExecutiveSeasonPack {
 
 export function validateM1ExecutiveSeason(pack: M1ExecutiveSeasonPack): string[] {
   const issues: string[] = [];
+  const { pack_digest, ...packContent } = pack;
+  if (stableDigest(packContent) !== pack_digest) issues.push("m1_pack_digest_mismatch");
   if (pack.episodes.length !== 4) issues.push("m1_episode_count_invalid");
   if (pack.state_transition.to !== "STATE_B") issues.push("m1_state_transition_incomplete");
   if (
@@ -816,4 +834,20 @@ export function validateM1ExecutiveSeason(pack: M1ExecutiveSeasonPack): string[]
     issues.push("m1_calibration_claim_unbounded");
   }
   return issues;
+}
+
+export function projectM1ForStudent(pack: M1ExecutiveSeasonPack): M1StudentProjection {
+  return {
+    visibility: "STUDENT_SAFE",
+    episodes: pack.episodes.map((episode) => ({
+      episode_id: episode.episode_id,
+      title: episode.title,
+      objective: episode.objective,
+      situation: episode.decision_context.situation,
+      options: [...episode.decision_context.options],
+      candidate_outcome: [...episode.outcome_candidate.observable_directions],
+      reflection: [...episode.learning_evidence.prompts],
+      visible_fields: ["situation", "options", "own_rationale", "candidate_outcome", "reflection"]
+    }))
+  };
 }

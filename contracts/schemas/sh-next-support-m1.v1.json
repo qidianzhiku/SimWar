@@ -207,7 +207,15 @@
           "required": ["situation", "options", "correct_answer_supplied", "student_private_truth"]
         },
         "process": { "type": "object" },
-        "outcome_candidate": { "type": "object" },
+        "outcome_candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authority", "observable_directions"],
+          "properties": {
+            "authority": { "const": "CANDIDATE" },
+            "observable_directions": { "type": "array", "items": { "type": "string" } }
+          }
+        },
         "learning_evidence": { "type": "object" },
         "counterfactual": { "type": "object" },
         "loop": { "const": ["Decision", "Outcome", "Debrief", "What-if", "Transfer"] },
