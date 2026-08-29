@@ -300,6 +300,13 @@ function financeUnit(value: unknown): boolean {
   return ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"].includes(String(value));
 }
 
+function financeCurrency(unit: unknown, status: unknown, currency: unknown): boolean {
+  if (unit === "SIMWAR_CURRENCY") {
+    return status === "KNOWN" ? currency === "SIMWAR_UNITS" : currency === "UNKNOWN";
+  }
+  return currency === "NOT_APPLICABLE";
+}
+
 function financeStatus(value: unknown): boolean {
   return value === "KNOWN" || value === "UNKNOWN";
 }
@@ -344,6 +351,7 @@ function financeBasis(value: unknown): boolean {
     !financeStatus(basis.status) ||
     !financeUnit(basis.unit) ||
     !["SIMWAR_UNITS", "NOT_APPLICABLE", "UNKNOWN"].includes(String(basis.currency)) ||
+    !financeCurrency(basis.unit, basis.status, basis.currency) ||
     !["ROUND", "HORIZON"].includes(String(basis.time_period)) ||
     !stringArray(basis.source_refs)
   ) {

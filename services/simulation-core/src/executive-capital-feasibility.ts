@@ -494,7 +494,8 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   if (!validCapitalActions(input.capital_actions)) reasons.push("INVALID_CAPITAL_ACTION_REFERENCE");
   if (reasons.length > 0) return unknownProjection(input, sourceRefs, reasons);
 
-  const capital = input.terminal_state?.capital ?? input.source_state.capital;
+  const capital =
+    input.terminal_state === null ? input.source_state.capital : input.terminal_state.capital;
   const cashFlow = basis(
     input.path_cash_delta,
     CURRENCY_UNIT,

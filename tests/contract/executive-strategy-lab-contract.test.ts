@@ -333,6 +333,37 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(unknownWithNumber)).toBe(false);
   });
 
+  it("enforces finance unit, currency, and status coupling", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const knownWithUnknownCurrency = structuredClone(fixture) as Record<string, unknown>;
+    const knownFinance = (knownWithUnknownCurrency.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    knownFinance.cash_flow = {
+      ...(knownFinance.cash_flow as Record<string, unknown>),
+      currency: "UNKNOWN"
+    };
+    expect(validate(knownWithUnknownCurrency)).toBe(false);
+    expect(isESLResponse(knownWithUnknownCurrency)).toBe(false);
+
+    const ratioWithCurrency = structuredClone(fixture) as Record<string, unknown>;
+    const ratioFinance = (ratioWithCurrency.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    ratioFinance.capex = {
+      ...(ratioFinance.capex as Record<string, unknown>),
+      unit: "RATIO",
+      currency: "SIMWAR_UNITS"
+    };
+    expect(validate(ratioWithCurrency)).toBe(false);
+    expect(isESLResponse(ratioWithCurrency)).toBe(false);
+  });
+
   it("rejects finance basis amount and status contradictions in the runtime guard", () => {
     const fixture = JSON.parse(
       readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")

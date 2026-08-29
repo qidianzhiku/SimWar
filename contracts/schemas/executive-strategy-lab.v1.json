@@ -461,6 +461,32 @@
               "unknown_reason": { "type": "string", "minLength": 1 }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "unit": { "const": "SIMWAR_CURRENCY" },
+              "status": { "const": "KNOWN" }
+            }
+          },
+          "then": { "properties": { "currency": { "const": "SIMWAR_UNITS" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "unit": { "const": "SIMWAR_CURRENCY" },
+              "status": { "const": "UNKNOWN" }
+            }
+          },
+          "then": { "properties": { "currency": { "const": "UNKNOWN" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "unit": { "enum": ["RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] }
+            }
+          },
+          "then": { "properties": { "currency": { "const": "NOT_APPLICABLE" } } }
         }
       ]
     },

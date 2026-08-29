@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { ESLResponse } from "@simwar/shared-contracts";
+import type { ESLAdminProjection, ESLResponse } from "@simwar/shared-contracts";
 
 export interface ExecutiveStrategyLabAuditPanelProps {
   apiBase: string;
@@ -10,6 +10,51 @@ export interface ExecutiveStrategyLabAuditPanelProps {
 interface Envelope {
   data?: ESLResponse;
   error?: { message?: string };
+}
+
+export function ExecutiveStrategyLabFinanceModelProvenance({
+  model
+}: {
+  model: ESLAdminProjection["finance_models"][number];
+}) {
+  const identity = [
+    ["source_kind", model.model.source_kind],
+    ["source_ref", model.model.source_ref],
+    ["model_version_id", model.model.model_version_id],
+    ["model_version", model.model.model_version],
+    ["model_artifact_id", model.model.model_artifact_id],
+    ["model_artifact_version", model.model.model_artifact_version],
+    ["engine_id", model.model.engine_id],
+    ["parameter_set_id", model.model.parameter_set_id],
+    ["parameter_set_version", model.model.parameter_set_version]
+  ] as const;
+  return (
+    <li data-testid={`esl-finance-model-${model.path_id}`}>
+      <strong>{model.path_id}</strong>
+      <dl className="esl-binding-list">
+        {identity.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>
+              <code>{value}</code>
+            </dd>
+          </div>
+        ))}
+        <div>
+          <dt>input_digest</dt>
+          <dd>
+            <code>{model.input_digest}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>source_refs</dt>
+          <dd>
+            <code>{model.source_refs.join("、")}</code>
+          </dd>
+        </div>
+      </dl>
+    </li>
+  );
 }
 
 export function ExecutiveStrategyLabAuditPanel({
@@ -111,12 +156,7 @@ export function ExecutiveStrategyLabAuditPanel({
             <summary>查看财务模型 provenance</summary>
             <ul>
               {result.admin_projection.finance_models.map((model) => (
-                <li key={model.path_id}>
-                  <code>{model.path_id}</code> · {model.model.model_version} · input{" "}
-                  {model.input_digest}
-                  <br />
-                  source refs: {model.source_refs.join("、")}
-                </li>
+                <ExecutiveStrategyLabFinanceModelProvenance key={model.path_id} model={model} />
               ))}
             </ul>
           </details>
