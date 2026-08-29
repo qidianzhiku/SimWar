@@ -27,22 +27,33 @@ export function ExecutiveStrategyLabWorkspace({
   const [hypothesis, setHypothesis] = useState("下一轮先验证服务质量与现金缓冲的平衡。 ".trim());
   const [result, setResult] = useState<ESLResponse | null>(null);
   const [availablePaths, setAvailablePaths] = useState<ESLPathRequest[] | null>(null);
-  const [pathsBusy, setPathsBusy] = useState(true);
+  const [pathsBusy, setPathsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setPathsBusy(true);
     setAvailablePaths(null);
+    setResult(null);
     setError(null);
+  }, [
+    apiBase,
+    binding.course_id,
+    binding.run_id,
+    binding.team_id,
+    binding.round_id,
+    binding.round_no,
+    tenantId,
+    token
+  ]);
+
+  async function discoverAvailablePaths(): Promise<ESLPathRequest[]> {
     const query = new URLSearchParams({
       course_id: binding.course_id,
       team_id: binding.team_id,
       round_id: binding.round_id,
       round_no: String(binding.round_no)
     });
-    void fetch(
+    const response = await fetch(
       `${apiBase}/api/v1/bff/teacher/w4/runs/${encodeURIComponent(binding.run_id)}/multipath-counterfactual-transfer?${query.toString()}`,
       {
         headers: {
@@ -50,35 +61,31 @@ export function ExecutiveStrategyLabWorkspace({
           "x-tenant-id": tenantId
         }
       }
-    )
-      .then(async (response) => {
-        const payload = (await response.json()) as M4PathEnvelope;
-        if (!response.ok || !payload.data?.paths || payload.data.paths.length < 2) {
-          throw new Error(
-            payload.error?.message ?? "当前 exact run 没有足够的真实替代决策路径"
-          );
-        }
-        if (!cancelled) setAvailablePaths(payload.data.paths.slice(0, 3));
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "真实替代决策路径加载失败");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setPathsBusy(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, binding.course_id, binding.run_id, binding.team_id, binding.round_id, binding.round_no, tenantId, token]);
+    );
+    const payload = (await response.json()) as M4PathEnvelope;
+    if (!response.ok || !payload.data?.paths || payload.data.paths.length < 2) {
+      throw new Error(payload.error?.message ?? "当前 exact run 没有足够的真实替代决策路径");
+    }
+    return payload.data.paths.slice(0, 3);
+  }
 
   async function createLab(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!availablePaths || availablePaths.length < 2) {
-      setError("当前 exact run 没有可用于 ESL 的真实替代决策路径");
-      return;
+    let paths = availablePaths;
+    if (!paths) {
+      setPathsBusy(true);
+      setError(null);
+      try {
+        paths = await discoverAvailablePaths();
+        setAvailablePaths(paths);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "真实替代决策路径加载失败");
+        return;
+      } finally {
+        setPathsBusy(false);
+      }
     }
+    if (paths.length < 2) return;
     setBusy(true);
     setError(null);
     try {
@@ -92,7 +99,7 @@ export function ExecutiveStrategyLabWorkspace({
         body: JSON.stringify({
           discriminator: "esl_strategy_lab_request",
           exact_binding: binding,
-          paths: availablePaths,
+          paths,
           transfer_hypothesis: hypothesis.trim(),
           idempotency_key: `esl-ui:${binding.run_id}:${binding.round_id}:${binding.team_id}`
         })
@@ -146,14 +153,17 @@ export function ExecutiveStrategyLabWorkspace({
           />
         </label>
         <p className="lifecycle-status">
-          将比较：
-          {availablePaths?.map((path) => path.label).join("、") ?? "等待当前 run 的真实路径"}。
+          将比较：{availablePaths?.map((path) => path.label).join("、") ?? "点击按钮后发现当前 run 的真实路径"}。
         </p>
         <button
           type="submit"
-          disabled={busy || pathsBusy || !availablePaths || availablePaths.length < 2 || !hypothesis.trim()}
+          disabled={busy || pathsBusy || !hypothesis.trim()}
         >
-          {pathsBusy ? "正在发现真实替代路径…" : busy ? "正在组合策略实验室…" : "打开 Executive Strategy Lab"}
+          {pathsBusy
+            ? "正在发现真实替代路径…"
+            : busy
+              ? "正在组合策略实验室…"
+              : "打开 Executive Strategy Lab"}
         </button>
       </form>
       {error ? (

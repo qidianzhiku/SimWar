@@ -117,6 +117,7 @@ async function verifyDisclosure(
     localStorage: JSON.stringify({ ...localStorage }),
     sessionStorage: JSON.stringify({ ...sessionStorage })
   }));
+  await page.waitForLoadState("networkidle");
   const requestCountBefore = await page.evaluate(
     () => performance.getEntriesByType("resource").length
   );
