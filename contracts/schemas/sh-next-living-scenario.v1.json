@@ -1,0 +1,495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-living-scenario.v1.json",
+  "title": "Shanghai M6 Living Scenario Refresh Drift Rollback Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "validation_as_of",
+    "state_transition",
+    "source_freeze",
+    "reuse",
+    "refresh_candidate",
+    "diff",
+    "impact_graph",
+    "requalification",
+    "rollback_candidate",
+    "historical_resolution",
+    "events",
+    "chain_summary",
+    "role_visibility",
+    "consumer",
+    "authority",
+    "mjp",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-living-scenario.v1" },
+    "macro_key": { "const": "M6" },
+    "mission_id": { "const": "SH-OPS-NEXT-01-LIVING-SCENARIO-REFRESH-DRIFT-ROLLBACK" },
+    "validation_as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "state_transition": { "const": { "from": "STATE_A", "to": "STATE_B" } },
+    "source_freeze": { "$ref": "#/$defs/sourceFreeze" },
+    "reuse": { "$ref": "#/$defs/reuse" },
+    "refresh_candidate": { "$ref": "#/$defs/refresh" },
+    "diff": { "$ref": "#/$defs/diff" },
+    "impact_graph": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/impact" }
+    },
+    "requalification": { "$ref": "#/$defs/requalification" },
+    "rollback_candidate": { "$ref": "#/$defs/rollback" },
+    "historical_resolution": { "$ref": "#/$defs/history" },
+    "events": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "chain_summary": { "$ref": "#/$defs/chainSummary" },
+    "role_visibility": { "$ref": "#/$defs/roleVisibility" },
+    "consumer": { "$ref": "#/$defs/consumer" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "mjp": { "$ref": "#/$defs/mjp" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pack_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "sourceFreeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "upstream_m5_retrieval", "unsupported_claims_are_facts"],
+      "properties": {
+        "status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" },
+        "upstream_m5_retrieval": { "const": "REUSED_EXACT_PACK" },
+        "unsupported_claims_are_facts": { "const": false }
+      }
+    },
+    "reuse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upstream_macro",
+        "upstream_pack_digest",
+        "reuse_count",
+        "regenerated",
+        "reuse_policy"
+      ],
+      "properties": {
+        "upstream_macro": { "const": "M5" },
+        "upstream_pack_digest": { "$ref": "#/$defs/digest" },
+        "reuse_count": { "const": 1 },
+        "regenerated": { "const": false },
+        "reuse_policy": { "const": "REUSE_EXACT_UPSTREAM_PACK_ONCE" }
+      }
+    },
+    "refresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "trigger": { "const": "EXPIRY_DETECTED" } } },
+          "then": {
+            "properties": {
+              "refresh_status": { "const": "CANDIDATE_REFRESH_ONLY" },
+              "retrieval_status": { "const": "NOT_RETRIEVED" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "trigger": { "const": "EXPIRY_NOT_REACHED" } } },
+          "then": {
+            "properties": {
+              "refresh_status": { "const": "NO_REFRESH_REQUIRED" },
+              "retrieval_status": { "const": "NOT_APPLICABLE" }
+            }
+          }
+        }
+      ],
+      "required": [
+        "source_id",
+        "source_version",
+        "prior_expiry",
+        "current_as_of",
+        "trigger",
+        "refresh_status",
+        "retrieval_status",
+        "rights_status",
+        "promoted",
+        "digest"
+      ],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/nonEmptyString" },
+        "source_version": { "$ref": "#/$defs/nonEmptyString" },
+        "prior_expiry": { "$ref": "#/$defs/nonEmptyString" },
+        "current_as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "trigger": { "enum": ["EXPIRY_DETECTED", "EXPIRY_NOT_REACHED"] },
+        "refresh_status": { "enum": ["CANDIDATE_REFRESH_ONLY", "NO_REFRESH_REQUIRED"] },
+        "retrieval_status": { "enum": ["NOT_RETRIEVED", "NOT_APPLICABLE"] },
+        "rights_status": { "const": "PUBLIC_SAFE" },
+        "promoted": { "const": false },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "diffChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "previous", "current", "change_kind", "evidence_status", "provenance"],
+      "properties": {
+        "field": { "enum": ["expiry", "refresh_status"] },
+        "previous": { "$ref": "#/$defs/nonEmptyString" },
+        "current": { "$ref": "#/$defs/nonEmptyString" },
+        "change_kind": { "enum": ["EXPIRY", "CONTENT"] },
+        "evidence_status": { "enum": ["REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "provenance": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diff_id",
+        "baseline_digest",
+        "candidate_digest",
+        "status",
+        "changes",
+        "unsupported_claims_are_facts",
+        "digest"
+      ],
+      "properties": {
+        "diff_id": { "$ref": "#/$defs/nonEmptyString" },
+        "baseline_digest": { "$ref": "#/$defs/digest" },
+        "candidate_digest": { "$ref": "#/$defs/digest" },
+        "status": { "const": "DIFF_RECORDED" },
+        "changes": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/diffChange" }
+        },
+        "unsupported_claims_are_facts": { "const": false },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "enum": ["SOURCE", "FEATURE", "MODEL", "SCENARIO_CONSUMER"] },
+        "id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "from", "to", "relationship", "impact_status", "digest"],
+      "properties": {
+        "edge_id": { "$ref": "#/$defs/nonEmptyString" },
+        "from": { "$ref": "#/$defs/node" },
+        "to": { "$ref": "#/$defs/node" },
+        "relationship": {
+          "enum": ["SOURCE_FEEDS_FEATURE", "FEATURE_FEEDS_MODEL", "MODEL_AFFECTS_CONSUMER"]
+        },
+        "impact_status": { "const": "REQUALIFICATION_REQUIRED" },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "classifierInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_retrieved",
+        "rights_status",
+        "conflict_count",
+        "required_domains",
+        "computed_domains",
+        "holdout_leakage_count",
+        "replay_only"
+      ],
+      "properties": {
+        "source_retrieved": { "const": false },
+        "rights_status": { "enum": ["PUBLIC_SAFE", "INTERNAL_ONLY", "UNKNOWN"] },
+        "conflict_count": { "type": "integer", "minimum": 0 },
+        "required_domains": { "type": "integer", "minimum": 0 },
+        "computed_domains": { "type": "integer", "minimum": 0 },
+        "holdout_leakage_count": { "type": "integer", "minimum": 0 },
+        "replay_only": { "const": false }
+      }
+    },
+    "requalification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualification_id",
+        "upstream_m5_pack_digest",
+        "classifier_input",
+        "qualification_status",
+        "evidence_status",
+        "calibration_eligible",
+        "formal_truth_overwritten",
+        "consumer_ready",
+        "digest"
+      ],
+      "properties": {
+        "qualification_id": { "$ref": "#/$defs/nonEmptyString" },
+        "upstream_m5_pack_digest": { "$ref": "#/$defs/digest" },
+        "classifier_input": { "$ref": "#/$defs/classifierInput" },
+        "qualification_status": { "const": "NOT_ELIGIBLE" },
+        "evidence_status": { "const": "NOT_RETRIEVED" },
+        "calibration_eligible": { "const": false },
+        "formal_truth_overwritten": { "const": false },
+        "consumer_ready": { "const": false },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rollback_id",
+        "active_version",
+        "candidate_version",
+        "rollback_version",
+        "version_guard",
+        "dry_run",
+        "executed",
+        "formal_write",
+        "deletion",
+        "resolution",
+        "checks",
+        "digest"
+      ],
+      "properties": {
+        "rollback_id": { "$ref": "#/$defs/nonEmptyString" },
+        "active_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "candidate_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "rollback_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "version_guard": { "const": "EXACT_VERSION_REQUIRED" },
+        "dry_run": { "const": true },
+        "executed": { "const": false },
+        "formal_write": { "const": false },
+        "deletion": { "const": false },
+        "resolution": { "const": "SAFE_DRY_RUN_CANDIDATE" },
+        "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "requested_version",
+        "resolved_version",
+        "resolution_status",
+        "implicit_latest_forbidden",
+        "resolved_digest",
+        "history_deletion",
+        "digest"
+      ],
+      "properties": {
+        "request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "requested_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "resolved_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "resolution_status": { "const": "EXACT_VERSION_RESOLVED" },
+        "implicit_latest_forbidden": { "const": true },
+        "resolved_digest": { "$ref": "#/$defs/digest" },
+        "history_deletion": { "const": false },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref_type", "ref_id", "path_or_uri", "revision", "digest", "readback_status"],
+      "properties": {
+        "ref_type": { "enum": ["CODE", "CONTRACT", "TEST", "SOURCE"] },
+        "ref_id": { "$ref": "#/$defs/nonEmptyString" },
+        "path_or_uri": { "$ref": "#/$defs/nonEmptyString" },
+        "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "readback_status": { "enum": ["EXACT_SOURCE_READBACK", "REFERENCE_ONLY"] }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "event_type",
+        "occurred_as_of",
+        "input_version",
+        "output_version",
+        "status",
+        "exact_refs",
+        "digest"
+      ],
+      "properties": {
+        "event_id": { "$ref": "#/$defs/nonEmptyString" },
+        "event_type": {
+          "enum": [
+            "REFRESH",
+            "DIFF",
+            "IMPACT",
+            "REQUALIFY",
+            "ROLLBACK_CANDIDATE",
+            "HISTORICAL_RESOLUTION",
+            "RETIRE"
+          ]
+        },
+        "occurred_as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "input_version": { "$ref": "#/$defs/nonEmptyString" },
+        "output_version": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "enum": ["RECORDED", "CANDIDATE_ONLY"] },
+        "exact_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exactRef" } },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "tombstone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["macro_key", "capability_id", "status", "pack_digest", "writer_authority"],
+      "properties": {
+        "macro_key": { "enum": ["M1", "M2", "M3", "M4", "M5"] },
+        "capability_id": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "const": "REUSED" },
+        "pack_digest": { "$ref": "#/$defs/digest" },
+        "writer_authority": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" }
+      }
+    },
+    "chainSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["macro_keys", "pack_digests", "tombstones", "no_second_writer"],
+      "properties": {
+        "macro_keys": { "const": ["M1", "M2", "M3", "M4", "M5"] },
+        "pack_digests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["M1", "M2", "M3", "M4", "M5"],
+          "properties": {
+            "M1": { "$ref": "#/$defs/digest" },
+            "M2": { "$ref": "#/$defs/digest" },
+            "M3": { "$ref": "#/$defs/digest" },
+            "M4": { "$ref": "#/$defs/digest" },
+            "M5": { "$ref": "#/$defs/digest" }
+          }
+        },
+        "tombstones": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/tombstone" }
+        },
+        "no_second_writer": { "const": true }
+      }
+    },
+    "teacherVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "TEACHER_ONLY" },
+        "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "studentVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields", "forbidden_fields"],
+      "properties": {
+        "visibility": { "const": "STUDENT_SAFE" },
+        "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "forbidden_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        }
+      }
+    },
+    "adminVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "INTERNAL_RESEARCH_ONLY" },
+        "fields": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+    "roleVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/teacherVisibility" },
+        "student": { "$ref": "#/$defs/studentVisibility" },
+        "admin": { "$ref": "#/$defs/adminVisibility" }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "consumer_ids",
+        "consumer_ready",
+        "formal_join",
+        "exact_binding_required"
+      ],
+      "properties": {
+        "classification": { "const": "C1" },
+        "consumer_ids": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/nonEmptyString" }
+        },
+        "consumer_ready": { "const": false },
+        "formal_join": { "const": false },
+        "exact_binding_required": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "provider",
+        "runtime_authority"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "lifecycle_cycle_id", "checks"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "lifecycle_cycle_id": { "$ref": "#/$defs/nonEmptyString" },
+        "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    }
+  }
+}
