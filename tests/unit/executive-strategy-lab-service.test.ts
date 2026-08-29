@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type {
   CurrentUser,
+  ESLAlternativePath,
   M4MultipathCounterfactualResponse,
   W4ProjectionBase
 } from "@simwar/shared-contracts";
@@ -260,6 +261,12 @@ describe("Executive Strategy Lab service", () => {
     expect(result.transfer.applies_to_next_round).toBe(false);
     expect(result.authority.formal_truth_write).toBe(false);
     expect(result.authority.settlement_write).toBe(false);
+    const firstPath = result.paths[0] as ESLAlternativePath;
+    expect(firstPath.finance_feasibility.model).toMatchObject({
+      source_kind: "BUILT_IN_DETERMINISTIC_CALCULATOR",
+      source_ref: "services/simulation-core/src/executive-capital-feasibility.ts",
+      model_version_id: "esl-finance-projector"
+    });
   });
 
   it("redacts decision and source provenance for the assigned Student", async () => {

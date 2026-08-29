@@ -399,6 +399,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "source_kind",
+        "source_ref",
         "model_version_id",
         "model_version",
         "model_artifact_id",
@@ -408,6 +410,8 @@
         "parameter_set_version"
       ],
       "properties": {
+        "source_kind": { "const": "BUILT_IN_DETERMINISTIC_CALCULATOR" },
+        "source_ref": { "type": "string", "minLength": 1 },
         "model_version_id": { "$ref": "#/$defs/id" },
         "model_version": { "$ref": "#/$defs/id" },
         "model_artifact_id": { "$ref": "#/$defs/id" },

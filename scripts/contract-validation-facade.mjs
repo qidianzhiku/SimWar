@@ -468,6 +468,12 @@ const schemaCases = [
     schema: "contracts/schemas/executive-strategy-lab.v1.json",
     valid: ["contracts/fixtures/executive-strategy-lab.valid.json"],
     invalid: ["contracts/fixtures/executive-strategy-lab.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/executive-strategy-lab.v1.json",
+    schemaPointer: "#/$defs/financeProjection",
+    valid: ["contracts/fixtures/executive-strategy-lab-finance.valid.json"],
+    invalid: []
   }
 ];
 
@@ -1026,13 +1032,25 @@ function validateFixtureCases() {
       readJson("contracts/schemas/m2p4-live-round-ops.v1.json"),
       "m2p4-live-round-ops.v1.json"
     );
-    const validate = ajv.compile(readJson(contractCase.schema));
+    const rootSchema = readJson(contractCase.schema);
+    const schema = contractCase.schemaPointer
+      ? {
+          ...contractCase.schemaPointer
+            .slice(2)
+            .split("/")
+            .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"))
+            .reduce((value, segment) => value[segment], rootSchema),
+          $defs: rootSchema.$defs
+        }
+      : rootSchema;
+    const schemaLabel = `${contractCase.schema}${contractCase.schemaPointer ?? ""}`;
+    const validate = ajv.compile(schema);
 
     for (const fixture of contractCase.valid) {
       const data = readJson(fixture);
       assert(
         validate(data),
-        `Expected valid fixture to pass ${contractCase.schema}: ${fixture}\n${formatAjvErrors(validate)}`
+        `Expected valid fixture to pass ${schemaLabel}: ${fixture}\n${formatAjvErrors(validate)}`
       );
     }
 

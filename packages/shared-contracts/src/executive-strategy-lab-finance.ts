@@ -30,6 +30,8 @@ export interface ESLFinanceModelIdentity {
   engine_id: string;
   parameter_set_id: string;
   parameter_set_version: string;
+  source_kind: "BUILT_IN_DETERMINISTIC_CALCULATOR";
+  source_ref: string;
 }
 
 export interface ESLFinanceAccountingBasis {
@@ -52,7 +54,6 @@ export interface ESLFinanceProjectionInput {
   terminal_state: W4EnterpriseStateData | null;
   path_cash_delta: number;
   capital_actions: W4CapitalAction[];
-  model: ESLFinanceModelIdentity;
   accounting_basis?: ESLFinanceAccountingBasis;
 }
 

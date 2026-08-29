@@ -15,6 +15,7 @@ export { calculateMarketDemand } from "./market.js";
 export { calculateOperations } from "./operations.js";
 export { buildTeamSettlements, calculateScore } from "./scoring.js";
 export { settleEnterpriseState } from "./enterprise-state.js";
+export { ESL_FINANCE_MODEL_IDENTITY, projectESLFinance } from "./executive-capital-feasibility.js";
 export {
   buildO4CrossRoundDynamicsCandidate,
   O4CrossRoundDynamicsError

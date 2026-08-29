@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type {
   ESLFinanceAccountingBasis,
-  ESLFinanceModelIdentity,
   ESLFinanceProjectionInput,
   W4CapitalPosition,
   W4EnterpriseStateData,
   W4StateRef
 } from "@simwar/shared-contracts";
-import { projectESLFinance } from "../../services/api/src/executive-strategy-lab-finance.js";
+import {
+  ESL_FINANCE_MODEL_IDENTITY,
+  projectESLFinance
+} from "../../services/simulation-core/src/index.js";
 
 const STATE_OPEN_DIGEST = "a".repeat(64);
 const STATE_CLOSE_DIGEST = "b".repeat(64);
@@ -53,20 +55,7 @@ function state(cash: number, withCapital = true): W4EnterpriseStateData {
   };
 }
 
-function model(overrides: Partial<ESLFinanceModelIdentity> = {}): ESLFinanceModelIdentity {
-  return {
-    model_version_id: "model-version-esl-o2p",
-    model_version: "esl-o2p.v1",
-    model_artifact_id: "artifact-esl-finance",
-    model_artifact_version: "1.0.0",
-    engine_id: "json-internal-esl-finance",
-    parameter_set_id: "parameter-set-esl",
-    parameter_set_version: "1.0.0",
-    ...overrides
-  };
-}
-
-function accounting(): ESLFinanceAccountingBasis {
+function accounting(overrides: Partial<ESLFinanceAccountingBasis> = {}): ESLFinanceAccountingBasis {
   return {
     source_ref: "accounting-basis-esl-1",
     currency: "SIMWAR_UNITS",
@@ -75,7 +64,8 @@ function accounting(): ESLFinanceAccountingBasis {
     opex: 50,
     operating_cash_flow: 180,
     amortization: 40,
-    capital_budget: 250
+    capital_budget: 250,
+    ...overrides
   };
 }
 
@@ -89,7 +79,6 @@ function input(overrides: Partial<ESLFinanceProjectionInput> = {}): ESLFinancePr
     terminal_state: state(1250, false),
     path_cash_delta: 250,
     capital_actions: [],
-    model: model(),
     accounting_basis: accounting(),
     ...overrides
   };
@@ -111,7 +100,7 @@ describe("projectESLFinance", () => {
       formal_writer: false,
       provider_invoked: false
     });
-    expect(result.model).toEqual(model());
+    expect(result.model).toEqual(ESL_FINANCE_MODEL_IDENTITY);
     expect(result.input_digest).toMatch(/^[a-f0-9]{64}$/);
     expect(result.cash_flow).toMatchObject({
       amount: 250,
@@ -204,13 +193,14 @@ describe("projectESLFinance", () => {
     expect(result.feasibility).toBe("UNKNOWN");
   });
 
-  it("fails closed for a banned model identity", () => {
-    const result = projectESLFinance(input({ model: model({ model_version_id: "model-latest" }) }));
+  it("reports only the verified built-in calculator identity", () => {
+    const result = projectESLFinance(input());
 
-    expect(result.validation.status).toBe("UNKNOWN");
-    expect(result.validation.reasons).toEqual(expect.arrayContaining(["INVALID_MODEL_IDENTITY"]));
-    expect(result.dscr.status).toBe("UNKNOWN");
-    expect(result.feasibility).toBe("UNKNOWN");
+    expect(result.model).toEqual({
+      ...ESL_FINANCE_MODEL_IDENTITY,
+      source_kind: "BUILT_IN_DETERMINISTIC_CALCULATOR",
+      source_ref: "services/simulation-core/src/executive-capital-feasibility.ts"
+    });
   });
 
   it("produces three deterministic bounded stress regimes without mutating the input", () => {
@@ -232,6 +222,33 @@ describe("projectESLFinance", () => {
       600, 625, 642
     ]);
     expect(first.stress_regimes.every((regime) => regime.feasibility === "FEASIBLE")).toBe(true);
+  });
+
+  it("makes downside shocks worsen a negative observed cash delta", () => {
+    const result = projectESLFinance(input({ path_cash_delta: -100 }));
+
+    expect(result.stress_regimes.map((regime) => regime.cash_flow.amount)).toEqual([
+      -120, -110, -108
+    ]);
+  });
+
+  it("preserves base capital-budget infeasibility in every stress regime", () => {
+    const result = projectESLFinance(
+      input({
+        accounting_basis: accounting({ capex: 300, capital_budget: 250 })
+      })
+    );
+
+    expect(result.feasibility).toBe("INFEASIBLE");
+    expect(result.binding_constraints).toContain("CAPITAL_BUDGET_EXCEEDED");
+    expect(result.why_not_feasible.length).toBeGreaterThan(0);
+    expect(result.stress_regimes.every((regime) => regime.feasibility === "INFEASIBLE")).toBe(true);
+    expect(
+      result.stress_regimes.every((regime) =>
+        regime.binding_constraints.includes("CAPITAL_BUDGET_EXCEEDED")
+      )
+    ).toBe(true);
+    expect(result.stress_regimes.every((regime) => regime.why_not_feasible.length > 0)).toBe(true);
   });
 
   it("marks a known minimum-cash covenant breach infeasible", () => {

@@ -13,6 +13,8 @@
     "provider_invoked": false
   },
   "model": {
+    "source_kind": "BUILT_IN_DETERMINISTIC_CALCULATOR",
+    "source_ref": "services/simulation-core/src/executive-capital-feasibility.ts",
     "model_version_id": "model_demo",
     "model_version": "1.0.0",
     "model_artifact_id": "artifact_demo",

@@ -33,6 +33,18 @@ const BANNED_ID =
   /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
 const DIGEST = /^[a-f0-9]{64}$/;
 
+export const ESL_FINANCE_MODEL_IDENTITY: ESLFinanceModelIdentity = Object.freeze({
+  source_kind: "BUILT_IN_DETERMINISTIC_CALCULATOR",
+  source_ref: "services/simulation-core/src/executive-capital-feasibility.ts",
+  model_version_id: "esl-finance-projector",
+  model_version: "1.0.0",
+  model_artifact_id: "esl-finance-projector",
+  model_artifact_version: "1.0.0",
+  engine_id: "simulation-core-esl-finance-projector",
+  parameter_set_id: "esl-finance-projector-parameters",
+  parameter_set_version: "1.0.0"
+}) as ESLFinanceModelIdentity;
+
 function stable(value: unknown): string {
   if (value === undefined) return "null";
   if (
@@ -69,6 +81,10 @@ function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function scaled(amount: number, factor: number): number {
+  return Number((amount * factor).toFixed(12));
+}
+
 function validStateRef(value: unknown): value is W4StateRef {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const ref = value as Record<string, unknown>;
@@ -81,18 +97,6 @@ function validStateRef(value: unknown): value is W4StateRef {
     typeof ref.state_digest === "string" &&
     DIGEST.test(ref.state_digest)
   );
-}
-
-function validModel(model: ESLFinanceModelIdentity): boolean {
-  return [
-    model.model_version_id,
-    model.model_version,
-    model.model_artifact_id,
-    model.model_artifact_version,
-    model.engine_id,
-    model.parameter_set_id,
-    model.parameter_set_version
-  ].every(exactId);
 }
 
 function validAccountingBasis(value: ESLFinanceAccountingBasis | undefined): boolean {
@@ -236,7 +240,7 @@ function unknownProjection(
     official: false,
     validation: { status: "UNKNOWN", reasons: [...new Set(reasons)].sort() },
     no_write: NO_WRITE,
-    model: { ...input.model },
+    model: ESL_FINANCE_MODEL_IDENTITY,
     input_digest: digest(input),
     source_refs: sourceRefs,
     capex: unknown(CURRENCY_UNIT, "HORIZON", "FINANCE_INPUT_VALIDATION_FAILED"),
@@ -287,6 +291,7 @@ function stressFeasibility(
   covenant: ESLFinanceCovenantStatus
 ): ESLFinanceFeasibility {
   if (covenant === "BREACHED") return "INFEASIBLE";
+  if (base === "INFEASIBLE") return "INFEASIBLE";
   return base === "FEASIBLE" ? "FEASIBLE" : "UNKNOWN";
 }
 
@@ -320,11 +325,17 @@ function createStressRegimes(
   };
   const demandCash =
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
-      ? stressedCash(baseCashFlow.amount * 0.8, "DEMAND_PRICE_DOWNSIDE_SHOCK")
+      ? stressedCash(
+          scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.2 : 0.8),
+          "DEMAND_PRICE_DOWNSIDE_SHOCK"
+        )
       : stressedCash(null, "BASE_CASH_FLOW_UNKNOWN");
   const workforceCash =
     baseCashFlow.status === "KNOWN" && baseCashFlow.amount !== null
-      ? stressedCash(baseCashFlow.amount * 0.9, "WORKFORCE_CAPACITY_PRESSURE_SHOCK")
+      ? stressedCash(
+          scaled(baseCashFlow.amount, baseCashFlow.amount < 0 ? 1.1 : 0.9),
+          "WORKFORCE_CAPACITY_PRESSURE_SHOCK"
+        )
       : stressedCash(null, "BASE_CASH_FLOW_UNKNOWN");
   const fundingAdjustment = debtPrincipal !== null ? debtPrincipal * 0.02 : null;
   const fundingCash =
@@ -363,9 +374,11 @@ function createStressRegimes(
       why_not_feasible:
         covenant === "BREACHED"
           ? ["压力情景下最低现金约束被突破。"]
-          : baseFeasibility === "UNKNOWN"
-            ? ["基础资本/债务服务输入不足，压力情景不可判定。"]
-            : []
+          : baseFeasibility === "INFEASIBLE"
+            ? ["基础情景已触发资本或现金约束，压力情景不得恢复为可行。"]
+            : baseFeasibility === "UNKNOWN"
+              ? ["基础资本/债务服务输入不足，压力情景不可判定。"]
+              : []
     };
   });
 }
@@ -412,7 +425,6 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   ) {
     reasons.push("INVALID_EXACT_BINDING");
   }
-  if (!validModel(input.model)) reasons.push("INVALID_MODEL_IDENTITY");
   if (!finite(input.path_cash_delta)) reasons.push("NONFINITE_PATH_CASH_DELTA");
   if (!validAccountingBasis(input.accounting_basis)) reasons.push("INVALID_ACCOUNTING_BASIS");
   if (
@@ -613,7 +625,7 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     official: false,
     validation: { status: "VALID", reasons: [] },
     no_write: NO_WRITE,
-    model: { ...input.model },
+    model: ESL_FINANCE_MODEL_IDENTITY,
     input_digest: digest(input),
     source_refs: sourceRefs,
     capex,

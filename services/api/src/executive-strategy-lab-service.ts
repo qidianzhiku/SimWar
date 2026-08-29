@@ -22,7 +22,7 @@ import {
 } from "@simwar/shared-contracts";
 import type { M4TeacherPathProjection } from "@simwar/shared-contracts";
 import type { O4CrossRoundDynamicsRequest } from "./o4-cross-round-dynamics.js";
-import { projectESLFinance } from "./executive-strategy-lab-finance.js";
+import { projectESLFinance } from "@simwar/simulation-core";
 import type { M4MultipathCounterfactualTransferService } from "./m4-multipath-counterfactual-transfer.js";
 import type { RoleWorkflowRepositoryPort } from "./repository-ports.js";
 
@@ -169,8 +169,7 @@ function officialBaseline(projection: W4ProjectionBase): ESLOfficialBaseline {
 
 function pathFromM4(
   candidate: M4TeacherPathProjection,
-  projection: W4ProjectionBase,
-  binding: ESLExactBinding
+  projection: W4ProjectionBase
 ): ESLAlternativePath {
   const changedPaths = [...candidate.mechanism_differential.changed_paths].sort();
   const terminalRound = candidate.rounds.at(-1);
@@ -186,16 +185,7 @@ function pathFromM4(
     terminal_state_ref: terminalRound?.closing_state_ref ?? null,
     terminal_state: terminalRound?.closing_state ?? null,
     path_cash_delta: candidate.outcome_differential.cash_delta,
-    capital_actions: clone(projection.capital_actions),
-    model: {
-      model_version_id: binding.model_version_id,
-      model_version: binding.model_version,
-      model_artifact_id: binding.model_artifact_id,
-      model_artifact_version: binding.model_artifact_version,
-      engine_id: binding.engine_id,
-      parameter_set_id: binding.parameter_set_id,
-      parameter_set_version: binding.parameter_set_version
-    }
+    capital_actions: clone(projection.capital_actions)
   });
   return {
     path_id: candidate.path_id,
@@ -400,9 +390,7 @@ export class ExecutiveStrategyLabService {
       },
       "teacher"
     );
-    const paths = m4.paths.map((path) =>
-      pathFromM4(path as M4TeacherPathProjection, projection, request.exact_binding)
-    );
+    const paths = m4.paths.map((path) => pathFromM4(path as M4TeacherPathProjection, projection));
     if (paths.length < 2 || paths.length > 3) {
       throw new ExecutiveStrategyLabError("ESL_PATHS_REQUIRED");
     }
