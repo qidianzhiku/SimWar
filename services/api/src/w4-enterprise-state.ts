@@ -2498,7 +2498,13 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
         opening_state_ref:
           currentOutcome?.opening_state_ref ?? latestOutcome?.closing_state_ref ?? null,
         closing_state_ref: currentOutcome?.closing_state_ref ?? null,
-        state: latestState ? clone(latestState.state) : null,
+        state: currentOutcome
+          ? currentClosingState
+            ? clone(currentClosingState.state)
+            : null
+          : latestState
+            ? clone(latestState.state)
+            : null,
         initiatives: clone(scopedInitiatives),
         project_portfolio: clone(scopedProjectPortfolio),
         project_transactions: clone(scopedProjectTransactions),

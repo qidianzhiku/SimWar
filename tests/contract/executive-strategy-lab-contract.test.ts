@@ -302,6 +302,37 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(unknownWithNumber)).toBe(false);
   });
 
+  it("enforces DSCR ratio and status coupling in the JSON Schema", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const knownWithNullRatio = structuredClone(fixture) as Record<string, unknown>;
+    const knownFinance = (knownWithNullRatio.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    knownFinance.dscr = {
+      ...(knownFinance.dscr as Record<string, unknown>),
+      ratio: null,
+      status: "KNOWN"
+    };
+    expect(validate(knownWithNullRatio)).toBe(false);
+
+    const unknownWithNumber = structuredClone(fixture) as Record<string, unknown>;
+    const unknownFinance = (unknownWithNumber.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    unknownFinance.dscr = {
+      ...(unknownFinance.dscr as Record<string, unknown>),
+      ratio: 1.5,
+      status: "UNKNOWN",
+      unknown_reason: "DSCR_BASIS_UNAVAILABLE"
+    };
+    expect(validate(unknownWithNumber)).toBe(false);
+  });
+
   it("rejects finance basis amount and status contradictions in the runtime guard", () => {
     const fixture = JSON.parse(
       readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")

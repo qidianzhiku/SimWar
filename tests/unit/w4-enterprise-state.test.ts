@@ -798,6 +798,32 @@ describe("W4 Enterprise State / Strategic Evolution authority", () => {
       comparison_count: 1
     });
   });
+
+  it("returns the exact current closing state for a settled round projection", async () => {
+    const repository = createInMemoryW4Repository();
+    const service = createEnterpriseStateStrategicEvolutionService(repository);
+    const opening = await service.createInitialState(scope, initialState());
+    await service.commitStrategicDecision(scope, newProjectDecision);
+    const outcome = await service.settleRound(scope, {
+      opening_state_ref: opening.state_ref,
+      decision_id: newProjectDecision.decision_id,
+      replay_input_manifest: replayManifest(opening.state_ref, scope.round_id, scope.round_no, [
+        newProjectDecision.decision_id
+      ])
+    });
+    const closing = repository
+      .snapshot()
+      .states.find(
+        (state) => state.enterprise_state_id === outcome.closing_state_ref.enterprise_state_id
+      );
+
+    const projection = await service.getProjection({ ...scope, role_key: "teacher" });
+
+    expect(closing).toBeDefined();
+    expect(projection.closing_state_ref).toEqual(outcome.closing_state_ref);
+    expect(projection.state).toEqual(closing?.state);
+    expect(projection.state).not.toEqual(opening.state);
+  });
 });
 
 void W4EnterpriseStateError;

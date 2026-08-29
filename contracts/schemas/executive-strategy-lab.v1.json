@@ -539,7 +539,23 @@
         "denominator": { "$ref": "#/$defs/financeBasis" },
         "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "unknown_reason": { "type": "string", "minLength": 1 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "KNOWN" } } },
+          "then": { "properties": { "ratio": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "UNKNOWN" } } },
+          "then": {
+            "required": ["unknown_reason"],
+            "properties": {
+              "ratio": { "type": "null" },
+              "unknown_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
     },
     "financeStressRegime": {
       "type": "object",
