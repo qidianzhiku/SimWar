@@ -376,17 +376,22 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(mismatchedRatio)).toBe(false);
 
     const mismatchedPeriods = structuredClone(fixture) as Record<string, unknown>;
-    const mismatchedPeriodsFinance = (mismatchedPeriods.paths as Array<Record<string, unknown>>)[0]
-      .finance_feasibility as Record<string, unknown>;
-    const mismatchedPeriodsDscr = mismatchedPeriodsFinance.dscr as Record<string, unknown>;
-    mismatchedPeriodsDscr.numerator = {
-      ...(mismatchedPeriodsDscr.numerator as Record<string, unknown>),
-      time_period: "ROUND"
-    };
-    mismatchedPeriodsDscr.denominator = {
-      ...(mismatchedPeriodsDscr.denominator as Record<string, unknown>),
-      time_period: "HORIZON"
-    };
+    const mismatchedPeriodsFinances = [
+      (mismatchedPeriods.paths as Array<Record<string, unknown>>)[0],
+      ((mismatchedPeriods.teacher_projection as Record<string, unknown>)
+        .paths as Array<Record<string, unknown>>)[0]
+    ].map((path) => path.finance_feasibility as Record<string, unknown>);
+    mismatchedPeriodsFinances.forEach((finance) => {
+      const dscr = finance.dscr as Record<string, unknown>;
+      dscr.numerator = {
+        ...(dscr.numerator as Record<string, unknown>),
+        time_period: "ROUND"
+      };
+      dscr.denominator = {
+        ...(dscr.denominator as Record<string, unknown>),
+        time_period: "HORIZON"
+      };
+    });
     expect(validate(mismatchedPeriods)).toBe(false);
     expect(isESLResponse(mismatchedPeriods)).toBe(false);
   });
@@ -789,5 +794,82 @@ describe("Executive Strategy Lab contract", () => {
       feasibility: "INFEASIBLE"
     };
     expect(validate(mismatchedStudent)).toBe(false);
+  });
+
+  it("requires known finance evidence before accepting FEASIBLE", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const unknownOpex = structuredClone(fixture) as Record<string, unknown>;
+    const unknownOpexFinances = [
+      (unknownOpex.paths as Array<Record<string, unknown>>)[0],
+      ((unknownOpex.teacher_projection as Record<string, unknown>)
+        .paths as Array<Record<string, unknown>>)[0]
+    ].map((path) => path.finance_feasibility as Record<string, unknown>);
+    unknownOpexFinances.forEach((finance) => {
+      finance.opex = {
+        ...(finance.opex as Record<string, unknown>),
+        amount: null,
+        status: "UNKNOWN",
+        currency: "UNKNOWN",
+        unknown_reason: "OPEX_BASIS_UNAVAILABLE"
+      };
+    });
+    expect(validate(unknownOpex)).toBe(false);
+    expect(isESLResponse(unknownOpex)).toBe(false);
+
+    const unknownDebtService = structuredClone(fixture) as Record<string, unknown>;
+    const unknownDebtServiceFinances = [
+      (unknownDebtService.paths as Array<Record<string, unknown>>)[0],
+      ((unknownDebtService.teacher_projection as Record<string, unknown>)
+        .paths as Array<Record<string, unknown>>)[0]
+    ].map((path) => path.finance_feasibility as Record<string, unknown>);
+    unknownDebtServiceFinances.forEach((finance) => {
+      const debt = finance.debt as Record<string, unknown>;
+      debt.debt_service = {
+        ...(debt.debt_service as Record<string, unknown>),
+        amount: null,
+        status: "UNKNOWN",
+        currency: "UNKNOWN",
+        unknown_reason: "DEBT_SERVICE_BASIS_UNAVAILABLE"
+      };
+    });
+    expect(validate(unknownDebtService)).toBe(false);
+    expect(isESLResponse(unknownDebtService)).toBe(false);
+
+    const noDebtService = structuredClone(fixture) as Record<string, unknown>;
+    const noDebtServiceFinances = [
+      (noDebtService.paths as Array<Record<string, unknown>>)[0],
+      ((noDebtService.teacher_projection as Record<string, unknown>)
+        .paths as Array<Record<string, unknown>>)[0]
+    ].map((path) => path.finance_feasibility as Record<string, unknown>);
+    noDebtServiceFinances.forEach((finance) => {
+      const debt = finance.debt as Record<string, unknown>;
+      debt.debt_service = {
+        ...(debt.debt_service as Record<string, unknown>),
+        amount: 0,
+        status: "KNOWN",
+        currency: "SIMWAR_UNITS"
+      };
+      finance.dscr = {
+        ...(finance.dscr as Record<string, unknown>),
+        ratio: null,
+        status: "UNKNOWN",
+        denominator: {
+          ...((finance.dscr as Record<string, unknown>).denominator as Record<string, unknown>),
+          amount: 0,
+          status: "KNOWN",
+          currency: "SIMWAR_UNITS"
+        },
+        unknown_reason: "NO_DEBT_SERVICE"
+      };
+    });
+    expect(validate(noDebtService)).toBe(true);
+    expect(isESLResponse(noDebtService)).toBe(true);
   });
 });

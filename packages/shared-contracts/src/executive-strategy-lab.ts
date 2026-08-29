@@ -589,6 +589,32 @@ function hasFinanceConstraint(value: unknown, constraint: string): boolean {
   return Array.isArray(value) && value.includes(constraint);
 }
 
+function knownFinanceBasisValue(value: unknown): boolean {
+  const basis = record(value);
+  return basis !== null && financeBasis(basis) && basis.status === "KNOWN";
+}
+
+function financeFeasibleEvidenceIsComplete(projection: Record<string, unknown>): boolean {
+  const debt = record(projection.debt);
+  const dscr = record(projection.dscr);
+  if (debt === null || dscr === null) return false;
+  const knownBaseEvidence = [
+    projection.capex,
+    projection.opex,
+    projection.cash_flow,
+    projection.liquidity_headroom,
+    projection.capital_budget_utilization,
+    debt.debt_service
+  ].every(knownFinanceBasisValue);
+  const dscrIsKnownOrNotApplicable =
+    dscr.status === "KNOWN" ||
+    (dscr.status === "UNKNOWN" &&
+      dscr.unknown_reason === "NO_DEBT_SERVICE" &&
+      knownFinanceBasisValue(dscr.denominator) &&
+      (dscr.denominator as Record<string, unknown>).amount === 0);
+  return knownBaseEvidence && dscrIsKnownOrNotApplicable;
+}
+
 function financeStressConclusionIdentities(value: unknown): boolean {
   const regime = record(value);
   const liquidity = record(regime?.liquidity_headroom);
@@ -658,6 +684,7 @@ function financeConclusionIdentities(projection: Record<string, unknown>): boole
     }
   }
   if (projection.feasibility === "FEASIBLE") {
+    if (!financeFeasibleEvidenceIsComplete(projection)) return false;
     return (
       projection.covenant_status === "WITHIN_LIMIT" &&
       stringArray(bindingConstraints) &&

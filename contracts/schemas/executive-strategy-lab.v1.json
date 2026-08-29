@@ -743,6 +743,19 @@
         }
       ]
     },
+    "knownFinanceDscr": {
+      "allOf": [
+        { "$ref": "#/$defs/financeDscr" },
+        {
+          "type": "object",
+          "required": ["ratio", "status"],
+          "properties": {
+            "ratio": { "type": "number" },
+            "status": { "const": "KNOWN" }
+          }
+        }
+      ]
+    },
     "financeStressRegime": {
       "type": "object",
       "additionalProperties": false,
@@ -1206,6 +1219,42 @@
           },
           "then": {
             "properties": {
+              "capex": { "$ref": "#/$defs/knownFinanceBasis" },
+              "opex": { "$ref": "#/$defs/knownFinanceBasis" },
+              "cash_flow": { "$ref": "#/$defs/knownFinanceBasis" },
+              "liquidity_headroom": { "$ref": "#/$defs/knownFinanceBasis" },
+              "capital_budget_utilization": { "$ref": "#/$defs/knownFinanceBasis" },
+              "debt": {
+                "type": "object",
+                "properties": {
+                  "debt_service": { "$ref": "#/$defs/knownFinanceBasis" }
+                }
+              },
+              "dscr": {
+                "anyOf": [
+                  { "$ref": "#/$defs/knownFinanceDscr" },
+                  {
+                    "allOf": [
+                      { "$ref": "#/$defs/unknownFinanceDscr" },
+                      {
+                        "type": "object",
+                        "required": ["denominator", "unknown_reason"],
+                        "properties": {
+                          "unknown_reason": { "const": "NO_DEBT_SERVICE" },
+                          "denominator": {
+                            "allOf": [
+                              { "$ref": "#/$defs/knownFinanceBasis" },
+                              { "type": "object", "properties": { "amount": { "const": 0 } } }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "binding_constraints": { "type": "array", "maxItems": 0 },
+              "why_not_feasible": { "type": "array", "maxItems": 0 },
               "student_view": {
                 "type": "object",
                 "properties": { "feasibility": { "const": "FEASIBLE" } }
