@@ -374,6 +374,21 @@ describe("Executive Strategy Lab contract", () => {
     mismatchedRatioDscr.ratio = 99;
     expect(validate(mismatchedRatio)).toBe(true);
     expect(isESLResponse(mismatchedRatio)).toBe(false);
+
+    const mismatchedPeriods = structuredClone(fixture) as Record<string, unknown>;
+    const mismatchedPeriodsFinance = (mismatchedPeriods.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    const mismatchedPeriodsDscr = mismatchedPeriodsFinance.dscr as Record<string, unknown>;
+    mismatchedPeriodsDscr.numerator = {
+      ...(mismatchedPeriodsDscr.numerator as Record<string, unknown>),
+      time_period: "ROUND"
+    };
+    mismatchedPeriodsDscr.denominator = {
+      ...(mismatchedPeriodsDscr.denominator as Record<string, unknown>),
+      time_period: "HORIZON"
+    };
+    expect(validate(mismatchedPeriods)).toBe(false);
+    expect(isESLResponse(mismatchedPeriods)).toBe(false);
   });
 
   it("enforces finance unit, currency, and status coupling", () => {

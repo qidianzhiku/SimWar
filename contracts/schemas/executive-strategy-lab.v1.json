@@ -682,6 +682,50 @@
               "denominator": { "$ref": "#/$defs/positiveKnownFinanceBasis" }
             }
           }
+        },
+        {
+          "if": {
+            "required": ["status", "numerator"],
+            "properties": {
+              "status": { "const": "KNOWN" },
+              "numerator": {
+                "type": "object",
+                "required": ["time_period"],
+                "properties": { "time_period": { "const": "ROUND" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "denominator": {
+                "type": "object",
+                "required": ["time_period"],
+                "properties": { "time_period": { "const": "ROUND" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["status", "numerator"],
+            "properties": {
+              "status": { "const": "KNOWN" },
+              "numerator": {
+                "type": "object",
+                "required": ["time_period"],
+                "properties": { "time_period": { "const": "HORIZON" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "denominator": {
+                "type": "object",
+                "required": ["time_period"],
+                "properties": { "time_period": { "const": "HORIZON" } }
+              }
+            }
+          }
         }
       ]
     },

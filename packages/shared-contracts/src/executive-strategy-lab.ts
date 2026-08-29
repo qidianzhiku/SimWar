@@ -511,6 +511,7 @@ function financeDscr(value: unknown): boolean {
       denominator.status === "KNOWN" &&
       finiteNumber(numerator.amount) &&
       finiteNumber(denominator.amount) &&
+      numerator.time_period === denominator.time_period &&
       Number(denominator.amount) > 0 &&
       finiteNumber(dscr.ratio) &&
       Math.abs(Number(dscr.ratio) - Number(numerator.amount) / Number(denominator.amount)) <=
