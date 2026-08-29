@@ -587,12 +587,23 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     ) {
       reasons.push("SOURCE_TERMINAL_SCOPE_MISMATCH");
     }
-    if (
-      terminalRef.parent_state_ref !== undefined &&
-      !terminalLineageContainsSource(terminalRef, sourceRef)
-    ) {
+    if (!terminalLineageContainsSource(terminalRef, sourceRef)) {
       reasons.push("TERMINAL_STATE_LINEAGE_MISMATCH");
     }
+  }
+  const sourceInterestPaid = capitalNumber(input.source_state.capital, "interest_paid");
+  const terminalInterestPaid =
+    input.terminal_state === null
+      ? null
+      : capitalNumber(input.terminal_state.capital, "interest_paid");
+  if (
+    hasTerminalRef &&
+    input.terminal_state !== null &&
+    sourceInterestPaid !== null &&
+    terminalInterestPaid !== null &&
+    terminalInterestPaid < sourceInterestPaid
+  ) {
+    reasons.push("TERMINAL_INTEREST_PAID_DECREASED");
   }
   if (!finite(input.path_cash_delta)) reasons.push("NONFINITE_PATH_CASH_DELTA");
   if (
@@ -674,7 +685,11 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     "WORKING_CAPITAL_NOT_PRESENT"
   );
   const interestPaid = basis(
-    capitalNumber(capital, "interest_paid"),
+    input.terminal_state === null
+      ? capitalNumber(capital, "interest_paid")
+      : sourceInterestPaid !== null && terminalInterestPaid !== null
+        ? terminalInterestPaid - sourceInterestPaid
+        : null,
     CURRENCY_UNIT,
     sourceRefs,
     "HORIZON",

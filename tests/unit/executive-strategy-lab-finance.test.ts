@@ -15,7 +15,7 @@ import {
 const STATE_OPEN_DIGEST = "a".repeat(64);
 const PATH_DIGEST = "c".repeat(64);
 
-function stateRef(id: string, digest: string): W4StateRef {
+function stateRef(id: string, digest: string, parent?: W4StateRef | null): W4StateRef {
   return {
     tenant_id: "tenant-esl",
     course_id: "course-esl",
@@ -24,7 +24,8 @@ function stateRef(id: string, digest: string): W4StateRef {
     round_id: "round-esl",
     enterprise_state_id: id,
     version: 1,
-    state_digest: digest
+    state_digest: digest,
+    ...(parent === undefined ? {} : { parent_state_ref: parent })
   };
 }
 
@@ -89,7 +90,7 @@ function input(overrides: Partial<ESLFinanceProjectionInput> = {}): ESLFinancePr
   const sourceState = state(1000);
   const terminalState = state(1250);
   const sourceStateRef = stateRef("state-open", stateDigest(sourceState));
-  const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+  const terminalStateRef = stateRef("state-close", stateDigest(terminalState), sourceStateRef);
   return {
     path_id: "path-capital",
     path_digest: PATH_DIGEST,
@@ -137,12 +138,13 @@ describe("projectESLFinance", () => {
     expect(result.capex).toMatchObject({ amount: 100, status: "KNOWN" });
     expect(result.opex).toMatchObject({ amount: 50, status: "KNOWN" });
     expect(result.debt.amortization).toMatchObject({ amount: 40, status: "KNOWN" });
-    expect(result.debt.debt_service).toMatchObject({ amount: 60, status: "KNOWN" });
+    expect(result.debt.interest_paid).toMatchObject({ amount: 0, status: "KNOWN" });
+    expect(result.debt.debt_service).toMatchObject({ amount: 40, status: "KNOWN" });
     expect(result.dscr).toMatchObject({
-      ratio: 3,
+      ratio: 4.5,
       status: "KNOWN",
       numerator: { amount: 180, status: "KNOWN" },
-      denominator: { amount: 60, status: "KNOWN" }
+      denominator: { amount: 40, status: "KNOWN" }
     });
     expect(result.capital_budget_utilization).toMatchObject({
       amount: 0.4,
@@ -160,6 +162,32 @@ describe("projectESLFinance", () => {
     expect(result.student_view.excluded_fields).toEqual(
       expect.arrayContaining(["source_refs", "model", "debt_schedule"])
     );
+  });
+
+  it("derives horizon interest from the bound cumulative state delta", () => {
+    const source = state(1000);
+    source.capital = capital({ interest_paid: 50 });
+    const sourceStateRef = stateRef("state-open", stateDigest(source));
+    const terminal = state(1250);
+    terminal.capital = capital({ interest_paid: 65 });
+    const terminalStateRef = stateRef(
+      "state-close",
+      stateDigest(terminal),
+      sourceStateRef
+    );
+    const result = projectESLFinance(
+      input({
+        source_state: source,
+        source_state_ref: sourceStateRef,
+        source_state_scope: stateScope(sourceStateRef),
+        terminal_state: terminal,
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
+
+    expect(result.debt.interest_paid).toMatchObject({ amount: 15, status: "KNOWN" });
+    expect(result.debt.debt_service).toMatchObject({ amount: 55, status: "KNOWN" });
   });
 
   it("keeps unavailable accounting bases UNKNOWN instead of substituting zero or defaults", () => {
@@ -240,14 +268,20 @@ describe("projectESLFinance", () => {
   });
 
   it("does not reuse source capital when the exact terminal state omits capital", () => {
+    const base = input();
     const terminalState = state(1250, false);
-    const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+    const terminalStateRef = stateRef(
+      "state-close",
+      stateDigest(terminalState),
+      base.source_state_ref
+    );
     const result = projectESLFinance(
-      input({
+      {
+        ...base,
         terminal_state: terminalState,
         terminal_state_ref: terminalStateRef,
         terminal_state_scope: stateScope(terminalStateRef)
-      })
+      }
     );
 
     expect(result.capital.debt_principal).toMatchObject({ amount: null, status: "UNKNOWN" });
@@ -256,10 +290,22 @@ describe("projectESLFinance", () => {
   });
 
   it("rejects known debt-service coverage below the governed minimum", () => {
+    const base = input();
+    const terminalState = state(1250);
+    terminalState.capital = capital({ interest_paid: 40 });
+    const terminalStateRef = stateRef(
+      "state-close",
+      stateDigest(terminalState),
+      base.source_state_ref
+    );
     const result = projectESLFinance(
-      input({
+      {
+        ...base,
+        terminal_state: terminalState,
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef),
         accounting_basis: accounting({ operating_cash_flow: 40, amortization: 40 })
-      })
+      }
     );
 
     expect(result.dscr).toMatchObject({ ratio: 2 / 3, status: "KNOWN" });
@@ -433,6 +479,24 @@ describe("projectESLFinance", () => {
     expect(result.feasibility).toBe("UNKNOWN");
   });
 
+  it("fails closed when terminal evidence has no source lineage", () => {
+    const base = input();
+    const terminalStateRef = {
+      ...base.terminal_state_ref!,
+      parent_state_ref: null
+    };
+    const result = projectESLFinance(
+      input({
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("TERMINAL_STATE_LINEAGE_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
   it("reports only the verified built-in calculator identity", () => {
     const result = projectESLFinance(input());
 
@@ -537,7 +601,7 @@ describe("projectESLFinance", () => {
     const sourceStateRef = stateRef("state-open", stateDigest(source));
     const terminalState = state(1250);
     terminalState.capital = capital({ debt_principal: 0, interest_paid: 0 });
-    const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+    const terminalStateRef = stateRef("state-close", stateDigest(terminalState), sourceStateRef);
     const result = projectESLFinance(
       input({
         source_state: source,
@@ -563,7 +627,7 @@ describe("projectESLFinance", () => {
     const sourceStateRef = stateRef("state-open", stateDigest(source));
     const terminalState = state(1250);
     terminalState.capital = capital({ debt_principal: 100, interest_paid: 0 });
-    const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+    const terminalStateRef = stateRef("state-close", stateDigest(terminalState), sourceStateRef);
     const result = projectESLFinance(
       input({
         source_state: source,
@@ -620,15 +684,21 @@ describe("projectESLFinance", () => {
   });
 
   it("marks a known minimum-cash covenant breach infeasible", () => {
+    const base = input();
     const terminalState = state(500);
-    const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+    const terminalStateRef = stateRef(
+      "state-close",
+      stateDigest(terminalState),
+      base.source_state_ref
+    );
     const result = projectESLFinance(
-      input({
+      {
+        ...base,
         terminal_state: terminalState,
         terminal_state_ref: terminalStateRef,
         terminal_state_scope: stateScope(terminalStateRef),
         path_cash_delta: -500
-      })
+      }
     );
 
     expect(result.liquidity_headroom).toMatchObject({ amount: -100, status: "KNOWN" });
