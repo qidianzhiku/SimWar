@@ -1,5 +1,6 @@
 import type { ProjectProfileRef } from "./project-library.js";
 import type { W4StrategicPortfolioProjection } from "./strategic-portfolio.js";
+import type { ESLFinanceAccountingBasis } from "./executive-strategy-lab-finance.js";
 
 export type W4StrategicDecisionKind =
   | "new_project"
@@ -581,6 +582,12 @@ export interface W4ProjectionBase {
   latest_strategic_action: W4StrategicActionProjection | null;
   evidence: W4ReplayEvidence[];
   path_evidence: W4PathEvidence;
+  /**
+   * Optional, path-scoped accounting evidence supplied by an upstream
+   * governed producer. ESL may consume it, but must remain UNKNOWN when it
+   * is absent; W4 does not synthesize accounting values from state deltas.
+   */
+  finance_accounting_bases?: Record<string, ESLFinanceAccountingBasis>;
 }
 
 export interface W4StoreState {

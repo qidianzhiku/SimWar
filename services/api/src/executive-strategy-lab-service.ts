@@ -192,6 +192,7 @@ function pathFromM4(
   }
   const terminalStateRef = terminalRound?.closing_state_ref ?? null;
   const terminalState = terminalRound?.closing_state ?? null;
+  const accountingBasis = projection.finance_accounting_bases?.[candidate.path_id];
   const finance = projectESLFinance({
     path_id: candidate.path_id,
     path_digest: candidate.path_digest,
@@ -202,7 +203,8 @@ function pathFromM4(
     terminal_state_scope: terminalStateRef ? stateScope(terminalStateRef) : null,
     terminal_state: clone(terminalState),
     path_cash_delta: candidate.outcome_differential.cash_delta,
-    capital_actions: clone(candidate.capital_actions)
+    capital_actions: clone(candidate.capital_actions),
+    ...(accountingBasis ? { accounting_basis: clone(accountingBasis) } : {})
   });
   return {
     path_id: candidate.path_id,

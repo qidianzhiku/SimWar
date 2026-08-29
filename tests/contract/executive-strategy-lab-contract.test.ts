@@ -675,4 +675,104 @@ describe("Executive Strategy Lab contract", () => {
     studentStress[1] = { ...studentStress[1], regime_id: studentStress[0].regime_id };
     expect(validate(duplicateStudentRegime)).toBe(false);
   });
+
+  it("rejects contradictory VALID finance conclusions and student mirrors", () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const negativeLiquidity = structuredClone(fixture) as Record<string, unknown>;
+    const negativeLiquidityFinance = (negativeLiquidity.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    negativeLiquidityFinance.liquidity_headroom = {
+      ...(negativeLiquidityFinance.liquidity_headroom as Record<string, unknown>),
+      amount: -1
+    };
+    expect(isESLResponse(negativeLiquidity)).toBe(false);
+
+    const overBudget = structuredClone(fixture) as Record<string, unknown>;
+    const overBudgetFinance = (overBudget.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    overBudgetFinance.capital_budget_utilization = {
+      ...(overBudgetFinance.capital_budget_utilization as Record<string, unknown>),
+      amount: 1.2
+    };
+    expect(isESLResponse(overBudget)).toBe(false);
+
+    const undercovered = structuredClone(fixture) as Record<string, unknown>;
+    const undercoveredFinance = (undercovered.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    undercoveredFinance.dscr = {
+      ...(undercoveredFinance.dscr as Record<string, unknown>),
+      ratio: 0.5,
+      numerator: {
+        ...((undercoveredFinance.dscr as Record<string, unknown>).numerator as Record<string, unknown>),
+        amount: 30
+      }
+    };
+    expect(isESLResponse(undercovered)).toBe(false);
+
+    const mismatchedStudent = structuredClone(fixture) as Record<string, unknown>;
+    const mismatchedFinance = (mismatchedStudent.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    mismatchedFinance.student_view = {
+      ...(mismatchedFinance.student_view as Record<string, unknown>),
+      feasibility: "INFEASIBLE",
+      cash_flow: {
+        ...((mismatchedFinance.student_view as Record<string, unknown>).cash_flow as Record<string, unknown>),
+        amount: 251
+      }
+    };
+    expect(isESLResponse(mismatchedStudent)).toBe(false);
+  });
+
+  it("binds schema-level finance conclusion identities", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const negativeLiquidity = structuredClone(fixture) as Record<string, unknown>;
+    const negativeLiquidityFinance = (negativeLiquidity.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    negativeLiquidityFinance.liquidity_headroom = {
+      ...(negativeLiquidityFinance.liquidity_headroom as Record<string, unknown>),
+      amount: -1
+    };
+    expect(validate(negativeLiquidity)).toBe(false);
+
+    const overBudget = structuredClone(fixture) as Record<string, unknown>;
+    const overBudgetFinance = (overBudget.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    overBudgetFinance.capital_budget_utilization = {
+      ...(overBudgetFinance.capital_budget_utilization as Record<string, unknown>),
+      amount: 1.2
+    };
+    expect(validate(overBudget)).toBe(false);
+
+    const undercovered = structuredClone(fixture) as Record<string, unknown>;
+    const undercoveredFinance = (undercovered.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    undercoveredFinance.dscr = {
+      ...(undercoveredFinance.dscr as Record<string, unknown>),
+      ratio: 0.5,
+      numerator: {
+        ...((undercoveredFinance.dscr as Record<string, unknown>).numerator as Record<string, unknown>),
+        amount: 30
+      }
+    };
+    expect(validate(undercovered)).toBe(false);
+
+    const mismatchedStudent = structuredClone(fixture) as Record<string, unknown>;
+    const mismatchedFinance = (mismatchedStudent.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    mismatchedFinance.student_view = {
+      ...(mismatchedFinance.student_view as Record<string, unknown>),
+      feasibility: "INFEASIBLE"
+    };
+    expect(validate(mismatchedStudent)).toBe(false);
+  });
 });

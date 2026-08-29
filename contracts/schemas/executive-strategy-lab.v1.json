@@ -727,7 +727,70 @@
         "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
         "binding_constraints": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "why_not_feasible": { "type": "array", "items": { "type": "string", "minLength": 1 } }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["liquidity_headroom"],
+            "properties": {
+              "liquidity_headroom": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "amount": { "type": "number", "exclusiveMaximum": 0 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "covenant_status": { "const": "BREACHED" },
+              "binding_constraints": {
+                "type": "array",
+                "contains": { "const": "COVENANT_MIN_CASH_BREACH" }
+              },
+              "feasibility": { "const": "INFEASIBLE" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "FEASIBLE" } }
+          },
+          "then": {
+            "properties": {
+              "covenant_status": { "const": "WITHIN_LIMIT" },
+              "binding_constraints": { "const": [] },
+              "why_not_feasible": { "const": [] }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "INFEASIBLE" } }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": { "type": "array", "minItems": 1 },
+              "why_not_feasible": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "UNKNOWN" } }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": { "type": "array", "minItems": 1 },
+              "why_not_feasible": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      ]
     },
     "unknownFinanceStressRegime": {
       "allOf": [
@@ -1089,6 +1152,252 @@
                 "items": { "$ref": "#/$defs/unknownFinanceStressRegime" }
               },
               "student_view": { "$ref": "#/$defs/unknownFinanceStudentProjection" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "FEASIBLE" } }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": { "feasibility": { "const": "FEASIBLE" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "INFEASIBLE" } }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": { "feasibility": { "const": "INFEASIBLE" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["feasibility"],
+            "properties": { "feasibility": { "const": "UNKNOWN" } }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": { "feasibility": { "const": "UNKNOWN" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["cash_flow"],
+            "properties": {
+              "cash_flow": {
+                "type": "object",
+                "properties": { "status": { "const": "KNOWN" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": {
+                  "cash_flow": {
+                    "type": "object",
+                    "properties": { "status": { "const": "KNOWN" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["cash_flow"],
+            "properties": {
+              "cash_flow": {
+                "type": "object",
+                "properties": { "status": { "const": "UNKNOWN" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": {
+                  "cash_flow": { "$ref": "#/$defs/unknownFinanceDisplayValue" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["liquidity_headroom"],
+            "properties": {
+              "liquidity_headroom": {
+                "type": "object",
+                "properties": { "status": { "const": "KNOWN" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": {
+                  "liquidity_headroom": {
+                    "type": "object",
+                    "properties": { "status": { "const": "KNOWN" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["liquidity_headroom"],
+            "properties": {
+              "liquidity_headroom": {
+                "type": "object",
+                "properties": { "status": { "const": "UNKNOWN" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "student_view": {
+                "type": "object",
+                "properties": {
+                  "liquidity_headroom": { "$ref": "#/$defs/unknownFinanceDisplayValue" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["liquidity_headroom"],
+            "properties": {
+              "liquidity_headroom": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "amount": { "type": "number", "exclusiveMaximum": 0 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "covenant_status": { "const": "BREACHED" },
+              "binding_constraints": {
+                "type": "array",
+                "contains": { "const": "COVENANT_MIN_CASH_BREACH" }
+              },
+              "feasibility": { "const": "INFEASIBLE" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["capital_budget_utilization"],
+            "properties": {
+              "capital_budget_utilization": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "amount": { "type": "number", "exclusiveMinimum": 1 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": {
+                "type": "array",
+                "contains": { "const": "CAPITAL_BUDGET_EXCEEDED" }
+              },
+              "feasibility": { "const": "INFEASIBLE" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["capital_budget_utilization"],
+            "properties": {
+              "capital_budget_utilization": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "amount": { "type": "number", "minimum": 0, "maximum": 1 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": {
+                "type": "array",
+                "not": { "contains": { "const": "CAPITAL_BUDGET_EXCEEDED" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["dscr"],
+            "properties": {
+              "dscr": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "ratio": { "type": "number", "exclusiveMaximum": 1 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": {
+                "type": "array",
+                "contains": { "const": "DSCR_BELOW_MINIMUM_COVERAGE" }
+              },
+              "feasibility": { "const": "INFEASIBLE" }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["dscr"],
+            "properties": {
+              "dscr": {
+                "type": "object",
+                "properties": {
+                  "status": { "const": "KNOWN" },
+                  "ratio": { "type": "number", "minimum": 1 }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "binding_constraints": {
+                "type": "array",
+                "not": { "contains": { "const": "DSCR_BELOW_MINIMUM_COVERAGE" } }
+              }
             }
           }
         }

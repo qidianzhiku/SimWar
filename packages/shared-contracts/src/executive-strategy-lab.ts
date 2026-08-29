@@ -381,6 +381,21 @@ function unknownFinanceDisplayValue(value: unknown): boolean {
   );
 }
 
+function financeDisplayMirrorsBasis(displayValue: unknown, basisValue: unknown): boolean {
+  const display = record(displayValue);
+  const basis = record(basisValue);
+  return (
+    display !== null &&
+    basis !== null &&
+    display.amount === basis.amount &&
+    display.status === basis.status &&
+    display.unit === basis.unit &&
+    (basis.status === "UNKNOWN"
+      ? display.unknown_reason === basis.unknown_reason
+      : !Object.hasOwn(display, "unknown_reason"))
+  );
+}
+
 function financeBasis(value: unknown): boolean {
   const basis = record(value);
   if (
@@ -569,6 +584,118 @@ function unknownFinanceStressRegime(value: unknown): boolean {
   );
 }
 
+function hasFinanceConstraint(value: unknown, constraint: string): boolean {
+  return Array.isArray(value) && value.includes(constraint);
+}
+
+function financeStressConclusionIdentities(value: unknown): boolean {
+  const regime = record(value);
+  const liquidity = record(regime?.liquidity_headroom);
+  const bindingConstraints = regime?.binding_constraints;
+  const whyNotFeasible = regime?.why_not_feasible;
+  if (regime === null || liquidity === null) return false;
+  if (liquidity.status === "KNOWN") {
+    if (!finiteNumber(liquidity.amount)) return false;
+    if (liquidity.amount < 0 && regime.covenant_status !== "BREACHED") return false;
+  } else if (liquidity.status === "UNKNOWN" && regime.covenant_status === "WITHIN_LIMIT") {
+    return false;
+  }
+  if (regime.feasibility === "FEASIBLE") {
+    return (
+      regime.covenant_status === "WITHIN_LIMIT" &&
+      stringArray(bindingConstraints) &&
+      bindingConstraints.length === 0 &&
+      stringArray(whyNotFeasible) &&
+      whyNotFeasible.length === 0
+    );
+  }
+  if (regime.feasibility === "INFEASIBLE") {
+    return stringArray(bindingConstraints, 1) && stringArray(whyNotFeasible, 1);
+  }
+  return stringArray(whyNotFeasible, 1);
+}
+
+function financeConclusionIdentities(projection: Record<string, unknown>): boolean {
+  const liquidity = record(projection.liquidity_headroom);
+  const budget = record(projection.capital_budget_utilization);
+  const dscr = record(projection.dscr);
+  const bindingConstraints = projection.binding_constraints;
+  const whyNotFeasible = projection.why_not_feasible;
+  if (liquidity === null || budget === null || dscr === null) return false;
+
+  if (liquidity.status === "KNOWN") {
+    if (!finiteNumber(liquidity.amount)) return false;
+    if (liquidity.amount < 0 && projection.covenant_status !== "BREACHED") return false;
+  } else if (liquidity.status === "UNKNOWN" && projection.covenant_status === "WITHIN_LIMIT") {
+    return false;
+  }
+  if (
+    projection.covenant_status === "BREACHED" &&
+    (!hasFinanceConstraint(bindingConstraints, "COVENANT_MIN_CASH_BREACH") ||
+      projection.feasibility !== "INFEASIBLE")
+  ) {
+    return false;
+  }
+  if (budget.status === "KNOWN") {
+    if (!finiteNumber(budget.amount) || budget.amount < 0) return false;
+    const overBudget = budget.amount > 1;
+    if (
+      overBudget !== hasFinanceConstraint(bindingConstraints, "CAPITAL_BUDGET_EXCEEDED") ||
+      (overBudget && projection.feasibility !== "INFEASIBLE")
+    ) {
+      return false;
+    }
+  }
+  if (dscr.status === "KNOWN") {
+    if (!finiteNumber(dscr.ratio)) return false;
+    const undercovered = dscr.ratio < 1;
+    if (
+      undercovered !== hasFinanceConstraint(bindingConstraints, "DSCR_BELOW_MINIMUM_COVERAGE") ||
+      (undercovered && projection.feasibility !== "INFEASIBLE")
+    ) {
+      return false;
+    }
+  }
+  if (projection.feasibility === "FEASIBLE") {
+    return (
+      projection.covenant_status === "WITHIN_LIMIT" &&
+      stringArray(bindingConstraints) &&
+      bindingConstraints.length === 0 &&
+      stringArray(whyNotFeasible) &&
+      whyNotFeasible.length === 0
+    );
+  }
+  return stringArray(bindingConstraints, 1) && stringArray(whyNotFeasible, 1);
+}
+
+function financeStudentProjectionMirrorsParent(
+  projection: Record<string, unknown>,
+  studentView: Record<string, unknown>
+): boolean {
+  const fullStressRegimes = projection.stress_regimes;
+  const studentStressRegimes = studentView.stress_regimes;
+  if (!Array.isArray(fullStressRegimes) || !Array.isArray(studentStressRegimes)) return false;
+  if (
+    studentView.feasibility !== projection.feasibility ||
+    !financeDisplayMirrorsBasis(studentView.cash_flow, projection.cash_flow) ||
+    !financeDisplayMirrorsBasis(studentView.liquidity_headroom, projection.liquidity_headroom) ||
+    fullStressRegimes.length !== studentStressRegimes.length
+  ) {
+    return false;
+  }
+  return fullStressRegimes.every((fullValue, index) => {
+    const full = record(fullValue);
+    const student = record(studentStressRegimes[index]);
+    return (
+      full !== null &&
+      student !== null &&
+      student.regime_id === full.regime_id &&
+      student.covenant_status === full.covenant_status &&
+      student.feasibility === full.feasibility
+    );
+  });
+}
+
 function financeProjection(value: unknown): boolean {
   const projection = record(value);
   if (
@@ -637,10 +764,14 @@ function financeProjection(value: unknown): boolean {
     financeStudentProjection(projection.student_view)
   );
   if (!structurallyValid) return false;
+  if (!financeConclusionIdentities(projection)) return false;
+  if (!stressRegimes.every(financeStressConclusionIdentities)) return false;
+  const studentView = projection.student_view as Record<string, unknown>;
+  if (!financeStudentProjectionMirrorsParent(projection, studentView)) return false;
   const validation = projection.validation as Record<string, unknown>;
   if (validation.status === "VALID") return true;
   const debt = record(projection.debt);
-  const studentView = record(projection.student_view);
+  const unknownStudentView = record(projection.student_view);
   return (
     validation.status === "UNKNOWN" &&
     stringArray(validation.reasons, 1) &&
@@ -663,12 +794,12 @@ function financeProjection(value: unknown): boolean {
     unknownFinanceBasis(projection.capital_budget_utilization) &&
     Array.isArray(stressRegimes) &&
     stressRegimes.every(unknownFinanceStressRegime) &&
-    studentView !== null &&
-    studentView.feasibility === "UNKNOWN" &&
-    unknownFinanceDisplayValue(studentView.cash_flow) &&
-    unknownFinanceDisplayValue(studentView.liquidity_headroom) &&
-    Array.isArray(studentView.stress_regimes) &&
-    studentView.stress_regimes.every(unknownFinanceStudentStressRegime)
+    unknownStudentView !== null &&
+    unknownStudentView.feasibility === "UNKNOWN" &&
+    unknownFinanceDisplayValue(unknownStudentView.cash_flow) &&
+    unknownFinanceDisplayValue(unknownStudentView.liquidity_headroom) &&
+    Array.isArray(unknownStudentView.stress_regimes) &&
+    unknownStudentView.stress_regimes.every(unknownFinanceStudentStressRegime)
   );
 }
 

@@ -115,6 +115,27 @@ function projection(): W4ProjectionBase {
         current_decision_ids: [],
         comparison_count: 0
       }
+    },
+    finance_accounting_bases: {
+      path_a: {
+        source_ref: "w4-finance-evidence",
+        path_id: "path_a",
+        source_scope: {
+          tenant_id: "tenant_demo",
+          course_id: "course_demo",
+          run_id: "run_demo",
+          team_id: "team_alpha",
+          round_id: "round_demo_1"
+        },
+        source_digest: "f".repeat(64),
+        currency: "SIMWAR_UNITS",
+        time_period: "HORIZON",
+        capex: 100,
+        opex: 50,
+        operating_cash_flow: 180,
+        amortization: 40,
+        capital_budget: 250
+      }
     }
   };
 }
@@ -299,6 +320,9 @@ describe("Executive Strategy Lab service", () => {
     });
     expect(firstPath.finance_feasibility.source_refs).toContain(
       "w4_capital_action:m4-capital-action@" + "1".repeat(64)
+    );
+    expect(firstPath.finance_feasibility.source_refs).toContain(
+      "accounting:w4-finance-evidence@" + "f".repeat(64)
     );
   });
 
