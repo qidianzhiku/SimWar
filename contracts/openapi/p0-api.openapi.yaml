@@ -5304,6 +5304,240 @@ paths:
         "401": { description: Authentication required }
         "403": { description: Tenant administrator or platform administrator role required }
 
+  /api/v1/bff/teacher/regional-transfer/selection:
+    get:
+      operationId: REGIONAL_TRANSFER_SELECTION_GET_V1
+      summary: Resolve one exact-bound regional-transfer input for the Teacher workbench.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: runId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: roundNo, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Exact ScenarioPackage, ParameterSet, CourseBlueprint, Course, Run and Round selection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferSelectionEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Exact source is missing or not bindable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/teacher/regional-transfer:
+    get:
+      operationId: REGIONAL_TRANSFER_TEACHER_LIST_V1
+      summary: List tenant-scoped regional-transfer lifecycle candidates for Teacher.
+      security: [{ SessionBearer: [] }]
+      responses:
+        "200":
+          description: Teacher lifecycle candidate list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferTeacherListEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/teacher/regional-transfer/preview:
+    post:
+      operationId: REGIONAL_TRANSFER_PREVIEW_V1
+      summary: Record a deterministic preview for one exact regional-transfer candidate.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegionalTransferCandidateInput" }
+      responses:
+        "200":
+          description: Recorded PREVIEWED Teacher projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferTeacherProjectionEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "404":
+          description: Referenced portability package not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "409":
+          description: Package digest conflicts with the exact package reference
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Invalid input, implicit version, non-bindable source or insufficient teams
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/teacher/regional-transfer/validate:
+    post:
+      operationId: REGIONAL_TRANSFER_VALIDATE_V1
+      summary: Validate and record a previously previewed exact regional-transfer candidate.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegionalTransferCandidateInput" }
+      responses:
+        "200":
+          description: Recorded VALIDATED Teacher projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferTeacherProjectionEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "409":
+          description: Package digest conflict or invalid lifecycle transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Invalid exact binding or non-bindable source
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/teacher/regional-transfer/freeze:
+    post:
+      operationId: REGIONAL_TRANSFER_FREEZE_V1
+      summary: Freeze a previously validated regional-transfer candidate without writing official truth.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegionalTransferCandidateInput" }
+      responses:
+        "201":
+          description: Immutable FROZEN candidate in the existing JSON runtime.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferCandidateEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "409":
+          description: Package digest conflict or invalid lifecycle transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Invalid exact binding or non-bindable source
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/teacher/regional-transfer/candidates/{candidateId}/bind:
+    post:
+      operationId: REGIONAL_TRANSFER_BIND_V1
+      summary: Revalidate exact authorities and idempotently activate one frozen candidate.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Existing or newly ACTIVATED candidate after fresh authority readback.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferCandidateEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Teacher or tenant scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "404":
+          description: Candidate or referenced package not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "409":
+          description: Candidate is not frozen or an exact digest conflicts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "422":
+          description: Exact authorities are no longer bindable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/student/regional-transfer/candidates/{candidateId}:
+    get:
+      operationId: REGIONAL_TRANSFER_STUDENT_PROJECTION_GET_V1
+      summary: Read a published, enrolled-team-safe regional-transfer explanation.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Published role-safe Student projection without source provenance or formal truth fields.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferStudentEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Candidate is unpublished or Student enrollment/tenant scope is denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "404":
+          description: Candidate not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
+  /api/v1/bff/admin/regional-transfer/candidates/{candidateId}:
+    get:
+      operationId: REGIONAL_TRANSFER_ADMIN_AUDIT_GET_V1
+      summary: Read tenant-safe candidate provenance, lifecycle and rollback audit information.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Tenant-safe Admin audit projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegionalTransferAdminEnvelope" }
+        "401": { description: Authentication required }
+        "403":
+          description: Tenant administrator scope denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+        "404":
+          description: Candidate not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+
   /api/v1/bff/teacher/shanghai/full-vertical:
     get:
       operationId: MAIN_SH_FV_O1_TEACHER_FULL_VERTICAL_GET_V1
@@ -8686,6 +8920,202 @@ components:
         course_id: { type: string, minLength: 1 }
         round_id: { type: string, minLength: 1 }
         round_no: { type: integer, minimum: 1 }
+    RegionalTransferPackageReference:
+      type: object
+      additionalProperties: false
+      required: [digest, package_id, version]
+      properties:
+        digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        package_id: { type: string, minLength: 1 }
+        version: { type: string, pattern: "^(?!latest$|default$|current$).+" }
+    RegionalTransferCourseBlueprintReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, course_blueprint_id, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        course_blueprint_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, pattern: "^(?!latest$|default$|current$).+" }
+    RegionalTransferParameterSetReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, parameter_set_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        parameter_set_id: { type: string, minLength: 1 }
+        version: { type: string, pattern: "^(?!latest$|default$|current$).+" }
+    RegionalTransferScenarioPackageReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest, scenario_package_id, tenant_id, version]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+        scenario_package_id: { type: string, minLength: 1 }
+        tenant_id: { type: string, minLength: 1 }
+        version: { type: string, pattern: "^(?!latest$|default$|current$).+" }
+    RegionalTransferCandidateInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          baseline_package_reference,
+          baseline_region,
+          course_blueprint_reference,
+          course_id,
+          parameter_set_reference,
+          round_no,
+          run_id,
+          scenario_package_reference,
+          target_package_reference,
+          target_region
+        ]
+      properties:
+        baseline_package_reference:
+          { $ref: "#/components/schemas/RegionalTransferPackageReference" }
+        baseline_region: { type: string, minLength: 1 }
+        course_blueprint_reference:
+          { $ref: "#/components/schemas/RegionalTransferCourseBlueprintReference" }
+        course_id: { type: string, minLength: 1 }
+        parameter_set_reference:
+          { $ref: "#/components/schemas/RegionalTransferParameterSetReference" }
+        round_no: { type: integer, minimum: 1 }
+        run_id: { type: string, minLength: 1 }
+        scenario_package_reference:
+          { $ref: "#/components/schemas/RegionalTransferScenarioPackageReference" }
+        target_package_reference: { $ref: "#/components/schemas/RegionalTransferPackageReference" }
+        target_region: { type: string, minLength: 1 }
+    RegionalTransferSelectionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: object
+          additionalProperties: false
+          required: [actor_id, input]
+          properties:
+            actor_id: { type: string, minLength: 1 }
+            input: { $ref: "#/components/schemas/RegionalTransferCandidateInput" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    RegionalTransferTeacherProjection:
+      allOf:
+        - { $ref: "../schemas/regional-transfer.v1.json" }
+        - type: object
+          required: [operation_id]
+          properties:
+            operation_id:
+              enum:
+                [
+                  REGIONAL_TRANSFER_TEACHER_LIST_V1,
+                  REGIONAL_TRANSFER_PREVIEW_V1,
+                  REGIONAL_TRANSFER_VALIDATE_V1
+                ]
+    RegionalTransferTeacherProjectionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/RegionalTransferTeacherProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    RegionalTransferTeacherListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/RegionalTransferTeacherProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    RegionalTransferCandidateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/regional-transfer.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    RegionalTransferStudentProjection:
+      type: object
+      additionalProperties: false
+      required: [activation, authority, context, known_limits, operation_id, status, visibility]
+      properties:
+        activation:
+          type: object
+          additionalProperties: false
+          required: [published, status]
+          properties:
+            published: { const: true }
+            status: { const: ACTIVATED }
+        authority:
+          type: object
+          additionalProperties: false
+          required: [official_truth_write, settlement_write]
+          properties:
+            official_truth_write: { const: false }
+            settlement_write: { const: false }
+        context:
+          type: object
+          additionalProperties: false
+          required: [course_id, round_no, run_id, target_region]
+          properties:
+            course_id: { type: string, minLength: 1 }
+            round_no: { type: integer, minimum: 1 }
+            run_id: { type: string, minLength: 1 }
+            target_region: { type: string, minLength: 1 }
+        known_limits:
+          type: array
+          minItems: 1
+          items: { type: string, minLength: 1 }
+        operation_id: { const: REGIONAL_TRANSFER_STUDENT_PROJECTION_GET_V1 }
+        status: { const: ACTIVATED }
+        visibility: { const: ROLE_SAFE_STUDENT }
+    RegionalTransferStudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/RegionalTransferStudentProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    RegionalTransferAdminProjection:
+      type: object
+      additionalProperties: false
+      required: [audit, candidate, operation_id, rollback, visibility]
+      properties:
+        audit:
+          type: object
+          additionalProperties: false
+          required: [candidate_id, lifecycle, tenant_id]
+          properties:
+            candidate_id: { type: string, minLength: 1 }
+            lifecycle:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items: { enum: [PREVIEWED, VALIDATED, FROZEN, ACTIVATED] }
+            tenant_id: { type: string, minLength: 1 }
+        candidate: { $ref: "../schemas/regional-transfer.v1.json" }
+        operation_id: { const: REGIONAL_TRANSFER_ADMIN_AUDIT_GET_V1 }
+        rollback: { $ref: "../schemas/regional-transfer.v1.json#/properties/rollback" }
+        visibility: { const: TENANT_SAFE_ADMIN }
+    RegionalTransferAdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/RegionalTransferAdminProjection" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
     W5TeacherGovernedModelEnvelope:
       type: object
       additionalProperties: false

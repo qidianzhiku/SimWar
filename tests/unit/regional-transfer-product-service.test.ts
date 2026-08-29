@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { buildM4PortabilityCompatibilityPack } from "@simwar/sh-next-support";
 import {
@@ -8,6 +10,9 @@ import {
 
 const tenantId = "tenant_demo";
 const m4 = buildM4PortabilityCompatibilityPack();
+const validateCandidate = new Ajv2020({ allErrors: true, strict: true }).compile(
+  JSON.parse(readFileSync("contracts/schemas/regional-transfer.v1.json", "utf8"))
+);
 const baseline = m4.compiled_packages.find((item) => item.package_role === "ANCHOR")!;
 const target = m4.compiled_packages.find((item) => item.package_role === "SECOND_CITY")!;
 const input = () => ({
@@ -115,6 +120,7 @@ describe("RegionalTransferProductService", () => {
     const preview = await product.preview(actor, input());
 
     expect(preview.lifecycle).toBe("PREVIEWED");
+    expect(preview.operation_id).toBe("REGIONAL_TRANSFER_PREVIEW_V1");
     expect(preview.qualification.status).toBe("READY_WITH_LIMITS");
     expect(preview.consumer_scope).toEqual({
       minimum_team_count: 2,
@@ -131,8 +137,10 @@ describe("RegionalTransferProductService", () => {
 
     const validated = await product.validate(actor, input());
     expect(validated.lifecycle).toBe("VALIDATED");
+    expect(validated.operation_id).toBe("REGIONAL_TRANSFER_VALIDATE_V1");
     const frozen = await product.freeze(actor, input());
     expect(frozen.lifecycle).toBe("FROZEN");
+    expect(validateCandidate(frozen)).toBe(true);
 
     await expect(product.student(actor, frozen.candidate_ref.candidate_id)).rejects.toMatchObject({
       code: "RT_NOT_PUBLISHED"
@@ -142,6 +150,11 @@ describe("RegionalTransferProductService", () => {
     expect(activated.lifecycle).toBe("ACTIVATED");
     expect(activated.activation.published).toBe(true);
     expect(activated.authority.official_truth_write).toBe(false);
+    expect(await product.bind(actor, frozen.candidate_ref.candidate_id)).toEqual(activated);
+
+    const listed = await product.list(actor);
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.operation_id).toBe("REGIONAL_TRANSFER_TEACHER_LIST_V1");
 
     const student = await product.student(
       { actor_id: "usr_student", tenant_id: tenantId, team_id: "team_alpha" },
@@ -157,6 +170,44 @@ describe("RegionalTransferProductService", () => {
     );
     expect(admin.audit.lifecycle).toEqual(["PREVIEWED", "VALIDATED", "FROZEN", "ACTIVATED"]);
     expect(admin.rollback.version_guard).toBe("EXACT_VERSION_REQUIRED");
+  });
+
+  it("requires recorded preview and validation states before freezing", async () => {
+    const actor = { actor_id: "usr_teacher", tenant_id: tenantId };
+    const directFreeze = service();
+
+    await expect(directFreeze.freeze(actor, input())).rejects.toMatchObject({
+      code: "RT_INVALID_TRANSITION"
+    });
+
+    const missingValidation = service();
+    await missingValidation.preview(actor, input());
+    await expect(missingValidation.freeze(actor, input())).rejects.toMatchObject({
+      code: "RT_INVALID_TRANSITION"
+    });
+  });
+
+  it("revalidates exact authorities immediately before first activation", async () => {
+    let scenarioBindable = true;
+    const sourcePort = sources();
+    const getScenario = sourcePort.getScenario;
+    sourcePort.getScenario = async (requestedTenantId, reference) =>
+      scenarioBindable ? getScenario(requestedTenantId, reference) : null;
+    const product = new RegionalTransferProductService({
+      now: () => "2026-08-29T12:00:00.000Z",
+      persistence: createInMemoryRegionalTransferCandidatePersistence(),
+      sources: sourcePort
+    });
+    const actor = { actor_id: "usr_teacher", tenant_id: tenantId };
+
+    await product.preview(actor, input());
+    await product.validate(actor, input());
+    const frozen = await product.freeze(actor, input());
+    scenarioBindable = false;
+
+    await expect(product.bind(actor, frozen.candidate_ref.candidate_id)).rejects.toMatchObject({
+      code: "RT_SOURCE_NOT_BINDABLE"
+    });
   });
 
   it("fails closed for tenant scope, implicit latest and mismatched run references", async () => {

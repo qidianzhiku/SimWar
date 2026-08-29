@@ -348,6 +348,24 @@ describe("Regional Transfer O1 real BFF", () => {
       expect(result.status).toBe(403);
 
       const teacher = await login(baseUrl, "teacher");
+      const malformed = await requestJson<ApiEnvelope<unknown>>(
+        `${baseUrl}/api/v1/bff/teacher/regional-transfer/preview`,
+        {
+          body: {
+            baseline_package_reference: {},
+            course_blueprint_reference: {}
+          },
+          headers: {
+            authorization: `Bearer ${teacher.access_token}`,
+            "content-type": "application/json",
+            "x-tenant-id": DEFAULT_TENANT_ID
+          },
+          method: "POST"
+        }
+      );
+      expect(malformed.status).toBe(422);
+      expect(malformed.body.code).toBe("RT_INPUT_INVALID");
+
       const missingExactSource = await requestJson(
         `${baseUrl}/api/v1/bff/teacher/regional-transfer/selection?courseId=course_demo&runId=missing&roundNo=1`,
         {

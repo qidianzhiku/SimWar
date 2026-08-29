@@ -127,4 +127,26 @@ fifth and final non-force push is bounded to this guard expectation and this
 Mission record. It requires `test:unit:pr4`, typecheck, lint, the dedicated RT
 journey, and the full local `test:e2e:ui:core` evidence already bound to the
 unchanged Playwright configuration. No further push, waiver, rerun-only
-workaround, or gate bypass is authorized after push 5.
+workaround, or gate bypass was planned after push 5.
+
+### Required review convergence extension
+
+Push 5 made `quality`, `browser-smoke`, CodeQL analysis and the separate CodeQL
+run green at exact head `4d1784558bc6607ecad6579f840e84030bc4956c`.
+The required-conversation-resolution gate then exposed seven unresolved review
+findings: three P1 findings covering recorded lifecycle transitions, fresh
+authority revalidation and exact schema shapes; one P1 OpenAPI coverage gap;
+and three P2 findings covering malformed nested input, operation identifiers
+and idempotent activation retries.
+
+Exact source readback confirms all seven findings are in the RT-O1 product
+scope. Prompt paragraphs 73-77 and 95 require ordinary review findings to stay
+inside the same Mission and allow a bounded extension justified by exact root
+cause. This section therefore supersedes the earlier push-5 stopping
+assumption and authorizes one sixth non-force push limited to the RT service,
+route, shared contract, JSON Schema/OpenAPI, focused tests, the contract-gate
+manifest and this Mission
+record. The repair must preserve one existing store, zero formal-writer
+mutations, Provider OFF and unchanged settlement/replay/canonical truth. It may
+be pushed only after the new tests fail on the old behavior and pass on the
+repair, followed by focused, typecheck, lint, build and browser verification.

@@ -73,9 +73,9 @@
         "scenario_package_reference"
       ],
       "properties": {
-        "course_blueprint_reference": { "$ref": "#/$defs/opaqueReference" },
-        "parameter_set_reference": { "$ref": "#/$defs/opaqueReference" },
-        "scenario_package_reference": { "$ref": "#/$defs/opaqueReference" }
+        "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
+        "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
+        "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" }
       }
     },
     "provenance": {
@@ -201,17 +201,47 @@
       "type": "array",
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 }
+    },
+    "operation_id": {
+      "enum": [
+        "REGIONAL_TRANSFER_TEACHER_LIST_V1",
+        "REGIONAL_TRANSFER_PREVIEW_V1",
+        "REGIONAL_TRANSFER_VALIDATE_V1"
+      ]
     }
   },
   "$defs": {
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-    "opaqueReference": {
+    "courseBlueprintReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["content_digest", "version"],
+      "required": ["content_digest", "course_blueprint_id", "tenant_id", "version"],
       "properties": {
         "content_digest": { "$ref": "#/$defs/digest" },
+        "course_blueprint_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      }
+    },
+    "parameterSetReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      }
+    },
+    "scenarioPackageReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
         "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
       }
     },

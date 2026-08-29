@@ -139,7 +139,10 @@ export interface RegionalTransferCandidate {
 }
 
 export interface RegionalTransferTeacherProjection extends RegionalTransferCandidate {
-  operation_id: typeof REGIONAL_TRANSFER_OPERATION_IDS.preview;
+  operation_id:
+    | typeof REGIONAL_TRANSFER_OPERATION_IDS.list
+    | typeof REGIONAL_TRANSFER_OPERATION_IDS.preview
+    | typeof REGIONAL_TRANSFER_OPERATION_IDS.validate;
 }
 
 export interface RegionalTransferStudentProjection {

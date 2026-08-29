@@ -80,7 +80,43 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function candidateInput(body: Record<string, unknown>): RegionalTransferCandidateInput {
-  if (!isRecord(body.baseline_package_reference) || !isRecord(body.course_blueprint_reference)) {
+  const baseline = body.baseline_package_reference;
+  const blueprint = body.course_blueprint_reference;
+  const parameter = body.parameter_set_reference;
+  const scenario = body.scenario_package_reference;
+  const target = body.target_package_reference;
+  const scalarStrings = [body.baseline_region, body.course_id, body.run_id, body.target_region];
+  if (
+    !isRecord(baseline) ||
+    !isRecord(blueprint) ||
+    !isRecord(parameter) ||
+    !isRecord(scenario) ||
+    !isRecord(target) ||
+    !scalarStrings.every((value) => typeof value === "string") ||
+    typeof body.round_no !== "number"
+  ) {
+    throw new RegionalTransferProductError("RT_INPUT_INVALID");
+  }
+  const referenceStrings = [
+    baseline.digest,
+    baseline.package_id,
+    baseline.version,
+    blueprint.content_digest,
+    blueprint.course_blueprint_id,
+    blueprint.tenant_id,
+    blueprint.version,
+    parameter.content_digest,
+    parameter.parameter_set_id,
+    parameter.version,
+    scenario.content_digest,
+    scenario.scenario_package_id,
+    scenario.tenant_id,
+    scenario.version,
+    target.digest,
+    target.package_id,
+    target.version
+  ];
+  if (!referenceStrings.every((value) => typeof value === "string")) {
     throw new RegionalTransferProductError("RT_INPUT_INVALID");
   }
   return body as unknown as RegionalTransferCandidateInput;

@@ -6,6 +6,7 @@ import {
   resolveM4PackageReference,
   type M4CompiledCityPackage
 } from "@simwar/sh-next-support";
+import { REGIONAL_TRANSFER_OPERATION_IDS } from "@simwar/shared-contracts";
 import type {
   CourseBlueprintReference,
   ParameterSetReference,
@@ -203,6 +204,28 @@ function lifecycleAudit(candidate: RegionalTransferCandidate): RegionalTransferL
   return lifecycle.filter((item, index, all) => all.indexOf(item) === index);
 }
 
+function teacherProjection(
+  candidate: RegionalTransferCandidate,
+  operationId: RegionalTransferTeacherProjection["operation_id"]
+): RegionalTransferTeacherProjection {
+  return { ...clone(candidate), operation_id: operationId };
+}
+
+function inputFromCandidate(candidate: RegionalTransferCandidate): RegionalTransferCandidateInput {
+  return {
+    baseline_package_reference: clone(candidate.baseline.package_reference),
+    baseline_region: candidate.baseline.region,
+    course_blueprint_reference: clone(candidate.formal_references.course_blueprint_reference),
+    course_id: candidate.scope.course_id,
+    parameter_set_reference: clone(candidate.formal_references.parameter_set_reference),
+    round_no: candidate.scope.round_no,
+    run_id: candidate.scope.run_id,
+    scenario_package_reference: clone(candidate.formal_references.scenario_package_reference),
+    target_package_reference: clone(candidate.target.package_reference),
+    target_region: candidate.target.region
+  };
+}
+
 export class RegionalTransferProductService {
   private readonly now: () => string;
   private readonly persistence: RegionalTransferCandidatePersistencePort;
@@ -220,24 +243,39 @@ export class RegionalTransferProductService {
 
   async list(actor: RegionalTransferActor): Promise<RegionalTransferTeacherProjection[]> {
     const candidates = await this.persistence.list(actor.tenant_id);
-    return candidates.map((candidate) => ({
-      ...clone(candidate),
-      operation_id: "REGIONAL_TRANSFER_PREVIEW_V1"
-    }));
+    return candidates.map((candidate) =>
+      teacherProjection(candidate, REGIONAL_TRANSFER_OPERATION_IDS.list)
+    );
   }
 
   async preview(
     actor: RegionalTransferActor,
     input: RegionalTransferCandidateInput
   ): Promise<RegionalTransferTeacherProjection> {
-    return this.build(actor, input, "PREVIEWED");
+    const candidate = await this.build(actor, input, "PREVIEWED");
+    const existing = await this.persistence.get(
+      actor.tenant_id,
+      candidate.candidate_ref.candidate_id
+    );
+    if (!existing) await this.persistence.save(candidate);
+    return teacherProjection(existing ?? candidate, REGIONAL_TRANSFER_OPERATION_IDS.preview);
   }
 
   async validate(
     actor: RegionalTransferActor,
     input: RegionalTransferCandidateInput
   ): Promise<RegionalTransferTeacherProjection> {
-    return this.build(actor, input, "VALIDATED");
+    const candidate = await this.build(actor, input, "VALIDATED");
+    const existing = await this.persistence.get(
+      actor.tenant_id,
+      candidate.candidate_ref.candidate_id
+    );
+    if (!existing) throw new RegionalTransferProductError("RT_INVALID_TRANSITION");
+    if (existing.lifecycle === "PREVIEWED") {
+      await this.persistence.save(candidate);
+      return teacherProjection(candidate, REGIONAL_TRANSFER_OPERATION_IDS.validate);
+    }
+    return teacherProjection(existing, REGIONAL_TRANSFER_OPERATION_IDS.validate);
   }
 
   async freeze(
@@ -249,7 +287,12 @@ export class RegionalTransferProductService {
       actor.tenant_id,
       candidate.candidate_ref.candidate_id
     );
-    if (existing) return clone(existing);
+    if (existing?.lifecycle === "FROZEN" || existing?.lifecycle === "ACTIVATED") {
+      return clone(existing);
+    }
+    if (existing?.lifecycle !== "VALIDATED") {
+      throw new RegionalTransferProductError("RT_INVALID_TRANSITION");
+    }
     await this.persistence.save(candidate);
     return clone(candidate);
   }
@@ -259,8 +302,16 @@ export class RegionalTransferProductService {
     candidateId: string
   ): Promise<RegionalTransferCandidate> {
     const current = await this.getOwned(actor, candidateId);
+    if (current.lifecycle === "ACTIVATED" && current.activation.published) return clone(current);
     if (current.lifecycle !== "FROZEN")
       throw new RegionalTransferProductError("RT_INVALID_TRANSITION");
+    const revalidated = await this.build(actor, inputFromCandidate(current), "FROZEN");
+    if (
+      revalidated.candidate_ref.candidate_id !== current.candidate_ref.candidate_id ||
+      revalidated.candidate_ref.content_digest !== current.candidate_ref.content_digest
+    ) {
+      throw new RegionalTransferProductError("RT_SOURCE_NOT_BINDABLE");
+    }
     const activated: RegionalTransferCandidate = {
       ...clone(current),
       activation: { published: true, status: "ACTIVATED" },
@@ -315,7 +366,7 @@ export class RegionalTransferProductService {
     actor: RegionalTransferActor,
     input: RegionalTransferCandidateInput,
     lifecycle: RegionalTransferLifecycle
-  ): Promise<RegionalTransferTeacherProjection> {
+  ): Promise<RegionalTransferCandidate> {
     if (!actor.tenant_id) throw new RegionalTransferProductError("RT_SCOPE_CONFLICT");
     assertInput(input);
     if (
@@ -508,7 +559,7 @@ export class RegionalTransferProductService {
         region: target.display_name
       }
     };
-    return { ...clone(candidate), operation_id: "REGIONAL_TRANSFER_PREVIEW_V1" };
+    return clone(candidate);
   }
 
   private async getOwned(
