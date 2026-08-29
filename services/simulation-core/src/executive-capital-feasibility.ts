@@ -367,7 +367,9 @@ function createStressRegimes(
     const liquidity = stressedLiquidity(cash);
     const covenant = stressCovenant(liquidity, baseCovenant);
     const constraints = [...baseConstraints];
-    if (covenant === "BREACHED") constraints.push("STRESSED_MINIMUM_CASH_BREACH");
+    const stressedLiquidityBreach =
+      liquidity.status === "KNOWN" && liquidity.amount !== null && liquidity.amount < 0;
+    if (stressedLiquidityBreach) constraints.push("STRESSED_MINIMUM_CASH_BREACH");
     return {
       regime_id: id,
       shock,
@@ -376,14 +378,13 @@ function createStressRegimes(
       covenant_status: covenant,
       feasibility: stressFeasibility(baseFeasibility, covenant),
       binding_constraints: [...new Set(constraints)].sort(),
-      why_not_feasible:
-        covenant === "BREACHED"
-          ? ["压力情景下最低现金约束被突破。"]
-          : baseFeasibility === "INFEASIBLE"
-            ? ["基础情景已触发资本或现金约束，压力情景不得恢复为可行。"]
-            : baseFeasibility === "UNKNOWN"
-              ? ["基础资本/债务服务输入不足，压力情景不可判定。"]
-              : []
+      why_not_feasible: stressedLiquidityBreach
+        ? ["压力情景下最低现金约束被突破。"]
+        : baseFeasibility === "INFEASIBLE"
+          ? ["基础情景已触发资本或现金约束，压力情景不得恢复为可行。"]
+          : baseFeasibility === "UNKNOWN"
+            ? ["基础资本/债务服务输入不足，压力情景不可判定。"]
+            : []
     };
   });
 }
@@ -502,17 +503,25 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     accountingTimePeriod,
     "AMORTIZATION_SCHEDULE_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
+  const knownZeroDebtService =
+    debtPrincipal.status === "KNOWN" &&
+    debtPrincipal.amount === 0 &&
+    interestPaid.status === "KNOWN" &&
+    interestPaid.amount === 0 &&
+    amortization.status === "KNOWN" &&
+    amortization.amount === 0;
+  const matchingDebtServicePeriod = interestPaid.time_period === amortization.time_period;
   const debtService =
     interestPaid.status === "KNOWN" &&
     interestPaid.amount !== null &&
     amortization.status === "KNOWN" &&
     amortization.amount !== null &&
-    interestPaid.time_period === amortization.time_period
+    (matchingDebtServicePeriod || knownZeroDebtService)
       ? basis(
           interestPaid.amount + amortization.amount,
           CURRENCY_UNIT,
           [...interestPaid.source_refs, ...amortization.source_refs],
-          interestPaid.time_period
+          knownZeroDebtService ? accountingTimePeriod : interestPaid.time_period
         )
       : basis(
           null,

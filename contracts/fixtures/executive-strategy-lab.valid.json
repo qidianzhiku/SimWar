@@ -95,7 +95,9 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           },
           "equity_proceeds": {
             "amount": 800,
@@ -103,7 +105,9 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           },
           "working_capital": {
             "amount": 500,
@@ -111,7 +115,9 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "ROUND",
-            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           }
         },
         "debt": {
@@ -121,7 +127,9 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           },
           "interest_paid": {
             "amount": 20,
@@ -129,7 +137,9 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           },
           "amortization": {
             "amount": 40,
@@ -145,7 +155,10 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "accounting:accounting_fixture",
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           }
         },
         "cash_flow": {
@@ -154,7 +167,9 @@
           "unit": "SIMWAR_CURRENCY",
           "currency": "SIMWAR_UNITS",
           "time_period": "HORIZON",
-          "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+          "source_refs": [
+            "m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
         },
         "liquidity_headroom": {
           "amount": 650,
@@ -162,7 +177,9 @@
           "unit": "SIMWAR_CURRENCY",
           "currency": "SIMWAR_UNITS",
           "time_period": "ROUND",
-          "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          "source_refs": [
+            "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
         },
         "dscr": {
           "ratio": 3,
@@ -181,9 +198,15 @@
             "unit": "SIMWAR_CURRENCY",
             "currency": "SIMWAR_UNITS",
             "time_period": "HORIZON",
-            "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            "source_refs": [
+              "accounting:accounting_fixture",
+              "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ]
           },
-          "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          "source_refs": [
+            "accounting:accounting_fixture",
+            "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
         },
         "capital_budget_utilization": {
           "amount": 0.4,
@@ -207,7 +230,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+              "source_refs": [
+                "m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
             },
             "liquidity_headroom": {
               "amount": 600,
@@ -215,7 +240,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "ROUND",
-              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+              "source_refs": [
+                "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              ]
             },
             "covenant_status": "WITHIN_LIMIT",
             "feasibility": "FEASIBLE",
@@ -231,7 +258,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+              "source_refs": [
+                "m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
             },
             "liquidity_headroom": {
               "amount": 625,
@@ -239,7 +268,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "ROUND",
-              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+              "source_refs": [
+                "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              ]
             },
             "covenant_status": "WITHIN_LIMIT",
             "feasibility": "FEASIBLE",
@@ -255,7 +286,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "HORIZON",
-              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+              "source_refs": [
+                "m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              ]
             },
             "liquidity_headroom": {
               "amount": 642,
@@ -263,7 +296,9 @@
               "unit": "SIMWAR_CURRENCY",
               "currency": "SIMWAR_UNITS",
               "time_period": "ROUND",
-              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+              "source_refs": [
+                "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              ]
             },
             "covenant_status": "WITHIN_LIMIT",
             "feasibility": "FEASIBLE",
@@ -282,9 +317,21 @@
           "liquidity_headroom": { "amount": 650, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
           "capital_tradeoff_summary": "当前已知输入下通过资本可行性检查。",
           "stress_regimes": [
-            { "regime_id": "DEMAND_PRICE_DOWNSIDE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" },
-            { "regime_id": "WORKFORCE_CAPACITY_PRESSURE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" },
-            { "regime_id": "FUNDING_COVENANT_PRESSURE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" }
+            {
+              "regime_id": "DEMAND_PRICE_DOWNSIDE",
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE"
+            },
+            {
+              "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE"
+            },
+            {
+              "regime_id": "FUNDING_COVENANT_PRESSURE",
+              "covenant_status": "WITHIN_LIMIT",
+              "feasibility": "FEASIBLE"
+            }
           ],
           "excluded_fields": ["source_refs", "model", "debt_schedule"]
         }
@@ -320,5 +367,29 @@
     "replay_truth_write": false,
     "provider": "OFF"
   },
-  "known_limits": ["该 fixture 只验证嵌套候选财务投影与教师 response 的结构组合，不代表正式结算。"]
+  "known_limits": ["该 fixture 只验证嵌套候选财务投影与教师 response 的结构组合，不代表正式结算。"],
+  "teacher_projection": {
+    "surface": "teacher",
+    "available_actions": [
+      "SELECT_OFFICIAL_BASELINE",
+      "COMPARE_NON_OFFICIAL_PATHS",
+      "INSPECT_MECHANISM_AND_LIMITS",
+      "INSPECT_FINANCE_FEASIBILITY_AND_STRESS",
+      "FORM_TRANSFER_HYPOTHESIS"
+    ],
+    "official_baseline": {
+      "officiality": "OFFICIAL",
+      "outcome_id": "outcome_demo",
+      "state_ref": null,
+      "summary": "官方 W4 基线已绑定到精确运行上下文。"
+    },
+    "paths": [],
+    "mechanisms": [],
+    "transfer": {
+      "status": "DRAFT",
+      "statement": "下一轮验证服务质量与现金缓冲的平衡。",
+      "evidence_path_ids": [],
+      "applies_to_next_round": false
+    }
+  }
 }

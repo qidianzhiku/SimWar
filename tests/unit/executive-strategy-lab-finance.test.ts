@@ -301,6 +301,27 @@ describe("projectESLFinance", () => {
     expect(result.binding_constraints).not.toContain("DSCR_BASIS_UNKNOWN");
   });
 
+  it("keeps a known zero debt service feasible across a round-scoped accounting basis", () => {
+    const source = state(1000);
+    source.capital = capital({ debt_principal: 0, interest_paid: 0 });
+    const result = projectESLFinance(
+      input({
+        source_state: source,
+        accounting_basis: accounting({ time_period: "ROUND", amortization: 0 })
+      })
+    );
+
+    expect(result.debt.debt_service).toMatchObject({
+      amount: 0,
+      status: "KNOWN",
+      time_period: "ROUND"
+    });
+    expect(result.dscr.unknown_reason).toBe("NO_DEBT_SERVICE");
+    expect(result.feasibility).toBe("FEASIBLE");
+    expect(result.binding_constraints).not.toContain("DEBT_SERVICE_BASIS_UNKNOWN");
+    expect(result.binding_constraints).not.toContain("DSCR_BASIS_UNKNOWN");
+  });
+
   it("preserves a recorded covenant breach in every stress status", () => {
     const source = state(1000);
     source.capital = capital({ covenant_breach_action_ids: ["recorded-breach"] });
@@ -311,6 +332,16 @@ describe("projectESLFinance", () => {
       true
     );
     expect(result.stress_regimes.every((regime) => regime.feasibility === "INFEASIBLE")).toBe(true);
+    expect(
+      result.stress_regimes.every(
+        (regime) => !regime.binding_constraints.includes("STRESSED_MINIMUM_CASH_BREACH")
+      )
+    ).toBe(true);
+    expect(
+      result.stress_regimes.every((regime) =>
+        regime.why_not_feasible.every((reason) => reason !== "压力情景下最低现金约束被突破。")
+      )
+    ).toBe(true);
   });
 
   it("marks a known minimum-cash covenant breach infeasible", () => {

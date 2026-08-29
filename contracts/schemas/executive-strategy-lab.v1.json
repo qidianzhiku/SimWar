@@ -47,15 +47,65 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "surface": { "const": "student" } } },
+      "if": { "properties": { "surface": { "const": "teacher" } } },
       "then": {
+        "required": ["teacher_projection"],
         "properties": {
-          "paths": { "type": "array", "items": { "$ref": "#/$defs/studentPath" } }
+          "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } },
+          "teacher_projection": { "$ref": "#/$defs/teacherProjection" }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": ["student_projection"],
+              "properties": { "student_projection": {} }
+            },
+            {
+              "required": ["admin_projection"],
+              "properties": { "admin_projection": {} }
+            }
+          ]
         }
       },
       "else": {
-        "properties": {
-          "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } }
+        "if": { "properties": { "surface": { "const": "student" } } },
+        "then": {
+          "required": ["student_projection"],
+          "properties": {
+            "paths": { "type": "array", "items": { "$ref": "#/$defs/studentPath" } },
+            "student_projection": { "$ref": "#/$defs/studentProjection" }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": ["teacher_projection"],
+                "properties": { "teacher_projection": {} }
+              },
+              {
+                "required": ["admin_projection"],
+                "properties": { "admin_projection": {} }
+              }
+            ]
+          }
+        },
+        "else": {
+          "required": ["admin_projection"],
+          "properties": {
+            "paths": { "type": "array", "items": { "$ref": "#/$defs/alternativePath" } },
+            "admin_projection": { "$ref": "#/$defs/adminProjection" }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": ["teacher_projection"],
+                "properties": { "teacher_projection": {} }
+              },
+              {
+                "required": ["student_projection"],
+                "properties": { "student_projection": {} }
+              }
+            ]
+          }
         }
       }
     }

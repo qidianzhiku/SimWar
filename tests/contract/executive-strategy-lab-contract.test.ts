@@ -116,4 +116,54 @@ describe("Executive Strategy Lab contract", () => {
     expect(validate(validTeacher)).toBe(true);
     expect(validate(invalidStudent)).toBe(false);
   });
+
+  it("requires and isolates the projection that matches the declared response surface", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const validTeacher = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown> & {
+      official_baseline: {
+        officiality: string;
+        outcome_id: string | null;
+        summary: string;
+      };
+      transfer: unknown;
+      teacher_projection?: unknown;
+    };
+    const studentProjection = {
+      surface: "student",
+      role_safe: true,
+      official_baseline: {
+        officiality: validTeacher.official_baseline.officiality,
+        outcome_id: validTeacher.official_baseline.outcome_id,
+        summary: validTeacher.official_baseline.summary
+      },
+      paths: [],
+      transfer: validTeacher.transfer,
+      excluded_fields: ["decision_ids", "teacher_admin_provenance"]
+    };
+    const validStudent = {
+      ...validTeacher,
+      surface: "student",
+      paths: [],
+      student_projection: studentProjection
+    };
+    delete validStudent.teacher_projection;
+    const studentWithTeacherProjection = {
+      ...validStudent,
+      teacher_projection: validTeacher.teacher_projection
+    };
+    const teacherWithStudentProjection = {
+      ...validTeacher,
+      student_projection: studentProjection
+    };
+
+    expect(validate(validTeacher)).toBe(true);
+    expect(validate(validStudent)).toBe(true);
+    expect(validate(studentWithTeacherProjection)).toBe(false);
+    expect(validate(teacherWithStudentProjection)).toBe(false);
+  });
 });
