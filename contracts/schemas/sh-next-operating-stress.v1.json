@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-operating-stress.v1.json",
+  "title": "Shanghai M3 Operating Economics Stress Candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "tenant_id",
+    "state_transition",
+    "source_freeze",
+    "sources",
+    "observations",
+    "baseline_layers",
+    "shock_library",
+    "experiment_matrix",
+    "experiment_results",
+    "gsi_binding",
+    "replay",
+    "role_visibility",
+    "consumer",
+    "authority",
+    "negative_controls",
+    "mjp",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-operating-stress.v1" },
+    "macro_key": { "const": "M3" },
+    "mission_id": { "const": "SH-ESL-NEXT-03-OPERATING-ECONOMICS-STRESS-WORLD" },
+    "tenant_id": { "type": "string", "minLength": 1 },
+    "state_transition": { "const": { "from": "STATE_A", "to": "STATE_B" } },
+    "source_freeze": {
+      "type": "object",
+      "required": ["status", "gsi_source_status", "unsupported_claims_are_facts"],
+      "properties": {
+        "status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" },
+        "gsi_source_status": { "const": "CURRENT_CONTRACT_REUSED" },
+        "unsupported_claims_are_facts": { "const": false }
+      }
+    },
+    "sources": { "type": "array", "minItems": 6 },
+    "observations": { "type": "array", "minItems": 6 },
+    "baseline_layers": {
+      "type": "object",
+      "required": ["WANT", "CAN", "REALIZED", "FINANCE", "POLICY", "STAKEHOLDER"]
+    },
+    "shock_library": { "type": "array", "minItems": 6 },
+    "experiment_matrix": { "type": "array", "minItems": 4 },
+    "experiment_results": { "type": "array", "minItems": 4 },
+    "gsi_binding": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "resolver_version",
+        "signal_bindings",
+        "provider",
+        "formal_truth_write",
+        "excluded_from_truth_hash",
+        "model_call_log",
+        "exact_refs"
+      ],
+      "properties": {
+        "contract_id": { "const": "gsi.governed.stakeholder.shadow.v1" },
+        "resolver_version": { "const": "gsi-deterministic-resolver-v1" },
+        "signal_bindings": { "type": "array", "minItems": 5, "maxItems": 5 },
+        "provider": { "const": "OFF" },
+        "formal_truth_write": { "const": false },
+        "excluded_from_truth_hash": { "const": true }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "required": ["input_digest", "algorithm", "truth_hash_exclusion"],
+      "properties": {
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "algorithm": { "const": "DETERMINISTIC_BOUNDED_STRESS_MATRIX_V1" },
+        "truth_hash_exclusion": { "type": "array", "minItems": 1 }
+      }
+    },
+    "role_visibility": { "type": "object", "required": ["teacher", "student", "admin"] },
+    "consumer": {
+      "type": "object",
+      "required": [
+        "classification",
+        "consumer_ids",
+        "consumer_ready",
+        "formal_join",
+        "exact_binding_required"
+      ],
+      "properties": {
+        "classification": { "const": "C1" },
+        "consumer_ready": { "const": false },
+        "formal_join": { "const": false },
+        "exact_binding_required": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "score_write",
+        "rank_write",
+        "provider"
+      ],
+      "properties": {
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "score_write": { "const": false },
+        "rank_write": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "negative_controls": { "type": "array", "minItems": 4 },
+    "mjp": {
+      "type": "object",
+      "required": ["status", "corridor", "checks"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "corridor": { "const": "M3-CORRIDOR-WORKFORCE-QUALITY-CASH" }
+      }
+    },
+    "known_limits": { "type": "array", "minItems": 1 },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
