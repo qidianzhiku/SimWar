@@ -1,0 +1,600 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-reality-qualification.v1.json",
+  "title": "Shanghai M5 Reality Qualification Golden Holdout Observatory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "validation_as_of",
+    "state_transition",
+    "source_freeze",
+    "sources",
+    "source_quality",
+    "observations",
+    "features",
+    "transformations",
+    "conflict_ledger",
+    "eligibility",
+    "status_examples",
+    "holdout",
+    "rgi",
+    "golden_replay",
+    "drift_ledger",
+    "replay",
+    "overall_status",
+    "role_visibility",
+    "consumer",
+    "authority",
+    "mjp",
+    "main_handoff",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-reality-qualification.v1" },
+    "macro_key": { "const": "M5" },
+    "mission_id": { "const": "SH-RT-NEXT-02-REALITY-QUALIFICATION-GOLDEN-HOLDOUT-OBSERVATORY" },
+    "validation_as_of": { "type": "string", "minLength": 1 },
+    "state_transition": { "const": { "from": "STATE_A", "to": "STATE_B" } },
+    "source_freeze": { "$ref": "#/$defs/sourceFreeze" },
+    "sources": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/source" } },
+    "source_quality": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/sourceQuality" }
+    },
+    "observations": { "type": "array", "minItems": 7, "items": { "$ref": "#/$defs/observation" } },
+    "features": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/feature" } },
+    "transformations": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/transformation" }
+    },
+    "conflict_ledger": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/conflict" } },
+    "eligibility": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/eligibility" } },
+    "status_examples": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/statusExample" }
+    },
+    "holdout": { "$ref": "#/$defs/holdout" },
+    "rgi": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/rgi" } },
+    "golden_replay": { "$ref": "#/$defs/golden" },
+    "drift_ledger": { "type": "array", "minItems": 5, "items": { "$ref": "#/$defs/drift" } },
+    "replay": { "$ref": "#/$defs/replay" },
+    "overall_status": { "const": "NOT_ELIGIBLE" },
+    "role_visibility": { "$ref": "#/$defs/roleVisibility" },
+    "consumer": { "$ref": "#/$defs/consumer" },
+    "authority": { "$ref": "#/$defs/authority" },
+    "mjp": { "$ref": "#/$defs/mjp" },
+    "main_handoff": { "$ref": "#/$defs/mainHandoff" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "sourceFreeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "official_source_retrieval", "unsupported_claims_are_facts"],
+      "properties": {
+        "status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" },
+        "official_source_retrieval": { "const": "NOT_RETRIEVED" },
+        "unsupported_claims_are_facts": { "const": false }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_type",
+        "source_date",
+        "geography",
+        "time_scope",
+        "provenance",
+        "license_or_usage_status",
+        "confidence",
+        "sensitivity",
+        "role_visibility",
+        "derived_from",
+        "evidence_status",
+        "content_basis",
+        "hash"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_type": {
+          "enum": ["PUBLIC_DOCUMENT", "INTERNAL_CAPABILITY", "SYNTHETIC", "ASSUMPTION"]
+        },
+        "source_date": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "minLength": 1 },
+        "license_or_usage_status": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "role_visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "evidence_status": { "enum": ["VERIFIED", "REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "content_basis": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "sourceQuality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "owner",
+        "license_status",
+        "freshness_status",
+        "missingness_rate",
+        "unit_status",
+        "geography_status",
+        "conflict_count",
+        "privacy_status",
+        "evidence_status",
+        "quality_status",
+        "expiry"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "license_status": { "enum": ["PUBLIC_REFERENCE_ONLY", "UNKNOWN"] },
+        "freshness_status": { "enum": ["CURRENT", "STALE", "UNKNOWN"] },
+        "missingness_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "unit_status": { "enum": ["DECLARED", "MISSING"] },
+        "geography_status": { "enum": ["MATCHED", "MISMATCH", "UNKNOWN"] },
+        "conflict_count": { "type": "integer", "minimum": 0 },
+        "privacy_status": { "enum": ["PUBLIC_SAFE", "RESTRICTED"] },
+        "evidence_status": { "enum": ["VERIFIED", "REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "quality_status": { "enum": ["PASS", "LIMITED", "FAIL"] },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "source_id",
+        "location",
+        "period",
+        "basis",
+        "unit",
+        "geography",
+        "data_type",
+        "value",
+        "confidence",
+        "sensitivity",
+        "observation_status",
+        "expiry"
+      ],
+      "properties": {
+        "observation_id": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "period": { "type": "string", "minLength": 1 },
+        "basis": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "data_type": {
+          "enum": [
+            "ACTUAL",
+            "BUDGET",
+            "FORECAST",
+            "INVESTMENT_MODEL",
+            "SURVEY",
+            "ASSUMPTION",
+            "SYNTHETIC",
+            "STRESS_TEST"
+          ]
+        },
+        "value": { "anyOf": [{ "type": "number" }, { "type": "string" }] },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "observation_status": { "enum": ["CANDIDATE_ANCHOR", "MISSING", "UNKNOWN", "CONFLICT"] },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "name",
+        "value",
+        "unit",
+        "range",
+        "source_ids",
+        "temporal_scope",
+        "geography",
+        "confidence",
+        "possible_mod_consumer",
+        "calibration_evidence",
+        "visibility"
+      ],
+      "properties": {
+        "feature_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "value": { "anyOf": [{ "type": "number" }, { "type": "string" }] },
+        "unit": { "type": "string", "minLength": 1 },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": ["number", "null"] },
+            "max": { "type": ["number", "null"] }
+          }
+        },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "temporal_scope": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "possible_mod_consumer": { "type": "string", "minLength": 1 },
+        "calibration_evidence": { "enum": ["NONE", "NOT_PROVEN"] },
+        "visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transformation_id",
+        "input",
+        "rule",
+        "assumption",
+        "output",
+        "unit",
+        "time_scope",
+        "geography",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "transformation_id": { "type": "string", "minLength": 1 },
+        "input": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "rule": { "type": "string", "minLength": 1 },
+        "assumption": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflict_id",
+        "source_ids",
+        "observation_ids",
+        "conflict_type",
+        "resolution",
+        "averaged_away",
+        "reason"
+      ],
+      "properties": {
+        "conflict_id": { "type": "string", "minLength": 1 },
+        "source_ids": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "observation_ids": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "conflict_type": { "enum": ["SAME_PERIOD_DIFFERENT_VALUE", "GEOGRAPHIC_SCOPE_MISMATCH"] },
+        "resolution": { "const": "PRESERVED_FOR_REVIEW" },
+        "averaged_away": { "const": false },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "status",
+        "evidence_status",
+        "eligible_for_calibration",
+        "eligible_for_holdout",
+        "reasons",
+        "expiry"
+      ],
+      "properties": {
+        "domain": { "enum": ["DEMAND", "SPATIAL", "OPS", "FINANCE", "CUSTOMER", "BEHAVIOR"] },
+        "status": { "enum": ["READY", "LIMITED", "NOT_ELIGIBLE"] },
+        "evidence_status": { "enum": ["VERIFIED", "REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "eligible_for_calibration": { "const": false },
+        "eligible_for_holdout": { "const": false },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "statusExample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["qualification_id", "scope", "status", "claim_boundary"],
+      "properties": {
+        "qualification_id": { "type": "string", "minLength": 1 },
+        "scope": { "enum": ["REPLAY_ONLY", "REFERENCE_CANDIDATE", "CALIBRATION"] },
+        "status": { "enum": ["READY", "LIMITED", "NOT_ELIGIBLE"] },
+        "claim_boundary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "holdout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holdout_id",
+        "partition_rule",
+        "training_observation_ids",
+        "holdout_observation_ids",
+        "overlap_keys",
+        "leakage_count",
+        "leakage_ids",
+        "leakage_proof",
+        "status",
+        "known_limit"
+      ],
+      "properties": {
+        "holdout_id": { "const": "SH-M5-HOLDOUT-TEMPORAL-SOURCE-PARTITION" },
+        "partition_rule": { "const": "TEMPORAL_SOURCE_EXACT_PARTITION" },
+        "training_observation_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "holdout_observation_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "overlap_keys": { "type": "array", "maxItems": 0, "items": { "type": "string" } },
+        "leakage_count": { "const": 0 },
+        "leakage_ids": { "type": "array", "maxItems": 0, "items": { "type": "string" } },
+        "leakage_proof": { "const": "EXACT_SOURCE_AND_PERIOD_PARTITION_NO_OVERLAP" },
+        "status": { "const": "NOT_ELIGIBLE" },
+        "known_limit": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rgi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "status",
+        "computable",
+        "value",
+        "evidence_status",
+        "reason",
+        "source_ids",
+        "expiry"
+      ],
+      "properties": {
+        "domain": { "enum": ["DEMAND", "SPATIAL", "OPS", "FINANCE", "CUSTOMER", "BEHAVIOR"] },
+        "status": { "const": "NOT_COMPUTABLE" },
+        "computable": { "const": false },
+        "value": { "type": "null" },
+        "evidence_status": { "const": "NOT_RETRIEVED" },
+        "reason": { "type": "string", "minLength": 1 },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "golden": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "golden_id",
+        "fixed_seed",
+        "input_digest",
+        "package_digest",
+        "expected_directions",
+        "replay_status",
+        "formal_result_overwritten",
+        "settlement_write",
+        "truth_hash_exclusion",
+        "digest"
+      ],
+      "properties": {
+        "golden_id": { "const": "SH-M5-GOLDEN-REFERENCE-REPLAY-V1" },
+        "fixed_seed": { "const": 2026082905 },
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "package_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "expected_directions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "replay_status": { "const": "READY_FOR_REPLAY_ONLY" },
+        "formal_result_overwritten": { "const": false },
+        "settlement_write": { "const": false },
+        "truth_hash_exclusion": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "drift_id",
+        "drift_kind",
+        "subject_id",
+        "baseline_digest",
+        "current_digest",
+        "delta",
+        "status",
+        "impact_scope",
+        "next_action"
+      ],
+      "properties": {
+        "drift_id": { "type": "string", "minLength": 1 },
+        "drift_kind": { "enum": ["SOURCE", "FEATURE", "RANGE", "MODEL", "SCENARIO"] },
+        "subject_id": { "type": "string", "minLength": 1 },
+        "baseline_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "current_digest": { "type": "null" },
+        "delta": { "type": "null" },
+        "status": { "const": "NO_CURRENT_EVIDENCE" },
+        "impact_scope": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "next_action": { "const": "M6_LIFECYCLE_REQUALIFICATION" }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_digest",
+        "algorithm",
+        "formal_result_overwritten",
+        "truth_hash_exclusion"
+      ],
+      "properties": {
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "algorithm": { "const": "DETERMINISTIC_QUALIFICATION_REPLAY_V1" },
+        "formal_result_overwritten": { "const": false },
+        "truth_hash_exclusion": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "roleVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/teacherVisibility" },
+        "student": { "$ref": "#/$defs/studentVisibility" },
+        "admin": { "$ref": "#/$defs/adminVisibility" }
+      }
+    },
+    "teacherVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "TEACHER_ONLY" },
+        "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "studentVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields", "forbidden_fields"],
+      "properties": {
+        "visibility": { "const": "STUDENT_SAFE" },
+        "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "forbidden_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "adminVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "INTERNAL_RESEARCH_ONLY" },
+        "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "consumer_ids",
+        "consumer_ready",
+        "formal_join",
+        "exact_binding_required"
+      ],
+      "properties": {
+        "classification": { "const": "C1" },
+        "consumer_ids": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "consumer_ready": { "const": false },
+        "formal_join": { "const": false },
+        "exact_binding_required": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "provider",
+        "runtime_authority"
+      ],
+      "properties": {
+        "candidate_writer": { "type": "string", "minLength": 1 },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "qualification_cycle_id", "checks"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "qualification_cycle_id": { "type": "string", "minLength": 1 },
+        "checks": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref_type", "ref_id", "path_or_uri", "revision", "digest", "readback_status"],
+      "properties": {
+        "ref_type": { "enum": ["CODE", "CONTRACT", "TEST", "SOURCE"] },
+        "ref_id": { "type": "string", "minLength": 1 },
+        "path_or_uri": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "readback_status": { "enum": ["EXACT_SOURCE_READBACK", "REFERENCE_ONLY"] }
+      }
+    },
+    "mainHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "required_consumer_action", "exact_refs"],
+      "properties": {
+        "status": { "const": "JOIN_WITH_LIMITS" },
+        "required_consumer_action": { "const": "PROVE_C0_SOURCE_CONTRACT_SEAM" },
+        "exact_refs": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/exactRef" } }
+      }
+    }
+  }
+}
