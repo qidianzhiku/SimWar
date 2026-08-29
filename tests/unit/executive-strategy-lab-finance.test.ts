@@ -15,6 +15,19 @@ import {
 const STATE_OPEN_DIGEST = "a".repeat(64);
 const PATH_DIGEST = "c".repeat(64);
 
+function stable(value: unknown): string {
+  if (value === null || typeof value === "boolean" || typeof value === "number") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stable(record[key])}`)
+    .join(",")}}`;
+}
+
 function stateRef(id: string, digest: string, parent?: W4StateRef | null): W4StateRef {
   return {
     tenant_id: "tenant-esl",
@@ -73,8 +86,16 @@ function stateScope(
 }
 
 function accounting(overrides: Partial<ESLFinanceAccountingBasis> = {}): ESLFinanceAccountingBasis {
-  return {
+  const value = {
     source_ref: "accounting-basis-esl-1",
+    path_id: "path-capital",
+    source_scope: {
+      tenant_id: "tenant-esl",
+      course_id: "course-esl",
+      run_id: "run-esl",
+      team_id: "team-esl",
+      round_id: "round-esl"
+    },
     currency: "SIMWAR_UNITS",
     time_period: "HORIZON",
     capex: 100,
@@ -83,6 +104,12 @@ function accounting(overrides: Partial<ESLFinanceAccountingBasis> = {}): ESLFina
     amortization: 40,
     capital_budget: 250,
     ...overrides
+  };
+  const { source_digest: suppliedDigest, ...unsigned } = value;
+  return {
+    ...value,
+    source_digest:
+      suppliedDigest ?? createHash("sha256").update(stable(unsigned), "utf8").digest("hex")
   };
 }
 
@@ -213,6 +240,29 @@ describe("projectESLFinance", () => {
     expect(result.dscr.numerator.unknown_reason).toEqual(expect.any(String));
     expect(result.dscr.denominator.unknown_reason).toEqual(expect.any(String));
     expect(result.feasibility).toBe("UNKNOWN");
+  });
+
+  it("rejects accounting evidence outside the candidate scope or with a stale digest", () => {
+    const otherScope = {
+      tenant_id: "tenant-other",
+      course_id: "course-esl",
+      run_id: "run-esl",
+      team_id: "team-esl",
+      round_id: "round-esl"
+    };
+    const scopeMismatch = projectESLFinance(
+      input({ accounting_basis: accounting({ source_scope: otherScope }) })
+    );
+    expect(scopeMismatch.validation.status).toBe("UNKNOWN");
+    expect(scopeMismatch.validation.reasons).toContain("INVALID_ACCOUNTING_BASIS");
+    expect(scopeMismatch.feasibility).toBe("UNKNOWN");
+
+    const staleDigest = projectESLFinance(
+      input({ accounting_basis: accounting({ source_digest: "f".repeat(64) }) })
+    );
+    expect(staleDigest.validation.status).toBe("UNKNOWN");
+    expect(staleDigest.validation.reasons).toContain("INVALID_ACCOUNTING_BASIS");
+    expect(staleDigest.feasibility).toBe("UNKNOWN");
   });
 
   it("fails closed for a nonfinite observed M4 path cash delta", () => {

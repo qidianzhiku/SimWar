@@ -42,6 +42,9 @@ export interface ESLFinanceModelIdentity {
 
 export interface ESLFinanceAccountingBasis {
   source_ref: string;
+  path_id: string;
+  source_scope: ESLFinanceStateScope;
+  source_digest: string;
   currency: "SIMWAR_UNITS";
   time_period: ESLFinanceTimePeriod;
   capex: number;

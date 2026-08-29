@@ -119,6 +119,16 @@ function stateScopeMatches(ref: W4StateRef, scope: ESLFinanceStateScope): boolea
   );
 }
 
+function scopeIdentityMatches(left: ESLFinanceStateScope, right: ESLFinanceStateScope): boolean {
+  return (
+    left.tenant_id === right.tenant_id &&
+    left.course_id === right.course_id &&
+    left.run_id === right.run_id &&
+    left.team_id === right.team_id &&
+    left.round_id === right.round_id
+  );
+}
+
 function stateIdentityMatches(left: W4StateRef, right: W4StateRef): boolean {
   return (
     left.tenant_id === right.tenant_id &&
@@ -150,10 +160,28 @@ function stateDataDigest(state: W4EnterpriseStateData): string {
   return createHash("sha256").update(JSON.stringify(state), "utf8").digest("hex");
 }
 
-function validAccountingBasis(value: ESLFinanceAccountingBasis | undefined): boolean {
+function accountingBasisDigest(value: ESLFinanceAccountingBasis): string {
+  const unsigned = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "source_digest")
+  );
+  return digest(unsigned);
+}
+
+function validAccountingBasis(
+  value: ESLFinanceAccountingBasis | undefined,
+  pathId: string,
+  sourceScope: ESLFinanceStateScope
+): boolean {
   return (
     value === undefined ||
     (exactId(value.source_ref) &&
+      exactId(value.path_id) &&
+      value.path_id === pathId &&
+      validStateScope(value.source_scope) &&
+      scopeIdentityMatches(value.source_scope, sourceScope) &&
+      typeof value.source_digest === "string" &&
+      DIGEST.test(value.source_digest) &&
+      value.source_digest === accountingBasisDigest(value) &&
       value.currency === CURRENCY &&
       (value.time_period === "ROUND" || value.time_period === "HORIZON") &&
       [value.capex, value.opex, value.amortization, value.capital_budget].every(
@@ -233,7 +261,9 @@ function sourceRef(ref: W4StateRef): string {
 function inputSourceRefs(input: ESLFinanceProjectionInput): string[] {
   const refs = [sourceRef(input.source_state_ref), `m4_path:${input.path_id}@${input.path_digest}`];
   if (input.terminal_state_ref) refs.push(sourceRef(input.terminal_state_ref));
-  if (input.accounting_basis) refs.push(`accounting:${input.accounting_basis.source_ref}`);
+  if (input.accounting_basis) {
+    refs.push(`accounting:${input.accounting_basis.source_ref}@${input.accounting_basis.source_digest}`);
+  }
   refs.push(
     ...input.capital_actions.map(
       (action) => `w4_capital_action:${action.capital_action_id}@${action.decision_payload_digest}`
@@ -656,7 +686,9 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   ) {
     reasons.push("PATH_CASH_DELTA_MISMATCH");
   }
-  if (!validAccountingBasis(input.accounting_basis)) reasons.push("INVALID_ACCOUNTING_BASIS");
+  if (!validAccountingBasis(input.accounting_basis, input.path_id, input.source_state_scope)) {
+    reasons.push("INVALID_ACCOUNTING_BASIS");
+  }
   if (
     !validState(input.source_state) ||
     (input.terminal_state !== null && !validState(input.terminal_state))
@@ -687,7 +719,10 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     "NONFINITE_PATH_CASH_DELTA"
   );
   const accountingRefs = input.accounting_basis
-    ? [...sourceRefs, `accounting:${input.accounting_basis.source_ref}`]
+    ? [
+        ...sourceRefs,
+        `accounting:${input.accounting_basis.source_ref}@${input.accounting_basis.source_digest}`
+      ]
     : sourceRefs;
   const accountingTimePeriod = input.accounting_basis?.time_period ?? "HORIZON";
   const capex = basis(

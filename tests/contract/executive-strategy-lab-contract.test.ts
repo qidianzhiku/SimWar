@@ -637,6 +637,18 @@ describe("Executive Strategy Lab contract", () => {
     adminWithRootPaths.paths = sourcePaths;
     expect(validate(adminWithRootPaths)).toBe(false);
     expect(isESLResponse(adminWithRootPaths)).toBe(false);
+
+    const adminWithMissingFinanceModels = structuredClone(admin) as Record<string, unknown>;
+    (adminWithMissingFinanceModels.admin_projection as Record<string, unknown>).finance_models = [];
+    expect(validate(adminWithMissingFinanceModels)).toBe(false);
+    expect(isESLResponse(adminWithMissingFinanceModels)).toBe(false);
+
+    const adminWithDuplicateFinanceModels = structuredClone(admin) as Record<string, unknown>;
+    const financeModels = (adminWithDuplicateFinanceModels.admin_projection as Record<string, unknown>)
+      .finance_models as Array<Record<string, unknown>>;
+    financeModels[1] = structuredClone(financeModels[0]);
+    expect(validate(adminWithDuplicateFinanceModels)).toBe(false);
+    expect(isESLResponse(adminWithDuplicateFinanceModels)).toBe(false);
   });
 
   it("requires each finance stress regime exactly once in the JSON Schema", () => {

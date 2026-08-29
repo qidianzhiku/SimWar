@@ -984,6 +984,9 @@ function adminProjection(value: unknown): boolean {
   const counts = record(projection.officiality_counts);
   const audit = record(projection.audit);
   const financeModels = projection.finance_models;
+  const auditedPathIds = Array.isArray(financeModels)
+    ? financeModels.map((item) => record(item)?.path_id)
+    : [];
   return (
     projection.surface === "admin" &&
     exactId(projection.tenant_id) &&
@@ -1003,6 +1006,8 @@ function adminProjection(value: unknown): boolean {
     audit.recovery === "REPLAY_REQUEST_WITH_EXACT_BINDING" &&
     Array.isArray(financeModels) &&
     financeModels.length <= 3 &&
+    financeModels.length === Number(counts?.non_official) &&
+    new Set(auditedPathIds).size === auditedPathIds.length &&
     financeModels.every((item) => {
       const modelAudit = record(item);
       return (
@@ -1011,7 +1016,7 @@ function adminProjection(value: unknown): boolean {
         exactId(modelAudit.path_id) &&
         financeModel(modelAudit.model) &&
         digest(modelAudit.input_digest) &&
-        stringArray(modelAudit.source_refs)
+        stringArray(modelAudit.source_refs, 1)
       );
     })
   );

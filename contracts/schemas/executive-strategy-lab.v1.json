@@ -430,9 +430,70 @@
         "finance_models": {
           "type": "array",
           "maxItems": 3,
+          "uniqueItems": true,
           "items": { "$ref": "#/$defs/financeModelAudit" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "officiality_counts": {
+                "type": "object",
+                "properties": { "non_official": { "const": 0 } }
+              }
+            }
+          },
+          "then": {
+            "properties": { "finance_models": { "type": "array", "maxItems": 0 } }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "officiality_counts": {
+                "type": "object",
+                "properties": { "non_official": { "const": 1 } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "finance_models": { "type": "array", "minItems": 1, "maxItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "officiality_counts": {
+                "type": "object",
+                "properties": { "non_official": { "const": 2 } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "finance_models": { "type": "array", "minItems": 2, "maxItems": 2 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "officiality_counts": {
+                "type": "object",
+                "properties": { "non_official": { "const": 3 } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "finance_models": { "type": "array", "minItems": 3, "maxItems": 3 }
+            }
+          }
+        }
+      ]
     },
     "financeBasis": {
       "type": "object",
@@ -1041,7 +1102,11 @@
         "path_id": { "$ref": "#/$defs/id" },
         "model": { "$ref": "#/$defs/financeModel" },
         "input_digest": { "$ref": "#/$defs/digest" },
-        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
       }
     },
     "request": {
