@@ -188,6 +188,11 @@ const executiveStrategyLabContractFiles = [
   "contracts/fixtures/executive-strategy-lab.invalid.json"
 ];
 
+const shanghaiProductizationContractFiles = [
+  "contracts/schemas/shanghai-productization.v1.json",
+  "contracts/fixtures/shanghai-productization.valid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -473,6 +478,11 @@ const schemaCases = [
     schema: "contracts/schemas/executive-strategy-lab.v1.json",
     schemaPointer: "#/$defs/financeProjection",
     valid: ["contracts/fixtures/executive-strategy-lab-finance.valid.json"],
+    invalid: []
+  },
+  {
+    schema: "contracts/schemas/shanghai-productization.v1.json",
+    valid: ["contracts/fixtures/shanghai-productization.valid.json"],
     invalid: []
   }
 ];
@@ -1106,7 +1116,8 @@ export async function runContractValidation(options = {}) {
     ...mod04ContractFiles,
     ...mod06ContractFiles,
     ...shanghaiFullVerticalContractFiles,
-    ...executiveStrategyLabContractFiles
+    ...executiveStrategyLabContractFiles,
+    ...shanghaiProductizationContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1131,7 +1142,8 @@ export async function runContractValidation(options = {}) {
     ...mod04ContractFiles,
     ...mod06ContractFiles,
     ...shanghaiFullVerticalContractFiles,
-    ...executiveStrategyLabContractFiles
+    ...executiveStrategyLabContractFiles,
+    ...shanghaiProductizationContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
