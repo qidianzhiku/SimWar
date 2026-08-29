@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildM6LivingScenarioLifecyclePack,
+  stableDigest,
   validateM6LivingScenarioLifecycle
 } from "@simwar/sh-next-support";
 
@@ -29,21 +30,34 @@ describe("M6 living scenario refresh, drift, and rollback lifecycle", () => {
     expect(pack.rollback_candidate.formal_write).toBe(false);
   });
 
-  it("records explicit expiry diff and source-to-consumer impact without implicit latest", () => {
+  it("does not trigger a refresh before the source expiry date", () => {
     const pack = buildM6LivingScenarioLifecyclePack();
 
-    expect(pack.refresh_candidate.trigger).toBe("EXPIRY_DETECTED");
-    expect(pack.refresh_candidate.retrieval_status).toBe("NOT_RETRIEVED");
+    expect(pack.refresh_candidate.trigger).toBe("EXPIRY_NOT_REACHED");
+    expect(pack.refresh_candidate.refresh_status).toBe("NO_REFRESH_REQUIRED");
+    expect(pack.refresh_candidate.retrieval_status).toBe("NOT_APPLICABLE");
+    expect(pack.refresh_candidate.current_as_of < pack.refresh_candidate.prior_expiry).toBe(true);
+  });
+
+  it("records the expiry evaluation and source-to-consumer impact without implicit latest", () => {
+    const pack = buildM6LivingScenarioLifecyclePack();
+
     expect(pack.diff.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "expiry", change_kind: "EXPIRY" }),
-        expect.objectContaining({ field: "evidence_status", change_kind: "CONTENT" })
+        expect.objectContaining({ field: "refresh_status", change_kind: "CONTENT" })
       ])
     );
     expect(pack.impact_graph.some((edge) => edge.from.kind === "SOURCE")).toBe(true);
     expect(pack.impact_graph.some((edge) => edge.to.kind === "SCENARIO_CONSUMER")).toBe(true);
     expect(pack.historical_resolution.implicit_latest_forbidden).toBe(true);
     expect(pack.historical_resolution.resolution_status).toBe("EXACT_VERSION_RESOLVED");
+    expect(pack.historical_resolution.requested_version).toBe(
+      pack.rollback_candidate.rollback_version
+    );
+    expect(pack.historical_resolution.resolved_version).toBe(
+      pack.rollback_candidate.rollback_version
+    );
     expect(pack.historical_resolution.history_deletion).toBe(false);
   });
 
@@ -69,5 +83,36 @@ describe("M6 living scenario refresh, drift, and rollback lifecycle", () => {
     const unsafe = buildM6LivingScenarioLifecyclePack();
     unsafe.rollback_candidate.deletion = true;
     expect(validateM6LivingScenarioLifecycle(unsafe)).toContain("m6_rollback_guard_invalid");
+  });
+
+  it("rejects latest active versions and split requalification baselines after re-digesting", () => {
+    const latest = buildM6LivingScenarioLifecyclePack();
+    latest.rollback_candidate.active_version = "latest";
+    const { digest: latestRollbackDigest, ...latestRollbackContent } = latest.rollback_candidate;
+    void latestRollbackDigest;
+    latest.rollback_candidate.digest = stableDigest(latestRollbackContent);
+    const { pack_digest: latestPackDigest, ...latestPackContent } = latest;
+    void latestPackDigest;
+    latest.pack_digest = stableDigest(latestPackContent);
+    expect(validateM6LivingScenarioLifecycle(latest)).toContain("m6_rollback_guard_invalid");
+
+    const split = buildM6LivingScenarioLifecyclePack();
+    split.requalification.upstream_m5_pack_digest = "a".repeat(64);
+    const { digest: splitQualificationDigest, ...splitQualificationContent } =
+      split.requalification;
+    void splitQualificationDigest;
+    split.requalification.digest = stableDigest(splitQualificationContent);
+    const { pack_digest: splitPackDigest, ...splitPackContent } = split;
+    void splitPackDigest;
+    split.pack_digest = stableDigest(splitPackContent);
+    expect(validateM6LivingScenarioLifecycle(split)).toEqual(
+      expect.arrayContaining(["m6_requalification_binding_invalid"])
+    );
+
+    const digestTampered = buildM6LivingScenarioLifecyclePack();
+    digestTampered.requalification.consumer_ready = true;
+    expect(validateM6LivingScenarioLifecycle(digestTampered)).toContain(
+      "m6_requalification_digest_mismatch"
+    );
   });
 });

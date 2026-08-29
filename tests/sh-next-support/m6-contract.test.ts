@@ -39,5 +39,9 @@ describe("M6 living scenario lifecycle JSON contract", () => {
     const unsafe = buildM6LivingScenarioLifecyclePack();
     unsafe.historical_resolution.requested_version = "latest";
     expect(validate(unsafe)).toBe(false);
+
+    const activeLatest = buildM6LivingScenarioLifecyclePack();
+    activeLatest.rollback_candidate.active_version = "latest";
+    expect(validate(activeLatest)).toBe(false);
   });
 });

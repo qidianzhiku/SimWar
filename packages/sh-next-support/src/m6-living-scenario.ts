@@ -27,22 +27,25 @@ export type M6LifecycleEventType =
   | "RETIRE";
 export type M6LifecycleEventStatus = "RECORDED" | "CANDIDATE_ONLY";
 export type M6ImpactNodeKind = "SOURCE" | "FEATURE" | "MODEL" | "SCENARIO_CONSUMER";
+export type M6RefreshTrigger = "EXPIRY_DETECTED" | "EXPIRY_NOT_REACHED";
+export type M6RefreshStatus = "CANDIDATE_REFRESH_ONLY" | "NO_REFRESH_REQUIRED";
+export type M6RefreshRetrievalStatus = "NOT_RETRIEVED" | "NOT_APPLICABLE";
 
 export interface M6RefreshCandidate {
   source_id: string;
   source_version: string;
   prior_expiry: string;
   current_as_of: string;
-  trigger: "EXPIRY_DETECTED";
-  refresh_status: "CANDIDATE_REFRESH_ONLY";
-  retrieval_status: "NOT_RETRIEVED";
+  trigger: M6RefreshTrigger;
+  refresh_status: M6RefreshStatus;
+  retrieval_status: M6RefreshRetrievalStatus;
   rights_status: "PUBLIC_SAFE";
   promoted: false;
   digest: string;
 }
 
 export interface M6DiffChange {
-  field: "expiry" | "evidence_status";
+  field: "expiry" | "refresh_status";
   previous: string;
   current: string;
   change_kind: "EXPIRY" | "CONTENT";
@@ -292,7 +295,7 @@ function buildEvents(
       IMPACT: [candidateVersion, candidateVersion, "RECORDED"],
       REQUALIFY: [candidateVersion, candidateVersion, "RECORDED"],
       ROLLBACK_CANDIDATE: [candidateVersion, rollbackVersion, "CANDIDATE_ONLY"],
-      HISTORICAL_RESOLUTION: [activeVersion, activeVersion, "RECORDED"],
+      HISTORICAL_RESOLUTION: [rollbackVersion, rollbackVersion, "RECORDED"],
       RETIRE: [candidateVersion, candidateVersion, "CANDIDATE_ONLY"]
     };
   return EVENT_TYPES.map((event_type) => {
@@ -318,16 +321,19 @@ export function buildM6LivingScenarioLifecyclePack(): M6LivingScenarioLifecycleP
   if (!source || !quality) throw new Error("M6_UPSTREAM_TRANSPORT_SOURCE_NOT_FOUND");
 
   const activeVersion = `${source.source_id}@2025-V1`;
-  const candidateVersion = `${source.source_id}@2026-08-29-CANDIDATE`;
+  const refreshDue = M6_VALIDATION_AS_OF >= quality.expiry;
+  const candidateVersion = refreshDue ? `${source.source_id}@2026-08-29-CANDIDATE` : activeVersion;
   const rollbackVersion = activeVersion;
   const refreshContent = {
     source_id: source.source_id,
     source_version: candidateVersion,
     prior_expiry: quality.expiry,
     current_as_of: M6_VALIDATION_AS_OF,
-    trigger: "EXPIRY_DETECTED" as const,
-    refresh_status: "CANDIDATE_REFRESH_ONLY" as const,
-    retrieval_status: "NOT_RETRIEVED" as const,
+    trigger: refreshDue ? ("EXPIRY_DETECTED" as const) : ("EXPIRY_NOT_REACHED" as const),
+    refresh_status: refreshDue
+      ? ("CANDIDATE_REFRESH_ONLY" as const)
+      : ("NO_REFRESH_REQUIRED" as const),
+    retrieval_status: refreshDue ? ("NOT_RETRIEVED" as const) : ("NOT_APPLICABLE" as const),
     rights_status: "PUBLIC_SAFE" as const,
     promoted: false as const
   };
@@ -347,20 +353,22 @@ export function buildM6LivingScenarioLifecyclePack(): M6LivingScenarioLifecycleP
       {
         field: "expiry" as const,
         previous: quality.expiry,
-        current: M6_VALIDATION_AS_OF,
+        current: refreshDue ? M6_VALIDATION_AS_OF : quality.expiry,
         change_kind: "EXPIRY" as const,
         evidence_status: "REFERENCE_ONLY" as const,
-        provenance:
-          "M5 source-quality expiry is used as an explicit refresh trigger; no current release was retrieved"
+        provenance: refreshDue
+          ? "M5 source-quality expiry is reached; no current release was retrieved"
+          : "M5 source-quality expiry was compared and has not been reached; no refresh was triggered"
       },
       {
-        field: "evidence_status" as const,
-        previous: source.evidence_status,
-        current: "REFRESH_NOT_RETRIEVED",
+        field: "refresh_status" as const,
+        previous: "CANDIDATE_REFRESH_ONLY",
+        current: refresh_candidate.refresh_status,
         change_kind: "CONTENT" as const,
-        evidence_status: "NOT_RETRIEVED" as const,
-        provenance:
-          "refresh candidate records the absence of a new official source instead of inventing one"
+        evidence_status: refreshDue ? ("NOT_RETRIEVED" as const) : ("REFERENCE_ONLY" as const),
+        provenance: refreshDue
+          ? "refresh candidate records the absence of a new official source instead of inventing one"
+          : "refresh candidate records that no retrieval was required before the explicit expiry date"
       }
     ],
     unsupported_claims_are_facts: false as const
@@ -436,9 +444,9 @@ export function buildM6LivingScenarioLifecyclePack(): M6LivingScenarioLifecycleP
     ]
   });
   const historical_resolution = withDigest({
-    request_id: "SH-M6-HISTORY-RESOLVE-M5-REFERENCE-2025-V1",
-    requested_version: "SH-M5-REALITY-REFERENCE-2025-V1",
-    resolved_version: "SH-M5-REALITY-REFERENCE-2025-V1",
+    request_id: `SH-M6-HISTORY-RESOLVE-${rollbackVersion}`,
+    requested_version: rollbackVersion,
+    resolved_version: rollbackVersion,
     resolution_status: "EXACT_VERSION_RESOLVED" as const,
     implicit_latest_forbidden: true as const,
     resolved_digest: m5.pack_digest,
@@ -559,6 +567,17 @@ export function validateM6LivingScenarioLifecycle(pack: M6LivingScenarioLifecycl
   );
   if (stableDigest(refreshContent) !== pack.refresh_candidate.digest)
     issues.push("m6_refresh_digest_mismatch");
+  if (
+    (pack.refresh_candidate.trigger === "EXPIRY_DETECTED" &&
+      (pack.refresh_candidate.current_as_of < pack.refresh_candidate.prior_expiry ||
+        pack.refresh_candidate.refresh_status !== "CANDIDATE_REFRESH_ONLY" ||
+        pack.refresh_candidate.retrieval_status !== "NOT_RETRIEVED")) ||
+    (pack.refresh_candidate.trigger === "EXPIRY_NOT_REACHED" &&
+      (pack.refresh_candidate.current_as_of >= pack.refresh_candidate.prior_expiry ||
+        pack.refresh_candidate.refresh_status !== "NO_REFRESH_REQUIRED" ||
+        pack.refresh_candidate.retrieval_status !== "NOT_APPLICABLE"))
+  )
+    issues.push("m6_refresh_schedule_guard_invalid");
   const diffContent = Object.fromEntries(
     Object.entries(pack.diff).filter(([key]) => key !== "digest")
   );
@@ -573,14 +592,20 @@ export function validateM6LivingScenarioLifecycle(pack: M6LivingScenarioLifecycl
       issues.push(`${edge.edge_id}:m6_impact_digest_mismatch`);
   }
   const expectedQualification = classifyM5Qualification(pack.requalification.classifier_input);
+  const requalificationContent = Object.fromEntries(
+    Object.entries(pack.requalification).filter(([key]) => key !== "digest")
+  );
+  if (stableDigest(requalificationContent) !== pack.requalification.digest)
+    issues.push("m6_requalification_digest_mismatch");
   if (
     expectedQualification !== pack.requalification.qualification_status ||
     pack.requalification.qualification_status !== "NOT_ELIGIBLE" ||
+    pack.requalification.upstream_m5_pack_digest !== pack.reuse.upstream_pack_digest ||
     pack.requalification.calibration_eligible ||
     pack.requalification.formal_truth_overwritten ||
     pack.requalification.consumer_ready
   )
-    issues.push("m6_requalification_guard_invalid");
+    issues.push("m6_requalification_binding_invalid");
   const rollbackContent = Object.fromEntries(
     Object.entries(pack.rollback_candidate).filter(([key]) => key !== "digest")
   );
@@ -592,6 +617,7 @@ export function validateM6LivingScenarioLifecycle(pack: M6LivingScenarioLifecycl
     pack.rollback_candidate.formal_write ||
     pack.rollback_candidate.deletion ||
     pack.rollback_candidate.version_guard !== "EXACT_VERSION_REQUIRED" ||
+    pack.rollback_candidate.active_version === "latest" ||
     pack.rollback_candidate.candidate_version === "latest" ||
     pack.rollback_candidate.rollback_version === "latest"
   )
@@ -604,6 +630,8 @@ export function validateM6LivingScenarioLifecycle(pack: M6LivingScenarioLifecycl
   if (
     !pack.historical_resolution.implicit_latest_forbidden ||
     pack.historical_resolution.history_deletion ||
+    pack.historical_resolution.requested_version !== pack.rollback_candidate.rollback_version ||
+    pack.historical_resolution.resolved_version !== pack.rollback_candidate.rollback_version ||
     pack.historical_resolution.requested_version === "latest" ||
     pack.historical_resolution.resolution_status !== "EXACT_VERSION_RESOLVED" ||
     pack.historical_resolution.resolved_digest !== pack.reuse.upstream_pack_digest

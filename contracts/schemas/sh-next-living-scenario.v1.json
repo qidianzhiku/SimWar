@@ -97,6 +97,26 @@
     "refresh": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "trigger": { "const": "EXPIRY_DETECTED" } } },
+          "then": {
+            "properties": {
+              "refresh_status": { "const": "CANDIDATE_REFRESH_ONLY" },
+              "retrieval_status": { "const": "NOT_RETRIEVED" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "trigger": { "const": "EXPIRY_NOT_REACHED" } } },
+          "then": {
+            "properties": {
+              "refresh_status": { "const": "NO_REFRESH_REQUIRED" },
+              "retrieval_status": { "const": "NOT_APPLICABLE" }
+            }
+          }
+        }
+      ],
       "required": [
         "source_id",
         "source_version",
@@ -114,9 +134,9 @@
         "source_version": { "$ref": "#/$defs/nonEmptyString" },
         "prior_expiry": { "$ref": "#/$defs/nonEmptyString" },
         "current_as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
-        "trigger": { "const": "EXPIRY_DETECTED" },
-        "refresh_status": { "const": "CANDIDATE_REFRESH_ONLY" },
-        "retrieval_status": { "const": "NOT_RETRIEVED" },
+        "trigger": { "enum": ["EXPIRY_DETECTED", "EXPIRY_NOT_REACHED"] },
+        "refresh_status": { "enum": ["CANDIDATE_REFRESH_ONLY", "NO_REFRESH_REQUIRED"] },
+        "retrieval_status": { "enum": ["NOT_RETRIEVED", "NOT_APPLICABLE"] },
         "rights_status": { "const": "PUBLIC_SAFE" },
         "promoted": { "const": false },
         "digest": { "$ref": "#/$defs/digest" }
@@ -127,7 +147,7 @@
       "additionalProperties": false,
       "required": ["field", "previous", "current", "change_kind", "evidence_status", "provenance"],
       "properties": {
-        "field": { "enum": ["expiry", "evidence_status"] },
+        "field": { "enum": ["expiry", "refresh_status"] },
         "previous": { "$ref": "#/$defs/nonEmptyString" },
         "current": { "$ref": "#/$defs/nonEmptyString" },
         "change_kind": { "enum": ["EXPIRY", "CONTENT"] },
@@ -252,9 +272,9 @@
       ],
       "properties": {
         "rollback_id": { "$ref": "#/$defs/nonEmptyString" },
-        "active_version": { "$ref": "#/$defs/nonEmptyString" },
-        "candidate_version": { "$ref": "#/$defs/nonEmptyString" },
-        "rollback_version": { "$ref": "#/$defs/nonEmptyString" },
+        "active_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "candidate_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
+        "rollback_version": { "type": "string", "pattern": "^(?!latest$)[A-Za-z0-9_.:@-]+$" },
         "version_guard": { "const": "EXACT_VERSION_REQUIRED" },
         "dry_run": { "const": true },
         "executed": { "const": false },

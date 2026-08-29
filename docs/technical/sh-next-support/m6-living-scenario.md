@@ -19,10 +19,12 @@ represented by capability tombstones with `REUSED` status; M6 does not
 regenerate or fork their capabilities.
 
 The current reference source is the exact M5 support pack. Its transport source
-has an explicit expiry-triggered refresh candidate, but no new official release
-is retrieved. The diff therefore records the expiry and the missing refresh
-evidence as reference-only facts, preserving the boundary between an
-unsupported claim and a fact.
+expires on `2027-12-31`, while this pack is validated as of `2026-08-29`, so the
+refresh candidate records `EXPIRY_NOT_REACHED`, `NO_REFRESH_REQUIRED`, and
+`NOT_APPLICABLE`. Once the explicit as-of date reaches the expiry, the same
+branch emits `EXPIRY_DETECTED`, `CANDIDATE_REFRESH_ONLY`, and
+`NOT_RETRIEVED`. The diff records this comparison as reference-only evidence,
+preserving the boundary between an unsupported claim and a fact.
 
 ## Drift and requalification
 
@@ -36,9 +38,10 @@ No `MODEL_CALIBRATED` or official truth claim is emitted.
 
 Rollback is an exact-version, candidate-only dry run. It records active,
 candidate, and rollback versions, but never executes a runtime write, formal
-rollback, retire, or deletion. Historical resolution requires an explicit
-version and rejects the implicit `latest` selector. These guards are checked by
-both the TypeScript validator and the JSON Schema contract.
+rollback, retire, or deletion. Historical resolution is derived from the exact
+rollback version and rejects the implicit `latest` selector. These guards are
+checked by both the TypeScript validator and the JSON Schema contract. The
+requalification object also carries and validates the same reused M5 digest.
 
 ## Role and authority boundary
 
