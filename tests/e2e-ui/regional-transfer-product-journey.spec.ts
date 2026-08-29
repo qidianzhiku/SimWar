@@ -26,6 +26,7 @@ test("RT-O1 completes a real-BFF Teacher to Student to Admin journey", async ({ 
     name: "Teacher governed regional transfer workbench"
   });
   await expect(teacherPanel).toBeVisible();
+  await teacherPanel.getByRole("button", { name: "读取精确来源" }).click();
   await expect(teacherPanel.getByText("Shanghai → Suzhou", { exact: true })).toBeVisible();
   await expect(teacherPanel.getByText("状态：READY", { exact: true })).toBeVisible();
 

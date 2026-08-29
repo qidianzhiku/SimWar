@@ -1071,7 +1071,7 @@ export function App() {
           </section>
         ) : null}
 
-        {hasStudentSurface ? (
+        {hasStudentSurface && REGIONAL_TRANSFER_CANDIDATE_ID ? (
           <section id="student-regional-transfer" className="student-location" aria-label="区域迁移与场景演化">
             <RegionalTransferProjection
               apiBase={API_BASE}

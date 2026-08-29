@@ -37,27 +37,29 @@ export function RegionalTransferWorkbench({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!courseId || !runId || roundNo === undefined) {
-      setInput(null);
-      setPhase("WAITING_FOR_EXACT_RUN");
-      return;
-    }
-    const controller = new AbortController();
-    setPhase("LOADING_EXACT_SOURCES");
+    setInput(null);
+    setResult(null);
     setError("");
-    void loadRegionalTransferSelection(apiBase, token, courseId, runId, roundNo)
-      .then((selection) => {
-        if (controller.signal.aborted) return;
-        setInput(selection);
-        setPhase("READY");
-      })
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "exact regional sources unavailable");
-        setPhase("SOURCE_BLOCKED");
-      });
-    return () => controller.abort();
+    setPhase(
+      courseId && runId && roundNo !== undefined ? "READY_TO_LOAD" : "WAITING_FOR_EXACT_RUN"
+    );
   }, [apiBase, courseId, roundNo, runId, tenantId, token]);
+
+  const loadExactSources = async () => {
+    if (!courseId || !runId || roundNo === undefined) return;
+    setBusy(true);
+    setError("");
+    setPhase("LOADING_EXACT_SOURCES");
+    try {
+      setInput(await loadRegionalTransferSelection(apiBase, token, courseId, runId, roundNo));
+      setPhase("READY");
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : "exact regional sources unavailable");
+      setPhase("SOURCE_BLOCKED");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async (action: () => Promise<ProductResult>, nextPhase: string) => {
     setBusy(true);
@@ -113,6 +115,12 @@ export function RegionalTransferWorkbench({
         </div>
       ) : null}
       <div className="d6-actions">
+        <button
+          disabled={busy || !courseId || !runId || roundNo === undefined}
+          onClick={() => void loadExactSources()}
+        >
+          读取精确来源
+        </button>
         <button
           disabled={busy || input === null}
           onClick={() =>
