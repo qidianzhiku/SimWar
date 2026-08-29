@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-next-portability.v1.json",
+  "title": "Shanghai M4 Second-City Portability Compatibility Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "state_transition",
+    "source_freeze",
+    "sources",
+    "observations",
+    "features",
+    "transformations",
+    "regional_transfers",
+    "scenario_candidates",
+    "compiled_packages",
+    "compatibility_report",
+    "reverse_portability",
+    "resolution_guards",
+    "provenance_graph",
+    "role_visibility",
+    "consumer",
+    "authority",
+    "mjp",
+    "main_handoff",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-next-portability.v1" },
+    "macro_key": { "const": "M4" },
+    "mission_id": { "const": "SH-RT-NEXT-01-SECOND-CITY-PORTABILITY-COMPATIBILITY-RELEASE" },
+    "state_transition": { "const": { "from": "STATE_A", "to": "STATE_B" } },
+    "source_freeze": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "selection_policy", "unsupported_claims_are_facts"],
+      "properties": {
+        "status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" },
+        "selection_policy": { "const": "DETERMINISTIC_PUBLIC_SAFE_COVERAGE" },
+        "unsupported_claims_are_facts": { "const": false }
+      }
+    },
+    "sources": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/source" } },
+    "observations": { "type": "array", "minItems": 9, "items": { "$ref": "#/$defs/observation" } },
+    "features": { "type": "array", "minItems": 9, "items": { "$ref": "#/$defs/feature" } },
+    "transformations": {
+      "type": "array",
+      "minItems": 9,
+      "items": { "$ref": "#/$defs/transformation" }
+    },
+    "regional_transfers": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/transfer" }
+    },
+    "scenario_candidates": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/scenario" }
+    },
+    "compiled_packages": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/compiledPackage" }
+    },
+    "compatibility_report": { "$ref": "#/$defs/compatibilityReport" },
+    "reverse_portability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_package_role",
+        "replaced_with",
+        "round_trip_status",
+        "generic_contract_without_shanghai_enum_or_const",
+        "checks",
+        "migration_candidate"
+      ],
+      "properties": {
+        "source_package_role": { "const": "SECOND_CITY" },
+        "replaced_with": { "const": "SYNTHETIC_STUB" },
+        "round_trip_status": { "const": "PASS" },
+        "generic_contract_without_shanghai_enum_or_const": { "const": true },
+        "checks": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "migration_candidate": { "type": "string", "minLength": 1 }
+      }
+    },
+    "resolution_guards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_version_required",
+        "implicit_latest",
+        "history_delete",
+        "candidate_versions_immutable"
+      ],
+      "properties": {
+        "exact_version_required": { "const": true },
+        "implicit_latest": { "const": "REJECT" },
+        "history_delete": { "const": "REJECT" },
+        "candidate_versions_immutable": { "const": true }
+      }
+    },
+    "provenance_graph": { "$ref": "#/$defs/provenanceGraph" },
+    "role_visibility": { "$ref": "#/$defs/roleVisibility" },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "consumer_id",
+        "consumer_ready",
+        "formal_join",
+        "exact_binding_required"
+      ],
+      "properties": {
+        "classification": { "const": "C1" },
+        "consumer_id": { "const": "MAIN-RT-O1-REGIONAL-TRANSFER-AND-SCENARIO-EVOLUTION" },
+        "consumer_ready": { "const": false },
+        "formal_join": { "const": false },
+        "exact_binding_required": { "const": true }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "provider",
+        "runtime_authority"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "second_city_id", "package_id", "checks"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "second_city_id": { "type": "string", "minLength": 1 },
+        "package_id": { "type": "string", "minLength": 1 },
+        "checks": { "type": "array", "minItems": 5, "items": { "type": "string" } }
+      }
+    },
+    "main_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "required_consumer_action", "exact_refs"],
+      "properties": {
+        "status": { "const": "JOIN_WITH_LIMITS" },
+        "required_consumer_action": { "const": "PROVE_C0_SOURCE_CONTRACT_SEAM" },
+        "exact_refs": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/exactRef" } }
+      }
+    },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref_type",
+        "ref_id",
+        "path_or_uri",
+        "revision",
+        "line_start",
+        "line_end",
+        "digest",
+        "readback_status"
+      ],
+      "properties": {
+        "ref_type": { "enum": ["CODE", "CONTRACT", "TEST", "SOURCE"] },
+        "ref_id": { "type": "string", "minLength": 1 },
+        "path_or_uri": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "readback_status": { "enum": ["EXACT_SOURCE_READBACK", "REFERENCE_ONLY"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_type",
+        "source_date",
+        "geography",
+        "time_scope",
+        "provenance",
+        "license_or_usage_status",
+        "confidence",
+        "sensitivity",
+        "role_visibility",
+        "derived_from",
+        "evidence_status",
+        "content_basis",
+        "hash"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_type": {
+          "enum": ["PUBLIC_DOCUMENT", "INTERNAL_CAPABILITY", "SYNTHETIC", "ASSUMPTION"]
+        },
+        "source_date": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "minLength": 1 },
+        "license_or_usage_status": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "role_visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "evidence_status": { "enum": ["VERIFIED", "REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "content_basis": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "source_id",
+        "location",
+        "period",
+        "basis",
+        "unit",
+        "geography",
+        "data_type",
+        "value",
+        "confidence",
+        "sensitivity",
+        "observation_status",
+        "expiry"
+      ],
+      "properties": {
+        "observation_id": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "period": { "type": "string", "minLength": 1 },
+        "basis": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "data_type": {
+          "enum": [
+            "ACTUAL",
+            "BUDGET",
+            "FORECAST",
+            "INVESTMENT_MODEL",
+            "SURVEY",
+            "ASSUMPTION",
+            "SYNTHETIC",
+            "STRESS_TEST"
+          ]
+        },
+        "value": { "anyOf": [{ "type": "number" }, { "type": "string" }] },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "observation_status": { "enum": ["CANDIDATE_ANCHOR", "MISSING", "UNKNOWN", "CONFLICT"] },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "feature_id",
+        "name",
+        "value",
+        "unit",
+        "range",
+        "source_ids",
+        "temporal_scope",
+        "geography",
+        "confidence",
+        "possible_mod_consumer",
+        "calibration_evidence",
+        "visibility"
+      ],
+      "properties": {
+        "feature_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "value": { "anyOf": [{ "type": "number" }, { "type": "string" }] },
+        "unit": { "type": "string", "minLength": 1 },
+        "range": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": ["number", "null"] },
+            "max": { "type": ["number", "null"] }
+          }
+        },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "temporal_scope": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "possible_mod_consumer": { "type": "string", "minLength": 1 },
+        "calibration_evidence": { "enum": ["NONE", "NOT_PROVEN"] },
+        "visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transformation_id",
+        "input",
+        "rule",
+        "assumption",
+        "output",
+        "unit",
+        "time_scope",
+        "geography",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "transformation_id": { "type": "string", "minLength": 1 },
+        "input": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "rule": { "type": "string", "minLength": 1 },
+        "assumption": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "transfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transfer_id",
+        "source_geography",
+        "target_geography",
+        "driver",
+        "method",
+        "bounds",
+        "unit",
+        "confidence",
+        "valid_from",
+        "valid_to",
+        "rights_status",
+        "approval_status",
+        "feature_ids"
+      ],
+      "properties": {
+        "transfer_id": { "type": "string", "minLength": 1 },
+        "source_geography": { "type": "string", "minLength": 1 },
+        "target_geography": { "type": "string", "minLength": 1 },
+        "driver": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "minLength": 1 },
+        "bounds": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" } }
+        },
+        "unit": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "valid_from": { "type": "string", "minLength": 1 },
+        "valid_to": { "type": "string", "minLength": 1 },
+        "rights_status": { "enum": ["PUBLIC_SAFE", "INTERNAL_ONLY", "UNKNOWN"] },
+        "approval_status": { "const": "CANDIDATE_ONLY" },
+        "feature_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "title",
+        "geography",
+        "time_scope",
+        "data_type",
+        "source_ids",
+        "feature_ids",
+        "transfer_ids",
+        "visibility",
+        "exact_refs",
+        "no_correct_answer_prefilled",
+        "formal_runtime_admitted"
+      ],
+      "properties": {
+        "scenario_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "data_type": { "enum": ["SYNTHETIC", "STRESS_TEST"] },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "feature_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "transfer_ids": { "type": "array", "items": { "type": "string" } },
+        "visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "exact_refs": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/exactRef" } },
+        "no_correct_answer_prefilled": { "const": true },
+        "formal_runtime_admitted": { "const": false }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "artifact_kind",
+        "values",
+        "units",
+        "source_ids",
+        "status",
+        "digest"
+      ],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "artifact_kind": {
+          "enum": [
+            "PARAMETER_CANDIDATE",
+            "PROFILE_CANDIDATE",
+            "POLICY_CANDIDATE",
+            "PROJECT_CANDIDATE"
+          ]
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [{ "type": "number" }, { "type": "string" }, { "type": "boolean" }]
+          }
+        },
+        "units": { "type": "object", "additionalProperties": { "type": "string" } },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "status": { "const": "CANDIDATE_ONLY" },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "compiledPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_id",
+        "version",
+        "schema_version",
+        "compiler_version",
+        "city_id",
+        "display_name",
+        "geography",
+        "package_role",
+        "public_safe",
+        "rights_status",
+        "source_ids",
+        "observation_ids",
+        "feature_ids",
+        "transfer_ids",
+        "scenario_ids",
+        "parameter_candidate",
+        "profile_candidate",
+        "policy_candidate",
+        "project_candidate",
+        "scenario",
+        "formal_runtime_admitted",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "package_digest"
+      ],
+      "properties": {
+        "package_id": { "type": "string", "minLength": 1 },
+        "version": { "const": "v1" },
+        "schema_version": { "const": "sh-next-portability.v1" },
+        "compiler_version": { "const": "sh-next-generic-city-compiler.v1" },
+        "city_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "package_role": { "enum": ["ANCHOR", "SECOND_CITY", "SYNTHETIC_STUB"] },
+        "public_safe": { "const": true },
+        "rights_status": { "const": "PUBLIC_SAFE" },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "observation_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "feature_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "transfer_ids": { "type": "array", "items": { "type": "string" } },
+        "scenario_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "parameter_candidate": { "$ref": "#/$defs/artifact" },
+        "profile_candidate": { "$ref": "#/$defs/artifact" },
+        "policy_candidate": { "$ref": "#/$defs/artifact" },
+        "project_candidate": { "$ref": "#/$defs/artifact" },
+        "scenario": { "$ref": "#/$defs/scenario" },
+        "formal_runtime_admitted": { "const": false },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "package_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "compared_fields", "breaking_fields", "migration_candidate"],
+      "properties": {
+        "status": { "const": "NON_BREAKING" },
+        "compared_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "breaking_fields": { "type": "array", "maxItems": 0 },
+        "migration_candidate": { "type": "string", "minLength": 1 }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "change_type", "reason", "migration_candidate"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "change_type": { "const": "NON_BREAKING" },
+        "reason": { "type": "string", "minLength": 1 },
+        "migration_candidate": { "type": "string", "minLength": 1 }
+      }
+    },
+    "compatibilityReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_id",
+        "schema_version",
+        "compiler_version",
+        "compared_package_ids",
+        "same_schema",
+        "same_compiler",
+        "explicit_version_required",
+        "overall_status",
+        "dimensions",
+        "non_breaking_diffs",
+        "breaking_diffs",
+        "migration_candidates",
+        "report_digest"
+      ],
+      "properties": {
+        "report_id": { "const": "SH-M4-COMPATIBILITY-REPORT-V1" },
+        "schema_version": { "const": "sh-next-portability.v1" },
+        "compiler_version": { "const": "sh-next-generic-city-compiler.v1" },
+        "compared_package_ids": { "type": "array", "minItems": 3, "items": { "type": "string" } },
+        "same_schema": { "const": true },
+        "same_compiler": { "const": true },
+        "explicit_version_required": { "const": true },
+        "overall_status": { "const": "COMPATIBLE" },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["asset", "parameter", "profile", "policy", "project"],
+          "properties": {
+            "asset": { "$ref": "#/$defs/dimension" },
+            "parameter": { "$ref": "#/$defs/dimension" },
+            "profile": { "$ref": "#/$defs/dimension" },
+            "policy": { "$ref": "#/$defs/dimension" },
+            "project": { "$ref": "#/$defs/dimension" }
+          }
+        },
+        "non_breaking_diffs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/diff" }
+        },
+        "breaking_diffs": { "type": "array", "maxItems": 0 },
+        "migration_candidates": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "report_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "provenanceGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "kind": {
+                "enum": ["SOURCE", "OBSERVATION", "FEATURE", "TRANSFER", "SCENARIO", "PACKAGE"]
+              }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to", "relation"],
+            "properties": {
+              "from": { "type": "string", "minLength": 1 },
+              "to": { "type": "string", "minLength": 1 },
+              "relation": { "enum": ["DERIVED_FROM", "USES", "COMPILED_AS"] }
+            }
+          }
+        }
+      }
+    },
+    "roleVisibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility", "fields"],
+          "properties": {
+            "visibility": { "const": "TEACHER_ONLY" },
+            "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        },
+        "student": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility", "fields", "forbidden_fields"],
+          "properties": {
+            "visibility": { "const": "STUDENT_SAFE" },
+            "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "forbidden_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        },
+        "admin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visibility", "fields"],
+          "properties": {
+            "visibility": { "const": "INTERNAL_RESEARCH_ONLY" },
+            "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}
