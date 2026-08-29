@@ -22,6 +22,11 @@ describe("M4 portability JSON contract", () => {
     expect(pack.authority.official_truth_write).toBe(false);
     expect(pack.authority.settlement_write).toBe(false);
     expect(pack.consumer.classification).toBe("C1");
+    expect(
+      new Set(
+        pack.scenario_candidates.flatMap((item) => item.exact_refs.map((ref) => ref.revision))
+      )
+    ).toEqual(new Set(["b86150a276e2cfc77fd4714e794a3d33de9d541c"]));
   });
 
   it("rejects null package entries and invalid digest-shaped package records", () => {

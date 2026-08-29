@@ -66,10 +66,16 @@ describe("M4 second-city portability compatibility", () => {
   it("keeps source, observation, transfer, scenario, and compile links auditable", () => {
     const pack = buildM4PortabilityCompatibilityPack();
     const packageIds = new Set(pack.compiled_packages.flatMap((item) => item.source_ids));
+    const transferIds = new Set(pack.regional_transfers.map((item) => item.transfer_id));
 
     expect(pack.sources.length).toBeGreaterThanOrEqual(3);
     expect(pack.observations.every((item) => packageIds.has(item.source_id))).toBe(true);
     expect(pack.regional_transfers.every((item) => item.bounds.min <= item.bounds.max)).toBe(true);
+    expect(
+      pack.scenario_candidates.every((item) =>
+        item.transfer_ids.every((transferId) => transferIds.has(transferId))
+      )
+    ).toBe(true);
     expect(
       pack.scenario_candidates.every((item) =>
         item.source_ids.every((sourceId) =>
@@ -81,6 +87,16 @@ describe("M4 second-city portability compatibility", () => {
     expect(pack.compiled_packages.every((item) => /^[a-f0-9]{64}$/.test(item.package_digest))).toBe(
       true
     );
+    expect(pack.transformations).toHaveLength(9);
+    expect(
+      pack.transformations.every((transformation) => {
+        const observation = pack.observations.find(
+          (item) => item.observation_id === transformation.input[0]
+        );
+        const feature = pack.features.find((item) => item.feature_id === transformation.output);
+        return observation?.unit === transformation.unit && feature?.unit === observation?.unit;
+      })
+    ).toBe(true);
   });
 
   it("produces non-breaking asset/profile/policy/project diffs and reverse portability proof", () => {
@@ -124,6 +140,29 @@ describe("M4 second-city portability compatibility", () => {
         digest: exact.package_digest
       })
     ).toEqual(exact);
+  });
+
+  it("rejects a package whose nested content no longer matches its stored digest", () => {
+    const pack = buildM4PortabilityCompatibilityPack();
+    const exact = pack.compiled_packages[0];
+    exact.profile_candidate.values.capacity_index = 0.91;
+
+    expect(() =>
+      resolveM4PackageReference(pack, {
+        package_id: exact.package_id,
+        version: exact.version,
+        digest: exact.package_digest
+      })
+    ).toThrow("M4_PACKAGE_DIGEST_MISMATCH");
+  });
+
+  it("rejects expired transfer candidates at the deterministic validation date", () => {
+    const pack = buildM4PortabilityCompatibilityPack();
+    pack.regional_transfers[0].valid_to = "2025-12-31";
+
+    expect(validateM4PortabilityCompatibility(pack)).toContain(
+      "SH-M4-TRANSFER-SHANGHAI-TO-SECOND_CITY:expired_or_invalid"
+    );
   });
 
   it("compiles a city object without Shanghai-specific enums or runtime writes", () => {

@@ -9,7 +9,7 @@ import type {
   TransformationRecord
 } from "./index.js";
 
-export const M4_SOURCE_MASTER_SHA = "c1e954094dddc0bbf73b25b9042fb1f49fdf631f" as const;
+export const M4_SOURCE_MASTER_SHA = "b86150a276e2cfc77fd4714e794a3d33de9d541c" as const;
 export const M4_SCHEMA_VERSION = "sh-next-portability.v1" as const;
 export const M4_COMPILER_VERSION = "sh-next-generic-city-compiler.v1" as const;
 export const M4_MISSION_ID = "SH-RT-NEXT-01-SECOND-CITY-PORTABILITY-COMPATIBILITY-RELEASE" as const;
@@ -556,7 +556,10 @@ function packageFor(
 } {
   const input = cityInputs(city, suffix);
   const source_id = input.source.source_id;
-  const transfer_id = `SH-M4-TRANSFER-SHANGHAI-TO-${suffix}`;
+  const transfer_id =
+    suffix === "SHANGHAI"
+      ? "SH-M4-TRANSFER-SECOND_CITY-TO-SHANGHAI"
+      : `SH-M4-TRANSFER-SHANGHAI-TO-${suffix}`;
   const packageInput: M4CityCandidateInput = {
     package_id,
     version: "v1",
@@ -696,21 +699,30 @@ export function buildM4PortabilityCompatibilityPack(): M4PortabilityPack {
     )
   ];
   const scenarios = packages.map((item) => item.scenario);
-  const transformations: TransformationRecord[] = featureRecords.map((feature, index) => ({
-    transformation_id: `SH-M4-TRANSFORM-${index + 1}`,
-    input: observationRecords
-      .filter((item) => item.geography === feature.geography)
-      .slice(0, 1)
-      .map((item) => item.observation_id),
-    rule: "copy bounded observation into a generic feature without extrapolation",
-    assumption: "reference-only value remains a candidate and is not a calibrated fact",
-    output: feature.feature_id,
-    unit: feature.unit,
-    time_scope: feature.temporal_scope,
-    geography: feature.geography,
-    confidence: feature.confidence,
-    provenance: feature.source_ids.join(",")
-  }));
+  const transformations: TransformationRecord[] = featureRecords.map((feature, index) => {
+    const observationNumber = feature.name.startsWith("demand")
+      ? "1"
+      : feature.name.startsWith("travel")
+        ? "2"
+        : "3";
+    const observation = observationRecords.find(
+      (item) =>
+        item.geography === feature.geography &&
+        item.observation_id.endsWith(`-${observationNumber}`)
+    );
+    return {
+      transformation_id: `SH-M4-TRANSFORM-${index + 1}`,
+      input: observation ? [observation.observation_id] : [],
+      rule: "copy the matching bounded observation into a generic feature without extrapolation",
+      assumption: "reference-only value remains a candidate and is not a calibrated fact",
+      output: feature.feature_id,
+      unit: feature.unit,
+      time_scope: feature.temporal_scope,
+      geography: feature.geography,
+      confidence: feature.confidence,
+      provenance: feature.source_ids.join(",")
+    };
+  });
   const compatibility = compatibilityReport(packages);
   const nodes = [
     ...sourceRecords.map((item) => ({ id: item.source_id, kind: "SOURCE" as const })),
@@ -876,6 +888,23 @@ export function resolveM4PackageReference(
       item.package_digest === reference.digest
   );
   if (!candidate) throw new Error("M4_EXACT_PACKAGE_NOT_FOUND");
+  const candidateContent = Object.fromEntries(
+    Object.entries(candidate).filter(([key]) => key !== "package_digest")
+  );
+  if (stableDigest(candidateContent) !== candidate.package_digest)
+    throw new Error("M4_PACKAGE_DIGEST_MISMATCH");
+  for (const artifactCandidate of [
+    candidate.parameter_candidate,
+    candidate.profile_candidate,
+    candidate.policy_candidate,
+    candidate.project_candidate
+  ]) {
+    const artifactContent = Object.fromEntries(
+      Object.entries(artifactCandidate).filter(([key]) => key !== "digest")
+    );
+    if (stableDigest(artifactContent) !== artifactCandidate.digest)
+      throw new Error("M4_PACKAGE_DIGEST_MISMATCH");
+  }
   return candidate;
 }
 
@@ -936,6 +965,27 @@ export function validateM4PortabilityCompatibility(pack: M4PortabilityPack): str
       issues.push(`${transfer.transfer_id}:bounds_invalid`);
     if (transfer.approval_status !== "CANDIDATE_ONLY" || transfer.rights_status !== "PUBLIC_SAFE")
       issues.push(`${transfer.transfer_id}:rights_or_approval_invalid`);
+    const from = Date.parse(transfer.valid_from);
+    const to = Date.parse(transfer.valid_to);
+    const asOf = Date.parse("2026-08-29");
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from > to || asOf < from || asOf > to)
+      issues.push(`${transfer.transfer_id}:expired_or_invalid`);
+  }
+  const observationById = new Map(pack.observations.map((item) => [item.observation_id, item]));
+  const featureById = new Map(pack.features.map((item) => [item.feature_id, item]));
+  for (const transformation of pack.transformations) {
+    const observation =
+      transformation.input.length === 1 ? observationById.get(transformation.input[0]!) : undefined;
+    const feature = featureById.get(transformation.output);
+    if (
+      !observation ||
+      !feature ||
+      observation.unit !== transformation.unit ||
+      feature.unit !== observation.unit ||
+      observation.geography !== transformation.geography ||
+      feature.geography !== observation.geography
+    )
+      issues.push(`${transformation.transformation_id}:observation_feature_mapping_invalid`);
   }
   if (pack.compatibility_report.overall_status !== "COMPATIBLE")
     issues.push("m4_compatibility_not_pass");
