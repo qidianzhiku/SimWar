@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { W4MatchedProjectArena, W4ProjectionBase } from "@simwar/shared-contracts";
 
 void import("@simwar/ui/w4-commercial.css");
+
+const GovernedCapitalLifecycleWorkbench = lazy(() =>
+  import("./GovernedCapitalLifecycleWorkbench").then((module) => ({
+    default: module.GovernedCapitalLifecycleWorkbench
+  }))
+);
 
 interface Props {
   token: string;
@@ -74,12 +80,6 @@ function stateValueLabel(value: string | undefined, fallback = "等待中"): str
         proven: "已验证",
         not_observed: "尚未观察",
         approved: "已批准",
-        eligible: "可提案",
-        proposed: "已提案",
-        executing: "执行中",
-        closed: "已关闭",
-        withdrawn: "已撤回",
-        defaulted: "已违约",
         construction: "建设中",
         activated: "已启用"
       } as Record<string, string>
@@ -102,8 +102,6 @@ export function W4EnterpriseStateWorkbench({
   const [arenaStatus, setArenaStatus] = useState<PanelStatus>("dependency-missing");
   const [arenaError, setArenaError] = useState("");
   const [reloadVersion, setReloadVersion] = useState(0);
-  const [capitalBusy, setCapitalBusy] = useState(false);
-  const [capitalNotice, setCapitalNotice] = useState("");
   const [selectedProjectEntryId, setSelectedProjectEntryId] = useState("");
   const arenaRequestVersion = useRef(0);
   const selectedProjectId =
@@ -114,11 +112,6 @@ export function W4EnterpriseStateWorkbench({
   const selectedProject = projection?.project_portfolio.find(
     (entry) => entry.project_entry_id === selectedProjectId
   );
-  const selectedCapitalAction = projection?.latest_strategic_action
-    ? projection.capital_actions.find(
-        (action) => action.decision_id === projection.latest_strategic_action?.decision_id
-      )
-    : undefined;
 
   useEffect(() => {
     arenaRequestVersion.current += 1;
@@ -205,71 +198,6 @@ export function W4EnterpriseStateWorkbench({
       const code = error instanceof Error ? error.message : "W4-MATCHED-ARENA-ERROR";
       setArenaError(code);
       setArenaStatus(failureStatus(code));
-    }
-  }
-
-  async function advanceCapitalLifecycle(): Promise<void> {
-    if (!runId || !roundId || !roundNo || !teamId || !projection?.latest_strategic_action) return;
-    const lifecycle = projection.capital_lifecycles[0];
-    const command = lifecycle
-      ? lifecycle.status === "PROPOSED"
-        ? "approve"
-        : lifecycle.status === "APPROVED"
-          ? "execute"
-          : ""
-      : "propose";
-    if (!command) return;
-    setCapitalBusy(true);
-    setCapitalNotice("");
-    try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-      const path = lifecycle
-        ? `/api/v1/w4/runs/${runId}/rounds/${roundNo}/capital-lifecycles/${lifecycle.lifecycle_id}/${command}`
-        : `/api/v1/w4/runs/${runId}/rounds/${roundNo}/capital-lifecycles/propose`;
-      const body = lifecycle
-        ? {
-            command_id: `teacher-capital-${command}-${Date.now()}`,
-            course_id: courseId,
-            team_id: teamId,
-            round_id: roundId,
-            ...(command === "execute"
-              ? { decision_id: projection.latest_strategic_action.decision_id }
-              : {})
-          }
-        : {
-            command_id: `teacher-capital-propose-${Date.now()}`,
-            lifecycle_id: `teacher-capital-lifecycle-${Date.now()}`,
-            decision_id: projection.latest_strategic_action.decision_id,
-            instrument: "loan",
-            principal:
-              selectedCapitalAction?.principal ??
-              Math.max(0, projection.latest_strategic_action.cost),
-            cost_bps: selectedCapitalAction?.rate_or_cost_bps ?? 250,
-            fee: selectedCapitalAction?.fees ?? 10,
-            term_rounds: selectedCapitalAction?.term_rounds ?? 2,
-            covenant_min_cash: selectedCapitalAction?.covenant_min_cash ?? 500,
-            source_digest: "teacher-ui-capital-source-v1",
-            course_id: courseId,
-            team_id: teamId,
-            round_id: roundId
-          };
-      const response = await fetch(apiBase + path, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-          "x-tenant-id": tenantId
-        },
-        body: JSON.stringify(body)
-      });
-      const envelope = (await response.json()) as { code?: string; data?: { status?: string } };
-      if (!response.ok) throw new Error(envelope.code ?? "W4-CAPITAL-LIFECYCLE-ERROR");
-      setCapitalNotice(`治理资本生命周期已更新：${envelope.data?.status ?? command}`);
-      setReloadVersion((value) => value + 1);
-    } catch (error) {
-      setCapitalNotice(error instanceof Error ? error.message : "治理资本生命周期更新失败");
-    } finally {
-      setCapitalBusy(false);
     }
   }
 
@@ -377,43 +305,23 @@ export function W4EnterpriseStateWorkbench({
           </div>
         </section>
       ) : null}
-      <section className="sw-w4-panel__note" aria-label="治理资本生命周期工作台">
-        <strong>治理资本生命周期工作台</strong>
-        {(projection?.capital_lifecycles ?? []).length ? (
-          <ul className="sw-w4-list" aria-label="治理资本生命周期列表">
-            {projection?.capital_lifecycles.map((lifecycle) => (
-              <li key={lifecycle.lifecycle_id}>
-                {lifecycle.instrument} · {stateValueLabel(lifecycle.status)} · 本金{" "}
-                {lifecycle.principal} · {lifecycle.transition_history.length} 次迁移
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>尚未创建治理资本提案。</p>
-        )}
-        {projection?.latest_strategic_action?.kind === "capital_action" &&
-        selectedCapitalAction?.status !== "blocked" &&
-        (!projection.capital_lifecycles.length ||
-          projection.capital_lifecycles[0]?.status === "PROPOSED" ||
-          projection.capital_lifecycles[0]?.status === "APPROVED") ? (
-          <button
-            className="sw-w4-panel__action"
-            type="button"
-            disabled={capitalBusy}
-            onClick={() => void advanceCapitalLifecycle()}
-          >
-            {capitalBusy
-              ? "正在更新治理状态"
-              : !projection.capital_lifecycles.length
-                ? "创建治理资本提案"
-                : projection.capital_lifecycles[0]?.status === "PROPOSED"
-                  ? "批准治理资本提案"
-                  : "进入资本执行状态"}
-          </button>
-        ) : null}
-        {capitalNotice ? <p role="status">{capitalNotice}</p> : null}
-        <p>教师可以推进提案、批准与执行；正式现金和结算仍只由现有 W4 service 写入。</p>
-      </section>
+      {projection && runId && roundId && roundNo && teamId ? (
+        <Suspense fallback={<p className="sw-w4-panel__note">正在载入治理资本工作台…</p>}>
+          <GovernedCapitalLifecycleWorkbench
+            token={token}
+            tenantId={tenantId}
+            courseId={courseId}
+            runId={runId}
+            roundId={roundId}
+            roundNo={roundNo}
+            teamId={teamId}
+            latestStrategicAction={projection.latest_strategic_action}
+            capitalActions={projection.capital_actions}
+            capitalLifecycles={projection.capital_lifecycles}
+            onChanged={() => setReloadVersion((value) => value + 1)}
+          />
+        </Suspense>
+      ) : null}
       <section className="sw-w4-panel__note" aria-label="教师策略工作台">
         <div>
           <strong>教师策略工作台</strong> · 只读连接过程、结果与可解释的路径证据。
