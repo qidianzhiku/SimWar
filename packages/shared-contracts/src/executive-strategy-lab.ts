@@ -360,6 +360,17 @@ function financeDisplayValue(value: unknown): boolean {
   return display.amount === null && nonEmptyString(display.unknown_reason);
 }
 
+function unknownFinanceDisplayValue(value: unknown): boolean {
+  const display = record(value);
+  return (
+    display !== null &&
+    financeDisplayValue(display) &&
+    display.status === "UNKNOWN" &&
+    display.amount === null &&
+    nonEmptyString(display.unknown_reason)
+  );
+}
+
 function financeBasis(value: unknown): boolean {
   const basis = record(value);
   if (
@@ -415,7 +426,8 @@ function financeValidation(value: unknown): boolean {
     validation !== null &&
     hasExactKeys(validation, ["status", "reasons"]) &&
     (validation.status === "VALID" || validation.status === "UNKNOWN") &&
-    stringArray(validation.reasons)
+    stringArray(validation.reasons) &&
+    (validation.status === "VALID" || validation.reasons.length > 0)
   );
 }
 
@@ -451,6 +463,17 @@ function financeDebt(value: unknown): boolean {
   );
 }
 
+function unknownFinanceBasis(value: unknown): boolean {
+  const basis = record(value);
+  return (
+    basis !== null &&
+    financeBasis(basis) &&
+    basis.status === "UNKNOWN" &&
+    basis.amount === null &&
+    nonEmptyString(basis.unknown_reason)
+  );
+}
+
 function financeDscr(value: unknown): boolean {
   const dscr = record(value);
   return (
@@ -468,6 +491,17 @@ function financeDscr(value: unknown): boolean {
     (dscr.status === "KNOWN"
       ? finiteNumber(dscr.ratio)
       : dscr.ratio === null && nonEmptyString(dscr.unknown_reason))
+  );
+}
+
+function unknownFinanceDscr(value: unknown): boolean {
+  const dscr = record(value);
+  return (
+    dscr !== null &&
+    financeDscr(dscr) &&
+    dscr.status === "UNKNOWN" &&
+    dscr.ratio === null &&
+    nonEmptyString(dscr.unknown_reason)
   );
 }
 
@@ -495,6 +529,18 @@ function financeStressRegime(value: unknown): boolean {
     financeFeasibility(regime.feasibility) &&
     stringArray(regime.binding_constraints) &&
     stringArray(regime.why_not_feasible)
+  );
+}
+
+function unknownFinanceStressRegime(value: unknown): boolean {
+  const regime = record(value);
+  return (
+    regime !== null &&
+    financeStressRegime(regime) &&
+    unknownFinanceBasis(regime.cash_flow) &&
+    unknownFinanceBasis(regime.liquidity_headroom) &&
+    regime.covenant_status === "UNKNOWN" &&
+    regime.feasibility === "UNKNOWN"
   );
 }
 
@@ -532,7 +578,7 @@ function financeProjection(value: unknown): boolean {
   }
   const capital = record(projection.capital);
   const stressRegimes = projection.stress_regimes;
-  return (
+  const structurallyValid = (
     projection.official === false &&
     financeValidation(projection.validation) &&
     financeNoWrite(projection.no_write) &&
@@ -565,6 +611,40 @@ function financeProjection(value: unknown): boolean {
     stringArray(projection.known_limits, 1) &&
     financeStudentProjection(projection.student_view)
   );
+  if (!structurallyValid) return false;
+  const validation = projection.validation as Record<string, unknown>;
+  if (validation.status === "VALID") return true;
+  const debt = record(projection.debt);
+  const studentView = record(projection.student_view);
+  return (
+    validation.status === "UNKNOWN" &&
+    stringArray(validation.reasons, 1) &&
+    projection.feasibility === "UNKNOWN" &&
+    projection.covenant_status === "UNKNOWN" &&
+    stringArray(projection.binding_constraints, 1) &&
+    unknownFinanceBasis(projection.capex) &&
+    unknownFinanceBasis(projection.opex) &&
+    unknownFinanceBasis(capital.debt_principal) &&
+    unknownFinanceBasis(capital.equity_proceeds) &&
+    unknownFinanceBasis(capital.working_capital) &&
+    debt !== null &&
+    unknownFinanceBasis(debt.principal) &&
+    unknownFinanceBasis(debt.interest_paid) &&
+    unknownFinanceBasis(debt.amortization) &&
+    unknownFinanceBasis(debt.debt_service) &&
+    unknownFinanceBasis(projection.cash_flow) &&
+    unknownFinanceBasis(projection.liquidity_headroom) &&
+    unknownFinanceDscr(projection.dscr) &&
+    unknownFinanceBasis(projection.capital_budget_utilization) &&
+    Array.isArray(stressRegimes) &&
+    stressRegimes.every(unknownFinanceStressRegime) &&
+    studentView !== null &&
+    studentView.feasibility === "UNKNOWN" &&
+    unknownFinanceDisplayValue(studentView.cash_flow) &&
+    unknownFinanceDisplayValue(studentView.liquidity_headroom) &&
+    Array.isArray(studentView.stress_regimes) &&
+    studentView.stress_regimes.every(unknownFinanceStudentStressRegime)
+  );
 }
 
 function financeStudentStressRegime(value: unknown): boolean {
@@ -577,6 +657,16 @@ function financeStudentStressRegime(value: unknown): boolean {
     ) &&
     financeCovenantStatus(regime.covenant_status) &&
     financeFeasibility(regime.feasibility)
+  );
+}
+
+function unknownFinanceStudentStressRegime(value: unknown): boolean {
+  const regime = record(value);
+  return (
+    regime !== null &&
+    financeStudentStressRegime(regime) &&
+    regime.covenant_status === "UNKNOWN" &&
+    regime.feasibility === "UNKNOWN"
   );
 }
 

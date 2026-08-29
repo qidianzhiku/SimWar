@@ -587,6 +587,20 @@
         }
       ]
     },
+    "unknownFinanceDscr": {
+      "allOf": [
+        { "$ref": "#/$defs/financeDscr" },
+        {
+          "type": "object",
+          "required": ["ratio", "status", "unknown_reason"],
+          "properties": {
+            "ratio": { "type": "null" },
+            "status": { "const": "UNKNOWN" },
+            "unknown_reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
     "financeStressRegime": {
       "type": "object",
       "additionalProperties": false,
@@ -617,6 +631,21 @@
         "why_not_feasible": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
+    "unknownFinanceStressRegime": {
+      "allOf": [
+        { "$ref": "#/$defs/financeStressRegime" },
+        {
+          "type": "object",
+          "required": ["cash_flow", "liquidity_headroom", "covenant_status", "feasibility"],
+          "properties": {
+            "cash_flow": { "$ref": "#/$defs/unknownFinanceBasis" },
+            "liquidity_headroom": { "$ref": "#/$defs/unknownFinanceBasis" },
+            "covenant_status": { "const": "UNKNOWN" },
+            "feasibility": { "const": "UNKNOWN" }
+          }
+        }
+      ]
+    },
     "financeStudentStressRegime": {
       "type": "object",
       "additionalProperties": false,
@@ -632,6 +661,19 @@
         "covenant_status": { "enum": ["WITHIN_LIMIT", "BREACHED", "UNKNOWN"] },
         "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] }
       }
+    },
+    "unknownFinanceStudentStressRegime": {
+      "allOf": [
+        { "$ref": "#/$defs/financeStudentStressRegime" },
+        {
+          "type": "object",
+          "required": ["covenant_status", "feasibility"],
+          "properties": {
+            "covenant_status": { "const": "UNKNOWN" },
+            "feasibility": { "const": "UNKNOWN" }
+          }
+        }
+      ]
     },
     "financeStudentProjection": {
       "type": "object",
@@ -666,6 +708,24 @@
         }
       }
     },
+    "unknownFinanceStudentProjection": {
+      "allOf": [
+        { "$ref": "#/$defs/financeStudentProjection" },
+        {
+          "type": "object",
+          "required": ["feasibility", "cash_flow", "liquidity_headroom", "stress_regimes"],
+          "properties": {
+            "feasibility": { "const": "UNKNOWN" },
+            "cash_flow": { "$ref": "#/$defs/unknownFinanceDisplayValue" },
+            "liquidity_headroom": { "$ref": "#/$defs/unknownFinanceDisplayValue" },
+            "stress_regimes": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/unknownFinanceStudentStressRegime" }
+            }
+          }
+        }
+      ]
+    },
     "financeValidation": {
       "type": "object",
       "additionalProperties": false,
@@ -673,7 +733,47 @@
       "properties": {
         "status": { "enum": ["VALID", "UNKNOWN"] },
         "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "UNKNOWN" } }
+          },
+          "then": {
+            "required": ["reasons"],
+            "properties": { "reasons": { "type": "array", "minItems": 1 } }
+          }
+        }
+      ]
+    },
+    "unknownFinanceBasis": {
+      "allOf": [
+        { "$ref": "#/$defs/financeBasis" },
+        {
+          "type": "object",
+          "required": ["amount", "status", "unknown_reason"],
+          "properties": {
+            "amount": { "type": "null" },
+            "status": { "const": "UNKNOWN" },
+            "unknown_reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "unknownFinanceDisplayValue": {
+      "allOf": [
+        { "$ref": "#/$defs/financeDisplayValue" },
+        {
+          "type": "object",
+          "required": ["amount", "status", "unknown_reason"],
+          "properties": {
+            "amount": { "type": "null" },
+            "status": { "const": "UNKNOWN" },
+            "unknown_reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
     },
     "financeNoWrite": {
       "type": "object",
@@ -783,7 +883,60 @@
           "items": { "type": "string", "minLength": 1 }
         },
         "student_view": { "$ref": "#/$defs/financeStudentProjection" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["validation"],
+            "properties": {
+              "validation": {
+                "type": "object",
+                "properties": { "status": { "const": "UNKNOWN" } }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "validation": {
+                "type": "object",
+                "properties": { "reasons": { "type": "array", "minItems": 1 } }
+              },
+              "capex": { "$ref": "#/$defs/unknownFinanceBasis" },
+              "opex": { "$ref": "#/$defs/unknownFinanceBasis" },
+              "capital": {
+                "type": "object",
+                "properties": {
+                  "debt_principal": { "$ref": "#/$defs/unknownFinanceBasis" },
+                  "equity_proceeds": { "$ref": "#/$defs/unknownFinanceBasis" },
+                  "working_capital": { "$ref": "#/$defs/unknownFinanceBasis" }
+                }
+              },
+              "debt": {
+                "type": "object",
+                "properties": {
+                  "principal": { "$ref": "#/$defs/unknownFinanceBasis" },
+                  "interest_paid": { "$ref": "#/$defs/unknownFinanceBasis" },
+                  "amortization": { "$ref": "#/$defs/unknownFinanceBasis" },
+                  "debt_service": { "$ref": "#/$defs/unknownFinanceBasis" }
+                }
+              },
+              "cash_flow": { "$ref": "#/$defs/unknownFinanceBasis" },
+              "liquidity_headroom": { "$ref": "#/$defs/unknownFinanceBasis" },
+              "dscr": { "$ref": "#/$defs/unknownFinanceDscr" },
+              "capital_budget_utilization": { "$ref": "#/$defs/unknownFinanceBasis" },
+              "covenant_status": { "const": "UNKNOWN" },
+              "feasibility": { "const": "UNKNOWN" },
+              "binding_constraints": { "type": "array", "minItems": 1 },
+              "why_not_feasible": { "type": "array", "minItems": 1 },
+              "stress_regimes": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/unknownFinanceStressRegime" }
+              },
+              "student_view": { "$ref": "#/$defs/unknownFinanceStudentProjection" }
+            }
+          }
+        }
+      ]
     },
     "financeModelAudit": {
       "type": "object",

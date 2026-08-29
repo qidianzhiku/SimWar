@@ -407,6 +407,33 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(missingSourceRefs)).toBe(false);
   });
 
+  it("binds unknown finance validation to unknown conclusions", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const emptyReasons = structuredClone(fixture) as Record<string, unknown>;
+    const emptyReasonsFinance = (emptyReasons.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    emptyReasonsFinance.validation = { status: "UNKNOWN", reasons: [] };
+    expect(validate(emptyReasons)).toBe(false);
+    expect(isESLResponse(emptyReasons)).toBe(false);
+
+    const knownConclusion = structuredClone(fixture) as Record<string, unknown>;
+    const knownConclusionFinance = (knownConclusion.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    knownConclusionFinance.validation = {
+      status: "UNKNOWN",
+      reasons: ["FINANCE_INPUT_VALIDATION_FAILED"]
+    };
+    expect(validate(knownConclusion)).toBe(false);
+    expect(isESLResponse(knownConclusion)).toBe(false);
+  });
+
   it("binds root path shape to the declared response surface", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
