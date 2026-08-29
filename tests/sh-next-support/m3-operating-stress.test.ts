@@ -4,6 +4,7 @@ import {
   runM3StressMatrix,
   validateM3OperatingStress
 } from "../../packages/sh-next-support/src/m3-operating-stress.js";
+import { stableDigest } from "../../packages/sh-next-support/src/index.js";
 import { describe, expect, it } from "vitest";
 
 describe("M3 operating economics stress world", () => {
@@ -24,13 +25,17 @@ describe("M3 operating economics stress world", () => {
       expect.arrayContaining(["DEMAND", "WORKFORCE", "QUALITY", "CASH", "POLICY", "STAKEHOLDER"])
     );
     expect(pack.experiment_matrix.map((item) => item.corridor)).toEqual(
-      expect.arrayContaining(["NORMAL", "SINGLE_SHOCK", "DOUBLE_SHOCK", "RECOVERY"])
+      expect.arrayContaining(["NORMAL", "SINGLE_SHOCK", "DOUBLE_SHOCK", "TRIPLE_SHOCK", "RECOVERY"])
     );
     expect(pack.mjp).toMatchObject({
       status: "PASS",
       corridor: "M3-CORRIDOR-WORKFORCE-QUALITY-CASH"
     });
     expect(pack.experiment_results.some((result) => result.feasibility === "UNKNOWN")).toBe(true);
+    const unknownResult = pack.experiment_results.find(
+      (result) => result.feasibility === "UNKNOWN"
+    );
+    expect(unknownResult?.metrics.stakeholder_pressure_index).toBe(0.36);
   });
 
   it("replays the same deterministic input with stable ordering and digests", () => {
@@ -97,5 +102,21 @@ describe("M3 operating economics stress world", () => {
         "cross_tenant_projection_rejected"
       ])
     );
+  });
+
+  it("binds source hashes to the complete provenance and governance record", () => {
+    const pack = buildM3OperatingStressWorld();
+    const { hash, ...sourceWithoutHash } = pack.sources[0];
+
+    expect(hash).toBe(stableDigest(sourceWithoutHash));
+    expect(sourceWithoutHash).toMatchObject({
+      source_date: "2024-12-31",
+      provenance: expect.any(String),
+      license_or_usage_status: "INTERNAL_SUPPORT_ONLY",
+      confidence: "LOW",
+      sensitivity: "PUBLIC",
+      role_visibility: "STUDENT_SAFE",
+      evidence_status: "REFERENCE_ONLY"
+    });
   });
 });

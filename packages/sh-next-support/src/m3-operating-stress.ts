@@ -21,7 +21,12 @@ export type M3OperatingLayerName =
   | "POLICY"
   | "STAKEHOLDER";
 export type M3ShockKind = "DEMAND" | "WORKFORCE" | "QUALITY" | "CASH" | "POLICY" | "STAKEHOLDER";
-export type M3ExperimentCorridor = "NORMAL" | "SINGLE_SHOCK" | "DOUBLE_SHOCK" | "RECOVERY";
+export type M3ExperimentCorridor =
+  | "NORMAL"
+  | "SINGLE_SHOCK"
+  | "DOUBLE_SHOCK"
+  | "TRIPLE_SHOCK"
+  | "RECOVERY";
 export type M3Feasibility = "FEASIBLE" | "INFEASIBLE" | "UNKNOWN";
 
 export interface M3OperatingLayer {
@@ -248,7 +253,7 @@ const M3_REFS = {
     "gsi-governed-stakeholder-shadow-plane-contract",
     "tests/contract/gsi-governed-stakeholder-shadow-plane-contract.test.ts",
     1,
-    55
+    50
   )
 };
 
@@ -266,7 +271,7 @@ function sourceAsset(
   content_basis: string,
   derived_from: string[]
 ): SourceAsset {
-  return {
+  const record: Omit<SourceAsset, "hash"> = {
     source_id,
     source_type: "SYNTHETIC",
     source_date: "2024-12-31",
@@ -279,8 +284,11 @@ function sourceAsset(
     role_visibility: "STUDENT_SAFE",
     derived_from,
     evidence_status: "REFERENCE_ONLY",
-    content_basis,
-    hash: stableDigest({ source_id, content_basis, derived_from })
+    content_basis
+  };
+  return {
+    ...record,
+    hash: stableDigest(record)
   };
 }
 
@@ -596,7 +604,7 @@ function createExperimentMatrix(): M3ExperimentCase[] {
     },
     {
       case_id: "SH-M3-CASE-DOUBLE-WORKFORCE-QUALITY-CASH",
-      corridor: "DOUBLE_SHOCK",
+      corridor: "TRIPLE_SHOCK",
       shock_ids: [
         "SH-M3-SHOCK-WORKFORCE-SUPPLY",
         "SH-M3-SHOCK-QUALITY-INCIDENT",
@@ -713,8 +721,10 @@ function makeResult(
     (id) => operating.shock_library.find((shock) => shock.shock_id === id)!
   );
   const factor = experiment.recovery_factor ?? 1;
-  for (const shock of shocks) applyShock(metrics, shock, factor);
   const hasUnknown = shocks.some((shock) => shock.evidence_state === "UNKNOWN");
+  for (const shock of shocks) {
+    if (shock.evidence_state !== "UNKNOWN") applyShock(metrics, shock, factor);
+  }
   const infeasible =
     metrics.workforce_capacity_ratio < 0.5 ||
     metrics.quality_index < 0.5 ||

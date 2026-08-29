@@ -21,4 +21,19 @@ describe("M3 operating stress JSON contract", () => {
     expect(pack.authority.official_truth_write).toBe(false);
     expect(pack.consumer.classification).toBe("C1");
   });
+
+  it("rejects null entries instead of treating array lengths as a valid contract", () => {
+    const schema = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), "contracts/schemas/sh-next-operating-stress.v1.json"),
+        "utf8"
+      )
+    ) as object;
+    const validate = new Ajv2020({ strict: false }).compile(schema);
+    const malformed = buildM3OperatingStressWorld();
+
+    (malformed.sources as unknown[]).fill(null);
+    (malformed.observations as unknown[]).fill(null);
+    expect(validate(malformed)).toBe(false);
+  });
 });

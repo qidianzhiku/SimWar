@@ -41,15 +41,28 @@
         "unsupported_claims_are_facts": { "const": false }
       }
     },
-    "sources": { "type": "array", "minItems": 6 },
-    "observations": { "type": "array", "minItems": 6 },
+    "sources": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/source" } },
+    "observations": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/observation" } },
     "baseline_layers": {
       "type": "object",
-      "required": ["WANT", "CAN", "REALIZED", "FINANCE", "POLICY", "STAKEHOLDER"]
+      "additionalProperties": false,
+      "required": ["WANT", "CAN", "REALIZED", "FINANCE", "POLICY", "STAKEHOLDER"],
+      "properties": {
+        "WANT": { "$ref": "#/$defs/layer" },
+        "CAN": { "$ref": "#/$defs/layer" },
+        "REALIZED": { "$ref": "#/$defs/layer" },
+        "FINANCE": { "$ref": "#/$defs/layer" },
+        "POLICY": { "$ref": "#/$defs/layer" },
+        "STAKEHOLDER": { "$ref": "#/$defs/layer" }
+      }
     },
-    "shock_library": { "type": "array", "minItems": 6 },
-    "experiment_matrix": { "type": "array", "minItems": 4 },
-    "experiment_results": { "type": "array", "minItems": 4 },
+    "shock_library": { "type": "array", "minItems": 6, "items": { "$ref": "#/$defs/shock" } },
+    "experiment_matrix": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/experiment" }
+    },
+    "experiment_results": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/result" } },
     "gsi_binding": {
       "type": "object",
       "required": [
@@ -65,10 +78,16 @@
       "properties": {
         "contract_id": { "const": "gsi.governed.stakeholder.shadow.v1" },
         "resolver_version": { "const": "gsi-deterministic-resolver-v1" },
-        "signal_bindings": { "type": "array", "minItems": 5, "maxItems": 5 },
+        "signal_bindings": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/signal" }
+        },
         "provider": { "const": "OFF" },
         "formal_truth_write": { "const": false },
-        "excluded_from_truth_hash": { "const": true }
+        "excluded_from_truth_hash": { "const": true },
+        "model_call_log": { "$ref": "#/$defs/modelCallLog" }
       }
     },
     "replay": {
@@ -127,5 +146,312 @@
     },
     "known_limits": { "type": "array", "minItems": 1 },
     "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "source_type",
+        "source_date",
+        "geography",
+        "time_scope",
+        "provenance",
+        "license_or_usage_status",
+        "confidence",
+        "sensitivity",
+        "role_visibility",
+        "derived_from",
+        "evidence_status",
+        "content_basis",
+        "hash"
+      ],
+      "properties": {
+        "source_id": { "type": "string", "minLength": 1 },
+        "source_type": {
+          "enum": ["PUBLIC_DOCUMENT", "INTERNAL_CAPABILITY", "SYNTHETIC", "ASSUMPTION"]
+        },
+        "source_date": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "minLength": 1 },
+        "license_or_usage_status": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "role_visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "derived_from": { "type": "array", "items": { "type": "string" } },
+        "evidence_status": { "enum": ["VERIFIED", "REFERENCE_ONLY", "NOT_RETRIEVED"] },
+        "content_basis": { "type": "string", "minLength": 1 },
+        "hash": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "observation_id",
+        "source_id",
+        "location",
+        "period",
+        "basis",
+        "unit",
+        "geography",
+        "data_type",
+        "value",
+        "confidence",
+        "sensitivity",
+        "observation_status",
+        "expiry"
+      ],
+      "properties": {
+        "observation_id": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "period": { "type": "string", "minLength": 1 },
+        "basis": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "data_type": {
+          "enum": [
+            "ACTUAL",
+            "BUDGET",
+            "FORECAST",
+            "INVESTMENT_MODEL",
+            "SURVEY",
+            "ASSUMPTION",
+            "SYNTHETIC",
+            "STRESS_TEST"
+          ]
+        },
+        "value": { "type": ["number", "string"] },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "sensitivity": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "observation_status": { "enum": ["CANDIDATE_ANCHOR", "MISSING", "UNKNOWN", "CONFLICT"] },
+        "expiry": { "type": "string", "minLength": 1 }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "required": [
+        "layer",
+        "metric",
+        "value",
+        "unit",
+        "data_type",
+        "period",
+        "geography",
+        "source_ids",
+        "confidence",
+        "privacy",
+        "candidate_only"
+      ],
+      "properties": {
+        "layer": { "enum": ["WANT", "CAN", "REALIZED", "FINANCE", "POLICY", "STAKEHOLDER"] },
+        "metric": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 },
+        "data_type": {
+          "enum": [
+            "ACTUAL",
+            "BUDGET",
+            "FORECAST",
+            "INVESTMENT_MODEL",
+            "SURVEY",
+            "ASSUMPTION",
+            "SYNTHETIC",
+            "STRESS_TEST"
+          ]
+        },
+        "period": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "privacy": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"] },
+        "candidate_only": { "const": true }
+      }
+    },
+    "shock": {
+      "type": "object",
+      "required": [
+        "shock_id",
+        "kind",
+        "target_layer",
+        "description",
+        "delta",
+        "unit",
+        "bounds",
+        "effective_from",
+        "effective_to",
+        "priority",
+        "evidence_state",
+        "data_type",
+        "source_ids",
+        "visibility",
+        "candidate_only"
+      ],
+      "properties": {
+        "shock_id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["DEMAND", "WORKFORCE", "QUALITY", "CASH", "POLICY", "STAKEHOLDER"] },
+        "target_layer": { "enum": ["WANT", "CAN", "REALIZED", "FINANCE", "POLICY", "STAKEHOLDER"] },
+        "description": { "type": "string", "minLength": 1 },
+        "delta": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 },
+        "bounds": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" } }
+        },
+        "effective_from": { "type": "string", "minLength": 1 },
+        "effective_to": { "type": "string", "minLength": 1 },
+        "priority": { "type": "number", "minimum": 0 },
+        "evidence_state": { "enum": ["BOUNDED", "UNKNOWN"] },
+        "data_type": { "const": "STRESS_TEST" },
+        "source_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "visibility": {
+          "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+        },
+        "candidate_only": { "const": true }
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "required": ["case_id", "corridor", "shock_ids", "seed", "expected_properties"],
+      "properties": {
+        "case_id": { "type": "string", "minLength": 1 },
+        "corridor": {
+          "enum": ["NORMAL", "SINGLE_SHOCK", "DOUBLE_SHOCK", "TRIPLE_SHOCK", "RECOVERY"]
+        },
+        "shock_ids": { "type": "array", "items": { "type": "string" } },
+        "seed": { "type": "integer" },
+        "recovery_factor": { "type": "number", "minimum": 0, "maximum": 1 },
+        "expected_properties": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "demand_index",
+        "workforce_capacity_ratio",
+        "quality_index",
+        "cash_runway_months",
+        "policy_burden_index",
+        "stakeholder_pressure_index"
+      ],
+      "properties": {
+        "demand_index": { "type": "number" },
+        "workforce_capacity_ratio": { "type": "number" },
+        "quality_index": { "type": "number" },
+        "cash_runway_months": { "type": "number" },
+        "policy_burden_index": { "type": "number" },
+        "stakeholder_pressure_index": { "type": "number" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "diagnostic_id",
+        "result_id",
+        "mechanism",
+        "message",
+        "visibility",
+        "evidence_refs",
+        "candidate_only"
+      ],
+      "properties": {
+        "diagnostic_id": { "type": "string", "minLength": 1 },
+        "result_id": { "type": "string", "minLength": 1 },
+        "mechanism": {
+          "enum": ["DEMAND", "WORKFORCE", "QUALITY", "CASH", "POLICY", "STAKEHOLDER"]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "visibility": { "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY"] },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "candidate_only": { "const": true }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "result_id",
+        "case_id",
+        "corridor",
+        "shock_ids",
+        "seed",
+        "metrics",
+        "feasibility",
+        "diagnostics",
+        "digest"
+      ],
+      "properties": {
+        "result_id": { "type": "string", "minLength": 1 },
+        "case_id": { "type": "string", "minLength": 1 },
+        "corridor": {
+          "enum": ["NORMAL", "SINGLE_SHOCK", "DOUBLE_SHOCK", "TRIPLE_SHOCK", "RECOVERY"]
+        },
+        "shock_ids": { "type": "array", "items": { "type": "string" } },
+        "seed": { "type": "integer" },
+        "metrics": { "$ref": "#/$defs/metrics" },
+        "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+        "recovery": {
+          "type": "object",
+          "required": ["candidate_only", "prior_result_id", "recovery_factor"],
+          "properties": {
+            "candidate_only": { "const": true },
+            "prior_result_id": { "type": "string", "minLength": 1 },
+            "recovery_factor": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "required": [
+        "signal_id",
+        "stakeholder_type",
+        "intent",
+        "bounded_value",
+        "source_proposal_count"
+      ],
+      "properties": {
+        "signal_id": { "type": "string", "minLength": 1 },
+        "stakeholder_type": { "enum": ["customer", "regulator", "bank", "employee", "media"] },
+        "intent": {
+          "enum": [
+            "protect_demand",
+            "reduce_regulatory_risk",
+            "preserve_liquidity",
+            "retain_workforce",
+            "protect_reputation"
+          ]
+        },
+        "bounded_value": { "type": "number", "minimum": -1, "maximum": 1 },
+        "source_proposal_count": { "const": 1 }
+      }
+    },
+    "modelCallLog": {
+      "type": "object",
+      "required": [
+        "model_call_log_id",
+        "model_version_id",
+        "provider",
+        "input_digest",
+        "output_digest",
+        "exact_input_fields",
+        "status"
+      ],
+      "properties": {
+        "model_call_log_id": { "type": "string", "minLength": 1 },
+        "model_version_id": { "const": "gsi-stakeholder-resolver-v1" },
+        "provider": { "const": "OFF" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "exact_input_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "status": { "const": "DETERMINISTIC_SHADOW_CANDIDATE" }
+      }
+    }
   }
 }
