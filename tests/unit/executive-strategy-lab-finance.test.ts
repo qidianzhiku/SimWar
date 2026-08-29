@@ -251,6 +251,60 @@ describe("projectESLFinance", () => {
     expect(result.stress_regimes.every((regime) => regime.why_not_feasible.length > 0)).toBe(true);
   });
 
+  it("treats positive capex against a zero budget as a known infeasibility", () => {
+    const result = projectESLFinance(
+      input({ accounting_basis: accounting({ capex: 1, capital_budget: 0 }) })
+    );
+
+    expect(result.capital_budget_utilization.status).toBe("UNKNOWN");
+    expect(result.feasibility).toBe("INFEASIBLE");
+    expect(result.binding_constraints).toContain("CAPITAL_BUDGET_EXCEEDED");
+    expect(result.binding_constraints).not.toContain("CAPITAL_BUDGET_BASIS_UNKNOWN");
+  });
+
+  it("preserves the accounting time period on accounting-derived values", () => {
+    const result = projectESLFinance(
+      input({ accounting_basis: accounting({ time_period: "ROUND" }) })
+    );
+
+    expect(result.capex.time_period).toBe("ROUND");
+    expect(result.opex.time_period).toBe("ROUND");
+    expect(result.debt.amortization.time_period).toBe("ROUND");
+    expect(result.debt.debt_service.time_period).toBe("ROUND");
+    expect(result.dscr.numerator.time_period).toBe("ROUND");
+    expect(result.dscr.denominator.time_period).toBe("ROUND");
+    expect(result.capital_budget_utilization.time_period).toBe("ROUND");
+  });
+
+  it("does not treat zero debt service as missing feasibility evidence", () => {
+    const source = state(1000);
+    source.capital = capital({ debt_principal: 0, interest_paid: 0 });
+    const result = projectESLFinance(
+      input({
+        source_state: source,
+        accounting_basis: accounting({ amortization: 0 })
+      })
+    );
+
+    expect(result.debt.debt_service).toMatchObject({ amount: 0, status: "KNOWN" });
+    expect(result.dscr).toMatchObject({ ratio: null, status: "UNKNOWN" });
+    expect(result.dscr.unknown_reason).toBe("NO_DEBT_SERVICE");
+    expect(result.feasibility).toBe("FEASIBLE");
+    expect(result.binding_constraints).not.toContain("DSCR_BASIS_UNKNOWN");
+  });
+
+  it("preserves a recorded covenant breach in every stress status", () => {
+    const source = state(1000);
+    source.capital = capital({ covenant_breach_action_ids: ["recorded-breach"] });
+    const result = projectESLFinance(input({ source_state: source }));
+
+    expect(result.covenant_status).toBe("BREACHED");
+    expect(result.stress_regimes.every((regime) => regime.covenant_status === "BREACHED")).toBe(
+      true
+    );
+    expect(result.stress_regimes.every((regime) => regime.feasibility === "INFEASIBLE")).toBe(true);
+  });
+
   it("marks a known minimum-cash covenant breach infeasible", () => {
     const result = projectESLFinance(input({ terminal_state: state(500, false) }));
 

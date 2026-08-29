@@ -27,8 +27,279 @@
     "state_ref": null,
     "summary": "官方 W4 基线已绑定到精确运行上下文。"
   },
-  "paths": [],
-  "mechanisms": [],
+  "paths": [
+    {
+      "path_id": "path_fixture",
+      "label": "财务资本压力路径",
+      "officiality": "NON_OFFICIAL",
+      "decision_ids": ["decision_fixture"],
+      "path_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "changed_paths": ["state.cash", "capital.debt_principal"],
+      "outcome": {
+        "cash_delta": 250,
+        "capacity_delta": 0,
+        "project_count_delta": 0,
+        "terminal_state_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "mechanism_ids": ["mechanism_fixture"],
+      "finance_feasibility": {
+        "official": false,
+        "validation": { "status": "VALID", "reasons": [] },
+        "no_write": {
+          "enterprise_state": false,
+          "settlement_result": false,
+          "score": false,
+          "rank": false,
+          "replay_truth": false,
+          "canonical_decision": false,
+          "official_parameter_set": false,
+          "formal_writer": false,
+          "provider_invoked": false
+        },
+        "model": {
+          "source_kind": "BUILT_IN_DETERMINISTIC_CALCULATOR",
+          "source_ref": "services/simulation-core/src/executive-capital-feasibility.ts",
+          "model_version_id": "esl-finance-projector",
+          "model_version": "1.0.0",
+          "model_artifact_id": "esl-finance-projector",
+          "model_artifact_version": "1.0.0",
+          "engine_id": "simulation-core-esl-finance-projector",
+          "parameter_set_id": "esl-finance-projector-parameters",
+          "parameter_set_version": "1.0.0"
+        },
+        "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_refs": [
+          "m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "capex": {
+          "amount": 100,
+          "status": "KNOWN",
+          "unit": "SIMWAR_CURRENCY",
+          "currency": "SIMWAR_UNITS",
+          "time_period": "HORIZON",
+          "source_refs": ["accounting:accounting_fixture"]
+        },
+        "opex": {
+          "amount": 50,
+          "status": "KNOWN",
+          "unit": "SIMWAR_CURRENCY",
+          "currency": "SIMWAR_UNITS",
+          "time_period": "HORIZON",
+          "source_refs": ["accounting:accounting_fixture"]
+        },
+        "capital": {
+          "debt_principal": {
+            "amount": 400,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          },
+          "equity_proceeds": {
+            "amount": 800,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          },
+          "working_capital": {
+            "amount": 500,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "ROUND",
+            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          }
+        },
+        "debt": {
+          "principal": {
+            "amount": 400,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          },
+          "interest_paid": {
+            "amount": 20,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          },
+          "amortization": {
+            "amount": 40,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["accounting:accounting_fixture"]
+          },
+          "debt_service": {
+            "amount": 60,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          }
+        },
+        "cash_flow": {
+          "amount": 250,
+          "status": "KNOWN",
+          "unit": "SIMWAR_CURRENCY",
+          "currency": "SIMWAR_UNITS",
+          "time_period": "HORIZON",
+          "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+        },
+        "liquidity_headroom": {
+          "amount": 650,
+          "status": "KNOWN",
+          "unit": "SIMWAR_CURRENCY",
+          "currency": "SIMWAR_UNITS",
+          "time_period": "ROUND",
+          "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+        },
+        "dscr": {
+          "ratio": 3,
+          "status": "KNOWN",
+          "numerator": {
+            "amount": 180,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["accounting:accounting_fixture"]
+          },
+          "denominator": {
+            "amount": 60,
+            "status": "KNOWN",
+            "unit": "SIMWAR_CURRENCY",
+            "currency": "SIMWAR_UNITS",
+            "time_period": "HORIZON",
+            "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+          },
+          "source_refs": ["accounting:accounting_fixture", "w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+        },
+        "capital_budget_utilization": {
+          "amount": 0.4,
+          "status": "KNOWN",
+          "unit": "RATIO",
+          "currency": "NOT_APPLICABLE",
+          "time_period": "HORIZON",
+          "source_refs": ["accounting:accounting_fixture"]
+        },
+        "covenant_status": "WITHIN_LIMIT",
+        "feasibility": "FEASIBLE",
+        "binding_constraints": [],
+        "why_not_feasible": [],
+        "stress_regimes": [
+          {
+            "regime_id": "DEMAND_PRICE_DOWNSIDE",
+            "shock": "需求与价格现金流下行 20%；确定性诊断。",
+            "cash_flow": {
+              "amount": 200,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "HORIZON",
+              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+            },
+            "liquidity_headroom": {
+              "amount": 600,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "ROUND",
+              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            },
+            "covenant_status": "WITHIN_LIMIT",
+            "feasibility": "FEASIBLE",
+            "binding_constraints": [],
+            "why_not_feasible": []
+          },
+          {
+            "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
+            "shock": "劳动力成本/产能压力使观察现金流下调 10%；确定性诊断。",
+            "cash_flow": {
+              "amount": 225,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "HORIZON",
+              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+            },
+            "liquidity_headroom": {
+              "amount": 625,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "ROUND",
+              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            },
+            "covenant_status": "WITHIN_LIMIT",
+            "feasibility": "FEASIBLE",
+            "binding_constraints": [],
+            "why_not_feasible": []
+          },
+          {
+            "regime_id": "FUNDING_COVENANT_PRESSURE",
+            "shock": "资金成本上升 200 bps；确定性诊断。",
+            "cash_flow": {
+              "amount": 242,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "HORIZON",
+              "source_refs": ["m4_path:path_fixture@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+            },
+            "liquidity_headroom": {
+              "amount": 642,
+              "status": "KNOWN",
+              "unit": "SIMWAR_CURRENCY",
+              "currency": "SIMWAR_UNITS",
+              "time_period": "ROUND",
+              "source_refs": ["w4_state:state_fixture@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+            },
+            "covenant_status": "WITHIN_LIMIT",
+            "feasibility": "FEASIBLE",
+            "binding_constraints": [],
+            "why_not_feasible": []
+          }
+        ],
+        "assumptions": ["压力情景为确定性候选诊断。"],
+        "uncertainty": ["NON_OFFICIAL 候选投影。"],
+        "known_limits": ["该投影不得覆盖正式结算。"],
+        "student_view": {
+          "official": false,
+          "role_safe": true,
+          "feasibility": "FEASIBLE",
+          "cash_flow": { "amount": 250, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+          "liquidity_headroom": { "amount": 650, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+          "capital_tradeoff_summary": "当前已知输入下通过资本可行性检查。",
+          "stress_regimes": [
+            { "regime_id": "DEMAND_PRICE_DOWNSIDE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" },
+            { "regime_id": "WORKFORCE_CAPACITY_PRESSURE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" },
+            { "regime_id": "FUNDING_COVENANT_PRESSURE", "covenant_status": "WITHIN_LIMIT", "feasibility": "FEASIBLE" }
+          ],
+          "excluded_fields": ["source_refs", "model", "debt_schedule"]
+        }
+      }
+    }
+  ],
+  "mechanisms": [
+    {
+      "mechanism_id": "mechanism_fixture",
+      "label": "现金与资本结构变化",
+      "explanation": "该路径仅用于验证候选财务投影在教师 response 组合中的消费。",
+      "evidence_path_ids": ["path_fixture"],
+      "uncertainty": "OBSERVED_DIFFERENTIAL_ONLY"
+    }
+  ],
   "transfer": {
     "status": "DRAFT",
     "statement": "下一轮验证服务质量与现金缓冲的平衡。",
@@ -49,7 +320,5 @@
     "replay_truth_write": false,
     "provider": "OFF"
   },
-  "known_limits": [
-    "fixture deliberately contains no alternative path; the dedicated finance fixture and unit tests cover the known finance projection."
-  ]
+  "known_limits": ["该 fixture 只验证嵌套候选财务投影与教师 response 的结构组合，不代表正式结算。"]
 }

@@ -281,7 +281,11 @@ function covenantStatus(
   return headroom.amount < 0 ? "BREACHED" : "WITHIN_LIMIT";
 }
 
-function stressCovenant(headroom: ESLFinanceBasis): ESLFinanceCovenantStatus {
+function stressCovenant(
+  headroom: ESLFinanceBasis,
+  baseCovenant: ESLFinanceCovenantStatus
+): ESLFinanceCovenantStatus {
+  if (baseCovenant === "BREACHED") return "BREACHED";
   if (headroom.status !== "KNOWN" || headroom.amount === null) return "UNKNOWN";
   return headroom.amount < 0 ? "BREACHED" : "WITHIN_LIMIT";
 }
@@ -301,7 +305,8 @@ function createStressRegimes(
   baseCashFlow: ESLFinanceBasis,
   baseLiquidity: ESLFinanceBasis,
   sourceRefs: string[],
-  debtPrincipal: number | null = null
+  debtPrincipal: number | null = null,
+  baseCovenant: ESLFinanceCovenantStatus = "UNKNOWN"
 ): ESLFinanceStressRegime[] {
   const stressedCash = (amount: number | null, reason: string) =>
     basis(amount, CURRENCY_UNIT, sourceRefs, "HORIZON", reason);
@@ -360,7 +365,7 @@ function createStressRegimes(
     }
   ].map(({ id, shock, cash }) => {
     const liquidity = stressedLiquidity(cash);
-    const covenant = stressCovenant(liquidity);
+    const covenant = stressCovenant(liquidity, baseCovenant);
     const constraints = [...baseConstraints];
     if (covenant === "BREACHED") constraints.push("STRESSED_MINIMUM_CASH_BREACH");
     return {
@@ -447,18 +452,19 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   const accountingRefs = input.accounting_basis
     ? [...sourceRefs, `accounting:${input.accounting_basis.source_ref}`]
     : sourceRefs;
+  const accountingTimePeriod = input.accounting_basis?.time_period ?? "HORIZON";
   const capex = basis(
     input.accounting_basis?.capex ?? null,
     CURRENCY_UNIT,
     accountingRefs,
-    "HORIZON",
+    accountingTimePeriod,
     "CAPEX_BASIS_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
   const opex = basis(
     input.accounting_basis?.opex ?? null,
     CURRENCY_UNIT,
     accountingRefs,
-    "HORIZON",
+    accountingTimePeriod,
     "OPEX_BASIS_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
   const debtPrincipal = basis(
@@ -493,7 +499,7 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     input.accounting_basis?.amortization ?? null,
     CURRENCY_UNIT,
     accountingRefs,
-    "HORIZON",
+    accountingTimePeriod,
     "AMORTIZATION_SCHEDULE_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
   const debtService =
@@ -505,20 +511,20 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
           interestPaid.amount + amortization.amount,
           CURRENCY_UNIT,
           [...interestPaid.source_refs, ...amortization.source_refs],
-          "HORIZON"
+          accountingTimePeriod
         )
       : basis(
           null,
           CURRENCY_UNIT,
           [...interestPaid.source_refs, ...amortization.source_refs],
-          "HORIZON",
+          accountingTimePeriod,
           "INTEREST_OR_AMORTIZATION_BASIS_UNAVAILABLE"
         );
   const operatingCashFlow = basis(
     input.accounting_basis?.operating_cash_flow ?? null,
     CURRENCY_UNIT,
     accountingRefs,
-    "HORIZON",
+    accountingTimePeriod,
     "OPERATING_CASH_FLOW_BASIS_NOT_PRESENT_IN_CURRENT_W4_CONTRACT"
   );
   const dscr =
@@ -544,8 +550,18 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
           source_refs: [
             ...new Set([...operatingCashFlow.source_refs, ...debtService.source_refs])
           ].sort(),
-          unknown_reason: "DSCR_NUMERATOR_OR_DEBT_SERVICE_BASIS_UNAVAILABLE"
+          unknown_reason:
+            debtService.status === "KNOWN" && debtService.amount === 0
+              ? "NO_DEBT_SERVICE"
+              : "DSCR_NUMERATOR_OR_DEBT_SERVICE_BASIS_UNAVAILABLE"
         };
+  const capitalBudgetExceeded =
+    input.accounting_basis !== undefined &&
+    capex.status === "KNOWN" &&
+    capex.amount !== null &&
+    (input.accounting_basis.capital_budget === 0
+      ? capex.amount > 0
+      : capex.amount / input.accounting_basis.capital_budget > 1);
   const capitalBudgetUtilization =
     capex.status === "KNOWN" &&
     capex.amount !== null &&
@@ -555,14 +571,16 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
           capex.amount / input.accounting_basis.capital_budget,
           "RATIO",
           accountingRefs,
-          "HORIZON"
+          accountingTimePeriod
         )
       : basis(
           null,
           "RATIO",
           accountingRefs,
-          "HORIZON",
-          "CAPITAL_BUDGET_AND_CAPEX_BASIS_UNAVAILABLE"
+          accountingTimePeriod,
+          capitalBudgetExceeded
+            ? "CAPITAL_BUDGET_EXCEEDED"
+            : "CAPITAL_BUDGET_AND_CAPEX_BASIS_UNAVAILABLE"
         );
   const terminalCash = finite(input.terminal_state?.cash) ? input.terminal_state.cash : null;
   const covenantMinimumCash = capitalNumber(capital, "covenant_min_cash");
@@ -580,14 +598,15 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     capex.status === "UNKNOWN" ? "CAPEX_BASIS_UNKNOWN" : null,
     opex.status === "UNKNOWN" ? "OPEX_BASIS_UNKNOWN" : null,
     debtService.status === "UNKNOWN" ? "DEBT_SERVICE_BASIS_UNKNOWN" : null,
-    dscr.status === "UNKNOWN" ? "DSCR_BASIS_UNKNOWN" : null,
-    capitalBudgetUtilization.status === "UNKNOWN" ? "CAPITAL_BUDGET_BASIS_UNKNOWN" : null,
+    dscr.status === "UNKNOWN" && !(debtService.status === "KNOWN" && debtService.amount === 0)
+      ? "DSCR_BASIS_UNKNOWN"
+      : null,
+    capitalBudgetUtilization.status === "UNKNOWN" &&
+    (input.accounting_basis === undefined || capex.status === "UNKNOWN")
+      ? "CAPITAL_BUDGET_BASIS_UNKNOWN"
+      : null,
     liquidity.status === "UNKNOWN" ? "LIQUIDITY_HEADROOM_UNKNOWN" : null,
-    capitalBudgetUtilization.status === "KNOWN" &&
-    capitalBudgetUtilization.amount !== null &&
-    capitalBudgetUtilization.amount > 1
-      ? "CAPITAL_BUDGET_EXCEEDED"
-      : null
+    capitalBudgetExceeded ? "CAPITAL_BUDGET_EXCEEDED" : null
   ].filter((item): item is string => item !== null);
   if (covenant === "BREACHED") constraints.push("COVENANT_MIN_CASH_BREACH");
   const feasibility: ESLFinanceFeasibility =
@@ -602,7 +621,8 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     cashFlow,
     liquidity,
     sourceRefs,
-    debtPrincipal.amount
+    debtPrincipal.amount,
+    covenant
   );
   const whyNotFeasible =
     covenant === "BREACHED"
