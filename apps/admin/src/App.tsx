@@ -32,6 +32,11 @@ import { CourseReportBuilder } from "./CourseReportBuilder";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
+const RegionalTransferAdminWorkbench = lazy(() =>
+  import("./features/regional-transfer-workbench").then(({ RegionalTransferAdminWorkbench: Component }) => ({
+    default: Component
+  }))
+);
 import { AuthorityBadge } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
@@ -1038,6 +1043,13 @@ export function App() {
             token={session.access_token}
             surface="admin"
           />
+          <Suspense fallback={<p className="muted">正在载入区域迁移审计…</p>}>
+            <RegionalTransferAdminWorkbench
+              apiBase={API_BASE}
+              tenantId={session.user.tenant_id}
+              token={session.access_token}
+            />
+          </Suspense>
           {lifecycleSurface}
         </section>
       ) : null}

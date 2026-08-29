@@ -12,6 +12,7 @@ export * from "./project-library.js";
 export * from "./teacher-scenario-studio.js";
 export * from "./m2p5-decision-learning-crossround.js";
 export * from "./m4-multipath-counterfactual-transfer.js";
+export * from "./regional-transfer.js";
 export * from "./operating-world-consequence-trace.js";
 export * from "./reauth-context.js";
 export * from "./shanghai-full-vertical.js";

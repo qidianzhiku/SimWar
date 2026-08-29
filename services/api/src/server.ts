@@ -66,8 +66,10 @@ import type {
   ProjectProfile,
   ProjectProfileReferenceInput,
   ProjectProfileSuccessorInput,
-  ProjectProfileStudentBrief
+  ProjectProfileStudentBrief,
+  RegionalTransferCandidateInput
 } from "@simwar/shared-contracts";
+import { buildM4PortabilityCompatibilityPack } from "@simwar/sh-next-support";
 import type { MarketWorldRef } from "@simwar/shared-contracts";
 import type { W027DecisionRightPolicyInput } from "@simwar/shared-contracts";
 import type {
@@ -165,6 +167,12 @@ import { handleValidationEnvironmentLaunchRoute } from "./routes/validation-envi
 import { handleW5GovernedModelRoute } from "./routes/w5-governed-model-routes.js";
 import { handleShanghaiFullVerticalRoute } from "./routes/shanghai-full-vertical-routes.js";
 import { ShanghaiFullVerticalService } from "./shanghai-full-vertical-service.js";
+import {
+  createJsonRegionalTransferCandidatePersistence,
+  RegionalTransferProductError,
+  RegionalTransferProductService
+} from "./regional-transfer-product-service.js";
+import { handleRegionalTransferRoute } from "./routes/regional-transfer-routes.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
@@ -435,6 +443,11 @@ interface ApiRuntime {
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
   shanghaiFullVertical: ShanghaiFullVerticalService;
+  regionalTransfer: RegionalTransferProductService;
+  resolveRegionalTransferSelection: (
+    tenantId: string,
+    query: { courseId: string; runId: string; roundNo: number }
+  ) => Promise<RegionalTransferCandidateInput>;
   operatingWorld: OperatingWorldService;
   validationEnvironmentLaunch?: ValidationEnvironmentLaunchService;
   validationEnvironmentLaunchExecutorFactory?: (
@@ -859,6 +872,146 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     createJsonW5GovernedModelPersistence(store)
   );
   const shanghaiFullVertical = new ShanghaiFullVerticalService(w5GovernedModel);
+  const regionalTransferSupport = buildM4PortabilityCompatibilityPack();
+  const regionalTransfer = new RegionalTransferProductService({
+    persistence: createJsonRegionalTransferCandidatePersistence(store),
+    sources: {
+      getCourse: async (tenantId, courseId) => {
+        const course = await repositoryProvider.facade.courses.getCourse(tenantId, courseId);
+        const blueprintBinding = course
+          ? courseBlueprintBindingStore.getForCourse(tenantId, courseId)
+          : null;
+        return course
+            ? {
+              course_id: course.course_id,
+              parameter_set_id: course.parameter_set_id,
+              scenario_package_id: course.scenario_package_id,
+              tenant_id: course.tenant_id,
+              ...(blueprintBinding
+                ? { course_blueprint_reference: blueprintBinding.course_blueprint_reference }
+                : {})
+            }
+          : null;
+      },
+      getCourseBlueprint: async (tenantId, reference) => {
+        const blueprint = await formalCourseBlueprints.getByReference(tenantId, reference);
+        return blueprint?.status === "APPROVED"
+          ? { reference: blueprint.reference, status: "APPROVED" }
+          : null;
+      },
+      getParameterSet: async (tenantId, reference) => {
+        const parameterSet = await formalAuthorityRuntime.parameterSets.getByReference(
+          tenantId,
+          reference
+        );
+        return parameterSet?.status === "APPROVED"
+          ? {
+              model_version_ref: parameterSet.model_version_ref,
+              reference: parameterSet.reference,
+              status: "APPROVED"
+            }
+          : null;
+      },
+      getRound: async (tenantId, runId, roundNo) => {
+        const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)).find(
+          (candidate) => candidate.round_no === roundNo && candidate.tenant_id === tenantId
+        );
+        return round
+          ? {
+              round_id: round.round_id,
+              round_no: round.round_no,
+              run_id: round.run_id,
+              tenant_id: round.tenant_id
+            }
+          : null;
+      },
+      getRun: async (tenantId, runId) => {
+        const run = await repositoryProvider.facade.runs.getRun(tenantId, runId);
+        return run
+          ? {
+              course_id: run.course_id,
+              parameter_set_id: run.parameter_set_id,
+              run_id: run.run_id,
+              scenario_package_id: run.scenario_package_id,
+              tenant_id: run.tenant_id
+            }
+          : null;
+      },
+      getScenario: async (tenantId, reference) => {
+        const scenario = await formalAuthorityRuntime.scenarioPackages.getByReference(
+          tenantId,
+          reference
+        );
+        return scenario?.status === "APPROVED"
+          ? {
+              parameter_set_reference: scenario.parameter_set_reference,
+              reference: scenario.reference,
+              status: "APPROVED"
+            }
+          : null;
+      },
+      listTeams: async (tenantId, runId) =>
+        (await repositoryProvider.facade.teams.listTeamsForRun(tenantId, runId)).map((team) => ({
+          course_id: team.course_id,
+          team_id: team.team_id,
+          tenant_id: team.tenant_id
+        }))
+    }
+  });
+  const resolveRegionalTransferSelection = async (
+    tenantId: string,
+    query: { courseId: string; runId: string; roundNo: number }
+  ): Promise<RegionalTransferCandidateInput> => {
+    const course = await repositoryProvider.facade.courses.getCourse(tenantId, query.courseId);
+    const run = await repositoryProvider.facade.runs.getRun(tenantId, query.runId);
+    const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, query.runId)).find(
+      (candidate) => candidate.round_no === query.roundNo && candidate.tenant_id === tenantId
+    );
+    const courseBlueprintBinding = courseBlueprintBindingStore.getForCourse(tenantId, query.courseId);
+    const courseAuthorityBinding = formalCourseAuthorityBindingStore.getForCourse(
+      tenantId,
+      query.courseId
+    );
+    if (
+      !course ||
+      !run ||
+      !round ||
+      !courseBlueprintBinding ||
+      !courseAuthorityBinding ||
+      run.course_id !== query.courseId ||
+      run.scenario_package_id !== courseAuthorityBinding.scenario_package_reference.scenario_package_id ||
+      run.parameter_set_id !== courseAuthorityBinding.parameter_set_reference.parameter_set_id
+    ) {
+      throw new RegionalTransferProductError("RT_EXACT_BINDING_REQUIRED");
+    }
+    const baseline = regionalTransferSupport.compiled_packages.find(
+      (item) => item.package_role === "ANCHOR"
+    );
+    const target = regionalTransferSupport.compiled_packages.find(
+      (item) => item.package_role === "SECOND_CITY"
+    );
+    if (!baseline || !target) throw new RegionalTransferProductError("RT_PACKAGE_NOT_FOUND");
+    return {
+      baseline_package_reference: {
+        digest: baseline.package_digest,
+        package_id: baseline.package_id,
+        version: baseline.version
+      },
+      baseline_region: baseline.display_name,
+      course_blueprint_reference: courseBlueprintBinding.course_blueprint_reference,
+      course_id: query.courseId,
+      parameter_set_reference: courseAuthorityBinding.parameter_set_reference,
+      round_no: query.roundNo,
+      run_id: query.runId,
+      scenario_package_reference: courseAuthorityBinding.scenario_package_reference,
+      target_package_reference: {
+        digest: target.package_digest,
+        package_id: target.package_id,
+        version: target.version
+      },
+      target_region: target.display_name
+    };
+  };
   const operatingWorld = new OperatingWorldService(
     undefined,
     createJsonOperatingWorldPersistence(store)
@@ -1125,6 +1278,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     }),
     w5GovernedModel,
     shanghaiFullVertical,
+    regionalTransfer,
+    resolveRegionalTransferSelection,
     operatingWorld,
     instructorAssets: new InstructorAssetRegistry(
       {
@@ -6343,6 +6498,29 @@ async function routeRequest(
       },
       requirePermission: (context, permission) =>
         requirePermission(context as RequestContext, permission),
+      sendJson
+    })
+  ) {
+    return;
+  }
+
+  if (
+    await handleRegionalTransferRoute(runtime.regionalTransfer, request, response, url, {
+      createContext: (incoming) => createContext(runtime, incoming),
+      createEnvelope: (context, data, message) =>
+        createEnvelope(context as RequestContext, data, message),
+      readJson,
+      requirePermission: (context, permission) =>
+        requirePermission(context as RequestContext, permission),
+      resolveSelection: runtime.resolveRegionalTransferSelection,
+      assertStudentCourseScope: async (tenantId, userId, teamId, courseId) => {
+        const team = await runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId);
+        return Boolean(
+          team &&
+            team.course_id === courseId &&
+            team.members.some((member) => member.user_id === userId)
+        );
+      },
       sendJson
     })
   ) {

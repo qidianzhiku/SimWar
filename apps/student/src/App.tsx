@@ -39,6 +39,7 @@ import { W3OfficialConsequenceLearningPanel } from "./W3OfficialConsequenceLearn
 const ShanghaiFullVerticalStudentPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { ProjectBriefPanel } from "./ProjectBriefPanel";
 import { GoldenJourneyWorkbench } from "./GoldenJourneyWorkbench";
+import { RegionalTransferProjection } from "./features/regional-transfer-projection";
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
 const ExecutiveStrategyLabProjection = lazy(() =>
@@ -70,6 +71,10 @@ const ESL_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("eslCandidateId") ?? "");
+const REGIONAL_TRANSFER_CANDIDATE_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("regionalTransferCandidateId") ?? "");
 function readStoredReauthContext(): ReauthContext | null {
   if (typeof window === "undefined") return null;
   try {
@@ -1063,6 +1068,16 @@ export function App() {
                 token={activeSession?.access_token ?? ""}
               />
             </Suspense>
+          </section>
+        ) : null}
+
+        {hasStudentSurface && REGIONAL_TRANSFER_CANDIDATE_ID ? (
+          <section id="student-regional-transfer" className="student-location" aria-label="区域迁移与场景演化">
+            <RegionalTransferProjection
+              apiBase={API_BASE}
+              candidateId={REGIONAL_TRANSFER_CANDIDATE_ID}
+              token={activeSession?.access_token ?? ""}
+            />
           </section>
         ) : null}
 

@@ -51,6 +51,7 @@ import type {
   W027RoleRoster,
   W5ScenarioDraft,
   OperatingWorldDraft,
+  RegionalTransferCandidate,
   W4StoreState
 } from "@simwar/shared-contracts";
 import type { ProjectAssignment, ProjectProfile } from "@simwar/shared-contracts";
@@ -155,6 +156,8 @@ export interface SimWarStoreSnapshot {
   w5GovernedModelDrafts?: W5ScenarioDraft[];
   /** SH-M3 Operating World governance-plane drafts; never part of settlement truth. */
   operatingWorldDrafts?: OperatingWorldDraft[];
+  /** RT-O1 governed regional-transfer candidates; never part of settlement truth. */
+  regionalTransferCandidates?: RegionalTransferCandidate[];
   w4: W4StoreState;
 }
 
@@ -166,6 +169,33 @@ export interface SimWarStore extends SimWarStoreSnapshot {
 /** Returns a copy so only the C4 registry can mutate instructor assets. */
 export function readInstructorAssetCollection(store: SimWarStore): InstructorAsset[] {
   return structuredClone(store.instructorAssets) as InstructorAsset[];
+}
+
+/** Returns a copy so only the RT-O1 product service can mutate regional-transfer candidates. */
+export function readRegionalTransferCandidateCollection(store: SimWarStore): RegionalTransferCandidate[] {
+  return structuredClone(store.regionalTransferCandidates ?? []);
+}
+
+/** Replaces one RT-O1 candidate in the existing JSON store with rollback on persistence failure. */
+export function persistRegionalTransferCandidate(
+  store: SimWarStore,
+  candidate: RegionalTransferCandidate
+): void {
+  const collection = store.regionalTransferCandidates ?? (store.regionalTransferCandidates = []);
+  const previous = structuredClone(collection);
+  const index = collection.findIndex(
+    (item) =>
+      item.scope.tenant_id === candidate.scope.tenant_id &&
+      item.candidate_ref.candidate_id === candidate.candidate_ref.candidate_id
+  );
+  if (index >= 0) collection[index] = structuredClone(candidate);
+  else collection.push(structuredClone(candidate));
+  try {
+    store.persist();
+  } catch (error) {
+    collection.splice(0, collection.length, ...previous);
+    throw error;
+  }
 }
 
 /** Replaces the C4 asset collection from the registry's private snapshot. */
@@ -825,6 +855,7 @@ function createSeedSnapshot(): SimWarStoreSnapshot {
     w027ResolutionAcknowledgements: [],
     w5GovernedModelDrafts: [],
     operatingWorldDrafts: [],
+    regionalTransferCandidates: [],
     w4: {
       states: [],
       decisions: [],
@@ -909,6 +940,7 @@ function toSnapshot(store: SimWarStore): SimWarStoreSnapshot {
     w027ResolutionAcknowledgements: store.w027ResolutionAcknowledgements,
     w5GovernedModelDrafts: store.w5GovernedModelDrafts ?? [],
     operatingWorldDrafts: store.operatingWorldDrafts ?? [],
+    regionalTransferCandidates: store.regionalTransferCandidates ?? [],
     w4: store.w4,
     counters: store.counters
   };
@@ -976,6 +1008,7 @@ function normalizeSnapshot(snapshot: SimWarStoreSnapshot): SimWarStoreSnapshot {
     w027ResolutionAcknowledgements: snapshot.w027ResolutionAcknowledgements ?? [],
     w5GovernedModelDrafts: snapshot.w5GovernedModelDrafts ?? [],
     operatingWorldDrafts: snapshot.operatingWorldDrafts ?? [],
+    regionalTransferCandidates: snapshot.regionalTransferCandidates ?? [],
     w4: {
       ...seed.w4,
       ...(snapshot.w4 ?? {}),
@@ -1818,7 +1851,8 @@ function assertSnapshotShape(
     "rubricVersions",
     "evidenceArtifacts",
     "evidenceProvenanceEdges",
-    "teacherConfirmationVersions"
+    "teacherConfirmationVersions",
+    "regionalTransferCandidates"
   ] as const) {
     if (Object.prototype.hasOwnProperty.call(value, field) && !Array.isArray(value[field])) {
       throw new StoreSnapshotError("store_snapshot_corrupted", snapshotPath);
