@@ -32,6 +32,7 @@ import { CourseReportBuilder } from "./CourseReportBuilder";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
+import { RegionalTransferAdminWorkbench } from "./features/regional-transfer-workbench";
 import { AuthorityBadge } from "@simwar/ui";
 import {
   AdminDeliveryTrustWorkspace,
@@ -1037,6 +1038,11 @@ export function App() {
             tenantId={session.user.tenant_id}
             token={session.access_token}
             surface="admin"
+          />
+          <RegionalTransferAdminWorkbench
+            apiBase={API_BASE}
+            tenantId={session.user.tenant_id}
+            token={session.access_token}
           />
           {lifecycleSurface}
         </section>

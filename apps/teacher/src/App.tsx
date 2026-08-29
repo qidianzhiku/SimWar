@@ -84,6 +84,7 @@ import { LearningDesignWorkbench } from "./LearningDesignWorkbench";
 import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
+import { RegionalTransferWorkbench } from "./features/regional-transfer-workbench";
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
 import { TeacherDebriefAdvisor } from "./TeacherDebriefAdvisor";
@@ -2562,6 +2563,16 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
             surface="teacher"
+          />
+        ) : null}
+        {isTeacher && session ? (
+          <RegionalTransferWorkbench
+            apiBase={API_BASE}
+            courseId={selectedRun?.course_id ?? selectedCourseId}
+            roundNo={selectedRound?.round_no}
+            runId={selectedRun?.run_id ?? selectedRunId}
+            tenantId={login.tenantId}
+            token={session.access_token}
           />
         ) : null}
       </TeacherLocation>
