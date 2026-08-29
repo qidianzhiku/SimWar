@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/ui" },
     { "path": "./packages/mod-support" },
+    { "path": "./packages/sh-next-support" },
     { "path": "./packages/shared-contracts" },
     { "path": "./services/agent-gateway" },
     { "path": "./services/simulation-core" },
