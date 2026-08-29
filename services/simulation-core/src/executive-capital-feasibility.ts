@@ -183,26 +183,46 @@ function validState(state: W4EnterpriseStateData): boolean {
   return finite(state.cash) && finite(state.capacity) && validCapitalPosition(state.capital);
 }
 
-function validCapitalActions(actions: W4CapitalAction[]): boolean {
+function validCapitalAction(action: W4CapitalAction): boolean {
+  return (
+    exactId(action.capital_action_id) &&
+    exactId(action.decision_id) &&
+    DIGEST.test(action.decision_payload_digest) &&
+    exactId(action.tenant_id) &&
+    exactId(action.course_id) &&
+    exactId(action.run_id) &&
+    exactId(action.team_id) &&
+    finite(action.principal) &&
+    action.principal >= 0 &&
+    Number.isSafeInteger(action.term_rounds) &&
+    action.term_rounds >= 1 &&
+    finite(action.rate_or_cost_bps) &&
+    action.rate_or_cost_bps >= 0 &&
+    finite(action.covenant_min_cash) &&
+    action.covenant_min_cash >= 0 &&
+    finite(action.fees) &&
+    action.fees >= 0
+  );
+}
+
+function capitalActionScopeMatches(
+  action: W4CapitalAction,
+  sourceScope: ESLFinanceStateScope
+): boolean {
+  return (
+    action.tenant_id === sourceScope.tenant_id &&
+    action.course_id === sourceScope.course_id &&
+    action.run_id === sourceScope.run_id &&
+    action.team_id === sourceScope.team_id
+  );
+}
+
+function validCapitalActions(
+  actions: W4CapitalAction[],
+  sourceScope: ESLFinanceStateScope
+): boolean {
   return actions.every(
-    (action) =>
-      exactId(action.capital_action_id) &&
-      exactId(action.decision_id) &&
-      DIGEST.test(action.decision_payload_digest) &&
-      exactId(action.tenant_id) &&
-      exactId(action.course_id) &&
-      exactId(action.run_id) &&
-      exactId(action.team_id) &&
-      finite(action.principal) &&
-      action.principal >= 0 &&
-      Number.isSafeInteger(action.term_rounds) &&
-      action.term_rounds >= 1 &&
-      finite(action.rate_or_cost_bps) &&
-      action.rate_or_cost_bps >= 0 &&
-      finite(action.covenant_min_cash) &&
-      action.covenant_min_cash >= 0 &&
-      finite(action.fees) &&
-      action.fees >= 0
+    (action) => validCapitalAction(action) && capitalActionScopeMatches(action, sourceScope)
   );
 }
 
@@ -591,7 +611,18 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
   ) {
     reasons.push("INVALID_STATE_DATA");
   }
-  if (!validCapitalActions(input.capital_actions)) reasons.push("INVALID_CAPITAL_ACTION_REFERENCE");
+  if (!validCapitalActions(input.capital_actions, input.source_state_scope)) {
+    reasons.push("INVALID_CAPITAL_ACTION_REFERENCE");
+  }
+  if (
+    input.capital_actions.some(
+      (action) =>
+        validCapitalAction(action) &&
+        !capitalActionScopeMatches(action, input.source_state_scope)
+    )
+  ) {
+    reasons.push("CAPITAL_ACTION_SCOPE_MISMATCH");
+  }
   if (reasons.length > 0) return unknownProjection(input, sourceRefs, reasons);
 
   const capital =

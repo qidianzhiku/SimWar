@@ -332,6 +332,43 @@ describe("projectESLFinance", () => {
     );
   });
 
+  it("fails closed when a capital action belongs to another state scope", () => {
+    const result = projectESLFinance(
+      input({
+        capital_actions: [
+          {
+            capital_action_id: "capital-action-foreign-scope",
+            decision_id: "decision-foreign-scope",
+            decision_payload_digest: "1".repeat(64),
+            tenant_id: "tenant-other",
+            course_id: "course-esl",
+            run_id: "run-esl",
+            team_id: "team-esl",
+            kind: "debt",
+            status: "active",
+            principal: 1_000,
+            term_rounds: 3,
+            rate_or_cost_bps: 500,
+            cost_source: "test",
+            covenant_min_cash: 600,
+            fees: 10,
+            obligation: "term_debt",
+            project_entry_id: null,
+            initiative_id: null,
+            policy_seam_id: null,
+            created_round_no: 2,
+            effective_round_no: 2,
+            maturity_round_no: 5
+          }
+        ]
+      })
+    );
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("CAPITAL_ACTION_SCOPE_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
   it("fails closed when path cash delta does not match the bound terminal state", () => {
     const result = projectESLFinance(input({ path_cash_delta: 249 }));
 
