@@ -2392,6 +2392,7 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
               changed_paths: changedPaths(currentOpeningState.state, currentClosingState.state)
             }
           : null;
+      const officialOutcome = currentOutcome ?? latestOutcome;
       const pathEvidence = {
         opening_vs_closing: openingVsClosing,
         initiative_timeline: scopedInitiatives.map((initiative) => ({
@@ -2414,17 +2415,17 @@ export function createEnterpriseStateStrategicEvolutionService(repository: W4Rep
           )
         },
         official_replay_path: {
-          official_outcome_id: currentOutcome?.official_outcome_id ?? null,
+          official_outcome_id: officialOutcome?.official_outcome_id ?? null,
           replay_ids: scopedEvidence
             .filter(
-              (evidence) => evidence.source_outcome_id === currentOutcome?.official_outcome_id
+              (evidence) => evidence.source_outcome_id === officialOutcome?.official_outcome_id
             )
             .map((evidence) => evidence.replay_id),
           path_digests: [
-            ...(currentOutcome ? [currentOutcome.settlement_digest] : []),
+            ...(officialOutcome ? [officialOutcome.settlement_digest] : []),
             ...scopedEvidence
               .filter(
-                (evidence) => evidence.source_outcome_id === currentOutcome?.official_outcome_id
+                (evidence) => evidence.source_outcome_id === officialOutcome?.official_outcome_id
               )
               .map((evidence) => evidence.path_digest)
           ],

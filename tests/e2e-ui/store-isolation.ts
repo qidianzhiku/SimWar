@@ -153,6 +153,32 @@ if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
       await import("./m4-multipath-counterfactual-transfer-fixture");
     await seedM4MultipathCounterfactualTransferFixture(PLAYWRIGHT_STORE_FILE);
   }
+  if (process.env.SIMWAR_PLAYWRIGHT_ESL === "true") {
+    const { seedM4MultipathCounterfactualTransferFixture } =
+      await import("./m4-multipath-counterfactual-transfer-fixture");
+    const { createP1Store } = await import("../../services/api/src/store");
+    await seedM4MultipathCounterfactualTransferFixture(PLAYWRIGHT_STORE_FILE);
+    const store = createP1Store({ persistenceFile: PLAYWRIGHT_STORE_FILE });
+    if (
+      !store.studentRoleAssignments.some((assignment) => assignment.run_id === "m4-browser-run")
+    ) {
+      store.studentRoleAssignments.push({
+        assignment_id: "m4-browser-assignment-ceo",
+        tenant_id: "tenant_demo",
+        course_id: "course_demo",
+        run_id: "m4-browser-run",
+        team_id: "team_alpha",
+        user_id: "usr_student",
+        role_key: "CEO",
+        role_template_id: "role-template-ceo",
+        status: "active",
+        source: "teacher_assigned",
+        assigned_by: "usr_teacher",
+        assigned_at: "2026-08-29T00:00:00.000Z"
+      });
+      store.persist();
+    }
+  }
   if (process.env.SIMWAR_PLAYWRIGHT_W3 === "true") {
     const { seedW3OfficialConsequenceFixture } = await import("./w3-official-consequence-fixture");
     seedW3OfficialConsequenceFixture(PLAYWRIGHT_STORE_FILE);

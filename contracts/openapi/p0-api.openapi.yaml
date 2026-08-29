@@ -5562,6 +5562,80 @@ paths:
         "403": { description: Admin or teacher audit authority required }
         "404": { description: Draft not found }
 
+  /api/v1/bff/teacher/esl/strategy-lab:
+    post:
+      operationId: MAIN_ESL_TEACHER_STRATEGY_LAB_CREATE_V1
+      summary: Compose an exact-context governed Executive Strategy Lab candidate.
+      description: Composes the official W4 baseline with bounded NON_OFFICIAL M4 alternatives. The operation is candidate-only and does not write settlement, REALIZED, canonical decision, or replay truth.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExecutiveStrategyLabRequest" }
+      responses:
+        "201":
+          description: Governed Executive Strategy Lab candidate.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExecutiveStrategyLabEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher or exact tenant/team scope denied }
+        "404": { description: Run not found }
+        "409": { description: Official baseline or bounded path admission failed }
+        "422": { description: Exact request binding invalid }
+
+  /api/v1/bff/teacher/esl/candidates/{candidateId}:
+    get:
+      operationId: MAIN_ESL_TEACHER_STRATEGY_LAB_GET_V1
+      summary: Read the Teacher-safe Executive Strategy Lab candidate.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher-safe candidate.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExecutiveStrategyLabEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope denied }
+        "404": { description: Candidate not found }
+
+  /api/v1/bff/student/esl/candidates/{candidateId}:
+    get:
+      operationId: MAIN_ESL_STUDENT_STRATEGY_LAB_GET_V1
+      summary: Read the role-safe Student Executive Strategy Lab projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidateId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Role-safe Student projection with private provenance removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExecutiveStrategyLabEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Student team or role assignment denied }
+        "404": { description: Candidate not found }
+
+  /api/v1/bff/admin/esl/audit:
+    get:
+      operationId: MAIN_ESL_ADMIN_STRATEGY_LAB_AUDIT_GET_V1
+      summary: Read tenant-safe Executive Strategy Lab provenance and no-write audit.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: candidate_id, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Tenant-safe audit projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExecutiveStrategyLabEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin audit authority denied }
+        "404": { description: Candidate not found }
+
   /api/v1/bff/teacher/o4/runs/{runId}/cross-round-dynamics:
     get:
       operationId: TEACHER_O4_CROSS_ROUND_DYNAMICS_GET_V1
@@ -8803,3 +8877,14 @@ components:
         run_id: { type: string, minLength: 1 }
         round_no: { type: integer, minimum: 1 }
         seed: { type: integer, minimum: 0 }
+    ExecutiveStrategyLabEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/executive-strategy-lab.v1.json" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ExecutiveStrategyLabRequest:
+      $ref: "../schemas/executive-strategy-lab.v1.json#/$defs/request"

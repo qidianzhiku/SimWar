@@ -48,6 +48,13 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
+const ExecutiveStrategyLabAuditPanel = lazy(() =>
+  import("./ExecutiveStrategyLabAuditPanel").then(
+    ({ ExecutiveStrategyLabAuditPanel: Component }) => ({
+      default: Component
+    })
+  )
+);
 const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
@@ -1150,6 +1157,15 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {session && hasAdminSummaryRole ? (
+          <Suspense fallback={<p className="muted">正在载入 Executive Strategy Lab audit…</p>}>
+            <ExecutiveStrategyLabAuditPanel
+              apiBase={API_BASE}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
           <W5GovernedModelAuditPanel

@@ -1,0 +1,53 @@
+{
+  "schema_version": "main-esl-o1.v1",
+  "candidate_id": "esl_candidate_fixture_002",
+  "surface": "teacher",
+  "exact_binding": {
+    "tenant_id": "tenant_demo",
+    "course_id": "course_demo",
+    "run_id": "run_demo",
+    "team_id": "team_alpha",
+    "round_id": "round_demo_1",
+    "round_no": 1,
+    "scenario_package_id": "scenario_demo",
+    "scenario_version": "1.0.0",
+    "parameter_set_id": "parameters_demo",
+    "parameter_set_version": "1.0.0",
+    "model_version_id": "model_demo",
+    "model_version": "1.0.0",
+    "model_artifact_id": "artifact_demo",
+    "model_artifact_version": "1.0.0",
+    "engine_id": "toy_logit_wellness_v1",
+    "plugin_ids": ["plugin_wellness_stub"],
+    "seed": 79
+  },
+  "official_baseline": {
+    "officiality": "OFFICIAL",
+    "outcome_id": "outcome_demo",
+    "state_ref": null,
+    "summary": "官方基线"
+  },
+  "paths": [],
+  "mechanisms": [],
+  "transfer": {
+    "status": "DRAFT",
+    "statement": "下一轮验证。",
+    "evidence_path_ids": [],
+    "applies_to_next_round": false
+  },
+  "source_refs": {
+    "official_outcome_id": "outcome_demo",
+    "o4_candidate_digest": null,
+    "m4_candidate_digests": []
+  },
+  "authority": {
+    "runtime_authority": "JSON_INTERNAL_ONLY",
+    "official_realized_source": "SIMULATION_CORE",
+    "writer_authority": "SOLE_W4_ENTERPRISE_STATE_SERVICE",
+    "formal_truth_write": false,
+    "settlement_write": false,
+    "replay_truth_write": false,
+    "provider": "ON"
+  },
+  "known_limits": ["invalid provider"]
+}

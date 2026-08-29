@@ -14,7 +14,7 @@ const playwrightStoreFile = resolvePlaywrightStoreFile();
 
 export default defineConfig({
   testDir: "./tests/e2e-ui",
-  testIgnore: /pr4-.*\.spec\.ts/,
+  testIgnore: /(?:pr4-.*|executive-strategy-lab)\.spec\.ts/,
   fullyParallel: false,
   timeout: 60_000,
   workers: 1,
@@ -66,6 +66,7 @@ export default defineConfig({
         SIMWAR_PLAYWRIGHT_M2P4: process.env.SIMWAR_PLAYWRIGHT_M2P4 ?? "false",
         SIMWAR_PLAYWRIGHT_M2P5: process.env.SIMWAR_PLAYWRIGHT_M2P5 ?? "false",
         SIMWAR_PLAYWRIGHT_M4: process.env.SIMWAR_PLAYWRIGHT_M4 ?? "false",
+        SIMWAR_PLAYWRIGHT_ESL: process.env.SIMWAR_PLAYWRIGHT_ESL ?? "false",
         SIMWAR_PLAYWRIGHT_TSS: process.env.SIMWAR_PLAYWRIGHT_TSS ?? "false",
         SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE:
           process.env.SIMWAR_PLAYWRIGHT_M2_PROJECT_AWARE ?? "false",

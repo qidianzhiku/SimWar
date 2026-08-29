@@ -138,6 +138,18 @@ body {
   text-decoration: none;
 }
 
+.esl-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.esl-form textarea,
+.esl-form input {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
 .golden-journey-card,
 .golden-journey-receipt {
   border: 1px solid #d8dfe2;

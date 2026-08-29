@@ -1012,3 +1012,14 @@ label {
   border-color: var(--sw-color-surface-border);
   border-radius: var(--sw-radius-card);
 }
+
+.esl-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.esl-form input {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
