@@ -488,6 +488,26 @@ function createStressRegimes(
     baseDebtService.amount !== null
       ? baseOperatingCashFlow.amount / (baseDebtService.amount + fundingAdjustment)
       : null;
+  const operatingShockDscr = (
+    id: "DEMAND_PRICE_DOWNSIDE" | "WORKFORCE_CAPACITY_PRESSURE"
+  ) => {
+    const factor = id === "DEMAND_PRICE_DOWNSIDE" ? 0.8 : 0.9;
+    if (
+      !demandShockBasisAvailable ||
+      baseOperatingCashFlow.status !== "KNOWN" ||
+      baseOperatingCashFlow.amount === null ||
+      baseDebtService.status !== "KNOWN" ||
+      baseDebtService.amount === null ||
+      baseDebtService.amount <= 0 ||
+      baseOperatingCashFlow.time_period !== baseDebtService.time_period
+    ) {
+      return null;
+    }
+    return (
+      scaled(baseOperatingCashFlow.amount, baseOperatingCashFlow.amount < 0 ? 1 + (1 - factor) : factor) /
+      baseDebtService.amount
+    );
+  };
   return [
     {
       id: "DEMAND_PRICE_DOWNSIDE" as const,
@@ -536,6 +556,27 @@ function createStressRegimes(
       (fundingAdjustment === null || (fundingAdjustment > 0 && fundingShockDscr === null));
     const fundingShockDscrBelowMinimum =
       id === "FUNDING_COVENANT_PRESSURE" && fundingShockDscr !== null && fundingShockDscr < 1;
+    const operatingDscr =
+      id === "DEMAND_PRICE_DOWNSIDE" || id === "WORKFORCE_CAPACITY_PRESSURE"
+        ? operatingShockDscr(id)
+        : null;
+    const zeroDebtService = baseDebtService.status === "KNOWN" && baseDebtService.amount === 0;
+    const operatingShockDscrBasisUnknown =
+      (id === "DEMAND_PRICE_DOWNSIDE" || id === "WORKFORCE_CAPACITY_PRESSURE") &&
+      !zeroDebtService &&
+      operatingDscr === null;
+    const operatingShockDscrBelowMinimum =
+      (id === "DEMAND_PRICE_DOWNSIDE" || id === "WORKFORCE_CAPACITY_PRESSURE") &&
+      operatingDscr !== null &&
+      operatingDscr < 1;
+    if (operatingShockDscrBasisUnknown) {
+      constraints.push(
+        id === "DEMAND_PRICE_DOWNSIDE"
+          ? "DEMAND_SHOCK_DSCR_BASIS_UNKNOWN"
+          : "WORKFORCE_SHOCK_DSCR_BASIS_UNKNOWN"
+      );
+    }
+    if (operatingShockDscrBelowMinimum) constraints.push("DSCR_BELOW_MINIMUM_COVERAGE");
     if (fundingShockDscrBasisUnknown) constraints.push("FUNDING_SHOCK_DSCR_BASIS_UNKNOWN");
     if (fundingShockDscrBelowMinimum) constraints.push("DSCR_BELOW_MINIMUM_COVERAGE");
     const whyNotFeasible: string[] = [];
@@ -553,6 +594,20 @@ function createStressRegimes(
     if (fundingShockDscrBelowMinimum) {
       whyNotFeasible.push("资金压力下债务服务覆盖率低于最低 1.0x 约束。");
     }
+    if (operatingShockDscrBasisUnknown) {
+      whyNotFeasible.push(
+        id === "DEMAND_PRICE_DOWNSIDE"
+          ? "需求压力下债务服务覆盖率基础不可判定。"
+          : "劳动力压力下债务服务覆盖率基础不可判定。"
+      );
+    }
+    if (operatingShockDscrBelowMinimum) {
+      whyNotFeasible.push(
+        id === "DEMAND_PRICE_DOWNSIDE"
+          ? "需求压力下债务服务覆盖率低于最低 1.0x 约束。"
+          : "劳动力压力下债务服务覆盖率低于最低 1.0x 约束。"
+      );
+    }
     if (!whyNotFeasible.length && baseFeasibility === "INFEASIBLE") {
       whyNotFeasible.push("基础情景已触发资本或现金约束，压力情景不得恢复为可行。");
     }
@@ -566,9 +621,10 @@ function createStressRegimes(
       liquidity_headroom: liquidity,
       covenant_status: covenant,
       feasibility:
-        fundingShockDscrBelowMinimum
+        operatingShockDscrBelowMinimum || fundingShockDscrBelowMinimum
           ? "INFEASIBLE"
-          : fundingShockDscrBasisUnknown && baseFeasibility !== "INFEASIBLE"
+          : (operatingShockDscrBasisUnknown || fundingShockDscrBasisUnknown) &&
+              baseFeasibility !== "INFEASIBLE"
             ? "UNKNOWN"
             : stressFeasibility(baseFeasibility, covenant, cash.status === "KNOWN"),
       binding_constraints: [...new Set(constraints)].sort(),
@@ -860,6 +916,11 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
           accountingRefs,
           accountingTimePeriod
         )
+      : capex.status === "KNOWN" &&
+          capex.amount === 0 &&
+          input.accounting_basis &&
+          input.accounting_basis.capital_budget === 0
+        ? basis(0, "RATIO", accountingRefs, accountingTimePeriod)
       : basis(
           null,
           "RATIO",

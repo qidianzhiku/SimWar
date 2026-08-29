@@ -428,6 +428,28 @@ describe("projectESLFinance", () => {
     );
   });
 
+  it("re-evaluates debt-service coverage under operating downside shocks", () => {
+    const result = projectESLFinance(
+      input({ accounting_basis: accounting({ operating_cash_flow: 42, amortization: 40 }) })
+    );
+
+    expect(result.dscr).toMatchObject({ ratio: 1.05, status: "KNOWN" });
+    const demandRegime = result.stress_regimes.find(
+      (regime) => regime.regime_id === "DEMAND_PRICE_DOWNSIDE"
+    );
+    const workforceRegime = result.stress_regimes.find(
+      (regime) => regime.regime_id === "WORKFORCE_CAPACITY_PRESSURE"
+    );
+
+    expect(demandRegime).toMatchObject({ feasibility: "INFEASIBLE" });
+    expect(demandRegime?.binding_constraints).toContain("DSCR_BELOW_MINIMUM_COVERAGE");
+    expect(demandRegime?.why_not_feasible).toContain(
+      "需求压力下债务服务覆盖率低于最低 1.0x 约束。"
+    );
+    expect(workforceRegime).toMatchObject({ feasibility: "INFEASIBLE" });
+    expect(workforceRegime?.binding_constraints).toContain("DSCR_BELOW_MINIMUM_COVERAGE");
+  });
+
   it("fails closed when a capital action belongs to another state scope", () => {
     const result = projectESLFinance(
       input({
@@ -658,6 +680,16 @@ describe("projectESLFinance", () => {
     expect(result.capital_budget_utilization.status).toBe("UNKNOWN");
     expect(result.feasibility).toBe("INFEASIBLE");
     expect(result.binding_constraints).toContain("CAPITAL_BUDGET_EXCEEDED");
+    expect(result.binding_constraints).not.toContain("CAPITAL_BUDGET_BASIS_UNKNOWN");
+  });
+
+  it("represents zero capex against a zero budget as known zero utilization", () => {
+    const result = projectESLFinance(
+      input({ accounting_basis: accounting({ capex: 0, capital_budget: 0 }) })
+    );
+
+    expect(result.capital_budget_utilization).toMatchObject({ amount: 0, status: "KNOWN" });
+    expect(result.feasibility).toBe("FEASIBLE");
     expect(result.binding_constraints).not.toContain("CAPITAL_BUDGET_BASIS_UNKNOWN");
   });
 
