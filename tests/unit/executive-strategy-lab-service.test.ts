@@ -276,7 +276,10 @@ describe("Executive Strategy Lab service", () => {
     const projection = await instance.getStudent(student, candidate.candidate_id);
     expect(projection.surface).toBe("student");
     expect(projection.student_projection?.role_key).toBe("CEO");
-    expect(projection.paths.every((path) => path.decision_ids.length === 0)).toBe(true);
+    expect(projection.paths.every((path) => !Object.hasOwn(path, "decision_ids"))).toBe(true);
+    expect(projection.paths.every((path) => path.finance_feasibility.official === false)).toBe(
+      true
+    );
     expect(projection.source_refs.m4_candidate_digests).toEqual([]);
     expect(projection.official_baseline.state_ref).toBeNull();
     expect(projection.official_baseline).not.toHaveProperty("state_summary");

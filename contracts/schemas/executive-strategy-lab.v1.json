@@ -18,7 +18,7 @@
     "known_limits"
   ],
   "properties": {
-    "schema_version": { "const": "main-esl-o1.v1" },
+    "schema_version": { "const": "main-esl-o2p.v1" },
     "candidate_id": { "$ref": "#/$defs/id" },
     "surface": { "enum": ["teacher", "student", "admin"] },
     "exact_binding": { "$ref": "#/$defs/exactBinding" },
@@ -27,7 +27,9 @@
       "type": "array",
       "minItems": 0,
       "maxItems": 3,
-      "items": { "$ref": "#/$defs/alternativePath" }
+      "items": {
+        "oneOf": [{ "$ref": "#/$defs/alternativePath" }, { "$ref": "#/$defs/studentPath" }]
+      }
     },
     "mechanisms": {
       "type": "array",
@@ -164,7 +166,8 @@
         "path_digest",
         "changed_paths",
         "outcome",
-        "mechanism_ids"
+        "mechanism_ids",
+        "finance_feasibility"
       ],
       "properties": {
         "path_id": { "$ref": "#/$defs/id" },
@@ -189,7 +192,8 @@
             "terminal_state_digest": { "$ref": "#/$defs/digest" }
           }
         },
-        "mechanism_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+        "mechanism_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "finance_feasibility": { "$ref": "#/$defs/financeProjection" }
       }
     },
     "mechanism": {
@@ -304,14 +308,23 @@
     "studentPath": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path_id", "label", "officiality", "path_digest", "changed_paths", "outcome"],
+      "required": [
+        "path_id",
+        "label",
+        "officiality",
+        "path_digest",
+        "changed_paths",
+        "outcome",
+        "finance_feasibility"
+      ],
       "properties": {
         "path_id": { "$ref": "#/$defs/id" },
         "label": { "type": "string", "minLength": 1 },
         "officiality": { "const": "NON_OFFICIAL" },
         "path_digest": { "$ref": "#/$defs/digest" },
         "changed_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "outcome": { "$ref": "#/$defs/alternativePath/properties/outcome" }
+        "outcome": { "$ref": "#/$defs/alternativePath/properties/outcome" },
+        "finance_feasibility": { "$ref": "#/$defs/financeStudentProjection" }
       }
     },
     "adminProjection": {
@@ -323,7 +336,8 @@
         "exact_binding",
         "source_refs",
         "officiality_counts",
-        "audit"
+        "audit",
+        "finance_models"
       ],
       "properties": {
         "surface": { "const": "admin" },
@@ -349,7 +363,287 @@
             "no_write": { "const": true },
             "recovery": { "const": "REPLAY_REQUEST_WITH_EXACT_BINDING" }
           }
+        },
+        "finance_models": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/financeModelAudit" }
         }
+      }
+    },
+    "financeBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "status", "unit", "currency", "time_period", "source_refs"],
+      "properties": {
+        "amount": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+        "status": { "enum": ["KNOWN", "UNKNOWN"] },
+        "unit": { "enum": ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] },
+        "currency": { "enum": ["SIMWAR_UNITS", "NOT_APPLICABLE", "UNKNOWN"] },
+        "time_period": { "enum": ["ROUND", "HORIZON"] },
+        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "unknown_reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "financeDisplayValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "status", "unit"],
+      "properties": {
+        "amount": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+        "status": { "enum": ["KNOWN", "UNKNOWN"] },
+        "unit": { "enum": ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] }
+      }
+    },
+    "financeModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_version_id",
+        "model_version",
+        "model_artifact_id",
+        "model_artifact_version",
+        "engine_id",
+        "parameter_set_id",
+        "parameter_set_version"
+      ],
+      "properties": {
+        "model_version_id": { "$ref": "#/$defs/id" },
+        "model_version": { "$ref": "#/$defs/id" },
+        "model_artifact_id": { "$ref": "#/$defs/id" },
+        "model_artifact_version": { "$ref": "#/$defs/id" },
+        "engine_id": { "$ref": "#/$defs/id" },
+        "parameter_set_id": { "$ref": "#/$defs/id" },
+        "parameter_set_version": { "$ref": "#/$defs/id" }
+      }
+    },
+    "financeDebt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal", "interest_paid", "amortization", "debt_service"],
+      "properties": {
+        "principal": { "$ref": "#/$defs/financeBasis" },
+        "interest_paid": { "$ref": "#/$defs/financeBasis" },
+        "amortization": { "$ref": "#/$defs/financeBasis" },
+        "debt_service": { "$ref": "#/$defs/financeBasis" }
+      }
+    },
+    "financeDscr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ratio", "status", "numerator", "denominator", "source_refs"],
+      "properties": {
+        "ratio": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
+        "status": { "enum": ["KNOWN", "UNKNOWN"] },
+        "numerator": { "$ref": "#/$defs/financeBasis" },
+        "denominator": { "$ref": "#/$defs/financeBasis" },
+        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "unknown_reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "financeStressRegime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regime_id",
+        "shock",
+        "cash_flow",
+        "liquidity_headroom",
+        "covenant_status",
+        "feasibility",
+        "binding_constraints",
+        "why_not_feasible"
+      ],
+      "properties": {
+        "regime_id": {
+          "enum": [
+            "DEMAND_PRICE_DOWNSIDE",
+            "WORKFORCE_CAPACITY_PRESSURE",
+            "FUNDING_COVENANT_PRESSURE"
+          ]
+        },
+        "shock": { "type": "string", "minLength": 1 },
+        "cash_flow": { "$ref": "#/$defs/financeBasis" },
+        "liquidity_headroom": { "$ref": "#/$defs/financeBasis" },
+        "covenant_status": { "enum": ["WITHIN_LIMIT", "BREACHED", "UNKNOWN"] },
+        "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "binding_constraints": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "why_not_feasible": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "financeStudentStressRegime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["regime_id", "covenant_status", "feasibility"],
+      "properties": {
+        "regime_id": {
+          "enum": [
+            "DEMAND_PRICE_DOWNSIDE",
+            "WORKFORCE_CAPACITY_PRESSURE",
+            "FUNDING_COVENANT_PRESSURE"
+          ]
+        },
+        "covenant_status": { "enum": ["WITHIN_LIMIT", "BREACHED", "UNKNOWN"] },
+        "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] }
+      }
+    },
+    "financeStudentProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official",
+        "role_safe",
+        "feasibility",
+        "cash_flow",
+        "liquidity_headroom",
+        "capital_tradeoff_summary",
+        "stress_regimes",
+        "excluded_fields"
+      ],
+      "properties": {
+        "official": { "const": false },
+        "role_safe": { "const": true },
+        "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "cash_flow": { "$ref": "#/$defs/financeDisplayValue" },
+        "liquidity_headroom": { "$ref": "#/$defs/financeDisplayValue" },
+        "capital_tradeoff_summary": { "type": "string", "minLength": 1 },
+        "stress_regimes": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/financeStudentStressRegime" }
+        },
+        "excluded_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "financeValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": { "enum": ["VALID", "UNKNOWN"] },
+        "reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "financeNoWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enterprise_state",
+        "settlement_result",
+        "score",
+        "rank",
+        "replay_truth",
+        "canonical_decision",
+        "official_parameter_set",
+        "formal_writer",
+        "provider_invoked"
+      ],
+      "properties": {
+        "enterprise_state": { "const": false },
+        "settlement_result": { "const": false },
+        "score": { "const": false },
+        "rank": { "const": false },
+        "replay_truth": { "const": false },
+        "canonical_decision": { "const": false },
+        "official_parameter_set": { "const": false },
+        "formal_writer": { "const": false },
+        "provider_invoked": { "const": false }
+      }
+    },
+    "financeProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "official",
+        "validation",
+        "no_write",
+        "model",
+        "input_digest",
+        "source_refs",
+        "capex",
+        "opex",
+        "capital",
+        "debt",
+        "cash_flow",
+        "liquidity_headroom",
+        "dscr",
+        "capital_budget_utilization",
+        "covenant_status",
+        "feasibility",
+        "binding_constraints",
+        "why_not_feasible",
+        "stress_regimes",
+        "assumptions",
+        "uncertainty",
+        "known_limits",
+        "student_view"
+      ],
+      "properties": {
+        "official": { "const": false },
+        "validation": { "$ref": "#/$defs/financeValidation" },
+        "no_write": { "$ref": "#/$defs/financeNoWrite" },
+        "model": { "$ref": "#/$defs/financeModel" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "capex": { "$ref": "#/$defs/financeBasis" },
+        "opex": { "$ref": "#/$defs/financeBasis" },
+        "capital": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["debt_principal", "equity_proceeds", "working_capital"],
+          "properties": {
+            "debt_principal": { "$ref": "#/$defs/financeBasis" },
+            "equity_proceeds": { "$ref": "#/$defs/financeBasis" },
+            "working_capital": { "$ref": "#/$defs/financeBasis" }
+          }
+        },
+        "debt": { "$ref": "#/$defs/financeDebt" },
+        "cash_flow": { "$ref": "#/$defs/financeBasis" },
+        "liquidity_headroom": { "$ref": "#/$defs/financeBasis" },
+        "dscr": { "$ref": "#/$defs/financeDscr" },
+        "capital_budget_utilization": { "$ref": "#/$defs/financeBasis" },
+        "covenant_status": { "enum": ["WITHIN_LIMIT", "BREACHED", "UNKNOWN"] },
+        "feasibility": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "binding_constraints": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "why_not_feasible": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "stress_regimes": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/financeStressRegime" }
+        },
+        "assumptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "uncertainty": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "known_limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "student_view": { "$ref": "#/$defs/financeStudentProjection" }
+      }
+    },
+    "financeModelAudit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_id", "model", "input_digest", "source_refs"],
+      "properties": {
+        "path_id": { "$ref": "#/$defs/id" },
+        "model": { "$ref": "#/$defs/financeModel" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
     "request": {

@@ -107,6 +107,19 @@ export function ExecutiveStrategyLabAuditPanel({
               )}
             </pre>
           </details>
+          <details>
+            <summary>查看财务模型 provenance</summary>
+            <ul>
+              {result.admin_projection.finance_models.map((model) => (
+                <li key={model.path_id}>
+                  <code>{model.path_id}</code> · {model.model.model_version} · input{" "}
+                  {model.input_digest}
+                  <br />
+                  source refs: {model.source_refs.join("、")}
+                </li>
+              ))}
+            </ul>
+          </details>
         </div>
       ) : null}
     </section>

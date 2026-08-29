@@ -283,13 +283,16 @@ describe("Executive Strategy Lab real BFF", () => {
       expect(studentResponse.status).toBe(200);
       const student = (await studentResponse.json()) as ApiEnvelope<{
         surface: string;
-        paths: Array<{ decision_ids: string[] }>;
+        paths: Array<{ finance_feasibility: { official: boolean } }>;
         student_projection?: { role_safe: boolean; role_key?: string };
       }>;
       expect(student.data.surface).toBe("student");
       expect(student.data.student_projection?.role_safe).toBe(true);
       expect(student.data.student_projection?.role_key).toBe("CEO");
-      expect(student.data.paths.every((path) => path.decision_ids.length === 0)).toBe(true);
+      expect(student.data.paths.every((path) => !Object.hasOwn(path, "decision_ids"))).toBe(true);
+      expect(student.data.paths.every((path) => path.finance_feasibility.official === false)).toBe(
+        true
+      );
       expect(JSON.stringify(student.data)).not.toContain("never expose");
 
       const adminResponse = await fetch(

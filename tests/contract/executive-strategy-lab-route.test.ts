@@ -34,7 +34,7 @@ function response() {
 }
 
 const candidate: ESLResponse = {
-  schema_version: "main-esl-o1.v1",
+  schema_version: "main-esl-o2p.v1",
   candidate_id: "esl_candidate_1234567890abcdef",
   surface: "teacher",
   exact_binding: {

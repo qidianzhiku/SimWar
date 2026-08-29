@@ -1,5 +1,5 @@
 {
-  "schema_version": "main-esl-o1.v1",
+  "schema_version": "main-esl-o2p.v1",
   "candidate_id": "esl_candidate_fixture_001",
   "surface": "teacher",
   "exact_binding": {
@@ -24,87 +24,21 @@
   "official_baseline": {
     "officiality": "OFFICIAL",
     "outcome_id": "outcome_demo",
-    "state_ref": {
-      "tenant_id": "tenant_demo",
-      "course_id": "course_demo",
-      "run_id": "run_demo",
-      "team_id": "team_alpha",
-      "round_id": "round_demo_1",
-      "enterprise_state_id": "state_demo_close",
-      "version": 1,
-      "state_digest": "b000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "summary": "官方 W4 基线已绑定到精确运行上下文。",
-    "state_summary": {
-      "cash": 900,
-      "capacity": 100,
-      "product_line_count": 1,
-      "operating_unit_count": 0,
-      "project_count": 0
-    },
-    "changed_paths": []
+    "state_ref": null,
+    "summary": "官方 W4 基线已绑定到精确运行上下文。"
   },
-  "paths": [
-    {
-      "path_id": "path_a",
-      "label": "优先投资",
-      "officiality": "NON_OFFICIAL",
-      "decision_ids": ["decision_a"],
-      "path_digest": "c000000000000000000000000000000000000000000000000000000000000000",
-      "changed_paths": ["state.cash"],
-      "outcome": {
-        "cash_delta": -100,
-        "capacity_delta": 10,
-        "project_count_delta": 1,
-        "terminal_state_digest": "d000000000000000000000000000000000000000000000000000000000000000"
-      },
-      "mechanism_ids": ["esl_mechanism_cash"]
-    },
-    {
-      "path_id": "path_b",
-      "label": "现金保护",
-      "officiality": "NON_OFFICIAL",
-      "decision_ids": ["decision_b"],
-      "path_digest": "e000000000000000000000000000000000000000000000000000000000000000",
-      "changed_paths": ["state.capacity"],
-      "outcome": {
-        "cash_delta": -50,
-        "capacity_delta": 0,
-        "project_count_delta": 0,
-        "terminal_state_digest": "f000000000000000000000000000000000000000000000000000000000000000"
-      },
-      "mechanism_ids": ["esl_mechanism_capacity"]
-    }
-  ],
-  "mechanisms": [
-    {
-      "mechanism_id": "esl_mechanism_cash",
-      "label": "state.cash",
-      "explanation": "观察到的现金差异，不构成因果证明。",
-      "evidence_path_ids": ["path_a"],
-      "uncertainty": "OBSERVED_DIFFERENTIAL_ONLY"
-    },
-    {
-      "mechanism_id": "esl_mechanism_capacity",
-      "label": "state.capacity",
-      "explanation": "观察到的容量差异，不构成因果证明。",
-      "evidence_path_ids": ["path_b"],
-      "uncertainty": "OBSERVED_DIFFERENTIAL_ONLY"
-    }
-  ],
+  "paths": [],
+  "mechanisms": [],
   "transfer": {
     "status": "DRAFT",
     "statement": "下一轮验证服务质量与现金缓冲的平衡。",
-    "evidence_path_ids": ["path_a", "path_b"],
+    "evidence_path_ids": [],
     "applies_to_next_round": false
   },
   "source_refs": {
     "official_outcome_id": "outcome_demo",
     "o4_candidate_digest": null,
-    "m4_candidate_digests": [
-      "c000000000000000000000000000000000000000000000000000000000000000",
-      "e000000000000000000000000000000000000000000000000000000000000000"
-    ]
+    "m4_candidate_digests": []
   },
   "authority": {
     "runtime_authority": "JSON_INTERNAL_ONLY",
@@ -115,23 +49,7 @@
     "replay_truth_write": false,
     "provider": "OFF"
   },
-  "known_limits": ["NON_OFFICIAL 路径仅为确定性差异，不构成因果证明。"],
-  "teacher_projection": {
-    "surface": "teacher",
-    "available_actions": ["COMPARE_NON_OFFICIAL_PATHS"],
-    "official_baseline": {
-      "officiality": "OFFICIAL",
-      "outcome_id": "outcome_demo",
-      "state_ref": null,
-      "summary": "官方基线"
-    },
-    "paths": [],
-    "mechanisms": [],
-    "transfer": {
-      "status": "DRAFT",
-      "statement": "下一轮验证。",
-      "evidence_path_ids": [],
-      "applies_to_next_round": false
-    }
-  }
+  "known_limits": [
+    "fixture deliberately contains no alternative path; the dedicated finance fixture and unit tests cover the known finance projection."
+  ]
 }

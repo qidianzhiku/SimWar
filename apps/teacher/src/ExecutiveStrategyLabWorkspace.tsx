@@ -1,5 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { ESLExactBinding, ESLPathRequest, ESLResponse } from "@simwar/shared-contracts";
+import type {
+  ESLExactBinding,
+  ESLFinanceBasis,
+  ESLFinanceProjection,
+  ESLPathRequest,
+  ESLResponse
+} from "@simwar/shared-contracts";
 
 export interface ExecutiveStrategyLabWorkspaceProps {
   apiBase: string;
@@ -18,6 +24,75 @@ interface M4PathEnvelope {
   message?: string;
   data?: { paths?: ESLPathRequest[] };
   error?: { message?: string; code?: string };
+}
+
+function financeValue(value: ESLFinanceBasis): string {
+  if (value.status === "UNKNOWN" || value.amount === null) {
+    return `UNKNOWN（${value.unknown_reason ?? "缺少可验证基础"}）`;
+  }
+  return `${value.amount} ${value.unit} · ${value.currency} · ${value.time_period}`;
+}
+
+function FinanceFeasibilityCard({ finance }: { finance: ESLFinanceProjection }) {
+  return (
+    <details className="esl-finance-card">
+      <summary>财务可行性：{finance.feasibility}</summary>
+      <dl className="esl-binding-list">
+        <div>
+          <dt>现金流</dt>
+          <dd>{financeValue(finance.cash_flow)}</dd>
+        </div>
+        <div>
+          <dt>流动性余量</dt>
+          <dd>{financeValue(finance.liquidity_headroom)}</dd>
+        </div>
+        <div>
+          <dt>资本预算利用率</dt>
+          <dd>{financeValue(finance.capital_budget_utilization)}</dd>
+        </div>
+        <div>
+          <dt>DSCR 分子</dt>
+          <dd>{financeValue(finance.dscr.numerator)}</dd>
+        </div>
+        <div>
+          <dt>DSCR 分母</dt>
+          <dd>{financeValue(finance.dscr.denominator)}</dd>
+        </div>
+        <div>
+          <dt>DSCR</dt>
+          <dd>
+            {finance.dscr.status === "KNOWN" && finance.dscr.ratio !== null
+              ? finance.dscr.ratio
+              : `UNKNOWN（${finance.dscr.unknown_reason ?? "缺少可验证基础"}）`}
+          </dd>
+        </div>
+        <div>
+          <dt>契约状态</dt>
+          <dd>{finance.covenant_status}</dd>
+        </div>
+      </dl>
+      <p>
+        <strong>绑定约束：</strong>
+        {finance.binding_constraints.join("、") || "无"}
+      </p>
+      <p>
+        <strong>不可行原因：</strong>
+        {finance.why_not_feasible.join("、") || "无"}
+      </p>
+      <h6>确定性压力情景（非正式结算）</h6>
+      <ul>
+        {finance.stress_regimes.map((regime) => (
+          <li key={regime.regime_id}>
+            {regime.regime_id}：{regime.feasibility} / {regime.covenant_status}；现金流{" "}
+            {financeValue(regime.cash_flow)}
+          </li>
+        ))}
+      </ul>
+      <p className="lifecycle-status">
+        模型：{finance.model.model_version}；输入摘要：{finance.input_digest}
+      </p>
+    </details>
+  );
 }
 
 export function ExecutiveStrategyLabWorkspace({
@@ -128,7 +203,9 @@ export function ExecutiveStrategyLabWorkspace({
           <h3>Executive Strategy Lab</h3>
         </div>
         <span className="technical-compatibility">
-          {pathsBusy ? "discovering exact alternatives" : "official baseline + bounded alternatives"}
+          {pathsBusy
+            ? "discovering exact alternatives"
+            : "official baseline + bounded alternatives"}
         </span>
       </div>
       <p className="lifecycle-boundary">
@@ -157,12 +234,12 @@ export function ExecutiveStrategyLabWorkspace({
           />
         </label>
         <p className="lifecycle-status">
-          将比较：{availablePaths?.map((path) => path.label).join("、") ?? "点击按钮后发现当前 run 的真实路径"}。
+          将比较：
+          {availablePaths?.map((path) => path.label).join("、") ??
+            "点击按钮后发现当前 run 的真实路径"}
+          。
         </p>
-        <button
-          type="submit"
-          disabled={busy || pathsBusy || !hypothesis.trim()}
-        >
+        <button type="submit" disabled={busy || pathsBusy || !hypothesis.trim()}>
           {pathsBusy
             ? "正在发现真实替代路径…"
             : busy
@@ -206,6 +283,7 @@ export function ExecutiveStrategyLabWorkspace({
                 <p>
                   现金差异：{path.outcome.cash_delta}；容量差异：{path.outcome.capacity_delta}
                 </p>
+                <FinanceFeasibilityCard finance={path.finance_feasibility} />
               </article>
             ))}
           </div>

@@ -1,6 +1,10 @@
 import type { W4StateRef } from "./w4-enterprise-state.js";
+import type {
+  ESLFinanceProjection,
+  ESLFinanceStudentProjection
+} from "./executive-strategy-lab-finance.js";
 
-export const ESL_SCHEMA_VERSION = "main-esl-o1.v1" as const;
+export const ESL_SCHEMA_VERSION = "main-esl-o2p.v1" as const;
 
 export type ESLSurface = "teacher" | "student" | "admin";
 
@@ -67,6 +71,14 @@ export interface ESLAlternativePath {
     terminal_state_digest: string;
   };
   mechanism_ids: string[];
+  finance_feasibility: ESLFinanceProjection;
+}
+
+export interface ESLStudentAlternativePath extends Omit<
+  ESLAlternativePath,
+  "decision_ids" | "mechanism_ids" | "finance_feasibility"
+> {
+  finance_feasibility: ESLFinanceStudentProjection;
 }
 
 export interface ESLMechanism {
@@ -114,12 +126,7 @@ export interface ESLStudentProjection {
   role_safe: true;
   role_key?: string;
   official_baseline: Pick<ESLOfficialBaseline, "officiality" | "outcome_id" | "summary">;
-  paths: Array<
-    Pick<
-      ESLAlternativePath,
-      "path_id" | "label" | "officiality" | "path_digest" | "changed_paths" | "outcome"
-    >
-  >;
+  paths: ESLStudentAlternativePath[];
   transfer: ESLTransferHypothesis;
   excluded_fields: string[];
 }
@@ -136,6 +143,12 @@ export interface ESLAdminProjection {
     no_write: true;
     recovery: "REPLAY_REQUEST_WITH_EXACT_BINDING";
   };
+  finance_models: Array<{
+    path_id: string;
+    model: import("./executive-strategy-lab-finance.js").ESLFinanceModelIdentity;
+    input_digest: string;
+    source_refs: string[];
+  }>;
 }
 
 export interface ESLResponse {
@@ -144,7 +157,7 @@ export interface ESLResponse {
   surface: ESLSurface;
   exact_binding: ESLExactBinding;
   official_baseline: ESLOfficialBaseline;
-  paths: ESLAlternativePath[];
+  paths: Array<ESLAlternativePath | ESLStudentAlternativePath>;
   mechanisms: ESLMechanism[];
   transfer: ESLTransferHypothesis;
   source_refs: ESLSourceRefs;
@@ -277,7 +290,9 @@ export function isESLResponse(value: unknown): value is ESLResponse {
         exactId(item.path_id) &&
         item.officiality === "NON_OFFICIAL" &&
         typeof item.path_digest === "string" &&
-        /^[a-f0-9]{64}$/.test(item.path_digest)
+        /^[a-f0-9]{64}$/.test(item.path_digest) &&
+        Boolean(item.finance_feasibility) &&
+        (item.finance_feasibility as Record<string, unknown>).official === false
       );
     }) &&
     Array.isArray(response.mechanisms) &&

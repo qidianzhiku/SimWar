@@ -7,6 +7,7 @@ import {
   type ESLAlternativePath,
   type ESLAuthority,
   type ESLExactBinding,
+  type ESLStudentAlternativePath,
   type ESLMechanism,
   type ESLOfficialBaseline,
   type ESLRequest,
@@ -19,8 +20,9 @@ import {
   type W4ProjectionBase,
   type W4ScopeContext
 } from "@simwar/shared-contracts";
-import type { M4MultipathCounterfactualResponse } from "@simwar/shared-contracts";
+import type { M4TeacherPathProjection } from "@simwar/shared-contracts";
 import type { O4CrossRoundDynamicsRequest } from "./o4-cross-round-dynamics.js";
+import { projectESLFinance } from "./executive-strategy-lab-finance.js";
 import type { M4MultipathCounterfactualTransferService } from "./m4-multipath-counterfactual-transfer.js";
 import type { RoleWorkflowRepositoryPort } from "./repository-ports.js";
 
@@ -30,7 +32,7 @@ const KNOWN_LIMITS = [
   "WANT/CAN/REALIZED remain separate; ESL never writes SettlementResult, REALIZED, canonical Decision, official EnterpriseState, or replay truth.",
   "JSON_INTERNAL_ONLY is the active runtime authority; Provider is OFF and PostgreSQL/RLS is not activated.",
   "NON_OFFICIAL paths describe bounded observed differentials and do not prove causal attribution.",
-  "The MOD support package supplied for this mission was not a readable ZIP; its MJP is source-reconciled with limits rather than package-proven.",
+  "The supplied mission ZIP was structurally readable; historical ESL-O2 finance semantics are not in current master and remain source-reconciled with explicit limits.",
   "Exact-context recovery is a deterministic request replay; no durable ESL-specific store or writer is introduced.",
   "Human Validation, Pilot, Production, and automatic successor require separate lifecycle evidence and are not implied by this candidate."
 ] as const;
@@ -68,8 +70,6 @@ type RoundReference = {
   round_id: string;
   round_no: number;
 };
-type M4Paths = Extract<M4MultipathCounterfactualResponse["paths"], readonly unknown[]>;
-
 export interface ExecutiveStrategyLabServiceDependencies {
   readonly getRun: (tenantId: string, runId: string) => Promise<RunReference | null>;
   readonly getRound: (
@@ -167,22 +167,36 @@ function officialBaseline(projection: W4ProjectionBase): ESLOfficialBaseline {
   };
 }
 
-function pathFromM4(path: M4Paths[number]): ESLAlternativePath {
-  const candidate = path as {
-    path_id: string;
-    label: string;
-    officiality: "NON_OFFICIAL";
-    decision_ids: string[];
-    path_digest: string;
-    mechanism_differential: { changed_paths: string[] };
-    outcome_differential: {
-      cash_delta: number;
-      capacity_delta: number;
-      project_count_delta: number;
-      terminal_state_digest: string;
-    };
-  };
+function pathFromM4(
+  candidate: M4TeacherPathProjection,
+  projection: W4ProjectionBase,
+  binding: ESLExactBinding
+): ESLAlternativePath {
   const changedPaths = [...candidate.mechanism_differential.changed_paths].sort();
+  const terminalRound = candidate.rounds.at(-1);
+  const sourceStateRef = projection.closing_state_ref ?? projection.opening_state_ref;
+  if (!projection.state || !sourceStateRef) {
+    throw new ExecutiveStrategyLabError("ESL_OFFICIAL_BASELINE_REQUIRED");
+  }
+  const finance = projectESLFinance({
+    path_id: candidate.path_id,
+    path_digest: candidate.path_digest,
+    source_state_ref: clone(sourceStateRef),
+    source_state: clone(projection.state),
+    terminal_state_ref: terminalRound?.closing_state_ref ?? null,
+    terminal_state: terminalRound?.closing_state ?? null,
+    path_cash_delta: candidate.outcome_differential.cash_delta,
+    capital_actions: clone(projection.capital_actions),
+    model: {
+      model_version_id: binding.model_version_id,
+      model_version: binding.model_version,
+      model_artifact_id: binding.model_artifact_id,
+      model_artifact_version: binding.model_artifact_version,
+      engine_id: binding.engine_id,
+      parameter_set_id: binding.parameter_set_id,
+      parameter_set_version: binding.parameter_set_version
+    }
+  });
   return {
     path_id: candidate.path_id,
     label: candidate.label,
@@ -198,7 +212,8 @@ function pathFromM4(path: M4Paths[number]): ESLAlternativePath {
     },
     mechanism_ids: changedPaths.map(
       (changedPath) => `esl_mechanism_${digest(changedPath).slice(0, 12)}`
-    )
+    ),
+    finance_feasibility: finance
   };
 }
 
@@ -243,7 +258,18 @@ function transfer(request: ESLRequest): ESLTransferHypothesis {
 }
 
 function redactedStudent(response: ESLResponse, roleKey: string | undefined): ESLResponse {
-  const safePaths = response.paths.map(({ decision_ids: _decisionIds, ...path }) => path);
+  const safePaths: ESLStudentAlternativePath[] = response.paths.map((path) => {
+    const fullPath = path as ESLAlternativePath;
+    return {
+      path_id: fullPath.path_id,
+      label: fullPath.label,
+      officiality: fullPath.officiality,
+      path_digest: fullPath.path_digest,
+      changed_paths: [...fullPath.changed_paths],
+      outcome: clone(fullPath.outcome),
+      finance_feasibility: clone(fullPath.finance_feasibility.student_view)
+    };
+  });
   const student: ESLStudentProjection = {
     surface: "student",
     role_safe: true,
@@ -275,7 +301,7 @@ function redactedStudent(response: ESLResponse, roleKey: string | undefined): ES
       state_ref: null,
       summary: response.official_baseline.summary
     },
-    paths: safePaths.map((path) => ({ ...path, decision_ids: [] })),
+    paths: safePaths,
     mechanisms: [],
     transfer: clone(response.transfer),
     source_refs: { official_outcome_id: null, o4_candidate_digest: null, m4_candidate_digests: [] },
@@ -298,7 +324,16 @@ function redactedAdmin(response: ESLResponse, actorId: string): ESLResponse {
       generated_by: actorId,
       no_write: true,
       recovery: "REPLAY_REQUEST_WITH_EXACT_BINDING"
-    }
+    },
+    finance_models: response.paths.map((path) => {
+      const finance = (path as ESLAlternativePath).finance_feasibility;
+      return {
+        path_id: path.path_id,
+        model: clone(finance.model),
+        input_digest: finance.input_digest,
+        source_refs: [...finance.source_refs]
+      };
+    })
   };
   const result: ESLResponse = {
     ...clone(response),
@@ -365,7 +400,9 @@ export class ExecutiveStrategyLabService {
       },
       "teacher"
     );
-    const paths = m4.paths.map(pathFromM4);
+    const paths = m4.paths.map((path) =>
+      pathFromM4(path as M4TeacherPathProjection, projection, request.exact_binding)
+    );
     if (paths.length < 2 || paths.length > 3) {
       throw new ExecutiveStrategyLabError("ESL_PATHS_REQUIRED");
     }
@@ -392,10 +429,7 @@ export class ExecutiveStrategyLabService {
     const sourceRefs: ESLSourceRefs = {
       official_outcome_id: baseline.outcome_id,
       o4_candidate_digest: o4CandidateDigest,
-      m4_candidate_digests: [
-        m4.exact_binding.source_outcome_id,
-        ...paths.map((path) => path.path_digest)
-      ]
+      m4_candidate_digests: paths.map((path) => path.path_digest)
     };
     const response: ESLResponse = {
       schema_version: ESL_SCHEMA_VERSION,
@@ -408,7 +442,10 @@ export class ExecutiveStrategyLabService {
       transfer: transfer(request),
       source_refs: sourceRefs,
       authority: authority(),
-      known_limits: [...KNOWN_LIMITS]
+      known_limits: [
+        ...KNOWN_LIMITS,
+        ...new Set(paths.flatMap((path) => path.finance_feasibility.known_limits))
+      ]
     };
     const teacher: ESLTeacherProjection = {
       surface: "teacher",
@@ -416,6 +453,7 @@ export class ExecutiveStrategyLabService {
         "SELECT_OFFICIAL_BASELINE",
         "COMPARE_NON_OFFICIAL_PATHS",
         "INSPECT_MECHANISM_AND_LIMITS",
+        "INSPECT_FINANCE_FEASIBILITY_AND_STRESS",
         "FORM_TRANSFER_HYPOTHESIS"
       ],
       official_baseline: clone(baseline),

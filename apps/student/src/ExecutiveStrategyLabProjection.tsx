@@ -75,6 +75,24 @@ export function ExecutiveStrategyLabProjection({
                 <p>
                   现金差异：{path.outcome.cash_delta}；容量差异：{path.outcome.capacity_delta}
                 </p>
+                <p>
+                  <strong>资本可行性：</strong>
+                  {path.finance_feasibility.feasibility}
+                </p>
+                <p>{path.finance_feasibility.capital_tradeoff_summary}</p>
+                <p>
+                  <strong>可用现金余量：</strong>
+                  {path.finance_feasibility.liquidity_headroom.status === "KNOWN"
+                    ? `${path.finance_feasibility.liquidity_headroom.amount ?? "UNKNOWN"} ${path.finance_feasibility.liquidity_headroom.unit}`
+                    : "UNKNOWN（当前资本基础不足）"}
+                </p>
+                <ul>
+                  {path.finance_feasibility.stress_regimes.map((regime) => (
+                    <li key={regime.regime_id}>
+                      {regime.regime_id}：{regime.feasibility} / {regime.covenant_status}
+                    </li>
+                  ))}
+                </ul>
               </article>
             ))}
           </div>

@@ -1,0 +1,291 @@
+{
+  "official": false,
+  "validation": { "status": "VALID", "reasons": [] },
+  "no_write": {
+    "enterprise_state": false,
+    "settlement_result": false,
+    "score": false,
+    "rank": false,
+    "replay_truth": false,
+    "canonical_decision": false,
+    "official_parameter_set": false,
+    "formal_writer": false,
+    "provider_invoked": false
+  },
+  "model": {
+    "model_version_id": "model_demo",
+    "model_version": "1.0.0",
+    "model_artifact_id": "artifact_demo",
+    "model_artifact_version": "1.0.0",
+    "engine_id": "json-internal-esl-finance",
+    "parameter_set_id": "parameters_demo",
+    "parameter_set_version": "1.0.0"
+  },
+  "input_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_refs": [
+    "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "capex": {
+    "amount": 100,
+    "status": "KNOWN",
+    "unit": "SIMWAR_CURRENCY",
+    "currency": "SIMWAR_UNITS",
+    "time_period": "HORIZON",
+    "source_refs": ["accounting:accounting_demo"]
+  },
+  "opex": {
+    "amount": 50,
+    "status": "KNOWN",
+    "unit": "SIMWAR_CURRENCY",
+    "currency": "SIMWAR_UNITS",
+    "time_period": "HORIZON",
+    "source_refs": ["accounting:accounting_demo"]
+  },
+  "capital": {
+    "debt_principal": {
+      "amount": 400,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "equity_proceeds": {
+      "amount": 800,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "working_capital": {
+      "amount": 500,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "ROUND",
+      "source_refs": [
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    }
+  },
+  "debt": {
+    "principal": {
+      "amount": 400,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "interest_paid": {
+      "amount": 20,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "amortization": {
+      "amount": 40,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": ["accounting:accounting_demo"]
+    },
+    "debt_service": {
+      "amount": 60,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "accounting:accounting_demo",
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    }
+  },
+  "cash_flow": {
+    "amount": 250,
+    "status": "KNOWN",
+    "unit": "SIMWAR_CURRENCY",
+    "currency": "SIMWAR_UNITS",
+    "time_period": "HORIZON",
+    "source_refs": [
+      "m4_path:path_a@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    ]
+  },
+  "liquidity_headroom": {
+    "amount": 650,
+    "status": "KNOWN",
+    "unit": "SIMWAR_CURRENCY",
+    "currency": "SIMWAR_UNITS",
+    "time_period": "ROUND",
+    "source_refs": [
+      "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ]
+  },
+  "dscr": {
+    "ratio": 3,
+    "status": "KNOWN",
+    "numerator": {
+      "amount": 180,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": ["accounting:accounting_demo"]
+    },
+    "denominator": {
+      "amount": 60,
+      "status": "KNOWN",
+      "unit": "SIMWAR_CURRENCY",
+      "currency": "SIMWAR_UNITS",
+      "time_period": "HORIZON",
+      "source_refs": [
+        "accounting:accounting_demo",
+        "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    },
+    "source_refs": [
+      "accounting:accounting_demo",
+      "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ]
+  },
+  "capital_budget_utilization": {
+    "amount": 0.4,
+    "status": "KNOWN",
+    "unit": "RATIO",
+    "currency": "NOT_APPLICABLE",
+    "time_period": "HORIZON",
+    "source_refs": ["accounting:accounting_demo"]
+  },
+  "covenant_status": "WITHIN_LIMIT",
+  "feasibility": "FEASIBLE",
+  "binding_constraints": [],
+  "why_not_feasible": [],
+  "stress_regimes": [
+    {
+      "regime_id": "DEMAND_PRICE_DOWNSIDE",
+      "shock": "确定性诊断。",
+      "cash_flow": {
+        "amount": 200,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "HORIZON",
+        "source_refs": [
+          "m4_path:path_a@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ]
+      },
+      "liquidity_headroom": {
+        "amount": 600,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "ROUND",
+        "source_refs": [
+          "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "covenant_status": "WITHIN_LIMIT",
+      "feasibility": "FEASIBLE",
+      "binding_constraints": [],
+      "why_not_feasible": []
+    },
+    {
+      "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
+      "shock": "确定性诊断。",
+      "cash_flow": {
+        "amount": 225,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "HORIZON",
+        "source_refs": [
+          "m4_path:path_a@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ]
+      },
+      "liquidity_headroom": {
+        "amount": 625,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "ROUND",
+        "source_refs": [
+          "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "covenant_status": "WITHIN_LIMIT",
+      "feasibility": "FEASIBLE",
+      "binding_constraints": [],
+      "why_not_feasible": []
+    },
+    {
+      "regime_id": "FUNDING_COVENANT_PRESSURE",
+      "shock": "确定性诊断。",
+      "cash_flow": {
+        "amount": 242,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "HORIZON",
+        "source_refs": [
+          "m4_path:path_a@cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ]
+      },
+      "liquidity_headroom": {
+        "amount": 642,
+        "status": "KNOWN",
+        "unit": "SIMWAR_CURRENCY",
+        "currency": "SIMWAR_UNITS",
+        "time_period": "ROUND",
+        "source_refs": [
+          "w4_state:state_demo@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "covenant_status": "WITHIN_LIMIT",
+      "feasibility": "FEASIBLE",
+      "binding_constraints": [],
+      "why_not_feasible": []
+    }
+  ],
+  "assumptions": ["压力情景为确定性候选诊断。"],
+  "uncertainty": ["NON_OFFICIAL 候选投影。"],
+  "known_limits": ["该投影不得覆盖正式结算。"],
+  "student_view": {
+    "official": false,
+    "role_safe": true,
+    "feasibility": "FEASIBLE",
+    "cash_flow": { "amount": 250, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+    "liquidity_headroom": { "amount": 650, "status": "KNOWN", "unit": "SIMWAR_CURRENCY" },
+    "capital_tradeoff_summary": "当前已知输入下通过资本可行性检查。",
+    "stress_regimes": [
+      {
+        "regime_id": "DEMAND_PRICE_DOWNSIDE",
+        "covenant_status": "WITHIN_LIMIT",
+        "feasibility": "FEASIBLE"
+      },
+      {
+        "regime_id": "WORKFORCE_CAPACITY_PRESSURE",
+        "covenant_status": "WITHIN_LIMIT",
+        "feasibility": "FEASIBLE"
+      },
+      {
+        "regime_id": "FUNDING_COVENANT_PRESSURE",
+        "covenant_status": "WITHIN_LIMIT",
+        "feasibility": "FEASIBLE"
+      }
+    ],
+    "excluded_fields": ["source_refs", "model", "debt_schedule"]
+  }
+}
