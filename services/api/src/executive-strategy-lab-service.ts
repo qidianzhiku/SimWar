@@ -18,6 +18,7 @@ import {
   type ESLTransferHypothesis,
   type O4CrossRoundDynamicsResponse,
   type W4ProjectionBase,
+  type W4StateRef,
   type W4ScopeContext
 } from "@simwar/shared-contracts";
 import type { M4TeacherPathProjection } from "@simwar/shared-contracts";
@@ -122,6 +123,16 @@ function digest(value: unknown): string {
   return createHash("sha256").update(canonicalize(value), "utf8").digest("hex");
 }
 
+function stateScope(ref: W4StateRef) {
+  return {
+    tenant_id: ref.tenant_id,
+    course_id: ref.course_id,
+    run_id: ref.run_id,
+    team_id: ref.team_id,
+    round_id: ref.round_id
+  } as const;
+}
+
 function actorScope(actor: ESLActor, binding: ESLExactBinding): W4ScopeContext {
   return {
     actor_id: actor.user_id,
@@ -177,13 +188,17 @@ function pathFromM4(
   if (!projection.state || !sourceStateRef) {
     throw new ExecutiveStrategyLabError("ESL_OFFICIAL_BASELINE_REQUIRED");
   }
+  const terminalStateRef = terminalRound?.closing_state_ref ?? null;
+  const terminalState = terminalRound?.closing_state ?? null;
   const finance = projectESLFinance({
     path_id: candidate.path_id,
     path_digest: candidate.path_digest,
     source_state_ref: clone(sourceStateRef),
+    source_state_scope: stateScope(sourceStateRef),
     source_state: clone(projection.state),
-    terminal_state_ref: terminalRound?.closing_state_ref ?? null,
-    terminal_state: terminalRound?.closing_state ?? null,
+    terminal_state_ref: clone(terminalStateRef),
+    terminal_state_scope: terminalStateRef ? stateScope(terminalStateRef) : null,
+    terminal_state: clone(terminalState),
     path_cash_delta: candidate.outcome_differential.cash_delta,
     capital_actions: clone(projection.capital_actions)
   });

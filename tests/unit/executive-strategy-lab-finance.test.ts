@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type {
   ESLFinanceAccountingBasis,
@@ -12,7 +13,6 @@ import {
 } from "../../services/simulation-core/src/index.js";
 
 const STATE_OPEN_DIGEST = "a".repeat(64);
-const STATE_CLOSE_DIGEST = "b".repeat(64);
 const PATH_DIGEST = "c".repeat(64);
 
 function stateRef(id: string, digest: string): W4StateRef {
@@ -55,6 +55,22 @@ function state(cash: number, withCapital = true): W4EnterpriseStateData {
   };
 }
 
+function stateDigest(value: W4EnterpriseStateData): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function stateScope(
+  ref: W4StateRef
+): Pick<W4StateRef, "tenant_id" | "course_id" | "run_id" | "team_id" | "round_id"> {
+  return {
+    tenant_id: ref.tenant_id,
+    course_id: ref.course_id,
+    run_id: ref.run_id,
+    team_id: ref.team_id,
+    round_id: ref.round_id
+  };
+}
+
 function accounting(overrides: Partial<ESLFinanceAccountingBasis> = {}): ESLFinanceAccountingBasis {
   return {
     source_ref: "accounting-basis-esl-1",
@@ -70,13 +86,19 @@ function accounting(overrides: Partial<ESLFinanceAccountingBasis> = {}): ESLFina
 }
 
 function input(overrides: Partial<ESLFinanceProjectionInput> = {}): ESLFinanceProjectionInput {
+  const sourceState = state(1000);
+  const terminalState = state(1250, false);
+  const sourceStateRef = stateRef("state-open", stateDigest(sourceState));
+  const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
   return {
     path_id: "path-capital",
     path_digest: PATH_DIGEST,
-    source_state_ref: stateRef("state-open", STATE_OPEN_DIGEST),
-    source_state: state(1000),
-    terminal_state_ref: stateRef("state-close", STATE_CLOSE_DIGEST),
-    terminal_state: state(1250, false),
+    source_state_ref: sourceStateRef,
+    source_state_scope: stateScope(sourceStateRef),
+    source_state: sourceState,
+    terminal_state_ref: terminalStateRef,
+    terminal_state_scope: stateScope(terminalStateRef),
+    terminal_state: terminalState,
     path_cash_delta: 250,
     capital_actions: [],
     accounting_basis: accounting(),
@@ -193,6 +215,45 @@ describe("projectESLFinance", () => {
     expect(result.feasibility).toBe("UNKNOWN");
   });
 
+  it("fails closed when state data does not match its exact reference", () => {
+    const result = projectESLFinance(input({ source_state: state(999) }));
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("SOURCE_STATE_REF_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
+  it("fails closed when terminal state data and reference presence diverge", () => {
+    const result = projectESLFinance(input({ terminal_state: null }));
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("TERMINAL_STATE_BINDING_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
+  it("fails closed when terminal state data does not match its exact reference", () => {
+    const result = projectESLFinance(input({ terminal_state: state(1300, false) }));
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("TERMINAL_STATE_REF_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
+  it("fails closed when a state scope does not match its exact reference", () => {
+    const result = projectESLFinance(
+      input({
+        source_state_scope: {
+          ...stateScope(stateRef("state-open", STATE_OPEN_DIGEST)),
+          round_id: "other-round"
+        }
+      })
+    );
+
+    expect(result.validation.status).toBe("UNKNOWN");
+    expect(result.validation.reasons).toContain("SOURCE_STATE_REF_MISMATCH");
+    expect(result.feasibility).toBe("UNKNOWN");
+  });
+
   it("reports only the verified built-in calculator identity", () => {
     const result = projectESLFinance(input());
 
@@ -287,9 +348,12 @@ describe("projectESLFinance", () => {
   it("does not treat zero debt service as missing feasibility evidence", () => {
     const source = state(1000);
     source.capital = capital({ debt_principal: 0, interest_paid: 0 });
+    const sourceStateRef = stateRef("state-open", stateDigest(source));
     const result = projectESLFinance(
       input({
         source_state: source,
+        source_state_ref: sourceStateRef,
+        source_state_scope: stateScope(sourceStateRef),
         accounting_basis: accounting({ amortization: 0 })
       })
     );
@@ -304,9 +368,12 @@ describe("projectESLFinance", () => {
   it("keeps known zero payments feasible across a round-scoped accounting basis", () => {
     const source = state(1000);
     source.capital = capital({ debt_principal: 100, interest_paid: 0 });
+    const sourceStateRef = stateRef("state-open", stateDigest(source));
     const result = projectESLFinance(
       input({
         source_state: source,
+        source_state_ref: sourceStateRef,
+        source_state_scope: stateScope(sourceStateRef),
         accounting_basis: accounting({ time_period: "ROUND", amortization: 0 })
       })
     );
@@ -325,7 +392,14 @@ describe("projectESLFinance", () => {
   it("preserves a recorded covenant breach in every stress status", () => {
     const source = state(1000);
     source.capital = capital({ covenant_breach_action_ids: ["recorded-breach"] });
-    const result = projectESLFinance(input({ source_state: source }));
+    const sourceStateRef = stateRef("state-open", stateDigest(source));
+    const result = projectESLFinance(
+      input({
+        source_state: source,
+        source_state_ref: sourceStateRef,
+        source_state_scope: stateScope(sourceStateRef)
+      })
+    );
 
     expect(result.covenant_status).toBe("BREACHED");
     expect(result.stress_regimes.every((regime) => regime.covenant_status === "BREACHED")).toBe(
@@ -345,7 +419,15 @@ describe("projectESLFinance", () => {
   });
 
   it("marks a known minimum-cash covenant breach infeasible", () => {
-    const result = projectESLFinance(input({ terminal_state: state(500, false) }));
+    const terminalState = state(500, false);
+    const terminalStateRef = stateRef("state-close", stateDigest(terminalState));
+    const result = projectESLFinance(
+      input({
+        terminal_state: terminalState,
+        terminal_state_ref: terminalStateRef,
+        terminal_state_scope: stateScope(terminalStateRef)
+      })
+    );
 
     expect(result.liquidity_headroom).toMatchObject({ amount: -100, status: "KNOWN" });
     expect(result.covenant_status).toBe("BREACHED");

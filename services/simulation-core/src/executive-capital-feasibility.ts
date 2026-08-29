@@ -8,6 +8,7 @@ import type {
   ESLFinanceModelIdentity,
   ESLFinanceProjection,
   ESLFinanceProjectionInput,
+  ESLFinanceStateScope,
   ESLFinanceStressRegime,
   W4CapitalAction,
   W4CapitalPosition,
@@ -97,6 +98,29 @@ function validStateRef(value: unknown): value is W4StateRef {
     typeof ref.state_digest === "string" &&
     DIGEST.test(ref.state_digest)
   );
+}
+
+function validStateScope(value: unknown): value is ESLFinanceStateScope {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const scope = value as Record<string, unknown>;
+  const fields = ["tenant_id", "course_id", "run_id", "team_id", "round_id"] as const;
+  return (
+    Object.keys(scope).length === fields.length && fields.every((field) => exactId(scope[field]))
+  );
+}
+
+function stateScopeMatches(ref: W4StateRef, scope: ESLFinanceStateScope): boolean {
+  return (
+    ref.tenant_id === scope.tenant_id &&
+    ref.course_id === scope.course_id &&
+    ref.run_id === scope.run_id &&
+    ref.team_id === scope.team_id &&
+    ref.round_id === scope.round_id
+  );
+}
+
+function stateDataDigest(state: W4EnterpriseStateData): string {
+  return createHash("sha256").update(JSON.stringify(state), "utf8").digest("hex");
 }
 
 function validAccountingBasis(value: ESLFinanceAccountingBasis | undefined): boolean {
@@ -201,7 +225,12 @@ function basis(
 }
 
 function display(value: ESLFinanceBasis): ESLFinanceDisplayValue {
-  return { amount: value.amount, status: value.status, unit: value.unit };
+  return {
+    amount: value.amount,
+    status: value.status,
+    unit: value.unit,
+    ...(value.unknown_reason ? { unknown_reason: value.unknown_reason } : {})
+  };
 }
 
 function capitalNumber(
@@ -430,6 +459,29 @@ export function projectESLFinance(input: ESLFinanceProjectionInput): ESLFinanceP
     (input.terminal_state_ref !== null && !validStateRef(input.terminal_state_ref))
   ) {
     reasons.push("INVALID_EXACT_BINDING");
+  }
+  if (validStateRef(input.source_state_ref)) {
+    if (
+      !validStateScope(input.source_state_scope) ||
+      !stateScopeMatches(input.source_state_ref, input.source_state_scope) ||
+      stateDataDigest(input.source_state) !== input.source_state_ref.state_digest
+    ) {
+      reasons.push("SOURCE_STATE_REF_MISMATCH");
+    }
+  }
+  const hasTerminalRef = input.terminal_state_ref !== null;
+  const hasTerminalState = input.terminal_state !== null;
+  const hasTerminalScope = input.terminal_state_scope !== null;
+  if (hasTerminalRef !== hasTerminalState || hasTerminalRef !== hasTerminalScope) {
+    reasons.push("TERMINAL_STATE_BINDING_MISMATCH");
+  } else if (hasTerminalRef && validStateRef(input.terminal_state_ref)) {
+    if (
+      !validStateScope(input.terminal_state_scope) ||
+      !stateScopeMatches(input.terminal_state_ref, input.terminal_state_scope) ||
+      stateDataDigest(input.terminal_state!) !== input.terminal_state_ref.state_digest
+    ) {
+      reasons.push("TERMINAL_STATE_REF_MISMATCH");
+    }
   }
   if (!finite(input.path_cash_delta)) reasons.push("NONFINITE_PATH_CASH_DELTA");
   if (!validAccountingBasis(input.accounting_basis)) reasons.push("INVALID_ACCOUNTING_BASIS");

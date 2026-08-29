@@ -255,6 +255,79 @@ describe("Executive Strategy Lab contract", () => {
     expect(isESLResponse(responseWithStudentFinance)).toBe(true);
   });
 
+  it("requires complete teacher and admin projection structures", () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const incompleteTeacher = structuredClone(fixture) as Record<string, unknown>;
+    incompleteTeacher.teacher_projection = { surface: "teacher" };
+    expect(isESLResponse(incompleteTeacher)).toBe(false);
+
+    const incompleteAdmin = structuredClone(fixture) as Record<string, unknown>;
+    incompleteAdmin.surface = "admin";
+    incompleteAdmin.paths = [];
+    delete incompleteAdmin.teacher_projection;
+    incompleteAdmin.admin_projection = { surface: "admin" };
+    expect(isESLResponse(incompleteAdmin)).toBe(false);
+  });
+
+  it("enforces finance amount and status coupling in the JSON Schema", () => {
+    const schema = JSON.parse(
+      readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")
+    ) as Record<string, unknown>;
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+
+    const knownWithNullAmount = structuredClone(fixture) as Record<string, unknown>;
+    const knownFinance = (knownWithNullAmount.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    knownFinance.cash_flow = {
+      ...(knownFinance.cash_flow as Record<string, unknown>),
+      amount: null,
+      status: "KNOWN"
+    };
+    expect(validate(knownWithNullAmount)).toBe(false);
+
+    const unknownWithNumber = structuredClone(fixture) as Record<string, unknown>;
+    const unknownFinance = (unknownWithNumber.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    unknownFinance.cash_flow = {
+      ...(unknownFinance.cash_flow as Record<string, unknown>),
+      amount: 10,
+      status: "UNKNOWN",
+      unknown_reason: "SOURCE_BASIS_UNAVAILABLE"
+    };
+    expect(validate(unknownWithNumber)).toBe(false);
+  });
+
+  it("rejects finance basis amount and status contradictions in the runtime guard", () => {
+    const fixture = JSON.parse(
+      readFileSync(resolve("contracts/fixtures/executive-strategy-lab.valid.json"), "utf8")
+    ) as Record<string, unknown>;
+    const knownWithNullAmount = structuredClone(fixture) as Record<string, unknown>;
+    const knownFinance = (knownWithNullAmount.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    knownFinance.cash_flow = {
+      ...(knownFinance.cash_flow as Record<string, unknown>),
+      amount: null,
+      status: "KNOWN"
+    };
+    expect(isESLResponse(knownWithNullAmount)).toBe(false);
+
+    const unknownWithNumber = structuredClone(fixture) as Record<string, unknown>;
+    const unknownFinance = (unknownWithNumber.paths as Array<Record<string, unknown>>)[0]
+      .finance_feasibility as Record<string, unknown>;
+    unknownFinance.cash_flow = {
+      ...(unknownFinance.cash_flow as Record<string, unknown>),
+      amount: 10,
+      status: "UNKNOWN",
+      unknown_reason: "SOURCE_BASIS_UNAVAILABLE"
+    };
+    expect(isESLResponse(unknownWithNumber)).toBe(false);
+  });
+
   it("binds root path shape to the declared response surface", () => {
     const schema = JSON.parse(
       readFileSync(resolve("contracts/schemas/executive-strategy-lab.v1.json"), "utf8")

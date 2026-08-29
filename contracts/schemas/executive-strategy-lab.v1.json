@@ -446,7 +446,23 @@
         "time_period": { "enum": ["ROUND", "HORIZON"] },
         "source_refs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "unknown_reason": { "type": "string", "minLength": 1 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "KNOWN" } } },
+          "then": { "properties": { "amount": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "UNKNOWN" } } },
+          "then": {
+            "required": ["unknown_reason"],
+            "properties": {
+              "amount": { "type": "null" },
+              "unknown_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
     },
     "financeDisplayValue": {
       "type": "object",
@@ -455,8 +471,25 @@
       "properties": {
         "amount": { "anyOf": [{ "type": "number" }, { "type": "null" }] },
         "status": { "enum": ["KNOWN", "UNKNOWN"] },
-        "unit": { "enum": ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] }
-      }
+        "unit": { "enum": ["SIMWAR_CURRENCY", "RATIO", "BASIS_POINTS", "ROUNDS", "COUNT"] },
+        "unknown_reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "KNOWN" } } },
+          "then": { "properties": { "amount": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "UNKNOWN" } } },
+          "then": {
+            "required": ["unknown_reason"],
+            "properties": {
+              "amount": { "type": "null" },
+              "unknown_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
     },
     "financeModel": {
       "type": "object",

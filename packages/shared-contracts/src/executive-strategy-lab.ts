@@ -266,15 +266,6 @@ function stateRef(value: unknown): value is W4StateRef {
   );
 }
 
-function projectionHasSurface(value: unknown, surface: ESLSurface): boolean {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    (value as Record<string, unknown>).surface === surface
-  );
-}
-
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -329,12 +320,221 @@ function stringArray(value: unknown, minimum = 0): value is string[] {
 
 function financeDisplayValue(value: unknown): boolean {
   const display = record(value);
+  if (
+    display === null ||
+    !hasExactKeys(display, ["amount", "status", "unit"], ["unknown_reason"]) ||
+    !financeStatus(display.status) ||
+    !financeUnit(display.unit)
+  ) {
+    return false;
+  }
+  if (display.status === "KNOWN") return finiteNumber(display.amount);
+  return display.amount === null && nonEmptyString(display.unknown_reason);
+}
+
+function financeBasis(value: unknown): boolean {
+  const basis = record(value);
+  if (
+    basis === null ||
+    !hasExactKeys(
+      basis,
+      ["amount", "status", "unit", "currency", "time_period", "source_refs"],
+      ["unknown_reason"]
+    ) ||
+    !financeStatus(basis.status) ||
+    !financeUnit(basis.unit) ||
+    !["SIMWAR_UNITS", "NOT_APPLICABLE", "UNKNOWN"].includes(String(basis.currency)) ||
+    !["ROUND", "HORIZON"].includes(String(basis.time_period)) ||
+    !stringArray(basis.source_refs)
+  ) {
+    return false;
+  }
+  if (basis.status === "KNOWN") return finiteNumber(basis.amount);
+  return basis.amount === null && nonEmptyString(basis.unknown_reason);
+}
+
+function financeModel(value: unknown): boolean {
+  const model = record(value);
   return (
-    display !== null &&
-    hasExactKeys(display, ["amount", "status", "unit"]) &&
-    (display.amount === null || finiteNumber(display.amount)) &&
-    financeStatus(display.status) &&
-    financeUnit(display.unit)
+    model !== null &&
+    hasExactKeys(model, [
+      "source_kind",
+      "source_ref",
+      "model_version_id",
+      "model_version",
+      "model_artifact_id",
+      "model_artifact_version",
+      "engine_id",
+      "parameter_set_id",
+      "parameter_set_version"
+    ]) &&
+    model.source_kind === "BUILT_IN_DETERMINISTIC_CALCULATOR" &&
+    nonEmptyString(model.source_ref) &&
+    exactId(model.model_version_id) &&
+    exactId(model.model_version) &&
+    exactId(model.model_artifact_id) &&
+    exactId(model.model_artifact_version) &&
+    exactId(model.engine_id) &&
+    exactId(model.parameter_set_id) &&
+    exactId(model.parameter_set_version)
+  );
+}
+
+function financeValidation(value: unknown): boolean {
+  const validation = record(value);
+  return (
+    validation !== null &&
+    hasExactKeys(validation, ["status", "reasons"]) &&
+    (validation.status === "VALID" || validation.status === "UNKNOWN") &&
+    stringArray(validation.reasons)
+  );
+}
+
+function financeNoWrite(value: unknown): boolean {
+  const noWrite = record(value);
+  const fields = [
+    "enterprise_state",
+    "settlement_result",
+    "score",
+    "rank",
+    "replay_truth",
+    "canonical_decision",
+    "official_parameter_set",
+    "formal_writer",
+    "provider_invoked"
+  ];
+  return (
+    noWrite !== null &&
+    hasExactKeys(noWrite, fields) &&
+    fields.every((field) => noWrite[field] === false)
+  );
+}
+
+function financeDebt(value: unknown): boolean {
+  const debt = record(value);
+  return (
+    debt !== null &&
+    hasExactKeys(debt, ["principal", "interest_paid", "amortization", "debt_service"]) &&
+    financeBasis(debt.principal) &&
+    financeBasis(debt.interest_paid) &&
+    financeBasis(debt.amortization) &&
+    financeBasis(debt.debt_service)
+  );
+}
+
+function financeDscr(value: unknown): boolean {
+  const dscr = record(value);
+  return (
+    dscr !== null &&
+    hasExactKeys(
+      dscr,
+      ["ratio", "status", "numerator", "denominator", "source_refs"],
+      ["unknown_reason"]
+    ) &&
+    (dscr.ratio === null || finiteNumber(dscr.ratio)) &&
+    financeStatus(dscr.status) &&
+    financeBasis(dscr.numerator) &&
+    financeBasis(dscr.denominator) &&
+    stringArray(dscr.source_refs) &&
+    (dscr.status === "KNOWN"
+      ? finiteNumber(dscr.ratio)
+      : dscr.ratio === null && nonEmptyString(dscr.unknown_reason))
+  );
+}
+
+function financeStressRegime(value: unknown): boolean {
+  const regime = record(value);
+  return (
+    regime !== null &&
+    hasExactKeys(regime, [
+      "regime_id",
+      "shock",
+      "cash_flow",
+      "liquidity_headroom",
+      "covenant_status",
+      "feasibility",
+      "binding_constraints",
+      "why_not_feasible"
+    ]) &&
+    ["DEMAND_PRICE_DOWNSIDE", "WORKFORCE_CAPACITY_PRESSURE", "FUNDING_COVENANT_PRESSURE"].includes(
+      String(regime.regime_id)
+    ) &&
+    nonEmptyString(regime.shock) &&
+    financeBasis(regime.cash_flow) &&
+    financeBasis(regime.liquidity_headroom) &&
+    financeCovenantStatus(regime.covenant_status) &&
+    financeFeasibility(regime.feasibility) &&
+    stringArray(regime.binding_constraints) &&
+    stringArray(regime.why_not_feasible)
+  );
+}
+
+function financeProjection(value: unknown): boolean {
+  const projection = record(value);
+  if (
+    projection === null ||
+    !hasExactKeys(projection, [
+      "official",
+      "validation",
+      "no_write",
+      "model",
+      "input_digest",
+      "source_refs",
+      "capex",
+      "opex",
+      "capital",
+      "debt",
+      "cash_flow",
+      "liquidity_headroom",
+      "dscr",
+      "capital_budget_utilization",
+      "covenant_status",
+      "feasibility",
+      "binding_constraints",
+      "why_not_feasible",
+      "stress_regimes",
+      "assumptions",
+      "uncertainty",
+      "known_limits",
+      "student_view"
+    ])
+  ) {
+    return false;
+  }
+  const capital = record(projection.capital);
+  const stressRegimes = projection.stress_regimes;
+  return (
+    projection.official === false &&
+    financeValidation(projection.validation) &&
+    financeNoWrite(projection.no_write) &&
+    financeModel(projection.model) &&
+    digest(projection.input_digest) &&
+    stringArray(projection.source_refs) &&
+    financeBasis(projection.capex) &&
+    financeBasis(projection.opex) &&
+    capital !== null &&
+    hasExactKeys(capital, ["debt_principal", "equity_proceeds", "working_capital"]) &&
+    financeBasis(capital.debt_principal) &&
+    financeBasis(capital.equity_proceeds) &&
+    financeBasis(capital.working_capital) &&
+    financeDebt(projection.debt) &&
+    financeBasis(projection.cash_flow) &&
+    financeBasis(projection.liquidity_headroom) &&
+    financeDscr(projection.dscr) &&
+    financeBasis(projection.capital_budget_utilization) &&
+    financeCovenantStatus(projection.covenant_status) &&
+    financeFeasibility(projection.feasibility) &&
+    stringArray(projection.binding_constraints) &&
+    stringArray(projection.why_not_feasible) &&
+    Array.isArray(stressRegimes) &&
+    stressRegimes.length === 3 &&
+    stressRegimes.every(financeStressRegime) &&
+    new Set(stressRegimes.map((regime) => (record(regime) as Record<string, unknown>).regime_id))
+      .size === stressRegimes.length &&
+    stringArray(projection.assumptions, 1) &&
+    stringArray(projection.uncertainty, 1) &&
+    stringArray(projection.known_limits, 1) &&
+    financeStudentProjection(projection.student_view)
   );
 }
 
@@ -383,6 +583,45 @@ function financeStudentProjection(value: unknown): boolean {
       .size === stressRegimes.length &&
     stringArray(projection.excluded_fields, 1)
   );
+}
+
+function officialBaseline(value: unknown): boolean {
+  const baseline = record(value);
+  if (
+    baseline !== null &&
+    hasExactKeys(
+      baseline,
+      ["officiality", "outcome_id", "state_ref", "summary"],
+      ["state_summary", "changed_paths"]
+    ) &&
+    baseline.officiality === "OFFICIAL" &&
+    (baseline.outcome_id === null || exactId(baseline.outcome_id)) &&
+    (baseline.state_ref === null || stateRef(baseline.state_ref)) &&
+    nonEmptyString(baseline.summary) &&
+    (baseline.changed_paths === undefined || stringArray(baseline.changed_paths))
+  ) {
+    if (baseline.state_summary === undefined) return true;
+    const summary = record(baseline.state_summary);
+    return (
+      summary !== null &&
+      hasExactKeys(summary, [
+        "cash",
+        "capacity",
+        "product_line_count",
+        "operating_unit_count",
+        "project_count"
+      ]) &&
+      finiteNumber(summary.cash) &&
+      finiteNumber(summary.capacity) &&
+      Number.isSafeInteger(summary.product_line_count) &&
+      Number(summary.product_line_count) >= 0 &&
+      Number.isSafeInteger(summary.operating_unit_count) &&
+      Number(summary.operating_unit_count) >= 0 &&
+      Number.isSafeInteger(summary.project_count) &&
+      Number(summary.project_count) >= 0
+    );
+  }
+  return false;
 }
 
 function studentOfficialBaseline(value: unknown): boolean {
@@ -467,6 +706,173 @@ function studentProjection(value: unknown): boolean {
   );
 }
 
+function alternativePath(value: unknown): boolean {
+  const path = record(value);
+  const outcome = record(path?.outcome);
+  return (
+    path !== null &&
+    hasExactKeys(path, [
+      "path_id",
+      "label",
+      "officiality",
+      "decision_ids",
+      "path_digest",
+      "changed_paths",
+      "outcome",
+      "mechanism_ids",
+      "finance_feasibility"
+    ]) &&
+    exactId(path.path_id) &&
+    nonEmptyString(path.label) &&
+    path.officiality === "NON_OFFICIAL" &&
+    stringArray(path.decision_ids) &&
+    digest(path.path_digest) &&
+    stringArray(path.changed_paths) &&
+    outcome !== null &&
+    hasExactKeys(outcome, [
+      "cash_delta",
+      "capacity_delta",
+      "project_count_delta",
+      "terminal_state_digest"
+    ]) &&
+    finiteNumber(outcome.cash_delta) &&
+    finiteNumber(outcome.capacity_delta) &&
+    finiteNumber(outcome.project_count_delta) &&
+    digest(outcome.terminal_state_digest) &&
+    stringArray(path.mechanism_ids) &&
+    financeProjection(path.finance_feasibility)
+  );
+}
+
+function mechanism(value: unknown): boolean {
+  const item = record(value);
+  return (
+    item !== null &&
+    hasExactKeys(item, [
+      "mechanism_id",
+      "label",
+      "explanation",
+      "evidence_path_ids",
+      "uncertainty"
+    ]) &&
+    exactId(item.mechanism_id) &&
+    nonEmptyString(item.label) &&
+    nonEmptyString(item.explanation) &&
+    stringArray(item.evidence_path_ids) &&
+    item.uncertainty === "OBSERVED_DIFFERENTIAL_ONLY"
+  );
+}
+
+function sourceRefs(value: unknown): boolean {
+  const refs = record(value);
+  return (
+    refs !== null &&
+    hasExactKeys(refs, ["official_outcome_id", "o4_candidate_digest", "m4_candidate_digests"]) &&
+    (refs.official_outcome_id === null || exactId(refs.official_outcome_id)) &&
+    (refs.o4_candidate_digest === null || digest(refs.o4_candidate_digest)) &&
+    Array.isArray(refs.m4_candidate_digests) &&
+    refs.m4_candidate_digests.every((item) => digest(item))
+  );
+}
+
+function authority(value: unknown): boolean {
+  const authorityValue = record(value);
+  return (
+    authorityValue !== null &&
+    hasExactKeys(authorityValue, [
+      "runtime_authority",
+      "official_realized_source",
+      "writer_authority",
+      "formal_truth_write",
+      "settlement_write",
+      "replay_truth_write",
+      "provider"
+    ]) &&
+    authorityValue.runtime_authority === "JSON_INTERNAL_ONLY" &&
+    authorityValue.official_realized_source === "SIMULATION_CORE" &&
+    authorityValue.writer_authority === "SOLE_W4_ENTERPRISE_STATE_SERVICE" &&
+    authorityValue.formal_truth_write === false &&
+    authorityValue.settlement_write === false &&
+    authorityValue.replay_truth_write === false &&
+    authorityValue.provider === "OFF"
+  );
+}
+
+function teacherProjection(value: unknown): boolean {
+  const projection = record(value);
+  return (
+    projection !== null &&
+    hasExactKeys(projection, [
+      "surface",
+      "available_actions",
+      "official_baseline",
+      "paths",
+      "mechanisms",
+      "transfer"
+    ]) &&
+    projection.surface === "teacher" &&
+    stringArray(projection.available_actions) &&
+    officialBaseline(projection.official_baseline) &&
+    Array.isArray(projection.paths) &&
+    projection.paths.every(alternativePath) &&
+    Array.isArray(projection.mechanisms) &&
+    projection.mechanisms.every(mechanism) &&
+    transfer(projection.transfer)
+  );
+}
+
+function adminProjection(value: unknown): boolean {
+  const projection = record(value);
+  if (
+    projection === null ||
+    !hasExactKeys(projection, [
+      "surface",
+      "tenant_id",
+      "exact_binding",
+      "source_refs",
+      "officiality_counts",
+      "audit",
+      "finance_models"
+    ])
+  ) {
+    return false;
+  }
+  const counts = record(projection.officiality_counts);
+  const audit = record(projection.audit);
+  const financeModels = projection.finance_models;
+  return (
+    projection.surface === "admin" &&
+    exactId(projection.tenant_id) &&
+    exactBinding(projection.exact_binding) &&
+    sourceRefs(projection.source_refs) &&
+    counts !== null &&
+    hasExactKeys(counts, ["official", "non_official"]) &&
+    counts.official === 1 &&
+    Number.isSafeInteger(counts.non_official) &&
+    Number(counts.non_official) >= 0 &&
+    Number(counts.non_official) <= 3 &&
+    audit !== null &&
+    hasExactKeys(audit, ["candidate_id", "generated_by", "no_write", "recovery"]) &&
+    exactId(audit.candidate_id) &&
+    exactId(audit.generated_by) &&
+    audit.no_write === true &&
+    audit.recovery === "REPLAY_REQUEST_WITH_EXACT_BINDING" &&
+    Array.isArray(financeModels) &&
+    financeModels.length <= 3 &&
+    financeModels.every((item) => {
+      const modelAudit = record(item);
+      return (
+        modelAudit !== null &&
+        hasExactKeys(modelAudit, ["path_id", "model", "input_digest", "source_refs"]) &&
+        exactId(modelAudit.path_id) &&
+        financeModel(modelAudit.model) &&
+        digest(modelAudit.input_digest) &&
+        stringArray(modelAudit.source_refs)
+      );
+    })
+  );
+}
+
 function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
   const surface = response.surface;
   const hasTeacherProjection = response.teacher_projection !== undefined;
@@ -475,9 +881,7 @@ function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
 
   if (surface === "teacher") {
     return (
-      projectionHasSurface(response.teacher_projection, "teacher") &&
-      !hasStudentProjection &&
-      !hasAdminProjection
+      teacherProjection(response.teacher_projection) && !hasStudentProjection && !hasAdminProjection
     );
   }
   if (surface === "student") {
@@ -487,9 +891,7 @@ function responseSurfaceBoundary(response: Record<string, unknown>): boolean {
   }
   if (surface === "admin") {
     return (
-      projectionHasSurface(response.admin_projection, "admin") &&
-      !hasTeacherProjection &&
-      !hasStudentProjection
+      adminProjection(response.admin_projection) && !hasTeacherProjection && !hasStudentProjection
     );
   }
   return false;
@@ -500,53 +902,25 @@ function responsePathsMatchSurface(response: Record<string, unknown>): boolean {
   if (response.surface === "student") {
     return response.paths.every(studentAlternativePath);
   }
-  return response.paths.every((path) => {
-    if (!path || typeof path !== "object" || Array.isArray(path)) return false;
-    const item = path as Record<string, unknown>;
-    const commonPath =
-      exactId(item.path_id) &&
-      item.officiality === "NON_OFFICIAL" &&
-      typeof item.path_digest === "string" &&
-      /^[a-f0-9]{64}$/.test(item.path_digest) &&
-      Boolean(item.finance_feasibility) &&
-      (item.finance_feasibility as Record<string, unknown>).official === false;
-    if (!commonPath) return false;
-    return Array.isArray(item.decision_ids) && Array.isArray(item.mechanism_ids);
-  });
+  return response.paths.every(alternativePath);
 }
 
 export function isESLResponse(value: unknown): value is ESLResponse {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const response = value as Record<string, unknown>;
-  const baseline = response.official_baseline as Record<string, unknown> | undefined;
-  const authority = response.authority as Record<string, unknown> | undefined;
-  const transfer = response.transfer as Record<string, unknown> | undefined;
-  const refs = response.source_refs as Record<string, unknown> | undefined;
-  if (!refs) return false;
   return (
     response.schema_version === ESL_SCHEMA_VERSION &&
     exactId(response.candidate_id) &&
     ["teacher", "student", "admin"].includes(String(response.surface)) &&
     exactBinding(response.exact_binding) &&
-    baseline?.officiality === "OFFICIAL" &&
-    (baseline.outcome_id === null || exactId(baseline.outcome_id)) &&
-    (baseline.state_ref === null || stateRef(baseline.state_ref)) &&
-    typeof baseline.summary === "string" &&
+    officialBaseline(response.official_baseline) &&
     responseSurfaceBoundary(response) &&
     responsePathsMatchSurface(response) &&
     Array.isArray(response.mechanisms) &&
-    transfer?.status === "DRAFT" &&
-    typeof transfer.statement === "string" &&
-    transfer.applies_to_next_round === false &&
-    (refs.official_outcome_id === null || exactId(refs.official_outcome_id)) &&
-    Array.isArray(refs.m4_candidate_digests) &&
-    authority?.runtime_authority === "JSON_INTERNAL_ONLY" &&
-    authority.official_realized_source === "SIMULATION_CORE" &&
-    authority.writer_authority === "SOLE_W4_ENTERPRISE_STATE_SERVICE" &&
-    authority.formal_truth_write === false &&
-    authority.settlement_write === false &&
-    authority.replay_truth_write === false &&
-    authority.provider === "OFF" &&
+    response.mechanisms.every(mechanism) &&
+    transfer(response.transfer) &&
+    sourceRefs(response.source_refs) &&
+    authority(response.authority) &&
     Array.isArray(response.known_limits) &&
     response.known_limits.every((limit) => typeof limit === "string")
   );

@@ -20,7 +20,13 @@ export interface ESLFinanceDisplayValue {
   amount: number | null;
   status: ESLFinanceValueStatus;
   unit: ESLFinanceUnit;
+  unknown_reason?: string;
 }
+
+export type ESLFinanceStateScope = Pick<
+  W4StateRef,
+  "tenant_id" | "course_id" | "run_id" | "team_id" | "round_id"
+>;
 
 export interface ESLFinanceModelIdentity {
   model_version_id: string;
@@ -49,8 +55,10 @@ export interface ESLFinanceProjectionInput {
   path_id: string;
   path_digest: string;
   source_state_ref: W4StateRef;
+  source_state_scope: ESLFinanceStateScope;
   source_state: W4EnterpriseStateData;
   terminal_state_ref: W4StateRef | null;
+  terminal_state_scope: ESLFinanceStateScope | null;
   terminal_state: W4EnterpriseStateData | null;
   path_cash_delta: number;
   capital_actions: W4CapitalAction[];
