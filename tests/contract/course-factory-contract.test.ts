@@ -6,6 +6,23 @@ import { describe, expect, it } from "vitest";
 
 function schemaValidator() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
+  ajv.addFormat("date", {
+    type: "string",
+    validate: (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }
+  });
+  ajv.addFormat("date-time", {
+    type: "string",
+    validate: (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+      const parsed = new Date(value);
+      const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+      return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
+    }
+  });
   return ajv.compile(
     JSON.parse(readFileSync(resolve("contracts/schemas/course-factory.v1.json"), "utf8"))
   );
