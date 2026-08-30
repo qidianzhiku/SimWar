@@ -409,20 +409,20 @@ export function isCourseFactoryMetadataForTenant(
   }
 
   const sourceReference = provenance.source_course_package_reference;
-  if (provenance.kind === "ORIGINAL" && sourceReference !== undefined) return false;
+  if (provenance.kind === "ORIGINAL") return sourceReference === undefined;
   return (
-    sourceReference === undefined ||
-    (isRecord(sourceReference) &&
-      hasExactKeys(sourceReference, [
-        "content_digest",
-        "course_package_id",
-        "tenant_id",
-        "version"
-      ]) &&
-      isExactIdentity(sourceReference.tenant_id) &&
-      isExactIdentity(sourceReference.course_package_id) &&
-      isExactVersion(sourceReference.version) &&
-      isDigest(sourceReference.content_digest))
+    isRecord(sourceReference) &&
+    hasExactKeys(sourceReference, [
+      "content_digest",
+      "course_package_id",
+      "tenant_id",
+      "version"
+    ]) &&
+    sourceReference.tenant_id === tenantId &&
+    isExactIdentity(sourceReference.tenant_id) &&
+    isExactIdentity(sourceReference.course_package_id) &&
+    isExactVersion(sourceReference.version) &&
+    isDigest(sourceReference.content_digest)
   );
 }
 

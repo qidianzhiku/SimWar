@@ -171,7 +171,7 @@ describe("R3 CourseFactoryService", () => {
     ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
   });
 
-  it("rejects ORIGINAL metadata that carries source lineage at the persistence boundary", () => {
+  it("rejects invalid provenance lineage at the persistence boundary", () => {
     const originalWithLineage = {
       ...packageDraft,
       factory_metadata: {
@@ -192,6 +192,46 @@ describe("R3 CourseFactoryService", () => {
       createCoursePackageDraftVersion({
         actor_id: "usr_admin",
         draft: originalWithLineage,
+        now: "2026-08-30T10:00:00.000Z",
+        tenant_id: tenantId
+      })
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+
+    const clonedWithoutLineage = {
+      ...originalWithLineage,
+      factory_metadata: {
+        ...originalWithLineage.factory_metadata,
+        provenance: { kind: "CLONED" }
+      }
+    } as unknown as CoursePackageVersionDraftInput;
+    expect(() =>
+      createCoursePackageDraftVersion({
+        actor_id: "usr_admin",
+        draft: clonedWithoutLineage,
+        now: "2026-08-30T10:00:00.000Z",
+        tenant_id: tenantId
+      })
+    ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
+
+    const clonedAcrossTenants = {
+      ...originalWithLineage,
+      factory_metadata: {
+        ...originalWithLineage.factory_metadata,
+        provenance: {
+          kind: "CLONED",
+          source_course_package_reference: {
+            content_digest: digest("b"),
+            course_package_id: "source_course",
+            tenant_id: "tenant_other",
+            version: "1.0.0"
+          }
+        }
+      }
+    } as unknown as CoursePackageVersionDraftInput;
+    expect(() =>
+      createCoursePackageDraftVersion({
+        actor_id: "usr_admin",
+        draft: clonedAcrossTenants,
         now: "2026-08-30T10:00:00.000Z",
         tenant_id: tenantId
       })

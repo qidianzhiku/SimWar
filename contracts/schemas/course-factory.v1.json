@@ -213,6 +213,17 @@
             {
               "if": { "properties": { "kind": { "const": "ORIGINAL" } } },
               "then": { "properties": { "source_course_package_reference": false } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": { "enum": ["CLONED", "DERIVED", "IMPORTED", "ROLLBACK"] }
+                }
+              },
+              "then": {
+                "required": ["source_course_package_reference"],
+                "properties": { "source_course_package_reference": {} }
+              }
             }
           ]
         },
@@ -286,7 +297,20 @@
         "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
         "course_package_id": { "$ref": "#/$defs/identity" },
         "description": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
-        "factory_metadata": { "$ref": "#/$defs/metadata" },
+        "factory_metadata": {
+          "allOf": [
+            { "$ref": "#/$defs/metadata" },
+            {
+              "type": "object",
+              "properties": {
+                "provenance": {
+                  "type": "object",
+                  "properties": { "kind": { "const": "ORIGINAL" } }
+                }
+              }
+            }
+          ]
+        },
         "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
         "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" },
         "title": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },

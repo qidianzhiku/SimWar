@@ -70,6 +70,17 @@
             {
               "if": { "properties": { "kind": { "const": "ORIGINAL" } } },
               "then": { "properties": { "source_course_package_reference": false } }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": { "enum": ["CLONED", "DERIVED", "IMPORTED", "ROLLBACK"] }
+                }
+              },
+              "then": {
+                "required": ["source_course_package_reference"],
+                "properties": { "source_course_package_reference": {} }
+              }
             }
           ]
         },
