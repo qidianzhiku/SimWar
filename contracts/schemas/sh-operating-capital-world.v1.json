@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/sh-operating-capital-world.v1.json",
+  "title": "Shanghai source-bound operating and capital world candidate",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "mission_id",
+    "state_a",
+    "state_b",
+    "state_transition",
+    "evidence_epoch_ref",
+    "assets",
+    "capital_evidence",
+    "stress_corridors",
+    "mod_can",
+    "finance",
+    "double_count_guard",
+    "role_visibility",
+    "recovery",
+    "no_hidden_fallback",
+    "authority",
+    "known_limits",
+    "pack_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sh-operating-capital-world.v1" },
+    "mission_id": { "const": "SIMWAR-SH-M26-SOURCE-BOUND-OPERATING-CAPITAL-WORLD" },
+    "state_a": {
+      "type": "object",
+      "required": ["name", "limitation"],
+      "properties": {
+        "name": { "const": "STATIC_CANDIDATE_FIXTURES" },
+        "limitation": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "state_b": { "const": "SOURCE_BOUND_OPERATING_CAPITAL_WORLD_COMPILED" },
+    "state_transition": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } },
+      "additionalProperties": false
+    },
+    "evidence_epoch_ref": {
+      "type": "object",
+      "required": ["epoch_id", "epoch_digest", "source_epoch_base_sha"],
+      "properties": {
+        "epoch_id": { "type": "string", "minLength": 1 },
+        "epoch_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_epoch_base_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      },
+      "additionalProperties": false
+    },
+    "assets": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/asset" } },
+    "capital_evidence": {
+      "type": "object",
+      "required": ["status", "source_reality_class", "reason", "numeric_value", "hidden_manual_number"],
+      "properties": {
+        "status": { "const": "MISSING" },
+        "source_reality_class": { "const": "REFERENCE_ONLY" },
+        "reason": { "type": "string", "minLength": 1 },
+        "numeric_value": { "type": "null" },
+        "hidden_manual_number": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "stress_corridors": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/corridor" } },
+    "mod_can": {
+      "type": "object",
+      "required": ["status", "consumed_feature_ids", "diagnostics", "official_truth_write"],
+      "properties": {
+        "status": { "const": "CANDIDATE_ONLY" },
+        "consumed_feature_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "diagnostics": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "official_truth_write": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "finance": {
+      "type": "object",
+      "required": ["status", "input_feature_ids", "missing_evidence", "no_double_count"],
+      "properties": {
+        "status": { "const": "NOT_COMPUTABLE" },
+        "input_feature_ids": { "const": [] },
+        "missing_evidence": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "no_double_count": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "double_count_guard": {
+      "type": "object",
+      "required": ["pass", "source_feature_uses", "rule"],
+      "properties": {
+        "pass": { "const": true },
+        "source_feature_uses": { "type": "object", "minProperties": 3, "additionalProperties": { "const": 1 } },
+        "rule": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "role_visibility": {
+      "type": "object",
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/teacherVisibility" },
+        "student": { "$ref": "#/$defs/studentVisibility" },
+        "admin": { "$ref": "#/$defs/adminVisibility" }
+      },
+      "additionalProperties": false
+    },
+    "recovery": {
+      "type": "object",
+      "required": ["why_not", "revalidation", "rollback_candidate"],
+      "properties": {
+        "why_not": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "revalidation": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "rollback_candidate": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "no_hidden_fallback": { "const": true },
+    "authority": {
+      "type": "object",
+      "required": ["candidate_writer", "official_truth_write", "settlement_write", "parameter_set_formal_write", "provider", "second_truth_writer", "runtime_authority"],
+      "properties": {
+        "candidate_writer": { "const": "SH_NEXT_SUPPORT_CANDIDATE_COMPILER" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "second_truth_writer": { "const": false },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      },
+      "additionalProperties": false
+    },
+    "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "required": ["asset_id", "asset_type", "derived_from_feature_id", "source_reality_class", "value", "unit", "bounds", "temporal_scope", "geography", "evidence_epoch_digest", "hidden_manual_number", "asset_digest"],
+      "properties": {
+        "asset_id": { "type": "string", "minLength": 1 },
+        "asset_type": { "enum": ["QUALITY", "CARE_MIX", "WORKFORCE"] },
+        "derived_from_feature_id": { "type": "string", "minLength": 1 },
+        "source_reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 },
+        "bounds": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": { "min": { "type": "number" }, "max": { "type": ["number", "null"] } },
+          "additionalProperties": false
+        },
+        "temporal_scope": { "type": "string", "minLength": 1 },
+        "geography": { "const": "Hangzhou" },
+        "evidence_epoch_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "hidden_manual_number": { "const": false },
+        "asset_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "corridor": {
+      "type": "object",
+      "required": ["corridor_id", "asset_ids", "operating_pressure", "capital_status", "deterministic_rule", "no_hidden_loop", "corridor_digest"],
+      "properties": {
+        "corridor_id": { "type": "string", "minLength": 1 },
+        "asset_ids": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "operating_pressure": { "const": "UNQUANTIFIED_CANDIDATE" },
+        "capital_status": { "const": "NOT_COMPUTABLE" },
+        "deterministic_rule": { "type": "string", "minLength": 1 },
+        "no_hidden_loop": { "const": true },
+        "corridor_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "teacherVisibility": {
+      "type": "object",
+      "required": ["visibility", "fields"],
+      "properties": { "visibility": { "const": "TEACHER_ONLY" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } },
+      "additionalProperties": false
+    },
+    "studentVisibility": {
+      "type": "object",
+      "required": ["visibility", "fields", "forbidden_fields"],
+      "properties": { "visibility": { "const": "STUDENT_SAFE" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "forbidden_fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } },
+      "additionalProperties": false
+    },
+    "adminVisibility": {
+      "type": "object",
+      "required": ["visibility", "fields"],
+      "properties": { "visibility": { "const": "INTERNAL_RESEARCH_ONLY" }, "fields": { "type": "array", "minItems": 1, "items": { "type": "string" } } },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
