@@ -16,6 +16,7 @@ export * from "./regional-transfer.js";
 export * from "./operating-world-consequence-trace.js";
 export * from "./reauth-context.js";
 export * from "./shanghai-full-vertical.js";
+export * from "./shanghai-c0-conversion.js";
 import type { MarketWorldRef } from "./market-world.js";
 import type { W4StrategicActionEnvelope } from "./w4-enterprise-state.js";
 import type { M2P4StudentProjectContext, M2P4TeacherLiveRoundOps } from "./m2p4-live-round-ops.js";

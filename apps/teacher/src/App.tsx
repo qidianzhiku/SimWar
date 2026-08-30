@@ -35,6 +35,7 @@ import type {
   RoundContinuationResult,
   Run,
   SettlementResult,
+  ShanghaiC0MacroId,
   TeacherBffWorkspaceDTO,
   TeacherCourseBlueprintCatalogDto,
   TeacherCourseBlueprintReadinessDto,
@@ -111,6 +112,7 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
+const ShanghaiC0ConversionWorkspace = lazy(() => import("./ShanghaiC0ConversionWorkspace"));
 const ExecutiveStrategyLabWorkspace = lazy(() =>
   import("./ExecutiveStrategyLabWorkspace").then(
     ({ ExecutiveStrategyLabWorkspace: Component }) => ({
@@ -141,6 +143,16 @@ import {
 import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_MACRO_IDS = new Set(["M13", "M14", "M15", "M16", "M17", "M18"] as const);
+const SHANGHAI_C0_MACRO_ID: ShanghaiC0MacroId | null =
+  typeof window === "undefined"
+    ? null
+    : (() => {
+        const value = new URLSearchParams(window.location.search).get("shanghaiC0MacroId")?.trim();
+        return value && SHANGHAI_C0_MACRO_IDS.has(value as ShanghaiC0MacroId)
+          ? (value as ShanghaiC0MacroId)
+          : null;
+      })();
 const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -2512,6 +2524,28 @@ export function App() {
             <ExecutiveStrategyLabWorkspace
               apiBase={API_BASE}
               binding={eslBinding}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
+        ) : null}
+        {isTeacher &&
+        session &&
+        SHANGHAI_C0_MACRO_ID &&
+        selectedRun &&
+        selectedRound &&
+        activeTeacherTeamId ? (
+          <Suspense fallback={<p className="muted">正在载入 Shanghai C0 conversion…</p>}>
+            <ShanghaiC0ConversionWorkspace
+              apiBase={API_BASE}
+              courseId={selectedRun.course_id}
+              macroId={SHANGHAI_C0_MACRO_ID}
+              parameterSetId={selectedRun.parameter_set_id}
+              roundId={selectedRound.round_id}
+              roundNo={selectedRound.round_no}
+              runId={selectedRun.run_id}
+              scenarioPackageId={selectedRun.scenario_package_id}
+              teamId={activeTeacherTeamId}
               tenantId={login.tenantId}
               token={session.access_token}
             />

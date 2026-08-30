@@ -43,6 +43,7 @@ import { RegionalTransferProjection } from "./features/regional-transfer-project
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
+const ShanghaiC0ConversionProjection = lazy(() => import("./ShanghaiC0ConversionProjection"));
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
     ({ ExecutiveStrategyLabProjection: Component }) => ({
@@ -69,6 +70,10 @@ const CanServiceFeasibilityPanel = lazy(() =>
   }))
 );
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_RECEIPT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
 const GSI_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
@@ -1069,6 +1074,17 @@ export function App() {
             <ExecutiveStrategyLabProjection
               apiBase={API_BASE}
               candidateId={ESL_CANDIDATE_ID}
+              tenantId={login.tenantId}
+              token={activeSession?.access_token ?? ""}
+            />
+          </Suspense>
+        ) : null}
+
+        {hasStudentSurface && SHANGHAI_C0_RECEIPT_ID ? (
+          <Suspense fallback={<p className="muted">正在载入 Shanghai C0 conversion…</p>}>
+            <ShanghaiC0ConversionProjection
+              apiBase={API_BASE}
+              receiptId={SHANGHAI_C0_RECEIPT_ID}
               tenantId={login.tenantId}
               token={activeSession?.access_token ?? ""}
             />

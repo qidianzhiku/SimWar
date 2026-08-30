@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import type { ApiEnvelope, ShanghaiFullVerticalAdminProjection } from "@simwar/shared-contracts";
 import { CanServiceFeasibilityPanel } from "@simwar/ui/can-service-feasibility-panel";
+import { ShanghaiC0ConversionAuditPanel } from "./ShanghaiC0ConversionAuditPanel";
+
+const SHANGHAI_C0_RECEIPT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
 
 interface Props {
   apiBase: string;
@@ -50,12 +56,18 @@ export function ShanghaiFullVerticalAdminPanel({
   tenantId,
   token
 }: Props) {
+  const c0Mode = Boolean(SHANGHAI_C0_RECEIPT_ID);
   const [projection, setProjection] = useState<ShanghaiFullVerticalAdminProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const exact = Boolean(courseId && draftId && runId && roundNo !== undefined && token);
 
   useEffect(() => {
     let active = true;
+    if (c0Mode) {
+      return () => {
+        active = false;
+      };
+    }
     if (!exact) {
       setProjection(null);
       setError(null);
@@ -77,7 +89,18 @@ export function ShanghaiFullVerticalAdminPanel({
     return () => {
       active = false;
     };
-  }, [apiBase, courseId, draftId, exact, roundNo, runId, tenantId, token]);
+  }, [apiBase, c0Mode, courseId, draftId, exact, roundNo, runId, tenantId, token]);
+
+  if (c0Mode) {
+    return (
+      <ShanghaiC0ConversionAuditPanel
+        apiBase={apiBase}
+        receiptId={SHANGHAI_C0_RECEIPT_ID}
+        tenantId={tenantId}
+        token={token}
+      />
+    );
+  }
 
   return (
     <>
