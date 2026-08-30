@@ -478,6 +478,11 @@ const schemaCases = [
     schema: "contracts/schemas/shanghai-productization.v1.json",
     valid: ["contracts/fixtures/shanghai-productization.valid.json"],
     invalid: []
+  },
+  {
+    schema: "contracts/schemas/mod-next6-consumption.v1.json",
+    valid: ["contracts/fixtures/mod-next6-consumption.valid.json"],
+    invalid: []
   }
 ];
 
