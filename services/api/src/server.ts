@@ -108,6 +108,7 @@ import {
   createJsonFormalScenarioAuthorityPersistence,
   createJsonGovernedAdvisoryRepositoryPort,
   createJsonGSIStakeholderRepositoryPort,
+  createJsonModelQualificationPersistence,
   createJsonOperatingWorldPersistence,
   createJsonW5GovernedModelPersistence,
   createJsonW027DecisionExperienceRepositoryPort,
@@ -224,6 +225,11 @@ import {
 } from "./course-report-query-service.js";
 import { handleCourseReportRoute, isCourseReportRoute } from "./course-report-routes.js";
 import { W5GovernedModelError, W5GovernedModelService } from "./w5-governed-model-service.js";
+import {
+  ModelQualificationError,
+  ModelQualificationService
+} from "./model-qualification-service.js";
+import { handleModelQualificationRoute } from "./routes/model-qualification-routes.js";
 import { OperatingWorldError, OperatingWorldService } from "./operating-world-service.js";
 import {
   TeacherScenarioStudioError,
@@ -442,6 +448,7 @@ interface ApiRuntime {
   projectLibrary: ProjectLibraryService;
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
+  modelQualification: ModelQualificationService;
   shanghaiFullVertical: ShanghaiFullVerticalService;
   regionalTransfer: RegionalTransferProductService;
   resolveRegionalTransferSelection: (
@@ -850,7 +857,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           }
         : null;
     },
-    getW4Projection: (scope) => w4EnterpriseStateService.getProjection(scope, { allowEmptyRound: true }),
+    getW4Projection: (scope) =>
+      w4EnterpriseStateService.getProjection(scope, { allowEmptyRound: true }),
     getO4Candidate: (input) => o4CrossRoundDynamics.getCandidate(input),
     createM4Candidate: (scope, input, surface) =>
       m4MultipathCounterfactualTransfer.create(scope, input, surface),
@@ -871,6 +879,10 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     undefined,
     createJsonW5GovernedModelPersistence(store)
   );
+  const modelQualification = new ModelQualificationService(
+    undefined,
+    createJsonModelQualificationPersistence(store)
+  );
   const shanghaiFullVertical = new ShanghaiFullVerticalService(w5GovernedModel);
   const regionalTransferSupport = buildM4PortabilityCompatibilityPack();
   const regionalTransfer = new RegionalTransferProductService({
@@ -882,7 +894,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           ? courseBlueprintBindingStore.getForCourse(tenantId, courseId)
           : null;
         return course
-            ? {
+          ? {
               course_id: course.course_id,
               parameter_set_id: course.parameter_set_id,
               scenario_package_id: course.scenario_package_id,
@@ -913,9 +925,9 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           : null;
       },
       getRound: async (tenantId, runId, roundNo) => {
-        const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)).find(
-          (candidate) => candidate.round_no === roundNo && candidate.tenant_id === tenantId
-        );
+        const round = (
+          await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)
+        ).find((candidate) => candidate.round_no === roundNo && candidate.tenant_id === tenantId);
         return round
           ? {
               round_id: round.round_id,
@@ -964,10 +976,13 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   ): Promise<RegionalTransferCandidateInput> => {
     const course = await repositoryProvider.facade.courses.getCourse(tenantId, query.courseId);
     const run = await repositoryProvider.facade.runs.getRun(tenantId, query.runId);
-    const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, query.runId)).find(
-      (candidate) => candidate.round_no === query.roundNo && candidate.tenant_id === tenantId
+    const round = (
+      await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, query.runId)
+    ).find((candidate) => candidate.round_no === query.roundNo && candidate.tenant_id === tenantId);
+    const courseBlueprintBinding = courseBlueprintBindingStore.getForCourse(
+      tenantId,
+      query.courseId
     );
-    const courseBlueprintBinding = courseBlueprintBindingStore.getForCourse(tenantId, query.courseId);
     const courseAuthorityBinding = formalCourseAuthorityBindingStore.getForCourse(
       tenantId,
       query.courseId
@@ -979,7 +994,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       !courseBlueprintBinding ||
       !courseAuthorityBinding ||
       run.course_id !== query.courseId ||
-      run.scenario_package_id !== courseAuthorityBinding.scenario_package_reference.scenario_package_id ||
+      run.scenario_package_id !==
+        courseAuthorityBinding.scenario_package_reference.scenario_package_id ||
       run.parameter_set_id !== courseAuthorityBinding.parameter_set_reference.parameter_set_id
     ) {
       throw new RegionalTransferProductError("RT_EXACT_BINDING_REQUIRED");
@@ -1277,6 +1293,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       repositoryProvider
     }),
     w5GovernedModel,
+    modelQualification,
     shanghaiFullVertical,
     regionalTransfer,
     resolveRegionalTransferSelection,
@@ -6517,10 +6534,26 @@ async function routeRequest(
         const team = await runtime.repositoryProvider.facade.teams.getTeam(tenantId, teamId);
         return Boolean(
           team &&
-            team.course_id === courseId &&
-            team.members.some((member) => member.user_id === userId)
+          team.course_id === courseId &&
+          team.members.some((member) => member.user_id === userId)
         );
       },
+      sendJson
+    })
+  ) {
+    return;
+  }
+
+  if (
+    await handleModelQualificationRoute(runtime.modelQualification, request, response, url, {
+      actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+      createContext: (incoming) => createContext(runtime, incoming),
+      createEnvelope: (context, data, message) =>
+        createEnvelope(context as RequestContext, data, message),
+      readJson,
+      repository: runtime.repositoryProvider.facade,
+      requirePermission: (context, permission) =>
+        requirePermission(context as RequestContext, permission),
       sendJson
     })
   ) {
@@ -10953,6 +10986,22 @@ export function createApiServer(
               : error.code === "W5_DRAFT_NOT_FROZEN" ||
                   error.code === "W5_DRAFT_NOT_VALIDATED" ||
                   error.code === "W5_INVALID_TRANSITION"
+                ? 409
+                : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof ModelQualificationError) {
+        const statusCode =
+          error.code === "MODEL_QUALIFICATION_SCOPE_CONFLICT"
+            ? 403
+            : error.code === "MODEL_QUALIFICATION_SOURCE_NOT_FOUND" ||
+                error.code === "MODEL_QUALIFICATION_DATASET_NOT_FOUND" ||
+                error.code === "MODEL_QUALIFICATION_NOT_FOUND"
+              ? 404
+              : error.code === "MODEL_QUALIFICATION_REVIEW_REQUIRED" ||
+                  error.code === "MODEL_QUALIFICATION_BINDING_REQUIRED"
                 ? 409
                 : 422;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));

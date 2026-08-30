@@ -33,9 +33,11 @@ import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TenantBaselineWorkbench } from "./TenantBaselineWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 const RegionalTransferAdminWorkbench = lazy(() =>
-  import("./features/regional-transfer-workbench").then(({ RegionalTransferAdminWorkbench: Component }) => ({
-    default: Component
-  }))
+  import("./features/regional-transfer-workbench").then(
+    ({ RegionalTransferAdminWorkbench: Component }) => ({
+      default: Component
+    })
+  )
 );
 import { AuthorityBadge } from "@simwar/ui";
 import {
@@ -52,6 +54,7 @@ import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
 import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
+const ModelQualificationAuditPanel = lazy(() => import("./ModelQualificationAuditPanel"));
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
@@ -1186,6 +1189,16 @@ export function App() {
             tenantId={login.tenantId}
             token={session.access_token}
           />
+        ) : null}
+        {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
+          <Suspense fallback={<p className="muted">正在载入模型资格审计…</p>}>
+            <ModelQualificationAuditPanel
+              apiBase={API_BASE}
+              courseId={W5_AUDIT_COURSE_ID}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+          </Suspense>
         ) : null}
         {session &&
         isTenantAdmin &&

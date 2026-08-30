@@ -1,0 +1,32 @@
+{
+  "calibration_datasets": [],
+  "known_limits": [
+    "Qualification is candidate governance evidence and never official REALIZED truth."
+  ],
+  "model_catalog": [
+    {
+      "artifact": {
+        "artifact_id": "artifact_toy_logit_v2",
+        "content_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "format": "typescript-boundary",
+        "source_ref": "services/simulation-core/src/toy-logit-engine.ts"
+      },
+      "model_family": "toy_logit",
+      "model_version_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "model_version_id": "toy_logit_wellness_v2",
+        "version": "2.0.0"
+      },
+      "status": "APPROVED"
+    }
+  ],
+  "operation_id": "MODEL_QUALIFICATION_TEACHER_STUDIO_GET_V1",
+  "qualifications": [],
+  "security": {
+    "activity": "model-qualification-studio",
+    "course": "course_demo",
+    "role": "teacher",
+    "tenant": "tenant_demo"
+  },
+  "source_packages": []
+}

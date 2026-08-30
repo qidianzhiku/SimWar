@@ -85,9 +85,11 @@ import { TeacherConfirmationWorkbench } from "./TeacherConfirmationWorkbench";
 import { D5ExportWorkbench } from "./D5ExportWorkbench";
 import { TransferResearchWorkbench } from "./features/transfer-research-workbench";
 const RegionalTransferWorkbench = lazy(() =>
-  import("./features/regional-transfer-workbench").then(({ RegionalTransferWorkbench: Component }) => ({
-    default: Component
-  }))
+  import("./features/regional-transfer-workbench").then(
+    ({ RegionalTransferWorkbench: Component }) => ({
+      default: Component
+    })
+  )
 );
 import { GoldenJourneyWorkbench } from "./features/GoldenJourneyWorkbench";
 import { TeachingClosureWorkspace } from "./TeachingClosureWorkspace";
@@ -97,6 +99,7 @@ import { W4EnterpriseStateWorkbench } from "./W4EnterpriseStateWorkbench";
 import { FreshLearnerAdmissionPanel } from "./FreshLearnerAdmissionPanel";
 import { ValidationSessionWorkbench } from "./ValidationSessionWorkbench";
 const W5GovernedModelStudio = lazy(() => import("./W5GovernedModelStudio"));
+const ModelQualificationWorkbench = lazy(() => import("./ModelQualificationWorkbench"));
 const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVerticalPanel"));
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
@@ -2423,6 +2426,12 @@ export function App() {
               onDraftChange={setSelectedShanghaiDraftId}
               runId={selectedRun?.run_id ?? selectedRunId}
               roundNo={selectedRound?.round_no}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            <ModelQualificationWorkbench
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
               tenantId={login.tenantId}
               token={session.access_token}
             />
