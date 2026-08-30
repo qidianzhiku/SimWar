@@ -180,6 +180,13 @@ export async function handleModelQualificationRoute(
     const courseId = stringValue(url.searchParams.get("courseId"));
     const qualification = stringValue(url.searchParams.get("qualificationId"));
     await assertCourse(deps, context, courseId);
+    const visibleCourses = await deps.repository.courses.listCoursesForUser(
+      context.tenantId,
+      actor.user_id
+    );
+    if (!visibleCourses.some((course) => course.course_id === courseId)) {
+      throw new ModelQualificationError("MODEL_QUALIFICATION_SCOPE_CONFLICT");
+    }
     if (!qualification) throw new ModelQualificationError("MODEL_QUALIFICATION_NOT_FOUND");
     send(
       deps,
@@ -199,6 +206,9 @@ export async function handleModelQualificationRoute(
     requiredObject: !url.pathname.endsWith("/bind")
   });
   const bodyRecord = isRecord(body) ? body : {};
+  if (url.pathname === `${TEACHER_PREFIX}/qualifications` && "diagnostics" in bodyRecord) {
+    throw new ModelQualificationError("MODEL_QUALIFICATION_DIAGNOSTICS_INVALID");
+  }
   const courseId = resolveCourseId(bodyRecord, url);
   await assertCourse(deps, context, courseId);
   const serviceScope = scope(context, courseId);
@@ -259,19 +269,9 @@ export async function handleModelQualificationRoute(
     const reference = isRecord(bodyRecord.model_version_reference)
       ? bodyRecord.model_version_reference
       : {};
-    const rawDiagnostics = isRecord(bodyRecord.diagnostics) ? bodyRecord.diagnostics : {};
     const input: ModelQualificationRunInput = {
       calibration_dataset_id: stringValue(bodyRecord.calibration_dataset_id),
       deterministic_seed: numberValue(bodyRecord.deterministic_seed),
-      diagnostics: {
-        baseline_error: numberValue(rawDiagnostics.baseline_error),
-        convergence_status:
-          rawDiagnostics.convergence_status as ModelQualificationRunInput["diagnostics"]["convergence_status"],
-        differential_error: numberValue(rawDiagnostics.differential_error),
-        drift_score: numberValue(rawDiagnostics.drift_score),
-        ood_rate: numberValue(rawDiagnostics.ood_rate),
-        sensitivity_max_delta: numberValue(rawDiagnostics.sensitivity_max_delta)
-      },
       model_version_reference: {
         content_digest: stringValue(reference.content_digest),
         model_version_id: stringValue(reference.model_version_id),

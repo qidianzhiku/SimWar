@@ -1,5 +1,20 @@
 {
-  "calibration_datasets": [],
+  "calibration_datasets": [
+    {
+      "calibration_dataset_id": "mq_dataset_leakage_example",
+      "calibration_record_ids": ["record-1"],
+      "content_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "course_id": "course_demo",
+      "created_at": "2026-08-30T12:00:00.000Z",
+      "holdout_leakage_count": 1,
+      "holdout_record_ids": ["record-1"],
+      "record_count": 2,
+      "source_package_id": "mq_source_example",
+      "status": "NOT_ELIGIBLE",
+      "tenant_id": "tenant_demo",
+      "zero_holdout_leakage": false
+    }
+  ],
   "known_limits": [
     "Qualification is candidate governance evidence and never official REALIZED truth."
   ],

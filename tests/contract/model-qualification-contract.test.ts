@@ -52,6 +52,7 @@ describe("source-backed model qualification contract", () => {
       )
     );
     expect(validate(valid), JSON.stringify(validate.errors)).toBe(true);
+    expect(valid.calibration_datasets[0].zero_holdout_leakage).toBe(false);
     expect(validate(invalid)).toBe(false);
   });
 });

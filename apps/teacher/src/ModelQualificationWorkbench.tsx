@@ -168,14 +168,6 @@ export function ModelQualificationWorkbench({ apiBase, courseId, tenantId, token
                   calibration_dataset_id: dataset?.calibration_dataset_id,
                   course_id: courseId,
                   deterministic_seed: 42,
-                  diagnostics: {
-                    baseline_error: 0.08,
-                    convergence_status: "CONVERGED",
-                    differential_error: 0.01,
-                    drift_score: 0.04,
-                    ood_rate: 0.02,
-                    sensitivity_max_delta: 0.05
-                  },
                   model_version_reference: model?.model_version_reference,
                   source_package_id: source?.source_package_id
                 })

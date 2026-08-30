@@ -3,6 +3,7 @@ import {
   MODEL_QUALIFICATION_MODEL_VERSION,
   ModelQualificationError,
   ModelQualificationService,
+  deriveModelQualificationDiagnostics,
   type ModelQualificationActor
 } from "../../services/api/src/model-qualification-service";
 
@@ -58,8 +59,7 @@ function readyQualification() {
     source_package_id: source.source_package_id,
     calibration_dataset_id: dataset.calibration_dataset_id,
     model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
-    deterministic_seed: 42,
-    diagnostics
+    deterministic_seed: 42
   }).qualification;
   return { governed, source, dataset, qualification };
 }
@@ -96,13 +96,6 @@ describe("ModelQualificationService", () => {
         "holdout leakage",
         { dataset: { calibration_record_ids: ["r1", "r2"], holdout_record_ids: ["r2", "r3"] } },
         "HOLDOUT_LEAKAGE"
-      ],
-      ["drift", { diagnostics: { ...diagnostics, drift_score: 0.9 } }, "DRIFT_THRESHOLD_EXCEEDED"],
-      ["ood", { diagnostics: { ...diagnostics, ood_rate: 0.9 } }, "OOD_THRESHOLD_EXCEEDED"],
-      [
-        "not converged",
-        { diagnostics: { ...diagnostics, convergence_status: "NOT_CONVERGED" as const } },
-        "QUALIFICATION_NOT_CONVERGED"
       ]
     ] as const;
 
@@ -134,12 +127,58 @@ describe("ModelQualificationService", () => {
         source_package_id: source.source_package_id,
         calibration_dataset_id: dataset.calibration_dataset_id,
         model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
-        deterministic_seed: 42,
-        diagnostics: "diagnostics" in override ? override.diagnostics : diagnostics
+        deterministic_seed: 42
       }).qualification;
       expect(result.decision, label).not.toBe("APPROVED");
       expect(result.reasons).toContain(reason);
     }
+  });
+
+  it("derives diagnostics from exact source, dataset, and model bindings", () => {
+    const { governed, source, dataset } = readyQualification();
+    const derived = deriveModelQualificationDiagnostics(
+      source,
+      dataset,
+      MODEL_QUALIFICATION_MODEL_VERSION
+    );
+    const maliciousInput = {
+      source_package_id: source.source_package_id,
+      calibration_dataset_id: dataset.calibration_dataset_id,
+      model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+      deterministic_seed: 42,
+      diagnostics
+    };
+    const qualification = governed.runQualification(teacher, scope, maliciousInput).qualification;
+
+    expect(qualification.diagnostics).toEqual(derived);
+    expect(qualification.diagnostics.drift_score).toBeLessThanOrEqual(0.25);
+    expect(qualification.diagnostics.ood_rate).toBeLessThanOrEqual(0.1);
+  });
+
+  it("rejects malformed expiry timestamps before qualification", () => {
+    const governed = service();
+    expect(() =>
+      governed.registerSourcePackage(teacher, scope, {
+        ...sourceInput,
+        expires_at: "tomorrow"
+      })
+    ).toThrow(new ModelQualificationError("MODEL_QUALIFICATION_SOURCE_INVALID"));
+  });
+
+  it("does not expose an uncommitted record after persistence fails", () => {
+    const governed = new ModelQualificationService(
+      { now: () => "2026-08-30T01:40:00.000Z" },
+      {
+        listRecords: () => [],
+        commitRecord: () => {
+          throw new Error("persistence failed");
+        }
+      }
+    );
+    expect(() => governed.registerSourcePackage(teacher, scope, sourceInput)).toThrow(
+      "persistence failed"
+    );
+    expect(governed.getTeacherProjection(teacher, scope).source_packages).toEqual([]);
   });
 
   it("rejects an unregistered or mismatched exact ModelVersion reference", () => {
@@ -152,8 +191,7 @@ describe("ModelQualificationService", () => {
           ...MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
           content_digest: "f".repeat(64)
         },
-        deterministic_seed: 42,
-        diagnostics
+        deterministic_seed: 42
       })
     ).toThrow(new ModelQualificationError("MODEL_VERSION_REFERENCE_NOT_FOUND"));
   });

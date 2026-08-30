@@ -5514,7 +5514,7 @@ paths:
             { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
-        "422": { description: "Exact model reference, dataset or diagnostics is invalid" }
+        "422": { description: "Exact model reference, dataset or deterministic seed is invalid" }
 
   /api/v1/bff/teacher/model-qualification/qualifications/{qualificationId}/review:
     post:
@@ -9660,22 +9660,11 @@ components:
     ModelQualificationRunRequest:
       type: object
       additionalProperties: false
-      required: [calibration_dataset_id, course_id, deterministic_seed, diagnostics, model_version_reference, source_package_id]
+      required: [calibration_dataset_id, course_id, deterministic_seed, model_version_reference, source_package_id]
       properties:
         calibration_dataset_id: { type: string, minLength: 1 }
         course_id: { type: string, minLength: 1 }
         deterministic_seed: { type: integer }
-        diagnostics:
-          type: object
-          additionalProperties: false
-          required: [baseline_error, convergence_status, differential_error, drift_score, ood_rate, sensitivity_max_delta]
-          properties:
-            baseline_error: { type: number, minimum: 0 }
-            convergence_status: { enum: [CONVERGED, NOT_CONVERGED] }
-            differential_error: { type: number, minimum: 0 }
-            drift_score: { type: number, minimum: 0, maximum: 1 }
-            ood_rate: { type: number, minimum: 0, maximum: 1 }
-            sensitivity_max_delta: { type: number, minimum: 0, maximum: 1 }
         model_version_reference: { $ref: "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" }
         source_package_id: { type: string, minLength: 1 }
     ModelQualificationReviewRequest:

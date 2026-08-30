@@ -133,6 +133,29 @@ describe("source-backed model qualification BFF", () => {
       expect(dataset.status).toBe(201);
       const datasetId = dataset.body.data.calibration_dataset.calibration_dataset_id;
 
+      const clientDiagnostics = await api(
+        baseUrl,
+        "/api/v1/bff/teacher/model-qualification/qualifications",
+        teacher.access_token,
+        "POST",
+        {
+          calibration_dataset_id: datasetId,
+          course_id: "course_demo",
+          deterministic_seed: 42,
+          diagnostics: {
+            baseline_error: 0,
+            convergence_status: "CONVERGED",
+            differential_error: 0,
+            drift_score: 0,
+            ood_rate: 0,
+            sensitivity_max_delta: 0
+          },
+          model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
+          source_package_id: sourceId
+        }
+      );
+      expect(clientDiagnostics.status).toBe(422);
+
       const qualification = await api<
         ApiEnvelope<{ qualification: { qualification_id: string; decision: string } }>
       >(
@@ -144,14 +167,6 @@ describe("source-backed model qualification BFF", () => {
           calibration_dataset_id: datasetId,
           course_id: "course_demo",
           deterministic_seed: 42,
-          diagnostics: {
-            baseline_error: 0.08,
-            convergence_status: "CONVERGED",
-            differential_error: 0.01,
-            drift_score: 0.04,
-            ood_rate: 0.02,
-            sensitivity_max_delta: 0.05
-          },
           model_version_reference: MODEL_QUALIFICATION_MODEL_VERSION.model_version_reference,
           source_package_id: sourceId
         }
@@ -234,9 +249,10 @@ describe("source-backed model qualification BFF", () => {
   });
 
   it("fails closed for tenant scope and holdout leakage", async () => {
-    const { baseUrl, server } = await startServer();
+    const { baseUrl, server, store } = await startServer();
     try {
       const teacher = await login(baseUrl, "teacher");
+      const student = await login(baseUrl, "student");
       const foreignRead = await api(
         baseUrl,
         "/api/v1/bff/teacher/model-qualification?courseId=course_demo",
@@ -275,6 +291,17 @@ describe("source-backed model qualification BFF", () => {
         status: "NOT_ELIGIBLE",
         zero_holdout_leakage: false
       });
+
+      const team = store.teams.find((candidate) => candidate.team_id === "team_alpha");
+      if (!team) throw new Error("seed team missing");
+      team.captain_user_id = "usr_default_cfo";
+      team.members = team.members.filter((member) => member.user_id !== "usr_student");
+      const nonMemberRead = await api(
+        baseUrl,
+        "/api/v1/bff/student/model-qualification?courseId=course_demo&qualificationId=missing",
+        student.access_token
+      );
+      expect([401, 403]).toContain(nonMemberRead.status);
 
       const mismatchedCourseScope = await api(
         baseUrl,

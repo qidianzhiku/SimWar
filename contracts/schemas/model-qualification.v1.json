@@ -128,7 +128,7 @@
         "source_package_id": { "type": "string", "minLength": 1 },
         "status": { "enum": ["READY", "NOT_ELIGIBLE"] },
         "tenant_id": { "type": "string", "minLength": 1 },
-        "zero_holdout_leakage": { "const": true }
+        "zero_holdout_leakage": { "type": "boolean" }
       }
     },
     "diagnostics": {
