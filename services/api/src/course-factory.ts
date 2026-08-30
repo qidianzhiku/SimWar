@@ -14,6 +14,7 @@ import type {
   CourseFactoryStudentEvidenceProjection,
   CourseFactoryVersion,
   CoursePackageVersion,
+  CoursePackageVersionDraftInput,
   CoursePackageVersionReference,
   ParameterSetReference,
   ScenarioPackageReference
@@ -64,6 +65,10 @@ export interface CourseFactoryServiceDependencies {
   packageRegistry: CoursePackageRegistryPort;
   store?: SimWarStore;
 }
+
+type CourseFactoryPersistDraftInput = Omit<CoursePackageVersionDraftInput, "factory_metadata"> & {
+  factory_metadata: CourseFactoryMetadata;
+};
 
 const KNOWN_LIMITS = [
   "JSON_INTERNAL_ONLY is the active runtime authority; no durable delivery claim is made.",
@@ -310,7 +315,7 @@ export class CourseFactoryService {
 
   private async persistDraft(
     actor: CourseFactoryActor,
-    input: CourseFactoryDraftInput
+    input: CourseFactoryPersistDraftInput
   ): Promise<CourseFactoryVersion> {
     assertMetadata(actor.tenant_id, input.factory_metadata);
     if (
@@ -646,7 +651,7 @@ export class CourseFactoryService {
     };
   }
 
-  private packageDraft(version: CourseFactoryVersion): CourseFactoryDraftInput {
+  private packageDraft(version: CourseFactoryVersion): CourseFactoryPersistDraftInput {
     return {
       course_blueprint_reference: clone(version.course_blueprint_reference),
       course_package_id: version.course_package_id,

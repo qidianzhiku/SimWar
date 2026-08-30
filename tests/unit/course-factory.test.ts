@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { CoursePackageVersionDraftInput } from "../../packages/shared-contracts/src";
+import type {
+  CoursePackageVersion,
+  CoursePackageVersionDraftInput
+} from "../../packages/shared-contracts/src";
 import {
   CourseFactoryError,
   CourseFactoryService,
@@ -233,6 +236,33 @@ describe("R3 CourseFactoryService", () => {
         tenant_id: tenantId
       })
     ).toBe(false);
+  });
+
+  it("rejects forged M30 evidence at the shared delivery boundary", async () => {
+    const { registry, service } = createService();
+    const sourceEvidence = buildM30CourseFactorySourceEvidence();
+    const draft = await service.createDraft(
+      actor,
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_evidence_reference: sourceEvidence
+        }
+      })
+    );
+    const reference = createCoursePackageVersionReference(draft);
+    await service.validate(actor, reference);
+    await service.approve(actor, reference);
+    await service.publish(actor, reference);
+
+    const packageVersion = await registry.getByReference(tenantId, reference);
+    expect(packageVersion?.status).toBe("PUBLISHED");
+    const forgedPackage = structuredClone(packageVersion as CoursePackageVersion);
+    forgedPackage.factory_metadata.source_evidence_reference = {
+      ...sourceEvidence,
+      evidence_digest: digest("f")
+    };
+    expect(isDeliveryReadyCoursePackage(forgedPackage)).toBe(false);
   });
 
   it("runs one exact package through Draft, Validated, Approved and Published", async () => {

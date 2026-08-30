@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type {
   ApiEnvelope,
   CourseFactoryCloneInput,
+  CourseFactoryDraftMetadata,
   CourseFactoryDraftInput,
   CourseFactoryMetadata,
   CourseFactoryProvenanceKind,
@@ -327,7 +328,7 @@ function sourceEvidenceReference(value: unknown): CourseFactorySourceEvidenceRef
   };
 }
 
-function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadata {
+function factoryMetadata(value: unknown, tenantId: string): CourseFactoryDraftMetadata {
   if (!isRecord(value)) throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   assertOnlyFields(value, [
     "known_limits",
@@ -387,6 +388,8 @@ function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadat
       : exactReference(provenance.source_course_package_reference, tenantId);
   if (
     !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
+    provenance.kind !== "ORIGINAL" ||
+    sourceCoursePackageReference !== undefined ||
     userDataPolicy.copied_private_data !== false ||
     userDataPolicy.copied_user_decisions !== false ||
     userDataPolicy.copied_user_results !== false
@@ -395,12 +398,7 @@ function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadat
   }
   return {
     known_limits: stringList(value.known_limits),
-    provenance: {
-      kind: provenance.kind as CourseFactoryProvenanceKind,
-      ...(sourceCoursePackageReference
-        ? { source_course_package_reference: sourceCoursePackageReference }
-        : {})
-    },
+    provenance: { kind: "ORIGINAL" },
     rights: {
       allowed_tenant_ids: allowedTenantIds,
       copy_allowed: rights.copy_allowed,

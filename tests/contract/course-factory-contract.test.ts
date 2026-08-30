@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 
 function schemaValidator() {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const ajv = new Ajv2020({ $data: true, allErrors: true, strict: true });
   ajv.addFormat("date", {
     type: "string",
     validate: (value: string) => {

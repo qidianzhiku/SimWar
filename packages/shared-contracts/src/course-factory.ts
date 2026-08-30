@@ -133,6 +133,18 @@ export interface CourseFactoryMetadata {
   user_data_policy: CourseFactoryUserDataPolicy;
 }
 
+export type CourseFactoryOriginalProvenance = Omit<
+  CourseFactoryProvenance,
+  "kind" | "source_course_package_reference"
+> & {
+  kind: "ORIGINAL";
+  source_course_package_reference?: never;
+};
+
+export type CourseFactoryDraftMetadata = Omit<CourseFactoryMetadata, "provenance"> & {
+  provenance: CourseFactoryOriginalProvenance;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -408,7 +420,7 @@ export function isCourseFactoryMetadataForTenant(
 }
 
 export type CourseFactoryDraftInput = Omit<CoursePackageVersionDraftInput, "factory_metadata"> & {
-  factory_metadata: CourseFactoryMetadata;
+  factory_metadata: CourseFactoryDraftMetadata;
 };
 
 export type CourseFactoryVersion = Omit<CoursePackageVersion, "factory_metadata"> & {

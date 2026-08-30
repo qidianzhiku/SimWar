@@ -61,7 +61,12 @@
               "properties": {
                 "content_digest": { "$ref": "#/$defs/digest" },
                 "course_package_id": { "$ref": "#/$defs/exact_identity" },
-                "tenant_id": { "$ref": "#/$defs/exact_identity" },
+                "tenant_id": {
+                  "allOf": [
+                    { "$ref": "#/$defs/exact_identity" },
+                    { "const": { "$data": "4/tenant_id" } }
+                  ]
+                },
                 "version": { "$ref": "#/$defs/exact_version" }
               }
             }

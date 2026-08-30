@@ -10,6 +10,7 @@ import {
   createCoursePackageVersionReference
 } from "./course-package-json-registry.js";
 import { isCourseFactoryMetadataForTenant } from "@simwar/shared-contracts";
+import { validateM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
 
 /**
  * Published Course Factory versions are delivery-ready through the same
@@ -40,6 +41,12 @@ export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
     version.status !== "PUBLISHED" ||
     typeof version.tenant_id !== "string" ||
     !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)
+  ) {
+    return false;
+  }
+  if (
+    version.factory_metadata.source_evidence_reference !== undefined &&
+    validateM30CourseFactorySourceEvidence(version.factory_metadata.source_evidence_reference).length > 0
   ) {
     return false;
   }

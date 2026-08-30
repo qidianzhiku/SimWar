@@ -31,7 +31,7 @@ function isValidDateTime(value: string): boolean {
 }
 
 function compileCoursePackageSchema() {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const ajv = new Ajv2020({ $data: true, allErrors: true, strict: true });
   ajv.addFormat("date", { type: "string", validate: isValidDate });
   ajv.addFormat("date-time", { type: "string", validate: isValidDateTime });
   ajv.addSchema(readJson("contracts/schemas/teacher-scenario-studio.v1.json"));
@@ -273,6 +273,19 @@ describe("CoursePackageVersion contract freeze", () => {
     };
 
     expect(validate(factoryPackage)).toBe(true);
+
+    const nonOriginalCrossTenant = structuredClone(factoryPackage);
+    (nonOriginalCrossTenant.factory_metadata as Record<string, unknown>).provenance = {
+      kind: "CLONED",
+      source_course_package_reference: {
+        content_digest: "a".repeat(64),
+        course_package_id: "source_course",
+        tenant_id: "tenant_other",
+        version: "1.0.0"
+      }
+    };
+    expect(validate(nonOriginalCrossTenant)).toBe(false);
+
     for (const field of [
       "model_artifact_reference",
       "model_version_reference",
