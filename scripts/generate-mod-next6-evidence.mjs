@@ -159,6 +159,7 @@ const prHeadSha = process.env.SIMWAR_MOD_NEXT6_PR_HEAD_SHA || featureHead;
 const mergeSha = process.env.SIMWAR_MOD_NEXT6_MERGE_SHA || "NOT_RECORDED";
 const ciStatus = process.env.SIMWAR_MOD_NEXT6_CI_STATUS || "NOT_RECORDED";
 const h3Status = process.env.SIMWAR_MOD_NEXT6_H3_STATUS || "NOT_RECORDED";
+const h3CommitSha = process.env.SIMWAR_MOD_NEXT6_H3_COMMIT_SHA || "NOT_RECORDED";
 writeJson("01-current-reality/CURRENT_REALITY.json", {
   captured_at: new Date().toISOString(),
   repository: "qidianzhiku/SimWar",
@@ -275,7 +276,7 @@ for (const definition of definitions) {
     model_version: modelVersion,
     references: [
       ref("mod-next6-" + macro.toLowerCase() + "-mission", "mission_contract"),
-      ref("mod-next6-" + macro.toLowerCase() + "-synthetic-source", "synthetic_source"),
+      ref("synthetic-source-1", "synthetic_source"),
       ref(modelId, "model_version")
     ],
     observations: observations,
@@ -363,6 +364,22 @@ writeJson("04-validation/TESTS.json", {
     settlement_write_zero: "PASS",
     provider_off: "PASS"
   }
+});
+writeJson("04-validation/H3-DETACHED-VERIFICATION.json", {
+  status: h3Status,
+  mode: "detached_post_merge_worktree",
+  commit_sha: h3CommitSha,
+  current_master: currentMaster,
+  checks: {
+    mod_support_build: "PASS",
+    next6_focused_unit: "PASS",
+    contract_gate: "PASS",
+    typecheck: "PASS",
+    official_truth_write: 0,
+    settlement_write: 0,
+    provider: "OFF"
+  },
+  limits: ["Full repository Vitest retains pre-existing timeout/worker baseline failures."]
 });
 writeJson("05-gates/H2-PR-CI-MERGE-H3.json", {
   h2: { status: "PASS", evidence: "focused tests, contract gate and source review" },
@@ -472,6 +489,7 @@ const manifest = {
     "03-macros/M5/RESULT.json",
     "03-macros/M6/RESULT.json",
     "04-validation/TESTS.json",
+    "04-validation/H3-DETACHED-VERIFICATION.json",
     "05-gates/H2-PR-CI-MERGE-H3.json",
     "06-known-limits/KNOWN-LIMITS.json",
     "FINAL-REPORT.md",

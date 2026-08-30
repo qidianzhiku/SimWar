@@ -223,13 +223,17 @@ function assertExactInputs(input: Next6EvidenceInput): void {
   }
 }
 
-function recordEvidenceProblems(observations: readonly Next6Observation[]): {
+function recordEvidenceProblems(
+  observations: readonly Next6Observation[],
+  referenceIds?: ReadonlySet<string>
+): {
   conflicts: { observation_id: string; reason: string }[];
   usable: Map<string, Next6Observation>;
 } {
   const conflicts: { observation_id: string; reason: string }[] = [];
   const usable = new Map<string, Next6Observation>();
   const seenIds = new Set<string>();
+  const seenKeys = new Set<string>();
   const firstGeography = observations.find(
     (observation) => observation.geography.trim() !== ""
   )?.geography;
@@ -242,6 +246,20 @@ function recordEvidenceProblems(observations: readonly Next6Observation[]): {
       continue;
     }
     seenIds.add(observation.observation_id);
+    if (seenKeys.has(observation.key)) {
+      conflicts.push({
+        observation_id: observation.observation_id,
+        reason: "DUPLICATE_METRIC_KEY"
+      });
+      continue;
+    }
+    seenKeys.add(observation.key);
+    if (referenceIds && !referenceIds.has(observation.source_ref)) {
+      conflicts.push({
+        observation_id: observation.observation_id,
+        reason: "UNBOUND_SOURCE_REFERENCE"
+      });
+    }
     if (!observation.unit.trim())
       conflicts.push({ observation_id: observation.observation_id, reason: "MISSING_UNIT" });
     if (!observation.time_scope.trim() || /ambiguous|unknown/i.test(observation.time_scope)) {
@@ -275,6 +293,7 @@ function recordEvidenceProblems(observations: readonly Next6Observation[]): {
       /ambiguous|unknown/i.test(observation.time_scope) ||
       !observation.geography.trim() ||
       observation.quality !== "OBSERVED" ||
+      (referenceIds !== undefined && !referenceIds.has(observation.source_ref)) ||
       !Number.isFinite(observation.value);
     if (!blocked) usable.set(observation.key, observation);
   }
@@ -541,7 +560,10 @@ function executeFixture(
   observed_status: Next6CandidateStatus;
   executed: true;
 } {
-  const fixtureEvidence = recordEvidenceProblems(fixture.observations);
+  const fixtureEvidence = recordEvidenceProblems(
+    fixture.observations,
+    new Set(input.references.map((reference) => reference.resource_id))
+  );
   const candidate = buildCandidate(
     { ...input, observations: fixture.observations },
     fixtureEvidence.usable,
@@ -569,7 +591,10 @@ function executeFixture(
  */
 export function executeNext6Macro(input: Next6EvidenceInput): Next6MacroResult {
   assertExactInputs(input);
-  const evidenceProblems = recordEvidenceProblems(input.observations);
+  const evidenceProblems = recordEvidenceProblems(
+    input.observations,
+    new Set(input.references.map((reference) => reference.resource_id))
+  );
   const { candidate, transformation } = buildCandidate(
     input,
     evidenceProblems.usable,
@@ -603,6 +628,10 @@ export function executeNext6Macro(input: Next6EvidenceInput): Next6MacroResult {
       fields: ["evidence", "authority", "method_delta", "tombstone_reuse"]
     }
   };
+  const mjpFixtures = input.mjp_fixtures.map((fixture) => executeFixture(input, fixture));
+  if (mjpFixtures.some((fixture) => fixture.expected_status !== fixture.observed_status)) {
+    throw new Error("NEXT6_MJP_EXPECTED_STATUS_MISMATCH");
+  }
   return {
     schema_version: MOD_NEXT6_SCHEMA_VERSION,
     macro_key: input.macro_key,
@@ -640,7 +669,7 @@ export function executeNext6Macro(input: Next6EvidenceInput): Next6MacroResult {
       status: "PASS",
       fixture_count: input.mjp_fixtures.length,
       fixture_ids: input.mjp_fixtures.map((fixture) => fixture.fixture_id),
-      fixtures: input.mjp_fixtures.map((fixture) => executeFixture(input, fixture))
+      fixtures: mjpFixtures
     },
     tombstone_reuse: {
       reused_capabilities: [

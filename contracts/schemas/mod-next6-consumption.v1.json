@@ -235,7 +235,10 @@
       "required": ["visibility", "fields"],
       "properties": {
         "visibility": { "const": "STUDENT_SAFE" },
-        "fields": { "type": "array", "items": { "type": "string" } }
+        "fields": {
+          "type": "array",
+          "items": { "enum": ["mechanisms", "uncertainty", "why_not"] }
+        }
       }
     },
     "roleViewAdmin": {

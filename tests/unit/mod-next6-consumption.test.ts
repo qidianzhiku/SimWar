@@ -145,34 +145,96 @@ describe("MOD Next6 consumption support", () => {
     expect(result.known_limits).toEqual(expect.arrayContaining(["UNKNOWN_INPUTS_FAIL_CLOSED"]));
   });
 
+  it("fails closed when an observation is not bound to an exact declared reference", () => {
+    const input = baseInput({
+      observations: baseInput().observations.map((item) => ({
+        ...item,
+        source_ref: "unlisted-source"
+      }))
+    });
+    const result = executeNext6Macro(input);
+
+    expect(result.candidate.status).toBe("UNKNOWN");
+    expect(result.evidence.conflicts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ reason: "UNBOUND_SOURCE_REFERENCE" })])
+    );
+  });
+
+  it("rejects duplicate metric keys instead of overwriting the first observation", () => {
+    const input = baseInput();
+    const result = executeNext6Macro({
+      ...input,
+      observations: [
+        ...input.observations,
+        { ...input.observations[0], observation_id: "obs-duplicate-liquidity", value: 0.1 }
+      ]
+    });
+
+    expect(result.candidate.status).toBe("UNKNOWN");
+    expect(result.evidence.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          observation_id: "obs-duplicate-liquidity",
+          reason: "DUPLICATE_METRIC_KEY"
+        })
+      ])
+    );
+  });
+
+  it("rejects an MJP fixture pack when expected and observed status diverge", () => {
+    const input = baseInput();
+    const mismatchedFixtures = input.mjp_fixtures.map((fixture) => ({
+      ...fixture,
+      expected_status: "INFEASIBLE" as const
+    }));
+
+    expect(() => executeNext6Macro({ ...input, mjp_fixtures: mismatchedFixtures })).toThrow(
+      "NEXT6_MJP_EXPECTED_STATUS_MISMATCH"
+    );
+  });
+
   it("supports all six macro domains with role-safe candidate semantics", () => {
     const keys = ["M1", "M2", "M3", "M4", "M5", "M6"] as const;
     for (const macro_key of keys) {
+      const fullObservations = [
+        observation("obs-finance-liquidity", "liquidity", 0.8),
+        observation("obs-finance-budget", "budget_utilization", 0.4),
+        observation("obs-finance-dscr", "dscr", 1.4),
+        observation("obs-finance-covenant", "covenant_headroom", 0.2),
+        observation("obs-finance-stress", "stress_cash", 0.1),
+        observation("obs-finance-transaction", "transaction_feasibility", 1, "boolean"),
+        observation("obs-a", "cohort_fit", 0.7),
+        observation("obs-b", "outside_option", 0.3),
+        observation("obs-c", "price_sensitivity", 0.5),
+        observation("obs-d", "trust", 0.8),
+        observation("obs-e", "service_capacity", 100, "units"),
+        observation("obs-f", "demand", 80, "units"),
+        observation("obs-g", "workforce_capacity", 100, "units"),
+        observation("obs-h", "skill_coverage", 0.9),
+        observation("obs-i", "quality_threshold", 0.8),
+        observation("obs-j", "baseline_outcome", 0.6),
+        observation("obs-k", "uncertainty_low", 0.5),
+        observation("obs-l", "uncertainty_high", 0.7),
+        observation("obs-m", "what_if_outcome", 0.65),
+        observation("obs-n", "stock", 100, "units"),
+        observation("obs-o", "flow", 20, "units_per_round"),
+        observation("obs-p", "lag_rounds", 2, "rounds"),
+        observation("obs-q", "feedback", 0.4),
+        observation("obs-r", "freshness_days", 2, "days"),
+        observation("obs-s", "holdout_error", 0.1),
+        observation("obs-t", "reality_gap", 0.1),
+        observation("obs-u", "ood_score", 0.1)
+      ];
       const input = baseInput({
         macro_key,
-        observations: [
-          observation("obs-a", "cohort_fit", 0.7),
-          observation("obs-b", "outside_option", 0.3),
-          observation("obs-c", "price_sensitivity", 0.5),
-          observation("obs-d", "trust", 0.8),
-          observation("obs-e", "service_capacity", 100, "units"),
-          observation("obs-f", "demand", 80, "units"),
-          observation("obs-g", "workforce_capacity", 100, "units"),
-          observation("obs-h", "skill_coverage", 0.9),
-          observation("obs-i", "quality_threshold", 0.8),
-          observation("obs-j", "baseline_outcome", 0.6),
-          observation("obs-k", "uncertainty_low", 0.5),
-          observation("obs-l", "uncertainty_high", 0.7),
-          observation("obs-m", "what_if_outcome", 0.65),
-          observation("obs-n", "stock", 100, "units"),
-          observation("obs-o", "flow", 20, "units_per_round"),
-          observation("obs-p", "lag_rounds", 2, "rounds"),
-          observation("obs-q", "feedback", 0.4),
-          observation("obs-r", "freshness_days", 2, "days"),
-          observation("obs-s", "holdout_error", 0.1),
-          observation("obs-t", "reality_gap", 0.1),
-          observation("obs-u", "ood_score", 0.1)
-        ]
+        observations: fullObservations,
+        mjp_fixtures: [1, 2, 3].map((index) => ({
+          fixture_id: `fixture-${index}`,
+          observations: fullObservations,
+          expected_status: "FEASIBLE" as const
+        })),
+        rights_status: "PUBLIC_SAFE",
+        expires_at: "2027-08-29T00:00:00.000Z"
       });
       const result = executeNext6Macro(input);
       expect(result.macro_key).toBe(macro_key);

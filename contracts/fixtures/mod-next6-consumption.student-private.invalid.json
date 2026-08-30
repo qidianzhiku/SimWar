@@ -1,0 +1,111 @@
+{
+  "schema_version": "mod-next6-consumption.v1",
+  "macro_key": "M1",
+  "mission_id": "MOD-NEXT6-CONTRACT-FIXTURE",
+  "state_transition": { "from": "STATE_A", "to": "STATE_B" },
+  "capability_status": "C1_SUPPORT",
+  "model_version": {
+    "model_version_id": "mod-capital-v1",
+    "version": "1.0.0",
+    "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "qualification_status": "REFERENCE_ONLY",
+    "calibrated": false
+  },
+  "candidate": {
+    "status": "UNKNOWN",
+    "metrics": {},
+    "mechanisms": [],
+    "why_not": ["UNKNOWN_INPUTS_FAIL_CLOSED"],
+    "non_official": true
+  },
+  "consumer_receipt": {
+    "receipt_id": "mod_next6_receipt_fixture",
+    "consumer_id": "MAIN-ESL-CAPITAL",
+    "path": "MOD_SUPPORT_CANDIDATE_COMPILER",
+    "actual_product_consumption": false,
+    "official_truth_write": false,
+    "settlement_write": false,
+    "integration_debt": ["MAIN_CONSUMER_BINDING_REQUIRED"]
+  },
+  "evidence": {
+    "inputs": [
+      {
+        "resource_id": "source-1",
+        "resource_type": "mod_reference",
+        "version": "1.0.0",
+        "content_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "transformations": [
+      {
+        "input": [],
+        "rule": "M1 finance and capital feasibility candidate",
+        "assumption": "Blocked evidence is not extrapolated",
+        "output": "M1 finance and capital feasibility candidate",
+        "unit": "ratio_or_boolean_as_declared",
+        "time_scope": "round-1",
+        "geography": "SHANGHAI",
+        "confidence": "NOT_ESTABLISHED",
+        "provenance": "source-1@1.0.0"
+      }
+    ],
+    "conflicts": [{ "observation_id": "obs-1", "reason": "MISSING_UNIT" }]
+  },
+  "role_visibility": {
+    "teacher": { "visibility": "TEACHER_ONLY", "fields": ["candidate", "known_limits"] },
+    "student": { "visibility": "STUDENT_SAFE", "fields": ["evidence"] },
+    "admin": { "visibility": "INTERNAL_RESEARCH_ONLY", "fields": ["evidence", "authority"] }
+  },
+  "authority": {
+    "candidate_writer": "MOD_NEXT6_SUPPORT_COMPILER",
+    "formal_writer": "NONE",
+    "official_truth_write": false,
+    "settlement_write": false,
+    "parameter_set_formal_write": false,
+    "replay_truth_write": false,
+    "provider": "OFF"
+  },
+  "mjp": {
+    "status": "PASS",
+    "fixture_count": 3,
+    "fixture_ids": ["fixture-1", "fixture-2", "fixture-3"],
+    "fixtures": [
+      {
+        "fixture_id": "fixture-1",
+        "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "result_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expected_status": "UNKNOWN",
+        "observed_status": "UNKNOWN",
+        "executed": true
+      },
+      {
+        "fixture_id": "fixture-2",
+        "input_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "result_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "expected_status": "UNKNOWN",
+        "observed_status": "UNKNOWN",
+        "executed": true
+      },
+      {
+        "fixture_id": "fixture-3",
+        "input_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "result_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "expected_status": "UNKNOWN",
+        "observed_status": "UNKNOWN",
+        "executed": true
+      }
+    ]
+  },
+  "tombstone_reuse": {
+    "reused_capabilities": ["stable_digest", "exact_reference_validation"],
+    "tombstoned_capabilities": ["second_truth_writer", "provider_activation"],
+    "new_capabilities": ["M1_state_a_to_state_b_evidence"]
+  },
+  "method_delta": {
+    "keep": ["deterministic_candidate_only_execution"],
+    "change": ["extend_R1_R6_support_contract_to_next6_domain_specific_evidence"],
+    "retire": ["manual_unbound_macro_completion_claims"],
+    "new": ["consumer_receipt", "fail_closed_quality_ledger"]
+  },
+  "known_limits": ["C1_SUPPORT_UNLESS_CURRENT_EXECUTABLE_C0_CONSUMPTION_IS_PROVEN"]
+}
