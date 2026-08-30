@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/schemas/course-bound-model-qualification.v1.json",
+  "title": "SimWar course-bound MOD model qualification candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mission_id",
+    "consumer_id",
+    "candidate_type",
+    "candidate_digest",
+    "status",
+    "state_transition",
+    "exact_binding",
+    "candidate",
+    "evidence",
+    "mjp",
+    "role_visibility",
+    "authority",
+    "join_request",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "course-bound-model-qualification.v1" },
+    "mission_id": { "type": "string", "minLength": 1 },
+    "consumer_id": { "type": "string", "minLength": 1 },
+    "candidate_type": { "const": "CourseBoundModelQualificationCandidate" },
+    "candidate_digest": { "$ref": "#/$defs/digest" },
+    "status": { "$ref": "#/$defs/status" },
+    "state_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "const": "STATE_A" },
+        "to": { "const": "STATE_B" }
+      }
+    },
+    "exact_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["binding_digest", "no_implicit_latest", "refs"],
+      "properties": {
+        "binding_digest": { "$ref": "#/$defs/digest" },
+        "no_implicit_latest": { "const": true },
+        "refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "course_package",
+            "scenario_package",
+            "parameter_set",
+            "model_version",
+            "source_evidence"
+          ],
+          "properties": {
+            "course_package": { "$ref": "#/$defs/exactRef" },
+            "scenario_package": { "$ref": "#/$defs/exactRef" },
+            "parameter_set": { "$ref": "#/$defs/exactRef" },
+            "model_version": { "$ref": "#/$defs/exactRef" },
+            "source_evidence": { "$ref": "#/$defs/exactRef" }
+          }
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason_codes",
+        "compatibility",
+        "formal_binding_eligible",
+        "activation_permitted",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "replay_truth_write"
+      ],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "formal_binding_eligible": { "const": false },
+        "activation_permitted": { "const": false },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "replay_truth_write": { "const": false }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputs", "transformations", "conflicts", "differential"],
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "role"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/exactRef" },
+              "role": {
+                "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"]
+              }
+            }
+          }
+        },
+        "transformations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transformation" }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "reason"],
+            "properties": {
+              "field": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "differential": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "replay_truth_write", "official_result_overwrite"],
+          "properties": {
+            "mode": { "const": "NON_OFFICIAL" },
+            "replay_truth_write": { "const": false },
+            "official_result_overwrite": { "const": false }
+          }
+        }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "fixture_count", "minimum_fixture_count", "fixture_ids", "fixtures"],
+      "properties": {
+        "status": { "enum": ["PASS", "SKIP"] },
+        "fixture_count": { "type": "integer", "minimum": 0 },
+        "minimum_fixture_count": { "type": "integer", "minimum": 4 },
+        "fixture_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "fixtures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mjpFixture" }
+        }
+      }
+    },
+    "role_visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/teacherView" },
+        "student": { "$ref": "#/$defs/studentView" },
+        "admin": { "$ref": "#/$defs/adminView" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "formal_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "replay_truth_write",
+        "provider",
+        "runtime_authority"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "MOD_SUPPORT_CANDIDATE_COMPILER" },
+        "formal_writer": { "const": "NONE" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "replay_truth_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "runtime_authority": { "const": "JSON_INTERNAL_ONLY" }
+      }
+    },
+    "join_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer_id",
+        "need_by",
+        "consumer_ready",
+        "exact_binding_required",
+        "join_gate",
+        "requested_status"
+      ],
+      "properties": {
+        "consumer_id": { "type": "string", "minLength": 1 },
+        "need_by": { "type": "string", "minLength": 1 },
+        "consumer_ready": { "const": false },
+        "exact_binding_required": { "const": true },
+        "join_gate": { "const": "MAIN_INTEGRATION_LEASE_REQUIRED" },
+        "requested_status": { "$ref": "#/$defs/status" }
+      }
+    },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": {
+      "enum": [
+        "ELIGIBLE_FOR_SHADOW_WITH_LIMITS",
+        "NOT_ELIGIBLE",
+        "NOT_COMPUTABLE",
+        "REBASE_REQUIRED"
+      ]
+    },
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "resource_type", "version", "content_digest"],
+      "properties": {
+        "resource_id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*(?:^|[._:-])(latest|current|default|fallback|next|unresolved|wildcard)(?:$|[._:-])).+$"
+        },
+        "resource_type": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!.*(?:^|[._:-])(latest|current|default|fallback|next|unresolved|wildcard)(?:$|[._:-])).+$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(?!.*(?:^|[._:-])(latest|current|default|fallback|next|unresolved|wildcard)(?:$|[._:-]))^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "content_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_match",
+        "course_scenario_match",
+        "course_parameter_match",
+        "scenario_parameter_match",
+        "model_family_match",
+        "feature_mapper_match",
+        "parameter_schema_match",
+        "solver_version_match",
+        "source_course_match",
+        "source_feature_schema_match",
+        "parameter_status_eligible",
+        "model_status_eligible",
+        "source_rights_eligible",
+        "source_freshness_eligible"
+      ],
+      "properties": {
+        "tenant_match": { "type": "boolean" },
+        "course_scenario_match": { "type": "boolean" },
+        "course_parameter_match": { "type": "boolean" },
+        "scenario_parameter_match": { "type": "boolean" },
+        "model_family_match": { "type": "boolean" },
+        "feature_mapper_match": { "type": "boolean" },
+        "parameter_schema_match": { "type": "boolean" },
+        "solver_version_match": { "type": "boolean" },
+        "source_course_match": { "type": "boolean" },
+        "source_feature_schema_match": { "type": "boolean" },
+        "parameter_status_eligible": { "type": "boolean" },
+        "model_status_eligible": { "type": "boolean" },
+        "source_rights_eligible": { "type": "boolean" },
+        "source_freshness_eligible": { "type": "boolean" }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "rule", "output", "confidence", "provenance"],
+      "properties": {
+        "input": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "rule": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "mjpFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "expected_status",
+        "observed_status",
+        "input_digest",
+        "result_digest",
+        "executed"
+      ],
+      "properties": {
+        "fixture_id": { "type": "string", "minLength": 1 },
+        "expected_status": { "$ref": "#/$defs/status" },
+        "observed_status": { "$ref": "#/$defs/status" },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "result_digest": { "$ref": "#/$defs/digest" },
+        "executed": { "const": true }
+      }
+    },
+    "teacherView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "TEACHER_ONLY" },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "studentView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "STUDENT_SAFE" },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "adminView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "INTERNAL_RESEARCH_ONLY" },
+        "fields": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}
