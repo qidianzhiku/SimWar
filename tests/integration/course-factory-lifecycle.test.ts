@@ -263,6 +263,21 @@ describe("Course Factory governed lifecycle", () => {
         version: VERSION
       };
 
+      const legacyValidate = await requestJson<ApiEnvelope<unknown>>(
+        baseUrl,
+        `/api/v1/admin/course-package-versions/${reference.course_package_id}/versions/${VERSION}/validate`,
+        {
+          body: {
+            content_digest: reference.content_digest,
+            course_package_id: reference.course_package_id,
+            version: reference.version
+          },
+          method: "POST",
+          token: admin.access_token
+        }
+      );
+      expect(legacyValidate.status).toBe(403);
+
       const transition = async (action: string, contentDigest = reference.content_digest) =>
         requestJson<ApiEnvelope<CourseFactoryVersion>>(
           baseUrl,

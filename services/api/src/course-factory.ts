@@ -261,7 +261,9 @@ function sponsorCatalogEntry(
   version: CourseFactoryVersion,
   now: string
 ): CourseFactorySponsorCatalogEntry {
-  const projectableEvidence = projectableM30SourceEvidence(version.factory_metadata, now);
+  const projectableEvidence = isExpired(version.factory_metadata, now)
+    ? undefined
+    : projectableM30SourceEvidence(version.factory_metadata, now);
   return {
     course_package_reference: createCoursePackageVersionReference(version),
     status: version.status,
@@ -387,7 +389,7 @@ export class CourseFactoryService {
     if (current.status !== "DRAFT")
       throw new CourseFactoryError("COURSE_FACTORY_LIFECYCLE_INVALID");
     try {
-      return requireFactoryVersion(await this.packageCommands.validate(actor, reference));
+      return requireFactoryVersion(await this.packageCommands.validateFactory(actor, reference));
     } catch (error) {
       mapPackageError(error);
     }

@@ -143,7 +143,22 @@ export class CoursePackageCommandService {
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
+    if (current.factory_metadata !== undefined) {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_FORBIDDEN");
+    }
     if (current.status !== "DRAFT") {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
+    await this.assertDependencies(current);
+    return this.appendTransition(current, "VALIDATED");
+  }
+
+  async validateFactory(
+    actor: CoursePackageCommandActor,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion> {
+    const current = await this.getOwned(actor, reference);
+    if (current.status !== "DRAFT" || current.factory_metadata === undefined) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }
     await this.assertDependencies(current);

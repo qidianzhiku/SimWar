@@ -10,6 +10,7 @@ import {
   type CourseFactorySourcePorts
 } from "../../services/api/src/course-factory";
 import {
+  CoursePackageCommandError,
   CoursePackageCommandService,
   type CoursePackageSourceReadPorts
 } from "../../services/api/src/course-package-command-service";
@@ -83,6 +84,7 @@ function createService() {
   const registry = new CoursePackageJsonRegistry({ now: () => "2026-08-30T10:00:00.000Z" });
   const packages = new CoursePackageCommandService(registry, sources);
   return {
+    packages,
     registry,
     service: new CourseFactoryService({ packageCommands: packages, packageRegistry: registry })
   };
@@ -354,6 +356,47 @@ describe("R3 CourseFactoryService", () => {
     expect(
       (await new CoursePackageQueryService(registry).listTeacher(tenantId)).course_package_versions
     ).toHaveLength(0);
+  });
+
+  it("hides sponsor evidence after package rights expire even while the source epoch remains live", async () => {
+    let now = "2026-08-30T10:00:00.000Z";
+    const registry = new CoursePackageJsonRegistry({ now: () => now });
+    const packages = new CoursePackageCommandService(registry, sources);
+    const service = new CourseFactoryService({
+      packageCommands: packages,
+      packageRegistry: registry
+    });
+    const draft = await service.createDraft(
+      actor,
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          rights: {
+            ...factoryDraft().factory_metadata.rights,
+            expires_at: "2026-09-15T00:00:00.000Z"
+          },
+          source_evidence_reference: buildM30CourseFactorySourceEvidence()
+        }
+      })
+    );
+    const reference = createCoursePackageVersionReference(draft);
+    await service.validate(actor, reference);
+    await service.approve(actor, reference);
+    await service.publish(actor, reference);
+
+    now = "2026-09-16T00:00:00.000Z";
+    const projection = await service.getSponsorProjection(actor, tenantId);
+    expect(projection.catalog[0]?.source_context).toBeUndefined();
+    expect(projection.evidence_pack.source_evidence_count).toBe(0);
+  });
+
+  it("keeps legacy package validation from transitioning a factory draft", async () => {
+    const { packages, service } = createService();
+    const draft = await service.createDraft(actor, factoryDraft());
+
+    await expect(
+      packages.validate(actor, createCoursePackageVersionReference(draft))
+    ).rejects.toEqual(new CoursePackageCommandError("COURSE_PACKAGE_FORBIDDEN"));
   });
 
   it("requires the student's formal run references to match the published package exactly", async () => {
