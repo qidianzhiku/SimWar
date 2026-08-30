@@ -33,7 +33,10 @@ function context(overrides: Partial<WorkflowEvidenceContext> = {}): StudentChall
 describe("W020 R2 student decision challenge", () => {
   it("turns a qualified contribution stage into a role-safe coaching prompt", () => {
     const evidence = qualifyWorkflowEvidence(
-      context({ source_event_ids: ["event_001", "event_002", "event_003"], source_event_types: ["role_assigned", "section_saved", "section_ready"] })
+      context({
+        source_event_ids: ["event_001", "event_002", "event_003"],
+        source_event_types: ["role_assigned", "section_saved", "section_ready"]
+      })
     );
     const result = buildStudentDecisionChallenge(context(), evidence);
 
@@ -48,7 +51,13 @@ describe("W020 R2 student decision challenge", () => {
     const evidence = qualifyWorkflowEvidence(
       context({
         source_event_ids: ["event_001", "event_002", "event_003", "event_004", "event_005"],
-        source_event_types: ["role_assigned", "section_saved", "section_ready", "merge_created", "team_confirmed"]
+        source_event_types: [
+          "role_assigned",
+          "section_saved",
+          "section_ready",
+          "merge_created",
+          "team_confirmed"
+        ]
       })
     );
     const result = buildStudentDecisionChallenge(context(), evidence);

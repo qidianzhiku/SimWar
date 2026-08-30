@@ -60,7 +60,9 @@ describe("W020 R1 workflow evidence policy", () => {
 
     expect(() =>
       gateway.generate({
-        context: gatewayContext({ source_event_types: ["role_assigned", "untrusted_event", "section_ready"] }),
+        context: gatewayContext({
+          source_event_types: ["role_assigned", "untrusted_event", "section_ready"]
+        }),
         role_key: "CEO",
         surface: "student_role"
       })

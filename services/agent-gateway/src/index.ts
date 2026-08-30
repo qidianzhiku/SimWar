@@ -11,6 +11,7 @@ import {
   type WorkflowEvidenceResult
 } from "./workflow-evidence-policy.js";
 import { buildStudentDecisionChallenge } from "./student-decision-challenge.js";
+import { buildTeacherDebriefIntelligence } from "./teacher-debrief-intelligence.js";
 
 export interface AgentGatewayInput {
   context: W020AdvisoryContext;
@@ -31,11 +32,20 @@ export class AgentGatewayError extends Error {
 }
 
 function canonicalize(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") return JSON.stringify(value);
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "number" ||
+    typeof value === "string"
+  )
+    return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
-    return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`).join(",")}}`;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(object[key])}`)
+      .join(",")}}`;
   }
   throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
 }
@@ -65,17 +75,31 @@ function assertPolicy(input: AgentGatewayInput): void {
   ) {
     throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
   }
-  if (input.context.actor_role === "student" && input.surface !== "student_role") throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.actor_role !== "student" && input.surface !== "teacher_debrief") throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.source_event_ids.length > 50) throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
-  if (input.context.advisory_scopes.length === 0) throw new AgentGatewayError("AGENT_POLICY_DENIED");
-  if (input.context.advisory_scopes.some((scope) => typeof scope !== "string" || scope.trim().length === 0)) {
+  if (input.context.actor_role === "student" && input.surface !== "student_role")
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.context.actor_role !== "student" && input.surface !== "teacher_debrief")
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (input.context.source_event_ids.length > 50)
+    throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
+  if (input.context.advisory_scopes.length === 0)
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (
+    input.context.advisory_scopes.some(
+      (scope) => typeof scope !== "string" || scope.trim().length === 0
+    )
+  ) {
     throw new AgentGatewayError("AGENT_CONTEXT_INVALID");
   }
-  if (input.surface === "student_role" && (!input.role_key || input.context.role_key !== input.role_key)) throw new AgentGatewayError("AGENT_POLICY_DENIED");
+  if (
+    input.surface === "student_role" &&
+    (!input.role_key || input.context.role_key !== input.role_key)
+  )
+    throw new AgentGatewayError("AGENT_POLICY_DENIED");
 }
 
-export function createDeterministicMockGateway(): { generate(input: AgentGatewayInput): AgentGatewayResult } {
+export function createDeterministicMockGateway(): {
+  generate(input: AgentGatewayInput): AgentGatewayResult;
+} {
   return {
     generate(input) {
       assertPolicy(input);
@@ -91,14 +115,10 @@ export function createDeterministicMockGateway(): { generate(input: AgentGateway
         surface: input.surface
       };
       const inputHash = digest(safeInput);
-      const generatedAdvice = input.surface === "student_role"
-        ? buildStudentDecisionChallenge(input.context, evidence)
-        : {
-            advisory_text: evidence.status === "abstained"
-              ? "No qualified workflow evidence is available; advisory generation is withheld until a valid workflow sequence is visible."
-              : `Workflow evidence qualified at ${evidence.current_stage.toLowerCase().replaceAll("_", " ")}; compare the visible workflow evidence and document a follow-up question without inferring official outcomes.`,
-            output_type: "advisory" as const
-          };
+      const generatedAdvice =
+        input.surface === "student_role"
+          ? buildStudentDecisionChallenge(input.context, evidence)
+          : buildTeacherDebriefIntelligence(input.context, evidence);
       const outputText = generatedAdvice.advisory_text;
       const outputHash = digest({ inputHash, outputText });
       const modelCallLogId = `model_call_${inputHash.slice(0, 24)}`;
