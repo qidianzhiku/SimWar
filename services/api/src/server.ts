@@ -8557,6 +8557,17 @@ async function routeRequest(
         user_id: actor.actor_id,
         ...(assignmentId ? { assignment_id: assignmentId } : {})
       });
+      const course = await runtime.repositoryProvider.facade.courses.getCourse(
+        context.tenantId,
+        courseId
+      );
+      const courseFactorySourceEvidence = course
+        ? await runtime.courseFactory.getStudentSourceEvidence(
+            context.tenantId,
+            course.scenario_package_id,
+            course.parameter_set_id
+          )
+        : undefined;
       sendJson(
         response,
         200,
@@ -8569,7 +8580,10 @@ async function routeRequest(
             tenant_id: actor.tenant_id
           },
           role_context: workspace.context,
-          project_brief: projectBrief
+          project_brief: projectBrief,
+          ...(courseFactorySourceEvidence
+            ? { course_factory_source_evidence: courseFactorySourceEvidence }
+            : {})
         })
       );
     } catch (error) {

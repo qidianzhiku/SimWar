@@ -12,6 +12,7 @@ import { createJsonFormalScenarioAuthorityPersistence } from "../../services/api
 import { createJsonFormalScenarioAuthorityRuntime } from "../../services/api/src/formal-scenario-authority-runtime";
 import { createApiServer } from "../../services/api/src/server";
 import { DEFAULT_TENANT_ID, createP1Store, type SimWarStore } from "../../services/api/src/store";
+import { buildM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
 
 const VERSION = "1.0.0";
 
@@ -159,6 +160,7 @@ describe("Course Factory governed lifecycle", () => {
           owner_tenant_id: DEFAULT_TENANT_ID
         },
         schema_version: "course-factory.v1",
+        source_evidence_reference: buildM30CourseFactorySourceEvidence(),
         source_manifest: references,
         user_data_policy: {
           copied_private_data: false,
@@ -223,6 +225,17 @@ describe("Course Factory governed lifecycle", () => {
       expect(teacherCatalog.status).toBe(200);
       expect(teacherCatalog.body.data.catalog).toHaveLength(1);
       expect(teacherCatalog.body.data.catalog[0]?.status).toBe("PUBLISHED");
+      expect(
+        teacherCatalog.body.data.catalog[0]?.factory_metadata.source_evidence_reference
+          ?.binding_request_id
+      ).toBe("SH-M29-MAIN-PULL-BINDING-REQUEST");
+
+      const adminCatalog = await requestJson<
+        ApiEnvelope<{ catalog: readonly CourseFactoryVersion[] }>
+      >(baseUrl, "/api/v1/admin/course-factory/catalog", { token: admin.access_token });
+      expect(adminCatalog.body.data.catalog[0]?.factory_metadata.source_evidence_reference).toEqual(
+        metadata.source_evidence_reference
+      );
 
       const audit = await requestJson<ApiEnvelope<{ lifecycle: readonly string[] }>>(
         baseUrl,
@@ -241,6 +254,15 @@ describe("Course Factory governed lifecycle", () => {
       expect(sponsor.status).toBe(200);
       expect(sponsor.body.data.delivery_progress.published_versions).toBe(1);
       expect(sponsor.body.data.evidence_pack.private_data_included).toBe(false);
+      expect(sponsor.body.data.evidence_pack.source_evidence_count).toBe(1);
+      expect(sponsor.body.data.catalog[0]?.source_context).toEqual({
+        target_region: "Hangzhou",
+        epoch_version: "epoch-b.2026-08-30",
+        qualification_status: "LIMITED",
+        consumption_status: "LOOKAHEAD_READY",
+        exact_binding_required: true
+      });
+      expect(sponsor.body.data.catalog[0]).not.toHaveProperty("factory_metadata");
 
       const cloned = await requestJson<ApiEnvelope<CourseFactoryVersion>>(
         baseUrl,

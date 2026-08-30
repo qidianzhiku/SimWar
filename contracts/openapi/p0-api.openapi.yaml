@@ -6751,6 +6751,8 @@ components:
       required: [project_brief, role_context, schema_version, scope]
       properties:
         schema_version: { const: project-aware-launch.v1 }
+        course_factory_source_evidence:
+          $ref: "#/components/schemas/CourseFactoryStudentEvidenceProjection"
         scope:
           type: object
           additionalProperties: false
@@ -6826,6 +6828,23 @@ components:
               $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
             service_bundle: { type: string }
             title: { type: string }
+    CourseFactoryStudentEvidenceProjection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          consumption_status,
+          epoch_version,
+          exact_binding_required,
+          qualification_status,
+          target_region
+        ]
+      properties:
+        target_region: { const: Hangzhou }
+        epoch_version: { type: string, minLength: 1 }
+        qualification_status: { const: LIMITED }
+        consumption_status: { const: LOOKAHEAD_READY }
+        exact_binding_required: { const: true }
     ProjectAwareAdminAuditEnvelope:
       type: object
       additionalProperties: false

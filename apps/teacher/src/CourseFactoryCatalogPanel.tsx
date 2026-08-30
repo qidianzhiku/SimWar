@@ -70,6 +70,15 @@ export function CourseFactoryCatalogPanel({
                 scenario {entry.factory_metadata.source_manifest.scenario_package_reference.version}
                 , parameter {entry.factory_metadata.source_manifest.parameter_set_reference.version}
               </small>
+              {entry.factory_metadata.source_evidence_reference ? (
+                <small data-testid="m30-teacher-source-evidence">
+                  上海 → 杭州 · qualification:{" "}
+                  {entry.factory_metadata.source_evidence_reference.qualification_status} ·
+                  calibration:{" "}
+                  {entry.factory_metadata.source_evidence_reference.calibration_evidence} · exact
+                  binding required
+                </small>
+              ) : null}
             </li>
           ))}
         </ul>

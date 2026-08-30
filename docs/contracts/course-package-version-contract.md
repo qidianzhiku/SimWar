@@ -13,7 +13,7 @@ create, update, approve, retire, or otherwise write an existing
 Run, canonical Decision, truth field, SettlementResult, Score, Rank, Replay
 input, Replay result, PostgreSQL record, migration, or external AI result.
 
-## Identity and legal lifecycle
+## Identity and lifecycle
 
 The closed identity is `(tenant_id, course_package_id, version, content_digest)`.
 Every dependency uses an exact id, exact version, and SHA-256 content digest;
@@ -54,8 +54,10 @@ The server derives `tenant_id` and `created_by` from the authenticated request;
 client draft, clone, and import inputs cannot supply either as authoritative
 values. Admin endpoints own lifecycle commands and export. The teacher BFF lists
 `AVAILABLE` baseline packages and strictly validated `PUBLISHED` Course
-Factory packages as teacher-safe projections. There is intentionally no
-student route or student DTO.
+Factory packages as teacher-safe projections. The existing Student
+`project-aware-context` flow may add an allowlisted source-evidence context;
+there is no new student route or DTO, and the student flow never receives raw
+source refs, digests, private data, or outcome truth.
 
 Stable command errors are `COURSE_PACKAGE_INPUT_INVALID`,
 `COURSE_PACKAGE_NOT_FOUND`, `COURSE_PACKAGE_TENANT_SCOPE_VIOLATION`,
@@ -74,6 +76,47 @@ any new source-authority write.
 
 The JSON schema, fixture, shared types, and OpenAPI entries are frozen by this
 contract commit. Runtime implementation follows in a separate commit.
+
+## R3 governed Course Factory and M30 source-evidence extension
+
+R3 evolves the same aggregate and the same sole
+`CoursePackageCommandService` writer; it does not create a second registry,
+store, provider, or truth authority. A version carrying valid
+`factory_metadata.schema_version = course-factory.v1` follows this separate
+closed lifecycle:
+
+```text
+DRAFT -> VALIDATED -> APPROVED -> PUBLISHED -> SUPERSEDED -> RETIRED
+                                      \\--------------------> RETIRED
+```
+
+The existing baseline lifecycle remains
+`DRAFT -> VALIDATED -> AVAILABLE -> RETIRED`. The legacy C5 lifecycle route
+may retire only an `AVAILABLE` baseline package. Factory transitions pass
+through `CourseFactoryService` and factory-specific command methods on the
+same writer.
+
+`factory_metadata` is authority-bearing, not a presence flag. Shared runtime
+guards validate exact tenant, source references, digests, rights, expiry,
+provenance and the no-user-data policy at persistence, service and delivery
+boundaries. A malformed or partial metadata object cannot create a factory
+history or enter the Teacher delivery projection.
+
+M30 adds the optional `source_evidence_reference` provenance extension. It
+stores the exact M29 request, M25 epoch, M27 transfer, M28 living-operations
+version, source reality class, rights status, expiry, qualification and
+calibration boundary. Its formal binding flag is permanently false. The
+extension is validated against the current M29 support pack and is projected
+to Admin/Teacher only as appropriate; the existing Student flow receives only
+the explicit target region, epoch version, qualification, candidate status
+and exact-binding-required flag. Sponsor projection is public-safe and omits
+factory metadata, source digests, and lifecycle lineage.
+
+R3/M30 remain configuration and delivery authority only. Their transitions
+cannot create or mutate a Course, Run, canonical Decision, truth field,
+SettlementResult, Score, Rank, Replay input/result, provider, or PostgreSQL
+record. Public-source-bound evidence remains candidate-only; calibration is
+`NOT_PROVEN` unless separately established.
 
 ## Wave 002 Phase B authorization delta
 

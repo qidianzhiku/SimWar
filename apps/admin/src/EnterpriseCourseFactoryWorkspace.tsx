@@ -230,6 +230,15 @@ export function EnterpriseCourseFactoryWorkspace({
                   provenance: {entry.factory_metadata.provenance.kind}; expiry:{" "}
                   {entry.factory_metadata.rights.expires_at ?? "none"}
                 </small>
+                {entry.factory_metadata.source_evidence_reference ? (
+                  <small data-testid="m30-admin-source-evidence">
+                    source-backed: Shanghai → Hangzhou · qualification:{" "}
+                    {entry.factory_metadata.source_evidence_reference.qualification_status} ·
+                    calibration:{" "}
+                    {entry.factory_metadata.source_evidence_reference.calibration_evidence}· M29
+                    request: {entry.factory_metadata.source_evidence_reference.binding_request_id}
+                  </small>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -267,7 +276,7 @@ export function EnterpriseCourseFactoryWorkspace({
             </dl>
             <p>
               exact refs present: {sponsor.evidence_pack.exact_refs_present ? "是" : "否"}；private
-              data included: 否
+              data included: 否；source evidence: {sponsor.evidence_pack.source_evidence_count}
             </p>
             <ul aria-label="Course Factory known limits">
               {sponsor.known_limits.map((limit) => (

@@ -8,6 +8,8 @@ import type {
   CourseFactoryLifecycleState,
   CourseFactoryMetadata,
   CourseFactorySponsorProjection,
+  CourseFactorySponsorCatalogEntry,
+  CourseFactoryStudentEvidenceProjection,
   CourseFactoryVersion,
   CoursePackageVersion,
   CoursePackageVersionReference
@@ -16,6 +18,10 @@ import {
   COURSE_FACTORY_LIFECYCLE_STATES,
   isCourseFactoryMetadataForTenant
 } from "@simwar/shared-contracts";
+import {
+  projectM30SourceEvidenceForRole,
+  validateM30CourseFactorySourceEvidence
+} from "@simwar/sh-next-support";
 import type { SimWarStore } from "./store.js";
 import {
   CoursePackageCommandError,
@@ -141,6 +147,12 @@ function assertMetadata(versionTenantId: string, metadata: CourseFactoryMetadata
   if (!isCourseFactoryMetadataForTenant(metadata, versionTenantId)) {
     throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   }
+  if (
+    metadata.source_evidence_reference &&
+    validateM30CourseFactorySourceEvidence(metadata.source_evidence_reference).length > 0
+  ) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
 }
 
 function isExpired(metadata: CourseFactoryMetadata, now: string): boolean {
@@ -169,6 +181,27 @@ function catalogEntry(version: CourseFactoryVersion): CourseFactoryCatalogEntry 
     status: version.status,
     title: version.title,
     version: version.version
+  };
+}
+
+function sponsorCatalogEntry(version: CourseFactoryVersion): CourseFactorySponsorCatalogEntry {
+  const evidence = version.factory_metadata.source_evidence_reference;
+  return {
+    course_package_reference: createCoursePackageVersionReference(version),
+    status: version.status,
+    title: version.title,
+    version: version.version,
+    ...(evidence
+      ? {
+          source_context: {
+            target_region: evidence.target_region,
+            epoch_version: evidence.living_operations.epoch_version,
+            qualification_status: evidence.qualification_status,
+            consumption_status: evidence.consumption_status,
+            exact_binding_required: evidence.exact_binding_required
+          }
+        }
+      : {})
   };
 }
 
@@ -406,10 +439,47 @@ export class CourseFactoryService {
     return {
       ...projection,
       catalog: projection.catalog.filter(
-        (entry) =>
-          entry.status === "PUBLISHED" &&
-          !isExpired(entry.factory_metadata, now)
+        (entry) => entry.status === "PUBLISHED" && !isExpired(entry.factory_metadata, now)
       )
+    };
+  }
+
+  /**
+   * Reuses the existing Student project-aware BFF flow. The lookup is exact
+   * and fail-closed: more than one matching published package is ambiguous,
+   * while a stale or invalid M30 evidence reference is never projected.
+   */
+  async getStudentSourceEvidence(
+    tenantId: string,
+    scenarioPackageId: string,
+    parameterSetId: string
+  ): Promise<CourseFactoryStudentEvidenceProjection | undefined> {
+    const now = this.packageRegistry.currentTime();
+    const candidates = (await this.packageRegistry.listForTenant(tenantId))
+      .filter(isFactoryVersion)
+      .filter(
+        (version) =>
+          version.status === "PUBLISHED" &&
+          !isExpired(version.factory_metadata, now) &&
+          version.factory_metadata.source_evidence_reference !== undefined &&
+          version.factory_metadata.source_manifest.scenario_package_reference
+            .scenario_package_id === scenarioPackageId &&
+          version.factory_metadata.source_manifest.parameter_set_reference.parameter_set_id ===
+            parameterSetId &&
+          validateM30CourseFactorySourceEvidence(version.factory_metadata.source_evidence_reference)
+            .length === 0
+      );
+    if (candidates.length !== 1) return undefined;
+    const projection = projectM30SourceEvidenceForRole(
+      candidates[0]!.factory_metadata.source_evidence_reference!,
+      "student"
+    );
+    return {
+      target_region: projection.target_region as "Hangzhou",
+      epoch_version: projection.epoch_version as string,
+      qualification_status: projection.qualification_status as "LIMITED",
+      consumption_status: projection.consumption_status as "LOOKAHEAD_READY",
+      exact_binding_required: true
     };
   }
 
@@ -465,13 +535,11 @@ export class CourseFactoryService {
     );
     const tenantRuns = (this.store?.runs ?? []).filter((run) => run.tenant_id === tenantId);
     const tenantRounds = (this.store?.rounds ?? []).filter((round) => round.tenant_id === tenantId);
-    const sourceDigests = catalog.catalog.flatMap((entry) => [
-      entry.factory_metadata.source_manifest.course_blueprint_reference.content_digest,
-      entry.factory_metadata.source_manifest.scenario_package_reference.content_digest,
-      entry.factory_metadata.source_manifest.parameter_set_reference.content_digest
-    ]);
+    const sponsorCatalog = (await this.packageRegistry.listForTenant(tenantId))
+      .filter(isFactoryVersion)
+      .map(sponsorCatalogEntry);
     return {
-      catalog: catalog.catalog,
+      catalog: sponsorCatalog,
       delivery_progress: {
         active_runs: tenantRuns.filter((run) => run.status === "active").length,
         course_count: tenantCourses.length,
@@ -483,7 +551,8 @@ export class CourseFactoryService {
           (entry) => entry.factory_metadata.source_manifest !== undefined
         ),
         private_data_included: false,
-        source_digests: [...new Set(sourceDigests)]
+        source_evidence_count: sponsorCatalog.filter((entry) => entry.source_context !== undefined)
+          .length
       },
       known_limits: catalog.known_limits,
       tenant_id: tenantId

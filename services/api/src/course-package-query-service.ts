@@ -10,6 +10,7 @@ import {
   type CoursePackageRegistryPort,
   createCoursePackageVersionReference
 } from "./course-package-json-registry.js";
+import { isCourseFactoryMetadataForTenant } from "@simwar/shared-contracts";
 
 /**
  * Published Course Factory versions are delivery-ready through the same
@@ -27,10 +28,10 @@ export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
 ): version is T & { status: "AVAILABLE" | "PUBLISHED" } {
   return Boolean(
     version &&
-      (version.status === "AVAILABLE" ||
-        (version.status === "PUBLISHED" &&
-          typeof version.tenant_id === "string" &&
-          isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)))
+    (version.status === "AVAILABLE" ||
+      (version.status === "PUBLISHED" &&
+        typeof version.tenant_id === "string" &&
+        isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)))
   );
 }
 

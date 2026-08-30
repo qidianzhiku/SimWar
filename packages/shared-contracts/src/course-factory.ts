@@ -76,12 +76,60 @@ export interface CourseFactoryProvenance {
   source_course_package_reference?: CoursePackageVersionReference;
 }
 
+/**
+ * Exact, candidate-only evidence carried from the SH M29 support pack into
+ * the MAIN-owned CourseFactory. This reference is provenance, never a formal
+ * ParameterSet, Truth, Settlement, Score, or Rank authority.
+ */
+export interface CourseFactorySourceEvidenceReference {
+  schema_version: "course-factory-source-evidence.v1";
+  binding_request_id: "SH-M29-MAIN-PULL-BINDING-REQUEST";
+  source_epoch: {
+    epoch_id: string;
+    epoch_digest: string;
+    source_epoch_base_sha: string;
+  };
+  regional_transfer: {
+    transfer_id: string;
+    pack_digest: string;
+    candidate_version: string;
+  };
+  living_operations: {
+    pack_digest: string;
+    epoch_id: string;
+    epoch_version: string;
+    expires_at: string;
+  };
+  baseline_region: "Shanghai";
+  target_region: "Hangzhou";
+  source_reality_class: "PUBLIC_SOURCE_BOUND";
+  rights_status: "PUBLIC_REFERENCE_ONLY";
+  qualification_status: "LIMITED";
+  calibration_evidence: "NOT_PROVEN";
+  formal_binding_eligible: false;
+  consumption_status: "LOOKAHEAD_READY";
+  exact_binding_required: true;
+  required_rechecks: readonly string[];
+  exact_source_refs: readonly string[];
+  m29_pack_digest: string;
+  evidence_digest: string;
+}
+
+export interface CourseFactoryStudentEvidenceProjection {
+  target_region: "Hangzhou";
+  epoch_version: string;
+  qualification_status: "LIMITED";
+  consumption_status: "LOOKAHEAD_READY";
+  exact_binding_required: true;
+}
+
 export interface CourseFactoryMetadata {
   known_limits: readonly string[];
   provenance: CourseFactoryProvenance;
   rights: CourseFactoryRights;
   schema_version: typeof COURSE_FACTORY_SCHEMA_VERSION;
   source_manifest: CourseFactorySourceManifest;
+  source_evidence_reference?: CourseFactorySourceEvidenceReference;
   user_data_policy: CourseFactoryUserDataPolicy;
 }
 
@@ -115,11 +163,13 @@ function isIsoTimestamp(value: unknown): value is string {
   );
 }
 
-function isTenantReference(
-  value: unknown,
-  tenantId: string,
-  identityField: string
-): boolean {
+function isDateOnly(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return parsed.toISOString().slice(0, 10) === value;
+}
+
+function isTenantReference(value: unknown, tenantId: string, identityField: string): boolean {
   if (!isRecord(value)) return false;
   return (
     value.tenant_id === tenantId &&
@@ -134,6 +184,51 @@ function isTenantReference(
  * It is intentionally shared by persistence, service and delivery boundaries so
  * metadata presence alone can never grant factory lifecycle or delivery authority.
  */
+/** Structural boundary guard for the optional M30 source evidence extension. */
+export function isCourseFactorySourceEvidenceReference(
+  value: unknown
+): value is CourseFactorySourceEvidenceReference {
+  if (!isRecord(value)) return false;
+  const sourceEpoch = value.source_epoch;
+  const transfer = value.regional_transfer;
+  const living = value.living_operations;
+  return (
+    value.schema_version === "course-factory-source-evidence.v1" &&
+    value.binding_request_id === "SH-M29-MAIN-PULL-BINDING-REQUEST" &&
+    isRecord(sourceEpoch) &&
+    isExactIdentity(sourceEpoch.epoch_id) &&
+    isDigest(sourceEpoch.epoch_digest) &&
+    typeof sourceEpoch.source_epoch_base_sha === "string" &&
+    /^[a-f0-9]{40}$/.test(sourceEpoch.source_epoch_base_sha) &&
+    isRecord(transfer) &&
+    isExactIdentity(transfer.transfer_id) &&
+    isDigest(transfer.pack_digest) &&
+    isExactVersion(transfer.candidate_version) &&
+    isRecord(living) &&
+    isDigest(living.pack_digest) &&
+    isExactIdentity(living.epoch_id) &&
+    isExactVersion(living.epoch_version) &&
+    isDateOnly(living.expires_at) &&
+    value.baseline_region === "Shanghai" &&
+    value.target_region === "Hangzhou" &&
+    value.source_reality_class === "PUBLIC_SOURCE_BOUND" &&
+    value.rights_status === "PUBLIC_REFERENCE_ONLY" &&
+    value.qualification_status === "LIMITED" &&
+    value.calibration_evidence === "NOT_PROVEN" &&
+    value.formal_binding_eligible === false &&
+    value.consumption_status === "LOOKAHEAD_READY" &&
+    value.exact_binding_required === true &&
+    Array.isArray(value.required_rechecks) &&
+    value.required_rechecks.length > 0 &&
+    value.required_rechecks.every((item) => typeof item === "string" && item.trim().length > 0) &&
+    Array.isArray(value.exact_source_refs) &&
+    value.exact_source_refs.length > 0 &&
+    value.exact_source_refs.every((item) => typeof item === "string" && item.trim().length > 0) &&
+    isDigest(value.m29_pack_digest) &&
+    isDigest(value.evidence_digest)
+  );
+}
+
 export function isCourseFactoryMetadataForTenant(
   value: unknown,
   tenantId: string
@@ -150,9 +245,7 @@ export function isCourseFactoryMetadataForTenant(
     knownLimits.length === 0 ||
     knownLimits.some((item) => typeof item !== "string" || item.trim().length === 0) ||
     !isRecord(provenance) ||
-    !COURSE_FACTORY_PROVENANCE_KINDS.includes(
-      provenance.kind as CourseFactoryProvenanceKind
-    ) ||
+    !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
     !isRecord(rights) ||
     rights.owner_tenant_id !== tenantId ||
     !Array.isArray(rights.allowed_tenant_ids) ||
@@ -163,8 +256,16 @@ export function isCourseFactoryMetadataForTenant(
     typeof rights.export_allowed !== "boolean" ||
     (rights.expires_at !== null && !isIsoTimestamp(rights.expires_at)) ||
     !isRecord(sourceManifest) ||
-    !isTenantReference(sourceManifest.course_blueprint_reference, tenantId, "course_blueprint_id") ||
-    !isTenantReference(sourceManifest.scenario_package_reference, tenantId, "scenario_package_id") ||
+    !isTenantReference(
+      sourceManifest.course_blueprint_reference,
+      tenantId,
+      "course_blueprint_id"
+    ) ||
+    !isTenantReference(
+      sourceManifest.scenario_package_reference,
+      tenantId,
+      "scenario_package_id"
+    ) ||
     !isRecord(sourceManifest.parameter_set_reference) ||
     !isExactIdentity(sourceManifest.parameter_set_reference.parameter_set_id) ||
     !isExactVersion(sourceManifest.parameter_set_reference.version) ||
@@ -178,7 +279,9 @@ export function isCourseFactoryMetadataForTenant(
     !isRecord(userDataPolicy) ||
     userDataPolicy.copied_private_data !== false ||
     userDataPolicy.copied_user_decisions !== false ||
-    userDataPolicy.copied_user_results !== false
+    userDataPolicy.copied_user_results !== false ||
+    (value.source_evidence_reference !== undefined &&
+      !isCourseFactorySourceEvidenceReference(value.source_evidence_reference))
   ) {
     return false;
   }
@@ -241,13 +344,22 @@ export interface CourseFactoryDeliveryProgress {
   round_count: number;
 }
 
+/** Sponsor-safe catalog omits factory metadata, source digests, and lifecycle lineage. */
+export interface CourseFactorySponsorCatalogEntry {
+  course_package_reference: CoursePackageVersionReference;
+  status: CourseFactoryLifecycleState;
+  title: string;
+  version: string;
+  source_context?: CourseFactoryStudentEvidenceProjection;
+}
+
 export interface CourseFactorySponsorProjection {
-  catalog: readonly CourseFactoryCatalogEntry[];
+  catalog: readonly CourseFactorySponsorCatalogEntry[];
   delivery_progress: CourseFactoryDeliveryProgress;
   evidence_pack: {
     exact_refs_present: boolean;
     private_data_included: false;
-    source_digests: readonly string[];
+    source_evidence_count: number;
   };
   known_limits: readonly string[];
   tenant_id: string;

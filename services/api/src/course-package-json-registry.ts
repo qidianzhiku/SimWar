@@ -187,6 +187,12 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
   ) {
     throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
   }
+  if (
+    version.factory_metadata !== undefined &&
+    !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)
+  ) {
+    throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
+  }
 }
 
 export function assertValidCoursePackageLifecycleSnapshots(

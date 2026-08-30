@@ -116,12 +116,10 @@ function factoryDraft(overrides: Partial<CourseFactoryDraftInput> = {}): CourseF
 const actor = { actor_id: "admin_demo", tenant_id: tenantId, roles: ["tenant_admin"] as const };
 
 describe("R3 CourseFactoryService", () => {
-  it("rejects malformed factory metadata at the persistence boundary", () => {
+  it("rejects malformed factory metadata at persistence and delivery boundaries", () => {
     const malformedDraft = {
       ...packageDraft,
-      factory_metadata: {
-        schema_version: "course-factory.v1"
-      }
+      factory_metadata: { schema_version: "course-factory.v1" }
     } as unknown as CoursePackageVersionDraftInput;
 
     expect(() =>
@@ -132,8 +130,6 @@ describe("R3 CourseFactoryService", () => {
         tenant_id: tenantId
       })
     ).toThrow(new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID"));
-  });
-
   it("rejects malformed factory metadata at the delivery boundary", () => {
     expect(
       isDeliveryReadyCoursePackage({

@@ -5,6 +5,7 @@ import type {
   CourseFactoryDraftInput,
   CourseFactoryMetadata,
   CourseFactoryProvenanceKind,
+  CourseFactorySourceEvidenceReference,
   CoursePackageVersionReference,
   CurrentUser,
   PermissionKey
@@ -229,6 +230,96 @@ function profileReference(
   };
 }
 
+function sourceEvidenceReference(value: unknown): CourseFactorySourceEvidenceReference {
+  if (!isRecord(value)) throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  assertOnlyFields(value, [
+    "schema_version",
+    "binding_request_id",
+    "source_epoch",
+    "regional_transfer",
+    "living_operations",
+    "baseline_region",
+    "target_region",
+    "source_reality_class",
+    "rights_status",
+    "qualification_status",
+    "calibration_evidence",
+    "formal_binding_eligible",
+    "consumption_status",
+    "exact_binding_required",
+    "required_rechecks",
+    "exact_source_refs",
+    "m29_pack_digest",
+    "evidence_digest"
+  ]);
+  if (
+    value.schema_version !== "course-factory-source-evidence.v1" ||
+    value.binding_request_id !== "SH-M29-MAIN-PULL-BINDING-REQUEST" ||
+    value.baseline_region !== "Shanghai" ||
+    value.target_region !== "Hangzhou" ||
+    value.source_reality_class !== "PUBLIC_SOURCE_BOUND" ||
+    value.rights_status !== "PUBLIC_REFERENCE_ONLY" ||
+    value.qualification_status !== "LIMITED" ||
+    value.calibration_evidence !== "NOT_PROVEN" ||
+    value.formal_binding_eligible !== false ||
+    value.consumption_status !== "LOOKAHEAD_READY" ||
+    value.exact_binding_required !== true
+  ) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  if (!isRecord(value.source_epoch) || !isRecord(value.regional_transfer)) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  if (!isRecord(value.living_operations)) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  const sourceEpochBaseSha = text(value.source_epoch.source_epoch_base_sha);
+  if (!/^[a-f0-9]{40}$/.test(sourceEpochBaseSha)) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  const expiresAt = text(value.living_operations.expires_at);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  const parsedExpiry = new Date(`${expiresAt}T00:00:00.000Z`);
+  if (parsedExpiry.toISOString().slice(0, 10) !== expiresAt) {
+    throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
+  }
+  return {
+    schema_version: "course-factory-source-evidence.v1",
+    binding_request_id: "SH-M29-MAIN-PULL-BINDING-REQUEST",
+    source_epoch: {
+      epoch_id: identity(value.source_epoch.epoch_id),
+      epoch_digest: digest(value.source_epoch.epoch_digest),
+      source_epoch_base_sha: sourceEpochBaseSha
+    },
+    regional_transfer: {
+      transfer_id: identity(value.regional_transfer.transfer_id),
+      pack_digest: digest(value.regional_transfer.pack_digest),
+      candidate_version: version(value.regional_transfer.candidate_version)
+    },
+    living_operations: {
+      pack_digest: digest(value.living_operations.pack_digest),
+      epoch_id: identity(value.living_operations.epoch_id),
+      epoch_version: version(value.living_operations.epoch_version),
+      expires_at: expiresAt
+    },
+    baseline_region: "Shanghai",
+    target_region: "Hangzhou",
+    source_reality_class: "PUBLIC_SOURCE_BOUND",
+    rights_status: "PUBLIC_REFERENCE_ONLY",
+    qualification_status: "LIMITED",
+    calibration_evidence: "NOT_PROVEN",
+    formal_binding_eligible: false,
+    consumption_status: "LOOKAHEAD_READY",
+    exact_binding_required: true,
+    required_rechecks: stringList(value.required_rechecks),
+    exact_source_refs: stringList(value.exact_source_refs),
+    m29_pack_digest: digest(value.m29_pack_digest),
+    evidence_digest: digest(value.evidence_digest)
+  };
+}
+
 function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadata {
   if (!isRecord(value)) throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   assertOnlyFields(value, [
@@ -237,6 +328,7 @@ function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadat
     "rights",
     "schema_version",
     "source_manifest",
+    "source_evidence_reference",
     "user_data_policy"
   ]);
   if (text(value.schema_version) !== COURSE_FACTORY_SCHEMA_VERSION) {
@@ -310,6 +402,9 @@ function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadat
       owner_tenant_id: identity(rights.owner_tenant_id)
     },
     schema_version: COURSE_FACTORY_SCHEMA_VERSION,
+    ...(value.source_evidence_reference !== undefined
+      ? { source_evidence_reference: sourceEvidenceReference(value.source_evidence_reference) }
+      : {}),
     source_manifest: {
       course_blueprint_reference: blueprintReference(manifest.course_blueprint_reference, tenantId),
       ...(manifest.model_artifact_reference !== undefined
