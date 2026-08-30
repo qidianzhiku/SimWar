@@ -140,7 +140,12 @@ describe("Course Factory contract", () => {
         "200",
         "CourseFactoryVersionEnvelope"
       ],
-      ["/api/v1/bff/teacher/course-factory/catalog", "get", "200", "CourseFactoryCatalogEnvelope"],
+      [
+        "/api/v1/bff/teacher/course-factory/catalog",
+        "get",
+        "200",
+        "CourseFactoryTeacherCatalogEnvelope"
+      ],
       [
         "/api/v1/bff/enterprise/course-factory/sponsor",
         "get",
