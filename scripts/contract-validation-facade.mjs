@@ -1116,7 +1116,10 @@ function formatAjvErrors(validate) {
 }
 
 export function createContractAjv() {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  // The CoursePackageVersion contract uses Ajv's $data extension for the
+  // tenant-bound provenance reference. Keep the repository's shared contract
+  // validator configured the same way as the published schema consumer.
+  const ajv = new Ajv2020({ $data: true, allErrors: true, strict: true });
   ajv.addFormat("email", {
     type: "string",
     validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import Ajv2020 from "ajv/dist/2020.js";
 import yaml from "js-yaml";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { createContractAjv } from "../../scripts/contract-validation-facade.mjs";
 import type {
   CoursePackageVersion,
   CoursePackageVersionAdminDto,
@@ -17,23 +17,8 @@ function readJson<T = unknown>(path: string): T {
   return JSON.parse(readFileSync(resolve(path), "utf8")) as T;
 }
 
-function isValidDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-function isValidDateTime(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
-  const parsed = new Date(value);
-  const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
-}
-
 function compileCoursePackageSchema() {
-  const ajv = new Ajv2020({ $data: true, allErrors: true, strict: true });
-  ajv.addFormat("date", { type: "string", validate: isValidDate });
-  ajv.addFormat("date-time", { type: "string", validate: isValidDateTime });
+  const ajv = createContractAjv();
   ajv.addSchema(readJson("contracts/schemas/teacher-scenario-studio.v1.json"));
   return ajv.compile(readJson("contracts/schemas/course-package-version.v1.json"));
 }
@@ -274,6 +259,18 @@ describe("CoursePackageVersion contract freeze", () => {
 
     expect(validate(factoryPackage)).toBe(true);
 
+    const sameTenantNonOriginal = structuredClone(factoryPackage);
+    (sameTenantNonOriginal.factory_metadata as Record<string, unknown>).provenance = {
+      kind: "CLONED",
+      source_course_package_reference: {
+        content_digest: "a".repeat(64),
+        course_package_id: "source_course",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    };
+    expect(validate(sameTenantNonOriginal)).toBe(true);
+
     const nonOriginalCrossTenant = structuredClone(factoryPackage);
     (nonOriginalCrossTenant.factory_metadata as Record<string, unknown>).provenance = {
       kind: "CLONED",
@@ -338,6 +335,46 @@ describe("CoursePackageVersion contract freeze", () => {
       }
     };
     expect(validate(extra)).toBe(false);
+  });
+
+  it("rejects a restored factory aggregate whose manifest diverges from top-level bindings", () => {
+    const valid = readJson<CoursePackageVersion>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const candidate = {
+      ...valid,
+      factory_metadata: {
+        known_limits: ["JSON runtime only"],
+        provenance: { kind: "ORIGINAL" as const },
+        rights: {
+          allowed_tenant_ids: [valid.tenant_id],
+          copy_allowed: true,
+          export_allowed: true,
+          expires_at: null,
+          owner_tenant_id: valid.tenant_id
+        },
+        schema_version: "course-factory.v1" as const,
+        source_manifest: {
+          course_blueprint_reference: valid.course_blueprint_reference,
+          parameter_set_reference: valid.parameter_set_reference,
+          scenario_package_reference: valid.scenario_package_reference
+        },
+        user_data_policy: {
+          copied_private_data: false as const,
+          copied_user_decisions: false as const,
+          copied_user_results: false as const
+        }
+      }
+    } satisfies CoursePackageVersion;
+    candidate.factory_metadata.source_manifest.course_blueprint_reference = {
+      ...candidate.course_blueprint_reference,
+      course_blueprint_id: "blueprint_other"
+    };
+    candidate.content_digest = calculateCoursePackageContentDigest(candidate);
+
+    expect(() => assertValidCoursePackageVersion(candidate)).toThrow(
+      "COURSE_PACKAGE_INPUT_INVALID"
+    );
   });
 
   it("freezes one aggregate shape with safe admin and teacher projections", () => {

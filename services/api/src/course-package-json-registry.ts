@@ -144,6 +144,29 @@ function isParameterSetReference(value: CoursePackageVersion["parameter_set_refe
   );
 }
 
+function factoryManifestMatchesAggregate(version: CoursePackageVersion): boolean {
+  const metadata = version.factory_metadata;
+  if (!metadata) return true;
+  const manifest = metadata.source_manifest;
+  return (
+    manifest.course_blueprint_reference.content_digest ===
+      version.course_blueprint_reference.content_digest &&
+    manifest.course_blueprint_reference.course_blueprint_id ===
+      version.course_blueprint_reference.course_blueprint_id &&
+    manifest.course_blueprint_reference.tenant_id === version.course_blueprint_reference.tenant_id &&
+    manifest.course_blueprint_reference.version === version.course_blueprint_reference.version &&
+    manifest.parameter_set_reference.content_digest === version.parameter_set_reference.content_digest &&
+    manifest.parameter_set_reference.parameter_set_id === version.parameter_set_reference.parameter_set_id &&
+    manifest.parameter_set_reference.version === version.parameter_set_reference.version &&
+    manifest.scenario_package_reference.content_digest ===
+      version.scenario_package_reference.content_digest &&
+    manifest.scenario_package_reference.scenario_package_id ===
+      version.scenario_package_reference.scenario_package_id &&
+    manifest.scenario_package_reference.tenant_id === version.scenario_package_reference.tenant_id &&
+    manifest.scenario_package_reference.version === version.scenario_package_reference.version
+  );
+}
+
 export function calculateCoursePackageContentDigest(input: CoursePackageVersionDraftInput): string {
   const digestInput = {
     course_blueprint_reference: input.course_blueprint_reference,
@@ -195,13 +218,8 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
     !isScenarioPackageReference(version.scenario_package_reference) ||
     !isParameterSetReference(version.parameter_set_reference) ||
     (version.factory_metadata !== undefined &&
-      !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id))
-  ) {
-    throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
-  }
-  if (
-    version.factory_metadata !== undefined &&
-    !isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id)
+      (!isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id) ||
+        !factoryManifestMatchesAggregate(version)))
   ) {
     throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
   }
