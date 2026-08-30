@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { buildM19M24DomainDepthPack, validateM19M24DomainDepthPack } from "@simwar/sh-next-support";
 
-function outputRootFromArgs(argv = process.argv.slice(2), environment = process.env) {
+async function outputRootFromArgs(argv = process.argv.slice(2), environment = process.env) {
   let requestedRoot = environment.SIMWAR_M19_M24_EVIDENCE_ROOT ?? null;
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] !== "--output") {
@@ -15,10 +15,11 @@ function outputRootFromArgs(argv = process.argv.slice(2), environment = process.
     requestedRoot = value;
     index += 1;
   }
-  return resolve(requestedRoot ?? join(tmpdir(), "simwar-sh-m19-m24-evidence"));
+  if (requestedRoot) return resolve(requestedRoot);
+  return await mkdtemp(join(tmpdir(), "simwar-sh-m19-m24-evidence-"));
 }
 
-const OUTPUT_ROOT = outputRootFromArgs();
+const OUTPUT_ROOT = await outputRootFromArgs();
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex");
