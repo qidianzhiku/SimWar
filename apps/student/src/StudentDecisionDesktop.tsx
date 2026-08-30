@@ -46,12 +46,13 @@ export function getStudentDecisionDesktopState(
   if (!input.isStudentSession || input.contextRecoveryState === "CONTEXT_UNAUTHORIZED") {
     return "unauthorized";
   }
-  if (input.contextRecoveryState === "CONTEXT_STALE" || !input.exactContextReady) {
+  if (input.contextRecoveryState === "CONTEXT_STALE") {
     return "stale";
   }
+  if (input.workspacePhase === "empty") return "empty";
+  if (!input.exactContextReady) return "stale";
   if (input.workspacePhase === "loading") return "loading";
   if (input.workspacePhase === "error") return "error";
-  if (input.workspacePhase === "empty") return "empty";
   if (input.hasPublishedResult) return "published";
   return "ready";
 }
@@ -307,7 +308,7 @@ export function StudentDecisionDesktop({
       <div className="board sdd-layout">
         <section className="sdd-canvas" aria-label="Workspace Canvas">
           {statePanelFor(desktopState, notice, onRecover)}
-          {desktopState === "ready" || desktopState === "published" ? (
+          {desktopState === "ready" || desktopState === "published" || desktopState === "empty" ? (
             <>
               <section
                 id="student-submission"

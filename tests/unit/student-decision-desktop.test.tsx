@@ -53,6 +53,7 @@ describe("StudentDecisionDesktop", () => {
     ],
     ["stale", stateInput({ contextRecoveryState: "CONTEXT_STALE" })],
     ["error", stateInput({ workspacePhase: "error" })],
+    ["empty", stateInput({ workspacePhase: "empty", exactContextReady: false })],
     ["published", stateInput({ hasPublishedResult: true })],
     ["ready", stateInput()]
   ] as const)("derives the governed %s state from server lifecycle signals", (expected, input) => {
@@ -61,6 +62,19 @@ describe("StudentDecisionDesktop", () => {
 
   it("fails closed to stale when exact context references do not align", () => {
     expect(getStudentDecisionDesktopState(stateInput({ exactContextReady: false }))).toBe("stale");
+  });
+
+  it("keeps an empty server context distinct from an invalidated exact context", () => {
+    expect(
+      getStudentDecisionDesktopState(
+        stateInput({ workspacePhase: "empty", exactContextReady: false })
+      )
+    ).toBe("empty");
+    expect(
+      getStudentDecisionDesktopState(
+        stateInput({ workspacePhase: "ready", contextRecoveryState: "CONTEXT_STALE" })
+      )
+    ).toBe("stale");
   });
 
   it("renders an exact-context desktop with the server-owned action boundary", () => {
