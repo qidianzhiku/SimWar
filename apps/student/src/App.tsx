@@ -45,9 +45,13 @@ import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
 import {
   getStudentDecisionDesktopState,
-  StudentDecisionDesktop,
   type StudentDecisionDesktopContext
-} from "./StudentDecisionDesktop";
+} from "./studentDecisionDesktopState";
+const StudentDecisionDesktop = lazy(() =>
+  import("./StudentDecisionDesktop").then(({ StudentDecisionDesktop: Component }) => ({
+    default: Component
+  }))
+);
 const ShanghaiC0ConversionProjection = lazy(() => import("./ShanghaiC0ConversionProjection"));
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
@@ -1344,23 +1348,25 @@ export function App() {
         ) : null}
 
         {hasStudentSurface ? (
-          <StudentDecisionDesktop
-            desktopState={desktopState}
-            context={desktopContext}
-            cockpit={cockpit}
-            decision={decision}
-            {...(submittedDecision ? { submittedDecision } : {})}
-            {...(myResult ? { publishedResult: myResult } : {})}
-            busy={busy}
-            canSubmit={canSubmit}
-            roundIsOpen={latestRound?.status === "open"}
-            roleWorkflowActive={roleWorkflowActive}
-            roleWorkflowAvailability={roleWorkflowAvailability}
-            notice={noticeCopy.primary}
-            onDecisionChange={updateDesktopDecision}
-            onSubmit={() => void submitDecision()}
-            onRecover={() => void refresh().catch(() => undefined)}
-          />
+          <Suspense fallback={<StatePanel status="loading" message="正在载入学员决策桌面…" />}>
+            <StudentDecisionDesktop
+              desktopState={desktopState}
+              context={desktopContext}
+              cockpit={cockpit}
+              decision={decision}
+              {...(submittedDecision ? { submittedDecision } : {})}
+              {...(myResult ? { publishedResult: myResult } : {})}
+              busy={busy}
+              canSubmit={canSubmit}
+              roundIsOpen={latestRound?.status === "open"}
+              roleWorkflowActive={roleWorkflowActive}
+              roleWorkflowAvailability={roleWorkflowAvailability}
+              notice={noticeCopy.primary}
+              onDecisionChange={updateDesktopDecision}
+              onSubmit={() => void submitDecision()}
+              onRecover={() => void refresh().catch(() => undefined)}
+            />
+          </Suspense>
         ) : null}
 
         {hasStudentSurface ? (
