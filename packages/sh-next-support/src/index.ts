@@ -857,3 +857,4 @@ export * from "./m3-operating-stress.js";
 export * from "./m4-portability.js";
 export * from "./m5-reality-qualification.js";
 export * from "./m6-living-scenario.js";
+export * from "./m19-m24-domain-depth.js";
