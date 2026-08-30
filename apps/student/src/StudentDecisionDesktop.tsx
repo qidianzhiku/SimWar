@@ -81,6 +81,7 @@ export interface StudentDecisionDesktopProps {
   publishedResult?: StudentSafeTeamSettlement;
   busy: boolean;
   canSubmit: boolean;
+  roundIsOpen?: boolean;
   roleWorkflowActive: boolean;
   roleWorkflowAvailability: StudentDecisionDesktopRoleWorkflowAvailability;
   notice: string;
@@ -214,6 +215,7 @@ export function StudentDecisionDesktop({
   publishedResult,
   busy,
   canSubmit,
+  roundIsOpen = true,
   roleWorkflowActive,
   roleWorkflowAvailability,
   notice,
@@ -223,6 +225,7 @@ export function StudentDecisionDesktop({
 }: StudentDecisionDesktopProps) {
   const allowedActions = cockpit?.decision_form.allowed_actions ?? [];
   const isEditable = (field: DecisionPayloadFieldPath) =>
+    roundIsOpen &&
     (desktopState === "ready" || desktopState === "published") &&
     cockpit?.decision_form.editable_fields.includes(field) === true;
   const submitReason = roleWorkflowActive
@@ -300,7 +303,11 @@ export function StudentDecisionDesktop({
           {statePanelFor(desktopState, notice, onRecover)}
           {desktopState === "ready" || desktopState === "published" ? (
             <>
-              <section id="student-submission" className="panel sdd-decision" aria-label="最终提交">
+              <section
+                id="student-submission"
+                className="panel student-location sdd-decision"
+                aria-label="最终提交"
+              >
                 <div className="panel-title">
                   <div>
                     <p className="eyebrow">Decision Spine · Workspace Canvas</p>
@@ -381,7 +388,11 @@ export function StudentDecisionDesktop({
                 ) : null}
               </section>
 
-              <section id="student-results" className="panel sdd-result" aria-label="结果与因果链">
+              <section
+                id="student-results"
+                className="panel student-location sdd-result"
+                aria-label="结果与因果链"
+              >
                 <div className="panel-title">
                   <div>
                     <p className="eyebrow">Published Result</p>
@@ -420,19 +431,23 @@ export function StudentDecisionDesktop({
             <dl>
               <div>
                 <dt>租户</dt>
-                <dd>{context?.tenant_id ?? "未绑定"}</dd>
+                <dd className="compatibility-copy">{context?.tenant_id ?? "未绑定"}</dd>
               </div>
               <div>
                 <dt>服务端证据</dt>
-                <dd>{cockpit?.student_cockpit.evidence_label ?? "未读取"}</dd>
+                <dd className="compatibility-copy">
+                  {cockpit?.student_cockpit.evidence_label ?? "未读取"}
+                </dd>
               </div>
               <div>
                 <dt>回合状态</dt>
-                <dd>{cockpit?.student_cockpit.visible_state.round_status ?? "未知"}</dd>
+                <dd className="compatibility-copy">
+                  {cockpit?.student_cockpit.visible_state.round_status ?? "未知"}
+                </dd>
               </div>
               <div>
                 <dt>提交动作</dt>
-                <dd>
+                <dd className="compatibility-copy">
                   {allowedActions.includes("decision:submit") ? "服务端已授权" : "服务端未授权"}
                 </dd>
               </div>

@@ -1048,23 +1048,6 @@ export function App() {
           </WorkbenchFrame>
         </section>
 
-        <StudentDecisionDesktop
-          desktopState={desktopState}
-          context={desktopContext}
-          cockpit={cockpit}
-          decision={decision}
-          {...(submittedDecision ? { submittedDecision } : {})}
-          {...(myResult ? { publishedResult: myResult } : {})}
-          busy={busy}
-          canSubmit={canSubmit}
-          roleWorkflowActive={roleWorkflowActive}
-          roleWorkflowAvailability={roleWorkflowAvailability}
-          notice={noticeCopy.primary}
-          onDecisionChange={updateDesktopDecision}
-          onSubmit={() => void submitDecision()}
-          onRecover={() => void refresh().catch(() => undefined)}
-        />
-
         {hasStudentSurface ? (
           <section className="known-limits-disclosure" aria-label="known limits product disclosure">
             <p className="eyebrow">
@@ -1358,6 +1341,26 @@ export function App() {
               </WorkbenchFrame>
             </section>
           </>
+        ) : null}
+
+        {hasStudentSurface ? (
+          <StudentDecisionDesktop
+            desktopState={desktopState}
+            context={desktopContext}
+            cockpit={cockpit}
+            decision={decision}
+            {...(submittedDecision ? { submittedDecision } : {})}
+            {...(myResult ? { publishedResult: myResult } : {})}
+            busy={busy}
+            canSubmit={canSubmit}
+            roundIsOpen={latestRound?.status === "open"}
+            roleWorkflowActive={roleWorkflowActive}
+            roleWorkflowAvailability={roleWorkflowAvailability}
+            notice={noticeCopy.primary}
+            onDecisionChange={updateDesktopDecision}
+            onSubmit={() => void submitDecision()}
+            onRecover={() => void refresh().catch(() => undefined)}
+          />
         ) : null}
 
         {hasStudentSurface ? (
