@@ -340,7 +340,6 @@ export function isCourseFactoryMetadataForTenant(
     knownLimits.some((item) => typeof item !== "string" || item.trim().length === 0) ||
     !isRecord(provenance) ||
     !hasExactKeysWithOptional(provenance, ["kind"], ["source_course_package_reference"]) ||
-    !hasExactKeysWithOptional(provenance, ["kind"], ["source_course_package_reference"]) ||
     !COURSE_FACTORY_PROVENANCE_KINDS.includes(provenance.kind as CourseFactoryProvenanceKind) ||
     !isRecord(rights) ||
     !hasExactKeys(rights, [
