@@ -14,7 +14,10 @@ The pack proves that Hangzhou coverage exists in official public-source
 receipts and that the target is not synthetic-only. It preserves the source
 rights and expiry boundary, records region/package/qualification differences,
 and requires exact binding and requalification after any source or package
-change.
+change. `transfer` is the established `regional-transfer.v1` envelope
+(`candidate_ref`, consumer scope, exact formal references, provenance,
+qualification, diff, impact, activation, authority, rollback, and lifecycle);
+`transfer_summary` is the SH evidence crosswalk to the M25 source transfer.
 
 The qualification is `LIMITED`: the values are labeled planning targets, not
 calibrated outcome observations. `MODEL_CALIBRATED` is never emitted and

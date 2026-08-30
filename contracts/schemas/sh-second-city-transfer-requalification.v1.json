@@ -12,6 +12,7 @@
     "evidence_epoch_ref",
     "second_city",
     "transfer",
+    "transfer_summary",
     "compatibility",
     "qualification",
     "pr475_absorption",
@@ -64,7 +65,8 @@
       },
       "additionalProperties": false
     },
-    "transfer": {
+    "transfer": { "$ref": "#/$defs/regionalTransferEnvelope" },
+    "transfer_summary": {
       "type": "object",
       "required": ["schema_version", "transfer_id", "baseline_region", "target_region", "source_feature_ids", "target_feature_ids", "method", "output", "rights_status", "valid_from", "valid_to", "approval_status"],
       "properties": {
@@ -153,6 +155,194 @@
     "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
   },
   "$defs": {
+    "regionalTransferEnvelope": {
+      "type": "object",
+      "required": ["schema_version", "candidate_ref", "consumer_scope", "scope", "baseline", "target", "formal_references", "provenance", "qualification", "diff", "impact", "activation", "authority", "rollback", "lifecycle", "known_limits"],
+      "properties": {
+        "schema_version": { "const": "regional-transfer.v1" },
+        "candidate_ref": {
+          "type": "object",
+          "required": ["candidate_id", "content_digest", "tenant_id", "version"],
+          "properties": {
+            "candidate_id": { "type": "string", "minLength": 1 },
+            "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+          },
+          "additionalProperties": false
+        },
+        "consumer_scope": {
+          "type": "object",
+          "required": ["minimum_team_count", "run_id", "status", "team_ids"],
+          "properties": {
+            "minimum_team_count": { "const": 2 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "status": { "const": "SHARED_GOVERNED_SCENARIO" },
+            "team_ids": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "object",
+          "required": ["course_id", "round_no", "run_id", "tenant_id"],
+          "properties": {
+            "course_id": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "tenant_id": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "baseline": { "$ref": "#/$defs/envelopeRegionPackage" },
+        "target": { "$ref": "#/$defs/envelopeRegionPackage" },
+        "formal_references": {
+          "type": "object",
+          "required": ["course_blueprint_reference", "parameter_set_reference", "scenario_package_reference"],
+          "properties": {
+            "course_blueprint_reference": { "$ref": "#/$defs/courseBlueprintReference" },
+            "parameter_set_reference": { "$ref": "#/$defs/parameterSetReference" },
+            "scenario_package_reference": { "$ref": "#/$defs/scenarioPackageReference" }
+          },
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "required": ["current_source_readback", "support_packs"],
+          "properties": {
+            "current_source_readback": { "const": "EXACT_SOURCE_READBACK_REQUIRED" },
+            "support_packs": {
+              "type": "object",
+              "required": ["m4_pack_digest", "m4_source_revision", "m5_pack_digest", "m5_source_revision", "m6_pack_digest", "m6_source_revision"],
+              "properties": {
+                "m4_pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "m4_source_revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "m5_pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "m5_source_revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "m6_pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "m6_source_revision": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "qualification": {
+          "type": "object",
+          "required": ["calibration_eligible", "rights_status", "status", "source_status"],
+          "properties": {
+            "calibration_eligible": { "const": false },
+            "rights_status": { "const": "PUBLIC_SAFE" },
+            "status": { "const": "READY_WITH_LIMITS" },
+            "source_status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" }
+          },
+          "additionalProperties": false
+        },
+        "diff": {
+          "type": "object",
+          "required": ["changes", "status"],
+          "properties": {
+            "changes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/difference" } },
+            "status": { "const": "DIFF_RECORDED" }
+          },
+          "additionalProperties": false
+        },
+        "impact": {
+          "type": "object",
+          "required": ["affected_consumers", "requalification_required", "rollback_candidate"],
+          "properties": {
+            "affected_consumers": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "requalification_required": { "const": true },
+            "rollback_candidate": { "const": true }
+          },
+          "additionalProperties": false
+        },
+        "activation": {
+          "type": "object",
+          "required": ["published", "status"],
+          "properties": { "published": { "const": false }, "status": { "const": "NOT_ACTIVATED" } },
+          "additionalProperties": false
+        },
+        "authority": {
+          "type": "object",
+          "required": ["formal_writer_mutations", "official_truth_write", "provider", "runtime_authority", "settlement_write"],
+          "properties": {
+            "formal_writer_mutations": { "const": 0 },
+            "official_truth_write": { "const": false },
+            "provider": { "const": "OFF" },
+            "runtime_authority": { "const": "JSON_INTERNAL_ONLY" },
+            "settlement_write": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        "rollback": {
+          "type": "object",
+          "required": ["candidate_version", "dry_run", "executed", "resolution", "rollback_version", "version_guard"],
+          "properties": {
+            "candidate_version": { "type": "string", "minLength": 1 },
+            "dry_run": { "const": true },
+            "executed": { "const": false },
+            "resolution": { "const": "SAFE_DRY_RUN_CANDIDATE" },
+            "rollback_version": { "type": "string", "minLength": 1 },
+            "version_guard": { "const": "EXACT_VERSION_REQUIRED" }
+          },
+          "additionalProperties": false
+        },
+        "lifecycle": { "const": "PREVIEWED" },
+        "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "envelopeRegionPackage": {
+      "type": "object",
+      "required": ["package_reference", "region"],
+      "properties": {
+        "package_reference": { "$ref": "#/$defs/packageReference" },
+        "region": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "packageReference": {
+      "type": "object",
+      "required": ["digest", "package_id", "version"],
+      "properties": {
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "package_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      },
+      "additionalProperties": false
+    },
+    "courseBlueprintReference": {
+      "type": "object",
+      "required": ["content_digest", "course_blueprint_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "course_blueprint_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      },
+      "additionalProperties": false
+    },
+    "parameterSetReference": {
+      "type": "object",
+      "required": ["content_digest", "parameter_set_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      },
+      "additionalProperties": false
+    },
+    "scenarioPackageReference": {
+      "type": "object",
+      "required": ["content_digest", "scenario_package_id", "tenant_id", "version"],
+      "properties": {
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^(?!latest$|default$|current$).+" }
+      },
+      "additionalProperties": false
+    },
     "difference": {
       "type": "object",
       "required": ["field", "from", "to"],

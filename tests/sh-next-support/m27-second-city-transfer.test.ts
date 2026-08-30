@@ -12,6 +12,8 @@ describe("Shanghai M27 second-city public-source transfer requalification", () =
     expect(pack.second_city.public_source_coverage).toBe(true);
     expect(pack.second_city.synthetic_only).toBe(false);
     expect(pack.transfer.schema_version).toBe("regional-transfer.v1");
+    expect(pack.transfer.candidate_ref.candidate_id).toMatch(/^rt_candidate_/u);
+    expect(pack.transfer_summary.schema_version).toBe("regional-transfer.v1");
     expect(pack.qualification.status).toBe("LIMITED");
     expect(pack.qualification.calibration_evidence).toBe("NOT_PROVEN");
     expect(pack.pr475_absorption.integration_stage).toBe("LOOKAHEAD_READY");
@@ -33,14 +35,20 @@ describe("Shanghai M27 second-city public-source transfer requalification", () =
       expect.arrayContaining(["synthetic_only_second_city_forbidden"])
     );
 
+    const lineageDrift = structuredClone(pack);
+    lineageDrift.second_city.source_asset_ids = ["unrelated-public-source"];
+    expect(validateM27SecondCityTransferRequalificationPack(lineageDrift)).toEqual(
+      expect.arrayContaining(["second_city_lineage_mismatch"])
+    );
+
     const rightsDrift = structuredClone(pack);
-    rightsDrift.transfer.rights_status = "NOT_PROVEN";
+    rightsDrift.transfer_summary.rights_status = "NOT_PROVEN";
     expect(validateM27SecondCityTransferRequalificationPack(rightsDrift)).toEqual(
       expect.arrayContaining(["rights_status_invalid"])
     );
 
     const expiryDrift = structuredClone(pack);
-    expiryDrift.transfer.valid_to = "2025-01-01";
+    expiryDrift.transfer_summary.valid_to = "2025-01-01";
     expect(validateM27SecondCityTransferRequalificationPack(expiryDrift)).toEqual(
       expect.arrayContaining(["expiry_before_epoch_invalid"])
     );
@@ -51,6 +59,12 @@ describe("Shanghai M27 second-city public-source transfer requalification", () =
     qualificationDrift.qualification.calibration_evidence = "MODEL_CALIBRATED";
     expect(validateM27SecondCityTransferRequalificationPack(qualificationDrift)).toEqual(
       expect.arrayContaining(["calibration_claim_forbidden"])
+    );
+
+    const readyDrift = structuredClone(pack);
+    readyDrift.qualification.status = "READY";
+    expect(validateM27SecondCityTransferRequalificationPack(readyDrift)).toEqual(
+      expect.arrayContaining(["qualification_status_invalid"])
     );
   });
 
