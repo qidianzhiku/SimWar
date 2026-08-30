@@ -5,7 +5,6 @@ import type {
   CoursePackageVersionTeacherDto,
   CoursePackageVersionTeacherListDto
 } from "@simwar/shared-contracts";
-import { isCourseFactoryMetadataForTenant } from "@simwar/shared-contracts";
 import {
   type CoursePackageRegistryPort,
   createCoursePackageVersionReference
