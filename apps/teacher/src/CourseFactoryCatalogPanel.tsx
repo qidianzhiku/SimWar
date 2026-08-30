@@ -67,17 +67,19 @@ export function CourseFactoryCatalogPanel({
                 · {entry.version} · {entry.status}
               </span>
               <small>exact package digest: {entry.course_package_reference.content_digest}</small>
-              <small>
-                source refs: blueprint {entry.source_context?.source_reference_versions.course_blueprint},
-                scenario {entry.source_context?.source_reference_versions.scenario_package},
-                parameter {entry.source_context?.source_reference_versions.parameter_set}
-              </small>
               {entry.source_context ? (
-                <small data-testid="m30-teacher-source-evidence">
-                  上海 → 杭州 · qualification:{" "}
-                  {entry.source_context.qualification_status} · calibration: NOT_PROVEN · exact
-                  binding required
-                </small>
+                <>
+                  <small>
+                    source refs: blueprint {entry.source_context.source_reference_versions.course_blueprint},
+                    scenario {entry.source_context.source_reference_versions.scenario_package},
+                    parameter {entry.source_context.source_reference_versions.parameter_set}
+                  </small>
+                  <small data-testid="m30-teacher-source-evidence">
+                    上海 → 杭州 · qualification:{" "}
+                    {entry.source_context.qualification_status} · calibration: NOT_PROVEN · exact
+                    binding required
+                  </small>
+                </>
               ) : null}
             </li>
           ))}
