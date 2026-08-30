@@ -1076,7 +1076,7 @@ export function App() {
         ) : null}
 
         {hasStudentSurface && SHANGHAI_C0_RECEIPT_ID ? (
-          <Suspense fallback={<p className="muted">正在载入上海 C0 结果…</p>}>
+          <Suspense fallback={<p className="muted">正在载入 Shanghai C0 conversion…</p>}>
             <ShanghaiC0ConversionProjection
               apiBase={API_BASE}
               receiptId={SHANGHAI_C0_RECEIPT_ID}

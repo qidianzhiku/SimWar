@@ -17,7 +17,6 @@ import {
   isSameReauthBusinessContext,
   parseReauthContext,
   serializeReauthContext,
-  SHANGHAI_C0_MACRO_DEFINITIONS,
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
@@ -138,12 +137,13 @@ import {
 import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_MACRO_IDS = new Set(["M13", "M14", "M15", "M16", "M17", "M18"] as const);
 const SHANGHAI_C0_MACRO_ID: ShanghaiC0MacroId | null =
   typeof window === "undefined"
     ? null
     : (() => {
         const value = new URLSearchParams(window.location.search).get("shanghaiC0MacroId")?.trim();
-        return value && Object.prototype.hasOwnProperty.call(SHANGHAI_C0_MACRO_DEFINITIONS, value)
+        return value && SHANGHAI_C0_MACRO_IDS.has(value as ShanghaiC0MacroId)
           ? (value as ShanghaiC0MacroId)
           : null;
       })();
@@ -2502,8 +2502,13 @@ export function App() {
             />
           </Suspense>
         ) : null}
-        {isTeacher && session && SHANGHAI_C0_MACRO_ID && selectedRun && selectedRound && activeTeacherTeamId ? (
-          <Suspense fallback={<p className="muted">正在载入上海 C0 工作台…</p>}>
+        {isTeacher &&
+        session &&
+        SHANGHAI_C0_MACRO_ID &&
+        selectedRun &&
+        selectedRound &&
+        activeTeacherTeamId ? (
+          <Suspense fallback={<p className="muted">正在载入 Shanghai C0 conversion…</p>}>
             <ShanghaiC0ConversionWorkspace
               apiBase={API_BASE}
               courseId={selectedRun.course_id}

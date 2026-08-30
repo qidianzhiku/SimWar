@@ -55,7 +55,6 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 const ModelQualificationAuditPanel = lazy(() => import("./ModelQualificationAuditPanel"));
-const ShanghaiC0ConversionAuditPanel = lazy(() => import("./ShanghaiC0ConversionAuditPanel"));
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
@@ -1187,16 +1186,6 @@ export function App() {
             />
           </Suspense>
         ) : null}
-        {session && hasAdminSummaryRole && SHANGHAI_C0_RECEIPT_ID ? (
-          <Suspense fallback={<p className="muted">正在载入上海 C0 审计…</p>}>
-            <ShanghaiC0ConversionAuditPanel
-              apiBase={API_BASE}
-              receiptId={SHANGHAI_C0_RECEIPT_ID}
-              tenantId={login.tenantId}
-              token={session.access_token}
-            />
-          </Suspense>
-        ) : null}
         {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
           <W5GovernedModelAuditPanel
             apiBase={API_BASE}
@@ -1216,11 +1205,13 @@ export function App() {
           </Suspense>
         ) : null}
         {session &&
-        isTenantAdmin &&
-        W5_AUDIT_COURSE_ID &&
-        SHANGHAI_FULL_VERTICAL_DRAFT_ID &&
-        OPERATING_WORLD_RUN_ID &&
-        Number.isSafeInteger(OPERATING_WORLD_ROUND_NO) ? (
+        hasAdminSummaryRole &&
+        (SHANGHAI_C0_RECEIPT_ID ||
+          (isTenantAdmin &&
+            W5_AUDIT_COURSE_ID &&
+            SHANGHAI_FULL_VERTICAL_DRAFT_ID &&
+            OPERATING_WORLD_RUN_ID &&
+            Number.isSafeInteger(OPERATING_WORLD_ROUND_NO))) ? (
           <Suspense fallback={<p className="muted">正在载入上海全纵向产品链…</p>}>
             <ShanghaiFullVerticalAdminPanel
               apiBase={API_BASE}

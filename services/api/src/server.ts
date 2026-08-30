@@ -1062,8 +1062,8 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       const team = await repositoryProvider.facade.teams.getTeam(tenantId, teamId);
       return Boolean(
         team &&
-          team.course_id === courseId &&
-          team.members.some((member) => member.user_id === userId)
+        team.course_id === courseId &&
+        team.members.some((member) => member.user_id === userId)
       );
     }
   });
