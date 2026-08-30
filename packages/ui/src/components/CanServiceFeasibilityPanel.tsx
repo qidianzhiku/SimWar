@@ -48,8 +48,16 @@ async function load(
     }
   );
   const envelope = (await response.json()) as ApiEnvelope<CanServiceFeasibilityResponse>;
-  if (!response.ok) throw new Error(`${envelope.code}: ${envelope.message}`);
+  if (!response.ok) {
+    throw Object.assign(new Error(`${envelope.code}: ${envelope.message}`), {
+      status: response.status
+    });
+  }
   return envelope.data;
+}
+
+export function isCanServiceFeasibilityNotAvailable(reason: unknown): boolean {
+  return reason instanceof Error && "status" in reason && reason.status === 404;
 }
 
 function surfaceLabel(surface: CanServiceFeasibilitySurface): string {
@@ -63,6 +71,7 @@ function surfaceLabel(surface: CanServiceFeasibilitySurface): string {
 export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProps) {
   const [response, setResponse] = useState<CanServiceFeasibilityResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const exact = Boolean(
     props.apiBase &&
     props.courseId &&
@@ -77,13 +86,19 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
     let active = true;
     setResponse(null);
     setError(null);
+    setUnavailable(false);
     if (!exact) return () => undefined;
     void load(props)
       .then((data) => {
         if (active) setResponse(data);
       })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : "CAN 可行性加载失败");
+        if (!active) return;
+        if (isCanServiceFeasibilityNotAvailable(reason)) {
+          setUnavailable(true);
+          return;
+        }
+        setError(reason instanceof Error ? reason.message : "CAN 可行性加载失败");
       });
     return () => {
       active = false;
@@ -131,6 +146,11 @@ export function CanServiceFeasibilityPanel(props: CanServiceFeasibilityPanelProp
         </p>
       ) : null}
       {!exact ? <p className="lifecycle-status">需要 exact draft / run / round 上下文</p> : null}
+      {exact && unavailable ? (
+        <p className="lifecycle-status" role="status">
+          当前 exact 上下文没有可用的 R1 CAN 候选绑定。
+        </p>
+      ) : null}
       {exact && !response && !error ? (
         <p className="lifecycle-status" aria-live="polite">
           正在读取 CAN 约束…
