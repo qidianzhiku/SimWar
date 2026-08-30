@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { buildM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
+import {
+  buildM30CourseFactorySourceEvidence,
+  validateM30CourseFactorySourceEvidence
+} from "@simwar/sh-next-support";
 
 function validator(): (value: unknown) => boolean {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -103,5 +106,13 @@ describe("M30 CourseFactory source evidence contract", () => {
     const rightsDate = draft();
     rightsDate.factory_metadata.rights.expires_at = "2026-13-40T00:00:00.000Z";
     expect(validate(rightsDate)).toBe(false);
+  });
+
+  it("reports an impossible runtime source date instead of throwing", () => {
+    const candidate = buildM30CourseFactorySourceEvidence();
+    candidate.living_operations.expires_at = "2026-13-40";
+
+    expect(() => validateM30CourseFactorySourceEvidence(candidate)).not.toThrow();
+    expect(validateM30CourseFactorySourceEvidence(candidate)).toContain("living_operations_expiry");
   });
 });

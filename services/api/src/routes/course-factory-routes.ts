@@ -218,10 +218,14 @@ function modelArtifactReference(
 }
 
 function profileReference(
-  value: unknown
+  value: unknown,
+  tenantId: string
 ): NonNullable<CourseFactoryMetadata["source_manifest"]["project_profile_reference"]> {
   if (!isRecord(value)) throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
   assertOnlyFields(value, ["content_digest", "project_profile_id", "tenant_id", "version"]);
+  if (identity(value.tenant_id) !== tenantId) {
+    throw new CourseFactoryError("COURSE_FACTORY_RIGHTS_SCOPE_VIOLATION");
+  }
   return {
     content_digest: digest(value.content_digest),
     project_profile_id: identity(value.project_profile_id),
@@ -418,7 +422,12 @@ function factoryMetadata(value: unknown, tenantId: string): CourseFactoryMetadat
         : {}),
       parameter_set_reference: parameterReference(manifest.parameter_set_reference),
       ...(manifest.project_profile_reference !== undefined
-        ? { project_profile_reference: profileReference(manifest.project_profile_reference) }
+        ? {
+            project_profile_reference: profileReference(
+              manifest.project_profile_reference,
+              tenantId
+            )
+          }
         : {}),
       scenario_package_reference: scenarioReference(manifest.scenario_package_reference, tenantId)
     },
@@ -493,6 +502,10 @@ function transitionReference(
 
 function actorFor(context: CourseFactoryRouteContext, actor: CurrentUser): CourseFactoryActor {
   return { actor_id: actor.user_id, tenant_id: context.tenantId, roles: actor.roles };
+}
+
+function actorForAuthenticatedTenant(actor: CurrentUser): CourseFactoryActor {
+  return { actor_id: actor.user_id, tenant_id: actor.tenant_id, roles: actor.roles };
 }
 
 function requireAdmin(
@@ -600,7 +613,7 @@ export async function handleCourseFactoryRoute(
       if ([...url.searchParams.keys()].some((key) => key !== "tenant_id")) {
         throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
       }
-      const result = await service.listCatalog(actorFor({ ...context, tenantId }, actor), tenantId);
+      const result = await service.listCatalog(actorForAuthenticatedTenant(actor), tenantId);
       deps.sendJson(response, 200, deps.createEnvelope(context, result));
       return true;
     }
@@ -619,7 +632,7 @@ export async function handleCourseFactoryRoute(
         throw new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID");
       }
       const result = await service.getSponsorProjection(
-        actorFor({ ...context, tenantId }, actor),
+        actorForAuthenticatedTenant(actor),
         tenantId
       );
       deps.sendJson(response, 200, deps.createEnvelope(context, result));

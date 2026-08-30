@@ -178,20 +178,23 @@ describe("R3 CourseFactoryService", () => {
       packageRegistry: registry
     });
 
-    await expect(
-      service.createDraft(
-        actor,
-        factoryDraft({
-          factory_metadata: {
-            ...factoryDraft().factory_metadata,
-            rights: {
-              ...factoryDraft().factory_metadata.rights,
-              expires_at: "2026-13-40T00:00:00.000Z"
+    for (const expires_at of [
+      "2026-13-40T00:00:00.000Z",
+      "2026-02-30T00:00:00.000Z",
+      "2026-01-01T24:00:00.000Z"
+    ]) {
+      await expect(
+        service.createDraft(
+          actor,
+          factoryDraft({
+            factory_metadata: {
+              ...factoryDraft().factory_metadata,
+              rights: { ...factoryDraft().factory_metadata.rights, expires_at }
             }
-          }
-        })
-      )
-    ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+          })
+        )
+      ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+    }
 
     const draft = await service.createDraft(
       actor,
@@ -290,6 +293,28 @@ describe("R3 CourseFactoryService", () => {
     expect(cloned.course_blueprint_reference).toEqual(published.course_blueprint_reference);
     expect(cloned.scenario_package_reference).toEqual(published.scenario_package_reference);
     expect(cloned.parameter_set_reference).toEqual(published.parameter_set_reference);
+  });
+
+  it("rejects a project profile reference owned by another tenant", async () => {
+    const { service } = createService();
+    const candidate = factoryDraft({
+      factory_metadata: {
+        ...factoryDraft().factory_metadata,
+        source_manifest: {
+          ...factoryDraft().factory_metadata.source_manifest,
+          project_profile_reference: {
+            content_digest: digest("a"),
+            project_profile_id: "profile_other_tenant",
+            tenant_id: "tenant_other",
+            version: "1.0.0"
+          }
+        }
+      }
+    });
+
+    await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+      new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+    );
   });
 
   it("fails closed for an expired source and for a tenant outside the rights allowlist", async () => {

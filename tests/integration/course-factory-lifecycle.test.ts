@@ -195,6 +195,49 @@ describe("Course Factory governed lifecycle", () => {
       );
       expect(malformedEvidenceRequest.status).toBe(422);
 
+      const crossTenantProfileRequest = await requestJson<ApiEnvelope<unknown>>(
+        baseUrl,
+        "/api/v1/admin/course-factory/versions",
+        {
+          body: {
+            ...references,
+            course_package_id: "course_factory_cross_tenant_profile",
+            description: "Reject cross-tenant project profiles.",
+            factory_metadata: {
+              ...metadata,
+              source_manifest: {
+                ...metadata.source_manifest,
+                project_profile_reference: {
+                  content_digest: "a".repeat(64),
+                  project_profile_id: "profile_other_tenant",
+                  tenant_id: "tenant_other",
+                  version: VERSION
+                }
+              }
+            },
+            title: "Cross-tenant profile",
+            version: VERSION
+          },
+          method: "POST",
+          token: admin.access_token
+        }
+      );
+      expect(crossTenantProfileRequest.status).toBe(403);
+
+      const crossTenantCatalog = await requestJson<ApiEnvelope<unknown>>(
+        baseUrl,
+        "/api/v1/admin/course-factory/catalog?tenant_id=tenant_other",
+        { token: admin.access_token }
+      );
+      expect(crossTenantCatalog.status).toBe(403);
+
+      const crossTenantSponsor = await requestJson<ApiEnvelope<unknown>>(
+        baseUrl,
+        "/api/v1/bff/enterprise/course-factory/sponsor?tenant_id=tenant_other",
+        { token: admin.access_token }
+      );
+      expect(crossTenantSponsor.status).toBe(403);
+
       const created = await requestJson<ApiEnvelope<CourseFactoryVersion>>(
         baseUrl,
         "/api/v1/admin/course-factory/versions",

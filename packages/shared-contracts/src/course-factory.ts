@@ -156,17 +156,21 @@ function isDigest(value: unknown): value is string {
 }
 
 function isIsoTimestamp(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
-    Number.isFinite(Date.parse(value))
-  );
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  ) {
+    return false;
+  }
+  const parsed = new Date(value);
+  const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
 }
 
 function isDateOnly(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  return parsed.toISOString().slice(0, 10) === value;
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function isTenantReference(value: unknown, tenantId: string, identityField: string): boolean {
@@ -275,7 +279,11 @@ export function isCourseFactoryMetadataForTenant(
     (sourceManifest.model_version_reference !== undefined &&
       !isRecord(sourceManifest.model_version_reference)) ||
     (sourceManifest.project_profile_reference !== undefined &&
-      !isRecord(sourceManifest.project_profile_reference)) ||
+      !isTenantReference(
+        sourceManifest.project_profile_reference,
+        tenantId,
+        "project_profile_id"
+      )) ||
     !isRecord(userDataPolicy) ||
     userDataPolicy.copied_private_data !== false ||
     userDataPolicy.copied_user_decisions !== false ||
