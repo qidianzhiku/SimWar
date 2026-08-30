@@ -174,7 +174,10 @@ import {
   RegionalTransferProductService
 } from "./regional-transfer-product-service.js";
 import { handleRegionalTransferRoute } from "./routes/regional-transfer-routes.js";
-import { handleShanghaiC0ConversionRoute } from "./routes/shanghai-c0-conversion-routes.js";
+import {
+  handleShanghaiC0ConversionRoute,
+  isShanghaiC0ConversionRoute
+} from "./routes/shanghai-c0-conversion-routes.js";
 import { ShanghaiC0ConversionService } from "./shanghai-c0-conversion-service.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
@@ -6534,26 +6537,28 @@ async function routeRequest(
     return;
   }
 
-  const shanghaiC0Context = createContext(runtime, request);
-  if (
-    await handleShanghaiC0ConversionRoute(
-      runtime.shanghaiC0Conversion,
-      request,
-      response,
-      url,
-      { requestId: shanghaiC0Context.requestId, tenantId: shanghaiC0Context.tenantId },
-      {
-        readJson: (incoming) => readJson(incoming),
-        sendJson,
-        createEnvelope: (routeContext, payload, message) =>
-          createEnvelope(routeContext as RequestContext, payload, message),
-        requireTeacher: () => requireD4Teacher(shanghaiC0Context),
-        requireStudent: () => requireD4Student(shanghaiC0Context),
-        requireAdmin: () => requireD4Admin(shanghaiC0Context)
-      }
-    )
-  ) {
-    return;
+  if (isShanghaiC0ConversionRoute(request.method, url)) {
+    const shanghaiC0Context = createContext(runtime, request);
+    if (
+      await handleShanghaiC0ConversionRoute(
+        runtime.shanghaiC0Conversion,
+        request,
+        response,
+        url,
+        { requestId: shanghaiC0Context.requestId, tenantId: shanghaiC0Context.tenantId },
+        {
+          readJson: (incoming) => readJson(incoming),
+          sendJson,
+          createEnvelope: (routeContext, payload, message) =>
+            createEnvelope(routeContext as RequestContext, payload, message),
+          requireTeacher: () => requireD4Teacher(shanghaiC0Context),
+          requireStudent: () => requireD4Student(shanghaiC0Context),
+          requireAdmin: () => requireD4Admin(shanghaiC0Context)
+        }
+      )
+    ) {
+      return;
+    }
   }
 
   if (
