@@ -14,6 +14,7 @@
     "formal_references",
     "provenance",
     "qualification",
+    "requalification",
     "diff",
     "impact",
     "activation",
@@ -117,6 +118,49 @@
         "source_status": { "const": "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK" }
       }
     },
+    "requalification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline",
+        "model_version_comparison",
+        "no_official_truth_write",
+        "ood_semantics",
+        "reality_gap_semantics",
+        "reason_codes",
+        "replay_truth_write",
+        "status",
+        "target",
+        "transfer_mode"
+      ],
+      "properties": {
+        "baseline": { "$ref": "#/$defs/modelEvidence" },
+        "model_version_comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baseline_model_version_ref", "status", "target_model_version_ref"],
+          "properties": {
+            "baseline_model_version_ref": { "type": "string", "minLength": 1 },
+            "status": { "enum": ["EXACT_MATCH", "MISMATCH", "UNKNOWN"] },
+            "target_model_version_ref": { "type": "string", "minLength": 1 }
+          }
+        },
+        "no_official_truth_write": { "const": false },
+        "ood_semantics": { "const": "UNKNOWN_IS_NOT_IN_DOMAIN" },
+        "reality_gap_semantics": { "const": "UNKNOWN_IS_NOT_PROVEN" },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "replay_truth_write": { "const": false },
+        "status": {
+          "enum": ["REQUALIFICATION_REQUIRED", "TRANSFER_READY_WITH_LIMITS", "TRANSFER_BLOCKED"]
+        },
+        "target": { "$ref": "#/$defs/modelEvidence" },
+        "transfer_mode": { "const": "CANDIDATE_ONLY" }
+      }
+    },
     "diff": {
       "type": "object",
       "additionalProperties": false,
@@ -211,6 +255,55 @@
     }
   },
   "$defs": {
+    "modelEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_version_ref", "ood", "reality_gap", "region", "source"],
+      "properties": {
+        "model_version_ref": { "type": "string", "minLength": 1 },
+        "ood": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rate", "status"],
+          "properties": {
+            "rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "status": { "enum": ["NOT_PROVEN", "OBSERVED"] }
+          }
+        },
+        "reality_gap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "value"],
+          "properties": {
+            "status": { "enum": ["NOT_PROVEN", "OBSERVED"] },
+            "value": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+          }
+        },
+        "region": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "content_digest",
+            "evidence_status",
+            "freshness_status",
+            "rights_status",
+            "source_id",
+            "source_version"
+          ],
+          "properties": {
+            "content_digest": {
+              "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+            },
+            "evidence_status": { "enum": ["NOT_RETRIEVED", "REFERENCE_ONLY"] },
+            "freshness_status": { "enum": ["CURRENT", "STALE", "UNKNOWN"] },
+            "rights_status": { "enum": ["PUBLIC_SAFE", "UNKNOWN"] },
+            "source_id": { "type": "string", "minLength": 1 },
+            "source_version": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
     "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
     "courseBlueprintReference": {

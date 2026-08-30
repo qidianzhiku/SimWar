@@ -4,7 +4,8 @@ import {
   buildM5RealityQualificationPack,
   buildM6LivingScenarioLifecyclePack,
   resolveM4PackageReference,
-  type M4CompiledCityPackage
+  type M4CompiledCityPackage,
+  type M5RealityQualificationPack
 } from "@simwar/sh-next-support";
 import { REGIONAL_TRANSFER_OPERATION_IDS } from "@simwar/shared-contracts";
 import type {
@@ -113,6 +114,10 @@ const KNOWN_LIMITS = [
   "Focused accessibility evidence is scoped to this journey; full WCAG acceptance and Human Validation are not claimed."
 ] as const;
 
+const TARGET_SOURCE_NOT_RETRIEVED = "REGIONAL_TRANSFER_TARGET_SOURCE_NOT_RETRIEVED";
+const LEGACY_PRE_N1_IDENTITY_LIMIT =
+  "Legacy pre-N1 candidate identity is preserved only after exact current-source revalidation.";
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -138,6 +143,114 @@ function sameRef(left: Record<string, unknown>, right: Record<string, unknown>):
 
 function exactVersion(value: string): boolean {
   return value.trim().length > 0 && !/^(latest|default|current)$/iu.test(value);
+}
+
+function exactModelVersionReference(value: string): boolean {
+  const adapterReference = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*\.v(?:0|[1-9][0-9]*)$/u.test(value);
+  const semverReference =
+    /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*@(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u.test(
+      value
+    );
+  return (
+    value.trim() === value &&
+    (adapterReference || semverReference) &&
+    !/(?:^|[._:@-])(?:latest|default|current|fallback|next|unresolved)(?:$|[._:@-])/iu.test(value)
+  );
+}
+
+function evidenceForRegion(
+  region: string,
+  modelVersionRef: string,
+  m5: M5RealityQualificationPack
+): RegionalTransferCandidate["requalification"]["baseline"] {
+  const source = m5.sources.find((item) => item.geography === region);
+  const quality = source
+    ? m5.source_quality.find((item) => item.source_id === source.source_id)
+    : undefined;
+  return {
+    model_version_ref: modelVersionRef,
+    ood: { rate: null, status: "NOT_PROVEN" },
+    reality_gap: { status: "NOT_PROVEN", value: null },
+    region,
+    source: source
+      ? {
+          content_digest: source.evidence_status === "NOT_RETRIEVED" ? null : source.hash,
+          evidence_status:
+            source.evidence_status === "NOT_RETRIEVED" ? "NOT_RETRIEVED" : "REFERENCE_ONLY",
+          freshness_status: quality?.freshness_status ?? "UNKNOWN",
+          rights_status:
+            source.license_or_usage_status === "PUBLIC_REFERENCE_ONLY" ? "PUBLIC_SAFE" : "UNKNOWN",
+          source_id: source.source_id,
+          source_version: source.evidence_status === "NOT_RETRIEVED" ? null : source.source_date
+        }
+      : {
+          content_digest: null,
+          evidence_status: "NOT_RETRIEVED",
+          freshness_status: "UNKNOWN",
+          rights_status: "UNKNOWN",
+          source_id: TARGET_SOURCE_NOT_RETRIEVED,
+          source_version: null
+        }
+  };
+}
+
+function buildRequalification(
+  baselineRegion: string,
+  targetRegion: string,
+  modelVersionRef: string
+): RegionalTransferCandidate["requalification"] {
+  if (!exactModelVersionReference(modelVersionRef)) {
+    throw new RegionalTransferProductError("RT_EXACT_VERSION_REQUIRED");
+  }
+  const baseline = evidenceForRegion(baselineRegion, modelVersionRef, SUPPORT_PACKS.m5);
+  const target = evidenceForRegion(targetRegion, modelVersionRef, SUPPORT_PACKS.m5);
+  const reasonCodes: string[] = [];
+  const modelVersionStatus =
+    baseline.model_version_ref === target.model_version_ref ? "EXACT_MATCH" : "MISMATCH";
+
+  if (modelVersionStatus === "MISMATCH") reasonCodes.push("MODEL_VERSION_MISMATCH");
+  if (target.source.source_id === TARGET_SOURCE_NOT_RETRIEVED) {
+    reasonCodes.push("TARGET_SOURCE_NOT_RETRIEVED");
+  }
+  if (
+    baseline.source.freshness_status !== "CURRENT" ||
+    target.source.freshness_status !== "CURRENT"
+  ) {
+    reasonCodes.push("SOURCE_FRESHNESS_UNKNOWN");
+  }
+  if (baseline.source.rights_status !== "PUBLIC_SAFE") reasonCodes.push("BASELINE_RIGHTS_UNKNOWN");
+  if (target.source.rights_status !== "PUBLIC_SAFE") reasonCodes.push("TARGET_RIGHTS_UNKNOWN");
+  if (baseline.reality_gap.status !== "OBSERVED" || target.reality_gap.status !== "OBSERVED") {
+    reasonCodes.push("REALITY_GAP_NOT_PROVEN");
+  }
+  if (baseline.ood.status !== "OBSERVED" || target.ood.status !== "OBSERVED") {
+    reasonCodes.push("OOD_NOT_PROVEN");
+  }
+  if (SUPPORT_PACKS.m5.overall_status === "NOT_ELIGIBLE") {
+    reasonCodes.push("CALIBRATION_NOT_ELIGIBLE");
+  }
+
+  return {
+    baseline,
+    model_version_comparison: {
+      baseline_model_version_ref: baseline.model_version_ref,
+      status: modelVersionStatus,
+      target_model_version_ref: target.model_version_ref
+    },
+    no_official_truth_write: false,
+    ood_semantics: "UNKNOWN_IS_NOT_IN_DOMAIN",
+    reality_gap_semantics: "UNKNOWN_IS_NOT_PROVEN",
+    reason_codes: [...new Set(reasonCodes)],
+    replay_truth_write: false,
+    status:
+      modelVersionStatus === "MISMATCH"
+        ? "TRANSFER_BLOCKED"
+        : reasonCodes.length > 0
+          ? "REQUALIFICATION_REQUIRED"
+          : "TRANSFER_READY_WITH_LIMITS",
+    target,
+    transfer_mode: "CANDIDATE_ONLY"
+  };
 }
 
 function assertInput(input: RegionalTransferCandidateInput): void {
@@ -226,6 +339,32 @@ function inputFromCandidate(candidate: RegionalTransferCandidate): RegionalTrans
   };
 }
 
+function legacyCandidateDigest(candidate: RegionalTransferCandidate): string {
+  return digest({
+    baseline: candidate.baseline.package_reference,
+    baseline_region: candidate.baseline.region,
+    course_blueprint_reference: candidate.formal_references.course_blueprint_reference,
+    course_id: candidate.scope.course_id,
+    parameter_set_reference: candidate.formal_references.parameter_set_reference,
+    round_no: candidate.scope.round_no,
+    run_id: candidate.scope.run_id,
+    scenario_package_reference: candidate.formal_references.scenario_package_reference,
+    target: candidate.target.package_reference,
+    target_region: candidate.target.region,
+    consumer_team_ids: candidate.consumer_scope.team_ids
+  });
+}
+
+function hasRequalification(candidate: unknown): boolean {
+  return (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    "requalification" in candidate &&
+    typeof (candidate as { requalification?: unknown }).requalification === "object" &&
+    (candidate as { requalification?: unknown }).requalification !== null
+  );
+}
+
 export class RegionalTransferProductService {
   private readonly now: () => string;
   private readonly persistence: RegionalTransferCandidatePersistencePort;
@@ -306,14 +445,28 @@ export class RegionalTransferProductService {
     if (current.lifecycle !== "FROZEN")
       throw new RegionalTransferProductError("RT_INVALID_TRANSITION");
     const revalidated = await this.build(actor, inputFromCandidate(current), "FROZEN");
-    if (
-      revalidated.candidate_ref.candidate_id !== current.candidate_ref.candidate_id ||
-      revalidated.candidate_ref.content_digest !== current.candidate_ref.content_digest
-    ) {
+    const currentIdentityMatches =
+      hasRequalification(current) &&
+      revalidated.candidate_ref.candidate_id === current.candidate_ref.candidate_id &&
+      revalidated.candidate_ref.content_digest === current.candidate_ref.content_digest;
+    const legacyDigest = legacyCandidateDigest(current);
+    const legacyIdentityMatches =
+      !hasRequalification(current) &&
+      current.candidate_ref.candidate_id === `rt_candidate_${legacyDigest.slice(0, 16)}` &&
+      current.candidate_ref.content_digest === legacyDigest;
+    if (!currentIdentityMatches && !legacyIdentityMatches) {
       throw new RegionalTransferProductError("RT_SOURCE_NOT_BINDABLE");
     }
+    const activationBase = clone(revalidated);
+    if (legacyIdentityMatches) {
+      activationBase.candidate_ref = clone(current.candidate_ref);
+      activationBase.known_limits = [
+        ...clone(revalidated.known_limits),
+        LEGACY_PRE_N1_IDENTITY_LIMIT
+      ];
+    }
     const activated: RegionalTransferCandidate = {
-      ...clone(current),
+      ...activationBase,
       activation: { published: true, status: "ACTIVATED" },
       lifecycle: "ACTIVATED"
     };
@@ -339,6 +492,12 @@ export class RegionalTransferProductService {
       },
       known_limits: clone(KNOWN_LIMITS),
       operation_id: "REGIONAL_TRANSFER_STUDENT_PROJECTION_GET_V1",
+      requalification: hasRequalification(candidate)
+        ? {
+            status: candidate.requalification.status,
+            transfer_mode: candidate.requalification.transfer_mode
+          }
+        : { status: "REQUALIFICATION_REQUIRED", transfer_mode: "CANDIDATE_ONLY" },
       status: "ACTIVATED",
       visibility: "ROLE_SAFE_STUDENT"
     };
@@ -435,6 +594,9 @@ export class RegionalTransferProductService {
       )
     )
       throw new RegionalTransferProductError("RT_SOURCE_NOT_BINDABLE");
+    if (!exactModelVersionReference(parameter.model_version_ref)) {
+      throw new RegionalTransferProductError("RT_EXACT_VERSION_REQUIRED");
+    }
 
     const consumerTeams = teams
       .filter(
@@ -470,6 +632,12 @@ export class RegionalTransferProductService {
       scenario_package_reference: input.scenario_package_reference,
       target: input.target_package_reference,
       target_region: input.target_region,
+      model_version_ref: parameter.model_version_ref,
+      requalification: buildRequalification(
+        input.baseline_region,
+        input.target_region,
+        parameter.model_version_ref
+      ),
       consumer_team_ids: consumerTeams
     };
     const candidateDigest = digest(content);
@@ -539,6 +707,11 @@ export class RegionalTransferProductService {
         status: "READY_WITH_LIMITS",
         source_status: "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK"
       },
+      requalification: buildRequalification(
+        baseline.display_name,
+        target.display_name,
+        parameter.model_version_ref
+      ),
       rollback: {
         candidate_version: target.version,
         dry_run: true,

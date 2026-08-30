@@ -19,12 +19,23 @@ describe("regional-transfer.v1 contract", () => {
         "formal_references",
         "provenance",
         "qualification",
+        "requalification",
         "activation",
         "authority",
         "known_limits"
       ])
     );
     expect(schema.properties.schema_version.const).toBe("regional-transfer.v1");
+    expect(schema.properties.requalification.required).toEqual(
+      expect.arrayContaining([
+        "baseline",
+        "model_version_comparison",
+        "reason_codes",
+        "status",
+        "target",
+        "transfer_mode"
+      ])
+    );
   });
 
   it("accepts the exact formal-reference shapes emitted by the product service", () => {
