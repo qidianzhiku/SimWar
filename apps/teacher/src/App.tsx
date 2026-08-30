@@ -17,6 +17,7 @@ import {
   isSameReauthBusinessContext,
   parseReauthContext,
   serializeReauthContext,
+  SHANGHAI_C0_MACRO_DEFINITIONS,
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
@@ -35,6 +36,7 @@ import type {
   RoundContinuationResult,
   Run,
   SettlementResult,
+  ShanghaiC0MacroId,
   TeacherBffWorkspaceDTO,
   TeacherCourseBlueprintCatalogDto,
   TeacherCourseBlueprintReadinessDto,
@@ -105,6 +107,7 @@ import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
+import { ShanghaiC0ConversionWorkspace } from "./ShanghaiC0ConversionWorkspace";
 const ExecutiveStrategyLabWorkspace = lazy(() =>
   import("./ExecutiveStrategyLabWorkspace").then(
     ({ ExecutiveStrategyLabWorkspace: Component }) => ({
@@ -135,6 +138,15 @@ import {
 import { resolveActiveTeacherTeamId } from "./teacher-team-context";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_MACRO_ID: ShanghaiC0MacroId | null =
+  typeof window === "undefined"
+    ? null
+    : (() => {
+        const value = new URLSearchParams(window.location.search).get("shanghaiC0MacroId")?.trim();
+        return value && Object.prototype.hasOwnProperty.call(SHANGHAI_C0_MACRO_DEFINITIONS, value)
+          ? (value as ShanghaiC0MacroId)
+          : null;
+      })();
 const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -2489,6 +2501,21 @@ export function App() {
               token={session.access_token}
             />
           </Suspense>
+        ) : null}
+        {isTeacher && session && SHANGHAI_C0_MACRO_ID && selectedRun && selectedRound && activeTeacherTeamId ? (
+          <ShanghaiC0ConversionWorkspace
+            apiBase={API_BASE}
+            courseId={selectedRun.course_id}
+            macroId={SHANGHAI_C0_MACRO_ID}
+            parameterSetId={selectedRun.parameter_set_id}
+            roundId={selectedRound.round_id}
+            roundNo={selectedRound.round_no}
+            runId={selectedRun.run_id}
+            scenarioPackageId={selectedRun.scenario_package_id}
+            teamId={activeTeacherTeamId}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
         ) : null}
       </section>
 

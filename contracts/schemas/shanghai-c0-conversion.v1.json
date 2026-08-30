@@ -1,0 +1,320 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simwar.local/contracts/schemas/shanghai-c0-conversion.v1.json",
+  "title": "Shanghai M13-M18 C0 Product Consumption",
+  "description": "Exact-bound, role-safe, non-official C0 consumer projections.",
+  "anyOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/teacher" },
+    { "$ref": "#/$defs/student" },
+    { "$ref": "#/$defs/admin" }
+  ],
+  "$defs": {
+    "macroId": { "enum": ["M13", "M14", "M15", "M16", "M17", "M18"] },
+    "profile": { "enum": ["STANDARD", "ADVANCED"] },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_binding",
+        "tenant_id",
+        "course_id",
+        "run_id",
+        "team_id",
+        "round_id",
+        "round_no",
+        "scenario_package_id",
+        "scenario_package_version",
+        "parameter_set_id",
+        "parameter_set_version",
+        "model_version_id",
+        "model_version",
+        "engine_id",
+        "seed"
+      ],
+      "properties": {
+        "exact_binding": { "const": true },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "course_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "team_id": { "type": "string", "minLength": 1 },
+        "round_id": { "type": "string", "minLength": 1 },
+        "round_no": { "type": "integer", "minimum": 1 },
+        "scenario_package_id": { "type": "string", "minLength": 1 },
+        "scenario_package_version": { "type": "string", "minLength": 1 },
+        "parameter_set_id": { "type": "string", "minLength": 1 },
+        "parameter_set_version": { "type": "string", "minLength": 1 },
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "model_version": { "type": "string", "minLength": 1 },
+        "engine_id": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "option_id"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "option_id": { "type": "string", "minLength": 1 },
+        "region": { "type": "string", "minLength": 1 },
+        "cohort": { "type": "string", "minLength": 1 },
+        "service_bundle": { "type": "string", "minLength": 1 },
+        "positioning": { "type": "string", "minLength": 1 },
+        "staffing_shock": { "type": "number", "minimum": -1, "maximum": 1 },
+        "capacity_shock": { "type": "number", "minimum": -1, "maximum": 1 },
+        "quality_shock": { "type": "number", "minimum": -1, "maximum": 1 },
+        "horizon_rounds": { "type": "integer", "minimum": 1 },
+        "episode_no": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "target_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "discriminator",
+        "macro_id",
+        "exact_binding",
+        "experience_profile",
+        "experiment",
+        "idempotency_key"
+      ],
+      "properties": {
+        "discriminator": { "const": "shanghai_c0_conversion_request" },
+        "macro_id": { "$ref": "#/$defs/macroId" },
+        "exact_binding": { "$ref": "#/$defs/binding" },
+        "experience_profile": { "$ref": "#/$defs/profile" },
+        "experiment": { "$ref": "#/$defs/experiment" },
+        "idempotency_key": { "type": "string", "minLength": 1 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "receipt_id",
+        "macro_id",
+        "title",
+        "consumer_status",
+        "state_a",
+        "state_b",
+        "current_surface_ref",
+        "current_surface_refs",
+        "candidate_support_refs",
+        "exact_binding_digest",
+        "created_at",
+        "experience_profile",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_formal_write",
+        "provider",
+        "replay_truth_unchanged"
+      ],
+      "properties": {
+        "schema_version": { "const": "simwar.shanghai.c0-conversion.v1" },
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "macro_id": { "$ref": "#/$defs/macroId" },
+        "title": { "type": "string", "minLength": 1 },
+        "consumer_status": { "const": "C0_CONSUMED" },
+        "state_a": { "const": "C1_SUPPORT" },
+        "state_b": { "const": "C0_CURRENT_PRODUCT_CONSUMPTION" },
+        "current_surface_ref": { "type": "string", "minLength": 1 },
+        "current_surface_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "candidate_support_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "exact_binding_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "created_at": { "type": "string", "minLength": 1 },
+        "experience_profile": { "$ref": "#/$defs/profile" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_formal_write": { "const": false },
+        "provider": { "const": "OFF" },
+        "replay_truth_unchanged": { "const": true }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "label",
+          "status",
+          "source_ref",
+          "model_ref",
+          "unit",
+          "temporal_scope",
+          "confidence"
+        ],
+        "properties": {
+          "evidence_id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["CURRENT_BOUND", "CANDIDATE_SUPPORT", "NOT_PROVEN"] },
+          "source_ref": { "type": "string", "minLength": 1 },
+          "model_ref": { "type": "string", "minLength": 1 },
+          "unit": { "type": "string", "minLength": 1 },
+          "temporal_scope": { "type": "string", "minLength": 1 },
+          "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_PROVEN"] }
+        }
+      }
+    },
+    "teacher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "operation_id",
+        "receipt",
+        "exact_binding",
+        "experiment",
+        "evidence",
+        "available_actions",
+        "known_limits"
+      ],
+      "properties": {
+        "surface": { "const": "TEACHER" },
+        "operation_id": { "const": "SHANGHAI_C0_TEACHER_CONVERSION_GET_V1" },
+        "receipt": { "$ref": "#/$defs/receipt" },
+        "exact_binding": { "$ref": "#/$defs/binding" },
+        "experiment": { "$ref": "#/$defs/experiment" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "available_actions": { "type": "array", "items": { "type": "string" } },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "studentReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "receipt_id",
+        "macro_id",
+        "title",
+        "consumer_status",
+        "state_a",
+        "state_b",
+        "current_surface_ref",
+        "experience_profile",
+        "created_at",
+        "replay_truth_unchanged",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_formal_write"
+      ],
+      "properties": {
+        "schema_version": { "const": "simwar.shanghai.c0-conversion.v1" },
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "macro_id": { "$ref": "#/$defs/macroId" },
+        "title": { "type": "string", "minLength": 1 },
+        "consumer_status": { "const": "C0_CONSUMED" },
+        "state_a": { "const": "C1_SUPPORT" },
+        "state_b": { "const": "C0_CURRENT_PRODUCT_CONSUMPTION" },
+        "current_surface_ref": { "type": "string", "minLength": 1 },
+        "experience_profile": { "$ref": "#/$defs/profile" },
+        "created_at": { "type": "string", "minLength": 1 },
+        "replay_truth_unchanged": { "const": true },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_formal_write": { "const": false }
+      }
+    },
+    "student": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "operation_id",
+        "receipt",
+        "student_context",
+        "mechanism",
+        "constraints",
+        "why_not",
+        "known_limits"
+      ],
+      "properties": {
+        "surface": { "const": "STUDENT" },
+        "operation_id": { "const": "SHANGHAI_C0_STUDENT_CONVERSION_GET_V1" },
+        "receipt": { "$ref": "#/$defs/studentReceipt" },
+        "student_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["course_id", "run_id", "round_no", "team_id"],
+          "properties": {
+            "course_id": { "type": "string", "minLength": 1 },
+            "run_id": { "type": "string", "minLength": 1 },
+            "round_no": { "type": "integer", "minimum": 1 },
+            "team_id": { "type": "string", "minLength": 1 }
+          }
+        },
+        "mechanism": { "type": "string", "minLength": 1 },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "why_not": { "type": "array", "items": { "type": "string" } },
+        "choice": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["option_id", "status"],
+          "properties": {
+            "option_id": { "type": "string", "minLength": 1 },
+            "status": { "const": "NON_OFFICIAL_DRAFT" }
+          }
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "operation_id",
+        "receipt",
+        "exact_binding",
+        "evidence",
+        "lineage",
+        "known_limits"
+      ],
+      "properties": {
+        "surface": { "const": "ADMIN" },
+        "operation_id": { "const": "SHANGHAI_C0_ADMIN_CONVERSION_AUDIT_GET_V1" },
+        "receipt": { "$ref": "#/$defs/receipt" },
+        "exact_binding": { "$ref": "#/$defs/binding" },
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_refs",
+            "model_ref",
+            "scenario_ref",
+            "parameter_ref",
+            "transaction_ref",
+            "rights_status",
+            "qualification_status",
+            "calibration_status"
+          ],
+          "properties": {
+            "source_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "model_ref": { "type": "string", "minLength": 1 },
+            "scenario_ref": { "type": "string", "minLength": 1 },
+            "parameter_ref": { "type": "string", "minLength": 1 },
+            "transaction_ref": { "type": "string", "minLength": 1 },
+            "rights_status": { "const": "CANDIDATE_ONLY" },
+            "qualification_status": { "const": "NOT_PROVEN" },
+            "calibration_status": { "const": "NOT_PROVEN" }
+          }
+        },
+        "known_limits": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

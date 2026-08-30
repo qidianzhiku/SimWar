@@ -174,6 +174,8 @@ import {
   RegionalTransferProductService
 } from "./regional-transfer-product-service.js";
 import { handleRegionalTransferRoute } from "./routes/regional-transfer-routes.js";
+import { handleShanghaiC0ConversionRoute } from "./routes/shanghai-c0-conversion-routes.js";
+import { ShanghaiC0ConversionService } from "./shanghai-c0-conversion-service.js";
 import { handleOperatingWorldRoute } from "./routes/operating-world-routes.js";
 import { GovernedAdvisoryService } from "./w020-advisory-service.js";
 import { GSIStakeholderShadowPlaneService } from "./gsi-stakeholder-shadow-plane-service.js";
@@ -450,6 +452,7 @@ interface ApiRuntime {
   w5GovernedModel: W5GovernedModelService;
   modelQualification: ModelQualificationService;
   shanghaiFullVertical: ShanghaiFullVerticalService;
+  shanghaiC0Conversion: ShanghaiC0ConversionService;
   regionalTransfer: RegionalTransferProductService;
   resolveRegionalTransferSelection: (
     tenantId: string,
@@ -1028,6 +1031,39 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
       target_region: target.display_name
     };
   };
+  const shanghaiC0Conversion = new ShanghaiC0ConversionService({
+    getRun: async (tenantId, runId) => {
+      const run = await repositoryProvider.facade.runs.getRun(tenantId, runId);
+      return run
+        ? {
+            course_id: run.course_id,
+            scenario_package_id: run.scenario_package_id,
+            parameter_set_id: run.parameter_set_id
+          }
+        : null;
+    },
+    getRound: async (tenantId, runId, roundId) => {
+      const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)).find(
+        (candidate) => candidate.round_id === roundId
+      );
+      return round
+        ? {
+            tenant_id: round.tenant_id,
+            run_id: round.run_id,
+            round_id: round.round_id,
+            round_no: round.round_no
+          }
+        : null;
+    },
+    isStudentEnrolled: async (tenantId, userId, teamId, courseId) => {
+      const team = await repositoryProvider.facade.teams.getTeam(tenantId, teamId);
+      return Boolean(
+        team &&
+          team.course_id === courseId &&
+          team.members.some((member) => member.user_id === userId)
+      );
+    }
+  });
   const operatingWorld = new OperatingWorldService(
     undefined,
     createJsonOperatingWorldPersistence(store)
@@ -1295,6 +1331,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     w5GovernedModel,
     modelQualification,
     shanghaiFullVertical,
+    shanghaiC0Conversion,
     regionalTransfer,
     resolveRegionalTransferSelection,
     operatingWorld,
@@ -6493,6 +6530,28 @@ async function routeRequest(
         requirePermission(context as RequestContext, permission),
       sendJson
     })
+  ) {
+    return;
+  }
+
+  const shanghaiC0Context = createContext(runtime, request);
+  if (
+    await handleShanghaiC0ConversionRoute(
+      runtime.shanghaiC0Conversion,
+      request,
+      response,
+      url,
+      { requestId: shanghaiC0Context.requestId, tenantId: shanghaiC0Context.tenantId },
+      {
+        readJson: (incoming) => readJson(incoming),
+        sendJson,
+        createEnvelope: (routeContext, payload, message) =>
+          createEnvelope(routeContext as RequestContext, payload, message),
+        requireTeacher: () => requireD4Teacher(shanghaiC0Context),
+        requireStudent: () => requireD4Student(shanghaiC0Context),
+        requireAdmin: () => requireD4Admin(shanghaiC0Context)
+      }
+    )
   ) {
     return;
   }

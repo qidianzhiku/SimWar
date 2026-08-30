@@ -6232,6 +6232,106 @@ paths:
           { description: Three-round history is insufficient or contains duplicate state records }
         "422": { description: Exact context is invalid }
 
+  /api/v1/bff/teacher/shanghai-c0/conversions:
+    post:
+      operationId: SHANGHAI_C0_TEACHER_CONVERSION_CREATE_V1
+      summary: Consume one exact-bound Shanghai M13-M18 candidate through the current C0 product seam.
+      security: [{ SessionBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShanghaiC0Request" }
+      responses:
+        "201":
+          description: Teacher C0 consumption receipt and experiment projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiC0TeacherEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope denied }
+        "409": { description: Exact current run binding required }
+        "422": { description: Invalid macro or bounded experiment }
+
+  /api/v1/bff/teacher/shanghai-c0/conversions/{receiptId}:
+    get:
+      operationId: SHANGHAI_C0_TEACHER_CONVERSION_GET_V1
+      summary: Read one exact-bound Shanghai C0 Teacher projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: receiptId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Teacher C0 conversion projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiC0TeacherEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher scope denied }
+        "404": { description: Receipt not found }
+
+  /api/v1/bff/student/shanghai-c0/conversions/{receiptId}:
+    get:
+      operationId: SHANGHAI_C0_STUDENT_CONVERSION_GET_V1
+      summary: Read the enrolled team's role-safe Shanghai C0 projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: receiptId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Student-safe mechanism, constraint and uncertainty projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiC0StudentEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Enrolled team scope denied }
+        "404": { description: Receipt not found }
+
+  /api/v1/bff/student/shanghai-c0/conversions/{receiptId}/choice:
+    post:
+      operationId: SHANGHAI_C0_STUDENT_CHOICE_CREATE_V1
+      summary: Record a non-official student choice for the C0 learning projection.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: receiptId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [option_id]
+              properties:
+                option_id: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Non-official draft choice projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiC0StudentEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Enrolled team scope denied }
+        "404": { description: Receipt not found }
+        "422": { description: Invalid choice }
+
+  /api/v1/bff/admin/shanghai-c0/conversions/{receiptId}:
+    get:
+      operationId: SHANGHAI_C0_ADMIN_CONVERSION_AUDIT_GET_V1
+      summary: Read tenant-safe Shanghai C0 source/model/transaction lineage.
+      security: [{ SessionBearer: [] }]
+      parameters:
+        - { name: receiptId, in: path, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Admin C0 conversion audit projection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShanghaiC0AdminEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Tenant administrator scope denied }
+        "404": { description: Receipt not found }
+
 components:
   securitySchemes:
     SessionBearer:
@@ -9822,3 +9922,32 @@ components:
         request_id: { type: string, minLength: 1 }
     ExecutiveStrategyLabRequest:
       $ref: "../schemas/executive-strategy-lab.v1.json#/$defs/request"
+    ShanghaiC0Request:
+      $ref: "../schemas/shanghai-c0-conversion.v1.json#/$defs/request"
+    ShanghaiC0TeacherEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-c0-conversion.v1.json#/$defs/teacher" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ShanghaiC0StudentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-c0-conversion.v1.json#/$defs/student" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }
+    ShanghaiC0AdminEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "../schemas/shanghai-c0-conversion.v1.json#/$defs/admin" }
+        message: { type: string }
+        request_id: { type: string, minLength: 1 }

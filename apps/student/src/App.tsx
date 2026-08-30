@@ -43,6 +43,7 @@ import { RegionalTransferProjection } from "./features/regional-transfer-project
 import { StudentRoleAdvisor } from "./StudentRoleAdvisor";
 import { ModelQualificationProjection } from "./ModelQualificationProjection";
 import { GovernedStakeholderIntelligenceProjection } from "./GovernedStakeholderIntelligenceProjection";
+import { ShanghaiC0ConversionProjection } from "./ShanghaiC0ConversionProjection";
 const ExecutiveStrategyLabProjection = lazy(() =>
   import("./ExecutiveStrategyLabProjection").then(
     ({ ExecutiveStrategyLabProjection: Component }) => ({
@@ -64,6 +65,10 @@ import {
 
 const O4CrossRoundDynamicsFeature = lazy(() => import("./O4"));
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_RECEIPT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
 const GSI_CANDIDATE_ID =
   typeof window === "undefined"
     ? ""
@@ -1068,6 +1073,15 @@ export function App() {
               token={activeSession?.access_token ?? ""}
             />
           </Suspense>
+        ) : null}
+
+        {hasStudentSurface && SHANGHAI_C0_RECEIPT_ID ? (
+          <ShanghaiC0ConversionProjection
+            apiBase={API_BASE}
+            receiptId={SHANGHAI_C0_RECEIPT_ID}
+            tenantId={login.tenantId}
+            token={activeSession?.access_token ?? ""}
+          />
         ) : null}
 
         {hasStudentSurface ? (

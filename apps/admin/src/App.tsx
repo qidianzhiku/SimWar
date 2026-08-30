@@ -55,6 +55,7 @@ import { ProjectAwareLaunchAuditPanel } from "./ProjectAwareLaunchAuditPanel";
 import { OperatingWorldAuditPanel } from "./OperatingWorldAuditPanel";
 import { W5GovernedModelAuditPanel } from "./W5GovernedModelAuditPanel";
 const ModelQualificationAuditPanel = lazy(() => import("./ModelQualificationAuditPanel"));
+import { ShanghaiC0ConversionAuditPanel } from "./ShanghaiC0ConversionAuditPanel";
 import { GovernedStakeholderIntelligenceAuditPanel } from "./GovernedStakeholderIntelligenceAuditPanel";
 const ExecutiveStrategyLabAuditPanel = lazy(() =>
   import("./ExecutiveStrategyLabAuditPanel").then(
@@ -68,6 +69,10 @@ const ShanghaiFullVerticalAdminPanel = lazy(() => import("./ShanghaiFullVertical
 const O4CrossRoundDynamicsPanel = lazy(() => import("@simwar/ui/o4-cross-round-dynamics-panel"));
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const SHANGHAI_C0_RECEIPT_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
 const O4_ENABLED =
   import.meta.env.VITE_SIMWAR_O4_ENABLED === "true" ||
   (typeof window !== "undefined" &&
@@ -1181,6 +1186,14 @@ export function App() {
               token={session.access_token}
             />
           </Suspense>
+        ) : null}
+        {session && hasAdminSummaryRole && SHANGHAI_C0_RECEIPT_ID ? (
+          <ShanghaiC0ConversionAuditPanel
+            apiBase={API_BASE}
+            receiptId={SHANGHAI_C0_RECEIPT_ID}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
         ) : null}
         {session && isTenantAdmin && W5_AUDIT_COURSE_ID ? (
           <W5GovernedModelAuditPanel
