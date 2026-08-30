@@ -18,7 +18,7 @@
     "version": "latest"
   },
   "schema_version": "course-package-version.v1",
-  "status": "PUBLISHED",
+  "status": "INVALID",
   "tenant_id": "tenant_demo",
   "title": "Invalid Wellness Teaching Package",
   "unknown_field": true,

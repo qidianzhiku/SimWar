@@ -1,4 +1,5 @@
 import type { CourseBlueprintReference } from "./index.js";
+import type { CourseFactoryMetadata } from "./course-factory.js";
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 import type { TeacherScenarioStudioConfiguration } from "./teacher-scenario-studio.js";
@@ -10,6 +11,9 @@ export const COURSE_PACKAGE_VERSION_STATUSES = [
   "DRAFT",
   "VALIDATED",
   "AVAILABLE",
+  "APPROVED",
+  "PUBLISHED",
+  "SUPERSEDED",
   "RETIRED"
 ] as const;
 
@@ -46,6 +50,8 @@ export interface CoursePackageVersionDraftInput {
   scenario_package_reference: ScenarioPackageReference;
   /** Optional C5 extension used by the unified Teacher Scenario Studio. */
   studio_configuration?: TeacherScenarioStudioConfiguration;
+  /** Optional R3 metadata persisted by the existing CoursePackage registry. */
+  factory_metadata?: CourseFactoryMetadata;
   title: string;
   version: string;
 }

@@ -47,7 +47,13 @@ import {
   ADMIN_NAVIGATION_ITEMS,
   formatLifecycleBlockedReasons
 } from "./AdminDeliveryTrustWorkspace";
-import { EnterpriseCourseFactoryWorkspace } from "./EnterpriseCourseFactoryWorkspace";
+const EnterpriseCourseFactoryWorkspace = lazy(() =>
+  import("./EnterpriseCourseFactoryWorkspace").then(
+    ({ EnterpriseCourseFactoryWorkspace: Component }) => ({
+      default: Component
+    })
+  )
+);
 import { W4EnterprisePortfolioPanel } from "./W4EnterprisePortfolioPanel";
 import { MarketWorldAuditPanel } from "./MarketWorldAuditPanel";
 import { ProjectLibraryAuditPanel } from "./ProjectLibraryAuditPanel";
@@ -1556,9 +1562,14 @@ export function App() {
       ) : null}
 
       {session && hasAdminSummaryRole ? (
-        <EnterpriseCourseFactoryWorkspace
-          scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
-        />
+        <Suspense fallback={<p className="muted">正在载入企业课程工厂…</p>}>
+          <EnterpriseCourseFactoryWorkspace
+            apiBase={API_BASE}
+            scope={session.user.roles.includes("platform_admin") ? "platform" : "tenant"}
+            tenantId={login.tenantId}
+            token={session.access_token}
+          />
+        </Suspense>
       ) : null}
 
       {session && hasAdminSummaryRole ? (

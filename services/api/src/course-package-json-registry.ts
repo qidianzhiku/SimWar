@@ -139,6 +139,7 @@ export function calculateCoursePackageContentDigest(input: CoursePackageVersionD
     parameter_set_reference: input.parameter_set_reference,
     scenario_package_reference: input.scenario_package_reference,
     ...(input.studio_configuration ? { studio_configuration: input.studio_configuration } : {}),
+    ...(input.factory_metadata ? { factory_metadata: input.factory_metadata } : {}),
     title: input.title,
     version: input.version
   };
@@ -206,15 +207,31 @@ export function assertValidCoursePackageLifecycleSnapshots(
   }
   for (const history of histories.values()) {
     const first = history[0];
+    const factoryStatuses = history.map((snapshot) => snapshot.status);
+    const isFactoryHistory = history.some((snapshot) => snapshot.factory_metadata !== undefined);
+    const factoryLifecycleValid = isFactoryHistory
+      ? factoryStatuses.every((status, index) => {
+          const expected = ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED"] as const;
+          if (index < expected.length) return status === expected[index];
+          if (index === expected.length) return status === "SUPERSEDED" || status === "RETIRED";
+          return factoryStatuses[index - 1] === "SUPERSEDED" && status === "RETIRED";
+        })
+      : true;
+    const legacyLifecycleValid = history.every(
+      (snapshot, index) => snapshot.status === expected[index]
+    );
+    const immutableHistoryValid = history.every(
+      (snapshot) =>
+        snapshot.content_digest === first?.content_digest &&
+        snapshot.created_at === first?.created_at &&
+        snapshot.created_by === first?.created_by &&
+        (!isFactoryHistory || snapshot.factory_metadata !== undefined)
+    );
     if (
       !first ||
-      history.some(
-        (snapshot, index) =>
-          snapshot.status !== expected[index] ||
-          snapshot.content_digest !== first.content_digest ||
-          snapshot.created_at !== first.created_at ||
-          snapshot.created_by !== first.created_by
-      )
+      (!isFactoryHistory && !legacyLifecycleValid) ||
+      !factoryLifecycleValid ||
+      !immutableHistoryValid
     ) {
       throw new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }

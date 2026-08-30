@@ -83,6 +83,9 @@ function cloneDraft(version: CoursePackageVersion): CoursePackageVersionDraftInp
     ...(version.studio_configuration
       ? { studio_configuration: structuredClone(version.studio_configuration) }
       : {}),
+    ...(version.factory_metadata
+      ? { factory_metadata: structuredClone(version.factory_metadata) }
+      : {}),
     title: version.title,
     version: version.version
   };
@@ -159,12 +162,51 @@ export class CoursePackageCommandService {
     return this.appendTransition(current, "AVAILABLE");
   }
 
+  async approve(
+    actor: CoursePackageCommandActor,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion> {
+    const current = await this.getOwned(actor, reference);
+    if (current.status !== "VALIDATED") {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
+    await this.assertDependencies(current);
+    return this.appendTransition(current, "APPROVED");
+  }
+
+  async publish(
+    actor: CoursePackageCommandActor,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion> {
+    const current = await this.getOwned(actor, reference);
+    if (current.status !== "APPROVED") {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
+    await this.assertDependencies(current);
+    return this.appendTransition(current, "PUBLISHED");
+  }
+
+  async supersede(
+    actor: CoursePackageCommandActor,
+    reference: CoursePackageVersionReference
+  ): Promise<CoursePackageVersion> {
+    const current = await this.getOwned(actor, reference);
+    if (current.status !== "PUBLISHED") {
+      throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
+    }
+    return this.appendTransition(current, "SUPERSEDED");
+  }
+
   async retire(
     actor: CoursePackageCommandActor,
     reference: CoursePackageVersionReference
   ): Promise<CoursePackageVersion> {
     const current = await this.getOwned(actor, reference);
-    if (current.status !== "AVAILABLE") {
+    if (
+      current.status !== "AVAILABLE" &&
+      current.status !== "PUBLISHED" &&
+      current.status !== "SUPERSEDED"
+    ) {
       throw new CoursePackageCommandError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }
     return this.appendTransition(current, "RETIRED");
@@ -241,7 +283,7 @@ export class CoursePackageCommandService {
 
   private async appendTransition(
     current: CoursePackageVersion,
-    status: "VALIDATED" | "AVAILABLE" | "RETIRED"
+    status: CoursePackageVersion["status"]
   ): Promise<CoursePackageVersion> {
     const next = createCoursePackageLifecycleSnapshot(current, status);
     try {

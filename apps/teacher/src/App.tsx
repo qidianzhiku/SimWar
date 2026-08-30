@@ -105,6 +105,11 @@ const ShanghaiFullVerticalTeacherPanel = lazy(() => import("./ShanghaiFullVertic
 import { MarketWorldBindingPanel } from "./MarketWorldBindingPanel";
 import { ProjectLibraryPanel } from "./ProjectLibraryPanel";
 import { ProjectAwareCourseLaunchPanel } from "./ProjectAwareCourseLaunchPanel";
+const CourseFactoryCatalogPanel = lazy(() =>
+  import("./CourseFactoryCatalogPanel").then(({ CourseFactoryCatalogPanel: Component }) => ({
+    default: Component
+  }))
+);
 import { GovernedStakeholderIntelligenceWorkspace } from "./GovernedStakeholderIntelligenceWorkspace";
 const ShanghaiC0ConversionWorkspace = lazy(() => import("./ShanghaiC0ConversionWorkspace"));
 const ExecutiveStrategyLabWorkspace = lazy(() =>
@@ -2412,6 +2417,13 @@ export function App() {
             />
             <Suspense fallback={<p className="muted">正在载入教师场景工作室…</p>}>
               <TeacherScenarioStudio
+                apiBase={API_BASE}
+                tenantId={login.tenantId}
+                token={session.access_token}
+              />
+            </Suspense>
+            <Suspense fallback={<p className="muted">正在载入课程工厂 Catalog…</p>}>
+              <CourseFactoryCatalogPanel
                 apiBase={API_BASE}
                 tenantId={login.tenantId}
                 token={session.access_token}

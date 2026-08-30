@@ -214,6 +214,8 @@ import {
   CoursePackageCommandService
 } from "./course-package-command-service.js";
 import { CoursePackageJsonRegistry } from "./course-package-json-registry.js";
+import { CourseFactoryService } from "./course-factory.js";
+import { handleCourseFactoryRoute } from "./routes/course-factory-routes.js";
 import {
   CoursePackageQueryService,
   toTeacherCoursePackageVersionDto
@@ -414,6 +416,7 @@ interface ApiRuntime {
   formalCourseBlueprints: CourseBlueprintCommandService;
   coursePackageCommands: CoursePackageCommandService;
   coursePackageQueries: CoursePackageQueryService;
+  courseFactory: CourseFactoryService;
   teacherScenarioStudio: TeacherScenarioStudioService;
   courseReports: CourseReportQueryService;
   learningDesignCommands: LearningDesignCommandService;
@@ -625,6 +628,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     courseBlueprints: formalCourseBlueprints,
     parameterSets: formalAuthorityRuntime.parameterSets,
     scenarioPackages: formalAuthorityRuntime.scenarioPackages
+  });
+  const courseFactory = new CourseFactoryService({
+    packageCommands: coursePackageCommands,
+    packageRegistry: coursePackageRegistry,
+    store
   });
   const learningDesignRegistry = new LearningDesignJsonRegistry(
     {
@@ -1310,6 +1318,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     formalCourseBlueprints,
     coursePackageCommands,
     coursePackageQueries,
+    courseFactory,
     teacherScenarioStudio,
     learningDesignCommands,
     learningDesignQueries: new LearningDesignQueryService(learningDesignRegistry),
@@ -6672,6 +6681,41 @@ async function routeRequest(
         requirePermission(context as RequestContext, permission),
       sendJson
     })
+  ) {
+    return;
+  }
+
+  const courseFactoryContext = createContext(runtime, request);
+  if (
+    await handleCourseFactoryRoute(
+      runtime.courseFactory,
+      request,
+      response,
+      url,
+      courseFactoryContext,
+      {
+        actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
+        createEnvelope: (context, data, message) =>
+          createEnvelope(context as RequestContext, data, message),
+        executeMutation: (command, audit) =>
+          executeAuditedCoursePackageCommand(runtime, command, (result) => {
+            const input = audit(result);
+            return {
+              actor: input.actor,
+              action: input.action,
+              after: clonePublic(input.after),
+              requestId: input.requestId,
+              resourceId: input.resourceId,
+              resourceType: input.resourceType,
+              tenantId: input.tenantId
+            };
+          }),
+        readJson,
+        requirePermission: (context, permission) =>
+          requirePermission(context as RequestContext, permission),
+        sendJson
+      }
+    )
   ) {
     return;
   }

@@ -1,4 +1,9 @@
-import { KnownLimitBanner } from "@simwar/ui";
+import { useCallback, useEffect, useState } from "react";
+import type {
+  ApiEnvelope,
+  CourseFactoryCatalogProjection,
+  CourseFactorySponsorProjection
+} from "@simwar/shared-contracts";
 
 export type EnterpriseCourseFactoryScope = "tenant" | "platform";
 
@@ -10,70 +15,63 @@ export interface EnterpriseCourseFactoryCapability {
   scope: string;
 }
 
-/**
- * This list is deliberately a presentation contract. It does not imply that
- * an Enterprise API, route, writer, or authority exists for any capability.
- */
 export const enterpriseCourseFactoryCapabilities: readonly EnterpriseCourseFactoryCapability[] = [
   {
-    title: "Source Registry",
+    title: "Exact source binding",
+    limitation: "课程版本必须携带不可变 CourseBlueprint、ScenarioPackage 和 ParameterSet 引用。",
+    unaffected: "源 authority 生命周期仍由既有服务负责。",
+    notProven: "Model/Profile 引用仅作为 provenance；未声明新的模型或场景 authority。",
+    scope: "当前租户 Course Factory Catalog。"
+  },
+  {
+    title: "Versioned catalog",
+    limitation: "Catalog 使用 DRAFT → VALIDATED → APPROVED → PUBLISHED → SUPERSEDED/RETIRED。",
+    unaffected: "Course、Run、Decision 和 Settlement 不因 Catalog 读取而改变。",
+    notProven: "JSON runtime 尚不构成 durable delivery claim。",
+    scope: "Admin 可审计生命周期；Teacher 只见已发布版本。"
+  },
+  {
+    title: "Copy and derive",
+    limitation: "复制只产生新的 CoursePackage draft，并保留 exact source refs 与 lineage。",
+    unaffected: "用户判断、结果和私有数据不会进入复制输入。",
+    notProven: "跨租户复制仍受现有 tenant-bound source authority 限制。",
+    scope: "Admin mutation；rights 和 expiry 由服务端检查。"
+  },
+  {
+    title: "Rights and expiry",
+    limitation: "copy/export rights、allowlist 和 expiry 是服务端门禁，不由前端推断。",
+    unaffected: "既有访问控制和租户隔离继续有效。",
+    notProven: "Provider、PostgreSQL/RLS 均未激活。",
+    scope: "当前会话可见的 rights 投影。"
+  },
+  {
+    title: "Rollback lineage",
+    limitation: "Rollback 通过新 DRAFT 和 ROLLBACK provenance 表达，不覆盖已发布快照。",
+    unaffected: "正式仿真真值和 replay 输入不被课程工厂写入。",
+    notProven: "尚未声称外部 LMS 或生产发布回滚。",
+    scope: "Admin audit projection。"
+  },
+  {
+    title: "Sponsor-safe delivery",
     limitation:
-      "当前没有 Enterprise Source Registry 写入或运行授权；现有种子资料不能被当作可运营注册表。",
-    unaffected: "现有 Admin 课程、资产与安全投影仍按各自服务端合同提供。",
-    notProven: "尚未证明运行时来源注册、来源变更、跨租户来源接入或审批链。",
-    scope: "Enterprise 课程工厂的 Admin 只读投影；运行时：NOT_AUTHORIZED。"
+      "Sponsor 投影只返回 bounded progress、known limits、exact digest presence 和 Catalog 元数据。",
+    unaffected: "Tenant、Team、Score、Rank、Settlement 等正式事实仍留在各自 authority。",
+    notProven: "不提供用户级交付名单、学习结果或私有企业明细。",
+    scope: "Enterprise/Sponsor BFF projection。"
   },
   {
-    title: "Canonical Mapping",
-    limitation: "当前没有 Enterprise Canonical Mapping 工作区或可写映射合同。",
-    unaffected: "现有课程包引用和服务端校验不因本投影改变。",
-    notProven: "尚未证明跨来源规范化、映射版本治理或映射发布。",
-    scope: "租户/平台 Admin 可见范围内的已知限制说明。"
+    title: "Audit evidence",
+    limitation: "生命周期、字段差异和 lineage 可由 exact version audit 端点读取。",
+    unaffected: "审计仍通过既有 audit log writer 记录。",
+    notProven: "当前 evidence 仍是本地 JSON runtime 证据。",
+    scope: "Admin evidence view。"
   },
   {
-    title: "Scenario Draft",
-    limitation:
-      "当前没有 Enterprise 场景草稿权威来源；现有场景资料仍受既有角色和 synthetic 边界约束。",
-    unaffected: "现有受控场景与课程资产展示不新增写入路径。",
-    notProven: "尚未证明 Enterprise 场景作者权、运行时草稿、跨租户复用或正式发布。",
-    scope: "Enterprise 逻辑位置的只读说明；不代表场景工厂已授权。"
-  },
-  {
-    title: "Course Recipe",
-    limitation:
-      "完整 Course Recipe 仍关闭；当前只可把 CoursePackageVersion 描述为不可变教学与配置快照。",
-    unaffected: "现有课程包版本生命周期和 Admin 资产锚点保持原有服务端边界。",
-    notProven: "尚未证明聚合式课程配方、依赖编排、企业级版本组合或配方写入。",
-    scope: "Enterprise 课程工厂投影；支持能力仅链接到现有 #admin-assets。"
-  },
-  {
-    title: "Validation Suite",
-    limitation: "当前没有 Enterprise 聚合 Validation Suite 或统一执行入口。",
-    unaffected: "现有分散的课程包、报告、运行和测试验证继续由各自合同负责。",
-    notProven: "尚未证明一键聚合验证、跨工作区阻断规则或发布前统一门禁。",
-    scope: "Enterprise 只读已知限制；现有验证不升级为 Enterprise 聚合能力。"
-  },
-  {
-    title: "Cross-functional Review",
-    limitation: "当前没有 Enterprise 跨职能审阅流程、审阅角色或审阅命令。",
-    unaffected: "现有 Admin/Teacher 的职责和安全投影不因本页面扩展。",
-    notProven: "尚未证明多角色意见汇总、冲突处理、审批证据或 Sponsor 签署。",
-    scope: "Enterprise 逻辑位置的关闭能力；不新增角色或权限。"
-  },
-  {
-    title: "Immutable Publication",
-    limitation:
-      "现有 CoursePackageVersion 生命周期不等于 Enterprise 多审阅者或 Sponsor 发布；Immutable Publication 仍关闭。",
-    unaffected: "现有不可变课程包快照与既有生命周期仍可按原合同查看。",
-    notProven: "尚未证明发布审批、发布回滚、跨租户分发或 Sponsor 发布回执。",
-    scope: "Enterprise 只读说明；可返回 #admin-assets 查看现有快照能力。"
-  },
-  {
-    title: "Sponsor View/Aggregation",
-    limitation: "当前没有跨租户 Sponsor View 或聚合数据合同。",
-    unaffected: "现有租户范围与平台范围摘要仍由服务端按会话投影。",
-    notProven: "尚未证明跨租户 sponsor 数据、聚合指标、导出或比较视图。",
-    scope: "Enterprise Sponsor 投影的关闭能力；不得突破租户隔离。"
+    title: "Known limits",
+    limitation: "所有当前运行限制和未证明项必须随投影可见。",
+    unaffected: "该页面不把测试通过升级为产品或无障碍 PASS。",
+    notProven: "未进行 Pilot、Production 或 durable external delivery 声明。",
+    scope: "每个页面请求的服务端 known_limits。"
   }
 ] as const;
 
@@ -83,10 +81,87 @@ const scopeLabels: Record<EnterpriseCourseFactoryScope, string> = {
 };
 
 export interface EnterpriseCourseFactoryWorkspaceProps {
+  apiBase?: string;
   scope: EnterpriseCourseFactoryScope;
+  tenantId?: string;
+  token?: string;
 }
 
-export function EnterpriseCourseFactoryWorkspace({ scope }: EnterpriseCourseFactoryWorkspaceProps) {
+type LoadState = "idle" | "loading" | "ready" | "error";
+
+const defaultApiBase = "http://localhost:3000";
+
+async function fetchProjection<T>(
+  apiBase: string,
+  path: string,
+  token: string,
+  tenantId: string,
+  signal: AbortSignal
+): Promise<T> {
+  const response = await fetch(`${apiBase}${path}`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "x-tenant-id": tenantId
+    },
+    signal
+  });
+  const envelope = (await response.json()) as ApiEnvelope<T>;
+  if (!response.ok) throw new Error(envelope.message || envelope.code);
+  return envelope.data;
+}
+
+export function EnterpriseCourseFactoryWorkspace({
+  apiBase = defaultApiBase,
+  scope,
+  tenantId = "",
+  token = ""
+}: EnterpriseCourseFactoryWorkspaceProps) {
+  const [state, setState] = useState<LoadState>(token ? "idle" : "ready");
+  const [error, setError] = useState("");
+  const [catalog, setCatalog] = useState<CourseFactoryCatalogProjection | null>(null);
+  const [sponsor, setSponsor] = useState<CourseFactorySponsorProjection | null>(null);
+
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      if (!token || !tenantId) return;
+      setState("loading");
+      setError("");
+      try {
+        const [nextCatalog, nextSponsor] = await Promise.all([
+          fetchProjection<CourseFactoryCatalogProjection>(
+            apiBase,
+            "/api/v1/admin/course-factory/catalog",
+            token,
+            tenantId,
+            signal
+          ),
+          fetchProjection<CourseFactorySponsorProjection>(
+            apiBase,
+            "/api/v1/bff/enterprise/course-factory/sponsor",
+            token,
+            tenantId,
+            signal
+          )
+        ]);
+        if (signal.aborted) return;
+        setCatalog(nextCatalog);
+        setSponsor(nextSponsor);
+        setState("ready");
+      } catch (cause) {
+        if (signal.aborted) return;
+        setState("error");
+        setError(cause instanceof Error ? cause.message : "Course Factory 投影暂时不可用");
+      }
+    },
+    [apiBase, tenantId, token]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
   return (
     <section
       id="admin-enterprise-course-factory"
@@ -99,9 +174,9 @@ export function EnterpriseCourseFactoryWorkspace({ scope }: EnterpriseCourseFact
         <h2 id="admin-enterprise-course-factory-heading">企业课程工厂与 Sponsor 投影</h2>
       </div>
       <p className="enterprise-course-factory-boundary">
-        当前没有独立 Enterprise app、BFF 或权威来源；本页面只是现有 Admin 服务端会话的只读投影，
-        不提供新的路由、API、写入者、角色或权限。Admin 外层“正式”标识仅表示当前管理员会话，
-        不表示下方 Enterprise 能力已正式可用。
+        这是现有 Admin 应用中的 Course Factory 产品投影；所有版本写入、生命周期、rights 和审计均复用
+        CoursePackage authority。页面不创建新的 Enterprise app、truth writer、store、模型 registry
+        或正式仿真结果。
       </p>
       <dl className="enterprise-course-factory-context" aria-label="Enterprise 投影上下文">
         <div>
@@ -109,61 +184,118 @@ export function EnterpriseCourseFactoryWorkspace({ scope }: EnterpriseCourseFact
           <dd>{scopeLabels[scope]}</dd>
         </div>
         <div>
-          <dt>企业课程工厂整体状态</dt>
-          <dd>状态：关闭（只读、已知限制）</dd>
+          <dt>课程工厂状态</dt>
+          <dd>
+            {state === "loading"
+              ? "加载中"
+              : state === "error"
+                ? "受限：投影不可用"
+                : "已接入现有 authority"}
+          </dd>
         </div>
         <div>
           <dt>权威来源</dt>
-          <dd>现有 Admin 服务端会话</dd>
+          <dd>CoursePackage registry + 既有 audit log</dd>
         </div>
       </dl>
 
+      {token ? (
+        <button type="button" onClick={() => void load(new AbortController().signal)}>
+          刷新课程工厂投影
+        </button>
+      ) : (
+        <p role="status">当前预览未提供管理员会话；登录后将加载 Catalog 与 Sponsor 投影。</p>
+      )}
+      {error ? <p role="alert">{error}</p> : null}
+
       <section
-        className="enterprise-course-factory-supported"
-        aria-labelledby="enterprise-course-factory-supported-heading"
+        className="enterprise-course-factory-catalog"
+        aria-labelledby="course-factory-catalog-heading"
       >
-        <h3 id="enterprise-course-factory-supported-heading">当前可见的支持投影</h3>
-        <p>以下链接只返回已经存在的 Admin 安全锚点，不代表 Enterprise 聚合能力已经实现：</p>
-        <ul>
-          <li>
-            <a className="admin-inline-link" href="#admin-assets">
-              查看现有课程与资产
-            </a>
-            <span>CoursePackageVersion 仅表示不可变教学与配置快照。</span>
-          </li>
-          <li>
-            <a className="admin-inline-link" href="#admin-runtime-support">
-              查看现有运行与支持
-            </a>
-            <span>synthetic D6 与现有验证仍是各自独立能力。</span>
-          </li>
-          <li>
-            <a className="admin-inline-link" href="#admin-audit-receipts">
-              查看现有审计与回执
-            </a>
-            <span>安全报告/D5 只按原有租户或平台安全投影提供。</span>
-          </li>
-        </ul>
+        <h3 id="course-factory-catalog-heading">Governed Course Catalog</h3>
+        {catalog?.catalog.length ? (
+          <ul>
+            {catalog.catalog.map((entry) => (
+              <li key={`${entry.course_package_reference.course_package_id}:${entry.version}`}>
+                <strong>{entry.title}</strong>
+                <span>
+                  {" "}
+                  · {entry.status} · {entry.version}
+                </span>
+                <small>
+                  {entry.course_package_reference.course_package_id} /{" "}
+                  {entry.course_package_reference.content_digest}
+                </small>
+                <small>
+                  provenance: {entry.factory_metadata.provenance.kind}; expiry:{" "}
+                  {entry.factory_metadata.rights.expires_at ?? "none"}
+                </small>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>
+            {state === "loading" ? "正在读取 exact catalog…" : "当前会话没有可见的课程工厂版本。"}
+          </p>
+        )}
+      </section>
+
+      <section
+        className="enterprise-course-factory-sponsor"
+        aria-labelledby="course-factory-sponsor-heading"
+      >
+        <h3 id="course-factory-sponsor-heading">Sponsor-safe delivery</h3>
+        {sponsor ? (
+          <>
+            <dl>
+              <div>
+                <dt>课程数</dt>
+                <dd>{sponsor.delivery_progress.course_count}</dd>
+              </div>
+              <div>
+                <dt>运行数</dt>
+                <dd>{sponsor.delivery_progress.active_runs}</dd>
+              </div>
+              <div>
+                <dt>已发布版本</dt>
+                <dd>{sponsor.delivery_progress.published_versions}</dd>
+              </div>
+              <div>
+                <dt>回合数</dt>
+                <dd>{sponsor.delivery_progress.round_count}</dd>
+              </div>
+            </dl>
+            <p>
+              exact refs present: {sponsor.evidence_pack.exact_refs_present ? "是" : "否"}；private
+              data included: 否
+            </p>
+            <ul aria-label="Course Factory known limits">
+              {sponsor.known_limits.map((limit) => (
+                <li key={limit}>{limit}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>等待 Sponsor-safe aggregate。</p>
+        )}
       </section>
 
       <section
         className="enterprise-course-factory-limits"
         aria-labelledby="enterprise-course-factory-limits-heading"
       >
-        <h3 id="enterprise-course-factory-limits-heading">Enterprise 能力状态</h3>
+        <h3 id="enterprise-course-factory-limits-heading">产品边界与证据状态</h3>
         <div className="enterprise-course-factory-capabilities">
           {enterpriseCourseFactoryCapabilities.map((capability) => (
             <article className="enterprise-course-factory-capability" key={capability.title}>
               <div className="enterprise-course-factory-capability-heading">
                 <h4>{capability.title}</h4>
-                <p className="enterprise-course-factory-status">状态：关闭</p>
+                <p className="enterprise-course-factory-status">证据状态：受现有 authority 约束</p>
               </div>
-              <KnownLimitBanner
-                limitation={capability.limitation}
-                unaffected={capability.unaffected}
-                notProven={capability.notProven}
-                scope={capability.scope}
-              />
+              <p>{capability.limitation}</p>
+              <p>{capability.unaffected}</p>
+              <p>{capability.notProven}</p>
+              <p>{capability.scope}</p>
             </article>
           ))}
         </div>
