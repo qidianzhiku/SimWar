@@ -1,8 +1,18 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import {
   buildM25PublicSourceRealityEvidenceEpochPack,
   validateM25PublicSourceRealityEvidenceEpochPack
 } from "@simwar/sh-next-support";
+
+function schemaValidator() {
+  const schema = JSON.parse(
+    readFileSync(resolve(process.cwd(), "contracts/schemas/sh-public-source-evidence-epoch.v1.json"), "utf8")
+  );
+  return new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+}
 
 describe("Shanghai M25 public-source reality evidence epoch", () => {
   it("compiles one complete Shanghai and second-city public-source lineage", () => {
@@ -28,6 +38,7 @@ describe("Shanghai M25 public-source reality evidence epoch", () => {
       true
     );
     expect(validateM25PublicSourceRealityEvidenceEpochPack(pack)).toEqual([]);
+    expect(schemaValidator()(pack)).toBe(true);
   });
 
   it("fails closed for digest tampering, unsupported reality, or a hidden manual number", () => {
@@ -43,6 +54,13 @@ describe("Shanghai M25 public-source reality evidence epoch", () => {
     expect(validateM25PublicSourceRealityEvidenceEpochPack(unsupported)).toEqual(
       expect.arrayContaining(["unsupported_observation_reality_class"])
     );
+
+    const schemaBoundary = structuredClone(pack) as any;
+    schemaBoundary.regional_transfers[0].approval_status = "APPROVED";
+    expect(schemaValidator()(schemaBoundary)).toBe(false);
+    schemaBoundary.regional_transfers[0].approval_status = "CANDIDATE_ONLY";
+    schemaBoundary.scenario_candidates[0].formal_runtime_admitted = true;
+    expect(schemaValidator()(schemaBoundary)).toBe(false);
   });
 
   it("keeps source freshness, conflicts, roles, and model handoff explicit", () => {

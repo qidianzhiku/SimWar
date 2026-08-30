@@ -21,6 +21,7 @@
     "role_visibility",
     "model_handoff",
     "authority",
+    "tool_ledger",
     "known_limits",
     "pack_digest"
   ],
@@ -133,6 +134,86 @@
       },
       "additionalProperties": false
     },
+    "provenance_graph": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": { "id": { "type": "string" }, "kind": { "enum": ["SOURCE", "OBSERVATION", "FEATURE", "TRANSFER", "SCENARIO"] } },
+            "additionalProperties": false
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "relation"],
+            "properties": { "from": { "type": "string" }, "to": { "type": "string" }, "relation": { "enum": ["DERIVED_FROM", "USES", "QUALIFIES"] } },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "role_visibility": {
+      "type": "object",
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": {
+          "type": "object",
+          "required": ["visibility", "fields"],
+          "properties": { "visibility": { "const": "TEACHER_ONLY" }, "fields": { "type": "array", "items": { "type": "string" } } },
+          "additionalProperties": false
+        },
+        "student": {
+          "type": "object",
+          "required": ["visibility", "fields", "forbidden_fields"],
+          "properties": { "visibility": { "const": "STUDENT_SAFE" }, "fields": { "type": "array", "items": { "type": "string" } }, "forbidden_fields": { "type": "array", "items": { "type": "string" } } },
+          "additionalProperties": false
+        },
+        "admin": {
+          "type": "object",
+          "required": ["visibility", "fields"],
+          "properties": { "visibility": { "const": "INTERNAL_RESEARCH_ONLY" }, "fields": { "type": "array", "items": { "type": "string" } } },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_handoff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["feature_id", "possible_mod_consumer", "unit", "range", "confidence", "temporal_scope", "calibration_evidence", "activation"],
+        "properties": {
+          "feature_id": { "type": "string" },
+          "possible_mod_consumer": { "type": "string" },
+          "unit": { "type": "string" },
+          "range": { "type": "object", "required": ["min", "max"], "properties": { "min": {}, "max": {} }, "additionalProperties": false },
+          "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+          "temporal_scope": { "type": "string" },
+          "calibration_evidence": { "const": "NOT_PROVEN" },
+          "activation": { "const": "NOT_AUTHORIZED" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tool_ledger": {
+      "type": "object",
+      "required": ["local_reference_vault", "codegraph", "graphify", "official_source_fetch", "exact_source_contract_test_fallback"],
+      "properties": {
+        "local_reference_vault": { "const": "UNAVAILABLE_FALLBACK_USED" },
+        "codegraph": { "const": "CURRENT_WORKTREE_NOT_INDEXED_FALLBACK_USED" },
+        "graphify": { "const": "GRAPH_NOT_FOUND_FALLBACK_USED" },
+        "official_source_fetch": { "const": "USED" },
+        "exact_source_contract_test_fallback": { "const": "USED" }
+      },
+      "additionalProperties": false
+    },
     "known_limits": { "type": "array", "minItems": 1, "items": { "type": "string" } },
     "pack_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
   },
@@ -227,9 +308,68 @@
       },
       "additionalProperties": false
     },
-    "transformation": { "type": "object", "required": ["transformation_id", "input", "rule", "assumption", "output", "unit", "time_scope", "geography", "confidence", "provenance", "transformation_digest"], "additionalProperties": true },
-    "transfer": { "type": "object", "required": ["transfer_id", "baseline_geography", "target_geography", "output", "unit", "source_feature_ids", "target_feature_ids", "evidence_reality_class", "transfer_digest"], "additionalProperties": true },
-    "scenario": { "type": "object", "required": ["scenario_id", "title", "geography", "time_scope", "data_type", "source_ids", "feature_ids", "transfer_ids", "visibility", "premise", "no_correct_answer_prefilled", "formal_runtime_admitted", "scenario_digest"], "additionalProperties": true }
+    "transformation": {
+      "type": "object",
+      "required": ["transformation_id", "input", "rule", "assumption", "output", "unit", "time_scope", "geography", "confidence", "provenance", "transformation_digest"],
+      "properties": {
+        "transformation_id": { "type": "string" },
+        "input": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "rule": { "type": "string" },
+        "assumption": { "type": "string" },
+        "output": { "type": "string" },
+        "unit": { "type": "string" },
+        "time_scope": { "type": "string" },
+        "geography": { "type": "string" },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string" },
+        "transformation_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "transfer": {
+      "type": "object",
+      "required": ["transfer_id", "baseline_geography", "target_geography", "driver", "method", "output", "unit", "bounds", "source_feature_ids", "target_feature_ids", "evidence_reality_class", "confidence", "valid_from", "valid_to", "rights_status", "approval_status", "transfer_digest"],
+      "properties": {
+        "transfer_id": { "type": "string" },
+        "baseline_geography": { "const": "Shanghai" },
+        "target_geography": { "const": "Hangzhou" },
+        "driver": { "type": "string" },
+        "method": { "type": "string" },
+        "output": { "const": "REQUALIFICATION_REQUIRED" },
+        "unit": { "const": "status" },
+        "bounds": { "type": "object", "required": ["min", "max"], "properties": { "min": { "type": "null" }, "max": { "type": "null" } }, "additionalProperties": false },
+        "source_feature_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "target_feature_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "evidence_reality_class": { "const": "PUBLIC_SOURCE_BOUND" },
+        "confidence": { "const": "MEDIUM" },
+        "valid_from": { "type": "string", "format": "date" },
+        "valid_to": { "type": "string", "format": "date" },
+        "rights_status": { "const": "PUBLIC_REFERENCE_ONLY" },
+        "approval_status": { "const": "CANDIDATE_ONLY" },
+        "transfer_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "required": ["scenario_id", "title", "geography", "time_scope", "data_type", "source_ids", "feature_ids", "transfer_ids", "visibility", "premise", "no_correct_answer_prefilled", "formal_runtime_admitted", "scenario_digest"],
+      "properties": {
+        "scenario_id": { "type": "string" },
+        "title": { "type": "string" },
+        "geography": { "enum": ["Shanghai", "Hangzhou"] },
+        "time_scope": { "type": "string" },
+        "data_type": { "const": "PUBLIC_SOURCE_BOUND" },
+        "source_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "feature_ids": { "type": "array", "items": { "type": "string" } },
+        "transfer_ids": { "type": "array", "items": { "type": "string" } },
+        "visibility": { "enum": ["TEACHER_ONLY", "STUDENT_SAFE", "INTERNAL_RESEARCH_ONLY", "RESTRICTED"] },
+        "premise": { "type": "string" },
+        "no_correct_answer_prefilled": { "const": true },
+        "formal_runtime_admitted": { "const": false },
+        "scenario_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }
