@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://simwar.local/contracts/mod-next6-consumption.v1.json",
+  "title": "MOD Next6 Consumption Support Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "macro_key",
+    "mission_id",
+    "state_transition",
+    "capability_status",
+    "model_version",
+    "candidate",
+    "consumer_receipt",
+    "evidence",
+    "role_visibility",
+    "authority",
+    "mjp",
+    "tombstone_reuse",
+    "method_delta",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": { "const": "mod-next6-consumption.v1" },
+    "macro_key": { "enum": ["M1", "M2", "M3", "M4", "M5", "M6"] },
+    "mission_id": { "type": "string", "minLength": 1 },
+    "state_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": { "from": { "const": "STATE_A" }, "to": { "const": "STATE_B" } }
+    },
+    "capability_status": { "enum": ["C0_EXECUTABLE", "C1_SUPPORT", "NOT_READY"] },
+    "model_version": { "$ref": "#/$defs/modelVersion" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "consumer_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "consumer_id",
+        "path",
+        "actual_product_consumption",
+        "official_truth_write",
+        "settlement_write",
+        "integration_debt"
+      ],
+      "properties": {
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "consumer_id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "actual_product_consumption": { "type": "boolean" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "integration_debt": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputs", "transformations", "conflicts"],
+      "properties": {
+        "inputs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exactRef" } },
+        "transformations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transformation" }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["observation_id", "reason"],
+            "properties": { "observation_id": { "type": "string" }, "reason": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "role_visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["teacher", "student", "admin"],
+      "properties": {
+        "teacher": { "$ref": "#/$defs/roleViewTeacher" },
+        "student": { "$ref": "#/$defs/roleViewStudent" },
+        "admin": { "$ref": "#/$defs/roleViewAdmin" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_writer",
+        "formal_writer",
+        "official_truth_write",
+        "settlement_write",
+        "parameter_set_formal_write",
+        "replay_truth_write",
+        "provider"
+      ],
+      "properties": {
+        "candidate_writer": { "const": "MOD_NEXT6_SUPPORT_COMPILER" },
+        "formal_writer": { "const": "NONE" },
+        "official_truth_write": { "const": false },
+        "settlement_write": { "const": false },
+        "parameter_set_formal_write": { "const": false },
+        "replay_truth_write": { "const": false },
+        "provider": { "const": "OFF" }
+      }
+    },
+    "mjp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "fixture_count", "fixture_ids", "fixtures"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "fixture_count": { "type": "integer", "minimum": 3 },
+        "fixture_ids": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "fixtures": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/mjpFixture" } }
+      }
+    },
+    "tombstone_reuse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reused_capabilities", "tombstoned_capabilities", "new_capabilities"],
+      "properties": {
+        "reused_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "tombstoned_capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "new_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "method_delta": { "$ref": "#/$defs/methodDelta" },
+    "known_limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "exactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "resource_type", "version", "content_digest"],
+      "properties": {
+        "resource_id": { "type": "string", "minLength": 1 },
+        "resource_type": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "modelVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_version_id",
+        "version",
+        "content_digest",
+        "qualification_status",
+        "calibrated"
+      ],
+      "properties": {
+        "model_version_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "content_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "qualification_status": { "enum": ["CANDIDATE", "REFERENCE_ONLY", "SHADOW_ONLY"] },
+        "calibrated": { "const": false }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "metrics", "mechanisms", "why_not", "non_official"],
+      "properties": {
+        "status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": { "anyOf": [{ "type": "number" }, { "type": "boolean" }] }
+        },
+        "mechanisms": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "why_not": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "non_official": { "const": true }
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "rule",
+        "assumption",
+        "output",
+        "unit",
+        "time_scope",
+        "geography",
+        "confidence",
+        "provenance"
+      ],
+      "properties": {
+        "input": { "type": "array", "items": { "type": "string" } },
+        "rule": { "type": "string", "minLength": 1 },
+        "assumption": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "time_scope": { "type": "string", "minLength": 1 },
+        "geography": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW", "NOT_ESTABLISHED"] },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "roleViewTeacher": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "TEACHER_ONLY" },
+        "fields": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "roleViewStudent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "STUDENT_SAFE" },
+        "fields": {
+          "type": "array",
+          "items": { "enum": ["mechanisms", "uncertainty", "why_not"] }
+        }
+      }
+    },
+    "roleViewAdmin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visibility", "fields"],
+      "properties": {
+        "visibility": { "const": "INTERNAL_RESEARCH_ONLY" },
+        "fields": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "mjpFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "input_digest",
+        "result_digest",
+        "expected_status",
+        "observed_status",
+        "executed"
+      ],
+      "properties": {
+        "fixture_id": { "type": "string", "minLength": 1 },
+        "input_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "result_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "expected_status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "observed_status": { "enum": ["FEASIBLE", "INFEASIBLE", "UNKNOWN"] },
+        "executed": { "const": true }
+      }
+    },
+    "methodDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keep", "change", "retire", "new"],
+      "properties": {
+        "keep": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "change": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "retire": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "new": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

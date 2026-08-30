@@ -193,6 +193,12 @@ const shanghaiProductizationContractFiles = [
   "contracts/fixtures/shanghai-productization.valid.json"
 ];
 
+const modNext6ContractFiles = [
+  "contracts/schemas/mod-next6-consumption.v1.json",
+  "contracts/fixtures/mod-next6-consumption.valid.json",
+  "contracts/fixtures/mod-next6-consumption.student-private.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -478,6 +484,11 @@ const schemaCases = [
     schema: "contracts/schemas/shanghai-productization.v1.json",
     valid: ["contracts/fixtures/shanghai-productization.valid.json"],
     invalid: []
+  },
+  {
+    schema: "contracts/schemas/mod-next6-consumption.v1.json",
+    valid: ["contracts/fixtures/mod-next6-consumption.valid.json"],
+    invalid: ["contracts/fixtures/mod-next6-consumption.student-private.invalid.json"]
   }
 ];
 
@@ -1099,7 +1110,8 @@ export async function runContractValidation(options = {}) {
     ...mod06ContractFiles,
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
-    ...shanghaiProductizationContractFiles
+    ...shanghaiProductizationContractFiles,
+    ...modNext6ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1125,7 +1137,8 @@ export async function runContractValidation(options = {}) {
     ...mod06ContractFiles,
     ...shanghaiFullVerticalContractFiles,
     ...executiveStrategyLabContractFiles,
-    ...shanghaiProductizationContractFiles
+    ...shanghaiProductizationContractFiles,
+    ...modNext6ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
