@@ -78,8 +78,8 @@ export function ModelQualificationProjection({
             ))}
           </ul>
           <p className="evidence-note">
-            仅显示来源新鲜度、权利状态、诊断摘要和解释；source_ref、artifact、content digest
-            等内部字段不向 Student 暴露。
+            仅显示来源新鲜度、权利状态、诊断摘要和解释；来源定位、模型工件与内容摘要等
+            内部字段不向 Student 暴露。
           </p>
         </>
       ) : (
