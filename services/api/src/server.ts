@@ -238,6 +238,15 @@ import {
   ModelQualificationService
 } from "./model-qualification-service.js";
 import { handleModelQualificationRoute } from "./routes/model-qualification-routes.js";
+import {
+  CanServiceFeasibilityService,
+  CanServiceFeasibilityServiceError
+} from "./can-service-feasibility-service.js";
+import { createW5CanServiceFeasibilitySource } from "./can-service-feasibility-source.js";
+import {
+  handleCanServiceFeasibilityRoute,
+  isCanServiceFeasibilityRoute
+} from "./routes/can-service-feasibility-routes.js";
 import { OperatingWorldError, OperatingWorldService } from "./operating-world-service.js";
 import {
   TeacherScenarioStudioError,
@@ -461,6 +470,7 @@ interface ApiRuntime {
   projectAwareCourseLaunch: ProjectAwareCourseLaunchService;
   w5GovernedModel: W5GovernedModelService;
   modelQualification: ModelQualificationService;
+  canServiceFeasibility: CanServiceFeasibilityService;
   shanghaiFullVertical: ShanghaiFullVerticalService;
   shanghaiC0Conversion: ShanghaiC0ConversionService;
   regionalTransfer: RegionalTransferProductService;
@@ -901,6 +911,12 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const modelQualification = new ModelQualificationService(
     undefined,
     createJsonModelQualificationPersistence(store)
+  );
+  const canServiceFeasibility = new CanServiceFeasibilityService(
+    createW5CanServiceFeasibilitySource({
+      repository: repositoryProvider.facade,
+      w5: w5GovernedModel
+    })
   );
   const shanghaiFullVertical = new ShanghaiFullVerticalService(w5GovernedModel);
   const regionalTransferSupport = buildM4PortabilityCompatibilityPack();
@@ -1371,6 +1387,7 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
     }),
     w5GovernedModel,
     modelQualification,
+    canServiceFeasibility,
     shanghaiFullVertical,
     shanghaiC0Conversion,
     regionalTransfer,
@@ -6649,6 +6666,25 @@ async function routeRequest(
     return;
   }
 
+  if (isCanServiceFeasibilityRoute(request.method, url)) {
+    if (
+      await handleCanServiceFeasibilityRoute(
+        runtime.canServiceFeasibility,
+        request,
+        response,
+        url,
+        createContext(runtime, request),
+        {
+          createEnvelope,
+          requirePermission,
+          sendJson
+        }
+      )
+    ) {
+      return;
+    }
+  }
+
   if (
     await handleModelQualificationRoute(runtime.modelQualification, request, response, url, {
       actorHasAnyRole: (actor, roles) => actorHasAnyRole(actor, roles as ActorRole[]),
@@ -11165,6 +11201,21 @@ export function createApiServer(
                   error.code === "MODEL_QUALIFICATION_BINDING_REQUIRED"
                 ? 409
                 : 422;
+        sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
+        return;
+      }
+
+      if (error instanceof CanServiceFeasibilityServiceError) {
+        const statusCode =
+          error.code === "R1_SCOPE_CONFLICT"
+            ? 403
+            : error.code === "R1_SOURCE_NOT_READY"
+              ? 404
+              : error.code === "R1_EXACT_CONTEXT_REQUIRED"
+                ? 409
+                : error.code === "R1_CONTEXT_INVALID"
+                  ? 422
+                  : 500;
         sendError(response, fallbackContext, new HttpError(statusCode, error.code, error.message));
         return;
       }

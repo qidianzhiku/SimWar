@@ -1,0 +1,231 @@
+{
+  "authority": {
+    "candidate_writer": "SIMULATION_CORE_READ_ONLY",
+    "official_truth_write": false,
+    "provider_calls": 0,
+    "replay_truth_write": false,
+    "settlement_write": false
+  },
+  "candidate": {
+    "authority": {
+      "candidate_writer": "SIMULATION_CORE_READ_ONLY",
+      "official_truth_write": false,
+      "provider_calls": 0,
+      "replay_truth_write": false,
+      "settlement_write": false
+    },
+    "candidate_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "candidate_id": "r1_can_candidate_bbbbbbbbbbbbbbbb",
+    "constraints": [
+      {
+        "constraint_id": "r1_demand_observed",
+        "explanation": "Demand is explicit.",
+        "kind": "DEMAND",
+        "observed": { "unit": "households", "value": 40 },
+        "source_ref": "w5:customer_demand",
+        "status": "PASS",
+        "threshold": { "unit": "households", "value": 0 }
+      },
+      {
+        "constraint_id": "r1_capacity_guard",
+        "explanation": "Capacity is sufficient.",
+        "kind": "CAPACITY",
+        "observed": { "unit": "households", "value": 64 },
+        "source_ref": "simulation-core:service_capacity",
+        "status": "PASS",
+        "threshold": { "unit": "households", "value": 40 }
+      },
+      {
+        "constraint_id": "r1_workforce_guard",
+        "explanation": "Workforce is sufficient.",
+        "kind": "WORKFORCE",
+        "observed": { "unit": "people", "value": 80 },
+        "source_ref": "w5:caregiver_supply",
+        "status": "PASS",
+        "threshold": { "unit": "people", "value": 1 }
+      },
+      {
+        "constraint_id": "r1_quality_budget_guard",
+        "explanation": "Quality budget is sufficient.",
+        "kind": "QUALITY",
+        "observed": { "unit": "CNY", "value": 120000 },
+        "source_ref": "w5:service_quality_budget",
+        "status": "PASS",
+        "threshold": { "unit": "CNY", "value": 0 }
+      },
+      {
+        "constraint_id": "r1_license_guard",
+        "explanation": "License flag is true.",
+        "kind": "ELIGIBILITY",
+        "observed": { "unit": "boolean", "value": true },
+        "source_ref": "w5:license",
+        "status": "PASS",
+        "threshold": { "unit": "boolean", "value": true }
+      },
+      {
+        "constraint_id": "r1_staffing_compliance_guard",
+        "explanation": "Staffing is compliant.",
+        "kind": "ELIGIBILITY",
+        "observed": { "unit": "boolean", "value": true },
+        "source_ref": "w5:staffing",
+        "status": "PASS",
+        "threshold": { "unit": "boolean", "value": true }
+      }
+    ],
+    "exact_binding": {
+      "binding_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "course_id": "course_demo",
+      "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+      "no_implicit_latest": true,
+      "parameter_set_reference": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parameter_set_id": "parameter_set_demo",
+        "version": "1.0.0"
+      },
+      "round_id": "round_demo_1",
+      "round_no": 1,
+      "run_id": "run_demo",
+      "scenario_package_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "scenario_package_id": "scenario_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "seed": 20260829,
+      "tenant_id": "tenant_demo"
+    },
+    "queue": { "claim": "NOT_CLAIMED", "reason": "EXACT_QUEUE_INPUT_NOT_AVAILABLE" },
+    "status": "FEASIBLE",
+    "why_not": []
+  },
+  "candidate_id": "r1_can_candidate_bbbbbbbbbbbbbbbb",
+  "exact_binding": {
+    "binding_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "course_id": "course_demo",
+    "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+    "no_implicit_latest": true,
+    "parameter_set_reference": {
+      "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "parameter_set_id": "parameter_set_demo",
+      "version": "1.0.0"
+    },
+    "round_id": "round_demo_1",
+    "round_no": 1,
+    "run_id": "run_demo",
+    "scenario_package_reference": {
+      "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "scenario_package_id": "scenario_demo",
+      "tenant_id": "tenant_demo",
+      "version": "1.0.0"
+    },
+    "seed": 20260829,
+    "tenant_id": "tenant_demo"
+  },
+  "known_limits": [
+    "This is a candidate-only CAN feasibility projection; it does not write official truth, settlement, score, rank, or replay truth.",
+    "Queue and waitlist behavior is not claimed because an exact queue input is not available in this product surface.",
+    "Missing exact numeric inputs remain UNKNOWN; no zero, default, current, latest, or fallback value is substituted."
+  ],
+  "product_receipt": {
+    "exact_binding_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "no_write": true,
+    "operation_id": "R1_CAN_SERVICE_FEASIBILITY_GET_V1",
+    "state_transition": "STATE_A_TO_STATE_B"
+  },
+  "schema_version": "r1-can-service-feasibility.v1",
+  "source_refs": [
+    "w5:customer_demand",
+    "simulation-core:service_capacity",
+    "w5:caregiver_supply",
+    "r1:minimum_workforce",
+    "w5:service_quality_budget",
+    "r1:minimum_quality_budget",
+    "w5:license",
+    "w5:staffing"
+  ],
+  "surface": "teacher",
+  "teacher_projection": {
+    "candidate_id": "r1_can_candidate_bbbbbbbbbbbbbbbb",
+    "constraints": [
+      {
+        "constraint_id": "r1_demand_observed",
+        "explanation": "Demand is explicit.",
+        "kind": "DEMAND",
+        "observed": { "unit": "households", "value": 40 },
+        "source_ref": "w5:customer_demand",
+        "status": "PASS",
+        "threshold": { "unit": "households", "value": 0 }
+      },
+      {
+        "constraint_id": "r1_capacity_guard",
+        "explanation": "Capacity is sufficient.",
+        "kind": "CAPACITY",
+        "observed": { "unit": "households", "value": 64 },
+        "source_ref": "simulation-core:service_capacity",
+        "status": "PASS",
+        "threshold": { "unit": "households", "value": 40 }
+      },
+      {
+        "constraint_id": "r1_workforce_guard",
+        "explanation": "Workforce is sufficient.",
+        "kind": "WORKFORCE",
+        "observed": { "unit": "people", "value": 80 },
+        "source_ref": "w5:caregiver_supply",
+        "status": "PASS",
+        "threshold": { "unit": "people", "value": 1 }
+      },
+      {
+        "constraint_id": "r1_quality_budget_guard",
+        "explanation": "Quality budget is sufficient.",
+        "kind": "QUALITY",
+        "observed": { "unit": "CNY", "value": 120000 },
+        "source_ref": "w5:service_quality_budget",
+        "status": "PASS",
+        "threshold": { "unit": "CNY", "value": 0 }
+      },
+      {
+        "constraint_id": "r1_license_guard",
+        "explanation": "License flag is true.",
+        "kind": "ELIGIBILITY",
+        "observed": { "unit": "boolean", "value": true },
+        "source_ref": "w5:license",
+        "status": "PASS",
+        "threshold": { "unit": "boolean", "value": true }
+      },
+      {
+        "constraint_id": "r1_staffing_compliance_guard",
+        "explanation": "Staffing is compliant.",
+        "kind": "ELIGIBILITY",
+        "observed": { "unit": "boolean", "value": true },
+        "source_ref": "w5:staffing",
+        "status": "PASS",
+        "threshold": { "unit": "boolean", "value": true }
+      }
+    ],
+    "exact_binding": {
+      "binding_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "course_id": "course_demo",
+      "model_version_ref": "eldercare_w5_governed_v1@1.1.0",
+      "no_implicit_latest": true,
+      "parameter_set_reference": {
+        "content_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "parameter_set_id": "parameter_set_demo",
+        "version": "1.0.0"
+      },
+      "round_id": "round_demo_1",
+      "round_no": 1,
+      "run_id": "run_demo",
+      "scenario_package_reference": {
+        "content_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "scenario_package_id": "scenario_demo",
+        "tenant_id": "tenant_demo",
+        "version": "1.0.0"
+      },
+      "seed": 20260829,
+      "tenant_id": "tenant_demo"
+    },
+    "status": "FEASIBLE",
+    "surface": "teacher",
+    "why_not": []
+  }
+}

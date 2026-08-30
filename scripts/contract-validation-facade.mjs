@@ -205,6 +205,12 @@ const modelQualificationContractFiles = [
   "contracts/fixtures/model-qualification.student-private.invalid.json"
 ];
 
+const r1CanServiceFeasibilityContractFiles = [
+  "contracts/schemas/can-service-feasibility.v1.json",
+  "contracts/fixtures/can-service-feasibility.valid.json",
+  "contracts/fixtures/can-service-feasibility.student-private.invalid.json"
+];
+
 const m28ContractFiles = [
   "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
   "contracts/fixtures/sh-dual-epoch-living-operations.valid.json",
@@ -1223,6 +1229,7 @@ export async function runContractValidation(options = {}) {
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
     ...modelQualificationContractFiles,
+    ...r1CanServiceFeasibilityContractFiles,
     ...m28ContractFiles,
     ...m29ContractFiles
   ]);
@@ -1253,6 +1260,7 @@ export async function runContractValidation(options = {}) {
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
     ...modelQualificationContractFiles,
+    ...r1CanServiceFeasibilityContractFiles,
     ...m28ContractFiles,
     ...m29ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
