@@ -7,7 +7,7 @@ import type { ShanghaiC0Request } from "../../packages/shared-contracts/src";
 
 const tenantId = "tenant_demo";
 const binding = {
-    exact_binding: true as const,
+  exact_binding: true as const,
   tenant_id: tenantId,
   course_id: "course_demo",
   run_id: "run_shanghai_c0",
@@ -79,7 +79,7 @@ function service(): ShanghaiC0ConversionService {
       tenant_id: tenantId,
       run_id: "run_shanghai_c0",
       round_id: "round_1",
-        round_no: 1
+      round_no: 1
     }),
     isTeamInRun: async () => true
   });

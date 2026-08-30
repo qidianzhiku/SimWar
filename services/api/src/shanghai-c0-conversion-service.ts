@@ -240,10 +240,7 @@ function studentReceipt(receipt: ShanghaiC0Receipt): ShanghaiC0StudentProjection
 
 export class ShanghaiC0ConversionService {
   private readonly records = new Map<string, StoredConversion>();
-  private readonly idempotency = new Map<
-    string,
-    { request_digest: string; receipt_id: string }
-  >();
+  private readonly idempotency = new Map<string, { request_digest: string; receipt_id: string }>();
   private readonly now: () => string;
 
   constructor(private readonly dependencies: ShanghaiC0ConversionDependencies) {
@@ -394,7 +391,10 @@ export class ShanghaiC0ConversionService {
       student,
       admin
     });
-    this.idempotency.set(idempotencyScope, { request_digest: requestDigest, receipt_id: receiptId });
+    this.idempotency.set(idempotencyScope, {
+      request_digest: requestDigest,
+      receipt_id: receiptId
+    });
     return structuredClone(teacher);
   }
 

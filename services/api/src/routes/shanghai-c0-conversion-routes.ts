@@ -126,16 +126,12 @@ export async function handleShanghaiC0ConversionRoute(
     return true;
   } catch (error) {
     if (!(error instanceof ShanghaiC0ConversionError)) throw error;
-    helpers.sendJson(
-      response,
-      status(error),
-      {
-        request_id: context.requestId,
-        code: error.code,
-        message: error.message,
-        details: []
-      }
-    );
+    helpers.sendJson(response, status(error), {
+      request_id: context.requestId,
+      code: error.code,
+      message: error.message,
+      details: []
+    });
     return true;
   }
 }

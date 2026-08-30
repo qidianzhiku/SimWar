@@ -173,21 +173,18 @@ describe("Shanghai C0 conversion real BFF", () => {
       const teacher = await login(baseUrl, "teacher");
       const student = await login(baseUrl, "student");
       const admin = await login(baseUrl, "admin");
-      const invalidResponse = await fetch(
-        `${baseUrl}/api/v1/bff/teacher/shanghai-c0/conversions`,
-        {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${teacher}`,
-            "content-type": "application/json",
-            "x-tenant-id": tenantId
-          },
-          body: JSON.stringify({
-            ...request("M14"),
-            experiment: { ...request("M14").experiment, score: 0.8 }
-          })
-        }
-      );
+      const invalidResponse = await fetch(`${baseUrl}/api/v1/bff/teacher/shanghai-c0/conversions`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${teacher}`,
+          "content-type": "application/json",
+          "x-tenant-id": tenantId
+        },
+        body: JSON.stringify({
+          ...request("M14"),
+          experiment: { ...request("M14").experiment, score: 0.8 }
+        })
+      });
       expect(invalidResponse.status).toBe(422);
       const invalidBody = (await invalidResponse.json()) as { code: string };
       expect(invalidBody.code).toBe("SH_C0_INPUT_INVALID");
