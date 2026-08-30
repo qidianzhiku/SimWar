@@ -158,7 +158,13 @@ function assertWritableRound(round: { status: string }): void {
 
 function projectCapitalLifecycleForSurface(
   surface: "teacher" | "student" | "admin",
-  lifecycle: Awaited<ReturnType<ReturnType<typeof createEnterpriseStateStrategicEvolutionService>["getCapitalLifecycleReceipt"]>>
+  lifecycle: Awaited<
+    ReturnType<
+      ReturnType<
+        typeof createEnterpriseStateStrategicEvolutionService
+      >["getCapitalLifecycleReceipt"]
+    >
+  >
 ): unknown {
   if (surface !== "student") return lifecycle;
   return {
@@ -186,7 +192,8 @@ function projectCapitalLifecycleForSurface(
     })),
     writer_authority: lifecycle.writer_authority,
     explanation: {
-      mechanism: "The governed capital lifecycle is evaluated before the existing W4 settlement path.",
+      mechanism:
+        "The governed capital lifecycle is evaluated before the existing W4 settlement path.",
       limits: [
         "This projection is role-safe and does not expose approval actors or command identifiers.",
         "Official cash and settlement effects come only from the existing W4 Enterprise State service."
@@ -305,12 +312,13 @@ export async function handleW4EnterpriseStateRoute(
               action.course_id === courseId &&
               action.run_id === runId
           ),
-          capital_lifecycles: current.capitalLifecycles?.filter(
-            (lifecycle) =>
-              lifecycle.tenant_id === context.tenantId &&
-              lifecycle.course_id === courseId &&
-              lifecycle.run_id === runId
-          ) ?? [],
+          capital_lifecycles:
+            current.capitalLifecycles?.filter(
+              (lifecycle) =>
+                lifecycle.tenant_id === context.tenantId &&
+                lifecycle.course_id === courseId &&
+                lifecycle.run_id === runId
+            ) ?? [],
           operating_units: latest?.state.operating_units ?? [],
           process_information: {
             status: initiatives.some((initiative) => initiative.status === "blocked")
@@ -397,7 +405,10 @@ export async function handleW4EnterpriseStateRoute(
   const capitalLifecycleCommandMatch = url.pathname.match(
     /^\/api\/v1\/w4\/runs\/([^/]+)\/rounds\/(\d+)\/capital-lifecycles\/([^/]+)\/(approve|execute|close|withdraw|default)$/
   );
-  if (request.method === "POST" && (capitalLifecycleProposalMatch || capitalLifecycleCommandMatch)) {
+  if (
+    request.method === "POST" &&
+    (capitalLifecycleProposalMatch || capitalLifecycleCommandMatch)
+  ) {
     try {
       const actor = dependencies.requireTeacher();
       const body = await dependencies.readJson<Record<string, unknown>>(request);
@@ -409,18 +420,14 @@ export async function handleW4EnterpriseStateRoute(
       const command = capitalLifecycleCommandMatch?.[4];
       const round = await dependencies.resolveRound(context.tenantId, runId, roundNo);
       if (!round) throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
-      assertWritableRound(round);
+      if (command !== "close") assertWritableRound(round);
       const courseId = String(body.course_id ?? "course_demo");
       const teamId = String(body.team_id ?? "");
-      const scope = routeScope(
-        context,
-        actor,
-        runId,
-        String(body.round_id ?? round.round_id),
-        roundNo,
-        teamId,
-        courseId
-      );
+      const requestedRoundId = body.round_id === undefined ? round.round_id : String(body.round_id);
+      if (requestedRoundId !== round.round_id) {
+        throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
+      }
+      const scope = routeScope(context, actor, runId, round.round_id, roundNo, teamId, courseId);
       await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
       let result;
       if (capitalLifecycleProposalMatch) {
@@ -441,7 +448,8 @@ export async function handleW4EnterpriseStateRoute(
         dependencies.sendJson(response, 201, dependencies.createEnvelope(context, result));
         return true;
       }
-      if (!lifecycleId || !command) throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
+      if (!lifecycleId || !command)
+        throw new W4EnterpriseStateError("W4_CAPITAL_LIFECYCLE_INPUT_INVALID");
       const commandId = String(body.command_id ?? "");
       if (command === "approve") {
         result = await service.approveCapitalLifecycle(scope, lifecycleId, commandId);
@@ -512,15 +520,7 @@ export async function handleW4EnterpriseStateRoute(
         throw new W4EnterpriseStateError("W4_ROUND_SCOPE_CONFLICT");
       }
       await assertRuntimeScope(dependencies, context.tenantId, runId, courseId, teamId);
-      const scope = routeScope(
-        context,
-        actor,
-        runId,
-        requestedRoundId,
-        roundNo,
-        teamId,
-        courseId
-      );
+      const scope = routeScope(context, actor, runId, requestedRoundId, roundNo, teamId, courseId);
       const lifecycle = await service.getCapitalLifecycleReceipt(scope, lifecycleId);
       dependencies.sendJson(
         response,
@@ -575,7 +575,8 @@ export async function handleW4EnterpriseStateRoute(
       const dependencyInput = body.dependency_project_entry_ids;
       if (
         dependencyInput !== undefined &&
-        (!Array.isArray(dependencyInput) || dependencyInput.some((item) => typeof item !== "string"))
+        (!Array.isArray(dependencyInput) ||
+          dependencyInput.some((item) => typeof item !== "string"))
       ) {
         throw new W4EnterpriseStateError("W4_PROJECT_PORTFOLIO_INPUT_INVALID");
       }

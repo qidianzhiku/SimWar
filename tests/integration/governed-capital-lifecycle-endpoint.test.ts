@@ -3,17 +3,22 @@ import type { Server } from "node:http";
 import { describe, expect, it } from "vitest";
 import type { ApiEnvelope, AuthSession } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
-import { createP1Store } from "../../services/api/src/store";
+import {
+  createEnterpriseStateStrategicEvolutionService,
+  createJsonW4Repository
+} from "../../services/api/src/w4-enterprise-state";
+import { createP1Store, type SimWarStore } from "../../services/api/src/store";
 
 const tenantId = "tenant_demo";
 
-async function start(): Promise<{ server: Server; baseUrl: string }> {
-  const server = createApiServer(createP1Store());
+async function start(): Promise<{ server: Server; baseUrl: string; store: SimWarStore }> {
+  const store = createP1Store();
+  const server = createApiServer(store);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("server address unavailable");
-  return { server, baseUrl: `http://127.0.0.1:${address.port}` };
+  return { server, baseUrl: `http://127.0.0.1:${address.port}`, store };
 }
 
 async function login(baseUrl: string, username: "teacher" | "student" | "admin"): Promise<string> {
@@ -46,7 +51,7 @@ async function request<T>(
 
 describe("R1 governed capital lifecycle real API/BFF journey", () => {
   it("moves Teacher proposal/approval/execution into role-safe Student and Admin projections", async () => {
-    const { server, baseUrl } = await start();
+    const { server, baseUrl, store } = await start();
     try {
       const teacher = await login(baseUrl, "teacher");
       const student = await login(baseUrl, "student");
@@ -122,6 +127,23 @@ describe("R1 governed capital lifecycle real API/BFF journey", () => {
       expect(decision.status, JSON.stringify(decision.body)).toBe(201);
       const decisionId = decision.body.data.decision.decision_id;
       const lifecycleRoot = `/api/v1/w4/runs/${runId}/rounds/1/capital-lifecycles`;
+      const forgedRound = await request(baseUrl, `${lifecycleRoot}/propose`, teacher, {
+        command_id: "capital-http-forged-round",
+        lifecycle_id: "capital-http-forged-round",
+        decision_id: decisionId,
+        instrument: "loan",
+        principal: 400,
+        cost_bps: 250,
+        fee: 10,
+        term_rounds: 2,
+        covenant_min_cash: 500,
+        source_digest: "capital-source-forged-round",
+        course_id: "course_demo",
+        team_id: "team_alpha",
+        round_id: "round-forged-by-client"
+      });
+      expect(forgedRound.status).toBe(409);
+
       const proposed = await request<{ lifecycle_id: string; status: string }>(
         baseUrl,
         `${lifecycleRoot}/propose`,
@@ -205,6 +227,100 @@ describe("R1 governed capital lifecycle real API/BFF journey", () => {
           expect.objectContaining({ actor_id: expect.any(String), command_id: expect.any(String) })
         ])
       );
+
+      const w4Repository = createJsonW4Repository(store);
+      const w4Service = createEnterpriseStateStrategicEvolutionService(w4Repository);
+      const opening = w4Repository
+        .snapshot()
+        .states.find(
+          (state) =>
+            state.tenant_id === tenantId &&
+            state.run_id === runId &&
+            state.team_id === "team_alpha" &&
+            state.round_id === roundId &&
+            state.round_no === 1
+        );
+      const canonicalDecision = w4Repository
+        .snapshot()
+        .decisions.find((candidate) => candidate.decision_id === decisionId);
+      const run = store.runs.find((candidate) => candidate.run_id === runId);
+      if (!opening || !canonicalDecision || !run)
+        throw new Error("capital lifecycle fixture incomplete");
+      const settled = await w4Service.settleRound(
+        {
+          actor_id: "teacher-capital-settlement",
+          tenant_id: tenantId,
+          course_id: "course_demo",
+          run_id: runId,
+          team_id: "team_alpha",
+          round_id: roundId,
+          round_no: 1,
+          role_key: "teacher",
+          activity_id: "w4-enterprise-state-strategic-evolution"
+        },
+        {
+          opening_state_ref: {
+            tenant_id: opening.tenant_id,
+            course_id: opening.course_id,
+            run_id: opening.run_id,
+            team_id: opening.team_id,
+            round_id: opening.round_id,
+            enterprise_state_id: opening.enterprise_state_id,
+            version: opening.version,
+            state_digest: opening.state_digest
+          },
+          decision_id: decisionId,
+          replay_input_manifest: {
+            manifest_id: `capital-http-manifest-${runId}`,
+            tenant_id: tenantId,
+            course_id: "course_demo",
+            run_id: runId,
+            team_id: "team_alpha",
+            round_id: roundId,
+            opening_state_ref: {
+              tenant_id: opening.tenant_id,
+              course_id: opening.course_id,
+              run_id: opening.run_id,
+              team_id: opening.team_id,
+              round_id: opening.round_id,
+              enterprise_state_id: opening.enterprise_state_id,
+              version: opening.version,
+              state_digest: opening.state_digest
+            },
+            decision_ids: [decisionId],
+            decision_payload_bindings: [
+              {
+                decision_id: decisionId,
+                decision_payload_digest: canonicalDecision.admission.decision_payload_digest
+              }
+            ],
+            scenario_package_id: run.scenario_package_id,
+            parameter_set_id: run.parameter_set_id,
+            engine_id: "toy_logit_wellness_v1",
+            plugin_ids: [],
+            seed: run.seed
+          }
+        }
+      );
+      const runtimeRound = store.rounds.find(
+        (candidate) => candidate.run_id === runId && candidate.round_no === 1
+      );
+      if (!runtimeRound) throw new Error("round fixture incomplete");
+      runtimeRound.status = "settled";
+      const closed = await request<{ status: string }>(
+        baseUrl,
+        `${lifecycleRoot}/${proposed.body.data.lifecycle_id}/close`,
+        teacher,
+        {
+          command_id: "capital-http-close",
+          course_id: "course_demo",
+          team_id: "team_alpha",
+          round_id: roundId,
+          official_outcome_id: settled.outcome_id
+        }
+      );
+      expect(closed.status, JSON.stringify(closed.body)).toBe(200);
+      expect(closed.body.data.status).toBe("CLOSED");
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
