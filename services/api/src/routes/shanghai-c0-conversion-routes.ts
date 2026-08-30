@@ -39,6 +39,7 @@ function status(error: ShanghaiC0ConversionError): number {
     case "SH_C0_ROUND_NOT_FOUND":
       return 404;
     case "SH_C0_EXACT_BINDING_REQUIRED":
+    case "SH_C0_IDEMPOTENCY_CONFLICT":
       return 409;
     default:
       return 422;
@@ -124,17 +125,16 @@ export async function handleShanghaiC0ConversionRoute(
     helpers.sendJson(response, 200, helpers.createEnvelope(context, result));
     return true;
   } catch (error) {
-    const mapped =
-      error instanceof ShanghaiC0ConversionError
-        ? error
-        : new ShanghaiC0ConversionError("SH_C0_INPUT_INVALID");
+    if (!(error instanceof ShanghaiC0ConversionError)) throw error;
     helpers.sendJson(
       response,
-      status(mapped),
-      helpers.createEnvelope(context, {
-        code: mapped.code,
-        message: "Shanghai C0 conversion request rejected"
-      })
+      status(error),
+      {
+        request_id: context.requestId,
+        code: error.code,
+        message: error.message,
+        details: []
+      }
     );
     return true;
   }

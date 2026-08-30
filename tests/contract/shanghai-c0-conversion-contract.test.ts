@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
+import { isShanghaiC0Request } from "../../packages/shared-contracts/src";
 import {
   ShanghaiC0ConversionService,
   type ShanghaiC0Request
@@ -70,16 +71,25 @@ describe("Shanghai C0 conversion JSON contract", () => {
     const target = new ShanghaiC0ConversionService({
       now: () => "2026-08-30T00:00:00.000Z",
       getRun: async () => ({
+        tenant_id: "tenant_demo",
+        run_id: "run_contract",
         course_id: "course_demo",
         scenario_package_id: "scenario_contract",
-        parameter_set_id: "parameter_contract"
+        scenario_package_version: "1.0.0",
+        parameter_set_id: "parameter_contract",
+        parameter_set_version: "1.0.0",
+        model_version_id: "model_contract",
+        model_version: "1.0.0",
+        engine_id: "toy_logit_wellness_v1",
+        seed: 7
       }),
       getRound: async () => ({
         tenant_id: "tenant_demo",
         run_id: "run_contract",
         round_id: "round_1",
         round_no: 1
-      })
+      }),
+      isTeamInRun: async () => true
     });
     const actor = { user_id: "usr_teacher", tenant_id: "tenant_demo", roles: ["teacher"] as const };
     const teacher = await target.createTeacher(actor, request("M13"));
@@ -108,5 +118,26 @@ describe("Shanghai C0 conversion JSON contract", () => {
       ),
       JSON.stringify(validate.errors)
     ).toBe(true);
+  });
+
+  it("rejects extra keys and wrong optional field types at the runtime boundary", () => {
+    expect(
+      isShanghaiC0Request({
+        ...request("M14"),
+        experiment: { ...request("M14").experiment, score: 0.8 }
+      })
+    ).toBe(false);
+    expect(
+      isShanghaiC0Request({
+        ...request("M14"),
+        experiment: { ...request("M14").experiment, region: 123 }
+      })
+    ).toBe(false);
+    expect(
+      isShanghaiC0Request({
+        ...request("M18"),
+        experiment: { ...request("M18").experiment, target_version: { version: "2.0.0" } }
+      })
+    ).toBe(false);
   });
 });

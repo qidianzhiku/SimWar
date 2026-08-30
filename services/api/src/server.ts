@@ -295,7 +295,10 @@ import {
   type RuntimeSecurityConfigEnv
 } from "./runtime-security-config.js";
 import { createM1RunReplayEvidence } from "./run-manifest-replay-evidence.js";
-import type { FormalRunBindingAuthorityPorts } from "./formal-run-runtime-binding.js";
+import {
+  assertRunMatchesFormalRuntimeBinding,
+  type FormalRunBindingAuthorityPorts
+} from "./formal-run-runtime-binding.js";
 import {
   FormalRunRuntimeBindingStore,
   type FormalRunRuntimeBindingPort
@@ -1037,13 +1040,32 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
   const shanghaiC0Conversion = new ShanghaiC0ConversionService({
     getRun: async (tenantId, runId) => {
       const run = await repositoryProvider.facade.runs.getRun(tenantId, runId);
-      return run
-        ? {
-            course_id: run.course_id,
-            scenario_package_id: run.scenario_package_id,
-            parameter_set_id: run.parameter_set_id
-          }
+      const formalBinding = run
+        ? await formalRunRuntimeBindingStore.getForRun(tenantId, runId)
         : null;
+      if (!run || !formalBinding) return null;
+      try {
+        assertRunMatchesFormalRuntimeBinding(run, formalBinding);
+      } catch {
+        return null;
+      }
+      if (formalBinding.model_version_references.length !== 1) return null;
+      const modelReference = formalBinding.model_version_references[0] ?? "";
+      const modelSeparator = modelReference.lastIndexOf("@");
+      if (modelSeparator <= 0 || modelSeparator === modelReference.length - 1) return null;
+      return {
+        tenant_id: run.tenant_id,
+        run_id: run.run_id,
+        course_id: run.course_id,
+        scenario_package_id: formalBinding.scenario_package_reference.scenario_package_id,
+        scenario_package_version: formalBinding.scenario_package_reference.version,
+        parameter_set_id: formalBinding.parameter_set_reference.parameter_set_id,
+        parameter_set_version: formalBinding.parameter_set_reference.version,
+        model_version_id: modelReference.slice(0, modelSeparator),
+        model_version: modelReference.slice(modelSeparator + 1),
+        engine_id: formalBinding.engine_reference.engine_id,
+        seed: formalBinding.seed
+      };
     },
     getRound: async (tenantId, runId, roundId) => {
       const round = (await repositoryProvider.facade.rounds.listRoundsForRun(tenantId, runId)).find(
@@ -1058,6 +1080,11 @@ function createApiRuntime(store: SimWarStore, options: CreateApiServerOptions = 
           }
         : null;
     },
+    isTeamInRun: async (tenantId, runId, teamId, courseId) =>
+      (await repositoryProvider.facade.teams.listTeamsForRun(tenantId, runId)).some(
+        (team) =>
+          team.tenant_id === tenantId && team.team_id === teamId && team.course_id === courseId
+      ),
     isStudentEnrolled: async (tenantId, userId, teamId, courseId) => {
       const team = await repositoryProvider.facade.teams.getTeam(tenantId, teamId);
       return Boolean(

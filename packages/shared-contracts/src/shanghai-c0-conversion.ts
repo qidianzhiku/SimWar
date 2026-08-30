@@ -245,6 +245,57 @@ export interface ShanghaiC0StudentChoice {
 const BANNED_ID_TOKEN =
   /(?:^|[._:-])(?:any|current|default|fallback|latest|next|unresolved)(?:$|[._:-])/i;
 
+const REQUEST_KEYS = [
+  "discriminator",
+  "macro_id",
+  "exact_binding",
+  "experience_profile",
+  "experiment",
+  "idempotency_key"
+] as const;
+
+const BINDING_KEYS = [
+  "exact_binding",
+  "tenant_id",
+  "course_id",
+  "run_id",
+  "team_id",
+  "round_id",
+  "round_no",
+  "scenario_package_id",
+  "scenario_package_version",
+  "parameter_set_id",
+  "parameter_set_version",
+  "model_version_id",
+  "model_version",
+  "engine_id",
+  "seed"
+] as const;
+
+const EXPERIMENT_KEYS = [
+  "action",
+  "option_id",
+  "region",
+  "cohort",
+  "service_bundle",
+  "positioning",
+  "staffing_shock",
+  "capacity_shock",
+  "quality_shock",
+  "horizon_rounds",
+  "episode_no",
+  "target_version"
+] as const;
+
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && actual.every((key) => keys.includes(key));
+}
+
+function hasOnlyAllowedKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
 function nonEmptyId(value: unknown): value is string {
   return (
     typeof value === "string" && value.trim().length > 0 && !BANNED_ID_TOKEN.test(value.trim())
@@ -254,6 +305,7 @@ function nonEmptyId(value: unknown): value is string {
 function exactBinding(value: unknown): value is ShanghaiC0ExactBinding {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
+  if (!hasExactKeys(candidate, BINDING_KEYS)) return false;
   const strings = [
     "tenant_id",
     "course_id",
@@ -280,13 +332,34 @@ function exactBinding(value: unknown): value is ShanghaiC0ExactBinding {
   );
 }
 
+function optionalString(record: Record<string, unknown>, key: string): boolean {
+  return record[key] === undefined || nonEmptyId(record[key]);
+}
+
+function optionalFiniteNumber(
+  record: Record<string, unknown>,
+  key: string,
+  minimum?: number,
+  maximum?: number
+): boolean {
+  const value = record[key];
+  return (
+    value === undefined ||
+    (typeof value === "number" &&
+      Number.isFinite(value) &&
+      (minimum === undefined || value >= minimum) &&
+      (maximum === undefined || value <= maximum))
+  );
+}
+
 export function isShanghaiC0Request(value: unknown): value is ShanghaiC0Request {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
+  if (!hasExactKeys(candidate, REQUEST_KEYS)) return false;
   const experiment = candidate.experiment;
   if (!experiment || typeof experiment !== "object" || Array.isArray(experiment)) return false;
   const experimentRecord = experiment as Record<string, unknown>;
-  const boundedShocks = ["staffing_shock", "capacity_shock", "quality_shock"];
+  if (!hasOnlyAllowedKeys(experimentRecord, EXPERIMENT_KEYS)) return false;
   return (
     candidate.discriminator === "shanghai_c0_conversion_request" &&
     typeof candidate.macro_id === "string" &&
@@ -295,18 +368,23 @@ export function isShanghaiC0Request(value: unknown): value is ShanghaiC0Request 
     (candidate.experience_profile === "STANDARD" || candidate.experience_profile === "ADVANCED") &&
     nonEmptyId(experimentRecord.action) &&
     nonEmptyId(experimentRecord.option_id) &&
-    boundedShocks.every(
-      (key) =>
-        experimentRecord[key] === undefined ||
-        (typeof experimentRecord[key] === "number" &&
-          Number.isFinite(experimentRecord[key] as number))
-    ) &&
+    optionalString(experimentRecord, "region") &&
+    optionalString(experimentRecord, "cohort") &&
+    optionalString(experimentRecord, "service_bundle") &&
+    optionalString(experimentRecord, "positioning") &&
+    optionalFiniteNumber(experimentRecord, "staffing_shock", -1, 1) &&
+    optionalFiniteNumber(experimentRecord, "capacity_shock", -1, 1) &&
+    optionalFiniteNumber(experimentRecord, "quality_shock", -1, 1) &&
     (experimentRecord.horizon_rounds === undefined ||
       (typeof experimentRecord.horizon_rounds === "number" &&
-        Number.isSafeInteger(experimentRecord.horizon_rounds))) &&
+        Number.isSafeInteger(experimentRecord.horizon_rounds) &&
+        experimentRecord.horizon_rounds >= 1)) &&
     (experimentRecord.episode_no === undefined ||
       (typeof experimentRecord.episode_no === "number" &&
-        Number.isSafeInteger(experimentRecord.episode_no))) &&
+        Number.isSafeInteger(experimentRecord.episode_no) &&
+        experimentRecord.episode_no >= 1 &&
+        experimentRecord.episode_no <= 6)) &&
+    optionalString(experimentRecord, "target_version") &&
     nonEmptyId(candidate.idempotency_key)
   );
 }

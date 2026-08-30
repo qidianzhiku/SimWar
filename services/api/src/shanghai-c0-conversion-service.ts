@@ -27,9 +27,17 @@ const KNOWN_LIMITS = [
 type Actor = Pick<CurrentUser, "user_id" | "tenant_id" | "roles" | "team_id">;
 
 interface ShanghaiC0RunReference {
+  tenant_id: string;
+  run_id: string;
   course_id: string;
   scenario_package_id: string;
+  scenario_package_version: string;
   parameter_set_id: string;
+  parameter_set_version: string;
+  model_version_id: string;
+  model_version: string;
+  engine_id: string;
+  seed: number;
 }
 
 interface ShanghaiC0RoundReference {
@@ -46,6 +54,12 @@ export interface ShanghaiC0ConversionDependencies {
     runId: string,
     roundId: string
   ) => Promise<ShanghaiC0RoundReference | null>;
+  readonly isTeamInRun: (
+    tenantId: string,
+    runId: string,
+    teamId: string,
+    courseId: string
+  ) => Promise<boolean>;
   readonly isStudentEnrolled?: (
     tenantId: string,
     userId: string,
@@ -62,6 +76,7 @@ export class ShanghaiC0ConversionError extends Error {
       | "SH_C0_FORBIDDEN"
       | "SH_C0_EXACT_BINDING_REQUIRED"
       | "SH_C0_EXPERIMENT_INVALID"
+      | "SH_C0_IDEMPOTENCY_CONFLICT"
       | "SH_C0_RUN_NOT_FOUND"
       | "SH_C0_ROUND_NOT_FOUND"
       | "SH_C0_NOT_FOUND",
@@ -74,6 +89,7 @@ export class ShanghaiC0ConversionError extends Error {
 
 interface StoredConversion {
   actor_id: string;
+  request_digest: string;
   request: ShanghaiC0Request;
   receipt: ShanghaiC0Receipt;
   teacher: ShanghaiC0TeacherProjection;
@@ -94,6 +110,7 @@ function canonicalize(value: unknown): string {
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record)
+      .filter((key) => record[key] !== undefined)
       .sort()
       .map((key) => `${JSON.stringify(key)}:${canonicalize(record[key])}`)
       .join(",")}}`;
@@ -223,6 +240,10 @@ function studentReceipt(receipt: ShanghaiC0Receipt): ShanghaiC0StudentProjection
 
 export class ShanghaiC0ConversionService {
   private readonly records = new Map<string, StoredConversion>();
+  private readonly idempotency = new Map<
+    string,
+    { request_digest: string; receipt_id: string }
+  >();
   private readonly now: () => string;
 
   constructor(private readonly dependencies: ShanghaiC0ConversionDependencies) {
@@ -239,9 +260,17 @@ export class ShanghaiC0ConversionService {
     const run = await this.dependencies.getRun(actor.tenant_id, binding.run_id);
     if (
       !run ||
+      run.tenant_id !== actor.tenant_id ||
+      run.run_id !== binding.run_id ||
       run.course_id !== binding.course_id ||
       run.scenario_package_id !== binding.scenario_package_id ||
-      run.parameter_set_id !== binding.parameter_set_id
+      run.scenario_package_version !== binding.scenario_package_version ||
+      run.parameter_set_id !== binding.parameter_set_id ||
+      run.parameter_set_version !== binding.parameter_set_version ||
+      run.model_version_id !== binding.model_version_id ||
+      run.model_version !== binding.model_version ||
+      run.engine_id !== binding.engine_id ||
+      run.seed !== binding.seed
     ) {
       throw new ShanghaiC0ConversionError("SH_C0_EXACT_BINDING_REQUIRED");
     }
@@ -258,10 +287,32 @@ export class ShanghaiC0ConversionService {
     ) {
       throw new ShanghaiC0ConversionError("SH_C0_EXACT_BINDING_REQUIRED");
     }
+    if (
+      !(await this.dependencies.isTeamInRun(
+        actor.tenant_id,
+        binding.run_id,
+        binding.team_id,
+        binding.course_id
+      ))
+    ) {
+      throw new ShanghaiC0ConversionError("SH_C0_EXACT_BINDING_REQUIRED");
+    }
 
     const definition = SHANGHAI_C0_MACRO_DEFINITIONS[request.macro_id];
     const bindingDigest = digest(binding);
+    const requestDigest = digest(request);
+    const idempotencyScope = [
+      actor.tenant_id,
+      actor.user_id,
+      binding.run_id,
+      binding.round_id,
+      request.idempotency_key
+    ].join(":");
     const receiptId = `sh-c0-${request.macro_id.toLowerCase()}-${digest({ binding, idempotency_key: request.idempotency_key }).slice(0, 16)}`;
+    const priorIdempotency = this.idempotency.get(idempotencyScope);
+    if (priorIdempotency && priorIdempotency.request_digest !== requestDigest) {
+      throw new ShanghaiC0ConversionError("SH_C0_IDEMPOTENCY_CONFLICT");
+    }
     const existing = this.records.get(receiptId);
     if (existing) return structuredClone(existing.teacher);
     const receipt: ShanghaiC0Receipt = {
@@ -336,12 +387,14 @@ export class ShanghaiC0ConversionService {
     };
     this.records.set(receiptId, {
       actor_id: actor.user_id,
+      request_digest: requestDigest,
       request: structuredClone(request),
       receipt,
       teacher,
       student,
       admin
     });
+    this.idempotency.set(idempotencyScope, { request_digest: requestDigest, receipt_id: receiptId });
     return structuredClone(teacher);
   }
 

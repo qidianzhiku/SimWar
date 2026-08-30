@@ -7,7 +7,7 @@ import type { ShanghaiC0Request } from "../../packages/shared-contracts/src";
 
 const tenantId = "tenant_demo";
 const binding = {
-  exact_binding: true as const,
+    exact_binding: true as const,
   tenant_id: tenantId,
   course_id: "course_demo",
   run_id: "run_shanghai_c0",
@@ -63,16 +63,25 @@ function service(): ShanghaiC0ConversionService {
   return new ShanghaiC0ConversionService({
     now: () => "2026-08-30T00:00:00.000Z",
     getRun: async () => ({
+      tenant_id: tenantId,
+      run_id: "run_shanghai_c0",
       course_id: "course_demo",
       scenario_package_id: "scenario_shanghai_1",
-      parameter_set_id: "parameter_shanghai_1"
+      scenario_package_version: "1.0.0",
+      parameter_set_id: "parameter_shanghai_1",
+      parameter_set_version: "1.0.0",
+      model_version_id: "model_shanghai_1",
+      model_version: "1.0.0",
+      engine_id: "toy_logit_wellness_v1",
+      seed: 42
     }),
     getRound: async () => ({
       tenant_id: tenantId,
       run_id: "run_shanghai_c0",
       round_id: "round_1",
-      round_no: 1
-    })
+        round_no: 1
+    }),
+    isTeamInRun: async () => true
   });
 }
 
@@ -159,6 +168,22 @@ describe("Shanghai M13-M18 C0 conversion service", () => {
         { user_id: "usr_teacher", tenant_id: tenantId, roles: ["teacher"] },
         { ...request("M15"), experiment: { ...request("M15").experiment, capacity_shock: -2 } }
       )
-    ).rejects.toMatchObject({ code: "SH_C0_EXPERIMENT_INVALID" });
+    ).rejects.toMatchObject({ code: "SH_C0_INPUT_INVALID" });
+  });
+
+  it("rejects conflicting idempotency reuse instead of returning a different request", async () => {
+    const target = service();
+    const initial = request("M13");
+    await target.createTeacher(
+      { user_id: "usr_teacher", tenant_id: tenantId, roles: ["teacher"] },
+      initial
+    );
+
+    await expect(
+      target.createTeacher(
+        { user_id: "usr_teacher", tenant_id: tenantId, roles: ["teacher"] },
+        { ...initial, experience_profile: "ADVANCED" }
+      )
+    ).rejects.toMatchObject({ code: "SH_C0_IDEMPOTENCY_CONFLICT" });
   });
 });

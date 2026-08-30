@@ -7,10 +7,79 @@ import type {
 } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { createP1Store } from "../../services/api/src/store";
+import {
+  createFormalRunRuntimeBinding,
+  type FormalRunBindingAuthorityPorts
+} from "../../services/api/src/formal-run-runtime-binding";
 
 const tenantId = "tenant_demo";
 const runId = "shanghai-c0-http-run";
 const roundId = "shanghai-c0-http-round-1";
+
+async function appendFormalBinding(store: ReturnType<typeof createP1Store>): Promise<void> {
+  const parameterReference = {
+    content_digest: "a".repeat(64),
+    parameter_set_id: "param_toy_approved_1",
+    version: "1.0.0"
+  };
+  const scenarioReference = {
+    content_digest: "b".repeat(64),
+    scenario_package_id: "scenario_eldercare_demo",
+    tenant_id: tenantId,
+    version: "1.0.0"
+  };
+  const parameter = {
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content_digest: parameterReference.content_digest,
+    model_version_ref: "model_shanghai_http@1.0.0",
+    parameter_values: {},
+    parameter_set_id: parameterReference.parameter_set_id,
+    reference: parameterReference,
+    schema_version: "parameter-set.v1",
+    status: "APPROVED" as const,
+    tenant_id: tenantId,
+    version: parameterReference.version
+  };
+  const scenario = {
+    artifact_policy: { mode: "INLINE", retention: "IMMUTABLE" },
+    compatibility_metadata: { engine_family: "toy_logit" },
+    content: {},
+    content_digest: scenarioReference.content_digest,
+    metadata: {},
+    parameter_set_reference: parameterReference,
+    plugin_dependencies: [],
+    reference: scenarioReference,
+    scenario_package_id: scenarioReference.scenario_package_id,
+    schema_version: "scenario-package.v1",
+    status: "APPROVED" as const,
+    tenant_id: tenantId,
+    version: scenarioReference.version
+  };
+  const authorities: FormalRunBindingAuthorityPorts = {
+    parameterSets: {
+      assertBindable: async () => undefined,
+      getByReference: async () => parameter
+    },
+    plugins: {
+      getByReference: async () => null,
+      resolveAvailableForNewBinding: async () => null
+    },
+    scenarios: {
+      assertBindable: async () => undefined,
+      getByReference: async () => scenario
+    }
+  };
+  const binding = await createFormalRunRuntimeBinding({
+    authorities,
+    engine_reference: { engine_id: "toy_logit_wellness_v1", version: "0.1.0" },
+    parameter_set_reference: parameterReference,
+    run_id: runId,
+    scenario_package_reference: scenarioReference,
+    seed: 42,
+    tenant_id: tenantId
+  });
+  store.formalRunRuntimeBindings.push(binding);
+}
 
 function request(macroId: ShanghaiC0Request["macro_id"]): ShanghaiC0Request {
   const experiment = {
@@ -93,6 +162,7 @@ describe("Shanghai C0 conversion real BFF", () => {
       round_no: 1,
       status: "open"
     });
+    await appendFormalBinding(store);
     const server = createApiServer(store);
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -103,6 +173,37 @@ describe("Shanghai C0 conversion real BFF", () => {
       const teacher = await login(baseUrl, "teacher");
       const student = await login(baseUrl, "student");
       const admin = await login(baseUrl, "admin");
+      const invalidResponse = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/shanghai-c0/conversions`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${teacher}`,
+            "content-type": "application/json",
+            "x-tenant-id": tenantId
+          },
+          body: JSON.stringify({
+            ...request("M14"),
+            experiment: { ...request("M14").experiment, score: 0.8 }
+          })
+        }
+      );
+      expect(invalidResponse.status).toBe(422);
+      const invalidBody = (await invalidResponse.json()) as { code: string };
+      expect(invalidBody.code).toBe("SH_C0_INPUT_INVALID");
+      expect(invalidBody.code).not.toBe("OK");
+
+      const unauthenticatedResponse = await fetch(
+        `${baseUrl}/api/v1/bff/teacher/shanghai-c0/conversions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-tenant-id": tenantId },
+          body: JSON.stringify(request("M13"))
+        }
+      );
+      expect(unauthenticatedResponse.status).toBe(401);
+      const unauthenticatedBody = (await unauthenticatedResponse.json()) as { code: string };
+      expect(unauthenticatedBody.code).not.toBe("SH_C0_INPUT_INVALID");
       for (const macroId of ["M13", "M14", "M15", "M16", "M17", "M18"] as const) {
         const createResponse = await fetch(
           `${baseUrl}/api/v1/bff/teacher/shanghai-c0/conversions`,
@@ -166,6 +267,7 @@ describe("Shanghai C0 conversion real BFF", () => {
       round_no: 1,
       status: "open"
     });
+    await appendFormalBinding(store);
     const before = JSON.stringify({
       decisions: store.decisions,
       settlementResults: store.settlementResults
