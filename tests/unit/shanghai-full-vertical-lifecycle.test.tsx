@@ -76,6 +76,25 @@ function LifecycleHarness() {
   );
 }
 
+function UnstableDraftCallbackHarness() {
+  const [renderCount, setRenderCount] = useState(0);
+  return (
+    <>
+      <button onClick={() => setRenderCount((current) => current + 1)}>rerender parent</button>
+      <span>{renderCount}</span>
+      <W5GovernedModelStudio
+        apiBase="http://localhost:3000"
+        courseId="course_demo"
+        onDraftChange={() => undefined}
+        roundNo={1}
+        runId="run_demo"
+        tenantId="tenant_demo"
+        token="teacher-token"
+      />
+    </>
+  );
+}
+
 describe("Shanghai full vertical lifecycle wiring", () => {
   it("does not request a stale draft when the current Run lacks an exact binding", async () => {
     const fetchMock = vi.fn();
@@ -166,6 +185,51 @@ describe("Shanghai full vertical lifecycle wiring", () => {
             request.includes("draftId=draft-created-in-studio")
         )
       ).toBe(true);
+    } finally {
+      await act(async () => root.unmount());
+      host.remove();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not reload the W5 Studio when its draft callback identity changes", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            code: "OK",
+            data: {
+              drafts: [draft],
+              model_family_readiness: [],
+              model_version: { model_family_readiness: [], model_version_ref: "model@1.0.0" },
+              operation_id: "W5_TEACHER_GOVERNED_MODEL_STUDIO_GET_V1",
+              parameter_descriptors: [],
+              security: {}
+            },
+            message: "ok"
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 }
+        )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => {
+        root.render(<UnstableDraftCallbackHarness />);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        host.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
       await act(async () => root.unmount());
       host.remove();

@@ -7,6 +7,10 @@ const SHANGHAI_C0_RECEIPT_ID =
   typeof window === "undefined"
     ? ""
     : (new URLSearchParams(window.location.search).get("shanghaiC0ReceiptId")?.trim() ?? "");
+const OPERATING_WORLD_ROUND_ID =
+  typeof window === "undefined"
+    ? ""
+    : (new URLSearchParams(window.location.search).get("roundId") ?? "");
 
 interface Props {
   apiBase: string;
@@ -161,7 +165,7 @@ export function ShanghaiFullVerticalAdminPanel({
         apiBase={apiBase}
         courseId={courseId}
         draftId={draftId}
-        roundId={roundId}
+        roundId={roundId ?? OPERATING_WORLD_ROUND_ID}
         roundNo={roundNo}
         runId={runId}
         surface="admin"

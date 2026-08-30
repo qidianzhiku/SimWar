@@ -95,13 +95,6 @@ const OPERATING_WORLD_ROUND_NO =
         const value = new URLSearchParams(window.location.search).get("roundNo");
         return value ? Number(value) : undefined;
       })();
-const OPERATING_WORLD_ROUND_ID =
-  typeof window === "undefined"
-    ? ""
-    : (new URLSearchParams(window.location.search).get("roundId") ??
-      new URLSearchParams(window.location.search).get("round_id") ??
-      "");
-
 const SHANGHAI_FULL_VERTICAL_DRAFT_ID =
   typeof window === "undefined"
     ? ""
@@ -1223,7 +1216,6 @@ export function App() {
               apiBase={API_BASE}
               courseId={W5_AUDIT_COURSE_ID}
               draftId={SHANGHAI_FULL_VERTICAL_DRAFT_ID}
-              roundId={OPERATING_WORLD_ROUND_ID}
               roundNo={OPERATING_WORLD_ROUND_NO}
               runId={OPERATING_WORLD_RUN_ID}
               tenantId={login.tenantId}

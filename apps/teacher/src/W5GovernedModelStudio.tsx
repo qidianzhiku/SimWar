@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApiEnvelope,
   W5ConvergenceProjection,
@@ -96,12 +96,14 @@ export function W5GovernedModelStudio({
   const [convergence, setConvergence] = useState<W5ConvergenceProjection | null>(null);
   const [notice, setNotice] = useState("等待课程上下文");
   const [busy, setBusy] = useState(false);
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
 
   const refresh = useCallback(async () => {
     if (!courseId || !token) {
       setProjection(null);
       setSelectedDraftId(null);
-      onDraftChange?.(null, null);
+      onDraftChangeRef.current?.(null, null);
       setNotice("需要课程和教师登录上下文");
       return;
     }
@@ -123,7 +125,7 @@ export function W5GovernedModelStudio({
       setProjection(null);
       setNotice(error instanceof Error ? error.message : "W5 Studio 加载失败");
     }
-  }, [apiBase, courseId, onDraftChange, tenantId, token]);
+  }, [apiBase, courseId, tenantId, token]);
 
   useEffect(() => {
     void refresh();
@@ -136,8 +138,8 @@ export function W5GovernedModelStudio({
   useEffect(() => {
     const selectedDraft =
       projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null;
-    onDraftChange?.(selectedDraftId, selectedDraft);
-  }, [onDraftChange, projection, selectedDraftId]);
+    onDraftChangeRef.current?.(selectedDraftId, selectedDraft);
+  }, [projection, selectedDraftId]);
 
   const draft = useMemo(
     () => projection?.drafts.find((candidate) => candidate.draft_id === selectedDraftId) ?? null,
