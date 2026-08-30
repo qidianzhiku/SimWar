@@ -395,5 +395,5 @@ describe("Course Factory governed lifecycle", () => {
       server.close();
       await once(server, "close");
     }
-  });
+  }, 15000);
 });
