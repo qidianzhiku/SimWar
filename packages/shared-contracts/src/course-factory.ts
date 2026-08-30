@@ -187,9 +187,16 @@ function isNonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value === value.trim();
 }
 
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
 function isModelArtifactReference(value: unknown): value is ModelArtifactReference {
   if (!isRecord(value)) return false;
   return (
+    hasExactKeys(value, ["artifact_id", "content_digest", "format", "source_ref"]) &&
     isExactIdentity(value.artifact_id) &&
     isDigest(value.content_digest) &&
     isNonEmptyText(value.format) &&
@@ -200,6 +207,7 @@ function isModelArtifactReference(value: unknown): value is ModelArtifactReferen
 function isModelVersionReference(value: unknown): value is ModelVersionReference {
   if (!isRecord(value)) return false;
   return (
+    hasExactKeys(value, ["content_digest", "model_version_id", "version"]) &&
     isExactIdentity(value.model_version_id) &&
     isExactVersion(value.version) &&
     isDigest(value.content_digest)

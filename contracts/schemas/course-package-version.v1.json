@@ -279,8 +279,8 @@
       "properties": {
         "artifact_id": { "$ref": "#/$defs/exact_identity" },
         "content_digest": { "$ref": "#/$defs/digest" },
-        "format": { "type": "string", "minLength": 1 },
-        "source_ref": { "type": "string", "minLength": 1 }
+        "format": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" },
+        "source_ref": { "type": "string", "minLength": 1, "pattern": "^\\S(?:[\\s\\S]*\\S)?$" }
       }
     },
     "model_version_reference": {

@@ -269,7 +269,7 @@ describe("R3 CourseFactoryService", () => {
     expect((await service.getTeacherCatalog(actor)).catalog[0]?.source_context).toBeUndefined();
   });
 
-  it("rejects partial optional model references at the runtime metadata boundary", async () => {
+  it("rejects malformed optional model references at the runtime metadata boundary", async () => {
     const { service } = createService();
     for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
       const candidate = factoryDraft({
@@ -278,6 +278,50 @@ describe("R3 CourseFactoryService", () => {
           source_manifest: {
             ...factoryDraft().factory_metadata.source_manifest,
             [field]: {}
+          }
+        }
+      });
+      await expect(service.createDraft(actor, candidate)).rejects.toEqual(
+        new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID")
+      );
+    }
+
+    const validReferences = {
+      model_artifact_reference: {
+        artifact_id: "artifact_demo",
+        content_digest: digest("a"),
+        format: "json",
+        source_ref: "source:artifact_demo"
+      },
+      model_version_reference: {
+        content_digest: digest("b"),
+        model_version_id: "model_demo",
+        version: "1.0.0"
+      }
+    };
+    await expect(
+      service.createDraft(
+        actor,
+        factoryDraft({
+          factory_metadata: {
+            ...factoryDraft().factory_metadata,
+            source_manifest: {
+              ...factoryDraft().factory_metadata.source_manifest,
+              ...validReferences
+            }
+          }
+        })
+      )
+    ).resolves.toBeDefined();
+
+    for (const field of ["model_artifact_reference", "model_version_reference"] as const) {
+      const candidate = factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          source_manifest: {
+            ...factoryDraft().factory_metadata.source_manifest,
+            ...validReferences,
+            [field]: { ...validReferences[field], unexpected: true }
           }
         }
       });
