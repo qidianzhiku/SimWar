@@ -270,6 +270,27 @@ describe("Regional Transfer O1 real BFF", () => {
         provider: "OFF",
         settlement_write: false
       });
+      expect(preview.body.data.requalification).toMatchObject({
+        status: "REQUALIFICATION_REQUIRED",
+        transfer_mode: "CANDIDATE_ONLY",
+        model_version_comparison: { status: "EXACT_MATCH" },
+        baseline: {
+          region: "Shanghai",
+          source: { rights_status: "PUBLIC_SAFE", freshness_status: "UNKNOWN" },
+          reality_gap: { status: "NOT_PROVEN", value: null },
+          ood: { status: "NOT_PROVEN", rate: null }
+        },
+        target: {
+          region: "Suzhou",
+          source: {
+            source_id: "REGIONAL_TRANSFER_TARGET_SOURCE_NOT_RETRIEVED",
+            rights_status: "UNKNOWN",
+            freshness_status: "UNKNOWN"
+          }
+        },
+        no_official_truth_write: false,
+        replay_truth_write: false
+      });
 
       const validated = await requestJson<ApiEnvelope<RegionalTransferTeacherProjection>>(
         `${baseUrl}/api/v1/bff/teacher/regional-transfer/validate`,
@@ -311,6 +332,8 @@ describe("Regional Transfer O1 real BFF", () => {
       );
       expect(studentProjection.status).toBe(200);
       expect(studentProjection.body.data.visibility).toBe("ROLE_SAFE_STUDENT");
+      expect(studentProjection.body.data.context.target_region).toBe("Suzhou");
+      expect(studentProjection.body.data).not.toHaveProperty("requalification");
       expect(JSON.stringify(studentProjection.body.data)).not.toContain("content_digest");
 
       const adminProjection = await requestJson<ApiEnvelope<RegionalTransferAdminProjection>>(
@@ -324,6 +347,9 @@ describe("Regional Transfer O1 real BFF", () => {
         "FROZEN",
         "ACTIVATED"
       ]);
+      expect(adminProjection.body.data.candidate.requalification.status).toBe(
+        "REQUALIFICATION_REQUIRED"
+      );
       expect(store.regionalTransferCandidates).toHaveLength(1);
       expect(store.regionalTransferCandidates?.[0]?.authority.formal_writer_mutations).toBe(0);
     } finally {

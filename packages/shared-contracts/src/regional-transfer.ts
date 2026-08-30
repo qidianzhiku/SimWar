@@ -62,6 +62,49 @@ export interface RegionalTransferConsumerScope {
   team_ids: readonly string[];
 }
 
+export type RegionalTransferRequalificationStatus =
+  | "REQUALIFICATION_REQUIRED"
+  | "TRANSFER_READY_WITH_LIMITS"
+  | "TRANSFER_BLOCKED";
+
+export interface RegionalTransferModelEvidence {
+  model_version_ref: string;
+  ood: {
+    rate: number | null;
+    status: "NOT_PROVEN" | "OBSERVED";
+  };
+  reality_gap: {
+    status: "NOT_PROVEN" | "OBSERVED";
+    value: number | null;
+  };
+  region: string;
+  source: {
+    content_digest: string | null;
+    evidence_status: "NOT_RETRIEVED" | "REFERENCE_ONLY";
+    freshness_status: "CURRENT" | "STALE" | "UNKNOWN";
+    rights_status: "PUBLIC_SAFE" | "UNKNOWN";
+    source_id: string;
+    source_version: string | null;
+  };
+}
+
+export interface RegionalTransferRequalification {
+  baseline: RegionalTransferModelEvidence;
+  model_version_comparison: {
+    baseline_model_version_ref: string;
+    status: "EXACT_MATCH" | "MISMATCH" | "UNKNOWN";
+    target_model_version_ref: string;
+  };
+  no_official_truth_write: false;
+  ood_semantics: "UNKNOWN_IS_NOT_IN_DOMAIN";
+  reality_gap_semantics: "UNKNOWN_IS_NOT_PROVEN";
+  reason_codes: readonly string[];
+  replay_truth_write: false;
+  status: RegionalTransferRequalificationStatus;
+  target: RegionalTransferModelEvidence;
+  transfer_mode: "CANDIDATE_ONLY";
+}
+
 export interface RegionalTransferCandidate {
   activation: {
     published: boolean;
@@ -117,6 +160,7 @@ export interface RegionalTransferCandidate {
     status: "READY_WITH_LIMITS";
     source_status: "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK";
   };
+  requalification: RegionalTransferRequalification;
   rollback: {
     candidate_version: string;
     dry_run: true;

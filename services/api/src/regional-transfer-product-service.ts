@@ -4,7 +4,8 @@ import {
   buildM5RealityQualificationPack,
   buildM6LivingScenarioLifecyclePack,
   resolveM4PackageReference,
-  type M4CompiledCityPackage
+  type M4CompiledCityPackage,
+  type M5RealityQualificationPack
 } from "@simwar/sh-next-support";
 import { REGIONAL_TRANSFER_OPERATION_IDS } from "@simwar/shared-contracts";
 import type {
@@ -113,6 +114,8 @@ const KNOWN_LIMITS = [
   "Focused accessibility evidence is scoped to this journey; full WCAG acceptance and Human Validation are not claimed."
 ] as const;
 
+const TARGET_SOURCE_NOT_RETRIEVED = "REGIONAL_TRANSFER_TARGET_SOURCE_NOT_RETRIEVED";
+
 function clone<T>(value: T): T {
   return structuredClone(value);
 }
@@ -138,6 +141,109 @@ function sameRef(left: Record<string, unknown>, right: Record<string, unknown>):
 
 function exactVersion(value: string): boolean {
   return value.trim().length > 0 && !/^(latest|default|current)$/iu.test(value);
+}
+
+function exactModelVersionReference(value: string): boolean {
+  return (
+    value.trim() === value &&
+    /^[A-Za-z0-9._:-]+@[0-9]+\.[0-9]+\.[0-9]+$/u.test(value) &&
+    !/(?:^|[._:-])(?:latest|default|current|fallback|next|unresolved)(?:$|[._:-])/iu.test(value)
+  );
+}
+
+function evidenceForRegion(
+  region: string,
+  modelVersionRef: string,
+  m5: M5RealityQualificationPack
+): RegionalTransferCandidate["requalification"]["baseline"] {
+  const source = m5.sources.find((item) => item.geography === region);
+  const quality = source
+    ? m5.source_quality.find((item) => item.source_id === source.source_id)
+    : undefined;
+  return {
+    model_version_ref: modelVersionRef,
+    ood: { rate: null, status: "NOT_PROVEN" },
+    reality_gap: { status: "NOT_PROVEN", value: null },
+    region,
+    source: source
+      ? {
+          content_digest: source.evidence_status === "NOT_RETRIEVED" ? null : source.hash,
+          evidence_status:
+            source.evidence_status === "NOT_RETRIEVED" ? "NOT_RETRIEVED" : "REFERENCE_ONLY",
+          freshness_status: quality?.freshness_status ?? "UNKNOWN",
+          rights_status:
+            source.license_or_usage_status === "PUBLIC_REFERENCE_ONLY" ? "PUBLIC_SAFE" : "UNKNOWN",
+          source_id: source.source_id,
+          source_version: source.evidence_status === "NOT_RETRIEVED" ? null : source.source_date
+        }
+      : {
+          content_digest: null,
+          evidence_status: "NOT_RETRIEVED",
+          freshness_status: "UNKNOWN",
+          rights_status: "UNKNOWN",
+          source_id: TARGET_SOURCE_NOT_RETRIEVED,
+          source_version: null
+        }
+  };
+}
+
+function buildRequalification(
+  baselineRegion: string,
+  targetRegion: string,
+  modelVersionRef: string
+): RegionalTransferCandidate["requalification"] {
+  if (!exactModelVersionReference(modelVersionRef)) {
+    throw new RegionalTransferProductError("RT_EXACT_VERSION_REQUIRED");
+  }
+  const baseline = evidenceForRegion(baselineRegion, modelVersionRef, SUPPORT_PACKS.m5);
+  const target = evidenceForRegion(targetRegion, modelVersionRef, SUPPORT_PACKS.m5);
+  const reasonCodes: string[] = [];
+  const modelVersionStatus =
+    baseline.model_version_ref === target.model_version_ref ? "EXACT_MATCH" : "MISMATCH";
+
+  if (modelVersionStatus === "MISMATCH") reasonCodes.push("MODEL_VERSION_MISMATCH");
+  if (target.source.source_id === TARGET_SOURCE_NOT_RETRIEVED) {
+    reasonCodes.push("TARGET_SOURCE_NOT_RETRIEVED");
+  }
+  if (
+    baseline.source.freshness_status !== "CURRENT" ||
+    target.source.freshness_status !== "CURRENT"
+  ) {
+    reasonCodes.push("SOURCE_FRESHNESS_UNKNOWN");
+  }
+  if (baseline.source.rights_status !== "PUBLIC_SAFE") reasonCodes.push("BASELINE_RIGHTS_UNKNOWN");
+  if (target.source.rights_status !== "PUBLIC_SAFE") reasonCodes.push("TARGET_RIGHTS_UNKNOWN");
+  if (baseline.reality_gap.status !== "OBSERVED" || target.reality_gap.status !== "OBSERVED") {
+    reasonCodes.push("REALITY_GAP_NOT_PROVEN");
+  }
+  if (baseline.ood.status !== "OBSERVED" || target.ood.status !== "OBSERVED") {
+    reasonCodes.push("OOD_NOT_PROVEN");
+  }
+  if (SUPPORT_PACKS.m5.overall_status === "NOT_ELIGIBLE") {
+    reasonCodes.push("CALIBRATION_NOT_ELIGIBLE");
+  }
+
+  return {
+    baseline,
+    model_version_comparison: {
+      baseline_model_version_ref: baseline.model_version_ref,
+      status: modelVersionStatus,
+      target_model_version_ref: target.model_version_ref
+    },
+    no_official_truth_write: false,
+    ood_semantics: "UNKNOWN_IS_NOT_IN_DOMAIN",
+    reality_gap_semantics: "UNKNOWN_IS_NOT_PROVEN",
+    reason_codes: [...new Set(reasonCodes)],
+    replay_truth_write: false,
+    status:
+      modelVersionStatus === "MISMATCH"
+        ? "TRANSFER_BLOCKED"
+        : reasonCodes.length > 0
+          ? "REQUALIFICATION_REQUIRED"
+          : "TRANSFER_READY_WITH_LIMITS",
+    target,
+    transfer_mode: "CANDIDATE_ONLY"
+  };
 }
 
 function assertInput(input: RegionalTransferCandidateInput): void {
@@ -435,6 +541,9 @@ export class RegionalTransferProductService {
       )
     )
       throw new RegionalTransferProductError("RT_SOURCE_NOT_BINDABLE");
+    if (!exactModelVersionReference(parameter.model_version_ref)) {
+      throw new RegionalTransferProductError("RT_EXACT_VERSION_REQUIRED");
+    }
 
     const consumerTeams = teams
       .filter(
@@ -470,6 +579,12 @@ export class RegionalTransferProductService {
       scenario_package_reference: input.scenario_package_reference,
       target: input.target_package_reference,
       target_region: input.target_region,
+      model_version_ref: parameter.model_version_ref,
+      requalification: buildRequalification(
+        input.baseline_region,
+        input.target_region,
+        parameter.model_version_ref
+      ),
       consumer_team_ids: consumerTeams
     };
     const candidateDigest = digest(content);
@@ -539,6 +654,11 @@ export class RegionalTransferProductService {
         status: "READY_WITH_LIMITS",
         source_status: "REFERENCE_ONLY_WITH_SYNTHETIC_FALLBACK"
       },
+      requalification: buildRequalification(
+        baseline.display_name,
+        target.display_name,
+        parameter.model_version_ref
+      ),
       rollback: {
         candidate_version: target.version,
         dry_run: true,

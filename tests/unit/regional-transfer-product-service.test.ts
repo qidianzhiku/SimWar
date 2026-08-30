@@ -122,6 +122,50 @@ describe("RegionalTransferProductService", () => {
     expect(preview.lifecycle).toBe("PREVIEWED");
     expect(preview.operation_id).toBe("REGIONAL_TRANSFER_PREVIEW_V1");
     expect(preview.qualification.status).toBe("READY_WITH_LIMITS");
+    expect(preview.requalification).toMatchObject({
+      status: "REQUALIFICATION_REQUIRED",
+      transfer_mode: "CANDIDATE_ONLY",
+      model_version_comparison: {
+        status: "EXACT_MATCH",
+        baseline_model_version_ref: "eldercare_w5_governed_v1@1.1.0",
+        target_model_version_ref: "eldercare_w5_governed_v1@1.1.0"
+      },
+      baseline: {
+        region: "Shanghai",
+        model_version_ref: "eldercare_w5_governed_v1@1.1.0",
+        source: {
+          rights_status: "PUBLIC_SAFE",
+          freshness_status: "UNKNOWN",
+          evidence_status: "NOT_RETRIEVED",
+          content_digest: null,
+          source_version: null
+        },
+        reality_gap: { status: "NOT_PROVEN", value: null },
+        ood: { status: "NOT_PROVEN", rate: null }
+      },
+      target: {
+        region: "Suzhou",
+        model_version_ref: "eldercare_w5_governed_v1@1.1.0",
+        source: {
+          source_id: "REGIONAL_TRANSFER_TARGET_SOURCE_NOT_RETRIEVED",
+          rights_status: "UNKNOWN",
+          freshness_status: "UNKNOWN",
+          evidence_status: "NOT_RETRIEVED",
+          content_digest: null,
+          source_version: null
+        },
+        reality_gap: { status: "NOT_PROVEN", value: null },
+        ood: { status: "NOT_PROVEN", rate: null }
+      }
+    });
+    expect(preview.requalification.reason_codes).toEqual([
+      "TARGET_SOURCE_NOT_RETRIEVED",
+      "SOURCE_FRESHNESS_UNKNOWN",
+      "TARGET_RIGHTS_UNKNOWN",
+      "REALITY_GAP_NOT_PROVEN",
+      "OOD_NOT_PROVEN",
+      "CALIBRATION_NOT_ELIGIBLE"
+    ]);
     expect(preview.consumer_scope).toEqual({
       minimum_team_count: 2,
       run_id: "run_rt_001",
@@ -230,6 +274,24 @@ describe("RegionalTransferProductService", () => {
     await expect(product.preview(actor, { ...input(), run_id: "run_other" })).rejects.toMatchObject(
       { code: "RT_EXACT_BINDING_REQUIRED" }
     );
+  });
+
+  it("fails closed when the formal ParameterSet carries a floating model reference", async () => {
+    const product = new RegionalTransferProductService({
+      now: () => "2026-08-29T12:00:00.000Z",
+      persistence: createInMemoryRegionalTransferCandidatePersistence(),
+      sources: {
+        ...sources(),
+        getParameterSet: async () => ({
+          model_version_ref: "latest",
+          reference: input().parameter_set_reference,
+          status: "APPROVED"
+        })
+      }
+    });
+    await expect(
+      product.preview({ actor_id: "usr_teacher", tenant_id: tenantId }, input())
+    ).rejects.toMatchObject({ code: "RT_EXACT_VERSION_REQUIRED" });
   });
 
   it("fails closed when a governed scenario has fewer than two tenant-safe consumers", async () => {
