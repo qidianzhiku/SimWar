@@ -4,6 +4,7 @@ import {
   evaluateM28EvidenceFreshness,
   projectM28ForRole,
   resolveM28HistoricalEpoch,
+  stableDigest,
   validateM28DualEpochLivingOperationsPack,
   withdrawM28Candidate
 } from "@simwar/sh-next-support";
@@ -44,9 +45,17 @@ describe("Shanghai M28 dual-epoch living scenario operations", () => {
 
     const semanticRefDrift = structuredClone(pack);
     semanticRefDrift.operation_log[1].output_refs = ["DIFF:UNRELATED"];
-    semanticRefDrift.operation_log[1].operation_digest = "0".repeat(64);
+    semanticRefDrift.operation_log[1].operation_digest = stableDigest(
+      Object.fromEntries(
+        Object.entries(semanticRefDrift.operation_log[1]).filter(([key]) => key !== "operation_digest")
+      )
+    );
+    const semanticRefContent = Object.fromEntries(
+      Object.entries(semanticRefDrift).filter(([key]) => key !== "pack_digest")
+    );
+    semanticRefDrift.pack_digest = stableDigest(semanticRefContent);
     expect(validateM28DualEpochLivingOperationsPack(semanticRefDrift)).toEqual(
-      expect.arrayContaining(["operation_2_digest_invalid", "operation_2_binding_invalid"])
+      expect.arrayContaining(["operation_2_binding_invalid", "operation_2_cross_record_binding_invalid"])
     );
 
     const digestDrift = structuredClone(pack);

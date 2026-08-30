@@ -281,7 +281,7 @@ function makeEpoch(
     transfer_candidate_ref: {
       transfer_id: m27.transfer_summary.transfer_id,
       pack_digest: m27.pack_digest,
-      candidate_version: "regional-transfer-candidate.2026-08-30"
+      candidate_version: m27.transfer.candidate_ref.version
     },
     scenario_candidate_ref: {
       scenario_id: m25.scenario_candidates[0]?.scenario_id ?? "SH-M25-SCENARIO-CANDIDATE",
@@ -740,6 +740,31 @@ export function validateM28DualEpochLivingOperationsPack(
     if (digestWithout(item, "operation_digest") !== item.operation_digest) issues.push(`operation_${item.sequence}_digest_invalid`);
     if (stableDigest(item) !== stableDigest(expected.operation_log[index])) issues.push(`operation_${item.sequence}_binding_invalid`);
   });
+  const expectedOperationBindings = [
+    [expected.epoch_a.evidence_snapshot_digest, expected.epoch_a.content_digest],
+    [expected.epoch_a.content_digest, expected.epoch_b.content_digest],
+    [expected.diff.diff_digest],
+    [expected.epoch_b.content_digest, expected.diff.diff_digest, expected.impact.impact_digest],
+    [expected.epoch_b.content_digest, expected.epoch_a.content_digest],
+    [expected.epoch_a.epoch_id, expected.epoch_a.version, expected.epoch_a.content_digest],
+    [expected.epoch_b.epoch_id, expected.epoch_b.content_digest]
+  ];
+  const expectedOperationOutputs = [
+    [expected.epoch_b.evidence_snapshot_digest, expected.refresh_receipt.digest],
+    [expected.diff.diff_digest],
+    [expected.impact.impact_digest],
+    [expected.requalification.qualification_digest],
+    [expected.rollback_candidate.rollback_digest],
+    [expected.historical_resolution.resolution_digest],
+    [expected.withdrawal.withdrawal_digest]
+  ];
+  pack.operation_log.forEach((item, index) => {
+    if (
+      JSON.stringify(item.input_refs) !== JSON.stringify(expectedOperationBindings[index]) ||
+      JSON.stringify(item.output_refs) !== JSON.stringify(expectedOperationOutputs[index])
+    )
+      issues.push(`operation_${item.sequence}_cross_record_binding_invalid`);
+  });
   if (pack.diff.status !== "DIFF_RECORDED" || pack.diff.from_epoch_id !== pack.epoch_a.epoch_id || pack.diff.to_epoch_id !== pack.epoch_b.epoch_id)
     issues.push("diff_binding_invalid");
   const expectedDiff = {
@@ -775,6 +800,7 @@ export function validateM28DualEpochLivingOperationsPack(
     issues.push("qualification_digest_invalid");
   if (
     pack.rollback_candidate.candidate_epoch_id !== pack.epoch_a.epoch_id ||
+    pack.rollback_candidate.rollback_version !== pack.epoch_a.version ||
     !pack.rollback_candidate.exact_version_required ||
     !pack.rollback_candidate.dry_run ||
     pack.rollback_candidate.executed
@@ -838,7 +864,8 @@ export function validateM28DualEpochLivingOperationsPack(
     pack.authority.rank_write ||
     pack.authority.parameter_set_formal_write ||
     pack.authority.second_truth_writer ||
-    pack.authority.provider !== "OFF"
+    pack.authority.provider !== "OFF" ||
+    pack.authority.runtime_authority !== "JSON_INTERNAL_ONLY"
   )
     issues.push("authority_boundary_invalid");
   if (pack.consumer.formal_join || !pack.consumer.exact_binding_required)
