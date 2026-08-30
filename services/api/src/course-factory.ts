@@ -90,7 +90,10 @@ function isExactVersion(value: unknown): value is string {
 }
 
 function isIsoTimestamp(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+  return (
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
 }
 
 function isFactoryVersion(value: CoursePackageVersion): value is CourseFactoryVersion {
@@ -462,9 +465,14 @@ export class CourseFactoryService {
 
   async getTeacherCatalog(actor: CourseFactoryActor): Promise<CourseFactoryCatalogProjection> {
     const projection = await this.listCatalog(actor);
+    const now = this.packageRegistry.currentTime();
     return {
       ...projection,
-      catalog: projection.catalog.filter((entry) => entry.status === "PUBLISHED")
+      catalog: projection.catalog.filter(
+        (entry) =>
+          entry.status === "PUBLISHED" &&
+          !isExpired(entry.factory_metadata, now)
+      )
     };
   }
 

@@ -10,6 +10,23 @@ import {
   createCoursePackageVersionReference
 } from "./course-package-json-registry.js";
 
+/**
+ * Published Course Factory versions are delivery-ready through the same
+ * CoursePackage query authority. Legacy packages still require AVAILABLE;
+ * a bare PUBLISHED status is never enough to enter a delivery flow.
+ */
+type DeliveryPackageLike = { factory_metadata?: unknown; status: string };
+
+export function isDeliveryReadyCoursePackage<T extends DeliveryPackageLike>(
+  version: T | null | undefined
+): version is T & { status: "AVAILABLE" | "PUBLISHED" } {
+  return Boolean(
+    version &&
+      (version.status === "AVAILABLE" ||
+        (version.status === "PUBLISHED" && version.factory_metadata !== undefined))
+  );
+}
+
 export function toTeacherCoursePackageVersionDto(
   version: CoursePackageVersion
 ): CoursePackageVersionTeacherDto {
@@ -34,7 +51,7 @@ export class CoursePackageQueryService {
     const versions = await this.registry.listForTenant(tenantId);
     return {
       course_package_versions: versions
-        .filter((version) => version.status === "AVAILABLE")
+        .filter(isDeliveryReadyCoursePackage)
         .map(toTeacherCoursePackageVersionDto)
     };
   }

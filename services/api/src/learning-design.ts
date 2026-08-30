@@ -15,6 +15,7 @@ import {
   type RubricVersion,
   type RubricVersionReference
 } from "@simwar/shared-contracts";
+import { isDeliveryReadyCoursePackage } from "./course-package-query-service.js";
 
 function canonicalize(value: unknown): string {
   if (value === null || typeof value === "boolean" || typeof value === "number")
@@ -436,7 +437,7 @@ export class LearningDesignCommandService {
     tenantId: string
   ): Promise<void> {
     const packageVersion = await this.coursePackages.getByReference(tenantId, reference);
-    if (!packageVersion || packageVersion.status !== "AVAILABLE")
+    if (!isDeliveryReadyCoursePackage(packageVersion))
       throw new LearningDesignCommandError("LEARNING_DESIGN_COURSE_PACKAGE_NOT_AVAILABLE");
   }
 }

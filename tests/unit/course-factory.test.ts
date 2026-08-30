@@ -14,6 +14,7 @@ import {
   CoursePackageJsonRegistry,
   createCoursePackageVersionReference
 } from "../../services/api/src/course-package-json-registry";
+import { CoursePackageQueryService } from "../../services/api/src/course-package-query-service";
 
 const tenantId = "tenant_demo";
 const digest = (character: string) => character.repeat(64);
@@ -111,7 +112,7 @@ const actor = { actor_id: "admin_demo", tenant_id: tenantId, roles: ["tenant_adm
 
 describe("R3 CourseFactoryService", () => {
   it("runs one exact package through Draft, Validated, Approved and Published", async () => {
-    const { service } = createService();
+    const { registry, service } = createService();
 
     const draft = await service.createDraft(actor, factoryDraft());
     const reference = createCoursePackageVersionReference(draft);
@@ -130,6 +131,54 @@ describe("R3 CourseFactoryService", () => {
       copied_user_decisions: false,
       copied_user_results: false
     });
+    const teacherPackages = await new CoursePackageQueryService(registry).listTeacher(tenantId);
+    expect(teacherPackages.course_package_versions).toHaveLength(1);
+  });
+
+  it("rejects impossible expiry timestamps and hides published packages after expiry", async () => {
+    let now = "2026-08-30T10:00:00.000Z";
+    const registry = new CoursePackageJsonRegistry({ now: () => now });
+    const packages = new CoursePackageCommandService(registry, sources);
+    const service = new CourseFactoryService({
+      packageCommands: packages,
+      packageRegistry: registry
+    });
+
+    await expect(
+      service.createDraft(
+        actor,
+        factoryDraft({
+          factory_metadata: {
+            ...factoryDraft().factory_metadata,
+            rights: {
+              ...factoryDraft().factory_metadata.rights,
+              expires_at: "2026-13-40T00:00:00.000Z"
+            }
+          }
+        })
+      )
+    ).rejects.toEqual(new CourseFactoryError("COURSE_FACTORY_INPUT_INVALID"));
+
+    const draft = await service.createDraft(
+      actor,
+      factoryDraft({
+        factory_metadata: {
+          ...factoryDraft().factory_metadata,
+          rights: {
+            ...factoryDraft().factory_metadata.rights,
+            expires_at: "2026-08-31T00:00:00.000Z"
+          }
+        }
+      })
+    );
+    const reference = createCoursePackageVersionReference(draft);
+    await service.validate(actor, reference);
+    await service.approve(actor, reference);
+    await service.publish(actor, reference);
+    expect((await service.getTeacherCatalog(actor)).catalog).toHaveLength(1);
+
+    now = "2026-09-01T10:00:00.000Z";
+    expect((await service.getTeacherCatalog(actor)).catalog).toHaveLength(0);
   });
 
   it("clones only an unexpired published source and preserves exact refs without user data", async () => {

@@ -23,6 +23,7 @@ import type {
   EvidenceProvenanceRepositoryPort,
   RoleWorkflowRepositoryPort
 } from "./repository-ports.js";
+import { isDeliveryReadyCoursePackage } from "./course-package-query-service.js";
 
 const KNOWN_LIMITS = [
   "D2 evidence is not learning confirmation or final grading.",
@@ -277,8 +278,7 @@ export class EvidenceCaptureCommandService {
       version: packageRef.version
     });
     if (
-      !coursePackage ||
-      coursePackage.status !== "AVAILABLE" ||
+      !isDeliveryReadyCoursePackage(coursePackage) ||
       coursePackage.content_digest !== packageRef.content_digest
     ) {
       throw new D2EvidenceError("D2_EVIDENCE_COURSE_PACKAGE_NOT_AVAILABLE");
