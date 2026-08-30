@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildM28DualEpochLivingOperationsPack,
-  validateM28DualEpochLivingOperationsPack
+  evaluateM28EvidenceFreshness,
+  projectM28ForRole,
+  resolveM28HistoricalEpoch,
+  validateM28DualEpochLivingOperationsPack,
+  withdrawM28Candidate
 } from "@simwar/sh-next-support";
 
 describe("Shanghai M28 dual-epoch living scenario operations", () => {
@@ -32,6 +36,19 @@ describe("Shanghai M28 dual-epoch living scenario operations", () => {
       expect.arrayContaining(["floating_epoch_selector"])
     );
 
+    const rollbackSelectorDrift = structuredClone(pack);
+    rollbackSelectorDrift.rollback_candidate.rollback_version = "DEFAULT";
+    expect(validateM28DualEpochLivingOperationsPack(rollbackSelectorDrift)).toEqual(
+      expect.arrayContaining(["floating_selector_present", "rollback_binding_invalid"])
+    );
+
+    const semanticRefDrift = structuredClone(pack);
+    semanticRefDrift.operation_log[1].output_refs = ["DIFF:UNRELATED"];
+    semanticRefDrift.operation_log[1].operation_digest = "0".repeat(64);
+    expect(validateM28DualEpochLivingOperationsPack(semanticRefDrift)).toEqual(
+      expect.arrayContaining(["operation_2_digest_invalid", "operation_2_binding_invalid"])
+    );
+
     const digestDrift = structuredClone(pack);
     digestDrift.operation_log[2].rule = "untrusted mutation";
     expect(validateM28DualEpochLivingOperationsPack(digestDrift)).toEqual(
@@ -58,5 +75,47 @@ describe("Shanghai M28 dual-epoch living scenario operations", () => {
     expect(pack.authority.settlement_write).toBe(false);
     expect(pack.authority.second_truth_writer).toBe(false);
     expect(pack.authority.provider).toBe("OFF");
+  });
+
+  it("executes read-only exact resolution and withdrawal without deleting frozen history", () => {
+    const pack = buildM28DualEpochLivingOperationsPack();
+    const epochABytes = JSON.stringify(pack.epoch_a);
+    const resolved = resolveM28HistoricalEpoch(pack, {
+      epoch_id: pack.epoch_a.epoch_id,
+      version: pack.epoch_a.version,
+      content_digest: pack.epoch_a.content_digest
+    });
+    const withdrawn = withdrawM28Candidate(pack, {
+      epoch_id: pack.epoch_b.epoch_id,
+      content_digest: pack.epoch_b.content_digest
+    });
+    expect(resolved.history_deleted).toBe(false);
+    expect(resolved.resolution_digest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(withdrawn.withdrawal_is_delete).toBe(false);
+    expect(withdrawn.delete_executed).toBe(false);
+    expect(JSON.stringify(pack.epoch_a)).toBe(epochABytes);
+    expect(withdrawM28Candidate(pack, {
+      epoch_id: pack.epoch_b.epoch_id,
+      content_digest: pack.epoch_b.content_digest
+    })).toEqual(withdrawn);
+    expect(evaluateM28EvidenceFreshness(pack, "2026-08-29")).toBe("VALID_BEFORE_EXPIRY");
+    expect(evaluateM28EvidenceFreshness(pack, "2026-11-30")).toBe("EXPIRY_REQUIRES_RECOMPILE");
+    expect(evaluateM28EvidenceFreshness(pack, "2026-12-01")).toBe("EXPIRY_REQUIRES_RECOMPILE");
+  });
+
+  it("returns role-safe projections without exposing source or official truth to students", () => {
+    const pack = buildM28DualEpochLivingOperationsPack();
+    const student = projectM28ForRole(pack, "student");
+    const enterprise = projectM28ForRole(pack, "enterprise");
+    expect(student).toEqual({
+      role: "student",
+      epoch_version: pack.epoch_b.version,
+      requalification_status: "LIMITED",
+      withdrawal_status: "CANDIDATE_WITHDRAWN",
+      historical_resolution_status: "HISTORICAL_EPOCH_RESOLVED"
+    });
+    expect(JSON.stringify(student)).not.toContain("source_receipt_ids");
+    expect(JSON.stringify(student)).not.toContain("official_truth");
+    expect(enterprise).toEqual(expect.objectContaining({ role: "enterprise", candidate_scope: "CANDIDATE_ONLY" }));
   });
 });

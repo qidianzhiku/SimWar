@@ -205,6 +205,12 @@ const modelQualificationContractFiles = [
   "contracts/fixtures/model-qualification.student-private.invalid.json"
 ];
 
+const m28ContractFiles = [
+  "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
+  "contracts/fixtures/sh-dual-epoch-living-operations.valid.json",
+  "contracts/fixtures/sh-dual-epoch-living-operations.invalid.json"
+];
+
 const requiredOpenApiPaths = [
   "/api/v1/auth/login",
   "/api/v1/auth/logout",
@@ -508,6 +514,11 @@ const schemaCases = [
     schema: "contracts/schemas/model-qualification.v1.json",
     valid: ["contracts/fixtures/model-qualification.valid.json"],
     invalid: ["contracts/fixtures/model-qualification.student-private.invalid.json"]
+  },
+  {
+    schema: "contracts/schemas/sh-dual-epoch-living-operations.v1.json",
+    valid: ["contracts/fixtures/sh-dual-epoch-living-operations.valid.json"],
+    invalid: ["contracts/fixtures/sh-dual-epoch-living-operations.invalid.json"]
   }
 ];
 
@@ -1103,6 +1114,10 @@ export function createContractAjv() {
     type: "string",
     validate: (value) => !Number.isNaN(Date.parse(value))
   });
+  ajv.addFormat("date", {
+    type: "string",
+    validate: (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+  });
   ajv.addFormat("uri", {
     type: "string",
     validate: (value) => {
@@ -1193,7 +1208,8 @@ export async function runContractValidation(options = {}) {
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
-    ...modelQualificationContractFiles
+    ...modelQualificationContractFiles,
+    ...m28ContractFiles
   ]);
 
   for (const jsonPath of [
@@ -1221,7 +1237,8 @@ export async function runContractValidation(options = {}) {
     ...executiveStrategyLabContractFiles,
     ...shanghaiProductizationContractFiles,
     ...modNext6ContractFiles,
-    ...modelQualificationContractFiles
+    ...modelQualificationContractFiles,
+    ...m28ContractFiles
   ].filter((file) => file.endsWith(".json"))) {
     readJson(jsonPath);
   }
