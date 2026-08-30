@@ -17,6 +17,7 @@ import type {
   TeacherConfirmationRepositoryPort
 } from "./repository-ports.js";
 import type { TeacherConfirmationClaimVerification } from "./teacher-confirmation-work-claim.js";
+import { isDeliveryReadyCoursePackage } from "./course-package-query-service.js";
 
 const KNOWN_LIMITS = [
   "D3 confirmation is teacher-only and is not final grading.",
@@ -412,8 +413,7 @@ export class TeacherConfirmationCommandService {
       input.course_package_ref
     );
     if (
-      !coursePackage ||
-      coursePackage.status !== "AVAILABLE" ||
+      !isDeliveryReadyCoursePackage(coursePackage, this.dependencies.now?.()) ||
       coursePackage.content_digest !== input.course_package_ref.content_digest
     )
       throw new TeacherConfirmationError("D3_NOT_FOUND");

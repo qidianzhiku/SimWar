@@ -7,7 +7,12 @@ import { describe, expect, it } from "vitest";
 import type { ApiEnvelope } from "../../packages/shared-contracts/src";
 import { createApiServer } from "../../services/api/src/server";
 import { getShanghaiMarketWorldReference } from "../../services/api/src/market-world-product";
+import {
+  createCoursePackageDraftVersion,
+  createCoursePackageLifecycleSnapshot
+} from "../../services/api/src/course-package-json-registry";
 import { createP1Store } from "../../services/api/src/store";
+import { buildM30CourseFactorySourceEvidence } from "@simwar/sh-next-support";
 import {
   M2P3_RUN_ID,
   M2P3_ROUND_ID,
@@ -106,6 +111,70 @@ describe("Project-aware launch BFF", () => {
     const storeFile = join(directory, "store.json");
     seedM2P3ProjectAwareLaunchFixture(storeFile);
     const store = createP1Store({ persistenceFile: storeFile });
+    const course = store.courses.find((candidate) => candidate.course_id === "course_demo");
+    if (!course) throw new Error("M30 test fixture course_demo missing");
+    const blueprintReference = {
+      content_digest: "a".repeat(64),
+      course_blueprint_id: "blueprint_m30_student",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    };
+    const scenarioReference = {
+      content_digest: "c".repeat(64),
+      scenario_package_id: course.scenario_package_id,
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    };
+    const parameterReference = {
+      content_digest: "b".repeat(64),
+      parameter_set_id: course.parameter_set_id,
+      version: "1.0.0"
+    };
+    const factoryMetadata = {
+      known_limits: ["PUBLIC_SOURCE_BOUND; calibration NOT_PROVEN"],
+      provenance: { kind: "ORIGINAL" as const },
+      rights: {
+        allowed_tenant_ids: ["tenant_demo"],
+        copy_allowed: false,
+        export_allowed: false,
+        expires_at: "2026-11-30T00:00:00.000Z",
+        owner_tenant_id: "tenant_demo"
+      },
+      schema_version: "course-factory.v1" as const,
+      source_evidence_reference: buildM30CourseFactorySourceEvidence(),
+      source_manifest: {
+        course_blueprint_reference: blueprintReference,
+        parameter_set_reference: parameterReference,
+        scenario_package_reference: scenarioReference
+      },
+      user_data_policy: {
+        copied_private_data: false as const,
+        copied_user_decisions: false as const,
+        copied_user_results: false as const
+      }
+    };
+    const draft = createCoursePackageDraftVersion({
+      actor_id: "usr_admin",
+      draft: {
+        course_blueprint_reference: blueprintReference,
+        course_package_id: "course_factory_m30_student",
+        description: "M30 source-backed student-safe context.",
+        factory_metadata: factoryMetadata,
+        parameter_set_reference: parameterReference,
+        scenario_package_reference: scenarioReference,
+        title: "M30 source-backed student context",
+        version: "1.0.0"
+      },
+      now: "2026-08-30T08:00:00.000Z",
+      tenant_id: "tenant_demo"
+    });
+    store.coursePackageLifecycleSnapshots.push(
+      draft,
+      createCoursePackageLifecycleSnapshot(draft, "VALIDATED"),
+      createCoursePackageLifecycleSnapshot(draft, "APPROVED"),
+      createCoursePackageLifecycleSnapshot(draft, "PUBLISHED")
+    );
+    store.persist();
     const server = createApiServer(store);
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
@@ -263,6 +332,16 @@ describe("Project-aware launch BFF", () => {
       expect(studentContext.body.data.scope.team_id).toBe("team_alpha");
       expect(JSON.stringify(studentContext.body.data)).not.toMatch(
         /state_true|score|rank|settlement_result|other_team_data/i
+      );
+      expect(studentContext.body.data.course_factory_source_evidence).toEqual({
+        target_region: "Hangzhou",
+        epoch_version: "epoch-b.2026-08-30",
+        qualification_status: "LIMITED",
+        consumption_status: "LOOKAHEAD_READY",
+        exact_binding_required: true
+      });
+      expect(JSON.stringify(studentContext.body.data.course_factory_source_evidence)).not.toMatch(
+        /digest|private|settlement|score|rank|raw_source/i
       );
 
       const studentCockpit = await request<{

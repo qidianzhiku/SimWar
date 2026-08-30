@@ -212,6 +212,51 @@ export function ProjectAwareStudentContextPanel(props: ProjectAwareStudentContex
               角色与项目由服务端按当前用户和队伍范围返回；本面板只展示安全投影。
             </p>
           </article>
+          {context.course_factory_source_evidence ? (
+            <article
+              className="sw-project-aware sw-project-aware--nested"
+              aria-label="上海来源安全上下文"
+            >
+              <div className="sw-project-aware__receipt-heading">
+                <div>
+                  <p className="sw-project-aware__eyebrow">来源安全上下文</p>
+                  <h3 className="sw-project-aware__receipt-title">上海 → 杭州候选证据</h3>
+                </div>
+                <strong className="sw-project-aware__badge" data-state="readonly">
+                  仅候选
+                </strong>
+              </div>
+              <div className="sw-project-aware__metrics">
+                <article className="sw-project-aware__metric">
+                  <span className="sw-project-aware__metric-label">目标地区</span>
+                  <strong className="sw-project-aware__metric-value">
+                    {context.course_factory_source_evidence.target_region}
+                  </strong>
+                </article>
+                <article className="sw-project-aware__metric">
+                  <span className="sw-project-aware__metric-label">Epoch</span>
+                  <code className="sw-project-aware__code">
+                    {context.course_factory_source_evidence.epoch_version}
+                  </code>
+                </article>
+                <article className="sw-project-aware__metric">
+                  <span className="sw-project-aware__metric-label">资格状态</span>
+                  <strong className="sw-project-aware__metric-value">
+                    {context.course_factory_source_evidence.qualification_status}
+                  </strong>
+                </article>
+                <article className="sw-project-aware__metric">
+                  <span className="sw-project-aware__metric-label">绑定状态</span>
+                  <strong className="sw-project-aware__metric-value">
+                    {context.course_factory_source_evidence.consumption_status}
+                  </strong>
+                </article>
+              </div>
+              <p className="sw-project-aware__note">
+                学生仅获得地区、Epoch、资格和候选状态；源摘录、摘要、digest、结算、评分和排名不下发。
+              </p>
+            </article>
+          ) : null}
         </>
       ) : null}
     </section>

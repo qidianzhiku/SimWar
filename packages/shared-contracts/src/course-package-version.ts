@@ -1,4 +1,5 @@
 import type { CourseBlueprintReference } from "./index.js";
+import type { CourseFactoryMetadata } from "./course-factory.js";
 import type { ParameterSetReference } from "./parameter-set-authority.js";
 import type { ScenarioPackageReference } from "./scenario-package-authority.js";
 import type { TeacherScenarioStudioConfiguration } from "./teacher-scenario-studio.js";
@@ -10,6 +11,9 @@ export const COURSE_PACKAGE_VERSION_STATUSES = [
   "DRAFT",
   "VALIDATED",
   "AVAILABLE",
+  "APPROVED",
+  "PUBLISHED",
+  "SUPERSEDED",
   "RETIRED"
 ] as const;
 
@@ -46,6 +50,8 @@ export interface CoursePackageVersionDraftInput {
   scenario_package_reference: ScenarioPackageReference;
   /** Optional C5 extension used by the unified Teacher Scenario Studio. */
   studio_configuration?: TeacherScenarioStudioConfiguration;
+  /** Optional R3 metadata persisted by the existing CoursePackage registry. */
+  factory_metadata?: CourseFactoryMetadata;
   title: string;
   version: string;
 }
@@ -71,8 +77,20 @@ export interface CoursePackageVersionCloneInput {
   version: string;
 }
 
+/**
+ * Import accepts only the legacy, non-factory export lifecycle. Governed
+ * CourseFactory exports have their own immutable authority and must not be
+ * silently downgraded into a generic package import.
+ */
+export type CoursePackageVersionImportSource = Omit<
+  CoursePackageVersion,
+  "factory_metadata" | "status"
+> & {
+  status: "DRAFT" | "VALIDATED" | "AVAILABLE" | "RETIRED";
+};
+
 export interface CoursePackageVersionImportInput {
-  source_course_package_version: CoursePackageVersion;
+  source_course_package_version: CoursePackageVersionImportSource;
 }
 
 export interface CoursePackageVersionExportDto {

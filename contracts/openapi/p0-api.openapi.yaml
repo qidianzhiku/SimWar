@@ -114,6 +114,216 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ValidationEnvironmentLaunchEnvelope" }
         "404": { description: Launch not found }
+  /api/v1/admin/course-factory/catalog:
+    get:
+      operationId: ADMIN_COURSE_FACTORY_CATALOG_V1
+      summary: Read the tenant-scoped governed course catalog.
+      description: Returns exact source references, lifecycle, rights, expiry and provenance for course factory versions. It never exposes user decisions, results or private source data.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+      responses:
+        "200":
+          description: Governed course catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryCatalogEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin tenant scope required }
+  /api/v1/admin/course-factory/versions:
+    post:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_CREATE_V1
+      summary: Create one exact governed course package draft.
+      description: Creates a CoursePackage draft through the existing CoursePackage registry and preserves exact source references. User decisions, results and private data are never copied.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourseFactoryDraftInput" }
+      responses:
+        "201":
+          description: Governed course factory draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryVersionEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin authority required }
+        "409": { description: Exact package version already exists }
+        "422": { description: "Invalid exact source, rights or metadata" }
+  /api/v1/admin/course-factory/versions/clone:
+    post:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_CLONE_V1
+      summary: Clone one published governed course package into a draft.
+      description: Requires an exact published source, active copy rights and an unexpired rights record. The clone uses the existing CoursePackage registry and carries lineage only.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourseFactoryCloneInput" }
+      responses:
+        "201":
+          description: Cloned governed course factory draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryVersionEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Copy rights or tenant scope denied }
+        "409": { description: Source is not published or package identity conflicts }
+        "422": { description: Invalid exact source reference }
+  /api/v1/admin/course-factory/versions/rollback:
+    post:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_ROLLBACK_V1
+      summary: Create a rollback draft from an exact governed version.
+      security:
+        - SessionBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourseFactoryCloneInput" }
+      responses:
+        "201":
+          description: Rollback governed course factory draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryVersionEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Copy rights or tenant scope denied }
+        "409": { description: Source lifecycle is not rollback-eligible }
+        "422": { description: Invalid exact source reference }
+  /api/v1/admin/course-factory/versions/{coursePackageId}/versions/{version}/{action}:
+    post:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_TRANSITION_V1
+      summary: Apply one governed catalog lifecycle transition.
+      description: Supported actions are validate, approve, publish, supersede and retire. The request body must carry the exact content digest and path identity.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        - name: version
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
+        - name: action
+          in: path
+          required: true
+          schema: { enum: [validate, approve, publish, supersede, retire] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CourseFactoryTransitionReference" }
+      responses:
+        "200":
+          description: Updated governed course version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryVersionEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin authority required }
+        "409": { description: Invalid lifecycle transition or duplicate version }
+        "422": { description: Invalid exact digest or request }
+  /api/v1/admin/course-factory/versions/{coursePackageId}/versions/{version}/audit:
+    get:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_AUDIT_V1
+      summary: Read exact course factory lifecycle and lineage evidence.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        - name: version
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
+        - name: content_digest
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "200":
+          description: Exact lifecycle and lineage audit projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryAuditEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Admin authority required }
+        "404": { description: Exact version not found }
+  /api/v1/admin/course-factory/versions/{coursePackageId}/versions/{version}/export:
+    get:
+      operationId: ADMIN_COURSE_FACTORY_VERSION_EXPORT_V1
+      summary: Export one exact governed course package when rights allow.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: coursePackageId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+        - name: version
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/CoursePackageExactVersion" }
+        - name: content_digest
+          in: query
+          required: true
+          schema: { type: string, pattern: "^[a-f0-9]{64}$" }
+      responses:
+        "200":
+          description: Exact governed course version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryVersionEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Export rights or tenant scope denied }
+        "404": { description: Exact version not found }
+  /api/v1/bff/teacher/course-factory/catalog:
+    get:
+      operationId: BFF_TEACHER_COURSE_FACTORY_CATALOG_V1
+      summary: Read the published governed course catalog for Teacher.
+      security:
+        - SessionBearer: []
+      responses:
+        "200":
+          description: Teacher-safe published catalog
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactoryTeacherCatalogEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Teacher tenant scope required }
+  /api/v1/bff/enterprise/course-factory/sponsor:
+    get:
+      operationId: BFF_ENTERPRISE_COURSE_FACTORY_SPONSOR_V1
+      summary: Read a sponsor-safe delivery and evidence aggregate.
+      description: Returns bounded progress, exact source digest presence, known limits and catalog metadata without user decisions, results, scores, rankings or private source data.
+      security:
+        - SessionBearer: []
+      parameters:
+        - name: tenant_id
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/CoursePackageExactIdentity" }
+      responses:
+        "200":
+          description: Sponsor-safe aggregate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CourseFactorySponsorEnvelope" }
+        "401": { description: Authentication required }
+        "403": { description: Enterprise tenant scope required }
   /api/v1/admin/course-package-versions:
     get:
       operationId: ADMIN_COURSE_PACKAGE_VERSION_LIST_V1
@@ -183,7 +393,8 @@ paths:
   /api/v1/admin/course-package-versions/import:
     post:
       operationId: ADMIN_COURSE_PACKAGE_VERSION_IMPORT_V1
-      summary: Import a digest-verified export as a new immutable DRAFT package version.
+      summary: Import a digest-verified legacy package export as a new immutable DRAFT package version.
+      description: Governed CourseFactory exports are not accepted by this generic import contract; use the existing CourseFactory authority for those packages.
       security:
         - SessionBearer: []
       requestBody:
@@ -5473,7 +5684,10 @@ paths:
         "201":
           description: Source package registered in the governance plane.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
         "422": { description: "Source rights, freshness, quality or shape is invalid" }
@@ -5492,7 +5706,10 @@ paths:
         "201":
           description: Calibration dataset registered with leakage diagnostics.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
         "422": { description: Dataset is malformed or source package is unavailable }
@@ -5511,7 +5728,10 @@ paths:
         "201":
           description: Qualification candidate with diagnostics and explicit limits.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
         "422": { description: "Exact model reference, dataset or deterministic seed is invalid" }
@@ -5522,7 +5742,12 @@ paths:
       summary: Record an explicit teacher governance review decision.
       security: [{ SessionBearer: [] }]
       parameters:
-        - { name: qualificationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: qualificationId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
         - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
       requestBody:
         required: true
@@ -5533,7 +5758,10 @@ paths:
         "200":
           description: Reviewed qualification candidate.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
         "404": { description: Qualification not found }
@@ -5546,13 +5774,21 @@ paths:
       summary: Bind a reviewed qualification to the course governance plane.
       security: [{ SessionBearer: [] }]
       parameters:
-        - { name: qualificationId, in: path, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: qualificationId,
+            in: path,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
         - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
       responses:
         "200":
           description: Qualification bound without writing official REALIZED truth.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationMutationEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Teacher or course scope denied }
         "404": { description: Qualification not found }
@@ -5569,7 +5805,10 @@ paths:
         "200":
           description: Admin qualification and authority projection.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationAdminEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationAdminEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Tenant administrator scope denied }
 
@@ -5580,12 +5819,20 @@ paths:
       security: [{ SessionBearer: [] }]
       parameters:
         - { name: courseId, in: query, required: true, schema: { type: string, minLength: 1 } }
-        - { name: qualificationId, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - {
+            name: qualificationId,
+            in: query,
+            required: true,
+            schema: { type: string, minLength: 1 }
+          }
       responses:
         "200":
           description: Student projection excludes source and artifact internals.
           content:
-            { application/json: { schema: { $ref: "#/components/schemas/ModelQualificationStudentEnvelope" } } }
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/ModelQualificationStudentEnvelope" } }
+            }
         "401": { description: Authentication required }
         "403": { description: Student or course scope denied }
         "404": { description: Qualification not found }
@@ -6505,6 +6752,8 @@ components:
       required: [project_brief, role_context, schema_version, scope]
       properties:
         schema_version: { const: project-aware-launch.v1 }
+        course_factory_source_evidence:
+          $ref: "#/components/schemas/CourseFactoryStudentEvidenceProjection"
         scope:
           type: object
           additionalProperties: false
@@ -6580,6 +6829,23 @@ components:
               $ref: "../schemas/project-profile.v1.json#/$defs/projectProfileRef"
             service_bundle: { type: string }
             title: { type: string }
+    CourseFactoryStudentEvidenceProjection:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          consumption_status,
+          epoch_version,
+          exact_binding_required,
+          qualification_status,
+          target_region
+        ]
+      properties:
+        target_region: { const: Hangzhou }
+        epoch_version: { type: string, minLength: 1 }
+        qualification_status: { const: LIMITED }
+        consumption_status: { const: LOOKAHEAD_READY }
+        exact_binding_required: { const: true }
     ProjectAwareAdminAuditEnvelope:
       type: object
       additionalProperties: false
@@ -8601,7 +8867,17 @@ components:
       required: [source_course_package_version]
       properties:
         source_course_package_version:
-          $ref: "#/components/schemas/CoursePackageVersion"
+          $ref: "#/components/schemas/CoursePackageVersionImportSource"
+    CoursePackageVersionImportSource:
+      allOf:
+        - $ref: "#/components/schemas/CoursePackageVersion"
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [DRAFT, VALIDATED, AVAILABLE, RETIRED]
+          not:
+            required: [factory_metadata]
     CoursePackageVersionTeacher:
       type: object
       additionalProperties: false
@@ -8694,6 +8970,71 @@ components:
           required: [course_package_version]
           properties:
             course_package_version: { $ref: "#/components/schemas/CoursePackageVersion" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactoryDraftInput:
+      $ref: "../schemas/course-factory.v1.json#/$defs/draftInput"
+    CourseFactoryCloneInput:
+      $ref: "../schemas/course-factory.v1.json#/$defs/cloneInput"
+    CourseFactoryTransitionReference:
+      type: object
+      additionalProperties: false
+      required: [content_digest]
+      properties:
+        content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
+    CourseFactoryVersion:
+      $ref: "../schemas/course-factory.v1.json#/$defs/version"
+    CourseFactoryCatalogProjection:
+      $ref: "../schemas/course-factory.v1.json#/$defs/catalogProjection"
+    CourseFactoryTeacherCatalogProjection:
+      $ref: "../schemas/course-factory.v1.json#/$defs/teacherCatalogProjection"
+    CourseFactorySponsorProjection:
+      $ref: "../schemas/course-factory.v1.json#/$defs/sponsorProjection"
+    CourseFactoryAuditProjection:
+      $ref: "../schemas/course-factory.v1.json#/$defs/auditProjection"
+    CourseFactoryVersionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactoryVersion" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactoryCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactoryCatalogProjection" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactoryTeacherCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactoryTeacherCatalogProjection" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactorySponsorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactorySponsorProjection" }
+        message: { type: string }
+        request_id: { type: string }
+    CourseFactoryAuditEnvelope:
+      type: object
+      additionalProperties: false
+      required: [code, data, message, request_id]
+      properties:
+        code: { type: string }
+        data: { $ref: "#/components/schemas/CourseFactoryAuditProjection" }
         message: { type: string }
         request_id: { type: string }
     CourseReport:
@@ -9726,7 +10067,20 @@ components:
     ModelQualificationSourcePackageRequest:
       type: object
       additionalProperties: false
-      required: [content_digest, course_id, evidence_refs, feature_schema_digest, freshness_status, observed_at, quality, rights_status, source_ref, source_version, title]
+      required:
+        [
+          content_digest,
+          course_id,
+          evidence_refs,
+          feature_schema_digest,
+          freshness_status,
+          observed_at,
+          quality,
+          rights_status,
+          source_ref,
+          source_version,
+          title
+        ]
       properties:
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
         course_id: { type: string, minLength: 1 }
@@ -9750,7 +10104,8 @@ components:
     ModelQualificationDatasetRequest:
       type: object
       additionalProperties: false
-      required: [calibration_record_ids, content_digest, course_id, holdout_record_ids, source_package_id]
+      required:
+        [calibration_record_ids, content_digest, course_id, holdout_record_ids, source_package_id]
       properties:
         calibration_record_ids: { type: array, minItems: 1, items: { type: string, minLength: 1 } }
         content_digest: { type: string, pattern: "^[a-f0-9]{64}$" }
@@ -9760,12 +10115,20 @@ components:
     ModelQualificationRunRequest:
       type: object
       additionalProperties: false
-      required: [calibration_dataset_id, course_id, deterministic_seed, model_version_reference, source_package_id]
+      required:
+        [
+          calibration_dataset_id,
+          course_id,
+          deterministic_seed,
+          model_version_reference,
+          source_package_id
+        ]
       properties:
         calibration_dataset_id: { type: string, minLength: 1 }
         course_id: { type: string, minLength: 1 }
         deterministic_seed: { type: integer }
-        model_version_reference: { $ref: "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" }
+        model_version_reference:
+          { $ref: "../schemas/model-qualification.v1.json#/$defs/modelVersionReference" }
         source_package_id: { type: string, minLength: 1 }
     ModelQualificationReviewRequest:
       type: object

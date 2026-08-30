@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import Ajv2020 from "ajv/dist/2020.js";
 import yaml from "js-yaml";
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { createContractAjv } from "../../scripts/contract-validation-facade.mjs";
 import type {
   CoursePackageVersion,
   CoursePackageVersionAdminDto,
@@ -18,7 +18,7 @@ function readJson<T = unknown>(path: string): T {
 }
 
 function compileCoursePackageSchema() {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const ajv = createContractAjv();
   ajv.addSchema(readJson("contracts/schemas/teacher-scenario-studio.v1.json"));
   return ajv.compile(readJson("contracts/schemas/course-package-version.v1.json"));
 }
@@ -156,6 +156,25 @@ describe("CoursePackageVersion contract freeze", () => {
     );
   });
 
+  it("rejects impossible calendar values in timestamp fields", () => {
+    const validate = compileCoursePackageSchema();
+    const valid = readJson<Record<string, unknown>>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const validVersion = valid as unknown as CoursePackageVersion;
+
+    expect(validate({ ...valid, created_at: "2026-13-40T00:00:00.000Z" })).toBe(false);
+    expect(validate({ ...valid, created_at: "2026-02-29T00:00:00.000Z" })).toBe(false);
+    for (const created_at of [
+      "2026-02-30T00:00:00.000Z",
+      "2026-01-01T24:00:00.000Z"
+    ]) {
+      expect(() => assertValidCoursePackageVersion({ ...validVersion, created_at })).toThrow(
+        "COURSE_PACKAGE_INPUT_INVALID"
+      );
+    }
+  });
+
   it("accepts the optional Teacher Scenario Studio configuration in the package contract", () => {
     const validate = compileCoursePackageSchema();
     const valid = readJson<CoursePackageVersion>(
@@ -186,6 +205,176 @@ describe("CoursePackageVersion contract freeze", () => {
 
     expect(validate(candidate)).toBe(true);
     expect(() => assertValidCoursePackageVersion(candidate)).not.toThrow();
+  });
+
+  it("closes optional factory manifest references instead of accepting arbitrary objects", () => {
+    const validate = compileCoursePackageSchema();
+    const valid = readJson<Record<string, unknown>>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const reference = {
+      content_digest: "e".repeat(64),
+      project_profile_id: "profile_demo",
+      tenant_id: "tenant_demo",
+      version: "1.0.0"
+    };
+    const factoryPackage = {
+      ...valid,
+      status: "PUBLISHED",
+      factory_metadata: {
+        known_limits: ["JSON runtime only"],
+        provenance: { kind: "ORIGINAL" },
+        rights: {
+          allowed_tenant_ids: ["tenant_demo"],
+          copy_allowed: true,
+          export_allowed: true,
+          expires_at: null,
+          owner_tenant_id: "tenant_demo"
+        },
+        schema_version: "course-factory.v1",
+        source_manifest: {
+          course_blueprint_reference: valid.course_blueprint_reference,
+          model_artifact_reference: {
+            artifact_id: "artifact_demo",
+            content_digest: "f".repeat(64),
+            format: "json",
+            source_ref: "source:artifact_demo"
+          },
+          model_version_reference: {
+            content_digest: "a".repeat(64),
+            model_version_id: "model_demo",
+            version: "1.0.0"
+          },
+          parameter_set_reference: valid.parameter_set_reference,
+          project_profile_reference: reference,
+          scenario_package_reference: valid.scenario_package_reference
+        },
+        user_data_policy: {
+          copied_private_data: false,
+          copied_user_decisions: false,
+          copied_user_results: false
+        }
+      }
+    };
+
+    expect(validate(factoryPackage)).toBe(true);
+
+    const sameTenantNonOriginal = structuredClone(factoryPackage);
+    (sameTenantNonOriginal.factory_metadata as Record<string, unknown>).provenance = {
+      kind: "CLONED",
+      source_course_package_reference: {
+        content_digest: "a".repeat(64),
+        course_package_id: "source_course",
+        tenant_id: "tenant_demo",
+        version: "1.0.0"
+      }
+    };
+    expect(validate(sameTenantNonOriginal)).toBe(true);
+
+    const nonOriginalCrossTenant = structuredClone(factoryPackage);
+    (nonOriginalCrossTenant.factory_metadata as Record<string, unknown>).provenance = {
+      kind: "CLONED",
+      source_course_package_reference: {
+        content_digest: "a".repeat(64),
+        course_package_id: "source_course",
+        tenant_id: "tenant_other",
+        version: "1.0.0"
+      }
+    };
+    expect(validate(nonOriginalCrossTenant)).toBe(false);
+
+    for (const field of [
+      "model_artifact_reference",
+      "model_version_reference",
+      "project_profile_reference"
+    ]) {
+      const candidate = structuredClone(factoryPackage);
+      (candidate.factory_metadata as Record<string, unknown>).source_manifest = {
+        ...(candidate.factory_metadata as Record<string, unknown>).source_manifest as Record<
+          string,
+          unknown
+        >,
+        [field]: {}
+      };
+      expect(validate(candidate), field).toBe(false);
+      expect(validate.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            keyword: "required"
+          })
+        ])
+      );
+    }
+
+    const padded = structuredClone(factoryPackage);
+    (padded.factory_metadata as Record<string, unknown>).source_manifest = {
+      ...(padded.factory_metadata as Record<string, unknown>).source_manifest as Record<
+        string,
+        unknown
+      >,
+      model_artifact_reference: {
+        artifact_id: "artifact_demo",
+        content_digest: "f".repeat(64),
+        format: " json ",
+        source_ref: "source:artifact_demo"
+      }
+    };
+    expect(validate(padded)).toBe(false);
+
+    const extra = structuredClone(factoryPackage);
+    (extra.factory_metadata as Record<string, unknown>).source_manifest = {
+      ...(extra.factory_metadata as Record<string, unknown>).source_manifest as Record<
+        string,
+        unknown
+      >,
+      model_version_reference: {
+        content_digest: "a".repeat(64),
+        model_version_id: "model_demo",
+        version: "1.0.0",
+        unexpected: true
+      }
+    };
+    expect(validate(extra)).toBe(false);
+  });
+
+  it("rejects a restored factory aggregate whose manifest diverges from top-level bindings", () => {
+    const valid = readJson<CoursePackageVersion>(
+      "contracts/fixtures/course-package-version.valid.json"
+    );
+    const candidate = {
+      ...valid,
+      factory_metadata: {
+        known_limits: ["JSON runtime only"],
+        provenance: { kind: "ORIGINAL" as const },
+        rights: {
+          allowed_tenant_ids: [valid.tenant_id],
+          copy_allowed: true,
+          export_allowed: true,
+          expires_at: null,
+          owner_tenant_id: valid.tenant_id
+        },
+        schema_version: "course-factory.v1" as const,
+        source_manifest: {
+          course_blueprint_reference: valid.course_blueprint_reference,
+          parameter_set_reference: valid.parameter_set_reference,
+          scenario_package_reference: valid.scenario_package_reference
+        },
+        user_data_policy: {
+          copied_private_data: false as const,
+          copied_user_decisions: false as const,
+          copied_user_results: false as const
+        }
+      }
+    } satisfies CoursePackageVersion;
+    candidate.factory_metadata.source_manifest.course_blueprint_reference = {
+      ...candidate.course_blueprint_reference,
+      course_blueprint_id: "blueprint_other"
+    };
+    candidate.content_digest = calculateCoursePackageContentDigest(candidate);
+
+    expect(() => assertValidCoursePackageVersion(candidate)).toThrow(
+      "COURSE_PACKAGE_INPUT_INVALID"
+    );
   });
 
   it("freezes one aggregate shape with safe admin and teacher projections", () => {
@@ -255,6 +444,21 @@ describe("CoursePackageVersion contract freeze", () => {
         `#/components/schemas/${responseSchema}`
       );
     }
+
+    expect(
+      openApi.components.schemas.CoursePackageVersionImportInput.properties
+        .source_course_package_version.$ref
+    ).toBe("#/components/schemas/CoursePackageVersionImportSource");
+    expect(openApi.components.schemas.CoursePackageVersionImportSource.allOf).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          properties: {
+            status: { type: "string", enum: ["DRAFT", "VALIDATED", "AVAILABLE", "RETIRED"] }
+          },
+          not: { required: ["factory_metadata"] }
+        })
+      ])
+    );
 
     expect(openApi.paths["/api/v1/bff/student/course-package-versions"]).toBeUndefined();
     expect(openApi.components.schemas.CoursePackageVersionReferenceInput).toMatchObject({

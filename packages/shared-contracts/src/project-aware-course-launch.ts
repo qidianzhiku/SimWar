@@ -9,6 +9,7 @@ import type {
   StudentRoleAssignment,
   Team
 } from "./index.js";
+import type { CourseFactoryStudentEvidenceProjection } from "./course-factory.js";
 
 export const PROJECT_AWARE_LAUNCH_SCHEMA_VERSION = "project-aware-launch.v1" as const;
 
@@ -164,6 +165,7 @@ export interface ProjectAwareStudentContext {
   schema_version: typeof PROJECT_AWARE_LAUNCH_SCHEMA_VERSION;
   scope: ProjectAwareScope & { team_id: string };
   role_context: RoleContext;
+  course_factory_source_evidence?: CourseFactoryStudentEvidenceProjection;
   project_brief: {
     brief_kind: "PROJECT_BRIEF";
     customer_segment: string;

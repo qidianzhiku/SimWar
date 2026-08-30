@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   COURSE_PACKAGE_VERSION_SCHEMA_VERSION,
   COURSE_PACKAGE_VERSION_STATUSES,
+  isCourseFactoryMetadataForTenant,
   type CoursePackageVersion,
   type CoursePackageVersionDraftInput,
   type CoursePackageVersionReference,
@@ -85,6 +86,18 @@ function isExactVersion(value: unknown): value is string {
   return isExactIdentity(value) && !/(?:^|[._:-])[xX*](?:$|[._:-])/.test(value);
 }
 
+function isIsoTimestamp(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  ) {
+    return false;
+  }
+  const parsed = new Date(value);
+  const canonical = value.includes(".") ? value : value.replace("Z", ".000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === canonical;
+}
+
 function sameReference(
   left: CoursePackageVersionReference,
   right: CoursePackageVersionReference
@@ -131,6 +144,29 @@ function isParameterSetReference(value: CoursePackageVersion["parameter_set_refe
   );
 }
 
+function factoryManifestMatchesAggregate(version: CoursePackageVersion): boolean {
+  const metadata = version.factory_metadata;
+  if (!metadata) return true;
+  const manifest = metadata.source_manifest;
+  return (
+    manifest.course_blueprint_reference.content_digest ===
+      version.course_blueprint_reference.content_digest &&
+    manifest.course_blueprint_reference.course_blueprint_id ===
+      version.course_blueprint_reference.course_blueprint_id &&
+    manifest.course_blueprint_reference.tenant_id === version.course_blueprint_reference.tenant_id &&
+    manifest.course_blueprint_reference.version === version.course_blueprint_reference.version &&
+    manifest.parameter_set_reference.content_digest === version.parameter_set_reference.content_digest &&
+    manifest.parameter_set_reference.parameter_set_id === version.parameter_set_reference.parameter_set_id &&
+    manifest.parameter_set_reference.version === version.parameter_set_reference.version &&
+    manifest.scenario_package_reference.content_digest ===
+      version.scenario_package_reference.content_digest &&
+    manifest.scenario_package_reference.scenario_package_id ===
+      version.scenario_package_reference.scenario_package_id &&
+    manifest.scenario_package_reference.tenant_id === version.scenario_package_reference.tenant_id &&
+    manifest.scenario_package_reference.version === version.scenario_package_reference.version
+  );
+}
+
 export function calculateCoursePackageContentDigest(input: CoursePackageVersionDraftInput): string {
   const digestInput = {
     course_blueprint_reference: input.course_blueprint_reference,
@@ -139,6 +175,7 @@ export function calculateCoursePackageContentDigest(input: CoursePackageVersionD
     parameter_set_reference: input.parameter_set_reference,
     scenario_package_reference: input.scenario_package_reference,
     ...(input.studio_configuration ? { studio_configuration: input.studio_configuration } : {}),
+    ...(input.factory_metadata ? { factory_metadata: input.factory_metadata } : {}),
     title: input.title,
     version: input.version
   };
@@ -174,12 +211,15 @@ export function assertValidCoursePackageVersion(version: Readonly<CoursePackageV
     version.content_digest !== expectedDigest ||
     version.schema_version !== COURSE_PACKAGE_VERSION_SCHEMA_VERSION ||
     !COURSE_PACKAGE_VERSION_STATUSES.includes(version.status) ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(version.created_at) ||
+    !isIsoTimestamp(version.created_at) ||
     version.course_blueprint_reference.tenant_id !== version.tenant_id ||
     version.scenario_package_reference.tenant_id !== version.tenant_id ||
     !isCourseBlueprintReference(version.course_blueprint_reference) ||
     !isScenarioPackageReference(version.scenario_package_reference) ||
-    !isParameterSetReference(version.parameter_set_reference)
+    !isParameterSetReference(version.parameter_set_reference) ||
+    (version.factory_metadata !== undefined &&
+      (!isCourseFactoryMetadataForTenant(version.factory_metadata, version.tenant_id) ||
+        !factoryManifestMatchesAggregate(version)))
   ) {
     throw new CoursePackageRegistryError("COURSE_PACKAGE_INPUT_INVALID");
   }
@@ -206,15 +246,31 @@ export function assertValidCoursePackageLifecycleSnapshots(
   }
   for (const history of histories.values()) {
     const first = history[0];
+    const factoryStatuses = history.map((snapshot) => snapshot.status);
+    const isFactoryHistory = history.some((snapshot) => snapshot.factory_metadata !== undefined);
+    const factoryLifecycleValid = isFactoryHistory
+      ? factoryStatuses.every((status, index) => {
+          const expected = ["DRAFT", "VALIDATED", "APPROVED", "PUBLISHED"] as const;
+          if (index < expected.length) return status === expected[index];
+          if (index === expected.length) return status === "SUPERSEDED" || status === "RETIRED";
+          return factoryStatuses[index - 1] === "SUPERSEDED" && status === "RETIRED";
+        })
+      : true;
+    const legacyLifecycleValid = history.every(
+      (snapshot, index) => snapshot.status === expected[index]
+    );
+    const immutableHistoryValid = history.every(
+      (snapshot) =>
+        snapshot.content_digest === first?.content_digest &&
+        snapshot.created_at === first?.created_at &&
+        snapshot.created_by === first?.created_by &&
+        (!isFactoryHistory || snapshot.factory_metadata !== undefined)
+    );
     if (
       !first ||
-      history.some(
-        (snapshot, index) =>
-          snapshot.status !== expected[index] ||
-          snapshot.content_digest !== first.content_digest ||
-          snapshot.created_at !== first.created_at ||
-          snapshot.created_by !== first.created_by
-      )
+      (!isFactoryHistory && !legacyLifecycleValid) ||
+      !factoryLifecycleValid ||
+      !immutableHistoryValid
     ) {
       throw new CoursePackageRegistryError("COURSE_PACKAGE_LIFECYCLE_INVALID");
     }

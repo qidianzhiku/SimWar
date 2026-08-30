@@ -19,7 +19,7 @@ async function signIn(
   await expect(page.getByText("signed in", { exact: true })).toBeVisible();
 }
 
-test("tenant Admin exposes truthful Enterprise Course Factory limits without new authority", async ({
+test("tenant Admin exposes the governed Course Factory projections without new authority", async ({
   page
 }) => {
   const requests: string[] = [];
@@ -37,41 +37,20 @@ test("tenant Admin exposes truthful Enterprise Course Factory limits without new
   await enterpriseLink.click();
   await expect(page).toHaveURL(/#admin-enterprise-course-factory$/);
   await expect(page.getByRole("heading", { name: "企业课程工厂与 Sponsor 投影" })).toBeVisible();
-  await expect(page.getByText("状态：关闭（只读、已知限制）", { exact: true })).toBeVisible();
+  await expect(page.getByText("已接入现有 authority", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("当前没有独立 Enterprise app、BFF 或权威来源", { exact: false })
+    page.getByText("这是现有 Admin 应用中的 Course Factory 产品投影", { exact: false })
   ).toBeVisible();
-
-  for (const title of [
-    "Source Registry",
-    "Canonical Mapping",
-    "Scenario Draft",
-    "Course Recipe",
-    "Validation Suite",
-    "Cross-functional Review",
-    "Immutable Publication",
-    "Sponsor View/Aggregation"
-  ]) {
-    const card = page.locator(".enterprise-course-factory-capability").filter({ hasText: title });
-    await expect(card).toHaveCount(1);
-    await expect(card.getByText("状态：关闭", { exact: true })).toBeVisible();
-    await expect(card.getByText("当前限制", { exact: true })).toBeVisible();
-    await expect(card.getByText("不受影响", { exact: true })).toBeVisible();
-    await expect(card.getByText("尚未证明", { exact: true })).toBeVisible();
-    await expect(card.getByText("范围", { exact: true })).toBeVisible();
-  }
-
-  for (const href of ["#admin-assets", "#admin-runtime-support", "#admin-audit-receipts"]) {
-    const supportLink = page.locator(`.enterprise-course-factory-supported a[href="${href}"]`);
-    await expect(supportLink).toHaveCount(1);
-    await expect(page.locator(href)).toHaveCount(1);
-  }
-
+  await expect(page.getByRole("heading", { name: "Governed Course Catalog" })).toBeVisible();
   await expect(
-    page.getByText("CoursePackageVersion 仅表示不可变教学与配置快照。", { exact: true })
+    page.getByRole("region", { name: "Sponsor-safe delivery" }).getByRole("heading", {
+      name: "Sponsor-safe delivery"
+    })
   ).toBeVisible();
+  await expect(page.getByText("当前会话没有可见的课程工厂版本。", { exact: true })).toBeVisible();
+  await expect(page.getByText("private data included: 否", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "刷新课程工厂投影" })).toBeVisible();
   const enterpriseWorkspace = page.locator(".enterprise-course-factory-workspace");
-  await expect(enterpriseWorkspace.getByRole("button")).toHaveCount(0);
   const visibleCopy = await enterpriseWorkspace.innerText();
   for (const forbiddenMarker of [
     "state_true",
@@ -79,8 +58,8 @@ test("tenant Admin exposes truthful Enterprise Course Factory limits without new
     "other_tenant_data",
     "other_team_data",
     "peer private draft",
-    "score",
-    "rank"
+    "score:",
+    "rank:"
   ]) {
     expect(visibleCopy.toLowerCase()).not.toContain(forbiddenMarker.toLowerCase());
   }
@@ -89,10 +68,13 @@ test("tenant Admin exposes truthful Enterprise Course Factory limits without new
     return pathname.startsWith("/api/") || pathname.startsWith("/internal/");
   });
   expect(
-    businessRequests.some((url) =>
-      /enterprise|sponsor|canonical-mapping|source-registry/i.test(new URL(url).pathname)
+    businessRequests.some((url) => new URL(url).pathname === "/api/v1/admin/course-factory/catalog")
+  ).toBe(true);
+  expect(
+    businessRequests.some(
+      (url) => new URL(url).pathname === "/api/v1/bff/enterprise/course-factory/sponsor"
     )
-  ).toBe(false);
+  ).toBe(true);
   expect(businessRequests.some((url) => new URL(url).pathname.startsWith("/internal/v1"))).toBe(
     false
   );

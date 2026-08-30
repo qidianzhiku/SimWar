@@ -144,7 +144,7 @@ export function createW025LaunchExecutor(
         input.target_tenant_id,
         input.course_package_reference
       );
-      if (!coursePackage || coursePackage.status !== "AVAILABLE")
+      if (!dependencies.coursePackageQueries.isDeliveryReady(coursePackage))
         throw new Error("W025_COURSE_PACKAGE_NOT_AVAILABLE");
       if (
         !sameRef(
