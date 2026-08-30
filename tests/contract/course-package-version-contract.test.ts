@@ -285,6 +285,36 @@ describe("CoursePackageVersion contract freeze", () => {
         ])
       );
     }
+
+    const padded = structuredClone(factoryPackage);
+    (padded.factory_metadata as Record<string, unknown>).source_manifest = {
+      ...(padded.factory_metadata as Record<string, unknown>).source_manifest as Record<
+        string,
+        unknown
+      >,
+      model_artifact_reference: {
+        artifact_id: "artifact_demo",
+        content_digest: "f".repeat(64),
+        format: " json ",
+        source_ref: "source:artifact_demo"
+      }
+    };
+    expect(validate(padded)).toBe(false);
+
+    const extra = structuredClone(factoryPackage);
+    (extra.factory_metadata as Record<string, unknown>).source_manifest = {
+      ...(extra.factory_metadata as Record<string, unknown>).source_manifest as Record<
+        string,
+        unknown
+      >,
+      model_version_reference: {
+        content_digest: "a".repeat(64),
+        model_version_id: "model_demo",
+        version: "1.0.0",
+        unexpected: true
+      }
+    };
+    expect(validate(extra)).toBe(false);
   });
 
   it("freezes one aggregate shape with safe admin and teacher projections", () => {
