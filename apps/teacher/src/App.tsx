@@ -20,7 +20,7 @@ import {
   validateReauthIdentity,
   type ReauthContext
 } from "@simwar/shared-contracts";
-import { StatePanel } from "@simwar/ui";
+import { CanServiceFeasibilityPanel, StatePanel } from "@simwar/ui";
 import type {
   ApiEnvelope,
   AuthSession,
@@ -2445,6 +2445,17 @@ export function App() {
               draftId={selectedShanghaiDraftId}
               roundNo={selectedRound?.round_no}
               runId={selectedRun?.run_id ?? selectedRunId}
+              tenantId={login.tenantId}
+              token={session.access_token}
+            />
+            <CanServiceFeasibilityPanel
+              apiBase={API_BASE}
+              courseId={selectedRun?.course_id ?? selectedCourseId}
+              draftId={selectedShanghaiDraftId}
+              roundId={selectedRound?.round_id}
+              roundNo={selectedRound?.round_no}
+              runId={selectedRun?.run_id ?? selectedRunId}
+              surface="teacher"
               tenantId={login.tenantId}
               token={session.access_token}
             />

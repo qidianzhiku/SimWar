@@ -19,6 +19,8 @@ export { WorkbenchFrame } from "./workbenches/WorkbenchFrame.js";
 export type { WorkbenchFrameProps } from "./workbenches/WorkbenchFrame.js";
 export { M4MultipathCounterfactualTransferPanel } from "./components/M4MultipathCounterfactualTransferPanel.js";
 export type { M4MultipathCounterfactualTransferPanelProps } from "./components/M4MultipathCounterfactualTransferPanel.js";
+export { CanServiceFeasibilityPanel } from "./components/CanServiceFeasibilityPanel.js";
+export type { CanServiceFeasibilityPanelProps } from "./components/CanServiceFeasibilityPanel.js";
 export { CourseReportWorkbench } from "./workbenches/CourseReportWorkbench.js";
 export type {
   CourseReportData,

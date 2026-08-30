@@ -55,6 +55,7 @@ import {
   AllowedActionButton,
   AppShell,
   AuthorityBadge,
+  CanServiceFeasibilityPanel,
   ContextBar,
   KnownLimitBanner,
   RoleNavigation,
@@ -1079,6 +1080,17 @@ export function App() {
                 draftId={w5DraftId}
                 roundNo={latestRound?.round_no}
                 runId={latestRun?.run_id}
+                tenantId={login.tenantId}
+                token={activeSession?.access_token ?? ""}
+              />
+              <CanServiceFeasibilityPanel
+                apiBase={API_BASE}
+                courseId={latestRun?.course_id}
+                draftId={w5DraftId}
+                roundId={latestRound?.round_id}
+                roundNo={latestRound?.round_no}
+                runId={latestRun?.run_id}
+                surface="student"
                 tenantId={login.tenantId}
                 token={activeSession?.access_token ?? ""}
               />
